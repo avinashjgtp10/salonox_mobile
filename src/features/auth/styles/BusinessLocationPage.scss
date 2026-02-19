@@ -1,0 +1,205 @@
+.location-container {
+  display: grid;
+  grid-template-columns: 40% 60%;
+  min-height: 100vh;
+  font-family: "Inter", sans-serif;
+  position: relative;
+}
+
+/* ===== Progress Bar ===== */
+.progress-bar {
+  grid-column: 1 / -1;
+  height: 5px;
+  background: #e5e7eb;
+}
+
+.progress-fill {
+  width: 80%;
+  height: 100%;
+  background: #000;
+}
+
+/* ===== LEFT SIDE ===== */
+.location-left {
+  padding: 60px;
+  background: #f9fafb;
+  position: relative;
+}
+
+/* ===== Back Button ===== */
+.circle-back-btn {
+  position: absolute;
+  top: 25px;
+  left: 40px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: 0.2s ease;
+  z-index: 100;
+}
+
+.circle-back-btn:hover {
+  border-color: #000;
+}
+
+/* ===== Content ===== */
+.location-content {
+  margin-top: 80px;
+  max-width: 480px;
+}
+
+.setup-text {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.location-content h1 {
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 30px;
+}
+
+/* ===== OPTIONS ===== */
+.location-options {
+  display: grid;
+  gap: 16px;
+}
+
+.location-card {
+  padding: 18px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  cursor: pointer;
+  position: relative;
+  transition: 0.3s ease;
+}
+
+.location-card:hover {
+  border-color: #000;
+}
+
+/* Active Purple Border */
+.location-card.active {
+  border: 2px solid #635bff;
+  background: #f9fafb;
+}
+
+.check-icon {
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #635bff;
+}
+
+/* ===== RIGHT SIDE ===== */
+/* ===== RIGHT SIDE ===== */
+.location-right {
+  position: relative;
+  height: 100vh;
+}
+
+/* Background Image */
+.location-right img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  position: relative;
+  z-index: 0;
+}
+
+/* Gradient Overlay */
+.location-right::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to right,
+    rgba(255,255,255,0.9) 0%,
+    rgba(255,255,255,0.6) 20%,
+    rgba(255,255,255,0.2) 45%,
+    rgba(255,255,255,0) 70%
+  );
+  z-index: 1;
+}
+
+
+/* ===== TOP ACTION BUTTONS ===== */
+.top-actions {
+  position: absolute;
+  top: 30px;
+  right: 60px;   /* little inside */
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  z-index: 999;
+}
+
+/* Close Button */
+.close-btn,
+.continue-btn {
+  height: 44px;            /* same height */
+  padding: 0 24px;
+  border-radius: 999px;    /* fully rounded */
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+
+.close-btn:hover {
+  border-color: #000;
+}
+
+/* Continue Button */
+.continue-btn {
+  height: 40px;
+  padding: 0 24px;
+  border-radius: 22px;
+  border: none;
+  background: #000;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.continue-btn:hover {
+  background: #111827;
+}
+
+.continue-btn:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 900px) {
+  .location-container {
+    grid-template-columns: 1fr;
+  }
+
+  .location-right {
+    display: none;
+  }
+
+  .location-left {
+    padding: 40px 24px;
+  }
+}

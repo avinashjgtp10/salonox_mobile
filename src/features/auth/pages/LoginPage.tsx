@@ -1,4 +1,4 @@
-import "./LoginPage.scss"
+import "../styles/LoginPage.scss"
 import { FaFacebookF, FaApple } from "react-icons/fa"
 import { FcGoogle } from "react-icons/fc"
 import { useState } from "react"

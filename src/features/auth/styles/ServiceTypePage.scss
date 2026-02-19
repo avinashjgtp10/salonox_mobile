@@ -1,0 +1,232 @@
+/* ================= MAIN CONTAINER ================= */
+.service-container {
+  display: grid;
+  grid-template-columns: 40% 60%;
+  min-height: 100vh;
+  width: 100%;
+  font-family: "Inter", sans-serif;
+  background: #ffffff;
+  position: relative;
+}
+
+/* ================= TOP PROGRESS BAR ================= */
+.progress-bar {
+  grid-column: 1 / -1;
+  height: 6px;
+  background: #e5e7eb;
+}
+
+.progress-fill {
+  width: 45%;
+  height: 100%;
+  background: #000;
+}
+
+/* ================= BACK BUTTON ================= */
+.back-btn {
+  position: absolute;
+  top: 20px;
+  left: 30px;
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #374151;
+  z-index: 10;
+  transition: 0.2s ease;
+}
+
+.back-btn:hover {
+  color: #000;
+  transform: translateX(-4px);
+}
+
+/* ================= ERROR TOAST ================= */
+.error-toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #dc2626;
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  z-index: 1000;
+  animation: slideDown 0.3s ease;
+}
+
+.error-toast span {
+  cursor: pointer;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* ================= LEFT SIDE ================= */
+.service-left {
+  padding: 80px 60px;
+}
+
+.service-content {
+  max-width: 520px;
+}
+
+/* ================= TEXT ================= */
+.setup-text {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 10px;
+}
+
+.service-content h1 {
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: #111827;
+}
+
+.sub-text {
+  font-size: 15px;
+  color: #6b7280;
+  margin-bottom: 30px;
+}
+
+/* ================= GRID ================= */
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+/* ================= CARD ================= */
+.category-card {
+  position: relative;
+  padding: 22px;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+}
+
+.category-card:hover {
+  border-color: #000;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+  transform: translateY(-3px);
+}
+
+.category-card.active {
+  border-color: #000;
+  background: #f9fafb;
+}
+
+.category-card.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.category-card .icon {
+  font-size: 22px;
+  margin-bottom: 10px;
+}
+
+.category-card p {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* ================= BADGE ================= */
+.badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #000;
+  color: #fff;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ================= RIGHT IMAGE ================= */
+.service-right {
+  position: relative;
+}
+
+.service-right img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: bottom;   /* 👈 IMPORTANT */
+}
+
+/* Gradient */
+.service-right::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to right,
+    rgba(255,255,255,0.92) 0%,
+    rgba(255,255,255,0.75) 20%,
+    rgba(255,255,255,0.25) 45%,
+    rgba(255,255,255,0.05) 65%,
+    rgba(255,255,255,0) 80%
+  );
+}
+
+/* ================= CONTINUE BUTTON ================= */
+.continue-top-btn {
+  position: absolute;
+  top: 20px;
+  right: 30px;
+  height: 42px;
+  padding: 0 20px;
+  background: #000;
+  color: #fff;
+  border: none;
+  border-radius: 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  z-index: 5;
+  transition: 0.25s ease;
+}
+
+.continue-top-btn:hover {
+  background: #111827;
+}
+
+/* ================= RESPONSIVE ================= */
+@media (max-width: 900px) {
+  .service-container {
+    grid-template-columns: 1fr;
+  }
+
+  .service-right {
+    display: none;
+  }
+
+  .service-left {
+    padding: 40px 24px;
+  }
+}
