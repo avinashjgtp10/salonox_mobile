@@ -1,5 +1,6 @@
 import "../styles/AccountTypePage.scss"
 import { useNavigate } from "react-router-dom"
+import { FiArrowLeft } from "react-icons/fi"
 import salonImg from "../../../assets/images/salon.jpg"
 
 export default function AccountTypePage() {
@@ -9,17 +10,23 @@ export default function AccountTypePage() {
   return (
     <div className="account-container">
 
+      {/* Progress Bar */}
+      <div className="progress-bar">
+        <div className="progress-fill"></div>
+      </div>
+
       {/* LEFT SIDE */}
       <div className="account-left">
-        <div className="account-content">
 
-          {/* BACK BUTTON */}
-          <div
-            className="back-btn"
-            onClick={() => navigate(-1)}
-          >
-            ← Back
-          </div>
+        {/* Circle Back Button */}
+        <button
+          className="circle-back-btn"
+          onClick={() => navigate(-1)}
+        >
+          <FiArrowLeft />
+        </button>
+
+        <div className="account-content">
 
           <h2>
             How would you like to set up your professional account?
@@ -37,7 +44,7 @@ export default function AccountTypePage() {
           {/* Join Business */}
           <div
             className="account-card"
-            onClick={() => alert("Join business page coming soon")}
+            onClick={() => navigate("/join-business")}
           >
             <p>Join an existing business</p>
             <span>→</span>

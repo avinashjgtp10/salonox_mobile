@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { FiArrowLeft } from "react-icons/fi"
 import "../styles/BusinessNamePage.scss"
 import salonImg from "../../../assets/images/salon.jpg"
 
@@ -29,31 +30,34 @@ export default function BusinessNamePage() {
 
   const handleContinue = () => {
     setSubmitted(true)
-
     if (!validate()) return
-
     navigate("/service-type")
   }
 
   return (
     <div className="business-container">
 
+      {/* Progress Bar */}
+      <div className="progress-bar">
+        <div className="progress-fill"></div>
+      </div>
+
       {/* LEFT SIDE */}
       <div className="business-left">
 
-        {/* 🔙 BACK BUTTON */}
-        <div
-          className="back-btn"
+        {/* Circle Back Button */}
+        <button
+          className="circle-back-btn"
           onClick={() => navigate(-1)}
         >
-          ← Back
-        </div>
+          <FiArrowLeft />
+        </button>
 
         <div className="business-content">
 
           <p className="setup-text">Account setup</p>
 
-          <h1>What's your business name?</h1>
+          <h1>What’s your business name?</h1>
 
           <p className="sub-text">
             This is the brand name your clients will see.
@@ -67,7 +71,10 @@ export default function BusinessNamePage() {
             <input
               type="text"
               value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
+              onChange={(e) => {
+                setBusinessName(e.target.value)
+                if (error) setError("")
+              }}
               className={submitted && error ? "error-border" : ""}
             />
 
@@ -91,7 +98,6 @@ export default function BusinessNamePage() {
           {/* Continue Button */}
           <button
             className="continue-btn"
-            disabled={!businessName.trim()}
             onClick={handleContinue}
           >
             Continue →

@@ -1,38 +1,29 @@
-.location-container {
+/* ================= MAIN CONTAINER ================= */
+.venue-container {
   display: grid;
-  grid-template-columns: 40% 60%;
-  min-height: 100vh;
+  grid-template-columns: 45% 55%;
+  height: 100vh;
+  width: 100%;
   font-family: "Inter", sans-serif;
-  position: relative;
+  background: #ffffff;
 }
 
-/* ===== Progress Bar ===== */
-.progress-bar {
-  grid-column: 1 / -1;
-  height: 5px;
-  background: #e5e7eb;
+/* ================= LEFT SIDE ================= */
+.venue-left {
+  padding: 80px 70px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+padding-top: 120px;
 }
 
-.progress-fill {
-  width: 80%;
-  height: 100%;
-  background: #000;
-}
-
-/* ===== LEFT SIDE ===== */
-.location-left {
-  padding: 60px;
-  background: #f9fafb;
-  position: relative;
-}
-
-/* ===== Back Button ===== */
+/* BACK BUTTON */
 .circle-back-btn {
   position: absolute;
-  top: 25px;
-  left: 40px;
-  width: 44px;
-  height: 44px;
+  top: 30px;
+  left: 50px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   border: 1px solid #e5e7eb;
   background: #fff;
@@ -40,84 +31,76 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: 0.2s ease;
-  z-index: 100;
+  transition: 0.3s;
 }
 
 .circle-back-btn:hover {
   border-color: #000;
 }
 
-/* ===== Content ===== */
-.location-content {
-  margin-top: 80px;
-  max-width: 480px;
+/* CONTENT */
+.venue-content {
+  max-width: 420px;
 }
 
 .setup-text {
   font-size: 14px;
   color: #6b7280;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
-.location-content h1 {
-  font-size: 32px;
+.venue-content h1 {
+  font-size: 30px;
   font-weight: 700;
-  margin-bottom: 30px;
+  margin-bottom: 15px;
+  color: #111827;
 }
 
-/* ===== OPTIONS ===== */
-.location-options {
-  display: grid;
-  gap: 16px;
+.sub-text {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 35px;
+  line-height: 1.6;
 }
 
-.location-card {
-  padding: 18px;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  cursor: pointer;
+/* ================= INPUT ================= */
+.input-wrapper {
   position: relative;
-  transition: 0.3s ease;
+  width: 100%;
 }
 
-.location-card:hover {
+.input-wrapper input {
+  width: 100%;
+  padding: 14px 16px 14px 45px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  font-size: 14px;
+  outline: none;
+  transition: 0.3s;
+}
+
+.input-wrapper input:focus {
   border-color: #000;
 }
 
-/* Active Purple Border */
-.location-card.active {
-  border: 2px solid #635bff;
-  background: #f9fafb;
-}
-
-.check-icon {
+/* LOCATION ICON */
+.location-icon {
   position: absolute;
-  right: 18px;
   top: 50%;
+  left: 14px;
   transform: translateY(-50%);
-  color: #635bff;
+  font-size: 18px;
+  color: #6b7280;
+  cursor: pointer;
 }
 
-/* ===== RIGHT SIDE ===== */
-/* ===== RIGHT SIDE ===== */
-.location-right {
+/* ================= RIGHT SIDE ================= */
+.venue-right {
   position: relative;
   height: 100vh;
 }
-
-/* Background Image */
-.location-right img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  position: relative;
-  z-index: 0;
-}
-
-/* Gradient Overlay */
-.location-right::after {
+/* Gradient Overlay (Corrected Class Name) */
+.venue-right::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -129,12 +112,10 @@
     rgba(255,255,255,0) 70%
   );
   z-index: 1;
+  pointer-events: none;
 }
 
-
-/* ===== TOP ACTION BUTTONS ===== */
-
-  /* TOP BUTTONS */
+/* TOP BUTTONS */
 .top-actions {
   position: absolute;
   top: 30px;
@@ -199,22 +180,26 @@
   background: #111827;
 }
 
-.continue-btn:disabled {
-  background: #cbd5e1;
-  cursor: not-allowed;
+
+
+/* ================= IMAGE FULL HEIGHT ================= */
+.venue-right img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-/* ===== RESPONSIVE ===== */
+/* ================= RESPONSIVE ================= */
 @media (max-width: 900px) {
-  .location-container {
+  .venue-container {
     grid-template-columns: 1fr;
   }
 
-  .location-right {
+  .venue-right {
     display: none;
   }
 
-  .location-left {
-    padding: 40px 24px;
+  .venue-left {
+    padding: 60px 30px;
   }
 }

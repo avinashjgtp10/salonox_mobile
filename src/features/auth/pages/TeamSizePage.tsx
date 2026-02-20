@@ -1,35 +1,28 @@
 import { useNavigate } from "react-router-dom"
 import { useState } from "react"
-import { FiArrowLeft, FiArrowRight, FiUser, FiUsers } from "react-icons/fi"
+import { FiArrowLeft, FiArrowRight } from "react-icons/fi"
 import salonImg from "../../../assets/images/salon.jpg"
-import "../styles/TeamSetupPage.scss"
+import "../styles/TeamSizePage.scss"
 
-export default function TeamSetupPage() {
+export default function TeamSizePage() {
 
   const navigate = useNavigate()
   const [selected, setSelected] = useState<string | null>(null)
 
   const handleContinue = () => {
     if (!selected) return
-    if (selected === "independent") {
     navigate("/business-location")
-  } else {
-    navigate("/team-size")   // 🔥 opens new page
-  }
   }
 
   return (
     <div className="team-container">
 
-      {/* Progress Bar */}
       <div className="progress-bar">
         <div className="progress-fill"></div>
       </div>
 
-      {/* LEFT SIDE */}
       <div className="team-left">
 
-        {/* Back Button */}
         <button
           className="circle-back-btn"
           onClick={() => navigate(-1)}
@@ -41,32 +34,29 @@ export default function TeamSetupPage() {
 
           <p className="setup-text">Account setup</p>
 
-          <h1>Select account type</h1>
+          <h1>What's your team size</h1>
 
-          <p className="sub-text">
-            This will help us set up your account correctly
-          </p>
-
-          <div className="team-grid">
+          <div className="team-size-list">
 
             <div
-              className={`team-card ${selected === "independent" ? "active" : ""}`}
-              onClick={() => setSelected("independent")}
+              className={`size-card ${selected === "2-5" ? "active" : ""}`}
+              onClick={() => setSelected("2-5")}
             >
-              <div className="card-icon">
-                <FiUser />
-              </div>
-              <p>I'm an independent</p>
+              2–5 people
             </div>
 
             <div
-              className={`team-card ${selected === "team" ? "active" : ""}`}
-              onClick={() => setSelected("team")}
+              className={`size-card ${selected === "6-10" ? "active" : ""}`}
+              onClick={() => setSelected("6-10")}
             >
-              <div className="card-icon">
-                <FiUsers />
-              </div>
-              <p>I have a team</p>
+              6–10 people
+            </div>
+
+            <div
+              className={`size-card ${selected === "11+" ? "active" : ""}`}
+              onClick={() => setSelected("11+")}
+            >
+              11+ people
             </div>
 
           </div>
@@ -74,7 +64,6 @@ export default function TeamSetupPage() {
         </div>
       </div>
 
-      {/* RIGHT SIDE IMAGE */}
       <div className="team-right">
 
         <div className="top-actions">

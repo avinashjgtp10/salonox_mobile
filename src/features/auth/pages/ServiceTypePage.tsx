@@ -1,6 +1,7 @@
 import "../styles/ServiceTypePage.scss"
 import { useNavigate } from "react-router-dom"
 import { useState } from "react"
+import { FiArrowLeft } from "react-icons/fi"
 import salonImg from "../../../assets/images/salon.jpg"
 
 import {
@@ -22,7 +23,9 @@ export default function ServiceTypePage() {
   const navigate = useNavigate()
 
   const [selected, setSelected] = useState<string[]>([])
-  const [showError, setShowError] = useState(false)   // ✅ MISSING STATE ADDED
+  const [showError, setShowError] = useState(false)
+  const [showDropdown, setShowDropdown] = useState(false)
+  const [otherValue, setOtherValue] = useState("")
 
   const categories = [
     { name: "Hair salon", icon: <FaCut /> },
@@ -43,13 +46,34 @@ export default function ServiceTypePage() {
     { name: "Other", icon: <FaUserTie /> }
   ]
 
+  const otherOptions = [
+    "Makeup Artist",
+    "Bridal Studio",
+    "Microblading",
+    "Aesthetic Clinic",
+    "Laser Treatment",
+    "Cosmetology"
+  ]
+
   const toggleCategory = (name: string) => {
+
     if (selected.includes(name)) {
       setSelected(selected.filter(item => item !== name))
+
+      if (name === "Other") {
+        setShowDropdown(false)
+        setOtherValue("")
+      }
       return
     }
+
     if (selected.length >= 3) return
+
     setSelected([...selected, name])
+
+    if (name === "Other") {
+      setShowDropdown(true)
+    }
   }
 
   const handleContinue = () => {
@@ -57,6 +81,7 @@ export default function ServiceTypePage() {
       setShowError(true)
       return
     }
+
     navigate("/team-setup")
   }
 
@@ -68,6 +93,14 @@ export default function ServiceTypePage() {
         <div className="progress-fill"></div>
       </div>
 
+      {/* Back Button */}
+      <button
+        className="circle-back-btn"
+        onClick={() => navigate(-1)}
+      >
+        <FiArrowLeft />
+      </button>
+
       {/* Error Toast */}
       {showError && (
         <div className="error-toast">
@@ -75,14 +108,6 @@ export default function ServiceTypePage() {
           <span onClick={() => setShowError(false)}>✕</span>
         </div>
       )}
-
-      {/* Back Button */}
-      <button
-        className="back-btn"
-        onClick={() => navigate(-1)}
-      >
-        ← Back
-      </button>
 
       {/* LEFT SIDE */}
       <div className="service-left">
@@ -102,8 +127,7 @@ export default function ServiceTypePage() {
                 key={item.name}
                 className={`category-card 
                   ${selected.includes(item.name) ? "active" : ""} 
-                  ${selected.length >= 3 && !selected.includes(item.name) ? "disabled" : ""}
-                `}
+                  ${selected.length >= 3 && !selected.includes(item.name) ? "disabled" : ""}`}
                 onClick={() => {
                   if (selected.length >= 3 && !selected.includes(item.name)) return
                   toggleCategory(item.name)
@@ -121,19 +145,35 @@ export default function ServiceTypePage() {
             ))}
           </div>
 
+          {/* Dropdown for Other */}
+          {showDropdown && (
+            <div className="other-dropdown">
+              <label>Select sub category</label>
+              <select
+                value={otherValue}
+                onChange={(e) => setOtherValue(e.target.value)}
+              >
+                <option value="">Choose option</option>
+                {otherOptions.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Continue Button */}
+          <button
+            className="continue-bottom-btn"
+            onClick={handleContinue}
+          >
+            Continue →
+          </button>
+
         </div>
       </div>
 
       {/* RIGHT SIDE IMAGE */}
       <div className="service-right">
-
-        <button
-          className="continue-top-btn"
-          onClick={handleContinue}
-        >
-          Continue →
-        </button>
-
         <img src={salonImg} alt="Service Setup" />
       </div>
 

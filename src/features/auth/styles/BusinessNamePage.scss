@@ -15,6 +15,31 @@
   justify-content: center;
   align-items: center;
   padding: 60px 40px;
+  position: relative; /* IMPORTANT for back button */
+}
+
+/* ================= BACK BUTTON ================= */
+.circle-back-btn {
+  position: absolute;
+  top: 30px;
+  left: 40px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: 0.25s ease;
+  font-size: 18px;
+}
+
+.circle-back-btn:hover {
+  border-color: #000;
+  background: #f9fafb;
+  transform: scale(1.05);
 }
 
 /* ================= CARD STYLE ================= */
@@ -101,7 +126,7 @@ input:focus {
 
 .continue-btn:hover {
   background: #111827;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
 }
 
 .continue-btn:disabled {
@@ -122,7 +147,7 @@ input:focus {
   display: block;
 }
 
-/* Gradient overlay same as registration */
+/* Gradient overlay */
 .business-right::after {
   content: "";
   position: absolute;

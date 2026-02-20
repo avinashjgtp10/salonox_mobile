@@ -7,6 +7,14 @@ import BusinessNamePage from "./features/auth/pages/BusinessNamePage"
 import ServiceTypePage from "./features/auth/pages/ServiceTypePage"
 import TeamSetupPage from "./features/auth/pages/TeamSetupPage.tsx"
 import BusinessLocationPage from "./features/auth/pages/BusinessLocationPage"
+import VenueLocationPage from "./features/auth/pages/VenueLocationPage"
+import PreviousSoftwarePage from "./features/auth/pages/PreviousSoftwarePage"
+import RecommendationSourcePage from "./features/auth/pages/RecommendationSourcePage"
+import SetupCompletePage from "./features/auth/pages/SetupCompletePage"
+import JoinBusinessPage from "./features/auth/pages/JoinBusinessPage"
+import SendRequestPage from "./features/auth/pages/SendRequestPage"
+import RequestSuccessPage from "./features/auth/pages/RequestSuccessPage"
+import TeamSizePage from "./features/auth/pages/TeamSizePage"
 
 function App() {
   return (
@@ -19,7 +27,14 @@ function App() {
       <Route path="/team-setup" element={<TeamSetupPage />} />
       <Route path="/service-type" element={<ServiceTypePage />} />
       <Route path="/business-location" element={<BusinessLocationPage />} />
-
+      <Route path="/venue-location" element={<VenueLocationPage />} />
+      <Route path="/previous-software" element={<PreviousSoftwarePage />} />
+      <Route path="/recommendation-source" element={<RecommendationSourcePage />} />
+      <Route path="/setup-complete" element={<SetupCompletePage />} />
+      <Route path="/join-business" element={<JoinBusinessPage />} />
+      <Route path="/send-request" element={<SendRequestPage />} />
+      <Route path="/request-success" element={<RequestSuccessPage />} />
+      <Route path="/team-size" element={<TeamSizePage />} />
     </Routes>
   )
 }

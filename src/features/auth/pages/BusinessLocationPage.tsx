@@ -7,23 +7,29 @@ import "../styles/BusinessLocationPage.scss"
 export default function BusinessLocationPage() {
 
   const navigate = useNavigate()
+
+  // ✅ MULTIPLE SELECT STATE
   const [selected, setSelected] = useState<string[]>([])
+
+  const toggleOption = (id: string) => {
+    if (selected.includes(id)) {
+      // Remove if already selected
+      setSelected(selected.filter(item => item !== id))
+    } else {
+      // Add if not selected
+      setSelected([...selected, id])
+    }
+  }
 
   const handleContinue = () => {
     if (selected.length === 0) return
-    navigate("/business-name")   // 🔥 change if needed
-  }
 
-  const toggleOption = (id: string) => {
-
-    if (selected.includes(id)) {
-      setSelected(selected.filter(item => item !== id))
-      return
+    // Example logic
+    if (selected.includes("physical")) {
+      navigate("/venue-location")
+    } else {
+      navigate("/previous-software")
     }
-
-    if (selected.length >= 3) return
-
-    setSelected([...selected, id])
   }
 
   const options = [
@@ -35,12 +41,10 @@ export default function BusinessLocationPage() {
   return (
     <div className="location-container">
 
-      {/* Progress Bar */}
       <div className="progress-bar">
         <div className="progress-fill"></div>
       </div>
 
-      {/* LEFT SIDE */}
       <div className="location-left">
 
         <button
@@ -59,7 +63,9 @@ export default function BusinessLocationPage() {
             {options.map((item) => (
               <div
                 key={item.id}
-                className={`location-card ${selected.includes(item.id) ? "active" : ""}`}
+                className={`location-card ${
+                  selected.includes(item.id) ? "active" : ""
+                }`}
                 onClick={() => toggleOption(item.id)}
               >
                 <p>{item.label}</p>
@@ -76,7 +82,6 @@ export default function BusinessLocationPage() {
         </div>
       </div>
 
-      {/* RIGHT SIDE IMAGE */}
       <div className="location-right">
 
         <div className="top-actions">
@@ -101,7 +106,7 @@ export default function BusinessLocationPage() {
 
         <img src={salonImg} alt="Business Location" />
 
-      </div>
+      </div>6
     </div>
   )
 }

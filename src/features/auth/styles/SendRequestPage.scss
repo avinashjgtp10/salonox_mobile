@@ -1,0 +1,76 @@
+.success-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f9fafb;
+  font-family: "Inter", sans-serif;
+  text-align: center;
+}
+
+/* Center wrapper */
+.success-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;   /* 🔥 This centers button */
+  justify-content: center;
+}
+
+/* Check icon */
+.check-circle {
+  width: 90px;
+  height: 90px;
+  margin-bottom: 25px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Tick animation */
+.check-path {
+  stroke-dasharray: 50;
+  stroke-dashoffset: 50;
+  animation: draw 0.5s ease forwards 0.2s;
+}
+
+@keyframes draw {
+  to { stroke-dashoffset: 0; }
+}
+
+.success-content h1 {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.success-content p {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 25px;
+  max-width: 380px;
+}
+
+/* DONE BUTTON PERFECT CENTER */
+.done-btn {
+  height: 44px;
+  padding: 0 36px;
+  border-radius: 50px;
+  border: none;
+  background: #000;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.done-btn:hover {
+  background: #111827;
+}
+
+.redirect-text {
+  margin-top: 18px;
+  font-size: 12px;
+  color: #9ca3af;
+}
