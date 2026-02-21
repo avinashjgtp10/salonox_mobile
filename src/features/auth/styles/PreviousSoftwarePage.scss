@@ -1,0 +1,164 @@
+/* MAIN CONTAINER */
+.software-container {
+  display: grid;
+  grid-template-columns: 40% 60%;
+  min-height: 100vh;
+  width: 100%;
+  font-family: "Inter", sans-serif;
+  overflow: hidden;
+}
+/* PROGRESS BAR */
+.progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 5px;
+  background: #e5e7eb;
+  z-index: 50;
+}
+
+.progress-fill {
+  width: 75%;
+  height: 100%;
+  background: #635bff;
+}
+
+/* LEFT SIDE */
+.software-left {
+  padding: 120px 70px 60px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  position: relative;
+}
+
+/* BACK BUTTON */
+.circle-back-btn {
+  position: absolute;
+  top: 50px;
+  left: 50px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* CONTENT */
+.software-content {
+  max-width: 380px;
+}
+
+.setup-text {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.software-content h1 {
+  font-size: 26px;
+  font-weight: 700;
+  margin: 15px 0;
+}
+
+.sub-text {
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 25px;
+}
+
+/* SOFTWARE LIST */
+.software-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.software-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.software-option input {
+  width: 20px;
+  height: 20px;
+}
+
+/* RIGHT SIDE */
+.software-right {
+  position: relative;
+  width: 100%;
+}
+.software-right img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* GRADIENT OVERLAY */
+.software-right::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to right,
+    rgba(255,255,255,0.9) 0%,
+    rgba(255,255,255,0.6) 20%,
+    rgba(255,255,255,0.2) 45%,
+    rgba(255,255,255,0) 70%
+  );
+  pointer-events: none;
+}
+
+/* TOP BUTTONS */
+.top-actions {
+  position: absolute;
+  top: 50px;
+  right: 60px;
+  display: flex;
+  gap: 18px;
+  z-index: 10;
+}
+
+.close-btn {
+  height: 44px;
+  padding: 0 26px;
+  border-radius: 50px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.continue-btn {
+  height: 44px;
+  padding: 0 26px;
+  border-radius: 50px;
+  background: #000;
+  color: #fff;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.continue-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+/* RESPONSIVE */
+@media (max-width: 900px) {
+  .software-container {
+    grid-template-columns: 1fr;
+  }
+
+  .software-right {
+    display: none;
+  }
+}

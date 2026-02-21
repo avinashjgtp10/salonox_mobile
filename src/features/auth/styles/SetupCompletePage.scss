@@ -1,0 +1,57 @@
+.complete-container {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: "Inter", sans-serif;
+  background: #f9fafb;
+}
+
+.complete-content {
+  text-align: center;
+}
+
+/* Purple Circle */
+.complete-icon {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  margin: 0 auto 30px;
+  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 38px;
+  color: white;
+  font-weight: bold;
+}
+
+/* Heading */
+.complete-content h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+/* Subtext */
+.complete-content p {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 30px;
+}
+
+/* Button */
+.done-btn {
+  height: 46px;
+  padding: 0 40px;
+  border-radius: 50px;
+  border: none;
+  background: #000;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.done-btn:hover {
+  background: #111827;
+}
