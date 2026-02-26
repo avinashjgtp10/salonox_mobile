@@ -7,7 +7,6 @@ import "../styles/PreviousSoftwarePage.scss"
 export default function PreviousSoftwarePage() {
 
   const navigate = useNavigate()
-
   const [selected, setSelected] = useState("")
   const [otherSoftware, setOtherSoftware] = useState("")
 
@@ -36,108 +35,125 @@ export default function PreviousSoftwarePage() {
   }
 
   return (
-    <div className="software-container">
+    <div className="container-fluid p-0">
 
-      {/* 🔥 PROGRESS BAR */}
-      <div className="progress-bar">
-        <div className="progress-fill"></div>
+      {/* Progress */}
+      <div className="progress" style={{ height: "5px" }}>
+        <div className="progress-bar bg-dark" style={{ width: "75%" }} />
       </div>
 
-      {/* LEFT SIDE */}
-      <div className="software-left">
+      <div className="row g-0 min-vh-100">
 
-        <button
-          className="circle-back-btn"
-          onClick={() => navigate(-1)}
-        >
-          <FiArrowLeft />
-        </button>
+        {/* LEFT SIDE */}
+        <div className="col-lg-5 col-12 bg-white p-5 position-relative">
 
-        <div className="software-content">
+          {/* Back */}
+          <button
+            className="btn btn-outline-secondary rounded-circle position-absolute"
+            style={{ top: "40px", left: "40px", width: "42px", height: "42px" }}
+            onClick={() => navigate(-1)}
+          >
+            <FiArrowLeft />
+          </button>
 
-          <p className="setup-text">Account setup</p>
+          <div style={{ maxWidth: "420px" }} className="mt-5">
 
-          <h1>Which software are you currently using?</h1>
+            <p className="text-muted small">Account setup</p>
 
-          <p className="sub-text">
-            If you're looking to switch, we can help speed up your business setup.
-          </p>
+            <h4 className="fw-bold my-3">
+              Which software are you currently using?
+            </h4>
 
-          <div className="software-list">
-            {softwareList.map((item, index) => (
-              <label key={index} className="software-option">
-                <input
-                  type="radio"
-                  name="software"
-                  value={item}
-                  checked={selected === item}
-                  onChange={() => setSelected(item)}
-                />
-                <span>{item}</span>
-              </label>
-            ))}
-          </div>
+            <p className="text-muted small mb-4">
+              If you're looking to switch, we can help speed up your business setup.
+            </p>
 
-          {/* 🔥 SHOW INPUT IF OTHER SELECTED */}
-          {selected === "Other" && (
-            <div className="other-input-wrapper">
+            {/* BUTTON STYLE OPTIONS */}
+            <div className="d-grid gap-3">
 
-              <div className="other-label-row">
-                <label>What other software?</label>
-                <span>{otherSoftware.length}/30</span>
-              </div>
-
-              <input
-                type="text"
-                placeholder="Type software name"
-                value={otherSoftware}
-                maxLength={30}
-                onChange={(e) => setOtherSoftware(e.target.value)}
-                className={otherSoftware.length === 0 ? "error" : ""}
-              />
-
-              {otherSoftware.length === 0 && (
-                <p className="error-text">
-                  Other software is required
-                </p>
-              )}
+              {softwareList.map((item, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  className={`btn software-btn ${
+                    selected === item ? "active" : ""
+                  }`}
+                  onClick={() => setSelected(item)}
+                >
+                  {item}
+                </button>
+              ))}
 
             </div>
-          )}
+
+            {/* Other Input */}
+            {selected === "Other" && (
+              <div className="mt-4">
+
+                <div className="d-flex justify-content-between mb-2">
+                  <label className="form-label">What other software?</label>
+                  <small className="text-muted">
+                    {otherSoftware.length}/30
+                  </small>
+                </div>
+
+                <input
+                  type="text"
+                  className={`form-control ${
+                    otherSoftware.length === 0 ? "is-invalid" : ""
+                  }`}
+                  placeholder="Type software name"
+                  value={otherSoftware}
+                  maxLength={30}
+                  onChange={(e) => setOtherSoftware(e.target.value)}
+                />
+
+                {otherSoftware.length === 0 && (
+                  <div className="invalid-feedback d-block">
+                    Other software is required
+                  </div>
+                )}
+
+              </div>
+            )}
+
+          </div>
+        </div>
+
+        {/* RIGHT SIDE */}
+        <div className="col-lg-7 d-none d-lg-block position-relative">
+
+          <div className="position-absolute top-0 end-0 m-5 d-flex gap-3">
+
+            <button
+              className="btn btn-outline-secondary rounded-pill"
+              onClick={() => navigate("/dashboard")}
+            >
+              Close
+            </button>
+
+            <button
+              className="btn btn-dark rounded-pill"
+              disabled={
+                !selected ||
+                (selected === "Other" && otherSoftware.length === 0)
+              }
+              onClick={handleContinue}
+            >
+              Continue <FiArrowRight className="ms-2" />
+            </button>
+
+          </div>
+
+          <img
+            src={salonImg}
+            alt="Software"
+            className="img-fluid w-100 h-100 object-fit-cover"
+          />
 
         </div>
-      </div>
-
-      {/* RIGHT SIDE */}
-      <div className="software-right">
-
-        <div className="top-actions">
-
-          <button
-            className="close-btn"
-            onClick={() => navigate("/dashboard")}
-          >
-            Close
-          </button>
-
-          <button
-            className="continue-btn"
-            disabled={
-              !selected ||
-              (selected === "Other" && otherSoftware.length === 0)
-            }
-            onClick={handleContinue}
-          >
-            Continue
-            <FiArrowRight />
-          </button>
-
-        </div>
-
-        <img src={salonImg} alt="Software" />
 
       </div>
-
     </div>
   )
 }

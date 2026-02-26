@@ -1,3 +1,4 @@
+import "bootstrap/dist/css/bootstrap.min.css"
 import { useNavigate } from "react-router-dom"
 import { useState } from "react"
 import { FiArrowLeft, FiArrowRight } from "react-icons/fi"
@@ -12,6 +13,7 @@ export default function VenueLocationPage() {
   const [address, setAddress] = useState("")
   const [loading, setLoading] = useState(false)
   const [suggestions, setSuggestions] = useState<any[]>([])
+  const [submitted, setSubmitted] = useState(false)
 
   /* ================= LIVE LOCATION ================= */
   const handleGetLocation = () => {
@@ -36,9 +38,10 @@ export default function VenueLocationPage() {
 
           if (data.display_name) {
             setAddress(data.display_name)
+            setSubmitted(false)
           }
 
-        } catch (error) {
+        } catch {
           console.log("Error fetching address")
         }
 
@@ -65,7 +68,7 @@ export default function VenueLocationPage() {
         const data = await response.json()
         setSuggestions(data)
 
-      } catch (error) {
+      } catch {
         console.log("Search error")
       }
     } else {
@@ -73,110 +76,140 @@ export default function VenueLocationPage() {
     }
   }
 
+  /* ================= CONTINUE ================= */
+  const handleContinue = () => {
+    setSubmitted(true)
+
+    if (!address.trim()) return
+
+    navigate("/previous-software")
+  }
+
   return (
-    <div className="venue-container">
+    <div className="container-fluid p-0 venue-page">
 
-      <div className="venue-left">
+      {/* 🔵 TOP PROGRESS BAR */}
+      <div className="progress rounded-0 progress-top">
+        <div className="progress-bar progress-fill"></div>
+      </div>
 
-        <button
-          className="circle-back-btn"
-          onClick={() => navigate(-1)}
-        >
-          <FiArrowLeft />
-        </button>
+      <div className="row g-0 min-vh-100">
 
-        <div className="venue-content">
+        {/* LEFT SIDE */}
+        <div className="col-lg-5 col-12 bg-white p-5 position-relative">
 
-          <p className="setup-text">Account setup</p>
+          {/* Back Button */}
+          <button
+            className="btn btn-light border rounded-circle position-absolute"
+            style={{ top: "30px", left: "50px" }}
+            onClick={() => navigate(-1)}
+          >
+            <FiArrowLeft />
+          </button>
 
-          <h1>Set your venue's physical location</h1>
+          <div className="mt-5 pt-5" style={{ maxWidth: "420px" }}>
 
-          <p className="sub-text">
-            Add your primary business location so your clients can easily find you.
-          </p>
+            <p className="text-muted small">Account setup</p>
 
-          <div className="input-wrapper" style={{ position: "relative" }}>
+            <h3 className="fw-bold mb-3">
+              Set your venue's physical location
+            </h3>
 
-            <HiOutlineLocationMarker
-              className="location-icon"
-              onClick={handleGetLocation}
-            />
+            <p className="text-muted mb-4">
+              Add your primary business location so your clients can easily find you.
+            </p>
 
-            <input
-              type="text"
-              placeholder="Search location (e.g., Baramati)"
-              value={address}
-              onChange={(e) => handleSearch(e.target.value)}
-            />
+            {/* INPUT */}
+            <div className="position-relative">
 
-            {/* Suggestions Dropdown */}
-            {suggestions.length > 0 && (
-              <ul style={{
-                listStyle: "none",
-                padding: "8px",
-                margin: 0,
-                border: "1px solid #ddd",
-                maxHeight: "160px",
-                overflowY: "auto",
-                background: "#fff",
-                position: "absolute",
-                width: "100%",
-                zIndex: 50,
-                top: "48px",
-                borderRadius: "8px"
-              }}>
-                {suggestions.map((item, index) => (
-                  <li
-                    key={index}
-                    style={{
-                      padding: "8px",
-                      cursor: "pointer"
-                    }}
-                    onClick={() => {
-                      setAddress(item.display_name)
-                      setSuggestions([])
-                    }}
-                  >
-                    {item.display_name}
-                  </li>
-                ))}
-              </ul>
+              <HiOutlineLocationMarker
+                className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"
+                style={{ cursor: "pointer" }}
+                onClick={handleGetLocation}
+              />
+
+              <input
+                type="text"
+                className={`form-control ps-5 ${
+                  submitted && !address.trim() ? "is-invalid" : ""
+                }`}
+                placeholder="Search location (e.g., Baramati)"
+                value={address}
+                onChange={(e) => {
+                  setAddress(e.target.value)
+                  setSubmitted(false)
+                  handleSearch(e.target.value)
+                }}
+              />
+
+              {submitted && !address.trim() && (
+                <div className="invalid-feedback d-block">
+                  Please select your business location
+                </div>
+              )}
+
+              {/* Suggestions */}
+              {suggestions.length > 0 && (
+                <ul className="list-group position-absolute w-100 mt-1 z-3 suggestion-box">
+                  {suggestions.map((item, index) => (
+                    <li
+                      key={index}
+                      className="list-group-item list-group-item-action"
+                      onClick={() => {
+                        setAddress(item.display_name)
+                        setSuggestions([])
+                        setSubmitted(false)
+                      }}
+                      style={{ cursor: "pointer" }}
+                    >
+                      {item.display_name}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+            </div>
+
+            {loading && (
+              <small className="text-muted d-block mt-2">
+                Fetching live location...
+              </small>
             )}
 
           </div>
-
-          {loading && (
-            <p style={{ fontSize: "12px", marginTop: "8px" }}>
-              Fetching live location...
-            </p>
-          )}
-
-        </div>
-      </div>
-
-      {/* RIGHT SIDE IMAGE */}
-      <div className="venue-right">
-
-        <div className="top-actions">
-          <button
-            className="close-btn"
-            onClick={() => navigate("/dashboard")}
-          >
-            Close
-          </button>
-
-          <button
-            className="continue-btn"
-            onClick={() => navigate("/previous-software")}
-          >
-            Continue
-            <FiArrowRight />
-          </button>
         </div>
 
-        <img src={salonImg} alt="Venue" />
-      </div>
+        {/* RIGHT SIDE */}
+        <div className="col-lg-7 d-none d-lg-block position-relative">
 
+          <div className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3">
+
+            <button
+              className="btn btn-outline-secondary rounded-pill"
+              onClick={() => navigate("/dashboard")}
+            >
+              Close
+            </button>
+
+            <button
+              className="btn btn-dark rounded-pill"
+              onClick={handleContinue}
+            >
+              Continue
+              <FiArrowRight className="ms-2" />
+            </button>
+
+          </div>
+
+          <img
+            src={salonImg}
+            alt="Venue"
+            className="img-fluid w-100 h-100 object-fit-cover"
+          />
+
+        </div>
+
+      </div>
     </div>
   )
 }

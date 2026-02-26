@@ -1,15 +1,15 @@
+import "bootstrap/dist/css/bootstrap.min.css"
 import { useNavigate } from "react-router-dom"
 import { useState } from "react"
 import { FiArrowLeft } from "react-icons/fi"
 import salonImg from "../../../assets/images/salon.jpg"
-import "../styles/RecommendationSourcePage.scss"
 
 export default function RecommendationSourcePage() {
 
   const navigate = useNavigate()
-
   const [selected, setSelected] = useState("")
   const [otherText, setOtherText] = useState("")
+  const [submitted, setSubmitted] = useState(false)
 
   const options = [
     "Recommended by a friend",
@@ -23,100 +23,132 @@ export default function RecommendationSourcePage() {
   ]
 
   const handleDone = () => {
+    setSubmitted(true)
+
+    if (!selected) return
+    if (selected === "Other" && otherText.trim() === "") return
+
     navigate("/setup-complete")
   }
 
   return (
-    <div className="recommend-container">
+    <div className="container-fluid p-0 position-relative">
 
-      {/* 🔥 PROGRESS BAR */}
-      <div className="progress-bar">
-        <div className="progress-fill"></div>
+      {/* 🔵 Bootstrap Progress Bar */}
+      <div className="progress rounded-0" style={{ height: "4px" }}>
+        <div className="progress-bar bg-dark" style={{ width: "100%" }} />
       </div>
 
-      {/* LEFT SIDE */}
-      <div className="recommend-left">
+      {/* 🔹 Top Right Buttons */}
+      <div className="position-absolute top-0 end-0 p-4 d-flex gap-3">
 
         <button
-          className="circle-back-btn"
-          onClick={() => navigate(-1)}
+          className="btn btn-outline-secondary rounded-pill"
+          onClick={() => navigate("/dashboard")}
         >
-          <FiArrowLeft />
+          Close
         </button>
 
-        <div className="recommend-content">
+        <button
+          className="btn btn-dark rounded-pill"
+          disabled={
+            !selected ||
+            (selected === "Other" && otherText.trim() === "")
+          }
+          onClick={handleDone}
+        >
+          Done
+        </button>
 
-          <p className="setup-text">Account setup</p>
+      </div>
 
-          <h1>How did you hear about Fresha?</h1>
+      <div className="row g-0 min-vh-100">
 
-          <div className="recommend-list">
+        {/* LEFT SIDE */}
+        <div className="col-lg-5 col-12 bg-white p-5">
+
+          {/* Back Button */}
+          <button
+            className="btn btn-light border rounded-circle mb-4"
+            onClick={() => navigate(-1)}
+          >
+            <FiArrowLeft />
+          </button>
+
+          <div style={{ maxWidth: "420px" }}>
+
+            <p className="text-muted small">Account setup</p>
+
+            <h4 className="fw-bold mb-4">
+              How did you hear about Fresha?
+            </h4>
+
+            {/* Bootstrap Pills */}
             {options.map((item, index) => (
-              <label key={index} className="recommend-option">
-                <input
-                  type="radio"
-                  name="source"
-                  value={item}
-                  checked={selected === item}
-                  onChange={() => setSelected(item)}
-                />
-                <span>{item}</span>
-              </label>
+              <button
+                key={index}
+                className={`btn w-100 text-start rounded-pill mb-3 ${
+                  selected === item
+                    ? "border-2 border-primary bg-white"
+                    : "border bg-light"
+                }`}
+                onClick={() => {
+                  setSelected(item)
+                  setSubmitted(false)
+                }}
+              >
+                {item}
+              </button>
             ))}
-          </div>
 
-          {/* 🔥 SHOW INPUT WHEN OTHER SELECTED */}
-          {selected === "Other" && (
-            <div className="other-wrapper">
+            {/* OTHER INPUT */}
+            {selected === "Other" && (
+              <div className="mt-3">
 
-              <div className="other-label-row">
-                <label>Please specify</label>
-                <span>{otherText.length}/255</span>
+                <div className="d-flex justify-content-between mb-1">
+                  <label className="form-label">
+                    Please specify
+                  </label>
+                  <small>{otherText.length}/255</small>
+                </div>
+
+                <input
+                  type="text"
+                  maxLength={255}
+                  value={otherText}
+                  onChange={(e) => setOtherText(e.target.value)}
+                  className={`form-control ${
+                    submitted && otherText.trim() === ""
+                      ? "is-invalid"
+                      : ""
+                  }`}
+                />
+
+                {submitted && otherText.trim() === "" && (
+                  <div className="invalid-feedback d-block">
+                    This field is required
+                  </div>
+                )}
+
               </div>
+            )}
 
-              <input
-                type="text"
-                placeholder="Type your answer here"
-                value={otherText}
-                maxLength={255}
-                onChange={(e) => setOtherText(e.target.value)}
-              />
-
-            </div>
-          )}
-
+          </div>
         </div>
-      </div>
 
-      {/* RIGHT SIDE */}
-      <div className="recommend-right">
+        {/* RIGHT IMAGE */}
+        <div className="col-lg-7 d-none d-lg-block p-0">
 
-        <div className="top-actions">
-
-          <button
-            className="close-btn"
-            onClick={() => navigate("/dashboard")}
-          >
-            Close
-          </button>
-
-          <button
-            className="continue-btn"
-            disabled={
-              !selected ||
-              (selected === "Other" && otherText.length === 0)
-            }
-            onClick={handleDone}
-          >
-            Done
-          </button>
+          <img
+            src={salonImg}
+            alt="Recommendation"
+            className="img-fluid w-100 vh-100"
+            style={{ objectFit: "cover" }}
+          />
 
         </div>
 
-        <img src={salonImg} alt="Recommendation" />
-
       </div>
-
     </div>
   )
 }

@@ -11,95 +11,116 @@ export default function TeamSetupPage() {
 
   const handleContinue = () => {
     if (!selected) return
+
     if (selected === "independent") {
-    navigate("/business-location")
-  } else {
-    navigate("/team-size")   // 🔥 opens new page
-  }
+      navigate("/business-location")
+    } else {
+      navigate("/team-size")
+    }
   }
 
   return (
-    <div className="team-container">
+    <div className="container-fluid p-0">
 
-      {/* Progress Bar */}
-      <div className="progress-bar">
-        <div className="progress-fill"></div>
+      {/* Progress */}
+      <div className="progress" style={{ height: "5px" }}>
+        <div className="progress-bar bg-dark" style={{ width: "65%" }} />
       </div>
 
-      {/* LEFT SIDE */}
-      <div className="team-left">
+      <div className="row g-0 min-vh-100">
 
-        {/* Back Button */}
-        <button
-          className="circle-back-btn"
-          onClick={() => navigate(-1)}
-        >
-          <FiArrowLeft />
-        </button>
+        {/* LEFT SIDE */}
+        <div className="col-lg-5 col-12 bg-light p-5 position-relative">
 
-        <div className="team-content">
+          {/* Back Button */}
+          <button
+            className="btn btn-light border rounded-circle position-absolute"
+            style={{ top: "25px", left: "40px" }}
+            onClick={() => navigate(-1)}
+          >
+            <FiArrowLeft />
+          </button>
 
-          <p className="setup-text">Account setup</p>
+          <div className="mt-5" style={{ maxWidth: "480px" }}>
 
-          <h1>Select account type</h1>
+            <p className="text-muted small">Account setup</p>
 
-          <p className="sub-text">
-            This will help us set up your account correctly
-          </p>
+            <h3 className="fw-bold mb-2">
+              Select account type
+            </h3>
 
-          <div className="team-grid">
+            <p className="text-muted mb-4">
+              This will help us set up your account correctly
+            </p>
 
-            <div
-              className={`team-card ${selected === "independent" ? "active" : ""}`}
-              onClick={() => setSelected("independent")}
-            >
-              <div className="card-icon">
-                <FiUser />
+            {/* Cards */}
+            <div className="row g-3">
+
+              <div className="col-12">
+                <div
+                  className={`card p-4 team-card ${
+                    selected === "independent" ? "active" : ""
+                  }`}
+                  onClick={() => setSelected("independent")}
+                >
+                  <div className="mb-3 fs-4">
+                    <FiUser />
+                  </div>
+                  <strong>I'm an independent</strong>
+                </div>
               </div>
-              <p>I'm an independent</p>
-            </div>
 
-            <div
-              className={`team-card ${selected === "team" ? "active" : ""}`}
-              onClick={() => setSelected("team")}
-            >
-              <div className="card-icon">
-                <FiUsers />
+              <div className="col-12">
+                <div
+                  className={`card p-4 team-card ${
+                    selected === "team" ? "active" : ""
+                  }`}
+                  onClick={() => setSelected("team")}
+                >
+                  <div className="mb-3 fs-4">
+                    <FiUsers />
+                  </div>
+                  <strong>I have a team</strong>
+                </div>
               </div>
-              <p>I have a team</p>
+
             </div>
 
           </div>
-
-        </div>
-      </div>
-
-      {/* RIGHT SIDE IMAGE */}
-      <div className="team-right">
-
-        <div className="top-actions">
-
-          <button
-            className="close-btn"
-            onClick={() => navigate("/dashboard")}
-          >
-            Close
-          </button>
-
-          <button
-            className="circle-continue-btn"
-            disabled={!selected}
-            onClick={handleContinue}
-          >
-            Continue
-            <FiArrowRight size={16} />
-          </button>
-
         </div>
 
-        <img src={salonImg} alt="Team Setup" />
-      </div>
+        {/* RIGHT SIDE */}
+        <div className="col-lg-7 d-none d-lg-block position-relative">
 
+          <div className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3">
+
+            <button
+              className="btn btn-outline-secondary rounded-pill"
+              onClick={() => navigate("/dashboard")}
+            >
+              Close
+            </button>
+
+            <button
+              className="btn btn-dark rounded-pill"
+              disabled={!selected}
+              onClick={handleContinue}
+            >
+              Continue
+              <FiArrowRight className="ms-2" />
+            </button>
+
+          </div>
+
+          <img
+            src={salonImg}
+            alt="Team Setup"
+            className="img-fluid w-100 h-100 object-fit-cover"
+          />
+
+        </div>
+
+      </div>
     </div>
   )
 }

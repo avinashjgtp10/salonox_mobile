@@ -1,5 +1,6 @@
 import "../styles/LoginPage.scss"
-import { FaFacebookF, FaApple } from "react-icons/fa"
+import "bootstrap/dist/css/bootstrap.min.css"
+
 import { FcGoogle } from "react-icons/fc"
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
@@ -9,7 +10,6 @@ import salonImg from "../../../assets/images/salon.jpg"
 import API from "../../../services/api/axios"
 
 export default function LoginPage() {
-
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -18,41 +18,21 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const dispatch = useDispatch()
 
-  // 🔐 LOGIN FUNCTION
+  // 🔐 LOGIN
   const handleLogin = async () => {
-
     if (loading) return
 
     setError("")
     setLoading(true)
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-    // Email validation
-    if (!emailRegex.test(email)) {
-      setError("Enter valid email address")
-      setLoading(false)
-      return
-    }
-
-    // Password validation
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters")
-      setLoading(false)
-      return
-    }
-
     try {
-      const res = await API.post("/login", {
-        email,
-        password
-      })
+      const res = await API.post("/api/v1/auth/login", { email, password })
+      const token = res.data?.data?.accessToken
 
-      const token = res.data.token
+      if (!token) throw new Error("Token not found")
 
-      dispatch(login(token)) // JWT goes to Redux
+      dispatch(login(token))
       navigate("/dashboard")
-
     } catch (err: any) {
       setError("Invalid email or password")
     }
@@ -60,116 +40,115 @@ export default function LoginPage() {
     setLoading(false)
   }
 
-  // 🔐 SOCIAL LOGIN (Demo)
-  const handleSocialLogin = (provider: string) => {
-
+  // 🔐 SOCIAL LOGIN (Demo) - Only Google
+  const handleGoogleLogin = () => {
     const payload = {
-      email: provider + "@oauth.com",
-      role: provider,
+      email: "google@oauth.com",
+      role: "google",
       exp: Math.floor(Date.now() / 1000) + 60 * 60
     }
 
-    const fakeToken =
-      "header." +
-      btoa(JSON.stringify(payload)) +
-      ".signature"
-
+    const fakeToken = "header." + btoa(JSON.stringify(payload)) + ".signature"
     dispatch(login(fakeToken))
     navigate("/dashboard")
   }
 
   return (
-    <div className="login-container">
+    <div className="container-fluid vh-100 login-page-bg">
+      <div className="row h-100 g-0">
 
-      {/* LEFT SIDE */}
-      <div className="login-left">
+        {/* LEFT SIDE */}
+        <div className="col-lg-5 col-md-6 col-12 d-flex align-items-center justify-content-center">
+          <div className="card border-0 shadow-lg p-4 rounded-4 login-card" style={{ width: "100%", maxWidth: "420px" }}>
 
+            <h3 className="fw-bold mb-2">Welcome Back</h3>
+            <p className="text-muted mb-4">
+              Create an account or log in to manage your business.
+            </p>
 
-        <p className="subtitle">
-          Create an account or log in to manage your business.
-        </p>
+            {/* EMAIL */}
+            <div className="form-floating mb-3">
+              <input
+                type="email"
+                className="form-control"
+                id="email"
+                placeholder="name@example.com"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  setError("")
+                }}
+              />
+              <label htmlFor="email">Email address</label>
+            </div>
 
-        {/* EMAIL */}
-        <input
-          type="email"
-          placeholder="Enter your email address"
-          className="input"
-          value={email}
-          onChange={(e) => {
-            setEmail(e.target.value)
-            setError("")
-          }}
-        />
+            {/* PASSWORD */}
+            <div className="form-floating mb-2">
+              <input
+                type="password"
+                className="form-control"
+                id="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  setError("")
+                }}
+              />
+              <label htmlFor="password">Password</label>
+            </div>
 
-        {/* PASSWORD */}
-        <input
-          type="password"
-          placeholder="Enter your password"
-          className="input"
-          value={password}
-          onChange={(e) => {
-            setPassword(e.target.value)
-            setError("")
-          }}
-        />
+            {error && <div className="alert alert-danger py-2 mt-2 mb-3">{error}</div>}
 
-        {error && <p className="error">{error}</p>}
+            {/* CONTINUE */}
+            <button
+              className="btn btn-dark w-100 rounded-pill mb-3 d-flex align-items-center justify-content-center"
+              onClick={handleLogin}
+              disabled={loading}
+            >
+              {loading && <span className="spinner-border spinner-border-sm me-2"></span>}
+              {loading ? "Checking..." : "Continue"}
+            </button>
 
-        {/* CONTINUE BUTTON */}
-        <button
-          className="continue-btn"
-          onClick={handleLogin}
-          disabled={loading}
-        >
-          {loading ? "Checking..." : "Continue"}
-        </button>
+            {/* REGISTER */}
+            <p className="text-center mb-3">
+              <small className="text-muted">
+                Don’t have an account?{" "}
+                <span className="fw-bold text-decoration-underline register-link"
+                  onClick={() => navigate("/register")}
+                >
+                  Register
+                </span>
+              </small>
+            </p>
 
-        {/* 🔥 REGISTER TEXT (CORRECT POSITION) */}
-        <p className="register-text">
-          Don’t have an account?{" "}
-          <span
-            onClick={() => navigate("/register")}
-            className="register-link"
-          >
-            Register
-          </span>
-        </p>
+            {/* DIVIDER */}
+            <div className="d-flex align-items-center my-3">
+              <div className="flex-grow-1 divider-line"></div>
+              <small className="px-3 text-muted">OR</small>
+              <div className="flex-grow-1 divider-line"></div>
+            </div>
 
-        {/* DIVIDER */}
-        <div className="divider"><span>OR</span></div>
+            {/* GOOGLE */}
+            <button
+              className="btn btn-outline-secondary w-100 rounded-pill d-flex align-items-center justify-content-center gap-2 google-btn"
+              onClick={handleGoogleLogin}
+              type="button"
+            >
+              <FcGoogle />
+              Continue with Google
+            </button>
 
-        {/* SOCIAL LOGIN */}
-        <button
-          className="social-btn facebook"
-          onClick={() => handleSocialLogin("facebook")}
-        >
-          <FaFacebookF className="icon" />
-          Continue with Facebook
-        </button>
+          </div>
+        </div>
 
-        <button
-          className="social-btn google"
-          onClick={() => handleSocialLogin("google")}
-        >
-          <FcGoogle className="icon" />
-          Continue with Google
-        </button>
-
-        <button
-          className="social-btn apple"
-          onClick={() => handleSocialLogin("apple")}
-        >
-          <FaApple className="icon" />
-          Continue with Apple
-        </button>
+        {/* RIGHT SIDE IMAGE */}
+        <div className="col-lg-7 d-none d-lg-block position-relative p-0 login-right">
+          <img src={salonImg} alt="salon" className="w-100 h-100 right-image" />
+          <div className="right-overlay"></div>
+        </div>
 
       </div>
-
-      {/* RIGHT SIDE IMAGE */}
-      <div className="login-right">
-        <img src={salonImg} alt="salon" className="right-image" />
-      </div>
-
     </div>
   )
 }

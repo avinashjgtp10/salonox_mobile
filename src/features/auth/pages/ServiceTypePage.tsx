@@ -1,30 +1,23 @@
+import "bootstrap/dist/css/bootstrap.min.css"
 import "../styles/ServiceTypePage.scss"
 import { useNavigate } from "react-router-dom"
 import { useState } from "react"
-import { FiArrowLeft } from "react-icons/fi"
-import salonImg from "../../../assets/images/salon.jpg"
-
 import {
-  FaCut,
-  FaHandSparkles,
-  FaEye,
-  FaSpa,
-  FaUserTie,
-  FaHotTub,
-  FaDumbbell,
-  FaHeartbeat
+  FaCut, FaHandSparkles, FaEye, FaSpa,
+  FaHotTub, FaHeartbeat, FaDumbbell,
+  FaUserTie
 } from "react-icons/fa"
-
 import { GiLipstick, GiRazor } from "react-icons/gi"
 import { MdOutlineFaceRetouchingNatural } from "react-icons/md"
+import salonImg from "../../../assets/images/salon.jpg"
 
 export default function ServiceTypePage() {
 
   const navigate = useNavigate()
 
   const [selected, setSelected] = useState<string[]>([])
-  const [showError, setShowError] = useState(false)
-  const [showDropdown, setShowDropdown] = useState(false)
+  const [error, setError] = useState("")
+  const [showOtherInput, setShowOtherInput] = useState(false)
   const [otherValue, setOtherValue] = useState("")
 
   const categories = [
@@ -46,39 +39,34 @@ export default function ServiceTypePage() {
     { name: "Other", icon: <FaUserTie /> }
   ]
 
-  const otherOptions = [
-    "Makeup Artist",
-    "Bridal Studio",
-    "Microblading",
-    "Aesthetic Clinic",
-    "Laser Treatment",
-    "Cosmetology"
-  ]
+  const handleSelect = (name: string) => {
 
-  const toggleCategory = (name: string) => {
+    setError("")
 
     if (selected.includes(name)) {
       setSelected(selected.filter(item => item !== name))
-
-      if (name === "Other") {
-        setShowDropdown(false)
-        setOtherValue("")
-      }
+      if (name === "Other") setShowOtherInput(false)
       return
     }
 
-    if (selected.length >= 3) return
+    if (selected.length >= 3) {
+      setError("You can select maximum 3 services.")
+      return
+    }
 
     setSelected([...selected, name])
-
-    if (name === "Other") {
-      setShowDropdown(true)
-    }
+    if (name === "Other") setShowOtherInput(true)
   }
 
   const handleContinue = () => {
+
     if (selected.length === 0) {
-      setShowError(true)
+      setError("Please select at least one service.")
+      return
+    }
+
+    if (selected.includes("Other") && otherValue.trim() === "") {
+      setError("Please enter Other service type.")
       return
     }
 
@@ -86,97 +74,107 @@ export default function ServiceTypePage() {
   }
 
   return (
-    <div className="service-container">
+    <div className="container-fluid p-0 bg-light">
 
-      {/* Progress Bar */}
-      <div className="progress-bar">
-        <div className="progress-fill"></div>
-      </div>
+      {/* Purple Progress Bar */}
+      <div className="progress rounded-0" style={{ height: "4px" }}>
+  <div className="progress-bar bg-dark" style={{ width: "40%" }}></div>
+</div>
 
-      {/* Back Button */}
-      <button
-        className="circle-back-btn"
-        onClick={() => navigate(-1)}
-      >
-        <FiArrowLeft />
-      </button>
+      <div className="row g-0 min-vh-100">
 
-      {/* Error Toast */}
-      {showError && (
-        <div className="error-toast">
-          Please select your service types
-          <span onClick={() => setShowError(false)}>✕</span>
-        </div>
-      )}
+        {/* LEFT SIDE */}
+        <div className="col-lg-6 bg-white p-4 position-relative">
 
-      {/* LEFT SIDE */}
-      <div className="service-left">
-        <div className="service-content">
+          {/* Back Button */}
+          <button className="btn back-btn" onClick={() => navigate(-1)}>
+            ←
+          </button>
 
-          <p className="setup-text">Account setup</p>
+          <h4 className="fw-bold mt-5">
+            Select categories that best describe your business
+          </h4>
 
-          <h1>Select categories that best describe your business</h1>
-
-          <p className="sub-text">
+          <p className="text-muted mb-4">
             Choose your primary and up to 3 related service types
           </p>
 
-          <div className="category-grid">
-            {categories.map((item) => (
-              <div
-                key={item.name}
-                className={`category-card 
-                  ${selected.includes(item.name) ? "active" : ""} 
-                  ${selected.length >= 3 && !selected.includes(item.name) ? "disabled" : ""}`}
-                onClick={() => {
-                  if (selected.length >= 3 && !selected.includes(item.name)) return
-                  toggleCategory(item.name)
-                }}
-              >
-                {selected.includes(item.name) && (
-                  <div className="badge">
-                    {selected.indexOf(item.name) + 1}
-                  </div>
-                )}
-
-                <div className="icon">{item.icon}</div>
-                <p>{item.name}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Dropdown for Other */}
-          {showDropdown && (
-            <div className="other-dropdown">
-              <label>Select sub category</label>
-              <select
-                value={otherValue}
-                onChange={(e) => setOtherValue(e.target.value)}
-              >
-                <option value="">Choose option</option>
-                {otherOptions.map((opt) => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-              </select>
+          {error && (
+            <div className="alert alert-danger">
+              {error}
             </div>
           )}
 
-          {/* Continue Button */}
+          <div className="row g-3">
+            {categories.map((item) => {
+
+              const isSelected = selected.includes(item.name)
+              const index = selected.indexOf(item.name)
+
+              return (
+                <div key={item.name} className="col-md-6">
+                  <div
+                    className={`card fresha-card p-3 
+                      ${isSelected ? "active" : ""}`}
+                    onClick={() => handleSelect(item.name)}
+                  >
+                    {isSelected && (
+                      <span className="selection-badge">
+                        {index + 1}
+                      </span>
+                    )}
+
+                    {isSelected && index === 0 && (
+                      <span className="primary-badge">
+                        Primary
+                      </span>
+                    )}
+
+                    <div className="d-flex align-items-center gap-3">
+                      <div className="fs-5">{item.icon}</div>
+                      <div>{item.name}</div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Other Input */}
+          {showOtherInput && (
+            <div className="mt-4">
+              <label className="form-label fw-semibold">
+                Other service type
+              </label>
+              <input
+                type="text"
+                className="form-control"
+                value={otherValue}
+                onChange={(e) => setOtherValue(e.target.value)}
+              />
+            </div>
+          )}
+
+          {/* Continue BELOW OTHER */}
           <button
-            className="continue-bottom-btn"
+            className="btn btn-dark w-100 rounded-pill mt-4"
             onClick={handleContinue}
           >
             Continue →
           </button>
 
         </div>
-      </div>
 
-      {/* RIGHT SIDE IMAGE */}
-      <div className="service-right">
-        <img src={salonImg} alt="Service Setup" />
-      </div>
+        {/* RIGHT IMAGE */}
+        <div className="col-lg-6 d-none d-lg-block">
+          <img
+            src={salonImg}
+            alt="Salon"
+            className="img-fluid w-100 h-100 object-fit-cover"
+          />
+        </div>
 
+      </div>
     </div>
   )
 }

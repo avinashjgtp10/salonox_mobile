@@ -1,0 +1,71 @@
+.sales-page {
+  background: #f5f6f8;
+  min-height: 100vh;
+}
+
+/* Header */
+.sales-header h2 {
+  font-weight: 700;
+  color: #111827;
+}
+
+.sales-header p {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+/* Date Filter Box */
+.sales-date-box {
+  background: #f3f4f6;
+  border-radius: 12px;
+  padding: 12px 18px;
+}
+
+/* Cards */
+.sales-card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 22px;
+  border: 1px solid #eee;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+
+/* Table Styling */
+.sales-card table {
+  margin-bottom: 0;
+}
+
+.sales-card th {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.sales-card td {
+  font-size: 14px;
+  color: #111827;
+  padding: 14px 8px;
+}
+
+.sales-card tbody tr:hover {
+  background: #f9fafb;
+}
+
+/* Totals Rows */
+.sales-card tbody tr.fw-bold {
+  background: #f3f4f6;
+}
+
+/* Buttons */
+.sales-actions .btn {
+  font-size: 14px;
+  padding: 8px 18px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sales-date-box {
+    flex-wrap: wrap;
+  }
+}

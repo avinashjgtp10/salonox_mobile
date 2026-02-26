@@ -1,27 +1,29 @@
-import "../styles/RequestSuccessPage.scss"
 import { useNavigate } from "react-router-dom"
+import "../styles/RequestSuccessPage.scss"
 
 export default function RequestSuccessPage() {
 
   const navigate = useNavigate()
 
   return (
-    <div className="success-container">
+    <div className="container-fluid min-vh-100 d-flex align-items-center justify-content-center">
 
-      <div className="success-content">
+      <div className="text-center">
 
-        <div className="check-circle">
+        <div className="check-circle mx-auto mb-4">
           ✓
         </div>
 
-        <h1>Your request has been sent!</h1>
+        <h2 className="fw-bold mb-2">
+          Your request has been sent!
+        </h2>
 
-        <p>
+        <p className="text-muted mb-4">
           The business owner will review your request and notify you once approved.
         </p>
 
         <button
-          className="done-btn"
+          className="btn btn-dark rounded-pill px-4"
           onClick={() => navigate("/dashboard")}
         >
           Done
