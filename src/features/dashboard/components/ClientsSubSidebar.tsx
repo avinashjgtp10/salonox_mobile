@@ -10,11 +10,12 @@ export default function ClientsSubSidebar({ onClose }: Props) {
     <div className="sub-sidebar">
 
       <div className="sub-header">
-        <h3>Clients</h3>
-        <button className="close-btn" onClick={onClose}>
-          <ChevronLeft size={18} />
-        </button>
-      </div>
+  <h3>Clients</h3>
+
+  <button className="floating-close" onClick={onClose}>
+    <ChevronLeft size={16} />
+  </button>
+</div>
 
       <NavLink
         to="/dashboard/clients/list"

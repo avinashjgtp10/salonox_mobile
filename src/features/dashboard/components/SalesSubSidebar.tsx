@@ -1,73 +1,63 @@
-import { useNavigate } from "react-router-dom"
+import { NavLink } from "react-router-dom"
 import { ChevronLeft } from "react-bootstrap-icons"
-
-import { useState } from "react"
 
 interface Props {
   onClose: () => void
 }
 
 export default function SalesSubSidebar({ onClose }: Props) {
-
-  const navigate = useNavigate()
-  const [activeItem, setActiveItem] = useState<string | null>(null)
-
-  const handleClick = (path: string, key: string) => {
-    setActiveItem(key)
-    navigate(path)
-  }
-
   return (
     <div className="sub-sidebar">
 
       <div className="sub-header">
         <h3>Sales</h3>
-        <button className="close-btn" onClick={onClose}>
-          <ChevronLeft size={18} />
+        <button className="floating-close" onClick={onClose}>
+          <ChevronLeft size={16} />
         </button>
       </div>
 
-      <div
-        className={activeItem === "daily" ? "sub-link active" : "sub-link"}
-        onClick={() => handleClick("/dashboard/sales/daily", "daily")}
-      >
+      <NavLink to="/dashboard/sales/daily"
+        className={({ isActive }) =>
+          isActive ? "sub-link active" : "sub-link"
+        }>
         Daily sales summary
-      </div>
+      </NavLink>
 
-      <div
-        className={activeItem === "appointments" ? "sub-link active" : "sub-link"}
-        onClick={() => handleClick("/dashboard/sales/appointments", "appointments")}
-      >
+      <NavLink to="/dashboard/sales/appointments"
+        className={({ isActive }) =>
+          isActive ? "sub-link active" : "sub-link"
+        }>
         Appointments
-      </div>
+      </NavLink>
 
-      <div
-        className={activeItem === "sales" ? "sub-link active" : "sub-link"}
-        onClick={() => handleClick("/dashboard/sales", "sales")}
-      >
+      <NavLink to="/dashboard/sales"
+        end
+        className={({ isActive }) =>
+          isActive ? "sub-link active" : "sub-link"
+        }>
         Sales
-      </div>
+      </NavLink>
 
-      <div
-        className={activeItem === "payments" ? "sub-link active" : "sub-link"}
-        onClick={() => handleClick("/dashboard/sales/payments", "payments")}
-      >
+      <NavLink to="/dashboard/sales/payments"
+        className={({ isActive }) =>
+          isActive ? "sub-link active" : "sub-link"
+        }>
         Payments
-      </div>
+      </NavLink>
 
-      <div
-        className={activeItem === "gift" ? "sub-link active" : "sub-link"}
-        onClick={() => handleClick("/dashboard/sales/gift-cards", "gift")}
-      >
+      <NavLink to="/dashboard/sales/gift-cards"
+        className={({ isActive }) =>
+          isActive ? "sub-link active" : "sub-link"
+        }>
         Gift cards sold
-      </div>
+      </NavLink>
 
-      <div
-        className={activeItem === "memberships" ? "sub-link active" : "sub-link"}
-        onClick={() => handleClick("/dashboard/sales/memberships", "memberships")}
-      >
+      <NavLink to="/dashboard/sales/memberships"
+        className={({ isActive }) =>
+          isActive ? "sub-link active" : "sub-link"
+        }>
         Memberships sold
-      </div>
+      </NavLink>
 
     </div>
   )

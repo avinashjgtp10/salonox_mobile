@@ -18,7 +18,8 @@ import TeamSizePage from "./features/auth/pages/TeamSizePage"
 import DashboardPage from "./features/dashboard/pages/DashboardPage"
 import DashboardLayout from "./features/dashboard/components/DashboardLayout"
 import DailySalesPage from "./features/analytics/pages/DailySalesPage" // already in your project
-
+import AppointmentsPage from "./features/analytics/pages/AppointmentsPage"
+import SalesListPage from "./features/analytics/pages/SalesListPage"
 function App() {
   return (
     <Routes>
@@ -39,14 +40,19 @@ function App() {
       <Route path="/request-success" element={<RequestSuccessPage />} />
       <Route path="/team-size" element={<TeamSizePage />} />
       
-      {/* DASHBOARD (Layout + Pages) */}
       <Route path="/dashboard" element={<DashboardLayout />}>
-        <Route index element={<DashboardPage />} />
-        <Route path="sales/daily" element={<DailySalesPage />} />
-        {/* Later: calendar, clients, reports... */}
-        {/* <Route path="calendar" element={<CalendarPage />} /> */}
-      </Route>
-    </Routes>
+  <Route index element={<DashboardPage />} />
+
+  <Route path="sales">
+    <Route index element={<SalesListPage />} />
+    <Route path="daily" element={<DailySalesPage />} />
+    <Route path="appointments" element={<AppointmentsPage />} />
+    <Route path="payments" element={<div className="p-4">Payments Page</div>} />
+  </Route>
+
+</Route>
+</Routes>
+
   )
 }
 

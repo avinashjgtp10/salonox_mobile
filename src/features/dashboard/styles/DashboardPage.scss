@@ -1,61 +1,71 @@
-.dashboard {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  background: #ffffff;
+@use "../../../styles/themes/variables" as *;
+
+/* ================= GLOBAL ================= */
+body {
+  margin: 0;
   font-family: "Inter", sans-serif;
+}
+
+.dashboard {
+  height: 100vh;
+  background: $dashboard-bg;
 }
 
 /* ================= TOPBAR ================= */
 .topbar {
-  height: 89px;      /* ✅ change here */
+  height: 70px;
   width: 100%;
-
-  padding: 0 24px;   
-
-  background: #ffffff;
-  border-bottom: 1px solid #e5e7eb;
+  background: $dashboard-card-bg;
+  border-bottom: 1px solid $dashboard-border;
 
   display: flex;
   align-items: center;
   justify-content: space-between;
-}
-.brand {
-  font-size: 20px;
-  font-weight: 600;
+  padding: 0 16px;
+
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  box-sizing: border-box;
 }
 
-/* RIGHT SIDE CONTAINER */
+.brand {
+  font-size: 18px;
+  font-weight: 600;
+  color: $dashboard-primary;
+}
+
+/* RIGHT SIDE */
 .topbar-right {
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: 12px;
 }
 
-/* ICON GROUP */
-.top-icons {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-}
-
+/* ================= ACTIVATE BUTTON ================= */
 .activate-btn {
-  background: #ffcc00;   /* proper fresha yellow */
-  color: #000;
-  font-weight: 400;
-  padding: 8px 20px;
+  background: $btn-primary;
+  color: $white;
+  font-weight: 500;
+  padding: 6px 16px;
+  height: 34px;
   border-radius: 999px;
   border: none;
   cursor: pointer;
-  font-size: 14px;
-  transition: 0.2s;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  transition: 0.2s ease;
 }
 
 .activate-btn:hover {
-  background: #e6b800;
+  background: $btn-hover;
 }
 
-/* NOTIFICATION */
+/* ================= NOTIFICATION ================= */
 .notification {
   position: relative;
   display: flex;
@@ -63,186 +73,238 @@
   cursor: pointer;
 }
 
-/* BADGE */
 .badge {
   position: absolute;
   top: -6px;
-  right: -8px;
-  background: #ef4444;
-  color: #fff;
-  font-size: 10px;
+  right: -6px;
+  background: $badge-bg;
+  color: $white;
+  font-size: 9px;
   padding: 2px 5px;
   border-radius: 50%;
 }
 
+/* PROFILE */
 .profile {
-  width: 34px;
-  height: 34px;
-  background: #e5e7eb;
+  width: 30px;
+  height: 30px;
+  background: $dashboard-border;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 600;
+  font-size: 12px;
+  color: $dashboard-primary;
 }
 
 /* ================= BODY ================= */
 .dashboard-body {
   display: flex;
-  flex: 1;
-  position: relative;
+  margin-top: 70px;
 }
 
-/* ================= ICON SIDEBAR ================= */
+/* ================= SIDEBAR ================= */
 .sidebar {
   width: 90px;
-  background: #000;
+  background: $sidebar-bg;
   display: flex;
   flex-direction: column;
   align-items: center;
   padding-top: 20px;
+  height: calc(100vh - 70px);
+  position: fixed;
+  left: 0;
+  top: 70px;
+  z-index: 100;
 }
 
 /* NAV BUTTON */
 .nav-btn {
-  width: 52px;
-  height: 52px;
-  border-radius: 18px;
+  width: 50px;
+  height: 50px;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #94a3b8;
+  color: $sidebar-text;
   margin: 10px 0;
   cursor: pointer;
-  transition: 0.2s;
+  transition: 0.2s ease;
   background: transparent;
   position: relative;
 }
 
 .nav-btn:hover {
-  background: #111827;
-  color: #fff;
+  background: $sidebar-hover;
+  color: $sidebar-active;
 }
 
-/* ROUTE ACTIVE (Home, Calendar etc) */
 .nav-btn.route-active {
-  background: #4f46e5;
-  color: #fff;
+  background: $btn-primary;
+  color: $white;
 }
 
-.nav-btn.route-active svg {
-  color: #fff;
-}
-
-/* SUBSIDEBAR OPEN ACTIVE (Sales, Clients etc) */
 .nav-btn.menu-active {
-  background: #1f2937;
-  color: #fff;
-}
-
-.nav-btn.menu-active svg {
-  color: #fff;
+  background: $sidebar-hover;
+  color: $sidebar-active;
 }
 
 /* ================= TOOLTIP ================= */
 .nav-label {
   position: absolute;
-  left: 70px;
+  left: 82px;
   top: 50%;
-  transform: translateY(-50%);
-  background: #4f46e5;
-  color: white;
-  font-size: 12px;
-  padding: 6px 10px;
-  border-radius: 6px;
+  transform: translateY(-50%) translateX(-6px);
+
+  background: $black;
+  color: $white;
+
+  font-size: 13px;
+  font-weight: 500;
+
+  padding: 6px 14px;
+  border-radius: $card-radius;
+
   white-space: nowrap;
   opacity: 0;
-  transition: 0.2s;
+  transition: all 0.18s ease;
   pointer-events: none;
+  z-index: 999;
+
+  box-shadow: $card-shadow;
 }
 
 .nav-btn:hover .nav-label {
   opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+/* Arrow */
+.nav-label::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: transparent $black transparent transparent;
 }
 
 /* ================= SUB SIDEBAR ================= */
 .sub-sidebar {
-  position: absolute;
+  position: fixed;
   left: 90px;
-  top: 0;
-  width: 280px;
-  height: 100%;
-  background: #ffffff;
-  border-right: 1px solid #e5e7eb;
-  padding: 24px;
-  animation: slideIn 0.2s ease-out;
-  z-index: 10;
+  top: 70px;
+  width: 320px;
+  height: calc(100vh - 70px);
+  background: $dashboard-card-bg;
+  border-right: 1px solid $dashboard-border;
+  padding: 28px 24px;
+  z-index: 90;
+  box-shadow: $card-shadow;
 }
 
+/* ================= SUB HEADER ================= */
 .sub-header {
-  margin-bottom: 24px;
+  position: relative;
+  margin-bottom: 28px;
 }
 
-/* CLOSE BUTTON */
-.close-btn {
+.sub-header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: $dashboard-primary;
+}
+
+/* Floating Close Button */
+.floating-close {
   position: absolute;
-  top: 22px;
-  right: -18px;
+  right: -38px;      // 🔥 move more right
+  top: 50%;
+  transform: translateY(-50%);
+
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
+
+  border: 1px solid $dashboard-border;
+  background: $dashboard-card-bg;
+
   display: flex;
   align-items: center;
   justify-content: center;
+
   cursor: pointer;
+  box-shadow: $card-shadow;
   transition: 0.2s ease;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
 }
 
-.close-btn:hover {
-  background: #f3f4f6;
+.floating-close:hover {
+  background: $dashboard-border;
 }
 
-/* SUB LINKS */
+/* ================= SUB LINKS ================= */
 .sub-link {
   display: block;
   padding: 10px 14px;
-  text-decoration: none;
-  color: #111827;
+  color: $dashboard-primary;
   font-size: 14px;
-  border-radius: 10px;
+  border-radius: $card-radius;
+  cursor: pointer;
   transition: 0.2s ease;
+
+  text-decoration: none;   // 🔥 ADD THIS
 }
 
 .sub-link:hover {
-  background: #f3f4f6;
+  background: $dashboard-bg;
 }
 
 .sub-link.active {
-  background: #e5e7eb;
+  background: #e8e9f1;   // 🔥 softer fresha tone
   font-weight: 500;
 }
-body {
-  margin: 0;
+
+/* ================= CATEGORY ================= */
+.sub-divider {
+  margin: 22px 0;
+  border: none;
+  border-top: 1px solid $dashboard-border;
 }
 
-/* MAIN CONTENT */
+.sub-category {
+  font-size: 13px;
+  font-weight: 600;
+  color: $dashboard-secondary;
+  margin-bottom: 12px;
+}
+
+/* ================= MAIN ================= */
 .main {
   flex: 1;
-  padding: 24px;
-  /* ❌ margin-left: 90px; remove this */
+  margin-left: 90px;   // only sidebar space
+  padding: 20px;
+  background: $dashboard-bg;
+  min-height: calc(100vh - 70px);
+  transition: margin 0.25s ease;
 }
 
-/* ANIMATION */
-@keyframes slideIn {
-  from {
-    transform: translateX(-15px);
-    opacity: 0;
+/* When sub-sidebar open */
+.main.shifted {
+  margin-left: 410px;   // 90px sidebar + 320px subsidebar
+}
+
+/* ================= MOBILE ================= */
+@media (max-width: 480px) {
+  .brand {
+    font-size: 16px;
   }
-  to {
-    transform: translateX(0);
-    opacity: 1;
+
+  .activate-btn {
+    padding: 6px 12px;
+    font-size: 12px;
   }
 }
