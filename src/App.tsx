@@ -15,6 +15,9 @@ import JoinBusinessPage from "./features/auth/pages/JoinBusinessPage"
 import SendRequestPage from "./features/auth/pages/SendRequestPage"
 import RequestSuccessPage from "./features/auth/pages/RequestSuccessPage"
 import TeamSizePage from "./features/auth/pages/TeamSizePage"
+import DashboardPage from "./features/dashboard/pages/DashboardPage"
+import DashboardLayout from "./features/dashboard/components/DashboardLayout"
+import DailySalesPage from "./features/analytics/pages/DailySalesPage" // already in your project
 
 function App() {
   return (
@@ -35,6 +38,14 @@ function App() {
       <Route path="/send-request" element={<SendRequestPage />} />
       <Route path="/request-success" element={<RequestSuccessPage />} />
       <Route path="/team-size" element={<TeamSizePage />} />
+      
+      {/* DASHBOARD (Layout + Pages) */}
+      <Route path="/dashboard" element={<DashboardLayout />}>
+        <Route index element={<DashboardPage />} />
+        <Route path="sales/daily" element={<DailySalesPage />} />
+        {/* Later: calendar, clients, reports... */}
+        {/* <Route path="calendar" element={<CalendarPage />} /> */}
+      </Route>
     </Routes>
   )
 }

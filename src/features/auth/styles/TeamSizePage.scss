@@ -1,179 +1,20 @@
-/* ================= CONTAINER ================= */
-.team-container {
-  display: grid;
-  grid-template-columns: 40% 60%;
-  min-height: 100vh;
-  font-family: "Inter", sans-serif;
-  position: relative;
-}
-
-/* ================= PROGRESS BAR ================= */
-.progress-bar {
-  grid-column: 1 / -1;
-  height: 5px;
-  background: #e5e7eb;
-}
-
-.progress-fill {
-  width: 60%;
-  height: 100%;
-  background: #635bff;
-}
-
-/* ================= LEFT SIDE ================= */
-.team-left {
-  padding: 80px 70px;
-  background: #f9fafb;
-  position: relative;
-}
-
-/* Back Button */
-.circle-back-btn {
-  position: absolute;
-  top: 30px;
-  left: 40px;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: 0.2s ease;
-}
-
-.circle-back-btn:hover {
-  border-color: #000;
-}
-
-/* Content */
-.team-content {
-  margin-top: 80px;
-  max-width: 480px;
-}
-
-.setup-text {
-  font-size: 14px;
-  color: #6b7280;
-  margin-bottom: 10px;
-}
-
-.team-content h1 {
-  font-size: 32px;
-  font-weight: 700;
-  margin-bottom: 30px;
-}
-
-/* ================= TEAM SIZE LIST ================= */
-.team-size-list {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
 .size-card {
-  padding: 18px 22px;
   border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
-  font-size: 15px;
-  font-weight: 500;
   cursor: pointer;
-  transition: 0.2s ease;
+  transition: all 0.2s ease;
+  font-weight: 500;
 }
 
 .size-card:hover {
   border-color: #000;
+  transform: translateY(-2px);
 }
 
 .size-card.active {
   border: 2px solid #635bff;
-  background: #f9fafb;
+  background-color: #f9fafb;
 }
 
-/* ================= RIGHT SIDE ================= */
-.team-right {
-  position: relative;
-  height: 100vh;
-  overflow: hidden;
-}
-
-.team-right img {
-  width: 100%;
-  height: 100%;
+.object-fit-cover {
   object-fit: cover;
-}
-
-/* Gradient Overlay */
-.team-right::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to right,
-    rgba(255,255,255,0.9) 0%,
-    rgba(255,255,255,0.6) 25%,
-    rgba(255,255,255,0.2) 50%,
-    rgba(255,255,255,0) 80%
-  );
-}
-
-/* ================= TOP ACTIONS ================= */
-.top-actions {
-  position: absolute;
-  top: 30px;
-  right: 50px;
-  display: flex;
-  gap: 15px;
-  z-index: 10;
-}
-
-.close-btn {
-  height: 42px;
-  padding: 0 22px;
-  border-radius: 50px;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
-  cursor: pointer;
-  font-weight: 500;
-}
-
-.close-btn:hover {
-  border-color: #000;
-}
-
-.circle-continue-btn {
-  height: 42px;
-  padding: 0 26px;
-  border-radius: 50px;
-  border: none;
-  background: #000;
-  color: #fff;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-}
-
-.circle-continue-btn:disabled {
-  background: #d1d5db;
-  cursor: not-allowed;
-}
-
-/* ================= RESPONSIVE ================= */
-@media (max-width: 900px) {
-  .team-container {
-    grid-template-columns: 1fr;
-  }
-
-  .team-right {
-    display: none;
-  }
-
-  .team-left {
-    padding: 50px 25px;
-  }
 }

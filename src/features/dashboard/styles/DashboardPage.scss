@@ -1,0 +1,248 @@
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #ffffff;
+  font-family: "Inter", sans-serif;
+}
+
+/* ================= TOPBAR ================= */
+.topbar {
+  height: 89px;      /* ✅ change here */
+  width: 100%;
+
+  padding: 0 24px;   
+
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.brand {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+/* RIGHT SIDE CONTAINER */
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+/* ICON GROUP */
+.top-icons {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.activate-btn {
+  background: #ffcc00;   /* proper fresha yellow */
+  color: #000;
+  font-weight: 400;
+  padding: 8px 20px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  transition: 0.2s;
+}
+
+.activate-btn:hover {
+  background: #e6b800;
+}
+
+/* NOTIFICATION */
+.notification {
+  position: relative;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+/* BADGE */
+.badge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  padding: 2px 5px;
+  border-radius: 50%;
+}
+
+.profile {
+  width: 34px;
+  height: 34px;
+  background: #e5e7eb;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
+/* ================= BODY ================= */
+.dashboard-body {
+  display: flex;
+  flex: 1;
+  position: relative;
+}
+
+/* ================= ICON SIDEBAR ================= */
+.sidebar {
+  width: 90px;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 20px;
+}
+
+/* NAV BUTTON */
+.nav-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  margin: 10px 0;
+  cursor: pointer;
+  transition: 0.2s;
+  background: transparent;
+  position: relative;
+}
+
+.nav-btn:hover {
+  background: #111827;
+  color: #fff;
+}
+
+/* ROUTE ACTIVE (Home, Calendar etc) */
+.nav-btn.route-active {
+  background: #4f46e5;
+  color: #fff;
+}
+
+.nav-btn.route-active svg {
+  color: #fff;
+}
+
+/* SUBSIDEBAR OPEN ACTIVE (Sales, Clients etc) */
+.nav-btn.menu-active {
+  background: #1f2937;
+  color: #fff;
+}
+
+.nav-btn.menu-active svg {
+  color: #fff;
+}
+
+/* ================= TOOLTIP ================= */
+.nav-label {
+  position: absolute;
+  left: 70px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #4f46e5;
+  color: white;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: 0.2s;
+  pointer-events: none;
+}
+
+.nav-btn:hover .nav-label {
+  opacity: 1;
+}
+
+/* ================= SUB SIDEBAR ================= */
+.sub-sidebar {
+  position: absolute;
+  left: 90px;
+  top: 0;
+  width: 280px;
+  height: 100%;
+  background: #ffffff;
+  border-right: 1px solid #e5e7eb;
+  padding: 24px;
+  animation: slideIn 0.2s ease-out;
+  z-index: 10;
+}
+
+.sub-header {
+  margin-bottom: 24px;
+}
+
+/* CLOSE BUTTON */
+.close-btn {
+  position: absolute;
+  top: 22px;
+  right: -18px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: 0.2s ease;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+}
+
+.close-btn:hover {
+  background: #f3f4f6;
+}
+
+/* SUB LINKS */
+.sub-link {
+  display: block;
+  padding: 10px 14px;
+  text-decoration: none;
+  color: #111827;
+  font-size: 14px;
+  border-radius: 10px;
+  transition: 0.2s ease;
+}
+
+.sub-link:hover {
+  background: #f3f4f6;
+}
+
+.sub-link.active {
+  background: #e5e7eb;
+  font-weight: 500;
+}
+body {
+  margin: 0;
+}
+
+/* MAIN CONTENT */
+.main {
+  flex: 1;
+  padding: 24px;
+  /* ❌ margin-left: 90px; remove this */
+}
+
+/* ANIMATION */
+@keyframes slideIn {
+  from {
+    transform: translateX(-15px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}

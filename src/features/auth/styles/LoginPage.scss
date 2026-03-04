@@ -1,233 +1,64 @@
-/* ===== CONTAINER ===== */
-.login-container {
-  display: grid;
-  grid-template-columns: 480px 1fr;
-  height: 100vh;
-  background: #ffffff;
-  font-family: "Inter", sans-serif;
+/* Page background */
+.login-page-bg {
+  background: #f3f4f6;
 }
 
-/* ===== LEFT SIDE ===== */
-.login-left {
-  padding: 80px 60px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+/* Card polishing */
+.login-card {
+  border-radius: 22px !important;
 }
 
-/* Brand */
-.brand {
-  font-size: 22px;
-  font-weight: 700;
-  margin-bottom: 40px;
-}
-
-/* Title */
-.title {
-  font-size: 32px;
-  font-weight: 700;
-  margin-bottom: 8px;
-  color: #111;
-}
-
-/* Subtitle */
-.subtitle {
-  color: #666;
-  margin-bottom: 28px;
-  font-size: 15px;
-}
-
-/* ===== INPUT ===== */
-.input {
+/* Inputs size */
+.login-card .form-control {
   height: 52px;
-  border: 1px solid #d1d5db;
-  border-radius: 10px;
-  padding: 0 16px;
-  font-size: 15px;
-  margin-bottom: 18px;
-  transition: 0.25s;
-  background: #fff;
-}
-
-.input:focus {
-  outline: none;
-  border-color: #000;
-  box-shadow: 0 0 0 3px rgba(0,0,0,0.08);
-}
-
-/* 🔴 INVALID INPUT */
-.input.error-border {
-  border-color: #e11d48;
-  box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.15);
-}
-
-/* Error message */
-.error {
-  color: #e11d48;
-  font-size: 13px;
-  margin-bottom: 10px;
-  animation: fadeIn 0.25s ease;
-}
-
-/* Server status */
-.server {
-  color: #666;
-  font-size: 13px;
-  margin-bottom: 10px;
-}
-
-/* ===== CONTINUE BUTTON ===== */
-.continue-btn {
-  height: 52px;
-  background: #000;
-  color: white;
-  border: none;
-  border-radius: 28px;
-  font-weight: 600;
-  margin-bottom: 12px; /* adjusted for register text */
-  cursor: pointer;
-  transition: 0.25s;
-}
-
-.continue-btn:hover {
-  transform: translateY(-1px);
-  background: #111;
-}
-
-/* 🔒 DISABLED BUTTON */
-.continue-btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-  transform: none;
-  background: #333;
-}
-
-/* ===== REGISTER TEXT ===== */
-.register-text {
-  margin-bottom: 20px;
+  border-radius: 14px !important;
+  border: 1px solid #e5e7eb;
   font-size: 14px;
-  text-align: center;
-  color: #666;
 }
 
+/* ✅ Remove focus effect (no black/blue glow) */
+.login-card .form-control:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: #e5e7eb !important;
+}
+
+/* Register link cursor */
 .register-link {
-  color: #111;
-  font-weight: 600;
   cursor: pointer;
-  transition: 0.3s;
 }
 
-.register-link:hover {
-  text-decoration: underline;
-}
-
-/* ===== DIVIDER ===== */
-.divider {
-  display: flex;
-  align-items: center;
-  margin: 20px 0;
-}
-
-.divider span {
-  margin: 0 12px;
-  color: #888;
-  font-size: 13px;
-}
-
-.divider::before,
-.divider::after {
-  content: "";
-  flex: 1;
+/* Divider */
+.divider-line {
   height: 1px;
-  background: #eee;
+  background: #e5e7eb;
 }
 
-/* ===== SOCIAL BUTTONS ===== */
-.social-btn {
-  height: 52px;
-  border-radius: 26px;
-  border: 1px solid #ddd;
-  background: #fff;
-  margin-bottom: 12px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding-left: 20px;
-  cursor: pointer;
-  transition: 0.2s;
+/* Google button */
+.google-btn {
+  height: 50px;
+  font-weight: 600;
 }
 
-.social-btn:hover {
-  border-color: #000;
-  background: #f9f9f9;
-}
-
-.icon {
-  font-size: 20px;
-}
-
-/* ===== GOOGLE BUTTON FIX ===== */
-.google-real {
-  margin-bottom: 12px;
-}
-
-.google-real div {
-  width: 100% !important;
-}
-
-/* ===== RIGHT SIDE IMAGE ===== */
+/* Right image */
 .login-right {
-  position: relative;
-  height: 100%;
+  overflow: hidden;
 }
 
 .right-image {
-  width: 100%;
-  height: 100%;
   object-fit: cover;
   display: block;
 }
 
 /* Gradient overlay */
-.login-right::after {
-  content: "";
+.right-overlay {
   position: absolute;
   inset: 0;
   background: linear-gradient(
     to right,
-    rgba(255,255,255,0.92) 0%,
-    rgba(255,255,255,0.75) 20%,
-    rgba(255,255,255,0.25) 45%,
-    rgba(255,255,255,0.05) 65%,
-    rgba(255,255,255,0) 80%
+    rgba(248, 249, 250, 0.97) 0%,
+    rgba(248, 249, 250, 0.75) 28%,
+    rgba(248, 249, 250, 0.25) 55%,
+    rgba(248, 249, 250, 0) 80%
   );
-}
-
-/* ===== ANIMATIONS ===== */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* ===== RESPONSIVE ===== */
-@media (max-width: 900px) {
-
-  .login-container {
-    grid-template-columns: 1fr;
-  }
-
-  .login-right {
-    display: none;
-  }
-
-  .login-left {
-    padding: 40px 24px;
-  }
 }

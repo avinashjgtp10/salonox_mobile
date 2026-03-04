@@ -1,0 +1,243 @@
+import { Outlet, NavLink } from "react-router-dom"
+import { useState } from "react"
+import "../styles/DashboardPage.scss"
+
+import OnlineBookingSubSidebar from "./OnlineBookingSubSidebar"
+import CatalogSubSidebar from "./CatalogSubSidebar"
+import SalesSubSidebar from "./SalesSubSidebar"
+import ClientsSubSidebar from "./ClientsSubSidebar"
+import MarketingSubSidebar from "./MarketingSubSidebar"
+import TeamSubSidebar from "./TeamSubSidebar"
+
+import {
+  House,
+  Calendar,
+  Tag,
+  EmojiSmile,
+  Book,
+  Person,
+  Megaphone,
+  People,
+  GraphUpArrow,
+  Grid3x3Gap,
+  Gear,
+  QuestionCircle,
+  Search,
+  BarChart,
+  Bell
+} from "react-bootstrap-icons"
+
+export default function DashboardLayout() {
+
+  const [openMenu, setOpenMenu] = useState<string | null>(null)
+
+  return (
+    <div className="dashboard">
+
+      
+      {/* ================= BODY ================= */}
+      <div className="dashboard-body">
+
+        {/* ================= SIDEBAR ================= */}
+        <aside className="sidebar">
+
+          {/* HOME */}
+          <NavLink
+            to="/dashboard"
+            end
+            className={({ isActive }) =>
+              isActive ? "nav-btn route-active" : "nav-btn"
+            }
+            onClick={() => setOpenMenu(null)}
+          >
+            <House size={28} />
+            <span className="nav-label">Home</span>
+          </NavLink>
+
+          {/* CALENDAR */}
+          <NavLink
+            to="calendar"
+            className={({ isActive }) =>
+              isActive ? "nav-btn route-active" : "nav-btn"
+            }
+            onClick={() => setOpenMenu(null)}
+          >
+            <Calendar size={28} />
+            <span className="nav-label">Calendar</span>
+          </NavLink>
+
+          {/* SALES */}
+          <div
+            className={`nav-btn ${openMenu === "sales" ? "menu-active" : ""}`}
+            onClick={() =>
+              setOpenMenu(openMenu === "sales" ? null : "sales")
+            }
+          >
+            <Tag size={28} />
+            <span className="nav-label">Sales</span>
+          </div>
+
+          {/* CLIENTS */}
+          <div
+            className={`nav-btn ${openMenu === "clients" ? "menu-active" : ""}`}
+            onClick={() =>
+              setOpenMenu(openMenu === "clients" ? null : "clients")
+            }
+          >
+            <EmojiSmile size={28} />
+            <span className="nav-label">Clients</span>
+          </div>
+
+          {/* CATALOG */}
+          <div
+            className={`nav-btn ${openMenu === "catalog" ? "menu-active" : ""}`}
+            onClick={() =>
+              setOpenMenu(openMenu === "catalog" ? null : "catalog")
+            }
+          >
+            <Book size={28} />
+            <span className="nav-label">Catalog</span>
+          </div>
+
+          {/* ONLINE BOOKING */}
+          <div
+            className={`nav-btn ${openMenu === "onlineBooking" ? "menu-active" : ""}`}
+            onClick={() =>
+              setOpenMenu(
+                openMenu === "onlineBooking" ? null : "onlineBooking"
+              )
+            }
+          >
+            <Person size={28} />
+            <span className="nav-label">Online booking</span>
+          </div>
+
+          {/* MARKETING */}
+          <div
+            className={`nav-btn ${openMenu === "marketing" ? "menu-active" : ""}`}
+            onClick={() =>
+              setOpenMenu(openMenu === "marketing" ? null : "marketing")
+            }
+          >
+            <Megaphone size={28} />
+            <span className="nav-label">Marketing</span>
+          </div>
+
+          {/* TEAM */}
+          <div
+            className={`nav-btn ${openMenu === "team" ? "menu-active" : ""}`}
+            onClick={() =>
+              setOpenMenu(openMenu === "team" ? null : "team")
+            }
+          >
+            <People size={28} />
+            <span className="nav-label">Team</span>
+          </div>
+
+          {/* ANALYTICS */}
+          <NavLink
+            to="analytics"
+            className={({ isActive }) =>
+              isActive ? "nav-btn route-active" : "nav-btn"
+            }
+            onClick={() => setOpenMenu(null)}
+          >
+            <GraphUpArrow size={28} />
+            <span className="nav-label">Analytics</span>
+          </NavLink>
+
+          {/* APPS */}
+          <NavLink
+            to="apps"
+            className={({ isActive }) =>
+              isActive ? "nav-btn route-active" : "nav-btn"
+            }
+            onClick={() => setOpenMenu(null)}
+          >
+            <Grid3x3Gap size={28} />
+            <span className="nav-label">Apps</span>
+          </NavLink>
+
+          <div className="nav-spacer" />
+
+          {/* SETTINGS */}
+          <NavLink
+            to="settings"
+            className={({ isActive }) =>
+              isActive ? "nav-btn route-active" : "nav-btn"
+            }
+            onClick={() => setOpenMenu(null)}
+          >
+            <Gear size={28} />
+            <span className="nav-label">Settings</span>
+          </NavLink>
+
+          {/* HELP */}
+          <NavLink
+            to="help"
+            className={({ isActive }) =>
+              isActive ? "nav-btn route-active" : "nav-btn"
+            }
+            onClick={() => setOpenMenu(null)}
+          >
+            <QuestionCircle size={28} />
+            <span className="nav-label">Help</span>
+          </NavLink>
+
+        </aside>
+          {/* ================= TOPBAR ================= */}
+    <div className="topbar">
+      <h2 className="brand">fresha</h2>
+
+      <div className="topbar-right">
+        <button className="activate-btn">
+          Activate plan
+        </button>
+
+        <Search size={20} />
+        <BarChart size={20} />
+
+        <div className="notification">
+          <Bell size={20} />
+          <span className="badge">3</span>
+        </div>
+
+        <div className="profile">SJ</div>
+      </div>
+    </div>
+
+        {/* ================= SUB SIDEBARS ================= */}
+
+        {openMenu === "sales" && (
+          <SalesSubSidebar onClose={() => setOpenMenu(null)} />
+        )}
+
+        {openMenu === "clients" && (
+          <ClientsSubSidebar onClose={() => setOpenMenu(null)} />
+        )}
+
+        {openMenu === "catalog" && (
+          <CatalogSubSidebar onClose={() => setOpenMenu(null)} />
+        )}
+
+        {openMenu === "onlineBooking" && (
+          <OnlineBookingSubSidebar onClose={() => setOpenMenu(null)} />
+        )}
+
+        {openMenu === "marketing" && (
+          <MarketingSubSidebar onClose={() => setOpenMenu(null)} />
+        )}
+
+        {openMenu === "team" && (
+          <TeamSubSidebar onClose={() => setOpenMenu(null)} />
+        )}
+
+        {/* ================= MAIN CONTENT ================= */}
+        <main className="main">
+          <Outlet />
+        </main>
+
+      </div>
+    </div>
+  )
+}

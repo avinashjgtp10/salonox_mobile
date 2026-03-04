@@ -1,8 +1,9 @@
+import "bootstrap/dist/css/bootstrap.min.css"
 import "../styles/JoinBusinessPage.scss"
 import { useNavigate } from "react-router-dom"
 import salonImg from "../../../assets/images/salon.jpg"
 import { useState, useEffect } from "react"
-import { FiSearch, FiX } from "react-icons/fi"
+import { FiSearch, FiArrowLeft } from "react-icons/fi"
 
 const businesses = [
   { id: 1, name: "Pink Hair Design", location: "London" },
@@ -18,118 +19,113 @@ export default function JoinBusinessPage() {
   const [results, setResults] = useState<typeof businesses>([])
   const [selected, setSelected] = useState<any>(null)
 
-  // 🔥 Debounced Search
   useEffect(() => {
-    const delay = setTimeout(() => {
-      if (search.trim() === "") {
-        setResults([])
-      } else {
-        const filtered = businesses.filter((biz) =>
-          biz.name.toLowerCase().includes(search.toLowerCase())
-        )
-        setResults(filtered)
-      }
-    }, 400)
-
-    return () => clearTimeout(delay)
+    if (search.trim() === "") {
+      setResults([])
+    } else {
+      const filtered = businesses.filter((biz) =>
+        biz.name.toLowerCase().includes(search.toLowerCase())
+      )
+      setResults(filtered)
+    }
   }, [search])
 
   return (
-    <div className="join-container">
+    <div className="container-fluid p-0 join-page">
 
-      {/* 🔥 TOP RIGHT BUTTONS */}
-      <div className="top-header">
+      {/* 🔵 PROGRESS BAR */}
+      <div className="progress rounded-0 progress-top">
+        <div className="progress-bar progress-fill"></div>
+      </div>
 
-        {/* Close → Dashboard */}
+      {/* 🔹 TOP RIGHT BUTTONS */}
+      <div className="top-buttons d-flex gap-3">
         <button
-          className="close-btn"
+          className="btn btn-outline-secondary rounded-pill"
           onClick={() => navigate("/dashboard")}
         >
           Close
         </button>
 
-        {/* Continue → Dashboard with selected business */}
         <button
-          className="continue-top-btn"
+          className="btn btn-dark rounded-pill"
           disabled={!selected}
-          onClick={() => {
-            if (selected) {
-              navigate("/send-request", { state: { business: selected } })
-            }
-          }}
         >
           Continue →
         </button>
       </div>
 
-      {/* LEFT SECTION */}
-      <div className="join-left">
-        <div className="join-content">
+      <div className="row g-0 min-vh-100">
 
-          <div className="back-btn" onClick={() => navigate(-1)}>
-            ← Back
+        {/* LEFT SIDE */}
+        <div className="col-lg-5 col-12 left-panel d-flex flex-column">
+
+          {/* Back Circle */}
+          <div className="p-4">
+            <div className="back-circle" onClick={() => navigate(-1)}>
+              <FiArrowLeft />
+            </div>
           </div>
 
-          <h1>Search for a business</h1>
+          {/* Content */}
+          <div className="flex-grow-1 d-flex align-items-start justify-content-center pt-4">
+            <div className="content-wrapper">
 
-          <p className="sub-text">
-            Find a business to request login access to their workspace
-          </p>
+              <h2 className="page-heading">
+                Search for a business
+              </h2>
 
-          {/* SEARCH */}
-          <div className="search-box">
-            <FiSearch className="search-icon" />
-            <input
-              type="text"
-              placeholder="Find a business"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+              <p className="text-muted mb-4">
+                Find a business to request login access to their workspace
+              </p>
 
-          {/* DROPDOWN */}
-          {results.length > 0 && (
-            <div className="results-dropdown">
-
-              <div className="dropdown-header">
-                <span>Results</span>
-                <FiX onClick={() => setResults([])} />
+              <div className="input-group mb-4">
+                <span className="input-group-text bg-white">
+                  <FiSearch />
+                </span>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Find a business in India"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
               </div>
 
-              {results.map((biz) => (
-                <div
-                  key={biz.id}
-                  className={`result-card ${
-                    selected?.id === biz.id ? "active" : ""
-                  }`}
-                  onClick={() => setSelected(biz)}
-                >
-                  <div>
-                    <h4>{biz.name}</h4>
-                    <p>{biz.location}</p>
-                  </div>
-
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setSelected(biz)
-                    }}
-                  >
-                    Request Access
-                  </button>
+              {results.length > 0 && (
+                <div className="list-group custom-list">
+                  {results.map((biz) => (
+                    <button
+                      key={biz.id}
+                      className={`list-group-item list-group-item-action d-flex justify-content-between align-items-center
+                      ${selected?.id === biz.id ? "active" : ""}`}
+                      onClick={() => setSelected(biz)}
+                    >
+                      <div>
+                        <div className="fw-semibold">{biz.name}</div>
+                        <small>{biz.location}</small>
+                      </div>
+                      <span>→</span>
+                    </button>
+                  ))}
                 </div>
-              ))}
+              )}
+
             </div>
-          )}
+          </div>
 
         </div>
-      </div>
 
-      {/* RIGHT IMAGE */}
-      <div className="join-right">
-        <img src={salonImg} alt="Join Business" />
-      </div>
+        {/* RIGHT IMAGE */}
+        <div className="col-lg-7 d-none d-lg-block p-0">
+          <img
+            src={salonImg}
+            alt="Join Business"
+            className="right-image"
+          />
+        </div>
 
+      </div>
     </div>
   )
 }
