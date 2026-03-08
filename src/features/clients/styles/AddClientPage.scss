@@ -1,0 +1,143 @@
+/* ================= PAGE BACKGROUND ================= */
+
+.add-client-page {
+  background: #f8f9fb;
+  min-height: 100vh;
+}
+
+/* ================= HEADER ================= */
+
+.add-client-header {
+  border-bottom: 1px solid #eee;
+  padding-bottom: 16px;
+
+  h2 {
+    font-size: 24px;
+    font-weight: 700;
+    color: #111827;
+  }
+}
+
+/* ================= BUTTONS ================= */
+
+.btn-dark {
+  background: #111827;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 8px;
+}
+
+.btn-outline-secondary {
+  border-radius: 8px;
+}
+
+/* ================= SIDEBAR ================= */
+
+.client-sidebar {
+  background: #ffffff;
+  border: 1px solid #eee;
+  border-radius: 10px;
+}
+
+.client-sidebar .list-group-item {
+  border: none;
+  font-size: 14px;
+  padding: 10px 12px;
+}
+
+.client-sidebar .list-group-item.active {
+  background: #eef2ff;
+  color: #4338ca;
+  font-weight: 600;
+  border-radius: 6px;
+}
+
+/* ================= FORM SECTION ================= */
+
+.client-form-section {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  border: 1px solid #eee;
+}
+
+/* ================= SECTION TITLE ================= */
+
+.section-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.section-subtitle {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+/* ================= FORM INPUT ================= */
+
+.form-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.form-control,
+.form-select {
+  border-radius: 8px;
+  height: 40px;
+  font-size: 14px;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: #6366f1;
+  box-shadow: none;
+}
+
+/* ================= VALIDATION ================= */
+
+.is-invalid {
+  border-color: #ef4444 !important;
+}
+
+.is-invalid:focus {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 0.2rem rgba(239, 68, 68, 0.25) !important;
+}
+
+.invalid-feedback {
+  display: block;
+  font-size: 12px;
+  color: #ef4444;
+  margin-top: 4px;
+}
+
+.text-danger-dot {
+  color: #ef4444;
+  font-size: 8px;
+  margin-left: auto;
+}
+
+/* ================= ADDITIONAL INFO ================= */
+
+.additional-info {
+  margin-top: 40px;
+}
+
+/* ================= CARD STYLE ================= */
+
+.card {
+  border-radius: 10px;
+  border: 1px solid #eee;
+}
+
+/* ================= RESPONSIVE ================= */
+
+@media (max-width: 768px) {
+
+  .client-sidebar {
+    margin-bottom: 20px;
+  }
+
+}

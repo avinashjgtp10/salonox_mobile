@@ -1,0 +1,88 @@
+/* PAGE WRAPPER */
+
+.container-fluid{
+  background: #ffffff;
+}
+
+
+/* SIDEBAR CARD */
+
+.card{
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+
+/* SIDEBAR LIST */
+
+.list-group-item{
+  border: none;
+  font-size: 14px;
+  padding: 10px 14px;
+}
+
+.list-group-item.active{
+  background: #eef2ff;
+  color: #111827;
+  font-weight: 500;
+}
+
+
+/* RIGHT SECTION */
+
+.settings-section{
+  max-width: 620px;
+}
+
+
+/* HEADINGS */
+
+.settings-section h6{
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+
+
+/* DESCRIPTION TEXT */
+
+.settings-section p{
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+
+/* CHECKBOX */
+
+.form-check{
+  margin-bottom: 12px;
+}
+
+.form-check-input{
+  cursor: pointer;
+}
+
+.form-check-label{
+  font-size: 14px;
+  cursor: pointer;
+}
+
+
+/* SEPARATOR */
+
+hr{
+  margin: 28px 0;
+  border-color: #e5e7eb;
+}
+
+
+/* HEADER BUTTONS */
+
+.btn-dark{
+  padding: 6px 16px;
+  border-radius: 8px;
+}
+
+.btn-outline-secondary{
+  padding: 6px 16px;
+  border-radius: 8px;
+}

@@ -1,0 +1,236 @@
+import { useMemo } from "react"
+import "../../styles/ReceiptDrawer.scss"
+
+interface Props {
+  open: boolean
+  services: any[]
+  total: number
+  clientName: string
+  clientMobile: string
+  paymentMethod: string
+  onClose: () => void
+}
+
+export default function ReceiptDrawer({
+  open,
+  services,
+  total,
+  clientName,
+  clientMobile,
+  paymentMethod,
+  onClose,
+}: Props) {
+
+  if (!open) return null
+
+  const receiptId = useMemo(() => {
+    return "RCPT-" + Math.floor(Math.random() * 100000)
+  }, [])
+
+  const now = new Date()
+
+  const handlePrint = () => {
+    window.print()
+  }
+
+  const handleWhatsApp = () => {
+
+    const message = `
+Receipt: ${receiptId}
+Client: ${clientName}
+Mobile: ${clientMobile}
+Date: ${now.toLocaleString()}
+Total Paid: ₹${total}
+Payment: ${paymentMethod}
+`
+
+    if (clientMobile && clientMobile !== "N/A") {
+
+      window.open(
+        `https://wa.me/91${clientMobile}?text=${encodeURIComponent(message)}`
+      )
+
+    } else {
+
+      window.open(
+        `https://wa.me/?text=${encodeURIComponent(message)}`
+      )
+
+    }
+
+  }
+
+  const handleDownload = () => {
+
+    const blob = new Blob(
+      [
+        `Receipt ID: ${receiptId}
+Client: ${clientName}
+Mobile: ${clientMobile}
+Date: ${now.toLocaleString()}
+Payment Method: ${paymentMethod}
+
+Services:
+${services.map((s) => `${s.name} - ₹${s.price}`).join("\n")}
+
+Total Paid: ₹${total}
+        `,
+      ],
+      { type: "text/plain" }
+    )
+
+    const link = document.createElement("a")
+
+    link.href = URL.createObjectURL(blob)
+
+    link.download = `${receiptId}.txt`
+
+    link.click()
+
+  }
+
+  return (
+    <>
+      {/* Overlay */}
+      <div
+        className="receipt-overlay"
+        onClick={onClose}
+      />
+
+      {/* Drawer */}
+      <div className="receipt-drawer">
+
+        {/* HEADER */}
+        <div className="drawer-header">
+
+          <h5 className="fw-semibold mb-0">
+            Payment Successful 🎉
+          </h5>
+
+        </div>
+
+        {/* BODY */}
+        <div id="print-area" className="drawer-body">
+
+          <div className="receipt-row">
+
+            <small className="text-muted">
+              Receipt ID
+            </small>
+
+            <div className="fw-semibold">
+              {receiptId}
+            </div>
+
+          </div>
+
+          <div className="receipt-row">
+
+            <small className="text-muted">
+              Client Name
+            </small>
+
+            <div className="fw-semibold">
+              {clientName || "Walk-in"}
+            </div>
+
+          </div>
+
+          <div className="receipt-row">
+
+            <small className="text-muted">
+              Mobile
+            </small>
+
+            <div className="fw-semibold">
+              {clientMobile || "N/A"}
+            </div>
+
+          </div>
+
+          <div className="receipt-row">
+
+            <small className="text-muted">
+              Date & Time
+            </small>
+
+            <div className="fw-semibold">
+              {now.toLocaleString()}
+            </div>
+
+          </div>
+
+          {/* SERVICES */}
+          <div className="services-list">
+
+            {services.map((s, i) => (
+
+              <div
+                key={i}
+                className="service-row"
+              >
+
+                <span>{s.name}</span>
+
+                <span>₹{s.price}</span>
+
+              </div>
+
+            ))}
+
+          </div>
+
+          {/* TOTAL */}
+          <div className="total-row">
+
+            <span>Total Paid</span>
+
+            <span>₹{total}</span>
+
+          </div>
+
+          <div className="payment-method text-muted small">
+
+            Payment Method: {paymentMethod}
+
+          </div>
+
+        </div>
+
+        {/* FOOTER */}
+        <div className="drawer-footer no-print">
+
+          <button
+            className="btn btn-outline-dark w-100 mb-2"
+            onClick={handleDownload}
+          >
+            Download Receipt
+          </button>
+
+          <button
+            className="btn btn-outline-dark w-100 mb-2"
+            onClick={handlePrint}
+          >
+            Print
+          </button>
+
+          <button
+            className="btn btn-outline-dark w-100 mb-2"
+            onClick={handleWhatsApp}
+          >
+            Share via WhatsApp
+          </button>
+
+          <button
+            className="btn btn-dark w-100"
+            onClick={onClose}
+          >
+            Done
+          </button>
+
+        </div>
+
+      </div>
+    </>
+  )
+}

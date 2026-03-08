@@ -10,6 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fullcalendar/interaction": "^6.1.20",
+    "@fullcalendar/react": "^6.1.20",
+    "@fullcalendar/resource-timegrid": "^6.1.20",
     "@reduxjs/toolkit": "^2.11.2",
     "axios": "^1.13.5",
     "bootstrap": "^5.3.8",
@@ -17,7 +20,9 @@
     "country-state-city": "^3.2.1",
     "date-fns": "^4.1.0",
     "jwt-decode": "^4.0.0",
+    "lucide-react": "^0.577.0",
     "react": "^19.2.0",
+    "react-bootstrap": "^2.10.10",
     "react-bootstrap-icons": "^1.11.6",
     "react-date-range": "^2.0.1",
     "react-dom": "^19.2.0",

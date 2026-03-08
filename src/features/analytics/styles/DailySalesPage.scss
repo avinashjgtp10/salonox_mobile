@@ -21,17 +21,24 @@
   align-items: center;
   margin-bottom: 28px;
 
+  /* Common style */
+  h2,
+  p {
+    margin: 0;
+  }
+
+  /* Heading */
   h2 {
     font-size: 26px;
     font-weight: 700;
-    margin-bottom: 6px;
     color: #111827;
+    margin-bottom: 6px;
   }
 
+  /* Description */
   p {
     font-size: 14px;
     color: #6b7280;
-    margin: 0;
   }
 }
 
