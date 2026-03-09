@@ -1,0 +1,131 @@
+.appointments-page {
+  background: #f8f9fb;
+  min-height: 100vh;
+}
+
+.fresha-calendar-popup {
+  position: absolute;
+  top: 70px;
+  left: 0;
+  width: 720px;
+  background: white;
+  border-radius: 12px;
+  z-index: 1000;
+}
+
+/* Custom Select */
+.custom-select-box {
+  border: 1px solid #ddd;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  background: white;
+  width: 250px;
+}
+
+.custom-dropdown {
+  position: absolute;
+  top: 60px;
+  left: 20px;
+  width: 250px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  z-index: 2000;
+}
+
+.dropdown-item-custom {
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.dropdown-item-custom:hover {
+  background: #f3f3f3;
+}
+
+.rdrStartEdge,
+.rdrEndEdge {
+  background: black !important;
+}
+
+.rdrInRange {
+  background: #f1f1f1 !important;
+}
+
+.btn-dark {
+  background: black;
+  border: none;
+}
+
+.no-appointments {
+  padding: 60px 0;
+  font-size: 15px;
+  color: #adb5bd;
+}
+/* ===== Calendar Popup Improved ===== */
+.fresha-calendar-popup {
+  position: absolute;
+  top: 70px;
+  left: 0;
+  width: 760px; /* slightly wider like Fresha */
+  background: white;
+  border-radius: 16px;
+  z-index: 1000;
+  padding: 0;
+}
+
+/* Month Name Bold */
+.rdrMonthName {
+  font-weight: 600 !important;
+  font-size: 15px !important;
+  color: #111 !important;
+  text-align: center;
+}
+
+/* Month + Year wrapper spacing */
+.rdrMonthAndYearWrapper {
+  padding: 0 20px;
+}
+
+/* Weekday style */
+.rdrWeekDay {
+  font-size: 12px;
+  color: #9aa0a6;
+  font-weight: 500;
+}
+
+/* Day number */
+.rdrDayNumber span {
+  font-size: 14px;
+}
+
+/* Selected date circle */
+.rdrStartEdge,
+.rdrEndEdge {
+  background: black !important;
+  border-radius: 50% !important;
+}
+
+/* In range color */
+.rdrInRange {
+  background: #f1f1f1 !important;
+}
+
+/* Remove blue focus border */
+.rdrDay:focus {
+  outline: none;
+}
+
+/* Footer buttons */
+.btn-dark {
+  background: black;
+  border: none;
+  border-radius: 30px;
+  padding: 8px 22px;
+}
+
+.btn-light {
+  border-radius: 30px;
+  padding: 8px 22px;
+}

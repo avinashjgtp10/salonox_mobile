@@ -1,407 +1,344 @@
+import "bootstrap/dist/css/bootstrap.min.css"
 import "../styles/RegisterPage.scss"
 import { useState } from "react"
-import { useNavigate, Link } from "react-router-dom"
+import salonImg from "../../../assets/images/salon.jpg"
+import { useNavigate } from "react-router-dom"
 import PhoneInput from "react-phone-input-2"
 import "react-phone-input-2/lib/style.css"
-import { Country } from "country-state-city"
-import salonImg from "../../../assets/images/salon.jpg"
-
-import axios from "axios"
+import api from "../../../services/api/axios"
 import { useDispatch } from "react-redux"
 import { login } from "../../../store/authSlice"
 import { jwtDecode } from "jwt-decode"
+import { Country } from "country-state-city"
 
 export default function RegisterPage() {
 
-  const navigate = useNavigate()
-  const dispatch = useDispatch()
-  const [otp, setOtp] = useState("")
-  const [otpSent, setOtpSent] = useState(false)
-  const [otpVerified, setOtpVerified] = useState(false)
-  const [otpError, setOtpError] = useState("")
-  // ✅ MOBILE OTP STATES
- const [mobileOtp, setMobileOtp] = useState("")
- const [mobileOtpSent, setMobileOtpSent] = useState(false)
- const [mobileOtpVerified, setMobileOtpVerified] = useState(false)
- const [mobileOtpError, setMobileOtpError] = useState("")
+  const navigate = useNavigate()
+  const dispatch = useDispatch()
 
-  const [form, setForm] = useState({
- 
-    fullName: "",
-    businessName: "",
-    address: "",
-    email: "",
-    country: "",
-    countryCode: "",
-    phone: "",
-    password: "",
-    terms: false
-  })
+  const countries = Country.getAllCountries()
 
-  const [errors, setErrors] = useState<any>({})
-  const [isSubmitted, setIsSubmitted] = useState(false)
+  const [errors, setErrors] = useState<any>({})
+  const [loading, setLoading] = useState(false)
 
-  const handleChange = (e: any) => {
-    const { name, value, type, checked } = e.target
-    setForm({
-      ...form,
-      [name]: type === "checkbox" ? checked : value
-    })
-  }
+  const [form, setForm] = useState({
+    fullName: "",
+    businessName: "",
+    address: "",
+    email: "",
+    country: "",
+    phone: "",
+    password: "",
+    terms: false
+  })
 
-  const hasLength = form.password.length >= 8
-  const hasNumber = /\d/.test(form.password)
-  const hasLetter = /[A-Za-z]/.test(form.password)
+  const [emailOtp, setEmailOtp] = useState("")
+  const [emailOtpSent, setEmailOtpSent] = useState(false)
+  const [emailOtpVerified, setEmailOtpVerified] = useState(false)
+  const [verifyingOtp, setVerifyingOtp] = useState(false)
 
-  const validate = () => {
-    const newErrors: any = {}
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  const [mobileOtp, setMobileOtp] = useState("")
+  const [mobileOtpSent, setMobileOtpSent] = useState(false)
+  const [mobileOtpVerified, setMobileOtpVerified] = useState(false)
 
-    if (!form.fullName.trim())
-      newErrors.fullName = "Full Name is required"
+  const handleChange = (e: any) => {
+    const { name, value, type, checked } = e.target
+    setForm(prev => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value
+    }))
+  }
 
-    if (!form.businessName.trim())
-      newErrors.businessName = "Business Name is required"
+  /* ================= VALIDATION ================= */
 
-    if (!form.address.trim())
-      newErrors.address = "Address is required"
+  const validate = () => {
 
-    if (!form.email.trim())
-      newErrors.email = "Email is required"
-    else if (!emailRegex.test(form.email))
-      newErrors.email = "Invalid email format"
+    const newErrors: any = {}
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-    if (!form.country)
-      newErrors.country = "Country is required"
+    if (!form.fullName.trim())
+      newErrors.fullName = "Full Name is required"
 
-    if (!form.phone)
-      newErrors.phone = "Mobile number is required"
+    if (!form.businessName.trim())
+      newErrors.businessName = "Business Name is required"
 
-    if (!form.password)
-      newErrors.password = "Password is required"
-    else if (!hasLength || !hasNumber || !hasLetter)
-      newErrors.password =
-        "Password must be 8+ characters and include letter & number"
+    if (!form.address.trim())
+      newErrors.address = "Address is required"
 
-    if (!form.terms)
-      newErrors.terms = "You must accept Terms & Conditions"
+    if (!form.email.trim())
+      newErrors.email = "Email is required"
+    else if (!emailRegex.test(form.email))
+      newErrors.email = "Invalid email format"
 
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
-   const handleSendOtp = async () => {
-  if (!form.email) {
-    setErrors({ ...errors, email: "Enter email first" })
-    return
-  }
+    if (!form.password ||
+        form.password.length < 8 ||
+        !/[A-Za-z]/.test(form.password) ||
+        !/\d/.test(form.password))
+      newErrors.password =
+        "Password must be 8+ characters with letter & number"
 
-  try {
-    setOtpSent(true)
-    setOtpError("")
-    setOtpVerified(false)
-    alert("OTP sent successfully (Use 123456 for demo)")
-  } catch (error: any) {
-    setOtpError("Failed to send OTP")
-  }
-}
+    if (!form.terms)
+      newErrors.terms = "Accept Terms & Conditions"
 
-const handleVerifyOtp = () => {
-  if (otp === "123456") {
-    setOtpVerified(true)
-    setOtpError("")
-  } else {
-    setOtpError("Invalid OTP")
-    setOtpVerified(false)
-  }
-}
-// ✅ SEND MOBILE OTP
-const handleSendMobileOtp = () => {
-  if (!form.phone) {
-  setErrors({ ...errors, phone: "Enter mobile number first" })
-    return
-  }
+    if (!emailOtpVerified)
+      newErrors.emailOtp = "Email OTP not verified"
 
-  setMobileOtpSent(true)
-  setMobileOtpVerified(false)
-  setMobileOtpError("")
-  alert("Mobile OTP sent (Use 654321 for demo)")
-}
+    if (!mobileOtpVerified)
+      newErrors.mobileOtp = "Mobile OTP not verified"
 
-// ✅ VERIFY MOBILE OTP
-const handleVerifyMobileOtp = () => {
-  if (mobileOtp === "654321") {
-    setMobileOtpVerified(true)
-    setMobileOtpError("")
-  } else {
-    setMobileOtpError("Invalid Mobile OTP")
-    setMobileOtpVerified(false)
-  }
-}
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
 
+  /* ================= EMAIL OTP SEND ================= */
 
-  const handleRegister = async () => {
-    setIsSubmitted(true)
+  const handleSendEmailOtp = async () => {
 
-    if (!validate()) return
+    if (!form.email) {
+      alert("Enter email first")
+      return
+    }
 
-    try {
-      const response = await axios.post(
-        "http://localhost:5000/api/register",
-        form
-      )
+    try {
 
-      const token = response.data?.token
-      if (!token) throw new Error("No token received")
+      await api.post(
+  "/api/v1/auth/send-email-otp",
+  { email: form.email }
+)
+      setEmailOtpSent(true)
+      alert("OTP sent to your email")
 
-      const decodedUser: any = jwtDecode(token)
+    } catch (error: any) {
+      alert(error.response?.data?.message || "Failed to send OTP")
+    }
+  }
 
-      dispatch(
-        login({
-          user: decodedUser,
-          token: token
-        })
-      )
+  /* ================= EMAIL OTP VERIFY ================= */
 
-      localStorage.setItem("token", token)
+  const handleVerifyEmailOtp = async () => {
 
-      navigate("/dashboard")
+    if (!emailOtp) {
+      alert("Enter OTP first")
+      return
+    }
 
-    } catch (error: any) {
-      alert(error.response?.data?.message || error.message)
-    }
-  }
+    try {
 
-  return (
-    <div className="register-container">
+      setVerifyingOtp(true)
 
-      <div className="left">
-        <div className="card">
+      const response = await api.post(
+  "/api/v1/auth/verify-email-otp",
+  {
+    email: form.email,
+    otp: emailOtp
+  }
+)
+      
 
-          <h2>Create a professional account</h2>
-          <p className="sub">Sign up and manage your business</p>
+      if (response.data.success) {
+        setEmailOtpVerified(true)
+        alert("Email OTP Verified Successfully")
+      }
 
-          {/* FULL NAME */}
-          <div className="field">
-            <label>Full Name *</label>
-            <input
-              name="fullName"
-              value={form.fullName}
-              onChange={handleChange}
-              className={isSubmitted && errors.fullName ? "error-border" : ""}
-            />
-            {isSubmitted && errors.fullName && <p className="error">{errors.fullName}</p>}
-          </div>
+    } catch (error: any) {
+      setEmailOtpVerified(false)
+      alert(error.response?.data?.message || "Invalid OTP")
+    } finally {
+      setVerifyingOtp(false)
+    }
+  }
 
-          {/* BUSINESS NAME */}
-          <div className="field">
-            <label>Business Name *</label>
-            <input
-              name="businessName"
-              value={form.businessName}
-              onChange={handleChange}
-              className={isSubmitted && errors.businessName ? "error-border" : ""}
-            />
-            {isSubmitted && errors.businessName && <p className="error">{errors.businessName}</p>}
-          </div>
+  /* ================= MOBILE OTP (Demo) ================= */
 
-          {/* ADDRESS */}
-          <div className="field">
-            <label>Address *</label>
-            <input
-              name="address"
-              value={form.address}
-              onChange={handleChange}
-              className={isSubmitted && errors.address ? "error-border" : ""}
-            />
-            {isSubmitted && errors.address && <p className="error">{errors.address}</p>}
-          </div>
+  const handleSendMobileOtp = () => {
+    if (!form.phone) {
+      alert("Enter mobile number first")
+      return
+    }
+    setMobileOtpSent(true)
+  }
 
-          {/* EMAIL */}
-<div className="field">
-  <label>Email *</label>
+  const handleVerifyMobileOtp = () => {
+    if (mobileOtp.length === 6) {
+      setMobileOtpVerified(true)
+    } else {
+      alert("Enter valid 6 digit mobile OTP")
+    }
+  }
 
-  {/* Email + Send OTP */}
-  <div className="otp-row">
-    <input
-      name="email"
-      placeholder="example@gmail.com"
-      value={form.email}
-      onChange={handleChange}
-    />
+  /* ================= REGISTER ================= */
 
-    <button
-      type="button"
-      className="otp-btn"
-      onClick={handleSendOtp}
-      disabled={otpSent}
-    >
-      {otpSent ? "OTP Sent" : "Send OTP"}
-    </button>
-  </div>
+  const handleRegister = async () => {
 
-  {/* OTP Field */}
-  {otpSent && (
-    <div className="otp-row otp-second">
-      <input
-        placeholder="Enter OTP"
-        value={otp}
-        onChange={(e) => setOtp(e.target.value)}
-      />
+    if (!validate()) return
 
-      <button
-        type="button"
-        className="verify-btn"
-        onClick={handleVerifyOtp}
-      >
-        Verify
-      </button>
-    </div>
-  )}
+    try {
 
-  {/* Success */}
-  {otpVerified && (
-    <p className="otp-success">✓ OTP Verified</p>
-  )}
+      setLoading(true)
 
-  {otpError && <p className="error">{otpError}</p>}
-</div>
+      const response = await api.post(
+  "/api/v1/auth/register",
+  form
+)
+      const token = response.data.token
+      const decodedUser: any = jwtDecode(token)
 
-          {/* COUNTRY */}
-          <div className="field">
-            <label>Country *</label>
-            <select
-              name="country"
-              value={form.country}
-              onChange={handleChange}
-              className={isSubmitted && errors.country ? "error-border" : ""}
-            >
-              <option value="">Select Country</option>
-              {Country.getAllCountries().map((country) => (
-                <option key={country.isoCode} value={country.name}>
-                  {country.name}
-                </option>
-              ))}
-            </select>
-            {isSubmitted && errors.country && <p className="error">{errors.country}</p>}
-          </div>
+      dispatch(login({ user: decodedUser, token }))
+      localStorage.setItem("token", token)
 
-         {/* MOBILE NUMBER */}
-<div className="field">
-  <label>Mobile Number *</label>
+      alert("Registration Successful")
+      navigate("/account-type")
 
-  <div className="otp-row">
-    <PhoneInput
-      country="in"
-      value={form.phone}
-      onChange={(value) =>
-        setForm({ ...form, phone: value })
-      }
-    />
+    } catch (error: any) {
+      alert(error.response?.data?.message || error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
 
-    <button
-      type="button"
-      className="otp-btn"
-      onClick={handleSendMobileOtp}
-      disabled={mobileOtpSent}
-    >
-      {mobileOtpSent ? "OTP Sent" : "Send OTP"}
-    </button>
-  </div>
+  return (
+    <div className="container-fluid p-0">
+      <div className="row g-0 min-vh-100">
 
-  {mobileOtpSent && (
-    <div className="otp-row otp-second">
-      <input
-        placeholder="Enter Mobile OTP"
-        value={mobileOtp}
-        onChange={(e) => setMobileOtp(e.target.value)}
-      />
+        <div className="col-lg-5 d-flex align-items-center px-5 bg-white">
+          <div className="w-100">
 
-      <button
-        type="button"
-        className="verify-btn"
-        onClick={handleVerifyMobileOtp}
-      >
-        Verify
-      </button>
-    </div>
-  )}
+            <h4 className="brand-logo text-center mb-4">salonox</h4>
+            <h2 className="fw-bold mb-4">Create Account</h2>
 
-  {mobileOtpVerified && (
-    <p className="otp-success">✓ Mobile OTP Verified</p>
-  )}
+            {/* Full Name */}
+            <input className="form-control mb-2"
+              placeholder="Full Name"
+              name="fullName"
+              value={form.fullName}
+              onChange={handleChange} />
+            {errors.fullName && <small className="text-danger">{errors.fullName}</small>}
 
-  {mobileOtpError && <p className="error">{mobileOtpError}</p>}
-</div>
+            {/* Business Name */}
+            <input className="form-control mb-2"
+              placeholder="Business Name"
+              name="businessName"
+              value={form.businessName}
+              onChange={handleChange} />
+            {errors.businessName && <small className="text-danger">{errors.businessName}</small>}
 
+            {/* Address */}
+            <input className="form-control mb-2"
+              placeholder="Address"
+              name="address"
+              value={form.address}
+              onChange={handleChange} />
+            {errors.address && <small className="text-danger">{errors.address}</small>}
 
-          {/* PASSWORD */}
-          <div className="field">
-            <label>Password *</label>
-            <input
-              type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
-              className={isSubmitted && errors.password ? "error-border" : ""}
-            />
+            {/* Email */}
+            <input className="form-control mb-2"
+              placeholder="Email"
+              name="email"
+              value={form.email}
+              onChange={handleChange} />
+            {errors.email && <small className="text-danger">{errors.email}</small>}
 
-            {isSubmitted && (
-              <div className="password-rules">
-                <p className={hasLength ? "valid" : "invalid"}>✓ 8+ characters</p>
-                <p className={hasNumber ? "valid" : "invalid"}>✓ Contains number</p>
-                <p className={hasLetter ? "valid" : "invalid"}>✓ Contains letter</p>
-              </div>
-            )}
+            <button className="btn btn-dark mb-2"
+              onClick={handleSendEmailOtp}
+              disabled={emailOtpVerified}>
+              Send Email OTP
+            </button>
 
-            {isSubmitted && errors.password && <p className="error">{errors.password}</p>}
-          </div>
+            {emailOtpSent && (
+              <>
+                <input className="form-control mb-2"
+                  placeholder="Enter Email OTP"
+                  value={emailOtp}
+                  onChange={(e) => setEmailOtp(e.target.value)} />
+                <button className="btn btn-success mb-2"
+                  onClick={handleVerifyEmailOtp}
+                  disabled={verifyingOtp}>
+                  {verifyingOtp ? "Verifying..." : "Verify Email OTP"}
+                </button>
+              </>
+            )}
+            {errors.emailOtp && <small className="text-danger">{errors.emailOtp}</small>}
 
-          {/* TERMS */}
-          <div className="terms-wrapper">
-            <label className="terms-label">
-              <input
-                type="checkbox"
-                name="terms"
-                checked={form.terms}
-                onChange={handleChange}
-              />
-              <span>I agree to Terms & Conditions</span>
-            </label>
-            {isSubmitted && errors.terms && <p className="error">{errors.terms}</p>}
-          </div>
+            {/* Country */}
+            <select className="form-select mb-2"
+              name="country"
+              value={form.country}
+              onChange={handleChange}>
+              <option value="">Select Country</option>
+              {countries.map(c => (
+                <option key={c.isoCode} value={c.isoCode}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
 
-           {/* reCAPTCHA TEXT */}
-           <button
-  className="signup-btn"
-  onClick={() => navigate("/account-type")}
->
-  Next
-</button>
+            {/* Phone */}
+            <PhoneInput
+              country={form.country ? form.country.toLowerCase() : "in"}
+              value={form.phone}
+              onChange={(value) =>
+                setForm(prev => ({ ...prev, phone: value }))
+              }
+            />
 
+            <button className="btn btn-dark mt-2"
+              onClick={handleSendMobileOtp}>
+              Send Mobile OTP
+            </button>
 
-          <p className="recaptcha-text">
-            This site is protected by reCAPTCHA and the Google{" "}
-            <a href="https://policies.google.com/privacy" target="\_blank" rel="noreferrer">
-              Privacy Policy
-            </a>{" "}
-            and{" "}
-            <a href="https://policies.google.com/terms" target="\_blank" rel="noreferrer">
-              Terms of Service
-            </a>{" "}
-            apply.
-          </p>
+            {mobileOtpSent && (
+              <>
+                <input className="form-control mt-2"
+                  placeholder="Enter Mobile OTP"
+                  value={mobileOtp}
+                  onChange={(e) => setMobileOtp(e.target.value)} />
+                <button className="btn btn-success mt-2"
+                  onClick={handleVerifyMobileOtp}>
+                  Verify Mobile OTP
+                </button>
+              </>
+            )}
+            {errors.mobileOtp && <small className="text-danger">{errors.mobileOtp}</small>}
 
-          <p className="login-link">
-            Already have an account? <Link to="/">Log In</Link>
-          </p>
+            {/* Password */}
+            <input type="password"
+              className="form-control mt-3"
+              placeholder="Password"
+              name="password"
+              value={form.password}
+              onChange={handleChange} />
+            {errors.password && <small className="text-danger">{errors.password}</small>}
 
-        </div>
-      </div>
+            {/* Terms */}
+            <div className="form-check mt-2">
+              <input type="checkbox"
+                className="form-check-input"
+                name="terms"
+                checked={form.terms}
+                onChange={handleChange} />
+              <label className="form-check-label">
+                Accept Terms
+              </label>
+            </div>
+            {errors.terms && <small className="text-danger">{errors.terms}</small>}
 
-      <div className="right">
-        <img src={salonImg} alt="Register" />
-      </div>
+            <button
+              className="btn btn-dark w-100 rounded-pill mt-4"
+              onClick={handleRegister}
+              disabled={loading}>
+              {loading ? "Processing..." : "Next"}
+            </button>
 
-    </div>
-  )
+          </div>
+        </div>
+
+        <div className="col-lg-7 d-none d-lg-block p-0">
+          <img src={salonImg}
+            className="img-fluid h-100 w-100 object-fit-cover"
+            alt="Register" />
+        </div>
+
+      </div>
+    </div>
+  )
 }

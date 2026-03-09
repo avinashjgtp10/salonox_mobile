@@ -18,6 +18,16 @@ import TeamSizePage from "./features/auth/pages/TeamSizePage"
 import DashboardPage from "./features/dashboard/pages/DashboardPage"
 import DashboardLayout from "./features/dashboard/components/DashboardLayout"
 import DailySalesPage from "./features/analytics/pages/DailySalesPage" // already in your project
+import AppointmentsPage from "./features/analytics/pages/AppointmentsPage"
+import SalesListPage from "./features/analytics/pages/SalesListPage"
+import ClientsListPage from "./features/clients/pages/ClientsListPage"
+import ClientLoyaltyPage from "./features/clients/pages/ClientLoyaltyPage"
+import AddClientPage from "./features/clients/pages/AddClientPage"
+import Scheduler from "./features/bookings/components/calendar/Scheduler"
+import ClientAddressesPage from "./features/clients/pages/ClientAddressesPage"
+import ClientEmergencyContactsPage from "./features/clients/pages/ClientEmergencyContactsPage"
+import ClientSettingsPage from "./features/clients/pages/ClientSettingsPage"
+import ImportClientsPage from "./features/clients/pages/ImportClientsPage"
 
 function App() {
   return (
@@ -38,15 +48,34 @@ function App() {
       <Route path="/send-request" element={<SendRequestPage />} />
       <Route path="/request-success" element={<RequestSuccessPage />} />
       <Route path="/team-size" element={<TeamSizePage />} />
-      
-      {/* DASHBOARD (Layout + Pages) */}
+
       <Route path="/dashboard" element={<DashboardLayout />}>
         <Route index element={<DashboardPage />} />
-        <Route path="sales/daily" element={<DailySalesPage />} />
-        {/* Later: calendar, clients, reports... */}
-        {/* <Route path="calendar" element={<CalendarPage />} /> */}
+        <Route path="calendar" element={<Scheduler />} />
+        <Route path="sales">
+          <Route index element={<SalesListPage />} />
+          <Route path="daily" element={<DailySalesPage />} />
+          <Route path="appointments" element={<AppointmentsPage />} />
+          <Route path="payments" element={<div className="p-4">Payments Page</div>} />
+        </Route>
+
+        {/* ✅ ADD THIS CLIENTS SECTION */}
+        <Route path="clients">
+          <Route index element={<ClientsListPage />} />
+          <Route path="list" element={<ClientsListPage />} />
+          <Route path="loyalty" element={<ClientLoyaltyPage />} />
+          <Route path="add" element={<AddClientPage />} />
+          <Route path="addresses" element={<ClientAddressesPage />} />
+          <Route path="emergency" element={<ClientEmergencyContactsPage />} />
+          <Route path="settings" element={<ClientSettingsPage />} />
+          <Route path="import" element={<ImportClientsPage />} />
+
+
+        </Route>
       </Route>
+
     </Routes>
+
   )
 }
 

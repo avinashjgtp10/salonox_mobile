@@ -34,14 +34,30 @@ export default function DashboardLayout() {
   return (
     <div className="dashboard">
 
-      
+      {/* ================= TOPBAR ================= */}
+      <div className="topbar">
+        <h2 className="brand">salonox</h2>
+
+        <div className="topbar-right">
+          <button className="activate-btn">Activate plan</button>
+          <Search size={20} />
+          <BarChart size={20} />
+
+          <div className="notification">
+            <Bell size={20} />
+            <span className="badge">3</span>
+          </div>
+
+          <div className="profile">SJ</div>
+        </div>
+      </div>
+
       {/* ================= BODY ================= */}
       <div className="dashboard-body">
 
         {/* ================= SIDEBAR ================= */}
         <aside className="sidebar">
 
-          {/* HOME */}
           <NavLink
             to="/dashboard"
             end
@@ -50,11 +66,10 @@ export default function DashboardLayout() {
             }
             onClick={() => setOpenMenu(null)}
           >
-            <House size={28} />
+            <House size={26} />
             <span className="nav-label">Home</span>
           </NavLink>
 
-          {/* CALENDAR */}
           <NavLink
             to="calendar"
             className={({ isActive }) =>
@@ -62,18 +77,16 @@ export default function DashboardLayout() {
             }
             onClick={() => setOpenMenu(null)}
           >
-            <Calendar size={28} />
+            <Calendar size={26} />
             <span className="nav-label">Calendar</span>
           </NavLink>
 
           {/* SALES */}
           <div
             className={`nav-btn ${openMenu === "sales" ? "menu-active" : ""}`}
-            onClick={() =>
-              setOpenMenu(openMenu === "sales" ? null : "sales")
-            }
+            onClick={() => setOpenMenu("sales")}
           >
-            <Tag size={28} />
+            <Tag size={26} />
             <span className="nav-label">Sales</span>
           </div>
 
@@ -84,7 +97,7 @@ export default function DashboardLayout() {
               setOpenMenu(openMenu === "clients" ? null : "clients")
             }
           >
-            <EmojiSmile size={28} />
+            <EmojiSmile size={26} />
             <span className="nav-label">Clients</span>
           </div>
 
@@ -95,7 +108,7 @@ export default function DashboardLayout() {
               setOpenMenu(openMenu === "catalog" ? null : "catalog")
             }
           >
-            <Book size={28} />
+            <Book size={26} />
             <span className="nav-label">Catalog</span>
           </div>
 
@@ -108,7 +121,7 @@ export default function DashboardLayout() {
               )
             }
           >
-            <Person size={28} />
+            <Person size={26} />
             <span className="nav-label">Online booking</span>
           </div>
 
@@ -119,7 +132,7 @@ export default function DashboardLayout() {
               setOpenMenu(openMenu === "marketing" ? null : "marketing")
             }
           >
-            <Megaphone size={28} />
+            <Megaphone size={26} />
             <span className="nav-label">Marketing</span>
           </div>
 
@@ -130,11 +143,10 @@ export default function DashboardLayout() {
               setOpenMenu(openMenu === "team" ? null : "team")
             }
           >
-            <People size={28} />
+            <People size={26} />
             <span className="nav-label">Team</span>
           </div>
 
-          {/* ANALYTICS */}
           <NavLink
             to="analytics"
             className={({ isActive }) =>
@@ -142,11 +154,10 @@ export default function DashboardLayout() {
             }
             onClick={() => setOpenMenu(null)}
           >
-            <GraphUpArrow size={28} />
+            <GraphUpArrow size={26} />
             <span className="nav-label">Analytics</span>
           </NavLink>
 
-          {/* APPS */}
           <NavLink
             to="apps"
             className={({ isActive }) =>
@@ -154,13 +165,12 @@ export default function DashboardLayout() {
             }
             onClick={() => setOpenMenu(null)}
           >
-            <Grid3x3Gap size={28} />
+            <Grid3x3Gap size={26} />
             <span className="nav-label">Apps</span>
           </NavLink>
 
           <div className="nav-spacer" />
 
-          {/* SETTINGS */}
           <NavLink
             to="settings"
             className={({ isActive }) =>
@@ -168,11 +178,10 @@ export default function DashboardLayout() {
             }
             onClick={() => setOpenMenu(null)}
           >
-            <Gear size={28} />
+            <Gear size={26} />
             <span className="nav-label">Settings</span>
           </NavLink>
 
-          {/* HELP */}
           <NavLink
             to="help"
             className={({ isActive }) =>
@@ -180,34 +189,13 @@ export default function DashboardLayout() {
             }
             onClick={() => setOpenMenu(null)}
           >
-            <QuestionCircle size={28} />
+            <QuestionCircle size={26} />
             <span className="nav-label">Help</span>
           </NavLink>
 
         </aside>
-          {/* ================= TOPBAR ================= */}
-    <div className="topbar">
-      <h2 className="brand">fresha</h2>
 
-      <div className="topbar-right">
-        <button className="activate-btn">
-          Activate plan
-        </button>
-
-        <Search size={20} />
-        <BarChart size={20} />
-
-        <div className="notification">
-          <Bell size={20} />
-          <span className="badge">3</span>
-        </div>
-
-        <div className="profile">SJ</div>
-      </div>
-    </div>
-
-        {/* ================= SUB SIDEBARS ================= */}
-
+        {/* ================= SUB SIDEBAR ================= */}
         {openMenu === "sales" && (
           <SalesSubSidebar onClose={() => setOpenMenu(null)} />
         )}
@@ -232,8 +220,8 @@ export default function DashboardLayout() {
           <TeamSubSidebar onClose={() => setOpenMenu(null)} />
         )}
 
-        {/* ================= MAIN CONTENT ================= */}
-        <main className="main">
+        {/* ================= MAIN ================= */}
+        <main className={`main ${openMenu ? "shifted" : ""}`}>
           <Outlet />
         </main>
 

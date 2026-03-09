@@ -1,0 +1,177 @@
+/* ================= PAGE BASE ================= */
+
+.sales-list {
+  padding: 25px;
+  background: #f8f9fb;
+  min-height: 100vh;
+}
+
+/* ================= FILTER BAR ================= */
+
+.filter-bar {
+  border-radius: 14px;
+  background: #f3f3f3;
+  border: none;
+}
+
+.search-input {
+  background: white;
+  border-radius: 30px;
+  border: 1px solid #ddd;
+}
+
+.search-input input {
+  background: transparent;
+  outline: none;
+  width: 200px;
+}
+
+/* ================= EMPTY STATE ================= */
+
+.empty-card {
+  border-radius: 16px;
+  border: 1px solid #eee;
+}
+
+.empty-icon {
+  font-size: 40px;
+}
+
+/* ========================================================= */
+/* ================= CALENDAR MODAL ======================== */
+/* ========================================================= */
+
+.calendar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.28);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 90px;
+  z-index: 2000;
+}
+
+.calendar-modal {
+  width: 1000px;
+  max-width: 95vw;
+  background: #fff;
+  border-radius: 28px;
+  padding: 40px 60px;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.25);
+}
+
+/* Calendar layout */
+
+.rdrCalendarWrapper {
+  width: 100% !important;
+}
+
+.rdrMonths {
+  display: flex !important;
+  justify-content: center;
+  gap: 60px;
+}
+
+.rdrMonth {
+  width: 420px !important;
+}
+
+.rdrMonthName {
+  text-align: center;
+  font-weight: 600;
+  font-size: 16px;
+  margin-bottom: 14px;
+}
+
+.rdrMonth:first-child {
+  border-right: none !important;
+}
+
+/* Date styles */
+
+.rdrDayNumber span {
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.rdrStartEdge,
+.rdrEndEdge {
+  background-color: #000 !important;
+  color: #fff !important;
+  border-radius: 50% !important;
+}
+
+.rdrInRange {
+  background-color: #f3f3f3 !important;
+}
+
+.rdrDayToday .rdrDayNumber span:after {
+  background: #000;
+}
+
+/* Calendar buttons */
+
+.calendar-modal .border-top {
+  border-color: #eee !important;
+}
+
+.calendar-modal .btn-light {
+  background: #f2f2f2;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 30px;
+}
+
+.calendar-modal .btn-dark {
+  background: #000;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 30px;
+}
+
+/* ========================================================= */
+/* ================= FILTERS MODAL ========================= */
+/* ========================================================= */
+
+.filters-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.28);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 3000;
+}
+
+.filters-modal {
+  width: 650px;
+  max-width: 95vw;
+  background: #fff;
+  border-radius: 24px;
+  padding: 35px 40px;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.25);
+}
+
+.filters-modal .form-select,
+.filters-modal .form-control {
+  height: 46px;
+  border-radius: 12px;
+}
+
+.filters-modal .input-group-text {
+  background: #f5f5f5;
+  border-radius: 12px 0 0 12px;
+}
+
+.filters-modal .btn-light {
+  background: #f2f2f2;
+  border: none;
+  border-radius: 30px;
+}
+
+.filters-modal .btn-dark {
+  background: #000;
+  border: none;
+  border-radius: 30px;
+}

@@ -1,42 +1,49 @@
-export default function CashMovementSummary() {
-  const rows = ["Cash", "Other", "Gift card redemptions"]
+import { useEffect } from "react"
+
+interface Props {
+  selectedDate: Date
+}
+
+export default function CashMovementSummary({ selectedDate }: Props) {
+
+  const rows = [
+    "Cash",
+    "Other",
+    "Gift card redemptions",
+    "Payments collected",
+    "Of which tips"
+  ]
+
+  useEffect(() => {
+    console.log("Fetching cash movement for:", selectedDate)
+
+    // 🔥 API call here
+  }, [selectedDate])
 
   return (
     <div className="sales-card">
-      <h5 className="fw-bold mb-3">Cash movement summary</h5>
 
-      <div className="table-responsive">
-        <table className="table align-middle">
-          <thead>
-            <tr>
-              <th>Payment type</th>
-              <th className="text-end">Payments collected</th>
-              <th className="text-end">Refunds paid</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((item) => (
-              <tr key={item}>
-                <td>{item}</td>
-                <td className="text-end">₹0.00</td>
-                <td className="text-end">₹0.00</td>
-              </tr>
-            ))}
+      <h4 className="mb-3">Cash movement summary</h4>
 
-            <tr className="fw-bold border-top">
-              <td>Payments collected</td>
-              <td className="text-end">₹0.00</td>
-              <td className="text-end">₹0.00</td>
-            </tr>
+      <table>
+        <thead>
+          <tr>
+            <th>Payment type</th>
+            <th>Payments collected</th>
+            <th style={{ textAlign: "right" }}>Refunds paid</th>
+          </tr>
+        </thead>
 
-            <tr className="fw-bold">
-              <td>Of which tips</td>
-              <td className="text-end">₹0.00</td>
-              <td className="text-end">₹0.00</td>
+        <tbody>
+          {rows.map((item) => (
+            <tr key={item}>
+              <td>{item}</td>
+              <td>₹0.00</td>
+              <td style={{ textAlign: "right" }}>₹0.00</td>
             </tr>
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </table>
 
     </div>
   )

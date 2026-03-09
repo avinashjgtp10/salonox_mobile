@@ -9,11 +9,12 @@ export default function MarketingSubSidebar({ onClose }: Props) {
     <div className="sub-sidebar">
 
       <div className="sub-header">
-        <h3>Messaging</h3>
-        <button className="close-btn" onClick={onClose}>
-          <ChevronLeft size={18} />
-        </button>
-      </div>
+  <h3>Messaging</h3>
+
+  <button className="floating-close" onClick={onClose}>
+    <ChevronLeft size={16} />
+  </button>
+</div>
 
       <div className="sub-link">Blast campaigns</div>
       <div className="sub-link">Automations</div>

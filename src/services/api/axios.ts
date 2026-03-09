@@ -1,25 +1,25 @@
-import axios from "axios"
-import { store } from "../../store/store"
+import axios from "axios";
+import { store } from "../../store/store";
 const api = axios.create({
-  baseURL: "http://192.168.0.118:3000",  
+  baseURL: "http://192.168.0.118:3000",
   headers: {
     "Content-Type": "application/json",
   },
-})
+});
 
 // 🔐 JWT Interceptor
 api.interceptors.request.use(
   (config) => {
-    const state = store.getState()
-    const token = state.auth.token
+    const state = store.getState();
+    const token = state.auth.token;
 
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+      config.headers.Authorization = `Bearer ${token}`;
     }
 
-    return config
+    return config;
   },
-  (error) => Promise.reject(error)
-)
+  (error) => Promise.reject(error),
+);
 
-export default api
+export default api;

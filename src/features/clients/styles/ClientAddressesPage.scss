@@ -1,0 +1,122 @@
+/* PAGE WRAPPER */
+
+.client-address-page {
+  background: #ffffff;
+  min-height: 100vh;
+  padding: 32px;
+}
+
+/* HEADER */
+
+.address-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+
+  h2 {
+    font-size: 24px;
+    font-weight: 700;
+    color: #111827;
+    margin: 0;
+  }
+}
+
+/* BUTTONS */
+
+.address-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-close-page {
+  border: 1px solid #d1d5db;
+  background: white;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.btn-save {
+  background: #111827;
+  color: white;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* FORM SECTION */
+
+.address-form {
+  max-width: 700px;
+  margin-top: 20px;
+}
+
+/* INPUT GROUP */
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 18px;
+
+  label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 6px;
+  }
+
+  input,
+  select {
+    border: 1px solid #e5e7eb;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+  }
+
+  input:focus {
+    border-color: #6366f1;
+  }
+}
+
+/* TWO COLUMN GRID */
+
+.address-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* TEXTAREA */
+
+textarea {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 14px;
+  resize: none;
+}
+
+/* CARD STYLE */
+
+.address-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 18px;
+  margin-bottom: 16px;
+  background: #fafafa;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 768px) {
+
+  .address-grid {
+    grid-template-columns: 1fr;
+  }
+
+}

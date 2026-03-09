@@ -1,0 +1,429 @@
+// ============================================================
+// AddStaffPage.scss
+// Bootstrap + SCSS — Salon Management Frontend
+// ============================================================
+
+@use "sass:color";
+
+// ── Variables ──────────────────────────────────────────────
+$primary:         #1a1a1a;
+$accent:          #6c3ce1;
+$accent-light:    #ede8fb;
+$danger:          #e53935;
+$text-primary:    #1a1a1a;
+$text-muted:      #6b7280;
+$border:          #e5e7eb;
+$sidebar-width:   220px;
+$header-height:   60px;
+$bg-page:         #f9fafb;
+$bg-sidebar:      #ffffff;
+$bg-content:      #ffffff;
+$radius-sm:       6px;
+$radius-md:       10px;
+$transition:      0.18s ease;
+
+// ── Layout ─────────────────────────────────────────────────
+.add-staff {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: $bg-page;
+  font-family: "Inter", "Segoe UI", sans-serif;
+
+  &__header {
+    height: $header-height;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    background: $bg-content;
+    border-bottom: 1px solid $border;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+
+    &-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: $text-primary;
+      margin: 0;
+    }
+
+    &-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+  }
+
+  &__btn-warning {
+    width: 36px;
+    height: 36px;
+    border: 1px solid $border;
+    border-radius: 50%;
+    background: transparent;
+    color: #f59e0b;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background $transition;
+    &:hover { background: #fef3c7; }
+  }
+
+  &__btn-close {
+    height: 36px;
+    padding: 0 18px;
+    border: 1px solid $border;
+    border-radius: 20px;
+    background: transparent;
+    color: $text-primary;
+    font-size: 13px;
+    font-weight: 500;
+    transition: background $transition, border-color $transition;
+    &:hover { background: #f3f4f6; border-color: #d1d5db; }
+  }
+
+  &__btn-add {
+    height: 36px;
+    padding: 0 22px;
+    border: none;
+    border-radius: 20px;
+    background: $primary;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    transition: background $transition, transform $transition;
+    &:hover { background: #333; transform: translateY(-1px); }
+    &:active { transform: translateY(0); }
+  }
+
+  &__body {
+    flex: 1;
+    overflow: hidden;
+    padding: 0 !important;
+    .row { height: 100%; flex-wrap: nowrap; }
+  }
+
+  &__sidebar {
+    width: $sidebar-width;
+    min-width: $sidebar-width;
+    background: $bg-sidebar;
+    border-right: 1px solid $border;
+    padding: 24px 0;
+    overflow-y: auto;
+    height: calc(100vh - #{$header-height});
+  }
+
+  &__nav { padding: 0 12px; }
+
+  &__nav-group { margin-bottom: 4px; }
+
+  &__nav-group-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: $text-muted;
+    margin: 0 0 6px 8px;
+  }
+
+  &__nav-list { list-style: none; padding: 0; margin: 0; }
+
+  &__nav-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 12px;
+    border-radius: $radius-sm;
+    cursor: pointer;
+    font-size: 13.5px;
+    color: $text-primary;
+    transition: background $transition, color $transition;
+    position: relative;
+    margin-bottom: 2px;
+    &:hover { background: #f3f4f6; }
+
+    &--active {
+      background: $accent-light;
+      color: $accent;
+      font-weight: 600;
+      &:hover { background: color.adjust($accent-light, $lightness: -3%); }
+    }
+  }
+
+  &__nav-label { flex: 1; }
+
+  &__nav-badge {
+    background: #e5e7eb;
+    color: $text-muted;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 10px;
+    padding: 1px 7px;
+    margin-left: 6px;
+    .add-staff__nav-item--active & { background: $accent; color: #fff; }
+  }
+
+  &__nav-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: $danger;
+    margin-left: 8px;
+  }
+
+  &__nav-divider { margin: 14px 8px; border-color: $border; }
+
+  &__content {
+    background: $bg-page;
+    overflow-y: auto;
+    height: calc(100vh - #{$header-height});
+    padding: 36px 48px;
+    @media (max-width: 768px) { padding: 24px 20px; }
+  }
+}
+
+// ── Shared Section Styles ─────────────────────────────────
+.section {
+  max-width: 560px;
+
+  &__title {
+    font-size: 20px;
+    font-weight: 700;
+    color: $text-primary;
+    margin-bottom: 4px;
+  }
+
+  &__subtitle {
+    font-size: 13px;
+    color: $text-muted;
+    margin-bottom: 28px;
+  }
+
+  &__divider { border-color: $border; margin: 28px 0; }
+
+  &__block-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: $text-primary;
+    margin-bottom: 4px;
+  }
+
+  &__block-subtitle {
+    font-size: 12px;
+    color: $text-muted;
+    margin-bottom: 20px;
+  }
+}
+
+// ── Form Controls ─────────────────────────────────────────
+.staff-form {
+  .form-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: $text-primary;
+    margin-bottom: 5px;
+  }
+
+  .form-control,
+  .form-select {
+    font-size: 13.5px;
+    border: 1px solid $border;
+    border-radius: $radius-sm;
+    height: 40px;
+    color: $text-primary;
+    background-color: #fff;
+    transition: border-color $transition, box-shadow $transition;
+    &::placeholder { color: #b0b7c3; }
+    &:focus {
+      border-color: $accent;
+      box-shadow: 0 0 0 3px rgba($accent, 0.12);
+      outline: none;
+    }
+    &.is-invalid {
+      border-color: $danger;
+      &:focus { box-shadow: 0 0 0 3px rgba($danger, 0.12); }
+    }
+  }
+
+  textarea.form-control { height: auto; min-height: 100px; resize: vertical; }
+  .invalid-feedback { font-size: 12px; color: $danger; }
+  .form-hint { font-size: 11.5px; color: $text-muted; margin-top: 4px; }
+
+  .phone-group {
+    display: flex;
+    gap: 6px;
+    .form-select { width: 90px; flex-shrink: 0; }
+    .form-control { flex: 1; }
+  }
+}
+
+// ── Avatar ────────────────────────────────────────────────
+.staff-avatar {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: #eee8fd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin-bottom: 28px;
+  cursor: pointer;
+
+  &__icon { font-size: 36px; color: $accent; }
+
+  &__edit {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #fff;
+    border: 1px solid $border;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: $text-muted;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    transition: background $transition;
+    &:hover { background: #f3f4f6; }
+  }
+}
+
+// ── Color Picker ──────────────────────────────────────────
+.color-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+
+  &__swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: border-color $transition, transform $transition;
+    &:hover { transform: scale(1.15); }
+    &--selected {
+      border-color: $primary;
+      box-shadow: 0 0 0 2px #fff, 0 0 0 4px $primary;
+    }
+  }
+}
+
+// ── Empty State ───────────────────────────────────────────
+.staff-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 0 40px;
+  text-align: center;
+
+  &__icon { font-size: 44px; color: #d1d5db; margin-bottom: 16px; }
+  &__title { font-size: 16px; font-weight: 600; color: $text-primary; margin-bottom: 6px; }
+  &__desc { font-size: 13px; color: $text-muted; margin-bottom: 20px; }
+
+  &__btn {
+    height: 38px;
+    padding: 0 20px;
+    border: none;
+    border-radius: 20px;
+    background: $primary;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background $transition;
+    &:hover { background: #333; }
+  }
+}
+
+// ── List Items ────────────────────────────────────────────
+.staff-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border: 1px solid $border;
+  border-radius: $radius-md;
+  background: #fff;
+  margin-bottom: 10px;
+  transition: box-shadow $transition;
+  &:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+
+  &__info { flex: 1; }
+  &__label { font-size: 13.5px; font-weight: 500; color: $text-primary; margin-bottom: 2px; }
+  &__sub { font-size: 12px; color: $text-muted; }
+  &__actions { display: flex; gap: 6px; }
+
+  &__action-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid $border;
+    background: transparent;
+    color: $text-muted;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background $transition, color $transition;
+    &:hover { background: #f3f4f6; color: $text-primary; }
+    &--danger:hover { background: #fee2e2; color: $danger; border-color: #fca5a5; }
+  }
+}
+
+// ── Toggle ────────────────────────────────────────────────
+.staff-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid $border;
+  &:last-child { border-bottom: none; }
+
+  &__info { flex: 1; padding-right: 16px; }
+  &__label { font-size: 13.5px; font-weight: 500; color: $text-primary; margin-bottom: 2px; }
+  &__hint { font-size: 12px; color: $text-muted; }
+
+  .form-check-input {
+    width: 40px;
+    height: 22px;
+    cursor: pointer;
+    &:checked { background-color: $accent; border-color: $accent; }
+    &:focus { box-shadow: 0 0 0 3px rgba($accent, 0.2); }
+  }
+}
+
+// ── Commission Row ────────────────────────────────────────
+.commission-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid $border;
+  &:last-child { border-bottom: none; }
+
+  &__label { font-size: 13.5px; color: $text-primary; font-weight: 500; }
+
+  &__input {
+    width: 90px;
+    height: 36px;
+    border: 1px solid $border;
+    border-radius: $radius-sm;
+    padding: 0 10px;
+    font-size: 13.5px;
+    text-align: right;
+    outline: none;
+    transition: border-color $transition;
+    &:focus { border-color: $accent; box-shadow: 0 0 0 3px rgba($accent, 0.12); }
+  }
+}
