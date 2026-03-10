@@ -1,88 +1,293 @@
-import React from "react";
+import React, { useState } from "react";
+import { InfoCircle } from "react-bootstrap-icons";
+import "../styles/StaffPayRunsSection.scss";
 
-const StaffPayRunsSection: React.FC = () => (
-  <div className="section staff-form">
-    <h4 className="section__title">Pay runs</h4>
-    <p className="section__subtitle">Configure pay run settings for this team member</p>
+const StaffPayRunsSection: React.FC = () => {
+  const [payRunsEnabled, setPayRunsEnabled] = useState(true);
+  const [calcType, setCalcType] = useState("automatic");
+  const [deductProcessing, setDeductProcessing] = useState(false);
+  const [deductNewClient, setDeductNewClient] = useState(false);
+  const [recordCashAdvance, setRecordCashAdvance] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("manual");
 
-    <div className="mb-4">
-      <label className="form-label">Pay frequency</label>
-      <select className="form-select">
-        <option value="">Select frequency</option>
-        <option>Weekly</option><option>Fortnightly</option>
-        <option>Monthly</option><option>Custom</option>
-      </select>
+  return (
+    <div className="section payruns-section mt-1">
+
+      {/* Main Toggle Header */}
+      <div className="custom-switch-container">
+        <div className="switch-info">
+          <div className="switch-title">
+            Pay runs
+            {payRunsEnabled ? (
+              <span className="badge-status on">On</span>
+            ) : (
+              <span className="badge-status off">Off</span>
+            )}
+          </div>
+          <div className="switch-desc">
+            Choose how you will pay this team member through pay runs. <a href="#">Learn more</a>
+          </div>
+        </div>
+        <div className="form-check form-switch">
+          <input
+            className="form-check-input"
+            type="checkbox"
+            role="switch"
+            checked={payRunsEnabled}
+            onChange={(e) => setPayRunsEnabled(e.target.checked)}
+          />
+        </div>
+      </div>
+
+      {payRunsEnabled && (
+        <div className="fade-in">
+
+          {/* Preferred Payment Method */}
+          <h6 className="section__block-title">Preferred payment method</h6>
+          <p className="section__block-subtitle">
+            Choose how you would prefer to pay your team member when completing a pay run. A processing fee may apply for transfers to bank accounts. <a href="#">Learn more</a>
+          </p>
+
+          <div className="payment-card mb-4">
+            <div className="payment-card-left">
+              <div className="payment-card-icon">
+                <i className="bi bi-credit-card-2-front" />
+              </div>
+              <div className="payment-card-info">
+                <div className="payment-card-title">{paymentMethod === "manual" ? "Pay manually" : "Bank transfer"}</div>
+                <div className="payment-card-subtitle">{paymentMethod === "manual" ? "Mark as paid outside of Fresha" : "Transfer to bank account"}</div>
+              </div>
+            </div>
+            <a className="payment-card-action" onClick={() => setShowPaymentModal(true)} style={{ cursor: 'pointer' }}>Change</a>
+          </div>
+
+          {/* Change Payment Method Modal */}
+          {showPaymentModal && (
+            <div
+              style={{
+                position: 'fixed',
+                inset: 0,
+                backgroundColor: 'rgba(0,0,0,0.35)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 2000,
+              }}
+              onClick={() => setShowPaymentModal(false)}
+            >
+              <div
+                style={{
+                  background: '#fff',
+                  borderRadius: '12px',
+                  padding: '28px',
+                  width: '420px',
+                  position: 'relative',
+                  boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Close X */}
+                <button
+                  onClick={() => setShowPaymentModal(false)}
+                  style={{
+                    position: 'absolute',
+                    top: '16px',
+                    right: '16px',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '18px',
+                    color: '#6b7280',
+                    lineHeight: 1,
+                    padding: 0,
+                  }}
+                >
+                  &times;
+                </button>
+
+                <h5 style={{ fontWeight: 700, fontSize: '16px', color: '#111827', marginBottom: '6px' }}>
+                  Preferred payment method
+                </h5>
+                <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '20px', lineHeight: 1.5 }}>
+                  Choose how you would prefer to pay this team member. A processing fee may apply for bank transfers.
+                </p>
+
+                {/* Option: Pay manually */}
+                <div
+                  onClick={() => setPaymentMethod("manual")}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '14px',
+                    padding: '14px 16px',
+                    border: `2px solid ${paymentMethod === "manual" ? "#6c3ce1" : "#e5e7eb"}`,
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    marginBottom: '12px',
+                    background: paymentMethod === "manual" ? '#f5f3ff' : '#fff',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <div style={{ width: 40, height: 40, borderRadius: 8, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <i className="bi bi-credit-card-2-front" style={{ fontSize: 18, color: '#6b7280' }} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 14, color: '#111827' }}>Pay manually</div>
+                    <div style={{ fontSize: 12, color: '#6b7280' }}>Mark as paid outside of Fresha</div>
+                  </div>
+                  <div style={{ marginLeft: 'auto' }}>
+                    <div style={{
+                      width: 18, height: 18, borderRadius: '50%',
+                      border: `2px solid ${paymentMethod === 'manual' ? '#6c3ce1' : '#d1d5db'}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: paymentMethod === 'manual' ? '#6c3ce1' : 'transparent',
+                    }}>
+                      {paymentMethod === 'manual' && <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff' }} />}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Option: Bank transfer */}
+                <div
+                  onClick={() => setPaymentMethod("bank")}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '14px',
+                    padding: '14px 16px',
+                    border: `2px solid ${paymentMethod === "bank" ? "#6c3ce1" : "#e5e7eb"}`,
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    marginBottom: '24px',
+                    background: paymentMethod === "bank" ? '#f5f3ff' : '#fff',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <div style={{ width: 40, height: 40, borderRadius: 8, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <i className="bi bi-bank" style={{ fontSize: 18, color: '#6b7280' }} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 14, color: '#111827' }}>Bank transfer</div>
+                    <div style={{ fontSize: 12, color: '#6b7280' }}>Transfer to bank account. Processing fees may apply.</div>
+                  </div>
+                  <div style={{ marginLeft: 'auto' }}>
+                    <div style={{
+                      width: 18, height: 18, borderRadius: '50%',
+                      border: `2px solid ${paymentMethod === 'bank' ? '#6c3ce1' : '#d1d5db'}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: paymentMethod === 'bank' ? '#6c3ce1' : 'transparent',
+                    }}>
+                      {paymentMethod === 'bank' && <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff' }} />}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                  <button
+                    className="btn"
+                    style={{ borderRadius: '20px', border: '1px solid #e5e7eb', padding: '8px 20px', fontSize: '14px', fontWeight: 500, color: '#374151' }}
+                    onClick={() => setShowPaymentModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="btn"
+                    style={{ borderRadius: '20px', background: '#111827', color: '#fff', padding: '8px 20px', fontSize: '14px', fontWeight: 500, border: 'none' }}
+                    onClick={() => setShowPaymentModal(false)}
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Calculation of Pay Runs */}
+          <h6 className="section__block-title">Calculation of pay runs</h6>
+          <p className="section__block-subtitle">
+            Choose if the amount to pay is calculated automatically or manually entered at each pay period
+          </p>
+
+          <select
+            className="form-select mb-2"
+            value={calcType}
+            onChange={(e) => setCalcType(e.target.value)}
+          >
+            <option value="automatic">Automatic calculation</option>
+            <option value="manual">Manual entry</option>
+          </select>
+
+          {calcType === "automatic" && (
+            <div className="calc-info-box mb-4">
+              <InfoCircle style={{ color: '#6c3ce1', fontSize: 16, flexShrink: 0, marginTop: 1 }} />
+              <div className="calc-info-content">
+                <div className="calc-info-title">Automatic calculation</div>
+                <div className="calc-info-desc">
+                  Calculates the amount to pay based on activity from timesheets, earned wages, commissions and tips as configured on this team members settings.
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="divider"></div>
+
+          {/* Pay Run Deductions */}
+          <h6 className="section__block-title">Pay run deductions</h6>
+          <p className="section__block-subtitle">
+            Choose which fees to automatically deduct from this team member's earnings. <a href="#">Learn more</a>
+          </p>
+
+          <div className="deduction-row">
+            <input
+              type="checkbox"
+              id="deduct-processing"
+              checked={deductProcessing}
+              onChange={(e) => setDeductProcessing(e.target.checked)}
+            />
+            <div className="deduction-content">
+              <label htmlFor="deduct-processing" className="deduction-title">Deduct Fresha payment processing fees</label>
+              <div className="deduction-desc">Deduct payment processing fees for items sold by this team member.</div>
+            </div>
+          </div>
+
+          <div className="deduction-row">
+            <input
+              type="checkbox"
+              id="deduct-new-client"
+              checked={deductNewClient}
+              onChange={(e) => setDeductNewClient(e.target.checked)}
+            />
+            <div className="deduction-content">
+              <label htmlFor="deduct-new-client" className="deduction-title">Deduct Fresha new client fees</label>
+              <div className="deduction-desc">Deduct the new client fee for any new client bookings with this team member.</div>
+            </div>
+          </div>
+
+          <div className="divider"></div>
+
+          {/* Cash Advances */}
+          <h6 className="section__block-title">Cash advances</h6>
+          <p className="section__block-subtitle">Choose how you want to manage cash payments</p>
+
+          <div className="deduction-row">
+            <input
+              type="checkbox"
+              id="cash-advance"
+              checked={recordCashAdvance}
+              onChange={(e) => setRecordCashAdvance(e.target.checked)}
+            />
+            <div className="deduction-content">
+              <label htmlFor="cash-advance" className="deduction-title">Record cash payments for sales as 'paid' in pay runs</label>
+              <div className="deduction-desc">When a sale is paid in cash, record that this team member has taken the full cash amount as an advance within the pay period.</div>
+            </div>
+          </div>
+
+        </div>
+      )}
+
     </div>
-
-    <div className="mb-4">
-      <label className="form-label">Pay period start day</label>
-      <select className="form-select">
-        <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
-        <option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option>
-      </select>
-    </div>
-
-    <hr className="section__divider" />
-
-    <h5 className="section__block-title">Bank details</h5>
-    <p className="section__block-subtitle">Enter banking information for direct deposit</p>
-
-    <div className="mb-3">
-      <label className="form-label">Account holder name</label>
-      <input type="text" className="form-control" />
-    </div>
-
-    <div className="row g-3 mb-3">
-      <div className="col-6">
-        <label className="form-label">Bank name</label>
-        <input type="text" className="form-control" />
-      </div>
-      <div className="col-6">
-        <label className="form-label">Account number</label>
-        <input type="text" className="form-control" />
-      </div>
-    </div>
-
-    <div className="row g-3 mb-3">
-      <div className="col-6">
-        <label className="form-label">IFSC / Routing code</label>
-        <input type="text" className="form-control" />
-      </div>
-      <div className="col-6">
-        <label className="form-label">Branch</label>
-        <input type="text" className="form-control" />
-      </div>
-    </div>
-
-    <hr className="section__divider" />
-
-    <h5 className="section__block-title">Tax information</h5>
-    <p className="section__block-subtitle">For payroll and compliance reporting</p>
-
-    <div className="row g-3 mb-3">
-      <div className="col-6">
-        <label className="form-label">PAN / Tax ID</label>
-        <input type="text" className="form-control" placeholder="ABCDE1234F" />
-      </div>
-      <div className="col-6">
-        <label className="form-label">Tax filing status</label>
-        <select className="form-select">
-          <option value="">Select</option>
-          <option>Individual</option><option>Joint</option><option>Head of Household</option>
-        </select>
-      </div>
-    </div>
-
-    <div className="staff-toggle">
-      <div className="staff-toggle__info">
-        <div className="staff-toggle__label">Include in automated pay runs</div>
-        <div className="staff-toggle__hint">Process this team member in scheduled payroll batches</div>
-      </div>
-      <div className="form-check form-switch ms-3">
-        <input className="form-check-input" type="checkbox" role="switch" defaultChecked />
-      </div>
-    </div>
-  </div>
-);
+  );
+};
 
 export default StaffPayRunsSection;

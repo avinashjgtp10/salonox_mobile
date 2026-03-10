@@ -1,0 +1,158 @@
+.wages-section {
+    .section__block-title {
+        font-weight: 700;
+        font-size: 16px;
+        margin-bottom: 2px;
+        color: #111827;
+    }
+
+    .section__block-subtitle {
+        color: #6b7280;
+        font-size: 13px;
+        margin-bottom: 24px;
+
+        a {
+            color: #6366f1;
+            text-decoration: none;
+
+            &:hover {
+                text-decoration: underline;
+            }
+        }
+    }
+
+    .sub-header {
+        font-weight: 600;
+        font-size: 14px;
+        color: #111827;
+        margin-bottom: 16px;
+        margin-top: 24px;
+    }
+
+    /* Custom Toggle Switch */
+    .custom-switch-container {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        margin-bottom: 30px;
+
+        .switch-info {
+            .switch-title {
+                font-weight: 700;
+                font-size: 16px;
+                color: #111827;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 2px;
+
+                .badge-status {
+                    font-size: 11px;
+                    font-weight: 600;
+                    padding: 2px 8px;
+                    border-radius: 12px;
+
+                    &.off {
+                        background-color: #f3f4f6;
+                        color: #6b7280;
+                    }
+
+                    &.on {
+                        background-color: #dcfce7;
+                        color: #166534;
+                    }
+                }
+            }
+
+            .switch-desc {
+                color: #6b7280;
+                font-size: 13px;
+
+                a {
+                    color: #6366f1;
+                    text-decoration: none;
+
+                    &:hover {
+                        text-decoration: underline;
+                    }
+                }
+            }
+        }
+
+        .form-switch {
+            .form-check-input {
+                width: 44px;
+                height: 24px;
+                cursor: pointer;
+
+                &:checked {
+                    background-color: #6c3ce1;
+                    border-color: #6c3ce1;
+                }
+            }
+        }
+    }
+
+    /* Dropdown Label */
+    .control-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #111827;
+        display: block;
+        margin-bottom: 6px;
+    }
+
+    /* Dropdown Hint */
+    .control-hint {
+        font-size: 12px;
+        color: #6b7280;
+        margin-top: 4px;
+        margin-bottom: 16px;
+    }
+
+    /* Standard Select */
+    .form-select {
+        border-radius: 8px;
+        border-color: #e5e7eb;
+        font-size: 14px;
+        color: #111827;
+        cursor: pointer;
+        font-weight: 500;
+
+        &:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 1px #6366f1;
+        }
+    }
+
+    /* Info Banner */
+    .info-banner {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 16px;
+        background-color: #f9fafb;
+        border: 1px solid #f3f4f6;
+        border-radius: 8px;
+        margin-top: 32px;
+
+        i {
+            color: #6b7280;
+            font-size: 16px;
+        }
+
+        span {
+            font-size: 13px;
+            color: #374151;
+
+            a {
+                color: #6366f1;
+                text-decoration: none;
+
+                &:hover {
+                    text-decoration: underline;
+                }
+            }
+        }
+    }
+}

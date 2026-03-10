@@ -1,37 +1,27 @@
 import React, { useState } from "react";
+import AddEmergencyContactModal from "../components/AddEmergencyContactModal";
 
-interface Contact { id: number; name: string; relationship: string; phone: string; }
+interface Contact { id: number; name: string; relationship: string; email?: string; phone: string; }
 
 const StaffEmergencyContactsSection: React.FC = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", relationship: "", phone: "" });
+  const [openContactModal, setOpenContactModal] = useState(false);
 
-  const handleSave = () => {
-    if (!form.name.trim()) return;
-    setContacts((prev) => [...prev, { id: Date.now(), ...form }]);
-    setForm({ name: "", relationship: "", phone: "" });
-    setShowForm(false);
+  const handleSaveContact = (contact: Omit<Contact, "id">) => {
+    setContacts((prev) => [...prev, { id: Date.now(), ...contact }]);
+    setOpenContactModal(false);
   };
 
   return (
     <div className="section staff-form">
-      <h4 className="section__title">Emergency contacts</h4>
-      <p className="section__subtitle">Add emergency contacts for this team member</p>
-
-      {contacts.length === 0 && !showForm && (
-        <div className="staff-empty">
-          <i className="bi bi-person-lines-fill staff-empty__icon" />
-          <p className="staff-empty__title">No emergency contacts</p>
-          <p className="staff-empty__desc">Add a contact to reach in case of emergency</p>
-        </div>
-      )}
+      <h5 className="fw-bold mb-1 section__title" style={{ fontSize: '18px' }}>Emergency Contacts</h5>
+      <p className="text-muted mb-4 section__subtitle" style={{ fontSize: '13px' }}>Manage your team members' emergency contacts.</p>
 
       {contacts.map((c) => (
-        <div className="staff-list-item" key={c.id}>
+        <div className="staff-list-item mb-3" key={c.id}>
           <div className="staff-list-item__info">
             <div className="staff-list-item__label">{c.name}</div>
-            <div className="staff-list-item__sub">{c.relationship} · {c.phone}</div>
+            <div className="staff-list-item__sub">{c.relationship} · {c.phone} {c.email ? ` · ${c.email}` : ""}</div>
           </div>
           <div className="staff-list-item__actions">
             <button className="staff-list-item__action-btn"><i className="bi bi-pencil" /></button>
@@ -44,37 +34,27 @@ const StaffEmergencyContactsSection: React.FC = () => {
         </div>
       ))}
 
-      {showForm && (
-        <div className="p-3 border rounded mb-3 bg-white">
-          <div className="mb-2">
-            <label className="form-label">Full name</label>
-            <input className="form-control" value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          </div>
-          <div className="mb-2">
-            <label className="form-label">Relationship</label>
-            <input className="form-control" placeholder="e.g. Spouse, Parent" value={form.relationship}
-              onChange={(e) => setForm({ ...form, relationship: e.target.value })} />
-          </div>
-          <div className="mb-3">
-            <label className="form-label">Phone number</label>
-            <input type="tel" className="form-control" value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-          </div>
-          <div className="d-flex gap-2 justify-content-end">
-            <button className="btn btn-light btn-sm" onClick={() => setShowForm(false)}>Cancel</button>
-            <button className="btn btn-dark btn-sm" onClick={handleSave}>Save contact</button>
-          </div>
-        </div>
-      )}
+      <button
+        className="btn d-inline-flex align-items-center gap-2"
+        style={{
+          border: '1px solid #e0e0e0',
+          backgroundColor: '#fff',
+          color: '#333',
+          borderRadius: '20px',
+          padding: '6px 16px',
+          fontSize: '13px',
+          fontWeight: '500'
+        }}
+        onClick={() => setOpenContactModal(true)}
+      >
+        <i className="bi bi-plus" style={{ fontSize: '18px', color: '#666', lineHeight: 1 }} /> Add an emergency contact
+      </button>
 
-      {!showForm && (
-        <button className="btn d-flex align-items-center gap-2 mt-2"
-          style={{ color: "#6c3ce1", fontWeight: 600, fontSize: 13 }}
-          onClick={() => setShowForm(true)}>
-          <i className="bi bi-plus-circle" /> Add an emergency contact
-        </button>
-      )}
+      <AddEmergencyContactModal
+        open={openContactModal}
+        onClose={() => setOpenContactModal(false)}
+        onSave={handleSaveContact}
+      />
     </div>
   );
 };

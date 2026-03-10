@@ -1,49 +1,105 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import { ChevronDown, ChevronUp } from "react-bootstrap-icons";
+import "../styles/StaffSettingsSection.scss";
 
-const SETTINGS = [
-  { key: "online_booking", label: "Accept online bookings", hint: "Allow clients to book appointments with this team member online" },
-  { key: "show_profile",   label: "Show profile on booking page", hint: "Display this team member's profile and photo to clients" },
-  { key: "auto_assign",    label: "Auto-assign appointments", hint: "Automatically assign walk-in appointments to this team member" },
-  { key: "double_book",    label: "Allow double booking", hint: "Let this team member be booked for overlapping appointments" },
-  { key: "send_reminders", label: "Send appointment reminders", hint: "Notify this team member of upcoming appointments via email/SMS" },
-];
+const PERMISSIONS = ["No access", "Basic", "Low", "Medium", "High", "Manager"];
 
 const StaffSettingsSection: React.FC = () => {
-  const [toggles, setToggles] = useState<Record<string, boolean>>({
-    online_booking: true, show_profile: true,
-    auto_assign: false, double_book: false, send_reminders: true,
-  });
+  const [allowCalendarBookings, setAllowCalendarBookings] = useState(true);
+  const [permissionLevel, setPermissionLevel] = useState("Low");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   return (
-    <div className="section staff-form">
-      <h4 className="section__title">Settings</h4>
-      <p className="section__subtitle">Configure booking and scheduling preferences</p>
+    <div className="section settings-section">
 
-      {SETTINGS.map((item) => (
-        <div className="staff-toggle" key={item.key}>
-          <div className="staff-toggle__info">
-            <div className="staff-toggle__label">{item.label}</div>
-            <div className="staff-toggle__hint">{item.hint}</div>
-          </div>
-          <div className="form-check form-switch ms-3">
-            <input className="form-check-input" type="checkbox" role="switch"
-              checked={toggles[item.key]}
-              onChange={() => setToggles((p) => ({ ...p, [item.key]: !p[item.key] }))} />
-          </div>
+      {/* Appointment Settings */}
+      <h5 className="section__block-title">Appointment settings</h5>
+      <p className="section__block-subtitle">Choose if this team member is bookable on the calendar</p>
+
+      <div className="custom-checkbox-row">
+        <input
+          type="checkbox"
+          id="calendar-bookings"
+          className="custom-checkbox-input"
+          checked={allowCalendarBookings}
+          onChange={(e) => setAllowCalendarBookings(e.target.checked)}
+        />
+        <div className="custom-checkbox-content">
+          <label htmlFor="calendar-bookings" className="custom-checkbox-label">Allow calendar bookings</label>
+          <span className="custom-checkbox-hint">Allow this team member to receive bookings on the calendar</span>
         </div>
-      ))}
-
-      <hr className="section__divider" />
-
-      <h5 className="section__block-title">Permission level</h5>
-      <p className="section__block-subtitle">Control what this team member can access</p>
-      <div className="mb-3">
-        <select className="form-select">
-          <option>No Access</option><option>Basic</option><option>Low</option>
-          <option>Medium</option><option>High</option><option>Manager</option>
-        </select>
-        <div className="form-hint mt-1">Higher permission levels require a valid email address</div>
       </div>
+
+      {/* Permission level */}
+      <h5 className="section__block-title">Permission level</h5>
+      <p className="section__block-subtitle">Choose the access level this team member has to the workspace</p>
+
+      <div className="custom-select-wrapper" ref={dropdownRef}>
+        <div
+          className={`form-control ${isDropdownOpen ? 'open' : ''}`}
+          style={{
+            cursor: 'pointer',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            borderColor: isDropdownOpen ? '#6c3ce1' : '#e5e7eb',
+            boxShadow: isDropdownOpen ? '0 0 0 1px #6c3ce1' : 'none',
+            borderRadius: isDropdownOpen ? '8px 8px 0 0' : '8px'
+          }}
+          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+        >
+          <span style={{ fontSize: '14px', fontWeight: 500, color: '#111827' }}>{permissionLevel}</span>
+          {isDropdownOpen ? <ChevronUp size={12} color="#6b7280" /> : <ChevronDown size={12} color="#6b7280" />}
+        </div>
+
+        {isDropdownOpen && (
+          <div className="custom-dropdown-menu">
+            {PERMISSIONS.map((perm) => (
+              <div
+                key={perm}
+                className={`dropdown-item ${permissionLevel === perm ? 'active' : ''}`}
+                style={{
+                  backgroundColor: permissionLevel === perm ? '#6b7280' : 'transparent',
+                  color: permissionLevel === perm ? '#fff' : '#111827',
+                  padding: '12px 16px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+                onMouseEnter={(e) => {
+                  if (permissionLevel !== perm) {
+                    e.currentTarget.style.backgroundColor = '#f3f4f6';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (permissionLevel !== perm) {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }
+                }}
+                onClick={() => {
+                  setPermissionLevel(perm);
+                  setIsDropdownOpen(false);
+                }}
+              >
+                {perm}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
     </div>
   );
 };

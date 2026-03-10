@@ -1,84 +1,108 @@
 import React, { useState } from "react";
+import { InfoCircle } from "react-bootstrap-icons";
+import "../styles/StaffWagesSection.scss";
 
 const StaffWagesSection: React.FC = () => {
-  const [payType, setPayType] = useState("hourly");
+  const [wagesEnabled, setWagesEnabled] = useState(false);
 
   return (
-    <div className="section staff-form">
-      <h4 className="section__title">Wages and timesheets</h4>
-      <p className="section__subtitle">Set pay rates and manage timesheet tracking</p>
+    <div className="section wages-section mt-1">
 
-      <div className="mb-4">
-        <label className="form-label">Pay type</label>
-        <div className="d-flex gap-2">
-          {["hourly", "salary", "none"].map((type) => (
-            <button key={type} type="button" className="btn btn-sm"
-              style={{
-                borderRadius: 20, padding: "6px 18px", fontSize: 13, border: "none",
-                fontWeight: payType === type ? 600 : 400,
-                background: payType === type ? "#1a1a1a" : "#f3f4f6",
-                color: payType === type ? "#fff" : "#374151",
-              }}
-              onClick={() => setPayType(type)}>
-              {type.charAt(0).toUpperCase() + type.slice(1)}
-            </button>
-          ))}
+      {/* Main Header / Switch */}
+      <div className="custom-switch-container">
+        <div className="switch-info">
+          <div className="switch-title">
+            Wages and timesheets
+            {wagesEnabled ? (
+              <span className="badge-status on">On</span>
+            ) : (
+              <span className="badge-status off">Off</span>
+            )}
+          </div>
+          <div className="switch-desc">
+            Set up how much this team member earns. <a href="#">Learn more</a>
+          </div>
+        </div>
+        <div className="form-check form-switch custom-switch">
+          <input
+            className="form-check-input"
+            type="checkbox"
+            role="switch"
+            checked={wagesEnabled}
+            onChange={(e) => setWagesEnabled(e.target.checked)}
+          />
         </div>
       </div>
 
-      {payType === "hourly" && (
-        <div className="row g-3 mb-3">
-          <div className="col-6">
-            <label className="form-label">Hourly rate</label>
-            <div className="input-group">
-              <span className="input-group-text">₹</span>
-              <input type="number" className="form-control" placeholder="0.00" min={0} step={0.5} />
+      {/* Expanded Content */}
+      {wagesEnabled && (
+        <div className="wages-expanded-content fade-in mt-4">
+
+          <div className="mb-4">
+            <label className="control-label">Compensation type</label>
+            <select className="form-select">
+              <option>None</option>
+              <option>Hourly</option>
+              <option>Salary</option>
+            </select>
+          </div>
+
+          <hr className="section__divider mt-5 mb-4" />
+
+          {/* Timesheet Settings */}
+          <h5 className="section__block-title">Timesheet settings</h5>
+          <p className="section__block-subtitle">
+            Configure timesheet settings for this team member. <a href="#">Learn more</a>
+          </p>
+
+          <h6 className="sub-header">Proximity controls</h6>
+          <div className="mb-4 pb-2">
+            <label className="control-label">Location restrictions</label>
+            <select className="form-select">
+              <option>Workspace default (Disabled)</option>
+              <option>Enabled (50m)</option>
+              <option>Enabled (100m)</option>
+            </select>
+            <div className="control-hint">Prevent manual timesheet entries when more than 50m away</div>
+          </div>
+
+          <h6 className="sub-header">Timesheet automation</h6>
+          <div className="row g-3 mb-4">
+            <div className="col-12 col-md-6">
+              <label className="control-label">Auto clock in</label>
+              <select className="form-select">
+                <option>Workspace default (Disabled)</option>
+                <option>Enabled</option>
+              </select>
+              <div className="control-hint">Automatically clock in at the beginning of shifts</div>
+            </div>
+            <div className="col-12 col-md-6">
+              <label className="control-label">Auto clock out</label>
+              <select className="form-select">
+                <option>Workspace default (Disabled)</option>
+                <option>Enabled</option>
+              </select>
+              <div className="control-hint">Automatically clock out at the end of shifts</div>
             </div>
           </div>
-          <div className="col-6">
-            <label className="form-label">Overtime rate</label>
-            <div className="input-group">
-              <span className="input-group-text">₹</span>
-              <input type="number" className="form-control" placeholder="0.00" min={0} step={0.5} />
-            </div>
+
+          <div className="mb-4">
+            <label className="control-label">Automated breaks</label>
+            <select className="form-select">
+              <option>Workspace default (Disabled)</option>
+              <option>Enabled</option>
+            </select>
+            <div className="control-hint">Automatically start and stop scheduled breaks</div>
           </div>
+
+          <div className="info-banner">
+            <InfoCircle />
+            <span>Workspace default settings can be adjusted <a href="#">here</a></span>
+          </div>
+
         </div>
       )}
 
-      {payType === "salary" && (
-        <div className="mb-3">
-          <label className="form-label">Annual salary</label>
-          <div className="input-group">
-            <span className="input-group-text">₹</span>
-            <input type="number" className="form-control" placeholder="0.00" min={0} />
-          </div>
-        </div>
-      )}
-
-      <hr className="section__divider" />
-
-      <h5 className="section__block-title">Timesheets</h5>
-      <p className="section__block-subtitle">Configure how this team member tracks their hours</p>
-
-      <div className="staff-toggle">
-        <div className="staff-toggle__info">
-          <div className="staff-toggle__label">Enable timesheets</div>
-          <div className="staff-toggle__hint">Track clock-in and clock-out times</div>
-        </div>
-        <div className="form-check form-switch ms-3">
-          <input className="form-check-input" type="checkbox" role="switch" defaultChecked />
-        </div>
-      </div>
-
-      <div className="staff-toggle">
-        <div className="staff-toggle__info">
-          <div className="staff-toggle__label">Require manager approval</div>
-          <div className="staff-toggle__hint">Timesheets must be approved by a manager before processing</div>
-        </div>
-        <div className="form-check form-switch ms-3">
-          <input className="form-check-input" type="checkbox" role="switch" />
-        </div>
-      </div>
     </div>
   );
 };

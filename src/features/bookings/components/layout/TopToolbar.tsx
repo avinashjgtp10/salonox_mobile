@@ -33,18 +33,18 @@ export default function TopToolbar({
   return (
     <div className="scheduler-toolbar d-flex align-items-center justify-content-between px-4">
       <div className="d-flex align-items-center gap-3">
-        <button onClick={onToday} className="btn btn-light btn-sm">
+        <button onClick={onToday} className="btn btn-outline-secondary btn-sm">
           Today
         </button>
 
         <div className="date-navigation d-flex align-items-center">
-          <button onClick={onPrev} className="btn btn-light btn-sm">
+          <button onClick={onPrev} className="toolbar-nav-btn btn btn-outline-secondary btn-sm p-0">
             ←
           </button>
 
           <span className="date-label">{format(safeDate, "EEE dd MMM")}</span>
 
-          <button onClick={onNext} className="btn btn-light btn-sm">
+          <button onClick={onNext} className="toolbar-nav-btn btn btn-outline-secondary btn-sm p-0">
             →
           </button>
         </div>
@@ -54,22 +54,22 @@ export default function TopToolbar({
         {staffList.map((staff) => (
           <div
             key={staff.id}
-            className="staff-pill d-flex align-items-center gap-2"
+            className="toolbar-staff-pill d-flex align-items-center gap-2"
           >
             <div
-              className="staff-avatar"
+              className="toolbar-staff-avatar"
               style={{ backgroundColor: staff.color || "#3b82f6", color: "#fff" }}
             >
               {staff.name.charAt(0).toUpperCase()}
             </div>
 
-            <span className="staff-name">{staff.name}</span>
+            <span className="toolbar-staff-name">{staff.name}</span>
           </div>
         ))}
 
         <button
           onClick={onAdd}
-          className="btn btn-light btn-sm d-flex align-items-center gap-1"
+          className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
         >
           Add 👤
         </button>

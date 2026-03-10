@@ -1,0 +1,81 @@
+@use "../../../styles/themes/variables" as *;
+
+.service-actions-menu {
+  position: relative;
+  display: inline-block;
+
+  &__trigger {
+    border: none;
+    background: transparent;
+    color: #6c757d;
+
+    &:hover {
+      background: #f8f9fa;
+      color: #212529;
+    }
+  }
+
+  &__dropdown {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    border: 1px solid #e9ecef;
+    min-width: 200px;
+    z-index: 500;
+    overflow: hidden;
+    animation: dropdownFadeIn 0.15s ease;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 16px;
+    border: none;
+    background: transparent;
+    text-align: left;
+    font-size: 0.875rem;
+    color: #212529;
+    cursor: pointer;
+    transition: background 0.1s;
+
+    &:hover {
+      background: #f8f9fa;
+    }
+
+    &--danger {
+      color: #dc3545;
+
+      &:hover {
+        background: #fff5f5;
+      }
+    }
+
+    i {
+      color: #6c757d;
+      width: 16px;
+    }
+  }
+
+  &__divider {
+    height: 1px;
+    background: #e9ecef;
+    margin: 4px 0;
+  }
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

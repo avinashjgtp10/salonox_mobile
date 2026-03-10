@@ -1,0 +1,117 @@
+.services-section {
+    .section__title {
+        font-weight: 700;
+        font-size: 18px;
+        margin-bottom: 4px;
+    }
+
+    .section__subtitle {
+        color: #6b7280;
+        font-size: 13px;
+        margin-bottom: 24px;
+    }
+
+    .search-container {
+        position: relative;
+        margin-bottom: 24px;
+
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+        }
+
+        .form-control {
+            padding-left: 36px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            font-size: 14px;
+            box-shadow: none;
+
+            &::placeholder {
+                color: #9ca3af;
+            }
+
+            &:focus {
+                border-color: #000;
+                outline: none;
+            }
+        }
+    }
+
+    .service-list {
+        display: flex;
+        flex-direction: column;
+
+        .service-item {
+            display: flex;
+            align-items: center;
+            padding: 20px 0;
+            border-bottom: 1px solid #f3f4f6;
+
+            &:last-child {
+                border-bottom: none;
+            }
+
+            .custom-checkbox {
+                width: 18px;
+                height: 18px;
+                border-radius: 4px;
+                border: 1px solid #d1d5db;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin-right: 16px;
+                cursor: pointer;
+                background: #fff;
+                transition: all 0.2s ease;
+
+                &.checked {
+                    background: #000;
+                    border-color: #000;
+                }
+
+                i {
+                    color: #fff;
+                    font-size: 12px;
+                }
+            }
+
+            .service-content {
+                flex: 1;
+
+                .service-name {
+                    font-size: 14px;
+                    font-weight: 600;
+                    color: #111827;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+
+                    .badge-count {
+                        background: #f3f4f6;
+                        color: #4b5563;
+                        font-size: 11px;
+                        font-weight: 600;
+                        padding: 2px 8px;
+                        border-radius: 12px;
+                    }
+                }
+
+                .service-duration {
+                    font-size: 13px;
+                    color: #6b7280;
+                    margin-top: 2px;
+                }
+            }
+
+            .service-price {
+                font-size: 14px;
+                font-weight: 500;
+                color: #111827;
+            }
+        }
+    }
+}

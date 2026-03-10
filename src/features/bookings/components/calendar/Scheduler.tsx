@@ -24,36 +24,37 @@ export default function Scheduler() {
 
   const calendarRef = useRef<any>(null)
 
-  const [currentView,setCurrentView] = useState("resourceTimeGridDay")
-  const [currentDate,setCurrentDate] = useState(new Date())
+  const [currentView, setCurrentView] = useState("resourceTimeGridDay")
+  const [currentDate, setCurrentDate] = useState(new Date())
 
-  const [drawerOpen,setDrawerOpen] = useState(false)
-  const [checkoutOpen,setCheckoutOpen] = useState(false)
-  const [tipOpen,setTipOpen] = useState(false)
-  const [paymentOpen,setPaymentOpen] = useState(false)
-  const [receiptOpen,setReceiptOpen] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [checkoutOpen, setCheckoutOpen] = useState(false)
+  const [tipOpen, setTipOpen] = useState(false)
+  const [paymentOpen, setPaymentOpen] = useState(false)
+  const [receiptOpen, setReceiptOpen] = useState(false)
 
-  const [selectedTime,setSelectedTime] = useState<string | null>(null)
-  const [editingEvent,setEditingEvent] = useState<any>(null)
+  const [selectedTime, setSelectedTime] = useState<string | null>(null)
+  const [selectedResource, setSelectedResource] = useState<string | null>(null)
+  const [editingEvent, setEditingEvent] = useState<any>(null)
 
-  const [events,setEvents] = useState<any[]>([])
-  const [services,setServices] = useState<any[]>([])
-  const [subtotal,setSubtotal] = useState(0)
-  const [total,setTotal] = useState(0)
-  const [paymentMethod,setPaymentMethod] = useState("")
+  const [events, setEvents] = useState<any[]>([])
+  const [services, setServices] = useState<any[]>([])
+  const [subtotal, setSubtotal] = useState(0)
+  const [total, setTotal] = useState(0)
+  const [paymentMethod, setPaymentMethod] = useState("")
 
-  const [staffList,setStaffList] = useState<Staff[]>([
-    { id:"1",name:"Daniel",color:"#3b82f6" }
+  const [staffList, setStaffList] = useState<Staff[]>([
+    { id: "1", name: "Daniel", color: "#3b82f6" }
   ])
 
-  const [staffDrawerOpen,setStaffDrawerOpen] = useState(false)
-  const [staffName,setStaffName] = useState("")
-  const [staffColor,setStaffColor] = useState("#3b82f6")
-  const [staffError,setStaffError] = useState("")
+  const [staffDrawerOpen, setStaffDrawerOpen] = useState(false)
+  const [staffName, setStaffName] = useState("")
+  const [staffColor, setStaffColor] = useState("#3b82f6")
+  const [staffError, setStaffError] = useState("")
 
   const handleSaveStaff = () => {
 
-    if(staffName.trim()===""){
+    if (staffName.trim() === "") {
       setStaffError("Staff name is required")
       return
     }
@@ -62,18 +63,18 @@ export default function Scheduler() {
       staff => staff.name.toLowerCase() === staffName.trim().toLowerCase()
     )
 
-    if(isDuplicate){
+    if (isDuplicate) {
       setStaffError("Staff name already exists")
       return
     }
 
-    const newStaff:Staff={
-      id:Date.now().toString(),
-      name:staffName.trim(),
-      color:staffColor
+    const newStaff: Staff = {
+      id: Date.now().toString(),
+      name: staffName.trim(),
+      color: staffColor
     }
 
-    setStaffList(prev=>[...prev,newStaff])
+    setStaffList(prev => [...prev, newStaff])
 
     setStaffName("")
     setStaffColor("#3b82f6")
@@ -81,298 +82,301 @@ export default function Scheduler() {
     setStaffDrawerOpen(false)
   }
 
-  return(
+  return (
 
-<div className="scheduler-page">
+    <div className="scheduler-page">
 
-{/* ================= TOOLBAR ================= */}
+      {/* ================= TOOLBAR ================= */}
 
-<TopToolbar
- currentDate={currentDate}
- view={currentView}
- staffList={staffList}
+      <TopToolbar
+        currentDate={currentDate}
+        view={currentView}
+        staffList={staffList}
 
- onToday={()=>{
-  const api=calendarRef.current?.getApi()
-  api?.today()
-  setCurrentDate(api?.getDate())
- }}
+        onToday={() => {
+          const api = calendarRef.current?.getApi()
+          api?.today()
+          setCurrentDate(api?.getDate())
+        }}
 
- onPrev={()=>{
-  const api=calendarRef.current?.getApi()
-  api?.prev()
-  setCurrentDate(api?.getDate())
- }}
+        onPrev={() => {
+          const api = calendarRef.current?.getApi()
+          api?.prev()
+          setCurrentDate(api?.getDate())
+        }}
 
- onNext={()=>{
-  const api=calendarRef.current?.getApi()
-  api?.next()
-  setCurrentDate(api?.getDate())
- }}
+        onNext={() => {
+          const api = calendarRef.current?.getApi()
+          api?.next()
+          setCurrentDate(api?.getDate())
+        }}
 
- onChangeView={(view:string)=>{
-  const api=calendarRef.current?.getApi()
-  api?.changeView(view)
-  setCurrentView(view)
- }}
+        onChangeView={(view: string) => {
+          const api = calendarRef.current?.getApi()
+          api?.changeView(view)
+          setCurrentView(view)
+        }}
 
- onAdd={()=>setStaffDrawerOpen(true)}
-/>
+        onAdd={() => setStaffDrawerOpen(true)}
+      />
 
-{/* ================= CALENDAR ================= */}
+      {/* ================= CALENDAR ================= */}
 
-<div className="scheduler-calendar">
+      <div className="scheduler-calendar">
 
-<FullCalendar
- ref={calendarRef}
- plugins={[resourceTimeGridPlugin,interactionPlugin]}
- initialView="resourceTimeGridDay"
- headerToolbar={false}
- schedulerLicenseKey="CC-Attribution-NonCommercial-NoDerivatives"
+        <FullCalendar
+          ref={calendarRef}
+          plugins={[resourceTimeGridPlugin, interactionPlugin]}
+          initialView="resourceTimeGridDay"
+          headerToolbar={false}
+          schedulerLicenseKey="CC-Attribution-NonCommercial-NoDerivatives"
 
- views={{
-  resourceTimeGridThreeDay:{
-    type:"resourceTimeGrid",
-    duration:{days:3}
-  },
-  resourceTimeGridFiveDay:{
-    type:"resourceTimeGrid",
-    duration:{days:5}
-  }
- }}
+          views={{
+            resourceTimeGridThreeDay: {
+              type: "resourceTimeGrid",
+              duration: { days: 3 }
+            },
+            resourceTimeGridFiveDay: {
+              type: "resourceTimeGrid",
+              duration: { days: 5 }
+            }
+          }}
 
- resources={staffList.map(staff=>({
-  id:staff.id,
-  title:staff.name
- }))}
- 
+          resources={staffList.map(staff => ({
+            id: staff.id,
+            title: staff.name
+          }))}
 
- selectable
- editable
- nowIndicator
- height="100%"
- slotMinTime="08:00:00"
- slotMaxTime="21:00:00"
 
- events={events}
+          selectable
+          editable
+          nowIndicator
+          height="100%"
+          slotMinTime="08:00:00"
+          slotMaxTime="21:00:00"
 
- datesSet={(info)=>{
-  setCurrentDate(info.view.currentStart)
-  setCurrentView(info.view.type)
- }}
+          events={events}
 
- eventContent={(arg)=><EventCard arg={arg}/>}
+          datesSet={(info) => {
+            setCurrentDate(info.view.currentStart)
+            setCurrentView(info.view.type)
+          }}
 
- eventClick={(info)=>{
+          eventContent={(arg) => <EventCard arg={arg} />}
 
-  const rawEvent=events.find(e=>e.id===info.event.id)
+          eventClick={(info) => {
 
-  setEditingEvent(rawEvent)
+            const rawEvent = events.find(e => e.id === info.event.id)
 
-  setSelectedTime(info.event.start?.toISOString()||null)
+            setEditingEvent(rawEvent)
 
-  setDrawerOpen(true)
+            setSelectedTime(info.event.start?.toISOString() || null)
+            setSelectedResource(info.event.getResources()[0]?.id || null)
 
- }}
+            setDrawerOpen(true)
 
- select={(info)=>{
+          }}
 
-  setEditingEvent(null)
+          select={(info) => {
 
-  setSelectedTime(info.startStr)
+            setEditingEvent(null)
 
-  setDrawerOpen(true)
+            setSelectedTime(info.startStr)
+            setSelectedResource(info.resource?.id || null)
 
- }}
-/>
+            setDrawerOpen(true)
 
-</div>
+          }}
+        />
 
-{/* ================= BOOKING DRAWER ================= */}
+      </div>
 
-<BookingDrawer
- open={drawerOpen}
- selectedTime={selectedTime}
- editingEvent={editingEvent}
+      {/* ================= BOOKING DRAWER ================= */}
 
- onClose={()=>{
-  setDrawerOpen(false)
-  setEditingEvent(null)
- }}
+      <BookingDrawer
+        open={drawerOpen}
+        selectedTime={selectedTime}
+        selectedResource={selectedResource}
+        editingEvent={editingEvent}
 
- onSave={(newEvent:any)=>{
+        onClose={() => {
+          setDrawerOpen(false)
+          setEditingEvent(null)
+        }}
 
-  if(editingEvent){
+        onSave={(newEvent: any) => {
 
-    setEvents(prev=>
-      prev.map(ev=>ev.id===editingEvent.id?newEvent:ev)
-    )
+          if (editingEvent) {
 
-  }else{
+            setEvents(prev =>
+              prev.map(ev => ev.id === editingEvent.id ? newEvent : ev)
+            )
 
-    setEvents(prev=>[...prev,newEvent])
+          } else {
 
-  }
+            setEvents(prev => [...prev, newEvent])
 
-  setDrawerOpen(false)
+          }
 
- }}
+          setDrawerOpen(false)
 
- onProceedToCheckout={(eventData:any)=>{
+        }}
 
-  setServices(eventData.extendedProps?.services||[])
+        onProceedToCheckout={(eventData: any) => {
 
-  setDrawerOpen(false)
+          setServices(eventData.extendedProps?.services || [])
 
-  setCheckoutOpen(true)
+          setDrawerOpen(false)
 
- }}
-/>
+          setCheckoutOpen(true)
 
-{/* ================= CHECKOUT ================= */}
+        }}
+      />
 
-<CheckoutDrawer
- open={checkoutOpen}
- services={services}
+      {/* ================= CHECKOUT ================= */}
 
- onClose={()=>setCheckoutOpen(false)}
+      <CheckoutDrawer
+        open={checkoutOpen}
+        services={services}
 
- onCheckout={(value:number)=>{
+        onClose={() => setCheckoutOpen(false)}
 
-  setSubtotal(value)
+        onCheckout={(value: number) => {
 
-  setCheckoutOpen(false)
+          setSubtotal(value)
 
-  setTipOpen(true)
+          setCheckoutOpen(false)
 
- }}
-/>
+          setTipOpen(true)
 
-{/* ================= TIP ================= */}
+        }}
+      />
 
-<TipDrawer
- open={tipOpen}
- subtotal={subtotal}
+      {/* ================= TIP ================= */}
 
- onBack={()=>{
-  setTipOpen(false)
-  setCheckoutOpen(true)
- }}
+      <TipDrawer
+        open={tipOpen}
+        subtotal={subtotal}
 
- onClose={()=>setTipOpen(false)}
+        onBack={() => {
+          setTipOpen(false)
+          setCheckoutOpen(true)
+        }}
 
- onContinue={(value:number)=>{
+        onClose={() => setTipOpen(false)}
 
-  setTotal(value)
+        onContinue={(value: number) => {
 
-  setTipOpen(false)
+          setTotal(value)
 
-  setPaymentOpen(true)
+          setTipOpen(false)
 
- }}
-/>
+          setPaymentOpen(true)
 
-{/* ================= PAYMENT ================= */}
+        }}
+      />
 
-<PaymentDrawer
- open={paymentOpen}
- total={total}
+      {/* ================= PAYMENT ================= */}
 
- onClose={()=>setPaymentOpen(false)}
+      <PaymentDrawer
+        open={paymentOpen}
+        total={total}
 
- onSuccess={(method:string)=>{
+        onClose={() => setPaymentOpen(false)}
 
-  setPaymentMethod(method)
+        onSuccess={(method: string) => {
 
-  setPaymentOpen(false)
+          setPaymentMethod(method)
 
-  setReceiptOpen(true)
+          setPaymentOpen(false)
 
- }}
-/>
+          setReceiptOpen(true)
 
-{/* ================= RECEIPT ================= */}
+        }}
+      />
 
-<ReceiptDrawer
- open={receiptOpen}
- services={services}
- total={total}
- clientName="Walk-in"
- clientMobile="N/A"
- paymentMethod={paymentMethod}
+      {/* ================= RECEIPT ================= */}
 
- onClose={()=>setReceiptOpen(false)}
-/>
+      <ReceiptDrawer
+        open={receiptOpen}
+        services={services}
+        total={total}
+        clientName="Walk-in"
+        clientMobile="N/A"
+        paymentMethod={paymentMethod}
 
-{/* ================= ADD STAFF DRAWER ================= */}
+        onClose={() => setReceiptOpen(false)}
+      />
 
-{staffDrawerOpen && (
+      {/* ================= ADD STAFF DRAWER ================= */}
 
-<>
+      {staffDrawerOpen && (
 
-<div
- className="drawer-overlay"
- onClick={()=>setStaffDrawerOpen(false)}
-/>
+        <>
 
-<div className="staff-drawer">
+          <div
+            className="drawer-overlay"
+            onClick={() => setStaffDrawerOpen(false)}
+          />
 
-<div className="staff-drawer-header">
-<h4>Add Staff</h4>
-</div>
+          <div className="staff-drawer">
 
-<div className="staff-drawer-body">
+            <div className="staff-drawer-header">
+              <h4>Add Staff</h4>
+            </div>
 
-<label className="staff-label">Staff name</label>
+            <div className="staff-drawer-body">
 
-<input
- type="text"
- placeholder="Enter staff name"
- value={staffName}
- onChange={(e)=>setStaffName(e.target.value)}
-/>
+              <label className="staff-label">Staff name</label>
 
-<br/>
+              <input
+                type="text"
+                placeholder="Enter staff name"
+                value={staffName}
+                onChange={(e) => setStaffName(e.target.value)}
+              />
 
-<label className="staff-label">Color</label>
+              <br />
 
-<input
- type="color"
- value={staffColor}
- onChange={(e)=>setStaffColor(e.target.value)}
-/>
+              <label className="staff-label">Color</label>
 
-{staffError && (
-<p className="text-danger">{staffError}</p>
-)}
+              <input
+                type="color"
+                value={staffColor}
+                onChange={(e) => setStaffColor(e.target.value)}
+              />
 
-</div>
+              {staffError && (
+                <p className="text-danger">{staffError}</p>
+              )}
 
-<div className="staff-drawer-footer">
+            </div>
 
-<button
- className="btn btn-light"
- onClick={()=>setStaffDrawerOpen(false)}
->
-Cancel
-</button>
+            <div className="staff-drawer-footer">
 
-<button
- className="btn btn-dark"
- onClick={handleSaveStaff}
->
-Save Staff
-</button>
+              <button
+                className="btn btn-light"
+                onClick={() => setStaffDrawerOpen(false)}
+              >
+                Cancel
+              </button>
 
-</div>
+              <button
+                className="btn btn-dark"
+                onClick={handleSaveStaff}
+              >
+                Save Staff
+              </button>
 
-</div>
+            </div>
 
-</>
+          </div>
 
-)}
+        </>
 
-</div>
+      )}
 
-)
+    </div>
+
+  )
 }

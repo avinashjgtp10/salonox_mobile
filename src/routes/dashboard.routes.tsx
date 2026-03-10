@@ -16,6 +16,9 @@ import ClientAddressesPage from "../features/clients/pages/ClientAddressesPage";
 
 /* STAFF / TEAM */
 import AddStaffPage from "../features/staff/pages/AddStaffPage";
+import StaffListPage from "../features/staff/pages/StaffListPage";
+import TimesheetsPage from "../features/staff/pages/TimesheetsPage";
+import PayRunsPage from "../features/staff/pages/PayRunsPage";
 
 export const DashboardRoutes = (
   <Route path="/dashboard" element={<DashboardLayout />}>
@@ -46,15 +49,15 @@ export const DashboardRoutes = (
       <Route index element={<h2>Team Home</h2>} />
 
       {/* TEAM MEMBERS */}
-      <Route path="members" element={<h2>Team Members Page</h2>} />
+      <Route path="members" element={<StaffListPage />} />
 
       {/* ADD STAFF */}
       <Route path="add" element={<AddStaffPage />} />
 
       {/* OTHER TEAM FEATURES */}
       <Route path="shifts" element={<h2>Scheduled shifts</h2>} />
-      <Route path="timesheets" element={<h2>Timesheets</h2>} />
-      <Route path="payruns" element={<h2>Pay runs</h2>} />
+      <Route path="timesheets" element={<TimesheetsPage />} />
+      <Route path="payruns" element={<PayRunsPage />} />
     </Route>
 
     {/* OTHER MODULES */}
