@@ -27,5 +27,11 @@ $card-radius: 12px;
 $btn-primary: #000000;
 $btn-hover: #333333;
 
+/* Color States */
+$danger: #ef4444;
+$success: #10b981;
+$warning: #f59e0b;
+$info: #3b82f6;
+
 /* Badge */
-$badge-bg: #ef4444;
+$badge-bg: $danger;

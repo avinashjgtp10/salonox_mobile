@@ -28,6 +28,15 @@ import ClientAddressesPage from "./features/clients/pages/ClientAddressesPage"
 import ClientEmergencyContactsPage from "./features/clients/pages/ClientEmergencyContactsPage"
 import ClientSettingsPage from "./features/clients/pages/ClientSettingsPage"
 import ImportClientsPage from "./features/clients/pages/ImportClientsPage"
+import StaffListPage from "./features/staff/pages/StaffListPage"
+import AddStaffPage from "./features/staff/pages/AddStaffPage"
+import TimesheetsPage from "./features/staff/pages/TimesheetsPage"
+import PayRunsPage from "./features/staff/pages/PayRunsPage"
+import PayRunBreakdownPage from "./features/staff/pages/PayRunBreakdownPage"
+import ScheduledShiftsPage from "./features/dashboard/pages/ScheduledShiftsPage"
+import ServicesListPage from "./features/catalog/pages/ServicesListPage"
+import AddServicePage from "./features/catalog/pages/AddServicePage"
+import CategoriesPage from "./features/catalog/pages/CategoriesPage"
 
 function App() {
   return (
@@ -59,7 +68,25 @@ function App() {
           <Route path="payments" element={<div className="p-4">Payments Page</div>} />
         </Route>
 
-        {/* ✅ ADD THIS CLIENTS SECTION */}
+        {/* TEAM */}
+        <Route path="team">
+          <Route index element={<div className="p-4">Team Home</div>} />
+          <Route path="members" element={<StaffListPage />} />
+          <Route path="add" element={<AddStaffPage />} />
+          <Route path="shifts" element={<ScheduledShiftsPage />} />
+          <Route path="timesheets" element={<TimesheetsPage />} />
+          <Route path="payruns" element={<PayRunsPage />} />
+          <Route path="payruns/:memberId" element={<PayRunBreakdownPage />} />
+        </Route>
+
+        {/* CATALOG */}
+        <Route path="catalog">
+          <Route path="services" element={<ServicesListPage />} />
+          <Route path="services/add" element={<AddServicePage />} />
+          <Route path="services/categories" element={<CategoriesPage />} />
+        </Route>
+
+        {/* CLIENTS */}
         <Route path="clients">
           <Route index element={<ClientsListPage />} />
           <Route path="list" element={<ClientsListPage />} />
@@ -69,14 +96,10 @@ function App() {
           <Route path="emergency" element={<ClientEmergencyContactsPage />} />
           <Route path="settings" element={<ClientSettingsPage />} />
           <Route path="import" element={<ImportClientsPage />} />
-
-
         </Route>
       </Route>
-
     </Routes>
-
-  )
+  );
 }
 
-export default App
+export default App;

@@ -5,6 +5,7 @@ interface Props {
   open: boolean
   onClose: () => void
   selectedTime: string | null
+  selectedResource?: string | null
   onSave: (event: any) => void
   editingEvent?: any
   onProceedToCheckout?: (event: any) => void
@@ -22,6 +23,7 @@ export default function BookingDrawer({
   open,
   onClose,
   selectedTime,
+  selectedResource,
   onSave,
   editingEvent,
   onProceedToCheckout
@@ -103,7 +105,7 @@ export default function BookingDrawer({
       title: selectedServices[0]?.name || "Service",
       start: start.toISOString(),
       end: end.toISOString(),
-      resourceId: editingEvent?.resourceId || "1",
+      resourceId: editingEvent?.resourceId || selectedResource || "1",
       className: editingEvent?.className || "",
       extendedProps: {
         services: selectedServices,
@@ -278,13 +280,13 @@ export default function BookingDrawer({
             )}
 
             {editingEvent?.id && (
-  <button
-    className="btn btn-outline-dark w-100"
-    onClick={handleProceedToCheckout}
-  >
-    Proceed to Checkout
-  </button>
-)}
+              <button
+                className="btn btn-outline-dark w-100"
+                onClick={handleProceedToCheckout}
+              >
+                Proceed to Checkout
+              </button>
+            )}
           </div>
         )}
       </div>

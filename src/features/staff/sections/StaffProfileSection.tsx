@@ -1,16 +1,33 @@
-import React, { useState } from "react";
+import { useState, useRef } from "react";
+import type { FC } from "react";
+import { Person, Pencil } from "react-bootstrap-icons";
 
 const CALENDAR_COLORS = [
-  "#93c5fd","#60a5fa","#3b82f6","#6366f1","#8b5cf6",
-  "#a78bfa","#c084fc","#e879f9","#f472b6","#fb7185",
-  "#fb923c","#fbbf24","#facc15","#a3e635","#34d399",
-  "#2dd4bf","#67e8f9",
+  "#93c5fd", "#60a5fa", "#3b82f6", "#6366f1", "#8b5cf6",
+  "#a78bfa", "#c084fc", "#e879f9", "#f472b6", "#fb7185",
+  "#fb923c", "#fbbf24", "#facc15", "#a3e635", "#34d399",
+  "#2dd4bf", "#67e8f9",
 ];
 
-const StaffProfileSection: React.FC = () => {
+interface StaffProfileProps {
+  firstName?: string;
+  setFirstName?: (val: string) => void;
+  email?: string;
+  setEmail?: (val: string) => void;
+  isFirstNameInvalid?: boolean;
+  isEmailInvalid?: boolean;
+}
+
+const StaffProfileSection: FC<StaffProfileProps> = ({
+  firstName = "",
+  setFirstName = () => { },
+  email = "",
+  setEmail = () => { },
+  isFirstNameInvalid = false,
+  isEmailInvalid = false
+}) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedColor, setSelectedColor] = useState(CALENDAR_COLORS[0]);
-  const [firstName, setFirstName] = useState("");
-  const [showError, setShowError] = useState(false);
   const [notes, setNotes] = useState("");
 
   return (
@@ -18,9 +35,37 @@ const StaffProfileSection: React.FC = () => {
       <h4 className="section__title">Profile</h4>
       <p className="section__subtitle">Manage your team member's personal profile</p>
 
-      <div className="staff-avatar">
-        <i className="bi bi-person staff-avatar__icon" />
-        <button className="staff-avatar__edit"><i className="bi bi-pencil" /></button>
+      <div className="d-flex align-items-center mb-4 mt-3">
+        <div className="profile-image-upload position-relative d-inline-block">
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="d-none"
+            accept="image/*"
+          />
+          <div
+            className="profile-placeholder rounded-circle d-flex justify-content-center align-items-center"
+            style={{ width: "80px", height: "80px", backgroundColor: "#F0F0FE" }}
+          >
+            <Person style={{ color: "#7A5CFF" }} size={48} />
+          </div>
+          <button
+            type="button"
+            className="btn btn-white rounded-circle position-absolute d-flex justify-content-center align-items-center shadow-sm p-0 m-0"
+            onClick={() => fileInputRef.current?.click()}
+            style={{
+              width: "28px",
+              height: "28px",
+              bottom: "0px",
+              right: "0px",
+              backgroundColor: "#FAFAFA",
+              border: "1px solid #EAEAEA",
+              padding: "0"
+            }}
+          >
+            <Pencil size={12} style={{ color: "#888" }} />
+          </button>
+        </div>
       </div>
 
       <div className="row g-3 mb-3">
@@ -28,12 +73,11 @@ const StaffProfileSection: React.FC = () => {
           <label className="form-label">First name <span className="text-danger">*</span></label>
           <input
             type="text"
-            className={`form-control ${showError ? "is-invalid" : ""}`}
+            className={`form-control ${isFirstNameInvalid ? "is-invalid" : ""}`}
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
-            onBlur={() => setShowError(firstName.trim() === "")}
           />
-          {showError && <div className="invalid-feedback">First name is required</div>}
+          {isFirstNameInvalid && <div className="invalid-feedback">First name is required</div>}
         </div>
         <div className="col-6">
           <label className="form-label">Last name</label>
@@ -43,8 +87,17 @@ const StaffProfileSection: React.FC = () => {
 
       <div className="mb-3">
         <label className="form-label">Email <span className="text-danger">*</span></label>
-        <input type="email" className="form-control" />
-        <div className="form-hint">Email is required when permission level is greater than 'No Access'</div>
+        <input
+          type="email"
+          className={`form-control ${isEmailInvalid ? "is-invalid" : ""}`}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        {isEmailInvalid ? (
+          <div className="invalid-feedback">Email is required when permission level is greater than 'No Access'</div>
+        ) : (
+          <div className="form-hint">Email is required when permission level is greater than 'No Access'</div>
+        )}
       </div>
 
       <div className="mb-3">

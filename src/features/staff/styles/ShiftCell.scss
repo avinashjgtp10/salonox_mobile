@@ -1,0 +1,110 @@
+.shift-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 6px;
+
+  &--off {
+    font-size: 12px;
+    color: #b0b7c3;
+    justify-content: center;
+  }
+
+  &__badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 5px 8px;
+    background: #eeeeff;
+    color: #4e4fe0;
+    font-size: 12.5px;
+    font-weight: 500;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.13s;
+    white-space: nowrap;
+
+    &:hover {
+      background: #e0e0fb;
+    }
+  }
+
+  &__plus-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60%;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid #e2e4e9;
+    background: #f0f7ff;
+    cursor: pointer;
+    transition: all 0.13s;
+    margin: 0 auto;
+
+    &:hover {
+      background: #e0f0ff;
+      border-color: #b8d9ff;
+    }
+  }
+
+  &__plus-icon {
+    font-size: 16px;
+    color: #5b5ef4;
+    font-weight: 700;
+  }
+
+  &__popover {
+    position: fixed;
+    z-index: 9999;
+    background: #fff;
+    border: 1px solid #e2e4e9;
+    border-radius: 8px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
+    min-width: 200px;
+    padding: 4px 0;
+    animation: popIn 0.12s ease;
+
+    @keyframes popIn {
+      from {
+        opacity: 0;
+        transform: translateY(-5px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  }
+
+  &__pop-item {
+    display: block;
+    width: 100%;
+    padding: 8px 14px;
+    background: none;
+    border: none;
+    text-align: left;
+    font-size: 13.5px;
+    color: #2d3139;
+    cursor: pointer;
+
+    &:hover {
+      background: #f5f6f8;
+    }
+
+    &--red {
+      color: #d63a3a;
+    }
+  }
+
+  &__pop-divider {
+    height: 1px;
+    background: #eee;
+    margin: 4px 0;
+  }
+}
