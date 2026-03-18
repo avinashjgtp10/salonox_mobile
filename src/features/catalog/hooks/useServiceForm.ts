@@ -29,11 +29,8 @@ const initialData: CatalogFormData = {
         ],
     },
     addons: {
-        selectedAddonIds: [],
-        availableAddons: [
-            { id: "a1", name: "Hair Wash", duration: 10, price: 15 },
-            { id: "a2", name: "Scalp Massage", duration: 5, price: 10 },
-        ],
+        selectedGroupIds: [],
+        availableGroups: [],
     },
     onlineBooking: {
         enabled: true,
@@ -69,14 +66,42 @@ const initialData: CatalogFormData = {
 };
 
 export const useServiceForm = (type: "single" | "bundle") => {
-    console.log("Initializing form for:", type);
     const [formData, setFormData] = useState<CatalogFormData>(initialData);
+    const [validationErrors, setValidationErrors] = useState<Record<string, string[]>>({});
+    const [isSubmitted, setIsSubmitted] = useState(false);
 
     const updateField = <K extends keyof CatalogFormData>(section: K, value: CatalogFormData[K]) => {
         setFormData((prev) => ({ ...prev, [section]: value }));
     };
 
+    const validate = () => {
+        const errors: Record<string, string[]> = {};
+
+        // Basic details validation
+        if (!formData.basic.name.trim()) {
+            errors.basic = [...(errors.basic || []), "Service name is required"];
+        }
+        if (!formData.basic.categoryId) {
+            errors.basic = [...(errors.basic || []), "Category is required"];
+        }
+        if (formData.basic.price === undefined || formData.basic.price === null || isNaN(formData.basic.price)) {
+            errors.basic = [...(errors.basic || []), "Price is required"];
+        }
+
+        // Team members validation
+        if (!formData.team.allMembers && formData.team.selectedMemberIds.length === 0) {
+            errors.team = [...(errors.team || []), "At least one team member must be selected"];
+        }
+
+        setValidationErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
     const handleSubmit = async () => {
+        setIsSubmitted(true);
+        const isValid = validate();
+        if (!isValid) return false;
+
         console.log("Submitting:", formData);
         return true;
     };
@@ -84,5 +109,13 @@ export const useServiceForm = (type: "single" | "bundle") => {
     const loading = false;
     const error = null;
 
-    return { formData, updateField, handleSubmit, loading, error };
+    return { 
+        formData, 
+        updateField, 
+        handleSubmit, 
+        loading, 
+        error, 
+        validationErrors,
+        isSubmitted 
+    };
 };

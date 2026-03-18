@@ -1,5 +1,5 @@
-import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
 import {
     Search,
     Sliders,
@@ -12,71 +12,51 @@ import {
     GeoAlt,
     Calendar2Check,
     ToggleOn,
+    FileEarmarkExcel,
+    FiletypeCsv,
 } from "react-bootstrap-icons";
 import "../styles/StaffListPage.scss";
-
-interface StaffMember {
-    id: number;
-    name: string;
-    email: string;
-    role: string;
-    phone: string;
-    status: "Active" | "Inactive";
-    bookable: boolean;
-    location: string;
-    avatar: string;
-}
-
-const mockStaff: StaffMember[] = [
-    { id: 1, name: "Sarah Johnson", email: "sarah@salonox.com", role: "Stylist", phone: "+1 555 0101", status: "Active", bookable: true, location: "Main Branch", avatar: "SJ" },
-    { id: 2, name: "Mike Williams", email: "mike@salonox.com", role: "Barber", phone: "+1 555 0102", status: "Active", bookable: true, location: "Branch 2", avatar: "MW" },
-    { id: 3, name: "Emma Davis", email: "emma@salonox.com", role: "Colorist", phone: "+1 555 0103", status: "Inactive", bookable: false, location: "Main Branch", avatar: "ED" },
-];
-
-const locations = ["Main Branch", "Branch 2", "Branch 3"];
-const sortOptions = [
-    "Custom order",
-    "Name (A-Z)",
-    "Name (Z-A)",
-    "Surname (A-Z)",
-    "Surname (Z-A)",
-    "Started at (oldest first)",
-    "Started at (newest first)",
-    "Rating (highest first)",
-    "Rating (lowest first)",
-    "Updated at (oldest first)",
-    "Updated at (newest first)",
-];
-
-function FilterSection({
-    title, icon, badge, onClear, children, defaultOpen = false,
-}: {
-    title: string; icon: React.ReactNode; badge?: number; onClear?: () => void;
-    children: React.ReactNode; defaultOpen?: boolean;
-}) {
-    const [open, setOpen] = useState(defaultOpen);
-    return (
-        <div className="fs-section">
-            <div className="fs-section-header" onClick={() => setOpen(!open)}>
-                <div className="fs-section-title">
-                    {icon}
-                    <span>{title}</span>
-                    {badge ? <span className="fs-badge">{badge}</span> : null}
-                </div>
-                <div className="fs-right">
-                    {badge && onClear && (
-                        <span className="fs-clear" onClick={(e) => { e.stopPropagation(); onClear(); }}>Clear</span>
-                    )}
-                    {open ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-                </div>
-            </div>
-            {open && <div className="fs-section-body">{children}</div>}
-        </div>
-    );
-}
+import { getStaff, deleteStaff, exportStaff } from "../services/staffService";
 
 export default function StaffListPage() {
     const navigate = useNavigate();
+    const location = useLocation();
+    const [staff, setStaff] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchStaff = async () => {
+        try {
+            setLoading(true);
+            const res = await getStaff();
+            console.log("STAFF API RESPONSE:", res.data);
+            const staffData = res.data?.data?.items || [];
+            setStaff(Array.isArray(staffData) ? staffData : []);
+        } catch (error) {
+            console.error("Error fetching staff", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchStaff();
+    }, [location]);
+
+    const locations = ["Main Branch", "Branch 2", "Branch 3"];
+    const sortOptions = [
+        "Custom order",
+        "Name (A-Z)",
+        "Name (Z-A)",
+        "Surname (A-Z)",
+        "Surname (Z-A)",
+        "Started at (oldest first)",
+        "Started at (newest first)",
+        "Rating (highest first)",
+        "Rating (lowest first)",
+        "Updated at (oldest first)",
+        "Updated at (newest first)",
+    ];
+
     const [searchTerm, setSearchTerm] = useState("");
     const [showFilter, setShowFilter] = useState(false);
     const [sortOpen, setSortOpen] = useState(false);
@@ -118,32 +98,76 @@ export default function StaffListPage() {
     const handleCheck = (e: React.MouseEvent, id: number) => {
         e.stopPropagation();
         setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
-        // Open actions for this row when checked; close if unchecking
         setActionsOpenId((prev) => {
             const isChecked = !selectedIds.includes(id);
             return isChecked ? id : (prev === id ? null : prev);
         });
     };
 
-    const filtered = mockStaff.filter((s) => {
-        const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || s.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const handleDeleteStaff = async (id: number) => {
+        try {
+            await deleteStaff(id);
+            await fetchStaff();
+            showToast("Staff member deleted successfully");
+        } catch (error) {
+            console.error("Error deleting staff", error);
+            showToast("Error deleting staff member");
+        }
+    };
+
+    const handleExportExcel = async () => {
+        try {
+            const res = await exportStaff("excel");
+            const url = window.URL.createObjectURL(new Blob([res.data]));
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", "staff.xlsx");
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setOptionsOpen(false);
+        } catch (error) {
+            console.error("Export error:", error);
+            showToast("Error exporting staff");
+        }
+    };
+
+    const handleExportCSV = async () => {
+        try {
+            const res = await exportStaff("csv");
+            const url = window.URL.createObjectURL(new Blob([res.data]));
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", "staff.csv");
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setOptionsOpen(false);
+        } catch (error) {
+            console.error("Export error:", error);
+            showToast("Error exporting staff");
+        }
+    };
+
+    const filtered = staff.filter((s) => {
+        const matchesSearch = (s.first_name || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
+                             (s.last_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+                             (s.email || "").toLowerCase().includes(searchTerm.toLowerCase());
         const matchesLocation = selectedLocations.length === 0 || selectedLocations.includes(s.location);
-        const matchesType = (!bookable && !nonBookable) || (bookable && s.bookable) || (nonBookable && !s.bookable);
         const matchesStatus = selectedStatus === "all" || (selectedStatus === "active" && s.status === "Active") || (selectedStatus === "archived" && s.status === "Inactive");
-        return matchesSearch && matchesLocation && matchesType && matchesStatus;
+        return matchesSearch && matchesLocation && matchesStatus;
     });
 
     const actionItems = [
-        { label: "Edit", onClick: (_id: number) => navigate(`/dashboard/team/add`) },
+        { label: "Edit", onClick: (id: number) => navigate(`/dashboard/team/${id}`) },
         { label: "View calendar", onClick: () => navigate("/dashboard/calendar") },
         { label: "View scheduled shifts", onClick: () => navigate("/dashboard/team/shifts") },
-        { label: "Add time off", onClick: () => { } },
+        { label: "Delete", onClick: (id: number) => handleDeleteStaff(id), className: "text-danger" },
     ];
 
     return (
         <div className="staff-list-page" onClick={() => { setActionsOpenId(null); setOptionsOpen(false); }}>
 
-            {/* ===== FILTER OVERLAY + DRAWER ===== */}
             {/* ===== TOAST ===== */}
             {toast && (
                 <div className="sl-toast">
@@ -229,18 +253,18 @@ export default function StaffListPage() {
                                 </div>
                                 <div className="options-divider" />
                                 <div className="options-label">Export</div>
-                                <div className="options-item" onClick={() => { setOptionsOpen(false); showToast("Export generated successfully"); }}>
-                                    <span className="opt-icon">📊</span> CSV
+                                <div className="options-item" onClick={handleExportCSV}>
+                                    <FiletypeCsv size={14} /> CSV
                                 </div>
-                                <div className="options-item" onClick={() => { setOptionsOpen(false); showToast("Export generated successfully"); }}>
-                                    <span className="opt-icon">📊</span> Excel
+                                <div className="options-item" onClick={handleExportExcel}>
+                                    <FileEarmarkExcel size={14} /> Excel
                                 </div>
                             </div>
                         )}
                     </div>
                     {/* ADD BUTTON */}
                     <button className="btn-dark" onClick={() => navigate("/dashboard/team/add")}>
-                        <PersonPlus size={16} /> Add member
+                        <PersonPlus size={16} /> Add
                     </button>
                 </div>
             </div>
@@ -274,109 +298,140 @@ export default function StaffListPage() {
             </div>
 
             {/* ===== TABLE ===== */}
-            <div className="table-card">
-                <div className="staff-table">
+            {loading ? (
+                <div className="text-center p-5">Loading team members...</div>
+            ) : (
+                <div className="table-card">
+                    <div className="staff-table">
 
-                    {/* TABLE HEADER */}
-                    <div className="table-header">
-                        <div className="col-check">
-                            <input type="checkbox" checked={selectedIds.length === filtered.length && filtered.length > 0} onChange={handleSelectAll} />
+                        {/* TABLE HEADER */}
+                        <div className="table-header">
+                            <div className="col-check">
+                                <input type="checkbox" checked={selectedIds.length === filtered.length && filtered.length > 0} onChange={handleSelectAll} />
+                            </div>
+                            <div className="col-name">Name</div>
+                            <div>Contact</div>
+                            <div>Rating</div>
+                            <div></div>
                         </div>
-                        <div className="col-name">Name</div>
-                        <div>Contact</div>
-                        <div>Rating</div>
-                        <div></div>
-                    </div>
 
-                    {filtered.length === 0 ? (
-                        <div className="empty-state">
-                            <PersonBadge size={40} />
-                            <p>No team members found.</p>
-                        </div>
-                    ) : (
-                        filtered.map((member) => {
-                            const isChecked = selectedIds.includes(member.id);
-                            const actionsOpen = actionsOpenId === member.id;
-                            return (
-                                <div
-                                    key={member.id}
-                                    className={`table-row ${isChecked ? "row-selected" : ""}`}
-                                    onClick={() => navigate(`/dashboard/team/${member.id}`)}
-                                >
-                                    {/* CHECKBOX */}
-                                    <div className="col-check">
-                                        <input
-                                            type="checkbox"
-                                            checked={isChecked}
-                                            onChange={() => { }}
-                                            onClick={(e) => handleCheck(e, member.id)}
-                                        />
-                                    </div>
+                        {filtered.length === 0 ? (
+                            <div className="empty-state">
+                                <PersonBadge size={40} />
+                                <p>No team members found.</p>
+                            </div>
+                        ) : (
+                            filtered.map((member) => {
+                                const isChecked = selectedIds.includes(member.id);
+                                const actionsOpen = actionsOpenId === member.id;
+                                return (
+                                    <div
+                                        key={member.id}
+                                        className={`table-row ${isChecked ? "row-selected" : ""}`}
+                                        onClick={() => navigate(`/dashboard/team/${member.id}`)}
+                                    >
+                                        {/* CHECKBOX */}
+                                        <div className="col-check">
+                                            <input
+                                                type="checkbox"
+                                                checked={isChecked}
+                                                onChange={() => { }}
+                                                onClick={(e) => handleCheck(e, member.id)}
+                                            />
+                                        </div>
 
-                                    {/* NAME */}
-                                    <div className="col-name">
-                                        <div className="avatar">{member.avatar}</div>
-                                        <div>
-                                            <div className="name">{member.name}</div>
-                                            <div className="email">{member.email}</div>
+                                        {/* NAME */}
+                                        <div className="col-name">
+                                            <div className="avatar">{(member.first_name?.[0] || 'S').toUpperCase()}</div>
+                                            <div>
+                                                <div className="name">{`${member.first_name || ''} ${member.last_name || ''}`}</div>
+                                                <div className="email">{member.email}</div>
+                                            </div>
+                                        </div>
+
+                                        {/* CONTACT */}
+                                        <div className="col-contact">
+                                            <div className="contact-email">{member.email || '-'}</div>
+                                            <div className="contact-phone">{member.phone_number || '-'}</div>
+                                        </div>
+
+                                        {/* RATING */}
+                                        <div className="col-rating">
+                                            <span className="no-reviews">No reviews yet</span>
+                                        </div>
+
+                                        {/* ACTIONS — only visible when row is checked */}
+                                        <div className="col-actions" onClick={(e) => e.stopPropagation()}>
+                                            {isChecked && (
+                                                <div className="actions-wrapper">
+                                                    <button
+                                                        className="actions-btn"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setActionsOpenId(actionsOpen ? null : member.id);
+                                                        }}
+                                                    >
+                                                        Actions <ChevronDown size={13} />
+                                                    </button>
+                                                    {actionsOpen && (
+                                                        <div className="actions-menu">
+                                                            {actionItems.map((item) => (
+                                                                <div
+                                                                    key={item.label}
+                                                                    className={`action-item ${item.className || ''}`}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setActionsOpenId(null);
+                                                                        item.onClick(member.id);
+                                                                    }}
+                                                                >
+                                                                    {item.label}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-
-                                    {/* CONTACT */}
-                                    <div className="col-contact">
-                                        <div className="contact-email">{member.email}</div>
-                                        <div className="contact-phone">{member.phone}</div>
-                                    </div>
-
-                                    {/* RATING */}
-                                    <div className="col-rating">
-                                        <span className="no-reviews">No reviews yet</span>
-                                    </div>
-
-                                    {/* ACTIONS — only visible when row is checked */}
-                                    <div className="col-actions" onClick={(e) => e.stopPropagation()}>
-                                        {isChecked && (
-                                            <div className="actions-wrapper">
-                                                <button
-                                                    className="actions-btn"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setActionsOpenId(actionsOpen ? null : member.id);
-                                                    }}
-                                                >
-                                                    Actions <ChevronDown size={13} />
-                                                </button>
-                                                {actionsOpen && (
-                                                    <div className="actions-menu">
-                                                        {actionItems.map((item) => (
-                                                            <div
-                                                                key={item.label}
-                                                                className="action-item"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setActionsOpenId(null);
-                                                                    item.onClick(member.id);
-                                                                }}
-                                                            >
-                                                                {item.label}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })
-                    )}
+                                );
+                            })
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
 
             <div className="results-text">
                 Viewing 1–{filtered.length} of {filtered.length} results
             </div>
 
+        </div>
+    );
+}
+
+function FilterSection({
+    title, icon, badge, onClear, children, defaultOpen = false,
+}: {
+    title: string; icon: React.ReactNode; badge?: number; onClear?: () => void;
+    children: React.ReactNode; defaultOpen?: boolean;
+}) {
+    const [open, setOpen] = useState(defaultOpen);
+    return (
+        <div className="fs-section">
+            <div className="fs-section-header" onClick={() => setOpen(!open)}>
+                <div className="fs-section-title">
+                    {icon}
+                    <span>{title}</span>
+                    {badge ? <span className="fs-badge">{badge}</span> : null}
+                </div>
+                <div className="fs-right">
+                    {badge && onClear && (
+                        <span className="fs-clear" onClick={(e) => { e.stopPropagation(); onClear(); }}>Clear</span>
+                    )}
+                    {open ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                </div>
+            </div>
+            {open && <div className="fs-section-body">{children}</div>}
         </div>
     );
 }

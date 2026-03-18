@@ -1,4 +1,4 @@
-import { Outlet, NavLink } from "react-router-dom"
+import { Outlet, NavLink, useNavigate } from "react-router-dom"
 import { useState } from "react"
 import "../styles/DashboardPage.scss"
 
@@ -30,6 +30,7 @@ import {
 export default function DashboardLayout() {
 
   const [openMenu, setOpenMenu] = useState<string | null>(null)
+  const navigate = useNavigate()
 
   return (
     <div className="dashboard">
@@ -84,7 +85,10 @@ export default function DashboardLayout() {
           {/* SALES */}
           <div
             className={`nav-btn ${openMenu === "sales" ? "menu-active" : ""}`}
-            onClick={() => setOpenMenu("sales")}
+            onClick={() => {
+              setOpenMenu("sales")
+              navigate("/dashboard/sales")
+            }}
           >
             <Tag size={26} />
             <span className="nav-label">Sales</span>

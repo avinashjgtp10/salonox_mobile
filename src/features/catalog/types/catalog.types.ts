@@ -44,16 +44,27 @@ export interface ResourcesData {
     availableResources: Resource[];
 }
 
-export interface AddOnService {
+export interface AddOnOption {
     id: string;
     name: string;
     duration: number;
     price: number;
 }
 
+export interface AddOnGroup {
+    id: string;
+    name: string;
+    prompt: string;
+    options: AddOnOption[];
+    minQuantityRequired: boolean;
+    maxQuantityEnabled: boolean;
+    allowMultipleSame: boolean;
+    linkedServiceIds: string[];
+}
+
 export interface ServiceAddOnsData {
-    selectedAddonIds: string[];
-    availableAddons: AddOnService[];
+    selectedGroupIds: string[];
+    availableGroups: AddOnGroup[];
 }
 
 export interface OnlineBookingData {
@@ -112,6 +123,16 @@ export interface Category {
     id: string;
     name: string;
     serviceCount: number;
+}
+
+export interface Membership {
+    id: string;
+    name: string;
+    servicesCovered: string; // e.g., "All services"
+    validFor: string; // e.g., "1 month"
+    sessions: string; // e.g., "5 sessions"
+    price: number;
+    image?: string;
 }
 
 export interface CatalogFormData {

@@ -37,15 +37,48 @@ export default function CatalogSubSidebar({ onClose }: Props) {
         Categories
       </NavLink>
 
-      <div className="sub-link">Memberships</div>
-      <div className="sub-link">Products</div>
+      <NavLink
+        to="/dashboard/catalog/memberships"
+        className={({ isActive }) =>
+          isActive ? "sub-link active" : "sub-link"
+        }
+        onClick={onClose}
+      >
+        Memberships
+      </NavLink>
+
+      <NavLink
+        to="/dashboard/catalog/products"
+        className={({ isActive }) =>
+          isActive ? "sub-link active" : "sub-link"
+        }
+        onClick={onClose}
+      >
+        Products
+      </NavLink>
       <hr className="sub-divider" />
 
       <div className="sub-category">
         Inventory
       </div>
-      <div className="sub-link">Stocktakes</div>
-      <div className="sub-link">Stock orders</div>
+      <NavLink
+        to="/dashboard/catalog/inventory/stocktakes"
+        className={({ isActive }) =>
+          isActive ? "sub-link active" : "sub-link"
+        }
+        onClick={onClose}
+      >
+        Stocktakes
+      </NavLink>
+      <NavLink
+        to="/dashboard/catalog/inventory/orders"
+        className={({ isActive }) =>
+          isActive ? "sub-link active" : "sub-link"
+        }
+        onClick={onClose}
+      >
+        Stock orders
+      </NavLink>
       <div className="sub-link">Suppliers</div>
 
     </div>

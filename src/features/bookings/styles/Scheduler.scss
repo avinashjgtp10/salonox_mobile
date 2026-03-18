@@ -1,202 +1,757 @@
-/* ================= PAGE LAYOUT ================= */
+@use "scheduler-variables" as *;
+@use "scheduler-mixins" as *;
+
+// ─── SCHEDULER WRAPPER ─────────────────────────────────────────────────────────
+.scheduler-wrapper {
+  font-family: $font-family;
+  background: $color-bg;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 
 .scheduler-page {
+  font-family: $font-family;
+  background: $color-bg;
   height: 100vh;
-  background: #f8fafc;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
-/* ================= TOOLBAR ================= */
+// ─── TOP BAR ───────────────────────────────────────────────────────────────────
+.topbar {
+  @include flex-between;
+  padding: 10px $spacing-lg;
+  background: $color-surface;
+  border-bottom: 1px solid $color-border;
+  box-shadow: $shadow-sm;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+  z-index: 20;
+  min-height: $topbar-height;
 
-.scheduler-toolbar {
-  background: #ffffff;
-  border-bottom: 1px solid #e5e7eb;
-  padding: 10px 20px;
+  &__left   { display: flex; align-items: center; gap: $spacing-sm; }
+  &__center { display: flex; align-items: center; gap: $spacing-sm; flex: 1; justify-content: center; }
+  &__right  { display: flex; align-items: center; gap: $spacing-sm; flex-wrap: wrap; }
+
+  &__date-label {
+    font-size: $font-size-base;
+    font-weight: 600;
+    color: $color-text-primary;
+    min-width: 180px;
+    text-align: center;
+  }
+
+  &__nav-btn   { padding: 4px 12px; font-size: 18px; line-height: 1; }
+  &__view-btn  { font-weight: 600; }
+  &__add-btn   { font-weight: 600; }
+  &__icon-btn  { padding: 7px 10px; font-size: $font-size-lg; }
+
+  &__interval {
+    width: auto;
+    max-width: 120px;
+    cursor: pointer;
+    font-size: $font-size-md;
+  }
 }
 
-/* ================= CALENDAR ================= */
+// ─── VIEW DROPDOWN ─────────────────────────────────────────────────────────────
+.view-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 100;
+  background: $color-surface;
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-md;
+  min-width: 160px;
+  overflow: hidden;
+  @include fade-in;
 
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    padding: 10px $spacing-lg;
+    width: 100%;
+    background: $color-surface;
+    border: none;
+    cursor: pointer;
+    font-size: $font-size-md;
+    text-align: left;
+    transition: background 0.1s;
+
+    &:hover       { background: #f3f4f6; }
+    &--active     { background: #f3f4f6; font-weight: 600; }
+  }
+}
+
+// ─── AVATAR ────────────────────────────────────────────────────────────────────
+.avatar {
+  border-radius: 50%;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  flex-shrink: 0;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.15);
+}
+
+// ─── TIME GUTTER ───────────────────────────────────────────────────────────────
+.time-gutter {
+  width: $time-gutter-width;
+  flex-shrink: 0;
+  border-right: 1px solid $color-border;
+  background: #fafafa;
+  //@include scrollbar; // Commented out just in case scrollbar mixin is not defined/ready
+
+  &__slot {
+    height: $slot-height;
+    position: relative;
+    border-bottom: 1px solid $color-border-light;
+  }
+
+  &__label {
+    position: absolute;
+    top: -8px;
+    right: 6px;
+    font-size: $font-size-xs;
+    color: $color-text-faint;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+}
+
+// ─── STAFF COLUMNS ─────────────────────────────────────────────────────────────
+.staff-col {
+  border-right: 1px solid $color-border;
+
+  &__header {
+    height: $staff-header-height;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border-bottom: 1px solid $color-border;
+    border-right: 1px solid $color-border;
+    background: $color-surface;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    cursor: context-menu;
+
+    &:hover { background: #f9fafb; }
+  }
+
+  &__name {
+    font-size: $font-size-xs;
+    font-weight: 700;
+    color: $color-text-secondary;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  &__slots { position: relative; }
+
+  &__slot {
+    height: $slot-height;
+    border-bottom: 1px solid $color-border-light;
+    cursor: pointer;
+    transition: background 0.1s;
+
+    &:hover          { background: #f0f9ff; }
+    &--blocked {
+      background: repeating-linear-gradient(
+        45deg, #f3f4f6, #f3f4f6 4px, #e9eaec 4px, #e9eaec 8px
+      );
+      cursor: not-allowed;
+      &:hover { background: repeating-linear-gradient(
+        45deg, #f3f4f6, #f3f4f6 4px, #e9eaec 4px, #e9eaec 8px
+      ); }
+    }
+  }
+}
+
+// ─── BOOKING CHIP ──────────────────────────────────────────────────────────────
+.booking-chip {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  border-radius: $radius-md;
+  padding: 4px 8px;
+  cursor: pointer;
+  color: #fff;
+  font-size: $font-size-xs;
+  font-weight: 600;
+  overflow: hidden;
+  z-index: 5;
+  box-shadow: 0 2px 6px rgba(0,0,0,.2);
+  transition: opacity 0.15s, transform 0.1s;
+
+  &:hover { opacity: .9; transform: scale(1.01); }
+
+  &__time    { display: block; }
+  &__service { display: block; opacity: .9; }
+}
+
+// ─── NOW LINE ──────────────────────────────────────────────────────────────────
+.now-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: $color-danger;
+  z-index: 8;
+  pointer-events: none;
+}
+
+// ─── MONTH VIEW ────────────────────────────────────────────────────────────────
+.month-view {
+  flex: 1;
+  overflow-y: auto;
+  //@include scrollbar;
+
+  &__header {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    border-bottom: 1px solid $color-border;
+  }
+
+  &__day-label {
+    text-align: center;
+    padding: 8px 0;
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: $color-text-muted;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+  }
+
+  &__cell {
+    min-height: 90px;
+    border: 1px solid $color-border-light;
+    padding: 6px 8px;
+    cursor: pointer;
+    background: $color-surface;
+    transition: background 0.1s;
+
+    &:hover    { background: #f9fafb; }
+    &--today   { background: #eff6ff; }
+    &--empty   { cursor: default; background: #fafafa; }
+  }
+
+  &__date-num {
+    font-size: $font-size-sm;
+    font-weight: 700;
+    color: $color-text-secondary;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: $radius-full;
+
+    &--today {
+      background: #3b82f6;
+      color: #fff;
+    }
+  }
+
+  &__chip {
+    font-size: 10px;
+    background: $color-success;
+    color: #fff;
+    border-radius: $radius-sm;
+    padding: 1px 4px;
+    margin-top: 2px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  &__more {
+    font-size: 10px;
+    color: $color-text-muted;
+    margin-top: 2px;
+  }
+}
+
+// ─── LIST WEEK VIEW ────────────────────────────────────────────────────────────
+.list-view {
+  flex: 1;
+  overflow-y: auto;
+  padding: $spacing-lg;
+  //@include scrollbar;
+
+  &__day-header {
+    font-size: $font-size-md;
+    font-weight: 700;
+    color: $color-text-secondary;
+    border-bottom: 2px solid $color-border;
+    padding-bottom: 6px;
+    margin-bottom: 8px;
+
+    &--today { color: #3b82f6; }
+  }
+
+  &__item {
+    @include flex-between;
+    padding: 10px 14px;
+    background: $color-surface;
+    border-radius: $radius-lg;
+    border: 1px solid $color-border;
+    margin-bottom: 6px;
+    cursor: pointer;
+    box-shadow: $shadow-sm;
+    transition: box-shadow 0.15s;
+
+    &:hover { box-shadow: $shadow-md; }
+  }
+
+  &__bar {
+    width: 4px;
+    height: 36px;
+    background: $color-success;
+    border-radius: 2px;
+    margin-right: $spacing-md;
+  }
+
+  &__badge {
+    font-size: $font-size-xs;
+    font-weight: 600;
+    border-radius: $radius-sm;
+    padding: 2px 8px;
+
+    &--paid    { background: #d1fae5; color: #065f46; }
+    &--unpaid  { background: #fef2f2; color: $color-danger; }
+    &--partial { background: #fef3c7; color: #92400e; }
+  }
+}
+
+// ─── CALENDAR (legacy FullCalendar wrapper — kept for compatibility) ────────────
 .scheduler-calendar {
   flex: 1;
-  background: #ffffff;
+  overflow: hidden;
 }
 
-/* ================= FULLCALENDAR ================= */
-
-.fc {
-  font-family: "Inter", sans-serif;
-}
-
-/* SLOT HEIGHT */
-
-.fc-timegrid-slot {
-  height: 60px !important;
-}
-
-/* TIME LABEL */
-
-.fc-timegrid-slot-label {
-  font-size: 12px;
-  color: #6b7280;
-}
-
-/* EVENT STYLE */
-
-.fc-event {
-  border-radius: 6px;
-  border: none;
-  padding: 2px;
-  font-size: 12px;
-}
-
-.fc-event:hover {
-  opacity: 0.9;
-}
-
-/* RESOURCE AREA */
-
-.fc-resource-area {
-  background: #f9fafb;
-}
-
-/* HEADER STYLE */
-
-.fc-col-header-cell {
-  background: #f9fafb;
-  font-weight: 600;
-}
-
-.fc-col-header-cell-cushion {
-  text-decoration: none;
-  color: #111827;
-  font-weight: 600;
-}
-
-/* ================= ADD STAFF DRAWER ================= */
-
-.drawer-overlay {
+// ─── OVERLAY ──────────────────────────────────────────────────────────────────
+.modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.3);
-  z-index: 1040;
-}
-
-.staff-drawer {
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: 420px;
-  height: 100vh;
-  background: #ffffff;
-
-  z-index: 1050;
-
-  display: flex;
-  flex-direction: column;
-
-  box-shadow: -4px 0 20px rgba(0,0,0,0.1);
-}
-
-/* ================= DRAWER HEADER ================= */
-
-.staff-drawer-header {
-  padding: 20px;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.staff-drawer-header h4 {
-  margin: 0;
-  font-weight: 600;
-}
-
-/* ================= DRAWER BODY ================= */
-
-.staff-drawer-body {
-  flex: 1;
-  padding: 20px;
-}
-
-.staff-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: #111827;
-}
-
-/* INPUT */
-
-.staff-drawer-body input[type="text"] {
-  width: 100%;
-  padding: 10px;
-  border-radius: 8px;
-  border: 1px solid #d1d5db;
-}
-
-/* COLOR INPUT */
-
-.staff-drawer-body input[type="color"] {
-  width: 100%;
-  height: 40px;
-  border-radius: 6px;
-  border: 1px solid #d1d5db;
-}
-
-/* ================= DRAWER FOOTER ================= */
-
-.staff-drawer-footer {
-  padding: 20px;
-  border-top: 1px solid #e5e7eb;
-
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1000;
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  @include fade-in;
 }
 
-/* BUTTONS */
+// ─── SIDE PANEL (shared by all modals) ───────────────────────────────────────
+.side-panel {
+  background: $color-surface;
+  height: 100vh;
+  overflow-y: auto;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  @include slide-in-right;
+  @include scrollbar;
 
-.staff-drawer-footer .btn {
-  min-width: 100px;
+  &--lg { width: min(#{$panel-width}, 100vw); }
+  &--md { width: min(480px, 100vw); }
+  &--sm { width: min(400px, 100vw); }
+
+  &__header {
+    @include flex-between;
+    padding: 18px $spacing-xl 14px;
+    border-bottom: 1px solid $color-border;
+    position: sticky;
+    top: 0;
+    background: $color-surface;
+    z-index: 5;
+
+    h2 {
+      margin: 0;
+      font-size: $font-size-2xl;
+      font-weight: 700;
+      color: $color-text-primary;
+    }
+  }
+
+  &__close-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 20px;
+    color: $color-text-secondary;
+    padding: 0;
+    line-height: 1;
+    @include flex-center;
+  }
+
+  &__body {
+    padding: 18px $spacing-xl;
+    flex: 1;
+  }
+
+  &__footer {
+    padding: 14px $spacing-xl;
+    border-top: 1px solid $color-border;
+    display: flex;
+    justify-content: flex-end;
+    position: sticky;
+    bottom: 0;
+    background: $color-surface;
+  }
 }
 
-/* ================= ERROR TEXT ================= */
+// ─── NEW APPOINTMENT ──────────────────────────────────────────────────────────
+.appt-modal {
+  &__client-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-bottom: $spacing-lg;
+    position: relative;
+    flex-wrap: wrap;
+  }
 
-.text-danger {
-  font-size: 12px;
+  &__search {
+    @include input-base;
+    flex: 1;
+    min-width: 200px;
+  }
+
+  &__client-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 250px;
+    z-index: 50;
+    background: $color-surface;
+    border: 1px solid $color-border;
+    border-radius: $radius-lg;
+    box-shadow: $shadow-md;
+    margin-top: 2px;
+    overflow: hidden;
+    @include fade-in;
+  }
+
+  &__client-item {
+    padding: 10px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid #f3f4f6;
+    transition: background 0.1s;
+    font-size: $font-size-md;
+
+    &:hover { background: #f9fafb; }
+
+    &-name  { font-weight: 600; }
+    &-phone { color: $color-text-muted; font-size: $font-size-sm; }
+  }
+
+  &__bill-date-wrapper {
+    @include flex-center;
+    gap: 6px;
+    white-space: nowrap;
+    position: relative;
+  }
+
+  // Services table header
+  &__services-header {
+    display: grid;
+    grid-template-columns: 2fr 1.4fr 1.2fr 0.8fr 0.7fr 0.8fr 32px;
+    gap: 6px;
+    background: #f9fafb;
+    border-radius: $radius-lg $radius-lg 0 0;
+    padding: 8px 10px;
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: $color-text-muted;
+  }
+
+  &__service-row {
+    display: grid;
+    grid-template-columns: 2fr 1.4fr 1.2fr 0.8fr 0.7fr 0.8fr 32px;
+    gap: 6px;
+    padding: 8px 10px;
+    background: #f9fafb;
+    border-top: 1px solid $color-border;
+    align-items: center;
+  }
+
+  &__group-header {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr 1.4fr 1.2fr 0.8fr 0.7fr 0.8fr 32px;
+    gap: 6px;
+    background: #f9fafb;
+    padding: 8px 10px;
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: $color-text-muted;
+    border-top: 1px solid $color-border;
+  }
+
+  &__group-row {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr 1.4fr 1.2fr 0.8fr 0.7fr 0.8fr 32px;
+    gap: 6px;
+    padding: 8px 10px;
+    background: #fafafa;
+    border-top: 1px solid $color-border;
+    align-items: center;
+  }
+
+  &__action-btns {
+    display: flex;
+    gap: 10px;
+    margin: 10px 0 20px;
+  }
+
+  &__add-btn {
+    @include btn-primary;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: $font-size-md;
+  }
+
+  &__extras-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin-bottom: $spacing-lg;
+  }
+
+  &__payment-row {
+    display: flex;
+    gap: $spacing-lg;
+  }
+
+  &__totals {
+    flex: 1;
+    background: #f9fafb;
+    border-radius: $radius-lg;
+    padding: 12px $spacing-lg;
+    font-size: $font-size-md;
+  }
+
+  &__total-line {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    border-bottom: 1px solid $color-border;
+
+    &--bold span:last-child { font-weight: 700; }
+    &--muted span { color: $color-text-muted; }
+  }
 }
 
-/* ================= STAFF HEADER ================= */
+// ─── STAFF PILL (×Michel) ─────────────────────────────────────────────────────
+.staff-pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: $color-primary;
+  color: #fff;
+  border-radius: $radius-sm;
+  padding: 4px 8px;
+  font-size: $font-size-sm;
+  flex: 1;
 
-.calendar-staff-header{
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  gap:6px;   /* gap small */
+  select {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: $font-size-sm;
+    cursor: pointer;
+    outline: none;
+  }
 }
 
-/* avatar */
+// ─── VIEW BILL ────────────────────────────────────────────────────────────────
+.view-bill {
+  display: flex;
+  height: 100vh;
 
-.calendar-staff-avatar{
-  width:22px;     /* small size */
-  height:22px;    /* small size */
-  border-radius:50%;
-  background:#3b82f6;
-  color:white;
+  &__left {
+    width: 220px;
+    background: $color-surface;
+    padding: $spacing-lg;
+    border-right: 1px solid $color-border;
+    flex-shrink: 0;
+    overflow-y: auto;
+    @include scrollbar;
+  }
 
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  &__right {
+    flex: 1;
+    padding: $spacing-lg;
+    background: #f3f4f6;
+    overflow-y: auto;
+    @include scrollbar;
+  }
 
-  font-size:10px;   /* text small */
-  font-weight:600;
+  &__avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: $color-text-muted;
+    color: #fff;
+    @include flex-center;
+    font-weight: 700;
+    font-size: 20px;
+    margin-bottom: 8px;
+  }
+
+  &__ewallet-badge {
+    font-size: $font-size-xs;
+    color: $color-danger;
+    font-weight: 600;
+    background: #fef2f2;
+    border-radius: $radius-sm;
+    padding: 2px 6px;
+    display: inline-block;
+    margin-bottom: 10px;
+  }
+
+  &__tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: $spacing-lg;
+  }
+
+  &__tab {
+    padding: 7px $spacing-lg;
+    font-size: $font-size-md;
+    font-weight: 600;
+    border: none;
+    border-radius: $radius-md;
+    cursor: pointer;
+    transition: background 0.15s;
+
+    &--active { background: $color-primary; color: #fff; }
+    &--inactive { background: $color-border; color: $color-text-secondary; }
+  }
+
+  &__service-card {
+    background: $color-surface;
+    border-radius: $radius-xl;
+    padding: $spacing-lg;
+  }
+
+  &__badge {
+    border-radius: $radius-sm;
+    padding: 2px 8px;
+    font-size: $font-size-sm;
+    font-weight: 600;
+
+    &--yellow { background: #fef3c7; color: #92400e; }
+    &--green  { background: #d1fae5; color: #065f46; }
+  }
+
+  &__status-select {
+    background: $color-success;
+    color: #fff;
+    border: none;
+    border-radius: $radius-md;
+    padding: 6px 10px;
+    font-weight: 600;
+    font-size: $font-size-sm;
+    cursor: pointer;
+    width: 100%;
+    margin-bottom: $spacing-lg;
+  }
 }
 
-/* staff name */
+// ─── MINI CALENDAR POPUP ─────────────────────────────────────────────────────
+.mini-calendar {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 999;
+  background: $color-surface;
+  border: 1px solid $color-border;
+  border-radius: $radius-xl;
+  box-shadow: $shadow-lg;
+  padding: 12px;
+  width: 260px;
+  margin-top: 4px;
+  @include fade-in;
 
-.calendar-staff{
-  text-align:center;
-  font-weight:500;
-  font-size:11px;
+  &__nav { @include flex-between; margin-bottom: 8px; }
+
+  &__days-header {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    margin-bottom: 4px;
+  }
+
+  &__day-abbr {
+    text-align: center;
+    font-size: 11px;
+    color: $color-text-faint;
+    font-weight: 600;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+  }
+
+  &__day-btn {
+    width: 100%;
+    aspect-ratio: 1;
+    border: none;
+    border-radius: $radius-md;
+    font-size: $font-size-sm;
+    transition: background 0.15s;
+    cursor: pointer;
+
+    &--selected { background: $color-primary !important; color: #fff; font-weight: 700; }
+    &--empty    { background: transparent; cursor: default; }
+    &--normal   { background: transparent; color: $color-text-secondary;
+                  &:hover { background: #f3f4f6; } }
+  }
+}
+
+// ─── BLOCK TIME MODAL ─────────────────────────────────────────────────────────
+.block-time-modal {
+  &__form { @include flex-col; gap: $spacing-md; }
+
+  &__row  {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $spacing-md;
+  }
+}
+
+// ─── BOOKING CARD POPUP ───────────────────────────────────────────────────────
+.booking-popup {
+  position: fixed;
+  z-index: 200;
+  background: $color-surface;
+  border: 1px solid $color-border;
+  border-radius: $radius-xl;
+  box-shadow: $shadow-lg;
+  padding: $spacing-lg;
+  width: 280px;
+  @include fade-in;
+
+  &__time   { font-weight: 700; font-size: $font-size-md; color: $color-success; }
+  &__status { font-size: $font-size-xs; font-weight: 600; background: $color-success;
+              color: #fff; border-radius: $radius-sm; padding: 1px 7px; margin-top: 2px; display: inline-block; }
+  &__service { font-size: $font-size-md; color: $color-text-secondary; margin: 6px 0 4px; }
+  &__client  { font-size: $font-size-sm; color: $color-text-muted; }
+  &__footer  { @include flex-between; font-size: $font-size-md; margin-top: 8px; }
 }

@@ -222,7 +222,7 @@ body {
 /* Floating Close Button */
 .floating-close {
   position: absolute;
-  right: -38px;      // 🔥 move more right
+  right: -38px; // 🔥 move more right
   top: 50%;
   transform: translateY(-50%);
 
@@ -256,7 +256,7 @@ body {
   cursor: pointer;
   transition: 0.2s ease;
 
-  text-decoration: none;   // 🔥 ADD THIS
+  text-decoration: none; // 🔥 ADD THIS
 }
 
 .sub-link:hover {
@@ -264,7 +264,7 @@ body {
 }
 
 .sub-link.active {
-  background: #e8e9f1;   // 🔥 softer fresha tone
+  background: #e8e9f1; // 🔥 softer fresha tone
   font-weight: 500;
 }
 
@@ -285,7 +285,7 @@ body {
 /* ================= MAIN ================= */
 .main {
   flex: 1;
-  margin-left: 90px;   // only sidebar space
+  margin-left: 90px; // only sidebar space
   padding: 20px;
   background: $dashboard-bg;
   min-height: calc(100vh - 70px);
@@ -294,7 +294,7 @@ body {
 
 /* When sub-sidebar open */
 .main.shifted {
-  margin-left: 410px;   // 90px sidebar + 320px subsidebar
+  margin-left: 410px; // 90px sidebar + 320px subsidebar
 }
 
 /* ================= MOBILE ================= */

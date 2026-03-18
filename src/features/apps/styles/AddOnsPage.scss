@@ -1,0 +1,144 @@
+.add-ons-page {
+  padding: 40px;
+  background-color: #f9f9fb;
+  min-height: 100vh;
+  font-family: 'Inter', sans-serif;
+
+  .page-header {
+    margin-bottom: 40px;
+
+    h1 {
+      font-size: 28px;
+      margin-bottom: 8px;
+      color: #1a1a1a;
+    }
+
+    .subtitle {
+      font-size: 15px;
+    }
+  }
+
+  .addon-section {
+    margin-bottom: 40px;
+
+    .section-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 24px;
+      color: #1a1a1a;
+    }
+  }
+
+  .addon-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+  }
+
+  .addon-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border: 1px solid #eaeaea;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    height: 100%;
+
+    &:hover {
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+      transform: translateY(-2px);
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 20px;
+    }
+
+    .icon-container {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+
+      &.icon-blue {
+        background-color: #3b82f6;
+      }
+      &.icon-purple {
+        background-color: #8b5cf6;
+      }
+      &.icon-indigo {
+        background-color: #6366f1;
+      }
+      &.icon-orange {
+        background-color: #f97316;
+      }
+      &.icon-pink {
+        background-color: #ec4899;
+      }
+      &.icon-green {
+        background-color: #84cc16;
+      }
+      &.icon-white {
+        background-color: #ffffff;
+        color: #1a1a1a; // For icons like google/facebook
+        img, svg {
+           width: 24px;
+           height: 24px;
+        }
+      }
+    }
+
+    .badge-free-trial {
+      background-color: #e0e7ff; // light blue/indigo
+      color: #4f46e5; // indigo text
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+
+    .card-body {
+      padding: 0;
+      flex-grow: 1;
+
+      .card-title {
+        font-size: 18px;
+        margin-bottom: 12px;
+        color: #1a1a1a;
+      }
+
+      .card-desc {
+        font-size: 14px;
+        line-height: 1.5;
+        color: #6b7280; // Gray
+        margin-bottom: 24px;
+      }
+    }
+
+    .card-action {
+      margin-top: auto;
+
+      .view-btn {
+        width: auto;
+        padding: 6px 20px;
+        font-size: 14px;
+        border-color: #e5e7eb;
+        color: #374151;
+        transition: all 0.2s;
+
+        &:hover {
+          background-color: #f3f4f6;
+          border-color: #d1d5db;
+          color: #111827;
+        }
+      }
+    }
+  }
+}

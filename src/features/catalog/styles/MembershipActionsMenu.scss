@@ -1,0 +1,76 @@
+
+
+.membership-actions-menu {
+  position: relative;
+  display: inline-block;
+
+  &__dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 180px;
+    z-index: 1050;
+    padding: 0.25rem 0;
+    border-color: #dee2e6 !important;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    padding: 0.45rem 1rem;
+    font-size: 0.875rem;
+    color: #495057;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    width: 100%;
+    text-align: left;
+    gap: 0.25rem;
+    position: relative;
+    transition: background-color 0.12s ease;
+
+    &:hover {
+      background-color: #f0f4ff;
+      color: #0d6efd;
+    }
+
+    &--has-sub {
+      justify-content: space-between;
+    }
+  }
+
+  &__divider {
+    height: 0.5px;
+    background: #e9ecef;
+    margin: 0.25rem 0;
+  }
+
+  &__submenu {
+    position: absolute;
+    top: -4px;
+    right: calc(100% + 4px);
+    min-width: 200px;
+    z-index: 1060;
+    padding: 0.25rem 0;
+    border-color: #dee2e6 !important;
+  }
+
+  &__sub-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 0.45rem 1rem;
+    font-size: 0.875rem;
+    color: #495057;
+    background: transparent;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.12s ease;
+
+    &:hover {
+      background-color: #f0f4ff;
+      color: #0d6efd;
+    }
+  }
+}

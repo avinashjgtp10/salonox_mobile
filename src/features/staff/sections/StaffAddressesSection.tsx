@@ -9,16 +9,28 @@ interface Address {
   country: string;
 }
 
-const StaffAddressesSection: React.FC = () => {
-  const [addresses, setAddresses] = useState<Address[]>([]);
+interface StaffAddressesProps {
+  addresses?: Address[];
+  setAddresses?: (addresses: Address[] | ((prev: Address[]) => Address[])) => void;
+}
+
+const StaffAddressesSection: React.FC<StaffAddressesProps> = ({
+  addresses = [],
+  setAddresses = () => { }
+}) => {
   const [openAddressModal, setOpenAddressModal] = useState(false);
+
+  const handleSaveAddress = (addr: any) => {
+    setAddresses((prev) => [...prev, { id: Date.now(), ...addr }]);
+    setOpenAddressModal(false);
+  };
 
   return (
     <div className="section staff-form">
       <h5 className="fw-bold mb-3 section__title">Addresses</h5>
       <p className="text-muted section__subtitle">Manage the team member's home and other addresses</p>
 
-      {/* Render existing addresses if needed in the future */}
+      {/* Render existing addresses */}
       {addresses.length > 0 && addresses.map((addr) => (
         <div className="staff-list-item mb-3" key={addr.id}>
           <div className="staff-list-item__info">
@@ -50,6 +62,7 @@ const StaffAddressesSection: React.FC = () => {
       <NewAddressModal
         open={openAddressModal}
         onClose={() => setOpenAddressModal(false)}
+        onSave={handleSaveAddress}
       />
     </div>
   );

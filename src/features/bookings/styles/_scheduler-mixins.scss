@@ -1,0 +1,94 @@
+@import 'scheduler-variables';
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin flex-col {
+  display: flex;
+  flex-direction: column;
+}
+
+@mixin card {
+  background: $color-surface;
+  border: 1px solid $color-border;
+  border-radius: $radius-xl;
+  box-shadow: $shadow-sm;
+}
+
+@mixin input-base {
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  padding: 6px 10px;
+  font-size: $font-size-md;
+  font-family: $font-family;
+  outline: none;
+  background: $color-surface;
+  color: $color-text-primary;
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &:focus {
+    border-color: $color-accent;
+    box-shadow: 0 0 0 3px rgba($color-accent, 0.1);
+  }
+}
+
+@mixin btn-primary {
+  background: $color-primary;
+  color: #fff;
+  border: none;
+  border-radius: $radius-lg;
+  padding: 8px 16px;
+  font-size: $font-size-md;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+
+  &:hover  { background: $color-primary-hover; }
+  &:active { transform: scale(0.98); }
+}
+
+@mixin btn-outline {
+  background: transparent;
+  color: $color-text-secondary;
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  padding: 7px 12px;
+  font-size: $font-size-md;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover { background: #f3f4f6; }
+}
+
+@mixin scrollbar {
+  &::-webkit-scrollbar       { width: 6px; height: 6px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: $radius-full; }
+}
+
+@mixin slide-in-right {
+  animation: slideInRight 0.25s ease;
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+@mixin fade-in {
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}

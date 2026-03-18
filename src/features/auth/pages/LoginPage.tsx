@@ -27,11 +27,12 @@ export default function LoginPage() {
 
     try {
       const res = await API.post("/api/v1/auth/login", { email, password })
-      const token = res.data?.data?.accessToken
+      const accessToken = res.data?.data?.accessToken
+      const refreshToken = res.data?.data?.refreshToken
 
-      if (!token) throw new Error("Token not found")
+      if (!accessToken || !refreshToken) throw new Error("Tokens not found")
 
-      dispatch(login(token))
+      dispatch(login({ accessToken, refreshToken }))
       navigate("/dashboard")
     } catch (err: any) {
       setError("Invalid email or password")
@@ -49,7 +50,7 @@ export default function LoginPage() {
     }
 
     const fakeToken = "header." + btoa(JSON.stringify(payload)) + ".signature"
-    dispatch(login(fakeToken))
+    dispatch(login({ accessToken: fakeToken, refreshToken: "fake-refresh-token" }))
     navigate("/dashboard")
   }
 

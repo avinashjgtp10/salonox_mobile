@@ -11,6 +11,7 @@ import StaffSettingsSection from "../sections/StaffSettingsSection";
 import StaffWagesSection from "../sections/StaffWagesSection";
 import StaffCommissionsSection from "../sections/StaffCommissionsSection";
 import StaffPayRunsSection from "../sections/StaffPayRunsSection";
+import { createStaff } from "../services/staffService";
 type SectionKey =
   | "profile" | "addresses" | "emergency"
   | "services" | "locations" | "settings"
@@ -33,7 +34,29 @@ const AddStaffPage: React.FC = () => {
   const [activeSection, setActiveSection] = useState<SectionKey>("profile");
 
   const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [additionalPhone, setAdditionalPhone] = useState("");
+  const [country, setCountry] = useState("India");
+  const [birthdayDayMonth, setBirthdayDayMonth] = useState("");
+  const [birthdayYear, setBirthdayYear] = useState("");
+  const [calendarColor, setCalendarColor] = useState("#93c5fd");
+  const [jobTitle, setJobTitle] = useState("");
+  const [startDateDayMonth, setStartDateDayMonth] = useState("");
+  const [startDateYear, setStartDateYear] = useState("2026");
+  const [endDateDayMonth, setEndDateDayMonth] = useState("");
+  const [endDateYear, setEndDateYear] = useState("");
+  const [employmentType, setEmploymentType] = useState("");
+  const [memberId, setMemberId] = useState("");
+  const [notes, setNotes] = useState("");
+
+  const [allowCalendarBookings, setAllowCalendarBookings] = useState(true);
+  const [permissionLevel, setPermissionLevel] = useState("Low");
+
+  const [addresses, setAddresses] = useState<any[]>([]);
+  const [contacts, setContacts] = useState<any[]>([]);
+
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [showErrorPopup, setShowErrorPopup] = useState(false);
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
@@ -43,14 +66,45 @@ const AddStaffPage: React.FC = () => {
   const hasErrors = isFirstNameInvalid || isEmailInvalid;
   const errorCount = (isFirstNameInvalid ? 1 : 0) + (isEmailInvalid ? 1 : 0);
 
-  const handleAddClick = () => {
+  const handleAddClick = async () => {
     setAttemptedSubmit(true);
     if (firstName.trim() === "" || email.trim() === "") {
       setShowErrorPopup(true);
       return;
     }
-    // TODO: Proceed with saving team member
-    console.log("Saving staff", { firstName, email });
+    
+    try {
+      const payload = {
+        first_name: firstName,
+        last_name: lastName,
+        email: email,
+        phone_number: phone,
+        additional_phone: additionalPhone,
+        country: country,
+        birthday: birthdayDayMonth,
+        birth_year: birthdayYear,
+        calendar_color: calendarColor,
+        job_title: jobTitle,
+        start_date: startDateDayMonth,
+        start_year: startDateYear,
+        end_date: endDateDayMonth,
+        end_year: endDateYear,
+        employment_type: employmentType,
+        staff_member_id: memberId,
+        notes: notes,
+        status: "Active",
+        allow_calendar_bookings: allowCalendarBookings,
+        permission_level: permissionLevel,
+        addresses: addresses,
+        emergency_contacts: contacts
+      };
+
+      await createStaff(payload);
+      console.log("Staff saved successfully");
+      navigate("/dashboard/team/members");
+    } catch (error) {
+      console.error("Error saving staff:", error);
+    }
   };
 
   const navItem = (key: SectionKey, label: string, badge?: number, hasError?: boolean) => (
@@ -61,11 +115,7 @@ const AddStaffPage: React.FC = () => {
     >
       <span className="add-staff__nav-label">{label}</span>
       {badge !== undefined && <span className="add-staff__nav-badge">{badge}</span>}
-      {hasError ? (
-        <span className="text-danger ms-2" style={{ fontSize: "20px", lineHeight: "1" }}>•</span>
-      ) : (
-        activeSection === key && <span className="add-staff__nav-dot" />
-      )}
+      {hasError && <div className="add-staff__nav-dot" />}
     </li>
   );
 
@@ -75,10 +125,51 @@ const AddStaffPage: React.FC = () => {
   if (activeSection === "profile") {
     componentProps.firstName = firstName;
     componentProps.setFirstName = setFirstName;
+    componentProps.lastName = lastName;
+    componentProps.setLastName = setLastName;
     componentProps.email = email;
     componentProps.setEmail = setEmail;
+    componentProps.phone = phone;
+    componentProps.setPhone = setPhone;
+    componentProps.additionalPhone = additionalPhone;
+    componentProps.setAdditionalPhone = setAdditionalPhone;
+    componentProps.country = country;
+    componentProps.setCountry = setCountry;
+    componentProps.birthdayDayMonth = birthdayDayMonth;
+    componentProps.setBirthdayDayMonth = setBirthdayDayMonth;
+    componentProps.birthdayYear = birthdayYear;
+    componentProps.setBirthdayYear = setBirthdayYear;
+    componentProps.calendarColor = calendarColor;
+    componentProps.setCalendarColor = setCalendarColor;
+    componentProps.jobTitle = jobTitle;
+    componentProps.setJobTitle = setJobTitle;
+    componentProps.startDateDayMonth = startDateDayMonth;
+    componentProps.setStartDateDayMonth = setStartDateDayMonth;
+    componentProps.startDateYear = startDateYear;
+    componentProps.setStartDateYear = setStartDateYear;
+    componentProps.endDateDayMonth = endDateDayMonth;
+    componentProps.setEndDateDayMonth = setEndDateDayMonth;
+    componentProps.endDateYear = endDateYear;
+    componentProps.setEndDateYear = setEndDateYear;
+    componentProps.employmentType = employmentType;
+    componentProps.setEmploymentType = setEmploymentType;
+    componentProps.memberId = memberId;
+    componentProps.setMemberId = setMemberId;
+    componentProps.notes = notes;
+    componentProps.setNotes = setNotes;
     componentProps.isFirstNameInvalid = isFirstNameInvalid;
     componentProps.isEmailInvalid = isEmailInvalid;
+  } else if (activeSection === "settings") {
+    componentProps.allowCalendarBookings = allowCalendarBookings;
+    componentProps.setAllowCalendarBookings = setAllowCalendarBookings;
+    componentProps.permissionLevel = permissionLevel;
+    componentProps.setPermissionLevel = setPermissionLevel;
+  } else if (activeSection === "addresses") {
+    componentProps.addresses = addresses;
+    componentProps.setAddresses = setAddresses;
+  } else if (activeSection === "emergency") {
+    componentProps.contacts = contacts;
+    componentProps.setContacts = setContacts;
   }
 
   return (

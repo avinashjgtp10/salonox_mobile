@@ -1,0 +1,55 @@
+// ─── COLORS ───────────────────────────────────────────────────────────────────
+$color-primary:        #1f2937;
+$color-primary-hover:  #374151;
+$color-accent:         #4f46e5;
+$color-success:        #22c55e;
+$color-success-dark:   #16a34a;
+$color-danger:         #ef4444;
+$color-warning:        #f59e0b;
+$color-info:           #0891b2;
+
+$color-bg:             #f8fafc;
+$color-surface:        #ffffff;
+$color-border:         #e5e7eb;
+$color-border-light:   #f0f0f0;
+
+$color-text-primary:   #111827;
+$color-text-secondary: #374151;
+$color-text-muted:     #6b7280;
+$color-text-faint:     #9ca3af;
+
+// ─── TYPOGRAPHY ───────────────────────────────────────────────────────────────
+$font-family:   'Segoe UI', system-ui, -apple-system, sans-serif;
+$font-size-xs:  11px;
+$font-size-sm:  12px;
+$font-size-md:  13px;
+$font-size-base:14px;
+$font-size-lg:  16px;
+$font-size-xl:  18px;
+$font-size-2xl: 20px;
+
+// ─── SPACING ──────────────────────────────────────────────────────────────────
+$spacing-xs:  4px;
+$spacing-sm:  8px;
+$spacing-md:  12px;
+$spacing-lg:  16px;
+$spacing-xl:  24px;
+
+// ─── BORDER RADIUS ────────────────────────────────────────────────────────────
+$radius-sm:   4px;
+$radius-md:   6px;
+$radius-lg:   8px;
+$radius-xl:   10px;
+$radius-full: 9999px;
+
+// ─── SHADOWS ──────────────────────────────────────────────────────────────────
+$shadow-sm:   0 1px 4px rgba(0,0,0,.06);
+$shadow-md:   0 4px 16px rgba(0,0,0,.10);
+$shadow-lg:   0 8px 32px rgba(0,0,0,.15);
+
+// ─── SCHEDULER SPECIFICS ──────────────────────────────────────────────────────
+$slot-height:       40px;
+$time-gutter-width: 70px;
+$topbar-height:     56px;
+$staff-header-height: 64px;
+$panel-width:       680px;

@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react"
-import { Home, Briefcase, MoreHorizontal, Check, MapPin } from "lucide-react"
+import { Home, Briefcase, MoreHorizontal, Check } from "lucide-react"
 import "../styles/NewAddressModal.scss"
 
 interface Props {
   open: boolean
   onClose: () => void
+  onSave: (address: any) => void
 }
 
-export default function NewAddressModal({ open, onClose }: Props) {
+export default function NewAddressModal({ open, onClose, onSave }: Props) {
 
   const [type, setType] = useState("home")
   const [addressValue, setAddressValue] = useState("")
@@ -26,11 +27,24 @@ export default function NewAddressModal({ open, onClose }: Props) {
 
   const handleContinue = () => {
     setAttemptedSubmit(true)
-    if (addressValue.trim() === "") {
-      return
+
+    if (addressValue.trim() === "") return
+
+    const newAddress = {
+      type,
+      address_name: "Home",
+      address_line1: addressValue,
+      address_line2: null,
+      apt_suite: "",
+      district: "",
+      city: "",
+      region: "",
+      postcode: "",
+      country: "IN"
     }
-    // Proceed
-    console.log("Saving new address:", addressValue)
+
+    onSave(newAddress)
+
     onClose()
   }
 
@@ -106,7 +120,6 @@ export default function NewAddressModal({ open, onClose }: Props) {
           <div className="form-group">
             <label>Address</label>
             <div className="input-with-icon">
-              <MapPin size={16} className="input-icon" />
               <input
                 placeholder="Enter address"
                 value={addressValue}
