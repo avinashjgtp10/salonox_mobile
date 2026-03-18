@@ -39,12 +39,12 @@ export default function JoinBusinessPage() {
       </div>
 
       {/* 🔹 TOP RIGHT BUTTONS */}
-      <div className="top-buttons d-flex gap-3">
+      <div className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3">
         <button
-          className="btn btn-outline-secondary rounded-pill"
-          onClick={() => navigate("/dashboard")}
+          className="btn btn-outline-secondary rounded-pill bg-white"
+          onClick={() => navigate(-1)}
         >
-          Close
+          Back
         </button>
 
         <button
@@ -117,11 +117,13 @@ export default function JoinBusinessPage() {
         </div>
 
         {/* RIGHT IMAGE */}
-        <div className="col-lg-7 d-none d-lg-block p-0">
-          <img
-            src={salonImg}
-            alt="Join Business"
-            className="right-image"
+        <div className="col-lg-7 d-none d-lg-block p-0" style={{ minHeight: "100vh" }}>
+          
+          <img 
+            src={salonImg} 
+            alt="salon" 
+            className="w-100 h-100 object-fit-cover position-absolute top-0 start-0" 
+            style={{ zIndex: 0 }}
           />
         </div>
 

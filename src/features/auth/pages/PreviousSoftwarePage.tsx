@@ -42,6 +42,29 @@ export default function PreviousSoftwarePage() {
         <div className="progress-bar bg-dark" style={{ width: "75%" }} />
       </div>
 
+      {/* Top Right Buttons */}
+      <div className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3">
+
+        <button
+          className="btn btn-outline-secondary rounded-pill bg-white"
+          onClick={() => navigate(-1)}
+        >
+          Back
+        </button>
+
+        <button
+          className="btn btn-dark rounded-pill"
+          disabled={
+            !selected ||
+            (selected === "Other" && otherSoftware.length === 0)
+          }
+          onClick={handleContinue}
+        >
+          Continue <FiArrowRight className="ms-2" />
+        </button>
+
+      </div>
+
       <div className="row g-0 min-vh-100">
 
         {/* LEFT SIDE */}
@@ -75,9 +98,8 @@ export default function PreviousSoftwarePage() {
                 <button
                   key={index}
                   type="button"
-                  className={`btn software-btn ${
-                    selected === item ? "active" : ""
-                  }`}
+                  className={`btn software-btn ${selected === item ? "active" : ""
+                    }`}
                   onClick={() => setSelected(item)}
                 >
                   {item}
@@ -99,9 +121,8 @@ export default function PreviousSoftwarePage() {
 
                 <input
                   type="text"
-                  className={`form-control ${
-                    otherSoftware.length === 0 ? "is-invalid" : ""
-                  }`}
+                  className={`form-control ${otherSoftware.length === 0 ? "is-invalid" : ""
+                    }`}
                   placeholder="Type software name"
                   value={otherSoftware}
                   maxLength={30}
@@ -121,36 +142,14 @@ export default function PreviousSoftwarePage() {
         </div>
 
         {/* RIGHT SIDE */}
-        <div className="col-lg-7 d-none d-lg-block position-relative">
-
-          <div className="position-absolute top-0 end-0 m-5 d-flex gap-3">
-
-            <button
-              className="btn btn-outline-secondary rounded-pill"
-              onClick={() => navigate("/dashboard")}
-            >
-              Close
-            </button>
-
-            <button
-              className="btn btn-dark rounded-pill"
-              disabled={
-                !selected ||
-                (selected === "Other" && otherSoftware.length === 0)
-              }
-              onClick={handleContinue}
-            >
-              Continue <FiArrowRight className="ms-2" />
-            </button>
-
-          </div>
+        <div className="col-lg-7 d-none d-lg-block position-relative p-0" style={{ minHeight: "100vh" }}>
 
           <img
             src={salonImg}
-            alt="Software"
-            className="img-fluid w-100 h-100 object-fit-cover"
+            alt="salon"
+            className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
+            style={{ zIndex: 0 }}
           />
-
         </div>
 
       </div>
