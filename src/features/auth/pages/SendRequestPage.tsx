@@ -31,9 +31,9 @@ export default function SendRequestPage() {
       </div>
 
       {/* Top Right Buttons */}
-      <div className="top-buttons d-flex gap-3">
+      <div className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3">
         <button
-          className="btn btn-outline-secondary rounded-pill"
+          className="btn btn-outline-secondary rounded-pill bg-white"
           onClick={() => navigate("/dashboard")}
         >
           Close
@@ -92,11 +92,13 @@ export default function SendRequestPage() {
         </div>
 
         {/* RIGHT IMAGE */}
-        <div className="col-lg-7 d-none d-lg-block p-0">
-          <img
-            src={salonImg}
-            alt="Send Request"
-            className="right-image"
+        <div className="col-lg-7 d-none d-lg-block p-0" style={{ minHeight: "100vh" }}>
+          
+          <img 
+            src={salonImg} 
+            alt="salon" 
+            className="w-100 h-100 object-fit-cover position-absolute top-0 start-0" 
+            style={{ zIndex: 0 }}
           />
         </div>
 

@@ -1,8 +1,20 @@
 import { createSlice } from "@reduxjs/toolkit"
 
+const token = localStorage.getItem("accessToken")
+let user = null
+if (token) {
+  try {
+    user = JSON.parse(atob(token.split(".")[1]))
+  } catch (e) {
+    user = null
+  }
+}
+
 const initialState = {
-  token: localStorage.getItem("token"),
-  user: null as any,
+  accessToken: token,
+  refreshToken: localStorage.getItem("refreshToken"),
+  isOnboardingComplete: localStorage.getItem("isOnboardingComplete") === "true",
+  user,
 }
 
 const authSlice = createSlice({
@@ -10,18 +22,44 @@ const authSlice = createSlice({
   initialState,
   reducers: {
     login: (state, action) => {
-      state.token = action.payload
-      state.user = JSON.parse(atob(action.payload.split(".")[1]))
-      localStorage.setItem("token", action.payload)
+      const { accessToken, refreshToken, isOnboardingComplete } = action.payload
+      
+      state.accessToken = accessToken
+      state.refreshToken = refreshToken
+      state.isOnboardingComplete = !!isOnboardingComplete
+      
+      // Decode user info from accessToken
+      try {
+        state.user = JSON.parse(atob(accessToken.split(".")[1]))
+      } catch (e) {
+        state.user = null
+      }
+      
+      localStorage.setItem("accessToken", accessToken)
+      localStorage.setItem("refreshToken", refreshToken)
+      localStorage.setItem("isOnboardingComplete", String(!!isOnboardingComplete))
+    },
+
+    updateOnboardingStatus: (state, action) => {
+      state.isOnboardingComplete = !!action.payload
+      localStorage.setItem("isOnboardingComplete", String(!!action.payload))
+    },
+
+    setAccessToken: (state, action) => {
+      state.accessToken = action.payload
+      localStorage.setItem("accessToken", action.payload)
     },
 
     logout: (state) => {
-      state.token = null
+      state.accessToken = null
+      state.refreshToken = null
+      state.isOnboardingComplete = false
       state.user = null
-      localStorage.removeItem("token")
+      
+      localStorage.clear()
     },
   },
 })
 
-export const { login, logout } = authSlice.actions
+export const { login, logout, updateOnboardingStatus, setAccessToken } = authSlice.actions
 export default authSlice.reducer
