@@ -1,5 +1,7 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom"
 import { useState } from "react"
+import { useDispatch } from "react-redux"
+import { logout } from "../../../store/authSlice"
 import "../styles/DashboardPage.scss"
 
 import OnlineBookingSubSidebar from "./OnlineBookingSubSidebar"
@@ -24,7 +26,8 @@ import {
   QuestionCircle,
   Search,
   BarChart,
-  Bell
+  Bell,
+  BoxArrowRight
 } from "react-bootstrap-icons"
 
 export default function DashboardLayout() {
@@ -50,6 +53,15 @@ export default function DashboardLayout() {
           </div>
 
           <div className="profile">SJ</div>
+
+          <div 
+            className="logout-btn" 
+            style={{ cursor: "pointer", marginLeft: "15px", display: "flex", alignItems: "center", color: "#6c757d" }} 
+            onClick={handleLogout}
+            title="Logout"
+          >
+            <BoxArrowRight size={22} />
+          </div>
         </div>
       </div>
 

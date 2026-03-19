@@ -1,5 +1,15 @@
 import { createSlice } from "@reduxjs/toolkit"
 
+const token = localStorage.getItem("accessToken")
+let user = null
+if (token) {
+  try {
+    user = JSON.parse(atob(token.split(".")[1]))
+  } catch (e) {
+    user = null
+  }
+}
+
 const initialState = {
   token: localStorage.getItem("token"),
   refreshToken: localStorage.getItem("refreshToken"),

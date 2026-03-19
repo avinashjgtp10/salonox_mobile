@@ -1,9 +1,12 @@
 import { useNavigate } from "react-router-dom"
+import { useDispatch } from "react-redux"
+import { updateOnboardingStatus } from "../../../store/authSlice"
 import "../styles/SetupCompletePage.scss"
 
 export default function SetupCompletePage() {
 
   const navigate = useNavigate()
+  const dispatch = useDispatch()
 
   return (
     <div className="container-fluid vh-100 d-flex justify-content-center align-items-center bg-light">
@@ -25,7 +28,10 @@ export default function SetupCompletePage() {
 
         <button
           className="btn btn-dark rounded-pill px-5"
-          onClick={() => navigate("/dashboard")}
+          onClick={() => {
+            dispatch(updateOnboardingStatus(true))
+            navigate("/dashboard")
+          }}
         >
           Done
         </button>

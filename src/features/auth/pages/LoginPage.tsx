@@ -8,6 +8,7 @@ import { useDispatch } from "react-redux"
 import { login } from "../../../store/authSlice"
 import salonImg from "../../../assets/images/salon.jpg"
 import API from "../../../services/api/axios"
+import { hashPassword } from "../../../utils/hashPassword"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -26,6 +27,7 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
+<<<<<<< HEAD
       const res = await API.post("/api/v1/auth/login", { email, password })
       const accessToken = res.data?.data?.accessToken
       const refreshToken = res.data?.data?.refreshToken
@@ -34,6 +36,21 @@ export default function LoginPage() {
 
       dispatch(login({ accessToken, refreshToken }))
       navigate("/dashboard")
+=======
+      const hashedPwd = await hashPassword(password)
+      const res = await API.post("/api/v1/auth/login", { email, password: hashedPwd })
+      const { accessToken, refreshToken, isOnboardingComplete } = res.data?.data || {}
+
+      if (!accessToken) throw new Error("Token not found")
+
+      dispatch(login({ accessToken, refreshToken, isOnboardingComplete }))
+      
+      if (isOnboardingComplete) {
+        navigate("/dashboard")
+      } else {
+        navigate("/account-type")
+      }
+>>>>>>> main
     } catch (err: any) {
       setError("Invalid email or password")
     }
@@ -41,8 +58,9 @@ export default function LoginPage() {
     setLoading(false)
   }
 
-  // 🔐 SOCIAL LOGIN (Demo) - Only Google
+  // 🔐 GOOGLE OAUTH — redirect to backend which handles the full OAuth flow
   const handleGoogleLogin = () => {
+<<<<<<< HEAD
     const payload = {
       email: "google@oauth.com",
       role: "google",
@@ -52,6 +70,10 @@ export default function LoginPage() {
     const fakeToken = "header." + btoa(JSON.stringify(payload)) + ".signature"
     dispatch(login({ accessToken: fakeToken, refreshToken: "fake-refresh-token" }))
     navigate("/dashboard")
+=======
+    const backendUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"
+    window.location.href = `${backendUrl}/api/v1/auth/google/start`
+>>>>>>> main
   }
 
   return (
@@ -62,6 +84,10 @@ export default function LoginPage() {
         <div className="col-lg-5 col-md-6 col-12 d-flex align-items-center justify-content-center">
           <div className="card border-0 shadow-lg p-4 rounded-4 login-card" style={{ width: "100%", maxWidth: "420px" }}>
 
+            <div className="text-center w-100 mb-2">
+              <h4 className="brand-logo d-inline-block">salonox</h4>
+            </div>
+            
             <h3 className="fw-bold mb-2">Welcome Back</h3>
             <p className="text-muted mb-4">
               Create an account or log in to manage your business.
@@ -117,6 +143,7 @@ export default function LoginPage() {
                 Don’t have an account?{" "}
                 <span className="fw-bold text-decoration-underline register-link"
                   onClick={() => navigate("/register")}
+                  style={{ cursor: "pointer" }}
                 >
                   Register
                 </span>
@@ -125,9 +152,9 @@ export default function LoginPage() {
 
             {/* DIVIDER */}
             <div className="d-flex align-items-center my-3">
-              <div className="flex-grow-1 divider-line"></div>
+              <div className="flex-grow-1 divider-line" style={{ borderTop: "1px solid #ddd" }}></div>
               <small className="px-3 text-muted">OR</small>
-              <div className="flex-grow-1 divider-line"></div>
+              <div className="flex-grow-1 divider-line" style={{ borderTop: "1px solid #ddd" }}></div>
             </div>
 
             {/* GOOGLE */}
@@ -136,7 +163,7 @@ export default function LoginPage() {
               onClick={handleGoogleLogin}
               type="button"
             >
-              <FcGoogle />
+              <FcGoogle size={20} />
               Continue with Google
             </button>
 
@@ -144,9 +171,14 @@ export default function LoginPage() {
         </div>
 
         {/* RIGHT SIDE IMAGE */}
-        <div className="col-lg-7 d-none d-lg-block position-relative p-0 login-right">
-          <img src={salonImg} alt="salon" className="w-100 h-100 right-image" />
-          <div className="right-overlay"></div>
+        <div className="col-lg-7 d-none d-lg-block position-relative p-0 login-right" style={{ minHeight: "100vh" }}>
+          <img 
+            src={salonImg} 
+            alt="salon" 
+            className="w-100 h-100 object-fit-cover position-absolute top-0 start-0" 
+            style={{ zIndex: 0 }}
+          />
+          <div className="right-overlay position-absolute top-0 start-0 w-100 h-100" style={{ zIndex: 1, backgroundColor: "rgba(0,0,0,0.1)" }}></div>
         </div>
 
       </div>
