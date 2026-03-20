@@ -2,27 +2,100 @@ import { useNavigate } from "react-router-dom"
 import { useRef, useState } from "react"
 import "bootstrap/dist/css/bootstrap.min.css"
 import "../styles/AddClientPage.scss"
+import { createClient } from "../services/clientService";
 import { Person, Pencil, X } from "react-bootstrap-icons"
+
+import { useClientWizard } from "../context/ClientWizardContext";
 
 export default function AddClientPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const navigate = useNavigate()
+  const { setClientData, resetWizard } = useClientWizard()
+
+  // Individual states for form inputs
   const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
+  const [email, setEmail] = useState("")
+  const [phone, setPhone] = useState("")
+  const [birthday, setBirthday] = useState("")
+  const [year, setYear] = useState("")
+  const [gender, setGender] = useState("")
+  const [pronouns, setPronouns] = useState("")
+  const [occupation, setOccupation] = useState("")
+  const [additionalEmail, setAdditionalEmail] = useState("")
+  const [additionalPhone, setAdditionalPhone] = useState("")
+  const [clientSource, setClientSource] = useState("walk_in")
+  const [preferredLanguage, setPreferredLanguage] = useState("en")
+  const [country, setCountry] = useState("IN")
+
   const [attemptedSubmit, setAttemptedSubmit] = useState(false)
 
   const isFirstNameInvalid = attemptedSubmit && firstName.trim() === ""
 
-  const handleSave = () => {
-    setAttemptedSubmit(true)
-
+  const handleProfileNext = () => {
     if (firstName.trim() === "") {
-      return // Stop if validation fails
+      setAttemptedSubmit(true)
+      return
     }
 
-    // Proceed with saving when valid
-    console.log("Saving client:", firstName)
+    setClientData(prev => ({
+      ...prev,
+      profile: {
+        first_name: firstName,
+        last_name: lastName,
+        email: email,
+        phone_number: phone,
+        birthday: birthday,
+        birth_year: year,
+        gender: gender,
+        pronouns: pronouns,
+        occupation: occupation,
+        additional_email: additionalEmail,
+        additional_phone: additionalPhone,
+        client_source: clientSource,
+        preferred_language: preferredLanguage,
+        country: country
+      }
+    }))
+
+    navigate("/dashboard/clients/addresses")
   }
 
-  const navigate = useNavigate()
+  const handleSave = async () => {
+    if (firstName.trim() === "") {
+      setAttemptedSubmit(true)
+      return
+    }
+
+    const payload = {
+      first_name: firstName,
+      last_name: lastName,
+      email: email,
+      phone_number: phone,
+      birthday: birthday,
+      birth_year: year,
+      gender: gender,
+      pronouns: pronouns,
+      occupation: occupation,
+      additional_email: additionalEmail,
+      additional_phone: additionalPhone,
+      client_source: clientSource,
+      preferred_language: preferredLanguage,
+      country: country,
+      addresses: [],
+      emergency_contact: {}
+    }
+
+    try {
+      await createClient(payload)
+      resetWizard()
+      navigate("/dashboard/clients/list")
+    } catch (error) {
+      console.error("Error saving client:", error)
+      alert("Failed to save client. Please try again.")
+    }
+  }
+
 
   return (
     <div className="container-fluid p-4 bg-white position-relative">
@@ -67,7 +140,7 @@ export default function AddClientPage() {
             Close
           </button>
 
-          <button className="btn btn-dark" onClick={handleSave}>
+          <button type="button" className="btn btn-dark" onClick={handleSave}>
             Save
           </button>
         </div>
@@ -185,6 +258,8 @@ export default function AddClientPage() {
                 type="text"
                 className="form-control"
                 placeholder="e.g. Hancock"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
               />
             </div>
 
@@ -194,6 +269,8 @@ export default function AddClientPage() {
                 type="email"
                 className="form-control"
                 placeholder="example@domain.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
 
@@ -203,12 +280,19 @@ export default function AddClientPage() {
                 type="text"
                 className="form-control"
                 placeholder="+91 12345 67890"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
               />
             </div>
 
             <div className="col-md-6">
               <label className="form-label">Birthday</label>
-              <input type="date" className="form-control" />
+              <input
+                type="date"
+                className="form-control"
+                value={birthday}
+                onChange={(e) => setBirthday(e.target.value)}
+              />
             </div>
 
             <div className="col-md-6">
@@ -217,23 +301,37 @@ export default function AddClientPage() {
                 type="number"
                 className="form-control"
                 placeholder="Year"
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
               />
             </div>
 
             <div className="col-md-6">
               <label className="form-label">Gender</label>
-              <select className="form-select">
-                <option>Select an option</option>
-                <option>Female</option>
-                <option>Male</option>
-                <option>Non-binary</option>
+              <select
+                className="form-select"
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
+              >
+                <option value="">Select an option</option>
+                <option value="Female">Female</option>
+                <option value="Male">Male</option>
+                <option value="Non-binary">Non-binary</option>
               </select>
             </div>
 
             <div className="col-md-6">
               <label className="form-label">Pronouns</label>
-              <select className="form-select">
-                <option>Select an option</option>
+              <select
+                className="form-select"
+                value={pronouns}
+                onChange={(e) => setPronouns(e.target.value)}
+              >
+                <option value="">Select an option</option>
+                <option value="She/Her">She/Her</option>
+                <option value="He/Him">He/Him</option>
+                <option value="They/Them">They/Them</option>
+                <option value="Prefer not to say">Prefer not to say</option>
               </select>
             </div>
 
@@ -253,10 +351,14 @@ export default function AddClientPage() {
 
               <div className="col-md-6">
                 <label className="form-label">Client source</label>
-                <select className="form-select">
-                  <option>Walk-in</option>
-                  <option>Instagram</option>
-                  <option>Google</option>
+                <select
+                  className="form-select"
+                  value={clientSource}
+                  onChange={(e) => setClientSource(e.target.value)}
+                >
+                  <option value="walk_in">Walk-in</option>
+                  <option value="instagram">Instagram</option>
+                  <option value="google">Google</option>
                 </select>
               </div>
 
@@ -271,11 +373,14 @@ export default function AddClientPage() {
 
               <div className="col-md-6">
                 <label className="form-label">Preferred language</label>
-                <select className="form-select">
-                  <option>Select language</option>
-                  <option>English</option>
-                  <option>Marathi</option>
-                  <option>Hindi</option>
+                <select
+                  className="form-select"
+                  value={preferredLanguage}
+                  onChange={(e) => setPreferredLanguage(e.target.value)}
+                >
+                  <option value="en">English</option>
+                  <option value="mr">Marathi</option>
+                  <option value="hi">Hindi</option>
                 </select>
               </div>
 
@@ -285,16 +390,21 @@ export default function AddClientPage() {
                   type="text"
                   className="form-control"
                   placeholder="Enter client job information"
+                  value={occupation}
+                  onChange={(e) => setOccupation(e.target.value)}
                 />
               </div>
 
               <div className="col-md-6">
                 <label className="form-label">Country</label>
-                <select className="form-select">
-                  <option>Select country</option>
-                  <option>India</option>
-                  <option>United States</option>
-                  <option>UK</option>
+                <select
+                  className="form-select"
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                >
+                  <option value="IN">India</option>
+                  <option value="US">United States</option>
+                  <option value="UK">UK</option>
                 </select>
               </div>
 
@@ -304,6 +414,8 @@ export default function AddClientPage() {
                   type="email"
                   className="form-control"
                   placeholder="example@domain.com"
+                  value={additionalEmail}
+                  onChange={(e) => setAdditionalEmail(e.target.value)}
                 />
               </div>
 
@@ -313,6 +425,8 @@ export default function AddClientPage() {
                   type="text"
                   className="form-control"
                   placeholder="+91 98765 43210"
+                  value={additionalPhone}
+                  onChange={(e) => setAdditionalPhone(e.target.value)}
                 />
               </div>
 

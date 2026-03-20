@@ -4,25 +4,35 @@ import "bootstrap/dist/css/bootstrap.min.css"
 import "../styles/ClientAddressesPage.scss"
 import NewAddressModal from "../pages/NewAddressModal"
 import { X } from "react-bootstrap-icons"
+import { useClientWizard } from "../context/ClientWizardContext"
 
 export default function ClientAddressesPage() {
 
   const navigate = useNavigate()
+  const { setClientData } = useClientWizard()
 
   const [openAddressModal, setOpenAddressModal] = useState(false)
+  const [addresses, setAddresses] = useState<any[]>([])
   const [firstName] = useState("")
   const [attemptedSubmit, setAttemptedSubmit] = useState(false)
 
   const isFirstNameInvalid = attemptedSubmit && firstName.trim() === ""
 
   const handleSave = () => {
-    setAttemptedSubmit(true)
+    console.log("Addresses:", addresses)
 
-    if (firstName.trim() === "") {
-      return // Stop if validation fails
-    }
+    setClientData(prev => ({
+      ...prev,
+      addresses: addresses
+    }))
 
-    console.log("Saving client addresses...")
+    navigate("/dashboard/clients/emergency")
+  }
+
+  const handleSaveAddress = (address: any) => {
+    setAddresses(prev => [...prev, address])
+    console.log("Address added:", address)
+    setOpenAddressModal(false)
   }
 
   return (
@@ -135,6 +145,20 @@ export default function ClientAddressesPage() {
             + Add new address
           </button>
 
+          {/* SHOW SAVED ADDRESSES */}
+          <div className="mt-4">
+            {addresses.map((addr, index) => (
+              <div key={index} className="card p-3 mt-3 shadow-sm border-light">
+                <div className="d-flex justify-content-between">
+                  <strong>{addr.address_name || "Address " + (index + 1)}</strong>
+                  <small className="text-muted">{addr.type || "Default"}</small>
+                </div>
+                <p className="mb-0 text-muted small">{addr.address_line1}</p>
+                {addr.city && <p className="mb-0 text-muted small">{addr.city}, {addr.state}</p>}
+              </div>
+            ))}
+          </div>
+
         </div>
 
       </div>
@@ -144,6 +168,7 @@ export default function ClientAddressesPage() {
       <NewAddressModal
         open={openAddressModal}
         onClose={() => setOpenAddressModal(false)}
+        onSave={handleSaveAddress}
       />
 
     </div>

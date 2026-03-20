@@ -1,0 +1,43 @@
+.memberships-page {
+  padding: 2rem;
+  background: #fafafa;
+  min-height: calc(100vh - 60px);
+
+  .empty-state-card {
+    background: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+
+    p {
+      color: #6c757d;
+    }
+  }
+
+  .membership-options-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 8px;
+    background: white;
+    min-width: 180px;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    padding: 8px 0;
+    z-index: 1000;
+    border: 1px solid #f0f0f0;
+
+    .dropdown-item {
+      padding: 12px 20px;
+      font-size: 14px;
+      color: #333;
+      cursor: pointer;
+      transition: background 0.2s;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+
+      &:hover {
+        background: #f8f9fa;
+      }
+    }
+  }
+}

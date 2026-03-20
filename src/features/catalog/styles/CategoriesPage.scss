@@ -1,104 +1,52 @@
-@use "../../../styles/themes/variables" as *;
+
 
 .categories-page {
-    padding: 32px;
-    max-width: 1000px;
-    margin: 0 auto;
+  min-height: 100vh;
+  background-color: #f5f7fa;
 
-    &__header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 32px;
+  &__title {
+    font-size: 1.25rem;
+    color: #212529;
+  }
 
-        h1 {
-            margin: 0;
-            font-size: 24px;
-            font-weight: 700;
-        }
+  &__table {
+    font-size: 0.875rem;
 
-        .btn-link {
-            padding: 0;
-            color: $dashboard-secondary;
-            text-decoration: none;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-
-            &:hover {
-                color: $dashboard-primary;
-            }
-        }
+    thead th {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #6c757d;
+      border-bottom: 1px solid #dee2e6;
+      padding-top: 0.75rem;
+      padding-bottom: 0.75rem;
     }
 
-    &__list {
-        background: $dashboard-card-bg;
-        border-radius: $card-radius;
-        border: 1px solid $dashboard-border;
-        box-shadow: $card-shadow;
-        overflow: hidden;
+    tbody td {
+      padding-top: 0.65rem;
+      padding-bottom: 0.65rem;
+      border-bottom: 1px solid #f0f0f0;
     }
+  }
 
-    &__item {
-        display: flex;
-        align-items: center;
-        padding: 20px 24px;
-        border-bottom: 1px solid $dashboard-border;
-        transition: background 0.2s ease;
+  &__row {
+    transition: background-color 0.1s ease;
+    &:hover { background-color: #f8f9ff !important; }
+  }
 
-        &:last-child {
-            border-bottom: none;
-        }
+  &__color-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+  }
 
-        &:hover {
-            background: #fcfcfc;
-        }
-
-        &-drag {
-            color: $dashboard-secondary;
-            padding-right: 16px;
-            cursor: grab;
-        }
-
-        &-info {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-
-        &-name {
-            font-weight: 600;
-            color: $dashboard-primary;
-            font-size: 16px;
-        }
-
-        &-count {
-            font-size: 13px;
-            color: $dashboard-secondary;
-            margin-top: 2px;
-        }
-
-        &-actions {
-            display: flex;
-            gap: 12px;
-        }
-    }
-
-    &__empty {
-        padding: 64px 32px;
-        text-align: center;
-        color: $dashboard-secondary;
-    }
-}
-
-.modal-backdrop {
-    background: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(2px);
-}
-
-.modal-content {
-    border: none;
-    border-radius: 12px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  &__status-badge {
+    font-size: 0.7rem;
+    font-weight: 500;
+    padding: 0.3em 0.65em;
+    border-radius: 4px;
+  }
 }

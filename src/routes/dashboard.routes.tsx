@@ -1,4 +1,5 @@
 import { Route } from "react-router-dom";
+import AddOnsPage from "../features/apps/pages/AddOnsPage";
 
 import DashboardLayout from "../features/dashboard/components/DashboardLayout";
 
@@ -65,7 +66,7 @@ export const DashboardRoutes = (
     <Route path="staff" element={<h2>Staff</h2>} />
     <Route path="marketing" element={<h2>Marketing</h2>} />
     <Route path="analytics" element={<h2>Analytics</h2>} />
-    <Route path="apps" element={<h2>Apps</h2>} />
+    <Route path="apps" element={<AddOnsPage />} />
     <Route path="settings" element={<h2>Settings</h2>} />
     <Route path="help" element={<h2>Help</h2>} />
 

@@ -4,9 +4,19 @@ import "../styles/StaffSettingsSection.scss";
 
 const PERMISSIONS = ["No access", "Basic", "Low", "Medium", "High", "Manager"];
 
-const StaffSettingsSection: React.FC = () => {
-  const [allowCalendarBookings, setAllowCalendarBookings] = useState(true);
-  const [permissionLevel, setPermissionLevel] = useState("Low");
+interface StaffSettingsProps {
+  allowCalendarBookings?: boolean;
+  setAllowCalendarBookings?: (val: boolean) => void;
+  permissionLevel?: string;
+  setPermissionLevel?: (val: string) => void;
+}
+
+const StaffSettingsSection: React.FC<StaffSettingsProps> = ({
+  allowCalendarBookings = true,
+  setAllowCalendarBookings = () => { },
+  permissionLevel = "Low",
+  setPermissionLevel = () => { }
+}) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 

@@ -3,24 +3,40 @@ import { useState } from "react"
 import "bootstrap/dist/css/bootstrap.min.css"
 import "../styles/ClientEmergencyContactsPage.scss"
 import { X } from "react-bootstrap-icons"
+import { useClientWizard } from "../context/ClientWizardContext"
+import { createClient } from "../services/clientService"
 
 export default function ClientEmergencyContactsPage() {
 
   const navigate = useNavigate()
+  const { clientData } = useClientWizard()
 
   const [firstName] = useState("")
+  const [primaryName, setPrimaryName] = useState("")
+  const [primaryPhone, setPrimaryPhone] = useState("")
   const [attemptedSubmit, setAttemptedSubmit] = useState(false)
 
   const isFirstNameInvalid = attemptedSubmit && firstName.trim() === ""
 
-  const handleSave = () => {
-    setAttemptedSubmit(true)
-
-    if (firstName.trim() === "") {
-      return // Stop if validation fails
+  const handleSave = async () => {
+    const emergency = {
+      name: primaryName,
+      phone: primaryPhone
     }
 
-    console.log("Saving client emergency contacts...")
+    const payload = {
+      ...clientData.profile,
+      addresses: clientData.addresses,
+      emergency_contact: emergency
+    }
+
+    try {
+      await createClient(payload)
+      console.log("Client saved successfully")
+      navigate("/dashboard/clients/list")
+    } catch (error) {
+      console.error("Error saving client", error)
+    }
   }
 
   return (
@@ -138,7 +154,12 @@ export default function ClientEmergencyContactsPage() {
 
             <div className="col-md-6 mb-3">
               <label className="form-label">Full name</label>
-              <input className="form-control" placeholder="e.g. John Hancock" />
+              <input
+                className="form-control"
+                placeholder="e.g. John Hancock"
+                value={primaryName}
+                onChange={(e) => setPrimaryName(e.target.value)}
+              />
             </div>
 
             <div className="col-md-6 mb-3">
@@ -162,7 +183,12 @@ export default function ClientEmergencyContactsPage() {
                   <option>+44</option>
                 </select>
 
-                <input className="form-control" placeholder="e.g. +1 234 567 8901" />
+                <input
+                  className="form-control"
+                  placeholder="e.g. +1 234 567 8901"
+                  value={primaryPhone}
+                  onChange={(e) => setPrimaryPhone(e.target.value)}
+                />
 
               </div>
 

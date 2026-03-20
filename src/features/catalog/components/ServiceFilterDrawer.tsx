@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { X, ChevronDown } from "react-bootstrap-icons";
 import "../styles/ServiceFilterDrawer.scss";
 
 interface FilterState {
@@ -31,92 +32,116 @@ const ServiceFilterDrawer: React.FC<Props> = ({ onClose, onApply }) => {
     };
 
     return (
-        <div className="service-filters-modal-overlay">
-            <div className="service-filters-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="service-filters-modal-overlay" onClick={onClose}>
+            <div className="service-filters-modal shadow-lg" onClick={(e) => e.stopPropagation()}>
                 <header className="service-filters-modal__header">
-                    <h2>Filters</h2>
-                    <button className="close-btn" onClick={onClose}>
-                        <i className="bi bi-x-lg" />
+                    <h4 className="modal-title">Filters</h4>
+                    <button className="close-icon-btn" onClick={onClose}>
+                        <X size={28} />
                     </button>
                 </header>
 
                 <div className="service-filters-modal__body">
-                    <div className="filter-field">
+                    <div className="filter-group">
                         <label>Status</label>
-                        <select
-                            value={filters.status}
-                            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                        >
-                            <option>Active</option>
-                            <option>Inactive</option>
-                            <option>All status</option>
-                        </select>
+                        <div className="select-wrapper">
+                            <select
+                                className="form-select-custom"
+                                value={filters.status}
+                                onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                            >
+                                <option>Active</option>
+                                <option>Inactive</option>
+                                <option>All status</option>
+                            </select>
+                            <ChevronDown className="select-chevron" size={14} />
+                        </div>
                     </div>
 
-                    <div className="filter-field">
+                    <div className="filter-group">
                         <label>Type</label>
-                        <select
-                            value={filters.type}
-                            onChange={(e) => setFilters({ ...filters, type: e.target.value })}
-                        >
-                            <option>All types</option>
-                            <option>Service</option>
-                            <option>Product</option>
-                        </select>
+                        <div className="select-wrapper">
+                            <select
+                                className="form-select-custom"
+                                value={filters.type}
+                                onChange={(e) => setFilters({ ...filters, type: e.target.value })}
+                            >
+                                <option>All types</option>
+                                <option>Service</option>
+                                <option>Product</option>
+                            </select>
+                            <ChevronDown className="select-chevron" size={14} />
+                        </div>
                     </div>
 
-                    <div className="filter-field">
+                    <div className="filter-group">
                         <label>Team member</label>
-                        <select
-                            value={filters.teamMember}
-                            onChange={(e) => setFilters({ ...filters, teamMember: e.target.value })}
-                        >
-                            <option>Any team member</option>
-                            <option>John Doe</option>
-                            <option>Jane Smith</option>
-                        </select>
+                        <div className="select-wrapper">
+                            <select
+                                className="form-select-custom"
+                                value={filters.teamMember}
+                                onChange={(e) => setFilters({ ...filters, teamMember: e.target.value })}
+                            >
+                                <option>Any team member</option>
+                                <option>John Doe</option>
+                                <option>Jane Smith</option>
+                            </select>
+                            <ChevronDown className="select-chevron" size={14} />
+                        </div>
                     </div>
 
-                    <div className="filter-field">
+                    <div className="filter-group">
                         <label>Online bookings</label>
-                        <select
-                            value={filters.onlineBooking}
-                            onChange={(e) => setFilters({ ...filters, onlineBooking: e.target.value })}
-                        >
-                            <option>All status</option>
-                            <option>Enabled</option>
-                            <option>Disabled</option>
-                        </select>
+                        <div className="select-wrapper">
+                            <select
+                                className="form-select-custom"
+                                value={filters.onlineBooking}
+                                onChange={(e) => setFilters({ ...filters, onlineBooking: e.target.value })}
+                            >
+                                <option>All status</option>
+                                <option>Enabled</option>
+                                <option>Disabled</option>
+                            </select>
+                            <ChevronDown className="select-chevron" size={14} />
+                        </div>
                     </div>
 
-                    <div className="filter-field">
+                    <div className="filter-group">
                         <label>Commissions</label>
-                        <select
-                            value={filters.commissions}
-                            onChange={(e) => setFilters({ ...filters, commissions: e.target.value })}
-                        >
-                            <option>All status</option>
-                            <option>Enabled</option>
-                            <option>Disabled</option>
-                        </select>
+                        <div className="select-wrapper">
+                            <select
+                                className="form-select-custom"
+                                value={filters.commissions}
+                                onChange={(e) => setFilters({ ...filters, commissions: e.target.value })}
+                            >
+                                <option>All status</option>
+                                <option>Enabled</option>
+                                <option>Disabled</option>
+                            </select>
+                            <ChevronDown className="select-chevron" size={14} />
+                        </div>
                     </div>
 
-                    <div className="filter-field">
+                    <div className="filter-group">
                         <label>Resource requirements</label>
-                        <select
-                            value={filters.resourceRequirements}
-                            onChange={(e) => setFilters({ ...filters, resourceRequirements: e.target.value })}
-                        >
-                            <option>All status</option>
-                            <option>Required</option>
-                            <option>Not required</option>
-                        </select>
+                        <div className="select-wrapper">
+                            <select
+                                className="form-select-custom"
+                                value={filters.resourceRequirements}
+                                onChange={(e) => setFilters({ ...filters, resourceRequirements: e.target.value })}
+                            >
+                                <option>All status</option>
+                                <option>Required</option>
+                                <option>Not required</option>
+                            </select>
+                            <ChevronDown className="select-chevron" size={14} />
+                        </div>
                     </div>
                 </div>
 
                 <footer className="service-filters-modal__footer">
-                    <button className="btn-cancel" onClick={onClose}>Cancel</button>
-                    <button className="btn-apply" onClick={handleApply}>Apply</button>
+                    <button className="btn-cancel-rounded" onClick={onClose}>Cancel</button>
+                    <button className="btn-apply-rounded" onClick={handleApply}>Apply</button>
                 </footer>
             </div>
         </div>

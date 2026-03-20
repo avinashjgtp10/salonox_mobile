@@ -3,8 +3,15 @@ import AddEmergencyContactModal from "../components/AddEmergencyContactModal";
 
 interface Contact { id: number; name: string; relationship: string; email?: string; phone: string; }
 
-const StaffEmergencyContactsSection: React.FC = () => {
-  const [contacts, setContacts] = useState<Contact[]>([]);
+interface StaffEmergencyContactsProps {
+  contacts?: Contact[];
+  setContacts?: (contacts: Contact[] | ((prev: Contact[]) => Contact[])) => void;
+}
+
+const StaffEmergencyContactsSection: React.FC<StaffEmergencyContactsProps> = ({
+  contacts = [],
+  setContacts = () => { }
+}) => {
   const [openContactModal, setOpenContactModal] = useState(false);
 
   const handleSaveContact = (contact: Omit<Contact, "id">) => {

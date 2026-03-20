@@ -27,6 +27,16 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
+<<<<<<< HEAD
+      const res = await API.post("/api/v1/auth/login", { email, password })
+      const accessToken = res.data?.data?.accessToken
+      const refreshToken = res.data?.data?.refreshToken
+
+      if (!accessToken || !refreshToken) throw new Error("Tokens not found")
+
+      dispatch(login({ accessToken, refreshToken }))
+      navigate("/dashboard")
+=======
       const hashedPwd = await hashPassword(password)
       const res = await API.post("/api/v1/auth/login", { email, password: hashedPwd })
       const { accessToken, refreshToken, isOnboardingComplete } = res.data?.data || {}
@@ -40,6 +50,7 @@ export default function LoginPage() {
       } else {
         navigate("/account-type")
       }
+>>>>>>> main
     } catch (err: any) {
       setError("Invalid email or password")
     }
@@ -49,8 +60,20 @@ export default function LoginPage() {
 
   // 🔐 GOOGLE OAUTH — redirect to backend which handles the full OAuth flow
   const handleGoogleLogin = () => {
+<<<<<<< HEAD
+    const payload = {
+      email: "google@oauth.com",
+      role: "google",
+      exp: Math.floor(Date.now() / 1000) + 60 * 60
+    }
+
+    const fakeToken = "header." + btoa(JSON.stringify(payload)) + ".signature"
+    dispatch(login({ accessToken: fakeToken, refreshToken: "fake-refresh-token" }))
+    navigate("/dashboard")
+=======
     const backendUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"
     window.location.href = `${backendUrl}/api/v1/auth/google/start`
+>>>>>>> main
   }
 
   return (

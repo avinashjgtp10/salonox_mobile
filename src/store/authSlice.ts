@@ -11,10 +11,17 @@ if (token) {
 }
 
 const initialState = {
-  accessToken: token,
+  token: localStorage.getItem("token"),
   refreshToken: localStorage.getItem("refreshToken"),
-  isOnboardingComplete: localStorage.getItem("isOnboardingComplete") === "true",
-  user,
+  user: null as any,
+}
+
+if (initialState.token) {
+  try {
+    initialState.user = JSON.parse(atob(initialState.token.split(".")[1]))
+  } catch (e) {
+    console.error("Failed to parse token", e)
+  }
 }
 
 const authSlice = createSlice({
@@ -22,44 +29,28 @@ const authSlice = createSlice({
   initialState,
   reducers: {
     login: (state, action) => {
-      const { accessToken, refreshToken, isOnboardingComplete } = action.payload
-      
-      state.accessToken = accessToken
+      const { accessToken, refreshToken } = action.payload
+      state.token = accessToken
       state.refreshToken = refreshToken
-      state.isOnboardingComplete = !!isOnboardingComplete
-      
-      // Decode user info from accessToken
-      try {
-        state.user = JSON.parse(atob(accessToken.split(".")[1]))
-      } catch (e) {
-        state.user = null
-      }
-      
-      localStorage.setItem("accessToken", accessToken)
+      state.user = JSON.parse(atob(accessToken.split(".")[1]))
+      localStorage.setItem("token", accessToken)
       localStorage.setItem("refreshToken", refreshToken)
-      localStorage.setItem("isOnboardingComplete", String(!!isOnboardingComplete))
     },
 
-    updateOnboardingStatus: (state, action) => {
-      state.isOnboardingComplete = !!action.payload
-      localStorage.setItem("isOnboardingComplete", String(!!action.payload))
-    },
-
-    setAccessToken: (state, action) => {
-      state.accessToken = action.payload
-      localStorage.setItem("accessToken", action.payload)
+    updateToken: (state, action) => {
+      state.token = action.payload
+      localStorage.setItem("token", action.payload)
     },
 
     logout: (state) => {
-      state.accessToken = null
+      state.token = null
       state.refreshToken = null
-      state.isOnboardingComplete = false
       state.user = null
-      
-      localStorage.clear()
+      localStorage.removeItem("token")
+      localStorage.removeItem("refreshToken")
     },
   },
 })
 
-export const { login, logout, updateOnboardingStatus, setAccessToken } = authSlice.actions
+export const { login, logout, updateToken } = authSlice.actions
 export default authSlice.reducer

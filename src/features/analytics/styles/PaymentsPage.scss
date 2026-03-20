@@ -1,0 +1,261 @@
+.payments-page {
+  padding: 2rem;
+  background: #fafafa;
+  min-height: calc(100vh - 60px);
+
+  .empty-state-card {
+    background: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+
+    p {
+      color: #6c757d;
+      margin-top: 0.5rem;
+    }
+  }
+
+  .payment-options-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 8px;
+    background: white;
+    min-width: 200px;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    padding: 8px 0;
+    z-index: 1000;
+    border: 1px solid #f0f0f0;
+
+    .dropdown-item {
+      padding: 12px 20px;
+      font-size: 14px;
+      color: #333;
+      cursor: pointer;
+      transition: background 0.2s;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+
+      &:hover {
+        background: #f8f9fa;
+      }
+    }
+
+    .dropdown-divider {
+      height: 1px;
+      background: #eee;
+      margin: 8px 0;
+    }
+
+    .dropdown-section-title {
+      padding: 4px 20px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+  }
+
+  /* Calendar Overlay/Modal */
+  .payment-calendar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    backdrop-filter: blur(4px);
+  }
+
+  .payment-calendar-modal {
+    background: white;
+    border-radius: 24px;
+    padding: 32px;
+    box-shadow: 0 30px 100px rgba(0, 0, 0, 0.2);
+    width: auto;
+    max-width: 95%;
+
+    input.form-control, select.form-select {
+      background: #f9f9f9;
+      border: 1px solid #eee;
+      height: 48px;
+      font-size: 14px;
+      
+      &:focus {
+        background: #fff;
+        border-color: #000;
+        box-shadow: 0 0 0 3px rgba(0,0,0,0.05);
+      }
+    }
+
+    .calendar-container {
+      margin: 0 -10px;
+    }
+
+    /* react-date-range Overrides */
+    .rdrCalendarWrapper {
+      font-family: inherit;
+      color: #000;
+      background: transparent;
+    }
+
+    .rdrMonth {
+      width: 320px;
+      padding: 0 15px;
+    }
+
+    .rdrMonthName {
+      text-align: center;
+      font-weight: 700;
+      color: #000;
+      padding: 20px 0;
+      font-size: 15px;
+    }
+
+    .rdrWeekDays {
+      padding-bottom: 10px;
+    }
+
+    .rdrWeekDay {
+      color: #999;
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    .rdrDay {
+      height: 42px;
+    }
+
+    .rdrDayNumber {
+      font-weight: 500;
+      font-size: 14px;
+      color: #000;
+      
+      span {
+        z-index: 1;
+      }
+    }
+
+    /* Selection Styles */
+    .rdrSelected, .rdrInRange, .rdrStartEdge, .rdrEndEdge {
+      top: 4px;
+      bottom: 4px;
+    }
+
+    .rdrStartEdge {
+      border-top-left-radius: 50%;
+      border-bottom-left-radius: 50%;
+      left: 0;
+    }
+
+    .rdrEndEdge {
+      border-top-right-radius: 50%;
+      border-bottom-right-radius: 50%;
+      right: 0;
+    }
+
+    .rdrInRange {
+      background: #f3f3f3 !important;
+      color: #000 !important;
+    }
+
+    .rdrDayStartPreviewCustom, .rdrDayInPreviewCustom, .rdrDayEndPreviewCustom {
+      background: #f3f3f3 !important;
+    }
+
+    /* Circular active days */
+    .rdrDayNumber span:after {
+      display: none;
+    }
+
+    .rdrDayToday .rdrDayNumber span:after {
+      display: block;
+      background: #000;
+      bottom: 4px;
+    }
+
+    .rdrSelected {
+      background: #000 !important;
+      border-radius: 50%;
+      width: 34px !important;
+      height: 34px !important;
+      left: 50% !important;
+      transform: translateX(-50%);
+    }
+
+    .rdrDayEndEdge .rdrSelected, .rdrDayStartEdge .rdrSelected {
+      border-radius: 50% !important;
+    }
+
+    /* Navigation Arrows */
+    .rdrNextPrevButton {
+      background: #f3f3f3;
+      &:hover {
+        background: #e5e5e5;
+      }
+      i {
+        border-color: #000;
+      }
+    }
+
+    .rdrPaginator {
+      padding: 10px 0;
+    }
+  }
+
+  /* Filters Overlay/Modal */
+  .payment-filters-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    backdrop-filter: blur(4px);
+  }
+
+  .payment-filters-modal {
+    background: white;
+    border-radius: 24px;
+    padding: 40px;
+    box-shadow: 0 30px 100px rgba(0, 0, 0, 0.2);
+    width: 500px;
+    max-width: 95%;
+
+    .form-select, .form-control {
+      height: 48px;
+      background-color: #f9f9f9;
+      border: 1px solid #eee;
+      border-radius: 12px !important;
+
+      &:focus {
+        box-shadow: none;
+        border-color: #000;
+        background-color: #fff;
+      }
+    }
+
+    .input-group-text {
+      background-color: #f9f9f9;
+      border: 1px solid #eee;
+      border-right: none;
+      font-weight: 600;
+      color: #666;
+      border-radius: 12px 0 0 12px !important;
+    }
+    
+    .input-group .form-control {
+        border-radius: 0 12px 12px 0 !important;
+    }
+  }
+}
+

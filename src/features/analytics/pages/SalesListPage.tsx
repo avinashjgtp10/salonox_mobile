@@ -7,7 +7,14 @@ import {
   Sliders,
   ArrowDownUp,
   Plus,
-  ThreeDots
+  ThreeDots,
+  ChevronDown,
+  TagFill,
+  Gear,
+  FileEarmarkPdf,
+  FileEarmarkText,
+  FileEarmarkExcel,
+  Receipt
 } from "react-bootstrap-icons"
 
 import { DateRangePicker } from "react-date-range"
@@ -26,9 +33,12 @@ import {
 import "react-date-range/dist/styles.css"
 import "react-date-range/dist/theme/default.css"
 
+import QuickSaleDrawer from "../components/QuickSaleDrawer"
+
 export default function SalesListPage() {
   const [showCalendar, setShowCalendar] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const calendarRef = useRef<HTMLDivElement>(null)
 
   const [dateRangeDropdown, setDateRangeDropdown] = useState("Today")
@@ -41,6 +51,15 @@ export default function SalesListPage() {
     { startDate: new Date(), endDate: new Date(), key: "selection" }
   ])
 
+  // Tab State
+  const [activeTab, setActiveTab] = useState<"sales" | "drafts">("sales")
+
+  // Dropdown states
+  const [showOptions, setShowOptions] = useState(false)
+  const [showSort, setShowSort] = useState(false)
+  const optionsRef = useRef<HTMLDivElement>(null)
+  const sortRef = useRef<HTMLDivElement>(null)
+
   // Close calendar on outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -50,6 +69,12 @@ export default function SalesListPage() {
       ) {
         setShowCalendar(false)
         setTempRange(appliedRange)
+      }
+      if (optionsRef.current && !optionsRef.current.contains(event.target as Node)) {
+        setShowOptions(false)
+      }
+      if (sortRef.current && !sortRef.current.contains(event.target as Node)) {
+        setShowSort(false)
       }
     }
     document.addEventListener("mousedown", handleClickOutside)
@@ -133,23 +158,60 @@ export default function SalesListPage() {
         </div>
 
         <div className="d-flex gap-2">
-          <button className="btn btn-outline-secondary rounded-pill">
-            Options <ThreeDots size={16} className="ms-1" />
-          </button>
+          {/* Options Dropdown */}
+          <div className="position-relative" ref={optionsRef}>
+            <button 
+              className="btn btn-outline-secondary rounded-pill px-3 fw-semibold text-dark"
+              onClick={() => setShowOptions(!showOptions)}
+            >
+              Options <ChevronDown size={14} className="ms-1 fw-bold" />
+            </button>
+            {showOptions && (
+              <div className="sales-dropdown-menu options-menu">
+                <div className="dropdown-item d-flex align-items-center">
+                  <Gear size={16} className="me-2 text-muted" />
+                  <span>Sales settings</span>
+                </div>
+                <div className="dropdown-divider"></div>
+                <div className="dropdown-section-title">Export</div>
+                <div className="dropdown-item d-flex align-items-center">
+                  <FileEarmarkPdf size={16} className="me-2 text-muted" />
+                  <span>PDF</span>
+                </div>
+                <div className="dropdown-item d-flex align-items-center">
+                  <FileEarmarkText size={16} className="me-2 text-muted" />
+                  <span>CSV</span>
+                </div>
+                <div className="dropdown-item d-flex align-items-center">
+                  <FileEarmarkExcel size={16} className="me-2 text-muted" />
+                  <span>Excel</span>
+                </div>
+              </div>
+            )}
+          </div>
 
-          <button className="btn btn-dark rounded-pill px-3">
-            <Plus size={16} className="me-1" />
+          <button 
+            className="btn btn-dark rounded-pill px-4 fw-semibold shadow-sm"
+            onClick={() => setDrawerOpen(true)}
+          >
+            <Plus size={18} className="me-1" />
             Add new
           </button>
         </div>
       </div>
 
       {/* TABS */}
-      <div className="sales-tabs mb-3">
-        <button className="btn btn-dark rounded-pill me-2">
+      <div className="sales-tabs mb-4 d-flex gap-2 align-items-center">
+        <button 
+          className={`btn rounded-pill px-4 fw-semibold ${activeTab === "sales" ? "btn-dark shadow-sm" : "text-muted border-0"}`}
+          onClick={() => setActiveTab("sales")}
+        >
           Sales
         </button>
-        <button className="btn btn-light rounded-pill">
+        <button 
+          className={`btn rounded-pill px-4 fw-semibold ${activeTab === "drafts" ? "btn-dark shadow-sm" : "text-muted border-0"}`}
+          onClick={() => setActiveTab("drafts")}
+        >
           Drafts
         </button>
       </div>
@@ -165,7 +227,7 @@ export default function SalesListPage() {
               <Search size={16} className="me-2 text-muted" />
               <input
                 type="text"
-                placeholder="Search by Sale or Client"
+                placeholder={activeTab === "sales" ? "Search by Sale or Client" : "Search by Draft ID"}
                 className="border-0 outline-0"
               />
             </div>
@@ -188,10 +250,31 @@ export default function SalesListPage() {
 
           </div>
 
-          {/* Sort */}
-          <button className="btn btn-outline-secondary rounded-pill">
-            Sort by <ArrowDownUp size={14} className="ms-1" />
-          </button>
+          {/* Sort Dropdown */}
+          <div className="position-relative" ref={sortRef}>
+            <button 
+              className="btn btn-outline-secondary rounded-pill px-3"
+              onClick={() => setShowSort(!showSort)}
+            >
+              Sort by <ArrowDownUp size={14} className="ms-1" />
+            </button>
+            {showSort && (
+              <div className="sales-dropdown-menu sort-menu">
+                <div className="dropdown-item">Sale # (Z-A)</div>
+                <div className="dropdown-item">Sale # (A-Z)</div>
+                <div className="dropdown-item">Client (Z-A)</div>
+                <div className="dropdown-item">Client (A-Z)</div>
+                <div className="dropdown-item">Sale date (newest first)</div>
+                <div className="dropdown-item">Sale date (oldest first)</div>
+                <div className="dropdown-item">Location (Z-A)</div>
+                <div className="dropdown-item">Location (A-Z)</div>
+                <div className="dropdown-item">Tips (highest first)</div>
+                <div className="dropdown-item">Tips (lowest first)</div>
+                <div className="dropdown-item">Gross total (highest first)</div>
+                <div className="dropdown-item">Gross total (lowest first)</div>
+              </div>
+            )}
+          </div>
 
         </div>
       </div>
@@ -316,13 +399,41 @@ export default function SalesListPage() {
       )}
 
       {/* EMPTY STATE */}
-      <div className="card text-center py-5">
-        <div className="mb-3 fs-3"></div>
-        <h5 className="fw-semibold">No sales yet</h5>
-        <button className="btn btn-outline-secondary rounded-pill mt-3">
-          Create new sale
-        </button>
+      <div className="card text-center py-5 border-0 rounded-4 empty-state-card shadow-sm mt-2 flex-grow-1 align-items-center justify-content-center" style={{ minHeight: '400px' }}>
+        <div className="mb-4">
+          <div className="d-flex align-items-center justify-content-center mx-auto empty-state-icon" style={{ 
+            width: '60px', 
+            height: '60px', 
+            borderRadius: '15px', 
+            background: activeTab === "sales" 
+              ? 'linear-gradient(135deg, #a855f7 0%, #d946ef 100%)' 
+              : 'linear-gradient(135deg, #d8b4fe 0%, #e879f9 100%)' 
+          }}>
+            {activeTab === "sales" ? (
+              <TagFill size={30} className="text-white" />
+            ) : (
+              <Receipt size={30} className="text-white" />
+            )}
+          </div>
+        </div>
+        <h4 className="fw-bold mb-3 text-dark">
+          {activeTab === "sales" ? "No sales yet" : "No draft sales yet"}
+        </h4>
+        <div className="mt-2">
+          <button 
+            className="btn btn-outline-secondary rounded-pill fw-semibold px-4"
+            onClick={() => setDrawerOpen(true)}
+          >
+            Create new sale
+          </button>
+        </div>
       </div>
+
+      {/* ================= QUICK SALE DRAWER ================= */}
+      <QuickSaleDrawer
+        isOpen={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+      />
 
     </div>
   )

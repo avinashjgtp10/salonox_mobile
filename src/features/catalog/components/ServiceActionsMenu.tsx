@@ -1,7 +1,15 @@
-import React, { useRef, useEffect } from "react";
+import { useRef, useEffect } from "react";
+import { 
+    ThreeDotsVertical, 
+    Pencil, 
+    Link45deg, 
+    ArrowsMove, 
+    CalendarCheck, 
+    Trash 
+} from "react-bootstrap-icons";
 import "../styles/ServiceActionsMenu.scss";
 
-interface Props {
+export interface ServiceActionsMenuProps {
     serviceId: string;
     open: boolean;
     onToggle: () => void;
@@ -12,7 +20,7 @@ interface Props {
     onSetBookingSequence: () => void;
 }
 
-const ServiceActionsMenu: React.FC<Props> = ({
+const ServiceActionsMenu = ({
     serviceId: _serviceId,
     open,
     onToggle,
@@ -21,7 +29,7 @@ const ServiceActionsMenu: React.FC<Props> = ({
     onQuickBookingLink,
     onSetMenuOrder,
     onSetBookingSequence
-}) => {
+}: ServiceActionsMenuProps) => {
     const ref = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -37,26 +45,26 @@ const ServiceActionsMenu: React.FC<Props> = ({
 
     return (
         <div className="service-actions-menu" ref={ref}>
-            <div className="menu-trigger" onClick={onToggle}>
-                <i className="bi bi-three-dots-vertical" />
+            <div className="service-actions-menu__trigger" onClick={onToggle}>
+                <ThreeDotsVertical size={18} />
             </div>
 
             {open && (
-                <div className="service-actions-menu__dropdown">
+                <div className="service-actions-menu__dropdown shadow-lg">
                     <button className="service-actions-menu__item" onClick={onEdit}>
-                        <i className="bi bi-pencil" /> Edit Service
+                        <Pencil size={15} /> Edit Service
                     </button>
 
                     <button className="service-actions-menu__item" onClick={onQuickBookingLink}>
-                        <i className="bi bi-link-45deg" /> Quick Booking Link
+                        <Link45deg size={18} /> Quick Booking Link
                     </button>
 
                     <button className="service-actions-menu__item" onClick={onSetMenuOrder}>
-                        <i className="bi bi-arrows-move" /> Set Menu Order
+                        <ArrowsMove size={15} /> Set Menu Order
                     </button>
 
                     <button className="service-actions-menu__item" onClick={onSetBookingSequence}>
-                        <i className="bi bi-calendar-check" /> Set Booking Sequence
+                        <CalendarCheck size={15} /> Set Booking Sequence
                     </button>
 
                     <div className="service-actions-menu__divider" />
@@ -65,7 +73,7 @@ const ServiceActionsMenu: React.FC<Props> = ({
                         className="service-actions-menu__item service-actions-menu__item--danger"
                         onClick={onDelete}
                     >
-                        <i className="bi bi-trash" /> Delete
+                        <Trash size={15} /> Delete
                     </button>
                 </div>
             )}
@@ -73,4 +81,4 @@ const ServiceActionsMenu: React.FC<Props> = ({
     );
 };
 
-export default ServiceActionsMenu;
+export default ServiceActionsMenu;

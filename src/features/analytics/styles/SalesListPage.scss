@@ -53,12 +53,13 @@
 }
 
 .calendar-modal {
-  width: 1000px;
+  width: auto;
   max-width: 95vw;
   background: #fff;
-  border-radius: 28px;
-  padding: 40px 60px;
-  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.25);
+  border-radius: 20px;
+  padding: 30px 40px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  overflow-x: auto;
 }
 
 /* Calendar layout */
@@ -70,11 +71,11 @@
 .rdrMonths {
   display: flex !important;
   justify-content: center;
-  gap: 60px;
+  gap: 30px;
 }
 
 .rdrMonth {
-  width: 420px !important;
+  width: 320px !important;
 }
 
 .rdrMonthName {
@@ -174,4 +175,58 @@
   background: #000;
   border: none;
   border-radius: 30px;
+}
+
+/* ========================================================= */
+/* ================= DROPDOWNS ============================= */
+/* ========================================================= */
+
+.sales-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  background: white;
+  min-width: 200px;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  padding: 8px 0;
+  z-index: 1000;
+  border: 1px solid #f0f0f0;
+}
+
+.sales-dropdown-menu .dropdown-item {
+  padding: 10px 20px;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.sales-dropdown-menu .dropdown-item:hover {
+  background: #f8f9fa;
+}
+
+.sales-dropdown-menu .dropdown-divider {
+  height: 1px;
+  background: #eee;
+  margin: 8px 0;
+}
+
+.sales-dropdown-menu .dropdown-section-title {
+  padding: 4px 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+}
+
+.options-menu {
+  min-width: 220px;
+}
+
+.sort-menu {
+  min-width: 240px;
+  max-height: 400px;
+  overflow-y: auto;
 }

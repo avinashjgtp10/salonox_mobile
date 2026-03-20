@@ -1,5 +1,5 @@
 import React from "react";
-import type { ServiceAddOnsData, AddOnService } from "../../types/catalog.types.ts";
+import type { ServiceAddOnsData } from "../../types/catalog.types.ts";
 
 interface Props {
     data: ServiceAddOnsData;
@@ -7,35 +7,24 @@ interface Props {
 }
 
 const ServiceAddOnsTab: React.FC<Props> = ({ data, onChange }) => {
-    const toggleAddon = (addonId: string) => {
-        const selected = data.selectedAddonIds.includes(addonId)
-            ? data.selectedAddonIds.filter((id: string) => id !== addonId)
-            : [...data.selectedAddonIds, addonId];
-        onChange({ ...data, selectedAddonIds: selected });
-    };
-
     return (
         <div className="tab-content-panel">
-            <h5 className="tab-content-panel__title">Service Add-Ons</h5>
-            <p className="text-muted mb-3">Select services that can be added on during booking.</p>
-            {data.availableAddons.length === 0 ? (
-                <div className="alert alert-info">No add-ons available. Create services first to use them as add-ons.</div>
-            ) : (
-                <div className="addons-list">
-                    {data.availableAddons.map((addon: AddOnService) => (
-                        <div key={addon.id} className="addon-item">
-                            <div className="form-check">
-                                <input className="form-check-input" type="checkbox" id={`addon-${addon.id}`}
-                                    checked={data.selectedAddonIds.includes(addon.id)} onChange={() => toggleAddon(addon.id)} />
-                                <label className="form-check-label d-flex justify-content-between w-100" htmlFor={`addon-${addon.id}`}>
-                                    <span>{addon.name}</span>
-                                    <span className="text-muted">{addon.duration} min · ${addon.price.toFixed(2)}</span>
-                                </label>
-                            </div>
-                        </div>
-                    ))}
+            <h5 className="tab-content-panel__title">Service add-ons</h5>
+
+            <div className="premium-empty-state d-flex flex-column align-items-center justify-content-center p-5 mt-4" style={{ minHeight: '320px' }}>
+                <div className="addon-icon-wrapper mb-4">
+                    <div className="abstract-icon d-flex align-items-center justify-content-center rounded-4 shadow-sm"
+                        style={{ width: '64px', height: '64px', background: 'linear-gradient(135deg, #e0e7ff, #fdf4ff)' }}>
+                        <i className="bi bi-plus-square-dotted fs-3 text-primary-emphasis" />
+                    </div>
                 </div>
-            )}
+                <h6 className="fw-bold text-dark mb-2">Service add-ons</h6>
+                <p className="text-muted small text-center px-4 mb-4">
+                    Allow clients to add customizations and extras to their booking.
+                    <a href="#" className="text-primary text-decoration-none ms-1">Learn more</a>
+                </p>
+                <button className="btn btn-outline-dark rounded-pill px-4 fw-bold small">Add group</button>
+            </div>
         </div>
     );
 };

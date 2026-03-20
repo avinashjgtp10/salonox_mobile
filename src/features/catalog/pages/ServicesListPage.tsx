@@ -1,5 +1,17 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+    ChevronDown,
+    Search,
+    Sliders,
+    ArrowsExpand,
+    Link45deg,
+    ArrowDownUp,
+    Gear,
+    FileEarmarkPdf,
+    FileEarmarkExcel,
+    FiletypeCsv
+} from "react-bootstrap-icons";
 import { useServices } from "../hooks/useServices.ts";
 import ServiceFilterDrawer from "../components/ServiceFilterDrawer.tsx";
 import ManageOrderModal from "../components/ManageOrderModal.tsx";
@@ -59,36 +71,35 @@ const ServicesListPage: React.FC = () => {
         <div className="services-list-page">
             <header className="services-list-page__header">
                 <div className="header-left">
-                    <button className="back-btn" onClick={() => navigate(-1)}>
-                        <i className="bi bi-chevron-left" />
-                    </button>
                     <div className="title-content">
                         <h1>Service menu</h1>
-                        <p>View and manage the services offered by your business. <a href="#">Learn more</a></p>
+                        <p>View and manage the services offered by your business. <a href="#" className="learn-more">Learn more</a></p>
                     </div>
                 </div>
                 <div className="services-list-page__actions">
                     <div className="dropdown">
-                        <button className="btn btn-outline dropdown-toggle" data-bs-toggle="dropdown">
-                            Options
+                        <button className="btn btn-options" data-bs-toggle="dropdown">
+                            Options <ChevronDown size={14} className="ms-1" />
                         </button>
-                        <ul className="dropdown-menu dropdown-menu-end">
-                            <li><button className="dropdown-item">Create share link</button></li>
-                            <li><button className="dropdown-item">Team settings</button></li>
-                            <li><hr className="dropdown-divider" /></li>
-                            <li className="dropdown-header">Export</li>
-                            <li><button className="dropdown-item">CSV</button></li>
-                            <li><button className="dropdown-item">Excel</button></li>
+                        <ul className="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-4 py-2 mt-2" style={{ minWidth: '240px' }}>
+                            <li><button className="dropdown-item d-flex align-items-center py-2 px-3 fw-medium"><Link45deg className="me-3" size={18} /> Quick booking link</button></li>
+                            <li><button className="dropdown-item d-flex align-items-center py-2 px-3 fw-medium" onClick={() => setShowManageOrder(true)}><ArrowDownUp className="me-3" size={16} /> Set menu order</button></li>
+                            <li><button className="dropdown-item d-flex align-items-center py-2 px-3 fw-medium"><ArrowDownUp className="me-3" size={16} /> Set booking sequence</button></li>
+                            <li><button className="dropdown-item d-flex align-items-center py-2 px-3 fw-medium"><Gear className="me-3" size={16} /> Settings</button></li>
+                            <li><hr className="dropdown-divider my-2 opacity-50" /></li>
+                            <li><button className="dropdown-item d-flex align-items-center py-2 px-3 fw-medium"><FileEarmarkPdf className="me-3" size={16} /> Download PDF</button></li>
+                            <li><button className="dropdown-item d-flex align-items-center py-2 px-3 fw-medium"><FileEarmarkExcel className="me-3" size={16} /> Download Excel</button></li>
+                            <li><button className="dropdown-item d-flex align-items-center py-2 px-3 fw-medium"><FiletypeCsv className="me-3" size={16} /> Download CSV</button></li>
                         </ul>
                     </div>
                     <div className="dropdown">
-                        <button className="btn btn-add dropdown-toggle" data-bs-toggle="dropdown">
-                            Add <i className="bi bi-chevron-down ms-1" />
+                        <button className="btn btn-add-new" data-bs-toggle="dropdown">
+                            Add <ChevronDown size={14} className="ms-1" />
                         </button>
-                        <ul className="dropdown-menu dropdown-menu-end">
-                            <li><button className="dropdown-item" onClick={() => navigate("/dashboard/catalog/services/add?type=single")}>Single Service</button></li>
-                            <li><button className="dropdown-item" onClick={() => navigate("/dashboard/catalog/services/add?type=bundle")}>Bundle</button></li>
-                            <li><button className="dropdown-item" onClick={() => navigate("/dashboard/catalog/services/categories")}>Category</button></li>
+                        <ul className="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-4">
+                            <li><button className="dropdown-item py-2" onClick={() => navigate("/dashboard/catalog/services/add?type=single")}>Single Service</button></li>
+                            <li><button className="dropdown-item py-2" onClick={() => navigate("/dashboard/catalog/services/add?type=bundle")}>Bundle</button></li>
+                            <li><button className="dropdown-item py-2" onClick={() => navigate("/dashboard/catalog/services/categories")}>Category</button></li>
                         </ul>
                     </div>
                 </div>
@@ -96,73 +107,75 @@ const ServicesListPage: React.FC = () => {
 
             <div className="services-list-page__controls">
                 <div className="search-box">
-                    <i className="bi bi-search" />
+                    <Search className="search-icon-abs" size={18} />
                     <input type="text" placeholder="Search service name"
                         value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                 </div>
                 <button className="filter-btn" onClick={() => setShowFilterDrawer(true)}>
-                    Filters <i className="bi bi-sliders ms-1" />
+                    Filters <Sliders size={16} className="ms-1" />
                 </button>
-                <button className="manage-order-btn" onClick={() => setShowManageOrder(true)}>
-                    <i className="bi bi-arrows-expand me-2" /> Manage order
+                <button className="manage-order-btn ms-auto" onClick={() => setShowManageOrder(true)}>
+                    <ArrowsExpand size={16} className="me-2" /> Manage order
                 </button>
             </div>
 
             <main className="services-list-page__layout">
                 <aside className="services-list-page__sidebar">
-                    <h3>Categories</h3>
-                    <ul className="category-list">
-                        <li className={`category-item ${selectedCategory === "all" ? "active" : ""}`}
-                            onClick={() => setSelectedCategory("all")}>
-                            <span>All categories</span>
-                            <span className="count">{services.length}</span>
-                        </li>
-                        {categories.map((cat: any) => (
-                            <li key={cat.id} className={`category-item ${selectedCategory === cat.id ? "active" : ""}`}
-                                onClick={() => setSelectedCategory(cat.id)}>
-                                <span>{cat.name}</span>
-                                <span className="count">{cat.serviceCount || 0}</span>
+                    <div className="sidebar-section">
+                        <h3>Categories</h3>
+                        <ul className="category-list">
+                            <li className={`category-item ${selectedCategory === "all" ? "active" : ""}`}
+                                onClick={() => setSelectedCategory("all")}>
+                                <span className="cat-name">All categories</span>
+                                <span className="count">{services.length}</span>
                             </li>
-                        ))}
-                    </ul>
-                    <button className="add-category-btn" onClick={() => navigate("/dashboard/catalog/services/categories")}>
-                        Add category
-                    </button>
+                            {categories.map((cat: any) => (
+                                <li key={cat.id} className={`category-item ${selectedCategory === cat.id ? "active" : ""}`}
+                                    onClick={() => setSelectedCategory(cat.id)}>
+                                    <span className="cat-name">{cat.name}</span>
+                                    <span className="count">{cat.serviceCount || 0}</span>
+                                </li>
+                            ))}
+                        </ul>
+                        <button className="add-category-link" onClick={() => navigate("/dashboard/catalog/services/categories")}>
+                            Add category
+                        </button>
+                    </div>
                 </aside>
 
                 <section className="services-list-page__content">
                     {loading ? (
                         <div className="services-list-page__loading"><div className="spinner-border text-primary" /></div>
                     ) : error ? (
-                        <div className="alert alert-danger">{error}</div>
+                        <div className="alert alert-danger rounded-4">{error}</div>
                     ) : groupedServices.length === 0 ? (
-                        <div className="text-center py-5 bg-white border rounded-3">
+                        <div className="text-center py-5 bg-white border rounded-4 no-results">
                             <p className="mb-3">No services found match your criteria.</p>
-                            <button className="btn btn-outline" onClick={() => { setSearchQuery(""); setSelectedCategory("all"); }}>Clear all filters</button>
+                            <button className="btn btn-outline-dark rounded-pill px-4" onClick={() => { setSearchQuery(""); setSelectedCategory("all"); }}>Clear all filters</button>
                         </div>
                     ) : (
                         groupedServices.map((group) => (
-                            <div key={group.id} className="service-group">
-                                <div className="service-group__header">
-                                    <h2>{group.name}</h2>
+                            <div key={group.id} className="service-group mb-5">
+                                <div className="service-group__header d-flex justify-content-between align-items-center mb-3">
+                                    <h2 className="group-title">{group.name}</h2>
                                     <div className="dropdown">
-                                        <button className="actions-btn dropdown-toggle" data-bs-toggle="dropdown">
-                                            Actions <i className="bi bi-chevron-down" />
+                                        <button className="actions-btn rounded-pill border-0" data-bs-toggle="dropdown">
+                                            Actions <ChevronDown size={14} className="ms-1" />
                                         </button>
-                                        <ul className="dropdown-menu">
-                                            <li><button className="dropdown-item">Edit category</button></li>
-                                            <li><button className="dropdown-item text-danger">Delete category</button></li>
+                                        <ul className="dropdown-menu shadow-sm border-0 rounded-4">
+                                            <li><button className="dropdown-item py-2">Edit category</button></li>
+                                            <li><button className="dropdown-item py-2 text-danger">Delete category</button></li>
                                         </ul>
                                     </div>
                                 </div>
-                                <div className="service-group__list">
+                                <div className="service-group__list rounded-4 overflow-hidden border">
                                     {group.services.map((svc: any) => (
-                                        <div key={svc.id} className="service-card" onClick={() => navigate(`/dashboard/catalog/services/${svc.id}`)}>
+                                        <div key={svc.id} className={`service-card p-4 d-flex justify-content-between align-items-center ${selectedCategory === group.id ? 'active-cat' : ''}`} onClick={() => navigate(`/dashboard/catalog/services/${svc.id}`)}>
                                             <div className="card-left">
-                                                <h4>{svc.name}</h4>
-                                                <p>{svc.duration}min</p>
+                                                <h4 className="service-name">{svc.name}</h4>
+                                                <p className="service-meta">{svc.duration}min</p>
                                             </div>
-                                            <div className="card-right">
+                                            <div className="card-right d-flex align-items-center gap-4">
                                                 <span className="price">₹{svc.price}</span>
                                                 <div onClick={(e) => e.stopPropagation()}>
                                                     <ServiceActionsMenu

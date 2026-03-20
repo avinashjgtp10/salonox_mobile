@@ -7,64 +7,73 @@
   &__trigger {
     border: none;
     background: transparent;
-    color: #6c757d;
+    color: #9ca3af;
+    padding: 8px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
 
     &:hover {
-      background: #f8f9fa;
-      color: #212529;
+      background: #f3f4f6;
+      color: #111827;
     }
   }
 
   &__dropdown {
     position: absolute;
     right: 0;
-    top: calc(100% + 4px);
+    top: calc(100% + 8px);
     background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-    border: 1px solid #e9ecef;
-    min-width: 200px;
-    z-index: 500;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    border: 1px solid #f3f4f6;
+    min-width: 210px;
+    z-index: 1000;
     overflow: hidden;
-    animation: dropdownFadeIn 0.15s ease;
+    padding: 8px 0;
+    animation: dropdownFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   &__item {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
     width: 100%;
-    padding: 10px 16px;
+    padding: 10px 20px;
     border: none;
     background: transparent;
     text-align: left;
-    font-size: 0.875rem;
-    color: #212529;
+    font-size: 14px;
+    color: #374151;
     cursor: pointer;
-    transition: background 0.1s;
+    font-weight: 500;
+    transition: all 0.1s;
 
     &:hover {
-      background: #f8f9fa;
+      background: #f9fafb;
+      color: #111827;
     }
 
     &--danger {
-      color: #dc3545;
-
+      color: #ef4444;
       &:hover {
-        background: #fff5f5;
+        background: #fef2f2;
+        color: #b91c1c;
       }
     }
 
     i {
-      color: #6c757d;
-      width: 16px;
+      font-size: 16px;
+      color: #6b7280;
     }
   }
 
   &__divider {
     height: 1px;
-    background: #e9ecef;
-    margin: 4px 0;
+    background: #f3f4f6;
+    margin: 8px 0;
   }
 }
 

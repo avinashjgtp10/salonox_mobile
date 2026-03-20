@@ -1,57 +1,32 @@
 import { useNavigate } from "react-router-dom"
-import { useState } from "react"
 import "bootstrap/dist/css/bootstrap.min.css"
 import "../styles/ClientSettingsPage.scss"
-import { X } from "react-bootstrap-icons"
+import { createClient } from "../services/clientService"
+import { useClientWizard } from "../context/ClientWizardContext"
 
 export default function ClientSettingsPage() {
-
   const navigate = useNavigate()
+  const { clientData } = useClientWizard()
 
-  const [firstName] = useState("")
-  const [attemptedSubmit, setAttemptedSubmit] = useState(false)
-
-  const isFirstNameInvalid = attemptedSubmit && firstName.trim() === ""
-
-  const handleSave = () => {
-    setAttemptedSubmit(true)
-
-    if (firstName.trim() === "") {
-      return // Stop if validation fails
+  const handleSave = async () => {
+    const payload = {
+      ...clientData.profile,
+      addresses: clientData.addresses,
+      emergency_contact: clientData.emergency
     }
 
-    console.log("Saving client settings...")
+    try {
+      await createClient(payload)
+      console.log("Client saved successfully")
+      navigate("/dashboard/clients/list")
+    } catch (error) {
+      console.error("Error saving client", error)
+    }
   }
 
   return (
     <div className="container-fluid p-4 bg-white position-relative">
 
-      {/* ERROR TOAST */}
-      {isFirstNameInvalid && (
-        <div
-          className="position-fixed d-flex align-items-center justify-content-between rounded-pill shadow-sm"
-          style={{
-            top: "20px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            backgroundColor: "#E20030",
-            color: "white",
-            zIndex: 1050,
-            padding: "8px 16px",
-            fontSize: "14px",
-            fontWeight: "500",
-            minWidth: "250px"
-          }}
-        >
-          <span>First name is required</span>
-          <X
-            size={20}
-            className="ms-3 cursor-pointer"
-            style={{ cursor: "pointer" }}
-            onClick={() => setAttemptedSubmit(false)}
-          />
-        </div>
-      )}
 
       {/* HEADER */}
 
@@ -94,7 +69,6 @@ export default function ClientSettingsPage() {
                 onClick={() => navigate("/dashboard/clients/add")}
               >
                 Profile
-                {isFirstNameInvalid && <span className="text-danger-dot">●</span>}
               </button>
 
               <button

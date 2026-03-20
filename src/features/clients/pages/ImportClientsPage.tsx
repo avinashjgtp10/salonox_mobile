@@ -8,11 +8,11 @@ type Step = 1 | 2 | 3 | 4;
 
 const FRESHA_COLUMNS = [
   { key: "firstName", label: "First name", required: true, hint: "First name of your client. Required for import." },
-  { key: "lastName",  label: "Last name",  required: false, hint: "Last name of your client." },
-  { key: "email",     label: "Email",      required: false, hint: "Email of your client." },
-  { key: "mobile",    label: "Mobile number", required: false, hint: "The mobile number of the client." },
-  { key: "gender",    label: "Gender",     required: false, hint: "Gender of the client." },
-  { key: "birthday",  label: "Birthday",   required: false, hint: "Birthday of the client." },
+  { key: "lastName", label: "Last name", required: false, hint: "Last name of your client." },
+  { key: "email", label: "Email", required: false, hint: "Email of your client." },
+  { key: "mobile", label: "Mobile number", required: false, hint: "The mobile number of the client." },
+  { key: "gender", label: "Gender", required: false, hint: "Gender of the client." },
+  { key: "birthday", label: "Birthday", required: false, hint: "Birthday of the client." },
   { key: "clientNotes", label: "Client notes", required: false, hint: "Important notes about the client." },
 ];
 
@@ -270,14 +270,14 @@ function StepResult({ success }: { success: boolean }) {
 export default function ImportClientsPage() {
   const navigate = useNavigate();
 
-  const [step, setStep]               = useState<Step>(1);
-  const [file, setFile]               = useState<File | null>(null);
+  const [step, setStep] = useState<Step>(1);
+  const [file, setFile] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState("");
-  const [csvHeaders, setCsvHeaders]   = useState<string[]>([]);
-  const [mapping, setMapping]         = useState<Record<string, string>>({});
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [mapping, setMapping] = useState<Record<string, string>>({});
   const [matchErrors, setMatchErrors] = useState<Record<string, string>>({});
-  const [previewRows]                 = useState<Record<string, string>[]>([]);
-  const [importSuccess]               = useState(false);
+  const [previewRows] = useState<Record<string, string>[]>([]);
+  const [importSuccess] = useState(false);
 
   const TOTAL = 4;
   const progressPct = ((step - 1) / (TOTAL - 1)) * 100;
