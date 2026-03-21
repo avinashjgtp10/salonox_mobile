@@ -34,6 +34,12 @@ export default function DashboardLayout() {
 
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const navigate = useNavigate()
+  const dispatch = useDispatch()
+
+  const handleLogout = () => {
+    dispatch(logout())
+    navigate("/login")
+  }
 
   return (
     <div className="dashboard">

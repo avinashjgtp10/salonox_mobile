@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom"
+import { Routes, Route, Navigate } from "react-router-dom"
 import { Toaster } from "react-hot-toast"
 
 import LoginPage from "./features/auth/pages/LoginPage"
@@ -62,117 +62,107 @@ function App() {
     <>
       <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
       <Routes>
-
-      <Route
-        path="/dashboard"
-        element={
-          <AuthProvider>
-            <SchedulerProvider>
-              <DashboardLayout />
-            </SchedulerProvider>
-          </AuthProvider>
-        }
-      >
-        <Route index element={<DashboardPage />} />
-        <Route path="calendar" element={<Scheduler />} />
-        <Route path="apps" element={<AddOnsPage />} />
-        <Route path="sales">
-          <Route index element={<SalesListPage />} />
-          <Route path="daily" element={<DailySalesPage />} />
-          <Route path="appointments" element={<AppointmentsPage />} />
-          <Route path="payments" element={<PaymentsPage />} />
-          <Route path="gift-cards" element={<GiftCardsPage />} />
-          <Route path="memberships" element={<MembershipsPage />} />
-        </Route>
-
-        {/* === PUBLIC UTILITY ROUTES === */}
+        {/* PUBLIC UTILITY ROUTES */}
         <Route path="/send-request" element={<SendRequestPage />} />
         <Route path="/request-success" element={<RequestSuccessPage />} />
 
-        {/* === ONBOARDING ROUTES (token required, onboarding NOT complete) === */}
+        {/* GUEST ROUTES (Only if NOT logged in) */}
+        <Route element={<GuestGuard />}>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/oauth-success" element={<OAuthSuccessPage />} />
+        </Route>
+
+        {/* ONBOARDING FLOW (Must be logged in, but NOT finished) */}
         <Route element={<OnboardingGuard />}>
-          <Route
-            path="/account-type"
-            element={<OnboardingProvider><AccountTypePage /></OnboardingProvider>}
-          />
-          <Route
-            path="/business-name"
-            element={<OnboardingProvider><BusinessNamePage /></OnboardingProvider>}
-          />
-          <Route
-            path="/service-type"
-            element={<OnboardingProvider><ServiceTypePage /></OnboardingProvider>}
-          />
-          <Route
-            path="/team-setup"
-            element={<OnboardingProvider><TeamSetupPage /></OnboardingProvider>}
-          />
-          <Route
-            path="/team-size"
-            element={<OnboardingProvider><TeamSizePage /></OnboardingProvider>}
-          />
-          <Route
-            path="/business-location"
-            element={<OnboardingProvider><BusinessLocationPage /></OnboardingProvider>}
-          />
-          <Route
-            path="/venue-location"
-            element={<OnboardingProvider><VenueLocationPage /></OnboardingProvider>}
-          />
-          <Route
-            path="/previous-software"
-            element={<OnboardingProvider><PreviousSoftwarePage /></OnboardingProvider>}
-          />
-          <Route
-            path="/recommendation-source"
-            element={<OnboardingProvider><RecommendationSourcePage /></OnboardingProvider>}
-          />
-          <Route
-            path="/setup-complete"
-            element={<OnboardingProvider><SetupCompletePage /></OnboardingProvider>}
-          />
-          <Route
-            path="/join-business"
-            element={<OnboardingProvider><JoinBusinessPage /></OnboardingProvider>}
-          />
+          <Route path="/account-type" element={<OnboardingProvider><AccountTypePage /></OnboardingProvider>} />
+          <Route path="/business-name" element={<OnboardingProvider><BusinessNamePage /></OnboardingProvider>} />
+          <Route path="/service-type" element={<OnboardingProvider><ServiceTypePage /></OnboardingProvider>} />
+          <Route path="/team-setup" element={<OnboardingProvider><TeamSetupPage /></OnboardingProvider>} />
+          <Route path="/team-size" element={<OnboardingProvider><TeamSizePage /></OnboardingProvider>} />
+          <Route path="/business-location" element={<OnboardingProvider><BusinessLocationPage /></OnboardingProvider>} />
+          <Route path="/venue-location" element={<OnboardingProvider><VenueLocationPage /></OnboardingProvider>} />
+          <Route path="/previous-software" element={<OnboardingProvider><PreviousSoftwarePage /></OnboardingProvider>} />
+          <Route path="/recommendation-source" element={<OnboardingProvider><RecommendationSourcePage /></OnboardingProvider>} />
+          <Route path="/setup-complete" element={<OnboardingProvider><SetupCompletePage /></OnboardingProvider>} />
+          <Route path="/join-business" element={<OnboardingProvider><JoinBusinessPage /></OnboardingProvider>} />
         </Route>
 
-        {/* CATALOG */}
-        <Route path="catalog">
-          <Route path="services" element={<ServicesListPage />} />
-          <Route path="services/add" element={<AddServicePage />} />
-          <Route path="services/categories" element={<CategoriesPage />} />
-          <Route path="memberships" element={<MembershipsLandingPage />} />
-          <Route path="memberships/create" element={<CreateMembershipPage />} />
-          <Route path="products" element={<ProductsListPage />} />
-          <Route path="products/landing" element={<ProductsLandingPage />} />
-          <Route path="products/create" element={<CreateProductPage />} />
-        </Route>
-
-        {/* CLIENTS */}
-        <Route path="clients">
-          <Route index element={<ClientsListPage />} />
-          <Route path="list" element={<ClientsListPage />} />
-          <Route path="loyalty" element={<ClientLoyaltyPage />} />
-          <Route path="import" element={<ImportClientsPage />} />
-
-          {/* Wizard Routes wrapped in Provider */}
+        {/* PROTECTED DASHBOARD ROUTES (Must be logged in AND finished) */}
+        <Route element={<AuthGuard />}>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          
           <Route
-            path="*"
+            path="/dashboard"
             element={
-              <ClientWizardProvider>
-                <Routes>
-                  <Route path="add" element={<AddClientPage />} />
-                  <Route path="addresses" element={<ClientAddressesPage />} />
-                  <Route path="emergency" element={<ClientEmergencyContactsPage />} />
-                  <Route path="settings" element={<ClientSettingsPage />} />
-                </Routes>
-              </ClientWizardProvider>
+              <AuthProvider>
+                <SchedulerProvider>
+                  <DashboardLayout />
+                </SchedulerProvider>
+              </AuthProvider>
             }
-          />
+          >
+            <Route index element={<DashboardPage />} />
+            <Route path="calendar" element={<Scheduler />} />
+            <Route path="apps" element={<AddOnsPage />} />
+            
+            <Route path="sales">
+              <Route index element={<SalesListPage />} />
+              <Route path="daily" element={<DailySalesPage />} />
+              <Route path="appointments" element={<AppointmentsPage />} />
+              <Route path="payments" element={<PaymentsPage />} />
+              <Route path="gift-cards" element={<GiftCardsPage />} />
+              <Route path="memberships" element={<MembershipsPage />} />
+            </Route>
+
+            {/* CATALOG */}
+            <Route path="catalog">
+              <Route path="services" element={<ServicesListPage />} />
+              <Route path="services/add" element={<AddServicePage />} />
+              <Route path="services/categories" element={<CategoriesPage />} />
+              <Route path="memberships" element={<MembershipsLandingPage />} />
+              <Route path="memberships/create" element={<CreateMembershipPage />} />
+              <Route path="products" element={<ProductsListPage />} />
+              <Route path="products/landing" element={<ProductsLandingPage />} />
+              <Route path="products/create" element={<CreateProductPage />} />
+            </Route>
+
+            {/* CLIENTS */}
+            <Route path="clients">
+              <Route index element={<ClientsListPage />} />
+              <Route path="list" element={<ClientsListPage />} />
+              <Route path="loyalty" element={<ClientLoyaltyPage />} />
+              <Route path="import" element={<ImportClientsPage />} />
+
+              {/* Wizard Routes wrapped in Provider */}
+              <Route
+                path="*"
+                element={
+                  <ClientWizardProvider>
+                    <Routes>
+                      <Route path="add" element={<AddClientPage />} />
+                      <Route path="addresses" element={<ClientAddressesPage />} />
+                      <Route path="emergency" element={<ClientEmergencyContactsPage />} />
+                      <Route path="settings" element={<ClientSettingsPage />} />
+                    </Routes>
+                  </ClientWizardProvider>
+                }
+              />
+            </Route>
+
+            {/* STAFF */}
+            <Route path="staff">
+              <Route index element={<StaffListPage />} />
+              <Route path="add" element={<AddStaffPage />} />
+              <Route path="timesheets" element={<TimesheetsPage />} />
+              <Route path="payruns" element={<PayRunsPage />} />
+              <Route path="payruns/:id" element={<PayRunBreakdownPage />} />
+              <Route path="shifts" element={<ScheduledShiftsPage />} />
+            </Route>
+          </Route>
         </Route>
-      </Route>
-    </Routes>
+      </Routes>
+    </>
   );
 }
 
