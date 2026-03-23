@@ -1,14 +1,125 @@
-.object-fit-cover {
-  object-fit: cover;
+.page-bg {
+  background-color: #ffffff;
+  font-family: "Inter", sans-serif;
 }
 
-/* Optional: improve card hover */
-.card:hover {
-  border-color: #000;
+.onboarding-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  border-radius: 0;
+  background-color: #f3f4f6;
 }
 
-/* Remove focus shadow if you want clean look */
-.btn:focus,
-.form-control:focus {
-  box-shadow: none !important;
+.brand-logo {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #000;
+  font-size: 24px;
+}
+
+.btn-back-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #6b7280;
+
+  &:hover {
+    background: #f9fafb;
+    border-color: #000;
+    color: #000;
+  }
+}
+
+.left-panel {
+  background-color: #ffffff;
+  position: relative;
+  z-index: 2;
+}
+
+.account-wrapper {
+  max-width: 480px;
+  width: 100%;
+}
+
+.onboarding-step-label {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.account-heading {
+  font-size: 32px;
+  font-weight: 800;
+  color: #111827;
+  letter-spacing: -0.02em;
+}
+
+.onboarding-choice-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  background: #fff;
+  padding: 20px !important;
+
+  &:hover {
+    border-color: #000;
+    background: #f9fafb;
+  }
+
+  &.selected {
+    border-color: #000;
+    border-width: 2px;
+    background: #fff;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+    padding: 19px !important; /* Offset for 2px border */
+  }
+
+  .fw-medium {
+    font-size: 16px;
+    color: #111827;
+  }
+}
+
+.check-icon-wrapper {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.right-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.02);
+  z-index: 1;
+}
+
+@media (max-width: 768px) {
+  .account-wrapper {
+    padding: 20px 0;
+  }
+  .account-heading {
+    font-size: 26px;
+  }
 }

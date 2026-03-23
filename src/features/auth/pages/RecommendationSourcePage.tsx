@@ -154,8 +154,8 @@ export default function RecommendationSourcePage() {
               <button
                 key={index}
                 className={`btn w-100 text-start rounded-pill mb-3 ${selected === item
-                    ? "border-2 border-primary bg-white"
-                    : "border bg-light"
+                  ? "border-2 border-primary bg-white"
+                  : "border bg-light"
                   }`}
                 onClick={() => { setSelected(item); setSubmitted(false) }}
               >

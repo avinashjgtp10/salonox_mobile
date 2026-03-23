@@ -247,7 +247,7 @@ export default function RegisterPage() {
             <div className="text-center w-100 mb-4">
               <h4 className="brand-logo d-inline-block m-0" style={{ fontSize: "24px" }}>salonox</h4>
             </div>
-            
+
             <h2 className="fw-bold mb-1">Create Account</h2>
             <p className="text-muted mb-4" style={{ fontSize: "14px" }}>
               Fill in the details below to get started.
@@ -537,11 +537,11 @@ export default function RegisterPage() {
 
         {/* ── RIGHT IMAGE ── */}
         <div className="col-lg-7 d-none d-lg-block p-0" style={{ minHeight: "100vh" }}>
-          
-          <img 
-            src={salonImg} 
-            alt="salon" 
-            className="w-100 h-100 object-fit-cover position-absolute top-0 start-0" 
+
+          <img
+            src={salonImg}
+            alt="salon"
+            className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
             style={{ zIndex: 0 }}
           />
         </div>

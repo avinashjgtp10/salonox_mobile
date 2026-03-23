@@ -118,11 +118,11 @@ export default function JoinBusinessPage() {
 
         {/* RIGHT IMAGE */}
         <div className="col-lg-7 d-none d-lg-block p-0" style={{ minHeight: "100vh" }}>
-          
-          <img 
-            src={salonImg} 
-            alt="salon" 
-            className="w-100 h-100 object-fit-cover position-absolute top-0 start-0" 
+
+          <img
+            src={salonImg}
+            alt="salon"
+            className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
             style={{ zIndex: 0 }}
           />
         </div>

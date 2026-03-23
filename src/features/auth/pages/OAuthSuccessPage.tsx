@@ -30,7 +30,7 @@ export default function OAuthSuccessPage() {
 
     // Dispatch the tokens and status
     dispatch(login({ accessToken, refreshToken, isOnboardingComplete }))
-    
+
     if (isOnboardingComplete) {
       navigate("/dashboard")
     } else {

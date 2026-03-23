@@ -27,16 +27,6 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-<<<<<<< HEAD
-      const res = await API.post("/api/v1/auth/login", { email, password })
-      const accessToken = res.data?.data?.accessToken
-      const refreshToken = res.data?.data?.refreshToken
-
-      if (!accessToken || !refreshToken) throw new Error("Tokens not found")
-
-      dispatch(login({ accessToken, refreshToken }))
-      navigate("/dashboard")
-=======
       const hashedPwd = await hashPassword(password)
       const res = await API.post("/api/v1/auth/login", { email, password: hashedPwd })
       const { accessToken, refreshToken, isOnboardingComplete } = res.data?.data || {}
@@ -44,13 +34,12 @@ export default function LoginPage() {
       if (!accessToken) throw new Error("Token not found")
 
       dispatch(login({ accessToken, refreshToken, isOnboardingComplete }))
-      
+
       if (isOnboardingComplete) {
         navigate("/dashboard")
       } else {
         navigate("/account-type")
       }
->>>>>>> main
     } catch (err: any) {
       setError("Invalid email or password")
     }
@@ -60,20 +49,8 @@ export default function LoginPage() {
 
   // 🔐 GOOGLE OAUTH — redirect to backend which handles the full OAuth flow
   const handleGoogleLogin = () => {
-<<<<<<< HEAD
-    const payload = {
-      email: "google@oauth.com",
-      role: "google",
-      exp: Math.floor(Date.now() / 1000) + 60 * 60
-    }
-
-    const fakeToken = "header." + btoa(JSON.stringify(payload)) + ".signature"
-    dispatch(login({ accessToken: fakeToken, refreshToken: "fake-refresh-token" }))
-    navigate("/dashboard")
-=======
-    const backendUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"
+    const backendUrl = import.meta.env.VITE_API_BASE_URL || "http://192.168.0.201:3000"
     window.location.href = `${backendUrl}/api/v1/auth/google/start`
->>>>>>> main
   }
 
   return (
@@ -87,7 +64,7 @@ export default function LoginPage() {
             <div className="text-center w-100 mb-2">
               <h4 className="brand-logo d-inline-block">salonox</h4>
             </div>
-            
+
             <h3 className="fw-bold mb-2">Welcome Back</h3>
             <p className="text-muted mb-4">
               Create an account or log in to manage your business.
@@ -172,10 +149,10 @@ export default function LoginPage() {
 
         {/* RIGHT SIDE IMAGE */}
         <div className="col-lg-7 d-none d-lg-block position-relative p-0 login-right" style={{ minHeight: "100vh" }}>
-          <img 
-            src={salonImg} 
-            alt="salon" 
-            className="w-100 h-100 object-fit-cover position-absolute top-0 start-0" 
+          <img
+            src={salonImg}
+            alt="salon"
+            className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
             style={{ zIndex: 0 }}
           />
           <div className="right-overlay position-absolute top-0 start-0 w-100 h-100" style={{ zIndex: 1, backgroundColor: "rgba(0,0,0,0.1)" }}></div>

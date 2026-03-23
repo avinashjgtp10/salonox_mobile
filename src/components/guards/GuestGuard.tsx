@@ -3,9 +3,9 @@ import { Navigate, Outlet } from "react-router-dom"
 import type { RootState } from "../../store/store"
 
 const GuestGuard = () => {
-  const { accessToken, isOnboardingComplete } = useSelector((state: RootState) => state.auth)
+  const { token, isOnboardingComplete } = useSelector((state: any) => state.auth)
 
-  if (accessToken) {
+  if (token) {
     if (isOnboardingComplete) {
       return <Navigate to="/dashboard" replace />
     } else {

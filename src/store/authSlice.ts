@@ -1,19 +1,12 @@
 import { createSlice } from "@reduxjs/toolkit"
 
-const token = localStorage.getItem("accessToken")
-let user = null
-if (token) {
-  try {
-    user = JSON.parse(atob(token.split(".")[1]))
-  } catch (e) {
-    user = null
-  }
-}
+
 
 const initialState = {
   token: localStorage.getItem("token"),
   refreshToken: localStorage.getItem("refreshToken"),
   user: null as any,
+  isOnboardingComplete: localStorage.getItem("isOnboardingComplete") === "true",
 }
 
 if (initialState.token) {
@@ -29,12 +22,19 @@ const authSlice = createSlice({
   initialState,
   reducers: {
     login: (state, action) => {
-      const { accessToken, refreshToken } = action.payload
+      const { accessToken, refreshToken, isOnboardingComplete } = action.payload
       state.token = accessToken
       state.refreshToken = refreshToken
+      state.isOnboardingComplete = !!isOnboardingComplete
       state.user = JSON.parse(atob(accessToken.split(".")[1]))
       localStorage.setItem("token", accessToken)
       localStorage.setItem("refreshToken", refreshToken)
+      localStorage.setItem("isOnboardingComplete", String(!!isOnboardingComplete))
+    },
+
+    updateOnboardingStatus: (state, action) => {
+      state.isOnboardingComplete = action.payload
+      localStorage.setItem("isOnboardingComplete", String(action.payload))
     },
 
     updateToken: (state, action) => {
@@ -46,11 +46,13 @@ const authSlice = createSlice({
       state.token = null
       state.refreshToken = null
       state.user = null
+      state.isOnboardingComplete = false
       localStorage.removeItem("token")
       localStorage.removeItem("refreshToken")
+      localStorage.removeItem("isOnboardingComplete")
     },
   },
 })
 
-export const { login, logout, updateToken } = authSlice.actions
+export const { login, logout, updateToken, updateOnboardingStatus } = authSlice.actions
 export default authSlice.reducer

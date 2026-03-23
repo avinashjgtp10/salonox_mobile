@@ -1,3 +1,4 @@
+@use "sass:color";
 @use "../../../styles/themes/variables" as *;
 
 .appt-drawer-overlay {
@@ -139,7 +140,7 @@
 .btn-walkin {
   background: $dashboard-primary;
   color: $white;
-  &:hover { background: lighten($dashboard-primary, 10%); }
+  &:hover { background: color.adjust($dashboard-primary, $lightness: 10%); }
   &.active { background: $success; }
 }
 
@@ -406,7 +407,7 @@
     font-weight: 700;
     cursor: pointer;
     transition: background 0.2s;
-    &:hover { background: lighten($dashboard-primary, 10%); }
+    &:hover { background: color.adjust($dashboard-primary, $lightness: 10%); }
   }
 }
 
