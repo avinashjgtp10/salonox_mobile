@@ -1,38 +1,41 @@
-import { useState, useEffect } from "react"
-import { Home, Briefcase, MoreHorizontal, Check } from "lucide-react"
-import "../styles/NewAddressModal.scss"
+import { useState, useEffect } from "react";
+import { Home, Briefcase, MoreHorizontal, Check } from "lucide-react";
+import "../styles/NewAddressModal.scss";
+
+// UI Components
+import Modal from "../../../components/ui/Modal";
+import Input from "../../../components/ui/Input";
+import Button from "../../../components/ui/Button";
 
 interface Props {
-  open: boolean
-  onClose: () => void
-  onSave: (address: any) => void
+  open: boolean;
+  onClose: () => void;
+  onSave: (address: any) => void;
 }
 
 export default function NewAddressModal({ open, onClose, onSave }: Props) {
-
-  const [type, setType] = useState("home")
-  const [addressValue, setAddressValue] = useState("")
-  const [attemptedSubmit, setAttemptedSubmit] = useState(false)
+  const [type, setType] = useState("home");
+  const [addressValue, setAddressValue] = useState("");
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
   // Reset state when modal opens/closes
   useEffect(() => {
     if (open) {
-      setAddressValue("")
-      setAttemptedSubmit(false)
-      setType("home")
+      setAddressValue("");
+      setAttemptedSubmit(false);
+      setType("home");
     }
-  }, [open])
+  }, [open]);
 
-  const isAddressInvalid = attemptedSubmit && addressValue.trim() === ""
+  const isAddressInvalid = attemptedSubmit && addressValue.trim() === "";
 
   const handleContinue = () => {
-    setAttemptedSubmit(true)
-
-    if (addressValue.trim() === "") return
+    setAttemptedSubmit(true);
+    if (addressValue.trim() === "") return;
 
     const newAddress = {
       type,
-      address_name: "Home",
+      address_name: type.charAt(0).toUpperCase() + type.slice(1),
       address_line1: addressValue,
       address_line2: null,
       apt_suite: "",
@@ -41,143 +44,92 @@ export default function NewAddressModal({ open, onClose, onSave }: Props) {
       region: "",
       postcode: "",
       country: "IN"
-    }
+    };
 
-    onSave(newAddress)
-
-    onClose()
-  }
-
-  if (!open) return null
+    onSave(newAddress);
+    onClose();
+  };
 
   return (
-
-    <div className="address-overlay">
-
-      <div className="address-modal">
-
-        {/* HEADER */}
-        <div className="modal-header">
-
-          <h3>New address</h3>
-
-          <button
-            className="close-btn"
-            onClick={onClose}
-          >
-            ✕
-          </button>
-
-        </div>
-
-
-        {/* BODY */}
-        <div className="modal-body">
-
-          {/* ADDRESS TYPE */}
-          <div className="address-types">
-
-            <button
-              className={type === "home" ? "active" : ""}
-              onClick={() => setType("home")}
-            >
-              <Home size={20} />
-              <span>Home</span>
-              {type === "home" && <Check className="check-icon" size={16} />}
-            </button>
-
-
-            <button
-              className={type === "work" ? "active" : ""}
-              onClick={() => setType("work")}
-            >
-              <Briefcase size={20} />
-              <span>Work</span>
-              {type === "work" && <Check className="check-icon" size={16} />}
-            </button>
-
-
-            <button
-              className={type === "other" ? "active" : ""}
-              onClick={() => setType("other")}
-            >
-              <MoreHorizontal size={20} />
-              <span>Other</span>
-              {type === "other" && <Check className="check-icon" size={16} />}
-            </button>
-
-          </div>
-
-
-          {/* FORM */}
-
-          <div className="form-group">
-            <label>Address name</label>
-            <input placeholder="Home" />
-          </div>
-
-
-          <div className="form-group">
-            <label>Address</label>
-            <div className="input-with-icon">
-              <input
-                placeholder="Enter address"
-                value={addressValue}
-                onChange={(e) => setAddressValue(e.target.value)}
-                className={isAddressInvalid ? "is-invalid" : ""}
-              />
-            </div>
-            {isAddressInvalid && (
-              <span className="invalid-feedback-modal">Please add a valid address</span>
-            )}
-          </div>
-
-
-          <div className="form-group">
-            <label>Apt / Suite</label>
-            <input placeholder="Apartment / Suite" />
-          </div>
-
-
-          <div className="form-group">
-            <label>District</label>
-            <input placeholder="District" />
-          </div>
-
-
-          <div className="form-group">
-            <label>City</label>
-            <input placeholder="City" />
-          </div>
-
-
-          <div className="form-group">
-            <label>Postal code</label>
-            <input placeholder="Postal code" />
-          </div>
-
-        </div>
-
-
-        {/* FOOTER */}
-        <div className="modal-footer">
-
-          <button
-            className="cancel-btn"
-            onClick={onClose}
-          >
+    <Modal
+      show={open}
+      onClose={onClose}
+      title="New address"
+      footer={
+        <div className="d-flex justify-content-end gap-2 w-100">
+          <Button variant="outline-dark" onClick={onClose}>
             Cancel
-          </button>
-
-          <button className="continue-btn" onClick={handleContinue}>
+          </Button>
+          <Button variant="dark" onClick={handleContinue}>
             Continue
+          </Button>
+        </div>
+      }
+    >
+      <div className="modal-body p-0">
+        {/* ADDRESS TYPE */}
+        <div className="address-types mb-4">
+          <button
+            className={type === "home" ? "active" : ""}
+            onClick={() => setType("home")}
+          >
+            <Home size={20} />
+            <span>Home</span>
+            {type === "home" && <Check className="check-icon" size={16} />}
           </button>
 
+          <button
+            className={type === "work" ? "active" : ""}
+            onClick={() => setType("work")}
+          >
+            <Briefcase size={20} />
+            <span>Work</span>
+            {type === "work" && <Check className="check-icon" size={16} />}
+          </button>
+
+          <button
+            className={type === "other" ? "active" : ""}
+            onClick={() => setType("other")}
+          >
+            <MoreHorizontal size={20} />
+            <span>Other</span>
+            {type === "other" && <Check className="check-icon" size={16} />}
+          </button>
         </div>
 
+        {/* FORM */}
+        <div className="row g-3">
+          <div className="col-12">
+            <Input label="Address name" placeholder="Home" />
+          </div>
+
+          <div className="col-12">
+            <Input
+              label="Address"
+              placeholder="Enter address"
+              value={addressValue}
+              onChange={(e) => setAddressValue(e.target.value)}
+              error={isAddressInvalid ? "Please add a valid address" : ""}
+            />
+          </div>
+
+          <div className="col-12">
+            <Input label="Apt / Suite" placeholder="Apartment / Suite" />
+          </div>
+
+          <div className="col-md-6">
+            <Input label="District" placeholder="District" />
+          </div>
+
+          <div className="col-md-6">
+            <Input label="City" placeholder="City" />
+          </div>
+
+          <div className="col-12">
+            <Input label="Postal code" placeholder="Postal code" />
+          </div>
+        </div>
       </div>
-
-    </div>
-
-  )
-}
+    </Modal>
+  );
+}

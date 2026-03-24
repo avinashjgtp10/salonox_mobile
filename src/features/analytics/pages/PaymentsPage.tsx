@@ -7,7 +7,13 @@ import {
   FileEarmarkText,
   CreditCard2Back,
   Pencil
-} from "react-bootstrap-icons"
+} from "react-bootstrap-icons";
+
+// UI Components
+import Button from "../../../components/ui/Button";
+import Input from "../../../components/ui/Input";
+import Modal from "../../../components/ui/Modal";
+import Card from "../../../components/ui/Card";
 import { DateRangePicker } from "react-date-range"
 import type { RangeKeyDict, Range } from "react-date-range"
 import {
@@ -130,69 +136,75 @@ export default function PaymentsPage() {
   return (
     <div className="payments-page container-fluid">
       {/* HEADER */}
-      <div className="d-flex justify-content-between align-items-center mb-3">
+      <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
-          <h3 className="fw-semibold mb-1">Payment transactions</h3>
+          <h3 className="h4 fw-bold mb-1">Payment transactions</h3>
           <p className="text-muted small mb-0">
             View, filter and export the history of your payments.
           </p>
         </div>
 
         <div className="position-relative" ref={optionsRef}>
-          <button
-            className="btn btn-outline-secondary rounded-pill px-3 fw-semibold text-dark d-flex align-items-center"
+          <Button
+            variant="outline-dark"
+            pill
             onClick={() => setShowOptions(!showOptions)}
+            iconRight={<ChevronDown size={14} className={`ms-1 transition-all ${showOptions ? 'rotate-180' : ''}`} />}
           >
-            Options <ChevronDown size={14} className="ms-1 fw-bold" />
-          </button>
+            Options
+          </Button>
           
           {showOptions && (
-            <div className="payment-options-menu">
-              <div className="dropdown-item d-flex align-items-center">
+            <div className="payment-options-menu shadow-lg border position-absolute end-0 mt-2 bg-white z-2 rounded-3 overflow-hidden" style={{ minWidth: '200px' }}>
+              <Button variant="ghost" fullWidth className="text-start p-2 rounded-0 border-bottom" onClick={() => setShowOptions(false)}>
                 <Pencil size={16} className="me-2 text-muted" />
                 <span>Manage payments</span>
-              </div>
-              <div className="dropdown-divider"></div>
-              <div className="dropdown-section-title">Export</div>
-              <div className="dropdown-item d-flex align-items-center">
-                <FileEarmarkText size={16} className="me-2 text-muted" />
+              </Button>
+              <div className="bg-light px-3 py-1 small fw-bold text-muted border-bottom">Export</div>
+              <Button variant="ghost" fullWidth className="text-start p-2 rounded-0" onClick={() => setShowOptions(false)}>
+                <FileEarmarkText size={16} className="text-primary me-2" />
                 <span>CSV</span>
-              </div>
+              </Button>
             </div>
           )}
         </div>
       </div>
 
       {/* FILTER BAR */}
-      <div className="filter-bar card p-3 mb-3 border-0 shadow-sm rounded-4">
+      <div className="filter-bar mb-4">
         <div className="d-flex gap-2 align-items-center flex-wrap">
-          <div className="search-input d-flex align-items-center px-3 py-2 bg-light rounded-pill flex-grow-1" style={{ maxWidth: '300px' }}>
-            <Search size={16} className="me-2 text-muted" />
-            <input
-              type="text"
+          <div style={{ maxWidth: '350px', flex: 1 }}>
+            <Input
               placeholder="Search by Sale or Client"
-              className="border-0 bg-transparent outline-0 w-100"
+              className="mb-0"
+              containerClass="mb-0"
+              iconLeft={<Search size={16} />}
             />
           </div>
 
-          <button
-            className="btn btn-outline-secondary rounded-pill px-3 d-flex align-items-center"
+          <Button
+            variant="outline-dark"
+            pill
             onClick={() => setShowCalendar(true)}
+            iconLeft={<Calendar3 size={16} />}
+            iconRight={<ChevronDown size={14} />}
           >
-            {getButtonLabel()} <ChevronDown size={14} className="ms-2" />
-          </button>
+            {getButtonLabel()}
+          </Button>
 
-          <button
-            className="btn btn-outline-secondary rounded-pill px-3 d-flex align-items-center"
+          <Button
+            variant="outline-dark"
+            pill
             onClick={() => setShowFilters(true)}
+            iconRight={<Sliders size={14} />}
           >
-            Filters <Sliders size={14} className="ms-2" />
-          </button>
+            Filters
+          </Button>
         </div>
       </div>
 
       {/* EMPTY STATE */}
-      <div className="card text-center py-5 border-0 rounded-4 empty-state-card shadow-sm mt-2 flex-grow-1 d-flex align-items-center justify-content-center" style={{ minHeight: '400px' }}>
+      <Card className="text-center py-5 border-0 rounded-4 empty-state-card shadow-sm mt-2 flex-grow-1 d-flex flex-column align-items-center justify-content-center" style={{ minHeight: '400px' }}>
         <div className="mb-4">
           <div className="d-flex align-items-center justify-content-center mx-auto empty-state-icon" style={{ 
             width: '60px', 
@@ -203,166 +215,129 @@ export default function PaymentsPage() {
             <CreditCard2Back size={30} className="text-white" />
           </div>
         </div>
-        <h4 className="fw-bold mb-2 text-dark">No results found</h4>
-        <p className="text-muted">Try adjusting your search and filters.</p>
-      </div>
+        <h4 className="fw-bold mb-2 text-dark h5">No results found</h4>
+        <p className="text-muted small">Try adjusting your search and filters.</p>
+      </Card>
 
       {/* CALENDAR MODAL */}
-      {showCalendar && (
-        <div className="payment-calendar-overlay">
-          <div className="payment-calendar-modal" ref={calendarRef}>
-            <div className="modal-header-section mb-4">
-              <label className="fw-bold small mb-2 text-dark">Date range</label>
-              <select
-                className="form-select border-1 rounded-3 px-3 py-2"
-                value={dateRangeDropdown}
-                onChange={handleSelectDropdown}
-              >
-                <option>Today</option>
-                <option>Yesterday</option>
-                <option>This week</option>
-                <option>Last week</option>
-                <option>This month</option>
-                <option>Last month</option>
-                <option>Custom</option>
-              </select>
-            </div>
+      <Modal
+        show={showCalendar}
+        onClose={cancelDateRange}
+        title="Date range"
+        size="lg"
+        footer={
+          <div className="d-flex justify-content-end gap-3 w-100">
+            <Button variant="ghost" pill className="px-5" onClick={cancelDateRange}>Cancel</Button>
+            <Button variant="dark" pill className="px-5" onClick={applyDateRange}>Apply</Button>
+          </div>
+        }
+      >
+        <div className="payment-calendar-modal-content">
+          <div className="mb-4">
+            <label className="form-label small fw-bold">Select preset</label>
+            <select
+              className="form-select rounded-3 p-2"
+              value={dateRangeDropdown}
+              onChange={handleSelectDropdown}
+            >
+              <option>Today</option>
+              <option>Yesterday</option>
+              <option>This week</option>
+              <option>Last week</option>
+              <option>This month</option>
+              <option>Last month</option>
+              <option>Custom</option>
+            </select>
+          </div>
 
-            <div className="d-flex gap-3 mb-4">
-              <div className="flex-fill">
-                <label className="fw-bold small mb-2 text-dark">Starting Date</label>
-                <input 
-                  type="text" 
-                  className="form-control rounded-3 px-3 py-2" 
-                  value={format(tempRange[0].startDate || new Date(), "yyyy-MM-dd")} 
-                  readOnly 
-                />
-              </div>
-              <div className="flex-fill">
-                <label className="fw-bold small mb-2 text-dark">Ending Date</label>
-                <input 
-                  type="text" 
-                  className="form-control rounded-3 px-3 py-2" 
-                  value={format(tempRange[0].endDate || new Date(), "yyyy-MM-dd")} 
-                  readOnly 
-                />
-              </div>
+          <div className="row mb-4">
+            <div className="col">
+              <label className="form-label small fw-bold">Starting Date</label>
+              <Input readOnly value={format(tempRange[0].startDate || new Date(), "yyyy-MM-dd")} className="mb-0" containerClass="mb-0" />
             </div>
-
-            <div className="calendar-container">
-              <DateRangePicker
-                onChange={handleDateChange}
-                moveRangeOnFirstSelection={false}
-                months={2}
-                ranges={tempRange}
-                direction="horizontal"
-                showMonthAndYearPickers={false}
-                showDateDisplay={false}
-                rangeColors={["#000000"]}
-                staticRanges={[]}
-                inputRanges={[]}
-              />
-            </div>
-
-            <div className="d-flex justify-content-end gap-3 mt-4 pt-4 border-top">
-              <button
-                className="btn btn-light rounded-pill px-5 fw-semibold"
-                onClick={cancelDateRange}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn btn-dark rounded-pill px-5 fw-semibold"
-                onClick={applyDateRange}
-              >
-                Apply
-              </button>
+            <div className="col">
+              <label className="form-label small fw-bold">Ending Date</label>
+              <Input readOnly value={format(tempRange[0].endDate || new Date(), "yyyy-MM-dd")} className="mb-0" containerClass="mb-0" />
             </div>
           </div>
+
+          <div className="d-flex justify-content-center overflow-auto">
+            <DateRangePicker
+              onChange={handleDateChange}
+              moveRangeOnFirstSelection={false}
+              months={2}
+              ranges={tempRange}
+              direction="horizontal"
+              showMonthAndYearPickers={false}
+              showDateDisplay={false}
+              rangeColors={["#000000"]}
+              staticRanges={[]}
+              inputRanges={[]}
+            />
+          </div>
         </div>
-      )}
+      </Modal>
 
       {/* FILTER MODAL */}
-      {showFilters && (
-        <div className="payment-filters-overlay">
-          <div className="payment-filters-modal">
-            <div className="d-flex justify-content-between align-items-center mb-4">
-              <h5 className="fw-semibold mb-0">Filters</h5>
-              <button
-                className="btn-close"
-                onClick={() => setShowFilters(false)}
-              />
-            </div>
+      <Modal
+        show={showFilters}
+        onClose={() => setShowFilters(false)}
+        title="Filters"
+        footer={
+          <div className="d-flex justify-content-end gap-3 w-100">
+            <Button variant="ghost" pill className="px-4" onClick={() => setShowFilters(false)}>Clear filters</Button>
+            <Button variant="dark" pill className="px-4" onClick={() => setShowFilters(false)}>Apply</Button>
+          </div>
+        }
+      >
+        <div className="payment-filters-modal-content">
+          <div className="mb-4">
+            <label className="form-label small fw-bold">Location</label>
+            <select className="form-select rounded-3 p-2">
+              <option>All locations</option>
+            </select>
+          </div>
 
-            <div className="mb-3">
-              <label className="fw-semibold small mb-2">Location</label>
-              <select className="form-select rounded-3">
-                <option>All locations</option>
-              </select>
-            </div>
+          <div className="mb-4">
+            <label className="form-label small fw-bold">Team member</label>
+            <select className="form-select rounded-3 p-2">
+              <option>All team members</option>
+            </select>
+          </div>
 
-            <div className="mb-3">
-              <label className="fw-semibold small mb-2">Team member</label>
-              <select className="form-select rounded-3">
-                <option>All team members</option>
-              </select>
-            </div>
+          <div className="mb-4">
+            <label className="form-label small fw-bold">Type</label>
+            <select className="form-select rounded-3 p-2">
+              <option>All types</option>
+            </select>
+          </div>
 
-            <div className="mb-3">
-              <label className="fw-semibold small mb-2">Type</label>
-              <select className="form-select rounded-3">
-                <option>All types</option>
-              </select>
+          <div className="row mb-4">
+            <div className="col">
+              <label className="form-label small fw-bold">From amount</label>
+              <Input readOnly value="0" iconLeft={<span className="text-muted small fw-bold">INR</span>} className="mb-0" containerClass="mb-0" />
             </div>
-
-            <div className="row mb-3">
-              <div className="col">
-                <label className="fw-semibold small mb-2">From amount</label>
-                <div className="input-group">
-                  <span className="input-group-text">INR</span>
-                  <input className="form-control" value="0" readOnly />
-                </div>
-              </div>
-              <div className="col">
-                <label className="fw-semibold small mb-2">To amount</label>
-                <div className="input-group">
-                  <span className="input-group-text">INR</span>
-                  <input className="form-control" value="0" readOnly />
-                </div>
-              </div>
-            </div>
-
-            <div className="mb-3">
-              <label className="fw-semibold small mb-2">Vouchers</label>
-              <select className="form-select rounded-3">
-                <option>Exclude voucher redemptions</option>
-              </select>
-            </div>
-
-            <div className="mb-4">
-              <label className="fw-semibold small mb-2">Deposits</label>
-              <select className="form-select rounded-3">
-                <option>Exclude deposit redemptions</option>
-              </select>
-            </div>
-
-            <div className="d-flex justify-content-end gap-3 mt-4">
-              <button
-                className="btn btn-light rounded-pill px-4"
-                onClick={() => setShowFilters(false)}
-              >
-                Clear filters
-              </button>
-              <button
-                className="btn btn-dark rounded-pill px-4"
-                onClick={() => setShowFilters(false)}
-              >
-                Apply
-              </button>
+            <div className="col">
+              <label className="form-label small fw-bold">To amount</label>
+              <Input readOnly value="0" iconLeft={<span className="text-muted small fw-bold">INR</span>} className="mb-0" containerClass="mb-0" />
             </div>
           </div>
+
+          <div className="mb-4">
+            <label className="form-label small fw-bold">Vouchers</label>
+            <select className="form-select rounded-3 p-2">
+              <option>Exclude voucher redemptions</option>
+            </select>
+          </div>
+
+          <div className="mb-2">
+            <label className="form-label small fw-bold">Deposits</label>
+            <select className="form-select rounded-3 p-2">
+              <option>Exclude deposit redemptions</option>
+            </select>
+          </div>
         </div>
-      )}
+      </Modal>
     </div>
   )
 }

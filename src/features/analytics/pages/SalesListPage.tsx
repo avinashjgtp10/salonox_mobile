@@ -7,7 +7,6 @@ import {
   Sliders,
   ArrowDownUp,
   Plus,
-  ThreeDots,
   ChevronDown,
   TagFill,
   Gear,
@@ -15,7 +14,13 @@ import {
   FileEarmarkText,
   FileEarmarkExcel,
   Receipt
-} from "react-bootstrap-icons"
+} from "react-bootstrap-icons";
+
+// UI Components
+import Button from "../../../components/ui/Button";
+import Input from "../../../components/ui/Input";
+import Modal from "../../../components/ui/Modal";
+import Card from "../../../components/ui/Card";
 
 import { DateRangePicker } from "react-date-range"
 import type { RangeKeyDict, Range } from "react-date-range"
@@ -149,129 +154,134 @@ export default function SalesListPage() {
     <div className="sales-list container-fluid">
 
       {/* HEADER */}
-      <div className="d-flex justify-content-between align-items-center mb-3">
+      <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
-          <h3 className="fw-semibold mb-1">Sales</h3>
+          <h3 className="h4 fw-bold mb-1">Sales</h3>
           <p className="text-muted small mb-0">
             View, filter and export the history of your sales.
           </p>
         </div>
 
-        <div className="d-flex gap-2">
+        <div className="d-flex gap-2" onClick={(e) => e.stopPropagation()}>
           {/* Options Dropdown */}
           <div className="position-relative" ref={optionsRef}>
-            <button 
-              className="btn btn-outline-secondary rounded-pill px-3 fw-semibold text-dark"
+            <Button 
+              variant="outline-dark"
+              pill
               onClick={() => setShowOptions(!showOptions)}
+              iconRight={<ChevronDown size={14} className={`ms-1 transition-all ${showOptions ? 'rotate-180' : ''}`} />}
             >
-              Options <ChevronDown size={14} className="ms-1 fw-bold" />
-            </button>
+              Options
+            </Button>
             {showOptions && (
-              <div className="sales-dropdown-menu options-menu">
-                <div className="dropdown-item d-flex align-items-center">
+              <div className="sales-dropdown-menu options-menu shadow-lg border position-absolute end-0 mt-2 bg-white z-2 rounded-3 overflow-hidden" style={{ minWidth: '200px' }}>
+                <Button variant="ghost" fullWidth className="text-start p-2 rounded-0 border-bottom" onClick={() => setShowOptions(false)}>
                   <Gear size={16} className="me-2 text-muted" />
                   <span>Sales settings</span>
-                </div>
-                <div className="dropdown-divider"></div>
-                <div className="dropdown-section-title">Export</div>
-                <div className="dropdown-item d-flex align-items-center">
-                  <FileEarmarkPdf size={16} className="me-2 text-muted" />
+                </Button>
+                <div className="bg-light px-3 py-1 small fw-bold text-muted border-bottom">Export</div>
+                <Button variant="ghost" fullWidth className="text-start p-2 rounded-0 border-bottom" onClick={() => setShowOptions(false)}>
+                  <FileEarmarkPdf size={16} className="text-danger me-2" />
                   <span>PDF</span>
-                </div>
-                <div className="dropdown-item d-flex align-items-center">
-                  <FileEarmarkText size={16} className="me-2 text-muted" />
+                </Button>
+                <Button variant="ghost" fullWidth className="text-start p-2 rounded-0 border-bottom" onClick={() => setShowOptions(false)}>
+                  <FileEarmarkText size={16} className="text-primary me-2" />
                   <span>CSV</span>
-                </div>
-                <div className="dropdown-item d-flex align-items-center">
-                  <FileEarmarkExcel size={16} className="me-2 text-muted" />
+                </Button>
+                <Button variant="ghost" fullWidth className="text-start p-2 rounded-0" onClick={() => setShowOptions(false)}>
+                  <FileEarmarkExcel size={16} className="text-success me-2" />
                   <span>Excel</span>
-                </div>
+                </Button>
               </div>
             )}
           </div>
 
-          <button 
-            className="btn btn-dark rounded-pill px-4 fw-semibold shadow-sm"
+          <Button 
+            variant="dark"
+            pill
+            className="px-4"
             onClick={() => setDrawerOpen(true)}
+            iconLeft={<Plus size={18} />}
           >
-            <Plus size={18} className="me-1" />
             Add new
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* TABS */}
       <div className="sales-tabs mb-4 d-flex gap-2 align-items-center">
-        <button 
-          className={`btn rounded-pill px-4 fw-semibold ${activeTab === "sales" ? "btn-dark shadow-sm" : "text-muted border-0"}`}
+        <Button 
+          variant={activeTab === "sales" ? "dark" : "ghost"}
+          pill
+          className="px-4 fw-bold"
           onClick={() => setActiveTab("sales")}
         >
           Sales
-        </button>
-        <button 
-          className={`btn rounded-pill px-4 fw-semibold ${activeTab === "drafts" ? "btn-dark shadow-sm" : "text-muted border-0"}`}
+        </Button>
+        <Button 
+          variant={activeTab === "drafts" ? "dark" : "ghost"}
+          pill
+          className="px-4 fw-bold"
           onClick={() => setActiveTab("drafts")}
         >
           Drafts
-        </button>
+        </Button>
       </div>
 
       {/* FILTER BAR */}
-      <div className="filter-bar card p-3 mb-3">
+      <div className="filter-bar mb-4">
         <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
 
-          <div className="d-flex gap-2 align-items-center flex-wrap">
+          <div className="d-flex gap-2 align-items-center flex-wrap flex-grow-1">
 
             {/* Search */}
-            <div className="search-input d-flex align-items-center px-3 py-2">
-              <Search size={16} className="me-2 text-muted" />
-              <input
-                type="text"
+            <div style={{ maxWidth: '350px', flex: 1 }}>
+              <Input
                 placeholder={activeTab === "sales" ? "Search by Sale or Client" : "Search by Draft ID"}
-                className="border-0 outline-0"
+                className="mb-0"
+                containerClass="mb-0"
+                iconLeft={<Search size={16} />}
               />
             </div>
 
             {/* Date */}
-            <button
-              className="btn btn-outline-secondary rounded-pill"
+            <Button
+              variant="outline-dark"
+              pill
               onClick={() => setShowCalendar(true)}
+              iconRight={<Calendar3 size={14} />}
             >
-              {getButtonLabel()} <Calendar3 size={14} className="ms-1" />
-            </button>
+              {getButtonLabel()}
+            </Button>
 
             {/* Filters */}
-            <button
-              className="btn btn-outline-secondary rounded-pill"
+            <Button
+              variant="outline-dark"
+              pill
               onClick={() => setShowFilters(true)}
+              iconRight={<Sliders size={14} />}
             >
-              Filters <Sliders size={14} className="ms-1" />
-            </button>
+              Filters
+            </Button>
 
           </div>
 
           {/* Sort Dropdown */}
           <div className="position-relative" ref={sortRef}>
-            <button 
-              className="btn btn-outline-secondary rounded-pill px-3"
+            <Button 
+              variant="outline-dark"
+              pill
+              className="px-3"
               onClick={() => setShowSort(!showSort)}
+              iconRight={<ArrowDownUp size={14} />}
             >
-              Sort by <ArrowDownUp size={14} className="ms-1" />
-            </button>
+              Sort by
+            </Button>
             {showSort && (
-              <div className="sales-dropdown-menu sort-menu">
-                <div className="dropdown-item">Sale # (Z-A)</div>
-                <div className="dropdown-item">Sale # (A-Z)</div>
-                <div className="dropdown-item">Client (Z-A)</div>
-                <div className="dropdown-item">Client (A-Z)</div>
-                <div className="dropdown-item">Sale date (newest first)</div>
-                <div className="dropdown-item">Sale date (oldest first)</div>
-                <div className="dropdown-item">Location (Z-A)</div>
-                <div className="dropdown-item">Location (A-Z)</div>
-                <div className="dropdown-item">Tips (highest first)</div>
-                <div className="dropdown-item">Tips (lowest first)</div>
-                <div className="dropdown-item">Gross total (highest first)</div>
-                <div className="dropdown-item">Gross total (lowest first)</div>
+              <div className="sales-dropdown-menu sort-menu shadow-lg border position-absolute end-0 mt-2 bg-white z-2 rounded-3 overflow-auto" style={{ maxHeight: '300px', width: '220px' }}>
+                {["Sale # (Z-A)", "Sale # (A-Z)", "Client (Z-A)", "Client (A-Z)", "Sale date (newest first)", "Sale date (oldest first)", "Location (Z-A)", "Location (A-Z)", "Tips (highest first)", "Tips (lowest first)", "Gross total (highest first)", "Gross total (lowest first)"].map(opt => (
+                  <Button key={opt} variant="ghost" fullWidth className="text-start p-2 rounded-0 small border-bottom" onClick={() => setShowSort(false)}>{opt}</Button>
+                ))}
               </div>
             )}
           </div>
@@ -280,27 +290,51 @@ export default function SalesListPage() {
       </div>
 
       {/* CALENDAR MODAL */}
-      {showCalendar && (
-        <div className="calendar-overlay">
-          <div className="calendar-modal" ref={calendarRef}>
+      <Modal
+        show={showCalendar}
+        onClose={cancelDateRange}
+        title="Date range"
+        size="lg"
+        footer={
+          <div className="d-flex justify-content-end gap-2 w-100">
+            <Button
+              variant="ghost"
+              pill
+              className="px-4"
+              onClick={cancelDateRange}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="dark"
+              pill
+              className="px-4"
+              onClick={applyDateRange}
+            >
+              Apply
+            </Button>
+          </div>
+        }
+      >
+        <div className="calendar-modal-content">
+          <div className="mb-4">
+            <label className="form-label small fw-bold">Select preset</label>
+            <select
+              className="form-select rounded-3 p-2"
+              value={dateRangeDropdown}
+              onChange={handleSelectDropdown}
+            >
+              <option>Today</option>
+              <option>Yesterday</option>
+              <option>This week</option>
+              <option>Last week</option>
+              <option>This month</option>
+              <option>Last month</option>
+              <option>Custom</option>
+            </select>
+          </div>
 
-            <div className="mb-3">
-              <label className="fw-semibold small mb-1">Date range</label>
-              <select
-                className="form-select rounded-3"
-                value={dateRangeDropdown}
-                onChange={handleSelectDropdown}
-              >
-                <option>Today</option>
-                <option>Yesterday</option>
-                <option>This week</option>
-                <option>Last week</option>
-                <option>This month</option>
-                <option>Last month</option>
-                <option>Custom</option>
-              </select>
-            </div>
-
+          <div className="d-flex justify-content-center overflow-auto">
             <DateRangePicker
               onChange={handleDateChange}
               moveRangeOnFirstSelection={false}
@@ -313,93 +347,78 @@ export default function SalesListPage() {
               staticRanges={[]}
               inputRanges={[]}
             />
-
-            <div className="d-flex justify-content-end gap-2 mt-3 pt-3 border-top">
-              <button
-                className="btn btn-light rounded-pill px-4"
-                onClick={cancelDateRange}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn btn-dark rounded-pill px-4"
-                onClick={applyDateRange}
-              >
-                Apply
-              </button>
-            </div>
-
           </div>
         </div>
-      )}
+      </Modal>
 
       {/* FILTER MODAL */}
-      {showFilters && (
-        <div className="filters-overlay">
-          <div className="filters-modal">
+      <Modal
+        show={showFilters}
+        onClose={() => setShowFilters(false)}
+        title="Filters"
+        footer={
+          <div className="d-flex justify-content-end gap-3 w-100">
+            <Button
+              variant="ghost"
+              pill
+              className="px-4"
+              onClick={() => setShowFilters(false)}
+            >
+              Clear filters
+            </Button>
 
-            <div className="d-flex justify-content-between align-items-center mb-4">
-              <h5 className="fw-semibold mb-0">Filters</h5>
-              <button
-                className="btn-close"
-                onClick={() => setShowFilters(false)}
+            <Button
+              variant="dark"
+              pill
+              className="px-4"
+              onClick={() => setShowFilters(false)}
+            >
+              Apply
+            </Button>
+          </div>
+        }
+      >
+        <div className="filters-content">
+          <div className="mb-4">
+            <label className="form-label small fw-bold">Status</label>
+            <select className="form-select rounded-3 p-2">
+              <option>All statuses</option>
+            </select>
+          </div>
+
+          <div className="row mb-4">
+            <div className="col">
+              <label className="form-label small fw-bold">From amount</label>
+              <Input
+                placeholder="From"
+                className="mb-0"
+                containerClass="mb-0"
+                iconLeft={<span className="text-muted small fw-bold">₹</span>}
               />
             </div>
 
-            <div className="mb-4">
-              <label className="fw-semibold small mb-2">Status</label>
-              <select className="form-select rounded-3">
-                <option>All statuses</option>
-              </select>
+            <div className="col">
+              <label className="form-label small fw-bold">To amount</label>
+              <Input
+                placeholder="To"
+                className="mb-0"
+                containerClass="mb-0"
+                iconLeft={<span className="text-muted small fw-bold">₹</span>}
+              />
             </div>
+          </div>
 
-            <div className="row mb-4">
-              <div className="col">
-                <label className="fw-semibold small mb-2">From amount</label>
-                <div className="input-group">
-                  <span className="input-group-text">₹</span>
-                  <input className="form-control" placeholder="From" />
-                </div>
-              </div>
-
-              <div className="col">
-                <label className="fw-semibold small mb-2">To amount</label>
-                <div className="input-group">
-                  <span className="input-group-text">₹</span>
-                  <input className="form-control" placeholder="To" />
-                </div>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <label className="fw-semibold small mb-2">Including items</label>
-              <select className="form-select rounded-3">
-                <option>Select item type</option>
-              </select>
-            </div>
-
-            <div className="d-flex justify-content-end gap-3 mt-4">
-              <button
-                className="btn btn-light rounded-pill px-4"
-                onClick={() => setShowFilters(false)}
-              >
-                Clear filters
-              </button>
-
-              <button
-                className="btn btn-dark rounded-pill px-4"
-                onClick={() => setShowFilters(false)}
-              >
-                Apply
-              </button>
-            </div>
-
+          <div className="mb-2">
+            <label className="form-label small fw-bold">Including items</label>
+            <select className="form-select rounded-3 p-2">
+              <option>Select item type</option>
+            </select>
           </div>
         </div>
-      )}
+      </Modal>
 
       {/* EMPTY STATE */}
-      <div className="card text-center py-5 border-0 rounded-4 empty-state-card shadow-sm mt-2 flex-grow-1 align-items-center justify-content-center" style={{ minHeight: '400px' }}>
+      <Card className="text-center py-5 border-0 rounded-4 empty-state-card shadow-sm mt-2 flex-grow-1 d-flex flex-column align-items-center justify-content-center" style={{ minHeight: '400px' }}>
         <div className="mb-4">
           <div className="d-flex align-items-center justify-content-center mx-auto empty-state-icon" style={{ 
             width: '60px', 
@@ -416,18 +435,20 @@ export default function SalesListPage() {
             )}
           </div>
         </div>
-        <h4 className="fw-bold mb-3 text-dark">
+        <h4 className="fw-bold mb-3 text-dark h5">
           {activeTab === "sales" ? "No sales yet" : "No draft sales yet"}
         </h4>
-        <div className="mt-2">
-          <button 
-            className="btn btn-outline-secondary rounded-pill fw-semibold px-4"
+        <div className="mt-2 text-center w-100 d-flex justify-content-center">
+          <Button 
+            variant="outline-dark"
+            pill
+            className="px-4"
             onClick={() => setDrawerOpen(true)}
           >
             Create new sale
-          </button>
+          </Button>
         </div>
-      </div>
+      </Card>
 
       {/* ================= QUICK SALE DRAWER ================= */}
       <QuickSaleDrawer

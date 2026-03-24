@@ -1,23 +1,32 @@
-import { ChevronLeft, ChevronRight } from "react-bootstrap-icons"
+import { ChevronLeft, ChevronRight } from "react-bootstrap-icons";
+import Button from "../../../components/ui/Button";
 
 export default function SalesDateFilter() {
   return (
-    <div className="bg-light rounded p-3 d-flex align-items-center gap-3">
-      <button className="btn btn-light rounded-circle">
-        <ChevronLeft />
-      </button>
+    <div className="bg-light rounded-4 p-2 d-flex align-items-center gap-3">
+      <Button
+        variant="light"
+        className="rounded-circle p-2"
+        iconLeft={<ChevronLeft size={18} />}
+      />
 
-      <button className="btn btn-outline-secondary rounded-pill">
+      <Button
+        variant="outline-secondary"
+        pill
+        size="sm"
+      >
         Today
-      </button>
+      </Button>
 
-      <div className="fw-semibold">
+      <div className="fw-bold small">
         Wednesday 25 Feb, 2026
       </div>
 
-      <button className="btn btn-light rounded-circle ms-auto">
-        <ChevronRight />
-      </button>
+      <Button
+        variant="light"
+        className="rounded-circle p-2 ms-auto"
+        iconLeft={<ChevronRight size={18} />}
+      />
     </div>
   )
 }

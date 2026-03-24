@@ -3,6 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { XLg } from "react-bootstrap-icons";
 import "../styles/CreateProductPage.scss";
 
+// UI Components
+import Card from "../../../components/ui/Card";
+import Input from "../../../components/ui/Input";
+import Button from "../../../components/ui/Button";
+
 const CreateProductPage: React.FC = () => {
     const navigate = useNavigate();
 
@@ -33,18 +38,19 @@ const CreateProductPage: React.FC = () => {
     return (
         <div className="cpp">
             {/* ── Top bar ── */}
-            <div className="cpp__topbar d-flex align-items-center justify-content-between px-4 shadow-sm">
-                <button className="cpp__close-btn" onClick={() => navigate(-1)}>
+            <div className="cpp__topbar d-flex align-items-center justify-content-between px-4 shadow-sm border-bottom">
+                <Button variant="ghost" onClick={() => navigate(-1)} className="cpp__close-btn p-0 border-0">
                     <XLg size={20} />
-                </button>
+                </Button>
                 <h5 className="cpp__topbar-title mb-0 fw-bold">Create a product</h5>
-                <button 
-                    className="btn cpp__submit-btn" 
+                <Button 
+                    variant="dark" 
                     onClick={handleSubmit} 
                     disabled={!productName.trim()}
+                    className="cpp__submit-btn"
                 >
                     Create product
-                </button>
+                </Button>
             </div>
 
             {/* ── Scrollable body ── */}
@@ -52,36 +58,27 @@ const CreateProductPage: React.FC = () => {
                 <div className="container-narrow">
                     
                     {/* 1. Basic info */}
-                    <div className="cpp__section shadow-sm">
-                        <h6 className="cpp__section-title">Basic info</h6>
-                        
-                        <div className="mb-4">
-                            <label className="cpp__label">Product name</label>
-                            <input 
-                                type="text"
-                                className="cpp__input form-control"
-                                placeholder="e.g. Organic Shampoo"
-                                value={productName}
-                                onChange={(e) => setProductName(e.target.value)}
-                            />
-                        </div>
+                    <Card title="Basic info" className="mb-4">
+                        <Input 
+                            label="Product name"
+                            placeholder="e.g. Organic Shampoo"
+                            value={productName}
+                            onChange={(e) => setProductName(e.target.value)}
+                            required
+                        />
 
-                        <div className="row g-3 mb-4">
+                        <div className="row g-3">
                             <div className="col-6">
-                                <label className="cpp__label">SKU</label>
-                                <input 
-                                    type="text"
-                                    className="cpp__input form-control"
+                                <Input 
+                                    label="SKU"
                                     placeholder="Add SKU"
                                     value={sku}
                                     onChange={(e) => setSku(e.target.value)}
                                 />
                             </div>
                             <div className="col-6">
-                                <label className="cpp__label">Barcode</label>
-                                <input 
-                                    type="text"
-                                    className="cpp__input form-control"
+                                <Input 
+                                    label="Barcode"
                                     placeholder="Add Barcode"
                                     value={barcode}
                                     onChange={(e) => setBarcode(e.target.value)}
@@ -89,30 +86,27 @@ const CreateProductPage: React.FC = () => {
                             </div>
                         </div>
 
-                        <div>
-                            <label className="cpp__label">Description (optional)</label>
-                            <textarea 
-                                className="cpp__textarea form-control"
-                                rows={3}
-                                placeholder="Add product description"
-                                value={description}
-                                onChange={(e) => setDescription(e.target.value)}
-                            />
-                        </div>
-                    </div>
+                        <Input 
+                            multiline
+                            label="Description (optional)"
+                            rows={3}
+                            placeholder="Add product description"
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                        />
+                    </Card>
 
                     {/* 2. Pricing and Tax */}
-                    <div className="cpp__section shadow-sm">
-                        <h6 className="cpp__section-title">Pricing</h6>
-                        
+                    <Card title="Pricing" className="mb-4">
                         <div className="row g-3">
                             <div className="col-6">
-                                <label className="cpp__label">Cost price</label>
+                                <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Cost price</label>
                                 <div className="cpp__price-wrap position-relative">
                                     <span className="cpp__currency">₹</span>
                                     <input 
                                         type="number"
-                                        className="cpp__input cpp__input--price form-control"
+                                        className="form-control"
+                                        style={{ paddingLeft: "2.5rem" }}
                                         placeholder="0.00"
                                         value={costPrice}
                                         onChange={(e) => setCostPrice(e.target.value)}
@@ -120,12 +114,13 @@ const CreateProductPage: React.FC = () => {
                                 </div>
                             </div>
                             <div className="col-6">
-                                <label className="cpp__label">Retail price</label>
+                                <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Retail price</label>
                                 <div className="cpp__price-wrap position-relative">
                                     <span className="cpp__currency">₹</span>
                                     <input 
                                         type="number"
-                                        className="cpp__input cpp__input--price form-control"
+                                        className="form-control"
+                                        style={{ paddingLeft: "2.5rem" }}
                                         placeholder="0.00"
                                         value={retailPrice}
                                         onChange={(e) => setRetailPrice(e.target.value)}
@@ -135,9 +130,9 @@ const CreateProductPage: React.FC = () => {
                         </div>
 
                         <div className="mt-4 col-6">
-                            <label className="cpp__label">Tax rate</label>
+                            <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Tax rate</label>
                             <select 
-                                className="cpp__select form-select"
+                                className="form-select"
                                 value={taxRate}
                                 onChange={(e) => setTaxRate(e.target.value)}
                             >
@@ -147,35 +142,38 @@ const CreateProductPage: React.FC = () => {
                                 <option>18%</option>
                             </select>
                         </div>
-                    </div>
+                    </Card>
 
                     {/* 3. Inventory */}
-                    <div className="cpp__section shadow-sm border-0">
-                        <h6 className="cpp__section-title">Inventory</h6>
-                        
-                        <div className="cpp__toggle-row">
+                    <Card title="Inventory" className="mb-4">
+                        <div className="d-flex align-items-center justify-content-between mb-3">
                             <div>
                                 <div className="fw-bold small">Track stock levels</div>
                                 <div className="text-muted extra-small">Automatically update stock on sales</div>
                             </div>
-                            <div 
-                                className={`cpp__toggle ${trackStock ? "cpp__toggle--on" : ""}`}
-                                onClick={() => setTrackStock(!trackStock)}
-                            />
+                            <div className="form-check form-switch m-0">
+                                <input 
+                                    className="form-check-input" 
+                                    type="checkbox" 
+                                    role="switch" 
+                                    checked={trackStock}
+                                    onChange={() => setTrackStock(!trackStock)}
+                                    style={{ cursor: "pointer", width: "2.5rem", height: "1.25rem" }}
+                                />
+                            </div>
                         </div>
 
                         {trackStock && (
                             <div className="mt-4 col-6">
-                                <label className="cpp__label">Current stock</label>
-                                <input 
+                                <Input 
                                     type="number"
-                                    className="cpp__input form-control"
+                                    label="Current stock"
                                     value={stockLevel}
                                     onChange={(e) => setStockLevel(Number(e.target.value))}
                                 />
                             </div>
                         )}
-                    </div>
+                    </Card>
 
                 </div>
             </div>
@@ -184,3 +182,4 @@ const CreateProductPage: React.FC = () => {
 };
 
 export default CreateProductPage;
+

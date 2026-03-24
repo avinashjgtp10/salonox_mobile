@@ -1,4 +1,6 @@
-import { useEffect } from "react"
+import { useEffect } from "react";
+import Card from "../../../components/ui/Card";
+import Table from "../../../components/ui/Table";
 
 interface Props {
   selectedDate: Date
@@ -20,31 +22,29 @@ export default function CashMovementSummary({ selectedDate }: Props) {
     // 🔥 API call here
   }, [selectedDate])
 
+  const columns = [
+    { header: "Payment type", key: "type" },
+    { header: "Payments collected", key: "collected" },
+    { header: "Refunds paid", key: "refunded", className: "text-end" }
+  ];
+
+  const data = rows.map((item, index) => ({
+    id: index,
+    type: item,
+    collected: "₹0.00",
+    refunded: "₹0.00"
+  }));
+
   return (
-    <div className="sales-card">
-
-      <h4 className="mb-3">Cash movement summary</h4>
-
-      <table>
-        <thead>
-          <tr>
-            <th>Payment type</th>
-            <th>Payments collected</th>
-            <th style={{ textAlign: "right" }}>Refunds paid</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {rows.map((item) => (
-            <tr key={item}>
-              <td>{item}</td>
-              <td>₹0.00</td>
-              <td style={{ textAlign: "right" }}>₹0.00</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-    </div>
-  )
+    <Card 
+      title="Cash movement summary"
+      noPadding
+      className="mb-4"
+    >
+      <Table
+        columns={columns}
+        data={data}
+      />
+    </Card>
+  );
 }
