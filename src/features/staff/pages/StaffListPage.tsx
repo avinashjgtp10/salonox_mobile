@@ -1,7 +1,7 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import {
-    Search,
+    Search as SearchIcon,
     Sliders,
     ChevronDown,
     ChevronUp,
@@ -14,9 +14,15 @@ import {
     ToggleOn,
     FileEarmarkExcel,
     FiletypeCsv,
+    Pencil
 } from "react-bootstrap-icons";
 import "../styles/StaffListPage.scss";
 import { getStaff, deleteStaff, exportStaff } from "../services/staffService";
+
+// UI Components
+import Button from "../../../components/ui/Button";
+import Input from "../../../components/ui/Input";
+import Badge from "../../../components/ui/Badge";
 
 export default function StaffListPage() {
     const navigate = useNavigate();
@@ -84,8 +90,8 @@ export default function StaffListPage() {
     const toggleAllLocations = () =>
         setSelectedLocations((prev) => prev.length === locations.length ? [] : [...locations]);
 
-    const typeBadge = (bookable ? 1 : 0) + (nonBookable ? 1 : 0);
-    const totalFilterBadge = selectedLocations.length + typeBadge + (selectedStatus !== "all" ? 1 : 0);
+    const typeBadgeCount = (bookable ? 1 : 0) + (nonBookable ? 1 : 0);
+    const totalFilterBadge = selectedLocations.length + typeBadgeCount + (selectedStatus !== "all" ? 1 : 0);
 
     const clearFilters = () => {
         setSelectedLocations([]); setBookable(false); setNonBookable(false); setSelectedStatus("all");
@@ -201,7 +207,7 @@ export default function StaffListPage() {
                                     </label>
                                 ))}
                             </FilterSection>
-                            <FilterSection title="Type" icon={<Calendar2Check size={15} />} badge={typeBadge || undefined} onClear={() => { setBookable(false); setNonBookable(false); }}>
+                            <FilterSection title="Type" icon={<Calendar2Check size={15} />} badge={typeBadgeCount || undefined} onClear={() => { setBookable(false); setNonBookable(false); }}>
                                 <label className="fs-checkbox-row">
                                     <input type="checkbox" checked={bookable} onChange={() => setBookable(!bookable)} />
                                     <span>Bookable</span>
@@ -231,18 +237,23 @@ export default function StaffListPage() {
             {/* ===== HEADER ===== */}
             <div className="page-header">
                 <div>
-                    <h4>Team members <span className="count-badge">{filtered.length}</span></h4>
+                    <h4 className="d-flex align-items-center gap-2">
+                        Team members 
+                        <Badge variant="dark" pill className="count-badge">{filtered.length}</Badge>
+                    </h4>
                     <p>Manage your team, their roles and access levels.</p>
                 </div>
                 <div className="header-actions">
                     {/* OPTIONS BUTTON */}
                     <div className="options-dropdown" onClick={(e) => e.stopPropagation()}>
-                        <button
-                            className="btn-outline options-btn"
+                        <Button
+                            variant="outline-dark"
                             onClick={() => setOptionsOpen(!optionsOpen)}
+                            iconRight={optionsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                            className="options-btn"
                         >
-                            Options {optionsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                        </button>
+                            Options
+                        </Button>
                         {optionsOpen && (
                             <div className="options-menu">
                                 <div className="options-item" onClick={() => setOptionsOpen(false)}>
@@ -263,33 +274,50 @@ export default function StaffListPage() {
                         )}
                     </div>
                     {/* ADD BUTTON */}
-                    <button className="btn-dark" onClick={() => navigate("/dashboard/team/add")}>
-                        <PersonPlus size={16} /> Add
-                    </button>
+                    <Button variant="dark" onClick={() => navigate("/dashboard/team/add")} iconLeft={<PersonPlus size={16} />}>
+                        Add
+                    </Button>
                 </div>
             </div>
 
             {/* ===== SEARCH + SORT ===== */}
-            <div className="search-container">
-                <div className="search-section">
-                    <div className="search-left">
-                        <div className="search-box">
-                            <Search size={16} />
-                            <input type="text" placeholder="Search team members" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            <div className="search-container mb-4">
+                <div className="search-section d-flex align-items-center justify-content-between">
+                    <div className="search-left d-flex align-items-center gap-2 flex-grow-1">
+                        <div style={{ maxWidth: '400px', flex: 1 }}>
+                            <Input
+                                placeholder="Search team members"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="mb-0"
+                                containerClass="mb-0"
+                                iconLeft={<SearchIcon size={16} />}
+                            />
                         </div>
-                        <button className="btn-outline filters-btn" onClick={() => setShowFilter(true)}>
-                            <Sliders size={14} /> Filters
-                            {totalFilterBadge > 0 && <span className="filter-badge">{totalFilterBadge}</span>}
-                        </button>
+                        <Button
+                            variant="outline-dark"
+                            onClick={() => setShowFilter(true)}
+                            iconLeft={<Sliders size={14} />}
+                            className="filters-btn position-relative"
+                        >
+                            Filters
+                            {totalFilterBadge > 0 && <Badge variant="primary" pill className="ms-2">{totalFilterBadge}</Badge>}
+                        </Button>
                     </div>
-                    <div className="sort-dropdown">
-                        <button className="btn-outline sort-btn" onClick={() => setSortOpen(!sortOpen)}>
-                            <ArrowDownUp size={14} /> {selectedSort} <ChevronDown size={13} />
-                        </button>
+                    <div className="sort-dropdown position-relative ms-3">
+                        <Button
+                            variant="outline-dark"
+                            onClick={() => setSortOpen(!sortOpen)}
+                            iconLeft={<ArrowDownUp size={14} />}
+                            iconRight={<ChevronDown size={13} />}
+                            className="sort-btn"
+                        >
+                            {selectedSort}
+                        </Button>
                         {sortOpen && (
-                            <div className="sort-menu">
+                            <div className="sort-menu shadow border position-absolute end-0 mt-2 bg-white z-2" style={{ width: '220px' }}>
                                 {sortOptions.map((opt) => (
-                                    <div key={opt} className={`sort-item ${selectedSort === opt ? "active" : ""}`} onClick={() => { setSelectedSort(opt); setSortOpen(false); }}>{opt}</div>
+                                    <div key={opt} className={`sort-item p-2 cursor-pointer ${selectedSort === opt ? "bg-light fw-bold" : ""}`} onClick={() => { setSelectedSort(opt); setSortOpen(false); }}>{opt}</div>
                                 ))}
                             </div>
                         )}
@@ -301,24 +329,30 @@ export default function StaffListPage() {
             {loading ? (
                 <div className="text-center p-5">Loading team members...</div>
             ) : (
-                <div className="table-card">
+                <div className="table-card border rounded-4 overflow-hidden shadow-sm bg-white">
                     <div className="staff-table">
 
                         {/* TABLE HEADER */}
-                        <div className="table-header">
-                            <div className="col-check">
-                                <input type="checkbox" checked={selectedIds.length === filtered.length && filtered.length > 0} onChange={handleSelectAll} />
+                        <div className="table-header py-3 px-4 border-bottom bg-light small fw-bold text-muted text-uppercase d-flex align-items-center">
+                            <div className="col-check" style={{ width: '40px' }}>
+                                <input
+                                    type="checkbox"
+                                    className="form-check-input"
+                                    checked={selectedIds.length === filtered.length && filtered.length > 0}
+                                    onChange={handleSelectAll}
+                                />
                             </div>
-                            <div className="col-name">Name</div>
-                            <div>Contact</div>
-                            <div>Rating</div>
-                            <div></div>
+                            <div className="col-name ms-3 flex-grow-1">Name</div>
+                            <div style={{ width: '200px' }}>Contact</div>
+                            <div style={{ width: '150px' }}>Rating</div>
+                            <div style={{ width: '100px' }}>Status</div>
+                            <div style={{ width: '80px' }}></div>
                         </div>
 
                         {filtered.length === 0 ? (
-                            <div className="empty-state">
-                                <PersonBadge size={40} />
-                                <p>No team members found.</p>
+                            <div className="empty-state text-center p-5">
+                                <PersonBadge size={40} className="text-muted opacity-25 mb-3" />
+                                <p className="text-muted">No team members found.</p>
                             </div>
                         ) : (
                             filtered.map((member) => {
@@ -327,13 +361,14 @@ export default function StaffListPage() {
                                 return (
                                     <div
                                         key={member.id}
-                                        className={`table-row ${isChecked ? "row-selected" : ""}`}
+                                        className={`table-row d-flex align-items-center py-3 px-4 border-bottom cursor-pointer transition-all ${isChecked ? "bg-light" : "hover-bg-light"}`}
                                         onClick={() => navigate(`/dashboard/team/${member.id}`)}
                                     >
                                         {/* CHECKBOX */}
-                                        <div className="col-check">
+                                        <div className="col-check" style={{ width: '40px' }}>
                                             <input
                                                 type="checkbox"
+                                                className="form-check-input"
                                                 checked={isChecked}
                                                 onChange={() => { }}
                                                 onClick={(e) => handleCheck(e, member.id)}
@@ -341,44 +376,54 @@ export default function StaffListPage() {
                                         </div>
 
                                         {/* NAME */}
-                                        <div className="col-name">
-                                            <div className="avatar">{(member.first_name?.[0] || 'S').toUpperCase()}</div>
+                                        <div className="col-name ms-3 d-flex align-items-center flex-grow-1">
+                                            <div className="avatar rounded-circle d-flex align-items-center justify-content-center bg-dark text-white fw-bold me-3 shadow-sm" style={{ width: '40px', height: '40px', fontSize: '14px' }}>
+                                                {(member.first_name?.[0] || 'S').toUpperCase()}
+                                            </div>
                                             <div>
-                                                <div className="name">{`${member.first_name || ''} ${member.last_name || ''}`}</div>
-                                                <div className="email">{member.email}</div>
+                                                <div className="name fw-bold small">{`${member.first_name || ''} ${member.last_name || ''}`}</div>
+                                                <div className="email text-muted extra-small">{member.email}</div>
                                             </div>
                                         </div>
 
                                         {/* CONTACT */}
-                                        <div className="col-contact">
-                                            <div className="contact-email">{member.email || '-'}</div>
+                                        <div className="col-contact small text-muted" style={{ width: '200px' }}>
                                             <div className="contact-phone">{member.phone_number || '-'}</div>
                                         </div>
 
                                         {/* RATING */}
-                                        <div className="col-rating">
-                                            <span className="no-reviews">No reviews yet</span>
+                                        <div className="col-rating" style={{ width: '150px' }}>
+                                            <span className="no-reviews small text-muted">No reviews yet</span>
+                                        </div>
+
+                                        {/* STATUS */}
+                                        <div className="col-status" style={{ width: '100px' }}>
+                                            <Badge variant="success" pill>
+                                                {member.status || "Active"}
+                                            </Badge>
                                         </div>
 
                                         {/* ACTIONS — only visible when row is checked */}
-                                        <div className="col-actions" onClick={(e) => e.stopPropagation()}>
-                                            {isChecked && (
-                                                <div className="actions-wrapper">
-                                                    <button
-                                                        className="actions-btn"
+                                        <div className="col-actions text-end" style={{ width: '80px' }} onClick={(e) => e.stopPropagation()}>
+                                            {isChecked ? (
+                                                <div className="actions-wrapper position-relative">
+                                                    <Button
+                                                        variant="outline-dark"
+                                                        size="sm"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             setActionsOpenId(actionsOpen ? null : member.id);
                                                         }}
+                                                        iconRight={<ChevronDown size={12} />}
                                                     >
-                                                        Actions <ChevronDown size={13} />
-                                                    </button>
+                                                        Actions
+                                                    </Button>
                                                     {actionsOpen && (
-                                                        <div className="actions-menu">
+                                                        <div className="actions-menu shadow border position-absolute end-0 mt-1 bg-white z-2" style={{ width: '180px' }}>
                                                             {actionItems.map((item) => (
                                                                 <div
                                                                     key={item.label}
-                                                                    className={`action-item ${item.className || ''}`}
+                                                                    className={`action-item p-2 cursor-pointer small ${item.className || ''}`}
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         setActionsOpenId(null);
@@ -391,6 +436,18 @@ export default function StaffListPage() {
                                                         </div>
                                                     )}
                                                 </div>
+                                            ) : (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="p-1"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        navigate(`/dashboard/team/${member.id}`);
+                                                    }}
+                                                >
+                                                    <Pencil size={14} />
+                                                </Button>
                                             )}
                                         </div>
                                     </div>

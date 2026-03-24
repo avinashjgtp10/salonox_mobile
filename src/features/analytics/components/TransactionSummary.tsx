@@ -1,4 +1,6 @@
-import { useEffect } from "react"
+import { useEffect } from "react";
+import Card from "../../../components/ui/Card";
+import Table from "../../../components/ui/Table";
 
 interface Props {
   selectedDate: Date
@@ -24,40 +26,42 @@ export default function TransactionSummary({ selectedDate }: Props) {
     // 🔥 API call here based on selectedDate
   }, [selectedDate])
 
+  const columns = [
+    { header: "Item type", key: "type" },
+    { header: "Sales qty", key: "salesQty" },
+    { header: "Refund qty", key: "refundQty" },
+    { header: "Gross total", key: "total", className: "text-end" }
+  ];
+
+  const data = [
+    ...rows.map((item, index) => ({
+      id: index,
+      type: item,
+      salesQty: "0",
+      refundQty: "0",
+      total: "₹0.00"
+    })),
+    {
+      id: "total",
+      type: "Total Sales",
+      salesQty: "0",
+      refundQty: "0",
+      total: "₹0.00",
+      isTotal: true
+    }
+  ];
+
   return (
-    <div className="sales-card">
-
-      <h4 className="mb-3">Transaction summary</h4>
-
-      <table>
-        <thead>
-          <tr>
-            <th>Item type</th>
-            <th>Sales qty</th>
-            <th>Refund qty</th>
-            <th style={{ textAlign: "right" }}>Gross total</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {rows.map((item) => (
-            <tr key={item}>
-              <td>{item}</td>
-              <td>0</td>
-              <td>0</td>
-              <td style={{ textAlign: "right" }}>₹0.00</td>
-            </tr>
-          ))}
-
-          <tr style={{ fontWeight: 600 }}>
-            <td>Total Sales</td>
-            <td>0</td>
-            <td>0</td>
-            <td style={{ textAlign: "right" }}>₹0.00</td>
-          </tr>
-        </tbody>
-      </table>
-
-    </div>
-  )
+    <Card 
+      title="Transaction summary"
+      noPadding
+      className="mb-4"
+    >
+      <Table
+        columns={columns}
+        data={data}
+        rowClassName={(item: any) => item.isTotal ? "fw-bold bg-light" : ""}
+      />
+    </Card>
+  );
 }

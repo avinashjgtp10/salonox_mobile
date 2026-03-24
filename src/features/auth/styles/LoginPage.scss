@@ -54,11 +54,9 @@
 .right-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    to right,
-    rgba(248, 249, 250, 0.97) 0%,
-    rgba(248, 249, 250, 0.75) 28%,
-    rgba(248, 249, 250, 0.25) 55%,
-    rgba(248, 249, 250, 0) 80%
-  );
+  background: linear-gradient(to right,
+      rgba(248, 249, 250, 0.97) 0%,
+      rgba(248, 249, 250, 0.75) 28%,
+      rgba(248, 249, 250, 0.25) 55%,
+      rgba(248, 249, 250, 0) 80%);
 }

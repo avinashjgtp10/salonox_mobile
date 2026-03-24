@@ -18,6 +18,11 @@ import {
 } from "react-bootstrap-icons";
 import ClientDetailsDrawer from "../components/ClientDetailsDrawer";
 
+// UI Components
+import Button from "../../../components/ui/Button";
+import Badge from "../../../components/ui/Badge";
+import Input from "../../../components/ui/Input";
+import Modal from "../../../components/ui/Modal";
 
 import "../styles/ClientsListPage.scss";
 
@@ -313,54 +318,53 @@ export default function ClientsListPage() {
       )}
 
       {/* ================= HEADER ================= */}
-      <div className="page-header">
-
+      <div className="page-header d-flex align-items-center justify-content-between mb-4">
         <div className="header-left">
-          <div className="title-container">
-            <h2 className="page-title">Clients list</h2>
-            <span className="client-count">{clients.length}</span>
+          <div className="title-container d-flex align-items-center">
+            <h2 className="page-title mb-0">Clients list</h2>
+            <Badge variant="dark" pill className="ms-3">{clients.length}</Badge>
           </div>
-          <p className="page-subtitle">
+          <p className="page-subtitle text-muted mt-2">
             View, add, edit and delete your client's details.
-            <span className="learn-more-link"> Learn more</span>
+            <span className="learn-more-link text-primary cursor-pointer ms-1"> Learn more</span>
           </p>
         </div>
 
         <div className="header-actions">
           {/* OPTIONS DROPDOWN */}
-          <div className="options-dropdown">
-            <button
-              className="btn-outline-premium"
+          <div className="options-dropdown position-relative">
+            <Button
+              variant="outline-dark"
               onClick={() => setOptionsOpen(!optionsOpen)}
+              iconRight={<ChevronDown size={14} className={`chevron ${optionsOpen ? 'open' : ''}`} />}
             >
               Options
-              <ChevronDown size={14} className={`chevron ${optionsOpen ? 'open' : ''}`} />
-            </button>
+            </Button>
 
             {optionsOpen && (
-              <div className="options-menu">
+              <div className="options-menu shadow-lg border position-absolute end-0 mt-2 bg-white z-2" style={{ width: '200px' }}>
                 <div
-                  className="option-item"
+                  className="option-item p-2 cursor-pointer"
                   onClick={() => {
                     setOptionsOpen(false);
                     navigate("/dashboard/clients/import");
                   }}
                 >
-                  <ArrowRight size={14} />
+                  <ArrowRight size={14} className="me-2" />
                   Import clients
                 </div>
-                <div className="option-item" onClick={handleMergeDuplicates}>
-                  <ArrowLeftRight size={14} />
+                <div className="option-item p-2 cursor-pointer" onClick={handleMergeDuplicates}>
+                  <ArrowLeftRight size={14} className="me-2" />
                   Merge clients
                 </div>
-                <div className="divider" />
-                <div className="export-title">Export</div>
-                <div className="option-item" onClick={handleExportExcel}>
-                  <FileEarmarkExcel size={14} />
+                <div className="divider border-top my-1" />
+                <div className="export-title px-2 py-1 small fw-bold text-muted">Export</div>
+                <div className="option-item p-2 cursor-pointer" onClick={handleExportExcel}>
+                  <FileEarmarkExcel size={14} className="me-2" />
                   Excel
                 </div>
-                <div className="option-item" onClick={handleExportCSV}>
-                  <FiletypeCsv size={14} />
+                <div className="option-item p-2 cursor-pointer" onClick={handleExportCSV}>
+                  <FiletypeCsv size={14} className="me-2" />
                   CSV
                 </div>
               </div>
@@ -368,12 +372,13 @@ export default function ClientsListPage() {
           </div>
 
           {/* ADD BUTTON */}
-          <button
-            className="btn-add-primary"
+          <Button
+            variant="dark"
             onClick={() => navigate("/dashboard/clients/add")}
+            className="ms-2"
           >
             Add
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -398,47 +403,43 @@ export default function ClientsListPage() {
       </div>
 
       {/* ================= SEARCH + SORT ================= */}
-      <div className="search-container">
-
-        <div className="search-section">
-
-          <div className="search-left">
-
-            <div className="search-box">
-              <Search size={16} />
-              <input
-                type="text"
+      <div className="search-container mb-4">
+        <div className="search-section d-flex align-items-center justify-content-between">
+          <div className="search-left d-flex align-items-center gap-2 flex-grow-1 me-3">
+            <div style={{ maxWidth: '400px', flex: 1 }}>
+              <Input
                 placeholder="Name, email or phone"
+                className="mb-0"
+                containerClass="mb-0"
+                iconLeft={<Search size={16} />}
               />
             </div>
 
-            <button
-              className="btn-outline-premium"
+            <Button
+              variant="outline-dark"
               onClick={() => setShowFilter(true)}
+              iconLeft={<Sliders size={14} />}
             >
-              <Sliders size={14} /> Filters
-            </button>
-
+              Filters
+              {selectedGender && <Badge variant="dark" pill className="ms-2">1</Badge>}
+            </Button>
           </div>
 
-          <div className="sort-dropdown">
-
-            <button
-              className="btn-outline-premium sort-btn"
+          <div className="sort-dropdown position-relative">
+            <Button
+              variant="outline-dark"
               onClick={() => setSortOpen(!sortOpen)}
+              iconRight={<ArrowDownUp size={14} />}
             >
               {selectedSort}
-              <ArrowDownUp size={14} />
-            </button>
+            </Button>
 
             {sortOpen && (
-              <div className="sort-menu">
-
+              <div className="sort-menu shadow border position-absolute end-0 mt-2 bg-white z-2" style={{ width: '220px' }}>
                 {sortOptions.map((option) => (
                   <div
                     key={option}
-                    className={`sort-item ${selectedSort === option ? "active" : ""
-                      }`}
+                    className={`sort-item p-2 cursor-pointer ${selectedSort === option ? "bg-light fw-bold" : ""}`}
                     onClick={() => {
                       setSelectedSort(option);
                       setSortOpen(false);
@@ -447,12 +448,9 @@ export default function ClientsListPage() {
                     {option}
                   </div>
                 ))}
-
               </div>
             )}
-
           </div>
-
         </div>
       </div>
 
@@ -571,124 +569,97 @@ export default function ClientsListPage() {
       </div>
 
       {/* ================= DELETE MODAL ================= */}
-      {deleteModalOpen && (
-        <div className="modal-overlay">
-          <div className="delete-modal">
-            <div className="modal-header">
-              <h4>Delete clients?</h4>
-              <button
-                className="close-btn"
-                onClick={() => {
-                  setDeleteModalOpen(false);
-                  setDeleteInput("");
-                }}
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="modal-body">
-              <p>Are you sure you want to delete this client? This operation can't be undone.</p>
-
-              <div className="input-group">
-                <label>Type DELETE to confirm</label>
-                <input
-                  type="text"
-                  value={deleteInput}
-                  onChange={(e) => setDeleteInput(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button
-                className="btn-outline mt-0 w-100"
-                onClick={() => {
-                  setDeleteModalOpen(false);
-                  setDeleteInput("");
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn-danger w-100"
-                disabled={deleteInput !== "DELETE"}
-                onClick={async () => {
-                  await handleDeleteClients();
-                  setDeleteModalOpen(false);
-                  setDeleteInput("");
-                }}
-              >
-                Delete
-              </button>
-            </div>
+      <Modal
+        show={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        title="Delete clients?"
+        footer={
+          <div className="d-flex flex-column gap-2 w-100">
+            <Button
+              variant="danger"
+              fullWidth
+              disabled={deleteInput !== "DELETE"}
+              onClick={async () => {
+                await handleDeleteClients();
+                setDeleteModalOpen(false);
+                setDeleteInput("");
+              }}
+            >
+              Delete
+            </Button>
+            <Button
+              variant="outline-dark"
+              fullWidth
+              onClick={() => {
+                setDeleteModalOpen(false);
+                setDeleteInput("");
+              }}
+            >
+              Cancel
+            </Button>
           </div>
-        </div>
-      )}
+        }
+      >
+        <p className="text-muted small mb-4">Are you sure you want to delete this client? This operation can't be undone.</p>
+        <Input
+          label="Type DELETE to confirm"
+          placeholder="DELETE"
+          value={deleteInput}
+          onChange={(e) => setDeleteInput(e.target.value)}
+        />
+      </Modal>
 
       {/* ================= BLOCK MODAL ================= */}
-      {blockModalOpen && (
-        <div className="modal-overlay">
-          <div className="delete-modal">
-            <div className="modal-header">
-              <h4>Block client</h4>
-              <button
-                className="close-btn"
-                onClick={() => {
-                  setBlockModalOpen(false);
-                  setBlockReason("");
-                }}
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="modal-body">
-              <p>Blocking clients prevents them from booking online appointments with you and automatically excludes them from any marketing messages.</p>
-
-              <div className="input-group">
-                <label>Select blocking reason</label>
-                <div className="select-wrapper">
-                  <select
-                    value={blockReason}
-                    onChange={(e) => setBlockReason(e.target.value)}
-                    className={blockReason === "" ? "placeholder-selected" : ""}
-                  >
-                    <option value="" disabled hidden>Select blocking reason</option>
-                    <option value="Too many no-shows">Too many no-shows</option>
-                    <option value="Too many late cancellations">Too many late cancellations</option>
-                    <option value="Too many reschedules">Too many reschedules</option>
-                    <option value="Rude or inappropriate to a team member">Rude or inappropriate to a team member</option>
-                    <option value="Refused to pay">Refused to pay</option>
-                    <option value="Booked fake appointments">Booked fake appointments</option>
-                    <option value="Other">Other</option>
-                  </select>
-                  <ChevronDown className="select-icon" size={14} />
-                </div>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button
-                className="btn-outline mt-0 w-100"
-                onClick={() => {
-                  setBlockModalOpen(false);
-                  setBlockReason("");
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn-dark w-100"
-                disabled={!blockReason}
-                onClick={async () => {
-                  await handleBlockClients();
-                  setBlockModalOpen(false);
-                  setBlockReason("");
-                }}
-              >
-                Block
-              </button>
-            </div>
+      <Modal
+        show={blockModalOpen}
+        onClose={() => setBlockModalOpen(false)}
+        title="Block client"
+        footer={
+          <div className="d-flex flex-column gap-2 w-100">
+            <Button
+              variant="dark"
+              fullWidth
+              disabled={!blockReason}
+              onClick={async () => {
+                await handleBlockClients();
+                setBlockModalOpen(false);
+                setBlockReason("");
+              }}
+            >
+              Block
+            </Button>
+            <Button
+              variant="outline-dark"
+              fullWidth
+              onClick={() => {
+                setBlockModalOpen(false);
+                setBlockReason("");
+              }}
+            >
+              Cancel
+            </Button>
           </div>
+        }
+      >
+        <p className="text-muted small mb-4">Blocking clients prevents them from booking online appointments with you and automatically excludes them from any marketing messages.</p>
+        <div className="mb-3">
+          <label className="form-label fw-semibold small">Select blocking reason</label>
+          <select
+            value={blockReason}
+            onChange={(e) => setBlockReason(e.target.value)}
+            className={`form-select ${blockReason === "" ? "text-muted" : ""}`}
+          >
+            <option value="" disabled hidden>Select blocking reason</option>
+            <option value="Too many no-shows">Too many no-shows</option>
+            <option value="Too many late cancellations">Too many late cancellations</option>
+            <option value="Too many reschedules">Too many reschedules</option>
+            <option value="Rude or inappropriate to a team member">Rude or inappropriate to a team member</option>
+            <option value="Refused to pay">Refused to pay</option>
+            <option value="Booked fake appointments">Booked fake appointments</option>
+            <option value="Other">Other</option>
+          </select>
         </div>
-      )}
+      </Modal>
 
       {/* ================= MERGE MODAL ================= */}
       {mergeModalOpen && (

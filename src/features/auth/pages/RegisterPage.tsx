@@ -1,20 +1,24 @@
-import "bootstrap/dist/css/bootstrap.min.css"
-import "../styles/RegisterPage.scss"
 import { useState } from "react"
-import salonImg from "../../../assets/images/salon.jpg"
 import { useNavigate } from "react-router-dom"
+import { useDispatch } from "react-redux"
+import toast from "react-hot-toast"
 import PhoneInput from "react-phone-input-2"
+import { Country } from "country-state-city"
 import "react-phone-input-2/lib/style.css"
+
 import api from "../../../services/api/axios"
 import { hashPassword } from "../../../utils/hashPassword"
-import { Country } from "country-state-city"
-import toast from "react-hot-toast"
-import { useDispatch } from "react-redux" // Assuming useDispatch is needed for the login action
-import { login } from "../../../store/authSlice" // Assuming login action is from this path
+import { login } from "../../../store/authSlice"
+import salonImg from "../../../assets/images/salon.jpg"
+
+// UI Components
+import Input from "../../../components/ui/Input"
+import Button from "../../../components/ui/Button"
+import SplitLayout from "../../../components/ui/SplitLayout"
 
 export default function RegisterPage() {
   const navigate = useNavigate()
-  const dispatch = useDispatch() // Initialize useDispatch
+  const dispatch = useDispatch()
   const countries = Country.getAllCountries()
 
   /* ── Form state ── */
@@ -45,7 +49,7 @@ export default function RegisterPage() {
   const [mobileOtpVerified, setMobileOtpVerified] = useState(false)
 
   /* ================= FIELD CHANGE ================= */
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<any>) => {
     const { name, value, type } = e.target
     const checked = (e.target as HTMLInputElement).checked
     setForm(prev => ({ ...prev, [name]: type === "checkbox" ? checked : value }))
@@ -84,7 +88,7 @@ export default function RegisterPage() {
     setErrors(errs)
 
     if (Object.keys(errs).length > 0) {
-      toast.error(Object.values(errs)[0]) // show first error as toast
+      toast.error(Object.values(errs)[0])
       return false
     }
     return true
@@ -148,7 +152,6 @@ export default function RegisterPage() {
         setErrors(prev => { const n = { ...prev }; delete n.emailOtp; return n })
         toast.success("Email verified successfully!", { id: toastId })
       } else {
-        // Fallback if success flag is missing but request succeeded
         toast.error("Verification failed. Please check the OTP.", { id: toastId })
       }
     } catch (err: any) {
@@ -210,7 +213,6 @@ export default function RegisterPage() {
 
       const { accessToken, refreshToken, isOnboardingComplete } = response.data.data;
 
-      // Auto-login the user
       dispatch(login({ accessToken, refreshToken, isOnboardingComplete }))
 
       toast.success("Account created! Redirecting...", { id: toastId })
@@ -235,318 +237,289 @@ export default function RegisterPage() {
     }
   }
 
-  /* ================= RENDER ================= */
-  return (
-    <div className="container-fluid p-0">
-      <div className="row g-0 min-vh-100">
+  const LeftSection = (
+    <div className="w-100 py-4" style={{ maxWidth: "420px" }}>
+      <div className="text-center w-100 mb-4">
+        <h4 className="brand-logo d-inline-block m-0" style={{ fontSize: "24px" }}>salonox</h4>
+      </div>
 
-        {/* ── LEFT FORM ── */}
-        <div className="col-lg-5 d-flex align-items-center justify-content-center bg-white px-4 px-md-5">
-          <div className="w-100 py-4" style={{ maxWidth: "420px" }}>
+      <h2 className="fw-bold mb-1">Create Account</h2>
+      <p className="text-muted mb-4" style={{ fontSize: "14px" }}>
+        Fill in the details below to get started.
+      </p>
 
-            <div className="text-center w-100 mb-4">
-              <h4 className="brand-logo d-inline-block m-0" style={{ fontSize: "24px" }}>salonox</h4>
-            </div>
+      {/* FULL NAME */}
+      <Input
+        label="Full Name"
+        placeholder="e.g. John Doe"
+        name="fullName"
+        value={form.fullName}
+        onChange={handleChange}
+        error={errors.fullName}
+      />
 
-            <h2 className="fw-bold mb-1">Create Account</h2>
-            <p className="text-muted mb-4" style={{ fontSize: "14px" }}>
-              Fill in the details below to get started.
-            </p>
+      {/* BUSINESS NAME */}
+      <Input
+        label="Business Name"
+        placeholder="e.g. Glamour Salon"
+        name="businessName"
+        value={form.businessName}
+        onChange={handleChange}
+        error={errors.businessName}
+      />
 
-            {/* FULL NAME */}
-            <div className="mb-3">
-              <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Full Name</label>
-              <input
-                className={`form-control ${errors.fullName ? "is-invalid" : ""}`}
-                placeholder="e.g. John Doe"
-                name="fullName"
-                value={form.fullName}
-                onChange={handleChange}
-              />
-              {errors.fullName && <div className="invalid-feedback">{errors.fullName}</div>}
-            </div>
+      {/* ADDRESS */}
+      <Input
+        label="Address"
+        placeholder="e.g. 123 Main Street"
+        name="address"
+        value={form.address}
+        onChange={handleChange}
+        error={errors.address}
+      />
 
-            {/* BUSINESS NAME */}
-            <div className="mb-3">
-              <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Business Name</label>
-              <input
-                className={`form-control ${errors.businessName ? "is-invalid" : ""}`}
-                placeholder="e.g. Glamour Salon"
-                name="businessName"
-                value={form.businessName}
-                onChange={handleChange}
-              />
-              {errors.businessName && <div className="invalid-feedback">{errors.businessName}</div>}
-            </div>
+      {/* EMAIL + OTP */}
+      <div className="mb-3">
+        <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Email address</label>
+        <div className="d-flex gap-2">
+          <input
+            type="email"
+            className={`form-control ${errors.email ? "is-invalid" : ""}`}
+            placeholder="example@domain.com"
+            name="email"
+            value={form.email}
+            onChange={(e) => {
+              handleChange(e as any)
+              if (emailOtpVerified || emailOtpSent) {
+                setEmailOtpSent(false)
+                setEmailOtpVerified(false)
+                setEmailOtp("")
+              }
+            }}
+            disabled={emailOtpVerified}
+          />
+          <Button
+            variant="outline-dark"
+            onClick={handleSendEmailOtp}
+            disabled={emailOtpVerified || emailOtpLoading}
+            size="sm"
+            style={{ whiteSpace: "nowrap" }}
+          >
+            {emailOtpVerified ? "✓ Verified" : emailOtpLoading && !emailOtpSent ? "Sending…" : emailOtpSent ? "Resend" : "Send OTP"}
+          </Button>
+        </div>
+        {errors.email && (
+          <div className="text-danger mt-1" style={{ fontSize: "12px" }}>{errors.email}</div>
+        )}
+      </div>
 
-            {/* ADDRESS */}
-            <div className="mb-3">
-              <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Address</label>
-              <input
-                className={`form-control ${errors.address ? "is-invalid" : ""}`}
-                placeholder="e.g. 123 Main Street"
-                name="address"
-                value={form.address}
-                onChange={handleChange}
-              />
-              {errors.address && <div className="invalid-feedback">{errors.address}</div>}
-            </div>
-
-            {/* EMAIL + OTP */}
-            <div className="mb-3">
-              <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Email address</label>
-              <div className="d-flex gap-2">
-                <input
-                  type="email"
-                  className={`form-control ${errors.email ? "is-invalid" : ""}`}
-                  placeholder="example@domain.com"
-                  name="email"
-                  value={form.email}
-                  onChange={(e) => {
-                    handleChange(e)
-                    // reset OTP state if email changes
-                    if (emailOtpVerified || emailOtpSent) {
-                      setEmailOtpSent(false)
-                      setEmailOtpVerified(false)
-                      setEmailOtp("")
-                    }
-                  }}
-                  disabled={emailOtpVerified}
-                />
-                <button
-                  className="btn btn-outline-dark flex-shrink-0"
-                  style={{ fontSize: "13px", whiteSpace: "nowrap" }}
-                  onClick={handleSendEmailOtp}
-                  disabled={emailOtpVerified || emailOtpLoading}
-                >
-                  {emailOtpVerified
-                    ? "✓ Verified"
-                    : emailOtpLoading && !emailOtpSent
-                      ? "Sending…"
-                      : emailOtpSent
-                        ? "Resend"
-                        : "Send OTP"}
-                </button>
-              </div>
-              {errors.email && (
-                <div className="text-danger mt-1" style={{ fontSize: "12px" }}>{errors.email}</div>
-              )}
-            </div>
-
-            {/* EMAIL OTP INPUT */}
-            {emailOtpSent && !emailOtpVerified && (
-              <div className="mb-3">
-                <label className="form-label" style={{ fontSize: "13px" }}>Enter Email OTP</label>
-                <div className="d-flex gap-2">
-                  <input
-                    className="form-control"
-                    placeholder="6-digit OTP"
-                    value={emailOtp}
-                    maxLength={6}
-                    onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, ""))}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleVerifyEmailOtp() }}
-                  />
-                  <button
-                    className="btn btn-success flex-shrink-0"
-                    style={{ fontSize: "13px", whiteSpace: "nowrap" }}
-                    onClick={handleVerifyEmailOtp}
-                    disabled={emailOtpLoading || emailOtp.length < 6}
-                  >
-                    {emailOtpLoading ? "Verifying…" : "Verify"}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Verified badge */}
-            {emailOtpVerified && (
-              <div className="mb-3 d-flex align-items-center gap-1" style={{ fontSize: "13px", color: "#16a34a" }}>
-                <span>✓</span><span>Email verified</span>
-              </div>
-            )}
-
-            {errors.emailOtp && (
-              <div className="text-danger mb-2" style={{ fontSize: "12px" }}>{errors.emailOtp}</div>
-            )}
-
-            {/* COUNTRY */}
-            <div className="mb-3">
-              <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Country</label>
-              <select
-                className={`form-select ${errors.country ? "is-invalid" : ""}`}
-                name="country"
-                value={form.country}
-                onChange={handleChange}
-              >
-                <option value="">Select Country</option>
-                {countries.map(c => (
-                  <option key={c.isoCode} value={c.isoCode}>{c.name}</option>
-                ))}
-              </select>
-              {errors.country && <div className="invalid-feedback">{errors.country}</div>}
-            </div>
-
-            {/* MOBILE + OTP */}
-            <div className="mb-3">
-              <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Mobile number</label>
-              <div className="d-flex gap-2 align-items-center">
-                <div style={{ flex: 1 }}>
-                  <PhoneInput
-                    country={form.country ? form.country.toLowerCase() : "in"}
-                    value={form.phone}
-                    onChange={(value, countryData: any) => {
-                      setForm(prev => ({
-                        ...prev,
-                        phone: value,
-                        countryCode: countryData?.dialCode ? `+${countryData.dialCode}` : "",
-                      }))
-                      // reset mobile OTP if number changes
-                      if (mobileOtpSent || mobileOtpVerified) {
-                        setMobileOtpSent(false)
-                        setMobileOtpVerified(false)
-                        setMobileOtp("")
-                      }
-                      if (errors.phone) setErrors(prev => { const n = { ...prev }; delete n.phone; return n })
-                    }}
-                    disabled={mobileOtpVerified}
-                    inputStyle={{ width: "100%", height: "38px", fontSize: "14px" }}
-                  />
-                </div>
-                <button
-                  className="btn btn-outline-dark flex-shrink-0"
-                  style={{ fontSize: "13px", whiteSpace: "nowrap", height: "38px" }}
-                  onClick={handleSendMobileOtp}
-                  disabled={mobileOtpVerified}
-                >
-                  {mobileOtpVerified ? "✓ Verified" : mobileOtpSent ? "Resend" : "Send OTP"}
-                </button>
-              </div>
-              {errors.phone && (
-                <div className="text-danger mt-1" style={{ fontSize: "12px" }}>{errors.phone}</div>
-              )}
-            </div>
-
-            {/* MOBILE OTP INPUT */}
-            {mobileOtpSent && !mobileOtpVerified && (
-              <div className="mb-3">
-                <label className="form-label" style={{ fontSize: "13px" }}>Enter Mobile OTP</label>
-                <div className="alert alert-warning py-1 px-2 mb-2" style={{ fontSize: "12px" }}>
-                  🧪 <strong>Demo OTP:</strong> {DUMMY_MOBILE_OTP}
-                </div>
-                <div className="d-flex gap-2">
-                  <input
-                    className="form-control"
-                    placeholder="6-digit OTP"
-                    value={mobileOtp}
-                    maxLength={6}
-                    onChange={(e) => setMobileOtp(e.target.value.replace(/\D/g, ""))}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleVerifyMobileOtp() }}
-                  />
-                  <button
-                    className="btn btn-success flex-shrink-0"
-                    style={{ fontSize: "13px", whiteSpace: "nowrap" }}
-                    onClick={handleVerifyMobileOtp}
-                    disabled={mobileOtp.length < 6}
-                  >
-                    Verify
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Mobile verified badge */}
-            {mobileOtpVerified && (
-              <div className="mb-3 d-flex align-items-center gap-1" style={{ fontSize: "13px", color: "#16a34a" }}>
-                <span>✓</span><span>Mobile number verified</span>
-              </div>
-            )}
-
-            {errors.mobileOtp && (
-              <div className="text-danger mb-2" style={{ fontSize: "12px" }}>{errors.mobileOtp}</div>
-            )}
-
-            {/* PASSWORD */}
-            <div className="mb-3">
-              <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Password</label>
-              <input
-                type="password"
-                className={`form-control ${errors.password ? "is-invalid" : ""}`}
-                placeholder="8+ characters, letter & number"
-                name="password"
-                value={form.password}
-                onChange={handleChange}
-              />
-              {errors.password && <div className="invalid-feedback">{errors.password}</div>}
-            </div>
-
-            {/* TERMS */}
-            <div className="mb-4">
-              <div className="form-check d-flex align-items-start gap-2">
-                <input
-                  type="checkbox"
-                  className="form-check-input mt-1 flex-shrink-0"
-                  id="terms"
-                  name="terms"
-                  checked={form.terms}
-                  onChange={handleChange}
-                  style={{ width: "16px", height: "16px", cursor: "pointer" }}
-                />
-                <label
-                  className="form-check-label"
-                  htmlFor="terms"
-                  style={{ fontSize: "13px", lineHeight: "1.5" }}
-                >
-                  I agree to the{" "}
-                  <a href="#" style={{ color: "#6c63ff", textDecoration: "none" }}>Privacy Policy</a>,{" "}
-                  <a href="#" style={{ color: "#6c63ff", textDecoration: "none" }}>Terms of Service</a>{" "}
-                  and{" "}
-                  <a href="#" style={{ color: "#6c63ff", textDecoration: "none" }}>Terms of Business</a>.
-                </label>
-              </div>
-              {errors.terms && (
-                <div className="text-danger mt-1" style={{ fontSize: "12px" }}>{errors.terms}</div>
-              )}
-            </div>
-
-            {/* SUBMIT */}
-            <button
-              className="btn btn-dark w-100 d-flex align-items-center justify-content-center gap-2"
-              style={{ borderRadius: "50px", padding: "12px", fontSize: "15px", fontWeight: "600" }}
-              onClick={handleRegister}
-              disabled={loading}
+      {/* EMAIL OTP INPUT */}
+      {emailOtpSent && !emailOtpVerified && (
+        <div className="mb-3">
+          <label className="form-label" style={{ fontSize: "13px" }}>Enter Email OTP</label>
+          <div className="d-flex gap-2">
+            <input
+              className="form-control"
+              placeholder="6-digit OTP"
+              value={emailOtp}
+              maxLength={6}
+              onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={(e) => { if (e.key === "Enter") handleVerifyEmailOtp() }}
+            />
+            <Button
+              variant="success"
+              onClick={handleVerifyEmailOtp}
+              disabled={emailOtpLoading || emailOtp.length < 6}
+              size="sm"
             >
-              {loading && <span className="spinner-border spinner-border-sm" />}
-              {loading ? "Creating account..." : "Create account"}
-            </button>
-
-            <p className="text-center mt-3 mb-0">
-              <small className="text-muted">
-                Already have an account?{" "}
-                <span
-                  className="fw-bold"
-                  style={{ color: "#6c63ff", cursor: "pointer" }}
-                  onClick={() => navigate("/login")}
-                >
-                  Login
-                </span>
-              </small>
-            </p>
-
+              {emailOtpLoading ? "Verifying…" : "Verify"}
+            </Button>
           </div>
         </div>
+      )}
 
-        {/* ── RIGHT IMAGE ── */}
-        <div className="col-lg-7 d-none d-lg-block p-0" style={{ minHeight: "100vh" }}>
-
-          <img
-            src={salonImg}
-            alt="salon"
-            className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
-            style={{ zIndex: 0 }}
-          />
+      {emailOtpVerified && (
+        <div className="mb-3 d-flex align-items-center gap-1" style={{ fontSize: "13px", color: "#16a34a" }}>
+          <span>✓</span><span>Email verified</span>
         </div>
+      )}
 
+      {errors.emailOtp && (
+        <div className="text-danger mb-2" style={{ fontSize: "12px" }}>{errors.emailOtp}</div>
+      )}
+
+      {/* COUNTRY */}
+      <div className="mb-3">
+        <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Country</label>
+        <select
+          className={`form-select ${errors.country ? "is-invalid" : ""}`}
+          name="country"
+          value={form.country}
+          onChange={handleChange}
+        >
+          <option value="">Select Country</option>
+          {countries.map(c => (
+            <option key={c.isoCode} value={c.isoCode}>{c.name}</option>
+          ))}
+        </select>
+        {errors.country && <div className="invalid-feedback">{errors.country}</div>}
       </div>
+
+      {/* MOBILE + OTP */}
+      <div className="mb-3">
+        <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Mobile number</label>
+        <div className="d-flex gap-2 align-items-center">
+          <div style={{ flex: 1 }}>
+            <PhoneInput
+              country={form.country ? form.country.toLowerCase() : "in"}
+              value={form.phone}
+              onChange={(value, countryData: any) => {
+                setForm(prev => ({
+                  ...prev,
+                  phone: value,
+                  countryCode: countryData?.dialCode ? `+${countryData.dialCode}` : "",
+                }))
+                if (mobileOtpSent || mobileOtpVerified) {
+                  setMobileOtpSent(false)
+                  setMobileOtpVerified(false)
+                  setMobileOtp("")
+                }
+                if (errors.phone) setErrors(prev => { const n = { ...prev }; delete n.phone; return n })
+              }}
+              disabled={mobileOtpVerified}
+              inputStyle={{ width: "100%", height: "38px", fontSize: "14px" }}
+            />
+          </div>
+          <Button
+            variant="outline-dark"
+            onClick={handleSendMobileOtp}
+            disabled={mobileOtpVerified}
+            size="sm"
+            style={{ height: "38px", whiteSpace: "nowrap" }}
+          >
+            {mobileOtpVerified ? "✓ Verified" : mobileOtpSent ? "Resend" : "Send OTP"}
+          </Button>
+        </div>
+        {errors.phone && (
+          <div className="text-danger mt-1" style={{ fontSize: "12px" }}>{errors.phone}</div>
+        )}
+      </div>
+
+      {/* MOBILE OTP INPUT */}
+      {mobileOtpSent && !mobileOtpVerified && (
+        <div className="mb-3">
+          <label className="form-label" style={{ fontSize: "13px" }}>Enter Mobile OTP</label>
+          <div className="alert alert-warning py-1 px-2 mb-2" style={{ fontSize: "12px" }}>
+            🧪 <strong>Demo OTP:</strong> {DUMMY_MOBILE_OTP}
+          </div>
+          <div className="d-flex gap-2">
+            <input
+              className="form-control"
+              placeholder="6-digit OTP"
+              value={mobileOtp}
+              maxLength={6}
+              onChange={(e) => setMobileOtp(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={(e) => { if (e.key === "Enter") handleVerifyMobileOtp() }}
+            />
+            <Button
+              variant="success"
+              onClick={handleVerifyMobileOtp}
+              disabled={mobileOtp.length < 6}
+              size="sm"
+            >
+              Verify
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {mobileOtpVerified && (
+        <div className="mb-3 d-flex align-items-center gap-1" style={{ fontSize: "13px", color: "#16a34a" }}>
+          <span>✓</span><span>Mobile number verified</span>
+        </div>
+      )}
+
+      {errors.mobileOtp && (
+        <div className="text-danger mb-2" style={{ fontSize: "12px" }}>{errors.mobileOtp}</div>
+      )}
+
+      {/* PASSWORD */}
+      <Input
+        type="password"
+        label="Password"
+        placeholder="8+ characters, letter & number"
+        name="password"
+        value={form.password}
+        onChange={handleChange}
+        error={errors.password}
+      />
+
+      {/* TERMS */}
+      <div className="mb-4">
+        <div className="form-check d-flex align-items-start gap-2">
+          <input
+            type="checkbox"
+            className="form-check-input mt-1 flex-shrink-0"
+            id="terms"
+            name="terms"
+            checked={form.terms}
+            onChange={handleChange}
+            style={{ width: "16px", height: "16px", cursor: "pointer" }}
+          />
+          <label
+            className="form-check-label"
+            htmlFor="terms"
+            style={{ fontSize: "13px", lineHeight: "1.5" }}
+          >
+            I agree to the{" "}
+            <a href="#" style={{ color: "#6c63ff", textDecoration: "none" }}>Privacy Policy</a>,{" "}
+            <a href="#" style={{ color: "#6c63ff", textDecoration: "none" }}>Terms of Service</a> and <a href="#" style={{ color: "#6c63ff", textDecoration: "none" }}>Terms of Business</a>.
+          </label>
+        </div>
+        {errors.terms && (
+          <div className="text-danger mt-1" style={{ fontSize: "12px" }}>{errors.terms}</div>
+        )}
+      </div>
+
+      {/* SUBMIT */}
+      <Button
+        variant="dark"
+        fullWidth
+        onClick={handleRegister}
+        loading={loading}
+        size="lg"
+      >
+        Create account
+      </Button>
+
+      <p className="text-center mt-3 mb-0">
+        <small className="text-muted">
+          Already have an account?{" "}
+          <span
+            className="fw-bold"
+            style={{ color: "#6c63ff", cursor: "pointer" }}
+            onClick={() => navigate("/login")}
+          >
+            Login
+          </span>
+        </small>
+      </p>
     </div>
   )
-}
+
+  const RightSection = (
+    <img
+      src={salonImg}
+      alt="salon"
+      className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
+      style={{ zIndex: 0 }}
+    />
+  )
+
+  return (
+    <SplitLayout 
+      leftContent={LeftSection} 
+      rightContent={RightSection} 
+    />
+  )
+}

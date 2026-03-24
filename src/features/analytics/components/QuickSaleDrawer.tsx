@@ -1,6 +1,11 @@
-import { Search, X, Sliders, ChevronLeft } from "react-bootstrap-icons";
+import { Search, X, Sliders, ChevronLeft, ChevronDown } from "react-bootstrap-icons";
 import "../styles/QuickSaleDrawer.scss";
 import { useEffect, useState, useRef } from "react";
+
+// UI Components
+import Button from "../../../components/ui/Button";
+import Input from "../../../components/ui/Input";
+import Modal from "../../../components/ui/Modal";
 
 interface Props {
   isOpen: boolean;
@@ -80,21 +85,25 @@ export default function QuickSaleDrawer({ isOpen, onClose }: Props) {
     <div className="quick-sale-overlay">
       <div className="quick-sale-panel">
         {/* HEADER */}
-        <div className="quick-sale-header">
-          <div>
-            <div className="breadcrumb">
-              <span>Cart</span>
-              <span>›</span>
-              <span>Tip</span>
-              <span>›</span>
-              <span className="muted">Payment</span>
+        <div className="quick-sale-header d-flex align-items-center justify-content-between p-3 border-bottom">
+          <div className="flex-grow-1">
+            <div className="breadcrumb small text-muted mb-1">
+              <span className="cursor-pointer hover-text-dark">Cart</span>
+              <span className="mx-2">›</span>
+              <span className="cursor-pointer hover-text-dark">Tip</span>
+              <span className="mx-2">›</span>
+              <span className="text-muted opacity-50">Payment</span>
             </div>
-            <h3>Add to cart</h3>
+            <h3 className="h5 mb-0 fw-bold">Add to cart</h3>
           </div>
 
-          <button className="close-btn" onClick={onClose}>
-            <X size={18} />
-          </button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            iconLeft={<X size={20} />}
+            className="p-1"
+          />
         </div>
 
         {/* BODY */}
@@ -102,54 +111,36 @@ export default function QuickSaleDrawer({ isOpen, onClose }: Props) {
           {/* LEFT SIDE */}
           <div className="quick-sale-left">
             {/* SEARCH */}
-            <div className="search-wrapper">
-              <Search size={16} className="search-icon" />
-              <input type="text" placeholder="Search" />
+            <div className="search-wrapper mb-3">
+              <Input
+                placeholder="Search"
+                className="mb-0"
+                containerClass="mb-0"
+                iconLeft={<Search size={16} />}
+              />
             </div>
 
             {/* TABS */}
-            <div className="quick-tabs">
-              <button
-                className={activeTab === "quick" ? "active" : ""}
-                onClick={() => setActiveTab("quick")}
-              >
-                Quick Sale
-              </button>
-
-              <button
-                className={activeTab === "appointments" ? "active" : ""}
-                onClick={() => setActiveTab("appointments")}
-              >
-                Appointments
-              </button>
-
-              <button
-                className={activeTab === "services" ? "active" : ""}
-                onClick={() => setActiveTab("services")}
-              >
-                Services
-              </button>
-
-              <button
-                className={activeTab === "products" ? "active" : ""}
-                onClick={() => setActiveTab("products")}
-              >
-                Products
-              </button>
-
-              <button
-                className={activeTab === "memberships" ? "active" : ""}
-                onClick={() => setActiveTab("memberships")}
-              >
-                Memberships
-              </button>
-
-              <button
-                className={activeTab === "giftcards" ? "active" : ""}
-                onClick={() => setActiveTab("giftcards")}
-              >
-                Gift cards
-              </button>
+            <div className="quick-tabs d-flex gap-1 mb-4 overflow-auto pb-1 no-scrollbar">
+              {[
+                { id: "quick", label: "Quick Sale" },
+                { id: "appointments", label: "Appointments" },
+                { id: "services", label: "Services" },
+                { id: "products", label: "Products" },
+                { id: "memberships", label: "Memberships" },
+                { id: "giftcards", label: "Gift cards" }
+              ].map(tab => (
+                <Button
+                  key={tab.id}
+                  variant={activeTab === tab.id ? "dark" : "outline-dark"}
+                  size="sm"
+                  onClick={() => setActiveTab(tab.id)}
+                  className="text-nowrap"
+                  pill
+                >
+                  {tab.label}
+                </Button>
+              ))}
             </div>
 
             {/* QUICK SALE */}
@@ -164,22 +155,24 @@ export default function QuickSaleDrawer({ isOpen, onClose }: Props) {
             {/* APPOINTMENTS */}
             {activeTab === "appointments" && (
               <>
-                <div className="appointments-top">
-                  <div className="date-selector-container" ref={dateDropdownRef}>
-                    <button
-                      className="filter-btn"
+                <div className="appointments-top d-flex align-items-center justify-content-between gap-2 mb-3">
+                  <div className="date-selector-container position-relative flex-grow-1" ref={dateDropdownRef}>
+                    <Button
+                      variant="outline-dark"
+                      fullWidth
+                      className="text-start d-flex justify-content-between align-items-center"
                       onClick={() => setShowDateDropdown(!showDateDropdown)}
+                      iconRight={<ChevronDown size={14} className={`ms-auto transition-all ${showDateDropdown ? 'rotate-180' : ''}`} />}
                     >
                       {selectedDateLabel}
-                    </button>
+                    </Button>
 
                     {showDateDropdown && (
-                      <div className="date-dropdown-menu">
+                      <div className="date-dropdown-menu shadow-lg border position-absolute start-0 w-100 mt-1 bg-white z-2 overflow-auto" style={{ maxHeight: '300px' }}>
                         {dateOptions.map((option) => (
                           <div
                             key={option}
-                            className={`date-dropdown-item ${selectedDateLabel === option ? "active" : ""
-                              }`}
+                            className={`date-dropdown-item p-2 cursor-pointer small ${selectedDateLabel === option ? "bg-light fw-bold" : "hover-bg-light"}`}
                             onClick={() => {
                               setSelectedDateLabel(option);
                               setShowDateDropdown(false);
@@ -192,12 +185,11 @@ export default function QuickSaleDrawer({ isOpen, onClose }: Props) {
                     )}
                   </div>
 
-                  <button
-                    className="filter-icon-btn"
+                  <Button
+                    variant="outline-dark"
                     onClick={() => setShowFilters(true)}
-                  >
-                    <Sliders size={16} />
-                  </button>
+                    iconLeft={<Sliders size={16} />}
+                  />
                 </div>
 
                 <div className="empty-box">
@@ -213,22 +205,25 @@ export default function QuickSaleDrawer({ isOpen, onClose }: Props) {
 
             {/* SERVICES */}
             {activeTab === "services" && (
-              <div className="services-list">
-                <div className="service-card">
-                  <div className="service-left">
-                    <h5>Haircut</h5>
-                    <p>1h 30min</p>
-                  </div>
-                  <div className="service-price">₹25</div>
-                </div>
-
-                <div className="service-card">
-                  <div className="service-left">
-                    <h5>Blow Dry</h5>
-                    <p>1h 30min</p>
-                  </div>
-                  <div className="service-price">₹25</div>
-                </div>
+              <div className="services-list d-flex flex-column gap-2 mt-2">
+                {[
+                  { id: 1, name: "Haircut", duration: "1h 30min", price: "₹25" },
+                  { id: 2, name: "Blow Dry", duration: "1h 30min", price: "₹25" }
+                ].map(service => (
+                  <Button
+                    key={service.id}
+                    variant="ghost"
+                    fullWidth
+                    className="service-card p-3 border rounded-3 text-start d-flex align-items-center justify-content-between hover-bg-light"
+                    onClick={() => console.log("Select service", service.name)}
+                  >
+                    <div>
+                      <h5 className="h6 mb-1 fw-bold">{service.name}</h5>
+                      <p className="small text-muted mb-0">{service.duration}</p>
+                    </div>
+                    <div className="fw-bold">{service.price}</div>
+                  </Button>
+                ))}
               </div>
             )}
 
@@ -244,33 +239,29 @@ export default function QuickSaleDrawer({ isOpen, onClose }: Props) {
             {/* MEMBERSHIPS */}
             {activeTab === "memberships" && (
               <>
-                <div className="membership-filter-row">
+                <div className="membership-filter-row d-flex align-items-center justify-content-between mb-3 mt-2">
                   <div></div>
 
-                  <div className="membership-controls">
+                  <div className="membership-controls d-flex align-items-center gap-2">
                     <div
-                      className="membership-selector-container"
+                      className="membership-selector-container position-relative"
                       ref={membershipDropdownRef}
                     >
-                      <button
-                        className="all-btn"
-                        onClick={() =>
-                          setShowMembershipDropdown(!showMembershipDropdown)
-                        }
+                      <Button
+                        variant="outline-dark"
+                        size="sm"
+                        onClick={() => setShowMembershipDropdown(!showMembershipDropdown)}
+                        iconRight={<ChevronDown size={14} className={`ms-2 ${showMembershipDropdown ? 'rotate-180' : ''}`} />}
                       >
-                        {selectedMembershipLabel} ▾
-                      </button>
+                        {selectedMembershipLabel}
+                      </Button>
 
                       {showMembershipDropdown && (
-                        <div className="membership-dropdown-menu">
+                        <div className="membership-dropdown-menu shadow border position-absolute end-0 mt-1 bg-white z-2 overflow-auto" style={{ width: '150px' }}>
                           {membershipOptions.map((option) => (
                             <div
                               key={option}
-                              className={`membership-dropdown-item ${
-                                selectedMembershipLabel === option
-                                  ? "active"
-                                  : ""
-                              }`}
+                              className={`membership-dropdown-item p-2 cursor-pointer small ${selectedMembershipLabel === option ? "bg-light fw-bold" : "hover-bg-light"}`}
                               onClick={() => {
                                 setSelectedMembershipLabel(option);
                                 setShowMembershipDropdown(false);
@@ -283,12 +274,12 @@ export default function QuickSaleDrawer({ isOpen, onClose }: Props) {
                       )}
                     </div>
 
-                    <button
-                      className="filter-icon-btn"
+                    <Button
+                      variant="outline-dark"
+                      size="sm"
                       onClick={() => setShowFilters(true)}
-                    >
-                      <Sliders size={16} />
-                    </button>
+                      iconLeft={<Sliders size={16} />}
+                    />
                   </div>
                 </div>
 
@@ -315,73 +306,86 @@ export default function QuickSaleDrawer({ isOpen, onClose }: Props) {
           <div className="quick-sale-right">
             {!showClientSelection ? (
               <>
-                <div
-                  className="add-client-card"
+                <Button
+                  variant="ghost"
+                  fullWidth
                   onClick={() => setShowClientSelection(true)}
+                  className="add-client-card p-3 border rounded-3 text-start d-flex align-items-center justify-content-between mb-3 hover-bg-light"
                 >
                   <div>
-                    <h5>Add client</h5>
-                    <p>Leave empty for walk-ins</p>
+                    <h5 className="h6 mb-1 fw-bold">Add client</h5>
+                    <p className="small text-muted mb-0">Leave empty for walk-ins</p>
                   </div>
-                  <div className="client-icon">+</div>
-                </div>
+                  <div className="client-icon rounded-circle border d-flex align-items-center justify-content-center" style={{ width: '32px', height: '32px' }}>
+                    +
+                  </div>
+                </Button>
 
                 <div className="right-divider" />
 
-                <div className="cart-empty">
-                  <div className="cart-icon">🛒</div>
-                  <h4>Your cart is empty</h4>
-                  <p>
+                <div className="cart-empty flex-grow-1 d-flex flex-column align-items-center justify-content-center text-center p-4">
+                  <div className="cart-icon h1 mb-3 opacity-25">🛒</div>
+                  <h4 className="h5 fw-bold mb-2">Your cart is empty</h4>
+                  <p className="small text-muted mb-0">
                     Tap an item to add to cart or add an existing client for
                     smart recommendations
                   </p>
                 </div>
               </>
             ) : (
-              <div className="client-selection-view">
-                <div className="client-selection-header">
-                  <button
-                    className="back-btn"
+              <div className="client-selection-view h-100 d-flex flex-column">
+                <div className="client-selection-header d-flex align-items-center gap-3 mb-3 p-2">
+                  <Button
+                    variant="ghost"
                     onClick={() => setShowClientSelection(false)}
+                    iconLeft={<ChevronLeft size={20} />}
+                    className="p-1"
+                  />
+                  <h4 className="h5 mb-0 fw-bold">Select client</h4>
+                </div>
+
+                <div className="client-search-wrapper mb-3 px-2">
+                  <Input
+                    placeholder="Search by name, email or..."
+                    className="mb-0"
+                    containerClass="mb-0"
+                    iconLeft={<Search size={16} />}
+                  />
+                </div>
+
+                <div className="client-list flex-grow-1 overflow-auto px-2">
+                  {[
+                    { initials: "AJ", name: "Avinash J", phone: "+91 98765 43210" },
+                    { initials: "JD", name: "John Doe", phone: "+91 98765 43211" },
+                    { initials: "JS", name: "Jane Smith", phone: "+91 98765 43212" }
+                  ].map(client => (
+                    <Button
+                      key={client.phone}
+                      variant="ghost"
+                      fullWidth
+                      className="client-item p-3 mb-2 border rounded-3 text-start d-flex align-items-center gap-3 hover-bg-light"
+                    >
+                      <div className="client-avatar rounded-circle bg-dark text-white d-flex align-items-center justify-content-center fw-bold" style={{ minWidth: '40px', height: '40px' }}>
+                        {client.initials}
+                      </div>
+                      <div className="client-info">
+                        <div className="client-name fw-bold small">{client.name}</div>
+                        <div className="client-phone extra-small text-muted">{client.phone}</div>
+                      </div>
+                    </Button>
+                  ))}
+                </div>
+
+                <div className="client-selection-footer p-3 border-top mt-auto">
+                  <Button
+                    variant="dark"
+                    fullWidth
+                    pill
+                    onClick={() => console.log("New client")}
+                    iconLeft={<span className="me-1">+</span>}
                   >
-                    <ChevronLeft size={20} />
-                  </button>
-                  <h4>Select client</h4>
-                </div>
-
-                <div className="client-search-wrapper">
-                  <Search size={16} className="search-icon" />
-                  <input type="text" placeholder="Search by name, email or..." />
-                </div>
-
-                <div className="client-list">
-                  <div className="client-item">
-                    <div className="client-avatar">AJ</div>
-                    <div className="client-info">
-                      <div className="client-name">Avinash J</div>
-                      <div className="client-phone">+91 98765 43210</div>
-                    </div>
-                  </div>
-                  <div className="client-item">
-                    <div className="client-avatar">JD</div>
-                    <div className="client-info">
-                      <div className="client-name">John Doe</div>
-                      <div className="client-phone">+91 98765 43211</div>
-                    </div>
-                  </div>
-                  <div className="client-item">
-                    <div className="client-avatar">JS</div>
-                    <div className="client-info">
-                      <div className="client-name">Jane Smith</div>
-                      <div className="client-phone">+91 98765 43212</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="client-selection-footer">
-                  <button className="new-client-btn">
-                    <span>+</span> New client
-                  </button>
+                    New client
+                  </Button>
                 </div>
               </div>
             )}
@@ -390,74 +394,69 @@ export default function QuickSaleDrawer({ isOpen, onClose }: Props) {
       </div>
 
       {/* DYNAMIC FILTERS MODAL */}
-      {showFilters && (
-        <div className="filters-modal-overlay">
-          <div className={`filters-modal ${activeTab}-filters-modal`}>
-            <div className="filters-header">
-              <h4>Filters</h4>
-              <button
-                className="close-filters"
-                onClick={() => setShowFilters(false)}
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="filters-content">
-              {activeTab === "appointments" && (
-                <div className="filter-group mb-4">
-                  <label>Team member</label>
-                  <select className="form-select border-1 rounded-3 px-3 py-2">
-                    <option>All team members</option>
-                  </select>
-                </div>
-              )}
-
-              {activeTab === "memberships" && (
-                <>
-                  <div className="filter-group mb-4">
-                    <label>Sessions</label>
-                    <select className="form-select border-1 rounded-3 px-3 py-2">
-                      <option>Any number of sessions</option>
-                    </select>
-                  </div>
-
-                  <div className="filter-group mb-4">
-                    <label>Valid for</label>
-                    <select className="form-select border-1 rounded-3 px-3 py-2">
-                      <option>Any period</option>
-                    </select>
-                  </div>
-
-                  <div className="filter-group-checkbox d-flex align-items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="cover-all-services"
-                      className="form-check-input"
-                    />
-                    <label htmlFor="cover-all-services" className="mb-0">
-                      Display only memberships which cover all services
-                    </label>
-                  </div>
-                </>
-              )}
-            </div>
-            <div className="filters-footer">
-              <button
-                className="btn btn-link text-dark text-decoration-none fw-semibold"
-                onClick={() => setShowFilters(false)}
-              >
-                Clear filters
-              </button>
-              <button
-                className="btn btn-dark rounded-pill px-4 fw-semibold"
-                onClick={() => setShowFilters(false)}
-              >
-                Apply
-              </button>
-            </div>
+      <Modal
+        show={showFilters}
+        onClose={() => setShowFilters(false)}
+        title="Filters"
+        footer={
+          <div className="d-flex align-items-center justify-content-between w-100">
+            <Button
+              variant="ghost"
+              onClick={() => setShowFilters(false)}
+            >
+              Clear filters
+            </Button>
+            <Button
+              variant="dark"
+              pill
+              onClick={() => setShowFilters(false)}
+              className="px-4"
+            >
+              Apply
+            </Button>
           </div>
+        }
+      >
+        <div className="filters-content">
+          {activeTab === "appointments" && (
+            <div className="filter-group mb-4">
+              <label className="form-label small fw-bold">Team member</label>
+              <select className="form-select border-1 rounded-3 px-3 py-2">
+                <option>All team members</option>
+              </select>
+            </div>
+          )}
+
+          {activeTab === "memberships" && (
+            <>
+              <div className="filter-group mb-4">
+                <label className="form-label small fw-bold">Sessions</label>
+                <select className="form-select border-1 rounded-3 px-3 py-2">
+                  <option>Any number of sessions</option>
+                </select>
+              </div>
+
+              <div className="filter-group mb-4">
+                <label className="form-label small fw-bold">Valid for</label>
+                <select className="form-select border-1 rounded-3 px-3 py-2">
+                  <option>Any period</option>
+                </select>
+              </div>
+
+              <div className="filter-group-checkbox d-flex align-items-start gap-2">
+                <input
+                  type="checkbox"
+                  id="cover-all-services"
+                  className="form-check-input mt-1"
+                />
+                <label htmlFor="cover-all-services" className="small text-muted mb-0">
+                  Display only memberships which cover all services
+                </label>
+              </div>
+            </>
+          )}
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

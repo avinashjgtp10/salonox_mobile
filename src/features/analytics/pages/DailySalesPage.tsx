@@ -7,9 +7,12 @@ import {
   FileEarmarkText,
   FileEarmarkExcel
 } from "react-bootstrap-icons"
-import TransactionSummary from "../components/TransactionSummary"
-import CashMovementSummary from "../components/CashMovementSummary"
-import QuickSaleDrawer from "../components/QuickSaleDrawer"
+import TransactionSummary from "../components/TransactionSummary";
+import CashMovementSummary from "../components/CashMovementSummary";
+import QuickSaleDrawer from "../components/QuickSaleDrawer";
+
+// UI Components
+import Button from "../../../components/ui/Button";
 
 export default function DailySalesPage() {
 
@@ -82,87 +85,91 @@ export default function DailySalesPage() {
       <div className="sales-container">
 
         {/* ================= HEADER ================= */}
-        <div className="sales-header">
+        <div className="sales-header d-flex align-items-center justify-content-between mb-4">
           <div>
-            <h2>Daily sales</h2>
-            <p>
+            <h2 className="h3 fw-bold mb-1">Daily sales</h2>
+            <p className="text-muted small mb-0">
               View, filter and export the transactions and cash movement for the day.
             </p>
           </div>
 
-          <div className="header-actions">
+          <div className="header-actions d-flex align-items-center gap-2" onClick={(e) => e.stopPropagation()}>
 
             {/* ===== Export Dropdown ===== */}
-            <div className="export-wrapper" ref={exportRef}>
-              <button
-                className="export-btn"
+            <div className="export-wrapper position-relative" ref={exportRef}>
+              <Button
+                variant="outline-dark"
                 onClick={() => setShowExport(!showExport)}
+                iconRight={<span className={`ms-1 transition-all ${showExport ? 'rotate-180' : ''}`}>▾</span>}
               >
                 Export
-                <span className={`arrow ${showExport ? "rotate" : ""}`}>
-                  ▾
-                </span>
-              </button>
+              </Button>
 
               {showExport && (
-                <div className="export-dropdown">
-
-                  <div className="export-item">
-                    <FileEarmarkPdf size={18} className="export-icon pdf" />
+                <div className="export-dropdown shadow-lg border position-absolute end-0 mt-2 bg-white z-2 rounded-3 overflow-hidden" style={{ minWidth: '150px' }}>
+                  <Button variant="ghost" fullWidth className="text-start p-2 rounded-0 border-bottom" onClick={() => setShowExport(false)}>
+                    <FileEarmarkPdf size={18} className="text-danger me-2" />
                     <span>PDF</span>
-                  </div>
-
-                  <div className="export-item">
-                    <FileEarmarkText size={18} className="export-icon csv" />
+                  </Button>
+                  <Button variant="ghost" fullWidth className="text-start p-2 rounded-0 border-bottom" onClick={() => setShowExport(false)}>
+                    <FileEarmarkText size={18} className="text-primary me-2" />
                     <span>CSV</span>
-                  </div>
-
-                  <div className="export-item">
-                    <FileEarmarkExcel size={18} className="export-icon xls" />
+                  </Button>
+                  <Button variant="ghost" fullWidth className="text-start p-2 rounded-0" onClick={() => setShowExport(false)}>
+                    <FileEarmarkExcel size={18} className="text-success me-2" />
                     <span>Excel</span>
-                  </div>
-
+                  </Button>
                 </div>
               )}
             </div>
 
             {/* ===== Add New ===== */}
-            <button
-              className="add-btn"
+            <Button
+              variant="dark"
+              pill
+              className="px-4"
               onClick={() => setDrawerOpen(true)}
             >
               Add new
-            </button>
+            </Button>
 
           </div>
         </div>
 
         {/* ================= DATE BAR ================= */}
-        <div className="date-bar">
-          <div className="date-pill-container">
+        <div className="date-bar mb-4">
+          <div className="date-pill-container d-inline-flex align-items-center bg-light rounded-pill p-1 gap-1">
+            <Button
+              variant="ghost"
+              className="rounded-circle p-1"
+              onClick={handlePrev}
+              iconLeft={<span>&#8249;</span>}
+            />
 
-            <button className="date-arrow" onClick={handlePrev}>
-              &#8249;
-            </button>
+            <div className="vr mx-1" style={{ height: '20px', opacity: 0.1 }}></div>
 
-            <div className="date-divider"></div>
-
-            <button className="today-btn" onClick={handleToday}>
+            <Button
+              variant="ghost"
+              className="px-3 small fw-bold"
+              onClick={handleToday}
+            >
               Today
-            </button>
+            </Button>
 
-            <div className="date-divider"></div>
+            <div className="vr mx-1" style={{ height: '20px', opacity: 0.1 }}></div>
 
-            <span className="date-text">
+            <span className="date-text px-3 small fw-bold">
               {format(selectedDate, "EEEE d MMM, yyyy")}
             </span>
 
-            <div className="date-divider"></div>
+            <div className="vr mx-1" style={{ height: '20px', opacity: 0.1 }}></div>
 
-            <button className="date-arrow" onClick={handleNext}>
-              &#8250;
-            </button>
-
+            <Button
+              variant="ghost"
+              className="rounded-circle p-1"
+              onClick={handleNext}
+              iconLeft={<span>&#8250;</span>}
+            />
           </div>
         </div>
 

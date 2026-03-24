@@ -3,7 +3,7 @@ import { Navigate, Outlet } from "react-router-dom"
 import type { RootState } from "../../store/store"
 
 const OnboardingGuard = () => {
-  const { token, isOnboardingComplete } = useSelector((state: any) => state.auth)
+  const { token, isOnboardingComplete } = useSelector((state: RootState) => state.auth)
 
   if (!token) {
     return <Navigate to="/login" replace />

@@ -6,7 +6,7 @@ import { salonApi } from "../../services/api/salon.api"
 import { updateOnboardingStatus } from "../../store/authSlice"
 
 const AuthGuard = () => {
-  const { token, isOnboardingComplete } = useSelector((state: any) => state.auth)
+  const { token, isOnboardingComplete } = useSelector((state: RootState) => state.auth)
   const dispatch = useDispatch()
   const [checking, setChecking] = useState(!isOnboardingComplete && !!token)
   const [verified, setVerified] = useState(isOnboardingComplete)
