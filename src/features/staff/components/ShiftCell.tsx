@@ -1,9 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
+import type { ShiftTime } from "./AddShiftModal";
 import "../styles/ShiftCell.scss";
-export interface ShiftTime {
-  start: string;
-  end: string;
-}
 
 interface ShiftCellProps {
   shift?: ShiftTime;
@@ -15,11 +12,12 @@ interface ShiftCellProps {
   onSetRepeating: (memberId: number, date: string) => void;
   onAddTimeOff: (memberId: number, date: string) => void;
   onDeleteShift: (memberId: number, date: string) => void;
+  onViewMember: (memberId: number) => void;
 }
 
 const ShiftCell: React.FC<ShiftCellProps> = ({
   shift, isOff, memberId, date,
-  onAddShift, onEditDay, onSetRepeating, onAddTimeOff, onDeleteShift,
+  onAddShift, onEditDay, onSetRepeating, onAddTimeOff, onDeleteShift, onViewMember,
 }) => {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
@@ -70,12 +68,16 @@ const ShiftCell: React.FC<ShiftCellProps> = ({
               <button className="shift-cell__pop-item" onClick={() => act(() => onAddTimeOff(memberId, date))}>Add time off</button>
               <div className="shift-cell__pop-divider" />
               <button className="shift-cell__pop-item shift-cell__pop-item--red" onClick={() => act(() => onDeleteShift(memberId, date))}>Delete this shift</button>
+              <div className="shift-cell__pop-divider" />
+              <button className="shift-cell__pop-item" onClick={() => act(() => onViewMember(memberId))}>View team member</button>
             </>
           ) : (
             <>
               <button className="shift-cell__pop-item" onClick={() => act(() => onAddShift(memberId, date))}>Add shift</button>
               <button className="shift-cell__pop-item" onClick={() => act(() => onSetRepeating(memberId, date))}>Set repeating shifts</button>
               <button className="shift-cell__pop-item" onClick={() => act(() => onAddTimeOff(memberId, date))}>Add time off</button>
+              <div className="shift-cell__pop-divider" />
+              <button className="shift-cell__pop-item" onClick={() => act(() => onViewMember(memberId))}>View team member</button>
             </>
           )}
         </div>
