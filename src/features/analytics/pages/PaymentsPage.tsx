@@ -4,6 +4,8 @@ import {
   Calendar3,
   Sliders,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   FileEarmarkText,
   CreditCard2Back,
   Pencil
@@ -34,6 +36,41 @@ export default function PaymentsPage() {
   const [showCalendar, setShowCalendar] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [showOptions, setShowOptions] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const ITEMS_PER_PAGE = 8
+
+  const allPayments = [
+    { id: "P-1001", client: "Avinash Joshi",    method: "Cash",      type: "Service",    amount: 57,   date: "25 Mar 2026", time: "10:15 AM", status: "Completed" },
+    { id: "P-1002", client: "Walk-in",          method: "Other",     type: "Service",    amount: 40,   date: "25 Mar 2026", time: "11:00 AM", status: "Completed" },
+    { id: "P-1003", client: "John Doe",         method: "Gift card", type: "Gift Card",  amount: 100,  date: "24 Mar 2026", time: "02:30 PM", status: "Completed" },
+    { id: "P-1004", client: "Jane Smith",       method: "Cash",      type: "Service",    amount: 150,  date: "24 Mar 2026", time: "04:00 PM", status: "Completed" },
+    { id: "P-1005", client: "Riya Patel",       method: "Other",     type: "Membership", amount: 999,  date: "23 Mar 2026", time: "09:45 AM", status: "Completed" },
+    { id: "P-1006", client: "Walk-in",          method: "Cash",      type: "Service",    amount: 35,   date: "23 Mar 2026", time: "01:15 PM", status: "Completed" },
+    { id: "P-1007", client: "Priya Sharma",     method: "Split",     type: "Service",    amount: 207,  date: "22 Mar 2026", time: "11:30 AM", status: "Completed" },
+    { id: "P-1008", client: "Karan Mehta",      method: "Gift card", type: "Gift Card",  amount: 500,  date: "22 Mar 2026", time: "03:00 PM", status: "Refunded" },
+    { id: "P-1009", client: "Sneha Kulkarni",   method: "Other",     type: "Service",    amount: 85,   date: "21 Mar 2026", time: "10:00 AM", status: "Completed" },
+    { id: "P-1010", client: "Amit Desai",       method: "Cash",      type: "Service",    amount: 57,   date: "21 Mar 2026", time: "12:45 PM", status: "Completed" },
+    { id: "P-1011", client: "Meera Iyer",       method: "Other",     type: "Membership", amount: 1499, date: "20 Mar 2026", time: "02:00 PM", status: "Completed" },
+    { id: "P-1012", client: "Walk-in",          method: "Cash",      type: "Service",    amount: 40,   date: "20 Mar 2026", time: "05:15 PM", status: "Completed" },
+  ]
+
+  const totalPages = Math.ceil(allPayments.length / ITEMS_PER_PAGE)
+  const paginatedPayments = allPayments.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  )
+
+  const methodBadgeClass = (method: string) => {
+    switch (method) {
+      case "Cash":      return "badge-method-cash"
+      case "Gift card": return "badge-method-gift"
+      case "Split":     return "badge-method-split"
+      default:          return "badge-method-other"
+    }
+  }
+
+  const statusBadgeClass = (status: string) =>
+    status === "Refunded" ? "badge-status-refunded" : "badge-status-completed"
 
   const calendarRef = useRef<HTMLDivElement>(null)
   const optionsRef = useRef<HTMLDivElement>(null)
@@ -203,21 +240,91 @@ export default function PaymentsPage() {
         </div>
       </div>
 
-      {/* EMPTY STATE */}
-      <Card className="text-center py-5 border-0 rounded-4 empty-state-card shadow-sm mt-2 flex-grow-1 d-flex flex-column align-items-center justify-content-center" style={{ minHeight: '400px' }}>
-        <div className="mb-4">
-          <div className="d-flex align-items-center justify-content-center mx-auto empty-state-icon" style={{ 
-            width: '60px', 
-            height: '60px', 
-            borderRadius: '15px', 
-            background: 'linear-gradient(135deg, #a855f7 0%, #d946ef 100%)' 
-          }}>
-            <CreditCard2Back size={30} className="text-white" />
+      {/* DATA TABLE or EMPTY STATE */}
+      {allPayments.length > 0 ? (
+        <>
+          <div className="payments-table-wrapper rounded-4 shadow-sm border bg-white overflow-hidden">
+            <table className="payments-table w-100">
+              <thead>
+                <tr>
+                  <th>Reference</th>
+                  <th>Date &amp; Time</th>
+                  <th>Client</th>
+                  <th>Type</th>
+                  <th>Method</th>
+                  <th>Status</th>
+                  <th className="text-end">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedPayments.map(p => (
+                  <tr key={p.id} className="payments-table-row">
+                    <td className="fw-bold text-dark small">{p.id}</td>
+                    <td>
+                      <div className="fw-bold small">{p.date}</div>
+                      <div className="extra-small text-muted">{p.time}</div>
+                    </td>
+                    <td className="fw-bold small">{p.client}</td>
+                    <td><span className="payment-type-badge">{p.type}</span></td>
+                    <td><span className={`payment-method-badge ${methodBadgeClass(p.method)}`}>{p.method}</span></td>
+                    <td><span className={`payment-status-badge ${statusBadgeClass(p.status)}`}>{p.status}</span></td>
+                    <td className="text-end fw-bold small">₹{p.amount.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
-        <h4 className="fw-bold mb-2 text-dark h5">No results found</h4>
-        <p className="text-muted small">Try adjusting your search and filters.</p>
-      </Card>
+
+          {/* PAGINATION */}
+          <div className="payments-pagination d-flex align-items-center justify-content-between mt-4">
+            <div className="small text-muted">
+              Showing <strong>{(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, allPayments.length)}</strong> of <strong>{allPayments.length}</strong> transactions
+            </div>
+            <div className="d-flex align-items-center gap-2">
+              <button
+                className="pagination-btn"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              >
+                <ChevronLeft size={14} />
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                <button
+                  key={page}
+                  className={`pagination-num ${page === currentPage ? 'active' : ''}`}
+                  onClick={() => setCurrentPage(page)}
+                >
+                  {page}
+                </button>
+              ))}
+
+              <button
+                className="pagination-btn"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              >
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        </>
+      ) : (
+        <Card className="text-center py-5 border-0 rounded-4 empty-state-card shadow-sm mt-2 flex-grow-1 d-flex flex-column align-items-center justify-content-center" style={{ minHeight: '400px' }}>
+          <div className="mb-4">
+            <div className="d-flex align-items-center justify-content-center mx-auto empty-state-icon" style={{ 
+              width: '60px', 
+              height: '60px', 
+              borderRadius: '15px', 
+              background: 'linear-gradient(135deg, #a855f7 0%, #d946ef 100%)' 
+            }}>
+              <CreditCard2Back size={30} className="text-white" />
+            </div>
+          </div>
+          <h4 className="fw-bold mb-2 text-dark h5">No results found</h4>
+          <p className="text-muted small">Try adjusting your search and filters.</p>
+        </Card>
+      )}
 
       {/* CALENDAR MODAL */}
       <Modal

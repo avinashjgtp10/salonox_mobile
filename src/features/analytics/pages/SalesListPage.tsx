@@ -39,6 +39,7 @@ import "react-date-range/dist/styles.css"
 import "react-date-range/dist/theme/default.css"
 
 import QuickSaleDrawer from "../components/QuickSaleDrawer"
+import { useSale } from "../context/SaleContext"
 
 export default function SalesListPage() {
   const [showCalendar, setShowCalendar] = useState(false)
@@ -62,6 +63,8 @@ export default function SalesListPage() {
   // Dropdown states
   const [showOptions, setShowOptions] = useState(false)
   const [showSort, setShowSort] = useState(false)
+  const { drafts, cancelDraft } = useSale();
+  const [selectedDraft, setSelectedDraft] = useState<any | null>(null)
   const optionsRef = useRef<HTMLDivElement>(null)
   const sortRef = useRef<HTMLDivElement>(null)
 
@@ -417,38 +420,143 @@ export default function SalesListPage() {
         </div>
       </Modal>
 
-      {/* EMPTY STATE */}
-      <Card className="text-center py-5 border-0 rounded-4 empty-state-card shadow-sm mt-2 flex-grow-1 d-flex flex-column align-items-center justify-content-center" style={{ minHeight: '400px' }}>
-        <div className="mb-4">
-          <div className="d-flex align-items-center justify-content-center mx-auto empty-state-icon" style={{ 
-            width: '60px', 
-            height: '60px', 
-            borderRadius: '15px', 
-            background: activeTab === "sales" 
-              ? 'linear-gradient(135deg, #a855f7 0%, #d946ef 100%)' 
-              : 'linear-gradient(135deg, #d8b4fe 0%, #e879f9 100%)' 
-          }}>
-            {activeTab === "sales" ? (
-              <TagFill size={30} className="text-white" />
+      {/* DRAFTS & SALES CONTENT */}
+      <div className="sales-content-wrapper d-flex gap-4">
+        <div className="table-container flex-grow-1">
+          {activeTab === "sales" ? (
+            <Card className="text-center py-5 border-0 rounded-4 empty-state-card shadow-sm mt-2 d-flex flex-column align-items-center justify-content-center" style={{ minHeight: '400px' }}>
+              <div className="mb-4">
+                <div className="d-flex align-items-center justify-content-center mx-auto empty-state-icon" style={{ 
+                  width: '60px', 
+                  height: '60px', 
+                  borderRadius: '15px', 
+                  background: 'linear-gradient(135deg, #a855f7 0%, #d946ef 100%)' 
+                }}>
+                  <TagFill size={30} className="text-white" />
+                </div>
+              </div>
+              <h4 className="fw-bold mb-3 text-dark h5">No sales yet</h4>
+              <div className="mt-2 text-center w-100 d-flex justify-content-center">
+                <Button variant="outline-dark" pill className="px-4" onClick={() => setDrawerOpen(true)}>Create new sale</Button>
+              </div>
+            </Card>
+          ) : (
+            drafts.length > 0 ? (
+              <div className="drafts-table-wrapper bg-white rounded-4 shadow-sm overflow-hidden border">
+                <table className="table mb-0 align-middle">
+                  <thead className="bg-light">
+                    <tr>
+                      <th className="p-3 extra-small text-muted fw-bold text-uppercase border-0">Draft #</th>
+                      <th className="p-3 extra-small text-muted fw-bold text-uppercase border-0">Client</th>
+                      <th className="p-3 extra-small text-muted fw-bold text-uppercase border-0 text-center">Status</th>
+                      <th className="p-3 extra-small text-muted fw-bold text-uppercase border-0">Created</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {drafts.map((draft: any) => (
+                      <tr 
+                        key={draft.id} 
+                        className={`cursor-pointer transition-all ${selectedDraft?.id === draft.id ? 'bg-light fw-bold' : 'hover-bg-light'}`}
+                        onClick={() => setSelectedDraft(draft)}
+                      >
+                        <td className="p-3 text-primary small fw-bold">{draft.id}</td>
+                        <td className="p-3 small fw-bold">{draft.client}</td>
+                        <td className="p-3 text-center">
+                          <span className="badge rounded-pill px-3 bg-light text-muted border small">Draft</span>
+                        </td>
+                        <td className="p-3 small text-muted">{draft.created}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             ) : (
-              <Receipt size={30} className="text-white" />
-            )}
+              <Card className="text-center py-5 border-0 rounded-4 empty-state-card shadow-sm mt-2 d-flex flex-column align-items-center justify-content-center" style={{ minHeight: '400px' }}>
+                <div className="mb-4">
+                  <div className="d-flex align-items-center justify-content-center mx-auto empty-state-icon" style={{ 
+                    width: '60px', 
+                    height: '60px', 
+                    borderRadius: '15px', 
+                    background: 'linear-gradient(135deg, #d8b4fe 0%, #e879f9 100%)' 
+                  }}>
+                    <Receipt size={30} className="text-white" />
+                  </div>
+                </div>
+                <h4 className="fw-bold mb-3 text-dark h5">No draft sales yet</h4>
+                <div className="mt-2 text-center w-100 d-flex justify-content-center">
+                  <Button variant="outline-dark" pill className="px-4" onClick={() => setDrawerOpen(true)}>Create new sale</Button>
+                </div>
+              </Card>
+            )
+          )}
+        </div>
+
+        {/* DETAIL PANE */}
+        {activeTab === "drafts" && selectedDraft && (
+          <div className="draft-detail-pane bg-white rounded-4 shadow-sm border p-4" style={{ width: '400px', display: 'flex', flexDirection: 'column' }}>
+            <div className="detail-header d-flex justify-content-between align-items-start mb-4">
+              <div>
+                <span className="badge bg-light text-muted border rounded-pill px-3 extra-small mb-2">Unpaid</span>
+                <h4 className="fw-bold h5 mb-0">Draft sale</h4>
+                <p className="extra-small text-muted">{selectedDraft.created.split(',')[0]}</p>
+              </div>
+              <div className="d-flex gap-2">
+                <Button variant="dark" size="sm" pill className="px-3 py-1">Checkout</Button>
+                <Button variant="ghost" size="sm" className="p-1 border rounded-circle"><ChevronDown size={14} /></Button>
+              </div>
+            </div>
+
+            <div className="client-info-card border rounded-4 p-3 d-flex align-items-center justify-content-between mb-4 bg-light bg-opacity-10">
+              <div className="d-flex align-items-center gap-2">
+                <div className="avatar rounded-circle bg-light text-primary d-flex align-items-center justify-content-center" style={{ width: '32px', height: '32px' }}>
+                  <Receipt size={16} />
+                </div>
+                <span className="small fw-bold">{selectedDraft.client}</span>
+              </div>
+              <Button variant="ghost" size="sm" className="p-1"><ChevronDown size={14} /></Button>
+            </div>
+
+            <div className="items-list flex-grow-1">
+              <div className="d-flex justify-content-between mb-3">
+                <span className="extra-small text-muted fw-bold text-uppercase">{selectedDraft.id}</span>
+                <span className="extra-small text-muted">{selectedDraft.created.split(',')[0]}</span>
+              </div>
+              
+              {selectedDraft.items.map((item: any, idx: number) => (
+                <div key={idx} className="draft-item d-flex justify-content-between align-items-start mb-3">
+                  <div>
+                    <div className="small fw-bold">{item.name}</div>
+                    <div className="extra-small text-muted">1h 15min · dhumal dipak</div>
+                  </div>
+                  <div className="small fw-bold">₹{item.price * (item.quantity || 1)}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="detail-footer border-top pt-3 mt-auto">
+              <div className="d-flex justify-content-between mb-2">
+                <span className="small text-muted fw-bold">Subtotal</span>
+                <span className="small text-muted fw-bold">₹{selectedDraft.total}</span>
+              </div>
+              <div className="d-flex justify-content-between mb-2">
+                <span className="small text-dark fw-bold">Total</span>
+                <span className="small text-dark fw-bold">₹{selectedDraft.total}</span>
+              </div>
+              <div className="d-flex justify-content-between pt-2">
+                <span className="small text-dark fw-bold">Balance</span>
+                <span className="small text-dark fw-bold">₹{selectedDraft.total}</span>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-4 border-top">
+              <Button variant="outline-danger" fullWidth pill size="sm" className="py-2" onClick={() => {
+                cancelDraft(selectedDraft.id);
+                setSelectedDraft(null);
+              }}>Cancel draft</Button>
+            </div>
           </div>
-        </div>
-        <h4 className="fw-bold mb-3 text-dark h5">
-          {activeTab === "sales" ? "No sales yet" : "No draft sales yet"}
-        </h4>
-        <div className="mt-2 text-center w-100 d-flex justify-content-center">
-          <Button 
-            variant="outline-dark"
-            pill
-            className="px-4"
-            onClick={() => setDrawerOpen(true)}
-          >
-            Create new sale
-          </Button>
-        </div>
-      </Card>
+        )}
+      </div>
 
       {/* ================= QUICK SALE DRAWER ================= */}
       <QuickSaleDrawer
