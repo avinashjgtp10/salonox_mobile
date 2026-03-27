@@ -177,21 +177,21 @@ export default function SalesListPage() {
               Options
             </Button>
             {showOptions && (
-              <div className="sales-dropdown-menu options-menu shadow-lg border position-absolute end-0 mt-2 bg-white z-2 rounded-3 overflow-hidden" style={{ minWidth: '200px' }}>
-                <Button variant="ghost" fullWidth className="text-start p-2 rounded-0 border-bottom" onClick={() => setShowOptions(false)}>
+              <div className="sales-dropdown-menu options-menu shadow-lg border position-absolute mt-2 bg-white z-2 rounded-3 overflow-hidden" style={{ minWidth: '200px' }}>
+                <Button variant="ghost" fullWidth className="text-center p-3 rounded-0 border-bottom d-flex align-items-center justify-content-center" onClick={() => setShowOptions(false)}>
                   <Gear size={16} className="me-2 text-muted" />
                   <span>Sales settings</span>
                 </Button>
-                <div className="bg-light px-3 py-1 small fw-bold text-muted border-bottom">Export</div>
-                <Button variant="ghost" fullWidth className="text-start p-2 rounded-0 border-bottom" onClick={() => setShowOptions(false)}>
+                <div className="px-3 py-2 small fw-bold text-muted border-bottom text-center">Export</div>
+                <Button variant="ghost" fullWidth className="text-center p-3 rounded-0 border-bottom d-flex align-items-center justify-content-center" onClick={() => setShowOptions(false)}>
                   <FileEarmarkPdf size={16} className="text-danger me-2" />
                   <span>PDF</span>
                 </Button>
-                <Button variant="ghost" fullWidth className="text-start p-2 rounded-0 border-bottom" onClick={() => setShowOptions(false)}>
+                <Button variant="ghost" fullWidth className="text-center p-3 rounded-0 border-bottom d-flex align-items-center justify-content-center" onClick={() => setShowOptions(false)}>
                   <FileEarmarkText size={16} className="text-primary me-2" />
                   <span>CSV</span>
                 </Button>
-                <Button variant="ghost" fullWidth className="text-start p-2 rounded-0" onClick={() => setShowOptions(false)}>
+                <Button variant="ghost" fullWidth className="text-center p-3 rounded-0 d-flex align-items-center justify-content-center" onClick={() => setShowOptions(false)}>
                   <FileEarmarkExcel size={16} className="text-success me-2" />
                   <span>Excel</span>
                 </Button>
@@ -281,9 +281,9 @@ export default function SalesListPage() {
               Sort by
             </Button>
             {showSort && (
-              <div className="sales-dropdown-menu sort-menu shadow-lg border position-absolute end-0 mt-2 bg-white z-2 rounded-3 overflow-auto" style={{ maxHeight: '300px', width: '220px' }}>
+              <div className="sales-dropdown-menu sort-menu shadow-lg border position-absolute mt-2 bg-white z-2 rounded-3 overflow-auto" style={{ maxHeight: '300px', width: '220px' }}>
                 {["Sale # (Z-A)", "Sale # (A-Z)", "Client (Z-A)", "Client (A-Z)", "Sale date (newest first)", "Sale date (oldest first)", "Location (Z-A)", "Location (A-Z)", "Tips (highest first)", "Tips (lowest first)", "Gross total (highest first)", "Gross total (lowest first)"].map(opt => (
-                  <Button key={opt} variant="ghost" fullWidth className="text-start p-2 rounded-0 small border-bottom" onClick={() => setShowSort(false)}>{opt}</Button>
+                  <Button key={opt} variant="ghost" fullWidth className="text-center p-2 rounded-0 small border-bottom" onClick={() => setShowSort(false)}>{opt}</Button>
                 ))}
               </div>
             )}
@@ -359,10 +359,11 @@ export default function SalesListPage() {
         show={showFilters}
         onClose={() => setShowFilters(false)}
         title="Filters"
+        size="lg"
         footer={
           <div className="d-flex justify-content-end gap-3 w-100">
             <Button
-              variant="ghost"
+              variant="outline-dark"
               pill
               className="px-4"
               onClick={() => setShowFilters(false)}
@@ -384,9 +385,12 @@ export default function SalesListPage() {
         <div className="filters-content">
           <div className="mb-4">
             <label className="form-label small fw-bold">Status</label>
-            <select className="form-select rounded-3 p-2">
-              <option>All statuses</option>
-            </select>
+            <div className="position-relative">
+              <select className="form-select rounded-3 p-2 pe-5" style={{ appearance: "none" }}>
+                <option>All statuses</option>
+              </select>
+              <ChevronDown className="position-absolute end-0 top-50 translate-middle-y me-3 text-muted pointer-events-none" size={14} />
+            </div>
           </div>
 
           <div className="row mb-4">
@@ -413,9 +417,12 @@ export default function SalesListPage() {
 
           <div className="mb-2">
             <label className="form-label small fw-bold">Including items</label>
-            <select className="form-select rounded-3 p-2">
-              <option>Select item type</option>
-            </select>
+            <div className="position-relative">
+              <select className="form-select rounded-3 p-2 pe-5" style={{ appearance: "none" }}>
+                <option>Select item type</option>
+              </select>
+              <ChevronDown className="position-absolute end-0 top-50 translate-middle-y me-3 text-muted pointer-events-none" size={14} />
+            </div>
           </div>
         </div>
       </Modal>

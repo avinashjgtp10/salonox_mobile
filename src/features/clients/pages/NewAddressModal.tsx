@@ -55,6 +55,7 @@ export default function NewAddressModal({ open, onClose, onSave }: Props) {
       show={open}
       onClose={onClose}
       title="New address"
+      size="lg"
       footer={
         <div className="d-flex justify-content-end gap-2 w-100">
           <Button variant="outline-dark" onClick={onClose}>

@@ -132,6 +132,7 @@ export default function LoginPage() {
         onClick={handleGoogleLogin}
         iconLeft={<FcGoogle size={20} />}
         disabled={loading}
+        className="mb-3"
       >
         Continue with Google
       </Button>

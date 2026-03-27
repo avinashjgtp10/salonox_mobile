@@ -1,0 +1,153 @@
+.stocktakes-page {
+  background-color: #f7f9fa;
+  min-height: 100vh;
+  
+  h1 {
+    font-size: 24px;
+    color: #1a1a1a;
+  }
+  
+  .badge {
+    background-color: #f1f3f5;
+    color: #6c757d;
+  }
+  
+  .search-input-wrapper input {
+    width: 320px;
+    height: 40px;
+    border: 1px solid #e0e0e0;
+    
+    &:focus {
+      border-color: #1a1a1a;
+      box-shadow: none;
+    }
+  }
+  
+  .btn-outline-secondary {
+    border-color: #e0e0e0;
+    color: #1a1a1a;
+    height: 40px;
+    
+    &:hover, &.active {
+      background-color: #f1f3f5;
+      color: #1a1a1a;
+      border-color: #e0e0e0;
+    }
+  }
+
+  /* Table Styles */
+  .table-responsive {
+    background: transparent;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .custom-table {
+    margin-bottom: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+
+    thead th {
+      background-color: transparent;
+      color: #1a1a1a;
+      font-weight: 600;
+      font-size: 14px;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 16px 20px;
+      border-top: none;
+
+      svg {
+        opacity: 0.5;
+        &:hover { opacity: 1; }
+      }
+    }
+
+    tbody td {
+      background-color: transparent;
+      padding: 16px 20px;
+      vertical-align: middle;
+      border-bottom: 1px solid #e0e0e0;
+      font-size: 14px;
+    }
+
+    tbody tr {
+      &:hover td {
+        background-color: #f9f9f9;
+      }
+    }
+  }
+
+  /* Status Badges */
+  .status-badge {
+    padding: 6px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 500;
+    display: inline-block;
+
+    &.badge-review {
+      background-color: #f3e8ff;
+      color: #7e22ce;
+    }
+    
+    &.badge-in-progress {
+      background-color: #fef3c7;
+      color: #d97706;
+    }
+    
+    &.badge-paused {
+      background-color: #e2e8f0;
+      color: #475569;
+    }
+    
+    &.badge-completed {
+      background-color: #d1fae5;
+      color: #059669;
+    }
+    
+    &.badge-canceled {
+      background-color: #fee2e2;
+      color: #dc2626;
+    }
+
+    &.badge-default {
+      background-color: #f1f3f5;
+      color: #6c757d;
+    }
+  }
+
+  /* Filter Modal Background */
+  .modal-backdrop-custom {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .filter-modal {
+    width: 480px;
+    max-width: 90vw;
+    z-index: 1051;
+    position: relative;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .btn-close-custom {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #6c757d;
+    padding: 0;
+    
+    &:hover {
+      color: #1a1a1a;
+    }
+  }
+}

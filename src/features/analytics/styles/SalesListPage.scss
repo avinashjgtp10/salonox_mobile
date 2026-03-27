@@ -184,7 +184,8 @@
 .sales-dropdown-menu {
   position: absolute;
   top: 100%;
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
   margin-top: 8px;
   background: white;
   min-width: 200px;

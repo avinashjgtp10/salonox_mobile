@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from "react-router-dom"
+import { Routes, Route, Navigate, Outlet } from "react-router-dom"
 import { Toaster } from "react-hot-toast"
 
 import LoginPage from "./features/auth/pages/LoginPage"
@@ -41,6 +41,7 @@ import TimesheetsPage from "./features/staff/pages/TimesheetsPage"
 import PayRunsPage from "./features/staff/pages/PayRunsPage"
 import PayRunBreakdownPage from "./features/staff/pages/PayRunBreakdownPage"
 import ScheduledShiftsPage from "./features/dashboard/pages/ScheduledShiftsPage"
+import RepeatingShiftsPage from "./features/staff/pages/RepeatingShiftsPage"
 import ServicesListPage from "./features/catalog/pages/ServicesListPage"
 import AddServicePage from "./features/catalog/pages/AddServicePage"
 import CategoriesPage from "./features/catalog/pages/CategoriesPage"
@@ -49,9 +50,16 @@ import CreateMembershipPage from "./features/catalog/pages/CreateMembershipPage"
 import ProductsListPage from "./features/catalog/pages/ProductsListPage"
 import ProductsLandingPage from "./features/catalog/pages/ProductsLandingPage"
 import CreateProductPage from "./features/catalog/pages/CreateProductPage"
+import ImportProductsPage from "./features/catalog/pages/ImportProductsPage"
+import StocktakesListPage from "./features/catalog/pages/StocktakesListPage"
+import AddStocktakePage from "./features/catalog/pages/AddStocktakePage"
+import StockOrdersListPage from "./features/catalog/pages/StockOrdersListPage"
+import SuppliersListPage from "./features/catalog/pages/SuppliersListPage"
+import AddSupplierPage from "./features/catalog/pages/AddSupplierPage"
 import AddOnsPage from "./features/apps/pages/AddOnsPage"
 import { AuthProvider } from "./features/bookings/context/AuthContext"
 import { SchedulerProvider } from "./features/bookings/store/SchedulerContext"
+import { SaleProvider } from "./features/analytics/context/SaleContext"
 
 import GuestGuard from "./components/guards/GuestGuard"
 import OnboardingGuard from "./components/guards/OnboardingGuard"
@@ -89,8 +97,9 @@ function App() {
         </Route>
 
         {/* PROTECTED DASHBOARD ROUTES (Must be logged in AND finished) */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
+
         <Route element={<AuthGuard />}>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
           
           <Route
             path="/dashboard"
@@ -106,7 +115,7 @@ function App() {
             <Route path="calendar" element={<Scheduler />} />
             <Route path="apps" element={<AddOnsPage />} />
             
-            <Route path="sales">
+            <Route path="sales" element={<SaleProvider><Outlet /></SaleProvider>}>
               <Route index element={<SalesListPage />} />
               <Route path="daily" element={<DailySalesPage />} />
               <Route path="appointments" element={<AppointmentsPage />} />
@@ -125,6 +134,13 @@ function App() {
               <Route path="products" element={<ProductsListPage />} />
               <Route path="products/landing" element={<ProductsLandingPage />} />
               <Route path="products/create" element={<CreateProductPage />} />
+              <Route path="products/import" element={<ImportProductsPage />} />
+              <Route path="inventory/stocktakes" element={<StocktakesListPage />} />
+              <Route path="inventory/stocktakes/new" element={<AddStocktakePage />} />
+              <Route path="inventory/stock-orders" element={<StockOrdersListPage />} />
+              <Route path="inventory/orders" element={<Navigate to="/dashboard/catalog/inventory/stock-orders" replace />} />
+              <Route path="inventory/suppliers" element={<SuppliersListPage />} />
+              <Route path="inventory/suppliers/new" element={<AddSupplierPage />} />
             </Route>
 
             {/* CLIENTS */}
@@ -150,10 +166,13 @@ function App() {
               />
             </Route>
 
-            {/* STAFF */}
-            <Route path="staff">
+            {/* TEAM */}
+            <Route path="team">
               <Route index element={<StaffListPage />} />
+              <Route path="members" element={<StaffListPage />} />
               <Route path="add" element={<AddStaffPage />} />
+              <Route path="repeating-shifts/:id" element={<RepeatingShiftsPage />} />
+              <Route path=":id" element={<AddStaffPage />} />
               <Route path="timesheets" element={<TimesheetsPage />} />
               <Route path="payruns" element={<PayRunsPage />} />
               <Route path="payruns/:id" element={<PayRunBreakdownPage />} />
