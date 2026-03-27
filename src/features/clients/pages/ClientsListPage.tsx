@@ -31,6 +31,8 @@ export default function ClientsListPage() {
   const location = useLocation();
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ROWS_PER_PAGE = 10;
 
   const fetchClients = async () => {
     setLoading(true);
@@ -39,6 +41,7 @@ export default function ClientsListPage() {
       console.log("CLIENT API RESPONSE:", res.data);
       const clientsData = res.data?.data?.items || [];
       setClients(Array.isArray(clientsData) ? clientsData : []);
+      setCurrentPage(1);
     } catch (error) {
       console.error("Error fetching clients", error);
     } finally {
@@ -518,55 +521,98 @@ export default function ClientsListPage() {
             {clients.length === 0 ? (
               <div className="text-center p-5 text-muted">No clients found.</div>
             ) : (
-              clients.map(client => (
-                <div
-                  key={client.id}
-                  className="table-row"
-                  onClick={() => {
-                    setSelectedClientId(client.id);
-                    setIsDrawerOpen(true);
-                  }}
-                >
-                  <div className="col-checkbox">
-                    <input
-                      type="checkbox"
-                      checked={selectedClients.includes(String(client.id))}
-                      onChange={() => { }}
-                      onClick={(e) => handleSelectClient(e, String(client.id))}
-                    />
-                  </div>
+              (() => {
+                const totalPages = Math.ceil(clients.length / ROWS_PER_PAGE);
+                const paginatedClients = clients.slice(
+                  (currentPage - 1) * ROWS_PER_PAGE,
+                  currentPage * ROWS_PER_PAGE
+                );
+                return paginatedClients.map(client => (
+                  <div
+                    key={client.id}
+                    className="table-row"
+                    onClick={() => {
+                      setSelectedClientId(client.id);
+                      setIsDrawerOpen(true);
+                    }}
+                  >
+                    <div className="col-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={selectedClients.includes(String(client.id))}
+                        onChange={() => { }}
+                        onClick={(e) => handleSelectClient(e, String(client.id))}
+                      />
+                    </div>
 
-                  <div className="col-name">
-                    <div className="avatar">{(client.first_name?.[0] || 'C').toUpperCase()}</div>
-                    <div>
-                      <div className="name">
-                        {`${client.first_name || ''} ${client.last_name || ''}`}
-                        {client.is_blocked && (
-                          <span className="blocked-badge">Blocked</span>
-                        )}
+                    <div className="col-name">
+                      <div className="avatar">{(client.first_name?.[0] || 'C').toUpperCase()}</div>
+                      <div>
+                        <div className="name">
+                          {`${client.first_name || ''} ${client.last_name || ''}`}
+                          {client.is_blocked && (
+                            <span className="blocked-badge">Blocked</span>
+                          )}
+                        </div>
+                        <div className="email">{client.email || '-'}</div>
                       </div>
-                      <div className="email">{client.email || '-'}</div>
+                    </div>
+
+                    <div>{client.phone_number || '-'}</div>
+                    <div>-</div>
+                    <div>-</div>
+                    <div>
+                      {client.created_at
+                        ? new Date(client.created_at).toLocaleDateString()
+                        : "-"}
                     </div>
                   </div>
-
-                  <div>{client.phone_number || '-'}</div>
-                  <div>-</div>
-                  <div>-</div>
-                  <div>
-                    {client.created_at
-                      ? new Date(client.created_at).toLocaleDateString()
-                      : "-"}
-                  </div>
-                </div>
-              ))
+                ));
+              })()
             )}
           </div>
         </div>
       )}
 
-      <div className="results-text">
-        Viewing 1–{clients.length} of {clients.length} results
-      </div>
+      {/* ================= PAGINATION ================= */}
+      {clients.length > 0 && (() => {
+        const totalPages = Math.ceil(clients.length / ROWS_PER_PAGE);
+        const startItem = (currentPage - 1) * ROWS_PER_PAGE + 1;
+        const endItem = Math.min(currentPage * ROWS_PER_PAGE, clients.length);
+        const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
+        return (
+          <div className="pagination-bar d-flex align-items-center justify-content-between mt-4">
+            <div className="results-text">
+              Viewing {startItem}–{endItem} of {clients.length} results
+            </div>
+            <div className="pagination-controls d-flex align-items-center gap-1">
+              <button
+                className="pagination-btn"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(p => p - 1)}
+              >
+                ← Prev
+              </button>
+              {pageNumbers.map(page => (
+                <button
+                  key={page}
+                  className={`pagination-btn ${currentPage === page ? 'active' : ''}`}
+                  onClick={() => setCurrentPage(page)}
+                >
+                  {page}
+                </button>
+              ))}
+              <button
+                className="pagination-btn"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(p => p + 1)}
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ================= DELETE MODAL ================= */}
       <Modal

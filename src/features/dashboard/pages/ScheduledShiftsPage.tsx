@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import ShiftCell from "../../staff/components/ShiftCell";
 import MemberRowMenu from "../../staff/components/MemberRowMenu";
 import AddTimeOffModal from "../../staff/components/AddTimeOffModal";
-import type { ShiftTime } from "../../staff/components/ShiftCell";
+import AddShiftModal from "../../staff/components/AddShiftModal";
+import TeamMemberDrawer from "../../staff/components/TeamMemberDrawer";
+import type { ShiftTime } from "../../staff/components/AddShiftModal";
 import "../styles/ScheduledShiftsPage.scss";
 interface Member {
   id: number;
@@ -66,12 +68,12 @@ const MEMBERS: Member[] = [
 
 const SEED_SHIFTS: ShiftMap = {
   1: {
-    "2026-03-09": { start: "10am", end: "7pm" },
-    "2026-03-10": { start: "10am", end: "7pm" },
-    "2026-03-11": { start: "10am", end: "7pm" },
-    "2026-03-12": { start: "10am", end: "7pm" },
-    "2026-03-13": { start: "10am", end: "7pm" },
-    "2026-03-14": { start: "10am", end: "5pm" },
+    "2026-03-09": { start: "10:00 AM", end: "7:00 PM" },
+    "2026-03-10": { start: "10:00 AM", end: "7:00 PM" },
+    "2026-03-11": { start: "10:00 AM", end: "7:00 PM" },
+    "2026-03-12": { start: "10:00 AM", end: "7:00 PM" },
+    "2026-03-13": { start: "10:00 AM", end: "7:00 PM" },
+    "2026-03-14": { start: "10:00 AM", end: "5:00 PM" },
   },
 };
 
@@ -82,6 +84,13 @@ const ScheduledShiftsPage: React.FC = () => {
   const [showOpts, setShowOpts] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [timeOff, setTimeOff] = useState<{ show: boolean; memberId?: number; date?: string }>({ show: false });
+  const [shiftModal, setShiftModal] = useState<{ 
+    show: boolean; 
+    memberId?: number; 
+    date?: string; 
+    initialShifts?: ShiftTime[] 
+  }>({ show: false });
+  const [drawer, setDrawer] = useState<{ show: boolean; member: any | null }>({ show: false, member: null });
   const [isStarted, setIsStarted] = useState(false);
 
   const weekDays = getWeekDays(monday);
@@ -90,11 +99,39 @@ const ScheduledShiftsPage: React.FC = () => {
   const nextWeek = () => { const d = new Date(monday); d.setDate(d.getDate() + 7); setMonday(d); };
   const thisWeek = () => setMonday(getMondayOf(new Date()));
 
-  const addShift = (memberId: number, date: string) => {
-    setShifts(p => ({ ...p, [memberId]: { ...p[memberId], [date]: { start: "10am", end: "6pm" } } }));
+  const handleAddShiftClick = (memberId: number, date: string) => {
+    setShiftModal({ show: true, memberId, date, initialShifts: [] });
   };
+
+  const handleEditDayClick = (memberId: number, date: string) => {
+    const existing = shifts[memberId]?.[date];
+    setShiftModal({ 
+      show: true, 
+      memberId, 
+      date, 
+      initialShifts: existing ? [existing] : [] 
+    });
+  };
+
+  const saveShifts = (memberId: number, date: string, newShifts: ShiftTime[]) => {
+    setShifts(p => {
+        const memberShifts = { ...p[memberId] };
+        if (newShifts.length === 0) {
+            delete memberShifts[date];
+        } else {
+            // For now we only store the first shift to maintain compatibility with existing Map/Component
+            memberShifts[date] = newShifts[0];
+        }
+        return { ...p, [memberId]: memberShifts };
+    });
+  };
+
   const deleteShift = (memberId: number, date: string) => {
-    setShifts(p => { const copy = { ...p[memberId] }; delete copy[date]; return { ...p, [memberId]: copy }; });
+    setShifts(p => {
+      const copy = { ...p[memberId] };
+      delete copy[date];
+      return { ...p, [memberId]: copy };
+    });
   };
   const deleteAll = (memberId: number) => setShifts(p => ({ ...p, [memberId]: {} }));
   const closeDropdowns = () => { setShowOpts(false); setShowAdd(false); };
@@ -246,11 +283,11 @@ const ScheduledShiftsPage: React.FC = () => {
                     </div>
                     <MemberRowMenu
                       memberId={m.id}
-                      onSetRepeating={() => alert("Set repeating")}
+                      onSetRepeating={(mid) => navigate(`/dashboard/team/repeating-shifts/${mid}`)}
                       onUnassign={() => alert("Unassign")}
                       onDeleteAll={deleteAll}
-                      onViewMember={() => navigate(`/dashboard/team/members`)}
-                      onEditMember={() => navigate(`/dashboard/team/add`)}
+                      onViewMember={(mid) => setDrawer({ show: true, member: MEMBERS.find(m => m.id === mid) || null })}
+                      onEditMember={(mid) => navigate(`/dashboard/team/${mid}`)}
                     />
                   </div>
                 </td>
@@ -261,9 +298,10 @@ const ScheduledShiftsPage: React.FC = () => {
                       isOff={d.isOff}
                       memberId={m.id}
                       date={d.dateKey}
-                      onAddShift={addShift}
-                      onEditDay={() => alert(`Edit ${d.dateKey}`)}
-                      onSetRepeating={() => alert("Set repeating")}
+                      onAddShift={handleAddShiftClick}
+                      onEditDay={handleEditDayClick}
+                      onSetRepeating={(mid) => navigate(`/dashboard/team/repeating-shifts/${mid}`)}
+                      onViewMember={(mid) => setDrawer({ show: true, member: MEMBERS.find(m => m.id === mid) || null })}
                       onAddTimeOff={(mid, date) => setTimeOff({ show: true, memberId: mid, date })}
                       onDeleteShift={deleteShift}
                     />
@@ -287,6 +325,24 @@ const ScheduledShiftsPage: React.FC = () => {
         defaultDate={timeOff.date}
         onClose={() => setTimeOff({ show: false })}
         onSave={(data) => console.log("Time off saved:", data)}
+      />
+
+      <AddShiftModal 
+        show={shiftModal.show}
+        member={shiftModal.memberId ? MEMBERS.find(m => m.id === shiftModal.memberId) || null : null}
+        date={shiftModal.date || null}
+        initialShifts={shiftModal.initialShifts}
+        onClose={() => setShiftModal({ show: false })}
+        onSave={saveShifts}
+      />
+
+      <TeamMemberDrawer 
+        show={drawer.show}
+        member={drawer.member}
+        onClose={() => setDrawer({ show: false, member: null })}
+        onViewCalendar={() => navigate("/dashboard/calendar")}
+        onViewShifts={() => navigate("/dashboard/team/shifts")}
+        onAddTimeOff={(mid) => setTimeOff({ show: true, memberId: mid })}
       />
     </div>
   );

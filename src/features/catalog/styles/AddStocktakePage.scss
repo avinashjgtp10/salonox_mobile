@@ -1,0 +1,81 @@
+.add-stocktake-page {
+  background-color: #ffffff;
+  min-height: 100vh;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1050; // sit above dashboard layout
+  
+  &__header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    
+    .header-progress-bar {
+      height: 4px;
+      width: 100%;
+      background: linear-gradient(90deg, #6c5ce7 0%, #6c5ce7 50%, #e0e0e0 50%, #e0e0e0 100%);
+    }
+
+    .btn-outline-secondary {
+      border-color: #e0e0e0;
+      color: #1a1a1a;
+      
+      &:hover {
+        background-color: #f1f3f5;
+      }
+    }
+  }
+
+  &__main {
+    padding: 0 20px;
+    padding-bottom: 60px;
+  }
+
+  .form-container {
+    p.text-muted {
+      font-size: 15px;
+    }
+
+    .location-card {
+      background-color: #fafafa !important;
+      
+      .icon-wrapper {
+        background-color: #ffffff;
+        color: #6c5ce7 !important;
+        border: 1px solid #e0e0e0 !important;
+      }
+
+      h6 {
+        color: #1a1a1a;
+      }
+      
+      p {
+        color: #6c757d;
+      }
+      
+      .btn-link {
+        color: #6c5ce7 !important;
+        font-size: 14px;
+      }
+    }
+
+    .form-control {
+      border: 1px solid #e0e0e0;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 15px;
+
+      &:focus {
+        border-color: #1a1a1a;
+        box-shadow: none;
+      }
+    }
+
+    textarea.form-control {
+      resize: vertical;
+    }
+  }
+}

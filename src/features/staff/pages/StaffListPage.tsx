@@ -14,7 +14,8 @@ import {
     ToggleOn,
     FileEarmarkExcel,
     FiletypeCsv,
-    Pencil
+    Pencil,
+    People
 } from "react-bootstrap-icons";
 import "../styles/StaffListPage.scss";
 import { getStaff, deleteStaff, exportStaff } from "../services/staffService";
@@ -70,7 +71,6 @@ export default function StaffListPage() {
 
     // Checkbox & Actions state
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
-    const [actionsOpenId, setActionsOpenId] = useState<number | null>(null);
     const [optionsOpen, setOptionsOpen] = useState(false);
     const [toast, setToast] = useState<string | null>(null);
 
@@ -104,10 +104,6 @@ export default function StaffListPage() {
     const handleCheck = (e: React.MouseEvent, id: number) => {
         e.stopPropagation();
         setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
-        setActionsOpenId((prev) => {
-            const isChecked = !selectedIds.includes(id);
-            return isChecked ? id : (prev === id ? null : prev);
-        });
     };
 
     const handleDeleteStaff = async (id: number) => {
@@ -164,15 +160,9 @@ export default function StaffListPage() {
         return matchesSearch && matchesLocation && matchesStatus;
     });
 
-    const actionItems = [
-        { label: "Edit", onClick: (id: number) => navigate(`/dashboard/team/${id}`) },
-        { label: "View calendar", onClick: () => navigate("/dashboard/calendar") },
-        { label: "View scheduled shifts", onClick: () => navigate("/dashboard/team/shifts") },
-        { label: "Delete", onClick: (id: number) => handleDeleteStaff(id), className: "text-danger" },
-    ];
 
     return (
-        <div className="staff-list-page" onClick={() => { setActionsOpenId(null); setOptionsOpen(false); }}>
+        <div className="staff-list-page p-4">
 
             {/* ===== TOAST ===== */}
             {toast && (
@@ -185,14 +175,13 @@ export default function StaffListPage() {
             )}
 
             {showFilter && (
-
                 <div className="sl-filter-overlay" onClick={() => setShowFilter(false)}>
                     <div className="sl-filter-drawer" onClick={(e) => e.stopPropagation()}>
-                        <div className="sl-filter-header">
-                            <h4>All filters</h4>
+                        <div className="sl-filter-header border-bottom">
                             <button className="sl-close-btn" onClick={() => setShowFilter(false)} type="button">
                                 <X size={16} />
                             </button>
+                            <h4 className="fw-bold mb-0">All filters</h4>
                         </div>
                         <div className="sl-filter-body">
                             <FilterSection title="Locations" icon={<GeoAlt size={15} />} badge={selectedLocations.length || undefined} onClear={() => setSelectedLocations([])}>
@@ -226,7 +215,7 @@ export default function StaffListPage() {
                                 ))}
                             </FilterSection>
                         </div>
-                        <div className="sl-filter-footer">
+                        <div className="sl-filter-footer border-top">
                             <button className="sl-clear-btn" onClick={clearFilters}>Clear filters</button>
                             <button className="sl-apply-btn" onClick={() => setShowFilter(false)}>Apply</button>
                         </div>
@@ -235,55 +224,77 @@ export default function StaffListPage() {
             )}
 
             {/* ===== HEADER ===== */}
-            <div className="page-header">
-                <div>
-                    <h4 className="d-flex align-items-center gap-2">
-                        Team members 
-                        <Badge variant="dark" pill className="count-badge">{filtered.length}</Badge>
-                    </h4>
-                    <p>Manage your team, their roles and access levels.</p>
+            <div className="page-header d-flex align-items-center justify-content-between mb-4">
+                <div className="header-left">
+                    <div className="title-container d-flex align-items-center">
+                        <h2 className="page-title mb-0 h4 fw-bold">Team members</h2>
+                        <Badge variant="dark" pill className="ms-3 count-badge">{filtered.length}</Badge>
+                    </div>
+                    <p className="page-subtitle text-muted mt-2 small">
+                        Manage your team, their roles and access levels.
+                        <span className="learn-more-link text-primary cursor-pointer ms-1"> Learn more</span>
+                    </p>
                 </div>
-                <div className="header-actions">
-                    {/* OPTIONS BUTTON */}
-                    <div className="options-dropdown" onClick={(e) => e.stopPropagation()}>
+
+                <div className="header-actions d-flex gap-2">
+                    <div className="options-dropdown position-relative" onClick={(e) => e.stopPropagation()}>
                         <Button
                             variant="outline-dark"
                             onClick={() => setOptionsOpen(!optionsOpen)}
-                            iconRight={optionsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                            className="options-btn"
+                            iconRight={<ChevronDown size={14} className={`chevron ${optionsOpen ? 'open' : ''}`} />}
                         >
                             Options
                         </Button>
                         {optionsOpen && (
-                            <div className="options-menu">
-                                <div className="options-item" onClick={() => setOptionsOpen(false)}>
-                                    <span className="opt-icon">🔗</span> Create share link
+                            <div className="options-menu shadow-lg border position-absolute end-0 mt-2 bg-white z-2 p-2 rounded-3" style={{ width: '210px' }}>
+                                <div className="option-item p-2 cursor-pointer hover-bg-light rounded-2 small" onClick={() => setOptionsOpen(false)}>
+                                    <span className="me-2">🔗</span> Create share link
                                 </div>
-                                <div className="options-item" onClick={() => setOptionsOpen(false)}>
-                                    <span className="opt-icon">⚙️</span> Team settings
+                                <div className="option-item p-2 cursor-pointer hover-bg-light rounded-2 small" onClick={() => setOptionsOpen(false)}>
+                                    <span className="me-2">⚙️</span> Team settings
                                 </div>
-                                <div className="options-divider" />
-                                <div className="options-label">Export</div>
-                                <div className="options-item" onClick={handleExportCSV}>
-                                    <FiletypeCsv size={14} /> CSV
+                                <div className="divider border-top my-1" />
+                                <div className="export-title px-2 py-1 extra-small fw-bold text-muted text-uppercase" style={{ letterSpacing: '0.05em' }}>Export</div>
+                                <div className="option-item p-2 cursor-pointer hover-bg-light rounded-2 small" onClick={handleExportCSV}>
+                                    <FiletypeCsv size={14} className="me-2" /> CSV
                                 </div>
-                                <div className="options-item" onClick={handleExportExcel}>
-                                    <FileEarmarkExcel size={14} /> Excel
+                                <div className="option-item p-2 cursor-pointer hover-bg-light rounded-2 small" onClick={handleExportExcel}>
+                                    <FileEarmarkExcel size={14} className="me-2" /> Excel
                                 </div>
                             </div>
                         )}
                     </div>
-                    {/* ADD BUTTON */}
-                    <Button variant="dark" onClick={() => navigate("/dashboard/team/add")} iconLeft={<PersonPlus size={16} />}>
+                    <Button variant="dark" pill className="px-4" onClick={() => navigate("/dashboard/team/add")} iconLeft={<PersonPlus size={16} />}>
                         Add
                     </Button>
                 </div>
             </div>
 
+            {/* ===== INVITE BANNER ===== */}
+            <div className="import-banner mb-4 p-4 rounded-4 position-relative d-flex justify-content-between align-items-center bg-dark text-white overflow-hidden" 
+                 style={{ background: 'linear-gradient(90deg, #111827 0%, #1f2937 100%)' }}>
+                <div className="banner-content z-1">
+                    <h3 className="h5 fw-bold mb-2">Invite your team members</h3>
+                    <p className="small text-white-50 mb-3">Invite your staff to use the app and manage their schedules, services, and performance.</p>
+                    <div className="banner-actions d-flex align-items-center gap-3">
+                        <Button variant="light" pill size="sm" className="fw-bold px-4" onClick={() => navigate("/dashboard/team/add")}>
+                            Start inviting
+                        </Button>
+                        <span className="small text-white-50 cursor-pointer hover-text-white border-bottom border-white-50">Learn more</span>
+                    </div>
+                </div>
+                <div className="banner-image opacity-50">
+                    <People size={80} className="text-white-50" />
+                </div>
+                <button className="banner-close position-absolute top-0 end-0 m-3 border-0 bg-transparent text-white-50 hover-text-white">
+                    <X size={20} />
+                </button>
+            </div>
+
             {/* ===== SEARCH + SORT ===== */}
             <div className="search-container mb-4">
                 <div className="search-section d-flex align-items-center justify-content-between">
-                    <div className="search-left d-flex align-items-center gap-2 flex-grow-1">
+                    <div className="search-left d-flex align-items-center gap-2 flex-grow-1 me-3">
                         <div style={{ maxWidth: '400px', flex: 1 }}>
                             <Input
                                 placeholder="Search team members"
@@ -298,26 +309,27 @@ export default function StaffListPage() {
                             variant="outline-dark"
                             onClick={() => setShowFilter(true)}
                             iconLeft={<Sliders size={14} />}
-                            className="filters-btn position-relative"
                         >
                             Filters
-                            {totalFilterBadge > 0 && <Badge variant="primary" pill className="ms-2">{totalFilterBadge}</Badge>}
+                            {totalFilterBadge > 0 && <Badge variant="dark" pill className="ms-2">{totalFilterBadge}</Badge>}
                         </Button>
                     </div>
-                    <div className="sort-dropdown position-relative ms-3">
+                    <div className="sort-dropdown position-relative">
                         <Button
                             variant="outline-dark"
                             onClick={() => setSortOpen(!sortOpen)}
-                            iconLeft={<ArrowDownUp size={14} />}
-                            iconRight={<ChevronDown size={13} />}
-                            className="sort-btn"
+                            iconRight={<ArrowDownUp size={14} />}
                         >
                             {selectedSort}
                         </Button>
                         {sortOpen && (
-                            <div className="sort-menu shadow border position-absolute end-0 mt-2 bg-white z-2" style={{ width: '220px' }}>
+                            <div className="sort-menu shadow-lg border position-absolute end-0 mt-2 bg-white z-2 rounded-3 overflow-hidden" style={{ width: '220px' }}>
                                 {sortOptions.map((opt) => (
-                                    <div key={opt} className={`sort-item p-2 cursor-pointer ${selectedSort === opt ? "bg-light fw-bold" : ""}`} onClick={() => { setSelectedSort(opt); setSortOpen(false); }}>{opt}</div>
+                                    <div key={opt} 
+                                         className={`sort-item p-3 cursor-pointer small hover-bg-light ${selectedSort === opt ? "bg-light fw-bold" : ""}`} 
+                                         onClick={() => { setSelectedSort(opt); setSortOpen(false); }}>
+                                        {opt}
+                                    </div>
                                 ))}
                             </div>
                         )}
@@ -329,42 +341,62 @@ export default function StaffListPage() {
             {loading ? (
                 <div className="text-center p-5">Loading team members...</div>
             ) : (
-                <div className="table-card border rounded-4 overflow-hidden shadow-sm bg-white">
+                <div className="table-card border-0 rounded-4 shadow-sm bg-white overflow-hidden">
                     <div className="staff-table">
-
-                        {/* TABLE HEADER */}
-                        <div className="table-header py-3 px-4 border-bottom bg-light small fw-bold text-muted text-uppercase d-flex align-items-center">
-                            <div className="col-check" style={{ width: '40px' }}>
-                                <input
-                                    type="checkbox"
-                                    className="form-check-input"
-                                    checked={selectedIds.length === filtered.length && filtered.length > 0}
-                                    onChange={handleSelectAll}
-                                />
+                        {selectedIds.length > 0 ? (
+                            <div className="table-header selected-header py-3 px-4 d-flex align-items-center gap-3 bg-light border-bottom">
+                                <div className="col-checkbox">
+                                    <input
+                                        type="checkbox"
+                                        className="form-check-input"
+                                        checked={selectedIds.length === filtered.length}
+                                        onChange={handleSelectAll}
+                                    />
+                                </div>
+                                <div className="selected-actions-container flex-grow-1 d-flex justify-content-between align-items-center">
+                                    <div className="selected-count small fw-bold">
+                                        {selectedIds.length === filtered.length ? "All selected" : `${selectedIds.length} selected`}
+                                        <span className="mx-2 text-muted">•</span>
+                                        <button className="bg-transparent border-0 text-primary p-0 h6 mb-0 small fw-bold" onClick={() => setSelectedIds([])}>Deselect</button>
+                                    </div>
+                                    <div className="selected-actions-buttons d-flex gap-2">
+                                        <Button variant="outline-dark" size="sm" pill className="px-3">Bulk edit</Button>
+                                        <Button variant="outline-danger" size="sm" pill className="px-3" onClick={() => selectedIds.forEach(id => handleDeleteStaff(id))}>Delete</Button>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="col-name ms-3 flex-grow-1">Name</div>
-                            <div style={{ width: '200px' }}>Contact</div>
-                            <div style={{ width: '150px' }}>Rating</div>
-                            <div style={{ width: '100px' }}>Status</div>
-                            <div style={{ width: '80px' }}></div>
-                        </div>
+                        ) : (
+                            <div className="table-header py-3 px-4 border-bottom bg-light extra-small fw-bold text-muted text-uppercase d-flex align-items-center" style={{ letterSpacing: '0.05em' }}>
+                                <div className="col-check" style={{ width: '40px' }}>
+                                    <input
+                                        type="checkbox"
+                                        className="form-check-input"
+                                        checked={selectedIds.length === filtered.length && filtered.length > 0}
+                                        onChange={handleSelectAll}
+                                    />
+                                </div>
+                                <div className="col-name ms-3 flex-grow-1">Team member</div>
+                                <div style={{ width: '200px' }}>Contact</div>
+                                <div style={{ width: '150px' }}>Rating</div>
+                                <div style={{ width: '100px' }}>Status</div>
+                                <div style={{ width: '80px' }}></div>
+                            </div>
+                        )}
 
                         {filtered.length === 0 ? (
                             <div className="empty-state text-center p-5">
                                 <PersonBadge size={40} className="text-muted opacity-25 mb-3" />
-                                <p className="text-muted">No team members found.</p>
+                                <p className="text-muted small">No team members found.</p>
                             </div>
                         ) : (
                             filtered.map((member) => {
                                 const isChecked = selectedIds.includes(member.id);
-                                const actionsOpen = actionsOpenId === member.id;
                                 return (
                                     <div
                                         key={member.id}
-                                        className={`table-row d-flex align-items-center py-3 px-4 border-bottom cursor-pointer transition-all ${isChecked ? "bg-light" : "hover-bg-light"}`}
+                                        className={`table-row d-flex align-items-center py-3 px-4 border-bottom cursor-pointer transition-all ${isChecked ? "bg-light opacity-75" : "hover-bg-light"}`}
                                         onClick={() => navigate(`/dashboard/team/${member.id}`)}
                                     >
-                                        {/* CHECKBOX */}
                                         <div className="col-check" style={{ width: '40px' }}>
                                             <input
                                                 type="checkbox"
@@ -375,80 +407,38 @@ export default function StaffListPage() {
                                             />
                                         </div>
 
-                                        {/* NAME */}
                                         <div className="col-name ms-3 d-flex align-items-center flex-grow-1">
-                                            <div className="avatar rounded-circle d-flex align-items-center justify-content-center bg-dark text-white fw-bold me-3 shadow-sm" style={{ width: '40px', height: '40px', fontSize: '14px' }}>
+                                            <div className="avatar rounded-circle d-flex align-items-center justify-content-center bg-dark text-white fw-bold me-3" 
+                                                 style={{ width: '36px', height: '36px', fontSize: '13px', background: 'linear-gradient(135deg, #111827 0%, #374151 100%)' }}>
                                                 {(member.first_name?.[0] || 'S').toUpperCase()}
                                             </div>
                                             <div>
-                                                <div className="name fw-bold small">{`${member.first_name || ''} ${member.last_name || ''}`}</div>
+                                                <div className="name fw-bold small text-dark">{`${member.first_name || ''} ${member.last_name || ''}`}</div>
                                                 <div className="email text-muted extra-small">{member.email}</div>
                                             </div>
                                         </div>
 
-                                        {/* CONTACT */}
-                                        <div className="col-contact small text-muted" style={{ width: '200px' }}>
-                                            <div className="contact-phone">{member.phone_number || '-'}</div>
+                                        <div className="col-contact extra-small text-muted" style={{ width: '200px' }}>
+                                            <div className="contact-phone fw-bold text-dark">{member.phone_number || '-'}</div>
                                         </div>
 
-                                        {/* RATING */}
                                         <div className="col-rating" style={{ width: '150px' }}>
-                                            <span className="no-reviews small text-muted">No reviews yet</span>
+                                            <span className="no-reviews extra-small text-muted">No reviews yet</span>
                                         </div>
 
-                                        {/* STATUS */}
                                         <div className="col-status" style={{ width: '100px' }}>
-                                            <Badge variant="success" pill>
+                                            <Badge variant={member.status === "Inactive" ? "light" : "success"} pill className="extra-small px-3">
                                                 {member.status || "Active"}
                                             </Badge>
                                         </div>
 
-                                        {/* ACTIONS — only visible when row is checked */}
                                         <div className="col-actions text-end" style={{ width: '80px' }} onClick={(e) => e.stopPropagation()}>
-                                            {isChecked ? (
-                                                <div className="actions-wrapper position-relative">
-                                                    <Button
-                                                        variant="outline-dark"
-                                                        size="sm"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setActionsOpenId(actionsOpen ? null : member.id);
-                                                        }}
-                                                        iconRight={<ChevronDown size={12} />}
-                                                    >
-                                                        Actions
-                                                    </Button>
-                                                    {actionsOpen && (
-                                                        <div className="actions-menu shadow border position-absolute end-0 mt-1 bg-white z-2" style={{ width: '180px' }}>
-                                                            {actionItems.map((item) => (
-                                                                <div
-                                                                    key={item.label}
-                                                                    className={`action-item p-2 cursor-pointer small ${item.className || ''}`}
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        setActionsOpenId(null);
-                                                                        item.onClick(member.id);
-                                                                    }}
-                                                                >
-                                                                    {item.label}
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="p-1"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        navigate(`/dashboard/team/${member.id}`);
-                                                    }}
-                                                >
-                                                    <Pencil size={14} />
-                                                </Button>
-                                            )}
+                                            <Button variant="ghost" size="sm" className="p-1 text-muted hover-text-dark" onClick={(e) => {
+                                                e.stopPropagation();
+                                                navigate(`/dashboard/team/${member.id}`);
+                                            }}>
+                                                <Pencil size={14} />
+                                            </Button>
                                         </div>
                                     </div>
                                 );
@@ -458,13 +448,14 @@ export default function StaffListPage() {
                 </div>
             )}
 
-            <div className="results-text">
+            <div className="results-text mt-4 text-end extra-small text-muted fw-bold text-uppercase" style={{ letterSpacing: '0.05em' }}>
                 Viewing 1–{filtered.length} of {filtered.length} results
             </div>
 
         </div>
     );
 }
+
 
 function FilterSection({
     title, icon, badge, onClear, children, defaultOpen = false,

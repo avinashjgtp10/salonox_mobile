@@ -60,9 +60,9 @@ export default function DashboardLayout() {
 
           <div className="profile">SJ</div>
 
-          <div 
-            className="logout-btn" 
-            style={{ cursor: "pointer", marginLeft: "15px", display: "flex", alignItems: "center", color: "#6c757d" }} 
+          <div
+            className="logout-btn"
+            style={{ cursor: "pointer", marginLeft: "15px", display: "flex", alignItems: "center", color: "#6c757d" }}
             onClick={handleLogout}
             title="Logout"
           >

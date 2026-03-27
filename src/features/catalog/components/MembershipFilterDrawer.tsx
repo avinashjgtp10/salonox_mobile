@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { X, ChevronDown } from "react-bootstrap-icons";
+import Button from "../../../components/ui/Button";
 import "../styles/Membershipfilterdrawer.scss";
 
 interface FilterState {
@@ -112,8 +113,8 @@ const MembershipFilterDrawer: React.FC<Props> = ({ onClose, onApply, initialFilt
                 </div>
 
                 <footer className="membership-filters-drawer__footer">
-                    <button className="btn-clear" onClick={handleClear}>Clear filters</button>
-                    <button className="btn-apply" onClick={handleApply}>Apply</button>
+                    <Button variant="outline-dark" pill fullWidth onClick={handleClear}>Clear filters</Button>
+                    <Button variant="dark" pill fullWidth onClick={handleApply}>Apply</Button>
                 </footer>
             </div>
         </div>

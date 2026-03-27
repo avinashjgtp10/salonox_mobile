@@ -492,7 +492,7 @@ export default function RegisterPage() {
         Create account
       </Button>
 
-      <p className="text-center mt-3 mb-0">
+      <p className="text-center mt-3 mb-4">
         <small className="text-muted">
           Already have an account?{" "}
           <span
@@ -504,6 +504,26 @@ export default function RegisterPage() {
           </span>
         </small>
       </p>
+
+      {/* DUMMY DASHBOARD BUTTON */}
+      <Button
+        variant="outline-primary"
+        fullWidth
+        onClick={() => {
+          const dummyPayload = btoa(JSON.stringify({ name: "Demo User", email: "demo@example.com" }))
+          const dummyToken = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${dummyPayload}.dummy-signature`
+          
+          dispatch(login({ 
+            accessToken: dummyToken, 
+            refreshToken: "dummy-refresh-token", 
+            isOnboardingComplete: true 
+          }))
+          navigate("/dashboard")
+        }}
+        disabled={loading}
+      >
+        Direct Dashboard (Debug)
+      </Button>
     </div>
   )
 

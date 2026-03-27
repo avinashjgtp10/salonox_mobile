@@ -1,0 +1,220 @@
+.add-shift-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2100;
+}
+
+.add-shift-modal {
+    background: white;
+    width: 680px;
+    border-radius: 16px;
+    padding: 32px;
+    position: relative;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    animation: modalSlide 0.2s ease-out;
+
+    @keyframes modalSlide {
+        from { transform: translateY(10px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+
+    .close-btn {
+        position: absolute;
+        top: 24px;
+        right: 24px;
+        background: none;
+        border: none;
+        color: #6b7280;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 50%;
+        transition: 0.2s;
+        &:hover { background: #f3f4f6; color: #111827; }
+    }
+
+    .modal-header-custom {
+        margin-bottom: 24px;
+        padding-right: 40px;
+
+        h3 {
+            font-size: 22px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 8px;
+        }
+
+        p {
+            font-size: 14px;
+            color: #4b5563;
+            line-height: 1.5;
+
+            .link-style {
+                color: #6366f1;
+                cursor: pointer;
+                text-decoration: underline;
+                &:hover { color: #4f46e5; }
+            }
+        }
+    }
+
+    .modal-body {
+        .shift-row {
+            display: flex;
+            align-items: flex-end;
+            gap: 16px;
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid #f3f4f6;
+
+            &:last-child {
+                border-bottom: none;
+                margin-bottom: 12px;
+                padding-bottom: 0px;
+            }
+
+            .time-select-group {
+                flex: 1;
+                display: flex;
+                gap: 16px;
+
+                .input-wrap {
+                    flex: 1;
+                    label {
+                        display: block;
+                        font-size: 13px;
+                        font-weight: 600;
+                        color: #111827;
+                        margin-bottom: 8px;
+                    }
+                    select {
+                        width: 100%;
+                        padding: 10px 14px;
+                        border: 1.5px solid #e5e7eb;
+                        border-radius: 10px;
+                        font-size: 14px;
+                        color: #111827;
+                        outline: none;
+                        background: #fff;
+                        transition: 0.2s;
+                        &:focus {
+                            border-color: #6366f1;
+                            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+                        }
+                    }
+                }
+            }
+
+            .row-delete-btn {
+                width: 44px;
+                height: 44px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: none;
+                border: 1.5px solid #fee2e2;
+                border-radius: 10px;
+                color: #ef4444;
+                cursor: pointer;
+                transition: 0.2s;
+                &:hover {
+                    background: #fef2f2;
+                    border-color: #fca5a5;
+                }
+            }
+        }
+
+        .modal-inner-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 24px;
+            padding-top: 12px;
+
+            .btn-add-another {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                background: none;
+                border: 1.5px solid #e5e7eb;
+                padding: 8px 16px;
+                border-radius: 20px;
+                font-size: 14px;
+                font-weight: 600;
+                color: #374151;
+                cursor: pointer;
+                transition: 0.2s;
+                &:hover {
+                    background: #f9fafb;
+                    border-color: #d1d5db;
+                }
+            }
+
+            .total-duration {
+                font-size: 14px;
+                color: #6b7280;
+                font-weight: 500;
+            }
+        }
+    }
+
+    .modal-footer {
+        margin-top: 40px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-top: 1.5px solid #f3f4f6;
+        padding-top: 24px;
+
+        .btn-footer-delete {
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: none;
+            border: 1.5px solid #fee2e2;
+            border-radius: 10px;
+            color: #ef4444;
+            cursor: pointer;
+            transition: 0.2s;
+            &:hover {
+                background: #fef2f2;
+            }
+        }
+
+        .footer-right {
+            display: flex;
+            gap: 12px;
+
+            .btn-cancel {
+                padding: 10px 24px;
+                border-radius: 24px;
+                border: 1.5px solid #e5e7eb;
+                background: white;
+                font-weight: 600;
+                font-size: 15px;
+                color: #374151;
+                cursor: pointer;
+                transition: 0.2s;
+                &:hover { background: #f9fafb; }
+            }
+
+            .btn-save {
+                padding: 10px 24px;
+                border-radius: 24px;
+                background: #000;
+                color: white;
+                border: none;
+                font-weight: 600;
+                font-size: 15px;
+                cursor: pointer;
+                transition: 0.2s;
+                &:hover { background: #1f2937; }
+            }
+        }
+    }
+}
