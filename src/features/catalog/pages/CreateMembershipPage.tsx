@@ -272,7 +272,7 @@ const CreateMembershipPage: React.FC = () => {
             {/* Info banner */}
             <div className="cmp__info-banner d-flex align-items-center justify-content-between p-3 rounded-4">
               <p className="mb-0 small fw-medium">
-                Online membership sales are coming soon to India with payments in Fresha
+                Online membership sales are coming soon to India with payments in salonox
               </p>
               <CreditCard2Front size={28} className="text-primary opacity-50 ms-3" />
             </div>

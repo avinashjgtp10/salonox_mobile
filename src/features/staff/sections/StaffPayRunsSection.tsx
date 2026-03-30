@@ -56,7 +56,7 @@ const StaffPayRunsSection: React.FC = () => {
               </div>
               <div className="payment-card-info">
                 <div className="payment-card-title">{paymentMethod === "manual" ? "Pay manually" : "Bank transfer"}</div>
-                <div className="payment-card-subtitle">{paymentMethod === "manual" ? "Mark as paid outside of Fresha" : "Transfer to bank account"}</div>
+                <div className="payment-card-subtitle">{paymentMethod === "manual" ? "Mark as paid outside of salonox" : "Transfer to bank account"}</div>
               </div>
             </div>
             <a className="payment-card-action" onClick={() => setShowPaymentModal(true)} style={{ cursor: 'pointer' }}>Change</a>
@@ -134,7 +134,7 @@ const StaffPayRunsSection: React.FC = () => {
                   </div>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 14, color: '#111827' }}>Pay manually</div>
-                    <div style={{ fontSize: 12, color: '#6b7280' }}>Mark as paid outside of Fresha</div>
+                    <div style={{ fontSize: 12, color: '#6b7280' }}>Mark as paid outside of salonox</div>
                   </div>
                   <div style={{ marginLeft: 'auto' }}>
                     <div style={{
@@ -246,7 +246,7 @@ const StaffPayRunsSection: React.FC = () => {
               onChange={(e) => setDeductProcessing(e.target.checked)}
             />
             <div className="deduction-content">
-              <label htmlFor="deduct-processing" className="deduction-title">Deduct Fresha payment processing fees</label>
+              <label htmlFor="deduct-processing" className="deduction-title">Deduct salonox payment processing fees</label>
               <div className="deduction-desc">Deduct payment processing fees for items sold by this team member.</div>
             </div>
           </div>
@@ -259,7 +259,7 @@ const StaffPayRunsSection: React.FC = () => {
               onChange={(e) => setDeductNewClient(e.target.checked)}
             />
             <div className="deduction-content">
-              <label htmlFor="deduct-new-client" className="deduction-title">Deduct Fresha new client fees</label>
+              <label htmlFor="deduct-new-client" className="deduction-title">Deduct salonox new client fees</label>
               <div className="deduction-desc">Deduct the new client fee for any new client bookings with this team member.</div>
             </div>
           </div>

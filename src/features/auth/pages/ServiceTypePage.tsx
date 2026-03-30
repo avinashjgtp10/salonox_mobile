@@ -2,6 +2,7 @@ import "bootstrap/dist/css/bootstrap.min.css"
 import "../styles/ServiceTypePage.scss"
 import { useNavigate } from "react-router-dom"
 import { useState } from "react"
+import { FiArrowRight } from "react-icons/fi"
 import {
   FaCut, FaHandSparkles, FaEye, FaSpa,
   FaHotTub, FaHeartbeat, FaDumbbell, FaUserTie
@@ -80,6 +81,23 @@ export default function ServiceTypePage() {
         <div className="progress-bar bg-dark" style={{ width: "40%" }} />
       </div>
 
+      <div className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3" style={{ pointerEvents: "none" }}>
+        <button
+          className="btn btn-outline-secondary rounded-pill bg-white px-4"
+          style={{ pointerEvents: "auto" }}
+          onClick={() => navigate(-1)}
+        >
+          Back
+        </button>
+        <button
+          className="btn btn-dark rounded-pill px-4 d-lg-none"
+          style={{ pointerEvents: "auto" }}
+          onClick={handleContinue}
+        >
+          Continue <FiArrowRight size={16} className="ms-1" />
+        </button>
+      </div>
+
       <div className="row g-0 min-vh-100">
         <div className="col-lg-6 bg-white p-4 position-relative">
 
@@ -101,7 +119,7 @@ export default function ServiceTypePage() {
               return (
                 <div key={item.name} className="col-md-6">
                   <div
-                    className={`card fresha-card p-3 ${isSelected ? "active" : ""}`}
+                    className={`card salonox-card p-3 ${isSelected ? "active" : ""}`}
                     onClick={() => handleSelect(item.name)}
                   >
                     {isSelected && (
@@ -148,6 +166,8 @@ export default function ServiceTypePage() {
             className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
             style={{ zIndex: 0 }}
           />
+
+        
         </div>
       </div>
     </div>

@@ -3,13 +3,13 @@ import "../styles/DashboardPage.scss"
 
 export default function DashboardPage() {
   return (
-    <div className="fresha-content">
+    <div className="salonox-content">
       <div className="row g-4">
 
         {/* LEFT CARD HIDDEN */}
         {/*
         <div className="col-xl-6">
-          <div className="fresha-card">
+          <div className="salonox-card">
             ...
           </div>
         </div>
@@ -18,7 +18,7 @@ export default function DashboardPage() {
         {/* RIGHT CARD HIDDEN */}
         {/*
         <div className="col-xl-6">
-          <div className="fresha-card fresha-card-center">
+          <div className="salonox-card salonox-card-center">
             ...
           </div>
         </div>

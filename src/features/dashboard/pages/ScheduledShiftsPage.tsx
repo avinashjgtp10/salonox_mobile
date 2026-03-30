@@ -147,7 +147,7 @@ const ScheduledShiftsPage: React.FC = () => {
               <h1 className="ss-page__title">Management made easy <br /> with scheduled shifts</h1>
               <p className="ss-page__subtext">
                 Plan your team's schedule, track availability, and ensure <br />
-                your salon is always perfectly staffed with Fresha shifts.
+                your salon is always perfectly staffed with salonox shifts.
               </p>
               <ul className="ss-page__features">
                 <li><span className="ss-page__feature-icon">✓</span> Create and manage recurring shift patterns</li>

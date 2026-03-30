@@ -317,7 +317,7 @@ const ProductsListPage: React.FC = () => {
                         </div>
                         <div className="p-4 py-3">
                             <label className="form-label mb-2 fw-medium text-dark" style={{ fontSize: '13px' }}>Brand name</label>
-                            <input type="text" className="form-control form-control-lg shadow-none border-secondary-subtle" placeholder="e.g. Fresha" style={{ fontSize: '15px' }} />
+                            <input type="text" className="form-control form-control-lg shadow-none border-secondary-subtle" placeholder="e.g. salonox" style={{ fontSize: '15px' }} />
                         </div>
                         <div className="d-flex justify-content-end p-4 pt-2 gap-3">
                             <button className="btn btn-light rounded-pill px-4 fw-medium border shadow-sm" style={{ backgroundColor: '#fff' }} onClick={() => setActiveModal('brands')}>
@@ -363,7 +363,7 @@ const ProductsListPage: React.FC = () => {
                         </div>
                         <div className="p-4 py-3">
                             <label className="form-label mb-2 fw-medium text-dark" style={{ fontSize: '13px' }}>Category name</label>
-                            <input type="text" className="form-control form-control-lg shadow-none border-secondary-subtle" placeholder="e.g. Fresha" style={{ fontSize: '15px' }} />
+                            <input type="text" className="form-control form-control-lg shadow-none border-secondary-subtle" placeholder="e.g. salonox" style={{ fontSize: '15px' }} />
                         </div>
                         <div className="d-flex justify-content-end p-4 pt-2 gap-3">
                             <button className="btn btn-light rounded-pill px-4 fw-medium border shadow-sm" style={{ backgroundColor: '#fff' }} onClick={() => setActiveModal('none')}>

@@ -6,7 +6,7 @@ import "../styles/ImportClientsPage.scss";
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Step = 1 | 2 | 3 | 4;
 
-const FRESHA_COLUMNS = [
+const SALONOX_COLUMNS = [
   { key: "firstName", label: "First name", required: true, hint: "First name of your client. Required for import." },
   { key: "lastName", label: "Last name", required: false, hint: "Last name of your client." },
   { key: "email", label: "Email", required: false, hint: "Email of your client." },
@@ -150,7 +150,7 @@ function StepColumnMatch({
         <div className="col-6 col-head">Column in your file</div>
       </div>
 
-      {FRESHA_COLUMNS.map((col) => (
+      {SALONOX_COLUMNS.map((col) => (
         <div key={col.key} className="match-row">
           <div className="row align-items-start py-2">
             <div className="col-6">
@@ -217,11 +217,11 @@ function StepPreview({ previewRows }: { previewRows: Record<string, string>[] })
           <div className="table-responsive">
             <table className="table preview-table">
               <thead>
-                <tr>{FRESHA_COLUMNS.map((c) => <th key={c.key}>{c.label}</th>)}</tr>
+                <tr>{SALONOX_COLUMNS.map((c) => <th key={c.key}>{c.label}</th>)}</tr>
               </thead>
               <tbody>
                 {previewRows.map((row, i) => (
-                  <tr key={i}>{FRESHA_COLUMNS.map((c) => <td key={c.key}>{row[c.key] ?? "—"}</td>)}</tr>
+                  <tr key={i}>{SALONOX_COLUMNS.map((c) => <td key={c.key}>{row[c.key] ?? "—"}</td>)}</tr>
                 ))}
               </tbody>
             </table>
@@ -294,7 +294,7 @@ export default function ImportClientsPage() {
           .map((h) => h.trim().replace(/^"|"$/g, ""));
         setCsvHeaders(headers);
         const auto: Record<string, string> = {};
-        FRESHA_COLUMNS.forEach((col) => {
+        SALONOX_COLUMNS.forEach((col) => {
           const match = headers.find(
             (h) =>
               h.toLowerCase().includes(col.key.toLowerCase()) ||
@@ -317,7 +317,7 @@ export default function ImportClientsPage() {
     if (step === 1 && !file) { setUploadError("Please upload CSV file first"); return; }
     if (step === 2) {
       const errs: Record<string, string> = {};
-      FRESHA_COLUMNS.filter((c) => c.required).forEach((c) => {
+      SALONOX_COLUMNS.filter((c) => c.required).forEach((c) => {
         if (!mapping[c.key] || mapping[c.key] === "None")
           errs[c.key] = "This column is required.";
       });
