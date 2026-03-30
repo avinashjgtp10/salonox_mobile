@@ -16,12 +16,22 @@ export const CLIENT_LIST: Client[] = [
   { id: "4", name: "Anjali Patil", phone: "9823456789", eWallet: 200 },
 ];
 
-export const SERVICES_LIST: string[] = [
-  "Choco Revival Facial", "Argan Oil Wax - Full", "Hair Cut",
-  "Blow Dry", "Head Massage", "Pedicure", "Manicure",
-  "Threading", "Waxing - Arms", "Deep Conditioning",
-  "Keratin Treatment", "Hair Color", "Highlights",
-  "Nail Art", "Body Polishing",
+export const SERVICES_LIST: { name: string; price: number }[] = [
+  { name: "Choco Revival Facial",  price: 1400 },
+  { name: "Argan Oil Wax - Full",  price: 800  },
+  { name: "Hair Cut",              price: 600  },
+  { name: "Blow Dry",              price: 400  },
+  { name: "Head Massage",          price: 200  },
+  { name: "Pedicure",              price: 800  },
+  { name: "Manicure",              price: 700  },
+  { name: "Threading",             price: 150  },
+  { name: "Waxing - Arms",         price: 450  },
+  { name: "Deep Conditioning",     price: 1200 },
+  { name: "Keratin Treatment",     price: 3500 },
+  { name: "Hair Color",            price: 2500 },
+  { name: "Highlights",            price: 2000 },
+  { name: "Nail Art",              price: 500  },
+  { name: "Body Polishing",        price: 1800 },
 ];
 
 export const PACKAGES_LIST = [
@@ -65,7 +75,7 @@ export const INITIAL_BOOKINGS: Booking[] = [
     staffId: "1", date: "2026-03-17", billDate: "2026-03-17",
     startTime: "11:00", endTime: "12:00",
     services: [{ id: "s3", service: "Pedicure", staff: "MICHEL", staffId: "1", time: "11:00", price: 800, qty: 1, total: 800 }],
-    status: "Completed", paymentStatus: "Paid", paymentMode: "Cash",
+    status: "Confirmed", paymentStatus: "Paid", paymentMode: "Cash",
     subtotal: 800, taxableAmount: 800, grandTotal: 800, payingNow: 800, dueAmount: 0,
   },
   {
@@ -73,7 +83,7 @@ export const INITIAL_BOOKINGS: Booking[] = [
     staffId: "2", date: "2026-03-17", billDate: "2026-03-17",
     startTime: "12:30", endTime: "13:15",
     services: [{ id: "s4", service: "Hair Cut", staff: "STEVE", staffId: "2", time: "12:30", price: 600, qty: 1, total: 600 }],
-    status: "Booked", paymentStatus: "Unpaid", paymentMode: "UPI",
+    status: "Pending", paymentStatus: "Unpaid", paymentMode: "UPI",
     subtotal: 600, taxableAmount: 600, grandTotal: 600, payingNow: 0, dueAmount: 600,
   },
   {
@@ -83,28 +93,7 @@ export const INITIAL_BOOKINGS: Booking[] = [
     services: [{ id: "s5", service: "Manicure", staff: "SWAPNALI", staffId: "4", time: "14:00", price: 700, qty: 1, total: 700 }],
     status: "Confirmed", paymentStatus: "Paid", paymentMode: "Card",
     subtotal: 700, taxableAmount: 700, grandTotal: 700, payingNow: 700, dueAmount: 0,
-  },
-  ...Array.from({ length: 15 }).map((_, i) => ({
-    id: `b${i + 6}`,
-    clientId: String((i % 4) + 1),
-    clientName: i % 2 === 0 ? "Jane Doe" : "John Smith",
-    clientPhone: "9000000000",
-    staffId: String((i % 6) + 1),
-    date: `2026-03-${String(10 + i).padStart(2, '0')}`,
-    billDate: `2026-03-${String(10 + i).padStart(2, '0')}`,
-    startTime: "10:00",
-    endTime: "11:00",
-    services: [{ id: `s${i + 6}`, service: "Facial", staff: "STAFF", staffId: String((i % 6) + 1), time: "10:00", price: 1000, qty: 1, total: 1000 }],
-    status: i % 3 === 0 ? "Completed" : "Confirmed",
-    paymentStatus: "Paid",
-    paymentMode: "Cash",
-    subtotal: 1000,
-    taxableAmount: 1000,
-    grandTotal: 1000,
-    payingNow: 1000,
-    dueAmount: 0,
-  }))
-];
+  },]
 
 export const CLIENT_STATS = [
   {
