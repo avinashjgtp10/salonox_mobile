@@ -8,11 +8,22 @@ export const AUTH = {
   VERIFY_EMAIL_OTP:  "/api/v1/auth/verify-email-otp",
   SEND_MOBILE_OTP:   "/api/v1/auth/send-mobile-otp",
   VERIFY_MOBILE_OTP: "/api/v1/auth/verify-mobile-otp",
+  FORGOT_PASSWORD_SEND_OTP:   "/api/v1/auth/forgot-password/send-otp",
+  FORGOT_PASSWORD_VERIFY_OTP: "/api/v1/auth/forgot-password/verify-otp",
+  FORGOT_PASSWORD_RESET:      "/api/v1/auth/forgot-password/reset",
 } as const
 
 export const USER = {
   ME:     "/api/v1/user/me",
   UPDATE: "/api/v1/user/update",
+} as const
+
+export const SALON = {
+  ME:     "/api/v1/salons/me",
+  CREATE: "/api/v1/salons",
+  BY_ID:  (id: string) => `/api/v1/salons/${id}`,
+  UPDATE: (id: string) => `/api/v1/salons/${id}`,
+  LIST:   "/api/v1/salons",
 } as const
 
 export const PUBLIC_ROUTES: string[] = [
@@ -23,4 +34,7 @@ export const PUBLIC_ROUTES: string[] = [
   AUTH.VERIFY_EMAIL_OTP,
   AUTH.SEND_MOBILE_OTP,
   AUTH.VERIFY_MOBILE_OTP,
+  AUTH.FORGOT_PASSWORD_SEND_OTP,
+  AUTH.FORGOT_PASSWORD_VERIFY_OTP,
+  AUTH.FORGOT_PASSWORD_RESET,
 ]
