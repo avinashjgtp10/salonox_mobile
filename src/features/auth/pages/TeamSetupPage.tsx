@@ -19,74 +19,95 @@ export default function TeamSetupPage() {
   }
 
   return (
-    <div className="container-fluid p-0">
+    <div className="container-fluid p-0 bg-page min-vh-100">
 
-      <div className="progress" style={{ height: "5px" }}>
-        <div className="progress-bar bg-dark" style={{ width: "65%" }} />
+      {/* PROGRESS BAR */}
+      <div className="progress onboarding-progress" style={{ height: "4px" }}>
+        <div className="progress-bar bg-dark" style={{ width: "30%" }} />
       </div>
 
+      {/* TOP NAVIGATION */}
       <div className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3">
         <button
-          className="btn btn-outline-secondary rounded-pill bg-white"
+          className="btn btn-outline-secondary rounded-pill bg-white px-4"
           onClick={() => navigate(-1)}
         >
           Back
         </button>
         <button
-          className="btn btn-dark rounded-pill"
+          className="btn btn-dark rounded-pill px-4 d-lg-none"
           disabled={!selected}
           onClick={handleContinue}
         >
-          Continue <FiArrowRight className="ms-2" />
+          Continue <FiArrowRight size={16} className="ms-1" />
         </button>
       </div>
 
       <div className="row g-0 min-vh-100">
-        <div className="col-lg-5 col-12 bg-light p-5 position-relative">
+        <div className="col-lg-5 col-md-6 left-panel d-flex flex-column px-5 position-relative bg-white">
 
-          <button
-            className="btn btn-light border rounded-circle position-absolute"
-            style={{ top: "25px", left: "40px" }}
-            onClick={() => navigate(-1)}
-          >
-            <FiArrowLeft />
-          </button>
+          {/* Brand & Side Nav */}
+          <div className="position-absolute top-0 start-0 p-4 pb-0 w-100">
+            <div className="d-flex align-items-center justify-content-between">
+              <h4 className="brand-logo m-0">salonox</h4>
+              <button
+                className="btn-back-circle d-md-flex d-none"
+                onClick={() => navigate(-1)}
+                title="Back"
+              >
+                <FiArrowLeft size={20} />
+              </button>
+            </div>
+          </div>
 
-          <div className="mt-5" style={{ maxWidth: "480px" }}>
-            <p className="text-muted small">Account setup</p>
-            <h3 className="fw-bold mb-2">Select account type</h3>
-            <p className="text-muted mb-4">This will help us set up your account correctly</p>
+          <div className="flex-grow-1 d-flex align-items-center justify-content-center">
+            <div className="content-wrapper w-100" style={{ maxWidth: "480px" }}>
+              <p className="onboarding-step-label mb-2">Account setup</p>
+              <h2 className="account-heading mb-2">Select account type</h2>
+              <p className="text-muted mb-4">This will help us set up your account correctly</p>
 
-            <div className="row g-3">
-              <div className="col-12">
-                <div
-                  className={`card p-4 team-card ${selected === "independent" ? "active" : ""}`}
-                  onClick={() => setSelected("independent")}
-                >
-                  <div className="mb-3 fs-4"><FiUser /></div>
-                  <strong>I'm an independent</strong>
+              <div className="row g-3">
+                <div className="col-12">
+                  <div
+                    className={`card p-4 text-center premium-choice-card ${selected === "independent" ? "selected" : ""}`}
+                    onClick={() => setSelected("independent")}
+                  >
+                    <div className="mb-2 fs-3 text-secondary"><FiUser /></div>
+                    <strong className="fs-5">I'm an independent</strong>
+                  </div>
                 </div>
-              </div>
-              <div className="col-12">
-                <div
-                  className={`card p-4 team-card ${selected === "team" ? "active" : ""}`}
-                  onClick={() => setSelected("team")}
-                >
-                  <div className="mb-3 fs-4"><FiUsers /></div>
-                  <strong>I have a team</strong>
+                <div className="col-12">
+                  <div
+                    className={`card p-4 text-center premium-choice-card ${selected === "team" ? "selected" : ""}`}
+                    onClick={() => setSelected("team")}
+                  >
+                    <div className="mb-2 fs-3 text-secondary"><FiUsers /></div>
+                    <strong className="fs-5">I have a team</strong>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="col-lg-7 d-none d-lg-block position-relative p-0" style={{ minHeight: "100vh" }} >
+        <div className="col-lg-7 d-none d-lg-block p-0 position-relative overflow-hidden" style={{ minHeight: "100vh" }}>
           <img
             src={salonImg}
             alt="salon"
             className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
             style={{ zIndex: 0 }}
           />
+
+          {/* Desktop Continue Button on Image */}
+          <div className="position-absolute top-0 end-0 p-4 z-3">
+            <button
+              className="btn btn-dark rounded-pill px-4"
+              disabled={!selected}
+              onClick={handleContinue}
+            >
+              Continue <FiArrowRight size={16} className="ms-1" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -38,7 +38,7 @@ export default function TeamSizePage() {
           Back
         </button>
         <button
-          className="btn btn-dark rounded-pill px-4"
+          className="btn btn-dark rounded-pill px-4 d-lg-none"
           disabled={!selected}
           onClick={handleContinue}
         >
@@ -88,9 +88,21 @@ export default function TeamSizePage() {
           <img
             src={salonImg}
             alt="salon"
-            className="w-100 h-100 object-fit-cover"
+            className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
+            style={{ zIndex: 0 }}
           />
           <div className="right-overlay-soft" />
+
+          {/* Desktop Continue Button on Image */}
+          <div className="position-absolute top-0 end-0 p-4 z-3">
+            <button
+              className="btn btn-dark rounded-pill px-4"
+              disabled={!selected}
+              onClick={handleContinue}
+            >
+              Continue <FiArrowRight size={16} className="ms-1" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

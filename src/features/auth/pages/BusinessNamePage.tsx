@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom"
 import { useState } from "react"
-import { FiArrowLeft } from "react-icons/fi"
+import { FiArrowLeft, FiArrowRight } from "react-icons/fi"
 import "../styles/BusinessNamePage.scss"
 import { useOnboarding } from "../../../context/OnboardingContext"
 import salonImg from "../../../assets/images/salon.jpg"
@@ -35,12 +35,20 @@ export default function BusinessNamePage() {
         <div className="progress-bar bg-dark" style={{ width: "30%" }} />
       </div>
 
-      <div className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3">
+      <div className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3" style={{ pointerEvents: "none" }}>
         <button
-          className="btn btn-outline-secondary rounded-pill bg-white"
+          className="btn btn-outline-secondary rounded-pill bg-white px-4"
+          style={{ pointerEvents: "auto" }}
           onClick={() => navigate(-1)}
         >
           Back
+        </button>
+        <button
+          className="btn btn-dark rounded-pill px-4 d-lg-none"
+          style={{ pointerEvents: "auto" }}
+          onClick={handleContinue}
+        >
+          Continue <FiArrowRight size={16} className="ms-1" />
         </button>
       </div>
 
@@ -108,6 +116,16 @@ export default function BusinessNamePage() {
             className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
             style={{ zIndex: 0 }}
           />
+
+          {/* Desktop Continue Button on Image */}
+          <div className="position-absolute top-0 end-0 p-4 z-3">
+            <button
+              className="btn btn-dark rounded-pill px-4"
+              onClick={handleContinue}
+            >
+              Continue <FiArrowRight size={16} className="ms-1" />
+            </button>
+          </div>
         </div>
 
       </div>
