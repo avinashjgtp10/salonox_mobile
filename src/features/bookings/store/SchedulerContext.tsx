@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState } from "react";
+import type { ReactNode } from "react";
 import type { Booking, BlockedTime, ViewMode, IntervalOption } from "../types/scheduler-types";
 import { INITIAL_BOOKINGS, INITIAL_BLOCKED } from "../utils/schedulerMockData";
 
