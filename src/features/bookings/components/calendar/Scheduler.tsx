@@ -52,19 +52,38 @@ const SchedulerContent: React.FC = () => {
   return (
     <div style={{
       fontFamily: "'Segoe UI', system-ui, sans-serif",
-      background: "#f8fafc", height: "100vh",
-      display: "flex", flexDirection: "column", overflow: "hidden",
+      background: "#f8fafc",
+      height: "100vh",
+      display: "flex",
+      flexDirection: "column",
+      overflow: "hidden",   /* ← outer wrapper NEVER scrolls */
+      position: "relative",
     }}>
-      <TopBar
-        onNewAppointment={() => { setEditingBooking(null); setApptDefaults({}); setShowNewAppt(true); }}
-        onBlockTime={() => handleBlockTime()}
-        onSettings={() => setShowSettings(true)}
-      />
 
+      {/* TopBar is FIXED at the top — never moves when grid scrolls */}
       <div style={{
-        flex: 1, display: "flex", flexDirection: "column",
-        overflow: viewMode === "Month" || viewMode === "List Week" ? "auto" : "hidden",
+        flexShrink: 0,          /* never shrinks */
+        width: "100%",          /* always full viewport width */
+        overflow: "hidden",     /* clips anything that tries to overflow */
+        position: "relative",
+        zIndex: 30,
+      }}>
+        <TopBar
+          onNewAppointment={() => { setEditingBooking(null); setApptDefaults({}); setShowNewAppt(true); }}
+          onBlockTime={() => handleBlockTime()}
+          onSettings={() => setShowSettings(true)}
+        />
+      </div>
+
+      {/* Calendar area — this is the ONLY thing that scrolls horizontally */}
+      <div style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
         minHeight: 0,
+        /* Month and List Week scroll vertically, others are managed internally */
+        overflowY: viewMode === "Month" || viewMode === "List Week" ? "auto" : "hidden",
+        overflowX: "hidden",   /* ← horizontal scroll stays INSIDE DayView/WeekView only */
       }}>
         {viewMode === "Day" && (
           <DayView

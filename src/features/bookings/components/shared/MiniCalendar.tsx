@@ -9,25 +9,33 @@ interface MiniCalendarProps {
 
 const MiniCalendar: React.FC<MiniCalendarProps> = ({ value, onChange, onClose }) => {
   const [viewDate, setViewDate] = useState(value || new Date().toISOString().slice(0, 10));
-  const d = new Date(viewDate);
-  const year = d.getFullYear();
+  const d     = new Date(viewDate);
+  const year  = d.getFullYear();
   const month = d.getMonth();
-  const days = getMonthDays(viewDate);
+  const days  = getMonthDays(viewDate);
 
-  const prevMonth = () => {
-    const nd = new Date(year, month - 1, 1);
-    setViewDate(nd.toISOString().slice(0, 10));
-  };
-  const nextMonth = () => {
-    const nd = new Date(year, month + 1, 1);
-    setViewDate(nd.toISOString().slice(0, 10));
-  };
+  const prevMonth = () => setViewDate(new Date(year, month - 1, 1).toISOString().slice(0, 10));
+  const nextMonth = () => setViewDate(new Date(year, month + 1, 1).toISOString().slice(0, 10));
 
   return (
-    <div className="mini-calendar">
-      <div className="mini-calendar__nav">
-        <button onClick={prevMonth} className="btn-outline" style={{ padding: "2px 8px" }}>‹</button>
-        <span style={{ fontWeight: 600, fontSize: 13, display: "flex", gap: 6 }}>
+    <div style={{
+      background: "#fff",
+      border: "1px solid #e5e7eb",
+      borderRadius: 12,
+      boxShadow: "0 8px 32px rgba(0,0,0,.15)",
+      padding: 12,
+      width: 260,
+      zIndex: 999,
+      fontFamily: "'Segoe UI', system-ui, sans-serif",
+    }}>
+      {/* Nav row */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <button
+          onClick={prevMonth}
+          style={{ background: "none", border: "1px solid #e5e7eb", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 16, lineHeight: 1 }}
+        >‹</button>
+
+        <span style={{ display: "flex", gap: 6, fontWeight: 600, fontSize: 13 }}>
           <select
             value={month}
             onChange={e => setViewDate(new Date(year, +e.target.value, 1).toISOString().slice(0, 10))}
@@ -45,29 +53,50 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({ value, onChange, onClose })
             ))}
           </select>
         </span>
-        <button onClick={nextMonth} className="btn-outline" style={{ padding: "2px 8px" }}>›</button>
+
+        <button
+          onClick={nextMonth}
+          style={{ background: "none", border: "1px solid #e5e7eb", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 16, lineHeight: 1 }}
+        >›</button>
       </div>
 
-      <div className="mini-calendar__days-header">
-        {DAYS_ABBR.map(d => (
-          <div key={d} className="mini-calendar__day-abbr">{d}</div>
+      {/* Day headers */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2, marginBottom: 4 }}>
+        {DAYS_ABBR.map(day => (
+          <div key={day} style={{ textAlign: "center", fontSize: 11, color: "#9ca3af", fontWeight: 600 }}>
+            {day}
+          </div>
         ))}
       </div>
 
-      <div className="mini-calendar__grid">
-        {days.map((day, i) => (
-          <button
-            key={i}
-            onClick={() => { if (day) { onChange(day); onClose(); } }}
-            className={`mini-calendar__day-btn ${
-              !day ? "mini-calendar__day-btn--empty" :
-              day === value ? "mini-calendar__day-btn--selected" :
-              "mini-calendar__day-btn--normal"
-            }`}
-          >
-            {day ? new Date(day + "T12:00:00").getDate() : ""}
-          </button>
-        ))}
+      {/* Day grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+        {days.map((day, i) => {
+          const isSelected = day === value;
+          const isEmpty    = !day;
+          return (
+            <button
+              key={i}
+              onClick={() => { if (day) { onChange(day); onClose(); } }}
+              style={{
+                width: "100%",
+                aspectRatio: "1",
+                border: "none",
+                borderRadius: 6,
+                fontSize: 12,
+                cursor: isEmpty ? "default" : "pointer",
+                background: isSelected ? "#1f2937" : "transparent",
+                color: isSelected ? "#fff" : isEmpty ? "transparent" : "#374151",
+                fontWeight: isSelected ? 700 : 400,
+                transition: "background 0.15s",
+              }}
+              onMouseEnter={e => { if (!isEmpty && !isSelected) (e.currentTarget as HTMLButtonElement).style.background = "#f3f4f6"; }}
+              onMouseLeave={e => { if (!isEmpty && !isSelected) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+            >
+              {day ? new Date(day + "T12:00:00").getDate() : ""}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

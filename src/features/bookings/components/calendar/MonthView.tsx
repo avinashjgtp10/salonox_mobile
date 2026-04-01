@@ -15,42 +15,89 @@ const MonthView: React.FC<MonthViewProps> = ({ onDayClick, onViewBill }) => {
   const today = new Date().toISOString().slice(0, 10);
   const days  = getMonthDays(currentDate);
 
+  function chipColor(b: Booking) {
+    return b.status === "Confirmed" ? "#22c55e" :
+           b.status === "Pending"   ? "#f59e0b" : "#ef4444";
+  }
+
   return (
-    <div className="month-view">
-      <div className="month-view__header">
+    <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+
+      {/* Day headers */}
+      <div style={{
+        display: "grid", gridTemplateColumns: "repeat(7, 1fr)",
+        borderBottom: "1px solid #e5e7eb", background: "#fff",
+        position: "sticky", top: 0, zIndex: 5,
+      }}>
         {DAYS_SHORT.map(d => (
-          <div key={d} className="month-view__day-label">{d}</div>
+          <div key={d} style={{
+            textAlign: "center", padding: "10px 0",
+            fontSize: 12, fontWeight: 600, color: "#6b7280", letterSpacing: "0.3px",
+          }}>{d}</div>
         ))}
       </div>
-      <div className="month-view__grid">
+
+      {/* Day grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", flex: 1 }}>
         {days.map((day, i) => {
-          const isToday2  = day === today;
-          const dayBk     = day ? getBookingsByDate(day) : [];
+          const isToday = day === today;
+          const dayBk   = day ? getBookingsByDate(day) : [];
           return (
             <div
               key={i}
               onClick={() => day && onDayClick(day)}
-              className={`month-view__cell ${
-                !day ? "month-view__cell--empty" :
-                isToday2 ? "month-view__cell--today" : ""
-              }`}
+              style={{
+                minHeight: 115,          // ← increased from 100 to 115
+                border: "1px solid #f0f0f0",
+                padding: "6px 8px",
+                cursor: day ? "pointer" : "default",
+                background: !day ? "#fafafa" : isToday ? "#eff6ff" : "#fff",
+                transition: "background 0.1s",
+              }}
+              onMouseEnter={e => { if (day) (e.currentTarget as HTMLDivElement).style.background = isToday ? "#dbeafe" : "#f9fafb"; }}
+              onMouseLeave={e => { if (day) (e.currentTarget as HTMLDivElement).style.background = isToday ? "#eff6ff" : "#fff"; }}
             >
               {day && (
                 <>
-                  <div className={`month-view__date-num ${isToday2 ? "month-view__date-num--today" : ""}`}>
+                  {/* Date number */}
+                  <div style={{
+                    width: 24, height: 24, borderRadius: "50%",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 12, fontWeight: 700,
+                    background: isToday ? "#3b82f6" : "transparent",
+                    color: isToday ? "#fff" : "#374151",
+                    marginBottom: 4,
+                  }}>
                     {new Date(day + "T12:00:00").getDate()}
                   </div>
-                  {dayBk.slice(0, 2).map(b => (
+
+                  {/* Booking chips — colored by status */}
+                  {dayBk.slice(0, 3).map(b => (
                     <div
                       key={b.id}
-                      className="month-view__chip"
                       onClick={e => { e.stopPropagation(); onViewBill(b); }}
+                      style={{
+                        fontSize: 10,
+                        background: chipColor(b),
+                        color: "#fff",
+                        borderRadius: 4,
+                        padding: "2px 5px",
+                        marginTop: 2,
+                        overflow: "hidden",
+                        whiteSpace: "nowrap",
+                        textOverflow: "ellipsis",
+                        cursor: "pointer",
+                      }}
                     >
                       {b.services[0]?.service}
                     </div>
                   ))}
-                  {dayBk.length > 2 && (
-                    <div className="month-view__more">+{dayBk.length - 2} more</div>
+
+                  {/* +more */}
+                  {dayBk.length > 3 && (
+                    <div style={{ fontSize: 10, color: "#6b7280", marginTop: 2, fontWeight: 600 }}>
+                      +{dayBk.length - 3} more
+                    </div>
                   )}
                 </>
               )}
