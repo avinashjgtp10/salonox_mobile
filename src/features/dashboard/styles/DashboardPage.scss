@@ -43,6 +43,23 @@ body {
   gap: 12px;
 }
 
+.topbar-icon-btn {
+  background: transparent;
+  border: none;
+  color: $dashboard-primary;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 50%;
+  transition: background 0.2s;
+
+  &:hover {
+    background: $dashboard-bg;
+  }
+}
+
 /* ================= ACTIVATE BUTTON ================= */
 .activate-btn {
   background: $btn-primary;
