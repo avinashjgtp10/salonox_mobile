@@ -48,10 +48,11 @@ export default function JoinBusinessPage() {
         </button>
 
         <button
-          className="btn btn-dark rounded-pill"
+          className="btn btn-dark rounded-pill px-4"
           disabled={!selected}
+          onClick={() => navigate("/send-request")}
         >
-          Continue →
+          Continue <span className="ms-1">→</span>
         </button>
       </div>
 

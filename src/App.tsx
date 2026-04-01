@@ -18,6 +18,7 @@ import { OnboardingProvider } from "./context/OnboardingContext"
 import SendRequestPage from "./features/auth/pages/SendRequestPage"
 import RequestSuccessPage from "./features/auth/pages/RequestSuccessPage"
 import TeamSizePage from "./features/auth/pages/TeamSizePage"
+import ForgotPasswordPage from "./features/auth/pages/ForgotPasswordPage"
 import DashboardPage from "./features/dashboard/pages/DashboardPage"
 import DashboardLayout from "./features/dashboard/components/DashboardLayout"
 import DailySalesPage from "./features/analytics/pages/DailySalesPage"
@@ -78,7 +79,9 @@ function App() {
         <Route element={<GuestGuard />}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/oauth-success" element={<OAuthSuccessPage />} />
+          <Route path="/oauth/success" element={<OAuthSuccessPage />} />
         </Route>
 
         {/* ONBOARDING FLOW (Must be logged in, but NOT finished) */}

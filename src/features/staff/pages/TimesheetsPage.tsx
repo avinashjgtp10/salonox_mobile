@@ -123,11 +123,11 @@ const TimesheetsPage: React.FC = () => {
                             <h1 className="ts-page__title">Simplify time tracking <br /> and attendance</h1>
                             <p className="ts-page__subtext">
                                 Track your team's working hours and make pay calculations <br />
-                                straightforward with Fresha timesheets
+                                straightforward with salonox timesheets
                             </p>
                             <ul className="ts-page__features">
                                 <li><CheckCircleFill /> Track worked hours and breaks in real time</li>
-                                <li><CheckCircleFill /> Fully integrated with Fresha Pay Runs</li>
+                                <li><CheckCircleFill /> Fully integrated with salonox Pay Runs</li>
                                 <li><CheckCircleFill /> Detailed reporting to monitor attendance and punctuality</li>
                             </ul>
                             <div className="ts-page__actions">

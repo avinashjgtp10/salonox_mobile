@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react"
-import { useSelector, useDispatch } from "react-redux"
 import { Navigate, Outlet } from "react-router-dom"
-import type { RootState } from "../../store/store"
-import { salonApi } from "../../services/api/salon.api"
+import { useAppSelector, useAppDispatch } from "../../hooks/useAppRedux"
+import { getMySalonThunk } from "../../middleware/salon/salon.thunk"
 import { updateOnboardingStatus } from "../../store/authSlice"
 
 const AuthGuard = () => {
-  const { token, isOnboardingComplete } = useSelector((state: RootState) => state.auth)
-  const dispatch = useDispatch()
+  const { accessToken: token, isOnboardingComplete } = useAppSelector((state) => state.auth)
+  const dispatch = useAppDispatch()
   const [checking, setChecking] = useState(!isOnboardingComplete && !!token)
   const [verified, setVerified] = useState(isOnboardingComplete)
 
@@ -15,9 +14,10 @@ const AuthGuard = () => {
     // If localStorage says false but user has a token, verify against the server
     // (handles stale state after backend fix)
     if (!isOnboardingComplete && token) {
-      salonApi.getMySalon()
-        .then((res) => {
-          const done = !!(res?.data?.onboarding_completed)
+      dispatch(getMySalonThunk())
+        .unwrap()
+        .then((salon) => {
+          const done = !!(salon?.onboarding_completed)
           if (done) {
             dispatch(updateOnboardingStatus(true))
           }
@@ -29,8 +29,10 @@ const AuthGuard = () => {
         .finally(() => {
           setChecking(false)
         })
+    } else {
+        setChecking(false)
     }
-  }, [])
+  }, [dispatch, isOnboardingComplete, token])
 
   if (!token) {
     return <Navigate to="/login" replace />
@@ -48,4 +50,3 @@ const AuthGuard = () => {
 }
 
 export default AuthGuard
-

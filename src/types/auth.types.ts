@@ -47,3 +47,18 @@ export interface RegisterResponse {
     isOnboardingComplete: boolean
   }
 }
+
+export interface ForgotPasswordSendOtpPayload {
+  email: string
+}
+
+export interface ForgotPasswordVerifyOtpPayload {
+  email: string
+  otp: string
+}
+
+export interface ForgotPasswordResetPayload {
+  email: string
+  otp: string
+  newPassword?: string
+}

@@ -8,21 +8,20 @@ import { registerThunk } from "../../../middleware/auth/authThunk"
 import { sendEmailOtpThunk, verifyEmailOtpThunk } from "../../../middleware/auth/otpThunk"
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux"
 import salonImg from "../../../assets/images/salon.jpg"
-import Input      from "../../../components/ui/Input"
-import Button     from "../../../components/ui/Button"
+import Input from "../../../components/ui/Input"
+import Button from "../../../components/ui/Button"
 import SplitLayout from "../../../components/ui/SplitLayout"
 import { FullScreenLoader } from "../../../components/ui/FullScreenLoader.tsx"
-
 interface FormState {
-  fullName:     string
+  fullName: string
   businessName: string
-  address:      string
-  email:        string
-  country:      string
-  phone:        string
-  countryCode:  string
-  password:     string
-  terms:        boolean
+  address: string
+  email: string
+  country: string
+  phone: string
+  countryCode: string
+  password: string
+  terms: boolean
 }
 
 const INITIAL_FORM: FormState = {
@@ -33,21 +32,21 @@ const INITIAL_FORM: FormState = {
 const DEMO_MOBILE_OTP = "123456"
 
 export default function RegisterPage() {
-  const navigate  = useNavigate()
-  const dispatch  = useAppDispatch()
+  const navigate = useNavigate()
+  const dispatch = useAppDispatch()
   const { loading } = useAppSelector((s) => s.auth)
   const countries = Country.getAllCountries()
 
-  const [form,   setForm]   = useState<FormState>(INITIAL_FORM)
+  const [form, setForm] = useState<FormState>(INITIAL_FORM)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const [emailOtp,          setEmailOtp]          = useState("")
-  const [emailOtpSent,      setEmailOtpSent]      = useState(false)
-  const [emailOtpVerified,  setEmailOtpVerified]  = useState(false)
-  const [emailOtpLoading,   setEmailOtpLoading]   = useState(false)
+  const [emailOtp, setEmailOtp] = useState("")
+  const [emailOtpSent, setEmailOtpSent] = useState(false)
+  const [emailOtpVerified, setEmailOtpVerified] = useState(false)
+  const [emailOtpLoading, setEmailOtpLoading] = useState(false)
 
-  const [mobileOtp,         setMobileOtp]         = useState("")
-  const [mobileOtpSent,     setMobileOtpSent]     = useState(false)
+  const [mobileOtp, setMobileOtp] = useState("")
+  const [mobileOtpSent, setMobileOtpSent] = useState(false)
   const [mobileOtpVerified, setMobileOtpVerified] = useState(false)
 
   const clearFieldError = (name: string) =>
@@ -67,13 +66,13 @@ export default function RegisterPage() {
     const errs: Record<string, string> = {}
     const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-    if (!form.fullName.trim())     errs.fullName     = "Full name is required"
+    if (!form.fullName.trim()) errs.fullName = "Full name is required"
     if (!form.businessName.trim()) errs.businessName = "Business name is required"
-    if (!form.address.trim())      errs.address      = "Address is required"
-    if (!form.country)             errs.country      = "Country is required"
-    if (!form.phone)               errs.phone        = "Phone number is required"
-    if (!form.email.trim())        errs.email        = "Email is required"
-    else if (!emailRx.test(form.email)) errs.email   = "Invalid email format"
+    if (!form.address.trim()) errs.address = "Address is required"
+    if (!form.country) errs.country = "Country is required"
+    if (!form.phone) errs.phone = "Phone number is required"
+    if (!form.email.trim()) errs.email = "Email is required"
+    else if (!emailRx.test(form.email)) errs.email = "Invalid email format"
 
     if (
       !form.password ||
@@ -82,8 +81,8 @@ export default function RegisterPage() {
       !/\d/.test(form.password)
     ) errs.password = "Password must be 8+ characters with a letter and number"
 
-    if (!form.terms)        errs.terms     = "You must accept the Terms & Conditions"
-    if (!emailOtpVerified)  errs.emailOtp  = "Please verify your email OTP"
+    if (!form.terms) errs.terms = "You must accept the Terms & Conditions"
+    if (!emailOtpVerified) errs.emailOtp = "Please verify your email OTP"
     if (!mobileOtpVerified) errs.mobileOtp = "Please verify your mobile number"
 
     setErrors(errs)
@@ -159,20 +158,20 @@ export default function RegisterPage() {
     const tid = toast.loading("Creating your account…")
     const result = await dispatch(
       registerThunk({
-        fullName:     form.fullName,
+        fullName: form.fullName,
         businessName: form.businessName,
-        address:      form.address,
-        email:        form.email,
-        country:      form.country,
-        countryCode:  form.countryCode,
-        phone:        form.phone,
-        rawPassword:  form.password,
-        terms:        form.terms,
+        address: form.address,
+        email: form.email,
+        country: form.country,
+        countryCode: form.countryCode,
+        phone: form.phone,
+        rawPassword: form.password,
+        terms: form.terms,
       })
     )
     if (registerThunk.fulfilled.match(result)) {
       toast.success("Account created! Redirecting…", { id: tid })
-      navigate("/business-name")
+      navigate("/account-type")
     } else {
       const msg = result.payload as string
       if (msg?.toLowerCase().includes("email already exist")) {
@@ -239,7 +238,7 @@ export default function RegisterPage() {
           >
             {emailOtpVerified ? "✓ Verified"
               : emailOtpLoading && !emailOtpSent ? "Sending…"
-              : emailOtpSent ? "Resend" : "Send OTP"}
+                : emailOtpSent ? "Resend" : "Send OTP"}
           </Button>
         </div>
         {errors.email && (

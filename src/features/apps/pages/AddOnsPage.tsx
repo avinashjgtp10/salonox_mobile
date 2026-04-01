@@ -33,7 +33,7 @@ const addOnsData: AddOn[] = [
   {
     id: "premium-support",
     title: "Premium Support",
-    description: "Get the most out of the Fresha platform and it's features with help from our experienced business support specialists.",
+    description: "Get the most out of the salonox platform and it's features with help from our experienced business support specialists.",
     icon: <Headset size={24} />,
     iconColorClass: "icon-purple",
     badge: "On free trial"
@@ -62,7 +62,7 @@ const addOnsData: AddOn[] = [
   {
     id: "data-connector",
     title: "Data Connector",
-    description: "Connect the power of Fresha data to your external spreadsheets, systems and other software.",
+    description: "Connect the power of salonox data to your external spreadsheets, systems and other software.",
     icon: <LinkIcon size={24} />,
     iconColorClass: "icon-green"
   }
@@ -103,8 +103,8 @@ export default function AddOnsPage() {
   return (
     <div className="add-ons-page">
       <div className="page-header">
-        <h1 className="fw-bold">Fresha add-ons</h1>
-        <p className="subtitle text-muted">Take your business to the next level with Fresha add-ons.</p>
+        <h1 className="fw-bold">salonox add-ons</h1>
+        <p className="subtitle text-muted">Take your business to the next level with salonox add-ons.</p>
       </div>
 
       <section className="addon-section">
