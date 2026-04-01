@@ -23,7 +23,7 @@ export default function SetupCompletePage() {
         </h2>
 
         <p className="text-muted mb-4">
-          Enjoy 7 days free of using Fresha for business
+          Enjoy 7 days free of using salonox for business
         </p>
 
         <button

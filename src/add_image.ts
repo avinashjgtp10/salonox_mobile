@@ -1,8 +1,10 @@
+// @ts-nocheck
 import fs from 'fs';
 import path from 'path';
-
-const dir = path.resolve('src', 'features', 'auth', 'pages');
-const files = fs.readdirSync(dir).filter(f => f.endsWith('.tsx'));
+// Provide __dirname equivalent in ES modules if needed, but since we are running TS via tsx/ts-node it might resolve normally.
+// Using process.cwd() is safer here.
+const dir = path.resolve(process.cwd(), 'src', 'features', 'auth', 'pages');
+const files = fs.readdirSync(dir).filter((f: string) => f.endsWith('.tsx'));
 
 const importStr = `import salonImg from "../../../assets/images/salon.jpg"`;
 const imgCode = `
@@ -44,7 +46,6 @@ for (const file of files) {
   }
 
   // 2. Replace commented out img tags or empty divs with our absolute positioned img.
-  const colLg7Regex = /<div[^>]*className="[^"]*col-lg-7[^"]*"[^>]*>/g;
   let newContent = content;
   
   // Replace the commented out image block with our new image tag

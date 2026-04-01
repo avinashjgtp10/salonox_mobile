@@ -1,6 +1,11 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit"
 import { loginThunk, registerThunk } from "../middleware/auth/authThunk"
 import { sendEmailOtpThunk, verifyEmailOtpThunk } from "../middleware/auth/otpThunk"
+import {
+  forgotPasswordSendOtpThunk,
+  forgotPasswordVerifyOtpThunk,
+  forgotPasswordResetThunk,
+} from "../middleware/auth/forgotPasswordThunk"
 
 export interface AuthState {
   accessToken:          string | null
@@ -123,7 +128,35 @@ const authSlice = createSlice({
     builder
       .addCase(verifyEmailOtpThunk.pending,   (state) => { state.loading = true  })
       .addCase(verifyEmailOtpThunk.fulfilled, (state) => { state.loading = false })
-      .addCase(verifyEmailOtpThunk.rejected,  (state) => { state.loading = false })
+      .addCase(verifyEmailOtpThunk.rejected,  (state, { payload }) => {
+        state.loading = false
+        state.error   = payload ?? "Verification failed"
+      })
+
+    // ── Forgot Password thunks ────────────────────────────────────────────────
+    builder
+      .addCase(forgotPasswordSendOtpThunk.pending,   (state) => { state.loading = true; state.error = null })
+      .addCase(forgotPasswordSendOtpThunk.fulfilled, (state) => { state.loading = false })
+      .addCase(forgotPasswordSendOtpThunk.rejected,  (state, { payload }) => {
+        state.loading = false
+        state.error   = payload ?? "Failed to send OTP"
+      })
+
+    builder
+      .addCase(forgotPasswordVerifyOtpThunk.pending,   (state) => { state.loading = true; state.error = null })
+      .addCase(forgotPasswordVerifyOtpThunk.fulfilled, (state) => { state.loading = false })
+      .addCase(forgotPasswordVerifyOtpThunk.rejected,  (state, { payload }) => {
+        state.loading = false
+        state.error   = payload ?? "Invalid OTP"
+      })
+
+    builder
+      .addCase(forgotPasswordResetThunk.pending,   (state) => { state.loading = true; state.error = null })
+      .addCase(forgotPasswordResetThunk.fulfilled, (state) => { state.loading = false })
+      .addCase(forgotPasswordResetThunk.rejected,  (state, { payload }) => {
+        state.loading = false
+        state.error   = payload ?? "Failed to reset password"
+      })
   },
 })
 

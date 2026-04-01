@@ -6,7 +6,7 @@ import "../styles/ImportProductsPage.scss";
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Step = 1 | 2 | 3 | 4;
 
-const FRESHA_PRODUCT_COLUMNS = [
+const SALONOX_PRODUCT_COLUMNS = [
   { key: "name", label: "Product name", required: true, hint: "Product name. Required for import." },
   { key: "sku", label: "SKU/Barcode", required: false, hint: "Stock keeping unit or barcode." },
   { key: "category", label: "Category", required: false, hint: "Category of the product." },
@@ -149,7 +149,7 @@ function StepColumnMatch({
         <div className="col-6 col-head">Column in your file</div>
       </div>
 
-      {FRESHA_PRODUCT_COLUMNS.map((col) => (
+      {SALONOX_PRODUCT_COLUMNS.map((col) => (
         <div key={col.key} className="match-row">
           <div className="row align-items-start py-2">
             <div className="col-6">
@@ -216,11 +216,11 @@ function StepPreview({ previewRows }: { previewRows: Record<string, string>[] })
           <div className="table-responsive">
             <table className="table preview-table">
               <thead>
-                <tr>{FRESHA_PRODUCT_COLUMNS.map((c) => <th key={c.key}>{c.label}</th>)}</tr>
+                <tr>{SALONOX_PRODUCT_COLUMNS.map((c) => <th key={c.key}>{c.label}</th>)}</tr>
               </thead>
               <tbody>
                 {previewRows.map((row, i) => (
-                  <tr key={i}>{FRESHA_PRODUCT_COLUMNS.map((c) => <td key={c.key}>{row[c.key] ?? "—"}</td>)}</tr>
+                  <tr key={i}>{SALONOX_PRODUCT_COLUMNS.map((c) => <td key={c.key}>{row[c.key] ?? "—"}</td>)}</tr>
                 ))}
               </tbody>
             </table>
@@ -293,7 +293,7 @@ export default function ImportProductsPage() {
           .map((h) => h.trim().replace(/^"|"$/g, ""));
         setCsvHeaders(headers);
         const auto: Record<string, string> = {};
-        FRESHA_PRODUCT_COLUMNS.forEach((col) => {
+        SALONOX_PRODUCT_COLUMNS.forEach((col) => {
           const match = headers.find(
             (h) =>
               h.toLowerCase().includes(col.key.toLowerCase()) ||
@@ -316,7 +316,7 @@ export default function ImportProductsPage() {
     if (step === 1 && !file) { setUploadError("Please upload CSV file first"); return; }
     if (step === 2) {
       const errs: Record<string, string> = {};
-      FRESHA_PRODUCT_COLUMNS.filter((c) => c.required).forEach((c) => {
+      SALONOX_PRODUCT_COLUMNS.filter((c) => c.required).forEach((c) => {
         if (!mapping[c.key] || mapping[c.key] === "None")
           errs[c.key] = "This column is required.";
       });

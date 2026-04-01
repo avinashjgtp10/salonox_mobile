@@ -1,7 +1,8 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom"
-import { useState } from "react"
-import { useDispatch } from "react-redux"
+import { useState, useEffect } from "react"
+import { useAppDispatch } from "../../../hooks/useAppRedux"
 import { logout } from "../../../store/authSlice"
+import { getMySalonThunk } from "../../../middleware/salon/salon.thunk"
 import "../styles/DashboardPage.scss"
 
 import OnlineBookingSubSidebar from "./OnlineBookingSubSidebar"
@@ -34,7 +35,11 @@ export default function DashboardLayout() {
 
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const navigate = useNavigate()
-  const dispatch = useDispatch()
+  const dispatch = useAppDispatch()
+
+  useEffect(() => {
+    dispatch(getMySalonThunk())
+  }, [dispatch])
 
   const handleLogout = () => {
     dispatch(logout())

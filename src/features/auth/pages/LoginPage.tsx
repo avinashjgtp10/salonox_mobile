@@ -14,6 +14,7 @@ import { Divider } from "../../../components/ui/Divider"
 import SplitLayout from "../../../components/ui/SplitLayout"
 
 export default function LoginPage() {
+  // Form state
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -38,7 +39,7 @@ export default function LoginPage() {
       if (isOnboardingComplete) {
         navigate("/dashboard")
       } else {
-        navigate("/business-name")
+        navigate("/account-type")
       }
     } else {
       setError((result.payload as string) ?? "Invalid email or password")
@@ -47,7 +48,7 @@ export default function LoginPage() {
 
   // 🔐 GOOGLE OAUTH
   const handleGoogleLogin = () => {
-    const backendUrl = import.meta.env.VITE_API_BASE_URL || "http://192.168.0.201:3000"
+    const backendUrl = import.meta.env.VITE_API_BASE_URL
     window.location.href = `${backendUrl}/api/v1/auth/google/start`
   }
 
@@ -58,7 +59,7 @@ export default function LoginPage() {
       title={
         <div className="text-center w-100 mb-2">
           <h4 className="brand-logo d-inline-block">salonox</h4>
-          <h3 className="fw-bold mt-3 mb-2">Welcome Back</h3>
+          <h3 className="fw-bold mt-3 mb-2">Welcome</h3>
         </div>
       }
       subtitle="Create an account or log in to manage your business."
@@ -98,24 +99,22 @@ export default function LoginPage() {
         variant="dark"
         fullWidth
         onClick={handleLogin}
-        loading={loading}
+        disabled={loading}
         className="mb-3"
       >
         Continue
       </Button>
 
-      {/* REGISTER */}
-      <p className="text-center mb-3">
-        <small className="text-muted">
-          Don’t have an account?{" "}
-          <span className="fw-bold text-decoration-underline register-link"
-            onClick={() => navigate("/register")}
-            style={{ cursor: "pointer", color: "#6c63ff" }}
-          >
-            Register
-          </span>
-        </small>
-      </p>
+      {/* FORGOT PASSWORD */}
+      <div className="text-end mb-3">
+        <span 
+          onClick={() => navigate("/forgot-password")} 
+          className="text-primary text-decoration-none" 
+          style={{ cursor: "pointer", fontSize: "14px" }}
+        >
+          Forgot password?
+        </span>
+      </div>
 
       <Divider text="OR" />
 
@@ -126,10 +125,22 @@ export default function LoginPage() {
         onClick={handleGoogleLogin}
         iconLeft={<FcGoogle size={20} />}
         disabled={loading}
-        className="mb-3"
+        className="mb-2"
+        style={{ height: "48px" }} // Added explicit height to match typical buttons
       >
         Continue with Google
       </Button>
+
+      <p className="mt-1 mb-0" style={{ fontSize: "14px", color: "#6c757d" }}>
+        Don't have an account?{" "}
+        <span 
+          onClick={() => navigate("/register")}
+          className="text-primary text-decoration-none"
+          style={{ cursor: "pointer" }}
+        >
+          Register
+        </span>
+      </p>
     </Card>
   )
 

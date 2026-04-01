@@ -260,7 +260,7 @@ export default function AppointmentsPage() {
           </Button>
 
           {showPicker && (
-            <div className="fresha-calendar-popup shadow-lg border position-absolute start-0 mt-2 bg-white z-2 p-3 rounded-4" style={{ minWidth: '400px' }}>
+            <div className="salonox-calendar-popup shadow-lg border position-absolute start-0 mt-2 bg-white z-2 p-3 rounded-4" style={{ minWidth: '400px' }}>
               <div className="preset-selector mb-3 position-relative">
                 <Button 
                   variant="outline-dark"
@@ -391,7 +391,7 @@ export default function AppointmentsPage() {
               >
                 <option value="all">All channels</option>
                 <option value="online">All online channels</option>
-                <option value="fresha">Marketplace - Fresha</option>
+                <option value="salonox">Marketplace - salonox</option>
                 <option value="book_now">Book now link</option>
                 <option value="facebook">Facebook</option>
                 <option value="instagram">Instagram</option>

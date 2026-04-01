@@ -56,7 +56,7 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [] }) => {
                             </select>
                             <ChevronDown className="select-icon" />
                         </div>
-                        <div className="text-muted extra-small mt-2">Used to help clients find your service on the Fresha marketplace</div>
+                        <div className="text-muted extra-small mt-2">Used to help clients find your service on the salonox marketplace</div>
                     </div>
 
                     <div className="col-12">

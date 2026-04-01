@@ -36,17 +36,17 @@ export default function BusinessLocationPage() {
 
       <div className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3">
         <button
-          className="btn btn-outline-secondary rounded-pill bg-white"
+          className="btn btn-outline-secondary rounded-pill bg-white px-4"
           onClick={() => navigate(-1)}
         >
           Back
         </button>
         <button
-          className="btn btn-dark rounded-pill"
+          className="btn btn-dark rounded-pill px-4 d-lg-none"
           disabled={!selected}
           onClick={handleContinue}
         >
-          Continue <FiArrowRight size={16} />
+          Continue <FiArrowRight size={16} className="ms-1" />
         </button>
       </div>
 
@@ -94,6 +94,17 @@ export default function BusinessLocationPage() {
             className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
             style={{ zIndex: 0 }}
           />
+
+          {/* Desktop Continue Button on Image */}
+          <div className="position-absolute top-0 end-0 p-4 z-3 d-none d-lg-block">
+            <button
+              className="btn btn-dark rounded-pill px-4"
+              disabled={!selected}
+              onClick={handleContinue}
+            >
+              Continue <FiArrowRight size={16} className="ms-1" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
