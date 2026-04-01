@@ -12,7 +12,7 @@
   &.open {
     opacity: 1;
     pointer-events: auto;
-    
+
     .client-drawer {
       transform: translateX(0);
     }
@@ -20,8 +20,8 @@
 }
 
 .client-drawer {
-  width: 90%;
-  max-width: 1200px;
+  width: 95%;
+  max-width: 1400px;
   height: 100%;
   background: white;
   transform: translateX(100%);
@@ -43,7 +43,7 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    z-index: 10;
+    z-index: 50;
     color: #4b5563;
 
     &:hover {
@@ -51,248 +51,360 @@
     }
   }
 
-  .drawer-container {
+  .drawer-main-container {
     display: flex;
     height: 100%;
-    padding-top: 60px; // Space for close button if it was in header, but here it's absolute
+    overflow: hidden;
   }
 
-  /* LEFT PANEL: PROFILE SUMMARY */
-  .profile-summary-panel {
-    width: 300px;
+
+  /* PANE 2: PROFILE SUMMARY */
+  .profile-summary-pane {
+    width: 200px;
     border-right: 1px solid #f3f4f6;
-    padding: 24px;
+    padding: 60px 20px 20px;
+    background: #ffffff;
     display: flex;
     flex-direction: column;
     align-items: center;
 
-    .profile-header {
+    .profile-info-card {
       text-align: center;
-      margin-bottom: 30px;
+      width: 100%;
 
-      .avatar {
-        width: 100px;
-        height: 100px;
-        background: #f3f4f6;
+      .profile-avatar {
+        width: 80px;
+        height: 80px;
+        background: #f3f1ff;
+        color: #6366f1;
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 32px;
-        font-weight: 700;
-        color: #6366f1;
-        margin: 0 auto 20px;
-        border: 4px solid white;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        font-size: 28px;
+        font-weight: 600;
+        margin: 0 auto 16px;
       }
 
-      h3 {
-        font-size: 20px;
+      .profile-name {
+        font-size: 18px;
         font-weight: 700;
-        margin: 0 0 4px;
+        margin-bottom: 4px;
         color: #111827;
       }
 
-      .email, .phone {
-        font-size: 14px;
+      .profile-email {
+        font-size: 13px;
         color: #6b7280;
-        margin: 2px 0;
+        margin-bottom: 24px;
+        word-break: break-all;
       }
 
-      .badge-new {
-        display: inline-block;
-        background: #eef2ff;
-        color: #6366f1;
-        font-size: 12px;
-        font-weight: 600;
-        padding: 4px 12px;
-        border-radius: 999px;
-        margin-top: 12px;
-      }
-    }
-
-    .profile-actions {
-      display: flex;
-      gap: 12px;
-      width: 100%;
-      margin-bottom: 30px;
-
-      .btn-actions {
-        flex: 1;
-        background: white;
-        border: 1px solid #d1d5db;
-        border-radius: 20px;
-        padding: 8px 16px;
-        font-size: 14px;
-        font-weight: 600;
+      .profile-buttons {
         display: flex;
-        align-items: center;
-        justify-content: center;
+        flex-direction: column;
         gap: 8px;
-        cursor: pointer;
-      }
+        width: 100%;
+        margin-bottom: 30px;
 
-      .btn-book-now {
-        flex: 1;
-        background: black;
-        color: white;
-        border: none;
-        border-radius: 20px;
-        padding: 8px 16px;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-      }
-    }
-
-    .profile-meta {
-      width: 100%;
-      border-top: 1px solid #f3f4f6;
-      padding-top: 24px;
-
-      .meta-item {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 8px 0;
-        font-size: 14px;
-        color: #111827;
-        font-weight: 500;
-        cursor: pointer;
-
-        &:hover {
-          color: #6366f1;
+        .btn-actions {
+          background: white;
+          border: 1px solid #d1d5db;
+          border-radius: 20px;
+          padding: 8px 16px;
+          font-size: 14px;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          cursor: pointer;
         }
 
-        &.created-at {
-          color: #6b7280;
-          font-weight: 400;
-          cursor: default;
-          margin-top: 8px;
-          &:hover { color: #6b7280; }
+        .btn-book-now {
+          background: black;
+          color: white;
+          border: none;
+          border-radius: 20px;
+          padding: 8px 16px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+        }
+      }
+
+      .profile-meta-list {
+        text-align: left;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        border-top: 1px solid #f3f4f6;
+        padding-top: 24px;
+
+        .meta-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 13px;
+          color: #6366f1;
+          font-weight: 500;
+          cursor: pointer;
+
+          span {
+            color: #111827;
+          }
+
+          &.created-date {
+            margin-top: 8px;
+            color: #6b7280;
+
+            span {
+              color: #6b7280;
+              font-weight: 400;
+            }
+          }
         }
       }
     }
   }
 
-  /* MIDDLE PANEL: NAVIGATION TABS */
-  .tabs-navigation-panel {
-    width: 250px;
+  /* PANE 3: NAVIGATION TABS */
+  .navigation-tabs-pane {
+    width: 200px;
     border-right: 1px solid #f3f4f6;
-    padding: 16px 0;
+    padding: 40px 0;
     overflow-y: auto;
 
     .tabs-list {
       .tab-item {
         padding: 12px 24px;
-        font-size: 15px;
+        font-size: 14px;
         font-weight: 500;
         color: #4b5563;
         cursor: pointer;
-        transition: 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        transition: background 0.2s;
 
         &:hover {
           background: #f9fafb;
-          color: #111827;
         }
 
         &.active {
-          background: #eef2ff;
-          color: #6366f1;
+          color: #111827;
+          background: #f3f1ff;
+          font-weight: 600;
+
+          .tab-count {
+            background: #6366f1;
+            color: white;
+          }
+        }
+
+        .tab-count {
+          background: #f3f4f6;
+          color: #6b7280;
+          font-size: 11px;
+          padding: 2px 8px;
+          border-radius: 10px;
         }
       }
     }
   }
 
-  /* RIGHT PANEL: CONTENT AREA */
-  .tab-content-panel {
+  /* PANE 4: CONTENT AREA */
+  .tab-content-pane {
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding: 24px;
-    background: #f9fafb;
+    padding: 40px;
+    background: #ffffff;
+    overflow-y: auto;
 
-    .tab-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 24px;
+    .content-header {
+      margin-bottom: 40px;
 
       h2 {
-        font-size: 24px;
+        font-size: 28px;
         font-weight: 700;
-        margin: 0;
+        margin-bottom: 24px;
       }
 
-      .btn-add-note {
-        background: white;
-        border: 1px solid #d1d5db;
-        border-radius: 20px;
-        padding: 6px 20px;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-      }
-    }
-
-    .tab-body {
-      flex: 1;
-      background: white;
-      border-radius: 12px;
-      padding: 24px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-
-      .notes-subtabs {
+      .sub-tabs-pills {
         display: flex;
         gap: 8px;
-        margin-bottom: 30px;
 
-        .subtab-btn {
+        .sub-tab-pill {
           background: #f3f4f6;
           border: none;
-          padding: 8px 16px;
-          border-radius: 8px;
           font-size: 14px;
           font-weight: 600;
-          color: #4b5563;
+          color: #111827;
+          padding: 8px 16px;
+          border-radius: 20px;
           cursor: pointer;
+          transition: all 0.2s;
 
           &.active {
-            background: black;
-            color: white;
+            background: #111827;
+            color: #ffffff;
+          }
+
+          &:hover:not(.active) {
+            background: #e5e7eb;
           }
         }
       }
+    }
 
-      .empty-state {
+    .appointments-view {
+      .month-header {
+        font-size: 14px;
+        font-weight: 600;
+        color: #111827;
+        margin-bottom: 20px;
+      }
+
+      .appointment-card-v2 {
         display: flex;
-        flex-direction: column;
+        background: white;
+        border: 1px solid #f3f4f6;
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 16px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+
+        .status-line {
+          width: 4px;
+
+          &.bg-blue {
+            background: #6366f1;
+          }
+        }
+
+        .card-content {
+          flex: 1;
+          padding: 20px;
+
+          .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+
+            .header-left {
+              display: flex;
+              gap: 12px;
+              align-items: flex-start;
+              color: #111827;
+
+              .header-text {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+
+                .type {
+                  font-weight: 700;
+                  font-size: 15px;
+                }
+
+                .info {
+                  font-size: 13px;
+                  color: #6b7280;
+                }
+              }
+            }
+
+            .status-badge {
+              background: #ebf5ff;
+              color: #2563eb;
+              font-size: 11px;
+              font-weight: 700;
+              padding: 4px 10px;
+              border-radius: 4px;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+          }
+
+          .card-body {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 20px;
+
+            .service-info {
+              .service-name {
+                font-size: 15px;
+                font-weight: 500;
+                color: #111827;
+                margin-bottom: 4px;
+              }
+
+              .service-meta {
+                font-size: 13px;
+                color: #6b7280;
+              }
+            }
+
+            .service-price {
+              font-weight: 700;
+              font-size: 16px;
+              color: #111827;
+            }
+          }
+
+          .card-footer {
+            .btn-checkout {
+              background: white;
+              border: 1px solid #d1d5db;
+              border-radius: 20px;
+              padding: 6px 24px;
+              font-size: 14px;
+              font-weight: 600;
+              color: #111827;
+              cursor: pointer;
+
+              &:hover {
+                background: #f9fafb;
+                border-color: #9ca3af;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    .placeholder-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 300px;
+      text-align: center;
+
+      .empty-icon {
+        width: 60px;
+        height: 60px;
+        background: #f3f4f6;
+        border-radius: 50%;
+        display: flex;
         align-items: center;
         justify-content: center;
-        padding-top: 60px;
-        text-align: center;
+        margin-bottom: 16px;
+        color: #9ca3af;
+      }
 
-        .empty-icon {
-          width: 80px;
-          height: 80px;
-          background: #f5f3ff;
-          border-radius: 16px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin-bottom: 20px;
-        }
+      h4 {
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
 
-        h4 {
-          font-size: 18px;
-          font-weight: 700;
-          margin: 0 0 8px;
-        }
-
-        p {
-          font-size: 14px;
-          color: #6b7280;
-        }
+      p {
+        font-size: 14px;
+        color: #6b7280;
       }
     }
   }
