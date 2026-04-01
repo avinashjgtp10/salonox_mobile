@@ -10,7 +10,8 @@ import {
     Gear,
     FileEarmarkPdf,
     FileEarmarkExcel,
-    FiletypeCsv
+    FiletypeCsv,
+    X
 } from "react-bootstrap-icons";
 import { useServices } from "../hooks/useServices.ts";
 import ServiceFilterDrawer from "../components/ServiceFilterDrawer.tsx";
@@ -26,6 +27,11 @@ const ServicesListPage: React.FC = () => {
     const [selectedCategory, setSelectedCategory] = useState<string>("all");
     const [actionsMenuServiceId, setActionsMenuServiceId] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
+    const [showAddCategory, setShowAddCategory] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState("");
+    const [newCategoryColor, setNewCategoryColor] = useState("#3b82f6");
+    const [newCategoryDesc, setNewCategoryDesc] = useState("");
+    const [colorDropdownOpen, setColorDropdownOpen] = useState(false);
     const [filters, setFilters] = useState({
         status: "Active",
         type: "All types",
@@ -99,7 +105,7 @@ const ServicesListPage: React.FC = () => {
                         <ul className="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-4">
                             <li><button className="dropdown-item py-2" onClick={() => navigate("/dashboard/catalog/services/add?type=single")}>Single Service</button></li>
                             <li><button className="dropdown-item py-2" onClick={() => navigate("/dashboard/catalog/services/add?type=bundle")}>Bundle</button></li>
-                            <li><button className="dropdown-item py-2" onClick={() => navigate("/dashboard/catalog/services/categories")}>Category</button></li>
+                            <li><button className="dropdown-item py-2" onClick={() => setShowAddCategory(true)}>Category</button></li>
                         </ul>
                     </div>
                 </div>
@@ -137,7 +143,7 @@ const ServicesListPage: React.FC = () => {
                                 </li>
                             ))}
                         </ul>
-                        <button className="add-category-link" onClick={() => navigate("/dashboard/catalog/services/categories")}>
+                        <button className="add-category-link" onClick={() => setShowAddCategory(true)}>
                             Add category
                         </button>
                     </div>
@@ -208,6 +214,120 @@ const ServicesListPage: React.FC = () => {
             {showManageOrder && (
                 <ManageOrderModal services={services} onClose={() => setShowManageOrder(false)}
                     onSave={() => { fetchServices(); setShowManageOrder(false); }} />
+            )}
+
+            {/* ── ADD CATEGORY MODAL ── */}
+            {showAddCategory && (
+                <div
+                    className="add-category-overlay"
+                    onClick={() => setShowAddCategory(false)}
+                >
+                    <div
+                        className="add-category-modal"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Header */}
+                        <div className="acm-header">
+                            <h4 className="acm-title">Add category</h4>
+                            <button className="acm-close" onClick={() => setShowAddCategory(false)}>
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="acm-body">
+                            <div className="acm-row">
+                                {/* Category name */}
+                                <div className="acm-field">
+                                    <label className="acm-label">Category name</label>
+                                    <input
+                                        className="acm-input"
+                                        placeholder="e.g. Hair Services"
+                                        value={newCategoryName}
+                                        onChange={(e) => setNewCategoryName(e.target.value)}
+                                        autoFocus
+                                    />
+                                </div>
+
+                                {/* Appointment color */}
+                                <div className="acm-field acm-field--color">
+                                    <label className="acm-label">Appointment color</label>
+                                    <div className="acm-color-dropdown" onClick={() => setColorDropdownOpen(o => !o)}>
+                                        <span className="acm-color-swatch" style={{ background: newCategoryColor }} />
+                                        <span className="acm-color-name">{({
+                                            '#3b82f6': 'Blue', '#10b981': 'Green', '#f59e0b': 'Amber',
+                                            '#ef4444': 'Red', '#8b5cf6': 'Purple', '#ec4899': 'Pink',
+                                            '#06b6d4': 'Cyan', '#6b7280': 'Gray'
+                                        } as Record<string,string>)[newCategoryColor] || 'Blue'}</span>
+                                        <ChevronDown size={14} className="acm-chevron" />
+                                    </div>
+                                    {colorDropdownOpen && (
+                                        <div className="acm-color-menu">
+                                            {[
+                                                { hex: '#3b82f6', name: 'Blue' },
+                                                { hex: '#10b981', name: 'Green' },
+                                                { hex: '#f59e0b', name: 'Amber' },
+                                                { hex: '#ef4444', name: 'Red' },
+                                                { hex: '#8b5cf6', name: 'Purple' },
+                                                { hex: '#ec4899', name: 'Pink' },
+                                                { hex: '#06b6d4', name: 'Cyan' },
+                                                { hex: '#6b7280', name: 'Gray' },
+                                            ].map(c => (
+                                                <div
+                                                    key={c.hex}
+                                                    className={`acm-color-option ${newCategoryColor === c.hex ? 'selected' : ''}`}
+                                                    onClick={() => { setNewCategoryColor(c.hex); setColorDropdownOpen(false); }}
+                                                >
+                                                    <span className="acm-color-swatch" style={{ background: c.hex }} />
+                                                    <span>{c.name}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Description */}
+                            <div className="acm-field mt-3">
+                                <div className="d-flex justify-content-between align-items-center mb-1">
+                                    <label className="acm-label mb-0">Description</label>
+                                    <span className="acm-char-count">{newCategoryDesc.length}/255</span>
+                                </div>
+                                <textarea
+                                    className="acm-textarea"
+                                    rows={4}
+                                    maxLength={255}
+                                    value={newCategoryDesc}
+                                    onChange={(e) => setNewCategoryDesc(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="acm-footer">
+                            <button
+                                className="acm-btn acm-btn--cancel"
+                                onClick={() => { setShowAddCategory(false); setNewCategoryName(''); setNewCategoryDesc(''); setNewCategoryColor('#3b82f6'); }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                className="acm-btn acm-btn--add"
+                                disabled={!newCategoryName.trim()}
+                                onClick={() => {
+                                    // TODO: call API to create category
+                                    setShowAddCategory(false);
+                                    setNewCategoryName('');
+                                    setNewCategoryDesc('');
+                                    setNewCategoryColor('#3b82f6');
+                                    fetchServices();
+                                }}
+                            >
+                                Add
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

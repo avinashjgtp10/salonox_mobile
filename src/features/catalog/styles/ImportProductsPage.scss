@@ -1,0 +1,372 @@
+// ─── Import Products Page ──────────────────────────────────────────────────────
+
+.import-products-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: #fff;
+  font-family: 'DM Sans', 'Segoe UI', sans-serif;
+}
+
+// ─── Top Bar ─────────────────────────────────────────────────────────────────
+.import-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: #fff;
+  border-bottom: 1px solid #f1f5f9;
+  gap: 12px;
+
+  .back-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid #e2e8f0;
+    background: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    line-height: 1;
+    transition: background 0.2s;
+
+    &:hover { background: #f8fafc; }
+  }
+
+  .btn-outline-secondary {
+    border-color: #e2e8f0;
+    color: #475569;
+    font-size: 13px;
+
+    &:hover { background: #f8fafc; }
+  }
+
+  .btn-dark {
+    background: #1e293b;
+    border: none;
+    font-size: 13px;
+
+    &:hover { background: #334155; }
+  }
+}
+
+.progress-track {
+  height: 4px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #6366f1, #818cf8);
+    border-radius: 4px;
+    transition: width 0.4s ease;
+  }
+}
+
+// ─── Body ─────────────────────────────────────────────────────────────────────
+.import-body {
+  flex: 1;
+  padding: 44px 24px 64px;
+  overflow-y: auto;
+}
+
+// ─── Step Dots ───────────────────────────────────────────────────────────────
+.step-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 0;
+  border-top: 1px solid #f1f5f9;
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    transition: background 0.3s;
+
+    &--active { background: #6366f1; }
+  }
+}
+
+// ─── Shared Step Styles ───────────────────────────────────────────────────────
+.step-label {
+  font-size: 12px;
+  color: #94a3b8;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.step-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 10px;
+}
+
+.step-desc {
+  font-size: 14px;
+  color: #64748b;
+  margin-bottom: 24px;
+}
+
+// ─── Step 1 – Upload ──────────────────────────────────────────────────────────
+.upload-card {
+  border: 2px dashed #e2e8f0;
+  border-radius: 14px;
+  padding: 52px 32px;
+  cursor: pointer;
+  background: #fafafa;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: border-color 0.2s, background 0.2s;
+
+  &--drag {
+    border-color: #6366f1;
+    background: #eef2ff;
+  }
+
+  &--error {
+    border-color: #ef4444;
+  }
+
+  &:hover:not(.upload-card--error) {
+    border-color: #818cf8;
+    background: #f5f3ff;
+  }
+
+  .upload-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0;
+  }
+}
+
+.file-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 6px 12px;
+}
+
+.csv-badge {
+  background: #16a34a;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 4px;
+  padding: 2px 6px;
+  letter-spacing: 0.05em;
+}
+
+.file-name {
+  font-size: 13px;
+  color: #334155;
+  font-weight: 500;
+}
+
+.file-size {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.remove-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 17px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+
+  &:hover { color: #475569; }
+}
+
+.choose-btn {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 7px 22px;
+  font-size: 13px;
+  cursor: pointer;
+  color: #475569;
+  transition: background 0.2s, border-color 0.2s;
+
+  &:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+  }
+}
+
+.toast-error {
+  display: inline-flex;
+  align-items: center;
+  background: #dc2626;
+  color: #fff;
+  font-size: 13px;
+  border-radius: 8px;
+  padding: 8px 16px;
+}
+
+.download-link {
+  color: #6366f1;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+
+  &:hover {
+    color: #4f46e5;
+    text-decoration: underline;
+  }
+}
+
+// ─── Step 2 – Column Matching ─────────────────────────────────────────────────
+.ready-banner {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #166534;
+}
+
+.file-row {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 14px;
+}
+
+.col-headers {
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.col-head {
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.04em;
+}
+
+.match-row {
+  .frozen-field {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    color: #475569;
+  }
+
+  .field-hint {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-top: 4px;
+    margin-bottom: 0;
+  }
+
+  .match-select {
+    font-size: 13px;
+    border-radius: 6px;
+    border-color: #e2e8f0;
+    color: #334155;
+
+    &:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+    }
+
+    &.is-invalid {
+      border-color: #ef4444;
+    }
+  }
+
+  .req-msg {
+    font-size: 11px;
+    color: #ef4444;
+    margin-top: 4px;
+    margin-bottom: 0;
+  }
+
+  .divider {
+    margin: 0;
+    border-color: #f1f5f9;
+  }
+}
+
+// ─── Step 3 – Preview ─────────────────────────────────────────────────────────
+.preview-tabs {
+  display: flex;
+  border-bottom: 2px solid #e2e8f0;
+  gap: 0;
+}
+
+.preview-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  padding: 10px 20px;
+  font-size: 14px;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+
+  &.active {
+    color: #0f172a;
+    font-weight: 600;
+    border-bottom-color: #0f172a;
+  }
+
+  &:hover:not(.active) { color: #475569; }
+}
+
+.preview-empty {
+  .empty-title {
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 6px;
+  }
+
+  .empty-sub {
+    font-size: 13px;
+    color: #f59e0b;
+  }
+}
+
+.preview-table {
+  font-size: 13px;
+
+  thead th {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    padding: 10px 12px;
+    border-bottom: 2px solid #e2e8f0;
+  }
+
+  tbody td {
+    color: #334155;
+    padding: 10px 12px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+}
+
+// ─── Step 4 – Result ──────────────────────────────────────────────────────────
+.result-icon {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

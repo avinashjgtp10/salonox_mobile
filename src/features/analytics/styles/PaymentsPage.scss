@@ -16,7 +16,8 @@
   .payment-options-menu {
     position: absolute;
     top: 100%;
-    right: 0;
+    left: 50%;
+    transform: translateX(-50%);
     margin-top: 8px;
     background: white;
     min-width: 200px;
@@ -257,5 +258,136 @@
         border-radius: 0 12px 12px 0 !important;
     }
   }
-}
+  /* ── PAYMENTS TABLE ── */
+  .payments-table-wrapper {
+    border: 1px solid #f0f0f0;
+  }
 
+  .payments-table {
+    border-collapse: collapse;
+    font-size: 14px;
+
+    thead tr {
+      background: #f9fafb;
+      border-bottom: 1px solid #e5e7eb;
+
+      th {
+        padding: 14px 20px;
+        font-weight: 700;
+        font-size: 12px;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+      }
+    }
+
+    tbody tr {
+      border-bottom: 1px solid #f3f4f6;
+      transition: background 0.15s;
+      cursor: pointer;
+
+      &:last-child { border-bottom: none; }
+      &:hover { background: #fafafa; }
+
+      td {
+        padding: 14px 20px;
+        vertical-align: middle;
+      }
+    }
+  }
+
+  /* Method badges */
+  .payment-method-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+
+    &.badge-method-cash  { background: #d1fae5; color: #065f46; }
+    &.badge-method-gift  { background: #ede9fe; color: #5b21b6; }
+    &.badge-method-split { background: #dbeafe; color: #1e40af; }
+    &.badge-method-other { background: #f3f4f6; color: #4b5563; }
+  }
+
+  /* Type badge */
+  .payment-type-badge {
+    display: inline-flex;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    background: #f3f4f6;
+    color: #374151;
+    white-space: nowrap;
+  }
+
+  /* Status badges */
+  .payment-status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+
+    &.badge-status-completed { background: #d1fae5; color: #065f46; }
+    &.badge-status-refunded  { background: #fee2e2; color: #991b1b; }
+  }
+
+  /* ── PAGINATION ── */
+  .payments-pagination {
+    .pagination-btn {
+      width: 36px;
+      height: 36px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      color: #374151;
+
+      &:hover:not(:disabled) {
+        background: #f3f4f6;
+        border-color: #d1d5db;
+      }
+
+      &:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+    }
+
+    .pagination-num {
+      min-width: 36px;
+      height: 36px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      background: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      color: #374151;
+      cursor: pointer;
+      transition: all 0.15s;
+      padding: 0 10px;
+
+      &:hover:not(.active) {
+        background: #f3f4f6;
+        border-color: #d1d5db;
+      }
+
+      &.active {
+        background: #111827;
+        border-color: #111827;
+        color: #fff;
+      }
+    }
+  }
+}

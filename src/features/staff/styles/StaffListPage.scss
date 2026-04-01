@@ -11,6 +11,19 @@
         justify-content: space-between;
         margin-bottom: 24px;
 
+        .title-container {
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+
+            .page-title {
+                font-size: 24px;
+                font-weight: 700;
+                margin: 0;
+                color: #111827;
+            }
+        }
+
         h4 {
             font-size: 1.2rem;
             font-weight: 700;
@@ -154,7 +167,96 @@
         text-align: center;
     }
 
-    // ===== SEARCH =====
+    /* ================= IMPORT BANNER ================= */
+    .import-banner {
+      background: linear-gradient(90deg, #111827 0%, #1f2937 100%);
+      border-radius: 16px;
+      padding: 32px 40px;
+      margin-bottom: 32px;
+      position: relative;
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      overflow: hidden;
+  
+      .banner-content {
+        position: relative;
+        z-index: 1;
+        max-width: 60%;
+  
+        h3 {
+          font-size: 20px;
+          font-weight: 700;
+          margin-bottom: 8px;
+        }
+  
+        p {
+          font-size: 14px;
+          opacity: 0.9;
+          margin-bottom: 24px;
+        }
+  
+        .banner-actions {
+          display: flex;
+          align-items: center;
+          gap: 20px;
+        }
+  
+        .btn-banner-white {
+          background: white;
+          color: #111827;
+          border: none;
+          border-radius: 999px;
+          padding: 10px 24px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+  
+          &:hover {
+            background: #f3f4f6;
+            transform: translateY(-1px);
+          }
+        }
+  
+        .banner-link {
+          font-size: 14px;
+          font-weight: 600;
+          text-decoration: underline;
+          cursor: pointer;
+          opacity: 0.9;
+  
+          &:hover {
+            opacity: 1;
+          }
+        }
+      }
+  
+      .banner-image {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.2;
+      }
+
+      .banner-close {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        background: none;
+        border: none;
+        color: white;
+        opacity: 0.6;
+        cursor: pointer;
+        padding: 4px;
+        transition: opacity 0.2s;
+        z-index: 2;
+  
+        &:hover {
+          opacity: 1;
+        }
+      }
+    }
     .search-container {
         margin-bottom: 20px;
     }
@@ -253,22 +355,43 @@
 
     .table-header {
         display: grid;
-        grid-template-columns: 44px 2fr 2fr 1.5fr 160px;
-        padding: 10px 20px;
+        grid-template-columns: 44px 2fr 1.5fr 1.2fr 100px 80px;
+        padding: 14px 20px;
         background: #f9fafb;
         border-bottom: 1.5px solid #e5e7eb;
         border-radius: 12px 12px 0 0;
-        font-size: 0.78rem;
+        font-size: 0.72rem;
         font-weight: 700;
         color: #6b7280;
         text-transform: uppercase;
-        letter-spacing: 0.04em;
+        letter-spacing: 0.05em;
         align-items: center;
+
+        &.selected-header {
+            background: white;
+            border: 1.2px solid #e5e7eb;
+            margin-bottom: 12px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            display: flex;
+            gap: 16px;
+
+            .selected-count {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 0.84rem;
+                font-weight: 600;
+                color: #111827;
+                text-transform: none;
+                letter-spacing: normal;
+            }
+        }
     }
 
     .table-row {
         display: grid;
-        grid-template-columns: 44px 2fr 2fr 1.5fr 160px;
+        grid-template-columns: 44px 2fr 1.5fr 1.2fr 100px 80px;
         padding: 12px 20px;
         border-bottom: 1px solid #f3f4f6;
         align-items: center;

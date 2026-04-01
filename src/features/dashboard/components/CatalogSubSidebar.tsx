@@ -27,15 +27,7 @@ export default function CatalogSubSidebar({ onClose }: Props) {
         Service menu
       </NavLink>
 
-      <NavLink
-        to="/dashboard/catalog/services/categories"
-        className={({ isActive }) =>
-          isActive ? "sub-link active" : "sub-link"
-        }
-        onClick={onClose}
-      >
-        Categories
-      </NavLink>
+
 
       <NavLink
         to="/dashboard/catalog/memberships"
@@ -71,7 +63,7 @@ export default function CatalogSubSidebar({ onClose }: Props) {
         Stocktakes
       </NavLink>
       <NavLink
-        to="/dashboard/catalog/inventory/orders"
+        to="/dashboard/catalog/inventory/stock-orders"
         className={({ isActive }) =>
           isActive ? "sub-link active" : "sub-link"
         }
@@ -79,7 +71,15 @@ export default function CatalogSubSidebar({ onClose }: Props) {
       >
         Stock orders
       </NavLink>
-      <div className="sub-link">Suppliers</div>
+      <NavLink
+        to="/dashboard/catalog/inventory/suppliers"
+        className={({ isActive }) =>
+          isActive ? "sub-link active" : "sub-link"
+        }
+        onClick={onClose}
+      >
+        Suppliers
+      </NavLink>
 
     </div>
   )

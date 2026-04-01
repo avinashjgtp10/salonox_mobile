@@ -141,36 +141,6 @@
     border-top: 1px solid #eee;
     display: flex;
     gap: 12px;
-
-    button {
-      flex: 1;
-      padding: 10px;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .btn-clear {
-      background: #fff;
-      border: 1px solid #d0d5dd;
-      color: #344054;
-
-      &:hover {
-        background: #f9fafb;
-      }
-    }
-
-    .btn-apply {
-      background: #101928;
-      border: 1px solid #101928;
-      color: #fff;
-
-      &:hover {
-        background: #1d2939;
-      }
-    }
   }
 }
 

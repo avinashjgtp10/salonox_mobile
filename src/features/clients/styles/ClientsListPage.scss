@@ -541,11 +541,57 @@
   }
 
   .results-text {
-    text-align: center;
-    margin-top: 14px;
     font-size: 13px;
     color: #6b7280;
   }
+
+  /* ================= PAGINATION BAR ================= */
+  .pagination-bar {
+    padding: 8px 4px;
+  }
+
+  .pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .pagination-btn {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #fff;
+    color: #374151;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+
+    &:hover:not(:disabled) {
+      background: #f3f4f6;
+      border-color: #9ca3af;
+    }
+
+    &.active {
+      background: #111827;
+      color: #fff;
+      border-color: #111827;
+      font-weight: 700;
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+  }
+
 
   /* ================= SELECTED ACTIONS ================= */
   .table-header.selected-header {

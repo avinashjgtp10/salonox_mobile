@@ -1,0 +1,26 @@
+export const AUTH = {
+  LOGIN:             "/api/v1/auth/login",
+  REGISTER:          "/api/v1/auth/register",
+  REFRESH_TOKEN:     "/api/v1/auth/refresh",
+  LOGOUT:            "/api/v1/auth/logout",
+  GOOGLE_START:      "/api/v1/auth/google/start",
+  SEND_EMAIL_OTP:    "/api/v1/auth/send-email-otp",
+  VERIFY_EMAIL_OTP:  "/api/v1/auth/verify-email-otp",
+  SEND_MOBILE_OTP:   "/api/v1/auth/send-mobile-otp",
+  VERIFY_MOBILE_OTP: "/api/v1/auth/verify-mobile-otp",
+} as const
+
+export const USER = {
+  ME:     "/api/v1/user/me",
+  UPDATE: "/api/v1/user/update",
+} as const
+
+export const PUBLIC_ROUTES: string[] = [
+  AUTH.LOGIN,
+  AUTH.REGISTER,
+  AUTH.GOOGLE_START,
+  AUTH.SEND_EMAIL_OTP,
+  AUTH.VERIFY_EMAIL_OTP,
+  AUTH.SEND_MOBILE_OTP,
+  AUTH.VERIFY_MOBILE_OTP,
+]

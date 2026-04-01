@@ -1,12 +1,10 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { useDispatch } from "react-redux"
 import { FcGoogle } from "react-icons/fc"
 
-import { login } from "../../../store/authSlice"
+import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux"
+import { loginThunk } from "../../../middleware/auth/authThunk"
 import salonImg from "../../../assets/images/salon.jpg"
-import API from "../../../services/api/axios"
-import { hashPassword } from "../../../utils/hashPassword"
 
 // UI Components
 import Card from "../../../components/ui/Card"
@@ -19,37 +17,32 @@ export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
-  const [loading, setLoading] = useState(false)
 
   const navigate = useNavigate()
-  const dispatch = useDispatch()
+  const dispatch = useAppDispatch()
+  const { loading } = useAppSelector((state) => state.auth)
 
   // 🔐 LOGIN
   const handleLogin = async () => {
-    if (loading) return
+    if (!email.trim() || !password.trim()) {
+      setError("Email and password are required")
+      return
+    }
 
     setError("")
-    setLoading(true)
 
-    try {
-      const hashedPwd = await hashPassword(password)
-      const res = await API.post("/api/v1/auth/login", { email, password: hashedPwd })
-      const { accessToken, refreshToken, isOnboardingComplete } = res.data?.data || {}
+    const result = await dispatch(loginThunk({ email, password }))
 
-      if (!accessToken) throw new Error("Token not found")
-
-      dispatch(login({ accessToken, refreshToken, isOnboardingComplete }))
-
+    if (loginThunk.fulfilled.match(result)) {
+      const { isOnboardingComplete } = result.payload
       if (isOnboardingComplete) {
         navigate("/dashboard")
       } else {
-        navigate("/account-type")
+        navigate("/business-name")
       }
-    } catch (err: any) {
-      setError("Invalid email or password")
+    } else {
+      setError((result.payload as string) ?? "Invalid email or password")
     }
-
-    setLoading(false)
   }
 
   // 🔐 GOOGLE OAUTH
@@ -95,6 +88,7 @@ export default function LoginPage() {
         }}
         floating
         containerClass="mb-2"
+        onKeyDown={(e) => e.key === "Enter" && handleLogin()}
       />
 
       {error && <div className="alert alert-danger py-2 mt-2 mb-3">{error}</div>}
@@ -132,6 +126,7 @@ export default function LoginPage() {
         onClick={handleGoogleLogin}
         iconLeft={<FcGoogle size={20} />}
         disabled={loading}
+        className="mb-3"
       >
         Continue with Google
       </Button>

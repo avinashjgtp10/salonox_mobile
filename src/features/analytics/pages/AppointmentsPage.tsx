@@ -353,9 +353,10 @@ export default function AppointmentsPage() {
         show={showFiltersModal}
         onClose={() => setShowFiltersModal(false)}
         title="Filters"
+        size="lg"
         footer={
           <div className="d-flex justify-content-end gap-3 w-100">
-            <Button variant="ghost" pill className="px-4" onClick={clearFilters}>Clear filters</Button>
+            <Button variant="outline-dark" pill className="px-4" onClick={clearFilters}>Clear filters</Button>
             <Button variant="dark" pill className="px-4" onClick={applyFilters}>Apply</Button>
           </div>
         }
@@ -363,53 +364,65 @@ export default function AppointmentsPage() {
         <div className="filter-modal-content">
           <div className="mb-4">
             <label className="form-label small fw-bold">Team member</label>
-            <select 
-              className="form-select rounded-3 p-2"
-              value={tempFilters.staffId}
-              onChange={(e) => setTempFilters({...tempFilters, staffId: e.target.value})}
-            >
-              <option value="all">All team members</option>
-              {STAFF_LIST.map(staff => (
-                <option key={staff.id} value={staff.id}>{staff.name}</option>
-              ))}
-            </select>
+            <div className="position-relative">
+              <select 
+                className="form-select rounded-3 p-2 pe-5"
+                value={tempFilters.staffId}
+                onChange={(e) => setTempFilters({...tempFilters, staffId: e.target.value})}
+                style={{ appearance: 'none' }}
+              >
+                <option value="all">All team members</option>
+                {STAFF_LIST.map(staff => (
+                  <option key={staff.id} value={staff.id}>{staff.name}</option>
+                ))}
+              </select>
+              <ChevronDown className="position-absolute end-0 top-50 translate-middle-y me-3 text-muted pointer-events-none" size={14} />
+            </div>
           </div>
 
           <div className="mb-4">
             <label className="form-label small fw-bold">Channel</label>
-            <select 
-              className="form-select rounded-3 p-2"
-              value={tempFilters.channel}
-              onChange={(e) => setTempFilters({...tempFilters, channel: e.target.value})}
-            >
-              <option value="all">All channels</option>
-              <option value="online">All online channels</option>
-              <option value="fresha">Marketplace - Fresha</option>
-              <option value="book_now">Book now link</option>
-              <option value="facebook">Facebook</option>
-              <option value="instagram">Instagram</option>
-              <option value="google">Marketplace - Google Reserve</option>
-              <option value="automation">Marketing - Automations</option>
-              <option value="offline">Offline</option>
-            </select>
+            <div className="position-relative">
+              <select 
+                className="form-select rounded-3 p-2 pe-5"
+                value={tempFilters.channel}
+                onChange={(e) => setTempFilters({...tempFilters, channel: e.target.value})}
+                style={{ appearance: 'none' }}
+              >
+                <option value="all">All channels</option>
+                <option value="online">All online channels</option>
+                <option value="fresha">Marketplace - Fresha</option>
+                <option value="book_now">Book now link</option>
+                <option value="facebook">Facebook</option>
+                <option value="instagram">Instagram</option>
+                <option value="google">Marketplace - Google Reserve</option>
+                <option value="automation">Marketing - Automations</option>
+                <option value="offline">Offline</option>
+              </select>
+              <ChevronDown className="position-absolute end-0 top-50 translate-middle-y me-3 text-muted pointer-events-none" size={14} />
+            </div>
           </div>
 
           <div className="mb-2">
             <label className="form-label small fw-bold">Status</label>
-            <select 
-              className="form-select rounded-3 p-2"
-              value={tempFilters.status}
-              onChange={(e) => setTempFilters({...tempFilters, status: e.target.value})}
-            >
-              <option value="all">All statuses</option>
-              <option value="booked">Booked</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="arrived">Arrived</option>
-              <option value="started">Started</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="no-show">No-show</option>
-            </select>
+            <div className="position-relative">
+              <select 
+                className="form-select rounded-3 p-2 pe-5"
+                value={tempFilters.status}
+                onChange={(e) => setTempFilters({...tempFilters, status: e.target.value})}
+                style={{ appearance: 'none' }}
+              >
+                <option value="all">All statuses</option>
+                <option value="booked">Booked</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="arrived">Arrived</option>
+                <option value="started">Started</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="no-show">No-show</option>
+              </select>
+              <ChevronDown className="position-absolute end-0 top-50 translate-middle-y me-3 text-muted pointer-events-none" size={14} />
+            </div>
           </div>
         </div>
       </Modal>

@@ -1,0 +1,240 @@
+.repeating-shifts-page {
+    background: #f8f9fb;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+
+    .page-header {
+        background: white;
+        padding: 16px 32px;
+        border-bottom: 1.5px solid #f3f4f6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+
+            .back-btn {
+                background: none;
+                border: none;
+                color: #6b7280;
+                cursor: pointer;
+                padding: 4px;
+                border-radius: 50%;
+                &:hover { background: #f3f4f6; }
+            }
+
+            .title-group {
+                h2 {
+                    font-size: 24px;
+                    font-weight: 700;
+                    margin: 0;
+                    color: #111827;
+                }
+                p {
+                    font-size: 14px;
+                    color: #6b7280;
+                    margin-top: 4px;
+                    .learn-more { color: #6366f1; cursor: pointer; text-decoration: underline; }
+                }
+            }
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+
+            button {
+                padding: 10px 24px;
+                border-radius: 24px;
+                font-weight: 600;
+                font-size: 15px;
+                cursor: pointer;
+                transition: 0.2s;
+            }
+
+            .btn-close {
+                background: white;
+                border: 1.5px solid #e5e7eb;
+                color: #374151;
+                &:hover { background: #f9fafb; }
+            }
+
+            .btn-save {
+                background: #000;
+                color: white;
+                border: none;
+                &:hover { background: #1f2937; transform: translateY(-1px); }
+            }
+        }
+    }
+
+    .page-content {
+        display: flex;
+        padding: 40px 10%;
+        gap: 60px;
+        flex: 1;
+
+        .settings-sidebar {
+            width: 380px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+
+            .profile-card {
+                background: #fff;
+                border: 1.5px solid #eef0f3;
+                border-radius: 12px;
+                padding: 20px;
+                display: flex;
+                gap: 16px;
+
+                .avatar-icon {
+                    width: 44px;
+                    height: 44px;
+                    background: #f8f9fe;
+                    border-radius: 12px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: #6366f1;
+                }
+
+                .profile-info {
+                    strong { display: block; font-size: 14px; color: #111827; margin-bottom: 4px; }
+                    p { font-size: 13px; color: #6b7280; line-height: 1.5; margin: 0; }
+                }
+            }
+
+            .setting-group {
+                background: #fff;
+                border: 1.5px solid #eef0f3;
+                border-radius: 12px;
+                padding: 16px 20px;
+                
+                label { display: block; font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; margin-bottom: 8px; }
+                .select-box {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    cursor: pointer;
+                    span { font-size: 15px; color: #111827; font-weight: 500; }
+                    &.placeholder span { color: #9ca3af; font-weight: 400; }
+                }
+            }
+
+            .info-box {
+                display: flex;
+                gap: 12px;
+                background: #eef2ff;
+                padding: 16px;
+                border-radius: 12px;
+                color: #4338ca;
+                p { font-size: 13px; margin: 0; line-height: 1.5; }
+            }
+        }
+
+        .schedule-main {
+            flex: 1;
+            background: white;
+            border: 1.5px solid #eef0f3;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+
+            .schedule-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 32px;
+                h3 { font-size: 20px; font-weight: 700; color: #111827; margin: 0; }
+                .total-hours { font-size: 14px; font-weight: 600; color: #6b7280; }
+            }
+
+            .days-list {
+                .day-row {
+                    display: grid;
+                    grid-template-columns: 180px 1fr;
+                    padding: 24px 0;
+                    border-bottom: 1px solid #f3f4f6;
+                    align-items: center;
+
+                    &:last-child { border-bottom: none; }
+
+                    .day-control {
+                        display: flex;
+                        gap: 12px;
+                        align-items: center;
+
+                        input[type="checkbox"] {
+                            width: 20px;
+                            height: 20px;
+                            accent-color: #6366f1;
+                            cursor: pointer;
+                        }
+
+                        .day-name-group {
+                            .day-name { font-size: 15px; font-weight: 700; color: #111827; display: block; }
+                            .day-hours { font-size: 12px; color: #6b7280; }
+                        }
+                    }
+
+                    .day-shifts {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 12px;
+
+                        .not-working { font-size: 14px; color: #9ca3af; font-style: italic; }
+
+                        .shift-line {
+                            display: flex;
+                            align-items: center;
+                            gap: 12px;
+
+                            .time-select {
+                                width: 140px;
+                                padding: 8px 12px;
+                                border: 1.5px solid #e5e7eb;
+                                border-radius: 10px;
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                cursor: pointer;
+                                font-size: 14px;
+                                font-weight: 500;
+                                &:hover { border-color: #d1d5db; }
+                            }
+
+                            .to-text { font-size: 13px; color: #9ca3af; }
+
+                            .line-actions {
+                                display: flex;
+                                gap: 8px;
+                                .btn-icon {
+                                    width: 34px;
+                                    height: 34px;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    background: none;
+                                    border: 1.5px solid #e5e7eb;
+                                    border-radius: 10px;
+                                    color: #6b7280;
+                                    cursor: pointer;
+                                    &:hover { background: #f9fafb; color: #111827; }
+                                    &.btn-delete { color: #dc2626; border-color: #fee2e2; &:hover { background: #fef2f2; } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

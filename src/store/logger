@@ -1,0 +1,7 @@
+import { createLogger } from "redux-logger"
+
+// Configure and export the redux logger
+export const loggerMiddleware = createLogger({
+  collapsed: true,  // Collapse the console logs by default for cleaner output
+  duration: true,   // Print the duration of each action
+})

@@ -33,70 +33,78 @@ const AddStaffPage: React.FC = () => {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<SectionKey>("profile");
 
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [additionalPhone, setAdditionalPhone] = useState("");
-  const [country, setCountry] = useState("India");
-  const [birthdayDayMonth, setBirthdayDayMonth] = useState("");
-  const [birthdayYear, setBirthdayYear] = useState("");
-  const [calendarColor, setCalendarColor] = useState("#93c5fd");
-  const [jobTitle, setJobTitle] = useState("");
-  const [startDateDayMonth, setStartDateDayMonth] = useState("");
-  const [startDateYear, setStartDateYear] = useState("2026");
-  const [endDateDayMonth, setEndDateDayMonth] = useState("");
-  const [endDateYear, setEndDateYear] = useState("");
-  const [employmentType, setEmploymentType] = useState("");
-  const [memberId, setMemberId] = useState("");
-  const [notes, setNotes] = useState("");
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    additionalPhone: "",
+    country: "India",
+    birthdayDayMonth: "",
+    birthdayYear: "",
+    calendarColor: "#93c5fd",
+    jobTitle: "",
+    startDateDayMonth: "",
+    startDateYear: "2026",
+    endDateDayMonth: "",
+    endDateYear: "",
+    employmentType: "",
+    memberId: "",
+    notes: ""
+  });
 
-  const [allowCalendarBookings, setAllowCalendarBookings] = useState(true);
-  const [permissionLevel, setPermissionLevel] = useState("Low");
+  const [settings, setSettings] = useState({
+    allowCalendarBookings: true,
+    permissionLevel: "Low"
+  });
 
-  const [addresses, setAddresses] = useState<any[]>([]);
-  const [contacts, setContacts] = useState<any[]>([]);
+  const [lists, setLists] = useState({
+    addresses: [] as any[],
+    contacts: [] as any[]
+  });
 
-  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
-  const [showErrorPopup, setShowErrorPopup] = useState(false);
-  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+  const [ui, setUi] = useState({
+    attemptedSubmit: false,
+    showErrorPopup: false,
+    showUnsavedDialog: false
+  });
 
-  const isFirstNameInvalid = attemptedSubmit && firstName.trim() === "";
-  const isEmailInvalid = attemptedSubmit && email.trim() === "";
+  const isFirstNameInvalid = ui.attemptedSubmit && formData.firstName.trim() === "";
+  const isEmailInvalid = ui.attemptedSubmit && formData.email.trim() === "";
   const hasErrors = isFirstNameInvalid || isEmailInvalid;
   const errorCount = (isFirstNameInvalid ? 1 : 0) + (isEmailInvalid ? 1 : 0);
 
   const handleAddClick = async () => {
-    setAttemptedSubmit(true);
-    if (firstName.trim() === "" || email.trim() === "") {
-      setShowErrorPopup(true);
+    setUi(prev => ({ ...prev, attemptedSubmit: true }));
+    if (formData.firstName.trim() === "" || formData.email.trim() === "") {
+      setUi(prev => ({ ...prev, showErrorPopup: true }));
       return;
     }
     
     try {
       const payload = {
-        first_name: firstName,
-        last_name: lastName,
-        email: email,
-        phone_number: phone,
-        additional_phone: additionalPhone,
-        country: country,
-        birthday: birthdayDayMonth,
-        birth_year: birthdayYear,
-        calendar_color: calendarColor,
-        job_title: jobTitle,
-        start_date: startDateDayMonth,
-        start_year: startDateYear,
-        end_date: endDateDayMonth,
-        end_year: endDateYear,
-        employment_type: employmentType,
-        staff_member_id: memberId,
-        notes: notes,
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        email: formData.email,
+        phone_number: formData.phone,
+        additional_phone: formData.additionalPhone,
+        country: formData.country,
+        birthday: formData.birthdayDayMonth,
+        birth_year: formData.birthdayYear,
+        calendar_color: formData.calendarColor,
+        job_title: formData.jobTitle,
+        start_date: formData.startDateDayMonth,
+        start_year: formData.startDateYear,
+        end_date: formData.endDateDayMonth,
+        end_year: formData.endDateYear,
+        employment_type: formData.employmentType,
+        staff_member_id: formData.memberId,
+        notes: formData.notes,
         status: "Active",
-        allow_calendar_bookings: allowCalendarBookings,
-        permission_level: permissionLevel,
-        addresses: addresses,
-        emergency_contacts: contacts
+        allow_calendar_bookings: settings.allowCalendarBookings,
+        permission_level: settings.permissionLevel,
+        addresses: lists.addresses,
+        emergency_contacts: lists.contacts
       };
 
       await createStaff(payload);
@@ -123,53 +131,28 @@ const AddStaffPage: React.FC = () => {
 
   const componentProps: any = {};
   if (activeSection === "profile") {
-    componentProps.firstName = firstName;
-    componentProps.setFirstName = setFirstName;
-    componentProps.lastName = lastName;
-    componentProps.setLastName = setLastName;
-    componentProps.email = email;
-    componentProps.setEmail = setEmail;
-    componentProps.phone = phone;
-    componentProps.setPhone = setPhone;
-    componentProps.additionalPhone = additionalPhone;
-    componentProps.setAdditionalPhone = setAdditionalPhone;
-    componentProps.country = country;
-    componentProps.setCountry = setCountry;
-    componentProps.birthdayDayMonth = birthdayDayMonth;
-    componentProps.setBirthdayDayMonth = setBirthdayDayMonth;
-    componentProps.birthdayYear = birthdayYear;
-    componentProps.setBirthdayYear = setBirthdayYear;
-    componentProps.calendarColor = calendarColor;
-    componentProps.setCalendarColor = setCalendarColor;
-    componentProps.jobTitle = jobTitle;
-    componentProps.setJobTitle = setJobTitle;
-    componentProps.startDateDayMonth = startDateDayMonth;
-    componentProps.setStartDateDayMonth = setStartDateDayMonth;
-    componentProps.startDateYear = startDateYear;
-    componentProps.setStartDateYear = setStartDateYear;
-    componentProps.endDateDayMonth = endDateDayMonth;
-    componentProps.setEndDateDayMonth = setEndDateDayMonth;
-    componentProps.endDateYear = endDateYear;
-    componentProps.setEndDateYear = setEndDateYear;
-    componentProps.employmentType = employmentType;
-    componentProps.setEmploymentType = setEmploymentType;
-    componentProps.memberId = memberId;
-    componentProps.setMemberId = setMemberId;
-    componentProps.notes = notes;
-    componentProps.setNotes = setNotes;
+    // Spread all formData and provide individual update handlers if needed
+    // or provide the entire object and a setter.
+    // For now, mapping individual ones to avoid breaking child sections if they expect them.
+    Object.keys(formData).forEach(key => {
+      componentProps[key] = (formData as any)[key];
+      componentProps[`set${key.charAt(0).toUpperCase() + key.slice(1)}`] = (val: any) => {
+        setFormData(prev => ({ ...prev, [key]: typeof val === 'function' ? val((prev as any)[key]) : val }));
+      };
+    });
     componentProps.isFirstNameInvalid = isFirstNameInvalid;
     componentProps.isEmailInvalid = isEmailInvalid;
   } else if (activeSection === "settings") {
-    componentProps.allowCalendarBookings = allowCalendarBookings;
-    componentProps.setAllowCalendarBookings = setAllowCalendarBookings;
-    componentProps.permissionLevel = permissionLevel;
-    componentProps.setPermissionLevel = setPermissionLevel;
+    componentProps.allowCalendarBookings = settings.allowCalendarBookings;
+    componentProps.setAllowCalendarBookings = (val: any) => setSettings(prev => ({ ...prev, allowCalendarBookings: val }));
+    componentProps.permissionLevel = settings.permissionLevel;
+    componentProps.setPermissionLevel = (val: any) => setSettings(prev => ({ ...prev, permissionLevel: val }));
   } else if (activeSection === "addresses") {
-    componentProps.addresses = addresses;
-    componentProps.setAddresses = setAddresses;
+    componentProps.addresses = lists.addresses;
+    componentProps.setAddresses = (val: any) => setLists(prev => ({ ...prev, addresses: val }));
   } else if (activeSection === "emergency") {
-    componentProps.contacts = contacts;
-    componentProps.setContacts = setContacts;
+    componentProps.contacts = lists.contacts;
+    componentProps.setContacts = (val: any) => setLists(prev => ({ ...prev, contacts: val }));
   }
 
   return (
@@ -180,13 +163,13 @@ const AddStaffPage: React.FC = () => {
           {hasErrors && (
             <button
               className="btn add-staff__btn-warning"
-              onClick={() => setShowErrorPopup(!showErrorPopup)}
+              onClick={() => setUi(prev => ({ ...prev, showErrorPopup: !ui.showErrorPopup }))}
             >
               <i className="bi bi-exclamation-triangle" style={{ color: '#e53935' }} />
             </button>
           )}
 
-          {showErrorPopup && hasErrors && (
+          {ui.showErrorPopup && hasErrors && (
             <div
               className="position-absolute bg-white shadow-lg border rounded p-3"
               style={{ top: "45px", right: "120px", width: "320px", zIndex: 1050 }}
@@ -199,7 +182,7 @@ const AddStaffPage: React.FC = () => {
 
           <button
             className="btn add-staff__btn-close"
-            onClick={() => setShowUnsavedDialog(true)}
+            onClick={() => setUi(prev => ({ ...prev, showUnsavedDialog: true }))}
           >
             Close
           </button>
@@ -208,7 +191,7 @@ const AddStaffPage: React.FC = () => {
       </div>
 
       {/* Unsaved Changes Dialog */}
-      {showUnsavedDialog && (
+      {ui.showUnsavedDialog && (
         <div
           style={{
             position: 'fixed',
@@ -232,7 +215,7 @@ const AddStaffPage: React.FC = () => {
           >
             {/* Close X */}
             <button
-              onClick={() => setShowUnsavedDialog(false)}
+              onClick={() => setUi(prev => ({ ...prev, showUnsavedDialog: false }))}
               style={{
                 position: 'absolute',
                 top: '16px',
@@ -267,7 +250,7 @@ const AddStaffPage: React.FC = () => {
                   fontWeight: 500,
                   color: '#374151',
                 }}
-                onClick={() => setShowUnsavedDialog(false)}
+                onClick={() => setUi(prev => ({ ...prev, showUnsavedDialog: false }))}
               >
                 Cancel
               </button>
