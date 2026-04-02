@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { Routes, Route, Navigate, Outlet } from "react-router-dom"
 import { Toaster } from "react-hot-toast"
 
@@ -71,6 +72,15 @@ import AddOnsPage from "./features/apps/pages/AddOnsPage"
 import GuestGuard from "./components/guards/GuestGuard"
 import OnboardingGuard from "./components/guards/OnboardingGuard"
 import AuthGuard from "./components/guards/AuthGuard"
+=======
+import { Routes, Route, Navigate } from "react-router-dom"
+// FORCE REFRESH - Fixed Marketplace Reference Errors
+import { Toaster } from "react-hot-toast"
+
+import { AuthRoutes } from "./routes/AuthRoutes"
+import { OnboardingRoutes } from "./routes/OnboardingRoutes"
+import { DashboardRoutes } from "./routes/DashboardRoutes"
+>>>>>>> 55189aa (split App.tsx into routes and providers for better structure)
 
 function App() {
   return (
@@ -78,38 +88,13 @@ function App() {
       <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
 
       <Routes>
-
-        {/* PUBLIC */}
-        <Route path="/send-request" element={<SendRequestPage />} />
-        <Route path="/request-success" element={<RequestSuccessPage />} />
-
-        {/* GUEST */}
-        <Route element={<GuestGuard />}>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/oauth-success" element={<OAuthSuccessPage />} />
-          <Route path="/oauth/success" element={<OAuthSuccessPage />} />
-        </Route>
-
-        {/* ONBOARDING */}
-        <Route element={<OnboardingGuard />}>
-          <Route path="/account-type" element={<OnboardingProvider><AccountTypePage /></OnboardingProvider>} />
-          <Route path="/business-name" element={<OnboardingProvider><BusinessNamePage /></OnboardingProvider>} />
-          <Route path="/service-type" element={<OnboardingProvider><ServiceTypePage /></OnboardingProvider>} />
-          <Route path="/team-setup" element={<OnboardingProvider><TeamSetupPage /></OnboardingProvider>} />
-          <Route path="/team-size" element={<OnboardingProvider><TeamSizePage /></OnboardingProvider>} />
-          <Route path="/business-location" element={<OnboardingProvider><BusinessLocationPage /></OnboardingProvider>} />
-          <Route path="/venue-location" element={<OnboardingProvider><VenueLocationPage /></OnboardingProvider>} />
-          <Route path="/previous-software" element={<OnboardingProvider><PreviousSoftwarePage /></OnboardingProvider>} />
-          <Route path="/recommendation-source" element={<OnboardingProvider><RecommendationSourcePage /></OnboardingProvider>} />
-          <Route path="/setup-complete" element={<OnboardingProvider><SetupCompletePage /></OnboardingProvider>} />
-          <Route path="/join-business" element={<OnboardingProvider><JoinBusinessPage /></OnboardingProvider>} />
-        </Route>
+        {AuthRoutes}
+        {OnboardingRoutes}
 
         {/* ROOT */}
         <Route path="/" element={<Navigate to="/login" replace />} />
 
+<<<<<<< HEAD
         {/* PROTECTED */}
         <Route element={<AuthGuard />}>
 
@@ -195,6 +180,9 @@ function App() {
 
         </Route>
 
+=======
+        {DashboardRoutes}
+>>>>>>> 55189aa (split App.tsx into routes and providers for better structure)
       </Routes>
     </>
   )
