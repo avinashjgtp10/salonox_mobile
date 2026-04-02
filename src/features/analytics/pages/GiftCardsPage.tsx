@@ -49,7 +49,7 @@ export default function GiftCardsPage() {
           >
             Options
           </Button>
-          
+
           {showOptions && (
             <div className="gift-options-menu shadow-lg border position-absolute end-0 mt-2 bg-white z-2 rounded-3 overflow-hidden" style={{ minWidth: '200px' }}>
               <Button variant="ghost" fullWidth className="text-start p-2 rounded-0" onClick={() => setShowOptions(false)}>
@@ -64,11 +64,11 @@ export default function GiftCardsPage() {
       {/* EMPTY STATE */}
       <Card className="text-center py-5 border-0 rounded-4 empty-state-card shadow-sm mt-5 flex-grow-1 d-flex flex-column align-items-center justify-content-center" style={{ minHeight: '400px' }}>
         <div className="mb-4">
-          <div className="d-flex align-items-center justify-content-center mx-auto empty-state-icon" style={{ 
-            width: '60px', 
-            height: '60px', 
-            borderRadius: '15px', 
-            background: 'linear-gradient(135deg, #a855f7 0%, #d946ef 100%)' 
+          <div className="d-flex align-items-center justify-content-center mx-auto empty-state-icon" style={{
+            width: '60px',
+            height: '60px',
+            borderRadius: '15px',
+            background: 'linear-gradient(135deg, #a855f7 0%, #d946ef 100%)'
           }}>
             <Gift size={30} className="text-white" />
           </div>

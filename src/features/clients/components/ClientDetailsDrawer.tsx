@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
-import { 
-  X, 
-  ChevronDown, 
-  Calendar3, 
+import {
+  X,
+  ChevronDown,
   Person,
-  PencilSquare,
-  Plus
+  Plus,
+  Clock
 } from "react-bootstrap-icons";
 
 import { getClientById } from "../services/clientService";
@@ -18,26 +17,21 @@ interface ClientDetailsDrawerProps {
 }
 
 const TABS = [
-  "Overview",
-  "Appointments",
-  "Sales",
-  "Client details",
-  "Items",
-  "Documents",
-  "Notes",
-  "Allergies",
-  "Patch tests",
-  "Client forms",
-  "Files",
-  "Wallet",
-  "Loyalty",
-  "Reviews"
+  { id: "Overview" },
+  { id: "Appointments", count: 1 },
+  { id: "Sales" },
+  { id: "Client details" },
+  { id: "Items" },
+  { id: "Documents", hasSubmenu: true },
+  { id: "Wallet" },
+  { id: "Loyalty" },
+  { id: "Reviews" }
 ];
 
 export default function ClientDetailsDrawer({ clientId, isOpen, onClose }: ClientDetailsDrawerProps) {
   const [client, setClient] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState("Notes"); // Defaulting to Notes as in screenshot
-
+  const [activeTab, setActiveTab] = useState("Appointments");
+  const [activeSubTab, setActiveSubTab] = useState("Booked");
 
   useEffect(() => {
     if (isOpen && clientId) {
@@ -54,95 +48,124 @@ export default function ClientDetailsDrawer({ clientId, isOpen, onClose }: Clien
     }
   };
 
-
   if (!isOpen) return null;
 
-  const initials = client ? `${client.first_name?.[0] || ""}${client.last_name?.[0] || ""}`.toUpperCase() || "C" : "";
+  const initials = client ? `${client.first_name?.[0] || ""}${client.last_name?.[0] || ""}`.toUpperCase() : "J";
 
   return (
     <div className={`client-drawer-overlay ${isOpen ? "open" : ""}`} onClick={onClose}>
       <div className="client-drawer" onClick={(e) => e.stopPropagation()}>
         <button className="drawer-close" onClick={onClose}>
-          <X size={24} />
+          <X size={20} />
         </button>
 
-        <div className="drawer-container">
-          {/* LEFT PANEL: PROFILE SUMMARY */}
-          <div className="profile-summary-panel">
-            <div className="profile-header">
-              <div className="avatar">{initials}</div>
-              <h3>{client?.first_name} {client?.last_name}</h3>
-              <p className="email">{client?.email}</p>
-              <p className="phone">{client?.phone_number}</p>
-              <span className="badge-new">New</span>
-            </div>
+        <div className="drawer-main-container">
+          {/* PANE 1: PROFILE SUMMARY */}
+          <div className="profile-summary-pane">
+            <div className="profile-info-card">
+              <div className="profile-avatar">{initials}</div>
+              <h3 className="profile-name">{client?.first_name || "Jack"} {client?.last_name || "Doe"}</h3>
+              <p className="profile-email">{client?.email || "jack@example.com"}</p>
 
-            <div className="profile-actions">
-              <div className="actions-dropdown">
+              <div className="profile-buttons">
                 <button className="btn-actions">
                   Actions <ChevronDown size={12} />
                 </button>
+                <button className="btn-book-now">Book now</button>
               </div>
-              <button className="btn-book-now">Book now</button>
-            </div>
 
-            <div className="profile-meta">
-              <div className="meta-item">
-                <Plus size={16} /> <span>Add pronouns</span>
-              </div>
-              <div className="meta-item">
-                <Calendar3 size={14} /> <span>Add date of birth</span>
-              </div>
-              <div className="meta-item created-at">
-                <Person size={14} /> 
-                <span>Created {client?.created_at ? new Date(client.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ""}</span>
+              <div className="profile-meta-list">
+                <div className="meta-item">
+                  <Plus size={18} /> <span>Add pronouns</span>
+                </div>
+                <div className="meta-item">
+                  <Plus size={18} /> <span>Add date of birth</span>
+                </div>
+                <div className="meta-item created-date">
+                  <Person size={14} />
+                  <span>Created {client?.created_at ? new Date(client.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : "26 Mar 2026"}</span>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* MIDDLE PANEL: NAVIGATION TABS */}
-          <div className="tabs-navigation-panel">
+          {/* PANE 3: NAVIGATION TABS */}
+          <div className="navigation-tabs-pane">
             <div className="tabs-list">
               {TABS.map((tab) => (
-                <div 
-                  key={tab} 
-                  className={`tab-item ${activeTab === tab ? "active" : ""}`}
-                  onClick={() => setActiveTab(tab)}
+                <div
+                  key={tab.id}
+                  className={`tab-item ${activeTab === tab.id ? "active" : ""}`}
+                  onClick={() => setActiveTab(tab.id)}
                 >
-                  {tab}
+                  <span className="tab-label">{tab.id}</span>
+                  {tab.count && <span className="tab-count">{tab.count}</span>}
+                  {tab.hasSubmenu && <ChevronDown size={12} className="ms-auto" />}
                 </div>
               ))}
             </div>
           </div>
 
-          {/* RIGHT PANEL: CONTENT AREA */}
-          <div className="tab-content-panel">
-            <div className="tab-header">
+          {/* PANE 4: CONTENT AREA */}
+          <div className="tab-content-pane">
+            <div className="content-header">
               <h2>{activeTab}</h2>
-              {activeTab === "Notes" && <button className="btn-add-note">Add</button>}
-            </div>
 
-            <div className="tab-body">
-              {activeTab === "Notes" && (
-                <div className="notes-container">
-                  <div className="notes-subtabs">
-                    <button className="subtab-btn active">Client notes</button>
-                    <button className="subtab-btn">Appointment notes</button>
-                  </div>
-                  
-                  <div className="empty-state">
-                    <div className="empty-icon">
-                      <PencilSquare size={32} color="#6366f1" />
-                    </div>
-                    <h4>No notes</h4>
-                    <p>No notes have been created for this client</p>
+              {activeTab === "Appointments" && (
+                <div className="content-filters">
+                  <div className="sub-tabs-pills">
+                    {["All", "Booked", "Confirmed", "More"].map(st => (
+                      <button
+                        key={st}
+                        className={`sub-tab-pill ${activeSubTab === st ? 'active' : ''}`}
+                        onClick={() => setActiveSubTab(st)}
+                      >
+                        {st} {st === 'More' && <ChevronDown size={12} />}
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
-              
-              {activeTab !== "Notes" && (
-                <div className="placeholder-content">
-                  <p>Content for {activeTab} section goes here.</p>
+            </div>
+
+            <div className="content-body">
+              {activeTab === "Appointments" && (
+                <div className="appointments-view">
+                  <div className="month-header">March</div>
+
+                  <div className="appointment-card-v2">
+                    <div className="status-line bg-blue"></div>
+                    <div className="card-content">
+                      <div className="card-header">
+                        <div className="header-left">
+                          <Clock size={16} />
+                          <div className="header-text">
+                            <span className="type">Appointment</span>
+                            <span className="info">Thu 26 Mar 10:00am - test123@gmail.com</span>
+                          </div>
+                        </div>
+                        <span className="status-badge">Booked</span>
+                      </div>
+
+                      <div className="card-body">
+                        <div className="service-info">
+                          <div className="service-name">Blow Dry</div>
+                          <div className="service-meta">10:00am • 35min • Wendy Smith (Demo)</div>
+                        </div>
+                        <div className="service-price">₹35</div>
+                      </div>
+
+                      <div className="card-footer">
+                        <button className="btn-checkout">Checkout</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab !== "Appointments" && (
+                <div className="placeholder-view">
+                  <p>No content available for {activeTab}</p>
                 </div>
               )}
             </div>
