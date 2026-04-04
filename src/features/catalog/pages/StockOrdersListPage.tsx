@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Search, Sliders, ChevronDown, ChevronLeft, ChevronRight, XLg, BoxSeam, Pencil } from "react-bootstrap-icons";
+import { Search, Sliders, ChevronDown, ChevronLeft, ChevronRight, XLg, BoxSeam } from "react-bootstrap-icons";
 import { useNavigate } from "react-router-dom";
 import "../styles/StockOrdersListPage.scss";
 

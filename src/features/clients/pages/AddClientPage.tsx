@@ -10,7 +10,7 @@ import { useClientWizard } from "../context/ClientWizardContext";
 export default function AddClientPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
-  const { setClientData, resetWizard } = useClientWizard()
+  const { resetWizard } = useClientWizard()
 
   // Individual states for form inputs
   const [firstName, setFirstName] = useState("")
@@ -32,34 +32,7 @@ export default function AddClientPage() {
 
   const isFirstNameInvalid = attemptedSubmit && firstName.trim() === ""
 
-  const handleProfileNext = () => {
-    if (firstName.trim() === "") {
-      setAttemptedSubmit(true)
-      return
-    }
 
-    setClientData(prev => ({
-      ...prev,
-      profile: {
-        first_name: firstName,
-        last_name: lastName,
-        email: email,
-        phone_number: phone,
-        birthday: birthday,
-        birth_year: year,
-        gender: gender,
-        pronouns: pronouns,
-        occupation: occupation,
-        additional_email: additionalEmail,
-        additional_phone: additionalPhone,
-        client_source: clientSource,
-        preferred_language: preferredLanguage,
-        country: country
-      }
-    }))
-
-    navigate("/dashboard/clients/addresses")
-  }
 
   const handleSave = async () => {
     if (firstName.trim() === "") {

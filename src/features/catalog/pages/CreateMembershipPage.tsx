@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { XLg, PlusLg, Search, Check2, CreditCard2Front, ChevronDown } from "react-bootstrap-icons";
+import { XLg, Search, Check2, CreditCard2Front } from "react-bootstrap-icons";
 import "../styles/CreateMembershipPage.scss";
 
 // ── Mock services data ────────────────────────────────────────────────────────

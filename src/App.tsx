@@ -1,26 +1,35 @@
+import { Suspense } from "react"
 import { Routes, Route, Navigate } from "react-router-dom"
 import { Toaster } from "react-hot-toast"
 
-import { AuthRoutes } from "./routes/AuthRoutes"
+import { AuthRoutes }       from "./routes/AuthRoutes"
 import { OnboardingRoutes } from "./routes/OnboardingRoutes"
-import { DashboardRoutes } from "./routes/DashboardRoutes"
+import { DashboardRoutes }  from "./routes/DashboardRoutes"
+
+const PageLoader = () => (
+  <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+    <div className="spinner-border text-primary" role="status" />
+  </div>
+)
 
 function App() {
   return (
     <>
       <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
 
-      <Routes>
-        {AuthRoutes}
-        {OnboardingRoutes}
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          {AuthRoutes}
+          {OnboardingRoutes}
 
-        {/* ROOT */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
+          {/* ROOT */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
 
-        {DashboardRoutes}
-      </Routes>
+          {DashboardRoutes}
+        </Routes>
+      </Suspense>
     </>
   )
 }
 
-export default App
+export default App

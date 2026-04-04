@@ -522,7 +522,7 @@ export default function ClientsListPage() {
               <div className="text-center p-5 text-muted">No clients found.</div>
             ) : (
               (() => {
-                const totalPages = Math.ceil(clients.length / ROWS_PER_PAGE);
+
                 const paginatedClients = clients.slice(
                   (currentPage - 1) * ROWS_PER_PAGE,
                   currentPage * ROWS_PER_PAGE

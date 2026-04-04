@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ArrowLeft, Shop, Building } from "react-bootstrap-icons";
+import { ArrowLeft, Shop } from "react-bootstrap-icons";
 import { useNavigate } from "react-router-dom";
 import "../styles/AddStocktakePage.scss";
 

@@ -6,7 +6,7 @@ interface Props {
     onChange: (data: ServiceAddOnsData) => void;
 }
 
-const ServiceAddOnsTab: React.FC<Props> = ({ data, onChange }) => {
+const ServiceAddOnsTab: React.FC<Props> = ({ data: _data, onChange: _onChange }) => {
     return (
         <div className="tab-content-panel">
             <h5 className="tab-content-panel__title">Service add-ons</h5>
