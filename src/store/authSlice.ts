@@ -16,14 +16,28 @@ export interface AuthState {
 }
 
 const initialState: AuthState = {
-  accessToken:          null,
-  refreshToken:         null,
-  isOnboardingComplete: false,
+  accessToken:          sessionStorage.getItem("accessToken"),
+  refreshToken:         sessionStorage.getItem("refreshToken"),
+  isOnboardingComplete: sessionStorage.getItem("isOnboardingComplete") === "true",
   loading:              false,
   error:                null,
 }
 
-// Token persistence to localStorage has been removed.
+const persist = (
+  accessToken: string,
+  refreshToken: string,
+  isOnboardingComplete: boolean
+) => {
+  sessionStorage.setItem("accessToken",          accessToken)
+  sessionStorage.setItem("refreshToken",         refreshToken)
+  sessionStorage.setItem("isOnboardingComplete", String(isOnboardingComplete))
+}
+
+const clear = () => {
+  sessionStorage.removeItem("accessToken")
+  sessionStorage.removeItem("refreshToken")
+  sessionStorage.removeItem("isOnboardingComplete")
+}
 
 const authSlice = createSlice({
   name: "auth",
@@ -42,14 +56,17 @@ const authSlice = createSlice({
       state.accessToken          = accessToken
       state.refreshToken         = refreshToken ?? null
       state.isOnboardingComplete = isOnboardingComplete
+      persist(accessToken, refreshToken ?? "", isOnboardingComplete)
     },
 
     updateToken(state, action: PayloadAction<string>) {
       state.accessToken = action.payload
+      sessionStorage.setItem("accessToken", action.payload)
     },
 
     updateOnboardingStatus(state, action: PayloadAction<boolean>) {
       state.isOnboardingComplete = action.payload
+      sessionStorage.setItem("isOnboardingComplete", String(action.payload))
     },
 
     logout(state) {
@@ -57,6 +74,7 @@ const authSlice = createSlice({
       state.refreshToken         = null
       state.isOnboardingComplete = false
       state.error                = null
+      clear()
     },
 
     clearError(state) {
@@ -76,6 +94,7 @@ const authSlice = createSlice({
         state.accessToken          = payload.accessToken
         state.refreshToken         = payload.refreshToken
         state.isOnboardingComplete = payload.isOnboardingComplete
+        persist(payload.accessToken, payload.refreshToken ?? "", payload.isOnboardingComplete)
       })
       .addCase(loginThunk.rejected, (state, { payload }) => {
         state.loading = false
@@ -93,6 +112,7 @@ const authSlice = createSlice({
         state.accessToken          = payload.accessToken
         state.refreshToken         = payload.refreshToken
         state.isOnboardingComplete = payload.isOnboardingComplete
+        persist(payload.accessToken, payload.refreshToken ?? "", payload.isOnboardingComplete)
       })
       .addCase(registerThunk.rejected, (state, { payload }) => {
         state.loading = false
