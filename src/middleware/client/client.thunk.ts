@@ -2,6 +2,7 @@ import { createAsyncThunk } from "@reduxjs/toolkit"
 import api from "../../services/api/axios"
 import { CLIENT } from "../../services/api/endpoints"
 import { ApiError } from "../../services/api/interceptors"
+import { downloadBlob } from "../../utils/downloadBlob"
 import type {
   Client,
   ClientResponse,
@@ -110,14 +111,7 @@ export const exportClientsThunk = createAsyncThunk<
 >("client/export", async (format, { rejectWithValue }) => {
   try {
     const res = await api.get(CLIENT.EXPORT(format), { responseType: "blob" })
-    const url  = window.URL.createObjectURL(new Blob([res.data]))
-    const link = document.createElement("a")
-    link.href  = url
-    link.setAttribute("download", `clients.${format === "excel" ? "xlsx" : "csv"}`)
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
-    window.URL.revokeObjectURL(url)
+    downloadBlob(res.data, `clients.${format === "excel" ? "xlsx" : "csv"}`)
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message)
     return rejectWithValue("Failed to export clients")
