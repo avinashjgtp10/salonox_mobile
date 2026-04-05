@@ -2,9 +2,7 @@ import { Suspense } from "react"
 import { Routes, Route, Navigate } from "react-router-dom"
 import { Toaster } from "react-hot-toast"
 
-import { AuthRoutes }       from "./routes/AuthRoutes"
-import { OnboardingRoutes } from "./routes/OnboardingRoutes"
-import { DashboardRoutes }  from "./routes/DashboardRoutes"
+import { AuthRoutes, OnboardingRoutes, DashboardRoutes } from "./routes"
 
 const PageLoader = () => (
   <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
