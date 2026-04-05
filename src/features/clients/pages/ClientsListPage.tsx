@@ -20,10 +20,7 @@ import {
 import ClientDetailsDrawer from "../components/ClientDetailsDrawer";
 
 // UI Components
-import Button from "../../../components/ui/Button";
-import Badge from "../../../components/ui/Badge";
-import Input from "../../../components/ui/Input";
-import Modal from "../../../components/ui/Modal";
+import { Button, Badge, Input, Modal } from "../../../components/ui";
 import { useTranslation } from "react-i18next";
 
 import "../styles/ClientsListPage.scss";
