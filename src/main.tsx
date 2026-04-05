@@ -10,6 +10,7 @@ import { injectStore } from "./services/api/interceptors"
 
 import "bootstrap/dist/css/bootstrap.min.css";
 import 'bootstrap/dist/js/bootstrap.bundle.min.js'
+import './i18n'; // Inject translation engine
 
 // Inject store into interceptors before app boots to avoid circular dependencies
 injectStore(store, authActions)

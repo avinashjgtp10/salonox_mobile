@@ -24,10 +24,12 @@ import Button from "../../../components/ui/Button";
 import Badge from "../../../components/ui/Badge";
 import Input from "../../../components/ui/Input";
 import Modal from "../../../components/ui/Modal";
+import { useTranslation } from "react-i18next";
 
 import "../styles/ClientsListPage.scss";
 
 export default function ClientsListPage() {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const [clients, setClients] = useState<any[]>([]);
@@ -338,16 +340,22 @@ export default function ClientsListPage() {
       <div className="page-header d-flex align-items-center justify-content-between mb-4">
         <div className="header-left">
           <div className="title-container d-flex align-items-center">
-            <h2 className="page-title mb-0">Clients list</h2>
+            <h2 className="page-title mb-0">{t("clients.header.title", "Clients list")}</h2>
             <Badge variant="dark" pill className="ms-3">{clients.length}</Badge>
           </div>
           <p className="page-subtitle text-muted mt-2">
-            View, add, edit and delete your client's details.
-            <span className="learn-more-link text-primary cursor-pointer ms-1"> Learn more</span>
+            {t("clients.header.subtitle", "View, add, edit and delete your client's details.")}
+            <span className="learn-more-link text-primary cursor-pointer ms-1"> {t("clients.header.learnMore", "Learn more")}</span>
           </p>
         </div>
 
         <div className="header-actions">
+          <Button
+            variant="outline-dark"
+            onClick={() => i18n.changeLanguage(i18n.language === 'en' ? 'es' : 'en')}
+          >
+            {i18n.language === 'en' ? 'Español' : 'English'}
+          </Button>
           {/* OPTIONS DROPDOWN */}
           <div className="options-dropdown position-relative">
             <Button

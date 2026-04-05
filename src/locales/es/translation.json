@@ -1,0 +1,28 @@
+{
+  "clients": {
+    "header": {
+      "title": "Lista de Clientes",
+      "subtitle": "Vea, agregue, edite y elimine los detalles de su cliente.",
+      "learnMore": "Aprende más"
+    },
+    "actions": {
+      "options": "Opciones",
+      "add": "Añadir",
+      "import": "Importar clientes",
+      "merge": "Fusionar clientes",
+      "export": "Exportar",
+      "bulkEdit": "Edición masiva",
+      "block": "Bloquear clientes",
+      "unblock": "Desbloquear clientes",
+      "addTags": "Añadir etiquetas",
+      "delete": "Eliminar"
+    },
+    "table": {
+      "name": "Nombre del cliente",
+      "mobile": "Número de móvil",
+      "reviews": "Reseñas",
+      "sales": "Ventas",
+      "createdAt": "Creado en"
+    }
+  }
+}
