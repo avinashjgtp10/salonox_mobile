@@ -1,20 +1,29 @@
+import { lazy, Suspense } from "react"
 import { Routes, Route, Navigate } from "react-router-dom"
-import ServicesListPage from "../features/catalog/pages/ServicesListPage"
-import AddServicePage from "../features/catalog/pages/AddServicePage"
-import CategoriesPage from "../features/catalog/pages/CategoriesPage"
-import MembershipsLandingPage from "../features/catalog/pages/MembershipsLandingPage"
-import CreateMembershipPage from "../features/catalog/pages/CreateMembershipPage"
-import ProductsListPage from "../features/catalog/pages/ProductsListPage"
-import ProductsLandingPage from "../features/catalog/pages/ProductsLandingPage"
-import CreateProductPage from "../features/catalog/pages/CreateProductPage"
-import ImportProductsPage from "../features/catalog/pages/ImportProductsPage"
-import StocktakesListPage from "../features/catalog/pages/StocktakesListPage"
-import AddStocktakePage from "../features/catalog/pages/AddStocktakePage"
-import StockOrdersListPage from "../features/catalog/pages/StockOrdersListPage"
-import SuppliersListPage from "../features/catalog/pages/SuppliersListPage"
-import AddSupplierPage from "../features/catalog/pages/AddSupplierPage"
+
+const ServicesListPage      = lazy(() => import("../features/catalog/pages/ServicesListPage"))
+const AddServicePage        = lazy(() => import("../features/catalog/pages/AddServicePage"))
+const CategoriesPage        = lazy(() => import("../features/catalog/pages/CategoriesPage"))
+const MembershipsLandingPage = lazy(() => import("../features/catalog/pages/MembershipsLandingPage"))
+const CreateMembershipPage  = lazy(() => import("../features/catalog/pages/CreateMembershipPage"))
+const ProductsListPage      = lazy(() => import("../features/catalog/pages/ProductsListPage"))
+const ProductsLandingPage   = lazy(() => import("../features/catalog/pages/ProductsLandingPage"))
+const CreateProductPage     = lazy(() => import("../features/catalog/pages/CreateProductPage"))
+const ImportProductsPage    = lazy(() => import("../features/catalog/pages/ImportProductsPage"))
+const StocktakesListPage    = lazy(() => import("../features/catalog/pages/StocktakesListPage"))
+const AddStocktakePage      = lazy(() => import("../features/catalog/pages/AddStocktakePage"))
+const StockOrdersListPage   = lazy(() => import("../features/catalog/pages/StockOrdersListPage"))
+const SuppliersListPage     = lazy(() => import("../features/catalog/pages/SuppliersListPage"))
+const AddSupplierPage       = lazy(() => import("../features/catalog/pages/AddSupplierPage"))
+
+const PageLoader = () => (
+  <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}>
+    <div className="spinner-border text-primary" role="status" />
+  </div>
+)
 
 export const CatalogRoutes = () => (
+  <Suspense fallback={<PageLoader />}>
     <Routes>
       <Route path="services" element={<ServicesListPage />} />
       <Route path="services/add" element={<AddServicePage />} />
@@ -32,4 +41,6 @@ export const CatalogRoutes = () => (
       <Route path="inventory/suppliers" element={<SuppliersListPage />} />
       <Route path="inventory/suppliers/new" element={<AddSupplierPage />} />
     </Routes>
+  </Suspense>
 )
+

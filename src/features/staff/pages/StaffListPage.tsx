@@ -18,7 +18,8 @@ import {
     People
 } from "react-bootstrap-icons";
 import "../styles/StaffListPage.scss";
-import { getStaff, deleteStaff, exportStaff } from "../services/staffService";
+import api from "../../../services/api/axios";
+import { STAFF } from "../../../services/api/endpoints";
 
 // UI Components
 import Button from "../../../components/ui/Button";
@@ -34,7 +35,7 @@ export default function StaffListPage() {
     const fetchStaff = async () => {
         try {
             setLoading(true);
-            const res = await getStaff();
+            const res = await api.get(STAFF.BASE);
             console.log("STAFF API RESPONSE:", res.data);
             const staffData = res.data?.data?.items || [];
             setStaff(Array.isArray(staffData) ? staffData : []);
@@ -108,7 +109,7 @@ export default function StaffListPage() {
 
     const handleDeleteStaff = async (id: number) => {
         try {
-            await deleteStaff(id);
+            await api.delete(STAFF.BY_ID(id));
             await fetchStaff();
             showToast("Staff member deleted successfully");
         } catch (error) {
@@ -119,7 +120,7 @@ export default function StaffListPage() {
 
     const handleExportExcel = async () => {
         try {
-            const res = await exportStaff("excel");
+            const res = await api.get(STAFF.EXPORT("excel"), { responseType: "blob" });
             const url = window.URL.createObjectURL(new Blob([res.data]));
             const link = document.createElement("a");
             link.href = url;
@@ -136,7 +137,7 @@ export default function StaffListPage() {
 
     const handleExportCSV = async () => {
         try {
-            const res = await exportStaff("csv");
+            const res = await api.get(STAFF.EXPORT("csv"), { responseType: "blob" });
             const url = window.URL.createObjectURL(new Blob([res.data]));
             const link = document.createElement("a");
             link.href = url;

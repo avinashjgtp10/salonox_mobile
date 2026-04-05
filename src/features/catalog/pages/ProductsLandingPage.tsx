@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Check2, BoxSeam, BarChartFill, TagFill } from "react-bootstrap-icons";
+import { Check2, BoxSeam } from "react-bootstrap-icons";
 import "../styles/ProductsLandingPage.scss";
 
 const ProductsLandingPage: React.FC = () => {

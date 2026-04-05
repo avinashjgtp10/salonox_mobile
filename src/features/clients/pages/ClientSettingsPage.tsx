@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom"
 import "bootstrap/dist/css/bootstrap.min.css"
 import "../styles/ClientSettingsPage.scss"
-import { createClient } from "../services/clientService"
+import api from "../../../services/api/axios"
+import { CLIENT } from "../../../services/api/endpoints"
 import { useClientWizard } from "../context/ClientWizardContext"
 
 export default function ClientSettingsPage() {
@@ -16,7 +17,7 @@ export default function ClientSettingsPage() {
     }
 
     try {
-      await createClient(payload)
+      await api.post(CLIENT.BASE, payload)
       console.log("Client saved successfully")
       navigate("/dashboard/clients/list")
     } catch (error) {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { getClients, deleteClient, blockClients, exportClients, mergeDuplicateClients, mergeSelectedClients } from "../services/clientService";
+import api from "../../../services/api/axios";
+import { CLIENT } from "../../../services/api/endpoints";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Search,
@@ -15,18 +16,18 @@ import {
   ArrowLeftRight,
   FileEarmarkExcel,
   FiletypeCsv,
+  DashCircleFill,
 } from "react-bootstrap-icons";
 import ClientDetailsDrawer from "../components/ClientDetailsDrawer";
 
 // UI Components
-import Button from "../../../components/ui/Button";
-import Badge from "../../../components/ui/Badge";
-import Input from "../../../components/ui/Input";
-import Modal from "../../../components/ui/Modal";
+import { Button, Badge, Input, Modal } from "../../../components/ui";
+import { useTranslation } from "react-i18next";
 
 import "../styles/ClientsListPage.scss";
 
 export default function ClientsListPage() {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const [clients, setClients] = useState<any[]>([]);
@@ -37,7 +38,7 @@ export default function ClientsListPage() {
   const fetchClients = async () => {
     setLoading(true);
     try {
-      const res = await getClients();
+      const res = await api.get(CLIENT.BASE);
       console.log("CLIENT API RESPONSE:", res.data);
       const clientsData = res.data?.data?.items || [];
       setClients(Array.isArray(clientsData) ? clientsData : []);
@@ -96,6 +97,8 @@ export default function ClientsListPage() {
   const [primaryClientId, setPrimaryClientId] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string | number | null>(null);
+  const [tagsModalOpen, setTagsModalOpen] = useState(false);
+  const [tagInput, setTagInput] = useState("");
 
 
 
@@ -114,7 +117,7 @@ export default function ClientsListPage() {
   const handleDeleteClients = async () => {
     try {
       await Promise.all(
-        selectedClients.map((id) => deleteClient(id))
+        selectedClients.map((id) => api.delete(CLIENT.BY_ID(id)))
       );
       setSelectedClients([]);
       await fetchClients();
@@ -126,7 +129,7 @@ export default function ClientsListPage() {
   const handleBlockClients = async () => {
     if (selectedClients.length === 0) return;
     try {
-      await blockClients(selectedClients, blockReason);
+      await api.patch(CLIENT.BLOCK, { client_ids: selectedClients, reason: blockReason });
       setSelectedClients([]);
       await fetchClients();
     } catch (error) {
@@ -134,9 +137,20 @@ export default function ClientsListPage() {
     }
   };
 
+  const handleUnblockClients = async () => {
+    if (selectedClients.length === 0) return;
+    try {
+      await api.patch(CLIENT.UNBLOCK, { client_ids: selectedClients });
+      setSelectedClients([]);
+      await fetchClients();
+    } catch (error) {
+      console.error("Unblock error:", error);
+    }
+  };
+
   const handleExportExcel = async () => {
     try {
-      const res = await exportClients("excel");
+      const res = await api.get(CLIENT.EXPORT("excel"), { responseType: "blob" });
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement("a");
       link.href = url;
@@ -152,7 +166,7 @@ export default function ClientsListPage() {
 
   const handleExportCSV = async () => {
     try {
-      const res = await exportClients("csv");
+      const res = await api.get(CLIENT.EXPORT("csv"), { responseType: "blob" });
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement("a");
       link.href = url;
@@ -169,7 +183,7 @@ export default function ClientsListPage() {
   const handleMergeDuplicates = async () => {
     try {
       setLoading(true);
-      await mergeDuplicateClients();
+      await api.post(CLIENT.MERGE_DUPLICATES, { merge_by: "phone" });
       await fetchClients();
       setOptionsOpen(false);
       alert("Duplicate clients merged successfully based on phone number.");
@@ -189,7 +203,7 @@ export default function ClientsListPage() {
 
     try {
       setLoading(true);
-      await mergeSelectedClients(primaryClientId, secondaryId);
+      await api.post(CLIENT.MERGE, { primary_id: primaryClientId, secondary_id: secondaryId });
       setSelectedClients([]);
       setMergeModalOpen(false);
       setPrimaryClientId(null);
@@ -324,16 +338,22 @@ export default function ClientsListPage() {
       <div className="page-header d-flex align-items-center justify-content-between mb-4">
         <div className="header-left">
           <div className="title-container d-flex align-items-center">
-            <h2 className="page-title mb-0">Clients list</h2>
+            <h2 className="page-title mb-0">{t("clients.header.title", "Clients list")}</h2>
             <Badge variant="dark" pill className="ms-3">{clients.length}</Badge>
           </div>
           <p className="page-subtitle text-muted mt-2">
-            View, add, edit and delete your client's details.
-            <span className="learn-more-link text-primary cursor-pointer ms-1"> Learn more</span>
+            {t("clients.header.subtitle", "View, add, edit and delete your client's details.")}
+            <span className="learn-more-link text-primary cursor-pointer ms-1"> {t("clients.header.learnMore", "Learn more")}</span>
           </p>
         </div>
 
         <div className="header-actions">
+          <Button
+            variant="outline-dark"
+            onClick={() => i18n.changeLanguage(i18n.language === 'en' ? 'es' : 'en')}
+          >
+            {i18n.language === 'en' ? 'Español' : 'English'}
+          </Button>
           {/* OPTIONS DROPDOWN */}
           <div className="options-dropdown position-relative">
             <Button
@@ -488,14 +508,35 @@ export default function ClientsListPage() {
                       </button>
                       {bulkEditOpen && (
                         <div className="bulk-edit-menu">
+                          {selectedClients.some(id => clients.find(c => String(c.id) === id)?.is_blocked) ? (
+                            <div
+                              className="bulk-edit-item"
+                              onClick={() => {
+                                setBulkEditOpen(false);
+                                handleUnblockClients();
+                              }}
+                            >
+                              Unblock customers
+                            </div>
+                          ) : (
+                            <div
+                              className="bulk-edit-item"
+                              onClick={() => {
+                                setBulkEditOpen(false);
+                                setBlockModalOpen(true);
+                              }}
+                            >
+                              Block customers
+                            </div>
+                          )}
                           <div
                             className="bulk-edit-item"
                             onClick={() => {
                               setBulkEditOpen(false);
-                              setBlockModalOpen(true);
+                              setTagsModalOpen(true);
                             }}
                           >
-                            Block customers
+                            Add tags
                           </div>
                         </div>
                       )}
@@ -522,7 +563,7 @@ export default function ClientsListPage() {
               <div className="text-center p-5 text-muted">No clients found.</div>
             ) : (
               (() => {
-                const totalPages = Math.ceil(clients.length / ROWS_PER_PAGE);
+
                 const paginatedClients = clients.slice(
                   (currentPage - 1) * ROWS_PER_PAGE,
                   currentPage * ROWS_PER_PAGE
@@ -546,13 +587,26 @@ export default function ClientsListPage() {
                     </div>
 
                     <div className="col-name">
-                      <div className="avatar">{(client.first_name?.[0] || 'C').toUpperCase()}</div>
-                      <div>
+                      <div className="avatar-container position-relative d-inline-block">
+                        <div className="avatar">{(client.first_name?.[0] || 'C').toUpperCase()}</div>
+                        {client.is_blocked && (
+                          <div
+                            className="position-absolute bg-white rounded-circle d-flex align-items-center justify-content-center"
+                            style={{ 
+                              bottom: '-2px', 
+                              right: '-2px', 
+                              width: '16px', 
+                              height: '16px',
+                              boxShadow: '0 0 0 1.5px #fff' 
+                            }}
+                          >
+                            <DashCircleFill className="text-danger" size={14} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="ms-3">
                         <div className="name">
                           {`${client.first_name || ''} ${client.last_name || ''}`}
-                          {client.is_blocked && (
-                            <span className="blocked-badge">Blocked</span>
-                          )}
                         </div>
                         <div className="email">{client.email || '-'}</div>
                       </div>
@@ -704,6 +758,59 @@ export default function ClientsListPage() {
             <option value="Booked fake appointments">Booked fake appointments</option>
             <option value="Other">Other</option>
           </select>
+        </div>
+      </Modal>
+
+      {/* ================= ADD TAGS MODAL ================= */}
+      <Modal
+        show={tagsModalOpen}
+        onClose={() => setTagsModalOpen(false)}
+        title="Add client tags"
+        footer={
+          <div className="d-flex justify-content-end gap-2 w-100">
+            <Button
+              variant="outline-dark"
+              onClick={() => {
+                setTagsModalOpen(false);
+                setTagInput("");
+              }}
+              style={{ borderRadius: '999px', padding: '8px 24px', fontWeight: 600, border: '1px solid #d1d5db' }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="dark"
+              disabled={!tagInput}
+              onClick={() => {
+                setTagsModalOpen(false);
+                setTagInput("");
+                // handle add tags
+              }}
+              style={{ borderRadius: '999px', padding: '8px 24px', fontWeight: 600 }}
+            >
+              Apply
+            </Button>
+          </div>
+        }
+      >
+        <div className="mb-4 mt-2">
+          <label className="form-label fw-bold" style={{ fontSize: '13px' }}>Tags</label>
+          <div className="position-relative">
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Select or create a tag"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              style={{ 
+                padding: '10px 14px', 
+                borderRadius: '8px', 
+                border: '1px solid #d1d5db',
+                fontSize: '15px'
+              }}
+            />
+            <ChevronDown size={14} className="position-absolute text-muted" style={{ right: '14px', top: '14px', pointerEvents: 'none' }} />
+          </div>
         </div>
       </Modal>
 

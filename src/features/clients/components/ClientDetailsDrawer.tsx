@@ -7,7 +7,8 @@ import {
   Clock
 } from "react-bootstrap-icons";
 
-import { getClientById } from "../services/clientService";
+import api from "../../../services/api/axios";
+import { CLIENT } from "../../../services/api/endpoints";
 import "../styles/ClientDetailsDrawer.scss";
 
 interface ClientDetailsDrawerProps {
@@ -41,7 +42,7 @@ export default function ClientDetailsDrawer({ clientId, isOpen, onClose }: Clien
 
   const fetchClientDetails = async (id: string | number) => {
     try {
-      const res = await getClientById(id);
+      const res = await api.get(CLIENT.BY_ID(id));
       setClient(res.data?.data || res.data);
     } catch (error) {
       console.error("Error fetching client details:", error);

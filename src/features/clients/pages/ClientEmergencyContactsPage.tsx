@@ -4,7 +4,8 @@ import "bootstrap/dist/css/bootstrap.min.css"
 import "../styles/ClientEmergencyContactsPage.scss"
 import { X } from "react-bootstrap-icons"
 import { useClientWizard } from "../context/ClientWizardContext"
-import { createClient } from "../services/clientService"
+import api from "../../../services/api/axios"
+import { CLIENT } from "../../../services/api/endpoints"
 
 export default function ClientEmergencyContactsPage() {
 
@@ -31,7 +32,7 @@ export default function ClientEmergencyContactsPage() {
     }
 
     try {
-      await createClient(payload)
+      await api.post(CLIENT.BASE, payload)
       console.log("Client saved successfully")
       navigate("/dashboard/clients/list")
     } catch (error) {

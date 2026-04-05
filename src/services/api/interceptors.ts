@@ -19,6 +19,15 @@ export class ApiError {
   }
 }
 
+// ─── Store Injection (Fixes Circular Dependency & Vite Warnings) ─────────────
+let storeRef: any = null
+let authActionsRef: any = null
+
+export const injectStore = (store: any, authActions: any) => {
+  storeRef = store
+  authActionsRef = authActions
+}
+
 // ─── Token Refresh Queue ──────────────────────────────────────────────────────
 type FailedRequest = {
   resolve: (token: string) => void
@@ -46,7 +55,7 @@ export const applyInterceptors = (instance: AxiosInstance) => {
       )
 
       if (!isPublic) {
-        const accessToken = localStorage.getItem("accessToken")
+        const accessToken = storeRef?.getState()?.auth?.accessToken
         if (accessToken) {
           config.headers["Authorization"] = `Bearer ${accessToken}`
         }
@@ -92,7 +101,7 @@ export const applyInterceptors = (instance: AxiosInstance) => {
         originalRequest._retry = true
         isRefreshing = true
 
-        const refreshToken = localStorage.getItem("refreshToken")
+        const refreshToken = storeRef?.getState()?.auth?.refreshToken
 
         try {
           const { data: refreshData } = await axios.post<{ accessToken: string }>(
@@ -103,10 +112,9 @@ export const applyInterceptors = (instance: AxiosInstance) => {
           const newToken = refreshData.accessToken
 
           // Dynamic imports here break the circular dependency at module root
-          const { store } = await import("../../store/store")
-          const { updateToken } = await import("../../store/authSlice")
-
-          store.dispatch(updateToken(newToken))
+          if (storeRef && authActionsRef) {
+            storeRef.dispatch(authActionsRef.updateToken(newToken))
+          }
           processQueue(null, newToken)
 
           originalRequest.headers["Authorization"] = `Bearer ${newToken}`
@@ -115,10 +123,9 @@ export const applyInterceptors = (instance: AxiosInstance) => {
         } catch (refreshError) {
           processQueue(refreshError, null)
           
-          const { store } = await import("../../store/store")
-          const { logout } = await import("../../store/authSlice")
-          
-          store.dispatch(logout())
+          if (storeRef && authActionsRef) {
+            storeRef.dispatch(authActionsRef.logout())
+          }
           window.location.replace("/login")
           return Promise.reject(
             new ApiError(401, "Session expired. Please log in again.")

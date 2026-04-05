@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/ClientLoyaltyPage.scss";
 
@@ -384,7 +384,6 @@ function EnableForm({ onClose }: { onClose: () => void }) {
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
 export default function ClientLoyaltyPage() {
-  const navigate  = useNavigate();
   const [screen, setScreen] = useState<"landing" | "form">("landing");
 
   return (

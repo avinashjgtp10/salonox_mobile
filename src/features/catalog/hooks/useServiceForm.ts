@@ -65,7 +65,7 @@ const initialData: CatalogFormData = {
     },
 };
 
-export const useServiceForm = (type: "single" | "bundle") => {
+export const useServiceForm = (_type: "single" | "bundle") => {
     const [formData, setFormData] = useState<CatalogFormData>(initialData);
     const [validationErrors, setValidationErrors] = useState<Record<string, string[]>>({});
     const [isSubmitted, setIsSubmitted] = useState(false);

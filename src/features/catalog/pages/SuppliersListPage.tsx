@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
-  Search, ChevronLeft, ChevronRight, Plus, ThreeDotsVertical
+  Search, ChevronLeft, ChevronRight, ThreeDotsVertical
 } from "react-bootstrap-icons";
 import { useNavigate } from "react-router-dom";
 import "./SuppliersListPage.scss";
