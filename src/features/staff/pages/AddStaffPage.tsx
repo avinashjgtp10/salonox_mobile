@@ -11,7 +11,8 @@ import StaffSettingsSection from "../sections/StaffSettingsSection";
 import StaffWagesSection from "../sections/StaffWagesSection";
 import StaffCommissionsSection from "../sections/StaffCommissionsSection";
 import StaffPayRunsSection from "../sections/StaffPayRunsSection";
-import { createStaff } from "../services/staffService";
+import api from "../../../services/api/axios";
+import { STAFF } from "../../../services/api/endpoints";
 type SectionKey =
   | "profile" | "addresses" | "emergency"
   | "services" | "locations" | "settings"
@@ -107,7 +108,7 @@ const AddStaffPage: React.FC = () => {
         emergency_contacts: lists.contacts
       };
 
-      await createStaff(payload);
+      await api.post(STAFF.BASE, payload);
       console.log("Staff saved successfully");
       navigate("/dashboard/team/members");
     } catch (error) {
