@@ -6,6 +6,7 @@ import {
   createClientThunk,
   deleteClientThunk,
   blockClientsThunk,
+  unblockClientsThunk,
   exportClientsThunk,
   importClientsThunk,
   mergeDuplicateClientsThunk,
@@ -116,6 +117,24 @@ const clientSlice = createSlice({
       .addCase(blockClientsThunk.rejected, (state, { payload }) => {
         state.loading = false
         state.error   = payload ?? "Failed to block clients"
+      })
+
+    // ── unblockClientsThunk ───────────────────────────────────────────────────
+    builder
+      .addCase(unblockClientsThunk.pending, (state) => {
+        state.loading = true
+        state.error   = null
+      })
+      .addCase(unblockClientsThunk.fulfilled, (state, { payload }) => {
+        state.loading = false
+        const ids = payload as (string | number)[]
+        state.clients = state.clients.map((c) =>
+          ids.includes(c.id) ? { ...c, isBlocked: false } : c
+        )
+      })
+      .addCase(unblockClientsThunk.rejected, (state, { payload }) => {
+        state.loading = false
+        state.error   = payload ?? "Failed to unblock clients"
       })
 
     // ── exportClientsThunk ────────────────────────────────────────────────────

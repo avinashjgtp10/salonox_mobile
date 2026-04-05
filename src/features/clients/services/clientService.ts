@@ -24,6 +24,12 @@ export const blockClients = (ids: string[] | number[], reason: string) => {
   });
 };
 
+export const unblockClients = (ids: string[] | number[]) => {
+  return api.patch("/api/v1/clients/unblock", {
+    client_ids: ids
+  });
+};
+
 export const exportClients = (format: "excel" | "csv") => {
   return api.get(`/api/v1/clients/export?format=${format}`, {
     responseType: "blob",
