@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getClients, deleteClient, blockClients, exportClients, mergeDuplicateClients, mergeSelectedClients } from "../services/clientService";
+import { getClients, deleteClient, blockClients, unblockClients, exportClients, mergeDuplicateClients, mergeSelectedClients } from "../services/clientService";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Search,
@@ -15,6 +15,7 @@ import {
   ArrowLeftRight,
   FileEarmarkExcel,
   FiletypeCsv,
+  DashCircleFill,
 } from "react-bootstrap-icons";
 import ClientDetailsDrawer from "../components/ClientDetailsDrawer";
 
@@ -96,6 +97,8 @@ export default function ClientsListPage() {
   const [primaryClientId, setPrimaryClientId] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string | number | null>(null);
+  const [tagsModalOpen, setTagsModalOpen] = useState(false);
+  const [tagInput, setTagInput] = useState("");
 
 
 
@@ -131,6 +134,17 @@ export default function ClientsListPage() {
       await fetchClients();
     } catch (error) {
       console.error("Block error:", error);
+    }
+  };
+
+  const handleUnblockClients = async () => {
+    if (selectedClients.length === 0) return;
+    try {
+      await unblockClients(selectedClients);
+      setSelectedClients([]);
+      await fetchClients();
+    } catch (error) {
+      console.error("Unblock error:", error);
     }
   };
 
@@ -488,14 +502,35 @@ export default function ClientsListPage() {
                       </button>
                       {bulkEditOpen && (
                         <div className="bulk-edit-menu">
+                          {selectedClients.some(id => clients.find(c => String(c.id) === id)?.is_blocked) ? (
+                            <div
+                              className="bulk-edit-item"
+                              onClick={() => {
+                                setBulkEditOpen(false);
+                                handleUnblockClients();
+                              }}
+                            >
+                              Unblock customers
+                            </div>
+                          ) : (
+                            <div
+                              className="bulk-edit-item"
+                              onClick={() => {
+                                setBulkEditOpen(false);
+                                setBlockModalOpen(true);
+                              }}
+                            >
+                              Block customers
+                            </div>
+                          )}
                           <div
                             className="bulk-edit-item"
                             onClick={() => {
                               setBulkEditOpen(false);
-                              setBlockModalOpen(true);
+                              setTagsModalOpen(true);
                             }}
                           >
-                            Block customers
+                            Add tags
                           </div>
                         </div>
                       )}
@@ -546,13 +581,26 @@ export default function ClientsListPage() {
                     </div>
 
                     <div className="col-name">
-                      <div className="avatar">{(client.first_name?.[0] || 'C').toUpperCase()}</div>
-                      <div>
+                      <div className="avatar-container position-relative d-inline-block">
+                        <div className="avatar">{(client.first_name?.[0] || 'C').toUpperCase()}</div>
+                        {client.is_blocked && (
+                          <div
+                            className="position-absolute bg-white rounded-circle d-flex align-items-center justify-content-center"
+                            style={{ 
+                              bottom: '-2px', 
+                              right: '-2px', 
+                              width: '16px', 
+                              height: '16px',
+                              boxShadow: '0 0 0 1.5px #fff' 
+                            }}
+                          >
+                            <DashCircleFill className="text-danger" size={14} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="ms-3">
                         <div className="name">
                           {`${client.first_name || ''} ${client.last_name || ''}`}
-                          {client.is_blocked && (
-                            <span className="blocked-badge">Blocked</span>
-                          )}
                         </div>
                         <div className="email">{client.email || '-'}</div>
                       </div>
@@ -704,6 +752,59 @@ export default function ClientsListPage() {
             <option value="Booked fake appointments">Booked fake appointments</option>
             <option value="Other">Other</option>
           </select>
+        </div>
+      </Modal>
+
+      {/* ================= ADD TAGS MODAL ================= */}
+      <Modal
+        show={tagsModalOpen}
+        onClose={() => setTagsModalOpen(false)}
+        title="Add client tags"
+        footer={
+          <div className="d-flex justify-content-end gap-2 w-100">
+            <Button
+              variant="outline-dark"
+              onClick={() => {
+                setTagsModalOpen(false);
+                setTagInput("");
+              }}
+              style={{ borderRadius: '999px', padding: '8px 24px', fontWeight: 600, border: '1px solid #d1d5db' }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="dark"
+              disabled={!tagInput}
+              onClick={() => {
+                setTagsModalOpen(false);
+                setTagInput("");
+                // handle add tags
+              }}
+              style={{ borderRadius: '999px', padding: '8px 24px', fontWeight: 600 }}
+            >
+              Apply
+            </Button>
+          </div>
+        }
+      >
+        <div className="mb-4 mt-2">
+          <label className="form-label fw-bold" style={{ fontSize: '13px' }}>Tags</label>
+          <div className="position-relative">
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Select or create a tag"
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              style={{ 
+                padding: '10px 14px', 
+                borderRadius: '8px', 
+                border: '1px solid #d1d5db',
+                fontSize: '15px'
+              }}
+            />
+            <ChevronDown size={14} className="position-absolute text-muted" style={{ right: '14px', top: '14px', pointerEvents: 'none' }} />
+          </div>
         </div>
       </Modal>
 

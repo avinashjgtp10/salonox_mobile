@@ -8,6 +8,7 @@ import type {
   ClientsListResponse,
   CreateClientPayload,
   BlockClientsPayload,
+  UnblockClientsPayload,
   MergeSelectedClientsPayload,
 } from "../../types/client.types"
 
@@ -83,6 +84,21 @@ export const blockClientsThunk = createAsyncThunk<
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message)
     return rejectWithValue("Failed to block clients")
+  }
+})
+
+// ── Unblock clients ───────────────────────────────────────────────────────────
+export const unblockClientsThunk = createAsyncThunk<
+  string[] | number[],   // returns unblocked ids so reducer can update state
+  UnblockClientsPayload,
+  { rejectValue: string }
+>("client/unblock", async ({ ids }, { rejectWithValue }) => {
+  try {
+    await api.patch(CLIENT.UNBLOCK, { client_ids: ids })
+    return ids
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message)
+    return rejectWithValue("Failed to unblock clients")
   }
 })
 
