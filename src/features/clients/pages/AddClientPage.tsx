@@ -2,7 +2,8 @@ import { useNavigate } from "react-router-dom"
 import { useRef, useState } from "react"
 import "bootstrap/dist/css/bootstrap.min.css"
 import "../styles/AddClientPage.scss"
-import { createClient } from "../services/clientService";
+import api from "../../../services/api/axios";
+import { CLIENT } from "../../../services/api/endpoints";
 import { Person, Pencil, X } from "react-bootstrap-icons"
 
 import { useClientWizard } from "../context/ClientWizardContext";
@@ -60,7 +61,7 @@ export default function AddClientPage() {
     }
 
     try {
-      await createClient(payload)
+      await api.post(CLIENT.BASE, payload)
       resetWizard()
       navigate("/dashboard/clients/list")
     } catch (error) {

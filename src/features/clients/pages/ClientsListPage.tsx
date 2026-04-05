@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { getClients, deleteClient, blockClients, unblockClients, exportClients, mergeDuplicateClients, mergeSelectedClients } from "../services/clientService";
+import api from "../../../services/api/axios";
+import { CLIENT } from "../../../services/api/endpoints";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Search,
@@ -37,7 +38,7 @@ export default function ClientsListPage() {
   const fetchClients = async () => {
     setLoading(true);
     try {
-      const res = await getClients();
+      const res = await api.get(CLIENT.BASE);
       console.log("CLIENT API RESPONSE:", res.data);
       const clientsData = res.data?.data?.items || [];
       setClients(Array.isArray(clientsData) ? clientsData : []);
@@ -116,7 +117,7 @@ export default function ClientsListPage() {
   const handleDeleteClients = async () => {
     try {
       await Promise.all(
-        selectedClients.map((id) => deleteClient(id))
+        selectedClients.map((id) => api.delete(CLIENT.BY_ID(id)))
       );
       setSelectedClients([]);
       await fetchClients();
@@ -128,7 +129,7 @@ export default function ClientsListPage() {
   const handleBlockClients = async () => {
     if (selectedClients.length === 0) return;
     try {
-      await blockClients(selectedClients, blockReason);
+      await api.patch(CLIENT.BLOCK, { client_ids: selectedClients, reason: blockReason });
       setSelectedClients([]);
       await fetchClients();
     } catch (error) {
@@ -139,7 +140,7 @@ export default function ClientsListPage() {
   const handleUnblockClients = async () => {
     if (selectedClients.length === 0) return;
     try {
-      await unblockClients(selectedClients);
+      await api.patch(CLIENT.UNBLOCK, { client_ids: selectedClients });
       setSelectedClients([]);
       await fetchClients();
     } catch (error) {
@@ -149,7 +150,7 @@ export default function ClientsListPage() {
 
   const handleExportExcel = async () => {
     try {
-      const res = await exportClients("excel");
+      const res = await api.get(CLIENT.EXPORT("excel"), { responseType: "blob" });
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement("a");
       link.href = url;
@@ -165,7 +166,7 @@ export default function ClientsListPage() {
 
   const handleExportCSV = async () => {
     try {
-      const res = await exportClients("csv");
+      const res = await api.get(CLIENT.EXPORT("csv"), { responseType: "blob" });
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement("a");
       link.href = url;
@@ -182,7 +183,7 @@ export default function ClientsListPage() {
   const handleMergeDuplicates = async () => {
     try {
       setLoading(true);
-      await mergeDuplicateClients();
+      await api.post(CLIENT.MERGE_DUPLICATES, { merge_by: "phone" });
       await fetchClients();
       setOptionsOpen(false);
       alert("Duplicate clients merged successfully based on phone number.");
@@ -202,7 +203,7 @@ export default function ClientsListPage() {
 
     try {
       setLoading(true);
-      await mergeSelectedClients(primaryClientId, secondaryId);
+      await api.post(CLIENT.MERGE, { primary_id: primaryClientId, secondary_id: secondaryId });
       setSelectedClients([]);
       setMergeModalOpen(false);
       setPrimaryClientId(null);
