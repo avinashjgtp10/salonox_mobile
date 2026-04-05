@@ -21,6 +21,10 @@ export interface BlockClientsPayload {
   reason: string
 }
 
+export interface UnblockClientsPayload {
+  ids:    string[] | number[]
+}
+
 export interface MergeSelectedClientsPayload {
   primaryId:   string | number
   secondaryId: string | number
