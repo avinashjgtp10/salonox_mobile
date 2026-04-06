@@ -7,14 +7,14 @@ import axios, {
 import { PUBLIC_ROUTES, AUTH } from "./endpoints"
 
 // ─── Structured API Error ─────────────────────────────────────────────────────
-export class ApiError extends Error {
+export class ApiError {
   status:  number
+  message: string
   errors?: any
 
   constructor(status: number, message: string, errors?: any) {
-    super(message)
-    this.name = "ApiError"
     this.status  = status
+    this.message = message
     this.errors  = errors
   }
 }

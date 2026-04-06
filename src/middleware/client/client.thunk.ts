@@ -2,30 +2,76 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../services/api/axios";
 import { CLIENT } from "../../services/api/endpoints";
 import { ApiError } from "../../services/api/interceptors";
-import { createCRUDThunks } from "../utils/createCRUDThunks";
+import { downloadBlob } from "../../utils/downloadBlob";
 import type {
   Client,
+  ClientResponse,
+  ClientListResponse,
   CreateClientPayload,
   BlockClientsPayload,
   UnblockClientsPayload,
   MergeSelectedClientsPayload,
 } from "../../types/client.types";
 
-// ── Standard CRUD thunks (generated) ─────────────────────────────────────────
-// Clients have no update endpoint; updateThunk is provided by factory but unused.
-const clientThunks = createCRUDThunks<Client, CreateClientPayload>(
-  "client",
-  CLIENT,
-  "client",
-);
+// ── Fetch all clients ─────────────────────────────────────────────────────────
+export const fetchClientsThunk = createAsyncThunk<
+  Client[],
+  void,
+  { rejectValue: string }
+>("client/fetchAll", async (_, { rejectWithValue }) => {
+  try {
+    const res = await api.get<ClientListResponse>(CLIENT.BASE);
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to fetch clients");
+  }
+});
 
-export const {
-  fetchAllThunk:  fetchClientsThunk,
-  fetchByIdThunk: fetchClientByIdThunk,
-  createThunk:    createClientThunk,
-  deleteThunk:    deleteClientThunk,
-  exportThunk:    exportClientsThunk,
-} = clientThunks;
+// ── Fetch single client ───────────────────────────────────────────────────────
+export const fetchClientByIdThunk = createAsyncThunk<
+  Client,
+  string | number,
+  { rejectValue: string }
+>("client/fetchById", async (id, { rejectWithValue }) => {
+  try {
+    const res = await api.get<ClientResponse>(CLIENT.BY_ID(id));
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to fetch client");
+  }
+});
+
+// ── Create client ─────────────────────────────────────────────────────────────
+export const createClientThunk = createAsyncThunk<
+  Client,
+  CreateClientPayload,
+  { rejectValue: string }
+>("client/create", async (payload, { rejectWithValue }) => {
+  try {
+    const res = await api.post<ClientResponse>(CLIENT.BASE, payload);
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to create client");
+  }
+});
+
+// ── Delete client ─────────────────────────────────────────────────────────────
+export const deleteClientThunk = createAsyncThunk<
+  string | number,
+  string | number,
+  { rejectValue: string }
+>("client/delete", async (id, { rejectWithValue }) => {
+  try {
+    await api.delete(CLIENT.BY_ID(id));
+    return id;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to delete client");
+  }
+});
 
 // ── Block clients ─────────────────────────────────────────────────────────────
 export const blockClientsThunk = createAsyncThunk<
@@ -54,6 +100,21 @@ export const unblockClientsThunk = createAsyncThunk<
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to unblock clients");
+  }
+});
+
+// ── Export clients ────────────────────────────────────────────────────────────
+export const exportClientsThunk = createAsyncThunk<
+  void,
+  "excel" | "csv",
+  { rejectValue: string }
+>("client/export", async (format, { rejectWithValue }) => {
+  try {
+    const res = await api.get(CLIENT.EXPORT(format), { responseType: "blob" });
+    downloadBlob(res.data, `clients.${format === "excel" ? "xlsx" : "csv"}`);
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to export clients");
   }
 });
 

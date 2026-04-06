@@ -1,5 +1,6 @@
 import { useMemo } from "react"
 import "../../styles/ReceiptDrawer.scss"
+import { downloadBlob } from "../../../../utils/downloadBlob"
 
 interface Props {
   open: boolean
@@ -21,13 +22,11 @@ export default function ReceiptDrawer({
   onClose,
 }: Props) {
 
+  // All hooks MUST be declared before any conditional return (Rules of Hooks)
+  const receiptId = useMemo(() => "RCPT-" + Math.floor(Math.random() * 100000), [])
+  const now = useMemo(() => new Date(), [])
+
   if (!open) return null
-
-  const receiptId = useMemo(() => {
-    return "RCPT-" + Math.floor(Math.random() * 100000)
-  }, [])
-
-  const now = new Date()
 
   const handlePrint = () => {
     window.print()
@@ -61,32 +60,21 @@ Payment: ${paymentMethod}
   }
 
   const handleDownload = () => {
+    const content = [
+      `Receipt ID: ${receiptId}`,
+      `Client: ${clientName || "Walk-in"}`,
+      `Mobile: ${clientMobile || "N/A"}`,
+      `Date: ${now.toLocaleString()}`,
+      `Payment Method: ${paymentMethod}`,
+      ``,
+      `Services:`,
+      ...services.map((s) => `  ${s.name} - \u20B9${s.price}`),
+      ``,
+      `Total Paid: \u20B9${total}`,
+    ].join("\n")
 
-    const blob = new Blob(
-      [
-        `Receipt ID: ${receiptId}
-Client: ${clientName}
-Mobile: ${clientMobile}
-Date: ${now.toLocaleString()}
-Payment Method: ${paymentMethod}
-
-Services:
-${services.map((s) => `${s.name} - ₹${s.price}`).join("\n")}
-
-Total Paid: ₹${total}
-        `,
-      ],
-      { type: "text/plain" }
-    )
-
-    const link = document.createElement("a")
-
-    link.href = URL.createObjectURL(blob)
-
-    link.download = `${receiptId}.txt`
-
-    link.click()
-
+    const ok = downloadBlob(content, `${receiptId}.txt`, "text/plain")
+    if (!ok) console.warn("ReceiptDrawer: download could not be triggered")
   }
 
   return (

@@ -1,19 +1,87 @@
+import { createAsyncThunk } from "@reduxjs/toolkit";
+import api from "../../services/api/axios";
 import { SETTING } from "../../services/api/endpoints";
-import { createCRUDThunks } from "../utils/createCRUDThunks";
-import type { Setting, CreateSettingPayload } from "../../types/setting.types";
+import { ApiError } from "../../services/api/interceptors";
+import { downloadBlob } from "../../utils/downloadBlob";
+import type {
+  Setting,
+  SettingResponse,
+  SettingListResponse,
+  CreateSettingPayload,
+  UpdateSettingPayload,
+} from "../../types/setting.types";
 
-// ── Standard CRUD thunks (generated) ─────────────────────────────────────────
-const settingThunks = createCRUDThunks<Setting, CreateSettingPayload, Partial<CreateSettingPayload>>(
-  "setting",
-  SETTING,
-  "setting",
-);
+// ── Fetch all settings ─────────────────────────────────────────────────────────
+export const fetchSettingsThunk = createAsyncThunk<
+  Setting[],
+  void,
+  { rejectValue: string }
+>("setting/fetchAll", async (_, { rejectWithValue }) => {
+  try {
+    const res = await api.get<SettingListResponse>(SETTING.BASE);
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to fetch settings");
+  }
+});
 
-export const {
-  fetchAllThunk:  fetchSettingsThunk,
-  fetchByIdThunk: fetchSettingByIdThunk,
-  createThunk:    createSettingThunk,
-  updateThunk:    updateSettingThunk,
-  deleteThunk:    deleteSettingThunk,
-  exportThunk:    exportSettingsThunk,
-} = settingThunks;
+// ── Fetch single setting ───────────────────────────────────────────────────────
+export const fetchSettingByIdThunk = createAsyncThunk<Setting, string | number, { rejectValue: string }>(
+  "setting/fetchById", async (id, { rejectWithValue }) => {
+  try {
+    const res = await api.get<SettingResponse>(SETTING.BY_ID(id));
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to fetch setting");
+  }
+});
+
+// ── Create setting ─────────────────────────────────────────────────────────────
+export const createSettingThunk = createAsyncThunk<Setting, CreateSettingPayload, { rejectValue: string }>(
+  "setting/create", async (payload, { rejectWithValue }) => {
+  try {
+    const res = await api.post<SettingResponse>(SETTING.BASE, payload);
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to create setting");
+  }
+});
+
+// ── Update setting ─────────────────────────────────────────────────────────────
+export const updateSettingThunk = createAsyncThunk<Setting, UpdateSettingPayload, { rejectValue: string }>(
+  "setting/update", async ({ id, data }, { rejectWithValue }) => {
+  try {
+    const res = await api.put<SettingResponse>(SETTING.BY_ID(id), data);
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to update setting");
+  }
+});
+
+// ── Delete setting ─────────────────────────────────────────────────────────────
+export const deleteSettingThunk = createAsyncThunk<string | number, string | number, { rejectValue: string }>(
+  "setting/delete", async (id, { rejectWithValue }) => {
+  try {
+    await api.delete(SETTING.BY_ID(id));
+    return id;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to delete setting");
+  }
+});
+
+// ── Export settings ────────────────────────────────────────────────────────────
+export const exportSettingsThunk = createAsyncThunk<void, "excel" | "csv", { rejectValue: string }>(
+  "setting/export", async (format, { rejectWithValue }) => {
+  try {
+    const res = await api.get(SETTING.EXPORT(format), { responseType: "blob" });
+    downloadBlob(res.data, `settings.${format === "excel" ? "xlsx" : "csv"}`);
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to export settings");
+  }
+});

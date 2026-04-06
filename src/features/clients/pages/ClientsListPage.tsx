@@ -21,7 +21,7 @@ import {
 import ClientDetailsDrawer from "../components/ClientDetailsDrawer";
 
 // UI Components
-import { Button, Badge, Input, Modal } from "../../../components/ui";
+import { Button, Badge, Input, Modal, DownloadButton } from "../../../components/ui";
 import { useTranslation } from "react-i18next";
 
 import "../styles/ClientsListPage.scss";
@@ -148,37 +148,7 @@ export default function ClientsListPage() {
     }
   };
 
-  const handleExportExcel = async () => {
-    try {
-      const res = await api.get(CLIENT.EXPORT("excel"), { responseType: "blob" });
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", "clients.xlsx");
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setOptionsOpen(false);
-    } catch (error) {
-      console.error("Export error:", error);
-    }
-  };
 
-  const handleExportCSV = async () => {
-    try {
-      const res = await api.get(CLIENT.EXPORT("csv"), { responseType: "blob" });
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", "clients.csv");
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setOptionsOpen(false);
-    } catch (error) {
-      console.error("Export error:", error);
-    }
-  };
 
   const handleMergeDuplicates = async () => {
     try {
@@ -382,14 +352,34 @@ export default function ClientsListPage() {
                 </div>
                 <div className="divider border-top my-1" />
                 <div className="export-title px-2 py-1 small fw-bold text-muted">Export</div>
-                <div className="option-item p-2 cursor-pointer" onClick={handleExportExcel}>
-                  <FileEarmarkExcel size={14} className="me-2" />
+                <DownloadButton
+                  filename="clients.xlsx"
+                  fetcher={async () => {
+                    const res = await api.get(CLIENT.EXPORT("excel"), { responseType: "blob" });
+                    setOptionsOpen(false);
+                    return res.data;
+                  }}
+                  variant="ghost"
+                  size="sm"
+                  iconLeft={<FileEarmarkExcel size={14} className="me-2" />}
+                  className="option-item w-100 text-start p-2 small"
+                >
                   Excel
-                </div>
-                <div className="option-item p-2 cursor-pointer" onClick={handleExportCSV}>
-                  <FiletypeCsv size={14} className="me-2" />
+                </DownloadButton>
+                <DownloadButton
+                  filename="clients.csv"
+                  fetcher={async () => {
+                    const res = await api.get(CLIENT.EXPORT("csv"), { responseType: "blob" });
+                    setOptionsOpen(false);
+                    return res.data;
+                  }}
+                  variant="ghost"
+                  size="sm"
+                  iconLeft={<FiletypeCsv size={14} className="me-2" />}
+                  className="option-item w-100 text-start p-2 small"
+                >
                   CSV
-                </div>
+                </DownloadButton>
               </div>
             )}
           </div>
