@@ -1,6 +1,8 @@
 // ── Calendar entity ────────────────────────────────────────────────────────────
+import type { EntityId } from './common.types';
+
 export interface CalendarEvent {
-  id:          string | number;
+  id:          EntityId;
   title:       string;
   start:       string; // ISO date string
   end:         string; // ISO date string
@@ -22,7 +24,7 @@ export interface CreateCalendarEventPayload {
 }
 
 export interface UpdateCalendarEventPayload {
-  id:   string | number;
+  id:   EntityId;
   data: Partial<CreateCalendarEventPayload>;
 }
 

@@ -1,6 +1,8 @@
 // ── Booking entity ─────────────────────────────────────────────────────────────
+import type { EntityId } from './common.types';
+
 export interface Booking {
-  id:          string | number;
+  id:          EntityId;
   clientId?:   string | null;
   staffId?:    string | null;
   serviceId?:  string | null;
@@ -24,7 +26,7 @@ export interface CreateBookingPayload {
 }
 
 export interface UpdateBookingPayload {
-  id:   string | number;
+  id:   EntityId;
   data: Partial<CreateBookingPayload>;
 }
 

@@ -1,6 +1,8 @@
 // ── Staff entity ──────────────────────────────────────────────────────────────
+import type { EntityId } from './common.types';
+
 export interface Staff {
-  id:        string | number
+  id:        EntityId
   fullName:  string
   email?:    string
   phone?:    string
@@ -18,7 +20,7 @@ export interface CreateStaffPayload {
 }
 
 export interface UpdateStaffPayload {
-  id:        string | number
+  id:        EntityId
   data:      Partial<CreateStaffPayload>
 }
 

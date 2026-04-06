@@ -1,6 +1,8 @@
 // ── Catalog entity ─────────────────────────────────────────────────────────────
+import type { EntityId } from './common.types';
+
 export interface CatalogItem {
-  id:          string | number;
+  id:          EntityId;
   name:        string;
   type?:       string; // e.g. 'service', 'product', 'membership', 'package'
   categoryId?: string;
@@ -19,7 +21,7 @@ export interface CreateCatalogPayload {
 }
 
 export interface UpdateCatalogPayload {
-  id:   string | number;
+  id:   EntityId;
   data: Partial<CreateCatalogPayload>;
 }
 

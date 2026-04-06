@@ -1,6 +1,8 @@
 // ── User entity ───────────────────────────────────────────────────────────────
+import type { EntityId } from './common.types';
+
 export interface User {
-  id:          string | number
+  id:          EntityId
   email:       string
   fullName:    string
   phone?:      string

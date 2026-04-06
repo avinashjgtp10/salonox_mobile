@@ -1,6 +1,8 @@
 // ── Sale entity ───────────────────────────────────────────────────────────────
+import type { EntityId } from './common.types';
+
 export interface SaleItemPayload {
-  id: number | string;
+  id: EntityId;
   name?: string;
   price?: number;
   type?: "service" | "product" | "membership" | "giftcard" | "quick";
@@ -8,7 +10,7 @@ export interface SaleItemPayload {
 }
 
 export interface Sale {
-  id: string | number;
+  id: EntityId;
   clientId?: string | null;
   status: string;
   total: number;
@@ -27,7 +29,7 @@ export interface CreateSalePayload {
 }
 
 export interface UpdateSalePayload {
-  id: string | number;
+  id: EntityId;
   data: Partial<CreateSalePayload>;
 }
 
