@@ -7,11 +7,7 @@ const AddOnsPage = lazy(() => import("../features/apps/pages/AddOnsPage"))
 // InsightsIntroPage, etc.) live in the features/settings-ui branch.
 // They will be imported here once that branch is merged into main.
 
-const PageLoader = () => (
-  <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}>
-    <div className="spinner-border text-primary" role="status" />
-  </div>
-)
+import { PageLoader } from "../components/ui"
 
 export const AppsRoutes = () => (
   <Suspense fallback={<PageLoader />}>
