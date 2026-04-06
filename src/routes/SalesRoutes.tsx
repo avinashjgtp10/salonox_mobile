@@ -9,11 +9,7 @@ const PaymentsPage     = lazy(() => import("../features/analytics/pages/Payments
 const GiftCardsPage    = lazy(() => import("../features/analytics/pages/GiftCardsPage"))
 const MembershipsPage  = lazy(() => import("../features/analytics/pages/MembershipsPage"))
 
-const PageLoader = () => (
-  <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}>
-    <div className="spinner-border text-primary" role="status" />
-  </div>
-)
+import { PageLoader } from "../components/ui"
 
 export const SalesRoutes = () => (
   <Suspense fallback={<PageLoader />}>

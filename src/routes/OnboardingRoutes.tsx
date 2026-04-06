@@ -1,6 +1,5 @@
-// @refresh reset
 import { lazy } from "react"
-import { Route } from "react-router-dom"
+import { Route, Outlet } from "react-router-dom"
 import { OnboardingProvider } from "../context/OnboardingContext"
 import OnboardingGuard from "../components/guards/OnboardingGuard"
 
@@ -18,17 +17,19 @@ const TeamSizePage          = lazy(() => import("../features/auth/pages/TeamSize
 
 export const OnboardingRoutes = (
   <Route element={<OnboardingGuard />}>
-    <Route path="/account-type"         element={<OnboardingProvider><AccountTypePage /></OnboardingProvider>} />
-    <Route path="/business-name"        element={<OnboardingProvider><BusinessNamePage /></OnboardingProvider>} />
-    <Route path="/service-type"         element={<OnboardingProvider><ServiceTypePage /></OnboardingProvider>} />
-    <Route path="/team-setup"           element={<OnboardingProvider><TeamSetupPage /></OnboardingProvider>} />
-    <Route path="/team-size"            element={<OnboardingProvider><TeamSizePage /></OnboardingProvider>} />
-    <Route path="/business-location"    element={<OnboardingProvider><BusinessLocationPage /></OnboardingProvider>} />
-    <Route path="/venue-location"       element={<OnboardingProvider><VenueLocationPage /></OnboardingProvider>} />
-    <Route path="/previous-software"   element={<OnboardingProvider><PreviousSoftwarePage /></OnboardingProvider>} />
-    <Route path="/recommendation-source" element={<OnboardingProvider><RecommendationSourcePage /></OnboardingProvider>} />
-    <Route path="/setup-complete"       element={<OnboardingProvider><SetupCompletePage /></OnboardingProvider>} />
-    <Route path="/join-business"        element={<OnboardingProvider><JoinBusinessPage /></OnboardingProvider>} />
+    <Route element={<OnboardingProvider><Outlet /></OnboardingProvider>}>
+      <Route path="/account-type"         element={<AccountTypePage />} />
+      <Route path="/business-name"        element={<BusinessNamePage />} />
+      <Route path="/service-type"         element={<ServiceTypePage />} />
+      <Route path="/team-setup"           element={<TeamSetupPage />} />
+      <Route path="/team-size"            element={<TeamSizePage />} />
+      <Route path="/business-location"    element={<BusinessLocationPage />} />
+      <Route path="/venue-location"       element={<VenueLocationPage />} />
+      <Route path="/previous-software"    element={<PreviousSoftwarePage />} />
+      <Route path="/recommendation-source" element={<RecommendationSourcePage />} />
+      <Route path="/setup-complete"       element={<SetupCompletePage />} />
+      <Route path="/join-business"        element={<JoinBusinessPage />} />
+    </Route>
   </Route>
 )
 

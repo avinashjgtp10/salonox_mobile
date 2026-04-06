@@ -3,14 +3,22 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
   },
+  esbuild: {
+    pure: mode === 'production' ? ['console.log'] : [],
+    drop: mode === 'production' ? ['debugger'] : [],
+  },
   build: {
+    target: 'es2022',
+    outDir: 'dist',
+    cssCodeSplit: true,
+    sourcemap: mode !== 'production',
     chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
@@ -87,5 +95,4 @@ export default defineConfig({
       }
     }
   }
-})
-
+}))

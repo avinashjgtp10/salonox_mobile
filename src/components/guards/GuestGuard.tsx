@@ -1,9 +1,8 @@
-import { useSelector } from "react-redux"
 import { Navigate, Outlet } from "react-router-dom"
-import type { RootState } from "../../store/store"
+import { useAppSelector } from "../../hooks/useAppRedux"
 
 const GuestGuard = () => {
-  const { accessToken: token, isOnboardingComplete } = useSelector((state: RootState) => state.auth)
+  const { accessToken: token, isOnboardingComplete } = useAppSelector((state) => state.auth)
 
   if (token) {
     if (isOnboardingComplete) {

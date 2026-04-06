@@ -21,11 +21,8 @@ import "../styles/StaffListPage.scss";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
 
-// UI Components
-import Button from "../../../components/ui/Button";
-import Input from "../../../components/ui/Input";
-import Badge from "../../../components/ui/Badge";
-
+// UI Components — all from the barrel index
+import { Button, Input, Badge, DownloadButton } from "../../../components/ui";
 export default function StaffListPage() {
     const navigate = useNavigate();
     const location = useLocation();
@@ -118,39 +115,7 @@ export default function StaffListPage() {
         }
     };
 
-    const handleExportExcel = async () => {
-        try {
-            const res = await api.get(STAFF.EXPORT("excel"), { responseType: "blob" });
-            const url = window.URL.createObjectURL(new Blob([res.data]));
-            const link = document.createElement("a");
-            link.href = url;
-            link.setAttribute("download", "staff.xlsx");
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            setOptionsOpen(false);
-        } catch (error) {
-            console.error("Export error:", error);
-            showToast("Error exporting staff");
-        }
-    };
 
-    const handleExportCSV = async () => {
-        try {
-            const res = await api.get(STAFF.EXPORT("csv"), { responseType: "blob" });
-            const url = window.URL.createObjectURL(new Blob([res.data]));
-            const link = document.createElement("a");
-            link.href = url;
-            link.setAttribute("download", "staff.csv");
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            setOptionsOpen(false);
-        } catch (error) {
-            console.error("Export error:", error);
-            showToast("Error exporting staff");
-        }
-    };
 
     const filtered = staff.filter((s) => {
         const matchesSearch = (s.first_name || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -256,12 +221,34 @@ export default function StaffListPage() {
                                 </div>
                                 <div className="divider border-top my-1" />
                                 <div className="export-title px-2 py-1 extra-small fw-bold text-muted text-uppercase" style={{ letterSpacing: '0.05em' }}>Export</div>
-                                <div className="option-item p-2 cursor-pointer hover-bg-light rounded-2 small" onClick={handleExportCSV}>
-                                    <FiletypeCsv size={14} className="me-2" /> CSV
-                                </div>
-                                <div className="option-item p-2 cursor-pointer hover-bg-light rounded-2 small" onClick={handleExportExcel}>
-                                    <FileEarmarkExcel size={14} className="me-2" /> Excel
-                                </div>
+                                <DownloadButton
+                                    filename="staff.csv"
+                                    fetcher={async () => {
+                                        const res = await api.get(STAFF.EXPORT("csv"), { responseType: "blob" });
+                                        setOptionsOpen(false);
+                                        return res.data;
+                                    }}
+                                    variant="ghost"
+                                    size="sm"
+                                    iconLeft={<FiletypeCsv size={14} />}
+                                    className="option-item w-100 text-start p-2 rounded-2 small"
+                                >
+                                    CSV
+                                </DownloadButton>
+                                <DownloadButton
+                                    filename="staff.xlsx"
+                                    fetcher={async () => {
+                                        const res = await api.get(STAFF.EXPORT("excel"), { responseType: "blob" });
+                                        setOptionsOpen(false);
+                                        return res.data;
+                                    }}
+                                    variant="ghost"
+                                    size="sm"
+                                    iconLeft={<FileEarmarkExcel size={14} />}
+                                    className="option-item w-100 text-start p-2 rounded-2 small"
+                                >
+                                    Excel
+                                </DownloadButton>
                             </div>
                         )}
                     </div>
