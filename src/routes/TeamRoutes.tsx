@@ -8,11 +8,7 @@ const PayRunBreakdownPage = lazy(() => import("../features/staff/pages/PayRunBre
 const RepeatingShiftsPage = lazy(() => import("../features/staff/pages/RepeatingShiftsPage"))
 const ScheduledShiftsPage = lazy(() => import("../features/dashboard/pages/ScheduledShiftsPage"))
 
-const PageLoader = () => (
-  <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}>
-    <div className="spinner-border text-primary" role="status" />
-  </div>
-)
+import { PageLoader } from "../components/ui"
 
 export const TeamRoutes = () => (
   <Suspense fallback={<PageLoader />}>

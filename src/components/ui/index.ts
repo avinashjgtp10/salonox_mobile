@@ -7,4 +7,5 @@ export { FullScreenLoader } from './FullScreenLoader';
 export { default as Input } from './Input';
 export { default as Modal } from './Modal';
 export { default as SplitLayout } from './SplitLayout';
+export { PageLoader } from './PageLoader';
 export { default as Table } from './Table';

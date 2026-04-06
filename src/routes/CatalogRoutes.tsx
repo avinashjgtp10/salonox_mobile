@@ -16,11 +16,7 @@ const StockOrdersListPage   = lazy(() => import("../features/catalog/pages/Stock
 const SuppliersListPage     = lazy(() => import("../features/catalog/pages/SuppliersListPage"))
 const AddSupplierPage       = lazy(() => import("../features/catalog/pages/AddSupplierPage"))
 
-const PageLoader = () => (
-  <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}>
-    <div className="spinner-border text-primary" role="status" />
-  </div>
-)
+import { PageLoader } from "../components/ui"
 
 export const CatalogRoutes = () => (
   <Suspense fallback={<PageLoader />}>

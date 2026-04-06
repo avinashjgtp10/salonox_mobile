@@ -10,11 +10,7 @@ const ClientEmergencyContactsPage = lazy(() => import("../features/clients/pages
 const ClientSettingsPage        = lazy(() => import("../features/clients/pages/ClientSettingsPage"))
 const ImportClientsPage         = lazy(() => import("../features/clients/pages/ImportClientsPage"))
 
-const PageLoader = () => (
-  <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}>
-    <div className="spinner-border text-primary" role="status" />
-  </div>
-)
+import { PageLoader } from "../components/ui"
 
 export const ClientsRoutes = () => (
   <Suspense fallback={<PageLoader />}>
