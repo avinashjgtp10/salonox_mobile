@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useId } from "react";
 
 interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement | HTMLTextAreaElement>, 'onChange'> {
   label?: string;
@@ -25,7 +25,8 @@ const Input: React.FC<InputProps> = ({
   id,
   ...props
 }) => {
-  const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`;
+  const generatedId = useId();
+  const inputId = id || generatedId;
   const inputClass = `form-control ${error ? "is-invalid" : ""} ${className} ${iconLeft ? "ps-5" : ""} ${iconRight ? "pe-5" : ""}`;
 
   const renderInput = () => {
