@@ -2,6 +2,7 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../services/api/axios";
 import { BOOKING } from "../../services/api/endpoints";
 import { ApiError } from "../../services/api/interceptors";
+import { downloadBlob } from "../../utils/downloadBlob";
 import type {
   Booking,
   BookingResponse,
@@ -69,14 +70,7 @@ export const exportBookingsThunk = createAsyncThunk<void, "excel" | "csv", { rej
   "booking/export", async (format, { rejectWithValue }) => {
   try {
     const res = await api.get(BOOKING.EXPORT(format), { responseType: "blob" });
-    const url  = window.URL.createObjectURL(new Blob([res.data]));
-    const link = document.createElement("a");
-    link.href  = url;
-    link.setAttribute("download", `bookings.${format === "excel" ? "xlsx" : "csv"}`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
+    downloadBlob(res.data, `bookings.${format === "excel" ? "xlsx" : "csv"}`);
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to export bookings");
