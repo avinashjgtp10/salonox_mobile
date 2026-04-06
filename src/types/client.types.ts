@@ -1,6 +1,8 @@
 // ── Client entity ─────────────────────────────────────────────────────────────
+import type { EntityId } from './common.types';
+
 export interface Client {
-  id:        string | number
+  id:        EntityId
   fullName:  string
   email?:    string
   phone?:    string
@@ -17,17 +19,17 @@ export interface CreateClientPayload {
 }
 
 export interface BlockClientsPayload {
-  ids:    string[] | number[]
+  ids:    EntityId[]
   reason: string
 }
 
 export interface UnblockClientsPayload {
-  ids:    string[] | number[]
+  ids:    EntityId[]
 }
 
 export interface MergeSelectedClientsPayload {
-  primaryId:   string | number
-  secondaryId: string | number
+  primaryId:   EntityId
+  secondaryId: EntityId
 }
 
 // ── API responses ─────────────────────────────────────────────────────────────

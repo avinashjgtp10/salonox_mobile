@@ -1,6 +1,8 @@
 // ── App entity ─────────────────────────────────────────────────────────────────
+import type { EntityId } from './common.types';
+
 export interface ExternalApp {
-  id:          string | number;
+  id:          EntityId;
   name:        string;
   description?: string;
   provider:    string;
@@ -18,9 +20,10 @@ export interface ConnectAppPayload {
 }
 
 export interface UpdateAppPayload {
-  id:   string | number;
+  id:   EntityId;
   data: Partial<ConnectAppPayload>;
 }
+
 
 // ── API responses ─────────────────────────────────────────────────────────────
 export interface AppResponse {

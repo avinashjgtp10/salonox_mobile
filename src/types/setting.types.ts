@@ -1,6 +1,8 @@
 // ── Setting entity ─────────────────────────────────────────────────────────────
+import type { EntityId } from './common.types';
+
 export interface Setting {
-  id:          string | number;
+  id:          EntityId;
   key:         string;
   value:       string | Record<string, any>;
   description?: string;
@@ -16,7 +18,7 @@ export interface CreateSettingPayload {
 }
 
 export interface UpdateSettingPayload {
-  id:   string | number;
+  id:   EntityId;
   data: Partial<CreateSettingPayload>;
 }
 
