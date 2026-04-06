@@ -7,7 +7,7 @@ import { useOnboarding } from "../../../context/OnboardingContext"
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux"
 import { saveSalonThunk } from "../../../middleware/salon/salon.thunk"
 import { login, updateOnboardingStatus } from "../../../store/authSlice"
-import type { CreateSalonPayload } from "../../../services/api/salon.api"
+import type { CreateSalonPayload } from "../../../types/salon.types"
 import salonImg from "../../../assets/images/salon.jpg"
 
 const options = [

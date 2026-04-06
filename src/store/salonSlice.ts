@@ -5,7 +5,7 @@ import {
   getSalonByIdThunk,
   updateSalonThunk,
 } from "../middleware/salon/salon.thunk"
-import type { Salon } from "../services/api/salon.api"
+import type { Salon } from "../types/salon.types"
 
 interface SalonState {
   currentSalon: Salon | null
