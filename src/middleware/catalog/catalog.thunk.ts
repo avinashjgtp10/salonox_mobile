@@ -2,6 +2,7 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../services/api/axios";
 import { CATALOG } from "../../services/api/endpoints";
 import { ApiError } from "../../services/api/interceptors";
+import { downloadBlob } from "../../utils/downloadBlob";
 import type {
   CatalogItem,
   CatalogResponse,
@@ -93,14 +94,7 @@ export const exportCatalogThunk = createAsyncThunk<
 >("catalog/export", async (format, { rejectWithValue }) => {
   try {
     const res = await api.get(CATALOG.EXPORT(format), { responseType: "blob" });
-    const url  = window.URL.createObjectURL(new Blob([res.data]));
-    const link = document.createElement("a");
-    link.href  = url;
-    link.setAttribute("download", `catalog.${format === "excel" ? "xlsx" : "csv"}`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
+    downloadBlob(res.data, `catalog.${format === "excel" ? "xlsx" : "csv"}`);
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to export catalog");

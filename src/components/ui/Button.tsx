@@ -28,7 +28,6 @@ const Button: React.FC<ButtonProps> = ({
 }) => {
   const baseClass = "btn d-inline-flex align-items-center justify-content-center gap-2 transition-all";
   const variantClass = `btn-${variant}`;
-
   const sizeClass = size === "sm" ? "btn-sm" : size === "lg" ? "btn-lg" : "";
   const widthClass = fullWidth ? "w-100" : "";
   const roundedClass = pill ? "rounded-pill" : "rounded-3";

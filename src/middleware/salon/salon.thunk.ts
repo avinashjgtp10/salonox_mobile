@@ -8,7 +8,7 @@ import type {
   CreateSalonResponse,
   ApiResponse,
   Salon,
-} from "../../services/api/salon.api"
+} from "../../types/salon.types"
 
 // ── Save Salon (Create or Update) ─────────────────────────────────────────────
 export const saveSalonThunk = createAsyncThunk<
