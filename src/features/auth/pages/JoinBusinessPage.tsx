@@ -3,7 +3,7 @@ import "../styles/JoinBusinessPage.scss"
 import { useNavigate } from "react-router-dom"
 import salonImg from "../../../assets/images/salon.jpg"
 import { useState, useEffect } from "react"
-import { FiSearch, FiArrowLeft } from "react-icons/fi"
+import { Search, ArrowLeft } from "react-bootstrap-icons"
 
 const businesses = [
   { id: 1, name: "Pink Hair Design", location: "London" },
@@ -64,7 +64,7 @@ export default function JoinBusinessPage() {
           {/* Back Circle */}
           <div className="p-4">
             <div className="back-circle" onClick={() => navigate(-1)}>
-              <FiArrowLeft />
+              <ArrowLeft />
             </div>
           </div>
 
@@ -82,7 +82,7 @@ export default function JoinBusinessPage() {
 
               <div className="input-group mb-4">
                 <span className="input-group-text bg-white">
-                  <FiSearch />
+                  <Search />
                 </span>
                 <input
                   type="text"

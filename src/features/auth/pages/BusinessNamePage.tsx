@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom"
 import { useState } from "react"
-import { FiArrowLeft, FiArrowRight } from "react-icons/fi"
+import { ArrowLeft, ArrowRight } from "react-bootstrap-icons"
 import "../styles/BusinessNamePage.scss"
 import { useOnboarding } from "../../../context/OnboardingContext"
 import salonImg from "../../../assets/images/salon.jpg"
@@ -48,7 +48,7 @@ export default function BusinessNamePage() {
           style={{ pointerEvents: "auto" }}
           onClick={handleContinue}
         >
-          Continue <FiArrowRight size={16} className="ms-1" />
+          Continue <ArrowRight size={16} className="ms-1" />
         </button>
       </div>
 
@@ -61,7 +61,7 @@ export default function BusinessNamePage() {
             style={{ top: "30px", left: "30px", width: "44px", height: "44px" }}
             onClick={() => navigate(-1)}
           >
-            <FiArrowLeft />
+            <ArrowLeft />
           </button>
 
           <div className="card shadow-sm p-4 w-100" style={{ maxWidth: "480px" }}>
@@ -123,7 +123,7 @@ export default function BusinessNamePage() {
               className="btn btn-dark rounded-pill px-4"
               onClick={handleContinue}
             >
-              Continue <FiArrowRight size={16} className="ms-1" />
+              Continue <ArrowRight size={16} className="ms-1" />
             </button>
           </div>
         </div>
