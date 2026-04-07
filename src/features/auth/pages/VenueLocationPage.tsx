@@ -1,8 +1,7 @@
 import "bootstrap/dist/css/bootstrap.min.css"
 import { useNavigate } from "react-router-dom"
 import { useState, useEffect, useRef } from "react"
-import { FiArrowLeft, FiArrowRight } from "react-icons/fi"
-import { HiOutlineLocationMarker } from "react-icons/hi"
+import { ArrowLeft, ArrowRight, GeoAlt } from "react-bootstrap-icons"
 import "../styles/VenueLocationPage.scss"
 import { useOnboarding } from "../../../context/OnboardingContext"
 import salonImg from "../../../assets/images/salon.jpg"
@@ -96,7 +95,7 @@ export default function VenueLocationPage() {
           Back
         </button>
         <button className="btn btn-dark rounded-pill px-4 d-lg-none" onClick={handleContinue}>
-          Continue <FiArrowRight size={16} className="ms-1" />
+          Continue <ArrowRight size={16} className="ms-1" />
         </button>
       </div>
 
@@ -108,7 +107,7 @@ export default function VenueLocationPage() {
             style={{ top: "30px", left: "50px" }}
             onClick={() => navigate(-1)}
           >
-            <FiArrowLeft />
+            <ArrowLeft />
           </button>
 
           <div className="mt-5 pt-5" style={{ maxWidth: "420px" }}>
@@ -119,7 +118,7 @@ export default function VenueLocationPage() {
             </p>
 
             <div className="position-relative">
-              <HiOutlineLocationMarker
+              <GeoAlt
                 className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"
                 style={{ cursor: "pointer" }}
                 onClick={handleGetLocation}
@@ -174,7 +173,7 @@ export default function VenueLocationPage() {
           {/* Desktop Continue Button on Image */}
           <div className="position-absolute top-0 end-0 p-4 z-3">
             <button className="btn btn-dark rounded-pill px-4" onClick={handleContinue}>
-              Continue <FiArrowRight size={16} className="ms-1" />
+              Continue <ArrowRight size={16} className="ms-1" />
             </button>
           </div>
         </div>
