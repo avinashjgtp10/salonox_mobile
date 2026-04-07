@@ -24,63 +24,71 @@ const clientSlice = createCRUDSlice<Client>({
     exportThunk:    exportClientsThunk,
   },
 
+  extraInitialLoading: {
+    block:          false,
+    unblock:        false,
+    import:         false,
+    mergeDuplicates: false,
+    mergeSelected:  false,
+  },
+
   // ── Domain-specific extra reducers ────────────────────────────────────────
   extraReducers: (builder) => {
     // block
     builder
-      .addCase(blockClientsThunk.pending, (state) => { state.loading = true;  state.error = null; })
+      .addCase(blockClientsThunk.pending, (state) => { state.loading.block = true;  state.error = null; })
       .addCase(blockClientsThunk.fulfilled, (state, { payload }) => {
-        state.loading = false;
+        state.loading.block = false;
         const ids = payload as (string | number)[];
         state.items = state.items.map((c) =>
           ids.includes(c.id) ? { ...c, isBlocked: true } : c,
         );
       })
       .addCase(blockClientsThunk.rejected, (state, { payload }) => {
-        state.loading = false;
-        state.error   = payload ?? "Failed to block clients";
+        state.loading.block = false;
+        state.error         = (payload as string) ?? "Failed to block clients";
       });
 
     // unblock
     builder
-      .addCase(unblockClientsThunk.pending, (state) => { state.loading = true;  state.error = null; })
+      .addCase(unblockClientsThunk.pending, (state) => { state.loading.unblock = true;  state.error = null; })
       .addCase(unblockClientsThunk.fulfilled, (state, { payload }) => {
-        state.loading = false;
+        state.loading.unblock = false;
         const ids = payload as (string | number)[];
         state.items = state.items.map((c) =>
           ids.includes(c.id) ? { ...c, isBlocked: false } : c,
         );
       })
       .addCase(unblockClientsThunk.rejected, (state, { payload }) => {
-        state.loading = false;
-        state.error   = payload ?? "Failed to unblock clients";
+        state.loading.unblock = false;
+        state.error           = (payload as string) ?? "Failed to unblock clients";
       });
 
     // import
     builder
-      .addCase(importClientsThunk.pending,   (state) => { state.loading = true;  state.error = null; })
-      .addCase(importClientsThunk.fulfilled, (state) => { state.loading = false; })
+      .addCase(importClientsThunk.pending,   (state) => { state.loading.import = true;  state.error = null; })
+      .addCase(importClientsThunk.fulfilled, (state) => { state.loading.import = false; })
       .addCase(importClientsThunk.rejected,  (state, { payload }) => {
-        state.loading = false;
-        state.error   = payload ?? "Failed to import clients";
+        state.loading.import = false;
+        state.error          = payload ?? "Failed to import clients";
       });
 
     // merge duplicates
     builder
-      .addCase(mergeDuplicateClientsThunk.pending,   (state) => { state.loading = true;  state.error = null; })
-      .addCase(mergeDuplicateClientsThunk.fulfilled, (state) => { state.loading = false; })
+      .addCase(mergeDuplicateClientsThunk.pending,   (state) => { state.loading.mergeDuplicates = true;  state.error = null; })
+      .addCase(mergeDuplicateClientsThunk.fulfilled, (state) => { state.loading.mergeDuplicates = false; })
       .addCase(mergeDuplicateClientsThunk.rejected,  (state, { payload }) => {
-        state.loading = false;
-        state.error   = payload ?? "Failed to merge duplicate clients";
+        state.loading.mergeDuplicates = false;
+        state.error                   = payload ?? "Failed to merge duplicate clients";
       });
 
     // merge selected
     builder
-      .addCase(mergeSelectedClientsThunk.pending,   (state) => { state.loading = true;  state.error = null; })
-      .addCase(mergeSelectedClientsThunk.fulfilled, (state) => { state.loading = false; })
+      .addCase(mergeSelectedClientsThunk.pending,   (state) => { state.loading.mergeSelected = true;  state.error = null; })
+      .addCase(mergeSelectedClientsThunk.fulfilled, (state) => { state.loading.mergeSelected = false; })
       .addCase(mergeSelectedClientsThunk.rejected,  (state, { payload }) => {
-        state.loading = false;
-        state.error   = payload ?? "Failed to merge clients";
+        state.loading.mergeSelected = false;
+        state.error                 = payload ?? "Failed to merge clients";
       });
   },
 });

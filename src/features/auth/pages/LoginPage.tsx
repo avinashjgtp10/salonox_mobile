@@ -21,7 +21,8 @@ export default function LoginPage() {
 
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
-  const { loading } = useAppSelector((state) => state.auth)
+  const { loading: authLoading } = useAppSelector((state) => state.auth)
+  const loading = authLoading.login
 
   // 🔐 LOGIN
   const handleLogin = async () => {

@@ -7,11 +7,21 @@ import {
   forgotPasswordResetThunk,
 } from "../middleware/auth/forgotPasswordThunk"
 
+export interface AuthLoadingState {
+  login:           boolean
+  register:        boolean
+  sendOtp:         boolean
+  verifyOtp:       boolean
+  forgotSendOtp:   boolean
+  forgotVerifyOtp: boolean
+  forgotReset:     boolean
+}
+
 export interface AuthState {
   accessToken:          string | null
   refreshToken:         string | null
   isOnboardingComplete: boolean
-  loading:              boolean
+  loading:              AuthLoadingState
   error:                string | null
 }
 
@@ -19,8 +29,16 @@ const initialState: AuthState = {
   accessToken:          sessionStorage.getItem("accessToken"),
   refreshToken:         sessionStorage.getItem("refreshToken"),
   isOnboardingComplete: sessionStorage.getItem("isOnboardingComplete") === "true",
-  loading:              false,
-  error:                null,
+  loading: {
+    login:           false,
+    register:        false,
+    sendOtp:         false,
+    verifyOtp:       false,
+    forgotSendOtp:   false,
+    forgotVerifyOtp: false,
+    forgotReset:     false,
+  },
+  error: null,
 }
 
 const persist = (
@@ -86,76 +104,76 @@ const authSlice = createSlice({
     // ── loginThunk ────────────────────────────────────────────────────────────
     builder
       .addCase(loginThunk.pending, (state) => {
-        state.loading = true
-        state.error   = null
+        state.loading.login = true
+        state.error         = null
       })
       .addCase(loginThunk.fulfilled, (state, { payload }) => {
-        state.loading              = false
+        state.loading.login        = false
         state.accessToken          = payload.accessToken
         state.refreshToken         = payload.refreshToken
         state.isOnboardingComplete = payload.isOnboardingComplete
         persist(payload.accessToken, payload.refreshToken ?? "", payload.isOnboardingComplete)
       })
       .addCase(loginThunk.rejected, (state, { payload }) => {
-        state.loading = false
-        state.error   = payload ?? "Login failed"
+        state.loading.login = false
+        state.error         = payload ?? "Login failed"
       })
 
     // ── registerThunk ─────────────────────────────────────────────────────────
     builder
       .addCase(registerThunk.pending, (state) => {
-        state.loading = true
-        state.error   = null
+        state.loading.register = true
+        state.error            = null
       })
       .addCase(registerThunk.fulfilled, (state, { payload }) => {
-        state.loading              = false
+        state.loading.register     = false
         state.accessToken          = payload.accessToken
         state.refreshToken         = payload.refreshToken
         state.isOnboardingComplete = payload.isOnboardingComplete
         persist(payload.accessToken, payload.refreshToken ?? "", payload.isOnboardingComplete)
       })
       .addCase(registerThunk.rejected, (state, { payload }) => {
-        state.loading = false
-        state.error   = payload ?? "Registration failed"
+        state.loading.register = false
+        state.error            = payload ?? "Registration failed"
       })
 
     // ── OTP thunks ────────────────────────────────────────────────────────────
     builder
-      .addCase(sendEmailOtpThunk.pending,   (state) => { state.loading = true  })
-      .addCase(sendEmailOtpThunk.fulfilled, (state) => { state.loading = false })
-      .addCase(sendEmailOtpThunk.rejected,  (state) => { state.loading = false })
+      .addCase(sendEmailOtpThunk.pending,   (state) => { state.loading.sendOtp = true  })
+      .addCase(sendEmailOtpThunk.fulfilled, (state) => { state.loading.sendOtp = false })
+      .addCase(sendEmailOtpThunk.rejected,  (state) => { state.loading.sendOtp = false })
 
     builder
-      .addCase(verifyEmailOtpThunk.pending,   (state) => { state.loading = true  })
-      .addCase(verifyEmailOtpThunk.fulfilled, (state) => { state.loading = false })
+      .addCase(verifyEmailOtpThunk.pending,   (state) => { state.loading.verifyOtp = true  })
+      .addCase(verifyEmailOtpThunk.fulfilled, (state) => { state.loading.verifyOtp = false })
       .addCase(verifyEmailOtpThunk.rejected,  (state, { payload }) => {
-        state.loading = false
-        state.error   = payload ?? "Verification failed"
+        state.loading.verifyOtp = false
+        state.error             = payload ?? "Verification failed"
       })
 
     // ── Forgot Password thunks ────────────────────────────────────────────────
     builder
-      .addCase(forgotPasswordSendOtpThunk.pending,   (state) => { state.loading = true; state.error = null })
-      .addCase(forgotPasswordSendOtpThunk.fulfilled, (state) => { state.loading = false })
+      .addCase(forgotPasswordSendOtpThunk.pending,   (state) => { state.loading.forgotSendOtp = true;  state.error = null })
+      .addCase(forgotPasswordSendOtpThunk.fulfilled, (state) => { state.loading.forgotSendOtp = false })
       .addCase(forgotPasswordSendOtpThunk.rejected,  (state, { payload }) => {
-        state.loading = false
-        state.error   = payload ?? "Failed to send OTP"
+        state.loading.forgotSendOtp = false
+        state.error                 = payload ?? "Failed to send OTP"
       })
 
     builder
-      .addCase(forgotPasswordVerifyOtpThunk.pending,   (state) => { state.loading = true; state.error = null })
-      .addCase(forgotPasswordVerifyOtpThunk.fulfilled, (state) => { state.loading = false })
+      .addCase(forgotPasswordVerifyOtpThunk.pending,   (state) => { state.loading.forgotVerifyOtp = true;  state.error = null })
+      .addCase(forgotPasswordVerifyOtpThunk.fulfilled, (state) => { state.loading.forgotVerifyOtp = false })
       .addCase(forgotPasswordVerifyOtpThunk.rejected,  (state, { payload }) => {
-        state.loading = false
-        state.error   = payload ?? "Invalid OTP"
+        state.loading.forgotVerifyOtp = false
+        state.error                   = payload ?? "Invalid OTP"
       })
 
     builder
-      .addCase(forgotPasswordResetThunk.pending,   (state) => { state.loading = true; state.error = null })
-      .addCase(forgotPasswordResetThunk.fulfilled, (state) => { state.loading = false })
+      .addCase(forgotPasswordResetThunk.pending,   (state) => { state.loading.forgotReset = true;  state.error = null })
+      .addCase(forgotPasswordResetThunk.fulfilled, (state) => { state.loading.forgotReset = false })
       .addCase(forgotPasswordResetThunk.rejected,  (state, { payload }) => {
-        state.loading = false
-        state.error   = payload ?? "Failed to reset password"
+        state.loading.forgotReset = false
+        state.error               = payload ?? "Failed to reset password"
       })
   },
 })

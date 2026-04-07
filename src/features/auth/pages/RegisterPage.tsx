@@ -34,7 +34,8 @@ const DEMO_MOBILE_OTP = "123456"
 export default function RegisterPage() {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
-  const { loading } = useAppSelector((s) => s.auth)
+  const { loading: authLoading } = useAppSelector((s) => s.auth)
+  const loading = authLoading.register
   const countries = Country.getAllCountries()
 
   const [form, setForm] = useState<FormState>(INITIAL_FORM)
