@@ -2,13 +2,10 @@ import "bootstrap/dist/css/bootstrap.min.css"
 import "../styles/ServiceTypePage.scss"
 import { useNavigate } from "react-router-dom"
 import { useState } from "react"
-import { FiArrowRight } from "react-icons/fi"
 import {
-  FaCut, FaHandSparkles, FaEye, FaSpa,
-  FaHotTub, FaHeartbeat, FaDumbbell, FaUserTie
-} from "react-icons/fa"
-import { GiLipstick, GiRazor } from "react-icons/gi"
-import { MdOutlineFaceRetouchingNatural } from "react-icons/md"
+  ArrowRight, Scissors, Stars, Eye, Brush, PersonHeart,
+  Droplet, ThermometerHalf, HeartPulse, PersonBadge, Lightning, People,
+} from "react-bootstrap-icons"
 import { useOnboarding } from "../../../context/OnboardingContext"
 import salonImg from "../../../assets/images/salon.jpg"
 
@@ -23,22 +20,22 @@ export default function ServiceTypePage() {
   const [otherValue, setOtherValue] = useState("")
 
   const categories = [
-    { name: "Hair salon", icon: <FaCut /> },
-    { name: "Nails", icon: <FaHandSparkles /> },
-    { name: "Eyebrows & lashes", icon: <FaEye /> },
-    { name: "Beauty salon", icon: <GiLipstick /> },
-    { name: "Medspa", icon: <MdOutlineFaceRetouchingNatural /> },
-    { name: "Barber", icon: <GiRazor /> },
-    { name: "Massage", icon: <FaSpa /> },
-    { name: "Spa & sauna", icon: <FaHotTub /> },
-    { name: "Waxing salon", icon: <FaSpa /> },
-    { name: "Tattooing & piercing", icon: <FaHeartbeat /> },
-    { name: "Tanning studio", icon: <FaUserTie /> },
-    { name: "Fitness & recovery", icon: <FaDumbbell /> },
-    { name: "Physical therapy", icon: <FaHeartbeat /> },
-    { name: "Health practice", icon: <FaHeartbeat /> },
-    { name: "Pet grooming", icon: <FaSpa /> },
-    { name: "Other", icon: <FaUserTie /> },
+    { name: "Hair salon",            icon: <Scissors /> },
+    { name: "Nails",                 icon: <Stars /> },
+    { name: "Eyebrows & lashes",     icon: <Eye /> },
+    { name: "Beauty salon",          icon: <Brush /> },
+    { name: "Medspa",                icon: <PersonHeart /> },
+    { name: "Barber",                icon: <Scissors /> },
+    { name: "Massage",               icon: <Droplet /> },
+    { name: "Spa & sauna",           icon: <ThermometerHalf /> },
+    { name: "Waxing salon",          icon: <Droplet /> },
+    { name: "Tattooing & piercing",  icon: <HeartPulse /> },
+    { name: "Tanning studio",        icon: <PersonBadge /> },
+    { name: "Fitness & recovery",    icon: <Lightning /> },
+    { name: "Physical therapy",      icon: <HeartPulse /> },
+    { name: "Health practice",       icon: <HeartPulse /> },
+    { name: "Pet grooming",          icon: <People /> },
+    { name: "Other",                 icon: <PersonBadge /> },
   ]
 
   const handleSelect = (name: string) => {
@@ -94,7 +91,7 @@ export default function ServiceTypePage() {
           style={{ pointerEvents: "auto" }}
           onClick={handleContinue}
         >
-          Continue <FiArrowRight size={16} className="ms-1" />
+          Continue <ArrowRight size={16} className="ms-1" />
         </button>
       </div>
 
