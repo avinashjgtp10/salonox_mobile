@@ -11,8 +11,12 @@ import type {
   UpdateBookingPayload,
 } from "../../types/booking.types";
 
-export const fetchBookingsThunk = createAsyncThunk<Booking[], void, { rejectValue: string }>(
-  "booking/fetchAll", async (_, { rejectWithValue }) => {
+// ── Fetch all bookings ─────────────────────────────────────────────────────────
+export const fetchBookingsThunk = createAsyncThunk<
+  Booking[],
+  void,
+  { rejectValue: string }
+>("booking/fetchAll", async (_, { rejectWithValue }) => {
   try {
     const res = await api.get<BookingListResponse>(BOOKING.BASE);
     return res.data.data;
@@ -22,8 +26,12 @@ export const fetchBookingsThunk = createAsyncThunk<Booking[], void, { rejectValu
   }
 });
 
-export const fetchBookingByIdThunk = createAsyncThunk<Booking, string | number, { rejectValue: string }>(
-  "booking/fetchById", async (id, { rejectWithValue }) => {
+// ── Fetch single booking ───────────────────────────────────────────────────────
+export const fetchBookingByIdThunk = createAsyncThunk<
+  Booking,
+  string | number,
+  { rejectValue: string }
+>("booking/fetchById", async (id, { rejectWithValue }) => {
   try {
     const res = await api.get<BookingResponse>(BOOKING.BY_ID(id));
     return res.data.data;
@@ -33,8 +41,12 @@ export const fetchBookingByIdThunk = createAsyncThunk<Booking, string | number, 
   }
 });
 
-export const createBookingThunk = createAsyncThunk<Booking, CreateBookingPayload, { rejectValue: string }>(
-  "booking/create", async (payload, { rejectWithValue }) => {
+// ── Create booking ─────────────────────────────────────────────────────────────
+export const createBookingThunk = createAsyncThunk<
+  Booking,
+  CreateBookingPayload,
+  { rejectValue: string }
+>("booking/create", async (payload, { rejectWithValue }) => {
   try {
     const res = await api.post<BookingResponse>(BOOKING.BASE, payload);
     return res.data.data;
@@ -44,8 +56,12 @@ export const createBookingThunk = createAsyncThunk<Booking, CreateBookingPayload
   }
 });
 
-export const updateBookingThunk = createAsyncThunk<Booking, UpdateBookingPayload, { rejectValue: string }>(
-  "booking/update", async ({ id, data }, { rejectWithValue }) => {
+// ── Update booking ─────────────────────────────────────────────────────────────
+export const updateBookingThunk = createAsyncThunk<
+  Booking,
+  UpdateBookingPayload,
+  { rejectValue: string }
+>("booking/update", async ({ id, data }, { rejectWithValue }) => {
   try {
     const res = await api.put<BookingResponse>(BOOKING.BY_ID(id), data);
     return res.data.data;
@@ -55,8 +71,12 @@ export const updateBookingThunk = createAsyncThunk<Booking, UpdateBookingPayload
   }
 });
 
-export const deleteBookingThunk = createAsyncThunk<string | number, string | number, { rejectValue: string }>(
-  "booking/delete", async (id, { rejectWithValue }) => {
+// ── Delete booking ─────────────────────────────────────────────────────────────
+export const deleteBookingThunk = createAsyncThunk<
+  string | number,
+  string | number,
+  { rejectValue: string }
+>("booking/delete", async (id, { rejectWithValue }) => {
   try {
     await api.delete(BOOKING.BY_ID(id));
     return id;
@@ -66,8 +86,12 @@ export const deleteBookingThunk = createAsyncThunk<string | number, string | num
   }
 });
 
-export const exportBookingsThunk = createAsyncThunk<void, "excel" | "csv", { rejectValue: string }>(
-  "booking/export", async (format, { rejectWithValue }) => {
+// ── Export bookings ────────────────────────────────────────────────────────────
+export const exportBookingsThunk = createAsyncThunk<
+  void,
+  "excel" | "csv",
+  { rejectValue: string }
+>("booking/export", async (format, { rejectWithValue }) => {
   try {
     const res = await api.get(BOOKING.EXPORT(format), { responseType: "blob" });
     downloadBlob(res.data, `bookings.${format === "excel" ? "xlsx" : "csv"}`);

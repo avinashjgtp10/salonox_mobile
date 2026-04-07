@@ -1,6 +1,6 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import api from "../../services/api/axios";
 import { CALENDAR } from "../../services/api/endpoints";
+import api from "../../services/api/axios";
 import { ApiError } from "../../services/api/interceptors";
 import { downloadBlob } from "../../utils/downloadBlob";
 import type {

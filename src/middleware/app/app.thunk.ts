@@ -1,6 +1,6 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import api from "../../services/api/axios";
 import { APP } from "../../services/api/endpoints";
+import api from "../../services/api/axios";
 import { ApiError } from "../../services/api/interceptors";
 import { downloadBlob } from "../../utils/downloadBlob";
 import type {
@@ -11,8 +11,12 @@ import type {
   UpdateAppPayload,
 } from "../../types/app.types";
 
-export const fetchAppsThunk = createAsyncThunk<ExternalApp[], void, { rejectValue: string }>(
-  "app/fetchAll", async (_, { rejectWithValue }) => {
+// ── Fetch all apps ─────────────────────────────────────────────────────────────
+export const fetchAppsThunk = createAsyncThunk<
+  ExternalApp[],
+  void,
+  { rejectValue: string }
+>("app/fetchAll", async (_, { rejectWithValue }) => {
   try {
     const res = await api.get<AppListResponse>(APP.BASE);
     return res.data.data;
@@ -22,6 +26,7 @@ export const fetchAppsThunk = createAsyncThunk<ExternalApp[], void, { rejectValu
   }
 });
 
+// ── Fetch single app ───────────────────────────────────────────────────────────
 export const fetchAppByIdThunk = createAsyncThunk<ExternalApp, string | number, { rejectValue: string }>(
   "app/fetchById", async (id, { rejectWithValue }) => {
   try {
@@ -33,6 +38,7 @@ export const fetchAppByIdThunk = createAsyncThunk<ExternalApp, string | number, 
   }
 });
 
+// ── Connect app ────────────────────────────────────────────────────────────────
 export const connectAppThunk = createAsyncThunk<ExternalApp, ConnectAppPayload, { rejectValue: string }>(
   "app/connect", async (payload, { rejectWithValue }) => {
   try {
@@ -44,6 +50,7 @@ export const connectAppThunk = createAsyncThunk<ExternalApp, ConnectAppPayload, 
   }
 });
 
+// ── Update app ─────────────────────────────────────────────────────────────────
 export const updateAppThunk = createAsyncThunk<ExternalApp, UpdateAppPayload, { rejectValue: string }>(
   "app/update", async ({ id, data }, { rejectWithValue }) => {
   try {
@@ -55,6 +62,7 @@ export const updateAppThunk = createAsyncThunk<ExternalApp, UpdateAppPayload, { 
   }
 });
 
+// ── Disconnect app ─────────────────────────────────────────────────────────────
 export const disconnectAppThunk = createAsyncThunk<string | number, string | number, { rejectValue: string }>(
   "app/disconnect", async (id, { rejectWithValue }) => {
   try {
@@ -66,6 +74,7 @@ export const disconnectAppThunk = createAsyncThunk<string | number, string | num
   }
 });
 
+// ── Export apps ────────────────────────────────────────────────────────────────
 export const exportAppsThunk = createAsyncThunk<void, "excel" | "csv", { rejectValue: string }>(
   "app/export", async (format, { rejectWithValue }) => {
   try {

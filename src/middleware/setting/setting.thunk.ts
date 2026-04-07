@@ -11,8 +11,12 @@ import type {
   UpdateSettingPayload,
 } from "../../types/setting.types";
 
-export const fetchSettingsThunk = createAsyncThunk<Setting[], void, { rejectValue: string }>(
-  "setting/fetchAll", async (_, { rejectWithValue }) => {
+// ── Fetch all settings ─────────────────────────────────────────────────────────
+export const fetchSettingsThunk = createAsyncThunk<
+  Setting[],
+  void,
+  { rejectValue: string }
+>("setting/fetchAll", async (_, { rejectWithValue }) => {
   try {
     const res = await api.get<SettingListResponse>(SETTING.BASE);
     return res.data.data;
@@ -22,6 +26,7 @@ export const fetchSettingsThunk = createAsyncThunk<Setting[], void, { rejectValu
   }
 });
 
+// ── Fetch single setting ───────────────────────────────────────────────────────
 export const fetchSettingByIdThunk = createAsyncThunk<Setting, string | number, { rejectValue: string }>(
   "setting/fetchById", async (id, { rejectWithValue }) => {
   try {
@@ -33,6 +38,7 @@ export const fetchSettingByIdThunk = createAsyncThunk<Setting, string | number, 
   }
 });
 
+// ── Create setting ─────────────────────────────────────────────────────────────
 export const createSettingThunk = createAsyncThunk<Setting, CreateSettingPayload, { rejectValue: string }>(
   "setting/create", async (payload, { rejectWithValue }) => {
   try {
@@ -44,6 +50,7 @@ export const createSettingThunk = createAsyncThunk<Setting, CreateSettingPayload
   }
 });
 
+// ── Update setting ─────────────────────────────────────────────────────────────
 export const updateSettingThunk = createAsyncThunk<Setting, UpdateSettingPayload, { rejectValue: string }>(
   "setting/update", async ({ id, data }, { rejectWithValue }) => {
   try {
@@ -55,6 +62,7 @@ export const updateSettingThunk = createAsyncThunk<Setting, UpdateSettingPayload
   }
 });
 
+// ── Delete setting ─────────────────────────────────────────────────────────────
 export const deleteSettingThunk = createAsyncThunk<string | number, string | number, { rejectValue: string }>(
   "setting/delete", async (id, { rejectWithValue }) => {
   try {
@@ -66,6 +74,7 @@ export const deleteSettingThunk = createAsyncThunk<string | number, string | num
   }
 });
 
+// ── Export settings ────────────────────────────────────────────────────────────
 export const exportSettingsThunk = createAsyncThunk<void, "excel" | "csv", { rejectValue: string }>(
   "setting/export", async (format, { rejectWithValue }) => {
   try {
