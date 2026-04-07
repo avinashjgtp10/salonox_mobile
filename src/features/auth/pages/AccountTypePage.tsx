@@ -2,7 +2,7 @@ import "bootstrap/dist/css/bootstrap.min.css"
 import "../styles/AccountTypePage.scss"
 import { useNavigate } from "react-router-dom"
 import { useState } from "react"
-import { FiArrowLeft, FiArrowRight } from "react-icons/fi"
+import { ArrowLeft, ArrowRight } from "react-bootstrap-icons"
 import { useDispatch } from "react-redux"
 import { logout } from "../../../store/authSlice"
 import salonImg from "../../../assets/images/salon.jpg"
@@ -43,7 +43,7 @@ export default function AccountTypePage() {
             disabled={!selected}
             onClick={handleContinue}
           >
-            Continue <FiArrowRight size={16} className="ms-1" />
+            Continue <ArrowRight size={16} className="ms-1" />
           </button>
         </div>
 
@@ -55,7 +55,7 @@ export default function AccountTypePage() {
             navigate("/register")
           }}
         >
-          <FiArrowLeft />
+          <ArrowLeft />
         </button>
 
           <div className="w-100 account-wrapper">
@@ -72,7 +72,7 @@ export default function AccountTypePage() {
                 <span className="fw-semibold">
                   Create a new business account
                 </span>
-                <FiArrowRight />
+                <ArrowRight />
               </div>
             </div>
 
@@ -89,7 +89,7 @@ export default function AccountTypePage() {
                     Find the business you want to join
                   </small>
                 </div>
-                <FiArrowRight />
+                <ArrowRight />
               </div>
             </div>
 
@@ -113,7 +113,7 @@ export default function AccountTypePage() {
               disabled={!selected}
               onClick={handleContinue}
             >
-              Continue <FiArrowRight size={16} className="ms-1" />
+              Continue <ArrowRight size={16} className="ms-1" />
             </button>
           </div>
 
