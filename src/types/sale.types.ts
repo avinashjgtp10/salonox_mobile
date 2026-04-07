@@ -1,5 +1,5 @@
 // ── Sale entity ───────────────────────────────────────────────────────────────
-import type { EntityId } from './common.types';
+import type { EntityId } from "./common.types";
 
 export interface SaleItemPayload {
   id: EntityId;
@@ -16,7 +16,7 @@ export interface Sale {
   total: number;
   items: SaleItemPayload[];
   createdAt?: string;
-  [key: string]: any;          // allow extra fields from API
+  [key: string]: any; // allow extra fields from API
 }
 
 // ── Payloads ──────────────────────────────────────────────────────────────────

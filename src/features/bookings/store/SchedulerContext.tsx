@@ -22,7 +22,12 @@ import {
   setInterval,
   navigate,
 } from "../../../store/schedulerSlice";
-import type { Booking, BlockedTime, ViewMode, IntervalOption } from "../types/scheduler-types";
+import type {
+  Booking,
+  BlockedTime,
+  ViewMode,
+  IntervalOption,
+} from "../types/scheduler-types";
 
 // No-op wrapper — Redux is initialised at the app root via <Provider store={store}>.
 export function SchedulerProvider({ children }: { children: ReactNode }) {
@@ -32,22 +37,22 @@ export function SchedulerProvider({ children }: { children: ReactNode }) {
 export function useSchedulerContext() {
   const dispatch = useAppDispatch();
   const { bookings, blockedTimes, viewMode, currentDate, interval } =
-    useAppSelector(s => s.scheduler);
+    useAppSelector((s) => s.scheduler);
 
   return {
     bookings,
-    addBooking:        (b: Booking)      => dispatch(addBooking(b)),
-    updateBooking:     (b: Booking)      => dispatch(updateBooking(b)),
-    deleteBooking:     (id: string)      => dispatch(deleteBooking(id)),
+    addBooking: (b: Booking) => dispatch(addBooking(b)),
+    updateBooking: (b: Booking) => dispatch(updateBooking(b)),
+    deleteBooking: (id: string) => dispatch(deleteBooking(id)),
     blockedTimes,
-    addBlockedTime:    (bt: BlockedTime) => dispatch(addBlockedTime(bt)),
-    deleteBlockedTime: (id: string)      => dispatch(deleteBlockedTime(id)),
+    addBlockedTime: (bt: BlockedTime) => dispatch(addBlockedTime(bt)),
+    deleteBlockedTime: (id: string) => dispatch(deleteBlockedTime(id)),
     viewMode,
-    setViewMode:       (v: ViewMode)     => dispatch(setViewMode(v)),
+    setViewMode: (v: ViewMode) => dispatch(setViewMode(v)),
     currentDate,
-    setCurrentDate:    (d: string)       => dispatch(setCurrentDate(d)),
+    setCurrentDate: (d: string) => dispatch(setCurrentDate(d)),
     interval,
-    setInterval:       (i: IntervalOption) => dispatch(setInterval(i)),
-    navigate:          (dir: 1 | -1)    => dispatch(navigate(dir)),
+    setInterval: (i: IntervalOption) => dispatch(setInterval(i)),
+    navigate: (dir: 1 | -1) => dispatch(navigate(dir)),
   };
 }

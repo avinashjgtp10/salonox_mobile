@@ -43,7 +43,7 @@ export default function NewAddressModal({ open, onClose, onSave }: Props) {
       city: "",
       region: "",
       postcode: "",
-      country: "IN"
+      country: "IN",
     };
 
     onSave(newAddress);
@@ -133,4 +133,4 @@ export default function NewAddressModal({ open, onClose, onSave }: Props) {
       </div>
     </Modal>
   );
-}
+}

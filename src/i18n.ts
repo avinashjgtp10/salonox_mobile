@@ -8,7 +8,7 @@ import esTranslation from "./locales/es/translation.json";
 
 const resources = {
   en: { translation: enTranslation },
-  es: { translation: esTranslation }
+  es: { translation: esTranslation },
 };
 
 i18n
@@ -19,10 +19,10 @@ i18n
   .init({
     resources,
     fallbackLng: "en", // Default to English if language is unknown
-    
+
     interpolation: {
-      escapeValue: false // React already escapes values, preventing XSS
-    }
+      escapeValue: false, // React already escapes values, preventing XSS
+    },
   });
 
 export default i18n;

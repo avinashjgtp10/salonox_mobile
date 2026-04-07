@@ -1,5 +1,9 @@
 import { useSchedulerContext } from "../store/SchedulerContext";
-import { generateTimeSlots, getTimePosition, getBookingHeight } from "../utils/timeUtils";
+import {
+  generateTimeSlots,
+  getTimePosition,
+  getBookingHeight,
+} from "../utils/timeUtils";
 
 export const SLOT_HEIGHT = 48;
 

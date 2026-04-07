@@ -1,21 +1,20 @@
-import { NavLink } from "react-router-dom"
-import { ChevronLeft } from "react-bootstrap-icons"
+import { NavLink } from "react-router-dom";
+import { ChevronLeft } from "react-bootstrap-icons";
 
 interface Props {
-  onClose: () => void
+  onClose: () => void;
 }
 
 export default function ClientsSubSidebar({ onClose }: Props) {
   return (
     <div className="sub-sidebar">
-
       <div className="sub-header">
-  <h3>Clients</h3>
+        <h3>Clients</h3>
 
-  <button className="floating-close" onClick={onClose}>
-    <ChevronLeft size={16} />
-  </button>
-</div>
+        <button className="floating-close" onClick={onClose}>
+          <ChevronLeft size={16} />
+        </button>
+      </div>
 
       <NavLink
         to="/dashboard/clients/list"
@@ -34,7 +33,6 @@ export default function ClientsSubSidebar({ onClose }: Props) {
       >
         Client loyalty
       </NavLink>
-
     </div>
-  )
+  );
 }

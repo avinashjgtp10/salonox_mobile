@@ -27,14 +27,18 @@ export interface CRUDEndpoints {
  * Standard server-envelope shapes (single vs. list).
  * Your axios interceptors may already unwrap these – adjust if needed.
  */
-export interface SingleEnvelope<T>  { data: T }
-export interface ListEnvelope<T>    { data: T[] }
+export interface SingleEnvelope<T> {
+  data: T;
+}
+export interface ListEnvelope<T> {
+  data: T[];
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Update payload – every entity uses { id, data } for PUT requests
 // ─────────────────────────────────────────────────────────────────────────────
 export interface UpdatePayload<TData> {
-  id:   string | number;
+  id: string | number;
   data: TData;
 }
 
@@ -61,12 +65,8 @@ export interface UpdatePayload<TData> {
 export function createCRUDThunks<
   TEntity extends WithId,
   TCreatePayload = Partial<TEntity>,
-  TUpdateData    = Partial<TEntity>,
->(
-  domain:      string,
-  endpoints:   CRUDEndpoints,
-  entityName:  string,
-) {
+  TUpdateData = Partial<TEntity>,
+>(domain: string, endpoints: CRUDEndpoints, entityName: string) {
   // ── Fetch all ──────────────────────────────────────────────────────────────
   const fetchAllThunk = createAsyncThunk<
     TEntity[],
@@ -104,7 +104,10 @@ export function createCRUDThunks<
     { rejectValue: string }
   >(`${domain}/create`, async (payload, { rejectWithValue }) => {
     try {
-      const res = await api.post<SingleEnvelope<TEntity>>(endpoints.BASE, payload);
+      const res = await api.post<SingleEnvelope<TEntity>>(
+        endpoints.BASE,
+        payload,
+      );
       return res.data.data;
     } catch (err: any) {
       if (err instanceof ApiError) return rejectWithValue(err.message);
@@ -119,7 +122,10 @@ export function createCRUDThunks<
     { rejectValue: string }
   >(`${domain}/update`, async ({ id, data }, { rejectWithValue }) => {
     try {
-      const res = await api.put<SingleEnvelope<TEntity>>(endpoints.BY_ID(id), data);
+      const res = await api.put<SingleEnvelope<TEntity>>(
+        endpoints.BY_ID(id),
+        data,
+      );
       return res.data.data;
     } catch (err: any) {
       if (err instanceof ApiError) return rejectWithValue(err.message);
@@ -152,11 +158,16 @@ export function createCRUDThunks<
       return rejectWithValue(`Export not supported for ${entityName}`);
     }
     try {
-      const res  = await api.get(endpoints.EXPORT(format), { responseType: "blob" });
-      const url  = window.URL.createObjectURL(new Blob([res.data]));
+      const res = await api.get(endpoints.EXPORT(format), {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement("a");
-      link.href  = url;
-      link.setAttribute("download", `${domain}.${format === "excel" ? "xlsx" : "csv"}`);
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `${domain}.${format === "excel" ? "xlsx" : "csv"}`,
+      );
       document.body.appendChild(link);
       link.click();
       link.remove();

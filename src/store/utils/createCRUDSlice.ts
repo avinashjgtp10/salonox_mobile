@@ -6,12 +6,12 @@ import type { WithId } from "../../middleware/utils/createCRUDThunks";
 // Granular loading state — one flag per operation
 // ─────────────────────────────────────────────────────────────────────────────
 export interface CRUDLoadingState {
-  fetchAll:  boolean;
+  fetchAll: boolean;
   fetchById: boolean;
-  create:    boolean;
-  update:    boolean;
-  delete:    boolean;
-  export:    boolean;
+  create: boolean;
+  update: boolean;
+  delete: boolean;
+  export: boolean;
   /** Domain-specific operation flags (e.g. block, import, merge …) */
   [key: string]: boolean;
 }
@@ -20,10 +20,10 @@ export interface CRUDLoadingState {
 // Base state every CRUD slice shares
 // ─────────────────────────────────────────────────────────────────────────────
 export interface CRUDState<TEntity> {
-  items:        TEntity[];
+  items: TEntity[];
   selectedItem: TEntity | null;
-  loading:      CRUDLoadingState;
-  error:        string | null;
+  loading: CRUDLoadingState;
+  error: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -33,13 +33,13 @@ export interface CRUDState<TEntity> {
 type AnyThunk = { pending: any; fulfilled: any; rejected: any };
 
 export interface CRUDThunks {
-  fetchAllThunk:  AnyThunk;
+  fetchAllThunk: AnyThunk;
   fetchByIdThunk: AnyThunk;
-  createThunk:    AnyThunk;
+  createThunk: AnyThunk;
   /** Optional – omit for entities that have no PUT/PATCH update endpoint */
-  updateThunk?:   AnyThunk;
-  deleteThunk:    AnyThunk;
-  exportThunk:    AnyThunk;
+  updateThunk?: AnyThunk;
+  deleteThunk: AnyThunk;
+  exportThunk: AnyThunk;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -59,7 +59,9 @@ export interface CreateCRUDSliceOptions<TEntity extends WithId> {
    * Optional callback to attach domain-specific extra reducers
    * (e.g. blockClients, import, merge …)
    */
-  extraReducers?: (builder: ActionReducerMapBuilder<CRUDState<TEntity>>) => void;
+  extraReducers?: (
+    builder: ActionReducerMapBuilder<CRUDState<TEntity>>,
+  ) => void;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -87,18 +89,18 @@ export function createCRUDSlice<TEntity extends WithId>({
   extraReducers: domainExtraReducers,
 }: CreateCRUDSliceOptions<TEntity>) {
   const initialState: CRUDState<TEntity> = {
-    items:        [],
+    items: [],
     selectedItem: null,
     loading: {
-      fetchAll:  false,
+      fetchAll: false,
       fetchById: false,
-      create:    false,
-      update:    false,
-      delete:    false,
-      export:    false,
+      create: false,
+      update: false,
+      delete: false,
+      export: false,
       ...extraInitialLoading,
     },
-    error:        null,
+    error: null,
   };
 
   return createSlice({
@@ -127,38 +129,38 @@ export function createCRUDSlice<TEntity extends WithId>({
       builder
         .addCase(fetchAllThunk.pending, (state) => {
           state.loading.fetchAll = true;
-          state.error            = null;
+          state.error = null;
         })
         .addCase(fetchAllThunk.fulfilled, (state, { payload }) => {
           state.loading.fetchAll = false;
-          state.items            = castDraft(payload as TEntity[]);
+          state.items = castDraft(payload as TEntity[]);
         })
         .addCase(fetchAllThunk.rejected, (state, { payload }) => {
           state.loading.fetchAll = false;
-          state.error            = (payload as string) ?? "Failed to fetch items";
+          state.error = (payload as string) ?? "Failed to fetch items";
         });
 
       // ── fetchById ───────────────────────────────────────────────────────────
       builder
         .addCase(fetchByIdThunk.pending, (state) => {
           state.loading.fetchById = true;
-          state.error             = null;
+          state.error = null;
           (state as { selectedItem: null }).selectedItem = null;
         })
         .addCase(fetchByIdThunk.fulfilled, (state, { payload }) => {
-          state.loading.fetchById     = false;
+          state.loading.fetchById = false;
           (state as any).selectedItem = payload;
         })
         .addCase(fetchByIdThunk.rejected, (state, { payload }) => {
           state.loading.fetchById = false;
-          state.error             = (payload as string) ?? "Failed to fetch item";
+          state.error = (payload as string) ?? "Failed to fetch item";
         });
 
       // ── create ──────────────────────────────────────────────────────────────
       builder
         .addCase(createThunk.pending, (state) => {
           state.loading.create = true;
-          state.error          = null;
+          state.error = null;
         })
         .addCase(createThunk.fulfilled, (state, { payload }) => {
           state.loading.create = false;
@@ -166,7 +168,7 @@ export function createCRUDSlice<TEntity extends WithId>({
         })
         .addCase(createThunk.rejected, (state, { payload }) => {
           state.loading.create = false;
-          state.error          = (payload as string) ?? "Failed to create item";
+          state.error = (payload as string) ?? "Failed to create item";
         });
 
       // ── update (optional – skipped when entity has no update endpoint) ────────
@@ -174,17 +176,19 @@ export function createCRUDSlice<TEntity extends WithId>({
         builder
           .addCase(updateThunk.pending, (state) => {
             state.loading.update = true;
-            state.error          = null;
+            state.error = null;
           })
           .addCase(updateThunk.fulfilled, (state, { payload }) => {
             state.loading.update = false;
-            const entity         = payload as TEntity;
-            const idx            = state.items.findIndex((i) => (i as TEntity).id === entity.id);
+            const entity = payload as TEntity;
+            const idx = state.items.findIndex(
+              (i) => (i as TEntity).id === entity.id,
+            );
             if (idx !== -1) state.items[idx] = castDraft(entity);
           })
           .addCase(updateThunk.rejected, (state, { payload }) => {
             state.loading.update = false;
-            state.error          = (payload as string) ?? "Failed to update item";
+            state.error = (payload as string) ?? "Failed to update item";
           });
       }
 
@@ -192,26 +196,31 @@ export function createCRUDSlice<TEntity extends WithId>({
       builder
         .addCase(deleteThunk.pending, (state) => {
           state.loading.delete = true;
-          state.error          = null;
+          state.error = null;
         })
         .addCase(deleteThunk.fulfilled, (state, { payload }) => {
           state.loading.delete = false;
-          state.items          = castDraft(
+          state.items = castDraft(
             (state.items as TEntity[]).filter((i) => i.id !== payload),
           );
         })
         .addCase(deleteThunk.rejected, (state, { payload }) => {
           state.loading.delete = false;
-          state.error          = (payload as string) ?? "Failed to delete item";
+          state.error = (payload as string) ?? "Failed to delete item";
         });
 
       // ── export ──────────────────────────────────────────────────────────────
       builder
-        .addCase(exportThunk.pending,   (state) => { state.loading.export = true;  state.error = null; })
-        .addCase(exportThunk.fulfilled, (state) => { state.loading.export = false; })
-        .addCase(exportThunk.rejected,  (state, { payload }) => {
+        .addCase(exportThunk.pending, (state) => {
+          state.loading.export = true;
+          state.error = null;
+        })
+        .addCase(exportThunk.fulfilled, (state) => {
           state.loading.export = false;
-          state.error          = (payload as string) ?? "Failed to export";
+        })
+        .addCase(exportThunk.rejected, (state, { payload }) => {
+          state.loading.export = false;
+          state.error = (payload as string) ?? "Failed to export";
         });
 
       // ── domain-specific extra reducers (optional) ───────────────────────────

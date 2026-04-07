@@ -1,20 +1,19 @@
-import { ChevronLeft } from "react-bootstrap-icons"
+import { ChevronLeft } from "react-bootstrap-icons";
 
 interface Props {
-  onClose: () => void
+  onClose: () => void;
 }
 
 export default function MarketingSubSidebar({ onClose }: Props) {
   return (
     <div className="sub-sidebar">
-
       <div className="sub-header">
-  <h3>Messaging</h3>
+        <h3>Messaging</h3>
 
-  <button className="floating-close" onClick={onClose}>
-    <ChevronLeft size={16} />
-  </button>
-</div>
+        <button className="floating-close" onClick={onClose}>
+          <ChevronLeft size={16} />
+        </button>
+      </div>
 
       <div className="sub-link">Blast campaigns</div>
       <div className="sub-link">Automations</div>
@@ -30,7 +29,6 @@ export default function MarketingSubSidebar({ onClose }: Props) {
 
       <h4 className="sub-section-title">Engage</h4>
       <div className="sub-link">Reviews</div>
-
     </div>
-  )
+  );
 }

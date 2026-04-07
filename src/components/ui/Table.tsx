@@ -34,7 +34,10 @@ function Table<T extends { id?: string | number }>({
         <thead className="table-light">
           <tr>
             {columns.map((col, i) => (
-              <th key={i} className={`border-0 py-3 px-4 fw-bold text-muted small text-uppercase ${col.className || ""}`}>
+              <th
+                key={i}
+                className={`border-0 py-3 px-4 fw-bold text-muted small text-uppercase ${col.className || ""}`}
+              >
                 {col.header}
               </th>
             ))}
@@ -43,21 +46,29 @@ function Table<T extends { id?: string | number }>({
         <tbody>
           {data.length === 0 ? (
             <tr>
-              <td colSpan={columns.length} className="text-center py-5 text-muted">
+              <td
+                colSpan={columns.length}
+                className="text-center py-5 text-muted"
+              >
                 {emptyMessage}
               </td>
             </tr>
           ) : (
             data.map((item, i) => (
-              <tr 
-                key={item.id || i} 
+              <tr
+                key={item.id || i}
                 onClick={() => onRowClick?.(item)}
                 style={{ cursor: onRowClick ? "pointer" : "default" }}
                 className={rowClassName?.(item) || ""}
               >
                 {columns.map((col, j) => (
-                  <td key={j} className={`py-3 px-4 border-bottom-0 ${col.className || ""}`}>
-                    {col.render ? col.render(item) : (item[col.key as keyof T] as React.ReactNode)}
+                  <td
+                    key={j}
+                    className={`py-3 px-4 border-bottom-0 ${col.className || ""}`}
+                  >
+                    {col.render
+                      ? col.render(item)
+                      : (item[col.key as keyof T] as React.ReactNode)}
                   </td>
                 ))}
               </tr>

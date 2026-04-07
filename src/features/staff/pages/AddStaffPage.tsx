@@ -14,9 +14,15 @@ import StaffPayRunsSection from "../sections/StaffPayRunsSection";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
 type SectionKey =
-  | "profile" | "addresses" | "emergency"
-  | "services" | "locations" | "settings"
-  | "wages" | "commissions" | "payruns";
+  | "profile"
+  | "addresses"
+  | "emergency"
+  | "services"
+  | "locations"
+  | "settings"
+  | "wages"
+  | "commissions"
+  | "payruns";
 
 const sectionComponents: Record<SectionKey, React.FC> = {
   profile: StaffProfileSection,
@@ -51,37 +57,38 @@ const AddStaffPage: React.FC = () => {
     endDateYear: "",
     employmentType: "",
     memberId: "",
-    notes: ""
+    notes: "",
   });
 
   const [settings, setSettings] = useState({
     allowCalendarBookings: true,
-    permissionLevel: "Low"
+    permissionLevel: "Low",
   });
 
   const [lists, setLists] = useState({
     addresses: [] as any[],
-    contacts: [] as any[]
+    contacts: [] as any[],
   });
 
   const [ui, setUi] = useState({
     attemptedSubmit: false,
     showErrorPopup: false,
-    showUnsavedDialog: false
+    showUnsavedDialog: false,
   });
 
-  const isFirstNameInvalid = ui.attemptedSubmit && formData.firstName.trim() === "";
+  const isFirstNameInvalid =
+    ui.attemptedSubmit && formData.firstName.trim() === "";
   const isEmailInvalid = ui.attemptedSubmit && formData.email.trim() === "";
   const hasErrors = isFirstNameInvalid || isEmailInvalid;
   const errorCount = (isFirstNameInvalid ? 1 : 0) + (isEmailInvalid ? 1 : 0);
 
   const handleAddClick = async () => {
-    setUi(prev => ({ ...prev, attemptedSubmit: true }));
+    setUi((prev) => ({ ...prev, attemptedSubmit: true }));
     if (formData.firstName.trim() === "" || formData.email.trim() === "") {
-      setUi(prev => ({ ...prev, showErrorPopup: true }));
+      setUi((prev) => ({ ...prev, showErrorPopup: true }));
       return;
     }
-    
+
     try {
       const payload = {
         first_name: formData.firstName,
@@ -105,7 +112,7 @@ const AddStaffPage: React.FC = () => {
         allow_calendar_bookings: settings.allowCalendarBookings,
         permission_level: settings.permissionLevel,
         addresses: lists.addresses,
-        emergency_contacts: lists.contacts
+        emergency_contacts: lists.contacts,
       };
 
       await api.post(STAFF.BASE, payload);
@@ -116,14 +123,21 @@ const AddStaffPage: React.FC = () => {
     }
   };
 
-  const navItem = (key: SectionKey, label: string, badge?: number, hasError?: boolean) => (
+  const navItem = (
+    key: SectionKey,
+    label: string,
+    badge?: number,
+    hasError?: boolean,
+  ) => (
     <li
       key={key}
       className={`add-staff__nav-item ${activeSection === key ? "add-staff__nav-item--active" : ""}`}
       onClick={() => setActiveSection(key)}
     >
       <span className="add-staff__nav-label">{label}</span>
-      {badge !== undefined && <span className="add-staff__nav-badge">{badge}</span>}
+      {badge !== undefined && (
+        <span className="add-staff__nav-badge">{badge}</span>
+      )}
       {hasError && <div className="add-staff__nav-dot" />}
     </li>
   );
@@ -135,25 +149,34 @@ const AddStaffPage: React.FC = () => {
     // Spread all formData and provide individual update handlers if needed
     // or provide the entire object and a setter.
     // For now, mapping individual ones to avoid breaking child sections if they expect them.
-    Object.keys(formData).forEach(key => {
+    Object.keys(formData).forEach((key) => {
       componentProps[key] = (formData as any)[key];
-      componentProps[`set${key.charAt(0).toUpperCase() + key.slice(1)}`] = (val: any) => {
-        setFormData(prev => ({ ...prev, [key]: typeof val === 'function' ? val((prev as any)[key]) : val }));
+      componentProps[`set${key.charAt(0).toUpperCase() + key.slice(1)}`] = (
+        val: any,
+      ) => {
+        setFormData((prev) => ({
+          ...prev,
+          [key]: typeof val === "function" ? val((prev as any)[key]) : val,
+        }));
       };
     });
     componentProps.isFirstNameInvalid = isFirstNameInvalid;
     componentProps.isEmailInvalid = isEmailInvalid;
   } else if (activeSection === "settings") {
     componentProps.allowCalendarBookings = settings.allowCalendarBookings;
-    componentProps.setAllowCalendarBookings = (val: any) => setSettings(prev => ({ ...prev, allowCalendarBookings: val }));
+    componentProps.setAllowCalendarBookings = (val: any) =>
+      setSettings((prev) => ({ ...prev, allowCalendarBookings: val }));
     componentProps.permissionLevel = settings.permissionLevel;
-    componentProps.setPermissionLevel = (val: any) => setSettings(prev => ({ ...prev, permissionLevel: val }));
+    componentProps.setPermissionLevel = (val: any) =>
+      setSettings((prev) => ({ ...prev, permissionLevel: val }));
   } else if (activeSection === "addresses") {
     componentProps.addresses = lists.addresses;
-    componentProps.setAddresses = (val: any) => setLists(prev => ({ ...prev, addresses: val }));
+    componentProps.setAddresses = (val: any) =>
+      setLists((prev) => ({ ...prev, addresses: val }));
   } else if (activeSection === "emergency") {
     componentProps.contacts = lists.contacts;
-    componentProps.setContacts = (val: any) => setLists(prev => ({ ...prev, contacts: val }));
+    componentProps.setContacts = (val: any) =>
+      setLists((prev) => ({ ...prev, contacts: val }));
   }
 
   return (
@@ -164,30 +187,64 @@ const AddStaffPage: React.FC = () => {
           {hasErrors && (
             <button
               className="btn add-staff__btn-warning"
-              onClick={() => setUi(prev => ({ ...prev, showErrorPopup: !ui.showErrorPopup }))}
+              onClick={() =>
+                setUi((prev) => ({
+                  ...prev,
+                  showErrorPopup: !ui.showErrorPopup,
+                }))
+              }
             >
-              <i className="bi bi-exclamation-triangle" style={{ color: '#e53935' }} />
+              <i
+                className="bi bi-exclamation-triangle"
+                style={{ color: "#e53935" }}
+              />
             </button>
           )}
 
           {ui.showErrorPopup && hasErrors && (
             <div
               className="position-absolute bg-white shadow-lg border rounded p-3"
-              style={{ top: "45px", right: "120px", width: "320px", zIndex: 1050 }}
+              style={{
+                top: "45px",
+                right: "120px",
+                width: "320px",
+                zIndex: 1050,
+              }}
             >
-              <h6 className="fw-bold mb-3" style={{ fontSize: "14px" }}>{errorCount} {errorCount === 1 ? 'error' : 'errors'} found</h6>
-              {isFirstNameInvalid && <div className="text-muted mb-2 bg-white p-2 rounded" style={{ fontSize: "12px", border: "1px solid #dc3545" }}>First name is required</div>}
-              {isEmailInvalid && <div className="text-muted bg-white p-2 rounded" style={{ fontSize: "12px", border: "1px solid #dc3545" }}>Email is required when permission level is greater than 'No Access'</div>}
+              <h6 className="fw-bold mb-3" style={{ fontSize: "14px" }}>
+                {errorCount} {errorCount === 1 ? "error" : "errors"} found
+              </h6>
+              {isFirstNameInvalid && (
+                <div
+                  className="text-muted mb-2 bg-white p-2 rounded"
+                  style={{ fontSize: "12px", border: "1px solid #dc3545" }}
+                >
+                  First name is required
+                </div>
+              )}
+              {isEmailInvalid && (
+                <div
+                  className="text-muted bg-white p-2 rounded"
+                  style={{ fontSize: "12px", border: "1px solid #dc3545" }}
+                >
+                  Email is required when permission level is greater than 'No
+                  Access'
+                </div>
+              )}
             </div>
           )}
 
           <button
             className="btn add-staff__btn-close"
-            onClick={() => setUi(prev => ({ ...prev, showUnsavedDialog: true }))}
+            onClick={() =>
+              setUi((prev) => ({ ...prev, showUnsavedDialog: true }))
+            }
           >
             Close
           </button>
-          <button className="btn add-staff__btn-add" onClick={handleAddClick}>Add</button>
+          <button className="btn add-staff__btn-add" onClick={handleAddClick}>
+            Add
+          </button>
         </div>
       </div>
 
@@ -195,37 +252,39 @@ const AddStaffPage: React.FC = () => {
       {ui.showUnsavedDialog && (
         <div
           style={{
-            position: 'fixed',
+            position: "fixed",
             inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.35)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            backgroundColor: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             zIndex: 2000,
           }}
         >
           <div
             style={{
-              background: '#fff',
-              borderRadius: '12px',
-              padding: '28px',
-              width: '400px',
-              position: 'relative',
-              boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+              background: "#fff",
+              borderRadius: "12px",
+              padding: "28px",
+              width: "400px",
+              position: "relative",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
             }}
           >
             {/* Close X */}
             <button
-              onClick={() => setUi(prev => ({ ...prev, showUnsavedDialog: false }))}
+              onClick={() =>
+                setUi((prev) => ({ ...prev, showUnsavedDialog: false }))
+              }
               style={{
-                position: 'absolute',
-                top: '16px',
-                right: '16px',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '18px',
-                color: '#6b7280',
+                position: "absolute",
+                top: "16px",
+                right: "16px",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                fontSize: "18px",
+                color: "#6b7280",
                 lineHeight: 1,
                 padding: 0,
               }}
@@ -233,38 +292,60 @@ const AddStaffPage: React.FC = () => {
               &times;
             </button>
 
-            <h5 style={{ fontWeight: 700, fontSize: '16px', color: '#111827', marginBottom: '12px' }}>
+            <h5
+              style={{
+                fontWeight: 700,
+                fontSize: "16px",
+                color: "#111827",
+                marginBottom: "12px",
+              }}
+            >
               Unsaved changes
             </h5>
-            <p style={{ fontSize: '14px', color: '#374151', marginBottom: '28px', lineHeight: 1.6 }}>
+            <p
+              style={{
+                fontSize: "14px",
+                color: "#374151",
+                marginBottom: "28px",
+                lineHeight: 1.6,
+              }}
+            >
               You have unsaved changes. Are you sure you want to leave?
             </p>
 
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+            <div
+              style={{
+                display: "flex",
+                gap: "12px",
+                justifyContent: "flex-end",
+              }}
+            >
               <button
                 className="btn"
                 style={{
-                  borderRadius: '20px',
-                  border: '1px solid #e5e7eb',
-                  padding: '8px 20px',
-                  fontSize: '14px',
+                  borderRadius: "20px",
+                  border: "1px solid #e5e7eb",
+                  padding: "8px 20px",
+                  fontSize: "14px",
                   fontWeight: 500,
-                  color: '#374151',
+                  color: "#374151",
                 }}
-                onClick={() => setUi(prev => ({ ...prev, showUnsavedDialog: false }))}
+                onClick={() =>
+                  setUi((prev) => ({ ...prev, showUnsavedDialog: false }))
+                }
               >
                 Cancel
               </button>
               <button
                 className="btn"
                 style={{
-                  borderRadius: '20px',
-                  background: '#111827',
-                  color: '#fff',
-                  padding: '8px 20px',
-                  fontSize: '14px',
+                  borderRadius: "20px",
+                  background: "#111827",
+                  color: "#fff",
+                  padding: "8px 20px",
+                  fontSize: "14px",
                   fontWeight: 500,
-                  border: 'none',
+                  border: "none",
                 }}
                 onClick={() => navigate("/dashboard/team/members")}
               >
@@ -279,7 +360,6 @@ const AddStaffPage: React.FC = () => {
         <div className="row g-0 h-100">
           <aside className="col-auto add-staff__sidebar">
             <nav className="add-staff__nav">
-
               <div className="add-staff__nav-group">
                 <p className="add-staff__nav-group-title">Personal</p>
                 <ul className="add-staff__nav-list">
@@ -310,7 +390,6 @@ const AddStaffPage: React.FC = () => {
                   {navItem("payruns", "Pay runs")}
                 </ul>
               </div>
-
             </nav>
           </aside>
 

@@ -3,11 +3,10 @@ import Card from "../../../components/ui/Card";
 import Table from "../../../components/ui/Table";
 
 interface Props {
-  selectedDate: Date
+  selectedDate: Date;
 }
 
 export default function TransactionSummary({ selectedDate }: Props) {
-
   const rows = [
     "Services",
     "Service add-ons",
@@ -17,20 +16,20 @@ export default function TransactionSummary({ selectedDate }: Props) {
     "Memberships",
     "Late cancellation fees",
     "No-show fees",
-    "Refund amount"
-  ]
+    "Refund amount",
+  ];
 
   useEffect(() => {
-    console.log("Fetching transaction summary for:", selectedDate)
+    console.log("Fetching transaction summary for:", selectedDate);
 
     // 🔥 API call here based on selectedDate
-  }, [selectedDate])
+  }, [selectedDate]);
 
   const columns = [
     { header: "Item type", key: "type" },
     { header: "Sales qty", key: "salesQty" },
     { header: "Refund qty", key: "refundQty" },
-    { header: "Gross total", key: "total", className: "text-end" }
+    { header: "Gross total", key: "total", className: "text-end" },
   ];
 
   const data = [
@@ -39,7 +38,7 @@ export default function TransactionSummary({ selectedDate }: Props) {
       type: item,
       salesQty: "0",
       refundQty: "0",
-      total: "₹0.00"
+      total: "₹0.00",
     })),
     {
       id: "total",
@@ -47,20 +46,16 @@ export default function TransactionSummary({ selectedDate }: Props) {
       salesQty: "0",
       refundQty: "0",
       total: "₹0.00",
-      isTotal: true
-    }
+      isTotal: true,
+    },
   ];
 
   return (
-    <Card 
-      title="Transaction summary"
-      noPadding
-      className="mb-4"
-    >
+    <Card title="Transaction summary" noPadding className="mb-4">
       <Table
         columns={columns}
         data={data}
-        rowClassName={(item: any) => item.isTotal ? "fw-bold bg-light" : ""}
+        rowClassName={(item: any) => (item.isTotal ? "fw-bold bg-light" : "")}
       />
     </Card>
   );

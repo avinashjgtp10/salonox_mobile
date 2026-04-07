@@ -1,4 +1,4 @@
-import React from "react"
+import React from "react";
 
 export const Divider: React.FC<{ text?: string }> = ({ text = "OR" }) => (
   <div className="d-flex align-items-center my-4">
@@ -6,4 +6,4 @@ export const Divider: React.FC<{ text?: string }> = ({ text = "OR" }) => (
     {text && <span className="mx-3 fw-semibold text-secondary">{text}</span>}
     <hr className="flex-grow-1 border-secondary" />
   </div>
-)
+);

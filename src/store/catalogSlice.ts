@@ -12,14 +12,17 @@ import {
 const catalogSlice = createCRUDSlice<CatalogItem>({
   name: "catalog",
   thunks: {
-    fetchAllThunk:  fetchCatalogThunk,
+    fetchAllThunk: fetchCatalogThunk,
     fetchByIdThunk: fetchCatalogByIdThunk,
-    createThunk:    createCatalogThunk,
-    updateThunk:    updateCatalogThunk,
-    deleteThunk:    deleteCatalogThunk,
-    exportThunk:    exportCatalogThunk,
+    createThunk: createCatalogThunk,
+    updateThunk: updateCatalogThunk,
+    deleteThunk: deleteCatalogThunk,
+    exportThunk: exportCatalogThunk,
   },
 });
 
-export const { clearError: clearCatalogError, clearSelectedItem: clearSelectedCatalogItem } = catalogSlice.actions;
+export const {
+  clearError: clearCatalogError,
+  clearSelectedItem: clearSelectedCatalogItem,
+} = catalogSlice.actions;
 export default catalogSlice.reducer;

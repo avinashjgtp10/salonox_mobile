@@ -1,27 +1,27 @@
 // ── Catalog entity ─────────────────────────────────────────────────────────────
-import type { EntityId } from './common.types';
+import type { EntityId } from "./common.types";
 
 export interface CatalogItem {
-  id:          EntityId;
-  name:        string;
-  type?:       string; // e.g. 'service', 'product', 'membership', 'package'
+  id: EntityId;
+  name: string;
+  type?: string; // e.g. 'service', 'product', 'membership', 'package'
   categoryId?: string;
-  price?:      number;
-  active?:     boolean;
-  [key: string]: any;          // allow extra fields from API
+  price?: number;
+  active?: boolean;
+  [key: string]: any; // allow extra fields from API
 }
 
 // ── Payloads ──────────────────────────────────────────────────────────────────
 export interface CreateCatalogPayload {
-  name:        string;
-  type?:       string;
+  name: string;
+  type?: string;
   categoryId?: string;
-  price?:      number;
+  price?: number;
   [key: string]: any;
 }
 
 export interface UpdateCatalogPayload {
-  id:   EntityId;
+  id: EntityId;
   data: Partial<CreateCatalogPayload>;
 }
 

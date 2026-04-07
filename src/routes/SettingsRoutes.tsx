@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom"
+import { Routes, Route } from "react-router-dom";
 
 // NOTE: All Settings page components live in the features/settings-ui branch.
 // They will be imported and wired up here once that branch is merged into main.
@@ -9,10 +9,10 @@ const SettingsComingSoon = () => (
     Settings pages are in the <strong>features/settings-ui</strong> branch.
     Merge that branch to restore all settings routes.
   </div>
-)
+);
 
 export const SettingsRoutes = () => (
   <Routes>
     <Route path="*" element={<SettingsComingSoon />} />
   </Routes>
-)
+);

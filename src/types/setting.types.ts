@@ -1,24 +1,24 @@
 // ── Setting entity ─────────────────────────────────────────────────────────────
-import type { EntityId } from './common.types';
+import type { EntityId } from "./common.types";
 
 export interface Setting {
-  id:          EntityId;
-  key:         string;
-  value:       string | Record<string, any>;
+  id: EntityId;
+  key: string;
+  value: string | Record<string, any>;
   description?: string;
   [key: string]: any;
 }
 
 // ── Payloads ──────────────────────────────────────────────────────────────────
 export interface CreateSettingPayload {
-  key:         string;
-  value:       string | Record<string, any>;
+  key: string;
+  value: string | Record<string, any>;
   description?: string;
   [key: string]: any;
 }
 
 export interface UpdateSettingPayload {
-  id:   EntityId;
+  id: EntityId;
   data: Partial<CreateSettingPayload>;
 }
 

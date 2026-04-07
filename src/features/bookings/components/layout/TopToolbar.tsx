@@ -1,21 +1,21 @@
-import { format } from "date-fns"
-import "../../styles/TopToolbar.scss"
+import { format } from "date-fns";
+import "../../styles/TopToolbar.scss";
 
 interface Staff {
-  id: string
-  name: string
-  color?: string
+  id: string;
+  name: string;
+  color?: string;
 }
 
 interface Props {
-  currentDate?: Date
-  view: string
-  staffList: Staff[]
-  onToday: () => void
-  onPrev: () => void
-  onNext: () => void
-  onChangeView: (view: string) => void
-  onAdd: () => void
+  currentDate?: Date;
+  view: string;
+  staffList: Staff[];
+  onToday: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  onChangeView: (view: string) => void;
+  onAdd: () => void;
 }
 
 export default function TopToolbar({
@@ -26,9 +26,9 @@ export default function TopToolbar({
   onPrev,
   onNext,
   onChangeView,
-  onAdd
+  onAdd,
 }: Props) {
-  const safeDate = currentDate ? new Date(currentDate) : new Date()
+  const safeDate = currentDate ? new Date(currentDate) : new Date();
 
   return (
     <div className="scheduler-toolbar d-flex align-items-center justify-content-between px-4">
@@ -38,13 +38,19 @@ export default function TopToolbar({
         </button>
 
         <div className="date-navigation d-flex align-items-center">
-          <button onClick={onPrev} className="toolbar-nav-btn btn btn-outline-secondary btn-sm p-0">
+          <button
+            onClick={onPrev}
+            className="toolbar-nav-btn btn btn-outline-secondary btn-sm p-0"
+          >
             ←
           </button>
 
           <span className="date-label">{format(safeDate, "EEE dd MMM")}</span>
 
-          <button onClick={onNext} className="toolbar-nav-btn btn btn-outline-secondary btn-sm p-0">
+          <button
+            onClick={onNext}
+            className="toolbar-nav-btn btn btn-outline-secondary btn-sm p-0"
+          >
             →
           </button>
         </div>
@@ -58,7 +64,10 @@ export default function TopToolbar({
           >
             <div
               className="toolbar-staff-avatar"
-              style={{ backgroundColor: staff.color || "#3b82f6", color: "#fff" }}
+              style={{
+                backgroundColor: staff.color || "#3b82f6",
+                color: "#fff",
+              }}
             >
               {staff.name.charAt(0).toUpperCase()}
             </div>
@@ -86,5 +95,5 @@ export default function TopToolbar({
         </select>
       </div>
     </div>
-  )
+  );
 }
