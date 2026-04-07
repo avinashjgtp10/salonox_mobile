@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom"
 import { useState } from "react"
-import { FiArrowLeft, FiArrowRight } from "react-icons/fi"
+import { ArrowLeft, ArrowRight } from "react-bootstrap-icons"
 import salonImg from "../../../assets/images/salon.jpg"
 import "../styles/PreviousSoftwarePage.scss"
 
@@ -60,7 +60,7 @@ export default function PreviousSoftwarePage() {
           }
           onClick={handleContinue}
         >
-          Continue <FiArrowRight size={16} className="ms-1" />
+          Continue <ArrowRight size={16} className="ms-1" />
         </button>
 
       </div>
@@ -76,7 +76,7 @@ export default function PreviousSoftwarePage() {
             style={{ top: "40px", left: "40px", width: "42px", height: "42px" }}
             onClick={() => navigate(-1)}
           >
-            <FiArrowLeft />
+            <ArrowLeft />
           </button>
 
           <div style={{ maxWidth: "420px" }} className="mt-5">
@@ -161,7 +161,7 @@ export default function PreviousSoftwarePage() {
               }
               onClick={handleContinue}
             >
-              Continue <FiArrowRight size={16} className="ms-1" />
+              Continue <ArrowRight size={16} className="ms-1" />
             </button>
           </div>
         </div>
