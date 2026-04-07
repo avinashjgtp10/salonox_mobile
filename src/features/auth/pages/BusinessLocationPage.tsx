@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom"
 import { useState } from "react"
-import { FiArrowLeft, FiArrowRight, FiCheck } from "react-icons/fi"
+import { ArrowLeft, ArrowRight, Check } from "react-bootstrap-icons"
 import "../styles/BusinessLocationPage.scss"
 import { useOnboarding } from "../../../context/OnboardingContext"
 import salonImg from "../../../assets/images/salon.jpg"
@@ -46,7 +46,7 @@ export default function BusinessLocationPage() {
           disabled={!selected}
           onClick={handleContinue}
         >
-          Continue <FiArrowRight size={16} className="ms-1" />
+          Continue <ArrowRight size={16} className="ms-1" />
         </button>
       </div>
 
@@ -58,7 +58,7 @@ export default function BusinessLocationPage() {
             style={{ top: "25px", left: "30px", width: "44px", height: "44px" }}
             onClick={() => navigate(-1)}
           >
-            <FiArrowLeft />
+            <ArrowLeft />
           </button>
 
           <div style={{ maxWidth: "480px" }} className="mt-5">
@@ -76,7 +76,7 @@ export default function BusinessLocationPage() {
                 >
                   <p className="mb-0 fw-medium">{item.label}</p>
                   {selected === item.id && (
-                    <FiCheck
+                    <Check
                       className="position-absolute text-primary"
                       style={{ right: "20px", top: "50%", transform: "translateY(-50%)" }}
                     />
@@ -102,7 +102,7 @@ export default function BusinessLocationPage() {
               disabled={!selected}
               onClick={handleContinue}
             >
-              Continue <FiArrowRight size={16} className="ms-1" />
+              Continue <ArrowRight size={16} className="ms-1" />
             </button>
           </div>
         </div>
