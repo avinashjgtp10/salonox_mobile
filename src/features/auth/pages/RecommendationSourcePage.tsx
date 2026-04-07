@@ -26,7 +26,8 @@ export default function RecommendationSourcePage() {
   const navigate = useNavigate()
   const { data, reset } = useOnboarding()
   const dispatch = useAppDispatch()
-  const { loading, error } = useAppSelector((s) => s.salon)
+  const { loading: salonLoading, error } = useAppSelector((s) => s.salon)
+  const loading = salonLoading.save
 
   const [selected, setSelected] = useState("")
   const [otherText, setOtherText] = useState("")

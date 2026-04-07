@@ -28,7 +28,13 @@ const STEPS = {
 export default function ForgotPasswordPage() {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
-  const { loading, error: reduxError } = useAppSelector((state) => state.auth)
+  const { loading: authLoading, error: reduxError } = useAppSelector((state) => state.auth)
+  // Map each wizard step to its specific loading flag
+  const loading =
+    step === STEPS.EMAIL ? authLoading.forgotSendOtp  :
+    step === STEPS.OTP   ? authLoading.forgotVerifyOtp :
+    step === STEPS.RESET ? authLoading.forgotReset      :
+    false
 
   const [step, setStep] = useState(STEPS.EMAIL)
   const [localError, setLocalError] = useState("")

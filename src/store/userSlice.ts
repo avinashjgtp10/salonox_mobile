@@ -4,14 +4,20 @@ import { fetchMeThunk, updateUserThunk } from "../middleware/user/user.thunk"
 
 export interface UserState {
   profile: User | null
-  loading: boolean
+  loading: {
+    fetch:  boolean
+    update: boolean
+  }
   error:   string | null
 }
 
 const initialState: UserState = {
   profile: null,
-  loading: false,
-  error:   null,
+  loading: {
+    fetch:  false,
+    update: false,
+  },
+  error: null,
 }
 
 const userSlice = createSlice({
@@ -30,31 +36,31 @@ const userSlice = createSlice({
     // ── fetchMeThunk ──────────────────────────────────────────────────────────
     builder
       .addCase(fetchMeThunk.pending, (state) => {
-        state.loading = true
-        state.error   = null
+        state.loading.fetch = true
+        state.error         = null
       })
       .addCase(fetchMeThunk.fulfilled, (state, { payload }) => {
-        state.loading = false
-        state.profile = payload
+        state.loading.fetch = false
+        state.profile       = payload
       })
       .addCase(fetchMeThunk.rejected, (state, { payload }) => {
-        state.loading = false
-        state.error   = payload ?? "Failed to fetch user profile"
+        state.loading.fetch = false
+        state.error         = payload ?? "Failed to fetch user profile"
       })
 
     // ── updateUserThunk ───────────────────────────────────────────────────────
     builder
       .addCase(updateUserThunk.pending, (state) => {
-        state.loading = true
-        state.error   = null
+        state.loading.update = true
+        state.error          = null
       })
       .addCase(updateUserThunk.fulfilled, (state, { payload }) => {
-        state.loading = false
-        state.profile = payload
+        state.loading.update = false
+        state.profile        = payload
       })
       .addCase(updateUserThunk.rejected, (state, { payload }) => {
-        state.loading = false
-        state.error   = payload ?? "Failed to update user profile"
+        state.loading.update = false
+        state.error          = payload ?? "Failed to update user profile"
       })
   },
 })

@@ -1,7 +1,6 @@
 import { createAsyncThunk } from "@reduxjs/toolkit"
 import api from "../../services/api/axios"
 import { AUTH } from "../../services/api/endpoints"
-import { hashPassword } from "../../utils/hashPassword"
 import { ApiError } from "../../services/api/interceptors"
 import type {
   ForgotPasswordSendOtpPayload,
@@ -45,8 +44,7 @@ export const forgotPasswordResetThunk = createAsyncThunk<
   { rejectValue: string }
 >("auth/forgotPasswordReset", async ({ rawPassword, ...rest }, { rejectWithValue }) => {
   try {
-    const hashedPwd = await hashPassword(rawPassword)
-    const payload: ForgotPasswordResetPayload = { ...rest, newPassword: hashedPwd }
+    const payload: ForgotPasswordResetPayload = { ...rest, newPassword: rawPassword }
     await api.post<OtpResponse>(AUTH.FORGOT_PASSWORD_RESET, payload)
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message)
