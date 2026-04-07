@@ -2,7 +2,7 @@ import "bootstrap/dist/css/bootstrap.min.css"
 import "../styles/SendRequestPage.scss"
 import { useNavigate } from "react-router-dom"
 import { useState } from "react"
-import { FiArrowLeft } from "react-icons/fi"
+import { ArrowLeft } from "react-bootstrap-icons"
 import salonImg from "../../../assets/images/salon.jpg"
 
 export default function SendRequestPage() {
@@ -54,7 +54,7 @@ export default function SendRequestPage() {
 
           <div className="p-4">
             <div className="back-circle" onClick={() => navigate(-1)}>
-              <FiArrowLeft />
+              <ArrowLeft />
             </div>
           </div>
 
