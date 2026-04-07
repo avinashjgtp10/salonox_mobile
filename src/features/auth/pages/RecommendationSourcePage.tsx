@@ -2,7 +2,7 @@ import "bootstrap/dist/css/bootstrap.min.css"
 import "../styles/RecommendationSourcePage.scss"
 import { useNavigate } from "react-router-dom"
 import { useState } from "react"
-import { FiArrowLeft, FiArrowRight } from "react-icons/fi"
+import { ArrowLeft, ArrowRight } from "react-bootstrap-icons"
 import { useOnboarding } from "../../../context/OnboardingContext"
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux"
 import { saveSalonThunk } from "../../../middleware/salon/salon.thunk"
@@ -101,7 +101,7 @@ export default function RecommendationSourcePage() {
             </>
           ) : (
             <>
-              Continue <FiArrowRight size={16} className="ms-1" />
+              Continue <ArrowRight size={16} className="ms-1" />
             </>
           )}
         </button>
@@ -114,7 +114,7 @@ export default function RecommendationSourcePage() {
             className="btn btn-light border rounded-circle mb-4"
             onClick={() => navigate(-1)}
           >
-            <FiArrowLeft />
+            <ArrowLeft />
           </button>
 
           <div style={{ maxWidth: "420px" }}>
@@ -184,7 +184,7 @@ export default function RecommendationSourcePage() {
                 </>
               ) : (
                 <>
-                  Continue <FiArrowRight size={16} className="ms-1" />
+                  Continue <ArrowRight size={16} className="ms-1" />
                 </>
               )}
             </button>
