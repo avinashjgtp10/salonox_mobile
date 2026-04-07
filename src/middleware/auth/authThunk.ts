@@ -1,7 +1,6 @@
 import { createAsyncThunk } from "@reduxjs/toolkit"
 import api from "../../services/api/axios"
 import { AUTH } from "../../services/api/endpoints"
-import { hashPassword } from "../../utils/hashPassword"
 import { ApiError } from "../../services/api/interceptors"
 import type {
   LoginPayload,
@@ -17,8 +16,7 @@ export const loginThunk = createAsyncThunk<
   { rejectValue: string }
 >("auth/login", async ({ email, password }, { rejectWithValue }) => {
   try {
-    const hashedPwd = await hashPassword(password)
-    const payload: LoginPayload = { email, password: hashedPwd }
+    const payload: LoginPayload = { email, password }
     const res = await api.post<LoginResponse>(AUTH.LOGIN, payload)
     return res.data.data
   } catch (err: any) {
@@ -34,8 +32,7 @@ export const registerThunk = createAsyncThunk<
   { rejectValue: string }
 >("auth/register", async ({ rawPassword, ...rest }, { rejectWithValue }) => {
   try {
-    const hashedPwd = await hashPassword(rawPassword)
-    const payload: RegisterPayload = { ...rest, password: hashedPwd }
+    const payload: RegisterPayload = { ...rest, password: rawPassword }
     const res = await api.post<RegisterResponse>(AUTH.REGISTER, payload)
     return res.data.data
   } catch (err: any) {
