@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom"
 import { useState } from "react"
-import { FiArrowLeft, FiArrowRight, FiUser, FiUsers } from "react-icons/fi"
+import { ArrowLeft, ArrowRight, Person, People } from "react-bootstrap-icons"
 import "../styles/TeamSetupPage.scss"
 import { useOnboarding } from "../../../context/OnboardingContext"
 import salonImg from "../../../assets/images/salon.jpg"
@@ -39,7 +39,7 @@ export default function TeamSetupPage() {
           disabled={!selected}
           onClick={handleContinue}
         >
-          Continue <FiArrowRight size={16} className="ms-1" />
+          Continue <ArrowRight size={16} className="ms-1" />
         </button>
       </div>
 
@@ -55,7 +55,7 @@ export default function TeamSetupPage() {
                 onClick={() => navigate(-1)}
                 title="Back"
               >
-                <FiArrowLeft size={20} />
+                <ArrowLeft size={20} />
               </button>
             </div>
           </div>
@@ -72,7 +72,7 @@ export default function TeamSetupPage() {
                     className={`card p-4 text-center premium-choice-card ${selected === "independent" ? "selected" : ""}`}
                     onClick={() => setSelected("independent")}
                   >
-                    <div className="mb-2 fs-3 text-secondary"><FiUser /></div>
+                    <div className="mb-2 fs-3 text-secondary"><Person /></div>
                     <strong className="fs-5">I'm an independent</strong>
                   </div>
                 </div>
@@ -81,7 +81,7 @@ export default function TeamSetupPage() {
                     className={`card p-4 text-center premium-choice-card ${selected === "team" ? "selected" : ""}`}
                     onClick={() => setSelected("team")}
                   >
-                    <div className="mb-2 fs-3 text-secondary"><FiUsers /></div>
+                    <div className="mb-2 fs-3 text-secondary"><Persons /></div>
                     <strong className="fs-5">I have a team</strong>
                   </div>
                 </div>
@@ -105,7 +105,7 @@ export default function TeamSetupPage() {
               disabled={!selected}
               onClick={handleContinue}
             >
-              Continue <FiArrowRight size={16} className="ms-1" />
+              Continue <ArrowRight size={16} className="ms-1" />
             </button>
           </div>
         </div>

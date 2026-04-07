@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom"
 import { useState } from "react"
-import { FiArrowLeft, FiArrowRight, FiCheck } from "react-icons/fi"
+import { ArrowLeft, ArrowRight, Check } from "react-bootstrap-icons"
 import "../styles/TeamSizePage.scss"
 import { useOnboarding } from "../../../context/OnboardingContext"
 import salonImg from "../../../assets/images/salon.jpg"
@@ -42,7 +42,7 @@ export default function TeamSizePage() {
           disabled={!selected}
           onClick={handleContinue}
         >
-          Continue <FiArrowRight size={16} className="ms-1" />
+          Continue <ArrowRight size={16} className="ms-1" />
         </button>
       </div>
 
@@ -58,7 +58,7 @@ export default function TeamSizePage() {
                 onClick={() => navigate(-1)}
                 title="Back"
               >
-                <FiArrowLeft size={20} />
+                <ArrowLeft size={20} />
               </button>
             </div>
           </div>
@@ -76,7 +76,7 @@ export default function TeamSizePage() {
                     onClick={() => setSelected(size)}
                   >
                     <span className="fw-bold">{size} people</span>
-                    {selected === size && <FiCheck className="text-dark" size={20} />}
+                    {selected === size && <Check className="text-dark" size={20} />}
                   </div>
                 ))}
               </div>
@@ -100,7 +100,7 @@ export default function TeamSizePage() {
               disabled={!selected}
               onClick={handleContinue}
             >
-              Continue <FiArrowRight size={16} className="ms-1" />
+              Continue <ArrowRight size={16} className="ms-1" />
             </button>
           </div>
         </div>
