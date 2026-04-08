@@ -19,7 +19,9 @@ export default defineConfig(({ mode }) => ({
     outDir: 'dist',
     cssCodeSplit: true,
     sourcemap: mode !== 'production',
-    chunkSizeWarningLimit: 600,
+    // chunk-geo-data (country-state-city) is ~8.7 MB raw / 2.3 MB gzip by design —
+    // it's a full country/state/city JSON dataset and is lazy-loaded only when needed.
+    chunkSizeWarningLimit: 9500,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -28,15 +30,6 @@ export default defineConfig(({ mode }) => ({
               id.includes('node_modules/react-dom/') ||
               id.includes('node_modules/scheduler/')) {
             return 'chunk-react'
-          }
-
-          // ── State management ────────────────────────────────────────────────
-          if (id.includes('node_modules/@reduxjs/') ||
-              id.includes('node_modules/react-redux/') ||
-              id.includes('node_modules/redux/') ||
-              id.includes('node_modules/immer/') ||
-              id.includes('node_modules/reselect/')) {
-            return 'chunk-redux'
           }
 
           // ── Router ──────────────────────────────────────────────────────────
@@ -73,10 +66,14 @@ export default defineConfig(({ mode }) => ({
             return 'chunk-ui-libs'
           }
 
+          // ── Country/state/city data (large JSON dataset) ────────────────────
+          if (id.includes('node_modules/country-state-city/')) {
+            return 'chunk-geo-data'
+          }
+
           // ── Date / location utilities ───────────────────────────────────────
           if (id.includes('node_modules/date-fns/') ||
               id.includes('node_modules/react-date-range/') ||
-              id.includes('node_modules/country-state-city/') ||
               id.includes('node_modules/react-phone-input-2/')) {
             return 'chunk-utils'
           }
