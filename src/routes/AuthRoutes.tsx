@@ -1,11 +1,22 @@
-import { Route } from "react-router-dom"
-import LoginPage from "../features/auth/pages/LoginPage"
-import RegisterPage from "../features/auth/pages/RegisterPage"
-import OAuthSuccessPage from "../features/auth/pages/OAuthSuccessPage"
-import ForgotPasswordPage from "../features/auth/pages/ForgotPasswordPage"
-import SendRequestPage from "../features/auth/pages/SendRequestPage"
-import RequestSuccessPage from "../features/auth/pages/RequestSuccessPage"
-import GuestGuard from "../components/guards/GuestGuard"
+// @refresh reset
+import { lazy } from "react";
+import { Route } from "react-router-dom";
+import GuestGuard from "../components/guards/GuestGuard";
+
+const LoginPage = lazy(() => import("../features/auth/pages/LoginPage"));
+const RegisterPage = lazy(() => import("../features/auth/pages/RegisterPage"));
+const OAuthSuccessPage = lazy(
+  () => import("../features/auth/pages/OAuthSuccessPage"),
+);
+const ForgotPasswordPage = lazy(
+  () => import("../features/auth/pages/ForgotPasswordPage"),
+);
+const SendRequestPage = lazy(
+  () => import("../features/auth/pages/SendRequestPage"),
+);
+const RequestSuccessPage = lazy(
+  () => import("../features/auth/pages/RequestSuccessPage"),
+);
 
 export const AuthRoutes = (
   <>
@@ -19,4 +30,4 @@ export const AuthRoutes = (
       <Route path="/oauth/success" element={<OAuthSuccessPage />} />
     </Route>
   </>
-)
+);

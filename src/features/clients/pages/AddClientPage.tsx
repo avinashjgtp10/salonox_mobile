@@ -1,70 +1,42 @@
-import { useNavigate } from "react-router-dom"
-import { useRef, useState } from "react"
-import "bootstrap/dist/css/bootstrap.min.css"
-import "../styles/AddClientPage.scss"
-import { createClient } from "../services/clientService";
-import { Person, Pencil, X } from "react-bootstrap-icons"
+import { useNavigate } from "react-router-dom";
+import { useRef, useState } from "react";
+import "bootstrap/dist/css/bootstrap.min.css";
+import "../styles/AddClientPage.scss";
+import api from "../../../services/api/axios";
+import { CLIENT } from "../../../services/api/endpoints";
+import { Person, Pencil, X } from "react-bootstrap-icons";
 
 import { useClientWizard } from "../context/ClientWizardContext";
 
 export default function AddClientPage() {
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const navigate = useNavigate()
-  const { setClientData, resetWizard } = useClientWizard()
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
+  const { resetWizard } = useClientWizard();
 
   // Individual states for form inputs
-  const [firstName, setFirstName] = useState("")
-  const [lastName, setLastName] = useState("")
-  const [email, setEmail] = useState("")
-  const [phone, setPhone] = useState("")
-  const [birthday, setBirthday] = useState("")
-  const [year, setYear] = useState("")
-  const [gender, setGender] = useState("")
-  const [pronouns, setPronouns] = useState("")
-  const [occupation, setOccupation] = useState("")
-  const [additionalEmail, setAdditionalEmail] = useState("")
-  const [additionalPhone, setAdditionalPhone] = useState("")
-  const [clientSource, setClientSource] = useState("walk_in")
-  const [preferredLanguage, setPreferredLanguage] = useState("en")
-  const [country, setCountry] = useState("IN")
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [birthday, setBirthday] = useState("");
+  const [year, setYear] = useState("");
+  const [gender, setGender] = useState("");
+  const [pronouns, setPronouns] = useState("");
+  const [occupation, setOccupation] = useState("");
+  const [additionalEmail, setAdditionalEmail] = useState("");
+  const [additionalPhone, setAdditionalPhone] = useState("");
+  const [clientSource, setClientSource] = useState("walk_in");
+  const [preferredLanguage, setPreferredLanguage] = useState("en");
+  const [country, setCountry] = useState("IN");
 
-  const [attemptedSubmit, setAttemptedSubmit] = useState(false)
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
-  const isFirstNameInvalid = attemptedSubmit && firstName.trim() === ""
-
-  const handleProfileNext = () => {
-    if (firstName.trim() === "") {
-      setAttemptedSubmit(true)
-      return
-    }
-
-    setClientData(prev => ({
-      ...prev,
-      profile: {
-        first_name: firstName,
-        last_name: lastName,
-        email: email,
-        phone_number: phone,
-        birthday: birthday,
-        birth_year: year,
-        gender: gender,
-        pronouns: pronouns,
-        occupation: occupation,
-        additional_email: additionalEmail,
-        additional_phone: additionalPhone,
-        client_source: clientSource,
-        preferred_language: preferredLanguage,
-        country: country
-      }
-    }))
-
-    navigate("/dashboard/clients/addresses")
-  }
+  const isFirstNameInvalid = attemptedSubmit && firstName.trim() === "";
 
   const handleSave = async () => {
     if (firstName.trim() === "") {
-      setAttemptedSubmit(true)
-      return
+      setAttemptedSubmit(true);
+      return;
     }
 
     const payload = {
@@ -83,23 +55,21 @@ export default function AddClientPage() {
       preferred_language: preferredLanguage,
       country: country,
       addresses: [],
-      emergency_contact: {}
-    }
+      emergency_contact: {},
+    };
 
     try {
-      await createClient(payload)
-      resetWizard()
-      navigate("/dashboard/clients/list")
+      await api.post(CLIENT.BASE, payload);
+      resetWizard();
+      navigate("/dashboard/clients/list");
     } catch (error) {
-      console.error("Error saving client:", error)
-      alert("Failed to save client. Please try again.")
+      console.error("Error saving client:", error);
+      alert("Failed to save client. Please try again.");
     }
-  }
-
+  };
 
   return (
     <div className="container-fluid p-4 bg-white position-relative">
-
       {/* ERROR TOAST */}
       {isFirstNameInvalid && (
         <div
@@ -114,7 +84,7 @@ export default function AddClientPage() {
             padding: "8px 16px",
             fontSize: "14px",
             fontWeight: "500",
-            minWidth: "250px"
+            minWidth: "250px",
           }}
         >
           <span>First name is required</span>
@@ -129,7 +99,6 @@ export default function AddClientPage() {
 
       {/* HEADER */}
       <div className="d-flex justify-content-between align-items-center mb-4 mt-3">
-
         <h2 className="fw-bold">Add a new client</h2>
 
         <div className="d-flex gap-2">
@@ -144,23 +113,20 @@ export default function AddClientPage() {
             Save
           </button>
         </div>
-
       </div>
 
       <div className="row">
-
         {/* LEFT SIDEBAR */}
         <div className="col-md-3">
-
           <div className="card p-3">
-
             <h6 className="fw-bold mb-3">Personal</h6>
 
             <div className="list-group">
-
               <button className="list-group-item list-group-item-action active d-flex justify-content-between align-items-center">
                 Profile
-                {isFirstNameInvalid && <span className="text-danger-dot">●</span>}
+                {isFirstNameInvalid && (
+                  <span className="text-danger-dot">●</span>
+                )}
               </button>
 
               <button
@@ -183,23 +149,16 @@ export default function AddClientPage() {
               >
                 Settings
               </button>
-
             </div>
-
           </div>
-
         </div>
-
 
         {/* RIGHT FORM */}
         <div className="col-md-9">
-
           {/* PROFILE SECTION */}
           <h5 className="fw-bold mb-3">Profile</h5>
 
-          <p className="text-muted">
-            Manage your client’s personal profile
-          </p>
+          <p className="text-muted">Manage your client’s personal profile</p>
 
           <div className="d-flex align-items-center mb-4 mt-3">
             <div className="profile-image-upload position-relative d-inline-block">
@@ -211,7 +170,11 @@ export default function AddClientPage() {
               />
               <div
                 className="profile-placeholder rounded-circle d-flex justify-content-center align-items-center"
-                style={{ width: "80px", height: "80px", backgroundColor: "#F0F0FE" }}
+                style={{
+                  width: "80px",
+                  height: "80px",
+                  backgroundColor: "#F0F0FE",
+                }}
               >
                 <Person style={{ color: "#7A5CFF" }} size={48} />
               </div>
@@ -226,7 +189,7 @@ export default function AddClientPage() {
                   right: "0px",
                   backgroundColor: "#FAFAFA",
                   border: "1px solid #EAEAEA",
-                  padding: "0"
+                  padding: "0",
                 }}
               >
                 <Pencil size={12} style={{ color: "#888" }} />
@@ -235,20 +198,17 @@ export default function AddClientPage() {
           </div>
 
           <div className="row g-3">
-
             <div className="col-md-6">
               <label className="form-label">First name</label>
               <input
                 type="text"
-                className={`form-control ${isFirstNameInvalid ? 'is-invalid' : ''}`}
+                className={`form-control ${isFirstNameInvalid ? "is-invalid" : ""}`}
                 placeholder="e.g. John"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
               />
               {isFirstNameInvalid && (
-                <div className="invalid-feedback">
-                  This field is required
-                </div>
+                <div className="invalid-feedback">This field is required</div>
               )}
             </div>
 
@@ -334,13 +294,11 @@ export default function AddClientPage() {
                 <option value="Prefer not to say">Prefer not to say</option>
               </select>
             </div>
-
           </div>
 
           {/* ================= ADDITIONAL INFO ================= */}
 
           <div className="mt-5">
-
             <h5 className="fw-bold">Additional info</h5>
 
             <p className="text-muted">
@@ -348,7 +306,6 @@ export default function AddClientPage() {
             </p>
 
             <div className="row g-3 mt-2">
-
               <div className="col-md-6">
                 <label className="form-label">Client source</label>
                 <select
@@ -429,15 +386,10 @@ export default function AddClientPage() {
                   onChange={(e) => setAdditionalPhone(e.target.value)}
                 />
               </div>
-
             </div>
-
           </div>
-
         </div>
-
       </div>
-
     </div>
-  )
+  );
 }

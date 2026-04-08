@@ -1,19 +1,20 @@
-import { useSelector } from "react-redux"
-import { Navigate, Outlet } from "react-router-dom"
-import type { RootState } from "../../store/store"
+import { Navigate, Outlet } from "react-router-dom";
+import { useAppSelector } from "../../hooks/useAppRedux";
 
 const OnboardingGuard = () => {
-  const { accessToken, isOnboardingComplete } = useSelector((state: RootState) => state.auth)
+  const { accessToken, isOnboardingComplete } = useAppSelector(
+    (state) => state.auth,
+  );
 
   if (!accessToken) {
-    return <Navigate to="/login" replace />
+    return <Navigate to="/login" replace />;
   }
 
   if (isOnboardingComplete) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to="/dashboard" replace />;
   }
 
-  return <Outlet />
-}
+  return <Outlet />;
+};
 
-export default OnboardingGuard
+export default OnboardingGuard;

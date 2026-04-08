@@ -2,120 +2,145 @@ import { useState } from "react";
 import type { CatalogFormData } from "../types/catalog.types.ts";
 
 const initialData: CatalogFormData = {
-    basic: {
-        name: "",
-        categoryId: "",
-        duration: 30,
-        price: 0,
-        paddingBefore: 0,
-        paddingAfter: 0,
-        description: "",
-        active: true,
-    },
-    team: {
-        allMembers: true,
-        selectedMemberIds: [],
-        availableMembers: [
-            { id: "1", firstName: "Sarah", lastName: "Johnson", role: "Stylist" },
-            { id: "2", firstName: "Mike", lastName: "Williams", role: "Barber" },
-        ],
-    },
-    resources: {
-        requireResource: false,
-        selectedResourceId: "",
-        availableResources: [
-            { id: "r1", name: "Room 1" },
-            { id: "r2", name: "Chair 1" },
-        ],
-    },
-    addons: {
-        selectedGroupIds: [],
-        availableGroups: [],
-    },
-    onlineBooking: {
-        enabled: true,
-        onlineDescription: "",
-        maxAdvanceDays: 365,
-        minNoticeHours: 2,
-        requireDeposit: false,
-        depositAmount: 0,
-    },
-    portfolio: {
-        images: [],
-    },
-    forms: {
-        selectedFormIds: [],
-        availableForms: [],
-    },
-    commission: {
-        defaultType: "percentage",
-        defaultValue: 0,
-        memberCommissions: [
-            { memberId: "1", memberName: "Sarah Johnson", commissionType: "percentage", commissionValue: 0 },
-            { memberId: "2", memberName: "Mike Williams", commissionType: "percentage", commissionValue: 0 },
-        ],
-    },
-    settings: {
-        cancellationNoticeHours: 24,
-        chargeCancellationFee: false,
-        cancellationFeeAmount: 0,
-        visibleToClients: true,
-        taxable: true,
-        colorLabel: "#6366f1",
-    },
+  basic: {
+    name: "",
+    categoryId: "",
+    duration: 30,
+    price: 0,
+    paddingBefore: 0,
+    paddingAfter: 0,
+    description: "",
+    active: true,
+  },
+  team: {
+    allMembers: true,
+    selectedMemberIds: [],
+    availableMembers: [
+      { id: "1", firstName: "Sarah", lastName: "Johnson", role: "Stylist" },
+      { id: "2", firstName: "Mike", lastName: "Williams", role: "Barber" },
+    ],
+  },
+  resources: {
+    requireResource: false,
+    selectedResourceId: "",
+    availableResources: [
+      { id: "r1", name: "Room 1" },
+      { id: "r2", name: "Chair 1" },
+    ],
+  },
+  addons: {
+    selectedGroupIds: [],
+    availableGroups: [],
+  },
+  onlineBooking: {
+    enabled: true,
+    onlineDescription: "",
+    maxAdvanceDays: 365,
+    minNoticeHours: 2,
+    requireDeposit: false,
+    depositAmount: 0,
+  },
+  portfolio: {
+    images: [],
+  },
+  forms: {
+    selectedFormIds: [],
+    availableForms: [],
+  },
+  commission: {
+    defaultType: "percentage",
+    defaultValue: 0,
+    memberCommissions: [
+      {
+        memberId: "1",
+        memberName: "Sarah Johnson",
+        commissionType: "percentage",
+        commissionValue: 0,
+      },
+      {
+        memberId: "2",
+        memberName: "Mike Williams",
+        commissionType: "percentage",
+        commissionValue: 0,
+      },
+    ],
+  },
+  settings: {
+    cancellationNoticeHours: 24,
+    chargeCancellationFee: false,
+    cancellationFeeAmount: 0,
+    visibleToClients: true,
+    taxable: true,
+    colorLabel: "#6366f1",
+  },
 };
 
-export const useServiceForm = (type: "single" | "bundle") => {
-    const [formData, setFormData] = useState<CatalogFormData>(initialData);
-    const [validationErrors, setValidationErrors] = useState<Record<string, string[]>>({});
-    const [isSubmitted, setIsSubmitted] = useState(false);
+export const useServiceForm = (_type: "single" | "bundle") => {
+  const [formData, setFormData] = useState<CatalogFormData>(initialData);
+  const [validationErrors, setValidationErrors] = useState<
+    Record<string, string[]>
+  >({});
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
-    const updateField = <K extends keyof CatalogFormData>(section: K, value: CatalogFormData[K]) => {
-        setFormData((prev) => ({ ...prev, [section]: value }));
-    };
+  const updateField = <K extends keyof CatalogFormData>(
+    section: K,
+    value: CatalogFormData[K],
+  ) => {
+    setFormData((prev) => ({ ...prev, [section]: value }));
+  };
 
-    const validate = () => {
-        const errors: Record<string, string[]> = {};
+  const validate = () => {
+    const errors: Record<string, string[]> = {};
 
-        // Basic details validation
-        if (!formData.basic.name.trim()) {
-            errors.basic = [...(errors.basic || []), "Service name is required"];
-        }
-        if (!formData.basic.categoryId) {
-            errors.basic = [...(errors.basic || []), "Category is required"];
-        }
-        if (formData.basic.price === undefined || formData.basic.price === null || isNaN(formData.basic.price)) {
-            errors.basic = [...(errors.basic || []), "Price is required"];
-        }
+    // Basic details validation
+    if (!formData.basic.name.trim()) {
+      errors.basic = [...(errors.basic || []), "Service name is required"];
+    }
+    if (!formData.basic.categoryId) {
+      errors.basic = [...(errors.basic || []), "Category is required"];
+    }
+    if (
+      formData.basic.price === undefined ||
+      formData.basic.price === null ||
+      isNaN(formData.basic.price)
+    ) {
+      errors.basic = [...(errors.basic || []), "Price is required"];
+    }
 
-        // Team members validation
-        if (!formData.team.allMembers && formData.team.selectedMemberIds.length === 0) {
-            errors.team = [...(errors.team || []), "At least one team member must be selected"];
-        }
+    // Team members validation
+    if (
+      !formData.team.allMembers &&
+      formData.team.selectedMemberIds.length === 0
+    ) {
+      errors.team = [
+        ...(errors.team || []),
+        "At least one team member must be selected",
+      ];
+    }
 
-        setValidationErrors(errors);
-        return Object.keys(errors).length === 0;
-    };
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
-    const handleSubmit = async () => {
-        setIsSubmitted(true);
-        const isValid = validate();
-        if (!isValid) return false;
+  const handleSubmit = async () => {
+    setIsSubmitted(true);
+    const isValid = validate();
+    if (!isValid) return false;
 
-        console.log("Submitting:", formData);
-        return true;
-    };
+    console.log("Submitting:", formData);
+    return true;
+  };
 
-    const loading = false;
-    const error = null;
+  const loading = false;
+  const error = null;
 
-    return { 
-        formData, 
-        updateField, 
-        handleSubmit, 
-        loading, 
-        error, 
-        validationErrors,
-        isSubmitted 
-    };
+  return {
+    formData,
+    updateField,
+    handleSubmit,
+    loading,
+    error,
+    validationErrors,
+    isSubmitted,
+  };
 };

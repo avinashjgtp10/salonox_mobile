@@ -12,114 +12,209 @@ import CommissionTab from "../components/tabs/CommissionTab.tsx";
 import SettingsTab from "../components/tabs/SettingsTab.tsx";
 import "../styles/AddServicePage.scss";
 
-type TabKey = "basic" | "team" | "resources" | "addons" | "online-booking" | "portfolio" | "forms" | "commission" | "settings";
+type TabKey =
+  | "basic"
+  | "team"
+  | "resources"
+  | "addons"
+  | "online-booking"
+  | "portfolio"
+  | "forms"
+  | "commission"
+  | "settings";
 
 interface TabItem {
-    key: TabKey;
-    label: string;
-    hasError?: boolean;
-    count?: number;
+  key: TabKey;
+  label: string;
+  hasError?: boolean;
+  count?: number;
 }
 
 const generalTabs: TabItem[] = [
-    { key: "basic", label: "Basic details" },
-    { key: "team", label: "Team members" },
-    { key: "resources", label: "Resources" },
-    { key: "addons", label: "Service add-ons" },
+  { key: "basic", label: "Basic details" },
+  { key: "team", label: "Team members" },
+  { key: "resources", label: "Resources" },
+  { key: "addons", label: "Service add-ons" },
 ];
 
 const settingsTabs: TabItem[] = [
-    { key: "online-booking", label: "Online booking" },
-    { key: "portfolio", label: "Portfolio images" },
-    { key: "forms", label: "Forms", count: 1 },
-    { key: "commission", label: "Commissions" },
-    { key: "settings", label: "Settings" },
+  { key: "online-booking", label: "Online booking" },
+  { key: "portfolio", label: "Portfolio images" },
+  { key: "forms", label: "Forms", count: 1 },
+  { key: "commission", label: "Commissions" },
+  { key: "settings", label: "Settings" },
 ];
 
 const AddServicePage: React.FC = () => {
-    const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
-    const serviceType = (searchParams.get("type") || "single") as "single" | "bundle";
-    const [activeTab, setActiveTab] = useState<TabKey>("basic");
-    const { formData, updateField, handleSubmit, loading, error, validationErrors, isSubmitted } = useServiceForm(serviceType);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const serviceType = (searchParams.get("type") || "single") as
+    | "single"
+    | "bundle";
+  const [activeTab, setActiveTab] = useState<TabKey>("basic");
+  const {
+    formData,
+    updateField,
+    handleSubmit,
+    loading,
+    error,
+    validationErrors,
+    isSubmitted,
+  } = useServiceForm(serviceType);
 
-    const onSubmit = async () => {
-        const success = await handleSubmit();
-        if (success) navigate("/dashboard/catalog/services");
-    };
+  const onSubmit = async () => {
+    const success = await handleSubmit();
+    if (success) navigate("/dashboard/catalog/services");
+  };
 
-    const hasErrors = (key: TabKey) => !!validationErrors[key];
+  const hasErrors = (key: TabKey) => !!validationErrors[key];
 
-    const renderTabItem = (tab: TabItem) => (
-        <li key={tab.key} className={`sidebar-nav-item ${activeTab === tab.key ? "active" : ""}`} onClick={() => setActiveTab(tab.key)}>
-            <div className="nav-item-content">
-                <span>{tab.label}</span>
-                {tab.count !== undefined && <span className="nav-item-count">{tab.count}</span>}
-                {(tab.hasError || hasErrors(tab.key)) && <div className="error-dot" />}
-            </div>
-        </li>
-    );
+  const renderTabItem = (tab: TabItem) => (
+    <li
+      key={tab.key}
+      className={`sidebar-nav-item ${activeTab === tab.key ? "active" : ""}`}
+      onClick={() => setActiveTab(tab.key)}
+    >
+      <div className="nav-item-content">
+        <span>{tab.label}</span>
+        {tab.count !== undefined && (
+          <span className="nav-item-count">{tab.count}</span>
+        )}
+        {(tab.hasError || hasErrors(tab.key)) && <div className="error-dot" />}
+      </div>
+    </li>
+  );
 
-    return (
-        <div className="add-service-page">
-            <header className="add-service-page__header">
-                <div className="header-actions-right ms-auto">
-                    <button className="btn-close-text" onClick={() => navigate("/dashboard/catalog/services")}>Close</button>
-                    <button className="btn-save-pill" onClick={onSubmit} disabled={loading}>
-                        {loading ? <span className="spinner-border spinner-border-sm me-2" /> : "Save"}
-                    </button>
-                </div>
-            </header>
-
-            <main className="add-service-page__layout">
-                <div className="layout-container">
-                    <div className="layout-header">
-                        <h1>New service</h1>
-                    </div>
-
-                    {isSubmitted && Object.keys(validationErrors).length > 0 && (
-                        <div className="alert alert-danger border-0 rounded-4 d-flex align-items-center gap-3 p-4 mb-4" style={{ backgroundColor: '#fff1f2', color: '#991b1b' }}>
-                            <div className="error-icon rounded-circle d-flex align-items-center justify-content-center bg-white" style={{ width: '32px', height: '32px' }}>
-                                <i className="bi bi-exclamation-triangle-fill fs-5" />
-                            </div>
-                            <div>
-                                <h6 className="fw-bold mb-1">Check the form for errors</h6>
-                                <p className="small mb-0 opacity-75">Some required fields are missing or invalid. Please check the marked sections.</p>
-                            </div>
-                        </div>
-                    )}
-                    
-                    <div className="layout-body">
-                        <aside className="add-service-page__sidebar">
-                            <nav>
-                                <ul className="sidebar-nav-list">
-                                    {generalTabs.map(renderTabItem)}
-                                </ul>
-                                <div className="sidebar-section-title">Settings</div>
-                                <ul className="sidebar-nav-list">
-                                    {settingsTabs.map(renderTabItem)}
-                                </ul>
-                            </nav>
-                        </aside>
-
-                        <section className="add-service-page__content">
-                            {error && <div className="alert alert-danger mb-4">{error}</div>}
-                            
-                            {activeTab === "basic" && <BasicDetailsTab data={formData.basic} onChange={(v: any) => updateField("basic", v)} serviceType={serviceType} errors={validationErrors.basic} />}
-                            {activeTab === "team" && <TeamMembersTab data={formData.team} onChange={(v: any) => updateField("team", v)} errors={validationErrors.team} />}
-                            {activeTab === "resources" && <ResourcesTab data={formData.resources} onChange={(v: any) => updateField("resources", v)} />}
-                            {activeTab === "addons" && <ServiceAddOnsTab data={formData.addons} onChange={(v: any) => updateField("addons", v)} />}
-                            {activeTab === "online-booking" && <OnlineBookingTab data={formData.onlineBooking} onChange={(v: any) => updateField("onlineBooking", v)} />}
-                            {activeTab === "portfolio" && <PortfolioImagesTab data={formData.portfolio} onChange={(v: any) => updateField("portfolio", v)} />}
-                            {activeTab === "forms" && <FormsTab data={formData.forms} onChange={(v: any) => updateField("forms", v)} />}
-                            {activeTab === "commission" && <CommissionTab data={formData.commission} onChange={(v: any) => updateField("commission", v)} />}
-                            {activeTab === "settings" && <SettingsTab data={formData.settings} onChange={(v: any) => updateField("settings", v)} />}
-                        </section>
-                    </div>
-                </div>
-            </main>
+  return (
+    <div className="add-service-page">
+      <header className="add-service-page__header">
+        <div className="header-actions-right ms-auto">
+          <button
+            className="btn-close-text"
+            onClick={() => navigate("/dashboard/catalog/services")}
+          >
+            Close
+          </button>
+          <button
+            className="btn-save-pill"
+            onClick={onSubmit}
+            disabled={loading}
+          >
+            {loading ? (
+              <span className="spinner-border spinner-border-sm me-2" />
+            ) : (
+              "Save"
+            )}
+          </button>
         </div>
-    );
+      </header>
+
+      <main className="add-service-page__layout">
+        <div className="layout-container">
+          <div className="layout-header">
+            <h1>New service</h1>
+          </div>
+
+          {isSubmitted && Object.keys(validationErrors).length > 0 && (
+            <div
+              className="alert alert-danger border-0 rounded-4 d-flex align-items-center gap-3 p-4 mb-4"
+              style={{ backgroundColor: "#fff1f2", color: "#991b1b" }}
+            >
+              <div
+                className="error-icon rounded-circle d-flex align-items-center justify-content-center bg-white"
+                style={{ width: "32px", height: "32px" }}
+              >
+                <i className="bi bi-exclamation-triangle-fill fs-5" />
+              </div>
+              <div>
+                <h6 className="fw-bold mb-1">Check the form for errors</h6>
+                <p className="small mb-0 opacity-75">
+                  Some required fields are missing or invalid. Please check the
+                  marked sections.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="layout-body">
+            <aside className="add-service-page__sidebar">
+              <nav>
+                <ul className="sidebar-nav-list">
+                  {generalTabs.map(renderTabItem)}
+                </ul>
+                <div className="sidebar-section-title">Settings</div>
+                <ul className="sidebar-nav-list">
+                  {settingsTabs.map(renderTabItem)}
+                </ul>
+              </nav>
+            </aside>
+
+            <section className="add-service-page__content">
+              {error && <div className="alert alert-danger mb-4">{error}</div>}
+
+              {activeTab === "basic" && (
+                <BasicDetailsTab
+                  data={formData.basic}
+                  onChange={(v: any) => updateField("basic", v)}
+                  serviceType={serviceType}
+                  errors={validationErrors.basic}
+                />
+              )}
+              {activeTab === "team" && (
+                <TeamMembersTab
+                  data={formData.team}
+                  onChange={(v: any) => updateField("team", v)}
+                  errors={validationErrors.team}
+                />
+              )}
+              {activeTab === "resources" && (
+                <ResourcesTab
+                  data={formData.resources}
+                  onChange={(v: any) => updateField("resources", v)}
+                />
+              )}
+              {activeTab === "addons" && (
+                <ServiceAddOnsTab
+                  data={formData.addons}
+                  onChange={(v: any) => updateField("addons", v)}
+                />
+              )}
+              {activeTab === "online-booking" && (
+                <OnlineBookingTab
+                  data={formData.onlineBooking}
+                  onChange={(v: any) => updateField("onlineBooking", v)}
+                />
+              )}
+              {activeTab === "portfolio" && (
+                <PortfolioImagesTab
+                  data={formData.portfolio}
+                  onChange={(v: any) => updateField("portfolio", v)}
+                />
+              )}
+              {activeTab === "forms" && (
+                <FormsTab
+                  data={formData.forms}
+                  onChange={(v: any) => updateField("forms", v)}
+                />
+              )}
+              {activeTab === "commission" && (
+                <CommissionTab
+                  data={formData.commission}
+                  onChange={(v: any) => updateField("commission", v)}
+                />
+              )}
+              {activeTab === "settings" && (
+                <SettingsTab
+                  data={formData.settings}
+                  onChange={(v: any) => updateField("settings", v)}
+                />
+              )}
+            </section>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
 };
 
-export default AddServicePage;
+export default AddServicePage;

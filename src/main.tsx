@@ -1,19 +1,28 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import App from './App'
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
 
-import { BrowserRouter } from "react-router-dom"
-import { Provider } from "react-redux"
-import { store } from "./store/store"
+import { BrowserRouter } from "react-router-dom";
+import { Provider } from "react-redux";
+import { PersistGate } from "redux-persist/integration/react";
+import { store, persistor } from "./store/store";
+import * as authActions from "./store/authSlice";
+import { injectStore } from "./services/api/interceptors";
+
 import "bootstrap/dist/css/bootstrap.min.css";
-import 'bootstrap/dist/js/bootstrap.bundle.min.js'
+import "./i18n"; // Inject translation engine
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+// Inject store into interceptors before app boots to avoid circular dependencies
+injectStore(store, authActions);
+
+ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <Provider store={store}>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
+      <PersistGate loading={null} persistor={persistor}>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </PersistGate>
     </Provider>
   </React.StrictMode>,
-)
+);

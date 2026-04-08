@@ -1,30 +1,63 @@
-import { Route } from "react-router-dom"
-import AccountTypePage from "../features/auth/pages/AccountTypePage"
-import BusinessNamePage from "../features/auth/pages/BusinessNamePage"
-import ServiceTypePage from "../features/auth/pages/ServiceTypePage"
-import TeamSetupPage from "../features/auth/pages/TeamSetupPage.tsx"
-import BusinessLocationPage from "../features/auth/pages/BusinessLocationPage"
-import VenueLocationPage from "../features/auth/pages/VenueLocationPage"
-import PreviousSoftwarePage from "../features/auth/pages/PreviousSoftwarePage"
-import RecommendationSourcePage from "../features/auth/pages/RecommendationSourcePage"
-import SetupCompletePage from "../features/auth/pages/SetupCompletePage"
-import JoinBusinessPage from "../features/auth/pages/JoinBusinessPage"
-import TeamSizePage from "../features/auth/pages/TeamSizePage"
-import { OnboardingProvider } from "../context/OnboardingContext"
-import OnboardingGuard from "../components/guards/OnboardingGuard"
+import { lazy } from "react";
+import { Route, Outlet } from "react-router-dom";
+import { OnboardingProvider } from "../context/OnboardingContext";
+import OnboardingGuard from "../components/guards/OnboardingGuard";
+
+const AccountTypePage = lazy(
+  () => import("../features/auth/pages/AccountTypePage"),
+);
+const BusinessNamePage = lazy(
+  () => import("../features/auth/pages/BusinessNamePage"),
+);
+const ServiceTypePage = lazy(
+  () => import("../features/auth/pages/ServiceTypePage"),
+);
+const TeamSetupPage = lazy(
+  () => import("../features/auth/pages/TeamSetupPage"),
+);
+const BusinessLocationPage = lazy(
+  () => import("../features/auth/pages/BusinessLocationPage"),
+);
+const VenueLocationPage = lazy(
+  () => import("../features/auth/pages/VenueLocationPage"),
+);
+const PreviousSoftwarePage = lazy(
+  () => import("../features/auth/pages/PreviousSoftwarePage"),
+);
+const RecommendationSourcePage = lazy(
+  () => import("../features/auth/pages/RecommendationSourcePage"),
+);
+const SetupCompletePage = lazy(
+  () => import("../features/auth/pages/SetupCompletePage"),
+);
+const JoinBusinessPage = lazy(
+  () => import("../features/auth/pages/JoinBusinessPage"),
+);
+const TeamSizePage = lazy(() => import("../features/auth/pages/TeamSizePage"));
 
 export const OnboardingRoutes = (
   <Route element={<OnboardingGuard />}>
-    <Route path="/account-type" element={<OnboardingProvider><AccountTypePage /></OnboardingProvider>} />
-    <Route path="/business-name" element={<OnboardingProvider><BusinessNamePage /></OnboardingProvider>} />
-    <Route path="/service-type" element={<OnboardingProvider><ServiceTypePage /></OnboardingProvider>} />
-    <Route path="/team-setup" element={<OnboardingProvider><TeamSetupPage /></OnboardingProvider>} />
-    <Route path="/team-size" element={<OnboardingProvider><TeamSizePage /></OnboardingProvider>} />
-    <Route path="/business-location" element={<OnboardingProvider><BusinessLocationPage /></OnboardingProvider>} />
-    <Route path="/venue-location" element={<OnboardingProvider><VenueLocationPage /></OnboardingProvider>} />
-    <Route path="/previous-software" element={<OnboardingProvider><PreviousSoftwarePage /></OnboardingProvider>} />
-    <Route path="/recommendation-source" element={<OnboardingProvider><RecommendationSourcePage /></OnboardingProvider>} />
-    <Route path="/setup-complete" element={<OnboardingProvider><SetupCompletePage /></OnboardingProvider>} />
-    <Route path="/join-business" element={<OnboardingProvider><JoinBusinessPage /></OnboardingProvider>} />
+    <Route
+      element={
+        <OnboardingProvider>
+          <Outlet />
+        </OnboardingProvider>
+      }
+    >
+      <Route path="/account-type" element={<AccountTypePage />} />
+      <Route path="/business-name" element={<BusinessNamePage />} />
+      <Route path="/service-type" element={<ServiceTypePage />} />
+      <Route path="/team-setup" element={<TeamSetupPage />} />
+      <Route path="/team-size" element={<TeamSizePage />} />
+      <Route path="/business-location" element={<BusinessLocationPage />} />
+      <Route path="/venue-location" element={<VenueLocationPage />} />
+      <Route path="/previous-software" element={<PreviousSoftwarePage />} />
+      <Route
+        path="/recommendation-source"
+        element={<RecommendationSourcePage />}
+      />
+      <Route path="/setup-complete" element={<SetupCompletePage />} />
+      <Route path="/join-business" element={<JoinBusinessPage />} />
+    </Route>
   </Route>
-)
+);

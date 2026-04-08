@@ -1,12 +1,25 @@
-import { Routes, Route } from "react-router-dom"
-import StaffListPage from "../features/staff/pages/StaffListPage"
-import AddStaffPage from "../features/staff/pages/AddStaffPage"
-import PayRunsPage from "../features/staff/pages/PayRunsPage"
-import PayRunBreakdownPage from "../features/staff/pages/PayRunBreakdownPage"
-import RepeatingShiftsPage from "../features/staff/pages/RepeatingShiftsPage"
-import ScheduledShiftsPage from "../features/dashboard/pages/ScheduledShiftsPage"
+import { lazy, Suspense } from "react";
+import { Routes, Route } from "react-router-dom";
+
+const StaffListPage = lazy(
+  () => import("../features/staff/pages/StaffListPage"),
+);
+const AddStaffPage = lazy(() => import("../features/staff/pages/AddStaffPage"));
+const PayRunsPage = lazy(() => import("../features/staff/pages/PayRunsPage"));
+const PayRunBreakdownPage = lazy(
+  () => import("../features/staff/pages/PayRunBreakdownPage"),
+);
+const RepeatingShiftsPage = lazy(
+  () => import("../features/staff/pages/RepeatingShiftsPage"),
+);
+const ScheduledShiftsPage = lazy(
+  () => import("../features/dashboard/pages/ScheduledShiftsPage"),
+);
+
+import { PageLoader } from "../components/ui";
 
 export const TeamRoutes = () => (
+  <Suspense fallback={<PageLoader />}>
     <Routes>
       <Route index element={<StaffListPage />} />
       <Route path="members" element={<StaffListPage />} />
@@ -16,4 +29,5 @@ export const TeamRoutes = () => (
       <Route path="payruns/:id" element={<PayRunBreakdownPage />} />
       <Route path="shifts" element={<ScheduledShiftsPage />} />
     </Routes>
-)
+  </Suspense>
+);

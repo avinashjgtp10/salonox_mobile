@@ -1,148 +1,148 @@
 export interface Service {
-    id: string;
-    name: string;
-    categoryId: string;
-    categoryName: string;
-    duration: number;
-    price: number;
-    onlineBookingEnabled: boolean;
-    active: boolean;
+  id: string;
+  name: string;
+  categoryId: string;
+  categoryName: string;
+  duration: number;
+  price: number;
+  onlineBookingEnabled: boolean;
+  active: boolean;
 }
 
 export interface BasicDetailsData {
-    name: string;
-    categoryId: string;
-    duration: number;
-    price: number;
-    paddingBefore: number;
-    paddingAfter: number;
-    description: string;
-    active: boolean;
+  name: string;
+  categoryId: string;
+  duration: number;
+  price: number;
+  paddingBefore: number;
+  paddingAfter: number;
+  description: string;
+  active: boolean;
 }
 
 export interface TeamMember {
-    id: string;
-    firstName: string;
-    lastName: string;
-    role: string;
+  id: string;
+  firstName: string;
+  lastName: string;
+  role: string;
 }
 
 export interface TeamMembersData {
-    allMembers: boolean;
-    selectedMemberIds: string[];
-    availableMembers: TeamMember[];
+  allMembers: boolean;
+  selectedMemberIds: string[];
+  availableMembers: TeamMember[];
 }
 
 export interface Resource {
-    id: string;
-    name: string;
+  id: string;
+  name: string;
 }
 
 export interface ResourcesData {
-    requireResource: boolean;
-    selectedResourceId: string;
-    availableResources: Resource[];
+  requireResource: boolean;
+  selectedResourceId: string;
+  availableResources: Resource[];
 }
 
 export interface AddOnOption {
-    id: string;
-    name: string;
-    duration: number;
-    price: number;
+  id: string;
+  name: string;
+  duration: number;
+  price: number;
 }
 
 export interface AddOnGroup {
-    id: string;
-    name: string;
-    prompt: string;
-    options: AddOnOption[];
-    minQuantityRequired: boolean;
-    maxQuantityEnabled: boolean;
-    allowMultipleSame: boolean;
-    linkedServiceIds: string[];
+  id: string;
+  name: string;
+  prompt: string;
+  options: AddOnOption[];
+  minQuantityRequired: boolean;
+  maxQuantityEnabled: boolean;
+  allowMultipleSame: boolean;
+  linkedServiceIds: string[];
 }
 
 export interface ServiceAddOnsData {
-    selectedGroupIds: string[];
-    availableGroups: AddOnGroup[];
+  selectedGroupIds: string[];
+  availableGroups: AddOnGroup[];
 }
 
 export interface OnlineBookingData {
-    enabled: boolean;
-    onlineDescription: string;
-    maxAdvanceDays: number;
-    minNoticeHours: number;
-    requireDeposit: boolean;
-    depositAmount: number;
+  enabled: boolean;
+  onlineDescription: string;
+  maxAdvanceDays: number;
+  minNoticeHours: number;
+  requireDeposit: boolean;
+  depositAmount: number;
 }
 
 export interface PortfolioImage {
-    id: string;
-    url: string;
-    file?: File;
+  id: string;
+  url: string;
+  file?: File;
 }
 
 export interface PortfolioData {
-    images: PortfolioImage[];
+  images: PortfolioImage[];
 }
 
 export interface ServiceForm {
-    id: string;
-    name: string;
-    createdAt: string;
+  id: string;
+  name: string;
+  createdAt: string;
 }
 
 export interface FormsData {
-    selectedFormIds: string[];
-    availableForms: ServiceForm[];
+  selectedFormIds: string[];
+  availableForms: ServiceForm[];
 }
 
 export interface MemberCommission {
-    memberId: string;
-    memberName: string;
-    commissionType: "percentage" | "flat";
-    commissionValue: number;
+  memberId: string;
+  memberName: string;
+  commissionType: "percentage" | "flat";
+  commissionValue: number;
 }
 
 export interface CommissionData {
-    defaultType: "percentage" | "flat";
-    defaultValue: number;
-    memberCommissions: MemberCommission[];
+  defaultType: "percentage" | "flat";
+  defaultValue: number;
+  memberCommissions: MemberCommission[];
 }
 
 export interface SettingsData {
-    cancellationNoticeHours: number;
-    chargeCancellationFee: boolean;
-    cancellationFeeAmount: number;
-    visibleToClients: boolean;
-    taxable: boolean;
-    colorLabel: string;
+  cancellationNoticeHours: number;
+  chargeCancellationFee: boolean;
+  cancellationFeeAmount: number;
+  visibleToClients: boolean;
+  taxable: boolean;
+  colorLabel: string;
 }
 
 export interface Category {
-    id: string;
-    name: string;
-    serviceCount: number;
+  id: string;
+  name: string;
+  serviceCount: number;
 }
 
 export interface Membership {
-    id: string;
-    name: string;
-    servicesCovered: string; // e.g., "All services"
-    validFor: string; // e.g., "1 month"
-    sessions: string; // e.g., "5 sessions"
-    price: number;
-    image?: string;
+  id: string;
+  name: string;
+  servicesCovered: string; // e.g., "All services"
+  validFor: string; // e.g., "1 month"
+  sessions: string; // e.g., "5 sessions"
+  price: number;
+  image?: string;
 }
 
 export interface CatalogFormData {
-    basic: BasicDetailsData;
-    team: TeamMembersData;
-    resources: ResourcesData;
-    addons: ServiceAddOnsData;
-    onlineBooking: OnlineBookingData;
-    portfolio: PortfolioData;
-    forms: FormsData;
-    commission: CommissionData;
-    settings: SettingsData;
+  basic: BasicDetailsData;
+  team: TeamMembersData;
+  resources: ResourcesData;
+  addons: ServiceAddOnsData;
+  onlineBooking: OnlineBookingData;
+  portfolio: PortfolioData;
+  forms: FormsData;
+  commission: CommissionData;
+  settings: SettingsData;
 }

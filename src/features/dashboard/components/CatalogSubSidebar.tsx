@@ -1,14 +1,13 @@
-import { ChevronLeft } from "react-bootstrap-icons"
-import { NavLink } from "react-router-dom"
+import { ChevronLeft } from "react-bootstrap-icons";
+import { NavLink } from "react-router-dom";
 
 interface Props {
-  onClose: () => void
+  onClose: () => void;
 }
 
 export default function CatalogSubSidebar({ onClose }: Props) {
   return (
     <div className="sub-sidebar">
-
       <div className="sub-header">
         <h3>Catalog</h3>
 
@@ -26,8 +25,6 @@ export default function CatalogSubSidebar({ onClose }: Props) {
       >
         Service menu
       </NavLink>
-
-
 
       <NavLink
         to="/dashboard/catalog/memberships"
@@ -50,9 +47,7 @@ export default function CatalogSubSidebar({ onClose }: Props) {
       </NavLink>
       <hr className="sub-divider" />
 
-      <div className="sub-category">
-        Inventory
-      </div>
+      <div className="sub-category">Inventory</div>
       <NavLink
         to="/dashboard/catalog/inventory/stocktakes"
         className={({ isActive }) =>
@@ -80,7 +75,6 @@ export default function CatalogSubSidebar({ onClose }: Props) {
       >
         Suppliers
       </NavLink>
-
     </div>
-  )
+  );
 }

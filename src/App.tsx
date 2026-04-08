@@ -1,27 +1,27 @@
-import { Routes, Route, Navigate } from "react-router-dom"
-// FORCE REFRESH - Fixed Marketplace Reference Errors
-import { Toaster } from "react-hot-toast"
-
-import { AuthRoutes } from "./routes/AuthRoutes"
-import { OnboardingRoutes } from "./routes/OnboardingRoutes"
-import { DashboardRoutes } from "./routes/DashboardRoutes"
+import { Suspense } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
+import { PageLoader } from "./components/ui";
+import { AuthRoutes, OnboardingRoutes, DashboardRoutes } from "./routes";
 
 function App() {
   return (
     <>
       <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
 
-      <Routes>
-        {AuthRoutes}
-        {OnboardingRoutes}
+      <Suspense fallback={<PageLoader fullHeight />}>
+        <Routes>
+          {AuthRoutes}
+          {OnboardingRoutes}
 
-        {/* ROOT */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
+          {/* ROOT */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
 
-        {DashboardRoutes}
-      </Routes>
+          {DashboardRoutes}
+        </Routes>
+      </Suspense>
     </>
-  )
+  );
 }
 
-export default App
+export default App;

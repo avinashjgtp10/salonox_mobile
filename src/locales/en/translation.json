@@ -1,0 +1,28 @@
+{
+  "clients": {
+    "header": {
+      "title": "Clients list",
+      "subtitle": "View, add, edit and delete your client's details.",
+      "learnMore": "Learn more"
+    },
+    "actions": {
+      "options": "Options",
+      "add": "Add",
+      "import": "Import clients",
+      "merge": "Merge clients",
+      "export": "Export",
+      "bulkEdit": "Bulk edit",
+      "block": "Block customers",
+      "unblock": "Unblock customers",
+      "addTags": "Add tags",
+      "delete": "Delete"
+    },
+    "table": {
+      "name": "Client name",
+      "mobile": "Mobile number",
+      "reviews": "Reviews",
+      "sales": "Sales",
+      "createdAt": "Created at"
+    }
+  }
+}

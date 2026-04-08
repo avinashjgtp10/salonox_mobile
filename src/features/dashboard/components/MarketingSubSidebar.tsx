@@ -1,14 +1,13 @@
-import { NavLink } from "react-router-dom"
-import { ChevronLeft } from "react-bootstrap-icons"
+import { NavLink } from "react-router-dom";
+import { ChevronLeft } from "react-bootstrap-icons";
 
 interface Props {
-  onClose: () => void
+  onClose: () => void;
 }
 
 export default function MarketingSubSidebar({ onClose }: Props) {
   return (
     <div className="sub-sidebar">
-
       <div className="sub-header">
         <h3>Marketing</h3>
         <button className="floating-close" onClick={onClose}>
@@ -59,7 +58,6 @@ export default function MarketingSubSidebar({ onClose }: Props) {
       >
         ⚙️ WhatsApp Config
       </NavLink>
-
     </div>
-  )
+  );
 }

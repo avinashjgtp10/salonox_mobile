@@ -1,17 +1,25 @@
-import { Route } from "react-router-dom"
-import DashboardPage from "../features/dashboard/pages/DashboardPage"
-import DashboardLayout from "../features/dashboard/components/DashboardLayout"
-import Scheduler from "../features/bookings/components/calendar/Scheduler"
-import AuthGuard from "../components/guards/AuthGuard"
-import { DashboardProviders } from "../providers/DashboardProviders"
+// @refresh reset
+import { lazy } from "react";
+import { Route } from "react-router-dom";
+import DashboardLayout from "../features/dashboard/components/DashboardLayout";
+import AuthGuard from "../components/guards/AuthGuard";
+import { DashboardProviders } from "../providers/DashboardProviders";
 
-import { AppsRoutes }      from "./AppsRoutes"
-import { SalesRoutes }     from "./SalesRoutes"
-import { CatalogRoutes }   from "./CatalogRoutes"
-import { ClientsRoutes }   from "./ClientsRoutes"
-import { TeamRoutes }      from "./TeamRoutes"
-import { SettingsRoutes }  from "./SettingsRoutes"
-import { MarketingRoutes } from "./MarketingRoutes"   // ← ADD THIS
+import { AppsRoutes } from "./AppsRoutes";
+import { SalesRoutes } from "./SalesRoutes";
+import { CatalogRoutes } from "./CatalogRoutes";
+import { ClientsRoutes } from "./ClientsRoutes";
+import { TeamRoutes } from "./TeamRoutes";
+import { SettingsRoutes } from "./SettingsRoutes";
+import { MarketingRoutes } from "./MarketingRoutes";
+
+// Lazy-load the heavy dashboard-specific pages
+const DashboardPage = lazy(
+  () => import("../features/dashboard/pages/DashboardPage"),
+);
+const Scheduler = lazy(
+  () => import("../features/bookings/components/calendar/Scheduler"),
+);
 
 export const DashboardRoutes = (
   <Route element={<AuthGuard />}>
@@ -34,4 +42,4 @@ export const DashboardRoutes = (
       <Route path="marketing/*"  element={<MarketingRoutes />} />  {/* ← ADD THIS */}
     </Route>
   </Route>
-)
+);

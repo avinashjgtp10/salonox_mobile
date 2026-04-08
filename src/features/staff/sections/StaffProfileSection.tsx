@@ -3,10 +3,23 @@ import type { FC } from "react";
 import { Person, Pencil } from "react-bootstrap-icons";
 
 const CALENDAR_COLORS = [
-  "#93c5fd", "#60a5fa", "#3b82f6", "#6366f1", "#8b5cf6",
-  "#a78bfa", "#c084fc", "#e879f9", "#f472b6", "#fb7185",
-  "#fb923c", "#fbbf24", "#facc15", "#a3e635", "#34d399",
-  "#2dd4bf", "#67e8f9",
+  "#93c5fd",
+  "#60a5fa",
+  "#3b82f6",
+  "#6366f1",
+  "#8b5cf6",
+  "#a78bfa",
+  "#c084fc",
+  "#e879f9",
+  "#f472b6",
+  "#fb7185",
+  "#fb923c",
+  "#fbbf24",
+  "#facc15",
+  "#a3e635",
+  "#34d399",
+  "#2dd4bf",
+  "#67e8f9",
 ];
 
 interface StaffProfileProps {
@@ -49,11 +62,42 @@ interface StaffProfileProps {
 }
 
 const COUNTRIES = [
-  "India", "United States", "United Kingdom", "United Arab Emirates", "Australia", "Canada",
-  "Germany", "France", "Italy", "Spain", "Netherlands", "Singapore", "Japan", "Saudi Arabia",
-  "South Africa", "Brazil", "Mexico", "Russia", "China", "New Zealand", "Ireland", "Sweden",
-  "Norway", "Denmark", "Switzerland", "Belgium", "Portugal", "Greece", "Turkey", "Israel",
-  "Malaysia", "Thailand", "Vietnam", "Indonesia", "Philippines", "South Korea"
+  "India",
+  "United States",
+  "United Kingdom",
+  "United Arab Emirates",
+  "Australia",
+  "Canada",
+  "Germany",
+  "France",
+  "Italy",
+  "Spain",
+  "Netherlands",
+  "Singapore",
+  "Japan",
+  "Saudi Arabia",
+  "South Africa",
+  "Brazil",
+  "Mexico",
+  "Russia",
+  "China",
+  "New Zealand",
+  "Ireland",
+  "Sweden",
+  "Norway",
+  "Denmark",
+  "Switzerland",
+  "Belgium",
+  "Portugal",
+  "Greece",
+  "Turkey",
+  "Israel",
+  "Malaysia",
+  "Thailand",
+  "Vietnam",
+  "Indonesia",
+  "Philippines",
+  "South Korea",
 ].sort();
 
 const PHONE_CODES = [
@@ -69,48 +113,50 @@ const PHONE_CODES = [
 
 const StaffProfileSection: FC<StaffProfileProps> = ({
   firstName = "",
-  setFirstName = () => { },
+  setFirstName = () => {},
   lastName = "",
-  setLastName = () => { },
+  setLastName = () => {},
   email = "",
-  setEmail = () => { },
+  setEmail = () => {},
   phone = "",
-  setPhone = () => { },
+  setPhone = () => {},
   additionalPhone = "",
-  setAdditionalPhone = () => { },
+  setAdditionalPhone = () => {},
   country = "India",
-  setCountry = () => { },
+  setCountry = () => {},
   birthdayDayMonth = "",
-  setBirthdayDayMonth = () => { },
+  setBirthdayDayMonth = () => {},
   birthdayYear = "",
-  setBirthdayYear = () => { },
+  setBirthdayYear = () => {},
   calendarColor = CALENDAR_COLORS[0],
-  setCalendarColor = () => { },
+  setCalendarColor = () => {},
   jobTitle = "",
-  setJobTitle = () => { },
+  setJobTitle = () => {},
   startDateDayMonth = "",
-  setStartDateDayMonth = () => { },
+  setStartDateDayMonth = () => {},
   startDateYear = "2026",
-  setStartDateYear = () => { },
+  setStartDateYear = () => {},
   endDateDayMonth = "",
-  setEndDateDayMonth = () => { },
+  setEndDateDayMonth = () => {},
   endDateYear = "",
-  setEndDateYear = () => { },
+  setEndDateYear = () => {},
   employmentType = "",
-  setEmploymentType = () => { },
+  setEmploymentType = () => {},
   memberId = "",
-  setMemberId = () => { },
+  setMemberId = () => {},
   notes = "",
-  setNotes = () => { },
+  setNotes = () => {},
   isFirstNameInvalid = false,
-  isEmailInvalid = false
+  isEmailInvalid = false,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="section staff-form">
       <h5 className="section__title">Profile</h5>
-      <p className="section__subtitle mb-4">Manage your team member's personal profile</p>
+      <p className="section__subtitle mb-4">
+        Manage your team member's personal profile
+      </p>
 
       <div className="d-flex align-items-center mb-4 mt-2">
         <div className="profile-image-upload position-relative d-inline-block">
@@ -122,7 +168,11 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
           />
           <div
             className="profile-placeholder rounded-circle d-flex justify-content-center align-items-center shadow-sm"
-            style={{ width: "72px", height: "72px", backgroundColor: "#f0f0fe" }}
+            style={{
+              width: "72px",
+              height: "72px",
+              backgroundColor: "#f0f0fe",
+            }}
           >
             <Person style={{ color: "#7a5cff" }} size={40} />
           </div>
@@ -137,7 +187,7 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
               right: "0px",
               backgroundColor: "#fff",
               border: "1px solid #e5e7eb",
-              padding: "0"
+              padding: "0",
             }}
           >
             <Pencil size={12} style={{ color: "#6b7280" }} />
@@ -146,7 +196,9 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
       </div>
 
       <div className="mb-4">
-        <label className="form-label">First name <span className="text-danger">*</span></label>
+        <label className="form-label">
+          First name <span className="text-danger">*</span>
+        </label>
         <input
           type="text"
           className={`form-control ${isFirstNameInvalid ? "is-invalid" : ""}`}
@@ -154,7 +206,9 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
           value={firstName}
           onChange={(e) => setFirstName(e.target.value)}
         />
-        {isFirstNameInvalid && <div className="invalid-feedback">First name is required</div>}
+        {isFirstNameInvalid && (
+          <div className="invalid-feedback">First name is required</div>
+        )}
       </div>
 
       <div className="mb-4">
@@ -169,7 +223,9 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
       </div>
 
       <div className="mb-4">
-        <label className="form-label">Email <span className="text-danger">*</span></label>
+        <label className="form-label">
+          Email <span className="text-danger">*</span>
+        </label>
         <input
           type="email"
           className={`form-control ${isEmailInvalid ? "is-invalid" : ""}`}
@@ -177,7 +233,10 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
-        <div className={`form-hint ${isEmailInvalid ? "text-danger" : ""}`} style={{ fontSize: '12px', marginTop: '6px' }}>
+        <div
+          className={`form-hint ${isEmailInvalid ? "text-danger" : ""}`}
+          style={{ fontSize: "12px", marginTop: "6px" }}
+        >
           Email is required when permission level is greater than 'No Access'
         </div>
       </div>
@@ -186,8 +245,15 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
         <label className="form-label">Phone number</label>
         <div className="phone-group-container">
           <div className="phone-group d-flex gap-2">
-            <select className="form-select phone-code-select" style={{ width: "110px" }}>
-              {PHONE_CODES.map(p => <option key={p.code} value={p.code}>{p.label}</option>)}
+            <select
+              className="form-select phone-code-select"
+              style={{ width: "110px" }}
+            >
+              {PHONE_CODES.map((p) => (
+                <option key={p.code} value={p.code}>
+                  {p.label}
+                </option>
+              ))}
             </select>
             <input
               type="tel"
@@ -203,8 +269,15 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
       <div className="mb-4">
         <label className="form-label">Additional phone number</label>
         <div className="phone-group d-flex gap-2">
-          <select className="form-select phone-code-select" style={{ width: "110px" }}>
-            {PHONE_CODES.map(p => <option key={p.code} value={p.code}>{p.label}</option>)}
+          <select
+            className="form-select phone-code-select"
+            style={{ width: "110px" }}
+          >
+            {PHONE_CODES.map((p) => (
+              <option key={p.code} value={p.code}>
+                {p.label}
+              </option>
+            ))}
           </select>
           <input
             type="tel"
@@ -223,8 +296,10 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
           value={country}
           onChange={(e) => setCountry(e.target.value)}
         >
-          {COUNTRIES.map(c => (
-            <option key={c} value={c}>{c}</option>
+          {COUNTRIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
           ))}
         </select>
       </div>
@@ -281,7 +356,9 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
       <hr className="section__divider" />
 
       <h5 className="section__block-title">Work details</h5>
-      <p className="section__block-subtitle">Manage your team member's start date, and employment details</p>
+      <p className="section__block-subtitle">
+        Manage your team member's start date, and employment details
+      </p>
 
       <div className="row g-3 mb-3">
         <div className="col-7">
@@ -351,7 +428,9 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
             value={memberId}
             onChange={(e) => setMemberId(e.target.value)}
           />
-          <div className="form-hint">An identifier used for external systems like payroll</div>
+          <div className="form-hint">
+            An identifier used for external systems like payroll
+          </div>
         </div>
       </div>
 
