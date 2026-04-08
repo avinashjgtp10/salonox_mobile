@@ -9,26 +9,32 @@ const ProductsLandingPage: React.FC = () => {
   return (
     <div className="products-landing-page">
       <div className="container-fluid py-4 px-4">
-
         {/* Page Header */}
         <div className="row align-items-center mb-4">
           <div className="col">
-            <h4 className="products-landing-page__title fw-bold mb-0">Products</h4>
-            <p className="text-muted small mb-0">Manage your inventory and retail products</p>
+            <h4 className="products-landing-page__title fw-bold mb-0">
+              Products
+            </h4>
+            <p className="text-muted small mb-0">
+              Manage your inventory and retail products
+            </p>
           </div>
         </div>
 
         {/* Hero Section */}
         <div className="products-landing-page__hero row align-items-center">
-
           {/* Left: Copy */}
           <div className="col-12 col-lg-6 products-landing-page__hero-copy">
-            <span className="products-landing-page__badge mb-3 d-inline-block">New Feature</span>
+            <span className="products-landing-page__badge mb-3 d-inline-block">
+              New Feature
+            </span>
             <h2 className="products-landing-page__headline fw-bold mb-3">
-              Track your inventory<br />and sales
+              Track your inventory
+              <br />
+              and sales
             </h2>
             <p className="products-landing-page__subtext mb-4">
-              Keep track of stock levels, manage suppliers, and grow your retail 
+              Keep track of stock levels, manage suppliers, and grow your retail
               revenue with ease.
             </p>
 
@@ -61,21 +67,42 @@ const ProductsLandingPage: React.FC = () => {
           {/* Right: Illustration */}
           <div className="col-12 col-lg-6 d-flex justify-content-center justify-content-lg-end mt-5 mt-lg-0">
             <div className="products-landing-page__illustration-wrap">
-
               {/* Product stack card */}
               <div className="products-landing-page__product-stack shadow-lg">
-                <div className="fw-bold small mb-3 border-bottom pb-2">Top Sellers</div>
+                <div className="fw-bold small mb-3 border-bottom pb-2">
+                  Top Sellers
+                </div>
                 {[
-                  { name: "Organic Shampoo", price: "₹850", stock: 24, status: "OK" },
-                  { name: "Hair Wax Pro", price: "₹450", stock: 5, status: "LOW" },
-                  { name: "Conditioner Lite", price: "₹650", stock: 12, status: "OK" },
+                  {
+                    name: "Organic Shampoo",
+                    price: "₹850",
+                    stock: 24,
+                    status: "OK",
+                  },
+                  {
+                    name: "Hair Wax Pro",
+                    price: "₹450",
+                    stock: 5,
+                    status: "LOW",
+                  },
+                  {
+                    name: "Conditioner Lite",
+                    price: "₹650",
+                    stock: 12,
+                    status: "OK",
+                  },
                 ].map((item) => (
-                  <div key={item.name} className="products-landing-page__item-row">
+                  <div
+                    key={item.name}
+                    className="products-landing-page__item-row"
+                  >
                     <div className="flex-grow-1">
                       <div className="small fw-bold">{item.name}</div>
                       <div className="text-muted extra-small">{item.price}</div>
                     </div>
-                    <div className={`products-landing-page__status products-landing-page__status--${item.status.toLowerCase()}`}>
+                    <div
+                      className={`products-landing-page__status products-landing-page__status--${item.status.toLowerCase()}`}
+                    >
                       {item.stock} left
                     </div>
                   </div>
@@ -96,15 +123,16 @@ const ProductsLandingPage: React.FC = () => {
                   <span className="text-muted small">Low Stock</span>
                   <span className="text-danger fw-bold small">3</span>
                 </div>
-                <div className="progress mt-3" style={{ height: '6px' }}>
-                  <div className="progress-bar bg-primary" style={{ width: '75%' }}></div>
+                <div className="progress mt-3" style={{ height: "6px" }}>
+                  <div
+                    className="progress-bar bg-primary"
+                    style={{ width: "75%" }}
+                  ></div>
                 </div>
               </div>
-
             </div>
           </div>
         </div>
-
       </div>
     </div>
   );

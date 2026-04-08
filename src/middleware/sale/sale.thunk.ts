@@ -73,7 +73,7 @@ export const updateSaleThunk = createAsyncThunk<
 
 // ── Delete sale ────────────────────────────────────────────────────────────────
 export const deleteSaleThunk = createAsyncThunk<
-  string | number,        // returns the deleted id so reducer can remove it
+  string | number, // returns the deleted id so reducer can remove it
   string | number,
   { rejectValue: string }
 >("sale/delete", async (id, { rejectWithValue }) => {

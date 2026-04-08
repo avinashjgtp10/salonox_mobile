@@ -16,8 +16,16 @@ interface ShiftCellProps {
 }
 
 const ShiftCell: React.FC<ShiftCellProps> = ({
-  shift, isOff, memberId, date,
-  onAddShift, onEditDay, onSetRepeating, onAddTimeOff, onDeleteShift, onViewMember,
+  shift,
+  isOff,
+  memberId,
+  date,
+  onAddShift,
+  onEditDay,
+  onSetRepeating,
+  onAddTimeOff,
+  onDeleteShift,
+  onViewMember,
 }) => {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
@@ -26,8 +34,12 @@ const ShiftCell: React.FC<ShiftCellProps> = ({
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node) &&
-        btnRef.current && !btnRef.current.contains(e.target as Node)) {
+      if (
+        ref.current &&
+        !ref.current.contains(e.target as Node) &&
+        btnRef.current &&
+        !btnRef.current.contains(e.target as Node)
+      ) {
         setOpen(false);
       }
     };
@@ -40,12 +52,16 @@ const ShiftCell: React.FC<ShiftCellProps> = ({
       const rect = btnRef.current.getBoundingClientRect();
       setPos({ top: rect.bottom + 4, left: rect.left });
     }
-    setOpen(p => !p);
+    setOpen((p) => !p);
   };
 
-  const act = (fn: () => void) => { fn(); setOpen(false); };
+  const act = (fn: () => void) => {
+    fn();
+    setOpen(false);
+  };
 
-  if (isOff) return <div className="shift-cell shift-cell--off">Not working</div>;
+  if (isOff)
+    return <div className="shift-cell shift-cell--off">Not working</div>;
 
   return (
     <div className="shift-cell" ref={ref}>
@@ -54,30 +70,83 @@ const ShiftCell: React.FC<ShiftCellProps> = ({
           {shift.start} – {shift.end}
         </button>
       ) : (
-        <button ref={btnRef} className="shift-cell__plus-btn" onClick={handleOpen} aria-label="Add">
+        <button
+          ref={btnRef}
+          className="shift-cell__plus-btn"
+          onClick={handleOpen}
+          aria-label="Add"
+        >
           <span className="shift-cell__plus-icon">+</span>
         </button>
       )}
 
       {open && (
-        <div className="shift-cell__popover" style={{ top: pos.top, left: pos.left }}>
+        <div
+          className="shift-cell__popover"
+          style={{ top: pos.top, left: pos.left }}
+        >
           {shift ? (
             <>
-              <button className="shift-cell__pop-item" onClick={() => act(() => onEditDay(memberId, date))}>Edit this day</button>
-              <button className="shift-cell__pop-item" onClick={() => act(() => onSetRepeating(memberId, date))}>Set repeating shifts</button>
-              <button className="shift-cell__pop-item" onClick={() => act(() => onAddTimeOff(memberId, date))}>Add time off</button>
+              <button
+                className="shift-cell__pop-item"
+                onClick={() => act(() => onEditDay(memberId, date))}
+              >
+                Edit this day
+              </button>
+              <button
+                className="shift-cell__pop-item"
+                onClick={() => act(() => onSetRepeating(memberId, date))}
+              >
+                Set repeating shifts
+              </button>
+              <button
+                className="shift-cell__pop-item"
+                onClick={() => act(() => onAddTimeOff(memberId, date))}
+              >
+                Add time off
+              </button>
               <div className="shift-cell__pop-divider" />
-              <button className="shift-cell__pop-item shift-cell__pop-item--red" onClick={() => act(() => onDeleteShift(memberId, date))}>Delete this shift</button>
+              <button
+                className="shift-cell__pop-item shift-cell__pop-item--red"
+                onClick={() => act(() => onDeleteShift(memberId, date))}
+              >
+                Delete this shift
+              </button>
               <div className="shift-cell__pop-divider" />
-              <button className="shift-cell__pop-item" onClick={() => act(() => onViewMember(memberId))}>View team member</button>
+              <button
+                className="shift-cell__pop-item"
+                onClick={() => act(() => onViewMember(memberId))}
+              >
+                View team member
+              </button>
             </>
           ) : (
             <>
-              <button className="shift-cell__pop-item" onClick={() => act(() => onAddShift(memberId, date))}>Add shift</button>
-              <button className="shift-cell__pop-item" onClick={() => act(() => onSetRepeating(memberId, date))}>Set repeating shifts</button>
-              <button className="shift-cell__pop-item" onClick={() => act(() => onAddTimeOff(memberId, date))}>Add time off</button>
+              <button
+                className="shift-cell__pop-item"
+                onClick={() => act(() => onAddShift(memberId, date))}
+              >
+                Add shift
+              </button>
+              <button
+                className="shift-cell__pop-item"
+                onClick={() => act(() => onSetRepeating(memberId, date))}
+              >
+                Set repeating shifts
+              </button>
+              <button
+                className="shift-cell__pop-item"
+                onClick={() => act(() => onAddTimeOff(memberId, date))}
+              >
+                Add time off
+              </button>
               <div className="shift-cell__pop-divider" />
-              <button className="shift-cell__pop-item" onClick={() => act(() => onViewMember(memberId))}>View team member</button>
+              <button
+                className="shift-cell__pop-item"
+                onClick={() => act(() => onViewMember(memberId))}
+              >
+                View team member
+              </button>
             </>
           )}
         </div>

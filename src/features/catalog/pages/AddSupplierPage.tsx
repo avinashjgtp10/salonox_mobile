@@ -47,9 +47,9 @@ const AddSupplierPage: React.FC = () => {
       COUNTRIES.filter(
         (c) =>
           c.name.toLowerCase().includes(mobileSearch.toLowerCase()) ||
-          c.dial.includes(mobileSearch)
+          c.dial.includes(mobileSearch),
       ),
-    [mobileSearch]
+    [mobileSearch],
   );
 
   const filteredTel = useMemo(
@@ -57,21 +57,27 @@ const AddSupplierPage: React.FC = () => {
       COUNTRIES.filter(
         (c) =>
           c.name.toLowerCase().includes(telSearch.toLowerCase()) ||
-          c.dial.includes(telSearch)
+          c.dial.includes(telSearch),
       ),
-    [telSearch]
+    [telSearch],
   );
 
-  const physStates = useMemo(() => getStates(codeOf(physCountry)), [physCountry]);
+  const physStates = useMemo(
+    () => getStates(codeOf(physCountry)),
+    [physCountry],
+  );
   const physCities = useMemo(
     () => getCities(codeOf(physCountry), physState),
-    [physCountry, physState]
+    [physCountry, physState],
   );
 
-  const postalStates = useMemo(() => getStates(codeOf(postalCountry)), [postalCountry]);
+  const postalStates = useMemo(
+    () => getStates(codeOf(postalCountry)),
+    [postalCountry],
+  );
   const postalCities = useMemo(
     () => getCities(codeOf(postalCountry), postalState),
-    [postalCountry, postalState]
+    [postalCountry, postalState],
   );
 
   const handlePhysCountry = (name: string) => {
@@ -101,13 +107,14 @@ const AddSupplierPage: React.FC = () => {
       <div className="add-supplier-page__topbar">
         <h2>Add a new supplier</h2>
         <div className="topbar-actions">
-          <button className="btn-close-top" onClick={() => navigate(-1)}>Close</button>
+          <button className="btn-close-top" onClick={() => navigate(-1)}>
+            Close
+          </button>
           <button className="btn-save">Save</button>
         </div>
       </div>
 
       <div className="add-supplier-page__body">
-
         <section className="form-section">
           <h3>Supplier details</h3>
 
@@ -118,7 +125,10 @@ const AddSupplierPage: React.FC = () => {
 
           <div className="field-group">
             <label>Supplier description</label>
-            <textarea placeholder="e.g. Local provider of hair products" rows={4} />
+            <textarea
+              placeholder="e.g. Local provider of hair products"
+              rows={4}
+            />
           </div>
         </section>
 
@@ -141,34 +151,48 @@ const AddSupplierPage: React.FC = () => {
           <div className="field-group">
             <label>Mobile number</label>
             <div className="phone-field">
-              <div className="dial-selector" onClick={() => { setMobileDropOpen(o => !o); setMobileSearch(""); }}>
+              <div
+                className="dial-selector"
+                onClick={() => {
+                  setMobileDropOpen((o) => !o);
+                  setMobileSearch("");
+                }}
+              >
                 <span>{mobileDialCode}</span>
                 <span className="chevron">▾</span>
               </div>
               <input type="tel" placeholder="Mobile number" />
               {mobileDropOpen && (
-                <div className="dial-dropdown" onMouseDown={e => e.preventDefault()}>
+                <div
+                  className="dial-dropdown"
+                  onMouseDown={(e) => e.preventDefault()}
+                >
                   <input
                     className="dial-search"
                     type="text"
                     placeholder="Search country or code..."
                     value={mobileSearch}
-                    onChange={e => setMobileSearch(e.target.value)}
+                    onChange={(e) => setMobileSearch(e.target.value)}
                     autoFocus
                   />
                   <ul>
-                    {filteredMobile.map(c => (
+                    {filteredMobile.map((c) => (
                       <li
                         key={c.code}
                         className={mobileDialCode === c.dial ? "active" : ""}
-                        onClick={() => { setMobileDialCode(c.dial); setMobileDropOpen(false); }}
+                        onClick={() => {
+                          setMobileDialCode(c.dial);
+                          setMobileDropOpen(false);
+                        }}
                       >
                         <span className="flag">{c.flag}</span>
                         <span className="cname">{c.name}</span>
                         <span className="cdial">{c.dial}</span>
                       </li>
                     ))}
-                    {filteredMobile.length === 0 && <li className="no-result">No results</li>}
+                    {filteredMobile.length === 0 && (
+                      <li className="no-result">No results</li>
+                    )}
                   </ul>
                 </div>
               )}
@@ -178,33 +202,47 @@ const AddSupplierPage: React.FC = () => {
           <div className="field-group">
             <label>Telephone</label>
             <div className="phone-field">
-              <div className="dial-selector" onClick={() => { setTelDropOpen(o => !o); setTelSearch(""); }}>
+              <div
+                className="dial-selector"
+                onClick={() => {
+                  setTelDropOpen((o) => !o);
+                  setTelSearch("");
+                }}
+              >
                 <span>{telDialCode}</span>
                 <span className="chevron">▾</span>
               </div>
               <input type="tel" placeholder="Telephone number" />
               {telDropOpen && (
-                <div className="dial-dropdown" onMouseDown={e => e.preventDefault()}>
+                <div
+                  className="dial-dropdown"
+                  onMouseDown={(e) => e.preventDefault()}
+                >
                   <input
                     className="dial-search"
                     type="text"
                     placeholder="Search country or code..."
                     value={telSearch}
-                    onChange={e => setTelSearch(e.target.value)}
+                    onChange={(e) => setTelSearch(e.target.value)}
                     autoFocus
                   />
                   <ul>
-                    {filteredTel.map(c => (
+                    {filteredTel.map((c) => (
                       <li
                         key={c.code}
-                        onClick={() => { setTelDialCode(c.dial); setTelDropOpen(false); }}
+                        onClick={() => {
+                          setTelDialCode(c.dial);
+                          setTelDropOpen(false);
+                        }}
                       >
                         <span className="flag">{c.flag}</span>
                         <span className="cname">{c.name}</span>
                         <span className="cdial">{c.dial}</span>
                       </li>
                     ))}
-                    {filteredTel.length === 0 && <li className="no-result">No results</li>}
+                    {filteredTel.length === 0 && (
+                      <li className="no-result">No results</li>
+                    )}
                   </ul>
                 </div>
               )}
@@ -239,9 +277,14 @@ const AddSupplierPage: React.FC = () => {
 
           <div className="field-group">
             <label>Country</label>
-            <select value={physCountry} onChange={e => handlePhysCountry(e.target.value)}>
-              {COUNTRIES.map(c => (
-                <option key={c.code} value={c.name}>{c.flag} {c.name}</option>
+            <select
+              value={physCountry}
+              onChange={(e) => handlePhysCountry(e.target.value)}
+            >
+              {COUNTRIES.map((c) => (
+                <option key={c.code} value={c.name}>
+                  {c.flag} {c.name}
+                </option>
               ))}
             </select>
           </div>
@@ -250,10 +293,15 @@ const AddSupplierPage: React.FC = () => {
             <div className="field-group">
               <label>State</label>
               {physStates.length > 0 ? (
-                <select value={physState} onChange={e => handlePhysState(e.target.value)}>
+                <select
+                  value={physState}
+                  onChange={(e) => handlePhysState(e.target.value)}
+                >
                   <option value="">— Select state —</option>
-                  {physStates.map(s => (
-                    <option key={s.isoCode} value={s.isoCode}>{s.name}</option>
+                  {physStates.map((s) => (
+                    <option key={s.isoCode} value={s.isoCode}>
+                      {s.name}
+                    </option>
                   ))}
                 </select>
               ) : (
@@ -264,10 +312,15 @@ const AddSupplierPage: React.FC = () => {
             <div className="field-group">
               <label>City</label>
               {physCities.length > 0 ? (
-                <select value={physCity} onChange={e => setPhysCity(e.target.value)}>
+                <select
+                  value={physCity}
+                  onChange={(e) => setPhysCity(e.target.value)}
+                >
                   <option value="">— Select city —</option>
-                  {physCities.map(city => (
-                    <option key={city.name} value={city.name}>{city.name}</option>
+                  {physCities.map((city) => (
+                    <option key={city.name} value={city.name}>
+                      {city.name}
+                    </option>
                   ))}
                 </select>
               ) : (
@@ -285,7 +338,7 @@ const AddSupplierPage: React.FC = () => {
             <input
               type="checkbox"
               checked={sameAsPostal}
-              onChange={e => setSameAsPostal(e.target.checked)}
+              onChange={(e) => setSameAsPostal(e.target.checked)}
             />
             Same as postal address
           </label>
@@ -309,9 +362,14 @@ const AddSupplierPage: React.FC = () => {
 
             <div className="field-group">
               <label>Country</label>
-              <select value={postalCountry} onChange={e => handlePostalCountry(e.target.value)}>
-                {COUNTRIES.map(c => (
-                  <option key={c.code} value={c.name}>{c.flag} {c.name}</option>
+              <select
+                value={postalCountry}
+                onChange={(e) => handlePostalCountry(e.target.value)}
+              >
+                {COUNTRIES.map((c) => (
+                  <option key={c.code} value={c.name}>
+                    {c.flag} {c.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -320,10 +378,15 @@ const AddSupplierPage: React.FC = () => {
               <div className="field-group">
                 <label>State</label>
                 {postalStates.length > 0 ? (
-                  <select value={postalState} onChange={e => handlePostalState(e.target.value)}>
+                  <select
+                    value={postalState}
+                    onChange={(e) => handlePostalState(e.target.value)}
+                  >
                     <option value="">— Select state —</option>
-                    {postalStates.map(s => (
-                      <option key={s.isoCode} value={s.isoCode}>{s.name}</option>
+                    {postalStates.map((s) => (
+                      <option key={s.isoCode} value={s.isoCode}>
+                        {s.name}
+                      </option>
                     ))}
                   </select>
                 ) : (
@@ -334,10 +397,15 @@ const AddSupplierPage: React.FC = () => {
               <div className="field-group">
                 <label>City</label>
                 {postalCities.length > 0 ? (
-                  <select value={postalCity} onChange={e => setPostalCity(e.target.value)}>
+                  <select
+                    value={postalCity}
+                    onChange={(e) => setPostalCity(e.target.value)}
+                  >
                     <option value="">— Select city —</option>
-                    {postalCities.map(city => (
-                      <option key={city.name} value={city.name}>{city.name}</option>
+                    {postalCities.map((city) => (
+                      <option key={city.name} value={city.name}>
+                        {city.name}
+                      </option>
                     ))}
                   </select>
                 ) : (
@@ -356,10 +424,11 @@ const AddSupplierPage: React.FC = () => {
         )}
 
         <div className="form-actions">
-          <button className="btn-cancel" onClick={() => navigate(-1)}>Close</button>
+          <button className="btn-cancel" onClick={() => navigate(-1)}>
+            Close
+          </button>
           <button className="btn-save-bottom">Save</button>
         </div>
-
       </div>
     </div>
   );

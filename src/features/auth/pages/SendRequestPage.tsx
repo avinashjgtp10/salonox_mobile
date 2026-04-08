@@ -1,30 +1,27 @@
-import "bootstrap/dist/css/bootstrap.min.css"
-import "../styles/SendRequestPage.scss"
-import { useNavigate } from "react-router-dom"
-import { useState } from "react"
-import { ArrowLeft } from "react-bootstrap-icons"
-import salonImg from "../../../assets/images/salon.jpg"
+import "bootstrap/dist/css/bootstrap.min.css";
+import "../styles/SendRequestPage.scss";
+import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { FiArrowLeft } from "react-icons/fi";
+import salonImg from "../../../assets/images/salon.jpg";
 
 export default function SendRequestPage() {
-
-  const navigate = useNavigate()
-  const [message, setMessage] = useState("")
-  const [error, setError] = useState("")
+  const navigate = useNavigate();
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
   const handleSubmit = () => {
-
     if (message.length > 100) {
-      setError("Message cannot exceed 100 characters.")
-      return
+      setError("Message cannot exceed 100 characters.");
+      return;
     }
 
-    setError("")
-    navigate("/request-success")
-  }
+    setError("");
+    navigate("/request-success");
+  };
 
   return (
     <div className="container-fluid p-0 send-page">
-
       {/* Progress */}
       <div className="progress rounded-0 progress-top">
         <div className="progress-bar progress-fill"></div>
@@ -39,28 +36,22 @@ export default function SendRequestPage() {
           Close
         </button>
 
-        <button
-          className="btn btn-dark rounded-pill"
-          onClick={handleSubmit}
-        >
+        <button className="btn btn-dark rounded-pill" onClick={handleSubmit}>
           Send request
         </button>
       </div>
 
       <div className="row g-0 min-vh-100">
-
         {/* LEFT */}
         <div className="col-lg-5 col-12 left-panel d-flex flex-column">
-
           <div className="p-4">
             <div className="back-circle" onClick={() => navigate(-1)}>
-              <ArrowLeft />
+              <FiArrowLeft />
             </div>
           </div>
 
           <div className="flex-grow-1 d-flex align-items-start justify-content-center pt-4">
             <div className="content-wrapper">
-
               <h2 className="page-heading mb-4">
                 Send a request to join <br />
                 DevoteTattoos
@@ -80,20 +71,21 @@ export default function SendRequestPage() {
                 rows={4}
                 value={message}
                 onChange={(e) => {
-                  setMessage(e.target.value)
+                  setMessage(e.target.value);
                   if (e.target.value.length <= 100) {
-                    setError("")
+                    setError("");
                   }
                 }}
               />
-
             </div>
           </div>
         </div>
 
         {/* RIGHT IMAGE */}
-        <div className="col-lg-7 d-none d-lg-block p-0" style={{ minHeight: "100vh" }}>
-
+        <div
+          className="col-lg-7 d-none d-lg-block p-0"
+          style={{ minHeight: "100vh" }}
+        >
           <img
             src={salonImg}
             alt="salon"
@@ -101,8 +93,7 @@ export default function SendRequestPage() {
             style={{ zIndex: 0 }}
           />
         </div>
-
       </div>
     </div>
-  )
+  );
 }

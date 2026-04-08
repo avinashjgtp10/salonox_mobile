@@ -11,27 +11,43 @@ interface BookingCardProps {
   style?: React.CSSProperties;
 }
 
-const BookingCard: React.FC<BookingCardProps> = ({ booking, onView, onEdit, onClose, style }) => {
+const BookingCard: React.FC<BookingCardProps> = ({
+  booking,
+  onView,
+  onEdit,
+  onClose,
+  style,
+}) => {
   const statusColor =
-    booking.status === "Confirmed" ? "#22c55e" :
-    booking.status === "Pending"   ? "#f59e0b" : "#ef4444";
+    booking.status === "Confirmed"
+      ? "#22c55e"
+      : booking.status === "Pending"
+        ? "#f59e0b"
+        : "#ef4444";
 
   const statusBg =
-    booking.status === "Confirmed" ? "#dcfce7" :
-    booking.status === "Pending"   ? "#fef3c7" : "#fef2f2";
+    booking.status === "Confirmed"
+      ? "#dcfce7"
+      : booking.status === "Pending"
+        ? "#fef3c7"
+        : "#fef2f2";
 
   // Show print only when status is Confirmed
   const canPrint = booking.status === "Confirmed";
 
   function handlePrintBill() {
-    const staffName = STAFF_LIST.find(s => s.id === booking.staffId)?.name || "—";
-    const servicesRows = booking.services.map(s =>
-      `<tr>
+    const staffName =
+      STAFF_LIST.find((s) => s.id === booking.staffId)?.name || "—";
+    const servicesRows = booking.services
+      .map(
+        (s) =>
+          `<tr>
         <td style="padding:6px 10px;border-bottom:1px solid #f3f4f6">${s.service}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #f3f4f6;color:#6b7280">${s.staff || staffName}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #f3f4f6;text-align:right">₹${(s.total || 0).toFixed(2)}</td>
-      </tr>`
-    ).join("");
+      </tr>`,
+      )
+      .join("");
 
     const html = `<!DOCTYPE html><html><head><title>Bill - ${booking.clientName}</title>
     <style>
@@ -70,7 +86,7 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onView, onEdit, onCl
       <hr class="divider"/>
       <div class="total-row"><span>Subtotal</span><span>₹${(booking.subtotal || 0).toFixed(2)}</span></div>
       ${(booking.discount || 0) > 0 ? `<div class="total-row"><span>Discount</span><span style="color:#22c55e">−₹${(booking.discount || 0).toFixed(2)}</span></div>` : ""}
-      ${(booking.gst || 0) > 0 ? `<div class="total-row"><span>GST (${booking.gst}%)</span><span>₹${((booking.taxableAmount || 0) * (booking.gst || 0) / 100).toFixed(2)}</span></div>` : ""}
+      ${(booking.gst || 0) > 0 ? `<div class="total-row"><span>GST (${booking.gst}%)</span><span>₹${(((booking.taxableAmount || 0) * (booking.gst || 0)) / 100).toFixed(2)}</span></div>` : ""}
       ${(booking.exCharges || 0) > 0 ? `<div class="total-row"><span>Extra Charges</span><span>₹${(booking.exCharges || 0).toFixed(2)}</span></div>` : ""}
       <div class="total-row grand"><span>Grand Total</span><span>₹${(booking.grandTotal || 0).toFixed(2)}</span></div>
       <div class="total-row"><span>Paid</span><span style="color:#22c55e">₹${(booking.payingNow || 0).toFixed(2)}</span></div>
@@ -78,7 +94,10 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onView, onEdit, onCl
     </body></html>`;
 
     const win = window.open("", "_blank", "width=500,height=700");
-    if (!win) { alert("Please allow popups."); return; }
+    if (!win) {
+      alert("Please allow popups.");
+      return;
+    }
     win.document.write(html);
     win.document.close();
     win.focus();
@@ -92,58 +111,155 @@ const BookingCard: React.FC<BookingCardProps> = ({ booking, onView, onEdit, onCl
         border: `1px solid ${statusColor}`,
         borderRadius: 10,
         boxShadow: "0 4px 20px rgba(0,0,0,.15)",
-        padding: 16, width: 280, zIndex: 200,
+        padding: 16,
+        width: 280,
+        zIndex: 200,
         ...style,
       }}
-      onClick={e => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          marginBottom: 8,
+        }}
+      >
         <div>
           <div style={{ fontWeight: 700, fontSize: 13, color: statusColor }}>
             {formatTime12(booking.startTime)} – {formatTime12(booking.endTime)}
           </div>
-          <span style={{ fontSize: 11, fontWeight: 600, background: statusBg, color: statusColor, borderRadius: 4, padding: "2px 8px", marginTop: 2, display: "inline-block", border: `1px solid ${statusColor}` }}>
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              background: statusBg,
+              color: statusColor,
+              borderRadius: 4,
+              padding: "2px 8px",
+              marginTop: 2,
+              display: "inline-block",
+              border: `1px solid ${statusColor}`,
+            }}
+          >
             {booking.status}
           </span>
         </div>
-        <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#6b7280" }}>✕</button>
+        <button
+          onClick={onClose}
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            fontSize: 18,
+            color: "#6b7280",
+          }}
+        >
+          ✕
+        </button>
       </div>
 
       <div style={{ fontSize: 13, color: "#374151", margin: "6px 0 4px" }}>
-        {booking.services.map(s => s.service).join(", ")}
+        {booking.services.map((s) => s.service).join(", ")}
       </div>
       <div style={{ fontSize: 12, color: "#6b7280" }}>
-        <strong>Client:</strong> {booking.clientName} ({booking.clientPhone || "—"})
+        <strong>Client:</strong> {booking.clientName} (
+        {booking.clientPhone || "—"})
       </div>
 
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginTop: 8 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          fontSize: 13,
+          marginTop: 8,
+        }}
+      >
         <span>
           Payment:{" "}
-          <span style={{ color: booking.paymentStatus === "Paid" ? "#22c55e" : booking.paymentStatus === "Partial" ? "#f59e0b" : "#ef4444", fontWeight: 600 }}>
+          <span
+            style={{
+              color:
+                booking.paymentStatus === "Paid"
+                  ? "#22c55e"
+                  : booking.paymentStatus === "Partial"
+                    ? "#f59e0b"
+                    : "#ef4444",
+              fontWeight: 600,
+            }}
+          >
             {booking.paymentStatus}
           </span>
         </span>
-        <span>Bill: <strong>₹{(booking.grandTotal || 0).toFixed(2)}</strong></span>
+        <span>
+          Bill: <strong>₹{(booking.grandTotal || 0).toFixed(2)}</strong>
+        </span>
       </div>
 
       {/* Action buttons */}
       <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
         <button
-          onClick={() => { onEdit(booking); onClose(); }}
-          style={{ flex: 1, background: "#4f46e5", color: "#fff", border: "none", borderRadius: 6, padding: "8px 0", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
-        >✏️ Edit</button>
+          onClick={() => {
+            onEdit(booking);
+            onClose();
+          }}
+          style={{
+            flex: 1,
+            background: "#4f46e5",
+            color: "#fff",
+            border: "none",
+            borderRadius: 6,
+            padding: "8px 0",
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: "pointer",
+            fontFamily: "inherit",
+          }}
+        >
+          ✏️ Edit
+        </button>
 
         <button
-          onClick={() => { onView(booking); onClose(); }}
-          style={{ flex: 1, background: "#1f2937", color: "#fff", border: "none", borderRadius: 6, padding: "8px 0", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
-        >🧾 View Bill</button>
+          onClick={() => {
+            onView(booking);
+            onClose();
+          }}
+          style={{
+            flex: 1,
+            background: "#1f2937",
+            color: "#fff",
+            border: "none",
+            borderRadius: 6,
+            padding: "8px 0",
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: "pointer",
+            fontFamily: "inherit",
+          }}
+        >
+          🧾 View Bill
+        </button>
 
         {/* Print — only visible when Confirmed + Paid */}
         {canPrint && (
           <button
             onClick={handlePrintBill}
-            style={{ flex: 1, background: "#059669", color: "#fff", border: "none", borderRadius: 6, padding: "8px 0", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
-          >🖨️ Print</button>
+            style={{
+              flex: 1,
+              background: "#059669",
+              color: "#fff",
+              border: "none",
+              borderRadius: 6,
+              padding: "8px 0",
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            🖨️ Print
+          </button>
         )}
       </div>
     </div>

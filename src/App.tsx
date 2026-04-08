@@ -1,8 +1,8 @@
-import { Suspense } from "react"
-import { Routes, Route, Navigate } from "react-router-dom"
-import { Toaster } from "react-hot-toast"
-import { PageLoader } from "./components/ui"
-import { AuthRoutes, OnboardingRoutes, DashboardRoutes } from "./routes"
+import { Suspense } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
+import { PageLoader } from "./components/ui";
+import { AuthRoutes, OnboardingRoutes, DashboardRoutes } from "./routes";
 
 function App() {
   return (
@@ -21,7 +21,7 @@ function App() {
         </Routes>
       </Suspense>
     </>
-  )
+  );
 }
 
-export default App
+export default App;

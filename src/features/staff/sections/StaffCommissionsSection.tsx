@@ -16,7 +16,6 @@ const StaffCommissionsSection: React.FC = () => {
 
   return (
     <div className="section commissions-section mt-1">
-
       {/* Services Commission */}
       <div className="custom-switch-container">
         <div className="switch-info">
@@ -45,7 +44,6 @@ const StaffCommissionsSection: React.FC = () => {
 
       {servicesEnabled && (
         <div className="fade-in mb-4 pb-2">
-
           <div className="row g-3">
             <div className="col-12 col-md-6">
               <label className="control-label">Default commission type</label>
@@ -57,14 +55,24 @@ const StaffCommissionsSection: React.FC = () => {
             <div className="col-12 col-md-6">
               <label className="control-label">Default rate</label>
               <div className="input-group">
-                <span className="input-group-text px-3 bg-white border-end-0">%</span>
-                <input type="number" className="form-control border-start-0 ps-0" placeholder="0" />
-                <span className="input-group-text bg-white"><Tag size={14} color="#6b7280" /></span>
+                <span className="input-group-text px-3 bg-white border-end-0">
+                  %
+                </span>
+                <input
+                  type="number"
+                  className="form-control border-start-0 ps-0"
+                  placeholder="0"
+                />
+                <span className="input-group-text bg-white">
+                  <Tag size={14} color="#6b7280" />
+                </span>
               </div>
             </div>
           </div>
 
-          <h6 className="sub-header mt-4 pt-1">Customize commissions by service</h6>
+          <h6 className="sub-header mt-4 pt-1">
+            Customize commissions by service
+          </h6>
           <div className="customize-box">
             <div className="customize-info">
               <Clipboard />
@@ -74,24 +82,36 @@ const StaffCommissionsSection: React.FC = () => {
           </div>
 
           <h6 className="sub-header mt-4 pt-1">Calculations</h6>
-          <p className="calc-desc">Customize deductions for this team member. <a href="#">Learn more</a></p>
+          <p className="calc-desc">
+            Customize deductions for this team member.{" "}
+            <a href="#">Learn more</a>
+          </p>
 
           <div className="custom-radio" onClick={() => setCalcType("default")}>
-            <div className={`radio-circle ${calcType === "default" ? "active" : ""}`}></div>
+            <div
+              className={`radio-circle ${calcType === "default" ? "active" : ""}`}
+            ></div>
             <div className="radio-content">
               <div className="radio-title">Default settings</div>
-              <div className="radio-subtitle">Use your workspace commission settings</div>
+              <div className="radio-subtitle">
+                Use your workspace commission settings
+              </div>
             </div>
           </div>
 
           <div className="custom-radio" onClick={() => setCalcType("custom")}>
-            <div className={`radio-circle ${calcType === "custom" ? "active" : ""}`}></div>
+            <div
+              className={`radio-circle ${calcType === "custom" ? "active" : ""}`}
+            ></div>
             <div className="radio-content">
-              <div className="radio-title" style={{ fontWeight: 400 }}>Custom settings</div>
-              <div className="radio-subtitle">Choose custom settings for this team member</div>
+              <div className="radio-title" style={{ fontWeight: 400 }}>
+                Custom settings
+              </div>
+              <div className="radio-subtitle">
+                Choose custom settings for this team member
+              </div>
             </div>
           </div>
-
         </div>
       )}
 
@@ -192,29 +212,56 @@ const StaffCommissionsSection: React.FC = () => {
             <div className="col-12 col-md-6">
               <label className="control-label">Default rate</label>
               <div className="input-group">
-                <span className="input-group-text px-3 bg-white border-end-0">%</span>
-                <input type="number" className="form-control border-start-0 ps-0" placeholder="0" />
-                <span className="input-group-text bg-white"><Tag size={14} color="#6b7280" /></span>
+                <span className="input-group-text px-3 bg-white border-end-0">
+                  %
+                </span>
+                <input
+                  type="number"
+                  className="form-control border-start-0 ps-0"
+                  placeholder="0"
+                />
+                <span className="input-group-text bg-white">
+                  <Tag size={14} color="#6b7280" />
+                </span>
               </div>
             </div>
           </div>
 
           <h6 className="sub-header mt-4 pt-1">Calculations</h6>
-          <p className="calc-desc">Customize deductions for this team member. <a href="#">Learn more</a></p>
+          <p className="calc-desc">
+            Customize deductions for this team member.{" "}
+            <a href="#">Learn more</a>
+          </p>
 
-          <div className="custom-radio" onClick={() => setGiftCalcType("default")}>
-            <div className={`radio-circle ${giftCalcType === "default" ? "active" : ""}`}></div>
+          <div
+            className="custom-radio"
+            onClick={() => setGiftCalcType("default")}
+          >
+            <div
+              className={`radio-circle ${giftCalcType === "default" ? "active" : ""}`}
+            ></div>
             <div className="radio-content">
               <div className="radio-title">Default settings</div>
-              <div className="radio-subtitle">Use your workspace commission settings</div>
+              <div className="radio-subtitle">
+                Use your workspace commission settings
+              </div>
             </div>
           </div>
 
-          <div className="custom-radio" onClick={() => setGiftCalcType("custom")}>
-            <div className={`radio-circle ${giftCalcType === "custom" ? "active" : ""}`}></div>
+          <div
+            className="custom-radio"
+            onClick={() => setGiftCalcType("custom")}
+          >
+            <div
+              className={`radio-circle ${giftCalcType === "custom" ? "active" : ""}`}
+            ></div>
             <div className="radio-content">
-              <div className="radio-title" style={{ fontWeight: 400 }}>Custom settings</div>
-              <div className="radio-subtitle">Choose custom settings for this team member</div>
+              <div className="radio-title" style={{ fontWeight: 400 }}>
+                Custom settings
+              </div>
+              <div className="radio-subtitle">
+                Choose custom settings for this team member
+              </div>
             </div>
           </div>
         </div>
@@ -234,7 +281,8 @@ const StaffCommissionsSection: React.FC = () => {
             )}
           </div>
           <div className="switch-desc">
-            Commission earned on fees for no-shows and late cancellations. <a href="#">Learn more</a>
+            Commission earned on fees for no-shows and late cancellations.{" "}
+            <a href="#">Learn more</a>
           </div>
         </div>
         <div className="form-check form-switch custom-switch">
@@ -250,22 +298,38 @@ const StaffCommissionsSection: React.FC = () => {
 
       {cancellationEnabled && (
         <div className="fade-in mb-4 pb-2 mt-3">
-
           {/* Late Cancellations */}
           <div className="d-flex align-items-flex-start gap-3 mb-3">
             <input
               type="checkbox"
               id="late-cancel"
-              style={{ width: 16, height: 16, marginTop: 3, cursor: 'pointer', accentColor: '#6c3ce1' }}
+              style={{
+                width: 16,
+                height: 16,
+                marginTop: 3,
+                cursor: "pointer",
+                accentColor: "#6c3ce1",
+              }}
               checked={lateCancel}
               onChange={(e) => setLateCancel(e.target.checked)}
             />
             <div>
-              <label htmlFor="late-cancel" style={{ fontSize: 14, fontWeight: 500, color: '#111827', cursor: 'pointer', display: 'block', marginBottom: 2 }}>
+              <label
+                htmlFor="late-cancel"
+                style={{
+                  fontSize: 14,
+                  fontWeight: 500,
+                  color: "#111827",
+                  cursor: "pointer",
+                  display: "block",
+                  marginBottom: 2,
+                }}
+              >
                 Pass on the cancellation fee for late cancellations
               </label>
-              <span style={{ fontSize: 12, color: '#6b7280' }}>
-                When the client cancels late, the team member earns a portion of the cancellation fee
+              <span style={{ fontSize: 12, color: "#6b7280" }}>
+                When the client cancels late, the team member earns a portion of
+                the cancellation fee
               </span>
             </div>
           </div>
@@ -275,23 +339,38 @@ const StaffCommissionsSection: React.FC = () => {
             <input
               type="checkbox"
               id="no-show"
-              style={{ width: 16, height: 16, marginTop: 3, cursor: 'pointer', accentColor: '#6c3ce1' }}
+              style={{
+                width: 16,
+                height: 16,
+                marginTop: 3,
+                cursor: "pointer",
+                accentColor: "#6c3ce1",
+              }}
               checked={noShow}
               onChange={(e) => setNoShow(e.target.checked)}
             />
             <div>
-              <label htmlFor="no-show" style={{ fontSize: 14, fontWeight: 500, color: '#111827', cursor: 'pointer', display: 'block', marginBottom: 2 }}>
+              <label
+                htmlFor="no-show"
+                style={{
+                  fontSize: 14,
+                  fontWeight: 500,
+                  color: "#111827",
+                  cursor: "pointer",
+                  display: "block",
+                  marginBottom: 2,
+                }}
+              >
                 Pass on the cancellation fee for no-shows
               </label>
-              <span style={{ fontSize: 12, color: '#6b7280' }}>
-                When the client is a no-show, the team member earns a portion of the fee
+              <span style={{ fontSize: 12, color: "#6b7280" }}>
+                When the client is a no-show, the team member earns a portion of
+                the fee
               </span>
             </div>
           </div>
-
         </div>
       )}
-
     </div>
   );
 };

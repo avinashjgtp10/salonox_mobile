@@ -12,14 +12,17 @@ import {
 const bookingSlice = createCRUDSlice<Booking>({
   name: "booking",
   thunks: {
-    fetchAllThunk:  fetchBookingsThunk,
+    fetchAllThunk: fetchBookingsThunk,
     fetchByIdThunk: fetchBookingByIdThunk,
-    createThunk:    createBookingThunk,
-    updateThunk:    updateBookingThunk,
-    deleteThunk:    deleteBookingThunk,
-    exportThunk:    exportBookingsThunk,
+    createThunk: createBookingThunk,
+    updateThunk: updateBookingThunk,
+    deleteThunk: deleteBookingThunk,
+    exportThunk: exportBookingsThunk,
   },
 });
 
-export const { clearError: clearBookingError, clearSelectedItem: clearSelectedBooking } = bookingSlice.actions;
+export const {
+  clearError: clearBookingError,
+  clearSelectedItem: clearSelectedBooking,
+} = bookingSlice.actions;
 export default bookingSlice.reducer;

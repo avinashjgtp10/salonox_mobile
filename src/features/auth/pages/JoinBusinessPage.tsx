@@ -1,38 +1,36 @@
-import "bootstrap/dist/css/bootstrap.min.css"
-import "../styles/JoinBusinessPage.scss"
-import { useNavigate } from "react-router-dom"
-import salonImg from "../../../assets/images/salon.jpg"
-import { useState, useEffect } from "react"
-import { Search, ArrowLeft } from "react-bootstrap-icons"
+import "bootstrap/dist/css/bootstrap.min.css";
+import "../styles/JoinBusinessPage.scss";
+import { useNavigate } from "react-router-dom";
+import salonImg from "../../../assets/images/salon.jpg";
+import { useState, useEffect } from "react";
+import { FiSearch, FiArrowLeft } from "react-icons/fi";
 
 const businesses = [
   { id: 1, name: "Pink Hair Design", location: "London" },
   { id: 2, name: "Glow Beauty Studio", location: "Manchester" },
   { id: 3, name: "Urban Nails Spa", location: "Birmingham" },
-  { id: 4, name: "Elite Salon & Spa", location: "Leeds" }
-]
+  { id: 4, name: "Elite Salon & Spa", location: "Leeds" },
+];
 
 export default function JoinBusinessPage() {
-
-  const navigate = useNavigate()
-  const [search, setSearch] = useState("")
-  const [results, setResults] = useState<typeof businesses>([])
-  const [selected, setSelected] = useState<any>(null)
+  const navigate = useNavigate();
+  const [search, setSearch] = useState("");
+  const [results, setResults] = useState<typeof businesses>([]);
+  const [selected, setSelected] = useState<any>(null);
 
   useEffect(() => {
     if (search.trim() === "") {
-      setResults([])
+      setResults([]);
     } else {
       const filtered = businesses.filter((biz) =>
-        biz.name.toLowerCase().includes(search.toLowerCase())
-      )
-      setResults(filtered)
+        biz.name.toLowerCase().includes(search.toLowerCase()),
+      );
+      setResults(filtered);
     }
-  }, [search])
+  }, [search]);
 
   return (
     <div className="container-fluid p-0 join-page">
-
       {/* 🔵 PROGRESS BAR */}
       <div className="progress rounded-0 progress-top">
         <div className="progress-bar progress-fill"></div>
@@ -57,24 +55,19 @@ export default function JoinBusinessPage() {
       </div>
 
       <div className="row g-0 min-vh-100">
-
         {/* LEFT SIDE */}
         <div className="col-lg-5 col-12 left-panel d-flex flex-column">
-
           {/* Back Circle */}
           <div className="p-4">
             <div className="back-circle" onClick={() => navigate(-1)}>
-              <ArrowLeft />
+              <FiArrowLeft />
             </div>
           </div>
 
           {/* Content */}
           <div className="flex-grow-1 d-flex align-items-start justify-content-center pt-4">
             <div className="content-wrapper">
-
-              <h2 className="page-heading">
-                Search for a business
-              </h2>
+              <h2 className="page-heading">Search for a business</h2>
 
               <p className="text-muted mb-4">
                 Find a business to request login access to their workspace
@@ -82,7 +75,7 @@ export default function JoinBusinessPage() {
 
               <div className="input-group mb-4">
                 <span className="input-group-text bg-white">
-                  <Search />
+                  <FiSearch />
                 </span>
                 <input
                   type="text"
@@ -111,15 +104,15 @@ export default function JoinBusinessPage() {
                   ))}
                 </div>
               )}
-
             </div>
           </div>
-
         </div>
 
         {/* RIGHT IMAGE */}
-        <div className="col-lg-7 d-none d-lg-block p-0" style={{ minHeight: "100vh" }}>
-
+        <div
+          className="col-lg-7 d-none d-lg-block p-0"
+          style={{ minHeight: "100vh" }}
+        >
           <img
             src={salonImg}
             alt="salon"
@@ -127,8 +120,7 @@ export default function JoinBusinessPage() {
             style={{ zIndex: 0 }}
           />
         </div>
-
       </div>
     </div>
-  )
+  );
 }

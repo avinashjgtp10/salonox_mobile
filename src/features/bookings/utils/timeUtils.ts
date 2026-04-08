@@ -1,12 +1,14 @@
 import type { IntervalOption } from "../types/scheduler-types";
 
-export function generateTimeSlots(interval: IntervalOption = "30 Mins"): string[] {
+export function generateTimeSlots(
+  interval: IntervalOption = "30 Mins",
+): string[] {
   const mins = parseInt(interval);
   const slots: string[] = [];
   for (let h = 0; h < 24; h++) {
     for (let m = 0; m < 60; m += mins) {
       slots.push(
-        `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`
+        `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`,
       );
     }
   }
@@ -28,18 +30,24 @@ export function formatTime24(time: string): string {
   return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 }
 
-export function getTimePosition(time: string, intervalMins: number, slotHeight: number): number {
+export function getTimePosition(
+  time: string,
+  intervalMins: number,
+  slotHeight: number,
+): number {
   const [h, m] = time.split(":").map(Number);
   return ((h * 60 + m) / intervalMins) * slotHeight;
 }
 
 export function getBookingHeight(
-  startTime: string, endTime: string,
-  intervalMins: number, slotHeight: number
+  startTime: string,
+  endTime: string,
+  intervalMins: number,
+  slotHeight: number,
 ): number {
   const [sh, sm] = startTime.split(":").map(Number);
   const [eh, em] = endTime.split(":").map(Number);
-  const diff = (eh * 60 + em) - (sh * 60 + sm);
+  const diff = eh * 60 + em - (sh * 60 + sm);
   return Math.max((diff / intervalMins) * slotHeight, slotHeight);
 }
 
@@ -51,7 +59,9 @@ export function getCurrentTime(): string {
 export function addMinutes(time: string, mins: number): string {
   const [h, m] = time.split(":").map(Number);
   const total = h * 60 + m + mins;
-  return `${Math.floor(total / 60).toString().padStart(2, "0")}:${(total % 60).toString().padStart(2, "0")}`;
+  return `${Math.floor(total / 60)
+    .toString()
+    .padStart(2, "0")}:${(total % 60).toString().padStart(2, "0")}`;
 }
 
 export function getWeekDays(dateStr: string): string[] {
@@ -75,7 +85,9 @@ export function getMonthDays(dateStr: string): (string | null)[] {
   const days: (string | null)[] = [];
   for (let i = 0; i < firstDay; i++) days.push(null);
   for (let i = 1; i <= daysInMonth; i++) {
-    days.push(`${year}-${(month + 1).toString().padStart(2, "0")}-${i.toString().padStart(2, "0")}`);
+    days.push(
+      `${year}-${(month + 1).toString().padStart(2, "0")}-${i.toString().padStart(2, "0")}`,
+    );
   }
   return days;
 }
@@ -83,7 +95,12 @@ export function getMonthDays(dateStr: string): (string | null)[] {
 export function formatDateLabel(dateStr: string, viewMode: string): string {
   const d = new Date(dateStr);
   if (viewMode === "Day") {
-    return d.toLocaleDateString("en-US", { weekday: "short", month: "long", day: "numeric", year: "numeric" });
+    return d.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
   }
   if (viewMode === "Month") {
     return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
@@ -94,6 +111,19 @@ export function formatDateLabel(dateStr: string, viewMode: string): string {
   return `${s.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${e.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
 }
 
-export const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+export const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 export const DAYS_ABBR = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 export const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

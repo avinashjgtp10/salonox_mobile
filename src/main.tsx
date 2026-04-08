@@ -1,21 +1,21 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import App from './App'
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
 
-import { BrowserRouter } from "react-router-dom"
-import { Provider } from "react-redux"
-import { PersistGate } from "redux-persist/integration/react"
-import { store, persistor } from "./store/store"
-import * as authActions from "./store/authSlice"
-import { injectStore } from "./services/api/interceptors"
+import { BrowserRouter } from "react-router-dom";
+import { Provider } from "react-redux";
+import { PersistGate } from "redux-persist/integration/react";
+import { store, persistor } from "./store/store";
+import * as authActions from "./store/authSlice";
+import { injectStore } from "./services/api/interceptors";
 
 import "bootstrap/dist/css/bootstrap.min.css";
-import './i18n'; // Inject translation engine
+import "./i18n"; // Inject translation engine
 
 // Inject store into interceptors before app boots to avoid circular dependencies
-injectStore(store, authActions)
+injectStore(store, authActions);
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>
@@ -25,4 +25,4 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       </PersistGate>
     </Provider>
   </React.StrictMode>,
-)
+);

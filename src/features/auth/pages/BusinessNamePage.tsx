@@ -1,41 +1,42 @@
-import { useNavigate } from "react-router-dom"
-import { useState } from "react"
-import { ArrowLeft, ArrowRight } from "react-bootstrap-icons"
-import "../styles/BusinessNamePage.scss"
-import { useOnboarding } from "../../../context/OnboardingContext"
-import salonImg from "../../../assets/images/salon.jpg"
+import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { FiArrowLeft, FiArrowRight } from "react-icons/fi";
+import "../styles/BusinessNamePage.scss";
+import { useOnboarding } from "../../../context/OnboardingContext";
+import salonImg from "../../../assets/images/salon.jpg";
 
 export default function BusinessNamePage() {
+  const navigate = useNavigate();
+  const { update } = useOnboarding();
 
-  const navigate = useNavigate()
-  const { update } = useOnboarding()
+  const [businessName, setBusinessName] = useState("");
+  const [website, setWebsite] = useState("");
+  const [submitted, setSubmitted] = useState(false);
 
-  const [businessName, setBusinessName] = useState("")
-  const [website, setWebsite] = useState("")
-  const [submitted, setSubmitted] = useState(false)
-
-  const isValid = businessName.trim().length >= 3
+  const isValid = businessName.trim().length >= 3;
 
   const handleContinue = () => {
-    setSubmitted(true)
-    if (!isValid) return
+    setSubmitted(true);
+    if (!isValid) return;
 
     update({
       business_name: businessName.trim(),
       website_url: website.trim(),
-    })
+    });
 
-    navigate("/service-type")
-  }
+    navigate("/service-type");
+  };
 
   return (
     <div className="container-fluid p-0">
-
       <div className="progress rounded-0" style={{ height: "4px" }}>
         <div className="progress-bar bg-dark" style={{ width: "30%" }} />
       </div>
 
-      <div className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3" style={{ pointerEvents: "none" }}>
+      <div
+        className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3"
+        style={{ pointerEvents: "none" }}
+      >
         <button
           className="btn btn-outline-secondary rounded-pill bg-white px-4"
           style={{ pointerEvents: "auto" }}
@@ -48,29 +49,29 @@ export default function BusinessNamePage() {
           style={{ pointerEvents: "auto" }}
           onClick={handleContinue}
         >
-          Continue <ArrowRight size={16} className="ms-1" />
+          Continue <FiArrowRight size={16} className="ms-1" />
         </button>
       </div>
 
       <div className="row g-0 min-vh-100">
-
         <div className="col-lg-5 col-12 bg-light d-flex align-items-center justify-content-center p-4 position-relative">
-
           <button
             className="btn btn-outline-secondary rounded-circle position-absolute"
             style={{ top: "30px", left: "30px", width: "44px", height: "44px" }}
             onClick={() => navigate(-1)}
           >
-            <ArrowLeft />
+            <FiArrowLeft />
           </button>
 
-          <div className="card shadow-sm p-4 w-100" style={{ maxWidth: "480px" }}>
-
+          <div
+            className="card shadow-sm p-4 w-100"
+            style={{ maxWidth: "480px" }}
+          >
             <p className="text-muted small mb-2">Account setup</p>
             <h4 className="fw-bold mb-2">What's your business name?</h4>
             <p className="text-muted small mb-4">
-              This is the brand name your clients will see.
-              Your billing and legal name can be added later.
+              This is the brand name your clients will see. Your billing and
+              legal name can be added later.
             </p>
 
             <div className="mb-3">
@@ -89,7 +90,9 @@ export default function BusinessNamePage() {
             </div>
 
             <div className="mb-4">
-              <label className="form-label fw-semibold">Website (Optional)</label>
+              <label className="form-label fw-semibold">
+                Website (Optional)
+              </label>
               <input
                 type="text"
                 placeholder="www.yoursite.com"
@@ -105,11 +108,13 @@ export default function BusinessNamePage() {
             >
               Continue →
             </button>
-
           </div>
         </div>
 
-        <div className="col-lg-7 d-none d-lg-block position-relative p-0" style={{ minHeight: "100vh" }} >
+        <div
+          className="col-lg-7 d-none d-lg-block position-relative p-0"
+          style={{ minHeight: "100vh" }}
+        >
           <img
             src={salonImg}
             alt="salon"
@@ -123,12 +128,11 @@ export default function BusinessNamePage() {
               className="btn btn-dark rounded-pill px-4"
               onClick={handleContinue}
             >
-              Continue <ArrowRight size={16} className="ms-1" />
+              Continue <FiArrowRight size={16} className="ms-1" />
             </button>
           </div>
         </div>
-
       </div>
     </div>
-  )
+  );
 }

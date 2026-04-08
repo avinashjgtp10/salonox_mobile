@@ -24,7 +24,20 @@ interface WeekDay {
 
 type ShiftMap = Record<number, Record<string, ShiftTime | undefined>>;
 
-const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTH_SHORT = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function getMondayOf(date: Date): Date {
@@ -63,7 +76,13 @@ function formatRange(monday: Date): string {
 }
 
 const MEMBERS: Member[] = [
-  { id: 1, name: "Dhumal Dipak", initials: "DD", avatarColor: "#5b5ef4", totalHours: 52 },
+  {
+    id: 1,
+    name: "Dhumal Dipak",
+    initials: "DD",
+    avatarColor: "#5b5ef4",
+    totalHours: 52,
+  },
 ];
 
 const SEED_SHIFTS: ShiftMap = {
@@ -83,20 +102,35 @@ const ScheduledShiftsPage: React.FC = () => {
   const [shifts, setShifts] = useState<ShiftMap>(SEED_SHIFTS);
   const [showOpts, setShowOpts] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
-  const [timeOff, setTimeOff] = useState<{ show: boolean; memberId?: number; date?: string }>({ show: false });
-  const [shiftModal, setShiftModal] = useState<{ 
-    show: boolean; 
-    memberId?: number; 
-    date?: string; 
-    initialShifts?: ShiftTime[] 
+  const [timeOff, setTimeOff] = useState<{
+    show: boolean;
+    memberId?: number;
+    date?: string;
   }>({ show: false });
-  const [drawer, setDrawer] = useState<{ show: boolean; member: any | null }>({ show: false, member: null });
+  const [shiftModal, setShiftModal] = useState<{
+    show: boolean;
+    memberId?: number;
+    date?: string;
+    initialShifts?: ShiftTime[];
+  }>({ show: false });
+  const [drawer, setDrawer] = useState<{ show: boolean; member: any | null }>({
+    show: false,
+    member: null,
+  });
   const [isStarted, setIsStarted] = useState(false);
 
   const weekDays = getWeekDays(monday);
 
-  const prevWeek = () => { const d = new Date(monday); d.setDate(d.getDate() - 7); setMonday(d); };
-  const nextWeek = () => { const d = new Date(monday); d.setDate(d.getDate() + 7); setMonday(d); };
+  const prevWeek = () => {
+    const d = new Date(monday);
+    d.setDate(d.getDate() - 7);
+    setMonday(d);
+  };
+  const nextWeek = () => {
+    const d = new Date(monday);
+    d.setDate(d.getDate() + 7);
+    setMonday(d);
+  };
   const thisWeek = () => setMonday(getMondayOf(new Date()));
 
   const handleAddShiftClick = (memberId: number, date: string) => {
@@ -105,36 +139,44 @@ const ScheduledShiftsPage: React.FC = () => {
 
   const handleEditDayClick = (memberId: number, date: string) => {
     const existing = shifts[memberId]?.[date];
-    setShiftModal({ 
-      show: true, 
-      memberId, 
-      date, 
-      initialShifts: existing ? [existing] : [] 
+    setShiftModal({
+      show: true,
+      memberId,
+      date,
+      initialShifts: existing ? [existing] : [],
     });
   };
 
-  const saveShifts = (memberId: number, date: string, newShifts: ShiftTime[]) => {
-    setShifts(p => {
-        const memberShifts = { ...p[memberId] };
-        if (newShifts.length === 0) {
-            delete memberShifts[date];
-        } else {
-            // For now we only store the first shift to maintain compatibility with existing Map/Component
-            memberShifts[date] = newShifts[0];
-        }
-        return { ...p, [memberId]: memberShifts };
+  const saveShifts = (
+    memberId: number,
+    date: string,
+    newShifts: ShiftTime[],
+  ) => {
+    setShifts((p) => {
+      const memberShifts = { ...p[memberId] };
+      if (newShifts.length === 0) {
+        delete memberShifts[date];
+      } else {
+        // For now we only store the first shift to maintain compatibility with existing Map/Component
+        memberShifts[date] = newShifts[0];
+      }
+      return { ...p, [memberId]: memberShifts };
     });
   };
 
   const deleteShift = (memberId: number, date: string) => {
-    setShifts(p => {
+    setShifts((p) => {
       const copy = { ...p[memberId] };
       delete copy[date];
       return { ...p, [memberId]: copy };
     });
   };
-  const deleteAll = (memberId: number) => setShifts(p => ({ ...p, [memberId]: {} }));
-  const closeDropdowns = () => { setShowOpts(false); setShowAdd(false); };
+  const deleteAll = (memberId: number) =>
+    setShifts((p) => ({ ...p, [memberId]: {} }));
+  const closeDropdowns = () => {
+    setShowOpts(false);
+    setShowAdd(false);
+  };
 
   // --- Intro / Landing View ---
   if (!isStarted) {
@@ -144,19 +186,37 @@ const ScheduledShiftsPage: React.FC = () => {
           <div className="ss-page__container">
             <div className="ss-page__content">
               <span className="ss-page__badge">Free to use</span>
-              <h1 className="ss-page__title">Management made easy <br /> with scheduled shifts</h1>
+              <h1 className="ss-page__title">
+                Management made easy <br /> with scheduled shifts
+              </h1>
               <p className="ss-page__subtext">
                 Plan your team's schedule, track availability, and ensure <br />
                 your salon is always perfectly staffed with salonox shifts.
               </p>
               <ul className="ss-page__features">
-                <li><span className="ss-page__feature-icon">✓</span> Create and manage recurring shift patterns</li>
-                <li><span className="ss-page__feature-icon">✓</span> Track staff availability and time-off requests</li>
-                <li><span className="ss-page__feature-icon">✓</span> Seamlessly integrated with your booking calendar</li>
+                <li>
+                  <span className="ss-page__feature-icon">✓</span> Create and
+                  manage recurring shift patterns
+                </li>
+                <li>
+                  <span className="ss-page__feature-icon">✓</span> Track staff
+                  availability and time-off requests
+                </li>
+                <li>
+                  <span className="ss-page__feature-icon">✓</span> Seamlessly
+                  integrated with your booking calendar
+                </li>
               </ul>
               <div className="ss-page__actions">
-                <button className="ss-page__btn ss-page__btn--dark ss-page__btn--large" onClick={() => setIsStarted(true)}>Start now</button>
-                <button className="ss-page__btn ss-page__btn--outline ss-page__btn--large">Learn more</button>
+                <button
+                  className="ss-page__btn ss-page__btn--dark ss-page__btn--large"
+                  onClick={() => setIsStarted(true)}
+                >
+                  Start now
+                </button>
+                <button className="ss-page__btn ss-page__btn--outline ss-page__btn--large">
+                  Learn more
+                </button>
               </div>
             </div>
             <div className="ss-page__visual">
@@ -175,7 +235,9 @@ const ScheduledShiftsPage: React.FC = () => {
                     </div>
                   </div>
                   <div className="sh-ill__list">
-                    <div className="sh-ill__item"><span className="dot dot--green"></span> 9:00 AM - 2:00 PM</div>
+                    <div className="sh-ill__item">
+                      <span className="dot dot--green"></span> 9:00 AM - 2:00 PM
+                    </div>
                     <div className="sh-ill__item">
                       <span className="dot dot--gray"></span>
                       <div>
@@ -197,14 +259,18 @@ const ScheduledShiftsPage: React.FC = () => {
                     <div className="sh-ill__data-item">
                       <div className="sh-ill__data-label">
                         <span className="icon icon--blue">🕒</span>
-                        <div><strong>Mon - Fri</strong> <p>Standard Shift</p></div>
+                        <div>
+                          <strong>Mon - Fri</strong> <p>Standard Shift</p>
+                        </div>
                       </div>
                       <div className="sh-ill__data-val">40h</div>
                     </div>
                     <div className="sh-ill__data-item">
                       <div className="sh-ill__data-label">
                         <span className="icon icon--orange">📅</span>
-                        <div><strong>Saturday</strong> <p>Overtime</p></div>
+                        <div>
+                          <strong>Saturday</strong> <p>Overtime</p>
+                        </div>
                       </div>
                       <div className="sh-ill__data-val">2h</div>
                     </div>
@@ -223,26 +289,72 @@ const ScheduledShiftsPage: React.FC = () => {
     <div className="ss-page ss-page--active" onClick={closeDropdowns}>
       <div className="ss-page__header">
         <h4 className="ss-page__title">Scheduled shifts</h4>
-        <div className="ss-page__actions" onClick={e => e.stopPropagation()}>
+        <div className="ss-page__actions" onClick={(e) => e.stopPropagation()}>
           <div className="ss-page__dropdown-wrap">
-            <button className="ss-page__btn ss-page__btn--outline" onClick={() => { setShowOpts(p => !p); setShowAdd(false); }}>
+            <button
+              className="ss-page__btn ss-page__btn--outline"
+              onClick={() => {
+                setShowOpts((p) => !p);
+                setShowAdd(false);
+              }}
+            >
               Options <span className="ss-page__caret">▾</span>
             </button>
             {showOpts && (
               <ul className="ss-page__menu">
-                <li><button className="ss-page__menu-item" onClick={closeDropdowns}>⚙ Scheduling settings</button></li>
+                <li>
+                  <button
+                    className="ss-page__menu-item"
+                    onClick={closeDropdowns}
+                  >
+                    ⚙ Scheduling settings
+                  </button>
+                </li>
               </ul>
             )}
           </div>
           <div className="ss-page__dropdown-wrap">
-            <button className="ss-page__btn ss-page__btn--dark" onClick={() => { setShowAdd(p => !p); setShowOpts(false); }}>
+            <button
+              className="ss-page__btn ss-page__btn--dark"
+              onClick={() => {
+                setShowAdd((p) => !p);
+                setShowOpts(false);
+              }}
+            >
               Add <span className="ss-page__caret">▾</span>
             </button>
             {showAdd && (
               <ul className="ss-page__menu ss-page__menu--right">
-                <li><button className="ss-page__menu-item" onClick={() => { setTimeOff({ show: true }); closeDropdowns(); }}>Time off</button></li>
-                <li><button className="ss-page__menu-item" onClick={() => { navigate("/dashboard/team/add"); closeDropdowns(); }}>New team member</button></li>
-                <li><button className="ss-page__menu-item" onClick={closeDropdowns}>Business closed period</button></li>
+                <li>
+                  <button
+                    className="ss-page__menu-item"
+                    onClick={() => {
+                      setTimeOff({ show: true });
+                      closeDropdowns();
+                    }}
+                  >
+                    Time off
+                  </button>
+                </li>
+                <li>
+                  <button
+                    className="ss-page__menu-item"
+                    onClick={() => {
+                      navigate("/dashboard/team/add");
+                      closeDropdowns();
+                    }}
+                  >
+                    New team member
+                  </button>
+                </li>
+                <li>
+                  <button
+                    className="ss-page__menu-item"
+                    onClick={closeDropdowns}
+                  >
+                    Business closed period
+                  </button>
+                </li>
               </ul>
             )}
           </div>
@@ -250,10 +362,19 @@ const ScheduledShiftsPage: React.FC = () => {
       </div>
 
       <div className="ss-page__week-nav">
-        <button className="ss-page__btn ss-page__btn--outline" onClick={thisWeek}>This week</button>
-        <button className="ss-page__btn ss-page__btn--icon" onClick={prevWeek}>‹</button>
+        <button
+          className="ss-page__btn ss-page__btn--outline"
+          onClick={thisWeek}
+        >
+          This week
+        </button>
+        <button className="ss-page__btn ss-page__btn--icon" onClick={prevWeek}>
+          ‹
+        </button>
         <span className="ss-page__week-label">{formatRange(monday)}</span>
-        <button className="ss-page__btn ss-page__btn--icon" onClick={nextWeek}>›</button>
+        <button className="ss-page__btn ss-page__btn--icon" onClick={nextWeek}>
+          ›
+        </button>
       </div>
 
       <div className="ss-page__table-wrap">
@@ -263,35 +384,51 @@ const ScheduledShiftsPage: React.FC = () => {
               <th className="ss-table__th-member">
                 Team member <button className="ss-page__link">Change</button>
               </th>
-              {weekDays.map(d => (
+              {weekDays.map((d) => (
                 <th key={d.dateKey} className="ss-table__th-day">
                   <div className="ss-table__day-name">{d.label}</div>
-                  <div className="ss-table__day-hours">{d.colHours > 0 ? `${d.colHours}h` : "0min"}</div>
+                  <div className="ss-table__day-hours">
+                    {d.colHours > 0 ? `${d.colHours}h` : "0min"}
+                  </div>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {MEMBERS.map(m => (
+            {MEMBERS.map((m) => (
               <tr key={m.id} className="ss-table__row">
                 <td className="ss-table__td-member">
                   <div className="ss-table__member-info">
-                    <div className="ss-table__avatar" style={{ background: m.avatarColor }}>{m.initials}</div>
+                    <div
+                      className="ss-table__avatar"
+                      style={{ background: m.avatarColor }}
+                    >
+                      {m.initials}
+                    </div>
                     <div>
                       <div className="ss-table__member-name">{m.name}</div>
-                      <div className="ss-table__member-hours">{m.totalHours}h</div>
+                      <div className="ss-table__member-hours">
+                        {m.totalHours}h
+                      </div>
                     </div>
                     <MemberRowMenu
                       memberId={m.id}
-                      onSetRepeating={(mid) => navigate(`/dashboard/team/repeating-shifts/${mid}`)}
+                      onSetRepeating={(mid) =>
+                        navigate(`/dashboard/team/repeating-shifts/${mid}`)
+                      }
                       onUnassign={() => alert("Unassign")}
                       onDeleteAll={deleteAll}
-                      onViewMember={(mid) => setDrawer({ show: true, member: MEMBERS.find(m => m.id === mid) || null })}
+                      onViewMember={(mid) =>
+                        setDrawer({
+                          show: true,
+                          member: MEMBERS.find((m) => m.id === mid) || null,
+                        })
+                      }
                       onEditMember={(mid) => navigate(`/dashboard/team/${mid}`)}
                     />
                   </div>
                 </td>
-                {weekDays.map(d => (
+                {weekDays.map((d) => (
                   <td key={d.dateKey} className="ss-table__td-day">
                     <ShiftCell
                       shift={shifts[m.id]?.[d.dateKey]}
@@ -300,9 +437,18 @@ const ScheduledShiftsPage: React.FC = () => {
                       date={d.dateKey}
                       onAddShift={handleAddShiftClick}
                       onEditDay={handleEditDayClick}
-                      onSetRepeating={(mid) => navigate(`/dashboard/team/repeating-shifts/${mid}`)}
-                      onViewMember={(mid) => setDrawer({ show: true, member: MEMBERS.find(m => m.id === mid) || null })}
-                      onAddTimeOff={(mid, date) => setTimeOff({ show: true, memberId: mid, date })}
+                      onSetRepeating={(mid) =>
+                        navigate(`/dashboard/team/repeating-shifts/${mid}`)
+                      }
+                      onViewMember={(mid) =>
+                        setDrawer({
+                          show: true,
+                          member: MEMBERS.find((m) => m.id === mid) || null,
+                        })
+                      }
+                      onAddTimeOff={(mid, date) =>
+                        setTimeOff({ show: true, memberId: mid, date })
+                      }
                       onDeleteShift={deleteShift}
                     />
                   </td>
@@ -315,7 +461,11 @@ const ScheduledShiftsPage: React.FC = () => {
 
       <div className="ss-page__info-banner">
         <span className="ss-page__info-icon">💡</span>
-        <p>The team roster shows your availability for bookings and is not linked to your business standard opening hours. To set your standard opening hours, <button className="ss-page__link">click here</button>.</p>
+        <p>
+          The team roster shows your availability for bookings and is not linked
+          to your business standard opening hours. To set your standard opening
+          hours, <button className="ss-page__link">click here</button>.
+        </p>
       </div>
 
       <AddTimeOffModal
@@ -327,16 +477,20 @@ const ScheduledShiftsPage: React.FC = () => {
         onSave={(data) => console.log("Time off saved:", data)}
       />
 
-      <AddShiftModal 
+      <AddShiftModal
         show={shiftModal.show}
-        member={shiftModal.memberId ? MEMBERS.find(m => m.id === shiftModal.memberId) || null : null}
+        member={
+          shiftModal.memberId
+            ? MEMBERS.find((m) => m.id === shiftModal.memberId) || null
+            : null
+        }
         date={shiftModal.date || null}
         initialShifts={shiftModal.initialShifts}
         onClose={() => setShiftModal({ show: false })}
         onSave={saveShifts}
       />
 
-      <TeamMemberDrawer 
+      <TeamMemberDrawer
         show={drawer.show}
         member={drawer.member}
         onClose={() => setDrawer({ show: false, member: null })}

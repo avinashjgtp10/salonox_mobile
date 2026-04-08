@@ -3,11 +3,12 @@ import { Shop } from "react-bootstrap-icons";
 import "../styles/StaffLocationsSection.scss";
 
 const StaffLocationsSection: React.FC = () => {
-
   return (
     <div className="section locations-section">
       <h5 className="section__title">Works at</h5>
-      <p className="section__subtitle">Choose the locations where this team member works</p>
+      <p className="section__subtitle">
+        Choose the locations where this team member works
+      </p>
 
       <div className="location-list mt-3">
         <div className="location-item">
@@ -17,7 +18,8 @@ const StaffLocationsSection: React.FC = () => {
           <div className="location-content">
             <div className="location-name">bhb</div>
             <div className="location-address">
-              Amit Nagar, Knowledge Park I, Pari Chowk, Greater Noida, Uttar Pradesh
+              Amit Nagar, Knowledge Park I, Pari Chowk, Greater Noida, Uttar
+              Pradesh
             </div>
           </div>
         </div>

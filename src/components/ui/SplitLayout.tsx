@@ -23,10 +23,14 @@ const SplitLayout: React.FC<SplitLayoutProps> = ({
   return (
     <div className={`${containerClass} ${vhClass} ${className} p-0`}>
       <div className={`row g-0 ${vhClass}`}>
-        <div className={`col-lg-${leftColSpan} col-md-6 col-12 d-flex align-items-center justify-content-center bg-white`}>
+        <div
+          className={`col-lg-${leftColSpan} col-md-6 col-12 d-flex align-items-center justify-content-center bg-white`}
+        >
           {leftContent}
         </div>
-        <div className={`col-lg-${rightColSpan} d-none d-lg-block position-relative`}>
+        <div
+          className={`col-lg-${rightColSpan} d-none d-lg-block position-relative`}
+        >
           {rightContent}
         </div>
       </div>

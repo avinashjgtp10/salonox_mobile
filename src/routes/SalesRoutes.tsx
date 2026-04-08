@@ -1,15 +1,27 @@
-import { lazy, Suspense } from "react"
-import { Routes, Route } from "react-router-dom"
-import { SaleProvider } from "../features/analytics/context/SaleContext"
+import { lazy, Suspense } from "react";
+import { Routes, Route } from "react-router-dom";
+import { SaleProvider } from "../features/analytics/context/SaleContext";
 
-const SalesListPage    = lazy(() => import("../features/analytics/pages/SalesListPage"))
-const DailySalesPage   = lazy(() => import("../features/analytics/pages/DailySalesPage"))
-const AppointmentsPage = lazy(() => import("../features/analytics/pages/AppointmentsPage"))
-const PaymentsPage     = lazy(() => import("../features/analytics/pages/PaymentsPage"))
-const GiftCardsPage    = lazy(() => import("../features/analytics/pages/GiftCardsPage"))
-const MembershipsPage  = lazy(() => import("../features/analytics/pages/MembershipsPage"))
+const SalesListPage = lazy(
+  () => import("../features/analytics/pages/SalesListPage"),
+);
+const DailySalesPage = lazy(
+  () => import("../features/analytics/pages/DailySalesPage"),
+);
+const AppointmentsPage = lazy(
+  () => import("../features/analytics/pages/AppointmentsPage"),
+);
+const PaymentsPage = lazy(
+  () => import("../features/analytics/pages/PaymentsPage"),
+);
+const GiftCardsPage = lazy(
+  () => import("../features/analytics/pages/GiftCardsPage"),
+);
+const MembershipsPage = lazy(
+  () => import("../features/analytics/pages/MembershipsPage"),
+);
 
-import { PageLoader } from "../components/ui"
+import { PageLoader } from "../components/ui";
 
 export const SalesRoutes = () => (
   <Suspense fallback={<PageLoader />}>
@@ -24,5 +36,4 @@ export const SalesRoutes = () => (
       </Routes>
     </SaleProvider>
   </Suspense>
-)
-
+);

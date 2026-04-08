@@ -10,17 +10,11 @@ export default function SalesDateFilter() {
         iconLeft={<ChevronLeft size={18} />}
       />
 
-      <Button
-        variant="outline-secondary"
-        pill
-        size="sm"
-      >
+      <Button variant="outline-secondary" pill size="sm">
         Today
       </Button>
 
-      <div className="fw-bold small">
-        Wednesday 25 Feb, 2026
-      </div>
+      <div className="fw-bold small">Wednesday 25 Feb, 2026</div>
 
       <Button
         variant="light"
@@ -28,5 +22,5 @@ export default function SalesDateFilter() {
         iconLeft={<ChevronRight size={18} />}
       />
     </div>
-  )
+  );
 }

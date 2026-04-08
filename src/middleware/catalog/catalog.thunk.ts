@@ -73,7 +73,7 @@ export const updateCatalogThunk = createAsyncThunk<
 
 // ── Delete catalog item ───────────────────────────────────────────────────────
 export const deleteCatalogThunk = createAsyncThunk<
-  string | number,        // returns the deleted id so reducer can remove it
+  string | number, // returns the deleted id so reducer can remove it
   string | number,
   { rejectValue: string }
 >("catalog/delete", async (id, { rejectWithValue }) => {

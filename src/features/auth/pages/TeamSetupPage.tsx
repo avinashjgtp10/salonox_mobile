@@ -1,26 +1,24 @@
-import { useNavigate } from "react-router-dom"
-import { useState } from "react"
-import { ArrowLeft, ArrowRight, Person, People } from "react-bootstrap-icons"
-import "../styles/TeamSetupPage.scss"
-import { useOnboarding } from "../../../context/OnboardingContext"
-import salonImg from "../../../assets/images/salon.jpg"
+import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { FiArrowLeft, FiArrowRight, FiUser, FiUsers } from "react-icons/fi";
+import "../styles/TeamSetupPage.scss";
+import { useOnboarding } from "../../../context/OnboardingContext";
+import salonImg from "../../../assets/images/salon.jpg";
 
 export default function TeamSetupPage() {
-
-  const navigate = useNavigate()
-  const { update } = useOnboarding()
-  const [selected, setSelected] = useState<"independent" | "team" | null>(null)
+  const navigate = useNavigate();
+  const { update } = useOnboarding();
+  const [selected, setSelected] = useState<"independent" | "team" | null>(null);
 
   const handleContinue = () => {
-    if (!selected) return
-    update({ team_type: selected })
-    if (selected === "independent") navigate("/business-location")
-    else navigate("/team-size")
-  }
+    if (!selected) return;
+    update({ team_type: selected });
+    if (selected === "independent") navigate("/business-location");
+    else navigate("/team-size");
+  };
 
   return (
     <div className="container-fluid p-0 bg-page min-vh-100">
-
       {/* PROGRESS BAR */}
       <div className="progress onboarding-progress" style={{ height: "4px" }}>
         <div className="progress-bar bg-dark" style={{ width: "30%" }} />
@@ -39,13 +37,12 @@ export default function TeamSetupPage() {
           disabled={!selected}
           onClick={handleContinue}
         >
-          Continue <ArrowRight size={16} className="ms-1" />
+          Continue <FiArrowRight size={16} className="ms-1" />
         </button>
       </div>
 
       <div className="row g-0 min-vh-100">
         <div className="col-lg-5 col-md-6 left-panel d-flex flex-column px-5 position-relative bg-white">
-
           {/* Brand & Side Nav */}
           <div className="position-absolute top-0 start-0 p-4 pb-0 w-100">
             <div className="d-flex align-items-center justify-content-between">
@@ -55,16 +52,21 @@ export default function TeamSetupPage() {
                 onClick={() => navigate(-1)}
                 title="Back"
               >
-                <ArrowLeft size={20} />
+                <FiArrowLeft size={20} />
               </button>
             </div>
           </div>
 
           <div className="flex-grow-1 d-flex align-items-center justify-content-center">
-            <div className="content-wrapper w-100" style={{ maxWidth: "480px" }}>
+            <div
+              className="content-wrapper w-100"
+              style={{ maxWidth: "480px" }}
+            >
               <p className="onboarding-step-label mb-2">Account setup</p>
               <h2 className="account-heading mb-2">Select account type</h2>
-              <p className="text-muted mb-4">This will help us set up your account correctly</p>
+              <p className="text-muted mb-4">
+                This will help us set up your account correctly
+              </p>
 
               <div className="row g-3">
                 <div className="col-12">
@@ -72,7 +74,9 @@ export default function TeamSetupPage() {
                     className={`card p-4 text-center premium-choice-card ${selected === "independent" ? "selected" : ""}`}
                     onClick={() => setSelected("independent")}
                   >
-                    <div className="mb-2 fs-3 text-secondary"><Person /></div>
+                    <div className="mb-2 fs-3 text-secondary">
+                      <FiUser />
+                    </div>
                     <strong className="fs-5">I'm an independent</strong>
                   </div>
                 </div>
@@ -81,7 +85,9 @@ export default function TeamSetupPage() {
                     className={`card p-4 text-center premium-choice-card ${selected === "team" ? "selected" : ""}`}
                     onClick={() => setSelected("team")}
                   >
-                    <div className="mb-2 fs-3 text-secondary"><Persons /></div>
+                    <div className="mb-2 fs-3 text-secondary">
+                      <FiUsers />
+                    </div>
                     <strong className="fs-5">I have a team</strong>
                   </div>
                 </div>
@@ -90,7 +96,10 @@ export default function TeamSetupPage() {
           </div>
         </div>
 
-        <div className="col-lg-7 d-none d-lg-block p-0 position-relative overflow-hidden" style={{ minHeight: "100vh" }}>
+        <div
+          className="col-lg-7 d-none d-lg-block p-0 position-relative overflow-hidden"
+          style={{ minHeight: "100vh" }}
+        >
           <img
             src={salonImg}
             alt="salon"
@@ -105,11 +114,11 @@ export default function TeamSetupPage() {
               disabled={!selected}
               onClick={handleContinue}
             >
-              Continue <ArrowRight size={16} className="ms-1" />
+              Continue <FiArrowRight size={16} className="ms-1" />
             </button>
           </div>
         </div>
       </div>
     </div>
-  )
+  );
 }

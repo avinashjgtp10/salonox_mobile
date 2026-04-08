@@ -1,84 +1,93 @@
-import "bootstrap/dist/css/bootstrap.min.css"
-import "../styles/ServiceTypePage.scss"
-import { useNavigate } from "react-router-dom"
-import { useState } from "react"
+import "bootstrap/dist/css/bootstrap.min.css";
+import "../styles/ServiceTypePage.scss";
+import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { FiArrowRight } from "react-icons/fi";
 import {
-  ArrowRight, Scissors, Stars, Eye, Brush, PersonHeart,
-  Droplet, ThermometerHalf, HeartPulse, PersonBadge, Lightning, People,
-} from "react-bootstrap-icons"
-import { useOnboarding } from "../../../context/OnboardingContext"
-import salonImg from "../../../assets/images/salon.jpg"
+  FaCut,
+  FaHandSparkles,
+  FaEye,
+  FaSpa,
+  FaHotTub,
+  FaHeartbeat,
+  FaDumbbell,
+  FaUserTie,
+} from "react-icons/fa";
+import { GiLipstick, GiRazor } from "react-icons/gi";
+import { MdOutlineFaceRetouchingNatural } from "react-icons/md";
+import { useOnboarding } from "../../../context/OnboardingContext";
+import salonImg from "../../../assets/images/salon.jpg";
 
 export default function ServiceTypePage() {
+  const navigate = useNavigate();
+  const { update } = useOnboarding();
 
-  const navigate = useNavigate()
-  const { update } = useOnboarding()
-
-  const [selected, setSelected] = useState<string[]>([])
-  const [error, setError] = useState("")
-  const [showOtherInput, setShowOtherInput] = useState(false)
-  const [otherValue, setOtherValue] = useState("")
+  const [selected, setSelected] = useState<string[]>([]);
+  const [error, setError] = useState("");
+  const [showOtherInput, setShowOtherInput] = useState(false);
+  const [otherValue, setOtherValue] = useState("");
 
   const categories = [
-    { name: "Hair salon",            icon: <Scissors /> },
-    { name: "Nails",                 icon: <Stars /> },
-    { name: "Eyebrows & lashes",     icon: <Eye /> },
-    { name: "Beauty salon",          icon: <Brush /> },
-    { name: "Medspa",                icon: <PersonHeart /> },
-    { name: "Barber",                icon: <Scissors /> },
-    { name: "Massage",               icon: <Droplet /> },
-    { name: "Spa & sauna",           icon: <ThermometerHalf /> },
-    { name: "Waxing salon",          icon: <Droplet /> },
-    { name: "Tattooing & piercing",  icon: <HeartPulse /> },
-    { name: "Tanning studio",        icon: <PersonBadge /> },
-    { name: "Fitness & recovery",    icon: <Lightning /> },
-    { name: "Physical therapy",      icon: <HeartPulse /> },
-    { name: "Health practice",       icon: <HeartPulse /> },
-    { name: "Pet grooming",          icon: <People /> },
-    { name: "Other",                 icon: <PersonBadge /> },
-  ]
+    { name: "Hair salon", icon: <FaCut /> },
+    { name: "Nails", icon: <FaHandSparkles /> },
+    { name: "Eyebrows & lashes", icon: <FaEye /> },
+    { name: "Beauty salon", icon: <GiLipstick /> },
+    { name: "Medspa", icon: <MdOutlineFaceRetouchingNatural /> },
+    { name: "Barber", icon: <GiRazor /> },
+    { name: "Massage", icon: <FaSpa /> },
+    { name: "Spa & sauna", icon: <FaHotTub /> },
+    { name: "Waxing salon", icon: <FaSpa /> },
+    { name: "Tattooing & piercing", icon: <FaHeartbeat /> },
+    { name: "Tanning studio", icon: <FaUserTie /> },
+    { name: "Fitness & recovery", icon: <FaDumbbell /> },
+    { name: "Physical therapy", icon: <FaHeartbeat /> },
+    { name: "Health practice", icon: <FaHeartbeat /> },
+    { name: "Pet grooming", icon: <FaSpa /> },
+    { name: "Other", icon: <FaUserTie /> },
+  ];
 
   const handleSelect = (name: string) => {
-    setError("")
+    setError("");
     if (selected.includes(name)) {
-      setSelected(selected.filter(i => i !== name))
-      if (name === "Other") setShowOtherInput(false)
-      return
+      setSelected(selected.filter((i) => i !== name));
+      if (name === "Other") setShowOtherInput(false);
+      return;
     }
     if (selected.length >= 3) {
-      setError("You can select maximum 3 services.")
-      return
+      setError("You can select maximum 3 services.");
+      return;
     }
-    setSelected([...selected, name])
-    if (name === "Other") setShowOtherInput(true)
-  }
+    setSelected([...selected, name]);
+    if (name === "Other") setShowOtherInput(true);
+  };
 
   const handleContinue = () => {
     if (selected.length === 0) {
-      setError("Please select at least one service.")
-      return
+      setError("Please select at least one service.");
+      return;
     }
     if (selected.includes("Other") && otherValue.trim() === "") {
-      setError("Please enter your other service type.")
-      return
+      setError("Please enter your other service type.");
+      return;
     }
 
-    const business_type = selected[0] === "Other"
-      ? otherValue.trim()
-      : selected[0]
+    const business_type =
+      selected[0] === "Other" ? otherValue.trim() : selected[0];
 
-    update({ business_type })
-    navigate("/team-setup")
-  }
+    update({ business_type });
+    navigate("/team-setup");
+  };
 
   return (
     <div className="container-fluid p-0 bg-light">
-
       <div className="progress rounded-0" style={{ height: "4px" }}>
         <div className="progress-bar bg-dark" style={{ width: "40%" }} />
       </div>
 
-      <div className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3" style={{ pointerEvents: "none" }}>
+      <div
+        className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3"
+        style={{ pointerEvents: "none" }}
+      >
         <button
           className="btn btn-outline-secondary rounded-pill bg-white px-4"
           style={{ pointerEvents: "auto" }}
@@ -91,14 +100,15 @@ export default function ServiceTypePage() {
           style={{ pointerEvents: "auto" }}
           onClick={handleContinue}
         >
-          Continue <ArrowRight size={16} className="ms-1" />
+          Continue <FiArrowRight size={16} className="ms-1" />
         </button>
       </div>
 
       <div className="row g-0 min-vh-100">
         <div className="col-lg-6 bg-white p-4 position-relative">
-
-          <button className="btn back-btn" onClick={() => navigate(-1)}>←</button>
+          <button className="btn back-btn" onClick={() => navigate(-1)}>
+            ←
+          </button>
 
           <h4 className="fw-bold mt-5">
             Select categories that best describe your business
@@ -111,8 +121,8 @@ export default function ServiceTypePage() {
 
           <div className="row g-3">
             {categories.map((item) => {
-              const isSelected = selected.includes(item.name)
-              const index = selected.indexOf(item.name)
+              const isSelected = selected.includes(item.name);
+              const index = selected.indexOf(item.name);
               return (
                 <div key={item.name} className="col-md-6">
                   <div
@@ -131,13 +141,15 @@ export default function ServiceTypePage() {
                     </div>
                   </div>
                 </div>
-              )
+              );
             })}
           </div>
 
           {showOtherInput && (
             <div className="mt-4">
-              <label className="form-label fw-semibold">Other service type</label>
+              <label className="form-label fw-semibold">
+                Other service type
+              </label>
               <input
                 type="text"
                 className="form-control"
@@ -153,20 +165,20 @@ export default function ServiceTypePage() {
           >
             Continue →
           </button>
-
         </div>
 
-        <div className="col-lg-6 d-none d-lg-block position-relative p-0" style={{ minHeight: "100vh" }}>
+        <div
+          className="col-lg-6 d-none d-lg-block position-relative p-0"
+          style={{ minHeight: "100vh" }}
+        >
           <img
             src={salonImg}
             alt="salon"
             className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
             style={{ zIndex: 0 }}
           />
-
-        
         </div>
       </div>
     </div>
-  )
+  );
 }

@@ -1,16 +1,24 @@
 import React, { useState } from "react";
 import AddEmergencyContactModal from "../components/AddEmergencyContactModal";
 
-interface Contact { id: number; name: string; relationship: string; email?: string; phone: string; }
+interface Contact {
+  id: number;
+  name: string;
+  relationship: string;
+  email?: string;
+  phone: string;
+}
 
 interface StaffEmergencyContactsProps {
   contacts?: Contact[];
-  setContacts?: (contacts: Contact[] | ((prev: Contact[]) => Contact[])) => void;
+  setContacts?: (
+    contacts: Contact[] | ((prev: Contact[]) => Contact[]),
+  ) => void;
 }
 
 const StaffEmergencyContactsSection: React.FC<StaffEmergencyContactsProps> = ({
   contacts = [],
-  setContacts = () => { }
+  setContacts = () => {},
 }) => {
   const [openContactModal, setOpenContactModal] = useState(false);
 
@@ -21,20 +29,32 @@ const StaffEmergencyContactsSection: React.FC<StaffEmergencyContactsProps> = ({
 
   return (
     <div className="section staff-form">
-      <h5 className="fw-bold mb-1 section__title" style={{ fontSize: '18px' }}>Emergency Contacts</h5>
-      <p className="text-muted mb-4 section__subtitle" style={{ fontSize: '13px' }}>Manage your team members' emergency contacts.</p>
+      <h5 className="fw-bold mb-1 section__title" style={{ fontSize: "18px" }}>
+        Emergency Contacts
+      </h5>
+      <p
+        className="text-muted mb-4 section__subtitle"
+        style={{ fontSize: "13px" }}
+      >
+        Manage your team members' emergency contacts.
+      </p>
 
       {contacts.map((c) => (
         <div className="staff-list-item mb-3" key={c.id}>
           <div className="staff-list-item__info">
             <div className="staff-list-item__label">{c.name}</div>
-            <div className="staff-list-item__sub">{c.relationship} · {c.phone} {c.email ? ` · ${c.email}` : ""}</div>
+            <div className="staff-list-item__sub">
+              {c.relationship} · {c.phone} {c.email ? ` · ${c.email}` : ""}
+            </div>
           </div>
           <div className="staff-list-item__actions">
-            <button className="staff-list-item__action-btn"><i className="bi bi-pencil" /></button>
+            <button className="staff-list-item__action-btn">
+              <i className="bi bi-pencil" />
+            </button>
             <button
               className="staff-list-item__action-btn staff-list-item__action-btn--danger"
-              onClick={() => setContacts((p) => p.filter((x) => x.id !== c.id))}>
+              onClick={() => setContacts((p) => p.filter((x) => x.id !== c.id))}
+            >
               <i className="bi bi-trash" />
             </button>
           </div>
@@ -44,17 +64,21 @@ const StaffEmergencyContactsSection: React.FC<StaffEmergencyContactsProps> = ({
       <button
         className="btn d-inline-flex align-items-center gap-2"
         style={{
-          border: '1px solid #e0e0e0',
-          backgroundColor: '#fff',
-          color: '#333',
-          borderRadius: '20px',
-          padding: '6px 16px',
-          fontSize: '13px',
-          fontWeight: '500'
+          border: "1px solid #e0e0e0",
+          backgroundColor: "#fff",
+          color: "#333",
+          borderRadius: "20px",
+          padding: "6px 16px",
+          fontSize: "13px",
+          fontWeight: "500",
         }}
         onClick={() => setOpenContactModal(true)}
       >
-        <i className="bi bi-plus" style={{ fontSize: '18px', color: '#666', lineHeight: 1 }} /> Add an emergency contact
+        <i
+          className="bi bi-plus"
+          style={{ fontSize: "18px", color: "#666", lineHeight: 1 }}
+        />{" "}
+        Add an emergency contact
       </button>
 
       <AddEmergencyContactModal

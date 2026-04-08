@@ -12,14 +12,17 @@ import {
 const appSlice = createCRUDSlice<ExternalApp>({
   name: "app",
   thunks: {
-    fetchAllThunk:  fetchAppsThunk,
+    fetchAllThunk: fetchAppsThunk,
     fetchByIdThunk: fetchAppByIdThunk,
-    createThunk:    connectAppThunk,
-    updateThunk:    updateAppThunk,
-    deleteThunk:    disconnectAppThunk,
-    exportThunk:    exportAppsThunk,
+    createThunk: connectAppThunk,
+    updateThunk: updateAppThunk,
+    deleteThunk: disconnectAppThunk,
+    exportThunk: exportAppsThunk,
   },
 });
 
-export const { clearError: clearAppError, clearSelectedItem: clearSelectedApp } = appSlice.actions;
+export const {
+  clearError: clearAppError,
+  clearSelectedItem: clearSelectedApp,
+} = appSlice.actions;
 export default appSlice.reducer;

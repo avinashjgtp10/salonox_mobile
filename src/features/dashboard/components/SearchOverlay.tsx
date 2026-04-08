@@ -9,7 +9,9 @@ interface SearchOverlayProps {
 
 const SearchOverlay: React.FC<SearchOverlayProps> = ({ onClose }) => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedClientId, setSelectedClientId] = useState<string | number | null>(null);
+  const [selectedClientId, setSelectedClientId] = useState<
+    string | number | null
+  >(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -43,7 +45,11 @@ const SearchOverlay: React.FC<SearchOverlayProps> = ({ onClose }) => {
     <>
       <div className={`search-overlay ${isDrawerOpen ? "hide-content" : ""}`}>
         <div className="search-header">
-          <button className="close-btn" onClick={onClose} aria-label="Close search">
+          <button
+            className="close-btn"
+            onClick={onClose}
+            aria-label="Close search"
+          >
             <XLg size={20} />
           </button>
         </div>
@@ -74,14 +80,12 @@ const SearchOverlay: React.FC<SearchOverlayProps> = ({ onClose }) => {
               <h4>Clients (recently added)</h4>
               <div className="client-list">
                 {recentClients.map((client) => (
-                  <div 
-                    key={client.id} 
-                    className="client-item" 
+                  <div
+                    key={client.id}
+                    className="client-item"
                     onClick={() => handleClientClick(client.id)}
                   >
-                    <div className="client-avatar">
-                      {client.name.charAt(0)}
-                    </div>
+                    <div className="client-avatar">{client.name.charAt(0)}</div>
                     <div className="client-info">
                       <span className="client-name">{client.name}</span>
                       <span className="client-email">{client.email}</span>
@@ -94,7 +98,7 @@ const SearchOverlay: React.FC<SearchOverlayProps> = ({ onClose }) => {
         </div>
       </div>
 
-      <ClientDetailsDrawer 
+      <ClientDetailsDrawer
         clientId={selectedClientId}
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}

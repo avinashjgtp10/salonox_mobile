@@ -1,14 +1,13 @@
-import { ChevronLeft } from "react-bootstrap-icons"
-import { NavLink } from "react-router-dom"
+import { ChevronLeft } from "react-bootstrap-icons";
+import { NavLink } from "react-router-dom";
 
 interface Props {
-  onClose: () => void
+  onClose: () => void;
 }
 
 export default function TeamSubSidebar({ onClose }: Props) {
   return (
     <div className="sub-sidebar">
-
       <div className="sub-header">
         <h3>Team</h3>
 
@@ -56,7 +55,6 @@ export default function TeamSubSidebar({ onClose }: Props) {
       >
         Pay runs
       </NavLink>
-
     </div>
-  )
+  );
 }

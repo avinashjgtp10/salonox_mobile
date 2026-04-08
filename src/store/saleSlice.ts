@@ -12,14 +12,17 @@ import {
 const saleSlice = createCRUDSlice<Sale>({
   name: "sale",
   thunks: {
-    fetchAllThunk:  fetchSalesThunk,
+    fetchAllThunk: fetchSalesThunk,
     fetchByIdThunk: fetchSaleByIdThunk,
-    createThunk:    createSaleThunk,
-    updateThunk:    updateSaleThunk,
-    deleteThunk:    deleteSaleThunk,
-    exportThunk:    exportSalesThunk,
+    createThunk: createSaleThunk,
+    updateThunk: updateSaleThunk,
+    deleteThunk: deleteSaleThunk,
+    exportThunk: exportSalesThunk,
   },
 });
 
-export const { clearError: clearSaleError, clearSelectedItem: clearSelectedSale } = saleSlice.actions;
+export const {
+  clearError: clearSaleError,
+  clearSelectedItem: clearSelectedSale,
+} = saleSlice.actions;
 export default saleSlice.reducer;
