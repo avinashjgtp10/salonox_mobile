@@ -8,4 +8,9 @@ export const CLIENT = {
   IMPORT: "/api/v1/clients/import",
   MERGE_DUPLICATES: "/api/v1/clients/merge-duplicates",
   MERGE: "/api/v1/clients/merge",
+  APPOINTMENTS: (id: string | number) => `/api/v1/clients/${id}/appointments`,
+  SALES: (id: string | number) => `/api/v1/clients/${id}/sales`,
+  NOTES: (id: string | number) => `/api/v1/clients/${id}/notes`,
+  WALLET: (id: string | number) => `/api/v1/clients/${id}/wallet`,
+  LOYALTY: (id: string | number) => `/api/v1/clients/${id}/loyalty`,
 } as const;
