@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom"
 import { useState } from "react"
-import { FiArrowLeft, FiArrowRight, FiUser, FiUsers } from "react-icons/fi"
+import { FiArrowLeft, FiUser, FiUsers } from "react-icons/fi"
 import "../styles/TeamSetupPage.scss"
 import { useOnboarding } from "../../../context/OnboardingContext"
 import salonImg from "../../../assets/images/salon.jpg"
@@ -26,43 +26,21 @@ export default function TeamSetupPage() {
         <div className="progress-bar bg-dark" style={{ width: "30%" }} />
       </div>
 
-      {/* TOP NAVIGATION */}
-      <div className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3">
-        <button
-          className="btn btn-outline-secondary rounded-pill bg-white px-4"
-          onClick={() => navigate(-1)}
-        >
-          Back
-        </button>
-        <button
-          className="btn btn-dark rounded-pill px-4 d-lg-none"
-          disabled={!selected}
-          onClick={handleContinue}
-        >
-          Continue <FiArrowRight size={16} className="ms-1" />
-        </button>
-      </div>
+
 
       <div className="row g-0 min-vh-100">
         <div className="col-lg-5 col-md-6 left-panel d-flex flex-column px-5 position-relative bg-white">
 
-          {/* Brand & Side Nav */}
-          <div className="position-absolute top-0 start-0 p-4 pb-0 w-100">
-            <div className="d-flex align-items-center justify-content-between">
-              <h4 className="brand-logo m-0">salonox</h4>
-              <button
-                className="btn-back-circle d-md-flex d-none"
-                onClick={() => navigate(-1)}
-                title="Back"
-              >
-                <FiArrowLeft size={20} />
-              </button>
-            </div>
-          </div>
+          <button
+            className="btn btn-outline-secondary rounded-circle position-absolute"
+            style={{ top: "30px", left: "30px", width: "44px", height: "44px" }}
+            onClick={() => navigate(-1)}
+          >
+            <FiArrowLeft />
+          </button>
 
           <div className="flex-grow-1 d-flex align-items-center justify-content-center">
             <div className="content-wrapper w-100" style={{ maxWidth: "480px" }}>
-              <p className="onboarding-step-label mb-2">Account setup</p>
               <h2 className="account-heading mb-2">Select account type</h2>
               <p className="text-muted mb-4">This will help us set up your account correctly</p>
 
@@ -86,6 +64,14 @@ export default function TeamSetupPage() {
                   </div>
                 </div>
               </div>
+
+              <button
+                className="btn btn-dark w-100 rounded-pill mt-4"
+                disabled={!selected}
+                onClick={handleContinue}
+              >
+                Continue →
+              </button>
             </div>
           </div>
         </div>
@@ -98,16 +84,7 @@ export default function TeamSetupPage() {
             style={{ zIndex: 0 }}
           />
 
-          {/* Desktop Continue Button on Image */}
-          <div className="position-absolute top-0 end-0 p-4 z-3">
-            <button
-              className="btn btn-dark rounded-pill px-4"
-              disabled={!selected}
-              onClick={handleContinue}
-            >
-              Continue <FiArrowRight size={16} className="ms-1" />
-            </button>
-          </div>
+
         </div>
       </div>
     </div>

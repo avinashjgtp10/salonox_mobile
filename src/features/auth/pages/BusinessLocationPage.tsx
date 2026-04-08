@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom"
 import { useState } from "react"
-import { FiArrowLeft, FiArrowRight, FiCheck } from "react-icons/fi"
+import { FiArrowLeft, FiCheck } from "react-icons/fi"
 import "../styles/BusinessLocationPage.scss"
 import { useOnboarding } from "../../../context/OnboardingContext"
 import salonImg from "../../../assets/images/salon.jpg"
@@ -34,21 +34,7 @@ export default function BusinessLocationPage() {
         <div className="progress-bar bg-dark" style={{ width: "80%" }} />
       </div>
 
-      <div className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3">
-        <button
-          className="btn btn-outline-secondary rounded-pill bg-white px-4"
-          onClick={() => navigate(-1)}
-        >
-          Back
-        </button>
-        <button
-          className="btn btn-dark rounded-pill px-4 d-lg-none"
-          disabled={!selected}
-          onClick={handleContinue}
-        >
-          Continue <FiArrowRight size={16} className="ms-1" />
-        </button>
-      </div>
+
 
       <div className="row g-0 min-vh-100">
         <div className="col-lg-5 col-md-6 bg-light p-5 position-relative">
@@ -84,6 +70,14 @@ export default function BusinessLocationPage() {
                 </div>
               ))}
             </div>
+
+            <button
+              className="btn btn-dark w-100 rounded-pill mt-4"
+              disabled={!selected}
+              onClick={handleContinue}
+            >
+              Continue →
+            </button>
           </div>
         </div>
 
@@ -95,16 +89,7 @@ export default function BusinessLocationPage() {
             style={{ zIndex: 0 }}
           />
 
-          {/* Desktop Continue Button on Image */}
-          <div className="position-absolute top-0 end-0 p-4 z-3 d-none d-lg-block">
-            <button
-              className="btn btn-dark rounded-pill px-4"
-              disabled={!selected}
-              onClick={handleContinue}
-            >
-              Continue <FiArrowRight size={16} className="ms-1" />
-            </button>
-          </div>
+
         </div>
       </div>
     </div>

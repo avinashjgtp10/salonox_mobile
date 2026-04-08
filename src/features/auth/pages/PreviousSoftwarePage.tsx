@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom"
 import { useState } from "react"
-import { FiArrowLeft, FiArrowRight } from "react-icons/fi"
+import { FiArrowLeft } from "react-icons/fi"
 import salonImg from "../../../assets/images/salon.jpg"
 import "../styles/PreviousSoftwarePage.scss"
 
@@ -35,34 +35,11 @@ export default function PreviousSoftwarePage() {
   }
 
   return (
-    <div className="container-fluid p-0">
+    <div className="container-fluid p-0 position-relative">
 
       {/* Progress */}
       <div className="progress" style={{ height: "5px" }}>
         <div className="progress-bar bg-dark" style={{ width: "75%" }} />
-      </div>
-
-      {/* Top Right Buttons */}
-      <div className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3">
-
-        <button
-          className="btn btn-outline-secondary rounded-pill bg-white px-4"
-          onClick={() => navigate(-1)}
-        >
-          Back
-        </button>
-
-        <button
-          className="btn btn-dark rounded-pill px-4 d-lg-none"
-          disabled={
-            !selected ||
-            (selected === "Other" && otherSoftware.length === 0)
-          }
-          onClick={handleContinue}
-        >
-          Continue <FiArrowRight size={16} className="ms-1" />
-        </button>
-
       </div>
 
       <div className="row g-0 min-vh-100">
@@ -151,19 +128,15 @@ export default function PreviousSoftwarePage() {
             style={{ zIndex: 0 }}
           />
 
-          {/* Desktop Continue Button on Image */}
-          <div className="position-absolute top-0 end-0 p-4 z-3">
-            <button
-              className="btn btn-dark rounded-pill px-4"
-              disabled={
-                !selected ||
-                (selected === "Other" && otherSoftware.length === 0)
-              }
-              onClick={handleContinue}
-            >
-              Continue <FiArrowRight size={16} className="ms-1" />
-            </button>
-          </div>
+          <button
+            className="btn btn-dark rounded-pill position-absolute"
+            style={{ top: "20px", right: "20px", zIndex: 10 }}
+            disabled={!selected || (selected === "Other" && otherSoftware.length === 0)}
+            onClick={handleContinue}
+          >
+            Continue →
+          </button>
+
         </div>
 
       </div>

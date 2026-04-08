@@ -1,7 +1,7 @@
 import "bootstrap/dist/css/bootstrap.min.css"
 import { useNavigate } from "react-router-dom"
 import { useState, useEffect, useRef } from "react"
-import { FiArrowLeft, FiArrowRight } from "react-icons/fi"
+import { FiArrowLeft } from "react-icons/fi"
 import { HiOutlineLocationMarker } from "react-icons/hi"
 import "../styles/VenueLocationPage.scss"
 import { useOnboarding } from "../../../context/OnboardingContext"
@@ -82,22 +82,10 @@ export default function VenueLocationPage() {
   }
 
   return (
-    <div className="container-fluid p-0 venue-page">
+    <div className="container-fluid p-0 venue-page position-relative">
 
       <div className="progress rounded-0 progress-top">
         <div className="progress-bar progress-fill" />
-      </div>
-
-      <div className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3">
-        <button
-          className="btn btn-outline-secondary rounded-pill bg-white px-4"
-          onClick={() => navigate(-1)}
-        >
-          Back
-        </button>
-        <button className="btn btn-dark rounded-pill px-4 d-lg-none" onClick={handleContinue}>
-          Continue <FiArrowRight size={16} className="ms-1" />
-        </button>
       </div>
 
       <div className="row g-0 min-vh-100">
@@ -160,6 +148,7 @@ export default function VenueLocationPage() {
             </div>
 
             {loading && <small className="text-muted d-block mt-2">Fetching live location...</small>}
+
           </div>
         </div>
 
@@ -171,12 +160,14 @@ export default function VenueLocationPage() {
             style={{ zIndex: 0 }}
           />
 
-          {/* Desktop Continue Button on Image */}
-          <div className="position-absolute top-0 end-0 p-4 z-3">
-            <button className="btn btn-dark rounded-pill px-4" onClick={handleContinue}>
-              Continue <FiArrowRight size={16} className="ms-1" />
-            </button>
-          </div>
+          <button
+            className="btn btn-dark rounded-pill position-absolute"
+            style={{ top: "20px", right: "20px", zIndex: 10 }}
+            onClick={handleContinue}
+          >
+            Continue →
+          </button>
+
         </div>
       </div>
     </div>

@@ -2,7 +2,7 @@ import "bootstrap/dist/css/bootstrap.min.css"
 import "../styles/RecommendationSourcePage.scss"
 import { useNavigate } from "react-router-dom"
 import { useState } from "react"
-import { FiArrowLeft, FiArrowRight } from "react-icons/fi"
+import { FiArrowLeft } from "react-icons/fi"
 import { useOnboarding } from "../../../context/OnboardingContext"
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux"
 import { saveSalonThunk } from "../../../middleware/salon/salon.thunk"
@@ -60,7 +60,7 @@ export default function RecommendationSourcePage() {
       }
 
       reset()
-      navigate("/setup-complete")
+      navigate("/request-success")
 
     } else {
       console.error("Salon save failed:", result.payload)
@@ -73,38 +73,6 @@ export default function RecommendationSourcePage() {
         <div className="progress rounded-0" style={{ height: "4px" }}>
           <div className="progress-bar bg-dark" style={{ width: "100%" }} />
         </div>
-
-        {/* Top Right Buttons overlay (hidden from pointer interactions) */}
-        <div className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3" style={{ pointerEvents: "none" }}>
-          <button
-            className="btn btn-outline-secondary rounded-pill bg-white px-4"
-            style={{ pointerEvents: "auto" }}
-            onClick={() => navigate(-1)}
-          >
-            Back
-          </button>
-          <button
-            className="btn btn-dark rounded-pill px-4 d-lg-none"
-            style={{ pointerEvents: "auto" }}
-            disabled={
-              loading ||
-              !selected ||
-              (selected === "Other" && otherText.trim() === "")
-            }
-            onClick={handleDone}
-          >
-          {loading ? (
-            <>
-              <span className="spinner-border spinner-border-sm me-2" />
-              Saving...
-            </>
-          ) : (
-            <>
-              Continue <FiArrowRight size={16} className="ms-1" />
-            </>
-          )}
-        </button>
-      </div>
 
       <div className="row g-0 min-vh-100">
         <div className="col-lg-5 col-12 bg-white p-5">
@@ -164,30 +132,18 @@ export default function RecommendationSourcePage() {
             className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
             style={{ zIndex: 0 }}
           />
+          <button
+            className="btn btn-dark rounded-pill position-absolute"
+            style={{ top: "20px", right: "20px", zIndex: 10 }}
+            disabled={loading || !selected || (selected === "Other" && otherText.trim() === "")}
+            onClick={handleDone}
+          >
+            {loading ? (
+              <><span className="spinner-border spinner-border-sm me-2" />Saving...</>
+            ) : "Complete Setup →"}
+          </button>
 
-          {/* Desktop Continue Button on Image */}
-          <div className="position-absolute top-0 end-0 p-4 z-3">
-            <button
-              className="btn btn-dark rounded-pill px-4"
-              disabled={
-                loading ||
-                !selected ||
-                (selected === "Other" && otherText.trim() === "")
-              }
-              onClick={handleDone}
-            >
-              {loading ? (
-                <>
-                  <span className="spinner-border spinner-border-sm me-2" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  Continue <FiArrowRight size={16} className="ms-1" />
-                </>
-              )}
-            </button>
-          </div>
+
         </div>
       </div>
     </div>
