@@ -120,7 +120,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         onClick={() => onMenuChange(null)}
       >
         <GraphUpArrow size={26} />
-        <span className="nav-label">Analytics</span>
+        <span className="nav-label">Reports</span>
       </NavLink>
 
       <NavLink

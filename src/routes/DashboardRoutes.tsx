@@ -19,6 +19,9 @@ const DashboardPage = lazy(
 const Scheduler = lazy(
   () => import("../features/bookings/components/calendar/Scheduler"),
 );
+const ReportsPage = lazy(
+  () => import("../features/analytics/pages/ReportsPage"),
+);
 
 export const DashboardRoutes = (
   <Route element={<AuthGuard />}>
@@ -32,6 +35,7 @@ export const DashboardRoutes = (
     >
       <Route index element={<DashboardPage />} />
       <Route path="calendar" element={<Scheduler />} />
+      <Route path="analytics" element={<ReportsPage />} />
       <Route path="apps/*" element={<AppsRoutes />} />
       <Route path="sales/*" element={<SalesRoutes />} />
       <Route path="catalog/*" element={<CatalogRoutes />} />
