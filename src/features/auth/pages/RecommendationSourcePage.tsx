@@ -6,7 +6,6 @@ import { FiArrowLeft } from "react-icons/fi"
 import { useOnboarding } from "../../../context/OnboardingContext"
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux"
 import { saveSalonThunk } from "../../../middleware/salon/salon.thunk"
-import { login, updateOnboardingStatus } from "../../../store/authSlice"
 import type { CreateSalonPayload } from "../../../types/salon.types"
 import salonImg from "../../../assets/images/salon.jpg"
 
@@ -51,16 +50,17 @@ export default function RecommendationSourcePage() {
     const result = await dispatch(saveSalonThunk(payload))
 
     if (saveSalonThunk.fulfilled.match(result)) {
-      const { accessToken, refreshToken, isOnboardingComplete } = result.payload
-
-      if (accessToken && refreshToken) {
-        dispatch(login({ accessToken, refreshToken, isOnboardingComplete }))
-      } else {
-        dispatch(updateOnboardingStatus(true))
-      }
+      const { accessToken, refreshToken } = result.payload
 
       reset()
-      navigate("/request-success")
+
+      // Pass tokens as route state — RequestSuccessPage will dispatch
+      // updateOnboardingStatus(true) only when navigating to /dashboard.
+      // Dispatching here would make OnboardingGuard immediately redirect
+      // to /dashboard before this navigate() takes effect.
+      navigate("/request-success", {
+        state: { accessToken, refreshToken },
+      })
 
     } else {
       console.error("Salon save failed:", result.payload)
