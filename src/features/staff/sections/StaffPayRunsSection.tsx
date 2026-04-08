@@ -13,7 +13,6 @@ const StaffPayRunsSection: React.FC = () => {
 
   return (
     <div className="section payruns-section mt-1">
-
       {/* Main Toggle Header */}
       <div className="custom-switch-container">
         <div className="switch-info">
@@ -26,7 +25,8 @@ const StaffPayRunsSection: React.FC = () => {
             )}
           </div>
           <div className="switch-desc">
-            Choose how you will pay this team member through pay runs. <a href="#">Learn more</a>
+            Choose how you will pay this team member through pay runs.{" "}
+            <a href="#">Learn more</a>
           </div>
         </div>
         <div className="form-check form-switch">
@@ -42,11 +42,12 @@ const StaffPayRunsSection: React.FC = () => {
 
       {payRunsEnabled && (
         <div className="fade-in">
-
           {/* Preferred Payment Method */}
           <h6 className="section__block-title">Preferred payment method</h6>
           <p className="section__block-subtitle">
-            Choose how you would prefer to pay your team member when completing a pay run. A processing fee may apply for transfers to bank accounts. <a href="#">Learn more</a>
+            Choose how you would prefer to pay your team member when completing
+            a pay run. A processing fee may apply for transfers to bank
+            accounts. <a href="#">Learn more</a>
           </p>
 
           <div className="payment-card mb-4">
@@ -55,35 +56,49 @@ const StaffPayRunsSection: React.FC = () => {
                 <i className="bi bi-credit-card-2-front" />
               </div>
               <div className="payment-card-info">
-                <div className="payment-card-title">{paymentMethod === "manual" ? "Pay manually" : "Bank transfer"}</div>
-                <div className="payment-card-subtitle">{paymentMethod === "manual" ? "Mark as paid outside of salonox" : "Transfer to bank account"}</div>
+                <div className="payment-card-title">
+                  {paymentMethod === "manual"
+                    ? "Pay manually"
+                    : "Bank transfer"}
+                </div>
+                <div className="payment-card-subtitle">
+                  {paymentMethod === "manual"
+                    ? "Mark as paid outside of salonox"
+                    : "Transfer to bank account"}
+                </div>
               </div>
             </div>
-            <a className="payment-card-action" onClick={() => setShowPaymentModal(true)} style={{ cursor: 'pointer' }}>Change</a>
+            <a
+              className="payment-card-action"
+              onClick={() => setShowPaymentModal(true)}
+              style={{ cursor: "pointer" }}
+            >
+              Change
+            </a>
           </div>
 
           {/* Change Payment Method Modal */}
           {showPaymentModal && (
             <div
               style={{
-                position: 'fixed',
+                position: "fixed",
                 inset: 0,
-                backgroundColor: 'rgba(0,0,0,0.35)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                backgroundColor: "rgba(0,0,0,0.35)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
                 zIndex: 2000,
               }}
               onClick={() => setShowPaymentModal(false)}
             >
               <div
                 style={{
-                  background: '#fff',
-                  borderRadius: '12px',
-                  padding: '28px',
-                  width: '420px',
-                  position: 'relative',
-                  boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+                  background: "#fff",
+                  borderRadius: "12px",
+                  padding: "28px",
+                  width: "420px",
+                  position: "relative",
+                  boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
                 }}
                 onClick={(e) => e.stopPropagation()}
               >
@@ -91,14 +106,14 @@ const StaffPayRunsSection: React.FC = () => {
                 <button
                   onClick={() => setShowPaymentModal(false)}
                   style={{
-                    position: 'absolute',
-                    top: '16px',
-                    right: '16px',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: '18px',
-                    color: '#6b7280',
+                    position: "absolute",
+                    top: "16px",
+                    right: "16px",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "18px",
+                    color: "#6b7280",
                     lineHeight: 1,
                     padding: 0,
                   }}
@@ -106,44 +121,100 @@ const StaffPayRunsSection: React.FC = () => {
                   &times;
                 </button>
 
-                <h5 style={{ fontWeight: 700, fontSize: '16px', color: '#111827', marginBottom: '6px' }}>
+                <h5
+                  style={{
+                    fontWeight: 700,
+                    fontSize: "16px",
+                    color: "#111827",
+                    marginBottom: "6px",
+                  }}
+                >
                   Preferred payment method
                 </h5>
-                <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '20px', lineHeight: 1.5 }}>
-                  Choose how you would prefer to pay this team member. A processing fee may apply for bank transfers.
+                <p
+                  style={{
+                    fontSize: "13px",
+                    color: "#6b7280",
+                    marginBottom: "20px",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Choose how you would prefer to pay this team member. A
+                  processing fee may apply for bank transfers.
                 </p>
 
                 {/* Option: Pay manually */}
                 <div
                   onClick={() => setPaymentMethod("manual")}
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '14px',
-                    padding: '14px 16px',
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "14px",
+                    padding: "14px 16px",
                     border: `2px solid ${paymentMethod === "manual" ? "#6c3ce1" : "#e5e7eb"}`,
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                    marginBottom: '12px',
-                    background: paymentMethod === "manual" ? '#f5f3ff' : '#fff',
-                    transition: 'all 0.2s',
+                    borderRadius: "10px",
+                    cursor: "pointer",
+                    marginBottom: "12px",
+                    background: paymentMethod === "manual" ? "#f5f3ff" : "#fff",
+                    transition: "all 0.2s",
                   }}
                 >
-                  <div style={{ width: 40, height: 40, borderRadius: 8, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <i className="bi bi-credit-card-2-front" style={{ fontSize: 18, color: '#6b7280' }} />
+                  <div
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 8,
+                      background: "#f3f4f6",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <i
+                      className="bi bi-credit-card-2-front"
+                      style={{ fontSize: 18, color: "#6b7280" }}
+                    />
                   </div>
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: 14, color: '#111827' }}>Pay manually</div>
-                    <div style={{ fontSize: 12, color: '#6b7280' }}>Mark as paid outside of salonox</div>
+                    <div
+                      style={{
+                        fontWeight: 600,
+                        fontSize: 14,
+                        color: "#111827",
+                      }}
+                    >
+                      Pay manually
+                    </div>
+                    <div style={{ fontSize: 12, color: "#6b7280" }}>
+                      Mark as paid outside of salonox
+                    </div>
                   </div>
-                  <div style={{ marginLeft: 'auto' }}>
-                    <div style={{
-                      width: 18, height: 18, borderRadius: '50%',
-                      border: `2px solid ${paymentMethod === 'manual' ? '#6c3ce1' : '#d1d5db'}`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      background: paymentMethod === 'manual' ? '#6c3ce1' : 'transparent',
-                    }}>
-                      {paymentMethod === 'manual' && <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff' }} />}
+                  <div style={{ marginLeft: "auto" }}>
+                    <div
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: "50%",
+                        border: `2px solid ${paymentMethod === "manual" ? "#6c3ce1" : "#d1d5db"}`,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background:
+                          paymentMethod === "manual"
+                            ? "#6c3ce1"
+                            : "transparent",
+                      }}
+                    >
+                      {paymentMethod === "manual" && (
+                        <div
+                          style={{
+                            width: 7,
+                            height: 7,
+                            borderRadius: "50%",
+                            background: "#fff",
+                          }}
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -152,48 +223,108 @@ const StaffPayRunsSection: React.FC = () => {
                 <div
                   onClick={() => setPaymentMethod("bank")}
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '14px',
-                    padding: '14px 16px',
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "14px",
+                    padding: "14px 16px",
                     border: `2px solid ${paymentMethod === "bank" ? "#6c3ce1" : "#e5e7eb"}`,
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                    marginBottom: '24px',
-                    background: paymentMethod === "bank" ? '#f5f3ff' : '#fff',
-                    transition: 'all 0.2s',
+                    borderRadius: "10px",
+                    cursor: "pointer",
+                    marginBottom: "24px",
+                    background: paymentMethod === "bank" ? "#f5f3ff" : "#fff",
+                    transition: "all 0.2s",
                   }}
                 >
-                  <div style={{ width: 40, height: 40, borderRadius: 8, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <i className="bi bi-bank" style={{ fontSize: 18, color: '#6b7280' }} />
+                  <div
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 8,
+                      background: "#f3f4f6",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <i
+                      className="bi bi-bank"
+                      style={{ fontSize: 18, color: "#6b7280" }}
+                    />
                   </div>
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: 14, color: '#111827' }}>Bank transfer</div>
-                    <div style={{ fontSize: 12, color: '#6b7280' }}>Transfer to bank account. Processing fees may apply.</div>
+                    <div
+                      style={{
+                        fontWeight: 600,
+                        fontSize: 14,
+                        color: "#111827",
+                      }}
+                    >
+                      Bank transfer
+                    </div>
+                    <div style={{ fontSize: 12, color: "#6b7280" }}>
+                      Transfer to bank account. Processing fees may apply.
+                    </div>
                   </div>
-                  <div style={{ marginLeft: 'auto' }}>
-                    <div style={{
-                      width: 18, height: 18, borderRadius: '50%',
-                      border: `2px solid ${paymentMethod === 'bank' ? '#6c3ce1' : '#d1d5db'}`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      background: paymentMethod === 'bank' ? '#6c3ce1' : 'transparent',
-                    }}>
-                      {paymentMethod === 'bank' && <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff' }} />}
+                  <div style={{ marginLeft: "auto" }}>
+                    <div
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: "50%",
+                        border: `2px solid ${paymentMethod === "bank" ? "#6c3ce1" : "#d1d5db"}`,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background:
+                          paymentMethod === "bank" ? "#6c3ce1" : "transparent",
+                      }}
+                    >
+                      {paymentMethod === "bank" && (
+                        <div
+                          style={{
+                            width: 7,
+                            height: 7,
+                            borderRadius: "50%",
+                            background: "#fff",
+                          }}
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "12px",
+                    justifyContent: "flex-end",
+                  }}
+                >
                   <button
                     className="btn"
-                    style={{ borderRadius: '20px', border: '1px solid #e5e7eb', padding: '8px 20px', fontSize: '14px', fontWeight: 500, color: '#374151' }}
+                    style={{
+                      borderRadius: "20px",
+                      border: "1px solid #e5e7eb",
+                      padding: "8px 20px",
+                      fontSize: "14px",
+                      fontWeight: 500,
+                      color: "#374151",
+                    }}
                     onClick={() => setShowPaymentModal(false)}
                   >
                     Cancel
                   </button>
                   <button
                     className="btn"
-                    style={{ borderRadius: '20px', background: '#111827', color: '#fff', padding: '8px 20px', fontSize: '14px', fontWeight: 500, border: 'none' }}
+                    style={{
+                      borderRadius: "20px",
+                      background: "#111827",
+                      color: "#fff",
+                      padding: "8px 20px",
+                      fontSize: "14px",
+                      fontWeight: 500,
+                      border: "none",
+                    }}
                     onClick={() => setShowPaymentModal(false)}
                   >
                     Save
@@ -206,7 +337,8 @@ const StaffPayRunsSection: React.FC = () => {
           {/* Calculation of Pay Runs */}
           <h6 className="section__block-title">Calculation of pay runs</h6>
           <p className="section__block-subtitle">
-            Choose if the amount to pay is calculated automatically or manually entered at each pay period
+            Choose if the amount to pay is calculated automatically or manually
+            entered at each pay period
           </p>
 
           <select
@@ -220,11 +352,20 @@ const StaffPayRunsSection: React.FC = () => {
 
           {calcType === "automatic" && (
             <div className="calc-info-box mb-4">
-              <InfoCircle style={{ color: '#6c3ce1', fontSize: 16, flexShrink: 0, marginTop: 1 }} />
+              <InfoCircle
+                style={{
+                  color: "#6c3ce1",
+                  fontSize: 16,
+                  flexShrink: 0,
+                  marginTop: 1,
+                }}
+              />
               <div className="calc-info-content">
                 <div className="calc-info-title">Automatic calculation</div>
                 <div className="calc-info-desc">
-                  Calculates the amount to pay based on activity from timesheets, earned wages, commissions and tips as configured on this team members settings.
+                  Calculates the amount to pay based on activity from
+                  timesheets, earned wages, commissions and tips as configured
+                  on this team members settings.
                 </div>
               </div>
             </div>
@@ -235,7 +376,8 @@ const StaffPayRunsSection: React.FC = () => {
           {/* Pay Run Deductions */}
           <h6 className="section__block-title">Pay run deductions</h6>
           <p className="section__block-subtitle">
-            Choose which fees to automatically deduct from this team member's earnings. <a href="#">Learn more</a>
+            Choose which fees to automatically deduct from this team member's
+            earnings. <a href="#">Learn more</a>
           </p>
 
           <div className="deduction-row">
@@ -246,8 +388,13 @@ const StaffPayRunsSection: React.FC = () => {
               onChange={(e) => setDeductProcessing(e.target.checked)}
             />
             <div className="deduction-content">
-              <label htmlFor="deduct-processing" className="deduction-title">Deduct salonox payment processing fees</label>
-              <div className="deduction-desc">Deduct payment processing fees for items sold by this team member.</div>
+              <label htmlFor="deduct-processing" className="deduction-title">
+                Deduct salonox payment processing fees
+              </label>
+              <div className="deduction-desc">
+                Deduct payment processing fees for items sold by this team
+                member.
+              </div>
             </div>
           </div>
 
@@ -259,8 +406,13 @@ const StaffPayRunsSection: React.FC = () => {
               onChange={(e) => setDeductNewClient(e.target.checked)}
             />
             <div className="deduction-content">
-              <label htmlFor="deduct-new-client" className="deduction-title">Deduct salonox new client fees</label>
-              <div className="deduction-desc">Deduct the new client fee for any new client bookings with this team member.</div>
+              <label htmlFor="deduct-new-client" className="deduction-title">
+                Deduct salonox new client fees
+              </label>
+              <div className="deduction-desc">
+                Deduct the new client fee for any new client bookings with this
+                team member.
+              </div>
             </div>
           </div>
 
@@ -268,7 +420,9 @@ const StaffPayRunsSection: React.FC = () => {
 
           {/* Cash Advances */}
           <h6 className="section__block-title">Cash advances</h6>
-          <p className="section__block-subtitle">Choose how you want to manage cash payments</p>
+          <p className="section__block-subtitle">
+            Choose how you want to manage cash payments
+          </p>
 
           <div className="deduction-row">
             <input
@@ -278,14 +432,17 @@ const StaffPayRunsSection: React.FC = () => {
               onChange={(e) => setRecordCashAdvance(e.target.checked)}
             />
             <div className="deduction-content">
-              <label htmlFor="cash-advance" className="deduction-title">Record cash payments for sales as 'paid' in pay runs</label>
-              <div className="deduction-desc">When a sale is paid in cash, record that this team member has taken the full cash amount as an advance within the pay period.</div>
+              <label htmlFor="cash-advance" className="deduction-title">
+                Record cash payments for sales as 'paid' in pay runs
+              </label>
+              <div className="deduction-desc">
+                When a sale is paid in cash, record that this team member has
+                taken the full cash amount as an advance within the pay period.
+              </div>
             </div>
           </div>
-
         </div>
       )}
-
     </div>
   );
 };

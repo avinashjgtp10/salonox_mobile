@@ -12,14 +12,17 @@ import {
 const calendarSlice = createCRUDSlice<CalendarEvent>({
   name: "calendar",
   thunks: {
-    fetchAllThunk:  fetchCalendarEventsThunk,
+    fetchAllThunk: fetchCalendarEventsThunk,
     fetchByIdThunk: fetchCalendarEventByIdThunk,
-    createThunk:    createCalendarEventThunk,
-    updateThunk:    updateCalendarEventThunk,
-    deleteThunk:    deleteCalendarEventThunk,
-    exportThunk:    exportCalendarEventsThunk,
+    createThunk: createCalendarEventThunk,
+    updateThunk: updateCalendarEventThunk,
+    deleteThunk: deleteCalendarEventThunk,
+    exportThunk: exportCalendarEventsThunk,
   },
 });
 
-export const { clearError: clearCalendarError, clearSelectedItem: clearSelectedCalendarEvent } = calendarSlice.actions;
+export const {
+  clearError: clearCalendarError,
+  clearSelectedItem: clearSelectedCalendarEvent,
+} = calendarSlice.actions;
 export default calendarSlice.reducer;

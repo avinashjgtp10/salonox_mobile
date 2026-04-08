@@ -39,12 +39,14 @@ export function SaleProvider({ children }: { children: ReactNode }) {
 
   const addToCart = (item: SaleItem) => {
     setCart((prev) => {
-      const existing = prev.find((i) => i.id === item.id && i.type === item.type);
+      const existing = prev.find(
+        (i) => i.id === item.id && i.type === item.type,
+      );
       if (existing) {
         return prev.map((i) =>
           i.id === item.id && i.type === item.type
             ? { ...i, quantity: (i.quantity || 1) + 1 }
-            : i
+            : i,
         );
       }
       return [...prev, { ...item, quantity: 1 }];
@@ -61,7 +63,10 @@ export function SaleProvider({ children }: { children: ReactNode }) {
   };
 
   const getTotal = () => {
-    return cart.reduce((total, item) => total + item.price * (item.quantity || 1), 0);
+    return cart.reduce(
+      (total, item) => total + item.price * (item.quantity || 1),
+      0,
+    );
   };
 
   const saveDraft = (data: { cart: SaleItem[]; client: Client | null }) => {
@@ -77,7 +82,10 @@ export function SaleProvider({ children }: { children: ReactNode }) {
         minute: "2-digit",
       }),
       items: data.cart,
-      total: data.cart.reduce((sum, item) => sum + item.price * (item.quantity || 1), 0),
+      total: data.cart.reduce(
+        (sum, item) => sum + item.price * (item.quantity || 1),
+        0,
+      ),
     };
     setDrafts((prev) => [newDraft, ...prev]);
     clearCart();

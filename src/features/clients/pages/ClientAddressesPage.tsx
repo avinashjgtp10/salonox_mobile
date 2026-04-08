@@ -1,43 +1,41 @@
-import { useNavigate } from "react-router-dom"
-import { useState } from "react"
-import "bootstrap/dist/css/bootstrap.min.css"
-import "../styles/ClientAddressesPage.scss"
-import NewAddressModal from "../pages/NewAddressModal"
-import { X } from "react-bootstrap-icons"
-import { useClientWizard } from "../context/ClientWizardContext"
+import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import "bootstrap/dist/css/bootstrap.min.css";
+import "../styles/ClientAddressesPage.scss";
+import NewAddressModal from "../pages/NewAddressModal";
+import { X } from "react-bootstrap-icons";
+import { useClientWizard } from "../context/ClientWizardContext";
 
 export default function ClientAddressesPage() {
+  const navigate = useNavigate();
+  const { setClientData } = useClientWizard();
 
-  const navigate = useNavigate()
-  const { setClientData } = useClientWizard()
+  const [openAddressModal, setOpenAddressModal] = useState(false);
+  const [addresses, setAddresses] = useState<any[]>([]);
+  const [firstName] = useState("");
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
-  const [openAddressModal, setOpenAddressModal] = useState(false)
-  const [addresses, setAddresses] = useState<any[]>([])
-  const [firstName] = useState("")
-  const [attemptedSubmit, setAttemptedSubmit] = useState(false)
-
-  const isFirstNameInvalid = attemptedSubmit && firstName.trim() === ""
+  const isFirstNameInvalid = attemptedSubmit && firstName.trim() === "";
 
   const handleSave = () => {
-    console.log("Addresses:", addresses)
+    console.log("Addresses:", addresses);
 
-    setClientData(prev => ({
+    setClientData((prev) => ({
       ...prev,
-      addresses: addresses
-    }))
+      addresses: addresses,
+    }));
 
-    navigate("/dashboard/clients/emergency")
-  }
+    navigate("/dashboard/clients/emergency");
+  };
 
   const handleSaveAddress = (address: any) => {
-    setAddresses(prev => [...prev, address])
-    console.log("Address added:", address)
-    setOpenAddressModal(false)
-  }
+    setAddresses((prev) => [...prev, address]);
+    console.log("Address added:", address);
+    setOpenAddressModal(false);
+  };
 
   return (
     <div className="container-fluid p-4 bg-white position-relative">
-
       {/* ERROR TOAST */}
       {isFirstNameInvalid && (
         <div
@@ -52,7 +50,7 @@ export default function ClientAddressesPage() {
             padding: "8px 16px",
             fontSize: "14px",
             fontWeight: "500",
-            minWidth: "250px"
+            minWidth: "250px",
           }}
         >
           <span>First name is required</span>
@@ -67,11 +65,9 @@ export default function ClientAddressesPage() {
 
       {/* HEADER */}
       <div className="d-flex justify-content-between align-items-center mb-4">
-
         <h2 className="fw-bold">Add a new client</h2>
 
         <div className="d-flex gap-2">
-
           <button
             className="btn btn-outline-secondary"
             onClick={() => navigate("/dashboard/clients/list")}
@@ -82,29 +78,24 @@ export default function ClientAddressesPage() {
           <button className="btn btn-dark" onClick={handleSave}>
             Save
           </button>
-
         </div>
-
       </div>
 
-
       <div className="row">
-
         {/* LEFT SIDEBAR */}
         <div className="col-md-3">
-
           <div className="card p-3">
-
             <h6 className="fw-bold mb-3">Personal</h6>
 
             <div className="list-group">
-
               <button
                 className="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
                 onClick={() => navigate("/dashboard/clients/add")}
               >
                 Profile
-                {isFirstNameInvalid && <span className="text-danger-dot">●</span>}
+                {isFirstNameInvalid && (
+                  <span className="text-danger-dot">●</span>
+                )}
               </button>
 
               <button className="list-group-item list-group-item-action active">
@@ -121,22 +112,15 @@ export default function ClientAddressesPage() {
               <button className="list-group-item list-group-item-action">
                 Settings
               </button>
-
             </div>
-
           </div>
-
         </div>
-
 
         {/* RIGHT SECTION */}
         <div className="col-md-9">
-
           <h5 className="fw-bold">Addresses</h5>
 
-          <p className="text-muted">
-            Manage your client’s addresses
-          </p>
+          <p className="text-muted">Manage your client’s addresses</p>
 
           <button
             className="btn btn-outline-primary mt-3"
@@ -150,19 +134,22 @@ export default function ClientAddressesPage() {
             {addresses.map((addr, index) => (
               <div key={index} className="card p-3 mt-3 shadow-sm border-light">
                 <div className="d-flex justify-content-between">
-                  <strong>{addr.address_name || "Address " + (index + 1)}</strong>
+                  <strong>
+                    {addr.address_name || "Address " + (index + 1)}
+                  </strong>
                   <small className="text-muted">{addr.type || "Default"}</small>
                 </div>
                 <p className="mb-0 text-muted small">{addr.address_line1}</p>
-                {addr.city && <p className="mb-0 text-muted small">{addr.city}, {addr.state}</p>}
+                {addr.city && (
+                  <p className="mb-0 text-muted small">
+                    {addr.city}, {addr.state}
+                  </p>
+                )}
               </div>
             ))}
           </div>
-
         </div>
-
       </div>
-
 
       {/* ADDRESS MODAL */}
       <NewAddressModal
@@ -170,9 +157,6 @@ export default function ClientAddressesPage() {
         onClose={() => setOpenAddressModal(false)}
         onSave={handleSaveAddress}
       />
-
     </div>
-
-  )
-
+  );
 }

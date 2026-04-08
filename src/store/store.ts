@@ -1,31 +1,62 @@
-import { configureStore } from "@reduxjs/toolkit"
-import authReducer    from "./authSlice"
-import salonReducer   from "./salonSlice"
-import clientReducer  from "./clientSlice"
-import userReducer    from "./userSlice"
-import staffReducer   from "./staffSlice"
-import saleReducer    from "./saleSlice"
-import catalogReducer from "./catalogSlice"
-import calendarReducer from "./calendarSlice"
-import bookingReducer from "./bookingSlice"
-import settingReducer from "./settingSlice"
-import appReducer     from "./appSlice"
+import { configureStore, type Reducer } from "@reduxjs/toolkit";
+import {
+  persistReducer,
+  persistStore,
+  FLUSH,
+  REHYDRATE,
+  PAUSE,
+  PERSIST,
+  PURGE,
+  REGISTER,
+} from "redux-persist";
+import storage from "redux-persist/lib/storage";
+
+import authReducer, { type AuthState } from "./authSlice";
+import salonReducer from "./salonSlice";
+import clientReducer from "./clientSlice";
+import userReducer from "./userSlice";
+import staffReducer from "./staffSlice";
+import saleReducer from "./saleSlice";
+import catalogReducer from "./catalogSlice";
+import calendarReducer from "./calendarSlice";
+import bookingReducer from "./bookingSlice";
+import settingReducer from "./settingSlice";
+import appReducer from "./appSlice";
+import schedulerReducer from "./schedulerSlice";
+
+const authPersistConfig = {
+  key: "auth",
+  storage,
+  whitelist: ["accessToken", "refreshToken", "isOnboardingComplete"],
+};
 
 export const store = configureStore({
   reducer: {
-    auth:     authReducer,
-    salon:    salonReducer,
-    client:   clientReducer,
-    user:     userReducer,
-    staff:    staffReducer,
-    sale:     saleReducer,
-    catalog:  catalogReducer,
+    auth: persistReducer(
+      authPersistConfig,
+      authReducer,
+    ) as unknown as Reducer<AuthState>,
+    salon: salonReducer,
+    client: clientReducer,
+    user: userReducer,
+    staff: staffReducer,
+    sale: saleReducer,
+    catalog: catalogReducer,
     calendar: calendarReducer,
-    booking:  bookingReducer,
-    setting:  settingReducer,
-    app:      appReducer,
+    booking: bookingReducer,
+    setting: settingReducer,
+    app: appReducer,
+    scheduler: schedulerReducer,
   },
-})
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
+      },
+    }),
+});
 
-export type RootState   = ReturnType<typeof store.getState>
-export type AppDispatch = typeof store.dispatch
+export const persistor = persistStore(store);
+
+export type RootState = ReturnType<typeof store.getState>;
+export type AppDispatch = typeof store.dispatch;

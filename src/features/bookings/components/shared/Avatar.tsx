@@ -8,10 +8,11 @@ interface AvatarProps {
 
 const Avatar: React.FC<AvatarProps> = ({ staff, size = 36 }) => {
   // Build a 2-char abbreviation: first letters of first two words, or first 2 chars
-  const words    = staff.name.trim().split(/\s+/);
-  const abbrev   = words.length >= 2
-    ? (words[0][0] + words[1][0]).toUpperCase()
-    : staff.name.slice(0, 2).toUpperCase();
+  const words = staff.name.trim().split(/\s+/);
+  const abbrev =
+    words.length >= 2
+      ? (words[0][0] + words[1][0]).toUpperCase()
+      : staff.name.slice(0, 2).toUpperCase();
 
   return (
     <div

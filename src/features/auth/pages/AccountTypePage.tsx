@@ -1,31 +1,33 @@
-import "bootstrap/dist/css/bootstrap.min.css"
-import "../styles/AccountTypePage.scss"
-import { useNavigate } from "react-router-dom"
-import { FiArrowRight } from "react-icons/fi"
-import salonImg from "../../../assets/images/salon.jpg"
+import "bootstrap/dist/css/bootstrap.min.css";
+import "../styles/AccountTypePage.scss";
+import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { FiArrowRight } from "react-icons/fi";
+import salonImg from "../../../assets/images/salon.jpg";
 
 export default function AccountTypePage() {
+  const navigate = useNavigate();
+  const [selected, setSelected] = useState<"new" | "join" | null>(null);
 
-  const navigate = useNavigate()
+  const handleContinue = () => {
+    if (selected === "new") navigate("/business-name");
+    if (selected === "join") navigate("/join-business");
+  };
 
   return (
     <div className="container-fluid p-0">
-
       <div className="row g-0 min-vh-100 position-relative">
-
 
         {/* LEFT PANEL */}
         <div className="col-lg-5 col-md-6 d-flex align-items-center position-relative px-5 min-vh-100 left-panel">
-
           <div className="w-100 account-wrapper">
-
             <h2 className="account-heading mb-5">
               How would you like to set up your professional account?
             </h2>
 
             <div
-              className="card p-4 mb-4 shadow-sm account-card"
-              onClick={() => navigate("/business-name")}
+              className={`card p-4 mb-4 shadow-sm account-card ${selected === "new" ? "border-dark bg-light" : ""}`}
+              onClick={() => setSelected("new")}
             >
               <div className="d-flex justify-content-between align-items-center">
                 <span className="fw-semibold">
@@ -36,8 +38,8 @@ export default function AccountTypePage() {
             </div>
 
             <div
-              className="card p-4 shadow-sm account-card"
-              onClick={() => navigate("/join-business")}
+              className={`card p-4 shadow-sm account-card ${selected === "join" ? "border-dark bg-light" : ""}`}
+              onClick={() => setSelected("join")}
             >
               <div className="d-flex justify-content-between align-items-center">
                 <div>
@@ -51,13 +53,14 @@ export default function AccountTypePage() {
                 <FiArrowRight />
               </div>
             </div>
-
           </div>
         </div>
 
         {/* RIGHT IMAGE */}
-        <div className="col-lg-7 col-md-6 d-none d-md-block p-0 position-relative" style={{ minHeight: "100vh" }}>
-
+        <div
+          className="col-lg-7 col-md-6 d-none d-md-block p-0 position-relative"
+          style={{ minHeight: "100vh" }}
+        >
           <img
             src={salonImg}
             alt="salon"
@@ -65,11 +68,18 @@ export default function AccountTypePage() {
             style={{ zIndex: 0 }}
           />
 
-
-
+          {/* Desktop Continue Button on Image */}
+          <div className="position-absolute top-0 end-0 p-4 z-3">
+            <button
+              className="btn btn-dark rounded-pill px-4"
+              disabled={!selected}
+              onClick={handleContinue}
+            >
+              Continue <FiArrowRight size={16} className="ms-1" />
+            </button>
+          </div>
         </div>
-
       </div>
     </div>
-  )
+  );
 }

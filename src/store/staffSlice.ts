@@ -12,14 +12,17 @@ import {
 const staffSlice = createCRUDSlice<Staff>({
   name: "staff",
   thunks: {
-    fetchAllThunk:  fetchStaffThunk,
+    fetchAllThunk: fetchStaffThunk,
     fetchByIdThunk: fetchStaffByIdThunk,
-    createThunk:    createStaffThunk,
-    updateThunk:    updateStaffThunk,
-    deleteThunk:    deleteStaffThunk,
-    exportThunk:    exportStaffThunk,
+    createThunk: createStaffThunk,
+    updateThunk: updateStaffThunk,
+    deleteThunk: deleteStaffThunk,
+    exportThunk: exportStaffThunk,
   },
 });
 
-export const { clearError: clearStaffError, clearSelectedItem: clearSelectedStaff } = staffSlice.actions;
+export const {
+  clearError: clearStaffError,
+  clearSelectedItem: clearSelectedStaff,
+} = staffSlice.actions;
 export default staffSlice.reducer;

@@ -26,8 +26,10 @@ type AsyncSource = {
   fetcher: () => Promise<BlobPart | Blob>;
 };
 
-interface DownloadButtonProps
-  extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "onClick"> {
+interface DownloadButtonProps extends Omit<
+  React.ButtonHTMLAttributes<HTMLButtonElement>,
+  "onClick"
+> {
   /** Download file name, e.g. "staff.csv" */
   filename: string;
   /** MIME type – defaults to "application/octet-stream" */
@@ -112,18 +114,14 @@ const DownloadButton: React.FC<Props> = ({
   const label = isLoading
     ? loadingLabel
     : status === "success"
-    ? "✓ Downloaded"
-    : status === "error"
-    ? "✗ Failed"
-    : children;
+      ? "✓ Downloaded"
+      : status === "error"
+        ? "✗ Failed"
+        : children;
 
   // Tint the button during flash states
   const flashVariant: typeof variant =
-    status === "success"
-      ? "success"
-      : status === "error"
-      ? "danger"
-      : variant;
+    status === "success" ? "success" : status === "error" ? "danger" : variant;
 
   return (
     <Button

@@ -1,14 +1,22 @@
-import { lazy, Suspense } from "react"
-import { Routes, Route } from "react-router-dom"
+import { lazy, Suspense } from "react";
+import { Routes, Route } from "react-router-dom";
 
-const StaffListPage       = lazy(() => import("../features/staff/pages/StaffListPage"))
-const AddStaffPage        = lazy(() => import("../features/staff/pages/AddStaffPage"))
-const PayRunsPage         = lazy(() => import("../features/staff/pages/PayRunsPage"))
-const PayRunBreakdownPage = lazy(() => import("../features/staff/pages/PayRunBreakdownPage"))
-const RepeatingShiftsPage = lazy(() => import("../features/staff/pages/RepeatingShiftsPage"))
-const ScheduledShiftsPage = lazy(() => import("../features/dashboard/pages/ScheduledShiftsPage"))
+const StaffListPage = lazy(
+  () => import("../features/staff/pages/StaffListPage"),
+);
+const AddStaffPage = lazy(() => import("../features/staff/pages/AddStaffPage"));
+const PayRunsPage = lazy(() => import("../features/staff/pages/PayRunsPage"));
+const PayRunBreakdownPage = lazy(
+  () => import("../features/staff/pages/PayRunBreakdownPage"),
+);
+const RepeatingShiftsPage = lazy(
+  () => import("../features/staff/pages/RepeatingShiftsPage"),
+);
+const ScheduledShiftsPage = lazy(
+  () => import("../features/dashboard/pages/ScheduledShiftsPage"),
+);
 
-import { PageLoader } from "../components/ui"
+import { PageLoader } from "../components/ui";
 
 export const TeamRoutes = () => (
   <Suspense fallback={<PageLoader />}>
@@ -22,5 +30,4 @@ export const TeamRoutes = () => (
       <Route path="shifts" element={<ScheduledShiftsPage />} />
     </Routes>
   </Suspense>
-)
-
+);

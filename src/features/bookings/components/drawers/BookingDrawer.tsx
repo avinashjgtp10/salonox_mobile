@@ -1,14 +1,14 @@
-import { useState, useEffect } from "react"
-import "../../styles/BookingDrawer.scss"
+import { useState, useEffect } from "react";
+import "../../styles/BookingDrawer.scss";
 
 interface Props {
-  open: boolean
-  onClose: () => void
-  selectedTime: string | null
-  selectedResource?: string | null
-  onSave: (event: any) => void
-  editingEvent?: any
-  onProceedToCheckout?: (event: any) => void
+  open: boolean;
+  onClose: () => void;
+  selectedTime: string | null;
+  selectedResource?: string | null;
+  onSave: (event: any) => void;
+  editingEvent?: any;
+  onProceedToCheckout?: (event: any) => void;
 }
 
 const servicesData = [
@@ -16,8 +16,8 @@ const servicesData = [
   { name: "Volume Fill", duration: 75, price: 85 },
   { name: "Brow Tint", duration: 15, price: 20 },
   { name: "Hybrid Fill", duration: 75, price: 95 },
-  { name: "Haircut", duration: 45, price: 40 }
-]
+  { name: "Haircut", duration: 45, price: 40 },
+];
 
 export default function BookingDrawer({
   open,
@@ -26,79 +26,79 @@ export default function BookingDrawer({
   selectedResource,
   onSave,
   editingEvent,
-  onProceedToCheckout
+  onProceedToCheckout,
 }: Props) {
-  const [search, setSearch] = useState("")
-  const [selectedServices, setSelectedServices] = useState<any[]>([])
-  const [showServiceList, setShowServiceList] = useState(true)
+  const [search, setSearch] = useState("");
+  const [selectedServices, setSelectedServices] = useState<any[]>([]);
+  const [showServiceList, setShowServiceList] = useState(true);
 
-  const [clientName, setClientName] = useState("")
-  const [clientMobile, setClientMobile] = useState("")
-  const [errors, setErrors] = useState<any>({})
+  const [clientName, setClientName] = useState("");
+  const [clientMobile, setClientMobile] = useState("");
+  const [errors, setErrors] = useState<any>({});
 
   useEffect(() => {
     if (open && !editingEvent?.id) {
-      setSelectedServices([])
-      setShowServiceList(true)
-      setClientName("")
-      setClientMobile("")
-      setSearch("")
-      setErrors({})
+      setSelectedServices([]);
+      setShowServiceList(true);
+      setClientName("");
+      setClientMobile("");
+      setSearch("");
+      setErrors({});
     }
-  }, [open, editingEvent])
+  }, [open, editingEvent]);
 
   useEffect(() => {
     if (editingEvent?.id) {
-      setSelectedServices(editingEvent.extendedProps?.services || [])
-      setClientName(editingEvent.extendedProps?.clientName || "")
-      setClientMobile(editingEvent.extendedProps?.clientMobile || "")
-      setShowServiceList(false)
+      setSelectedServices(editingEvent.extendedProps?.services || []);
+      setClientName(editingEvent.extendedProps?.clientName || "");
+      setClientMobile(editingEvent.extendedProps?.clientMobile || "");
+      setShowServiceList(false);
     }
-  }, [editingEvent])
+  }, [editingEvent]);
 
   const filtered = servicesData.filter((s) =>
-    s.name.toLowerCase().includes(search.toLowerCase())
-  )
+    s.name.toLowerCase().includes(search.toLowerCase()),
+  );
 
   const addService = (service: any) => {
-    setSelectedServices((prev) => [...prev, service])
-    setShowServiceList(false)
-  }
+    setSelectedServices((prev) => [...prev, service]);
+    setShowServiceList(false);
+  };
 
-  const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0)
+  const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0);
 
   const totalDuration = selectedServices.reduce(
     (sum, s) => sum + s.duration,
-    0
-  )
+    0,
+  );
 
   const validate = () => {
-    const newErrors: any = {}
+    const newErrors: any = {};
 
-    const nameRegex = /^[A-Za-z\s]+$/
-    const mobileRegex = /^[0-9]{10}$/
+    const nameRegex = /^[A-Za-z\s]+$/;
+    const mobileRegex = /^[0-9]{10}$/;
 
     if (!clientName.trim()) {
-      newErrors.clientName = "Client name is required"
+      newErrors.clientName = "Client name is required";
     } else if (!nameRegex.test(clientName.trim())) {
-      newErrors.clientName = "Only letters allowed"
+      newErrors.clientName = "Only letters allowed";
     }
 
     if (!clientMobile.trim()) {
-      newErrors.clientMobile = "Mobile number required"
+      newErrors.clientMobile = "Mobile number required";
     } else if (!mobileRegex.test(clientMobile.trim())) {
-      newErrors.clientMobile = "Mobile must be 10 digits"
+      newErrors.clientMobile = "Mobile must be 10 digits";
     }
 
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const buildEventData = () => {
-    if (!selectedTime || selectedServices.length === 0) return null
+    if (!selectedTime || selectedServices.length === 0) return null;
 
-    const start = new Date(selectedTime)
-    const end = new Date(start.getTime() + totalDuration * 60000)
+    const start = new Date(selectedTime);
+    const end = new Date(start.getTime() + totalDuration * 60000);
 
     return {
       id: editingEvent?.id || Date.now().toString(),
@@ -113,24 +113,24 @@ export default function BookingDrawer({
         clientName: clientName,
         clientMobile: clientMobile,
         total: totalPrice,
-        cancelled: editingEvent?.extendedProps?.cancelled || false
-      }
-    }
-  }
+        cancelled: editingEvent?.extendedProps?.cancelled || false,
+      },
+    };
+  };
 
   const handleSave = () => {
-    if (!validate()) return
-    if (!selectedTime || selectedServices.length === 0) return
+    if (!validate()) return;
+    if (!selectedTime || selectedServices.length === 0) return;
 
-    const newEvent = buildEventData()
-    if (!newEvent) return
+    const newEvent = buildEventData();
+    if (!newEvent) return;
 
-    onSave(newEvent)
-    onClose()
-  }
+    onSave(newEvent);
+    onClose();
+  };
 
   const handleCancelBooking = () => {
-    if (!editingEvent?.id) return
+    if (!editingEvent?.id) return;
 
     const cancelledEvent = {
       ...editingEvent,
@@ -138,26 +138,26 @@ export default function BookingDrawer({
       resourceId: editingEvent.resourceId || "1",
       extendedProps: {
         ...editingEvent.extendedProps,
-        cancelled: true
-      }
-    }
+        cancelled: true,
+      },
+    };
 
-    onSave(cancelledEvent)
-    onClose()
-  }
+    onSave(cancelledEvent);
+    onClose();
+  };
 
   const handleProceedToCheckout = () => {
-    if (!validate()) return
-    if (!selectedTime || selectedServices.length === 0) return
+    if (!validate()) return;
+    if (!selectedTime || selectedServices.length === 0) return;
 
-    const eventData = buildEventData()
-    if (!eventData) return
+    const eventData = buildEventData();
+    if (!eventData) return;
 
-    onSave(eventData)
-    onProceedToCheckout?.(eventData)
-  }
+    onSave(eventData);
+    onProceedToCheckout?.(eventData);
+  };
 
-  if (!open) return null
+  if (!open) return null;
 
   return (
     <>
@@ -291,5 +291,5 @@ export default function BookingDrawer({
         )}
       </div>
     </>
-  )
+  );
 }

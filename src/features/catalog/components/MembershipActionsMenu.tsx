@@ -29,7 +29,10 @@ const MembershipActionsMenu: React.FC<MembershipActionsMenuProps> = ({
     <div className="membership-actions-menu" ref={menuRef}>
       <button
         className="btn btn-primary btn-sm d-flex align-items-center gap-2"
-        onClick={() => { setOpen(!open); setAddOpen(false); }}
+        onClick={() => {
+          setOpen(!open);
+          setAddOpen(false);
+        }}
       >
         <i className="bi bi-lightning-fill" />
         Options

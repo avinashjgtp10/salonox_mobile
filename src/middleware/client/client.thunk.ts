@@ -6,7 +6,7 @@ import { downloadBlob } from "../../utils/downloadBlob";
 import type {
   Client,
   ClientResponse,
-  ClientListResponse,
+  ClientsListResponse,
   CreateClientPayload,
   BlockClientsPayload,
   UnblockClientsPayload,
@@ -20,7 +20,7 @@ export const fetchClientsThunk = createAsyncThunk<
   { rejectValue: string }
 >("client/fetchAll", async (_, { rejectWithValue }) => {
   try {
-    const res = await api.get<ClientListResponse>(CLIENT.BASE);
+    const res = await api.get<ClientsListResponse>(CLIENT.BASE);
     return res.data.data;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
@@ -75,7 +75,7 @@ export const deleteClientThunk = createAsyncThunk<
 
 // ── Block clients ─────────────────────────────────────────────────────────────
 export const blockClientsThunk = createAsyncThunk<
-  string[] | number[],
+  (string | number)[],
   BlockClientsPayload,
   { rejectValue: string }
 >("client/block", async ({ ids, reason }, { rejectWithValue }) => {
@@ -90,7 +90,7 @@ export const blockClientsThunk = createAsyncThunk<
 
 // ── Unblock clients ───────────────────────────────────────────────────────────
 export const unblockClientsThunk = createAsyncThunk<
-  string[] | number[],
+  (string | number)[],
   UnblockClientsPayload,
   { rejectValue: string }
 >("client/unblock", async ({ ids }, { rejectWithValue }) => {
@@ -155,11 +155,17 @@ export const mergeSelectedClientsThunk = createAsyncThunk<
   void,
   MergeSelectedClientsPayload,
   { rejectValue: string }
->("client/mergeSelected", async ({ primaryId, secondaryId }, { rejectWithValue }) => {
-  try {
-    await api.post(CLIENT.MERGE, { primary_id: primaryId, secondary_id: secondaryId });
-  } catch (err: any) {
-    if (err instanceof ApiError) return rejectWithValue(err.message);
-    return rejectWithValue("Failed to merge clients");
-  }
-});
+>(
+  "client/mergeSelected",
+  async ({ primaryId, secondaryId }, { rejectWithValue }) => {
+    try {
+      await api.post(CLIENT.MERGE, {
+        primary_id: primaryId,
+        secondary_id: secondaryId,
+      });
+    } catch (err: any) {
+      if (err instanceof ApiError) return rejectWithValue(err.message);
+      return rejectWithValue("Failed to merge clients");
+    }
+  },
+);
