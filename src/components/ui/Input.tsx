@@ -1,6 +1,9 @@
 import React, { useId } from "react";
 
-interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement | HTMLTextAreaElement>, 'onChange'> {
+interface InputProps extends Omit<
+  React.InputHTMLAttributes<HTMLInputElement | HTMLTextAreaElement>,
+  "onChange"
+> {
   label?: string;
   error?: string;
   floating?: boolean;
@@ -9,7 +12,9 @@ interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement | H
   rows?: number;
   iconLeft?: React.ReactNode;
   iconRight?: React.ReactNode;
-  onChange?: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  onChange?: (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => void;
 }
 
 const Input: React.FC<InputProps> = ({
@@ -38,24 +43,26 @@ const Input: React.FC<InputProps> = ({
         {...(props as React.TextareaHTMLAttributes<HTMLTextAreaElement>)}
       />
     ) : (
-      <input
-        id={inputId}
-        className={inputClass}
-        {...props}
-      />
+      <input id={inputId} className={inputClass} {...props} />
     );
 
     if (iconLeft || iconRight) {
       return (
         <div className="position-relative d-flex align-items-center">
           {iconLeft && (
-            <div className="position-absolute start-0 ps-3 text-muted d-flex align-items-center" style={{ zIndex: 4 }}>
+            <div
+              className="position-absolute start-0 ps-3 text-muted d-flex align-items-center"
+              style={{ zIndex: 4 }}
+            >
               {iconLeft}
             </div>
           )}
           {inputElement}
           {iconRight && (
-            <div className="position-absolute end-0 pe-3 text-muted d-flex align-items-center" style={{ zIndex: 4 }}>
+            <div
+              className="position-absolute end-0 pe-3 text-muted d-flex align-items-center"
+              style={{ zIndex: 4 }}
+            >
               {iconRight}
             </div>
           )}
@@ -78,9 +85,21 @@ const Input: React.FC<InputProps> = ({
 
   return (
     <div className={containerClass}>
-      {label && <label htmlFor={inputId} className="form-label fw-semibold" style={{ fontSize: "13px" }}>{label}</label>}
+      {label && (
+        <label
+          htmlFor={inputId}
+          className="form-label fw-semibold"
+          style={{ fontSize: "13px" }}
+        >
+          {label}
+        </label>
+      )}
       {renderInput()}
-      {error && <div className="text-danger mt-1" style={{ fontSize: "12px" }}>{error}</div>}
+      {error && (
+        <div className="text-danger mt-1" style={{ fontSize: "12px" }}>
+          {error}
+        </div>
+      )}
     </div>
   );
 };

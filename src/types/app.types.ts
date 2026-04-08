@@ -1,29 +1,28 @@
 // ── App entity ─────────────────────────────────────────────────────────────────
-import type { EntityId } from './common.types';
+import type { EntityId } from "./common.types";
 
 export interface ExternalApp {
-  id:          EntityId;
-  name:        string;
+  id: EntityId;
+  name: string;
   description?: string;
-  provider:    string;
-  status:      string; // e.g. 'connected', 'disconnected'
-  config?:     Record<string, any>;
+  provider: string;
+  status: string; // e.g. 'connected', 'disconnected'
+  config?: Record<string, any>;
   [key: string]: any;
 }
 
 // ── Payloads ──────────────────────────────────────────────────────────────────
 export interface ConnectAppPayload {
-  name:        string;
-  provider:    string;
-  config?:     Record<string, any>;
+  name: string;
+  provider: string;
+  config?: Record<string, any>;
   [key: string]: any;
 }
 
 export interface UpdateAppPayload {
-  id:   EntityId;
+  id: EntityId;
   data: Partial<ConnectAppPayload>;
 }
-
 
 // ── API responses ─────────────────────────────────────────────────────────────
 export interface AppResponse {

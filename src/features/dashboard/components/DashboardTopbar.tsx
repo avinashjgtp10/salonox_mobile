@@ -1,7 +1,7 @@
-import { Search, BarChart, Bell, BoxArrowRight } from "react-bootstrap-icons"
+import { Search, BarChart, Bell, BoxArrowRight } from "react-bootstrap-icons";
 
 interface Props {
-  onLogout: () => void
+  onLogout: () => void;
 }
 
 export default function DashboardTopbar({ onLogout }: Props) {
@@ -23,7 +23,13 @@ export default function DashboardTopbar({ onLogout }: Props) {
 
         <div
           className="logout-btn"
-          style={{ cursor: "pointer", marginLeft: "15px", display: "flex", alignItems: "center", color: "#6c757d" }}
+          style={{
+            cursor: "pointer",
+            marginLeft: "15px",
+            display: "flex",
+            alignItems: "center",
+            color: "#6c757d",
+          }}
           onClick={onLogout}
           title="Logout"
         >
@@ -31,5 +37,5 @@ export default function DashboardTopbar({ onLogout }: Props) {
         </div>
       </div>
     </div>
-  )
+  );
 }

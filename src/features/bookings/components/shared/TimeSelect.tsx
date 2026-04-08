@@ -11,14 +11,24 @@ interface TimeSelectProps {
 }
 
 const TimeSelect: React.FC<TimeSelectProps> = ({
-  value, onChange, interval = "15 Mins", className = "form-select", placeholder,
+  value,
+  onChange,
+  interval = "15 Mins",
+  className = "form-select",
+  placeholder,
 }) => {
   const slots = generateTimeSlots(interval);
   return (
-    <select value={value} onChange={e => onChange(e.target.value)} className={className}>
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={className}
+    >
       {placeholder && <option value="">{placeholder}</option>}
-      {slots.map(t => (
-        <option key={t} value={t}>{formatTime12(t)}</option>
+      {slots.map((t) => (
+        <option key={t} value={t}>
+          {formatTime12(t)}
+        </option>
       ))}
     </select>
   );

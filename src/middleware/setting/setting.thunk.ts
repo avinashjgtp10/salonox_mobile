@@ -27,8 +27,11 @@ export const fetchSettingsThunk = createAsyncThunk<
 });
 
 // ── Fetch single setting ───────────────────────────────────────────────────────
-export const fetchSettingByIdThunk = createAsyncThunk<Setting, string | number, { rejectValue: string }>(
-  "setting/fetchById", async (id, { rejectWithValue }) => {
+export const fetchSettingByIdThunk = createAsyncThunk<
+  Setting,
+  string | number,
+  { rejectValue: string }
+>("setting/fetchById", async (id, { rejectWithValue }) => {
   try {
     const res = await api.get<SettingResponse>(SETTING.BY_ID(id));
     return res.data.data;
@@ -39,8 +42,11 @@ export const fetchSettingByIdThunk = createAsyncThunk<Setting, string | number, 
 });
 
 // ── Create setting ─────────────────────────────────────────────────────────────
-export const createSettingThunk = createAsyncThunk<Setting, CreateSettingPayload, { rejectValue: string }>(
-  "setting/create", async (payload, { rejectWithValue }) => {
+export const createSettingThunk = createAsyncThunk<
+  Setting,
+  CreateSettingPayload,
+  { rejectValue: string }
+>("setting/create", async (payload, { rejectWithValue }) => {
   try {
     const res = await api.post<SettingResponse>(SETTING.BASE, payload);
     return res.data.data;
@@ -51,8 +57,11 @@ export const createSettingThunk = createAsyncThunk<Setting, CreateSettingPayload
 });
 
 // ── Update setting ─────────────────────────────────────────────────────────────
-export const updateSettingThunk = createAsyncThunk<Setting, UpdateSettingPayload, { rejectValue: string }>(
-  "setting/update", async ({ id, data }, { rejectWithValue }) => {
+export const updateSettingThunk = createAsyncThunk<
+  Setting,
+  UpdateSettingPayload,
+  { rejectValue: string }
+>("setting/update", async ({ id, data }, { rejectWithValue }) => {
   try {
     const res = await api.put<SettingResponse>(SETTING.BY_ID(id), data);
     return res.data.data;
@@ -63,8 +72,11 @@ export const updateSettingThunk = createAsyncThunk<Setting, UpdateSettingPayload
 });
 
 // ── Delete setting ─────────────────────────────────────────────────────────────
-export const deleteSettingThunk = createAsyncThunk<string | number, string | number, { rejectValue: string }>(
-  "setting/delete", async (id, { rejectWithValue }) => {
+export const deleteSettingThunk = createAsyncThunk<
+  string | number,
+  string | number,
+  { rejectValue: string }
+>("setting/delete", async (id, { rejectWithValue }) => {
   try {
     await api.delete(SETTING.BY_ID(id));
     return id;
@@ -75,8 +87,11 @@ export const deleteSettingThunk = createAsyncThunk<string | number, string | num
 });
 
 // ── Export settings ────────────────────────────────────────────────────────────
-export const exportSettingsThunk = createAsyncThunk<void, "excel" | "csv", { rejectValue: string }>(
-  "setting/export", async (format, { rejectWithValue }) => {
+export const exportSettingsThunk = createAsyncThunk<
+  void,
+  "excel" | "csv",
+  { rejectValue: string }
+>("setting/export", async (format, { rejectWithValue }) => {
   try {
     const res = await api.get(SETTING.EXPORT(format), { responseType: "blob" });
     downloadBlob(res.data, `settings.${format === "excel" ? "xlsx" : "csv"}`);

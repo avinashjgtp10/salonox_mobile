@@ -155,11 +155,17 @@ export const mergeSelectedClientsThunk = createAsyncThunk<
   void,
   MergeSelectedClientsPayload,
   { rejectValue: string }
->("client/mergeSelected", async ({ primaryId, secondaryId }, { rejectWithValue }) => {
-  try {
-    await api.post(CLIENT.MERGE, { primary_id: primaryId, secondary_id: secondaryId });
-  } catch (err: any) {
-    if (err instanceof ApiError) return rejectWithValue(err.message);
-    return rejectWithValue("Failed to merge clients");
-  }
-});
+>(
+  "client/mergeSelected",
+  async ({ primaryId, secondaryId }, { rejectWithValue }) => {
+    try {
+      await api.post(CLIENT.MERGE, {
+        primary_id: primaryId,
+        secondary_id: secondaryId,
+      });
+    } catch (err: any) {
+      if (err instanceof ApiError) return rejectWithValue(err.message);
+      return rejectWithValue("Failed to merge clients");
+    }
+  },
+);

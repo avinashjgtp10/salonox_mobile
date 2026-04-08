@@ -1,11 +1,10 @@
-import "bootstrap/dist/css/bootstrap.min.css"
-import "../styles/DashboardPage.scss"
+import "bootstrap/dist/css/bootstrap.min.css";
+import "../styles/DashboardPage.scss";
 
 export default function DashboardPage() {
   return (
     <div className="salonox-content">
       <div className="row g-4">
-
         {/* LEFT CARD HIDDEN */}
         {/*
         <div className="col-xl-6">
@@ -23,8 +22,7 @@ export default function DashboardPage() {
           </div>
         </div>
         */}
-
       </div>
     </div>
-  )
+  );
 }

@@ -2,7 +2,15 @@ import React from "react";
 
 interface BadgeProps {
   children: React.ReactNode;
-  variant?: "primary" | "secondary" | "success" | "danger" | "warning" | "info" | "light" | "dark";
+  variant?:
+    | "primary"
+    | "secondary"
+    | "success"
+    | "danger"
+    | "warning"
+    | "info"
+    | "light"
+    | "dark";
   className?: string;
   pill?: boolean;
 }
@@ -18,7 +26,9 @@ const Badge: React.FC<BadgeProps> = ({
   const roundedClass = pill ? "rounded-pill" : "";
 
   return (
-    <span className={`${baseClass} ${variantClass} ${roundedClass} ${className}`}>
+    <span
+      className={`${baseClass} ${variantClass} ${roundedClass} ${className}`}
+    >
       {children}
     </span>
   );

@@ -11,11 +11,41 @@ interface Category {
 }
 
 const mockCategories: Category[] = [
-  { id: 1, name: "Hair Services",  serviceCount: 8,  color: "#0d6efd", status: "active" },
-  { id: 2, name: "Nail Services",  serviceCount: 5,  color: "#198754", status: "active" },
-  { id: 3, name: "Makeup",         serviceCount: 4,  color: "#dc3545", status: "active" },
-  { id: 4, name: "Skin Care",      serviceCount: 6,  color: "#6f42c1", status: "active" },
-  { id: 5, name: "Massage",        serviceCount: 3,  color: "#fd7e14", status: "inactive" },
+  {
+    id: 1,
+    name: "Hair Services",
+    serviceCount: 8,
+    color: "#0d6efd",
+    status: "active",
+  },
+  {
+    id: 2,
+    name: "Nail Services",
+    serviceCount: 5,
+    color: "#198754",
+    status: "active",
+  },
+  {
+    id: 3,
+    name: "Makeup",
+    serviceCount: 4,
+    color: "#dc3545",
+    status: "active",
+  },
+  {
+    id: 4,
+    name: "Skin Care",
+    serviceCount: 6,
+    color: "#6f42c1",
+    status: "active",
+  },
+  {
+    id: 5,
+    name: "Massage",
+    serviceCount: 3,
+    color: "#fd7e14",
+    status: "inactive",
+  },
 ];
 
 const CategoriesPage: React.FC = () => {
@@ -24,10 +54,14 @@ const CategoriesPage: React.FC = () => {
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState<Category | null>(null);
-  const [form, setForm] = useState({ name: "", color: "#0d6efd", status: "active" as "active" | "inactive" });
+  const [form, setForm] = useState({
+    name: "",
+    color: "#0d6efd",
+    status: "active" as "active" | "inactive",
+  });
 
   const filtered = categories.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase())
+    c.name.toLowerCase().includes(search.toLowerCase()),
   );
 
   const openAdd = () => {
@@ -46,7 +80,7 @@ const CategoriesPage: React.FC = () => {
     if (!form.name.trim()) return;
     if (editItem) {
       setCategories((prev) =>
-        prev.map((c) => c.id === editItem.id ? { ...c, ...form } : c)
+        prev.map((c) => (c.id === editItem.id ? { ...c, ...form } : c)),
       );
     } else {
       setCategories((prev) => [
@@ -66,7 +100,9 @@ const CategoriesPage: React.FC = () => {
       <div className="row align-items-center mb-4">
         <div className="col">
           <h4 className="categories-page__title mb-0 fw-bold">Categories</h4>
-          <p className="text-muted small mb-0">Organise your services into categories</p>
+          <p className="text-muted small mb-0">
+            Organise your services into categories
+          </p>
         </div>
         <div className="col-auto d-flex gap-2">
           <button
@@ -143,7 +179,9 @@ const CategoriesPage: React.FC = () => {
                         </span>
                       </td>
                       <td>
-                        <span className={`badge categories-page__status-badge ${cat.status === "active" ? "bg-success" : "bg-secondary"}`}>
+                        <span
+                          className={`badge categories-page__status-badge ${cat.status === "active" ? "bg-success" : "bg-secondary"}`}
+                        >
                           {cat.status === "active" ? "Active" : "Inactive"}
                         </span>
                       </td>
@@ -184,17 +222,25 @@ const CategoriesPage: React.FC = () => {
           style={{ background: "rgba(0,0,0,0.4)" }}
           onClick={() => setShowModal(false)}
         >
-          <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal-dialog modal-dialog-centered"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="modal-content border-0 shadow">
               <div className="modal-header border-0">
                 <h6 className="modal-title fw-semibold">
                   {editItem ? "Edit Category" : "Add Category"}
                 </h6>
-                <button className="btn-close" onClick={() => setShowModal(false)} />
+                <button
+                  className="btn-close"
+                  onClick={() => setShowModal(false)}
+                />
               </div>
               <div className="modal-body">
                 <div className="mb-3">
-                  <label className="form-label small fw-medium">Category Name <span className="text-danger">*</span></label>
+                  <label className="form-label small fw-medium">
+                    Category Name <span className="text-danger">*</span>
+                  </label>
                   <input
                     className="form-control form-control-sm"
                     placeholder="e.g. Hair Services"
@@ -203,13 +249,31 @@ const CategoriesPage: React.FC = () => {
                   />
                 </div>
                 <div className="mb-3">
-                  <label className="form-label small fw-medium d-block">Color</label>
+                  <label className="form-label small fw-medium d-block">
+                    Color
+                  </label>
                   <div className="d-flex gap-2 flex-wrap">
-                    {["#0d6efd","#198754","#dc3545","#fd7e14","#6f42c1","#20c997","#0dcaf0","#ffc107"].map((color) => (
+                    {[
+                      "#0d6efd",
+                      "#198754",
+                      "#dc3545",
+                      "#fd7e14",
+                      "#6f42c1",
+                      "#20c997",
+                      "#0dcaf0",
+                      "#ffc107",
+                    ].map((color) => (
                       <div
                         key={color}
                         className={`rounded-circle border-2 ${form.color === color ? "border border-dark" : ""}`}
-                        style={{ width: 26, height: 26, background: color, cursor: "pointer", outline: form.color === color ? "2px solid #000" : "none" }}
+                        style={{
+                          width: 26,
+                          height: 26,
+                          background: color,
+                          cursor: "pointer",
+                          outline:
+                            form.color === color ? "2px solid #000" : "none",
+                        }}
                         onClick={() => setForm({ ...form, color })}
                       />
                     ))}
@@ -220,7 +284,12 @@ const CategoriesPage: React.FC = () => {
                   <select
                     className="form-select form-select-sm"
                     value={form.status}
-                    onChange={(e) => setForm({ ...form, status: e.target.value as "active" | "inactive" })}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        status: e.target.value as "active" | "inactive",
+                      })
+                    }
                   >
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
@@ -228,7 +297,12 @@ const CategoriesPage: React.FC = () => {
                 </div>
               </div>
               <div className="modal-footer border-0 pt-0">
-                <button className="btn btn-sm btn-light" onClick={() => setShowModal(false)}>Cancel</button>
+                <button
+                  className="btn btn-sm btn-light"
+                  onClick={() => setShowModal(false)}
+                >
+                  Cancel
+                </button>
                 <button className="btn btn-sm btn-primary" onClick={handleSave}>
                   {editItem ? "Save Changes" : "Add Category"}
                 </button>

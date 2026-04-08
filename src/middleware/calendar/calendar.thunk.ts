@@ -73,7 +73,7 @@ export const updateCalendarEventThunk = createAsyncThunk<
 
 // ── Delete calendar event ──────────────────────────────────────────────────────
 export const deleteCalendarEventThunk = createAsyncThunk<
-  string | number,        // returns the deleted id so reducer can remove it
+  string | number, // returns the deleted id so reducer can remove it
   string | number,
   { rejectValue: string }
 >("calendar/delete", async (id, { rejectWithValue }) => {
@@ -93,7 +93,9 @@ export const exportCalendarEventsThunk = createAsyncThunk<
   { rejectValue: string }
 >("calendar/export", async (format, { rejectWithValue }) => {
   try {
-    const res = await api.get(CALENDAR.EXPORT(format), { responseType: "blob" });
+    const res = await api.get(CALENDAR.EXPORT(format), {
+      responseType: "blob",
+    });
     downloadBlob(res.data, `calendar.${format === "excel" ? "xlsx" : "csv"}`);
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);

@@ -1,16 +1,16 @@
 export const AUTH = {
-  LOGIN:             "/api/v1/auth/login",
-  REGISTER:          "/api/v1/auth/register",
-  REFRESH_TOKEN:     "/api/v1/auth/refresh",
-  LOGOUT:            "/api/v1/auth/logout",
-  GOOGLE_START:      "/api/v1/auth/google/start",
-  SEND_EMAIL_OTP:    "/api/v1/auth/send-email-otp",
-  VERIFY_EMAIL_OTP:  "/api/v1/auth/verify-email-otp",
-  SEND_MOBILE_OTP:   "/api/v1/auth/send-mobile-otp",
+  LOGIN: "/api/v1/auth/login",
+  REGISTER: "/api/v1/auth/register",
+  REFRESH_TOKEN: "/api/v1/auth/refresh",
+  LOGOUT: "/api/v1/auth/logout",
+  GOOGLE_START: "/api/v1/auth/google/start",
+  SEND_EMAIL_OTP: "/api/v1/auth/send-email-otp",
+  VERIFY_EMAIL_OTP: "/api/v1/auth/verify-email-otp",
+  SEND_MOBILE_OTP: "/api/v1/auth/send-mobile-otp",
   VERIFY_MOBILE_OTP: "/api/v1/auth/verify-mobile-otp",
-  FORGOT_PASSWORD_SEND_OTP:   "/api/v1/auth/forgot-password/send-otp",
+  FORGOT_PASSWORD_SEND_OTP: "/api/v1/auth/forgot-password/send-otp",
   FORGOT_PASSWORD_VERIFY_OTP: "/api/v1/auth/forgot-password/verify-otp",
-  FORGOT_PASSWORD_RESET:      "/api/v1/auth/forgot-password/reset",
+  FORGOT_PASSWORD_RESET: "/api/v1/auth/forgot-password/reset",
 } as const;
 
 export const PUBLIC_ROUTES: string[] = [

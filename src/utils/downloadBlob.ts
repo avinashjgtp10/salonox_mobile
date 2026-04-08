@@ -1,7 +1,7 @@
 export const downloadBlob = (
   data: BlobPart | Blob,
   filename: string,
-  mimeType: string = "application/octet-stream"
+  mimeType: string = "application/octet-stream",
 ): boolean => {
   if (typeof window === "undefined" || !window.URL?.createObjectURL) {
     return false;

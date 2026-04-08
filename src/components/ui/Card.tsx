@@ -26,14 +26,24 @@ const Card: React.FC<CardProps> = ({
   style,
 }) => {
   const shadowClass = shadow !== "none" ? `shadow-${shadow}` : "";
-  
+
   return (
-    <div className={`card border-0 ${shadowClass} rounded-4 ${className}`} style={style}>
+    <div
+      className={`card border-0 ${shadowClass} rounded-4 ${className}`}
+      style={style}
+    >
       {(title || subtitle || headerActions) && (
         <div className="card-header bg-transparent border-0 pt-4 px-4 d-flex align-items-center justify-content-between">
           <div>
             {title && <h3 className="card-title fw-bold mb-1">{title}</h3>}
-            {subtitle && <p className="card-subtitle text-muted mb-0" style={{ fontSize: "14px" }}>{subtitle}</p>}
+            {subtitle && (
+              <p
+                className="card-subtitle text-muted mb-0"
+                style={{ fontSize: "14px" }}
+              >
+                {subtitle}
+              </p>
+            )}
           </div>
           {headerActions && <div>{headerActions}</div>}
         </div>

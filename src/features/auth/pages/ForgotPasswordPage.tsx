@@ -1,102 +1,110 @@
-import React, { useState, useRef, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
-import { ArrowLeft, CheckCircle2, Eye, EyeOff } from "lucide-react"
+import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, CheckCircle2, Eye, EyeOff } from "lucide-react";
 
-import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux"
+import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
   forgotPasswordSendOtpThunk,
   forgotPasswordVerifyOtpThunk,
   forgotPasswordResetThunk,
-} from "../../../middleware/auth/forgotPasswordThunk"
-import { clearError } from "../../../store/authSlice"
+} from "../../../middleware/auth/forgotPasswordThunk";
+import { clearError } from "../../../store/authSlice";
 
-import Card from "../../../components/ui/Card"
-import Input from "../../../components/ui/Input"
-import Button from "../../../components/ui/Button"
-import SplitLayout from "../../../components/ui/SplitLayout"
+import Card from "../../../components/ui/Card";
+import Input from "../../../components/ui/Input";
+import Button from "../../../components/ui/Button";
+import SplitLayout from "../../../components/ui/SplitLayout";
 
-import salonImg from "../../../assets/images/salon.jpg"
-import "../styles/forgot-password.css"
+import salonImg from "../../../assets/images/salon.jpg";
+import "../styles/forgot-password.css";
 
 const STEPS = {
   EMAIL: 1,
   OTP: 2,
   RESET: 3,
   SUCCESS: 4,
-}
+};
 
 export default function ForgotPasswordPage() {
-  const navigate = useNavigate()
-  const dispatch = useAppDispatch()
-  const { loading: authLoading, error: reduxError } = useAppSelector((state) => state.auth)
+  const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const { loading: authLoading, error: reduxError } = useAppSelector(
+    (state) => state.auth,
+  );
+
+  const [step, setStep] = useState(STEPS.EMAIL);
+
   // Map each wizard step to its specific loading flag
   const loading =
-    step === STEPS.EMAIL ? authLoading.forgotSendOtp  :
-    step === STEPS.OTP   ? authLoading.forgotVerifyOtp :
-    step === STEPS.RESET ? authLoading.forgotReset      :
-    false
+    step === STEPS.EMAIL
+      ? authLoading.forgotSendOtp
+      : step === STEPS.OTP
+        ? authLoading.forgotVerifyOtp
+        : step === STEPS.RESET
+          ? authLoading.forgotReset
+          : false;
+  const [localError, setLocalError] = useState("");
+  const [isResending, setIsResending] = useState(false);
 
-  const [step, setStep] = useState(STEPS.EMAIL)
-  const [localError, setLocalError] = useState("")
-  const [isResending, setIsResending] = useState(false)
-
-  const error = localError || reduxError
+  const error = localError || reduxError;
 
   // Form states
-  const [email, setEmail] = useState("")
-  const [otp, setOtp] = useState(["", "", "", "", "", ""])
-  const [newPassword, setNewPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [showNewPassword, setShowNewPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   // Timer state
-  const [timeLeft, setTimeLeft] = useState(0)
+  const [timeLeft, setTimeLeft] = useState(0);
 
   // Refs
-  const otpRefs = useRef<(HTMLInputElement | null)[]>([])
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Clear errors on step change
   useEffect(() => {
-    setLocalError("")
-    dispatch(clearError())
-  }, [step, dispatch])
+    setLocalError("");
+    dispatch(clearError());
+  }, [step, dispatch]);
 
   // Timer logic
   useEffect(() => {
     if (timeLeft > 0) {
-      const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000)
-      return () => clearTimeout(timer)
+      const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+      return () => clearTimeout(timer);
     }
-  }, [timeLeft])
+  }, [timeLeft]);
 
   const handleNext = async () => {
-    setLocalError("")
-    dispatch(clearError())
+    setLocalError("");
+    dispatch(clearError());
 
     if (step === STEPS.EMAIL) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!email.trim() || !emailRegex.test(email)) {
-        setLocalError("Please enter a valid email address.")
-        return
+        setLocalError("Please enter a valid email address.");
+        return;
       }
-      
-      const result = await dispatch(forgotPasswordSendOtpThunk({ email }))
+
+      const result = await dispatch(forgotPasswordSendOtpThunk({ email }));
       if (forgotPasswordSendOtpThunk.fulfilled.match(result)) {
-        setTimeLeft(60)
-        setStep(STEPS.OTP)
-        setTimeout(() => otpRefs.current[0]?.focus(), 100)
+        setTimeLeft(60);
+        setStep(STEPS.OTP);
+        setTimeout(() => otpRefs.current[0]?.focus(), 100);
       }
     } else if (step === STEPS.OTP) {
-      const otpString = otp.join("")
+      const otpString = otp.join("");
       if (otpString.length !== 6) {
-        setLocalError("Please enter the complete 6-digit code.")
-        return
+        setLocalError("Please enter the complete 6-digit code.");
+        return;
       }
-      
-      const result = await dispatch(forgotPasswordVerifyOtpThunk({ email, otp: otpString }))
+
+      const result = await dispatch(
+        forgotPasswordVerifyOtpThunk({ email, otp: otpString }),
+      );
       if (forgotPasswordVerifyOtpThunk.fulfilled.match(result)) {
-        setStep(STEPS.RESET)
+        setStep(STEPS.RESET);
       }
     } else if (step === STEPS.RESET) {
       if (
@@ -105,93 +113,104 @@ export default function ForgotPasswordPage() {
         !/[A-Za-z]/.test(newPassword) ||
         !/\d/.test(newPassword)
       ) {
-        setLocalError("Password must be 8+ characters with a letter and number")
-        return
+        setLocalError(
+          "Password must be 8+ characters with a letter and number",
+        );
+        return;
       }
       if (newPassword !== confirmPassword) {
-        setLocalError("Passwords do not match.")
-        return
+        setLocalError("Passwords do not match.");
+        return;
       }
-      
-      const otpString = otp.join("")
-      const result = await dispatch(forgotPasswordResetThunk({ 
-        email, 
-        otp: otpString, 
-        rawPassword: newPassword 
-      }))
-      
+
+      const otpString = otp.join("");
+      const result = await dispatch(
+        forgotPasswordResetThunk({
+          email,
+          otp: otpString,
+          rawPassword: newPassword,
+        }),
+      );
+
       if (forgotPasswordResetThunk.fulfilled.match(result)) {
-        setStep(STEPS.SUCCESS)
+        setStep(STEPS.SUCCESS);
       }
     }
-  }
+  };
 
   const handleBack = () => {
     if (step === STEPS.OTP || step === STEPS.RESET) {
-      setStep(step - 1)
+      setStep(step - 1);
     } else {
-      navigate("/login")
+      navigate("/login");
     }
-  }
+  };
 
   const handleResend = async () => {
     if (timeLeft === 0) {
-      setIsResending(true)
-      const result = await dispatch(forgotPasswordSendOtpThunk({ email }))
-      setIsResending(false)
+      setIsResending(true);
+      const result = await dispatch(forgotPasswordSendOtpThunk({ email }));
+      setIsResending(false);
       if (forgotPasswordSendOtpThunk.fulfilled.match(result)) {
-        setTimeLeft(60)
+        setTimeLeft(60);
       }
     }
-  }
+  };
 
   const handleOtpChange = (index: number, value: string) => {
     if (value.length > 1) {
-      value = value.charAt(value.length - 1)
+      value = value.charAt(value.length - 1);
     }
 
-    if (!/^[0-9]*$/.test(value)) return
+    if (!/^[0-9]*$/.test(value)) return;
 
-    const newOtp = [...otp]
-    newOtp[index] = value
-    setOtp(newOtp)
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
 
     if (value && index < 5) {
-      otpRefs.current[index + 1]?.focus()
+      otpRefs.current[index + 1]?.focus();
     }
-  }
+  };
 
-  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleOtpKeyDown = (
+    index: number,
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
     if (e.key === "Backspace" && !otp[index] && index > 0) {
-      otpRefs.current[index - 1]?.focus()
+      otpRefs.current[index - 1]?.focus();
     }
-  }
+  };
 
   const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    e.preventDefault()
-    const pastedData = e.clipboardData.getData("text/plain").slice(0, 6)
-    if (!/^\d+$/.test(pastedData)) return
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData("text/plain").slice(0, 6);
+    if (!/^\d+$/.test(pastedData)) return;
 
-    const chars = pastedData.split("")
-    const newOtp = [...otp]
+    const chars = pastedData.split("");
+    const newOtp = [...otp];
     chars.forEach((char, i) => {
-      newOtp[i] = char
-    })
-    setOtp(newOtp)
+      newOtp[i] = char;
+    });
+    setOtp(newOtp);
 
-    const nextIndex = Math.min(chars.length, 5)
-    otpRefs.current[nextIndex]?.focus()
-  }
+    const nextIndex = Math.min(chars.length, 5);
+    otpRefs.current[nextIndex]?.focus();
+  };
 
   const renderContent = () => {
     if (step === STEPS.EMAIL) {
       return (
         <div>
           <h3 className="fw-bold text-center mb-2">Forgot Password?</h3>
-          <p className="text-muted text-center mb-4" style={{ fontSize: "15px" }}>
-            Enter your email and we'll send you a 6-digit code to reset your password.
+          <p
+            className="text-muted text-center mb-4"
+            style={{ fontSize: "15px" }}
+          >
+            Enter your email and we'll send you a 6-digit code to reset your
+            password.
           </p>
-          
+
           <Input
             label="Email address"
             type="email"
@@ -204,13 +223,18 @@ export default function ForgotPasswordPage() {
           />
 
           {error && <div className="alert alert-danger py-2 mb-3">{error}</div>}
-          
-          <Button variant="dark" fullWidth onClick={handleNext} loading={loading}>
+
+          <Button
+            variant="dark"
+            fullWidth
+            onClick={handleNext}
+            loading={loading}
+          >
             Send OTP
           </Button>
 
           <div className="text-center mt-4">
-            <button 
+            <button
               onClick={() => navigate("/login")}
               className="btn btn-link text-decoration-none p-0 fw-bold"
               style={{ fontSize: "14px" }}
@@ -219,7 +243,7 @@ export default function ForgotPasswordPage() {
             </button>
           </div>
         </div>
-      )
+      );
     }
 
     if (step === STEPS.OTP) {
@@ -239,7 +263,9 @@ export default function ForgotPasswordPage() {
             {otp.map((digit, index) => (
               <input
                 key={index}
-                ref={(el) => { otpRefs.current[index] = el }}
+                ref={(el) => {
+                  otpRefs.current[index] = el;
+                }}
                 type="text"
                 inputMode="numeric"
                 className="fp-otp-input"
@@ -254,7 +280,13 @@ export default function ForgotPasswordPage() {
 
           {error && <div className="alert alert-danger py-2 mb-3">{error}</div>}
 
-          <Button variant="dark" fullWidth onClick={handleNext} className="mb-4" disabled={loading}>
+          <Button
+            variant="dark"
+            fullWidth
+            onClick={handleNext}
+            className="mb-4"
+            disabled={loading}
+          >
             Continue
           </Button>
 
@@ -274,7 +306,7 @@ export default function ForgotPasswordPage() {
             </Button>
           </div>
         </div>
-      )
+      );
     }
 
     if (step === STEPS.RESET) {
@@ -287,9 +319,10 @@ export default function ForgotPasswordPage() {
             <h3 className="fw-bold m-0">Reset Password</h3>
           </div>
           <p className="text-muted mb-4" style={{ fontSize: "15px" }}>
-            Create a new password that is 8+ characters long, including a letter and a number.
+            Create a new password that is 8+ characters long, including a letter
+            and a number.
           </p>
-          
+
           <div className="position-relative mb-3">
             <Input
               label="New Password"
@@ -297,9 +330,9 @@ export default function ForgotPasswordPage() {
               placeholder="8+ characters, letter & number"
               value={newPassword}
               onChange={(e) => {
-                setNewPassword(e.target.value)
-                setLocalError("")
-                dispatch(clearError())
+                setNewPassword(e.target.value);
+                setLocalError("");
+                dispatch(clearError());
               }}
               onKeyDown={(e) => e.key === "Enter" && handleNext()}
               floating
@@ -321,9 +354,9 @@ export default function ForgotPasswordPage() {
               placeholder="Confirm new password"
               value={confirmPassword}
               onChange={(e) => {
-                setConfirmPassword(e.target.value)
-                setLocalError("")
-                dispatch(clearError())
+                setConfirmPassword(e.target.value);
+                setLocalError("");
+                dispatch(clearError());
               }}
               onKeyDown={(e) => e.key === "Enter" && handleNext()}
               floating
@@ -340,11 +373,16 @@ export default function ForgotPasswordPage() {
 
           {error && <div className="alert alert-danger py-2 mb-3">{error}</div>}
 
-          <Button variant="dark" fullWidth onClick={handleNext} disabled={loading}>
+          <Button
+            variant="dark"
+            fullWidth
+            onClick={handleNext}
+            disabled={loading}
+          >
             Continue
           </Button>
         </div>
-      )
+      );
     }
 
     if (step === STEPS.SUCCESS) {
@@ -355,15 +393,16 @@ export default function ForgotPasswordPage() {
           </div>
           <h3 className="fw-bold mb-2">Success!</h3>
           <p className="text-muted mb-4" style={{ fontSize: "15px" }}>
-            Your password has been successfully reset. You can now use your new password to log in.
+            Your password has been successfully reset. You can now use your new
+            password to log in.
           </p>
           <Button variant="dark" fullWidth onClick={() => navigate("/login")}>
             Return to Login
           </Button>
         </div>
-      )
+      );
     }
-  }
+  };
 
   const LeftSection = (
     <Card
@@ -379,7 +418,7 @@ export default function ForgotPasswordPage() {
         {renderContent()}
       </div>
     </Card>
-  )
+  );
 
   const RightSection = (
     <div className="w-100 h-100">
@@ -389,9 +428,12 @@ export default function ForgotPasswordPage() {
         className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
         style={{ zIndex: 0 }}
       />
-      <div className="right-overlay position-absolute top-0 start-0 w-100 h-100" style={{ zIndex: 1, backgroundColor: "rgba(0,0,0,0.1)" }}></div>
+      <div
+        className="right-overlay position-absolute top-0 start-0 w-100 h-100"
+        style={{ zIndex: 1, backgroundColor: "rgba(0,0,0,0.1)" }}
+      ></div>
     </div>
-  )
+  );
 
   return (
     <SplitLayout
@@ -399,5 +441,5 @@ export default function ForgotPasswordPage() {
       rightContent={RightSection}
       className="login-page-bg"
     />
-  )
+  );
 }

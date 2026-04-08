@@ -12,14 +12,17 @@ import {
 const settingSlice = createCRUDSlice<Setting>({
   name: "setting",
   thunks: {
-    fetchAllThunk:  fetchSettingsThunk,
+    fetchAllThunk: fetchSettingsThunk,
     fetchByIdThunk: fetchSettingByIdThunk,
-    createThunk:    createSettingThunk,
-    updateThunk:    updateSettingThunk,
-    deleteThunk:    deleteSettingThunk,
-    exportThunk:    exportSettingsThunk,
+    createThunk: createSettingThunk,
+    updateThunk: updateSettingThunk,
+    deleteThunk: deleteSettingThunk,
+    exportThunk: exportSettingsThunk,
   },
 });
 
-export const { clearError: clearSettingError, clearSelectedItem: clearSelectedSetting } = settingSlice.actions;
+export const {
+  clearError: clearSettingError,
+  clearSelectedItem: clearSelectedSetting,
+} = settingSlice.actions;
 export default settingSlice.reducer;

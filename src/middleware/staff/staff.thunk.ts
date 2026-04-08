@@ -73,7 +73,7 @@ export const updateStaffThunk = createAsyncThunk<
 
 // ── Delete staff member ────────────────────────────────────────────────────────
 export const deleteStaffThunk = createAsyncThunk<
-  string | number,        // returns the deleted id so reducer can remove it
+  string | number, // returns the deleted id so reducer can remove it
   string | number,
   { rejectValue: string }
 >("staff/delete", async (id, { rejectWithValue }) => {

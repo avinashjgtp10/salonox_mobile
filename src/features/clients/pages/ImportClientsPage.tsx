@@ -7,36 +7,87 @@ import "../styles/ImportClientsPage.scss";
 type Step = 1 | 2 | 3 | 4;
 
 const SALONOX_COLUMNS = [
-  { key: "firstName", label: "First name", required: true, hint: "First name of your client. Required for import." },
-  { key: "lastName", label: "Last name", required: false, hint: "Last name of your client." },
-  { key: "email", label: "Email", required: false, hint: "Email of your client." },
-  { key: "mobile", label: "Mobile number", required: false, hint: "The mobile number of the client." },
-  { key: "gender", label: "Gender", required: false, hint: "Gender of the client." },
-  { key: "birthday", label: "Birthday", required: false, hint: "Birthday of the client." },
-  { key: "clientNotes", label: "Client notes", required: false, hint: "Important notes about the client." },
+  {
+    key: "firstName",
+    label: "First name",
+    required: true,
+    hint: "First name of your client. Required for import.",
+  },
+  {
+    key: "lastName",
+    label: "Last name",
+    required: false,
+    hint: "Last name of your client.",
+  },
+  {
+    key: "email",
+    label: "Email",
+    required: false,
+    hint: "Email of your client.",
+  },
+  {
+    key: "mobile",
+    label: "Mobile number",
+    required: false,
+    hint: "The mobile number of the client.",
+  },
+  {
+    key: "gender",
+    label: "Gender",
+    required: false,
+    hint: "Gender of the client.",
+  },
+  {
+    key: "birthday",
+    label: "Birthday",
+    required: false,
+    hint: "Birthday of the client.",
+  },
+  {
+    key: "clientNotes",
+    label: "Client notes",
+    required: false,
+    hint: "Important notes about the client.",
+  },
 ];
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 const FileUpIcon = () => (
   <svg width="38" height="44" viewBox="0 0 38 44" fill="none">
-    <path d="M23 2H6C4.9 2 4 2.9 4 4V40C4 41.1 4.9 42 6 42H32C33.1 42 34 41.1 34 40V13L23 2Z"
-      stroke="#cbd5e1" strokeWidth="1.8" fill="#f8fafc" />
+    <path
+      d="M23 2H6C4.9 2 4 2.9 4 4V40C4 41.1 4.9 42 6 42H32C33.1 42 34 41.1 34 40V13L23 2Z"
+      stroke="#cbd5e1"
+      strokeWidth="1.8"
+      fill="#f8fafc"
+    />
     <path d="M23 2V13H34" stroke="#cbd5e1" strokeWidth="1.8" />
-    <path d="M19 23V33M19 23L15 27M19 23L23 27"
-      stroke="#6366f1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <path
+      d="M19 23V33M19 23L15 27M19 23L23 27"
+      stroke="#6366f1"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </svg>
 );
 
 const CheckCircleIcon = () => (
   <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
     <circle cx="9" cy="9" r="8.5" fill="#dcfce7" stroke="#86efac" />
-    <path d="M5.5 9l2.5 2.5L13 6" stroke="#16a34a" strokeWidth="1.6" strokeLinecap="round" />
+    <path
+      d="M5.5 9l2.5 2.5L13 6"
+      stroke="#16a34a"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+    />
   </svg>
 );
 
 // ─── Step 1 – Upload ──────────────────────────────────────────────────────────
 function StepUpload({
-  file, onFileChange, error,
+  file,
+  onFileChange,
+  error,
 }: {
   file: File | null;
   onFileChange: (f: File | null) => void;
@@ -52,7 +103,7 @@ function StepUpload({
       const f = e.dataTransfer.files[0];
       if (f) onFileChange(f);
     },
-    [onFileChange]
+    [onFileChange],
   );
 
   return (
@@ -60,18 +111,23 @@ function StepUpload({
       <p className="step-label">Import clients</p>
       <h2 className="step-title">Upload file</h2>
       <p className="step-desc">
-        Upload a CSV file with your client data, or download and fill the template below.
+        Upload a CSV file with your client data, or download and fill the
+        template below.
       </p>
 
       {error && (
         <div className="toast-error d-inline-flex align-items-center mb-3">
-          <span className="me-2">⚠</span>{error}
+          <span className="me-2">⚠</span>
+          {error}
         </div>
       )}
 
       <div
         className={`upload-card ${drag ? "upload-card--drag" : ""} ${error ? "upload-card--error" : ""}`}
-        onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDrag(true);
+        }}
         onDragLeave={() => setDrag(false)}
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
@@ -83,12 +139,23 @@ function StepUpload({
           <div className="file-pill mt-3" onClick={(e) => e.stopPropagation()}>
             <span className="csv-badge">CSV</span>
             <span className="file-name">{file.name}</span>
-            <button className="remove-btn" onClick={(e) => { e.stopPropagation(); onFileChange(null); }}>×</button>
+            <button
+              className="remove-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                onFileChange(null);
+              }}
+            >
+              ×
+            </button>
           </div>
         ) : (
           <button
             className="choose-btn mt-3"
-            onClick={(e) => { e.stopPropagation(); inputRef.current?.click(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              inputRef.current?.click();
+            }}
           >
             Choose a CSV file
           </button>
@@ -104,7 +171,8 @@ function StepUpload({
       </div>
 
       <p className="text-muted small mt-3">
-        Don't have a file? Fill our template with your client information and upload.
+        Don't have a file? Fill our template with your client information and
+        upload.
       </p>
       <a href="#" className="download-link" onClick={(e) => e.preventDefault()}>
         Download template
@@ -115,7 +183,11 @@ function StepUpload({
 
 // ─── Step 2 – Column Matching ─────────────────────────────────────────────────
 function StepColumnMatch({
-  file, csvHeaders, mapping, onMappingChange, validationErrors,
+  file,
+  csvHeaders,
+  mapping,
+  onMappingChange,
+  validationErrors,
 }: {
   file: File | null;
   csvHeaders: string[];
@@ -128,7 +200,8 @@ function StepColumnMatch({
       <p className="step-label">Import clients</p>
       <h2 className="step-title">Review column matching</h2>
       <p className="step-desc">
-        Make sure the columns in your file are matched correctly to the columns in the client list.
+        Make sure the columns in your file are matched correctly to the columns
+        in the client list.
       </p>
 
       <div className="ready-banner d-flex align-items-center mb-3">
@@ -141,7 +214,9 @@ function StepColumnMatch({
           <span className="csv-badge">CSV</span>
           <span className="file-name ms-2">{file.name}</span>
           <span className="file-size ms-2 text-muted">CSV · 1 KB</span>
-          <span className="ms-auto text-muted" style={{ cursor: "pointer" }}>×</span>
+          <span className="ms-auto text-muted" style={{ cursor: "pointer" }}>
+            ×
+          </span>
         </div>
       )}
 
@@ -165,7 +240,9 @@ function StepColumnMatch({
               >
                 <option value="None">None</option>
                 {csvHeaders.map((h) => (
-                  <option key={h} value={h}>{h}</option>
+                  <option key={h} value={h}>
+                    {h}
+                  </option>
                 ))}
               </select>
               {validationErrors[col.key] && (
@@ -181,7 +258,11 @@ function StepColumnMatch({
 }
 
 // ─── Step 3 – Preview ─────────────────────────────────────────────────────────
-function StepPreview({ previewRows }: { previewRows: Record<string, string>[] }) {
+function StepPreview({
+  previewRows,
+}: {
+  previewRows: Record<string, string>[];
+}) {
   const [activeTab, setActiveTab] = useState<"import" | "errors">("import");
 
   return (
@@ -189,7 +270,8 @@ function StepPreview({ previewRows }: { previewRows: Record<string, string>[] })
       <p className="step-label">Import clients</p>
       <h2 className="step-title">Preview client list</h2>
       <p className="step-desc">
-        Check if all fields are imported correctly. Errors in a row will result in that row not being imported.
+        Check if all fields are imported correctly. Errors in a row will result
+        in that row not being imported.
       </p>
 
       <div className="preview-tabs mb-4">
@@ -207,27 +289,36 @@ function StepPreview({ previewRows }: { previewRows: Record<string, string>[] })
         </button>
       </div>
 
-      {activeTab === "import" && (
-        previewRows.length === 0 ? (
+      {activeTab === "import" &&
+        (previewRows.length === 0 ? (
           <div className="preview-empty text-center py-5">
             <p className="empty-title">No rows were found</p>
-            <p className="empty-sub">It looks like no data was found in this tab</p>
+            <p className="empty-sub">
+              It looks like no data was found in this tab
+            </p>
           </div>
         ) : (
           <div className="table-responsive">
             <table className="table preview-table">
               <thead>
-                <tr>{SALONOX_COLUMNS.map((c) => <th key={c.key}>{c.label}</th>)}</tr>
+                <tr>
+                  {SALONOX_COLUMNS.map((c) => (
+                    <th key={c.key}>{c.label}</th>
+                  ))}
+                </tr>
               </thead>
               <tbody>
                 {previewRows.map((row, i) => (
-                  <tr key={i}>{SALONOX_COLUMNS.map((c) => <td key={c.key}>{row[c.key] ?? "—"}</td>)}</tr>
+                  <tr key={i}>
+                    {SALONOX_COLUMNS.map((c) => (
+                      <td key={c.key}>{row[c.key] ?? "—"}</td>
+                    ))}
+                  </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        )
-      )}
+        ))}
 
       {activeTab === "errors" && (
         <div className="preview-empty text-center py-5">
@@ -246,17 +337,37 @@ function StepResult({ success }: { success: boolean }) {
       <div className="result-icon mx-auto mb-4">
         {success ? (
           <svg viewBox="0 0 60 60" width="56">
-            <circle cx="30" cy="30" r="29" fill="#dcfce7" stroke="#86efac" strokeWidth="2" />
-            <path d="M18 30l9 9 15-18" stroke="#16a34a" strokeWidth="3" strokeLinecap="round" fill="none" />
+            <circle
+              cx="30"
+              cy="30"
+              r="29"
+              fill="#dcfce7"
+              stroke="#86efac"
+              strokeWidth="2"
+            />
+            <path
+              d="M18 30l9 9 15-18"
+              stroke="#16a34a"
+              strokeWidth="3"
+              strokeLinecap="round"
+              fill="none"
+            />
           </svg>
         ) : (
           <svg viewBox="0 0 60 60" width="56">
             <circle cx="30" cy="30" r="29" fill="#f1f5f9" />
-            <path d="M20 20L40 40M40 20L20 40" stroke="#94a3b8" strokeWidth="3.5" strokeLinecap="round" />
+            <path
+              d="M20 20L40 40M40 20L20 40"
+              stroke="#94a3b8"
+              strokeWidth="3.5"
+              strokeLinecap="round"
+            />
           </svg>
         )}
       </div>
-      <h2 className="step-title">{success ? "Import successful!" : "Import failed!"}</h2>
+      <h2 className="step-title">
+        {success ? "Import successful!" : "Import failed!"}
+      </h2>
       <p className={`step-desc ${success ? "text-success" : "text-muted"}`}>
         {success
           ? "Your clients have been added to your client list."
@@ -298,7 +409,7 @@ export default function ImportClientsPage() {
           const match = headers.find(
             (h) =>
               h.toLowerCase().includes(col.key.toLowerCase()) ||
-              h.toLowerCase().includes(col.label.toLowerCase())
+              h.toLowerCase().includes(col.label.toLowerCase()),
           );
           auto[col.key] = match ?? "None";
         });
@@ -310,18 +421,28 @@ export default function ImportClientsPage() {
 
   const handleMappingChange = (key: string, value: string) => {
     setMapping((p) => ({ ...p, [key]: value }));
-    setMatchErrors((p) => { const n = { ...p }; delete n[key]; return n; });
+    setMatchErrors((p) => {
+      const n = { ...p };
+      delete n[key];
+      return n;
+    });
   };
 
   const handleNext = () => {
-    if (step === 1 && !file) { setUploadError("Please upload CSV file first"); return; }
+    if (step === 1 && !file) {
+      setUploadError("Please upload CSV file first");
+      return;
+    }
     if (step === 2) {
       const errs: Record<string, string> = {};
       SALONOX_COLUMNS.filter((c) => c.required).forEach((c) => {
         if (!mapping[c.key] || mapping[c.key] === "None")
           errs[c.key] = "This column is required.";
       });
-      if (Object.keys(errs).length) { setMatchErrors(errs); return; }
+      if (Object.keys(errs).length) {
+        setMatchErrors(errs);
+        return;
+      }
       setMatchErrors({});
     }
     setStep((p) => Math.min(p + 1, TOTAL) as Step);
@@ -331,15 +452,19 @@ export default function ImportClientsPage() {
 
   return (
     <div className="import-clients-page">
-
       {/* TOP BAR */}
       <div className="import-topbar d-flex align-items-center px-4 py-2">
         <div className="d-flex align-items-center gap-2 flex-grow-1">
           {step > 1 && step < 4 && (
-            <button className="back-btn" onClick={handleBack}>‹</button>
+            <button className="back-btn" onClick={handleBack}>
+              ‹
+            </button>
           )}
           <div className="progress-track flex-grow-1">
-            <div className="progress-fill" style={{ width: `${progressPct}%` }} />
+            <div
+              className="progress-fill"
+              style={{ width: `${progressPct}%` }}
+            />
           </div>
         </div>
         <div className="d-flex gap-2 ms-3">
@@ -350,7 +475,10 @@ export default function ImportClientsPage() {
             Close
           </button>
           {step < 4 && (
-            <button className="btn btn-dark btn-sm rounded-pill" onClick={handleNext}>
+            <button
+              className="btn btn-dark btn-sm rounded-pill"
+              onClick={handleNext}
+            >
               {step === 3 ? "Start Import" : "Next step"}
             </button>
           )}
@@ -368,7 +496,13 @@ export default function ImportClientsPage() {
       {/* CONTENT */}
       <div className="import-body container-fluid">
         <div className="row justify-content-center">
-          {step === 1 && <StepUpload file={file} onFileChange={handleFileChange} error={uploadError} />}
+          {step === 1 && (
+            <StepUpload
+              file={file}
+              onFileChange={handleFileChange}
+              error={uploadError}
+            />
+          )}
           {step === 2 && (
             <StepColumnMatch
               file={file}
@@ -389,7 +523,6 @@ export default function ImportClientsPage() {
           <div key={n} className={`dot ${n <= step ? "dot--active" : ""}`} />
         ))}
       </div>
-
     </div>
   );
 }

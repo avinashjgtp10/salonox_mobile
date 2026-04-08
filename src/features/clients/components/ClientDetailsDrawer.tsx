@@ -1,11 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  X,
-  ChevronDown,
-  Person,
-  Plus,
-  Clock
-} from "react-bootstrap-icons";
+import { X, ChevronDown, Person, Plus, Clock } from "react-bootstrap-icons";
 
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
@@ -26,10 +20,14 @@ const TABS = [
   { id: "Documents", hasSubmenu: true },
   { id: "Wallet" },
   { id: "Loyalty" },
-  { id: "Reviews" }
+  { id: "Reviews" },
 ];
 
-export default function ClientDetailsDrawer({ clientId, isOpen, onClose }: ClientDetailsDrawerProps) {
+export default function ClientDetailsDrawer({
+  clientId,
+  isOpen,
+  onClose,
+}: ClientDetailsDrawerProps) {
   const [client, setClient] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("Appointments");
   const [activeSubTab, setActiveSubTab] = useState("Booked");
@@ -51,10 +49,15 @@ export default function ClientDetailsDrawer({ clientId, isOpen, onClose }: Clien
 
   if (!isOpen) return null;
 
-  const initials = client ? `${client.first_name?.[0] || ""}${client.last_name?.[0] || ""}`.toUpperCase() : "J";
+  const initials = client
+    ? `${client.first_name?.[0] || ""}${client.last_name?.[0] || ""}`.toUpperCase()
+    : "J";
 
   return (
-    <div className={`client-drawer-overlay ${isOpen ? "open" : ""}`} onClick={onClose}>
+    <div
+      className={`client-drawer-overlay ${isOpen ? "open" : ""}`}
+      onClick={onClose}
+    >
       <div className="client-drawer" onClick={(e) => e.stopPropagation()}>
         <button className="drawer-close" onClick={onClose}>
           <X size={20} />
@@ -65,8 +68,12 @@ export default function ClientDetailsDrawer({ clientId, isOpen, onClose }: Clien
           <div className="profile-summary-pane">
             <div className="profile-info-card">
               <div className="profile-avatar">{initials}</div>
-              <h3 className="profile-name">{client?.first_name || "Jack"} {client?.last_name || "Doe"}</h3>
-              <p className="profile-email">{client?.email || "jack@example.com"}</p>
+              <h3 className="profile-name">
+                {client?.first_name || "Jack"} {client?.last_name || "Doe"}
+              </h3>
+              <p className="profile-email">
+                {client?.email || "jack@example.com"}
+              </p>
 
               <div className="profile-buttons">
                 <button className="btn-actions">
@@ -84,7 +91,15 @@ export default function ClientDetailsDrawer({ clientId, isOpen, onClose }: Clien
                 </div>
                 <div className="meta-item created-date">
                   <Person size={14} />
-                  <span>Created {client?.created_at ? new Date(client.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : "26 Mar 2026"}</span>
+                  <span>
+                    Created{" "}
+                    {client?.created_at
+                      ? new Date(client.created_at).toLocaleDateString(
+                          "en-GB",
+                          { day: "numeric", month: "short", year: "numeric" },
+                        )
+                      : "26 Mar 2026"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -101,7 +116,9 @@ export default function ClientDetailsDrawer({ clientId, isOpen, onClose }: Clien
                 >
                   <span className="tab-label">{tab.id}</span>
                   {tab.count && <span className="tab-count">{tab.count}</span>}
-                  {tab.hasSubmenu && <ChevronDown size={12} className="ms-auto" />}
+                  {tab.hasSubmenu && (
+                    <ChevronDown size={12} className="ms-auto" />
+                  )}
                 </div>
               ))}
             </div>
@@ -115,13 +132,13 @@ export default function ClientDetailsDrawer({ clientId, isOpen, onClose }: Clien
               {activeTab === "Appointments" && (
                 <div className="content-filters">
                   <div className="sub-tabs-pills">
-                    {["All", "Booked", "Confirmed", "More"].map(st => (
+                    {["All", "Booked", "Confirmed", "More"].map((st) => (
                       <button
                         key={st}
-                        className={`sub-tab-pill ${activeSubTab === st ? 'active' : ''}`}
+                        className={`sub-tab-pill ${activeSubTab === st ? "active" : ""}`}
                         onClick={() => setActiveSubTab(st)}
                       >
-                        {st} {st === 'More' && <ChevronDown size={12} />}
+                        {st} {st === "More" && <ChevronDown size={12} />}
                       </button>
                     ))}
                   </div>
@@ -142,7 +159,9 @@ export default function ClientDetailsDrawer({ clientId, isOpen, onClose }: Clien
                           <Clock size={16} />
                           <div className="header-text">
                             <span className="type">Appointment</span>
-                            <span className="info">Thu 26 Mar 10:00am - test123@gmail.com</span>
+                            <span className="info">
+                              Thu 26 Mar 10:00am - test123@gmail.com
+                            </span>
                           </div>
                         </div>
                         <span className="status-badge">Booked</span>
@@ -151,7 +170,9 @@ export default function ClientDetailsDrawer({ clientId, isOpen, onClose }: Clien
                       <div className="card-body">
                         <div className="service-info">
                           <div className="service-name">Blow Dry</div>
-                          <div className="service-meta">10:00am • 35min • Wendy Smith (Demo)</div>
+                          <div className="service-meta">
+                            10:00am • 35min • Wendy Smith (Demo)
+                          </div>
                         </div>
                         <div className="service-price">₹35</div>
                       </div>

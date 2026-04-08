@@ -1,2 +1,2 @@
-export * from "./utils.selectors"
-export * from "./slices.selectors"
+export * from "./utils.selectors";
+export * from "./slices.selectors";
