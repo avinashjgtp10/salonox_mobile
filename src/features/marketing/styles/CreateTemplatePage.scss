@@ -1,0 +1,443 @@
+@use "../../../styles/themes/variables" as *;
+
+.ct-page {
+  padding: 28px;
+  max-width: 1300px;
+}
+
+/* ── Topbar ── */
+.ct-topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.ct-back {
+  background: none;
+  border: 1.5px solid $dashboard-border;
+  color: $dashboard-primary;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: border-color 0.2s;
+  white-space: nowrap;
+  &:hover { border-color: $dashboard-primary; }
+}
+
+.ct-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: $dashboard-primary;
+  margin: 0 0 2px;
+}
+
+.ct-sub {
+  font-size: 13px;
+  color: $dashboard-secondary;
+  margin: 0;
+}
+
+/* ── Layout ── */
+.ct-layout {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 28px;
+  align-items: start;
+  @media (max-width: 960px) { grid-template-columns: 1fr; }
+}
+
+/* ── Section ── */
+.ct-section {
+  background: $dashboard-card-bg;
+  border: 1px solid $dashboard-border;
+  border-radius: $card-radius;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: $card-shadow;
+}
+
+.ct-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: $dashboard-primary;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ct-optional {
+  font-size: 11px;
+  font-weight: 400;
+  color: $dashboard-secondary;
+  background: #f3f4f6;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+/* ── Field ── */
+.ct-field { margin-bottom: 12px; }
+
+.ct-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: $dashboard-primary;
+  margin-bottom: 6px;
+}
+
+.ct-input, .ct-select, .ct-textarea {
+  width: 100%;
+  border: 1.5px solid $dashboard-border;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  color: $dashboard-primary;
+  background: $white;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+  &:focus { border-color: $dashboard-primary; }
+  &.error { border-color: $danger; }
+}
+
+.ct-textarea { resize: vertical; }
+
+.ct-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.ct-error {
+  font-size: 11px;
+  color: $danger;
+  margin-top: 4px;
+  display: block;
+}
+
+.ct-hint {
+  font-size: 11px;
+  color: $dashboard-secondary;
+  margin-top: 4px;
+  display: block;
+}
+
+/* ── Header Types ── */
+.ct-header-types {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.ct-header-btn {
+  border: 1.5px solid $dashboard-border;
+  background: $white;
+  color: $dashboard-secondary;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s;
+  &:hover { border-color: $dashboard-primary; color: $dashboard-primary; }
+  &.active { background: $dashboard-primary; color: $white; border-color: $dashboard-primary; }
+}
+
+/* ── Upload Zone ── */
+.ct-upload-zone {
+  border: 2px dashed $dashboard-border;
+  border-radius: 10px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  &:hover { border-color: $dashboard-primary; }
+  &.error { border-color: $danger; }
+}
+
+.ct-upload-img {
+  max-width: 100%;
+  max-height: 140px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.ct-upload-file { font-size: 13px; color: $dashboard-primary; font-weight: 600; }
+.ct-upload-placeholder { font-size: 13px; color: $dashboard-secondary; }
+
+/* ── Body Footer ── */
+.ct-body-footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+.ct-char-count {
+  font-size: 11px;
+  color: $dashboard-secondary;
+  &.warn { color: $warning; }
+}
+
+/* ── Var Buttons ── */
+.ct-var-btns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.ct-var-label {
+  font-size: 12px;
+  color: $dashboard-secondary;
+}
+
+.ct-var-btn {
+  background: #f3f4f6;
+  border: 1px solid $dashboard-border;
+  color: $dashboard-primary;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: monospace;
+  transition: background 0.15s;
+  &:hover { background: $dashboard-border; }
+}
+
+/* ── Button Items ── */
+.ct-btn-item {
+  background: #f9fafb;
+  border: 1px solid $dashboard-border;
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 10px;
+}
+
+.ct-btn-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.ct-btn-type {
+  font-size: 12px;
+  font-weight: 600;
+  color: $dashboard-primary;
+}
+
+.ct-remove-btn {
+  background: none;
+  border: none;
+  color: $danger;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+}
+
+.ct-add-btns-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.ct-add-btn {
+  border: 1.5px dashed $dashboard-border;
+  background: $white;
+  color: $dashboard-secondary;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.18s;
+  &:hover { border-color: $dashboard-primary; color: $dashboard-primary; }
+}
+
+/* ── Actions ── */
+.ct-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.ct-cancel-btn {
+  flex: 1;
+  background: $white;
+  border: 1.5px solid $dashboard-border;
+  color: $dashboard-primary;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  &:hover { border-color: $dashboard-primary; }
+}
+
+.ct-submit-btn {
+  flex: 2;
+  background: $btn-primary;
+  color: $white;
+  border: none;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  &:hover { background: $btn-hover; }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
+
+/* ── Right Column ── */
+.ct-right-col {
+  position: sticky;
+  top: 20px;
+}
+
+.ct-preview-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: $dashboard-secondary;
+  text-align: center;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Phone Mockup */
+.ct-phone {
+  background: #0b141a;
+  border-radius: 18px;
+  overflow: hidden;
+  margin-bottom: 24px;
+  border: 1px solid #222;
+}
+
+.ct-phone-header {
+  background: #1f2c34;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ct-phone-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #374151;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: #d1d5db;
+}
+
+.ct-phone-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e9edef;
+}
+
+.ct-phone-status {
+  font-size: 11px;
+  color: #10b981;
+}
+
+.ct-phone-body {
+  padding: 16px;
+  min-height: 120px;
+}
+
+.ct-message {
+  background: #005c4b;
+  border-radius: 10px 10px 10px 0;
+  padding: 10px 14px;
+  max-width: 88%;
+  margin-bottom: 8px;
+}
+
+.ct-msg-header-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: #d9fdd3;
+  margin-bottom: 6px;
+}
+
+.ct-msg-img {
+  width: 100%;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.ct-msg-body {
+  font-size: 13px;
+  color: #e9edef;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ct-msg-footer {
+  font-size: 11px;
+  color: #8696a0;
+  margin-top: 6px;
+}
+
+.ct-msg-time {
+  font-size: 10px;
+  color: #8696a0;
+  text-align: right;
+  margin-top: 6px;
+}
+
+.ct-msg-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.ct-msg-btn {
+  background: #1f2c34;
+  color: #53bdeb;
+  text-align: center;
+  padding: 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Existing Templates */
+.ct-existing-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: $dashboard-primary;
+  margin-bottom: 12px;
+}
+
+.ct-templates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.ct-loading, .ct-empty {
+  font-size: 13px;
+  color: $dashboard-secondary;
+  text-align: center;
+  padding: 20px 0;
+}
+

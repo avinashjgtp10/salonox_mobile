@@ -23,6 +23,7 @@ import bookingReducer from "./bookingSlice";
 import settingReducer from "./settingSlice";
 import appReducer from "./appSlice";
 import schedulerReducer from "./schedulerSlice";
+import marketingReducer from "./marketingSlice";
 
 const authPersistConfig = {
   key: "auth",
@@ -47,6 +48,7 @@ export const store = configureStore({
     setting: settingReducer,
     app: appReducer,
     scheduler: schedulerReducer,
+    marketing: marketingReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

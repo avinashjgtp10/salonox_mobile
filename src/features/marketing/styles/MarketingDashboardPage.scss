@@ -1,0 +1,268 @@
+@use "../../../styles/themes/variables" as *;
+
+.mkt-page {
+  padding: 28px;
+  max-width: 1200px;
+}
+
+/* ── Page Header ── */
+.mkt-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.mkt-page-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: $dashboard-primary;
+  margin: 0 0 4px;
+}
+
+.mkt-page-sub {
+  font-size: 13px;
+  color: $dashboard-secondary;
+  margin: 0;
+}
+
+.mkt-header-btns {
+  display: flex;
+  gap: 10px;
+}
+
+.mkt-btn-primary {
+  background: $btn-primary;
+  color: $white;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  &:hover { background: $btn-hover; }
+}
+
+.mkt-btn-outline {
+  background: $white;
+  color: $dashboard-primary;
+  border: 1.5px solid $dashboard-border;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  &:hover { border-color: $dashboard-primary; }
+}
+
+/* ── WA Banner ── */
+.mkt-wa-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: $card-radius;
+  padding: 14px 18px;
+  margin-bottom: 24px;
+}
+
+.mkt-wa-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #10b981;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 3px #bbf7d0;
+}
+
+.mkt-wa-info { flex: 1; }
+
+.mkt-wa-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #065f46;
+}
+
+.mkt-wa-sub {
+  font-size: 12px;
+  color: #047857;
+  margin-top: 2px;
+}
+
+.mkt-live-pill {
+  background: #10b981;
+  color: $white;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.5px;
+}
+
+/* ── KPI Grid ── */
+.mkt-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 14px;
+  margin-bottom: 24px;
+
+  @media (max-width: 1024px) { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 600px)  { grid-template-columns: repeat(2, 1fr); }
+}
+
+.mkt-kpi-card {
+  background: $dashboard-card-bg;
+  border: 1px solid $dashboard-border;
+  border-radius: $card-radius;
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: $card-shadow;
+}
+
+.mkt-kpi-accent {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 12px 12px 0 0;
+}
+
+.mkt-kpi-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: $dashboard-primary;
+  margin-top: 8px;
+}
+
+.mkt-kpi-label {
+  font-size: 12px;
+  color: $dashboard-secondary;
+  margin-top: 4px;
+}
+
+.mkt-kpi-sub {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 2px;
+}
+
+/* ── Bottom Row ── */
+.mkt-bottom-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  @media (max-width: 768px) { grid-template-columns: 1fr; }
+}
+
+.mkt-card {
+  background: $dashboard-card-bg;
+  border: 1px solid $dashboard-border;
+  border-radius: $card-radius;
+  padding: 20px;
+  box-shadow: $card-shadow;
+}
+
+.mkt-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: $dashboard-primary;
+  margin-bottom: 16px;
+}
+
+/* ── Funnel ── */
+.mkt-funnel-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.mkt-funnel-label {
+  font-size: 12px;
+  color: $dashboard-secondary;
+  width: 62px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.mkt-funnel-track {
+  flex: 1;
+  height: 22px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.mkt-funnel-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.4s ease;
+  min-width: 2px;
+}
+
+.mkt-funnel-val {
+  font-size: 12px;
+  font-weight: 700;
+  color: $dashboard-primary;
+  width: 48px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.mkt-funnel-pct {
+  font-size: 11px;
+  color: $dashboard-secondary;
+  width: 32px;
+  flex-shrink: 0;
+}
+
+/* ── Bar Chart ── */
+.mkt-bar-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  height: 160px;
+  padding-bottom: 4px;
+}
+
+.mkt-bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+}
+
+.mkt-bar-wrap {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.mkt-bar {
+  width: 100%;
+  background: #111827;
+  border-radius: 4px 4px 0 0;
+  transition: height 0.4s ease;
+  min-height: 2px;
+  cursor: pointer;
+  &:hover { background: #374151; }
+}
+
+.mkt-bar-label {
+  font-size: 10px;
+  color: $dashboard-secondary;
+  margin-top: 6px;
+  white-space: nowrap;
+}
+
+.mkt-loading {
+  padding: 40px;
+  text-align: center;
+  color: $dashboard-secondary;
+  font-size: 14px;
+}

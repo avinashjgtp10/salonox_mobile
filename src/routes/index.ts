@@ -7,3 +7,4 @@ export * from "./CatalogRoutes";
 export * from "./ClientsRoutes";
 export * from "./TeamRoutes";
 export * from "./SettingsRoutes";
+export * from "./MarketingRoutes";
