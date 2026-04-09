@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { FiArrowLeft, FiArrowRight, FiCheck } from "react-icons/fi";
+import { FiArrowRight, FiCheck } from "react-icons/fi";
 import "../styles/TeamSizePage.scss";
 import { useOnboarding } from "../../../context/OnboardingContext";
 import salonImg from "../../../assets/images/salon.jpg";
@@ -27,36 +27,12 @@ export default function TeamSizePage() {
         <div className="progress-bar bg-dark" style={{ width: "60%" }} />
       </div>
 
-      {/* TOP NAVIGATION */}
-      <div className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3">
-        <button
-          className="btn btn-outline-secondary rounded-pill bg-white px-4"
-          onClick={() => navigate(-1)}
-        >
-          Back
-        </button>
-        <button
-          className="btn btn-dark rounded-pill px-4 d-lg-none"
-          disabled={!selected}
-          onClick={handleContinue}
-        >
-          Continue <FiArrowRight size={16} className="ms-1" />
-        </button>
-      </div>
-
       <div className="row g-0 min-vh-100">
         <div className="col-lg-5 col-md-6 left-panel d-flex flex-column px-5 position-relative">
-          {/* Brand & Side Nav */}
+          {/* Brand */}
           <div className="position-absolute top-0 start-0 p-4 pb-0 w-100">
             <div className="d-flex align-items-center justify-content-between">
               <h4 className="brand-logo m-0">salonox</h4>
-              <button
-                className="btn-back-circle d-md-flex d-none"
-                onClick={() => navigate(-1)}
-                title="Back"
-              >
-                <FiArrowLeft size={20} />
-              </button>
             </div>
           </div>
 

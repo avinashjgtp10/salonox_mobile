@@ -84,32 +84,8 @@ export default function ServiceTypePage() {
         <div className="progress-bar bg-dark" style={{ width: "40%" }} />
       </div>
 
-      <div
-        className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3"
-        style={{ pointerEvents: "none" }}
-      >
-        <button
-          className="btn btn-outline-secondary rounded-pill bg-white px-4"
-          style={{ pointerEvents: "auto" }}
-          onClick={() => navigate(-1)}
-        >
-          Back
-        </button>
-        <button
-          className="btn btn-dark rounded-pill px-4 d-lg-none"
-          style={{ pointerEvents: "auto" }}
-          onClick={handleContinue}
-        >
-          Continue <FiArrowRight size={16} className="ms-1" />
-        </button>
-      </div>
-
       <div className="row g-0 min-vh-100">
         <div className="col-lg-6 bg-white p-4 position-relative">
-          <button className="btn back-btn" onClick={() => navigate(-1)}>
-            ←
-          </button>
-
           <h4 className="fw-bold mt-5">
             Select categories that best describe your business
           </h4>

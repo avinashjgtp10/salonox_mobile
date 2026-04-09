@@ -36,23 +36,7 @@ export default function JoinBusinessPage() {
         <div className="progress-bar progress-fill"></div>
       </div>
 
-      {/* 🔹 TOP RIGHT BUTTONS */}
-      <div className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3">
-        <button
-          className="btn btn-outline-secondary rounded-pill bg-white"
-          onClick={() => navigate(-1)}
-        >
-          Back
-        </button>
 
-        <button
-          className="btn btn-dark rounded-pill px-4"
-          disabled={!selected}
-          onClick={() => navigate("/send-request")}
-        >
-          Continue <span className="ms-1">→</span>
-        </button>
-      </div>
 
       <div className="row g-0 min-vh-100">
         {/* LEFT SIDE */}

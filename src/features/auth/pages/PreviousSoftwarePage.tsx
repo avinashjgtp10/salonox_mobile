@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { FiArrowLeft, FiArrowRight } from "react-icons/fi";
+import { FiArrowRight } from "react-icons/fi";
 import salonImg from "../../../assets/images/salon.jpg";
 import "../styles/PreviousSoftwarePage.scss";
 
@@ -40,38 +40,9 @@ export default function PreviousSoftwarePage() {
         <div className="progress-bar bg-dark" style={{ width: "75%" }} />
       </div>
 
-      {/* Top Right Buttons */}
-      <div className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3">
-        <button
-          className="btn btn-outline-secondary rounded-pill bg-white px-4"
-          onClick={() => navigate(-1)}
-        >
-          Back
-        </button>
-
-        <button
-          className="btn btn-dark rounded-pill px-4 d-lg-none"
-          disabled={
-            !selected || (selected === "Other" && otherSoftware.length === 0)
-          }
-          onClick={handleContinue}
-        >
-          Continue <FiArrowRight size={16} className="ms-1" />
-        </button>
-      </div>
-
       <div className="row g-0 min-vh-100">
         {/* LEFT SIDE */}
         <div className="col-lg-5 col-12 bg-white p-5 position-relative">
-          {/* Back */}
-          <button
-            className="btn btn-outline-secondary rounded-circle position-absolute"
-            style={{ top: "40px", left: "40px", width: "42px", height: "42px" }}
-            onClick={() => navigate(-1)}
-          >
-            <FiArrowLeft />
-          </button>
-
           <div style={{ maxWidth: "420px" }} className="mt-5">
             <p className="text-muted small">Account setup</p>
 
