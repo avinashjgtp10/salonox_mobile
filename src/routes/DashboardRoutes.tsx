@@ -26,6 +26,10 @@ const ReportsPage = lazy(() =>
   import("../features/analytics/pages/ReportsPage")
 );
 
+const ProfilePage = lazy(() =>
+  import("../features/dashboard/pages/ProfilePage")
+);
+
 export const DashboardRoutes = (
   <Route element={<AuthGuard />}>
     <Route
@@ -48,6 +52,7 @@ export const DashboardRoutes = (
       <Route path="marketing/*" element={<MarketingRoutes />} />
 
       <Route path="analytics" element={<ReportsPage />} />
+      <Route path="profile"   element={<ProfilePage />} />
     </Route>
   </Route>
 );
