@@ -17,12 +17,10 @@ body {
   width: 100%;
   background: $dashboard-card-bg;
   border-bottom: 1px solid $dashboard-border;
-
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 16px;
-
   position: fixed;
   top: 0;
   left: 0;
@@ -36,7 +34,6 @@ body {
   color: $dashboard-primary;
 }
 
-/* RIGHT SIDE */
 .topbar-right {
   display: flex;
   align-items: center;
@@ -54,13 +51,9 @@ body {
   padding: 8px;
   border-radius: 50%;
   transition: background 0.2s;
-
-  &:hover {
-    background: $dashboard-bg;
-  }
+  &:hover { background: $dashboard-bg; }
 }
 
-/* ================= ACTIVATE BUTTON ================= */
 .activate-btn {
   background: $btn-primary;
   color: $white;
@@ -76,13 +69,9 @@ body {
   justify-content: center;
   white-space: nowrap;
   transition: 0.2s ease;
+  &:hover { background: $btn-hover; }
 }
 
-.activate-btn:hover {
-  background: $btn-hover;
-}
-
-/* ================= NOTIFICATION ================= */
 .notification {
   position: relative;
   display: flex;
@@ -101,7 +90,6 @@ body {
   border-radius: 50%;
 }
 
-/* PROFILE */
 .profile {
   width: 30px;
   height: 30px;
@@ -136,7 +124,6 @@ body {
   z-index: 100;
 }
 
-/* NAV BUTTON */
 .nav-btn {
   width: 50px;
   height: 50px;
@@ -150,63 +137,43 @@ body {
   transition: 0.2s ease;
   background: transparent;
   position: relative;
+  &:hover { background: $sidebar-hover; color: $sidebar-active; }
+  &.route-active { background: $btn-primary; color: $white; }
+  &.menu-active { background: $sidebar-hover; color: $sidebar-active; }
 }
 
-.nav-btn:hover {
-  background: $sidebar-hover;
-  color: $sidebar-active;
-}
-
-.nav-btn.route-active {
-  background: $btn-primary;
-  color: $white;
-}
-
-.nav-btn.menu-active {
-  background: $sidebar-hover;
-  color: $sidebar-active;
-}
-
-/* ================= TOOLTIP ================= */
 .nav-label {
   position: absolute;
   left: 82px;
   top: 50%;
   transform: translateY(-50%) translateX(-6px);
-
   background: $black;
   color: $white;
-
   font-size: 13px;
   font-weight: 500;
-
   padding: 6px 14px;
   border-radius: $card-radius;
-
   white-space: nowrap;
   opacity: 0;
   transition: all 0.18s ease;
   pointer-events: none;
   z-index: 999;
-
   box-shadow: $card-shadow;
+  &::before {
+    content: "";
+    position: absolute;
+    left: -6px;
+    top: 50%;
+    transform: translateY(-50%);
+    border-width: 6px;
+    border-style: solid;
+    border-color: transparent $black transparent transparent;
+  }
 }
 
 .nav-btn:hover .nav-label {
   opacity: 1;
   transform: translateY(-50%) translateX(0);
-}
-
-/* Arrow */
-.nav-label::before {
-  content: "";
-  position: absolute;
-  left: -6px;
-  top: 50%;
-  transform: translateY(-50%);
-  border-width: 6px;
-  border-style: solid;
-  border-color: transparent $black transparent transparent;
 }
 
 /* ================= SUB SIDEBAR ================= */
@@ -223,47 +190,31 @@ body {
   box-shadow: $card-shadow;
 }
 
-/* ================= SUB HEADER ================= */
 .sub-header {
   position: relative;
   margin-bottom: 28px;
+  h3 { margin: 0; font-size: 20px; font-weight: 600; color: $dashboard-primary; }
 }
 
-.sub-header h3 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: $dashboard-primary;
-}
-
-/* Floating Close Button */
 .floating-close {
   position: absolute;
-  right: -38px; // 🔥 move more right
+  right: -38px;
   top: 50%;
   transform: translateY(-50%);
-
   width: 36px;
   height: 36px;
   border-radius: 50%;
-
   border: 1px solid $dashboard-border;
   background: $dashboard-card-bg;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   cursor: pointer;
   box-shadow: $card-shadow;
   transition: 0.2s ease;
+  &:hover { background: $dashboard-border; }
 }
 
-.floating-close:hover {
-  background: $dashboard-border;
-}
-
-/* ================= SUB LINKS ================= */
 .sub-link {
   display: block;
   padding: 10px 14px;
@@ -272,56 +223,490 @@ body {
   border-radius: $card-radius;
   cursor: pointer;
   transition: 0.2s ease;
-
-  text-decoration: none; // 🔥 ADD THIS
+  text-decoration: none;
+  &:hover { background: $dashboard-bg; }
+  &.active { background: #e8e9f1; font-weight: 500; }
 }
 
-.sub-link:hover {
-  background: $dashboard-bg;
-}
-
-.sub-link.active {
-  background: #e8e9f1; // 🔥 softer salonox tone
-  font-weight: 500;
-}
-
-/* ================= CATEGORY ================= */
-.sub-divider {
-  margin: 22px 0;
-  border: none;
-  border-top: 1px solid $dashboard-border;
-}
-
-.sub-category {
-  font-size: 13px;
-  font-weight: 600;
-  color: $dashboard-secondary;
-  margin-bottom: 12px;
-}
+.sub-divider { margin: 22px 0; border: none; border-top: 1px solid $dashboard-border; }
+.sub-category { font-size: 13px; font-weight: 600; color: $dashboard-secondary; margin-bottom: 12px; }
 
 /* ================= MAIN ================= */
 .main {
   flex: 1;
-  margin-left: 90px; // only sidebar space
+  margin-left: 90px;
   padding: 20px;
-  background: $dashboard-bg;
+  background: #f9fafb;
   min-height: calc(100vh - 70px);
   transition: margin 0.25s ease;
+  &.shifted { margin-left: 410px; }
 }
 
-/* When sub-sidebar open */
-.main.shifted {
-  margin-left: 410px; // 90px sidebar + 320px subsidebar
+/* ================= DASHBOARD HOME ================= */
+.db-home {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 4px 0 32px;
 }
 
-/* ================= MOBILE ================= */
-@media (max-width: 480px) {
-  .brand {
-    font-size: 16px;
+/* ── HEADER ── */
+.db-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.db-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: $dashboard-primary;
+  margin: 0 0 4px;
+}
+
+.db-subtitle {
+  font-size: 13px;
+  color: $dashboard-secondary;
+  margin: 0;
+}
+
+.db-header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.db-quick-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: $white;
+  border: 1px solid $dashboard-border;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: $dashboard-primary;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+
+  &:hover {
+    border-color: var(--qa-color);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    transform: translateY(-1px);
+
+    .db-quick-icon {
+      transform: scale(1.1);
+    }
   }
+}
 
-  .activate-btn {
-    padding: 6px 12px;
+.db-quick-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.18s ease;
+}
+
+/* ── KPI CARDS ── */
+.db-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+
+  @media (max-width: 1100px) { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 600px)  { grid-template-columns: 1fr; }
+}
+
+.db-kpi-card {
+  background: $white;
+  border: 1px solid $dashboard-border;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  transition: box-shadow 0.2s, transform 0.2s;
+
+  &:hover {
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+    transform: translateY(-2px);
+  }
+}
+
+.db-kpi-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.db-kpi-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.db-kpi-change {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+
+  &.up   { background: #f0fdf4; color: #16a34a; }
+  &.down { background: #fef2f2; color: #dc2626; }
+}
+
+.db-kpi-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: $dashboard-primary;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.db-kpi-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: $dashboard-primary;
+  margin-bottom: 2px;
+}
+
+.db-kpi-sub {
+  font-size: 12px;
+  color: $dashboard-secondary;
+}
+
+/* ── CHARTS ROW ── */
+.db-charts-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+
+  @media (max-width: 900px) { grid-template-columns: 1fr; }
+}
+
+/* ── CARDS ── */
+.db-card {
+  background: $white;
+  border: 1px solid $dashboard-border;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+.db-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.db-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: $dashboard-primary;
+  margin: 0 0 3px;
+}
+
+.db-card-sub {
+  font-size: 12px;
+  color: $dashboard-secondary;
+  margin: 0;
+}
+
+.db-legend {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.db-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: $dashboard-secondary;
+}
+
+/* ── TOOLTIP ── */
+.db-tooltip {
+  background: $white;
+  border: 1px solid $dashboard-border;
+  border-radius: 10px;
+  padding: 10px 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}
+
+.db-tooltip-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: $dashboard-primary;
+  margin: 0 0 6px;
+}
+
+/* ── BAR LEGEND ── */
+.db-bar-legend {
+  display: flex;
+  gap: 14px;
+  margin-top: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+
+  span {
+    display: flex;
+    align-items: center;
+    gap: 5px;
     font-size: 12px;
+    color: $dashboard-secondary;
   }
+}
+
+/* ── BOTTOM ROW ── */
+.db-bottom-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+
+  @media (max-width: 900px) { grid-template-columns: 1fr; }
+}
+
+.db-right-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── VIEW ALL BUTTON ── */
+.db-view-all {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: $dashboard-secondary;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.15s;
+  white-space: nowrap;
+
+  &:hover {
+    background: $dashboard-bg;
+    color: $dashboard-primary;
+  }
+}
+
+/* ── APPOINTMENTS TABLE ── */
+.db-appt-table {
+  overflow-x: auto;
+}
+
+.db-appt-head {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1.2fr 1.1fr 1fr 1.2fr;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: $dashboard-secondary;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #f9fafb;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  min-width: 600px;
+}
+
+.db-appt-row {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1.2fr 1.1fr 1fr 1.2fr;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: $dashboard-primary;
+  align-items: center;
+  border-bottom: 1px solid #f3f4f6;
+  transition: background 0.15s;
+  min-width: 600px;
+
+  &:last-child { border-bottom: none; }
+  &:hover { background: #f9fafb; border-radius: 8px; }
+}
+
+.db-appt-client {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.db-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: $dashboard-primary;
+  flex-shrink: 0;
+}
+
+.db-appt-service { color: $dashboard-secondary; font-size: 12.5px; }
+.db-appt-staff   { font-size: 12.5px; }
+.db-appt-time    { font-size: 12px; color: $dashboard-secondary; display: flex; align-items: center; }
+.db-appt-amount  { font-weight: 600; font-size: 13px; }
+
+/* ── BADGES ── */
+.db-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.db-badge-success { background: #f0fdf4; color: #16a34a; }
+.db-badge-info    { background: #eff6ff; color: #2563eb; }
+.db-badge-warning { background: #fffbeb; color: #d97706; }
+.db-badge-danger  { background: #fef2f2; color: #dc2626; }
+
+/* ── PIE LEGEND ── */
+.db-pie-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 4px;
+  margin-top: 4px;
+}
+
+.db-pie-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: $dashboard-primary;
+}
+
+/* ── STAFF LIST ── */
+.db-staff-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.db-staff-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  transition: background 0.15s;
+  &:hover { background: #f9fafb; }
+}
+
+.db-rank {
+  font-size: 11px;
+  font-weight: 700;
+  color: $dashboard-secondary;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.db-staff-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: $dashboard-primary;
+  color: $white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.db-staff-info { flex: 1; min-width: 0; }
+.db-staff-name { font-size: 13px; font-weight: 600; color: $dashboard-primary; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.db-staff-role { font-size: 11px; color: $dashboard-secondary; }
+
+.db-staff-stats { text-align: right; flex-shrink: 0; }
+.db-staff-rev  { font-size: 13px; font-weight: 700; color: $dashboard-primary; }
+.db-staff-rating {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: $dashboard-secondary;
+  justify-content: flex-end;
+}
+
+/* ── STATS STRIP ── */
+.db-stats-strip {
+  background: $dashboard-primary;
+  border-radius: 14px;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.db-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 140px;
+}
+
+.db-stat-label {
+  font-size: 12px;
+  color: rgba(255,255,255,0.55);
+}
+
+.db-stat-val {
+  font-size: 13px;
+  font-weight: 600;
+  color: $white;
+  margin-left: auto;
+}
+
+.db-stat-divider {
+  width: 1px;
+  height: 28px;
+  background: rgba(255,255,255,0.12);
+  flex-shrink: 0;
+
+  @media (max-width: 700px) { display: none; }
+}
+
+/* ── MOBILE ── */
+@media (max-width: 480px) {
+  .brand      { font-size: 16px; }
+  .activate-btn { padding: 6px 12px; font-size: 12px; }
+  .db-header  { flex-direction: column; }
+  .db-title   { font-size: 18px; }
 }

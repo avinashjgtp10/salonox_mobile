@@ -6,7 +6,6 @@ import { FiArrowLeft, FiArrowRight } from "react-icons/fi";
 import { useOnboarding } from "../../../context/OnboardingContext";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { saveSalonThunk } from "../../../middleware/salon/salon.thunk";
-import { login, updateOnboardingStatus } from "../../../store/authSlice";
 import type { CreateSalonPayload } from "../../../types/salon.types";
 import salonImg from "../../../assets/images/salon.jpg";
 
@@ -51,17 +50,17 @@ export default function RecommendationSourcePage() {
     const result = await dispatch(saveSalonThunk(payload));
 
     if (saveSalonThunk.fulfilled.match(result)) {
-      const { accessToken, refreshToken, isOnboardingComplete } =
-        result.payload;
-
-      if (accessToken && refreshToken) {
-        dispatch(login({ accessToken, refreshToken, isOnboardingComplete }));
-      } else {
-        dispatch(updateOnboardingStatus(true));
-      }
+      const { accessToken, refreshToken } = result.payload;
 
       reset();
-      navigate("/setup-complete");
+
+      // Pass tokens as route state — RequestSuccessPage dispatches
+      // updateOnboardingStatus(true) only when navigating to /dashboard.
+      // Dispatching here causes OnboardingGuard to redirect to /dashboard
+      // before this navigate() takes effect.
+      navigate("/request-success", {
+        state: { accessToken, refreshToken },
+      });
     } else {
       console.error("Salon save failed:", result.payload);
     }
@@ -73,7 +72,7 @@ export default function RecommendationSourcePage() {
         <div className="progress-bar bg-dark" style={{ width: "100%" }} />
       </div>
 
-      {/* Top Right Buttons overlay (hidden from pointer interactions) */}
+      {/* Top Right Buttons overlay */}
       <div
         className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3"
         style={{ pointerEvents: "none" }}
@@ -171,30 +170,25 @@ export default function RecommendationSourcePage() {
             className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
             style={{ zIndex: 0 }}
           />
-
-          {/* Desktop Continue Button on Image */}
-          <div className="position-absolute top-0 end-0 p-4 z-3">
-            <button
-              className="btn btn-dark rounded-pill px-4"
-              disabled={
-                loading ||
-                !selected ||
-                (selected === "Other" && otherText.trim() === "")
-              }
-              onClick={handleDone}
-            >
-              {loading ? (
-                <>
-                  <span className="spinner-border spinner-border-sm me-2" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  Continue <FiArrowRight size={16} className="ms-1" />
-                </>
-              )}
-            </button>
-          </div>
+          <button
+            className="btn btn-dark rounded-pill position-absolute"
+            style={{ top: "20px", right: "20px", zIndex: 10 }}
+            disabled={
+              loading ||
+              !selected ||
+              (selected === "Other" && otherText.trim() === "")
+            }
+            onClick={handleDone}
+          >
+            {loading ? (
+              <>
+                <span className="spinner-border spinner-border-sm me-2" />
+                Saving...
+              </>
+            ) : (
+              "Complete Setup →"
+            )}
+          </button>
         </div>
       </div>
     </div>
