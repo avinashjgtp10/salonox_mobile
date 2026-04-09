@@ -24,6 +24,7 @@ import settingReducer from "./settingSlice";
 import appReducer from "./appSlice";
 import schedulerReducer from "./schedulerSlice";
 import marketingReducer from "./marketingSlice";
+import reportReducer from "./reportSlice";
 
 const authPersistConfig = {
   key: "auth",
@@ -49,6 +50,7 @@ export const store = configureStore({
     app: appReducer,
     scheduler: schedulerReducer,
     marketing: marketingReducer,
+    report: reportReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
