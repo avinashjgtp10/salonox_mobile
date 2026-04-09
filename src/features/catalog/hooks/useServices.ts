@@ -3,9 +3,15 @@ import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../../store/store";
 import {
   fetchCatalogThunk,
-  fetchCategoriesThunk,
 } from "../../../middleware/catalog/catalog.thunk";
-import type { Service, CategoryItem } from "../../../types/catalog.types";
+
+import type { Service } from "../types/catalog.types";
+
+export interface CategoryItem {
+  id: string | number;
+  name: string;
+  [key: string]: any;
+}
 
 // Derived view type — adds serviceCount computed from the services array
 export interface CategoryView extends CategoryItem {
@@ -19,7 +25,7 @@ export const useServices = () => {
     (state: RootState) => (state.catalog as any).items as Service[],
   );
   const rawCategories = useSelector(
-    (state: RootState) => (state.catalog as any).categories as CategoryItem[],
+    (state: RootState) => ((state.catalog as any).categories as CategoryItem[]) || [],
   );
   const loading = useSelector(
     (state: RootState) =>
@@ -30,7 +36,7 @@ export const useServices = () => {
   );
 
   // Derive serviceCount per category from the services list
-  const categories: CategoryView[] = rawCategories.map((cat) => ({
+  const categories: CategoryView[] = (rawCategories || []).map((cat) => ({
     ...cat,
     serviceCount: services.filter(
       (svc) => String(svc.category_id) === String(cat.id),
@@ -39,7 +45,6 @@ export const useServices = () => {
 
   const fetchServices = useCallback(() => {
     dispatch(fetchCatalogThunk());
-    dispatch(fetchCategoriesThunk());
   }, [dispatch]);
 
   return { services, categories, loading, error, fetchServices };

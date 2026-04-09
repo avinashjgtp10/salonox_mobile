@@ -9,7 +9,7 @@ export const useCategories = () => {
   const loading = false;
   const error = null;
 
-  const createCategory = async (cat: { name: string }) => {
+  const createCategory = async (cat: { name: string; description?: string; color?: string }) => {
     setCategories([
       ...categories,
       { id: Date.now().toString(), name: cat.name, serviceCount: 0 },
