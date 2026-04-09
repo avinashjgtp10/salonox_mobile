@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Search, Star, ChevronLeft, ArrowRepeat as Refresh, Grid3x3Gap, BoxArrowUp, InfoCircle } from "react-bootstrap-icons";
+import * as XLSX from "xlsx";
+import { Search, Star, ChevronLeft, ArrowRepeat as Refresh, Grid3x3Gap, BoxArrowUp, InfoCircle, FileEarmarkSpreadsheet, FiletypePdf } from "react-bootstrap-icons";
+import api from "../../../services/api/axios";
 import type { AppDispatch, RootState } from "../../../store/store";
 import { clearReportError } from "../../../store/reportSlice";
 import {
@@ -179,6 +181,55 @@ const Sparkline = ({ data, color }: { data: number[]; color: string }) => (
     </AreaChart>
   </ResponsiveContainer>
 );
+
+// ─── Export helpers ───────────────────────────────────────────────────────────
+
+/** Client-side Excel export using xlsx (already installed) */
+const exportToExcel = (
+  headers: string[],
+  rows: (string | number)[][],
+  filename: string,
+) => {
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  // Auto-width columns
+  const colWidths = headers.map((h, i) => ({
+    wch: Math.max(h.length + 2, ...rows.map(r => String(r[i] ?? "").length + 2)),
+  }));
+  ws["!cols"] = colWidths;
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Report");
+  XLSX.writeFile(wb, `${filename}.xlsx`);
+};
+
+/** PDF export via browser print dialog */
+const printTable = (
+  title: string,
+  headers: string[],
+  rows: (string | number)[][],
+) => {
+  const tbody = rows
+    .map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`)
+    .join("");
+  const html = `<!DOCTYPE html><html><head><title>${title}</title>
+    <style>
+      body{font-family:Arial,sans-serif;font-size:12px;margin:24px}
+      h2{margin:0 0 16px;font-size:16px}
+      table{width:100%;border-collapse:collapse}
+      th{background:#f3f4f6;padding:8px 12px;text-align:left;font-weight:600;border:1px solid #e5e7eb;font-size:11px}
+      td{padding:7px 12px;border:1px solid #e5e7eb;font-size:11px}
+      tr:nth-child(even) td{background:#f9fafb}
+    </style></head><body>
+    <h2>${title}</h2>
+    <table><thead><tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr></thead>
+    <tbody>${tbody}</tbody></table>
+    </body></html>`;
+  const win = window.open("", "_blank");
+  if (!win) return;
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => { win.print(); }, 300);
+};
 
 // ─── Tab content components ───────────────────────────────────────────────────
 
@@ -592,20 +643,46 @@ const DATE_TYPE_OPTIONS  = ["Appointment Date", "Booking Date"];
 const APPT_STATUSES      = ["All", "Open", "Closed", "Cancelled", "No Show", "Checked-in", "Confirmed", "Deleted"];
 const APPT_SOURCES       = ["All", "Walk-In", "Online", "Phone", "App", "Staff", "Kiosk", "Third Party", "Other"];
 
-const AppointmentReportDetail = ({ onBack }: { onBack: () => void }) => {
-  const [dateType,        setDateType]        = useState(DATE_TYPE_OPTIONS[0]);
-  const [showDtDrop,      setShowDtDrop]      = useState(false);
-  const [dateFrom,        setDateFrom]        = useState("2026-04-08");
-  const [dateTo,          setDateTo]          = useState("2026-04-08");
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(APPT_STATUSES);
-  const [statusSearch,    setStatusSearch]    = useState("");
-  const [showStatusDrop,  setShowStatusDrop]  = useState(false);
-  const [selectedSources,  setSelectedSources]  = useState<string[]>(APPT_SOURCES);
-  const [showSourceDrop,  setShowSourceDrop]  = useState(false);
-  const rows      = MOCK_APPOINTMENTS;
-  const [loading, setLoading] = useState(false);
+const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const [dateType,          setDateType]          = useState(DATE_TYPE_OPTIONS[0]);
+  const [showDtDrop,        setShowDtDrop]        = useState(false);
+  const [dateFrom,          setDateFrom]          = useState(today);
+  const [dateTo,            setDateTo]            = useState(today);
+  const [selectedStatuses,  setSelectedStatuses]  = useState<string[]>(APPT_STATUSES);
+  const [statusSearch,      setStatusSearch]      = useState("");
+  const [showStatusDrop,    setShowStatusDrop]    = useState(false);
+  const [selectedSources,   setSelectedSources]   = useState<string[]>(APPT_SOURCES);
+  const [showSourceDrop,    setShowSourceDrop]    = useState(false);
+  const [showExportDrop,    setShowExportDrop]    = useState(false);
+  const [rows,              setRows]              = useState<AppointmentRow[]>(MOCK_APPOINTMENTS);
+  const [loading,           setLoading]           = useState(false);
 
-  const handleRefresh = () => { setLoading(true); setTimeout(() => setLoading(false), 800); };
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        dateType: dateType === "Appointment Date" ? "appointment" : "booking",
+        from: dateFrom,
+        to: dateTo,
+        statuses: selectedStatuses.filter(s => s !== "All").join(","),
+        sources:  selectedSources.filter(s => s !== "All").join(","),
+      });
+      const res = await api.get<{ data: AppointmentRow[] }>(
+        `/api/v1/reports/appointments/detail?${params}`,
+      );
+      if (res.data?.data) setRows(res.data.data);
+    } catch {
+      // keep existing rows / fallback to mock
+    } finally {
+      setLoading(false);
+    }
+  }, [dateType, dateFrom, dateTo, selectedStatuses, selectedSources]);
+
+  const handleRefresh = () => { fetchData(); };
+
+  const APPT_HEADERS = ["Appointment Date", "Booked Date", "Ticket No", "Guest Name", "Service Name", "Service Code", "Center Name"];
+  const apptRows = () => rows.map(r => [r.appointmentDate, r.bookedDate, r.ticketNo, r.guestName, r.serviceName, r.serviceCode, r.centerName]);
 
   const toggleStatus = (s: string) => {
     if (s === "All") {
@@ -648,11 +725,41 @@ const AppointmentReportDetail = ({ onBack }: { onBack: () => void }) => {
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
           <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
-            <ChevronLeft size={15} /> Appointments
+            <ChevronLeft size={15} /> {report.name}
           </Button>
           <div className="rp-detail-view-icons">
             <button className="rp-detail-icon-btn" title="Column view"><Grid3x3Gap size={16} /></button>
-            <button className="rp-detail-icon-btn" title="Export"><BoxArrowUp size={16} /></button>
+            <div className="rp-detail-export-wrap">
+              <button
+                className="rp-detail-icon-btn"
+                title="Export"
+                onClick={() => setShowExportDrop(v => !v)}
+              >
+                <BoxArrowUp size={16} />
+              </button>
+              {showExportDrop && (
+                <div className="rp-detail-export-dropdown">
+                  <div
+                    className="rp-detail-export-item"
+                    onClick={() => {
+                      exportToExcel(APPT_HEADERS, apptRows(), `${report.name}-${dateFrom}-${dateTo}`);
+                      setShowExportDrop(false);
+                    }}
+                  >
+                    <FileEarmarkSpreadsheet size={14} /> Export to Excel
+                  </div>
+                  <div
+                    className="rp-detail-export-item"
+                    onClick={() => {
+                      printTable(report.name, APPT_HEADERS, apptRows());
+                      setShowExportDrop(false);
+                    }}
+                  >
+                    <FiletypePdf size={14} /> Export to PDF
+                  </div>
+                </div>
+              )}
+            </div>
             <button className="rp-detail-icon-btn" title="Info"><InfoCircle size={16} /></button>
           </div>
         </div>
@@ -825,6 +932,1072 @@ const AppointmentReportDetail = ({ onBack }: { onBack: () => void }) => {
         </div>
       </div>
 
+    </div>
+  );
+};
+
+// ─── Finance (Collections) Report Detail ─────────────────────────────────────
+
+interface FinanceRow {
+  date: string;
+  ticketNo: string;
+  clientName: string;
+  service: string;
+  amount: number;
+  paymentMethod: string;
+  staff: string;
+  center: string;
+}
+
+const MOCK_FINANCE: FinanceRow[] = [
+  { date: "2026-04-08", ticketNo: "SVB5001", clientName: "Priya Sharma",  service: "Hair Color",      amount: 2800, paymentMethod: "UPI",  staff: "Anita K.",  center: "Sanghavi Nagar" },
+  { date: "2026-04-08", ticketNo: "SVB5002", clientName: "Meera Joshi",   service: "Facial",           amount: 1500, paymentMethod: "Card", staff: "Pooja M.",  center: "Sanghavi Nagar" },
+  { date: "2026-04-08", ticketNo: "SVB5003", clientName: "Sneha Patel",   service: "Haircut",          amount: 600,  paymentMethod: "Cash", staff: "Raj S.",    center: "Sanghavi Nagar" },
+  { date: "2026-04-08", ticketNo: "SVB5004", clientName: "Riya Kapoor",   service: "Massage",          amount: 1800, paymentMethod: "UPI",  staff: "Neha T.",   center: "Sanghavi Nagar" },
+  { date: "2026-04-08", ticketNo: "SVB5005", clientName: "Ananya Verma",  service: "Bridal Package",   amount: 8500, paymentMethod: "Card", staff: "Anita K.",  center: "Sanghavi Nagar" },
+];
+
+const PAYMENT_METHODS = ["All", "Cash", "Card", "UPI", "Online", "Wallet"];
+
+const FinanceReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+  const [dateFrom,        setDateFrom]        = useState(monthStart);
+  const [dateTo,          setDateTo]          = useState(today);
+  const [paymentMethod,   setPaymentMethod]   = useState("All");
+  const [showMethodDrop,  setShowMethodDrop]  = useState(false);
+  const [showExportDrop,  setShowExportDrop]  = useState(false);
+  const [rows,            setRows]            = useState<FinanceRow[]>(MOCK_FINANCE);
+  const [loading,         setLoading]         = useState(false);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ from: dateFrom, to: dateTo, method: paymentMethod });
+      const res = await api.get<{ data: FinanceRow[] }>(`/api/v1/reports/finance/detail?${params}`);
+      if (res.data?.data) setRows(res.data.data);
+    } catch {
+      // fallback to mock
+    } finally {
+      setLoading(false);
+    }
+  }, [dateFrom, dateTo, paymentMethod]);
+
+  const HEADERS = ["Date", "Ticket No", "Client Name", "Service", "Amount (₹)", "Payment Method", "Staff", "Center"];
+  const exportRows = () => rows.map(r => [r.date, r.ticketNo, r.clientName, r.service, r.amount, r.paymentMethod, r.staff, r.center]);
+
+  return (
+    <div className="rp-detail-view">
+      <div className="rp-detail-header">
+        <div className="rp-detail-back-row">
+          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
+            <ChevronLeft size={15} /> {report.name}
+          </Button>
+          <div className="rp-detail-view-icons">
+            <button className="rp-detail-icon-btn" title="Column view"><Grid3x3Gap size={16} /></button>
+            <div className="rp-detail-export-wrap">
+              <button className="rp-detail-icon-btn" title="Export" onClick={() => setShowExportDrop(v => !v)}>
+                <BoxArrowUp size={16} />
+              </button>
+              {showExportDrop && (
+                <div className="rp-detail-export-dropdown">
+                  <div className="rp-detail-export-item" onClick={() => { exportToExcel(HEADERS, exportRows(), `${report.name}-${dateFrom}-${dateTo}`); setShowExportDrop(false); }}>
+                    <FileEarmarkSpreadsheet size={14} /> Export to Excel
+                  </div>
+                  <div className="rp-detail-export-item" onClick={() => { printTable(report.name, HEADERS, exportRows()); setShowExportDrop(false); }}>
+                    <FiletypePdf size={14} /> Export to PDF
+                  </div>
+                </div>
+              )}
+            </div>
+            <button className="rp-detail-icon-btn" title="Info"><InfoCircle size={16} /></button>
+          </div>
+        </div>
+        <div className="rp-detail-tab-bar"><span className="rp-detail-tab active">Default View</span></div>
+      </div>
+
+      <div className="rp-detail-filters">
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Date Range</label>
+          <div className="rp-detail-date-range">
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="rp-detail-date-input" />
+            <span className="rp-detail-date-sep">-</span>
+            <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   className="rp-detail-date-input" />
+          </div>
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Payment Method</label>
+          <button className="rp-detail-select" onClick={() => setShowMethodDrop(v => !v)}>
+            {paymentMethod} <span className="rp-detail-caret">▼</span>
+          </button>
+          {showMethodDrop && (
+            <div className="rp-detail-dropdown">
+              {PAYMENT_METHODS.map(m => (
+                <div key={m} className={`rp-detail-dropdown-item ${m === paymentMethod ? "active" : ""}`}
+                  onClick={() => { setPaymentMethod(m); setShowMethodDrop(false); }}>{m}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-actions">
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
+            <Refresh size={13} /> Refresh
+          </Button>
+          <Button variant="ghost" className="rp-detail-save-btn">Save View</Button>
+        </div>
+      </div>
+
+      <div className="rp-detail-drag-hint"><span className="rp-detail-drag-check" /> Drag here to set row groups</div>
+
+      <div className="rp-detail-table-wrap">
+        <table className="rp-detail-table">
+          <thead>
+            <tr>
+              <th>Date <span className="rp-th-sort">↕</span></th>
+              <th>Ticket No <span className="rp-th-sort">↕</span></th>
+              <th>Client Name</th>
+              <th>Service</th>
+              <th>Amount (₹) <span className="rp-th-sort">↕</span></th>
+              <th>Payment Method</th>
+              <th>Staff</th>
+              <th>Center</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={8} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+            ) : rows.length === 0 ? (
+              <tr><td colSpan={8} className="rp-detail-empty-cell">No data available</td></tr>
+            ) : rows.map((r, i) => (
+              <tr key={i}>
+                <td>{r.date}</td>
+                <td><span className="rp-detail-link">{r.ticketNo}</span></td>
+                <td><span className="rp-detail-link">{r.clientName}</span></td>
+                <td>{r.service}</td>
+                <td className="fw-semibold">₹{r.amount.toLocaleString()}</td>
+                <td>{r.paymentMethod}</td>
+                <td>{r.staff}</td>
+                <td>{r.center}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="rp-detail-pagination">
+        <span className="rp-detail-page-info">1 to {rows.length} of {rows.length}</span>
+        <div className="rp-detail-page-nav">
+          <button className="rp-detail-page-btn" disabled>‹</button>
+          <span className="rp-detail-page-cur">Page 1 of 1</span>
+          <button className="rp-detail-page-btn" disabled>›</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Inventory (Current Stock) Report Detail ──────────────────────────────────
+
+interface InventoryRow {
+  product: string;
+  category: string;
+  sku: string;
+  currentStock: number;
+  reorderLevel: number;
+  unitCost: number;
+  totalValue: number;
+  status: "In Stock" | "Low Stock" | "Out of Stock";
+}
+
+const MOCK_INVENTORY: InventoryRow[] = [
+  { product: "Loreal Shampoo 500ml",  category: "Hair Care",   sku: "LC001", currentStock: 24, reorderLevel: 10, unitCost: 450,  totalValue: 10800, status: "In Stock"    },
+  { product: "Wella Colour 60g",      category: "Hair Color",  sku: "WC002", currentStock: 6,  reorderLevel: 8,  unitCost: 320,  totalValue: 1920,  status: "Low Stock"   },
+  { product: "Kerastase Conditioner", category: "Hair Care",   sku: "KR003", currentStock: 0,  reorderLevel: 5,  unitCost: 980,  totalValue: 0,     status: "Out of Stock"},
+  { product: "OPI Nail Polish",       category: "Nails",       sku: "OP004", currentStock: 38, reorderLevel: 15, unitCost: 650,  totalValue: 24700, status: "In Stock"    },
+  { product: "Dermalogica Cleanser",  category: "Skin Care",   sku: "DM005", currentStock: 11, reorderLevel: 12, unitCost: 1200, totalValue: 13200, status: "Low Stock"   },
+  { product: "Massage Oil 200ml",     category: "Body Care",   sku: "MO006", currentStock: 18, reorderLevel: 8,  unitCost: 380,  totalValue: 6840,  status: "In Stock"    },
+];
+
+const INV_CATEGORIES = ["All", "Hair Care", "Hair Color", "Nails", "Skin Care", "Body Care"];
+const INV_STATUSES   = ["All", "In Stock", "Low Stock", "Out of Stock"];
+
+const InventoryReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const [category,       setCategory]       = useState("All");
+  const [stockStatus,    setStockStatus]    = useState("All");
+  const [showCatDrop,    setShowCatDrop]    = useState(false);
+  const [showStsDrop,    setShowStsDrop]    = useState(false);
+  const [showExportDrop, setShowExportDrop] = useState(false);
+  const [rows,           setRows]           = useState<InventoryRow[]>(MOCK_INVENTORY);
+  const [loading,        setLoading]        = useState(false);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ category, status: stockStatus });
+      const res = await api.get<{ data: InventoryRow[] }>(`/api/v1/reports/inventory/detail?${params}`);
+      if (res.data?.data) setRows(res.data.data);
+    } catch {
+      // apply client-side filter on mock
+      setRows(MOCK_INVENTORY.filter(r =>
+        (category === "All" || r.category === category) &&
+        (stockStatus === "All" || r.status === stockStatus)
+      ));
+    } finally {
+      setLoading(false);
+    }
+  }, [category, stockStatus]);
+
+  const HEADERS = ["Product", "Category", "SKU", "Current Stock", "Reorder Level", "Unit Cost (₹)", "Total Value (₹)", "Status"];
+  const exportRows = () => rows.map(r => [r.product, r.category, r.sku, r.currentStock, r.reorderLevel, r.unitCost, r.totalValue, r.status]);
+
+  const statusColor = (s: string) =>
+    s === "In Stock" ? "#10b981" : s === "Low Stock" ? "#f59e0b" : "#ef4444";
+
+  return (
+    <div className="rp-detail-view">
+      <div className="rp-detail-header">
+        <div className="rp-detail-back-row">
+          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
+            <ChevronLeft size={15} /> {report.name}
+          </Button>
+          <div className="rp-detail-view-icons">
+            <button className="rp-detail-icon-btn" title="Column view"><Grid3x3Gap size={16} /></button>
+            <div className="rp-detail-export-wrap">
+              <button className="rp-detail-icon-btn" title="Export" onClick={() => setShowExportDrop(v => !v)}>
+                <BoxArrowUp size={16} />
+              </button>
+              {showExportDrop && (
+                <div className="rp-detail-export-dropdown">
+                  <div className="rp-detail-export-item" onClick={() => { exportToExcel(HEADERS, exportRows(), `${report.name}`); setShowExportDrop(false); }}>
+                    <FileEarmarkSpreadsheet size={14} /> Export to Excel
+                  </div>
+                  <div className="rp-detail-export-item" onClick={() => { printTable(report.name, HEADERS, exportRows()); setShowExportDrop(false); }}>
+                    <FiletypePdf size={14} /> Export to PDF
+                  </div>
+                </div>
+              )}
+            </div>
+            <button className="rp-detail-icon-btn" title="Info"><InfoCircle size={16} /></button>
+          </div>
+        </div>
+        <div className="rp-detail-tab-bar"><span className="rp-detail-tab active">Default View</span></div>
+      </div>
+
+      <div className="rp-detail-filters">
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Category</label>
+          <button className="rp-detail-select" onClick={() => { setShowCatDrop(v => !v); setShowStsDrop(false); }}>
+            {category} <span className="rp-detail-caret">▼</span>
+          </button>
+          {showCatDrop && (
+            <div className="rp-detail-dropdown">
+              {INV_CATEGORIES.map(c => (
+                <div key={c} className={`rp-detail-dropdown-item ${c === category ? "active" : ""}`}
+                  onClick={() => { setCategory(c); setShowCatDrop(false); }}>{c}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Stock Status</label>
+          <button className="rp-detail-select" onClick={() => { setShowStsDrop(v => !v); setShowCatDrop(false); }}>
+            {stockStatus} <span className="rp-detail-caret">▼</span>
+          </button>
+          {showStsDrop && (
+            <div className="rp-detail-dropdown">
+              {INV_STATUSES.map(s => (
+                <div key={s} className={`rp-detail-dropdown-item ${s === stockStatus ? "active" : ""}`}
+                  onClick={() => { setStockStatus(s); setShowStsDrop(false); }}>{s}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-actions">
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
+            <Refresh size={13} /> Refresh
+          </Button>
+          <Button variant="ghost" className="rp-detail-save-btn">Save View</Button>
+        </div>
+      </div>
+
+      <div className="rp-detail-drag-hint"><span className="rp-detail-drag-check" /> Drag here to set row groups</div>
+
+      <div className="rp-detail-table-wrap">
+        <table className="rp-detail-table">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Category</th>
+              <th>SKU</th>
+              <th>Current Stock <span className="rp-th-sort">↕</span></th>
+              <th>Reorder Level</th>
+              <th>Unit Cost (₹) <span className="rp-th-sort">↕</span></th>
+              <th>Total Value (₹) <span className="rp-th-sort">↕</span></th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={8} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+            ) : rows.length === 0 ? (
+              <tr><td colSpan={8} className="rp-detail-empty-cell">No data available</td></tr>
+            ) : rows.map((r, i) => (
+              <tr key={i}>
+                <td className="fw-semibold">{r.product}</td>
+                <td>{r.category}</td>
+                <td><span className="rp-detail-link">{r.sku}</span></td>
+                <td>{r.currentStock}</td>
+                <td>{r.reorderLevel}</td>
+                <td>₹{r.unitCost.toLocaleString()}</td>
+                <td className="fw-semibold">₹{r.totalValue.toLocaleString()}</td>
+                <td><span style={{ color: statusColor(r.status), fontWeight: 600, fontSize: 12 }}>{r.status}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="rp-detail-pagination">
+        <span className="rp-detail-page-info">1 to {rows.length} of {rows.length}</span>
+        <div className="rp-detail-page-nav">
+          <button className="rp-detail-page-btn" disabled>‹</button>
+          <span className="rp-detail-page-cur">Page 1 of 1</span>
+          <button className="rp-detail-page-btn" disabled>›</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Payments Report Detail ───────────────────────────────────────────────────
+
+interface PaymentRow {
+  date: string;
+  transactionId: string;
+  clientName: string;
+  amount: number;
+  gateway: string;
+  method: string;
+  referenceNo: string;
+  status: "Success" | "Pending" | "Failed" | "Refunded";
+}
+
+const MOCK_PAYMENTS: PaymentRow[] = [
+  { date: "2026-04-08", transactionId: "TXN8001", clientName: "Priya Sharma",  amount: 2800, gateway: "Razorpay", method: "UPI",         referenceNo: "RZP2024001", status: "Success"  },
+  { date: "2026-04-08", transactionId: "TXN8002", clientName: "Meera Joshi",   amount: 1500, gateway: "Stripe",   method: "Card",        referenceNo: "STR2024002", status: "Success"  },
+  { date: "2026-04-08", transactionId: "TXN8003", clientName: "Ananya Verma",  amount: 850,  gateway: "Paytm",    method: "Wallet",      referenceNo: "PTM2024003", status: "Pending"  },
+  { date: "2026-04-08", transactionId: "TXN8004", clientName: "Riya Kapoor",   amount: 3200, gateway: "Razorpay", method: "Net Banking", referenceNo: "RZP2024004", status: "Success"  },
+  { date: "2026-04-07", transactionId: "TXN8005", clientName: "Sneha Patel",   amount: 600,  gateway: "Stripe",   method: "Card",        referenceNo: "STR2024005", status: "Refunded" },
+];
+
+const PAY_GATEWAYS = ["All", "Razorpay", "Stripe", "Paytm", "PayU", "Cashfree"];
+const PAY_STATUSES = ["All", "Success", "Pending", "Failed", "Refunded"];
+
+const PaymentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+  const [dateFrom,        setDateFrom]        = useState(monthStart);
+  const [dateTo,          setDateTo]          = useState(today);
+  const [gateway,         setGateway]         = useState("All");
+  const [payStatus,       setPayStatus]       = useState("All");
+  const [showGwDrop,      setShowGwDrop]      = useState(false);
+  const [showPsDrop,      setShowPsDrop]      = useState(false);
+  const [showExportDrop,  setShowExportDrop]  = useState(false);
+  const [rows,            setRows]            = useState<PaymentRow[]>(MOCK_PAYMENTS);
+  const [loading,         setLoading]         = useState(false);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ from: dateFrom, to: dateTo, gateway, status: payStatus });
+      const res = await api.get<{ data: PaymentRow[] }>(`/api/v1/reports/payments/detail?${params}`);
+      if (res.data?.data) setRows(res.data.data);
+    } catch {
+      setRows(MOCK_PAYMENTS.filter(r =>
+        (gateway === "All" || r.gateway === gateway) &&
+        (payStatus === "All" || r.status === payStatus)
+      ));
+    } finally {
+      setLoading(false);
+    }
+  }, [dateFrom, dateTo, gateway, payStatus]);
+
+  const HEADERS = ["Date", "Transaction ID", "Client Name", "Amount (₹)", "Gateway", "Method", "Reference No", "Status"];
+  const exportRows = () => rows.map(r => [r.date, r.transactionId, r.clientName, r.amount, r.gateway, r.method, r.referenceNo, r.status]);
+
+  const statusColor = (s: string) =>
+    s === "Success" ? "#10b981" : s === "Pending" ? "#f59e0b" : s === "Refunded" ? "#3b82f6" : "#ef4444";
+
+  return (
+    <div className="rp-detail-view">
+      <div className="rp-detail-header">
+        <div className="rp-detail-back-row">
+          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
+            <ChevronLeft size={15} /> {report.name}
+          </Button>
+          <div className="rp-detail-view-icons">
+            <button className="rp-detail-icon-btn" title="Column view"><Grid3x3Gap size={16} /></button>
+            <div className="rp-detail-export-wrap">
+              <button className="rp-detail-icon-btn" title="Export" onClick={() => setShowExportDrop(v => !v)}>
+                <BoxArrowUp size={16} />
+              </button>
+              {showExportDrop && (
+                <div className="rp-detail-export-dropdown">
+                  <div className="rp-detail-export-item" onClick={() => { exportToExcel(HEADERS, exportRows(), `${report.name}-${dateFrom}-${dateTo}`); setShowExportDrop(false); }}>
+                    <FileEarmarkSpreadsheet size={14} /> Export to Excel
+                  </div>
+                  <div className="rp-detail-export-item" onClick={() => { printTable(report.name, HEADERS, exportRows()); setShowExportDrop(false); }}>
+                    <FiletypePdf size={14} /> Export to PDF
+                  </div>
+                </div>
+              )}
+            </div>
+            <button className="rp-detail-icon-btn" title="Info"><InfoCircle size={16} /></button>
+          </div>
+        </div>
+        <div className="rp-detail-tab-bar"><span className="rp-detail-tab active">Default View</span></div>
+      </div>
+
+      <div className="rp-detail-filters">
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Date Range</label>
+          <div className="rp-detail-date-range">
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="rp-detail-date-input" />
+            <span className="rp-detail-date-sep">-</span>
+            <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   className="rp-detail-date-input" />
+          </div>
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Gateway</label>
+          <button className="rp-detail-select" onClick={() => { setShowGwDrop(v => !v); setShowPsDrop(false); }}>
+            {gateway} <span className="rp-detail-caret">▼</span>
+          </button>
+          {showGwDrop && (
+            <div className="rp-detail-dropdown">
+              {PAY_GATEWAYS.map(g => (
+                <div key={g} className={`rp-detail-dropdown-item ${g === gateway ? "active" : ""}`}
+                  onClick={() => { setGateway(g); setShowGwDrop(false); }}>{g}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Status</label>
+          <button className="rp-detail-select" onClick={() => { setShowPsDrop(v => !v); setShowGwDrop(false); }}>
+            {payStatus} <span className="rp-detail-caret">▼</span>
+          </button>
+          {showPsDrop && (
+            <div className="rp-detail-dropdown">
+              {PAY_STATUSES.map(s => (
+                <div key={s} className={`rp-detail-dropdown-item ${s === payStatus ? "active" : ""}`}
+                  onClick={() => { setPayStatus(s); setShowPsDrop(false); }}>{s}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-actions">
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
+            <Refresh size={13} /> Refresh
+          </Button>
+          <Button variant="ghost" className="rp-detail-save-btn">Save View</Button>
+        </div>
+      </div>
+
+      <div className="rp-detail-drag-hint"><span className="rp-detail-drag-check" /> Drag here to set row groups</div>
+
+      <div className="rp-detail-table-wrap">
+        <table className="rp-detail-table">
+          <thead>
+            <tr>
+              <th>Date <span className="rp-th-sort">↕</span></th>
+              <th>Transaction ID</th>
+              <th>Client Name</th>
+              <th>Amount (₹) <span className="rp-th-sort">↕</span></th>
+              <th>Gateway</th>
+              <th>Method</th>
+              <th>Reference No</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={8} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+            ) : rows.length === 0 ? (
+              <tr><td colSpan={8} className="rp-detail-empty-cell">No data available</td></tr>
+            ) : rows.map((r, i) => (
+              <tr key={i}>
+                <td>{r.date}</td>
+                <td><span className="rp-detail-link">{r.transactionId}</span></td>
+                <td><span className="rp-detail-link">{r.clientName}</span></td>
+                <td className="fw-semibold">₹{r.amount.toLocaleString()}</td>
+                <td>{r.gateway}</td>
+                <td>{r.method}</td>
+                <td>{r.referenceNo}</td>
+                <td><span style={{ color: statusColor(r.status), fontWeight: 600, fontSize: 12 }}>{r.status}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="rp-detail-pagination">
+        <span className="rp-detail-page-info">1 to {rows.length} of {rows.length}</span>
+        <div className="rp-detail-page-nav">
+          <button className="rp-detail-page-btn" disabled>‹</button>
+          <span className="rp-detail-page-cur">Page 1 of 1</span>
+          <button className="rp-detail-page-btn" disabled>›</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Daily Sales Report Detail ───────────────────────────────────────────────
+
+interface DailyRow {
+  time: string;
+  ticketNo: string;
+  clientName: string;
+  service: string;
+  staff: string;
+  amount: number;
+  paymentMethod: string;
+}
+
+const MOCK_DAILY: DailyRow[] = [
+  { time: "09:15",  ticketNo: "SVB6001", clientName: "Priya Sharma",  service: "Haircut",      staff: "Anita K.", amount: 600,  paymentMethod: "Cash" },
+  { time: "10:00",  ticketNo: "SVB6002", clientName: "Meera Joshi",   service: "Hair Color",   staff: "Pooja M.", amount: 2800, paymentMethod: "UPI"  },
+  { time: "11:30",  ticketNo: "SVB6003", clientName: "Sneha Patel",   service: "Facial",       staff: "Neha T.",  amount: 1500, paymentMethod: "Card" },
+  { time: "12:45",  ticketNo: "SVB6004", clientName: "Riya Kapoor",   service: "Massage",      staff: "Raj S.",   amount: 1800, paymentMethod: "UPI"  },
+  { time: "14:00",  ticketNo: "SVB6005", clientName: "Ananya Verma",  service: "Nails",        staff: "Anita K.", amount: 900,  paymentMethod: "Cash" },
+  { time: "15:30",  ticketNo: "SVB6006", clientName: "Divya Mehta",   service: "Bridal Pkg",   staff: "Pooja M.", amount: 8500, paymentMethod: "Card" },
+  { time: "16:15",  ticketNo: "SVB6007", clientName: "Kavya Singh",   service: "Haircut",      staff: "Raj S.",   amount: 600,  paymentMethod: "Cash" },
+];
+
+const DAILY_SERVICES = ["All", "Haircut", "Hair Color", "Facial", "Massage", "Nails", "Bridal Pkg"];
+const DAILY_STAFF_LIST = ["All", "Anita K.", "Pooja M.", "Raj S.", "Neha T.", "Vikram D."];
+
+const DailyReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const [date,            setDate]            = useState(today);
+  const [serviceFilter,   setServiceFilter]   = useState("All");
+  const [staffFilter,     setStaffFilter]     = useState("All");
+  const [showSvcDrop,     setShowSvcDrop]     = useState(false);
+  const [showStfDrop,     setShowStfDrop]     = useState(false);
+  const [showExportDrop,  setShowExportDrop]  = useState(false);
+  const [rows,            setRows]            = useState<DailyRow[]>(MOCK_DAILY);
+  const [loading,         setLoading]         = useState(false);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ date, service: serviceFilter, staff: staffFilter });
+      const res = await api.get<{ data: DailyRow[] }>(`/api/v1/reports/daily/detail?${params}`);
+      if (res.data?.data) setRows(res.data.data);
+    } catch {
+      setRows(MOCK_DAILY.filter(r =>
+        (serviceFilter === "All" || r.service === serviceFilter) &&
+        (staffFilter   === "All" || r.staff   === staffFilter)
+      ));
+    } finally {
+      setLoading(false);
+    }
+  }, [date, serviceFilter, staffFilter]);
+
+  const totalRevenue = rows.reduce((sum, r) => sum + r.amount, 0);
+  const HEADERS = ["Time", "Ticket No", "Client Name", "Service", "Staff", "Amount (₹)", "Payment Method"];
+  const exportRows = () => rows.map(r => [r.time, r.ticketNo, r.clientName, r.service, r.staff, r.amount, r.paymentMethod]);
+
+  return (
+    <div className="rp-detail-view">
+      <div className="rp-detail-header">
+        <div className="rp-detail-back-row">
+          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
+            <ChevronLeft size={15} /> {report.name}
+          </Button>
+          <div className="rp-detail-view-icons">
+            <button className="rp-detail-icon-btn" title="Column view"><Grid3x3Gap size={16} /></button>
+            <div className="rp-detail-export-wrap">
+              <button className="rp-detail-icon-btn" title="Export" onClick={() => setShowExportDrop(v => !v)}>
+                <BoxArrowUp size={16} />
+              </button>
+              {showExportDrop && (
+                <div className="rp-detail-export-dropdown">
+                  <div className="rp-detail-export-item" onClick={() => { exportToExcel(HEADERS, exportRows(), `${report.name}-${date}`); setShowExportDrop(false); }}>
+                    <FileEarmarkSpreadsheet size={14} /> Export to Excel
+                  </div>
+                  <div className="rp-detail-export-item" onClick={() => { printTable(report.name, HEADERS, exportRows()); setShowExportDrop(false); }}>
+                    <FiletypePdf size={14} /> Export to PDF
+                  </div>
+                </div>
+              )}
+            </div>
+            <button className="rp-detail-icon-btn" title="Info"><InfoCircle size={16} /></button>
+          </div>
+        </div>
+        <div className="rp-detail-tab-bar"><span className="rp-detail-tab active">Default View</span></div>
+      </div>
+
+      <div className="rp-detail-filters">
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Date</label>
+          <input
+            type="date"
+            value={date}
+            onChange={e => setDate(e.target.value)}
+            className="rp-detail-date-input"
+            style={{ border: "1px solid #d1d5db", borderRadius: 6, padding: "7px 10px" }}
+          />
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Service</label>
+          <button className="rp-detail-select" onClick={() => { setShowSvcDrop(v => !v); setShowStfDrop(false); }}>
+            {serviceFilter} <span className="rp-detail-caret">▼</span>
+          </button>
+          {showSvcDrop && (
+            <div className="rp-detail-dropdown">
+              {DAILY_SERVICES.map(s => (
+                <div key={s} className={`rp-detail-dropdown-item ${s === serviceFilter ? "active" : ""}`}
+                  onClick={() => { setServiceFilter(s); setShowSvcDrop(false); }}>{s}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Staff</label>
+          <button className="rp-detail-select" onClick={() => { setShowStfDrop(v => !v); setShowSvcDrop(false); }}>
+            {staffFilter} <span className="rp-detail-caret">▼</span>
+          </button>
+          {showStfDrop && (
+            <div className="rp-detail-dropdown">
+              {DAILY_STAFF_LIST.map(s => (
+                <div key={s} className={`rp-detail-dropdown-item ${s === staffFilter ? "active" : ""}`}
+                  onClick={() => { setStaffFilter(s); setShowStfDrop(false); }}>{s}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-actions">
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
+            <Refresh size={13} /> Refresh
+          </Button>
+          <Button variant="ghost" className="rp-detail-save-btn">Save View</Button>
+        </div>
+      </div>
+
+      <div className="rp-detail-drag-hint">
+        <span className="rp-detail-drag-check" />
+        Daily Total: <strong style={{ color: "#111827", marginLeft: 6 }}>₹{totalRevenue.toLocaleString()}</strong>
+        &nbsp;· {rows.length} transactions
+      </div>
+
+      <div className="rp-detail-table-wrap">
+        <table className="rp-detail-table">
+          <thead>
+            <tr>
+              <th>Time <span className="rp-th-sort">↕</span></th>
+              <th>Ticket No</th>
+              <th>Client Name</th>
+              <th>Service</th>
+              <th>Staff</th>
+              <th>Amount (₹) <span className="rp-th-sort">↕</span></th>
+              <th>Payment Method</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={7} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+            ) : rows.length === 0 ? (
+              <tr><td colSpan={7} className="rp-detail-empty-cell">No data available</td></tr>
+            ) : rows.map((r, i) => (
+              <tr key={i}>
+                <td>{r.time}</td>
+                <td><span className="rp-detail-link">{r.ticketNo}</span></td>
+                <td><span className="rp-detail-link">{r.clientName}</span></td>
+                <td>{r.service}</td>
+                <td>{r.staff}</td>
+                <td className="fw-semibold">₹{r.amount.toLocaleString()}</td>
+                <td>{r.paymentMethod}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="rp-detail-pagination">
+        <span className="rp-detail-page-info">1 to {rows.length} of {rows.length}</span>
+        <div className="rp-detail-page-nav">
+          <button className="rp-detail-page-btn" disabled>‹</button>
+          <span className="rp-detail-page-cur">Page 1 of 1</span>
+          <button className="rp-detail-page-btn" disabled>›</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Marketing Report Detail ──────────────────────────────────────────────────
+
+interface MarketingRow {
+  clientName: string;
+  phone: string;
+  pointsEarned: number;
+  pointsRedeemed: number;
+  balance: number;
+  lastActivity: string;
+  status: "Active" | "Inactive" | "Expired";
+}
+
+const MOCK_MARKETING: MarketingRow[] = [
+  { clientName: "Priya Sharma",  phone: "9876543210", pointsEarned: 2800, pointsRedeemed: 1200, balance: 1600, lastActivity: "2026-04-08", status: "Active"   },
+  { clientName: "Meera Joshi",   phone: "9765432109", pointsEarned: 3820, pointsRedeemed: 2000, balance: 1820, lastActivity: "2026-04-06", status: "Active"   },
+  { clientName: "Sneha Patel",   phone: "9654321098", pointsEarned: 1540, pointsRedeemed: 1540, balance: 0,    lastActivity: "2026-03-22", status: "Inactive" },
+  { clientName: "Riya Kapoor",   phone: "9543210987", pointsEarned: 4200, pointsRedeemed: 800,  balance: 3400, lastActivity: "2026-04-07", status: "Active"   },
+  { clientName: "Ananya Verma",  phone: "9432109876", pointsEarned: 690,  pointsRedeemed: 690,  balance: 0,    lastActivity: "2026-01-15", status: "Expired"  },
+];
+
+const MKT_STATUSES = ["All", "Active", "Inactive", "Expired"];
+
+const MarketingReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+  const [dateFrom,        setDateFrom]        = useState(monthStart);
+  const [dateTo,          setDateTo]          = useState(today);
+  const [clientSearch,    setClientSearch]    = useState("");
+  const [mktStatus,       setMktStatus]       = useState("All");
+  const [showStsDrop,     setShowStsDrop]     = useState(false);
+  const [showExportDrop,  setShowExportDrop]  = useState(false);
+  const [rows,            setRows]            = useState<MarketingRow[]>(MOCK_MARKETING);
+  const [loading,         setLoading]         = useState(false);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ from: dateFrom, to: dateTo, status: mktStatus, search: clientSearch });
+      const res = await api.get<{ data: MarketingRow[] }>(`/api/v1/reports/marketing/detail?${params}`);
+      if (res.data?.data) setRows(res.data.data);
+    } catch {
+      setRows(MOCK_MARKETING.filter(r =>
+        (mktStatus === "All" || r.status === mktStatus) &&
+        (!clientSearch || r.clientName.toLowerCase().includes(clientSearch.toLowerCase()))
+      ));
+    } finally {
+      setLoading(false);
+    }
+  }, [dateFrom, dateTo, mktStatus, clientSearch]);
+
+  const HEADERS = ["Client Name", "Phone", "Points Earned", "Points Redeemed", "Balance", "Last Activity", "Status"];
+  const exportRows = () => rows.map(r => [r.clientName, r.phone, r.pointsEarned, r.pointsRedeemed, r.balance, r.lastActivity, r.status]);
+  const statusColor = (s: string) =>
+    s === "Active" ? "#10b981" : s === "Inactive" ? "#9ca3af" : "#ef4444";
+
+  return (
+    <div className="rp-detail-view">
+      <div className="rp-detail-header">
+        <div className="rp-detail-back-row">
+          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
+            <ChevronLeft size={15} /> {report.name}
+          </Button>
+          <div className="rp-detail-view-icons">
+            <button className="rp-detail-icon-btn" title="Column view"><Grid3x3Gap size={16} /></button>
+            <div className="rp-detail-export-wrap">
+              <button className="rp-detail-icon-btn" title="Export" onClick={() => setShowExportDrop(v => !v)}>
+                <BoxArrowUp size={16} />
+              </button>
+              {showExportDrop && (
+                <div className="rp-detail-export-dropdown">
+                  <div className="rp-detail-export-item" onClick={() => { exportToExcel(HEADERS, exportRows(), `${report.name}-${dateFrom}-${dateTo}`); setShowExportDrop(false); }}>
+                    <FileEarmarkSpreadsheet size={14} /> Export to Excel
+                  </div>
+                  <div className="rp-detail-export-item" onClick={() => { printTable(report.name, HEADERS, exportRows()); setShowExportDrop(false); }}>
+                    <FiletypePdf size={14} /> Export to PDF
+                  </div>
+                </div>
+              )}
+            </div>
+            <button className="rp-detail-icon-btn" title="Info"><InfoCircle size={16} /></button>
+          </div>
+        </div>
+        <div className="rp-detail-tab-bar"><span className="rp-detail-tab active">Default View</span></div>
+      </div>
+
+      <div className="rp-detail-filters">
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Date Range</label>
+          <div className="rp-detail-date-range">
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="rp-detail-date-input" />
+            <span className="rp-detail-date-sep">-</span>
+            <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   className="rp-detail-date-input" />
+          </div>
+        </div>
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Client Search</label>
+          <div className="rp-detail-date-range">
+            <Search size={13} style={{ color: "#9ca3af", flexShrink: 0 }} />
+            <input
+              type="text"
+              placeholder="Search client..."
+              value={clientSearch}
+              onChange={e => setClientSearch(e.target.value)}
+              className="rp-detail-date-input"
+            />
+          </div>
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Status</label>
+          <button className="rp-detail-select" onClick={() => setShowStsDrop(v => !v)}>
+            {mktStatus} <span className="rp-detail-caret">▼</span>
+          </button>
+          {showStsDrop && (
+            <div className="rp-detail-dropdown">
+              {MKT_STATUSES.map(s => (
+                <div key={s} className={`rp-detail-dropdown-item ${s === mktStatus ? "active" : ""}`}
+                  onClick={() => { setMktStatus(s); setShowStsDrop(false); }}>{s}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-actions">
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
+            <Refresh size={13} /> Refresh
+          </Button>
+          <Button variant="ghost" className="rp-detail-save-btn">Save View</Button>
+        </div>
+      </div>
+
+      <div className="rp-detail-drag-hint"><span className="rp-detail-drag-check" /> Drag here to set row groups</div>
+
+      <div className="rp-detail-table-wrap">
+        <table className="rp-detail-table">
+          <thead>
+            <tr>
+              <th>Client Name</th>
+              <th>Phone</th>
+              <th>Points Earned <span className="rp-th-sort">↕</span></th>
+              <th>Points Redeemed <span className="rp-th-sort">↕</span></th>
+              <th>Balance <span className="rp-th-sort">↕</span></th>
+              <th>Last Activity <span className="rp-th-sort">↕</span></th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={7} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+            ) : rows.length === 0 ? (
+              <tr><td colSpan={7} className="rp-detail-empty-cell">No data available</td></tr>
+            ) : rows.map((r, i) => (
+              <tr key={i}>
+                <td><span className="rp-detail-link">{r.clientName}</span></td>
+                <td>{r.phone}</td>
+                <td>{r.pointsEarned.toLocaleString()}</td>
+                <td>{r.pointsRedeemed.toLocaleString()}</td>
+                <td className="fw-semibold">{r.balance.toLocaleString()}</td>
+                <td>{r.lastActivity}</td>
+                <td><span style={{ color: statusColor(r.status), fontWeight: 600, fontSize: 12 }}>{r.status}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="rp-detail-pagination">
+        <span className="rp-detail-page-info">1 to {rows.length} of {rows.length}</span>
+        <div className="rp-detail-page-nav">
+          <button className="rp-detail-page-btn" disabled>‹</button>
+          <span className="rp-detail-page-cur">Page 1 of 1</span>
+          <button className="rp-detail-page-btn" disabled>›</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Employee Report Detail ───────────────────────────────────────────────────
+
+interface EmployeeRow {
+  name: string;
+  role: string;
+  department: string;
+  servicesPerformed: number;
+  revenue: number;
+  avgTicket: number;
+  bookings: number;
+  rating: number;
+  utilization: number;
+}
+
+const MOCK_EMPLOYEE: EmployeeRow[] = [
+  { name: "Anita K.",  role: "Senior Stylist",  department: "Hair",  servicesPerformed: 128, revenue: 94200, avgTicket: 736, bookings: 128, rating: 4.9, utilization: 88 },
+  { name: "Pooja M.",  role: "Stylist",          department: "Hair",  servicesPerformed: 105, revenue: 72800, avgTicket: 693, bookings: 105, rating: 4.8, utilization: 82 },
+  { name: "Raj S.",    role: "Therapist",        department: "Spa",   servicesPerformed: 98,  revenue: 41600, avgTicket: 424, bookings: 98,  rating: 4.7, utilization: 76 },
+  { name: "Neha T.",   role: "Nail Technician",  department: "Nails", servicesPerformed: 87,  revenue: 65200, avgTicket: 749, bookings: 87,  rating: 4.6, utilization: 71 },
+  { name: "Vikram D.", role: "Massage Therapist",department: "Spa",   servicesPerformed: 74,  revenue: 58900, avgTicket: 796, bookings: 74,  rating: 4.5, utilization: 65 },
+];
+
+const EMP_ROLES = ["All", "Senior Stylist", "Stylist", "Therapist", "Nail Technician", "Massage Therapist"];
+const EMP_DEPTS = ["All", "Hair", "Spa", "Nails", "Skin", "Makeup"];
+
+const EmployeeReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+  const [dateFrom,        setDateFrom]        = useState(monthStart);
+  const [dateTo,          setDateTo]          = useState(today);
+  const [role,            setRole]            = useState("All");
+  const [dept,            setDept]            = useState("All");
+  const [showRoleDrop,    setShowRoleDrop]    = useState(false);
+  const [showDeptDrop,    setShowDeptDrop]    = useState(false);
+  const [showExportDrop,  setShowExportDrop]  = useState(false);
+  const [rows,            setRows]            = useState<EmployeeRow[]>(MOCK_EMPLOYEE);
+  const [loading,         setLoading]         = useState(false);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ from: dateFrom, to: dateTo, role, department: dept });
+      const res = await api.get<{ data: EmployeeRow[] }>(`/api/v1/reports/employee/detail?${params}`);
+      if (res.data?.data) setRows(res.data.data);
+    } catch {
+      setRows(MOCK_EMPLOYEE.filter(r =>
+        (role === "All" || r.role === role) &&
+        (dept === "All" || r.department === dept)
+      ));
+    } finally {
+      setLoading(false);
+    }
+  }, [dateFrom, dateTo, role, dept]);
+
+  const HEADERS = ["Name", "Role", "Department", "Services", "Revenue (₹)", "Avg Ticket (₹)", "Bookings", "Rating", "Utilization (%)"];
+  const exportRows = () => rows.map(r => [r.name, r.role, r.department, r.servicesPerformed, r.revenue, r.avgTicket, r.bookings, r.rating, r.utilization]);
+
+  return (
+    <div className="rp-detail-view">
+      <div className="rp-detail-header">
+        <div className="rp-detail-back-row">
+          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
+            <ChevronLeft size={15} /> {report.name}
+          </Button>
+          <div className="rp-detail-view-icons">
+            <button className="rp-detail-icon-btn" title="Column view"><Grid3x3Gap size={16} /></button>
+            <div className="rp-detail-export-wrap">
+              <button className="rp-detail-icon-btn" title="Export" onClick={() => setShowExportDrop(v => !v)}>
+                <BoxArrowUp size={16} />
+              </button>
+              {showExportDrop && (
+                <div className="rp-detail-export-dropdown">
+                  <div className="rp-detail-export-item" onClick={() => { exportToExcel(HEADERS, exportRows(), `${report.name}-${dateFrom}-${dateTo}`); setShowExportDrop(false); }}>
+                    <FileEarmarkSpreadsheet size={14} /> Export to Excel
+                  </div>
+                  <div className="rp-detail-export-item" onClick={() => { printTable(report.name, HEADERS, exportRows()); setShowExportDrop(false); }}>
+                    <FiletypePdf size={14} /> Export to PDF
+                  </div>
+                </div>
+              )}
+            </div>
+            <button className="rp-detail-icon-btn" title="Info"><InfoCircle size={16} /></button>
+          </div>
+        </div>
+        <div className="rp-detail-tab-bar"><span className="rp-detail-tab active">Default View</span></div>
+      </div>
+
+      <div className="rp-detail-filters">
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Date Range</label>
+          <div className="rp-detail-date-range">
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="rp-detail-date-input" />
+            <span className="rp-detail-date-sep">-</span>
+            <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   className="rp-detail-date-input" />
+          </div>
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Role</label>
+          <button className="rp-detail-select" onClick={() => { setShowRoleDrop(v => !v); setShowDeptDrop(false); }}>
+            {role.length > 16 ? role.slice(0, 16) + "…" : role} <span className="rp-detail-caret">▼</span>
+          </button>
+          {showRoleDrop && (
+            <div className="rp-detail-dropdown">
+              {EMP_ROLES.map(r => (
+                <div key={r} className={`rp-detail-dropdown-item ${r === role ? "active" : ""}`}
+                  onClick={() => { setRole(r); setShowRoleDrop(false); }}>{r}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Department</label>
+          <button className="rp-detail-select" onClick={() => { setShowDeptDrop(v => !v); setShowRoleDrop(false); }}>
+            {dept} <span className="rp-detail-caret">▼</span>
+          </button>
+          {showDeptDrop && (
+            <div className="rp-detail-dropdown">
+              {EMP_DEPTS.map(d => (
+                <div key={d} className={`rp-detail-dropdown-item ${d === dept ? "active" : ""}`}
+                  onClick={() => { setDept(d); setShowDeptDrop(false); }}>{d}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-actions">
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
+            <Refresh size={13} /> Refresh
+          </Button>
+          <Button variant="ghost" className="rp-detail-save-btn">Save View</Button>
+        </div>
+      </div>
+
+      <div className="rp-detail-drag-hint"><span className="rp-detail-drag-check" /> Drag here to set row groups</div>
+
+      <div className="rp-detail-table-wrap">
+        <table className="rp-detail-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Name</th>
+              <th>Role</th>
+              <th>Department</th>
+              <th>Services <span className="rp-th-sort">↕</span></th>
+              <th>Revenue (₹) <span className="rp-th-sort">↕</span></th>
+              <th>Avg Ticket (₹) <span className="rp-th-sort">↕</span></th>
+              <th>Rating <span className="rp-th-sort">↕</span></th>
+              <th>Utilization</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={9} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+            ) : rows.length === 0 ? (
+              <tr><td colSpan={9} className="rp-detail-empty-cell">No data available</td></tr>
+            ) : rows.map((r, i) => (
+              <tr key={i}>
+                <td style={{ color: "#9ca3af", fontSize: 12 }}>#{i + 1}</td>
+                <td className="fw-semibold">{r.name}</td>
+                <td>{r.role}</td>
+                <td>{r.department}</td>
+                <td>{r.servicesPerformed}</td>
+                <td className="fw-semibold">₹{r.revenue.toLocaleString()}</td>
+                <td>₹{r.avgTicket}</td>
+                <td style={{ color: "#f59e0b", fontWeight: 600 }}>{r.rating} ★</td>
+                <td>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ flex: 1, height: 6, background: "#f3f4f6", borderRadius: 3 }}>
+                      <div style={{ width: `${r.utilization}%`, height: "100%", background: "#111827", borderRadius: 3 }} />
+                    </div>
+                    <span style={{ fontSize: 11, color: "#6b7280", whiteSpace: "nowrap" }}>{r.utilization}%</span>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="rp-detail-pagination">
+        <span className="rp-detail-page-info">1 to {rows.length} of {rows.length}</span>
+        <div className="rp-detail-page-nav">
+          <button className="rp-detail-page-btn" disabled>‹</button>
+          <span className="rp-detail-page-cur">Page 1 of 1</span>
+          <button className="rp-detail-page-btn" disabled>›</button>
+        </div>
+      </div>
     </div>
   );
 };
@@ -1157,7 +2330,14 @@ export default function ReportsPage() {
         {openReport ? (
           <>
             <h2 className="rp-dashboard-title">Reports</h2>
-            <AppointmentReportDetail onBack={() => setOpenReport(null)} />
+            {openReport.category === "Finance"      && <FinanceReportDetail    report={openReport} onBack={() => setOpenReport(null)} />}
+            {openReport.category === "Inventory"    && <InventoryReportDetail  report={openReport} onBack={() => setOpenReport(null)} />}
+            {openReport.category === "Payments"     && <PaymentReportDetail    report={openReport} onBack={() => setOpenReport(null)} />}
+            {openReport.category === "Daily Reports"&& <DailyReportDetail      report={openReport} onBack={() => setOpenReport(null)} />}
+            {openReport.category === "Marketing"    && <MarketingReportDetail  report={openReport} onBack={() => setOpenReport(null)} />}
+            {openReport.category === "Employee"     && <EmployeeReportDetail   report={openReport} onBack={() => setOpenReport(null)} />}
+            {(openReport.category === "Operational" || openReport.category === undefined) &&
+              <AppointmentReportDetail report={openReport} onBack={() => setOpenReport(null)} />}
           </>
         ) : (
           <>
