@@ -2,7 +2,6 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/ServiceTypePage.scss";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { FiArrowRight } from "react-icons/fi";
 import {
   FaCut,
   FaHandSparkles,
