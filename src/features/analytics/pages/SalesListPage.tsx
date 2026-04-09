@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import "../styles/SalesListPage.scss";
 
 import {
@@ -22,6 +23,13 @@ import Input from "../../../components/ui/Input";
 import Modal from "../../../components/ui/Modal";
 import Card from "../../../components/ui/Card";
 
+import type { AppDispatch, RootState } from "../../../store/store";
+import {
+  fetchSalesThunk,
+  exportSalesThunk,
+} from "../../../middleware/sale/sale.thunk";
+import type { Sale } from "../../../types/sale.types";
+
 import { DateRangePicker } from "react-date-range";
 import type { RangeKeyDict, Range } from "react-date-range";
 
@@ -42,6 +50,21 @@ import QuickSaleDrawer from "../components/QuickSaleDrawer";
 import { useSale } from "../context/SaleContext";
 
 export default function SalesListPage() {
+  const dispatch = useDispatch<AppDispatch>();
+
+  // ── Redux state ─────────────────────────────────────────────────────────────
+  const allSales = useSelector(
+    (state: RootState) => (state.sale as any).items as Sale[],
+  );
+  const isLoadingSales = useSelector(
+    (state: RootState) => (state.sale as any).loading?.fetchAll as boolean ?? false,
+  );
+  const isExporting = useSelector(
+    (state: RootState) => (state.sale as any).loading?.export as boolean ?? false,
+  );
+
+  const completedSales = allSales.filter((s) => s.status !== "draft");
+
   const [showCalendar, setShowCalendar] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -64,9 +87,14 @@ export default function SalesListPage() {
   const [showOptions, setShowOptions] = useState(false);
   const [showSort, setShowSort] = useState(false);
   const { drafts, cancelDraft } = useSale();
-  const [selectedDraft, setSelectedDraft] = useState<any | null>(null);
+  const [selectedDraft, setSelectedDraft] = useState<Sale | null>(null);
   const optionsRef = useRef<HTMLDivElement>(null);
   const sortRef = useRef<HTMLDivElement>(null);
+
+  // Fetch sales on mount
+  useEffect(() => {
+    dispatch(fetchSalesThunk());
+  }, [dispatch]);
 
   // Close calendar on outside click
   useEffect(() => {
@@ -212,19 +240,27 @@ export default function SalesListPage() {
                   variant="ghost"
                   fullWidth
                   className="text-center p-3 rounded-0 border-bottom d-flex align-items-center justify-content-center"
-                  onClick={() => setShowOptions(false)}
+                  disabled={isExporting}
+                  onClick={() => {
+                    dispatch(exportSalesThunk("csv"));
+                    setShowOptions(false);
+                  }}
                 >
                   <FileEarmarkText size={16} className="text-primary me-2" />
-                  <span>CSV</span>
+                  <span>{isExporting ? "Exporting…" : "CSV"}</span>
                 </Button>
                 <Button
                   variant="ghost"
                   fullWidth
                   className="text-center p-3 rounded-0 d-flex align-items-center justify-content-center"
-                  onClick={() => setShowOptions(false)}
+                  disabled={isExporting}
+                  onClick={() => {
+                    dispatch(exportSalesThunk("excel"));
+                    setShowOptions(false);
+                  }}
                 >
                   <FileEarmarkExcel size={16} className="text-success me-2" />
-                  <span>Excel</span>
+                  <span>{isExporting ? "Exporting…" : "Excel"}</span>
                 </Button>
               </div>
             )}
@@ -498,36 +534,124 @@ export default function SalesListPage() {
       <div className="sales-content-wrapper d-flex gap-4">
         <div className="table-container flex-grow-1">
           {activeTab === "sales" ? (
-            <Card
-              className="text-center py-5 border-0 rounded-4 empty-state-card shadow-sm mt-2 d-flex flex-column align-items-center justify-content-center"
-              style={{ minHeight: "400px" }}
-            >
-              <div className="mb-4">
-                <div
-                  className="d-flex align-items-center justify-content-center mx-auto empty-state-icon"
-                  style={{
-                    width: "60px",
-                    height: "60px",
-                    borderRadius: "15px",
-                    background:
-                      "linear-gradient(135deg, #a855f7 0%, #d946ef 100%)",
-                  }}
-                >
-                  <TagFill size={30} className="text-white" />
+            isLoadingSales ? (
+              <Card
+                className="text-center py-5 border-0 rounded-4 shadow-sm mt-2 d-flex flex-column align-items-center justify-content-center"
+                style={{ minHeight: "400px" }}
+              >
+                <div className="spinner-border text-muted" role="status" />
+                <p className="text-muted small mt-3 mb-0">Loading sales…</p>
+              </Card>
+            ) : completedSales.length > 0 ? (
+              <div className="sales-table-wrapper bg-white rounded-4 shadow-sm overflow-hidden border">
+                <table className="table mb-0 align-middle">
+                  <thead className="bg-light">
+                    <tr>
+                      <th className="p-3 extra-small text-muted fw-bold text-uppercase border-0">
+                        Sale #
+                      </th>
+                      <th className="p-3 extra-small text-muted fw-bold text-uppercase border-0">
+                        Client
+                      </th>
+                      <th className="p-3 extra-small text-muted fw-bold text-uppercase border-0 text-center">
+                        Status
+                      </th>
+                      <th className="p-3 extra-small text-muted fw-bold text-uppercase border-0">
+                        Payment
+                      </th>
+                      <th className="p-3 extra-small text-muted fw-bold text-uppercase border-0">
+                        Date
+                      </th>
+                      <th className="p-3 extra-small text-muted fw-bold text-uppercase border-0 text-end">
+                        Total
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {completedSales.map((sale) => (
+                      <tr
+                        key={sale.id}
+                        className="hover-bg-light cursor-pointer"
+                      >
+                        <td className="p-3 text-primary small fw-bold">
+                          #{sale.id}
+                        </td>
+                        <td className="p-3 small fw-bold">
+                          {sale.client_id ?? (
+                            <span className="text-muted">Walk-in</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-center">
+                          <span
+                            className={`badge rounded-pill px-3 small ${
+                              sale.status === "completed"
+                                ? "bg-success-subtle text-success"
+                                : sale.status === "cancelled"
+                                  ? "bg-danger-subtle text-danger"
+                                  : sale.status === "refunded"
+                                    ? "bg-warning-subtle text-warning"
+                                    : "bg-light text-muted border"
+                            }`}
+                          >
+                            {sale.status.charAt(0).toUpperCase() +
+                              sale.status.slice(1)}
+                          </span>
+                        </td>
+                        <td className="p-3 small text-muted">
+                          {sale.payment_method
+                            ? sale.payment_method.replace("_", " ")
+                            : "—"}
+                        </td>
+                        <td className="p-3 small text-muted">
+                          {new Date(sale.created_at).toLocaleDateString(
+                            "en-GB",
+                            {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            },
+                          )}
+                        </td>
+                        <td className="p-3 small fw-bold text-end">
+                          ₹{parseFloat(sale.total_amount).toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <Card
+                className="text-center py-5 border-0 rounded-4 empty-state-card shadow-sm mt-2 d-flex flex-column align-items-center justify-content-center"
+                style={{ minHeight: "400px" }}
+              >
+                <div className="mb-4">
+                  <div
+                    className="d-flex align-items-center justify-content-center mx-auto empty-state-icon"
+                    style={{
+                      width: "60px",
+                      height: "60px",
+                      borderRadius: "15px",
+                      background:
+                        "linear-gradient(135deg, #a855f7 0%, #d946ef 100%)",
+                    }}
+                  >
+                    <TagFill size={30} className="text-white" />
+                  </div>
                 </div>
-              </div>
-              <h4 className="fw-bold mb-3 text-dark h5">No sales yet</h4>
-              <div className="mt-2 text-center w-100 d-flex justify-content-center">
-                <Button
-                  variant="outline-dark"
-                  pill
-                  className="px-4"
-                  onClick={() => setDrawerOpen(true)}
-                >
-                  Create new sale
-                </Button>
-              </div>
-            </Card>
+                <h4 className="fw-bold mb-3 text-dark h5">No sales yet</h4>
+                <div className="mt-2 text-center w-100 d-flex justify-content-center">
+                  <Button
+                    variant="outline-dark"
+                    pill
+                    className="px-4"
+                    onClick={() => setDrawerOpen(true)}
+                  >
+                    Create new sale
+                  </Button>
+                </div>
+              </Card>
+            )
           ) : drafts.length > 0 ? (
             <div className="drafts-table-wrapper bg-white rounded-4 shadow-sm overflow-hidden border">
               <table className="table mb-0 align-middle">
@@ -548,22 +672,37 @@ export default function SalesListPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {drafts.map((draft: any) => (
+                  {drafts.map((draft) => (
                     <tr
                       key={draft.id}
                       className={`cursor-pointer transition-all ${selectedDraft?.id === draft.id ? "bg-light fw-bold" : "hover-bg-light"}`}
                       onClick={() => setSelectedDraft(draft)}
                     >
                       <td className="p-3 text-primary small fw-bold">
-                        {draft.id}
+                        #{draft.id}
                       </td>
-                      <td className="p-3 small fw-bold">{draft.client}</td>
+                      <td className="p-3 small fw-bold">
+                        {draft.client_id ?? (
+                          <span className="text-muted">Walk-in</span>
+                        )}
+                      </td>
                       <td className="p-3 text-center">
                         <span className="badge rounded-pill px-3 bg-light text-muted border small">
                           Draft
                         </span>
                       </td>
-                      <td className="p-3 small text-muted">{draft.created}</td>
+                      <td className="p-3 small text-muted">
+                        {new Date(draft.created_at).toLocaleDateString(
+                          "en-GB",
+                          {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          },
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -616,7 +755,10 @@ export default function SalesListPage() {
                 </span>
                 <h4 className="fw-bold h5 mb-0">Draft sale</h4>
                 <p className="extra-small text-muted">
-                  {selectedDraft.created.split(",")[0]}
+                  {new Date(selectedDraft.created_at).toLocaleDateString(
+                    "en-GB",
+                    { day: "2-digit", month: "short", year: "numeric" },
+                  )}
                 </p>
               </div>
               <div className="d-flex gap-2">
@@ -641,7 +783,9 @@ export default function SalesListPage() {
                 >
                   <Receipt size={16} />
                 </div>
-                <span className="small fw-bold">{selectedDraft.client}</span>
+                <span className="small fw-bold">
+                  {selectedDraft.client_id ?? "Walk-in"}
+                </span>
               </div>
               <Button variant="ghost" size="sm" className="p-1">
                 <ChevronDown size={14} />
@@ -651,48 +795,55 @@ export default function SalesListPage() {
             <div className="items-list flex-grow-1">
               <div className="d-flex justify-content-between mb-3">
                 <span className="extra-small text-muted fw-bold text-uppercase">
-                  {selectedDraft.id}
+                  #{selectedDraft.id}
                 </span>
                 <span className="extra-small text-muted">
-                  {selectedDraft.created.split(",")[0]}
+                  {new Date(selectedDraft.created_at).toLocaleDateString(
+                    "en-GB",
+                    { day: "2-digit", month: "short", year: "numeric" },
+                  )}
                 </span>
               </div>
 
-              {selectedDraft.items.map((item: any, idx: number) => (
-                <div
-                  key={idx}
-                  className="draft-item d-flex justify-content-between align-items-start mb-3"
-                >
-                  <div>
-                    <div className="small fw-bold">{item.name}</div>
-                    <div className="extra-small text-muted">
-                      1h 15min · dhumal dipak
+              {selectedDraft.items && selectedDraft.items.length > 0 ? (
+                selectedDraft.items.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="draft-item d-flex justify-content-between align-items-start mb-3"
+                  >
+                    <div>
+                      <div className="small fw-bold">{item.name}</div>
+                      <div className="extra-small text-muted">
+                        Qty: {item.quantity}
+                      </div>
+                    </div>
+                    <div className="small fw-bold">
+                      ₹{parseFloat(item.total_price).toFixed(2)}
                     </div>
                   </div>
-                  <div className="small fw-bold">
-                    ₹{item.price * (item.quantity || 1)}
-                  </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="small text-muted">No item details loaded.</p>
+              )}
             </div>
 
             <div className="detail-footer border-top pt-3 mt-auto">
               <div className="d-flex justify-content-between mb-2">
                 <span className="small text-muted fw-bold">Subtotal</span>
                 <span className="small text-muted fw-bold">
-                  ₹{selectedDraft.total}
+                  ₹{parseFloat(selectedDraft.subtotal).toFixed(2)}
                 </span>
               </div>
               <div className="d-flex justify-content-between mb-2">
                 <span className="small text-dark fw-bold">Total</span>
                 <span className="small text-dark fw-bold">
-                  ₹{selectedDraft.total}
+                  ₹{parseFloat(selectedDraft.total_amount).toFixed(2)}
                 </span>
               </div>
               <div className="d-flex justify-content-between pt-2">
                 <span className="small text-dark fw-bold">Balance</span>
                 <span className="small text-dark fw-bold">
-                  ₹{selectedDraft.total}
+                  ₹{parseFloat(selectedDraft.total_amount).toFixed(2)}
                 </span>
               </div>
             </div>
