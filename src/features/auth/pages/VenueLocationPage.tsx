@@ -144,32 +144,20 @@ export default function VenueLocationPage() {
         <div className="progress-bar bg-dark" style={{ width: "60%" }} />
       </div>
 
-      {/* Top Right Buttons overlay */}
-      <div className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3">
-        <button
-          className="btn btn-outline-secondary rounded-pill bg-white px-4"
-          onClick={() => navigate(-1)}
-        >
-          Back
-        </button>
-        <button
-          className="btn btn-dark rounded-pill px-4 d-lg-none"
-          onClick={handleContinue}
-        >
-          Continue <FiArrowRight size={16} className="ms-1" />
-        </button>
-      </div>
+
 
       <div className="row g-0 min-vh-100">
         {/* LEFT PANEL */}
         <div className="col-lg-5 col-12 bg-white p-5 position-relative d-flex flex-column">
           <button
-            className="btn btn-light border rounded-circle position-absolute"
-            style={{ top: "30px", left: "50px" }}
+            className="btn btn-light border rounded-circle position-absolute d-flex align-items-center justify-content-center"
+            style={{ top: "30px", left: "50px", width: "42px", height: "42px", zIndex: 10 }}
             onClick={() => navigate(-1)}
           >
             <FiArrowLeft />
           </button>
+
+
 
           <div className="mt-5 pt-3" style={{ maxWidth: "420px" }}>
             <p className="text-muted small">Account setup</p>
@@ -179,24 +167,35 @@ export default function VenueLocationPage() {
               you.
             </p>
 
+            <div className="d-flex gap-2 align-items-center">
+              <div className="position-relative flex-grow-1">
+                <HiOutlineLocationMarker
+                  className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"
+                  style={{ cursor: "pointer", zIndex: 2 }}
+                  onClick={handleGetLocation}
+                />
+                <input
+                  type="text"
+                  className={`form-control ps-5 pe-3 ${submitted && !address.trim() ? "is-invalid" : ""}`}
+                  placeholder="Search location (e.g., Lakme Academy Baramati)"
+                  value={address}
+                  onChange={(e) => {
+                    setAddress(e.target.value);
+                    setSubmitted(false);
+                  }}
+                />
+              </div>
+              <button
+                className="btn btn-dark d-flex align-items-center justify-content-center rounded-circle shadow-sm"
+                style={{ width: "40px", height: "40px", flexShrink: 0 }}
+                onClick={handleContinue}
+              >
+                <FiArrowRight size={20} />
+              </button>
+            </div>
             <div className="position-relative">
-              <HiOutlineLocationMarker
-                className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"
-                style={{ cursor: "pointer", zIndex: 2 }}
-                onClick={handleGetLocation}
-              />
-              <input
-                type="text"
-                className={`form-control ps-5 ${submitted && !address.trim() ? "is-invalid" : ""}`}
-                placeholder="Search location (e.g., Lakme Academy Baramati)"
-                value={address}
-                onChange={(e) => {
-                  setAddress(e.target.value);
-                  setSubmitted(false);
-                }}
-              />
               {submitted && !address.trim() && (
-                <div className="invalid-feedback d-block">
+                <div className="invalid-feedback d-block mt-1">
                   Please select your business location
                 </div>
               )}
@@ -257,13 +256,7 @@ export default function VenueLocationPage() {
             <FlyTo coords={coords} />
           </MapContainer>
 
-          <button
-            className="btn btn-dark rounded-pill position-absolute"
-            style={{ top: "20px", right: "20px", zIndex: 1000 }}
-            onClick={handleContinue}
-          >
-            Continue →
-          </button>
+
         </div>
       </div>
     </div>
