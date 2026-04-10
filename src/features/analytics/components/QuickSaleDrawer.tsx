@@ -30,33 +30,9 @@ import {
 import type { PaymentMethod } from "../../../types/sale.types";
 
 // ─── Static data ──────────────────────────────────────────────────────────────
-const QUICK_SALE_ITEMS = [
-  { id: "q1", name: "Haircut", price: 40, type: "quick" as const },
-  { id: "q2", name: "Hair Color", price: 57, type: "quick" as const },
-  { id: "q3", name: "Blow Dry", price: 35, type: "quick" as const },
-  { id: "q4", name: "Balayage", price: 150, type: "quick" as const },
-];
-const SERVICE_ITEMS = [
-  {
-    id: "s1",
-    name: "Haircut",
-    duration: "1h 30min",
-    price: 25,
-    type: "service" as const,
-  },
-  {
-    id: "s2",
-    name: "Blow Dry",
-    duration: "1h 30min",
-    price: 25,
-    type: "service" as const,
-  },
-];
-const CLIENT_LIST = [
-  { id: "c1", initials: "AJ", name: "Avinash J", phone: "+91 98765 43210" },
-  { id: "c2", initials: "JD", name: "John Doe", phone: "+91 98765 43211" },
-  { id: "c3", initials: "JS", name: "Jane Smith", phone: "+91 98765 43212" },
-];
+const QUICK_SALE_ITEMS: { id: string; name: string; price: number; type: "quick" }[] = [];
+const SERVICE_ITEMS: { id: string; name: string; duration: string; price: number; type: "service" }[] = [];
+const CLIENT_LIST: { id: string; initials: string; name: string; phone: string }[] = [];
 const TABS = [
   { id: "quick", label: "Quick Sale" },
   { id: "appointments", label: "Appointments" },

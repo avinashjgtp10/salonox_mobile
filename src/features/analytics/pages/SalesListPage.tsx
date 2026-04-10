@@ -91,6 +91,34 @@ export default function SalesListPage() {
   const optionsRef = useRef<HTMLDivElement>(null);
   const sortRef = useRef<HTMLDivElement>(null);
 
+  const [showItemTypeMenu, setShowItemTypeMenu] = useState(false);
+  const [selectedItemTypes, setSelectedItemTypes] = useState<string[]>([]);
+  const itemTypeRef = useRef<HTMLDivElement>(null);
+
+  const ITEM_TYPES = [
+    "Services",
+    "Service add-ons",
+    "Products",
+    "Gift cards",
+    "Memberships",
+    "No-show fees",
+    "Cancellation fees"
+  ];
+
+  const handleToggleItemType = (type: string) => {
+    setSelectedItemTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+    );
+  };
+
+  const handleSelectAllItemTypes = () => {
+    if (selectedItemTypes.length === ITEM_TYPES.length) {
+      setSelectedItemTypes([]);
+    } else {
+      setSelectedItemTypes([...ITEM_TYPES]);
+    }
+  };
+
   // Fetch sales on mount
   useEffect(() => {
     dispatch(fetchSalesThunk());
@@ -114,6 +142,9 @@ export default function SalesListPage() {
       }
       if (sortRef.current && !sortRef.current.contains(event.target as Node)) {
         setShowSort(false);
+      }
+      if (itemTypeRef.current && !itemTypeRef.current.contains(event.target as Node)) {
+        setShowItemTypeMenu(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -482,6 +513,12 @@ export default function SalesListPage() {
                 style={{ appearance: "none" }}
               >
                 <option>All statuses</option>
+                <option>Unpaid</option>
+                <option>Part paid</option>
+                <option>Completed</option>
+                <option>Exchanged</option>
+                <option>Refunded</option>
+                <option>Voided</option>
               </select>
               <ChevronDown
                 className="position-absolute end-0 top-50 translate-middle-y me-3 text-muted pointer-events-none"
@@ -512,20 +549,82 @@ export default function SalesListPage() {
             </div>
           </div>
 
-          <div className="mb-2">
+          <div className="mb-2 position-relative" ref={itemTypeRef}>
             <label className="form-label small fw-bold">Including items</label>
             <div className="position-relative">
-              <select
-                className="form-select rounded-3 p-2 pe-5"
-                style={{ appearance: "none" }}
+              <div
+                className={`form-select rounded-3 p-2 pe-5 d-flex align-items-center cursor-pointer ${showItemTypeMenu ? "border-primary" : ""}`}
+                onClick={() => setShowItemTypeMenu(!showItemTypeMenu)}
+                style={{ appearance: "none", minHeight: "40px", borderColor: showItemTypeMenu ? "#6f42c1" : "" }}
               >
-                <option>Select item type</option>
-              </select>
+                {selectedItemTypes.length === 0 ? (
+                  <span className="text-muted">Select item type</span>
+                ) : selectedItemTypes.length === ITEM_TYPES.length ? (
+                  <span>All items</span>
+                ) : (
+                  <span>{selectedItemTypes.length} items selected</span>
+                )}
+              </div>
               <ChevronDown
-                className="position-absolute end-0 top-50 translate-middle-y me-3 text-muted pointer-events-none"
+                className={`position-absolute end-0 top-50 translate-middle-y me-3 pointer-events-none transition-all`}
+                style={{ transform: showItemTypeMenu ? "rotate(180deg)" : "none", color: showItemTypeMenu ? "#6f42c1" : "#6c757d" }}
                 size={14}
               />
             </div>
+
+            {showItemTypeMenu && (
+              <div 
+                className="position-absolute mt-1 bg-white border rounded-3 shadow-sm z-3 w-100 p-2" 
+                style={{ maxHeight: "300px", overflowY: "auto", top: "100%" }}
+              >
+                <div 
+                  className="d-flex align-items-center p-2 mb-1 cursor-pointer rounded-2"
+                  onClick={handleSelectAllItemTypes}
+                >
+                  <div 
+                    className={`me-3 d-flex align-items-center justify-content-center rounded`} 
+                    style={{ 
+                      width: "18px", 
+                      height: "18px", 
+                      flexShrink: 0,
+                      background: selectedItemTypes.length > 0 ? "#6f42c1" : "white",
+                      border: selectedItemTypes.length === 0 ? "1px solid #ced4da" : "none",
+                      color: "white"
+                    }}
+                  >
+                    {selectedItemTypes.length === ITEM_TYPES.length ? (
+                      <span style={{ fontSize: "12px", lineHeight: "1" }}>✓</span>
+                    ) : selectedItemTypes.length > 0 ? (
+                      <span style={{ fontSize: "14px", lineHeight: "1", paddingBottom: "2px" }}>-</span>
+                    ) : null}
+                  </div>
+                  <span className="small text-dark">Select all</span>
+                </div>
+                
+                {ITEM_TYPES.map((type) => (
+                  <div 
+                    key={type}
+                    className="d-flex align-items-center p-2 cursor-pointer rounded-2"
+                    onClick={() => handleToggleItemType(type)}
+                  >
+                    <div 
+                      className={`me-3 d-flex align-items-center justify-content-center rounded`} 
+                      style={{ 
+                        width: "18px", 
+                        height: "18px", 
+                        flexShrink: 0,
+                        background: selectedItemTypes.includes(type) ? "#6f42c1" : "white",
+                        border: !selectedItemTypes.includes(type) ? "1px solid #ced4da" : "none",
+                        color: "white"
+                      }}
+                    >
+                      {selectedItemTypes.includes(type) && <span style={{ fontSize: "12px", lineHeight: "1" }}>✓</span>}
+                    </div>
+                    <span className="small text-dark">{type}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </Modal>
