@@ -39,128 +39,16 @@ export default function PaymentsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 8;
 
-  const allPayments = [
-    {
-      id: "P-1001",
-      client: "Avinash Joshi",
-      method: "Cash",
-      type: "Service",
-      amount: 57,
-      date: "25 Mar 2026",
-      time: "10:15 AM",
-      status: "Completed",
-    },
-    {
-      id: "P-1002",
-      client: "Walk-in",
-      method: "Other",
-      type: "Service",
-      amount: 40,
-      date: "25 Mar 2026",
-      time: "11:00 AM",
-      status: "Completed",
-    },
-    {
-      id: "P-1003",
-      client: "John Doe",
-      method: "Gift card",
-      type: "Gift Card",
-      amount: 100,
-      date: "24 Mar 2026",
-      time: "02:30 PM",
-      status: "Completed",
-    },
-    {
-      id: "P-1004",
-      client: "Jane Smith",
-      method: "Cash",
-      type: "Service",
-      amount: 150,
-      date: "24 Mar 2026",
-      time: "04:00 PM",
-      status: "Completed",
-    },
-    {
-      id: "P-1005",
-      client: "Riya Patel",
-      method: "Other",
-      type: "Membership",
-      amount: 999,
-      date: "23 Mar 2026",
-      time: "09:45 AM",
-      status: "Completed",
-    },
-    {
-      id: "P-1006",
-      client: "Walk-in",
-      method: "Cash",
-      type: "Service",
-      amount: 35,
-      date: "23 Mar 2026",
-      time: "01:15 PM",
-      status: "Completed",
-    },
-    {
-      id: "P-1007",
-      client: "Priya Sharma",
-      method: "Split",
-      type: "Service",
-      amount: 207,
-      date: "22 Mar 2026",
-      time: "11:30 AM",
-      status: "Completed",
-    },
-    {
-      id: "P-1008",
-      client: "Karan Mehta",
-      method: "Gift card",
-      type: "Gift Card",
-      amount: 500,
-      date: "22 Mar 2026",
-      time: "03:00 PM",
-      status: "Refunded",
-    },
-    {
-      id: "P-1009",
-      client: "Sneha Kulkarni",
-      method: "Other",
-      type: "Service",
-      amount: 85,
-      date: "21 Mar 2026",
-      time: "10:00 AM",
-      status: "Completed",
-    },
-    {
-      id: "P-1010",
-      client: "Amit Desai",
-      method: "Cash",
-      type: "Service",
-      amount: 57,
-      date: "21 Mar 2026",
-      time: "12:45 PM",
-      status: "Completed",
-    },
-    {
-      id: "P-1011",
-      client: "Meera Iyer",
-      method: "Other",
-      type: "Membership",
-      amount: 1499,
-      date: "20 Mar 2026",
-      time: "02:00 PM",
-      status: "Completed",
-    },
-    {
-      id: "P-1012",
-      client: "Walk-in",
-      method: "Cash",
-      type: "Service",
-      amount: 40,
-      date: "20 Mar 2026",
-      time: "05:15 PM",
-      status: "Completed",
-    },
-  ];
+  const allPayments: {
+    id: string;
+    client: string;
+    method: string;
+    type: string;
+    amount: number;
+    date: string;
+    time: string;
+    status: string;
+  }[] = [];
 
   const totalPages = Math.ceil(allPayments.length / ITEMS_PER_PAGE);
   const paginatedPayments = allPayments.slice(

@@ -11,17 +11,20 @@ import type {
   UpdateBookingPayload,
 } from "../../types/booking.types";
 
-// ── Fetch all bookings (scoped to current salon) ───────────────────────────────
+// ── Fetch bookings (scoped to current salon, optional server-side filters) ────
 export const fetchBookingsThunk = createAsyncThunk<
   Booking[],
-  void,
+  { staffId?: string; status?: string } | void,
   { rejectValue: string }
->("booking/fetchAll", async (_, { rejectWithValue, getState }) => {
+>("booking/fetchAll", async (filters, { rejectWithValue, getState }) => {
   try {
     const state = getState() as any;
     const salonId = state.salon.currentSalon?.id;
-    const params = salonId ? `?salon_id=${salonId}` : "";
-    const res = await api.get<BookingListResponse>(`${BOOKING.BASE}${params}`);
+    const params = new URLSearchParams();
+    if (salonId) params.set("salon_id", String(salonId));
+    if (filters?.staffId && filters.staffId !== "all") params.set("staff_id", filters.staffId);
+    if (filters?.status  && filters.status  !== "all") params.set("status",   filters.status);
+    const res = await api.get<BookingListResponse>(`${BOOKING.BASE}?${params.toString()}`);
     return res.data.data;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);

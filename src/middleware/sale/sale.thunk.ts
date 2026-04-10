@@ -116,15 +116,22 @@ export const deleteSaleThunk = createAsyncThunk<
   }
 });
 
-// ── Export sales ───────────────────────────────────────────────────────────────
+// ── Export sales (CSV / Excel / PDF) ──────────────────────────────────────────
 export const exportSalesThunk = createAsyncThunk<
   void,
-  "excel" | "csv",
+  { format: "excel" | "csv" | "pdf"; date?: string },
   { rejectValue: string }
->("sale/export", async (format, { rejectWithValue }) => {
+>("sale/export", async ({ format, date }, { rejectWithValue, getState }) => {
   try {
-    const res = await api.get(SALE.EXPORT(format), { responseType: "blob" });
-    downloadBlob(res.data, `sales.${format === "excel" ? "xlsx" : "csv"}`);
+    const state = getState() as any;
+    const salonId = state.salon.currentSalon?.id as string | undefined;
+
+    const url = SALE.EXPORT({ format, date, salonId });
+    const res = await api.get(url, { responseType: "blob" });
+
+    const ext = format === "excel" ? "xlsx" : format;
+    const dateLabel = date ?? "all";
+    downloadBlob(res.data, `sales_${dateLabel}.${ext}`);
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to export sales");

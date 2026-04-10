@@ -137,6 +137,10 @@ export default function AppointmentsPage() {
   const applyFilters = () => {
     setAppliedFilters(tempFilters);
     setShowFiltersModal(false);
+    dispatch(fetchBookingsThunk({
+      staffId: tempFilters.staffId,
+      status:  tempFilters.status,
+    }));
   };
 
   const clearFilters = () => {
@@ -144,6 +148,7 @@ export default function AppointmentsPage() {
     setTempFilters(cleared);
     setAppliedFilters(cleared);
     setShowFiltersModal(false);
+    dispatch(fetchBookingsThunk());
   };
 
   const handleExport = (type: string) => {
@@ -166,18 +171,27 @@ export default function AppointmentsPage() {
     );
   };
 
+  // Build a quick id → full name lookup for staff
+  const staffById = useMemo<Record<string, string>>(
+    () => Object.fromEntries(
+      staffList.map((s: any) => [s.id, `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim()])
+    ),
+    [staffList],
+  );
+
   // Map backend Appointment records to table-friendly shape
   const bookings = useMemo(() =>
     allBookings.map((b: Booking) => ({
-      id:          b.id,
-      clientName:  b.client_id ?? "Walk-in",
-      services:    [{ staffId: b.staff_id ?? "", staff: b.staff_id ?? "", service: b.title ?? "" }],
-      status:      b.status,
-      date:        b.scheduled_at?.split("T")[0] ?? "",
-      startTime:   b.scheduled_at?.split("T")[1]?.slice(0, 5) ?? "00:00",
-      endTime:     b.ends_at?.split("T")[1]?.slice(0, 5) ?? "00:00",
-      billDate:    b.created_at,
-      grandTotal:  0,
+      id:           b.id,
+      clientName:   b.client_id ?? "Walk-in",
+      services:     [{ staffId: b.staff_id ?? "", staff: b.staff_id ?? "", service: b.title ?? "" }],
+      status:       b.status,
+      date:         b.scheduled_at?.split("T")[0] ?? "",
+      startTime:    b.scheduled_at?.split("T")[1]?.slice(0, 5) ?? "00:00",
+      endTime:      b.ends_at?.split("T")[1]?.slice(0, 5) ?? "00:00",
+      billDate:     b.created_at,
+      createdById:  b.created_by ?? "",
+      grandTotal:   0,
     })),
   [allBookings]);
 
@@ -599,11 +613,10 @@ export default function AppointmentsPage() {
                 <option value="all">All statuses</option>
                 <option value="booked">Booked</option>
                 <option value="confirmed">Confirmed</option>
-                <option value="arrived">Arrived</option>
-                <option value="started">Started</option>
+                <option value="in_progress">In progress</option>
                 <option value="completed">Completed</option>
                 <option value="cancelled">Cancelled</option>
-                <option value="no-show">No-show</option>
+                <option value="no_show">No-show</option>
               </select>
               <ChevronDown
                 className="position-absolute end-0 top-50 translate-middle-y me-3 text-muted pointer-events-none"
@@ -659,8 +672,8 @@ export default function AppointmentsPage() {
               },
               {
                 header: "Created by",
-                key: "createdBy",
-                render: () => "dhumal dipak", // To update later when info available
+                key: "createdById",
+                render: (item: any) => staffById[item.createdById] || "—",
               },
               {
                 header: "Created Date",
@@ -706,7 +719,8 @@ export default function AppointmentsPage() {
               {
                 header: "Team member",
                 key: "staff",
-                render: (item: any) => item.services[0]?.staff || "N/A",
+                render: (item: any) =>
+                  staffById[item.services[0]?.staffId] || "—",
               },
               {
                 header: "Price",

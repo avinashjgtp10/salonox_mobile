@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { format, addDays, subDays, parseISO } from "date-fns";
+import { useDispatch, useSelector } from "react-redux";
 import "../styles/DailySalesPage.scss";
 import {
   FileEarmarkPdf,
@@ -10,6 +11,8 @@ import {
 import TransactionSummary from "../components/TransactionSummary";
 import CashMovementSummary from "../components/CashMovementSummary";
 import QuickSaleDrawer from "../components/QuickSaleDrawer";
+import { exportSalesThunk } from "../../../middleware/sale/sale.thunk";
+import type { AppDispatch, RootState } from "../../../store/store";
 
 // UI Components
 import Button from "../../../components/ui/Button";
@@ -17,6 +20,10 @@ import Button from "../../../components/ui/Button";
 export default function DailySalesPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const dispatch = useDispatch<AppDispatch>();
+  const isExporting = useSelector(
+    (state: RootState) => (state.sale as any).loading?.export as boolean ?? false,
+  );
 
   // ================= DATE LOGIC =================
   const urlDate = searchParams.get("report-date");
@@ -61,6 +68,12 @@ export default function DailySalesPage() {
   const [showExport, setShowExport] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
 
+  const handleExport = (exportFormat: "pdf" | "csv" | "excel") => {
+    setShowExport(false);
+    const dateStr = format(selectedDate, "yyyy-MM-dd");
+    dispatch(exportSalesThunk({ format: exportFormat, date: dateStr }));
+  };
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -99,6 +112,7 @@ export default function DailySalesPage() {
               <Button
                 variant="outline-dark"
                 onClick={() => setShowExport(!showExport)}
+                disabled={isExporting}
                 iconRight={
                   <span
                     className={`ms-1 transition-all ${showExport ? "rotate-180" : ""}`}
@@ -107,7 +121,7 @@ export default function DailySalesPage() {
                   </span>
                 }
               >
-                Export
+                {isExporting ? "Exporting…" : "Export"}
               </Button>
 
               {showExport && (
@@ -119,7 +133,7 @@ export default function DailySalesPage() {
                     variant="ghost"
                     fullWidth
                     className="text-start p-2 rounded-0 border-bottom"
-                    onClick={() => setShowExport(false)}
+                    onClick={() => handleExport("pdf")}
                   >
                     <FileEarmarkPdf size={18} className="text-danger me-2" />
                     <span>PDF</span>
@@ -128,7 +142,7 @@ export default function DailySalesPage() {
                     variant="ghost"
                     fullWidth
                     className="text-start p-2 rounded-0 border-bottom"
-                    onClick={() => setShowExport(false)}
+                    onClick={() => handleExport("csv")}
                   >
                     <FileEarmarkText size={18} className="text-primary me-2" />
                     <span>CSV</span>
@@ -137,7 +151,7 @@ export default function DailySalesPage() {
                     variant="ghost"
                     fullWidth
                     className="text-start p-2 rounded-0"
-                    onClick={() => setShowExport(false)}
+                    onClick={() => handleExport("excel")}
                   >
                     <FileEarmarkExcel size={18} className="text-success me-2" />
                     <span>Excel</span>
