@@ -24,6 +24,7 @@ import settingReducer from "./settingSlice";
 import appReducer from "./appSlice";
 import schedulerReducer from "./schedulerSlice";
 import marketingReducer from "./marketingSlice";
+import reportReducer from "./reportSlice";
 
 // Security policy:
 //   accessToken  → NOT persisted (15-min lifetime; re-issued by the 401 interceptor)
@@ -54,6 +55,7 @@ export const store = configureStore({
     app: appReducer,
     scheduler: schedulerReducer,
     marketing: marketingReducer,
+    report: reportReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
