@@ -100,14 +100,26 @@ export const applyInterceptors = (instance: AxiosInstance) => {
 
         const refreshToken = storeRef?.getState()?.auth?.refreshToken;
 
+        // No refresh token stored — skip the network call and logout immediately
+        if (!refreshToken) {
+          isRefreshing = false;
+          processQueue(new Error("No refresh token"), null);
+          if (storeRef && authActionsRef) storeRef.dispatch(authActionsRef.logout());
+          window.location.replace("/login");
+          return Promise.reject(new ApiError(401, "Session expired. Please log in again."));
+        }
+
         try {
           const { data: refreshData } = await axios.post<{
-            accessToken: string;
-          }>(`${import.meta.env.VITE_API_BASE_URL}${AUTH.REFRESH_TOKEN}`, {
+            data?: { accessToken: string };
+            accessToken?: string;
+          }>(`${import.meta.env.VITE_API_BASE_URL || ""}${AUTH.REFRESH_TOKEN}`, {
             refreshToken,
           });
 
-          const newToken = refreshData.accessToken;
+          const newToken = refreshData?.data?.accessToken || refreshData.accessToken;
+          
+          if (!newToken) throw new Error("No token returned");
 
           // Dynamic imports here break the circular dependency at module root
           if (storeRef && authActionsRef) {

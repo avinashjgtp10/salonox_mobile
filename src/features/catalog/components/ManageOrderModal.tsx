@@ -18,10 +18,11 @@ const ManageOrderModal: React.FC<Props> = ({ services, onClose, onSave }) => {
   const servicesByCategory = useMemo(() => {
     const groups: Record<string, { name: string; services: Service[] }> = {};
     ordered.forEach((svc) => {
-      if (!groups[svc.categoryId]) {
-        groups[svc.categoryId] = { name: svc.categoryName, services: [] };
+      const key = String(svc.category_id ?? "uncategorized");
+      if (!groups[key]) {
+        groups[key] = { name: svc.category_name ?? "Uncategorized", services: [] };
       }
-      groups[svc.categoryId].services.push(svc);
+      groups[key].services.push(svc);
     });
     return Object.entries(groups).map(([id, group]) => ({ id, ...group }));
   }, [ordered]);
@@ -45,7 +46,7 @@ const ManageOrderModal: React.FC<Props> = ({ services, onClose, onSave }) => {
           </button>
           <button
             className="btn-save-pill"
-            onClick={() => onSave(ordered.map((s) => s.id))}
+            onClick={() => onSave(ordered.map((s) => String(s.id)))}
           >
             Save
           </button>

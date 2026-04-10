@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { FiArrowRight, FiCheck } from "react-icons/fi";
+import { FiArrowLeft, FiArrowRight, FiCheck } from "react-icons/fi";
 import "../styles/BusinessLocationPage.scss";
 import { useOnboarding } from "../../../context/OnboardingContext";
 import salonImg from "../../../assets/images/salon.jpg";
@@ -34,6 +34,13 @@ export default function BusinessLocationPage() {
 
       <div className="row g-0 min-vh-100">
         <div className="col-lg-5 col-md-6 bg-light p-5 position-relative">
+          <button
+            className="btn btn-light border rounded-circle position-absolute d-md-flex align-items-center justify-content-center"
+            style={{ top: "30px", left: "50px", width: "40px", height: "40px", padding: 0, zIndex: 10 }}
+            onClick={() => navigate(-1)}
+          >
+            <FiArrowLeft />
+          </button>
           <div style={{ maxWidth: "480px" }} className="mt-5">
             <p className="text-muted small">Account setup</p>
             <h4 className="fw-bold mb-4">

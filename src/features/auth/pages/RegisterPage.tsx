@@ -14,7 +14,6 @@ import salonImg from "../../../assets/images/salon.jpg";
 import Input from "../../../components/ui/Input";
 import Button from "../../../components/ui/Button";
 import SplitLayout from "../../../components/ui/SplitLayout";
-import { FullScreenLoader } from "../../../components/ui/FullScreenLoader.tsx";
 interface FormState {
   fullName: string;
   businessName: string;
@@ -546,7 +545,6 @@ export default function RegisterPage() {
 
   return (
     <>
-      {loading && <FullScreenLoader message="Processing registration..." />}
       <SplitLayout leftContent={LeftSection} rightContent={RightSection} />
     </>
   );

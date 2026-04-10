@@ -9,7 +9,7 @@ import {
   PURGE,
   REGISTER,
 } from "redux-persist";
-import storage from "redux-persist/lib/storage";
+import storageSession from "redux-persist/lib/storage/session";
 
 import authReducer, { type AuthState } from "./authSlice";
 import salonReducer from "./salonSlice";
@@ -24,12 +24,16 @@ import settingReducer from "./settingSlice";
 import appReducer from "./appSlice";
 import schedulerReducer from "./schedulerSlice";
 import marketingReducer from "./marketingSlice";
+import reportReducer from "./reportSlice";
 
+// Security policy:
+//   accessToken  → NOT persisted (15-min lifetime; re-issued by the 401 interceptor)
+//   refreshToken → sessionStorage (cleared when browser tab closes, not accessible cross-tab)
+//   isOnboardingComplete → sessionStorage alongside refreshToken (non-sensitive UI flag)
+// localStorage is NOT used for any auth data — prevents XSS token theft via localStorage.
 const authPersistConfig = {
   key: "auth",
-  storage,
-  // accessToken intentionally excluded — it is short-lived and must be
-  // re-issued via refreshToken on every app boot, never read from localStorage.
+  storage: storageSession,
   whitelist: ["refreshToken", "isOnboardingComplete"],
 };
 
@@ -51,6 +55,7 @@ export const store = configureStore({
     app: appReducer,
     scheduler: schedulerReducer,
     marketing: marketingReducer,
+    report: reportReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

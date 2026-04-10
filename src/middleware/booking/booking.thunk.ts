@@ -11,14 +11,20 @@ import type {
   UpdateBookingPayload,
 } from "../../types/booking.types";
 
-// ── Fetch all bookings ─────────────────────────────────────────────────────────
+// ── Fetch bookings (scoped to current salon, optional server-side filters) ────
 export const fetchBookingsThunk = createAsyncThunk<
   Booking[],
-  void,
+  { staffId?: string; status?: string } | void,
   { rejectValue: string }
->("booking/fetchAll", async (_, { rejectWithValue }) => {
+>("booking/fetchAll", async (filters, { rejectWithValue, getState }) => {
   try {
-    const res = await api.get<BookingListResponse>(BOOKING.BASE);
+    const state = getState() as any;
+    const salonId = state.salon.currentSalon?.id;
+    const params = new URLSearchParams();
+    if (salonId) params.set("salon_id", String(salonId));
+    if (filters?.staffId && filters.staffId !== "all") params.set("staff_id", filters.staffId);
+    if (filters?.status  && filters.status  !== "all") params.set("status",   filters.status);
+    const res = await api.get<BookingListResponse>(`${BOOKING.BASE}?${params.toString()}`);
     return res.data.data;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
@@ -86,17 +92,29 @@ export const deleteBookingThunk = createAsyncThunk<
   }
 });
 
-// ── Export bookings ────────────────────────────────────────────────────────────
+// ── Export bookings (with optional date-range / status / salon filters) ─────────
 export const exportBookingsThunk = createAsyncThunk<
   void,
-  "excel" | "csv",
+  {
+    format: "excel" | "csv";
+    filters?: {
+      salon_id?: string;
+      status?: string;
+      start_date?: string;
+      end_date?: string;
+    };
+  },
   { rejectValue: string }
->("booking/export", async (format, { rejectWithValue }) => {
+>("booking/export", async ({ format, filters }, { rejectWithValue, getState }) => {
   try {
-    const res = await api.get(BOOKING.EXPORT(format), { responseType: "blob" });
-    downloadBlob(res.data, `bookings.${format === "excel" ? "xlsx" : "csv"}`);
+    const state = getState() as any;
+    const salonId = filters?.salon_id ?? state.salon.currentSalon?.id;
+    const url = BOOKING.EXPORT(format, { ...filters, salon_id: salonId });
+    const res = await api.get(url, { responseType: "blob" });
+    downloadBlob(res.data, `appointments.${format === "excel" ? "xlsx" : "csv"}`);
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to export bookings");
   }
 });
+

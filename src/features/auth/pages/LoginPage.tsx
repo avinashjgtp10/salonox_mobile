@@ -49,7 +49,7 @@ export default function LoginPage() {
 
   // 🔐 GOOGLE OAUTH
   const handleGoogleLogin = () => {
-    const backendUrl = import.meta.env.VITE_API_BASE_URL;
+    const backendUrl = import.meta.env.VITE_API_BASE_URL || "";
     window.location.href = `${backendUrl}/api/v1/auth/google/start`;
   };
 
@@ -102,7 +102,7 @@ export default function LoginPage() {
         variant="dark"
         fullWidth
         onClick={handleLogin}
-        disabled={loading}
+        loading={loading}
         className="mb-3"
       >
         Continue

@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { FiArrowRight, FiUser, FiUsers } from "react-icons/fi";
+import { FiArrowLeft, FiArrowRight, FiUser, FiUsers } from "react-icons/fi";
 import "../styles/TeamSetupPage.scss";
 import { useOnboarding } from "../../../context/OnboardingContext";
 import salonImg from "../../../assets/images/salon.jpg";
@@ -26,12 +26,14 @@ export default function TeamSetupPage() {
 
       <div className="row g-0 min-vh-100">
         <div className="col-lg-5 col-md-6 left-panel d-flex flex-column px-5 position-relative bg-white">
-          {/* Brand */}
-          <div className="position-absolute top-0 start-0 p-4 pb-0 w-100">
-            <div className="d-flex align-items-center justify-content-between">
-              <h4 className="brand-logo m-0">salonox</h4>
-            </div>
-          </div>
+          <button
+            className="btn btn-light border rounded-circle position-absolute d-md-flex align-items-center justify-content-center"
+            style={{ top: "30px", left: "50px", width: "40px", height: "40px", padding: 0, zIndex: 10 }}
+            onClick={() => navigate(-1)}
+          >
+            <FiArrowLeft />
+          </button>
+
 
           <div className="flex-grow-1 d-flex align-items-center justify-content-center">
             <div

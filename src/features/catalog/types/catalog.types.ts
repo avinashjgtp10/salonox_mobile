@@ -1,12 +1,19 @@
 export interface Service {
-  id: string;
+  id: string | number;
   name: string;
-  categoryId: string;
-  categoryName: string;
+  // backend field names
+  category_id: string | number | null;
+  category_name: string | null;
+  price_type?: "fixed" | "from" | "free";
+  price: string | number; // string from backend ("65.00"), display with ₹
   duration: number;
-  price: number;
-  onlineBookingEnabled: boolean;
-  active: boolean;
+  online_booking?: boolean;
+  commission_enabled?: boolean;
+  resource_required?: boolean;
+  is_active: boolean;
+  salon_id?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface BasicDetailsData {
