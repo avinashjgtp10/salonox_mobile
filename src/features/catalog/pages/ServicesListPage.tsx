@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import type { AppDispatch } from "../../../store/store";
+import { deleteCatalogThunk } from "../../../middleware/catalog/catalog.thunk";
 import {
   ChevronDown,
   Search,
@@ -14,6 +17,7 @@ import {
   X,
 } from "react-bootstrap-icons";
 import { useServices } from "../hooks/useServices.ts";
+import { useCategories } from "../hooks/useCategories.ts";
 import ServiceFilterDrawer from "../components/ServiceFilterDrawer.tsx";
 import ManageOrderModal from "../components/ManageOrderModal.tsx";
 import ServiceActionsMenu from "../components/ServiceActionsMenu.tsx";
@@ -21,13 +25,13 @@ import "../styles/ServicesListPage.scss";
 
 const ServicesListPage: React.FC = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>();
   const { services, categories, loading, error, fetchServices } = useServices();
+  const { createCategory, loading: catLoading } = useCategories();
   const [showFilterDrawer, setShowFilterDrawer] = useState(false);
   const [showManageOrder, setShowManageOrder] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [actionsMenuServiceId, setActionsMenuServiceId] = useState<
-    string | null
-  >(null);
+  const [actionsMenuServiceId, setActionsMenuServiceId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -50,34 +54,36 @@ const ServicesListPage: React.FC = () => {
   const groupedServices = useMemo(() => {
     const filtered = services.filter((svc: any) => {
       const matchesCategory =
-        selectedCategory === "all" || svc.categoryId === selectedCategory;
+        selectedCategory === "all" ||
+        String(svc.category_id) === String(selectedCategory);
       const matchesSearch = svc.name
         .toLowerCase()
         .includes(searchQuery.toLowerCase());
 
-      // Simple status filter logic for now
+      // Status filter based on is_active flag
       const matchesStatus =
         filters.status === "All status" ||
-        (filters.status === "Active" && svc.status !== "inactive") ||
-        (filters.status === "Inactive" && svc.status === "inactive");
+        (filters.status === "Active" && svc.is_active !== false) ||
+        (filters.status === "Inactive" && svc.is_active === false);
 
       return matchesCategory && matchesSearch && matchesStatus;
     });
 
     const groups: Record<
       string,
-      { id: string; name: string; services: any[] }
+      { id: string | number; name: string; services: any[] }
     > = {};
 
     categories.forEach((cat) => {
-      if (selectedCategory === "all" || selectedCategory === cat.id) {
-        groups[cat.id] = { id: cat.id, name: cat.name, services: [] };
+      if (selectedCategory === "all" || String(selectedCategory) === String(cat.id)) {
+        groups[String(cat.id)] = { id: cat.id, name: cat.name, services: [] };
       }
     });
 
     filtered.forEach((svc) => {
-      if (groups[svc.categoryId]) {
-        groups[svc.categoryId].services.push(svc);
+      const key = String(svc.category_id);
+      if (groups[key]) {
+        groups[key].services.push(svc);
       }
     });
 
@@ -228,8 +234,8 @@ const ServicesListPage: React.FC = () => {
               {categories.map((cat: any) => (
                 <li
                   key={cat.id}
-                  className={`category-item ${selectedCategory === cat.id ? "active" : ""}`}
-                  onClick={() => setSelectedCategory(cat.id)}
+                  className={`category-item ${String(selectedCategory) === String(cat.id) ? "active" : ""}`}
+                  onClick={() => setSelectedCategory(String(cat.id))}
                 >
                   <span className="cat-name">{cat.name}</span>
                   <span className="count">{cat.serviceCount || 0}</span>
@@ -308,11 +314,13 @@ const ServicesListPage: React.FC = () => {
                         <span className="price">₹{svc.price}</span>
                         <div onClick={(e) => e.stopPropagation()}>
                           <ServiceActionsMenu
-                            serviceId={svc.id}
-                            open={actionsMenuServiceId === svc.id}
+                            serviceId={String(svc.id)}
+                            open={actionsMenuServiceId === String(svc.id)}
                             onToggle={() =>
                               setActionsMenuServiceId(
-                                actionsMenuServiceId === svc.id ? null : svc.id,
+                                actionsMenuServiceId === String(svc.id)
+                                  ? null
+                                  : String(svc.id),
                               )
                             }
                             onEdit={() =>
@@ -320,7 +328,7 @@ const ServicesListPage: React.FC = () => {
                                 `/dashboard/catalog/services/${svc.id}/edit`,
                               )
                             }
-                            onDelete={() => fetchServices()}
+                            onDelete={() => dispatch(deleteCatalogThunk(svc.id))}
                             onQuickBookingLink={() =>
                               navigate(
                                 `/dashboard/catalog/services/${svc.id}/quick-booking`,
@@ -489,14 +497,17 @@ const ServicesListPage: React.FC = () => {
               </button>
               <button
                 className="acm-btn acm-btn--add"
-                disabled={!newCategoryName.trim()}
-                onClick={() => {
-                  // TODO: call API to create category
+                disabled={!newCategoryName.trim() || catLoading}
+                onClick={async () => {
+                  await createCategory({
+                    name: newCategoryName.trim(),
+                    description: newCategoryDesc.trim() || undefined,
+                    color: newCategoryColor,
+                  });
                   setShowAddCategory(false);
                   setNewCategoryName("");
                   setNewCategoryDesc("");
                   setNewCategoryColor("#3b82f6");
-                  fetchServices();
                 }}
               >
                 Add

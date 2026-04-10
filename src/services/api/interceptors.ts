@@ -102,12 +102,15 @@ export const applyInterceptors = (instance: AxiosInstance) => {
 
         try {
           const { data: refreshData } = await axios.post<{
-            accessToken: string;
-          }>(`${import.meta.env.VITE_API_BASE_URL}${AUTH.REFRESH_TOKEN}`, {
+            data?: { accessToken: string };
+            accessToken?: string;
+          }>(`${import.meta.env.VITE_API_BASE_URL || ""}${AUTH.REFRESH_TOKEN}`, {
             refreshToken,
           });
 
-          const newToken = refreshData.accessToken;
+          const newToken = refreshData?.data?.accessToken || refreshData.accessToken;
+          
+          if (!newToken) throw new Error("No token returned");
 
           // Dynamic imports here break the circular dependency at module root
           if (storeRef && authActionsRef) {

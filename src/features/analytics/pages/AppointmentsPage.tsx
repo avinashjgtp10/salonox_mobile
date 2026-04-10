@@ -25,11 +25,27 @@ import { subDays, format, isWithinInterval, parseISO } from "date-fns";
 import "react-date-range/dist/styles.css";
 import "react-date-range/dist/theme/default.css";
 import "../styles/AppointmentsPage.scss";
-import { useSchedulerContext } from "../../bookings/store/SchedulerContext";
-import { STAFF_LIST } from "../../bookings/utils/schedulerMockData";
+
+import { useDispatch, useSelector } from "react-redux";
+import type { AppDispatch, RootState } from "../../../store/store";
+import { fetchBookingsThunk, exportBookingsThunk } from "../../../middleware/booking/booking.thunk";
+import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
+import type { Booking } from "../../../types/booking.types";
 
 export default function AppointmentsPage() {
-  const { bookings } = useSchedulerContext();
+  const dispatch = useDispatch<AppDispatch>();
+
+  // ── Redux: real data from backend ─────────────────────────────
+  const allBookings = useSelector((state: RootState) => (state.booking as any).items as Booking[]);
+  const staffList   = useSelector((state: RootState) => (state.staff as any).items as any[]);
+  const isLoading   = useSelector((state: RootState) => (state.booking as any).loading?.fetchAll as boolean ?? false);
+  const isExporting = useSelector((state: RootState) => (state.booking as any).loading?.export   as boolean ?? false);
+
+  // Fetch on mount
+  useEffect(() => {
+    dispatch(fetchBookingsThunk());
+    dispatch(fetchStaffThunk());
+  }, [dispatch]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [showPicker, setShowPicker] = useState(false);
@@ -131,18 +147,46 @@ export default function AppointmentsPage() {
   };
 
   const handleExport = (type: string) => {
-    console.log(`Exporting as ${type}...`);
     setShowExport(false);
-    // Placeholder for actual export logic
-    // e.g., if type === 'csv', build string and download
+    if (type === "pdf") {
+      // Client-side PDF: print the table
+      window.print();
+      return;
+    }
+    const fmt = type === "xlsx" ? "excel" : "csv";
+    dispatch(
+      exportBookingsThunk({
+        format: fmt as "excel" | "csv",
+        filters: {
+          status: appliedFilters.status !== "all" ? appliedFilters.status : undefined,
+          start_date: format(range[0].startDate, "yyyy-MM-dd"),
+          end_date:   format(range[0].endDate,   "yyyy-MM-dd"),
+        },
+      })
+    );
   };
+
+  // Map backend Appointment records to table-friendly shape
+  const bookings = useMemo(() =>
+    allBookings.map((b: Booking) => ({
+      id:          b.id,
+      clientName:  b.client_id ?? "Walk-in",
+      services:    [{ staffId: b.staff_id ?? "", staff: b.staff_id ?? "", service: b.title ?? "" }],
+      status:      b.status,
+      date:        b.scheduled_at?.split("T")[0] ?? "",
+      startTime:   b.scheduled_at?.split("T")[1]?.slice(0, 5) ?? "00:00",
+      endTime:     b.ends_at?.split("T")[1]?.slice(0, 5) ?? "00:00",
+      billDate:    b.created_at,
+      grandTotal:  0,
+    })),
+  [allBookings]);
 
   // Sorting/Filtering Logic
   const filteredAppointments = useMemo(() => {
     let result = bookings.filter((booking) => {
       // Search filter
       const matchesSearch =
-        booking.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(booking.id).toLowerCase().includes(searchTerm.toLowerCase()) ||
         booking.clientName.toLowerCase().includes(searchTerm.toLowerCase());
 
       // Date range filter
@@ -275,17 +319,21 @@ export default function AppointmentsPage() {
                 variant="ghost"
                 fullWidth
                 className="text-start p-2 rounded-0 border-bottom"
+                disabled={isExporting}
                 onClick={() => handleExport("csv")}
               >
-                <FiletypeCsv size={18} className="text-primary me-2" /> CSV
+                <FiletypeCsv size={18} className="text-primary me-2" />
+                {isExporting ? "Exporting…" : "CSV"}
               </Button>
               <Button
                 variant="ghost"
                 fullWidth
                 className="text-start p-2 rounded-0"
+                disabled={isExporting}
                 onClick={() => handleExport("xlsx")}
               >
-                <FiletypeXlsx size={18} className="text-success me-2" /> Excel
+                <FiletypeXlsx size={18} className="text-success me-2" />
+                {isExporting ? "Exporting…" : "Excel"}
               </Button>
             </div>
           )}
@@ -496,9 +544,9 @@ export default function AppointmentsPage() {
                 style={{ appearance: "none" }}
               >
                 <option value="all">All team members</option>
-                {STAFF_LIST.map((staff) => (
+                {staffList.map((staff: any) => (
                   <option key={staff.id} value={staff.id}>
-                    {staff.name}
+                    {staff.first_name} {staff.last_name}
                   </option>
                 ))}
               </select>
@@ -567,109 +615,129 @@ export default function AppointmentsPage() {
       </Modal>
 
       {/* ================= TABLE ================= */}
-      <Card noPadding className="mb-4">
-        <Table
-          columns={[
-            {
-              header: "Ref #",
-              key: "id",
-              render: (item: any) => (
-                <a
-                  href="#"
-                  className="text-primary text-decoration-none fw-bold"
-                >
-                  #{item.id.toUpperCase()}
-                </a>
-              ),
-            },
-            {
-              header: "Client",
-              key: "clientName",
-              render: (item: any) => (
-                <a
-                  href="#"
-                  className="font-bold text-dark text-decoration-none"
-                >
-                  {item.clientName}
-                </a>
-              ),
-            },
-            {
-              header: "Service",
-              key: "services",
-              render: (item: any) =>
-                item.services.map((s: any) => s.service).join(", "),
-            },
-            {
-              header: "Created by",
-              key: "createdBy",
-              render: () => "dhumal dipak",
-            },
-            {
-              header: "Created Date",
-              key: "billDate",
-              render: (item: any) =>
-                format(
-                  parseISO(item.billDate || item.date),
-                  "dd MMM yyyy, h:mma",
-                ).toLowerCase(),
-            },
-            {
-              header: "Scheduled Date",
-              key: "date",
-              render: (item: any) =>
-                format(
-                  parseISO(item.date + "T" + item.startTime),
-                  "dd MMM yyyy, h:mma",
-                ).toLowerCase(),
-            },
-            {
-              header: "Duration",
-              key: "duration",
-              render: (item: any) => {
-                const start = parseISO(item.date + "T" + item.startTime);
-                const end = parseISO(item.date + "T" + item.endTime);
-                const durMs = end.getTime() - start.getTime();
-                const durMins = Math.floor(durMs / (1000 * 60));
-                return durMins >= 60
-                  ? `${Math.floor(durMins / 60)}h ${durMins % 60}min`
-                  : `${durMins}min`;
+      {isLoading ? (
+        <Card
+          className="text-center py-5 border-0 rounded-4 shadow-sm mb-4 d-flex flex-column align-items-center justify-content-center"
+          style={{ minHeight: "400px" }}
+        >
+          <div className="spinner-border text-muted" role="status" />
+          <p className="text-muted small mt-3 mb-0">Loading appointments…</p>
+        </Card>
+      ) : (
+        <Card noPadding className="mb-4">
+          <Table
+            columns={[
+              {
+                header: "Ref #",
+                key: "id",
+                render: (item: any) => (
+                  <a
+                    href="#"
+                    className="text-primary text-decoration-none fw-bold"
+                  >
+                    #{String(item.id).substring(0, 8).toUpperCase()}
+                  </a>
+                ),
               },
-            },
-            {
-              header: "Team member",
-              key: "staff",
-              render: (item: any) => item.services[0]?.staff || "N/A",
-            },
-            {
-              header: "Price",
-              key: "grandTotal",
-              render: (item: any) => `₹${item.grandTotal.toFixed(2)}`,
-            },
-            {
-              header: "Status",
-              key: "status",
-              render: (item: any) => (
-                <Badge
-                  variant={
-                    item.status.toLowerCase() === "confirmed"
-                      ? "success"
-                      : item.status.toLowerCase() === "completed"
-                        ? "info"
-                        : item.status.toLowerCase() === "cancelled"
-                          ? "danger"
-                          : "warning"
+              {
+                header: "Client",
+                key: "clientName",
+                render: (item: any) => (
+                  <a
+                    href="#"
+                    className="font-bold text-dark text-decoration-none"
+                  >
+                    {item.clientName}
+                  </a>
+                ),
+              },
+              {
+                header: "Service",
+                key: "services",
+                render: (item: any) =>
+                  item.services.map((s: any) => s.service).join(", "),
+              },
+              {
+                header: "Created by",
+                key: "createdBy",
+                render: () => "dhumal dipak", // To update later when info available
+              },
+              {
+                header: "Created Date",
+                key: "billDate",
+                render: (item: any) => item.billDate ?
+                  format(
+                    parseISO(item.billDate),
+                    "dd MMM yyyy, h:mma",
+                  ).toLowerCase() : "N/A",
+              },
+              {
+                header: "Scheduled Date",
+                key: "date",
+                render: (item: any) => {
+                  try {
+                    return format(
+                      parseISO(item.date + "T" + item.startTime),
+                      "dd MMM yyyy, h:mma",
+                    ).toLowerCase();
+                  } catch (e) {
+                    return "Invalid date";
                   }
-                >
-                  {item.status}
-                </Badge>
-              ),
-            },
-          ]}
-          data={paginatedAppointments}
-          emptyMessage="No appointments found matching your filters"
-        />
-      </Card>
+                }
+              },
+              {
+                header: "Duration",
+                key: "duration",
+                render: (item: any) => {
+                  try {
+                    const start = parseISO(item.date + "T" + item.startTime);
+                    const end = parseISO(item.date + "T" + item.endTime);
+                    const durMs = end.getTime() - start.getTime();
+                    const durMins = Math.floor(durMs / (1000 * 60));
+                    if (isNaN(durMins)) return "N/A";
+                    return durMins >= 60
+                      ? `${Math.floor(durMins / 60)}h ${durMins % 60}min`
+                      : `${durMins}min`;
+                  } catch (e) {
+                    return "N/A";
+                  }
+                },
+              },
+              {
+                header: "Team member",
+                key: "staff",
+                render: (item: any) => item.services[0]?.staff || "N/A",
+              },
+              {
+                header: "Price",
+                key: "grandTotal",
+                render: (item: any) => `₹${Number(item.grandTotal || 0).toFixed(2)}`,
+              },
+              {
+                header: "Status",
+                key: "status",
+                render: (item: any) => (
+                  <Badge
+                    variant={
+                      item.status?.toLowerCase() === "confirmed"
+                        ? "success"
+                        : item.status?.toLowerCase() === "completed"
+                          ? "info"
+                          : item.status?.toLowerCase() === "cancelled"
+                            ? "danger"
+                            : "warning"
+                    }
+                  >
+                    {item.status ? item.status.replace("_", " ") : "Unknown"}
+                  </Badge>
+                ),
+              },
+            ]}
+            data={paginatedAppointments}
+            emptyMessage="No appointments found matching your filters"
+          />
+        </Card>
+      )}
 
       {/* ================= PAGINATION ================= */}
       <div className="pagination-container d-flex align-items-center justify-content-between p-3 bg-white border-top rounded-bottom-4">

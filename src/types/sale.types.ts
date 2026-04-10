@@ -1,43 +1,103 @@
-// ── Sale entity ───────────────────────────────────────────────────────────────
+// ── Backend enums ─────────────────────────────────────────────────────────────
 import type { EntityId } from "./common.types";
 
-export interface SaleItemPayload {
+export type SaleStatus = "draft" | "completed" | "cancelled" | "refunded";
+export type PaymentMethod = "cash" | "card" | "gift_card" | "split" | "upi";
+export type SaleItemType =
+  | "service"
+  | "product"
+  | "membership"
+  | "gift_card"
+  | "quick";
+
+// ── Core entities ─────────────────────────────────────────────────────────────
+export interface SaleItemDetail {
   id: EntityId;
-  name?: string;
-  price?: number;
-  type?: "service" | "product" | "membership" | "giftcard" | "quick";
-  quantity?: number;
+  sale_id: EntityId;
+  item_type: SaleItemType;
+  name: string;
+  quantity: number;
+  unit_price: string;
+  discount_amount: string;
+  total_price: string;
+  created_at: string;
 }
 
 export interface Sale {
   id: EntityId;
-  clientId?: string | null;
-  status: string;
-  total: number;
-  items: SaleItemPayload[];
-  createdAt?: string;
-  [key: string]: any; // allow extra fields from API
+  salon_id: string;
+  client_id: string | null;
+  status: SaleStatus;
+  subtotal: string;
+  discount_amount: string;
+  tip_amount: string;
+  tax_amount: string;
+  total_amount: string;
+  payment_method: PaymentMethod | null;
+  payment_reference: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  // included when fetched by ID
+  items?: SaleItemDetail[];
 }
 
 // ── Payloads ──────────────────────────────────────────────────────────────────
+export interface CreateSaleItemPayload {
+  item_type: SaleItemType;
+  name: string;
+  quantity: number;
+  unit_price: string;
+  discount_amount?: string;
+}
+
 export interface CreateSalePayload {
-  clientId?: string | null;
-  items: SaleItemPayload[];
-  total?: number;
-  status?: string;
-  [key: string]: any;
+  salon_id: string;
+  client_id?: string | null;
+  status?: SaleStatus;
+  items: CreateSaleItemPayload[];
+  discount_amount?: string;
+  tip_amount?: string;
+  tax_amount?: string;
+  notes?: string;
 }
 
 export interface UpdateSalePayload {
   id: EntityId;
-  data: Partial<CreateSalePayload>;
+  data: Partial<Omit<CreateSalePayload, "salon_id">>;
 }
 
-// ── API responses ─────────────────────────────────────────────────────────────
+export interface CheckoutSalePayload {
+  id: EntityId;
+  payment_method: PaymentMethod;
+  payment_reference?: string;
+}
+
+// ── Backend response wrappers ─────────────────────────────────────────────────
+export interface SaleWithItems {
+  sale: Sale;
+  items: SaleItemDetail[];
+}
+
 export interface SaleResponse {
   data: Sale;
 }
 
+export interface SaleWithItemsResponse {
+  data: SaleWithItems;
+}
+
 export interface SaleListResponse {
   data: Sale[];
+}
+
+export interface SaleSummary {
+  total_revenue: string;
+  total_sales: number;
+  completed_sales: number;
+  draft_sales: number;
+}
+
+export interface SaleSummaryResponse {
+  data: SaleSummary;
 }

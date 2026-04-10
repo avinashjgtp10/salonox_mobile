@@ -26,3 +26,4 @@ export const {
   clearSelectedItem: clearSelectedBooking,
 } = bookingSlice.actions;
 export default bookingSlice.reducer;
+

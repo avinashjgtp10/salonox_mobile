@@ -15,12 +15,19 @@ import {
   Sliders,
 } from "react-bootstrap-icons";
 import { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import "../styles/QuickSaleDrawer.scss";
 import Button from "../../../components/ui/Button";
 import Input from "../../../components/ui/Input";
 import Modal from "../../../components/ui/Modal";
 import { useSale, type SaleItem } from "../context/SaleContext";
+import type { AppDispatch, RootState } from "../../../store/store";
+import {
+  createSaleThunk,
+  checkoutSaleThunk,
+} from "../../../middleware/sale/sale.thunk";
+import type { PaymentMethod } from "../../../types/sale.types";
 
 // ─── Static data ──────────────────────────────────────────────────────────────
 const QUICK_SALE_ITEMS = [
@@ -329,8 +336,32 @@ const INIT_NUMPAD: NumpadState = { tip: "0", tipType: "amount", cash: "0" };
 const INIT_UI: UIState = { tab: "quick", search: "", clientSearch: "" };
 const INIT_CHECKOUT: CheckoutState = { step: "cart", payments: [] };
 
+// ── Helper: map payment type string → backend PaymentMethod ──────────────────
+function resolvePaymentMethod(
+  payments: { type: string; amount: number }[],
+): PaymentMethod {
+  if (payments.length > 1) return "split";
+  const t = (payments[0]?.type ?? "").toLowerCase();
+  if (t === "cash") return "cash";
+  if (t === "gift card" || t === "gift_card") return "gift_card";
+  if (t === "card") return "card";
+  if (t === "upi") return "upi";
+  return "cash"; // default
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function QuickSaleDrawer({ isOpen, onClose }: Props) {
+  const dispatch = useDispatch<AppDispatch>();
+  const salonId = useSelector(
+    (state: RootState) => state.salon.currentSalon?.id,
+  );
+  const isCheckingOut = useSelector(
+    (state: RootState) => (state.sale as any).loading?.checkout as boolean ?? false,
+  );
+  const isCreatingSale = useSelector(
+    (state: RootState) => (state.sale as any).loading?.create as boolean ?? false,
+  );
+
   const {
     cart,
     client,
@@ -339,6 +370,7 @@ export default function QuickSaleDrawer({ isOpen, onClose }: Props) {
     setClient,
     getTotal,
     saveDraft,
+    clearCart,
   } = useSale();
   const nav = useNavigate();
 
@@ -434,6 +466,75 @@ export default function QuickSaleDrawer({ isOpen, onClose }: Props) {
       c.name.toLowerCase().includes(ui.clientSearch.toLowerCase()) ||
       c.phone.toLowerCase().includes(ui.clientSearch.toLowerCase()),
   );
+
+  // ─── Pay now: create draft then checkout ──────────────────────────────────
+  const handlePayNow = async () => {
+    if (!salonId || cart.length === 0) return;
+
+    const paymentMethod = resolvePaymentMethod(checkout.payments);
+
+    // 1. Create a draft sale
+    const createResult = await dispatch(
+      createSaleThunk({
+        salon_id: String(salonId),
+        client_id: client?.id ?? null,
+        status: "draft",
+        items: cart.map((item) => ({
+          item_type:
+            item.type === "giftcard"
+              ? ("gift_card" as const)
+              : item.type === "quick"
+                ? ("product" as const)
+                : (item.type as any),
+          name: item.name,
+          quantity: item.quantity || 1,
+          unit_price: String(item.price),
+        })),
+        tip_amount:
+          tipAmount > 0 ? tipAmount.toFixed(2) : undefined,
+      }),
+    );
+
+    if (createSaleThunk.rejected.match(createResult)) return; // bail on error
+
+    const newSale = createResult.payload as { id: string | number };
+
+    // 2. Checkout the draft
+    const checkoutResult = await dispatch(
+      checkoutSaleThunk({
+        id: newSale.id,
+        payment_method: paymentMethod,
+      }),
+    );
+
+    if (checkoutSaleThunk.fulfilled.match(checkoutResult)) {
+      clearCart();
+      onClose();
+    }
+  };
+
+  // ─── Save unpaid (draft without payment) ──────────────────────────────────
+  const handleSaveUnpaid = async () => {
+    if (!salonId || cart.length === 0) return;
+    await dispatch(
+      createSaleThunk({
+        salon_id: String(salonId),
+        client_id: client?.id ?? null,
+        status: "draft",
+        items: cart.map((item) => ({
+          item_type:
+            item.type === "giftcard"
+              ? ("gift_card" as const)
+              : (item.type as any),
+          name: item.name,
+          quantity: item.quantity || 1,
+          unit_price: String(item.price),
+        })),
+      }),
+    );
+    clearCart();
+    onClose();
+  };
 
   // ─── Reset everything on close ────────────────────────────────────────────
   useEffect(() => {
@@ -1242,8 +1343,8 @@ export default function QuickSaleDrawer({ isOpen, onClose }: Props) {
                                   <div className="border-top my-1" />
                                   <div
                                     className="action-item p-2 hover-bg-light cursor-pointer rounded-2 small"
-                                    onClick={() => {
-                                      saveDraft({ cart, client });
+                                    onClick={async () => {
+                                      await saveDraft({ cart, client });
                                       onClose();
                                     }}
                                   >
@@ -1268,7 +1369,8 @@ export default function QuickSaleDrawer({ isOpen, onClose }: Props) {
 
                           <div className="flex-grow-1 flex-column d-flex gap-2">
                             {checkout.step === "payment" &&
-                              checkout.payments.length > 0 && (
+                              checkout.payments.length > 0 &&
+                              leftToPay === 0 && (
                                 <div className="text-center extra-small fw-bold text-dark mb-1">
                                   Full payment added
                                 </div>
@@ -1285,20 +1387,34 @@ export default function QuickSaleDrawer({ isOpen, onClose }: Props) {
                               size="lg"
                               className="fw-bold py-3"
                               style={{ height: "48px" }}
+                              disabled={
+                                isCheckingOut ||
+                                isCreatingSale ||
+                                (checkout.step === "payment" &&
+                                  checkout.payments.length > 0 &&
+                                  leftToPay > 0)
+                              }
                               onClick={() => {
                                 if (checkout.step === "cart") setStep("tip");
                                 else if (checkout.step === "tip")
                                   setStep("payment");
-                                else if (checkout.payments.length > 0)
-                                  console.log("Finalizing payment...");
-                                else console.log("Saving unpaid...");
+                                else if (
+                                  checkout.payments.length > 0 &&
+                                  leftToPay === 0
+                                )
+                                  handlePayNow();
+                                else handleSaveUnpaid();
                               }}
                             >
-                              {checkout.step === "payment"
-                                ? checkout.payments.length > 0
-                                  ? "Pay now"
-                                  : "Save unpaid"
-                                : "Continue to payment"}
+                              {isCheckingOut || isCreatingSale
+                                ? "Processing…"
+                                : checkout.step === "payment"
+                                  ? checkout.payments.length > 0
+                                    ? leftToPay > 0
+                                      ? "Amount pending"
+                                      : "Pay now"
+                                    : "Save unpaid"
+                                  : "Continue to payment"}
                             </Button>
                           </div>
                         </div>

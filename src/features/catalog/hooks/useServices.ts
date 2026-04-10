@@ -1,38 +1,51 @@
-import { useState, useCallback } from "react";
-import type { Service, Category } from "../types/catalog.types";
+import { useCallback } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import type { AppDispatch, RootState } from "../../../store/store";
+import {
+  fetchCatalogThunk,
+} from "../../../middleware/catalog/catalog.thunk";
+
+import type { Service } from "../types/catalog.types";
+
+export interface CategoryItem {
+  id: string | number;
+  name: string;
+  [key: string]: any;
+}
+
+// Derived view type — adds serviceCount computed from the services array
+export interface CategoryView extends CategoryItem {
+  serviceCount: number;
+}
 
 export const useServices = () => {
-  const [services] = useState<Service[]>([
-    {
-      id: "1",
-      name: "Women's Haircut",
-      categoryId: "hair",
-      categoryName: "Hair",
-      duration: 45,
-      price: 65,
-      onlineBookingEnabled: true,
-      active: true,
-    },
-    {
-      id: "2",
-      name: "Men's Haircut",
-      categoryId: "hair",
-      categoryName: "Hair",
-      duration: 30,
-      price: 35,
-      onlineBookingEnabled: true,
-      active: true,
-    },
-  ]);
+  const dispatch = useDispatch<AppDispatch>();
 
-  const [categories] = useState<Category[]>([
-    { id: "hair", name: "Hair", serviceCount: 2 },
-    { id: "nails", name: "Nails", serviceCount: 0 },
-  ]);
+  const services = useSelector(
+    (state: RootState) => (state.catalog as any).items as Service[],
+  );
+  const rawCategories = useSelector(
+    (state: RootState) => ((state.catalog as any).categories as CategoryItem[]) || [],
+  );
+  const loading = useSelector(
+    (state: RootState) =>
+      ((state.catalog as any).loading?.fetchAll as boolean) ?? false,
+  );
+  const error = useSelector(
+    (state: RootState) => (state.catalog as any).error as string | null,
+  );
 
-  const loading = false;
-  const error = null;
-  const fetchServices = useCallback(() => {}, []);
+  // Derive serviceCount per category from the services list
+  const categories: CategoryView[] = (rawCategories || []).map((cat) => ({
+    ...cat,
+    serviceCount: services.filter(
+      (svc) => String(svc.category_id) === String(cat.id),
+    ).length,
+  }));
+
+  const fetchServices = useCallback(() => {
+    dispatch(fetchCatalogThunk());
+  }, [dispatch]);
 
   return { services, categories, loading, error, fetchServices };
 };
