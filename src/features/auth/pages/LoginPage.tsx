@@ -102,7 +102,7 @@ export default function LoginPage() {
         variant="dark"
         fullWidth
         onClick={handleLogin}
-        disabled={loading}
+        loading={loading}
         className="mb-3"
       >
         Continue
