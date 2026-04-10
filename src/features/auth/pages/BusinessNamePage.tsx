@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { FiArrowLeft } from "react-icons/fi";
 import "../styles/BusinessNamePage.scss";
 import { useOnboarding } from "../../../context/OnboardingContext";
 import salonImg from "../../../assets/images/salon.jpg";
@@ -34,6 +35,13 @@ export default function BusinessNamePage() {
 
       <div className="row g-0 min-vh-100">
         <div className="col-lg-5 col-12 bg-light d-flex align-items-center justify-content-center p-4 position-relative">
+          <button
+            className="btn btn-light border rounded-circle position-absolute d-md-flex align-items-center justify-content-center"
+            style={{ top: "30px", left: "50px", width: "40px", height: "40px", padding: 0, zIndex: 10 }}
+            onClick={() => navigate(-1)}
+          >
+            <FiArrowLeft />
+          </button>
           <div
             className="card shadow-sm p-4 w-100"
             style={{ maxWidth: "480px" }}

@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { FiArrowRight } from "react-icons/fi";
+import { FiArrowLeft, FiArrowRight } from "react-icons/fi";
 import salonImg from "../../../assets/images/salon.jpg";
 import "../styles/PreviousSoftwarePage.scss";
 
@@ -43,6 +43,13 @@ export default function PreviousSoftwarePage() {
       <div className="row g-0 min-vh-100">
         {/* LEFT SIDE */}
         <div className="col-lg-5 col-12 bg-white p-5 position-relative">
+          <button
+            className="btn btn-light border rounded-circle position-absolute d-md-flex align-items-center justify-content-center"
+            style={{ top: "30px", left: "50px", width: "40px", height: "40px", padding: 0, zIndex: 10 }}
+            onClick={() => navigate(-1)}
+          >
+            <FiArrowLeft />
+          </button>
           <div style={{ maxWidth: "420px" }} className="mt-5">
             <p className="text-muted small">Account setup</p>
 

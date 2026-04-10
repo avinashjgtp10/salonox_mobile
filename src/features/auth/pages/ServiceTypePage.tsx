@@ -12,6 +12,7 @@ import {
   FaDumbbell,
   FaUserTie,
 } from "react-icons/fa";
+import { FiArrowLeft } from "react-icons/fi";
 import { GiLipstick, GiRazor } from "react-icons/gi";
 import { MdOutlineFaceRetouchingNatural } from "react-icons/md";
 import { useOnboarding } from "../../../context/OnboardingContext";
@@ -85,6 +86,13 @@ export default function ServiceTypePage() {
 
       <div className="row g-0 min-vh-100">
         <div className="col-lg-6 bg-white p-4 position-relative">
+          <button
+            className="btn btn-light border rounded-circle position-absolute d-md-flex align-items-center justify-content-center"
+            style={{ top: "30px", left: "50px", width: "40px", height: "40px", padding: 0, zIndex: 10 }}
+            onClick={() => navigate(-1)}
+          >
+            <FiArrowLeft />
+          </button>
           <h4 className="fw-bold mt-5">
             Select categories that best describe your business
           </h4>
