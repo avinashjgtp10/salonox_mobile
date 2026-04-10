@@ -100,6 +100,15 @@ export const applyInterceptors = (instance: AxiosInstance) => {
 
         const refreshToken = storeRef?.getState()?.auth?.refreshToken;
 
+        // No refresh token stored — skip the network call and logout immediately
+        if (!refreshToken) {
+          isRefreshing = false;
+          processQueue(new Error("No refresh token"), null);
+          if (storeRef && authActionsRef) storeRef.dispatch(authActionsRef.logout());
+          window.location.replace("/login");
+          return Promise.reject(new ApiError(401, "Session expired. Please log in again."));
+        }
+
         try {
           const { data: refreshData } = await axios.post<{
             data?: { accessToken: string };

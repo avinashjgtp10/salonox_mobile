@@ -273,7 +273,7 @@ export default function SalesListPage() {
                   className="text-center p-3 rounded-0 border-bottom d-flex align-items-center justify-content-center"
                   disabled={isExporting}
                   onClick={() => {
-                    dispatch(exportSalesThunk("csv"));
+                    dispatch(exportSalesThunk({ format: "csv" }));
                     setShowOptions(false);
                   }}
                 >
@@ -286,7 +286,7 @@ export default function SalesListPage() {
                   className="text-center p-3 rounded-0 d-flex align-items-center justify-content-center"
                   disabled={isExporting}
                   onClick={() => {
-                    dispatch(exportSalesThunk("excel"));
+                    dispatch(exportSalesThunk({ format: "excel" }));
                     setShowOptions(false);
                   }}
                 >

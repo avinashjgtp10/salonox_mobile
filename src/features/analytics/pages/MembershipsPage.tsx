@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { ChevronDown, ArrowRepeat } from "react-bootstrap-icons";
+import { useNavigate } from "react-router-dom";
 
 // UI Components
 import Button from "../../../components/ui/Button";
@@ -11,6 +12,7 @@ export default function MembershipsPage() {
   const [showOptions, setShowOptions] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const optionsRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   // Close overlays on outside click
   useEffect(() => {
@@ -91,15 +93,18 @@ export default function MembershipsPage() {
             <ArrowRepeat size={30} className="text-white" />
           </div>
         </div>
-        <h4 className="fw-bold mb-3 text-dark h5">No membership sales yet</h4>
+        <h4 className="fw-bold mb-2 text-dark h5">No memberships created yet</h4>
+        <p className="text-muted small mb-4 mx-auto" style={{ maxWidth: '400px' }}>
+          Add memberships in minutes and start selling them online and via your store.
+        </p>
         <div className="mt-2 text-center w-100 d-flex justify-content-center">
           <Button
             variant="outline-dark"
             pill
-            className="px-4"
-            onClick={() => setDrawerOpen(true)}
+            className="px-4 fw-bold"
+            onClick={() => navigate("/dashboard/catalog/memberships")}
           >
-            Create new sale
+            Set up now
           </Button>
         </div>
       </Card>
