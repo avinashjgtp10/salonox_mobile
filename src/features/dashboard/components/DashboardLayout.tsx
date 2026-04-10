@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { logout } from "../../../store/authSlice";
 import { getMySalonThunk } from "../../../middleware/salon/salon.thunk";
+import { fetchMeThunk } from "../../../middleware/user/user.thunk";
 import "../styles/DashboardPage.scss";
 
 import DashboardTopbar from "./DashboardTopbar";
@@ -21,6 +22,7 @@ export default function DashboardLayout() {
 
   useEffect(() => {
     dispatch(getMySalonThunk());
+    dispatch(fetchMeThunk());
   }, [dispatch]);
 
   const handleLogout = () => {
