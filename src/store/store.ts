@@ -28,7 +28,9 @@ import marketingReducer from "./marketingSlice";
 const authPersistConfig = {
   key: "auth",
   storage,
-  whitelist: ["accessToken", "refreshToken", "isOnboardingComplete"],
+  // accessToken intentionally excluded — it is short-lived and must be
+  // re-issued via refreshToken on every app boot, never read from localStorage.
+  whitelist: ["refreshToken", "isOnboardingComplete"],
 };
 
 export const store = configureStore({
