@@ -140,8 +140,8 @@ export default function VenueLocationPage() {
 
   return (
     <div className="container-fluid p-0 venue-page position-relative">
-      <div className="progress rounded-0 progress-top">
-        <div className="progress-bar progress-fill" />
+      <div className="progress rounded-0" style={{ height: "4px" }}>
+        <div className="progress-bar bg-dark" style={{ width: "60%" }} />
       </div>
 
       {/* Top Right Buttons overlay */}

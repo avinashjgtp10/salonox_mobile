@@ -1,6 +1,5 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { FiArrowRight } from "react-icons/fi";
 import "../styles/BusinessNamePage.scss";
 import { useOnboarding } from "../../../context/OnboardingContext";
 import salonImg from "../../../assets/images/salon.jpg";
@@ -94,15 +93,7 @@ export default function BusinessNamePage() {
             style={{ zIndex: 0 }}
           />
 
-          {/* Desktop Continue Button on Image */}
-          <div className="position-absolute top-0 end-0 p-4 z-3">
-            <button
-              className="btn btn-dark rounded-pill px-4"
-              onClick={handleContinue}
-            >
-              Continue <FiArrowRight size={16} className="ms-1" />
-            </button>
-          </div>
+
         </div>
       </div>
     </div>
