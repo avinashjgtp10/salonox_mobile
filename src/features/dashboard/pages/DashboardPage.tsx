@@ -1,3 +1,4 @@
+import { useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/DashboardPage.scss";
 import { useNavigate } from "react-router-dom";
@@ -28,6 +29,7 @@ import {
   CartPlus,
   Megaphone,
   ChevronRight,
+  ChevronLeft,
   StarFill,
   CircleFill,
 } from "react-bootstrap-icons";
@@ -68,51 +70,21 @@ const serviceDistribution = [
 ];
 
 const recentAppointments = [
-  {
-    id: 1,
-    client: "Priya Sharma",
-    service: "Hair Color + Cut",
-    staff: "Anita K.",
-    time: "10:00 AM",
-    status: "completed",
-    amount: 2800,
-  },
-  {
-    id: 2,
-    client: "Rahul Mehta",
-    service: "Beard Trim",
-    staff: "Raj S.",
-    time: "11:30 AM",
-    status: "completed",
-    amount: 400,
-  },
-  {
-    id: 3,
-    client: "Sneha Patel",
-    service: "Facial + Cleanup",
-    staff: "Pooja M.",
-    time: "12:00 PM",
-    status: "in-progress",
-    amount: 1500,
-  },
-  {
-    id: 4,
-    client: "Arjun Verma",
-    service: "Haircut",
-    staff: "Raj S.",
-    time: "1:30 PM",
-    status: "upcoming",
-    amount: 600,
-  },
-  {
-    id: 5,
-    client: "Meera Joshi",
-    service: "Bridal Package",
-    staff: "Anita K.",
-    time: "3:00 PM",
-    status: "upcoming",
-    amount: 8500,
-  },
+  { id: 1,  client: "Priya Sharma",   service: "Hair Color + Cut",    staff: "Anita K.",  time: "09:00 AM", status: "completed",   amount: 2800 },
+  { id: 2,  client: "Rahul Mehta",    service: "Beard Trim",          staff: "Raj S.",    time: "09:30 AM", status: "completed",   amount: 400  },
+  { id: 3,  client: "Sneha Patel",    service: "Facial + Cleanup",    staff: "Pooja M.",  time: "10:00 AM", status: "in-progress", amount: 1500 },
+  { id: 4,  client: "Arjun Verma",    service: "Haircut",             staff: "Raj S.",    time: "10:30 AM", status: "upcoming",    amount: 600  },
+  { id: 5,  client: "Meera Joshi",    service: "Bridal Package",      staff: "Anita K.",  time: "11:00 AM", status: "upcoming",    amount: 8500 },
+  { id: 6,  client: "Kavya Reddy",    service: "Manicure + Pedicure", staff: "Pooja M.",  time: "11:30 AM", status: "upcoming",    amount: 1200 },
+  { id: 7,  client: "Vikram Singh",   service: "Hair Spa",            staff: "Anita K.",  time: "12:00 PM", status: "completed",   amount: 1800 },
+  { id: 8,  client: "Nisha Agarwal",  service: "Threading",           staff: "Pooja M.",  time: "12:30 PM", status: "completed",   amount: 250  },
+  { id: 9,  client: "Rohan Kapoor",   service: "Haircut + Beard",     staff: "Raj S.",    time: "01:00 PM", status: "cancelled",   amount: 750  },
+  { id: 10, client: "Ananya Das",     service: "Deep Conditioning",   staff: "Anita K.",  time: "01:30 PM", status: "upcoming",    amount: 1100 },
+  { id: 11, client: "Suresh Kumar",   service: "Classic Shave",       staff: "Raj S.",    time: "02:00 PM", status: "upcoming",    amount: 350  },
+  { id: 12, client: "Divya Menon",    service: "Balayage",            staff: "Anita K.",  time: "02:30 PM", status: "upcoming",    amount: 4500 },
+  { id: 13, client: "Kiran Nair",     service: "Eyebrow Shaping",     staff: "Pooja M.",  time: "03:00 PM", status: "upcoming",    amount: 300  },
+  { id: 14, client: "Aditya Rao",     service: "Scalp Treatment",     staff: "Anita K.",  time: "03:30 PM", status: "upcoming",    amount: 2200 },
+  { id: 15, client: "Tanya Gupta",    service: "Keratin Treatment",   staff: "Anita K.",  time: "04:00 PM", status: "upcoming",    amount: 5500 },
 ];
 
 const topStaff = [
@@ -220,8 +192,28 @@ const StatusBadge = ({ status }: { status: string }) => {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+const PAGE_SIZE = 5;
+
+function getPageNumbers(current: number, total: number): (number | "...")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages: (number | "...")[] = [1];
+  if (current > 3) pages.push("...");
+  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) pages.push(i);
+  if (current < total - 2) pages.push("...");
+  pages.push(total);
+  return pages;
+}
+
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const [apptPage, setApptPage] = useState(1);
+
+  const totalApptPages = Math.ceil(recentAppointments.length / PAGE_SIZE);
+  const pagedAppointments = recentAppointments.slice(
+    (apptPage - 1) * PAGE_SIZE,
+    apptPage * PAGE_SIZE
+  );
+
   const today = new Date().toLocaleDateString("en-IN", {
     weekday: "long",
     year: "numeric",
@@ -340,20 +332,38 @@ export default function DashboardPage() {
 
       </div>
 
-      {/* ── BOTTOM ROW ── */}
-      <div className="db-bottom-row">
+      {/* ── TODAY'S APPOINTMENTS (full-width section) ── */}
+      <div className="db-appt-section">
 
-        {/* Recent Appointments */}
-        <div className="db-card db-card-xl">
-          <div className="db-card-header">
-            <div>
-              <h3 className="db-card-title">Today's Appointments</h3>
-              <p className="db-card-sub">Live status updates</p>
-            </div>
-            <button className="db-view-all" onClick={() => navigate("/dashboard/calendar")}>
-              View all <ChevronRight size={14} />
-            </button>
+        {/* Section Header */}
+        <div className="db-appt-section-header">
+          <div>
+            <h3 className="db-appt-section-title">Today's Appointments</h3>
+            <p className="db-appt-section-sub">
+              Live status updates ·{" "}
+              <span className="db-appt-section-count">
+                {recentAppointments.length} total
+              </span>
+            </p>
           </div>
+          <div className="db-appt-section-chips">
+            <span className="db-appt-chip db-appt-chip-success">
+              {recentAppointments.filter(a => a.status === "completed").length} Completed
+            </span>
+            <span className="db-appt-chip db-appt-chip-info">
+              {recentAppointments.filter(a => a.status === "in-progress").length} In Progress
+            </span>
+            <span className="db-appt-chip db-appt-chip-warning">
+              {recentAppointments.filter(a => a.status === "upcoming").length} Upcoming
+            </span>
+            <span className="db-appt-chip db-appt-chip-danger">
+              {recentAppointments.filter(a => a.status === "cancelled").length} Cancelled
+            </span>
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="db-appt-table-wrap">
           <div className="db-appt-table">
             <div className="db-appt-head">
               <span>Client</span>
@@ -363,7 +373,7 @@ export default function DashboardPage() {
               <span>Amount</span>
               <span>Status</span>
             </div>
-            {recentAppointments.map((appt) => (
+            {pagedAppointments.map((appt) => (
               <div className="db-appt-row" key={appt.id}>
                 <span className="db-appt-client">
                   <span className="db-avatar">{appt.client.charAt(0)}</span>
@@ -381,78 +391,128 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Right Column */}
-        <div className="db-right-col">
+        {/* Pagination */}
+        <div className="db-appt-pagination">
+          <span className="db-appt-pg-info">
+            Showing{" "}
+            <strong>{(apptPage - 1) * PAGE_SIZE + 1}–{Math.min(apptPage * PAGE_SIZE, recentAppointments.length)}</strong>
+            {" "}of <strong>{recentAppointments.length}</strong> appointments
+          </span>
 
-          {/* Service Distribution Pie */}
-          <div className="db-card">
-            <div className="db-card-header">
-              <div>
-                <h3 className="db-card-title">Service Mix</h3>
-                <p className="db-card-sub">By booking share</p>
-              </div>
+          <div className="db-appt-pg-controls">
+            <button
+              className="db-pg-btn db-pg-nav"
+              onClick={() => setApptPage(p => p - 1)}
+              disabled={apptPage === 1}
+              aria-label="Previous page"
+            >
+              <ChevronLeft size={13} />
+              <span>Prev</span>
+            </button>
+
+            <div className="db-pg-numbers">
+              {getPageNumbers(apptPage, totalApptPages).map((page, idx) =>
+                page === "..." ? (
+                  <span key={`ellipsis-${idx}`} className="db-pg-ellipsis">…</span>
+                ) : (
+                  <button
+                    key={page}
+                    className={`db-pg-btn${apptPage === page ? " active" : ""}`}
+                    onClick={() => setApptPage(page as number)}
+                    aria-label={`Page ${page}`}
+                    aria-current={apptPage === page ? "page" : undefined}
+                  >
+                    {page}
+                  </button>
+                )
+              )}
             </div>
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={serviceDistribution}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={80}
-                  paddingAngle={3}
-                  dataKey="value"
-                >
-                  {serviceDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(v) => `${v}%`} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="db-pie-legend">
-              {serviceDistribution.map((s) => (
-                <div className="db-pie-legend-item" key={s.name}>
-                  <CircleFill size={8} color={s.color} />
-                  <span>{s.name}</span>
-                  <span className="ms-auto fw-semibold">{s.value}%</span>
-                </div>
-              ))}
-            </div>
+
+            <button
+              className="db-pg-btn db-pg-nav"
+              onClick={() => setApptPage(p => p + 1)}
+              disabled={apptPage === totalApptPages}
+              aria-label="Next page"
+            >
+              <span>Next</span>
+              <ChevronRight size={13} />
+            </button>
           </div>
-
-          {/* Top Staff */}
-          <div className="db-card">
-            <div className="db-card-header">
-              <div>
-                <h3 className="db-card-title">Top Staff</h3>
-                <p className="db-card-sub">This month</p>
-              </div>
-              <button className="db-view-all" onClick={() => navigate("/dashboard/team/staff")}>
-                View all <ChevronRight size={14} />
-              </button>
-            </div>
-            <div className="db-staff-list">
-              {topStaff.map((s, i) => (
-                <div className="db-staff-item" key={s.name}>
-                  <span className="db-rank">#{i + 1}</span>
-                  <div className="db-staff-avatar">{s.avatar}</div>
-                  <div className="db-staff-info">
-                    <div className="db-staff-name">{s.name}</div>
-                    <div className="db-staff-role">{s.role}</div>
-                  </div>
-                  <div className="db-staff-stats">
-                    <div className="db-staff-rev">₹{(s.revenue / 1000).toFixed(0)}k</div>
-                    <div className="db-staff-rating">
-                      <StarFill size={10} color="#f59e0b" /> {s.rating}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
         </div>
+
+      </div>
+
+      {/* ── BOTTOM ROW (Service Mix + Top Staff) ── */}
+      <div className="db-bottom-row">
+
+        {/* Service Distribution Pie */}
+        <div className="db-card">
+          <div className="db-card-header">
+            <div>
+              <h3 className="db-card-title">Service Mix</h3>
+              <p className="db-card-sub">By booking share</p>
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <PieChart>
+              <Pie
+                data={serviceDistribution}
+                cx="50%"
+                cy="50%"
+                innerRadius={55}
+                outerRadius={80}
+                paddingAngle={3}
+                dataKey="value"
+              >
+                {serviceDistribution.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(v) => `${v}%`} />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="db-pie-legend">
+            {serviceDistribution.map((s) => (
+              <div className="db-pie-legend-item" key={s.name}>
+                <CircleFill size={8} color={s.color} />
+                <span>{s.name}</span>
+                <span className="ms-auto fw-semibold">{s.value}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Top Staff */}
+        <div className="db-card">
+          <div className="db-card-header">
+            <div>
+              <h3 className="db-card-title">Top Staff</h3>
+              <p className="db-card-sub">This month</p>
+            </div>
+            <button className="db-view-all" onClick={() => navigate("/dashboard/team/staff")}>
+              View all <ChevronRight size={14} />
+            </button>
+          </div>
+          <div className="db-staff-list">
+            {topStaff.map((s, i) => (
+              <div className="db-staff-item" key={s.name}>
+                <span className="db-rank">#{i + 1}</span>
+                <div className="db-staff-avatar">{s.avatar}</div>
+                <div className="db-staff-info">
+                  <div className="db-staff-name">{s.name}</div>
+                  <div className="db-staff-role">{s.role}</div>
+                </div>
+                <div className="db-staff-stats">
+                  <div className="db-staff-rev">₹{(s.revenue / 1000).toFixed(0)}k</div>
+                  <div className="db-staff-rating">
+                    <StarFill size={10} color="#f59e0b" /> {s.rating}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
       </div>
 
       {/* ── QUICK STATS STRIP ── */}
