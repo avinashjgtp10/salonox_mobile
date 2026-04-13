@@ -1,0 +1,206 @@
+@use "../../../styles/themes/variables" as *;
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  background: $white;
+  border-bottom: 1px solid $dashboard-border;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  height: 48px;
+  flex-shrink: 0;
+  font-family: inherit;
+
+  &__arrow {
+    font-size: 9px;
+    opacity: 0.6;
+
+    &--faint { opacity: 0.5; }
+  }
+
+  &__spacer { flex: 1; min-width: 0; }
+
+  /* View dropdown trigger */
+  &__view-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 5px 9px;
+    background: $white;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background 0.15s;
+
+    &:hover { background: #f9fafb; }
+  }
+
+  /* Prev / Next */
+  &__nav-btn {
+    flex-shrink: 0;
+    background: none;
+    border: 1px solid $dashboard-border;
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 1;
+    font-family: inherit;
+    transition: background 0.15s;
+
+    &:hover { background: #f3f4f6; }
+  }
+
+  /* Date picker trigger */
+  &__date-btn {
+    font-size: 13px;
+    font-weight: 600;
+    color: #111827;
+    text-align: center;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 5px 8px;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: all 0.15s;
+
+    &--active {
+      background: #f3f4f6;
+      border-color: #d1d5db;
+    }
+
+    &:hover { background: #f3f4f6; }
+  }
+
+  /* Today */
+  &__today-btn {
+    flex-shrink: 0;
+    border: 1px solid $info;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+    background: #eff6ff;
+    color: $info;
+    transition: all 0.15s;
+
+    &--current {
+      border-color: $dashboard-border;
+      background: #f9fafb;
+      color: #9ca3af;
+    }
+  }
+
+  /* Interval pills group */
+  &__interval-group {
+    display: flex;
+    gap: 2px;
+    background: #f3f4f6;
+    border-radius: 6px;
+    padding: 3px;
+    flex-shrink: 0;
+  }
+
+  &__interval-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    background: transparent;
+    color: $dashboard-secondary;
+    white-space: nowrap;
+    transition: all 0.15s;
+
+    &--active {
+      background: $dashboard-primary;
+      color: $white;
+    }
+  }
+
+  /* Add button */
+  &__add-btn {
+    flex-shrink: 0;
+    background: $dashboard-primary;
+    color: $white;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+    transition: background 0.15s;
+
+    &:hover { background: #374151; }
+  }
+
+  /* Block time button */
+  &__block-btn {
+    flex-shrink: 0;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    background: $white;
+    font-weight: 500;
+    font-family: inherit;
+    white-space: nowrap;
+    transition: background 0.15s;
+
+    &:hover { background: #f9fafb; }
+  }
+}
+
+/* ── View dropdown portal ── */
+.topbar-drop {
+  position: fixed;
+  z-index: 99999;
+  background: $white;
+  border: 1px solid $dashboard-border;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  min-width: 140px;
+  overflow: hidden;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    padding: 9px 14px;
+    width: 100%;
+    background: $white;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    text-align: left;
+    font-weight: 400;
+    font-family: inherit;
+    transition: background 0.15s;
+
+    &--active { background: #f3f4f6; font-weight: 600; }
+    &:hover { background: #f9fafb; }
+  }
+}
+
+/* ── Date picker portal ── */
+.topbar-cal-portal {
+  position: fixed;
+  z-index: 99999;
+  transform: translateX(-50%);
+}

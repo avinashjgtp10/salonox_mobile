@@ -1,0 +1,129 @@
+@use "../../../styles/themes/variables" as *;
+
+.wv-root {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Gutter ── */
+.wv-gutter {
+  width: 70px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid $dashboard-border;
+  background: #fafafa;
+
+  &__corner {
+    height: 48px;
+    flex-shrink: 0;
+    border-bottom: 1px solid $dashboard-border;
+    background: $white;
+  }
+
+  &__body { flex: 1; overflow-y: hidden; }
+
+  &__slot {
+    height: 30px;
+    position: relative;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  &__time {
+    position: absolute;
+    top: -8px;
+    right: 6px;
+    font-size: 11px;
+    color: #9ca3af;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+}
+
+/* ── Days container ── */
+.wv-days {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Day headers ── */
+.wv-day-headers {
+  display: flex;
+  flex-shrink: 0;
+  height: 48px;
+  border-bottom: 1px solid $dashboard-border;
+  background: $white;
+}
+
+.wv-day-header {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid $dashboard-border;
+  background: $white;
+  transition: background 0.15s;
+
+  &--today { background: #eff6ff; }
+
+  &__name { font-size: 11px; color: #9ca3af; font-weight: 600; }
+  &__num { font-size: 13px; font-weight: 700; color: #374151; }
+  &__num--today { color: $info; }
+}
+
+/* ── Scrollable body ── */
+.wv-scroll-body { flex: 1; overflow-y: auto; overflow-x: hidden; }
+
+.wv-grid { display: flex; }
+
+/* ── Day column ── */
+.wv-day-col {
+  flex: 1;
+  border-right: 1px solid $dashboard-border;
+  position: relative;
+}
+
+/* ── Slot ── */
+.wv-slot {
+  height: 30px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+
+  &--hover { background: #f0f9ff; }
+}
+
+/* ── Booking chip ── */
+.wv-chip {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  border-radius: 4px;
+  padding: 2px 4px;
+  color: $white;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  z-index: 5;
+  overflow: hidden;
+
+  &--confirmed { background: linear-gradient(135deg, #22c55e, #16a34a); }
+  &--pending   { background: linear-gradient(135deg, #f59e0b, #d97706); }
+  &--cancelled { background: linear-gradient(135deg, #ef4444, #dc2626); }
+}
+
+/* ── Now line ── */
+.wv-now-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: $danger;
+  z-index: 8;
+  pointer-events: none;
+}
