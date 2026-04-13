@@ -1,0 +1,330 @@
+@use "../../../styles/themes/variables" as *;
+
+/* ── Root ── */
+.dv-root {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+  user-select: auto;
+  cursor: default;
+
+  &--interacting { user-select: none; }
+  &--dragging    { cursor: grabbing; }
+  &--resizing    { cursor: ns-resize; }
+}
+
+/* ── Time gutter ── */
+.dv-gutter {
+  width: 70px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid $dashboard-border;
+  background: #fafafa;
+  z-index: 10;
+  overflow: hidden;
+
+  &__header {
+    height: 64px;
+    flex-shrink: 0;
+    border-bottom: 1px solid $dashboard-border;
+    background: $white;
+  }
+
+  &__body {
+    flex: 1;
+    overflow-y: hidden;
+    overflow-x: hidden;
+  }
+
+  /* Each time slot row in the gutter — MUST match SLOT_HEIGHT = 48 */
+  &__slot {
+    height: 48px;
+    position: relative;
+    border-bottom: 1px solid #f0f0f0;
+
+    &--hour {
+      border-bottom-color: #d1d5db;
+      background: #f9fafb;
+    }
+  }
+
+  &__label {
+    position: absolute;
+    top: -8px;
+    right: 6px;
+    font-size: 10px;
+    color: #c4c4c4;
+    font-weight: 400;
+    white-space: nowrap;
+
+    &--hour {
+      color: $dashboard-secondary;
+      font-weight: 600;
+    }
+  }
+}
+
+/* ── Staff columns container ── */
+.dv-columns {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* ── Staff header ── */
+.dv-staff-header {
+  flex-shrink: 0;
+  height: 64px;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  border-bottom: 1px solid $dashboard-border;
+  background: $white;
+  z-index: 5;
+
+  &__inner { display: flex; height: 100%; }
+}
+
+.dv-staff-col-header {
+  flex-shrink: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-right: 1px solid $dashboard-border;
+  cursor: pointer;
+  background: $white;
+  transition: background 0.15s;
+
+  &--drag-target { background: #eff6ff; }
+  &:hover        { background: #f9fafb; }
+}
+
+.dv-staff-name {
+  font-size: 10px;
+  font-weight: 700;
+  color: #374151;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Scrollable body ── */
+.dv-scroll-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: auto;
+  position: relative;
+}
+
+/* ── Empty state ── */
+.dv-empty-state {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+  z-index: 10;
+
+  &__icon  { font-size: 40px; margin-bottom: 10px; }
+  &__title { font-size: 15px; font-weight: 700; color: #374151; margin-bottom: 6px; }
+  &__sub   { font-size: 12px; color: #9ca3af; }
+}
+
+/* ── Grid ── */
+.dv-grid {
+  display: flex;
+  position: relative;
+}
+
+/* ── Staff column ──
+   overflow: visible is CRITICAL — allows now-line label to bleed
+   left into the gutter on the first column */
+.dv-staff-col {
+  flex-shrink: 0;
+  border-right: 1px solid $dashboard-border;
+  position: relative;
+  background: transparent;
+  transition: background 0.15s;
+  overflow: visible;
+
+  &--drag-target { background: rgba(59, 130, 246, 0.04); }
+}
+
+/* ── Slot cell — height MUST equal SLOT_HEIGHT = 48 ── */
+.dv-slot {
+  height: 48px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+
+  &--hour    { border-bottom-color: #d1d5db; background: #fafafa; }
+  &--blocked { cursor: default; }
+  &--hover   { background: #f0f9ff; }
+}
+
+/* ── Block overlay ── */
+.dv-block-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: repeating-linear-gradient(
+    45deg, #fef2f2, #fef2f2 6px, #fee2e2 6px, #fee2e2 12px
+  );
+  border-left: 3px solid $danger;
+  z-index: 3;
+  display: flex;
+  align-items: flex-start;
+  padding: 4px 8px;
+  pointer-events: none;
+
+  &__label {
+    font-size: 11px;
+    font-weight: 600;
+    color: $danger;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* ── Booking chip ── */
+.dv-chip {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  border-radius: 6px;
+  color: $white;
+  font-size: 11px;
+  font-weight: 600;
+  overflow: hidden;
+  z-index: 5;
+  cursor: grab;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: box-shadow 0.1s;
+
+  &--confirmed { background: linear-gradient(135deg, #22c55e, #16a34a); }
+  &--pending   { background: linear-gradient(135deg, #f59e0b, #d97706); }
+  &--cancelled { background: linear-gradient(135deg, #ef4444, #dc2626); }
+
+  &--dragging {
+    z-index: 100;
+    opacity: 0.92;
+    cursor: grabbing;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    transition: none;
+  }
+
+  &--resizing {
+    z-index: 100;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    transition: none;
+  }
+
+  &__body    { padding: 4px 8px; }
+  &__time    { display: block; font-size: 10px; opacity: 0.9; }
+  &__service {
+    display: block;
+    font-weight: 700;
+    margin-top: 1px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  &__client  {
+    display: block;
+    font-size: 10px;
+    opacity: 0.85;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 1px;
+  }
+
+  &__resize-handle {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 14px;
+    cursor: ns-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 0 0 6px 6px;
+  }
+
+  &__resize-bar {
+    width: 28px;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: 2px;
+  }
+}
+
+/* ── Now line ──
+   Renders inside each staff column.
+   The label has left: -74px which bleeds into the gutter.
+   overflow: visible on .dv-staff-col allows this.
+   The label only renders in the first column (controlled in TSX). */
+.dv-now-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: $danger;
+  z-index: 8;
+  pointer-events: none;
+
+  &__label {
+    position: absolute;
+    left: -74px;
+    top: -10px;
+    background: $danger;
+    color: $white;
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+    z-index: 20;
+  }
+}
+
+/* ── Staff context menu ── */
+.dv-staff-menu {
+  position: fixed;
+  z-index: 9999;
+  background: $white;
+  border: 1px solid $dashboard-border;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  min-width: 200px;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    width: 100%;
+    background: $white;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    text-align: left;
+    font-family: inherit;
+    transition: background 0.15s;
+  }
+
+  &__divider { height: 1px; background: #f0f0f0; }
+}
