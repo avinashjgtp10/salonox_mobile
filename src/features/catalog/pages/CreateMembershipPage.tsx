@@ -1,135 +1,134 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import { XLg, Search, Check2, CreditCard2Front } from "react-bootstrap-icons";
+
+import type { AppDispatch } from "../../../store/store";
+import { createMembershipThunk } from "../../../middleware/membership/membership.thunk";
+import {
+  selectMembershipsSubmitting,
+  selectMembershipsError,
+} from "../../../store/selectors/membership.selectors";
+import { clearMembershipError } from "../../../store/membershipSlice";
+import type { IncludedService } from "../../../services/api/endpoints/memberships.endpoints";
+import { useServices } from "../hooks/useServices";
 import "../styles/CreateMembershipPage.scss";
 
-// ── Mock services data ────────────────────────────────────────────────────────
-const MOCK_SERVICES = [
-  {
-    id: 1,
-    category: "Hair & styling",
-    name: "Haircut",
-    duration: "45min",
-    price: 40,
-  },
-  {
-    id: 2,
-    category: "Hair & styling",
-    name: "Hair Color",
-    duration: "1h 15min",
-    price: 57,
-  },
-  {
-    id: 3,
-    category: "Hair & styling",
-    name: "Blow Dry",
-    duration: "35min",
-    price: 35,
-  },
-  {
-    id: 4,
-    category: "Hair & styling",
-    name: "Balayage",
-    duration: "2h 30min",
-    price: 150,
-  },
-];
+// ── Constants ─────────────────────────────────────────────────────────────────
 
-const COLOURS = ["#4A90D9", "#1a1a2e", "#16a34a", "#f59e0b", "#8b5cf6"];
+const COLOURS           = ["#4A90D9", "#1a1a2e", "#16a34a", "#f59e0b", "#8b5cf6"];
+const VALID_FOR_OPTIONS = ["1 month", "2 months", "3 months", "6 months", "1 year"];
+const SESSION_OPTIONS   = ["Limited", "Unlimited"];
+const TAX_OPTIONS       = ["No tax", "5", "12", "18", "28"];   // plain numbers, no %
 
-const VALID_FOR_OPTIONS = [
-  "1 month",
-  "2 months",
-  "3 months",
-  "6 months",
-  "1 year",
-];
-const SESSION_OPTIONS = ["Limited", "Unlimited"];
-const TAX_OPTIONS = ["No tax", "5%", "12%", "18%", "28%"];
+// ── Component ─────────────────────────────────────────────────────────────────
 
 const CreateMembershipPage: React.FC = () => {
-  const navigate = useNavigate();
+  const navigate   = useNavigate();
+  const dispatch   = useDispatch<AppDispatch>();
+  const submitting = useSelector(selectMembershipsSubmitting);
+  const apiError   = useSelector(selectMembershipsError);
+
+  // Real services from catalog
+  const { services: catalogServices, fetchServices } = useServices();
+
+  // Fetch services on mount
+  useEffect(() => { fetchServices(); }, [fetchServices]);
 
   // Basic info
   const [membershipName, setMembershipName] = useState("");
-  const [description, setDescription] = useState("");
+  const [description, setDescription]       = useState("");
 
   // Services & sessions
-  const [showServicesModal, setShowServicesModal] = useState(false);
-  const [selectedServiceIds, setSelectedServiceIds] = useState<number[]>([]);
-  const [pendingIds, setPendingIds] = useState<number[]>([]);
-  const [serviceSearch, setServiceSearch] = useState("");
-  const [sessions, setSessions] = useState("Limited");
-  const [numSessions, setNumSessions] = useState(5);
+  const [showServicesModal, setShowServicesModal]   = useState(false);
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [pendingIds, setPendingIds]                 = useState<string[]>([]);
+  const [serviceSearch, setServiceSearch]           = useState("");
+  const [sessions, setSessions]                     = useState("Limited");
+  const [numSessions, setNumSessions]               = useState(5);
 
   // Pricing
   const [validFor, setValidFor] = useState("1 month");
-  const [price, setPrice] = useState("");
+  const [price, setPrice]       = useState("");
+  const [taxRate, setTaxRate]   = useState("No tax");
 
-  // Tax
-  const [taxRate, setTaxRate] = useState("No tax");
-
-  // Colour
-  const [selectedColour, setSelectedColour] = useState(COLOURS[0]);
-
-  // Online
-  const [onlineSales, setOnlineSales] = useState(false);
+  // Colour / online / T&C
+  const [selectedColour, setSelectedColour]     = useState(COLOURS[0]);
+  const [onlineSales, setOnlineSales]           = useState(false);
   const [onlineRedemption, setOnlineRedemption] = useState(true);
+  const [terms, setTerms]                       = useState("");
 
-  // T&C
-  const [terms, setTerms] = useState("");
+  // Clear API errors on unmount
+  useEffect(() => () => { dispatch(clearMembershipError()); }, [dispatch]);
 
   // ── Modal helpers ────────────────────────────────────────────────────────────
+
   const openModal = () => {
     setPendingIds([...selectedServiceIds]);
     setServiceSearch("");
     setShowServicesModal(true);
   };
 
-  const toggleAll = () => {
-    if (pendingIds.length === MOCK_SERVICES.length) {
-      setPendingIds([]);
-    } else {
-      setPendingIds(MOCK_SERVICES.map((s) => s.id));
-    }
-  };
-
-  const toggleService = (id: number) => {
-    setPendingIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+  const toggleAll = () =>
+    setPendingIds(
+      pendingIds.length === catalogServices.length
+        ? []
+        : catalogServices.map((s) => String(s.id))
     );
-  };
+
+  const toggleService = (id: string) =>
+    setPendingIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
 
   const confirmSelection = () => {
     setSelectedServiceIds(pendingIds);
     setShowServicesModal(false);
   };
 
-  const filteredServices = MOCK_SERVICES.filter((s) =>
-    s.name.toLowerCase().includes(serviceSearch.toLowerCase()),
+  const filteredServices = catalogServices.filter((s) =>
+    s.name.toLowerCase().includes(serviceSearch.toLowerCase())
   );
 
-  const handleSubmit = () => {
-    console.log({
-      membershipName,
-      description,
-      selectedServiceIds,
-      sessions,
-      numSessions,
-      validFor,
-      price,
-      taxRate,
-      selectedColour,
-      onlineSales,
-      onlineRedemption,
-      terms,
+  // ── Submit ───────────────────────────────────────────────────────────────────
+
+  const handleSubmit = async () => {
+    const includedServices: IncludedService[] = selectedServiceIds.map((id) => {
+      const svc = catalogServices.find((s) => String(s.id) === id)!;
+      return { serviceId: String(svc.id), serviceName: svc.name };
     });
-    navigate("/dashboard/catalog/memberships");
+
+    // Parse tax rate: "No tax" → undefined, "18" → 18
+    const taxRateNum: number | undefined =
+      taxRate === "No tax" ? undefined : parseFloat(taxRate);
+
+    const result = await dispatch(
+      createMembershipThunk({
+        name:                   membershipName.trim(),
+        description:            description.trim() || undefined,
+        includedServices,
+        sessionType:            sessions.toLowerCase(),
+        numberOfSessions:       sessions === "Limited" ? numSessions : undefined,
+        validFor,
+        price:                  parseFloat(price),
+        taxRate:                taxRateNum,
+        colour:                 selectedColour,
+        enableOnlineSales:      onlineSales,
+        enableOnlineRedemption: onlineRedemption,
+        termsAndConditions:     terms.trim() || undefined,
+      })
+    );
+
+    if (createMembershipThunk.fulfilled.match(result)) {
+      navigate("/dashboard/catalog/memberships/list");
+    }
   };
+
+  // ─────────────────────────────────────────────────────────────────────────────
 
   return (
     <div className="cmp">
-      {/* ── Top bar ── */}
+      {/* Top bar */}
       <div className="cmp__topbar d-flex align-items-center justify-content-between px-4 shadow-sm">
         <button className="cmp__close-btn" onClick={() => navigate(-1)}>
           <XLg size={20} />
@@ -138,19 +137,24 @@ const CreateMembershipPage: React.FC = () => {
         <button
           className="btn cmp__submit-btn"
           onClick={handleSubmit}
-          disabled={!membershipName.trim()}
+          disabled={!membershipName.trim() || submitting}
         >
-          Create membership
+          {submitting ? "Creating…" : "Create membership"}
         </button>
       </div>
 
-      {/* ── Scrollable body ── */}
+      {/* API error banner */}
+      {apiError && (
+        <div className="alert alert-danger mx-4 mt-3 mb-0">{apiError}</div>
+      )}
+
+      {/* Scrollable body */}
       <div className="cmp__body">
         <div className="container-narrow">
+
           {/* 1. Basic info */}
           <div className="cmp__section">
             <h6 className="cmp__section-title">Basic info</h6>
-
             <div className="mb-4">
               <label className="cmp__label">Membership name</label>
               <input
@@ -161,13 +165,10 @@ const CreateMembershipPage: React.FC = () => {
                 onChange={(e) => setMembershipName(e.target.value)}
               />
             </div>
-
             <div className="mb-1">
               <label className="cmp__label d-flex justify-content-between">
-                <span>Membership description</span>
-                <span className="cmp__char-count">
-                  {description.length}/360
-                </span>
+                <span>Description</span>
+                <span className="cmp__char-count">{description.length}/360</span>
               </label>
               <textarea
                 className="cmp__textarea form-control"
@@ -186,7 +187,6 @@ const CreateMembershipPage: React.FC = () => {
             <p className="cmp__section-sub">
               Add the services and sessions included in the membership.
             </p>
-
             <label className="cmp__label">Included services</label>
             <div className="cmp__services-row d-flex align-items-center justify-content-between mb-3 p-3 rounded-3 border">
               <span className="cmp__services-count fw-medium">
@@ -197,21 +197,16 @@ const CreateMembershipPage: React.FC = () => {
                 Edit
               </button>
             </div>
-
             <div className="row g-3">
               <div className="col-6">
                 <label className="cmp__label">Sessions</label>
-                <div className="position-relative">
-                  <select
-                    className="cmp__select form-select"
-                    value={sessions}
-                    onChange={(e) => setSessions(e.target.value)}
-                  >
-                    {SESSION_OPTIONS.map((o) => (
-                      <option key={o}>{o}</option>
-                    ))}
-                  </select>
-                </div>
+                <select
+                  className="cmp__select form-select"
+                  value={sessions}
+                  onChange={(e) => setSessions(e.target.value)}
+                >
+                  {SESSION_OPTIONS.map((o) => <option key={o}>{o}</option>)}
+                </select>
               </div>
               {sessions === "Limited" && (
                 <div className="col-6">
@@ -234,7 +229,6 @@ const CreateMembershipPage: React.FC = () => {
             <p className="cmp__section-sub">
               Choose how you'd like your clients to pay.
             </p>
-
             <div className="row g-3">
               <div className="col-6">
                 <label className="cmp__label">Valid for</label>
@@ -243,9 +237,7 @@ const CreateMembershipPage: React.FC = () => {
                   value={validFor}
                   onChange={(e) => setValidFor(e.target.value)}
                 >
-                  {VALID_FOR_OPTIONS.map((o) => (
-                    <option key={o}>{o}</option>
-                  ))}
+                  {VALID_FOR_OPTIONS.map((o) => <option key={o}>{o}</option>)}
                 </select>
               </div>
               <div className="col-6">
@@ -275,13 +267,15 @@ const CreateMembershipPage: React.FC = () => {
                 onChange={(e) => setTaxRate(e.target.value)}
               >
                 {TAX_OPTIONS.map((o) => (
-                  <option key={o}>{o}</option>
+                  <option key={o} value={o}>
+                    {o === "No tax" ? "No tax" : `${o}%`}
+                  </option>
                 ))}
               </select>
             </div>
           </div>
 
-          {/* 5. Colour customisation */}
+          {/* 5. Colour */}
           <div className="cmp__section">
             <h6 className="cmp__section-title">Colour customisation</h6>
             <p className="cmp__section-sub">
@@ -299,10 +293,9 @@ const CreateMembershipPage: React.FC = () => {
             </div>
           </div>
 
-          {/* 6. Online sales & redemption */}
+          {/* 6. Online sales */}
           <div className="cmp__section">
             <h6 className="cmp__section-title">Online sales and redemption</h6>
-
             <div className="cmp__toggle-row mb-4">
               <div className="d-flex align-items-center gap-3">
                 <div
@@ -310,9 +303,7 @@ const CreateMembershipPage: React.FC = () => {
                   onClick={() => setOnlineSales(!onlineSales)}
                 />
                 <div>
-                  <div
-                    className={`small fw-bold ${!onlineSales ? "text-muted" : ""}`}
-                  >
+                  <div className={`small fw-bold ${!onlineSales ? "text-muted" : ""}`}>
                     Enable online sales
                   </div>
                   <div className="cmp__toggle-sub">
@@ -321,7 +312,6 @@ const CreateMembershipPage: React.FC = () => {
                 </div>
               </div>
             </div>
-
             <div className="cmp__toggle-row mb-4">
               <div className="d-flex align-items-center gap-3">
                 <div
@@ -336,28 +326,20 @@ const CreateMembershipPage: React.FC = () => {
                 </div>
               </div>
             </div>
-
-            {/* Info banner */}
             <div className="cmp__info-banner d-flex align-items-center justify-content-between p-3 rounded-4">
               <p className="mb-0 small fw-medium">
-                Online membership sales are coming soon to India with payments
-                in salonox
+                Online membership sales are coming soon to India with payments in salonox
               </p>
-              <CreditCard2Front
-                size={28}
-                className="text-primary opacity-50 ms-3"
-              />
+              <CreditCard2Front size={28} className="text-primary opacity-50 ms-3" />
             </div>
           </div>
 
-          {/* 7. Terms & Conditions */}
+          {/* 7. T&C */}
           <div className="cmp__section border-0">
             <h6 className="cmp__section-title">Terms &amp; Conditions</h6>
             <p className="cmp__section-sub">
-              If there are any rules attached to your membership it's a good
-              place to mention them.
+              If there are any rules attached to your membership, mention them here.
             </p>
-
             <div className="mb-1">
               <label className="cmp__label d-flex justify-content-between">
                 <span>
@@ -376,17 +358,17 @@ const CreateMembershipPage: React.FC = () => {
               />
             </div>
           </div>
+
         </div>
       </div>
 
-      {/* ── Select Services Modal ── */}
+      {/* Select Services Modal */}
       {showServicesModal && (
         <div
           className="cmp__modal-overlay"
           onClick={() => setShowServicesModal(false)}
         >
           <div className="cmp__modal" onClick={(e) => e.stopPropagation()}>
-            {/* Modal header */}
             <div className="cmp__modal-header d-flex align-items-center justify-content-between mb-4">
               <h6 className="mb-0 fw-bold fs-5">Select services</h6>
               <button
@@ -396,8 +378,6 @@ const CreateMembershipPage: React.FC = () => {
                 <XLg size={20} />
               </button>
             </div>
-
-            {/* Search */}
             <div className="cmp__modal-search position-relative mb-4">
               <Search className="cmp__modal-search-icon" />
               <input
@@ -408,52 +388,52 @@ const CreateMembershipPage: React.FC = () => {
                 onChange={(e) => setServiceSearch(e.target.value)}
               />
             </div>
-
-            {/* Select all */}
             <div
               className="cmp__modal-row cmp__modal-row--all d-flex align-items-center gap-3 mb-2"
               onClick={toggleAll}
             >
               <div
-                className={`cmp__checkbox ${pendingIds.length === MOCK_SERVICES.length ? "cmp__checkbox--checked" : ""}`}
+                className={`cmp__checkbox ${
+                  pendingIds.length === catalogServices.length
+                    ? "cmp__checkbox--checked"
+                    : ""
+                }`}
               >
-                {pendingIds.length === MOCK_SERVICES.length && (
+                {pendingIds.length === catalogServices.length && (
                   <Check2 size={12} className="text-white" />
                 )}
               </div>
               <span className="small fw-bold">All services</span>
-              <span className="cmp__badge ms-1">{MOCK_SERVICES.length}</span>
+              <span className="cmp__badge ms-1">{catalogServices.length}</span>
             </div>
-
             <hr className="cmp__modal-divider my-3" />
-
-            {/* Category header */}
             <div className="cmp__modal-category d-flex align-items-center gap-2 mb-3 px-1">
-              <div className="cmp__checkbox cmp__checkbox--indeterminate" />
-              <span className="small fw-bold">Hair &amp; styling</span>
+              <span className="small fw-bold">All services</span>
               <span className="cmp__badge">{filteredServices.length}</span>
             </div>
-
-            {/* Service list */}
             <div className="cmp__modal-list">
               {filteredServices.map((svc) => (
                 <div
                   key={svc.id}
                   className="cmp__modal-row d-flex align-items-center justify-content-between mb-1"
-                  onClick={() => toggleService(svc.id)}
+                  onClick={() => toggleService(String(svc.id))}
                 >
                   <div className="d-flex align-items-center gap-3">
                     <div
-                      className={`cmp__checkbox ${pendingIds.includes(svc.id) ? "cmp__checkbox--checked" : ""}`}
+                      className={`cmp__checkbox ${
+                        pendingIds.includes(String(svc.id))
+                          ? "cmp__checkbox--checked"
+                          : ""
+                      }`}
                     >
-                      {pendingIds.includes(svc.id) && (
+                      {pendingIds.includes(String(svc.id)) && (
                         <Check2 size={12} className="text-white" />
                       )}
                     </div>
                     <div>
                       <div className="small fw-bold">{svc.name}</div>
                       <div className="cmp__modal-duration text-muted extra-small">
-                        {svc.duration}
+                        {svc.duration ? `${svc.duration} min` : ""}
                       </div>
                     </div>
                   </div>
@@ -461,8 +441,6 @@ const CreateMembershipPage: React.FC = () => {
                 </div>
               ))}
             </div>
-
-            {/* Modal footer */}
             <div className="cmp__modal-footer d-flex align-items-center justify-content-end gap-3 mt-4 pt-4 border-top">
               <button
                 className="btn btn-outline-dark rounded-pill px-4 fw-bold"
