@@ -1,4 +1,5 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
+import axios from "axios";
 import api from "../../services/api/axios";
 import { AUTH } from "../../services/api/endpoints";
 import { ApiError } from "../../services/api/interceptors";
@@ -22,6 +23,33 @@ export const loginThunk = createAsyncThunk<
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Invalid email or password");
+  }
+});
+
+// ── Silent session restore (app boot) ────────────────────────────────────────
+// Uses plain axios — bypasses the response interceptor to avoid a refresh loop
+// if the refresh token itself is invalid.
+export const refreshSessionThunk = createAsyncThunk<
+  string,          // resolves with the new access token
+  void,
+  { rejectValue: string }
+>("auth/refreshSession", async (_, { getState, rejectWithValue }) => {
+  const state = getState() as any;
+  const refreshToken: string | null = state.auth?.refreshToken ?? null;
+
+  if (!refreshToken) {
+    return rejectWithValue("No refresh token available");
+  }
+
+  try {
+    const res = await axios.post<{ accessToken: string }>(
+      `${import.meta.env.VITE_API_BASE_URL}${AUTH.REFRESH_TOKEN}`,
+      { refreshToken },
+      { headers: { "Content-Type": "application/json" } },
+    );
+    return res.data.accessToken;
+  } catch {
+    return rejectWithValue("Refresh token expired or invalid");
   }
 });
 

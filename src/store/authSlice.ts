@@ -1,5 +1,9 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { loginThunk, registerThunk } from "../middleware/auth/authThunk";
+import {
+  loginThunk,
+  registerThunk,
+  refreshSessionThunk,
+} from "../middleware/auth/authThunk";
 import {
   sendEmailOtpThunk,
   verifyEmailOtpThunk,
@@ -100,6 +104,21 @@ const authSlice = createSlice({
       .addCase(loginThunk.rejected, (state, { payload }) => {
         state.loading.login = false;
         state.error = payload ?? "Login failed";
+      });
+
+    // ── refreshSessionThunk ───────────────────────────────────────────────────
+    // Runs on every app boot when accessToken is absent but refreshToken exists.
+    // On success  → store the new access token in Redux memory only (not localStorage).
+    // On failure  → clear auth state so the user is redirected to /login.
+    builder
+      .addCase(refreshSessionThunk.fulfilled, (state, { payload }) => {
+        state.accessToken = payload;
+      })
+      .addCase(refreshSessionThunk.rejected, (state) => {
+        state.accessToken = null;
+        state.refreshToken = null;
+        state.isOnboardingComplete = false;
+        state.error = null;
       });
 
     // ── registerThunk ─────────────────────────────────────────────────────────
