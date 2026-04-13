@@ -142,20 +142,19 @@ const NewAppointmentModal: React.FC<Props> = ({
   const [showPkgModal, setShowPkgModal] = useState(false);
   const [savedBooking, setSavedBooking] = useState<Booking | null>(null);
 
-  // ── Inline Add Client form state ──────────────────────────────────────────
-  const [showAddClientForm, setShowAddClientForm] = useState(false);
-  const [newClientName, setNewClientName] = useState("");
-  const [newClientMobile, setNewClientMobile] = useState("");
-  const [newClientGender, setNewClientGender] = useState("");
-  const [addClientErrors, setAddClientErrors] = useState<{
-    name?: string;
-    mobile?: string;
-    gender?: string;
-  }>({});
-
   const [serviceRows, setServiceRows] = useState<TempService[]>(
     existingBooking?.services.map((s) => ({ ...s, tempId: "sr_" + s.id })) || [
-      { tempId: "sr_" + Date.now(), id: "", service: "", staff: "", staffId: defaultStaffId || "", time: defaultTime || "10:00", price: 0, qty: 0, total: 0 },
+      {
+        tempId: "sr_" + Date.now(),
+        id: "",
+        service: "",
+        staff: "",
+        staffId: defaultStaffId || "",
+        time: defaultTime || "10:00",
+        price: 0,
+        qty: 0,
+        total: 0,
+      },
     ],
   );
   const [packageRows, setPackageRows] = useState<TempPkg[]>(
@@ -184,11 +183,15 @@ const NewAppointmentModal: React.FC<Props> = ({
   const filteredClients = CLIENT_LIST.filter(
     (c) =>
       clientSearch.length >= 2 &&
-      (c.name.toLowerCase().includes(clientSearch.toLowerCase()) || c.phone.includes(clientSearch)),
+      (c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
+        c.phone.includes(clientSearch)),
   );
 
-  const subtotal = [...serviceRows, ...packageRows, ...productRows].reduce((a, r) => a + (r.total || 0), 0);
-  const discountVal = discountType === "Percentage (%)" ? (subtotal * discount) / 100 : discount;
+  const subtotal = [...serviceRows, ...packageRows, ...productRows].reduce(
+    (a, r) => a + (r.total || 0), 0,
+  );
+  const discountVal =
+    discountType === "Percentage (%)" ? (subtotal * discount) / 100 : discount;
   const totalDisc = Math.min(discountVal + couponDiscount, subtotal);
   const taxable = Math.max(0, subtotal - totalDisc);
   const grandTotal = taxable + (taxable * gst) / 100 + exCharges + tip;
@@ -205,46 +208,7 @@ const NewAppointmentModal: React.FC<Props> = ({
     setSelectedClientId(null);
     setClientSearch("Walk-In");
     setShowClientDrop(false);
-    setShowAddClientForm(false);
     setValidationErrors((e) => e.filter((x) => x !== "client"));
-  }
-
-  function handleAddClientToggle() {
-    if (showAddClientForm) {
-      // cancel — reset fields
-      setShowAddClientForm(false);
-      setNewClientName("");
-      setNewClientMobile("");
-      setNewClientGender("");
-      setAddClientErrors({});
-    } else {
-      setShowAddClientForm(true);
-      setShowClientDrop(false);
-    }
-  }
-
-  function handleSaveNewClient() {
-    const errs: typeof addClientErrors = {};
-    if (!newClientName.trim()) errs.name = "Name is required";
-    if (!newClientMobile.trim()) {
-      errs.mobile = "Mobile is required";
-    } else if (!/^\d{10}$/.test(newClientMobile.trim())) {
-      errs.mobile = "Enter a valid 10-digit number";
-    }
-    if (!newClientGender) errs.gender = "Select a gender";
-    if (Object.keys(errs).length > 0) { setAddClientErrors(errs); return; }
-
-    // Auto-fill the search with the new client name and close the form
-    setClientSearch(newClientName.trim());
-    setIsWalkin(false);
-    setSelectedClientId(null);
-    setValidationErrors((ev) => ev.filter((x) => x !== "client"));
-    setShowAddClientForm(false);
-    setNewClientName("");
-    setNewClientMobile("");
-    setNewClientGender("");
-    setAddClientErrors({});
-    // TODO: call api.post(CLIENT.BASE, { first_name, phone_number, gender }) here
   }
 
   function handleApplyCoupon() {
@@ -261,7 +225,9 @@ const NewAppointmentModal: React.FC<Props> = ({
   }
 
   function updateServiceRow(id: string, field: string, value: string | number | boolean) {
-    setServiceRows((rows) => rows.map((r) => (r.tempId !== id ? r : { ...r, [field]: value })));
+    setServiceRows((rows) =>
+      rows.map((r) => (r.tempId !== id ? r : { ...r, [field]: value })),
+    );
   }
   function removeServiceRow(id: string) {
     setServiceRows((rows) => rows.filter((r) => r.tempId !== id));
@@ -269,7 +235,15 @@ const NewAppointmentModal: React.FC<Props> = ({
   function addPackage(pkg: (typeof PACKAGES_LIST)[0]) {
     setPackageRows((r) => [
       ...r,
-      { tempId: "pk_" + Date.now(), id: "", packageId: pkg.id, packageName: pkg.name, price: pkg.price, qty: 1, total: pkg.price },
+      {
+        tempId: "pk_" + Date.now(),
+        id: "",
+        packageId: pkg.id,
+        packageName: pkg.name,
+        price: pkg.price,
+        qty: 1,
+        total: pkg.price,
+      },
     ]);
     setShowPkgModal(false);
   }
@@ -280,14 +254,22 @@ const NewAppointmentModal: React.FC<Props> = ({
   }
 
   function handleSave() {
-    const resolvedClientName = isWalkin ? "Walk-In" : selectedClient?.name || clientSearch || "";
-    const resolvedClientPhone = isWalkin ? "" : selectedClient?.phone || existingBooking?.clientPhone || "";
-    const errors = validateRows(serviceRows, packageRows, resolvedClientName, isWalkin, selectedClientId, payMode);
+    const resolvedClientName = isWalkin
+      ? "Walk-In"
+      : selectedClient?.name || clientSearch || "";
+    const resolvedClientPhone = isWalkin
+      ? ""
+      : selectedClient?.phone || existingBooking?.clientPhone || "";
+    const errors = validateRows(
+      serviceRows, packageRows, resolvedClientName,
+      isWalkin, selectedClientId, payMode,
+    );
     if (errors.length > 0) { setValidationErrors(errors); return; }
     setValidationErrors([]);
 
     const paymentStatus = getPaymentStatus(adjustPayment, grandTotal);
-    const appointmentStatus = paymentStatus === "Paid" ? ("Confirmed" as const) : ("Pending" as const);
+    const appointmentStatus =
+      paymentStatus === "Paid" ? ("Confirmed" as const) : ("Pending" as const);
 
     if (isEditMode) {
       const firstRow = serviceRows[0];
@@ -298,24 +280,45 @@ const NewAppointmentModal: React.FC<Props> = ({
         clientId: selectedClientId || undefined,
         clientName: resolvedClientName,
         clientPhone: resolvedClientPhone,
-        startTime, endTime,
+        startTime,
+        endTime,
         staffId: firstRow?.staffId || existingBooking?.staffId || STAFF_LIST[0].id,
         billDate: calDate,
         services: serviceRows.map((r) => ({
-          id: r.id || "s_" + r.tempId, service: r.service,
+          id: r.id || "s_" + r.tempId,
+          service: r.service,
           staff: STAFF_LIST.find((s) => s.id === r.staffId)?.name || r.staff || "",
-          staffId: r.staffId, time: r.time, price: r.price, qty: r.qty || 1, total: r.total,
+          staffId: r.staffId,
+          time: r.time,
+          price: r.price,
+          qty: r.qty || 1,
+          total: r.total,
         })),
         groupItems: [],
         packageItems: packageRows.map((r) => ({
-          id: r.id || "pk_" + r.tempId, packageId: r.packageId,
-          packageName: r.packageName, price: r.price, qty: r.qty, total: r.total,
+          id: r.id || "pk_" + r.tempId,
+          packageId: r.packageId,
+          packageName: r.packageName,
+          price: r.price,
+          qty: r.qty,
+          total: r.total,
         })),
         paymentMode: payMode as PaymentMode,
-        rewardPoints, exCharges, discount, discountType, gst,
-        couponCode: couponApplied, couponDiscount, subtotal,
-        taxableAmount: taxable, grandTotal, payingNow: adjustPayment, dueAmount, notes,
-        status: appointmentStatus, paymentStatus,
+        rewardPoints,
+        exCharges,
+        discount,
+        discountType,
+        gst,
+        couponCode: couponApplied,
+        couponDiscount,
+        subtotal,
+        taxableAmount: taxable,
+        grandTotal,
+        payingNow: adjustPayment,
+        dueAmount,
+        notes,
+        status: appointmentStatus,
+        paymentStatus,
       } as any;
       (updated as any).tip = tip;
       updateBooking(updated);
@@ -340,24 +343,50 @@ const NewAppointmentModal: React.FC<Props> = ({
       const newBooking: Booking = {
         id: "b_" + Date.now(),
         clientId: selectedClientId || undefined,
-        clientName: resolvedClientName, clientPhone: resolvedClientPhone,
-        staffId: primaryStaffId, date: currentDate, billDate: calDate,
-        startTime, endTime,
-        services: serviceRows.filter((r) => r.service).map((r) => ({
-          id: "s_" + r.tempId, service: r.service,
-          staff: STAFF_LIST.find((s) => s.id === r.staffId)?.name || r.staff || "",
-          staffId: r.staffId, time: r.time, price: r.price, qty: r.qty || 1, total: r.total,
-        })),
+        clientName: resolvedClientName,
+        clientPhone: resolvedClientPhone,
+        staffId: primaryStaffId,
+        date: currentDate,
+        billDate: calDate,
+        startTime,
+        endTime,
+        services: serviceRows
+          .filter((r) => r.service)
+          .map((r) => ({
+            id: "s_" + r.tempId,
+            service: r.service,
+            staff: STAFF_LIST.find((s) => s.id === r.staffId)?.name || r.staff || "",
+            staffId: r.staffId,
+            time: r.time,
+            price: r.price,
+            qty: r.qty || 1,
+            total: r.total,
+          })),
         groupItems: [],
         packageItems: packageRows.map((r) => ({
-          id: "pk_" + r.tempId, packageId: r.packageId,
-          packageName: r.packageName, price: r.price, qty: r.qty, total: r.total,
+          id: "pk_" + r.tempId,
+          packageId: r.packageId,
+          packageName: r.packageName,
+          price: r.price,
+          qty: r.qty,
+          total: r.total,
         })),
-        status: appointmentStatus, paymentStatus,
+        status: appointmentStatus,
+        paymentStatus,
         paymentMode: payMode as PaymentMode,
-        rewardPoints, exCharges, discount, discountType, gst,
-        couponCode: couponApplied, couponDiscount, subtotal,
-        taxableAmount: taxable, grandTotal, payingNow: adjustPayment, dueAmount, notes,
+        rewardPoints,
+        exCharges,
+        discount,
+        discountType,
+        gst,
+        couponCode: couponApplied,
+        couponDiscount,
+        subtotal,
+        taxableAmount: taxable,
+        grandTotal,
+        payingNow: adjustPayment,
+        dueAmount,
+        notes,
       } as any;
       (newBooking as any).tip = tip;
       addBooking(newBooking);
@@ -371,29 +400,56 @@ const NewAppointmentModal: React.FC<Props> = ({
         const endTime = addMinutes(startTime, 30);
         const staffSubtotal = staffServices.reduce((a, r) => a + (r.total || 0), 0);
         const staffPayStatus = index === 0 ? paymentStatus : ("Unpaid" as const);
-        const staffApptStatus = staffPayStatus === "Paid" ? ("Confirmed" as const) : ("Pending" as const);
+        const staffApptStatus =
+          staffPayStatus === "Paid" ? ("Confirmed" as const) : ("Pending" as const);
         addBooking({
           id: "b_" + Date.now() + "_" + index,
           clientId: selectedClientId || undefined,
-          clientName: resolvedClientName, clientPhone: resolvedClientPhone,
-          staffId, date: currentDate, billDate: calDate, startTime, endTime,
+          clientName: resolvedClientName,
+          clientPhone: resolvedClientPhone,
+          staffId,
+          date: currentDate,
+          billDate: calDate,
+          startTime,
+          endTime,
           services: staffServices.map((r) => ({
-            id: "s_" + r.tempId, service: r.service,
+            id: "s_" + r.tempId,
+            service: r.service,
             staff: STAFF_LIST.find((s) => s.id === r.staffId)?.name || r.staff || "",
-            staffId: r.staffId, time: r.time, price: r.price, qty: r.qty || 1, total: r.total,
+            staffId: r.staffId,
+            time: r.time,
+            price: r.price,
+            qty: r.qty || 1,
+            total: r.total,
           })),
           groupItems: [],
-          packageItems: index === 0 ? packageRows.map((r) => ({ id: "pk_" + r.tempId, packageId: r.packageId, packageName: r.packageName, price: r.price, qty: r.qty, total: r.total })) : [],
-          status: staffApptStatus, paymentStatus: staffPayStatus,
+          packageItems:
+            index === 0
+              ? packageRows.map((r) => ({
+                  id: "pk_" + r.tempId,
+                  packageId: r.packageId,
+                  packageName: r.packageName,
+                  price: r.price,
+                  qty: r.qty,
+                  total: r.total,
+                }))
+              : [],
+          status: staffApptStatus,
+          paymentStatus: staffPayStatus,
           paymentMode: payMode as PaymentMode,
           rewardPoints: index === 0 ? rewardPoints : "",
           exCharges: index === 0 ? exCharges : 0,
-          discount: index === 0 ? discount : 0, discountType,
+          discount: index === 0 ? discount : 0,
+          discountType,
           gst: index === 0 ? gst : 0,
           couponCode: index === 0 ? couponApplied : "",
           couponDiscount: index === 0 ? couponDiscount : 0,
-          subtotal: staffSubtotal, taxableAmount: staffSubtotal, grandTotal: staffSubtotal,
-          payingNow: index === 0 ? adjustPayment : 0, dueAmount: staffSubtotal, notes,
+          subtotal: staffSubtotal,
+          taxableAmount: staffSubtotal,
+          grandTotal: staffSubtotal,
+          payingNow: index === 0 ? adjustPayment : 0,
+          dueAmount: staffSubtotal,
+          notes,
         } as any);
       });
       onClose();
@@ -402,14 +458,14 @@ const NewAppointmentModal: React.FC<Props> = ({
 
   const navigate = useNavigate();
 
-  // ── Success / print screen ────────────────────────────────────────────────
+  // ── Success screen ────────────────────────────────────────────────────────
   if (savedBooking) {
     const isPaid = savedBooking.paymentStatus === "Paid";
     const isPartial = savedBooking.paymentStatus === "Partial";
     return (
       <div className="appt-drawer-overlay">
         <div className="appt-drawer-content appt-drawer-content--success">
-          <div className={`success-icon-wrap ${isPaid ? "success-icon-wrap--paid" : "success-icon-wrap--partial"}`}>
+          <div className={`success-icon-wrap success-icon-wrap--${isPaid ? "paid" : "partial"}`}>
             {isPaid ? "✅" : "⚠️"}
           </div>
           <div className="success-info">
@@ -434,7 +490,11 @@ const NewAppointmentModal: React.FC<Props> = ({
             </div>
           </div>
           <div className="success-actions">
-            <Button variant="dark" iconLeft={<span>🖨️</span>} onClick={() => printReceipt(savedBooking)}>
+            <Button
+              variant="dark"
+              iconLeft={<span>🖨️</span>}
+              onClick={() => printReceipt(savedBooking)}
+            >
               Print Receipt
             </Button>
             <Button variant="outline-secondary" onClick={onClose}>
@@ -447,17 +507,24 @@ const NewAppointmentModal: React.FC<Props> = ({
   }
 
   return (
-    <div className="appt-drawer-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div
+      className="appt-drawer-overlay"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
       <div className="appt-drawer-content">
+
+        {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="appt-drawer-header">
           <button className="btn-close-drawer" onClick={onClose}>✕</button>
           <h2>{isEditMode ? "Edit Appointment" : "New Appointment"}</h2>
-          {isEditMode && <span className="edit-badge">Editing #{existingBooking.id}</span>}
+          {isEditMode && (
+            <span className="edit-badge">Editing #{existingBooking.id}</span>
+          )}
         </div>
 
         <div className="appt-drawer-body">
 
-          {/* ── Client row ─────────────────────────────────────────────── */}
+          {/* ── Client row ──────────────────────────────────────────────── */}
           <div className="client-row">
             <div className="client-row__search-wrap">
               <input
@@ -498,16 +565,20 @@ const NewAppointmentModal: React.FC<Props> = ({
               )}
             </div>
 
-            <Button variant={isWalkin ? "dark" : "secondary"} size="sm" onClick={handleWalkinClick}>
+            <Button
+              variant={isWalkin ? "dark" : "secondary"}
+              size="sm"
+              onClick={handleWalkinClick}
+            >
               {isWalkin ? "✓ Walk-In" : "Walk-In"}
             </Button>
 
             <Button
-              variant={showAddClientForm ? "dark" : "outline-secondary"}
+              variant="outline-secondary"
               size="sm"
-              onClick={handleAddClientToggle}
+              onClick={() => { onClose(); navigate("/dashboard/clients/add"); }}
             >
-              {showAddClientForm ? "✕ Cancel" : "+ Add Client"}
+              + Add Client
             </Button>
 
             <div className="client-row__date-wrap">
@@ -529,121 +600,6 @@ const NewAppointmentModal: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* ── Inline Add Client form ──────────────────────────────────── */}
-          {showAddClientForm && (
-            <div
-              style={{
-                background: "#f8fafc",
-                border: "1px solid #e5e7eb",
-                borderRadius: 8,
-                padding: "14px 16px",
-                marginBottom: 12,
-                display: "flex",
-                alignItems: "flex-start",
-                gap: 12,
-                flexWrap: "wrap",
-              }}
-            >
-              {/* Full Name */}
-              <div style={{ flex: "1 1 180px", minWidth: 140 }}>
-                <label style={inlineLabelStyle}>
-                  FULL NAME <span style={{ color: "#ef4444" }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Priya Sharma"
-                  value={newClientName}
-                  onChange={(e) => {
-                    setNewClientName(e.target.value);
-                    setAddClientErrors((p) => ({ ...p, name: undefined }));
-                  }}
-                  style={{
-                    ...inlineInputStyle,
-                    borderColor: addClientErrors.name ? "#ef4444" : "#d1d5db",
-                  }}
-                />
-                {addClientErrors.name && <p style={inlineErrStyle}>{addClientErrors.name}</p>}
-              </div>
-
-              {/* Mobile Number */}
-              <div style={{ flex: "1 1 160px", minWidth: 130 }}>
-                <label style={inlineLabelStyle}>
-                  MOBILE NUMBER <span style={{ color: "#ef4444" }}>*</span>
-                </label>
-                <input
-                  type="tel"
-                  placeholder="e.g. 9876543210"
-                  value={newClientMobile}
-                  maxLength={10}
-                  onChange={(e) => {
-                    setNewClientMobile(e.target.value.replace(/\D/g, ""));
-                    setAddClientErrors((p) => ({ ...p, mobile: undefined }));
-                  }}
-                  style={{
-                    ...inlineInputStyle,
-                    borderColor: addClientErrors.mobile ? "#ef4444" : "#d1d5db",
-                  }}
-                />
-                {addClientErrors.mobile && <p style={inlineErrStyle}>{addClientErrors.mobile}</p>}
-              </div>
-
-              {/* Gender */}
-              <div style={{ flex: "1 1 220px", minWidth: 180 }}>
-                <label style={inlineLabelStyle}>GENDER</label>
-                <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                  {(["Female", "Male", "Other"] as const).map((g) => (
-                    <button
-                      key={g}
-                      type="button"
-                      onClick={() => {
-                        setNewClientGender(g);
-                        setAddClientErrors((p) => ({ ...p, gender: undefined }));
-                      }}
-                      style={{
-                        padding: "7px 14px",
-                        borderRadius: 6,
-                        border: `1.5px solid ${newClientGender === g ? "#1f2937" : "#d1d5db"}`,
-                        background: newClientGender === g ? "#1f2937" : "#fff",
-                        color: newClientGender === g ? "#fff" : "#374151",
-                        fontSize: 12,
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        fontFamily: "inherit",
-                        whiteSpace: "nowrap",
-                        transition: "all 0.15s",
-                      }}
-                    >
-                      {g}
-                    </button>
-                  ))}
-                </div>
-                {addClientErrors.gender && <p style={inlineErrStyle}>{addClientErrors.gender}</p>}
-              </div>
-
-              {/* Save button */}
-              <div style={{ display: "flex", alignItems: "flex-end", paddingBottom: addClientErrors.name || addClientErrors.mobile || addClientErrors.gender ? 18 : 0 }}>
-                <button
-                  type="button"
-                  onClick={handleSaveNewClient}
-                  style={{
-                    padding: "8px 18px",
-                    borderRadius: 6,
-                    border: "none",
-                    background: "#1f2937",
-                    color: "#fff",
-                    fontSize: 13,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    fontFamily: "inherit",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Save Client
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* ── Client stats panel ──────────────────────────────────────── */}
           {selectedClientId && selectedStats && (
             <div className="client-stats-panel">
@@ -651,7 +607,9 @@ const NewAppointmentModal: React.FC<Props> = ({
                 <div className="avatar">{selectedClient!.name.charAt(0)}</div>
                 <div className="info">
                   <div className="name">{selectedClient!.name}</div>
-                  <div className="sub">{selectedClient!.phone} &nbsp;·&nbsp; {selectedStats.address}</div>
+                  <div className="sub">
+                    {selectedClient!.phone} &nbsp;·&nbsp; {selectedStats.address}
+                  </div>
                 </div>
                 {selectedStats.membership !== "NA" && (
                   <span className={`membership-badge ${selectedStats.membership.toLowerCase()}`}>
@@ -701,14 +659,14 @@ const NewAppointmentModal: React.FC<Props> = ({
             </div>
           )}
 
-          {/* ── No rows error ──────────────────────────────────────────── */}
+          {/* ── No rows error ────────────────────────────────────────────── */}
           {hasErr("no_rows") && (
             <div className="no-rows-error">
               ⚠️ Add at least one service or package before saving.
             </div>
           )}
 
-          {/* ── Services table header ──────────────────────────────────── */}
+          {/* ── Services table header ────────────────────────────────────── */}
           <div className="table-header table-header--services">
             <div>SERVICE</div>
             <div>STAFF</div>
@@ -716,7 +674,7 @@ const NewAppointmentModal: React.FC<Props> = ({
             <div>PRICE</div>
             <div>QTY</div>
             <div>TOTAL</div>
-            <div></div>
+            <div />
           </div>
 
           {serviceRows.map((row, i) => (
@@ -725,17 +683,22 @@ const NewAppointmentModal: React.FC<Props> = ({
               row={row}
               onChange={updateServiceRow}
               onRemove={removeServiceRow}
-              hasError={hasErr(`svc_${i}_service`) || hasErr(`svc_${i}_staff`) || hasErr(`svc_${i}_price`) || hasErr(`svc_${i}_qty`)}
+              hasError={
+                hasErr(`svc_${i}_service`) ||
+                hasErr(`svc_${i}_staff`) ||
+                hasErr(`svc_${i}_price`) ||
+                hasErr(`svc_${i}_qty`)
+              }
               errorFields={{
                 service: hasErr(`svc_${i}_service`),
-                staff: hasErr(`svc_${i}_staff`),
-                price: hasErr(`svc_${i}_price`),
-                qty: hasErr(`svc_${i}_qty`),
+                staff:   hasErr(`svc_${i}_staff`),
+                price:   hasErr(`svc_${i}_price`),
+                qty:     hasErr(`svc_${i}_qty`),
               }}
             />
           ))}
 
-          {/* ── Packages table ─────────────────────────────────────────── */}
+          {/* ── Packages table ───────────────────────────────────────────── */}
           {packageRows.length > 0 && (
             <>
               <div className="table-header table-header--packages">
@@ -743,28 +706,49 @@ const NewAppointmentModal: React.FC<Props> = ({
                 <div>PRICE</div>
                 <div>QTY</div>
                 <div>TOTAL</div>
-                <div></div>
+                <div />
               </div>
               {packageRows.map((row) => (
                 <div key={row.tempId} className="pkg-row">
                   <div className="pkg-row__name">{row.packageName}</div>
-                  <input readOnly value={row.price} className="form-input form-input--sm form-input--readonly" />
                   <input
-                    type="number" min={1} value={row.qty}
+                    readOnly
+                    value={row.price}
+                    className="form-input form-input--sm form-input--readonly"
+                  />
+                  <input
+                    type="number"
+                    min={1}
+                    value={row.qty}
                     className="form-input form-input--sm"
                     onChange={(e) => {
                       const qty = Math.max(1, parseInt(e.target.value) || 1);
-                      setPackageRows((rows) => rows.map((r) => r.tempId === row.tempId ? { ...r, qty, total: r.price * qty } : r));
+                      setPackageRows((rows) =>
+                        rows.map((r) =>
+                          r.tempId === row.tempId ? { ...r, qty, total: r.price * qty } : r,
+                        ),
+                      );
                     }}
                   />
-                  <input readOnly value={row.total} className="form-input form-input--sm form-input--readonly" />
-                  <button className="btn-icon btn-icon--danger" onClick={() => setPackageRows((r) => r.filter((x) => x.tempId !== row.tempId))}>🗑</button>
+                  <input
+                    readOnly
+                    value={row.total}
+                    className="form-input form-input--sm form-input--readonly"
+                  />
+                  <button
+                    className="btn-icon btn-icon--danger"
+                    onClick={() =>
+                      setPackageRows((r) => r.filter((x) => x.tempId !== row.tempId))
+                    }
+                  >
+                    🗑
+                  </button>
                 </div>
               ))}
             </>
           )}
 
-          {/* ── Products table ─────────────────────────────────────────── */}
+          {/* ── Products table ───────────────────────────────────────────── */}
           {productRows.length > 0 && (
             <>
               <div className="table-header table-header--products">
@@ -772,80 +756,166 @@ const NewAppointmentModal: React.FC<Props> = ({
                 <div>PRICE</div>
                 <div>QTY</div>
                 <div>TOTAL</div>
-                <div></div>
+                <div />
               </div>
               {productRows.map((row) => (
                 <div key={row.tempId} className="product-row">
                   <input
-                    placeholder="Product name" value={row.productName}
+                    placeholder="Product name"
+                    value={row.productName}
                     className="form-input form-input--sm"
-                    onChange={(e) => setProductRows((rows) => rows.map((r) => r.tempId === row.tempId ? { ...r, productName: e.target.value } : r))}
+                    onChange={(e) =>
+                      setProductRows((rows) =>
+                        rows.map((r) =>
+                          r.tempId === row.tempId ? { ...r, productName: e.target.value } : r,
+                        ),
+                      )
+                    }
                   />
                   <input
-                    type="number" min={0} value={row.price || ""} placeholder="0"
+                    type="number"
+                    min={0}
+                    value={row.price || ""}
+                    placeholder="0"
                     className="form-input form-input--sm"
                     onChange={(e) => {
                       const price = Math.max(0, parseFloat(e.target.value) || 0);
-                      setProductRows((rows) => rows.map((r) => r.tempId === row.tempId ? { ...r, price, total: price * r.qty } : r));
+                      setProductRows((rows) =>
+                        rows.map((r) =>
+                          r.tempId === row.tempId ? { ...r, price, total: price * r.qty } : r,
+                        ),
+                      );
                     }}
                   />
                   <input
-                    type="number" min={1} value={row.qty}
+                    type="number"
+                    min={1}
+                    value={row.qty}
                     className="form-input form-input--sm"
                     onChange={(e) => {
                       const qty = Math.max(1, parseInt(e.target.value) || 1);
-                      setProductRows((rows) => rows.map((r) => r.tempId === row.tempId ? { ...r, qty, total: r.price * qty } : r));
+                      setProductRows((rows) =>
+                        rows.map((r) =>
+                          r.tempId === row.tempId ? { ...r, qty, total: r.price * qty } : r,
+                        ),
+                      );
                     }}
                   />
-                  <input readOnly value={row.total.toFixed(2)} className="form-input form-input--sm form-input--readonly" />
-                  <button className="btn-icon btn-icon--danger" onClick={() => setProductRows((r) => r.filter((x) => x.tempId !== row.tempId))}>🗑</button>
+                  <input
+                    readOnly
+                    value={row.total.toFixed(2)}
+                    className="form-input form-input--sm form-input--readonly"
+                  />
+                  <button
+                    className="btn-icon btn-icon--danger"
+                    onClick={() =>
+                      setProductRows((r) => r.filter((x) => x.tempId !== row.tempId))
+                    }
+                  >
+                    🗑
+                  </button>
                 </div>
               ))}
             </>
           )}
 
-          {/* ── Action buttons ─────────────────────────────────────────── */}
+          {/* ── Action buttons ───────────────────────────────────────────── */}
           <div className="appt-add-actions">
-            <Button variant="dark" size="sm"
-              onClick={() => setServiceRows((r) => [...r, { tempId: "sr_" + Date.now(), id: "", service: "", staff: "", staffId: defaultStaffId || "", time: defaultTime || "10:00", price: 0, qty: 0, total: 0 }])}>
+            <Button
+              variant="dark"
+              size="sm"
+              onClick={() =>
+                setServiceRows((r) => [
+                  ...r,
+                  {
+                    tempId: "sr_" + Date.now(),
+                    id: "",
+                    service: "",
+                    staff: "",
+                    staffId: defaultStaffId || "",
+                    time: defaultTime || "10:00",
+                    price: 0,
+                    qty: 0,
+                    total: 0,
+                  },
+                ])
+              }
+            >
               + Add Service
             </Button>
             <Button variant="dark" size="sm" onClick={() => setShowPkgModal(true)}>
               + Add Package
             </Button>
-            <Button variant="dark" size="sm"
-              onClick={() => setProductRows((r) => [...r, { tempId: "pr_" + Date.now(), id: "", productName: "", price: 0, qty: 1, total: 0 }])}>
+            <Button
+              variant="dark"
+              size="sm"
+              onClick={() =>
+                setProductRows((r) => [
+                  ...r,
+                  { tempId: "pr_" + Date.now(), id: "", productName: "", price: 0, qty: 1, total: 0 },
+                ])
+              }
+            >
               + Add Product
             </Button>
           </div>
 
-          {/* ── Extras grid ────────────────────────────────────────────── */}
+          {/* ── Extras grid ──────────────────────────────────────────────── */}
           <div className="extras-grid">
             {[
               {
                 label: "Reward Points",
                 el: (
-                  <select className="form-input form-input--sm" value={rewardPoints} onChange={(e) => setRewardPoints(e.target.value)}>
+                  <select
+                    className="form-input form-input--sm"
+                    value={rewardPoints}
+                    onChange={(e) => setRewardPoints(e.target.value)}
+                  >
                     {REWARD_POINTS_OPTIONS.map((r) => <option key={r}>{r}</option>)}
                   </select>
                 ),
               },
               {
                 label: "Ex Charges",
-                el: <input type="number" min={0} className="form-input form-input--sm" value={exCharges || ""} placeholder="0" onChange={(e) => posNum(e.target.value, setExCharges)} />,
+                el: (
+                  <input
+                    type="number" min={0}
+                    className="form-input form-input--sm"
+                    value={exCharges || ""} placeholder="0"
+                    onChange={(e) => posNum(e.target.value, setExCharges)}
+                  />
+                ),
               },
               {
                 label: "Tip",
-                el: <input type="number" min={0} className="form-input form-input--sm" value={tip || ""} placeholder="0" onChange={(e) => posNum(e.target.value, setTip)} />,
+                el: (
+                  <input
+                    type="number" min={0}
+                    className="form-input form-input--sm"
+                    value={tip || ""} placeholder="0"
+                    onChange={(e) => posNum(e.target.value, setTip)}
+                  />
+                ),
               },
               {
                 label: "Discount",
-                el: <input type="number" min={0} className="form-input form-input--sm" value={discount || ""} placeholder="0" onChange={(e) => posNum(e.target.value, setDiscount)} />,
+                el: (
+                  <input
+                    type="number" min={0}
+                    className="form-input form-input--sm"
+                    value={discount || ""} placeholder="0"
+                    onChange={(e) => posNum(e.target.value, setDiscount)}
+                  />
+                ),
               },
               {
                 label: "Discount Type",
                 el: (
-                  <select className="form-input form-input--sm" value={discountType} onChange={(e) => setDiscountType(e.target.value as DiscountType)}>
+                  <select
+                    className="form-input form-input--sm"
+                    value={discountType}
+                    onChange={(e) => setDiscountType(e.target.value as DiscountType)}
+                  >
                     <option>Percentage (%)</option>
                     <option>Flat (₹)</option>
                   </select>
@@ -853,7 +923,14 @@ const NewAppointmentModal: React.FC<Props> = ({
               },
               {
                 label: "GST %",
-                el: <input type="number" min={0} className="form-input form-input--sm" value={gst || ""} placeholder="0" onChange={(e) => posNum(e.target.value, setGst)} />,
+                el: (
+                  <input
+                    type="number" min={0}
+                    className="form-input form-input--sm"
+                    value={gst || ""} placeholder="0"
+                    onChange={(e) => posNum(e.target.value, setGst)}
+                  />
+                ),
               },
             ].map(({ label, el }) => (
               <div key={label} className="extras-grid__field">
@@ -863,53 +940,81 @@ const NewAppointmentModal: React.FC<Props> = ({
             ))}
           </div>
 
-          {/* ── Payment + Totals ───────────────────────────────────────── */}
+          {/* ── Payment + Totals ─────────────────────────────────────────── */}
           <div className="payment-totals-row">
             <div className="payment-left">
-              <div className="payment-section">
-                <label className="field-label">Payment Method</label>
-                <div className="pay-method-btns">
-                  {(["Cash", "Card", "UPI"] as PaymentMode[]).map((m) => (
-                    <button
-                      key={m} type="button"
-                      className={`pay-method-btn${payMode === m ? " pay-method-btn--active" : ""}`}
-                      onClick={() => { setPayMode(m); setValidationErrors((ev) => ev.filter((x) => x !== "paymode")); }}
-                    >
-                      {m}
-                    </button>
-                  ))}
+
+              {/* Row 1: Payment Method + Adjust Payment */}
+              <div className="payment-grid">
+                <div className="payment-section">
+                  <label className="field-label">Payment Method</label>
+                  <div className="pay-method-btns">
+                    {(["Cash", "Card", "UPI"] as PaymentMode[]).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        className={`pay-method-btn${payMode === m ? " pay-method-btn--active" : ""}`}
+                        onClick={() => {
+                          setPayMode(m);
+                          setValidationErrors((ev) => ev.filter((x) => x !== "paymode"));
+                        }}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                  {hasErr("paymode") && (
+                    <span className="err-text">Please select a payment method</span>
+                  )}
                 </div>
-                {hasErr("paymode") && <span className="err-text">Please select a payment method</span>}
-              </div>
 
-              <div className="payment-section">
-                <label className="field-label">Adjust Payment</label>
-                <input type="number" min={0} className="form-input form-input--sm" value={adjustPayment || ""} placeholder="0" onChange={(e) => posNum(e.target.value, setAdjustPayment)} />
-              </div>
-
-              <div className="payment-section">
-                <label className="field-label">Coupon Code</label>
-                <div className="coupon-row">
+                <div className="payment-section">
+                  <label className="field-label">Adjust Payment</label>
                   <input
+                    type="number" min={0}
                     className="form-input form-input--sm"
-                    placeholder="SAVE10, FLAT50, NEW20"
-                    value={couponInput}
-                    onChange={(e) => { setCouponInput(e.target.value); setCouponError(""); }}
-                    onKeyDown={(e) => e.key === "Enter" && handleApplyCoupon()}
+                    value={adjustPayment || ""} placeholder="0"
+                    onChange={(e) => posNum(e.target.value, setAdjustPayment)}
                   />
-                  <Button variant="dark" size="sm" onClick={handleApplyCoupon}>Apply</Button>
                 </div>
-                {couponApplied && <span className="coupon-success">✓ "{couponApplied}" applied — ₹{couponDiscount} off</span>}
-                {couponError && <span className="err-text">{couponError}</span>}
               </div>
 
-              <textarea
-                className="form-textarea"
-                placeholder="Enter Notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-              />
+              {/* Row 2: Coupon Code + Notes */}
+              <div className="payment-grid">
+                <div className="payment-section">
+                  <label className="field-label">Coupon Code</label>
+                  <div className="coupon-row">
+                    <input
+                      className="form-input form-input--sm"
+                      placeholder="SAVE10, FLAT50, NEW20"
+                      value={couponInput}
+                      onChange={(e) => { setCouponInput(e.target.value); setCouponError(""); }}
+                      onKeyDown={(e) => e.key === "Enter" && handleApplyCoupon()}
+                    />
+                    <Button variant="dark" size="sm" onClick={handleApplyCoupon}>
+                      Apply
+                    </Button>
+                  </div>
+                  {couponApplied && (
+                    <span className="coupon-success">
+                      ✓ "{couponApplied}" — ₹{couponDiscount} off
+                    </span>
+                  )}
+                  {couponError && <span className="err-text">{couponError}</span>}
+                </div>
+
+                <div className="payment-section">
+                  <label className="field-label">Notes</label>
+                  <textarea
+                    className="form-textarea form-textarea--sm"
+                    placeholder="Enter Notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={2}
+                  />
+                </div>
+              </div>
+
             </div>
 
             <TotalsPanel
@@ -923,13 +1028,16 @@ const NewAppointmentModal: React.FC<Props> = ({
               tip={tip}
             />
           </div>
+
         </div>
 
+        {/* ── Footer ──────────────────────────────────────────────────────── */}
         <div className="appt-drawer-footer">
           <Button variant="dark" fullWidth onClick={handleSave}>
             {isEditMode ? "Update Appointment" : "Save Appointment"}
           </Button>
         </div>
+
       </div>
 
       {/* ── Package picker modal ─────────────────────────────────────────── */}
@@ -941,7 +1049,11 @@ const NewAppointmentModal: React.FC<Props> = ({
               <button onClick={() => setShowPkgModal(false)} className="btn-close">✕</button>
             </div>
             {PACKAGES_LIST.map((pkg) => (
-              <div key={pkg.id} onClick={() => addPackage(pkg)} className="pkg-picker-content__item">
+              <div
+                key={pkg.id}
+                onClick={() => addPackage(pkg)}
+                className="pkg-picker-content__item"
+              >
                 <div className="pkg-info">
                   <div className="pkg-name">{pkg.name}</div>
                   <div className="pkg-services">{pkg.services.join(", ")}</div>
@@ -954,35 +1066,6 @@ const NewAppointmentModal: React.FC<Props> = ({
       )}
     </div>
   );
-};
-
-// ── Inline form style constants ───────────────────────────────────────────────
-const inlineLabelStyle: React.CSSProperties = {
-  display: "block",
-  fontSize: 11,
-  fontWeight: 700,
-  color: "#6b7280",
-  letterSpacing: "0.04em",
-  marginBottom: 4,
-};
-
-const inlineInputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "7px 10px",
-  borderRadius: 6,
-  border: "1.5px solid #d1d5db",
-  fontSize: 13,
-  fontFamily: "inherit",
-  color: "#111",
-  outline: "none",
-  boxSizing: "border-box",
-  background: "#fff",
-};
-
-const inlineErrStyle: React.CSSProperties = {
-  margin: "3px 0 0",
-  fontSize: 11,
-  color: "#ef4444",
 };
 
 export default NewAppointmentModal;

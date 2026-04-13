@@ -57,11 +57,18 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
 
   const [serviceSearch, setServiceSearch] = useState(row.service || "");
   const [showDrop, setShowDrop] = useState(false);
+  // Local string state for qty so user can freely type (e.g. clear field, type "4")
+  const [qtyInput, setQtyInput] = useState(String(row.qty > 0 ? row.qty : 1));
   const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setServiceSearch(row.service || "");
   }, [row.service]);
+
+  // Keep local qty in sync if parent resets the row
+  useEffect(() => {
+    setQtyInput(String(row.qty > 0 ? row.qty : 1));
+  }, [row.tempId]);
 
   useEffect(() => {
     function handle(e: MouseEvent) {
@@ -80,20 +87,36 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     setServiceSearch(s.name);
     onChange(row.tempId, "service", s.name);
     onChange(row.tempId, "price", s.price);
-    const qty = row.qty || 1;
+    const qty = row.qty > 0 ? row.qty : 1;
     onChange(row.tempId, "qty", qty);
     onChange(row.tempId, "total", s.price * qty);
     setShowDrop(false);
   }
 
-  function handleNumericChange(field: string, val: string) {
-    const num = Math.max(0, parseFloat(val) || 0); // clamp to 0
-    onChange(row.tempId, field, num);
-    if (field === "price" || field === "qty") {
-      const price = field === "price" ? num : row.price || 0;
-      const qty = field === "qty" ? num : row.qty || 0;
-      onChange(row.tempId, "total", price * qty);
+  function handlePriceChange(val: string) {
+    const num = Math.max(0, parseFloat(val) || 0);
+    onChange(row.tempId, "price", num);
+    const qty = row.qty > 0 ? row.qty : 1;
+    onChange(row.tempId, "total", num * qty);
+  }
+
+  function handleQtyChange(val: string) {
+    // Allow free typing — store raw string locally
+    setQtyInput(val);
+    const num = parseFloat(val);
+    if (!isNaN(num) && num > 0) {
+      onChange(row.tempId, "qty", num);
+      onChange(row.tempId, "total", (row.price || 0) * num);
     }
+  }
+
+  function handleQtyBlur() {
+    // On blur, clamp to minimum 1 if empty or invalid
+    const num = parseFloat(qtyInput);
+    const clamped = !isNaN(num) && num >= 1 ? num : 1;
+    setQtyInput(String(clamped));
+    onChange(row.tempId, "qty", clamped);
+    onChange(row.tempId, "total", (row.price || 0) * clamped);
   }
 
   return (
@@ -240,18 +263,22 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
         placeholder="0"
         value={row.price || ""}
         style={inputStyle(!!errorFields.price)}
-        onChange={(e) => handleNumericChange("price", e.target.value)}
+        onChange={(e) => handlePriceChange(e.target.value)}
       />
 
-      {/* Qty */}
-      <input
-        type="number"
-        min={1}
-        placeholder="1"
-        value={row.qty || ""}
-        style={inputStyle(!!errorFields.qty)}
-        onChange={(e) => handleNumericChange("qty", e.target.value)}
-      />
+      {/* Qty — free-type with local string state, clamps to 1 on blur */}
+      <div>
+        <input
+          type="number"
+          min={1}
+          placeholder="1"
+          value={qtyInput}
+          style={inputStyle(!!errorFields.qty)}
+          onChange={(e) => handleQtyChange(e.target.value)}
+          onBlur={handleQtyBlur}
+        />
+        {errorFields.qty && <span style={errText}>{ERR_MSG.qty}</span>}
+      </div>
 
       {/* Total */}
       <input

@@ -1,6 +1,7 @@
 @use "sass:color";
 @use "../../../styles/themes/variables" as *;
 
+/* ── Overlay ── */
 .appt-drawer-overlay {
   position: fixed;
   inset: 0;
@@ -10,6 +11,7 @@
   justify-content: flex-end;
 }
 
+/* ── Drawer content ── */
 .appt-drawer-content {
   width: min(920px, 100vw);
   background: $white;
@@ -28,7 +30,7 @@
   }
 }
 
-/* --- Header --- */
+/* ── Header ── */
 .appt-drawer-header {
   padding: 14px 22px;
   border-bottom: 1px solid $dashboard-border;
@@ -69,13 +71,13 @@
   }
 }
 
-/* --- Body --- */
+/* ── Body ── */
 .appt-drawer-body {
   padding: 18px 22px;
   flex: 1;
 }
 
-/* --- Field label & error --- */
+/* ── Field label & error ── */
 .field-label {
   font-size: 11px;
   font-weight: 600;
@@ -93,7 +95,7 @@
   display: block;
 }
 
-/* --- Client row --- */
+/* ── Client row ── */
 .client-row {
   display: flex;
   gap: 8px;
@@ -128,7 +130,7 @@
   }
 }
 
-/* --- Client dropdown --- */
+/* ── Client dropdown ── */
 .client-dropdown {
   position: absolute;
   top: calc(100% + 4px);
@@ -152,17 +154,17 @@
     &:last-child { border-bottom: none; }
   }
 
-  &__name { font-weight: 600; color: $dashboard-primary; }
+  &__name  { font-weight: 600; color: $dashboard-primary; }
   &__phone { color: $dashboard-secondary; font-size: 11px; margin-top: 2px; }
 }
 
-/* --- Input states --- */
+/* ── Input error state ── */
 .input-error {
   border-color: $danger !important;
   background: #fff5f5 !important;
 }
 
-/* --- Client Stats Panel --- */
+/* ── Client stats panel ── */
 .client-stats-panel {
   background: #f9fafb;
   border: 1px solid $dashboard-border;
@@ -193,7 +195,7 @@
 
     .info {
       .name { font-weight: 700; font-size: 15px; color: $dashboard-primary; }
-      .sub { font-size: 12px; color: $dashboard-secondary; }
+      .sub  { font-size: 12px; color: $dashboard-secondary; }
     }
 
     .membership-badge {
@@ -203,7 +205,7 @@
       padding: 3px 10px;
       border-radius: 20px;
       &.platinum { background: #fef3c7; color: #92400e; }
-      &.gold { background: #fde68a; color: #78350f; }
+      &.gold     { background: #fde68a; color: #78350f; }
     }
   }
 
@@ -234,20 +236,19 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-
     &--alert { color: $danger; }
   }
 
   &__value { font-size: 13px; font-weight: 600; color: $dashboard-primary; }
   &.danger .info-cell__value { color: $danger; }
-  &.info .info-cell__value { color: $info; }
-  &.link .info-cell__value { color: $info; text-decoration: underline; cursor: pointer; }
+  &.info   .info-cell__value { color: $info; }
+  &.link   .info-cell__value { color: $info; text-decoration: underline; cursor: pointer; }
 }
 
-.stats-note-text { font-size: 12px; color: #374151; }
+.stats-note-text  { font-size: 12px; color: #374151; }
 .stats-alert-text { font-size: 12px; color: $danger; font-weight: 600; }
 
-/* --- No rows error --- */
+/* ── No rows error ── */
 .no-rows-error {
   font-size: 11px;
   color: $danger;
@@ -258,7 +259,7 @@
   margin-bottom: 8px;
 }
 
-/* --- Table headers --- */
+/* ── Table headers ── */
 .table-header {
   display: grid;
   gap: 6px;
@@ -269,6 +270,8 @@
   font-weight: 700;
   color: $dashboard-secondary;
   border-bottom: 1px solid $dashboard-border;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
 
   &--services {
     grid-template-columns: 2fr 1.6fr 1.1fr 0.9fr 0.7fr 0.9fr 32px;
@@ -278,7 +281,6 @@
     grid-template-columns: 2fr 1fr 1fr 1fr 40px;
     margin-top: 12px;
     background: #fef3c7;
-    border-radius: 8px 8px 0 0;
     color: #92400e;
     border-bottom: 1px solid #fde68a;
   }
@@ -287,13 +289,12 @@
     grid-template-columns: 2fr 1fr 1fr 1fr 40px;
     margin-top: 12px;
     background: #ede9fe;
-    border-radius: 8px 8px 0 0;
     color: #5b21b6;
     border-bottom: 1px solid #ddd6fe;
   }
 }
 
-/* --- Package row --- */
+/* ── Package row ── */
 .pkg-row {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 1fr 40px;
@@ -306,7 +307,7 @@
   &__name { font-size: 12px; font-weight: 600; color: $dashboard-primary; }
 }
 
-/* --- Product row --- */
+/* ── Product row ── */
 .product-row {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 1fr 40px;
@@ -317,8 +318,9 @@
   background: #f5f3ff;
 }
 
-/* --- Inputs --- */
-.form-input, .form-select {
+/* ── Form inputs ── */
+.form-input,
+.form-select {
   width: 100%;
   border: 1px solid $dashboard-border;
   border-radius: 8px;
@@ -336,7 +338,7 @@
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   }
 
-  &--sm { padding: 5px 8px; font-size: 12px; }
+  &--sm       { padding: 5px 8px; font-size: 12px; }
   &--readonly { background: #f9fafb; }
 }
 
@@ -348,20 +350,21 @@
   font-size: 13px;
   color: $dashboard-primary;
   background: $white;
-  transition: all 0.2s;
   font-family: inherit;
   box-sizing: border-box;
   resize: vertical;
-  min-height: 60px;
+  transition: all 0.2s;
 
   &:focus {
     outline: none;
     border-color: $info;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   }
+
+  &--sm { min-height: 52px; font-size: 12px; padding: 5px 8px; }
 }
 
-/* --- Action buttons row --- */
+/* ── Add actions row ── */
 .appt-add-actions {
   display: flex;
   gap: 8px;
@@ -369,7 +372,7 @@
   margin-bottom: 20px;
 }
 
-/* --- Extras grid --- */
+/* ── Extras grid ── */
 .extras-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
@@ -383,18 +386,28 @@
   }
 }
 
-/* --- Payment + Totals row --- */
+/* ── Payment + Totals row ── */
 .payment-totals-row {
   display: flex;
   gap: 16px;
   align-items: flex-start;
+  margin-top: 12px;
 }
 
 .payment-left {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* Two-column grid inside payment left */
+.payment-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  align-items: flex-start;
 }
 
 .payment-section {
@@ -403,14 +416,15 @@
   gap: 4px;
 }
 
-/* --- Pay method buttons --- */
+/* ── Pay method buttons ── */
 .pay-method-btns {
   display: flex;
   gap: 6px;
+  flex-wrap: wrap;
 }
 
 .pay-method-btn {
-  padding: 5px 16px;
+  padding: 5px 14px;
   font-size: 12px;
   font-weight: 600;
   border-radius: 6px;
@@ -426,9 +440,11 @@
     background: $dashboard-primary;
     color: $white;
   }
+
+  &:hover:not(.pay-method-btn--active) { background: #f3f4f6; }
 }
 
-/* --- Coupon --- */
+/* ── Coupon ── */
 .coupon-row {
   display: flex;
   gap: 6px;
@@ -437,11 +453,61 @@
 .coupon-success {
   font-size: 11px;
   color: $success;
-  margin-top: 3px;
+  margin-top: 2px;
   display: block;
 }
 
-/* --- Footer --- */
+/* ── Totals panel ── */
+.totals-panel {
+  width: 220px;
+  flex-shrink: 0;
+  background: #f9fafb;
+  border: 1px solid $dashboard-border;
+  border-radius: 10px;
+  padding: 14px 16px;
+
+  &__title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+  }
+
+  &__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px dotted #e5e7eb;
+
+    &:last-child { border-bottom: none; }
+
+    &--grand {
+      padding: 8px 0 5px;
+      border-top: 2px solid $dashboard-border;
+      border-bottom: none;
+      margin-top: 4px;
+
+      .totals-panel__label {
+        font-weight: 700;
+        font-size: 13px;
+        color: $dashboard-primary;
+      }
+      .totals-panel__value {
+        font-weight: 800;
+        font-size: 15px;
+        color: $dashboard-primary;
+      }
+    }
+  }
+
+  &__label { font-size: 12px; color: $dashboard-secondary; }
+  &__value  { font-size: 12px; font-weight: 600; color: $dashboard-primary; }
+}
+
+/* ── Footer ── */
 .appt-drawer-footer {
   padding: 14px 22px;
   border-top: 1px solid $dashboard-border;
@@ -454,7 +520,7 @@
   z-index: 10;
 }
 
-/* --- Success screen --- */
+/* ── Success screen ── */
 .success-icon-wrap {
   width: 72px;
   height: 72px;
@@ -464,7 +530,7 @@
   justify-content: center;
   font-size: 36px;
 
-  &--paid { background: #dcfce7; }
+  &--paid    { background: #dcfce7; }
   &--partial { background: #fef9c3; }
 }
 
@@ -472,7 +538,7 @@
   text-align: center;
 
   &__title { font-size: 20px; font-weight: 800; color: #111827; }
-  &__sub { font-size: 13px; color: $dashboard-secondary; margin-top: 6px; }
+  &__sub   { font-size: 13px; color: $dashboard-secondary; margin-top: 6px; }
 }
 
 .success-badges {
@@ -489,10 +555,10 @@
   font-size: 12px;
   font-weight: 700;
 
-  &--paid { background: #22c55e22; color: #16a34a; border: 1px solid #22c55e; }
+  &--paid    { background: #22c55e22; color: #16a34a; border: 1px solid #22c55e; }
   &--partial { background: #f59e0b22; color: #b45309; border: 1px solid #f59e0b; }
   &--neutral { background: #f3f4f6; color: #374151; }
-  &--due { background: #fef2f2; color: $danger; border: 1px solid $danger; }
+  &--due     { background: #fef2f2; color: $danger; border: 1px solid $danger; }
 }
 
 .success-actions {
@@ -502,7 +568,7 @@
   justify-content: center;
 }
 
-/* --- btn-icon --- */
+/* ── btn-icon ── */
 .btn-icon {
   background: none;
   border: none;
@@ -516,7 +582,7 @@
   &--danger:hover { background: #fef2f2; }
 }
 
-/* --- Package picker modal --- */
+/* ── Package picker modal ── */
 .pkg-picker-overlay {
   position: fixed;
   inset: 0;
@@ -539,6 +605,7 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 18px;
+
     h3 { margin: 0; font-size: 17px; font-weight: 700; color: $dashboard-primary; }
     .btn-close { background: none; border: none; cursor: pointer; font-size: 20px; color: $dashboard-secondary; }
   }
@@ -553,12 +620,79 @@
     margin-bottom: 10px;
     cursor: pointer;
     transition: all 0.2s;
+
     &:hover { background: #f9fafb; border-color: $info; transform: translateY(-1px); }
 
     .pkg-info {
-      .pkg-name { font-weight: 600; font-size: 14px; color: $dashboard-primary; }
+      .pkg-name     { font-weight: 600; font-size: 14px; color: $dashboard-primary; }
       .pkg-services { font-size: 12px; color: $dashboard-secondary; margin-top: 3px; }
     }
+
     .pkg-price { font-weight: 700; font-size: 15px; color: $dashboard-primary; }
+  }
+}
+
+/* ── Legacy classes kept for ServiceRow compatibility ── */
+.appt-table-header {
+  display: grid;
+  gap: 8px;
+  background: #f9fafb;
+  border-radius: 8px 8px 0 0;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: $dashboard-secondary;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid $dashboard-border;
+
+  &--services { grid-template-columns: 2fr 1.4fr 1.2fr 0.8fr 0.8fr 36px; }
+  &--groups   { grid-template-columns: 1fr 1.2fr 1.4fr 1.2fr 0.8fr 0.7fr 0.8fr 36px; margin-top: 18px; }
+}
+
+.appt-modal__service-row {
+  display: grid;
+  grid-template-columns: 2fr 1.4fr 1.2fr 0.8fr 0.8fr 36px;
+  gap: 8px;
+  padding: 10px 12px;
+  background: $white;
+  border-bottom: 1px solid #f3f4f6;
+  align-items: center;
+}
+
+.appt-modal__group-row {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1.4fr 1.2fr 0.8fr 0.7fr 0.8fr 36px;
+  gap: 8px;
+  padding: 10px 12px;
+  background: $white;
+  border-bottom: 1px solid #f3f4f6;
+  align-items: center;
+}
+
+.staff-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  .staff-pill {
+    background: #f3f4f6;
+    border-radius: 20px;
+    padding: 2px 8px;
+    display: flex;
+    align-items: center;
+    border: 1px solid $dashboard-border;
+    flex: 1;
+
+    select {
+      background: none;
+      border: none;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 3px 0;
+      outline: none;
+      width: 100%;
+    }
+    span { cursor: pointer; margin-right: 4px; font-size: 13px; }
   }
 }

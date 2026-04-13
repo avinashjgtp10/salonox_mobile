@@ -12,8 +12,8 @@
   cursor: default;
 
   &--interacting { user-select: none; }
-  &--dragging { cursor: grabbing; }
-  &--resizing { cursor: ns-resize; }
+  &--dragging    { cursor: grabbing; }
+  &--resizing    { cursor: ns-resize; }
 }
 
 /* ── Time gutter ── */
@@ -34,17 +34,25 @@
     background: $white;
   }
 
-  &__body { flex: 1; overflow-y: hidden; overflow-x: hidden; }
-}
+  &__body {
+    flex: 1;
+    overflow-y: hidden;
+    overflow-x: hidden;
+  }
 
-.dv-slot-label {
-  height: 30px; /* matches SLOT_HEIGHT via CSS variable if needed */
-  position: relative;
-  border-bottom: 1px solid #f0f0f0;
+  /* Each time slot row in the gutter — MUST match SLOT_HEIGHT = 48 */
+  &__slot {
+    height: 48px;
+    position: relative;
+    border-bottom: 1px solid #f0f0f0;
 
-  &--hour { border-bottom-color: #d1d5db; background: #f9fafb; }
+    &--hour {
+      border-bottom-color: #d1d5db;
+      background: #f9fafb;
+    }
+  }
 
-  &__text {
+  &__label {
     position: absolute;
     top: -8px;
     right: 6px;
@@ -53,7 +61,10 @@
     font-weight: 400;
     white-space: nowrap;
 
-    &--hour { color: $dashboard-secondary; font-weight: 600; }
+    &--hour {
+      color: $dashboard-secondary;
+      font-weight: 600;
+    }
   }
 }
 
@@ -93,7 +104,7 @@
   transition: background 0.15s;
 
   &--drag-target { background: #eff6ff; }
-  &:hover { background: #f9fafb; }
+  &:hover        { background: #f9fafb; }
 }
 
 .dv-staff-name {
@@ -124,34 +135,40 @@
   pointer-events: none;
   z-index: 10;
 
-  &__icon { font-size: 40px; margin-bottom: 10px; }
+  &__icon  { font-size: 40px; margin-bottom: 10px; }
   &__title { font-size: 15px; font-weight: 700; color: #374151; margin-bottom: 6px; }
-  &__sub { font-size: 12px; color: #9ca3af; }
+  &__sub   { font-size: 12px; color: #9ca3af; }
 }
 
 /* ── Grid ── */
-.dv-grid { display: flex; position: relative; }
+.dv-grid {
+  display: flex;
+  position: relative;
+}
 
-/* ── Staff column ── */
+/* ── Staff column ──
+   overflow: visible is CRITICAL — allows now-line label to bleed
+   left into the gutter on the first column */
 .dv-staff-col {
   flex-shrink: 0;
   border-right: 1px solid $dashboard-border;
   position: relative;
   background: transparent;
   transition: background 0.15s;
+  overflow: visible;
 
   &--drag-target { background: rgba(59, 130, 246, 0.04); }
 }
 
-/* ── Slot cell ── */
+/* ── Slot cell — height MUST equal SLOT_HEIGHT = 48 ── */
 .dv-slot {
-  height: 30px;
+  height: 48px;
   border-bottom: 1px solid #f0f0f0;
   cursor: pointer;
 
-  &--hour { border-bottom-color: #d1d5db; background: #fafafa; }
+  &--hour    { border-bottom-color: #d1d5db; background: #fafafa; }
   &--blocked { cursor: default; }
-  &--hover { background: #f0f9ff; }
+  &--hover   { background: #f0f9ff; }
 }
 
 /* ── Block overlay ── */
@@ -159,7 +176,9 @@
   position: absolute;
   left: 0;
   right: 0;
-  background: repeating-linear-gradient(45deg, #fef2f2, #fef2f2 6px, #fee2e2 6px, #fee2e2 12px);
+  background: repeating-linear-gradient(
+    45deg, #fef2f2, #fef2f2 6px, #fee2e2 6px, #fee2e2 12px
+  );
   border-left: 3px solid $danger;
   z-index: 3;
   display: flex;
@@ -167,7 +186,14 @@
   padding: 4px 8px;
   pointer-events: none;
 
-  &__label { font-size: 11px; font-weight: 600; color: $danger; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  &__label {
+    font-size: 11px;
+    font-weight: 600;
+    color: $danger;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 /* ── Booking chip ── */
@@ -182,21 +208,46 @@
   overflow: hidden;
   z-index: 5;
   cursor: grab;
-  transition: box-shadow 0.1s;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: box-shadow 0.1s;
 
   &--confirmed { background: linear-gradient(135deg, #22c55e, #16a34a); }
   &--pending   { background: linear-gradient(135deg, #f59e0b, #d97706); }
   &--cancelled { background: linear-gradient(135deg, #ef4444, #dc2626); }
 
-  &--dragging  { z-index: 100; opacity: 0.92; cursor: grabbing; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); transition: none; }
-  &--resizing  { z-index: 100; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); transition: none; }
+  &--dragging {
+    z-index: 100;
+    opacity: 0.92;
+    cursor: grabbing;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    transition: none;
+  }
 
-  &__body { padding: 4px 8px; }
+  &--resizing {
+    z-index: 100;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    transition: none;
+  }
 
+  &__body    { padding: 4px 8px; }
   &__time    { display: block; font-size: 10px; opacity: 0.9; }
-  &__service { display: block; font-weight: 700; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  &__client  { display: block; font-size: 10px; opacity: 0.85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
+  &__service {
+    display: block;
+    font-weight: 700;
+    margin-top: 1px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  &__client  {
+    display: block;
+    font-size: 10px;
+    opacity: 0.85;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 1px;
+  }
 
   &__resize-handle {
     position: absolute;
@@ -220,7 +271,11 @@
   }
 }
 
-/* ── Now line ── */
+/* ── Now line ──
+   Renders inside each staff column.
+   The label has left: -74px which bleeds into the gutter.
+   overflow: visible on .dv-staff-col allows this.
+   The label only renders in the first column (controlled in TSX). */
 .dv-now-line {
   position: absolute;
   left: 0;
@@ -232,14 +287,16 @@
 
   &__label {
     position: absolute;
-    left: -68px;
+    left: -74px;
     top: -10px;
     background: $danger;
     color: $white;
     border-radius: 4px;
-    padding: 1px 4px;
+    padding: 1px 5px;
     font-size: 10px;
     font-weight: 700;
+    white-space: nowrap;
+    z-index: 20;
   }
 }
 

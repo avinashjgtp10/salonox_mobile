@@ -62,7 +62,8 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (staffMenuRef.current && !staffMenuRef.current.contains(e.target as Node)) setStaffMenu(null);
+      if (staffMenuRef.current && !staffMenuRef.current.contains(e.target as Node))
+        setStaffMenu(null);
     }
     if (staffMenu) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -106,7 +107,12 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
         const colShift = Math.round(deltaX / COL_WIDTH);
         const origIndex = STAFF_LIST.findIndex((s) => s.id === prev.booking.staffId);
         const newIndex = Math.max(0, Math.min(STAFF_LIST.length - 1, origIndex + colShift));
-        return { ...prev, currentTop: Math.max(0, snapped), currentStaffId: STAFF_LIST[newIndex].id, currentStaffIndex: newIndex };
+        return {
+          ...prev,
+          currentTop: Math.max(0, snapped),
+          currentStaffId: STAFF_LIST[newIndex].id,
+          currentStaffIndex: newIndex,
+        };
       });
     }
     function onMouseUp() {
@@ -121,14 +127,24 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
       const newEnd = addMinutes(newStart, duration);
       const newStaff = STAFF_LIST.find((s) => s.id === dragging.currentStaffId);
       updateBooking({
-        ...dragging.booking, startTime: newStart, endTime: newEnd, staffId: dragging.currentStaffId,
-        services: dragging.booking.services.map((s) => ({ ...s, staffId: dragging.currentStaffId, staff: newStaff?.name || s.staff })),
+        ...dragging.booking,
+        startTime: newStart,
+        endTime: newEnd,
+        staffId: dragging.currentStaffId,
+        services: dragging.booking.services.map((s) => ({
+          ...s,
+          staffId: dragging.currentStaffId,
+          staff: newStaff?.name || s.staff,
+        })),
       });
       setDragging(null);
     }
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
-    return () => { window.removeEventListener("mousemove", onMouseMove); window.removeEventListener("mouseup", onMouseUp); };
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
   }, [dragging, intervalMins, updateBooking, COL_WIDTH]);
 
   useEffect(() => {
@@ -157,7 +173,10 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
     }
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
-    return () => { window.removeEventListener("mousemove", onMouseMove); window.removeEventListener("mouseup", onMouseUp); };
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
   }, [resizing, intervalMins, updateBooking]);
 
   const dayBookings = getBookingsByDate(currentDate);
@@ -186,8 +205,11 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
           {slots.map((t) => {
             const [, m] = t.split(":").map(Number);
             return (
-              <div key={t} className={`dv-slot-label${m === 0 ? " dv-slot-label--hour" : ""}`}>
-                <span className={`dv-slot-label__text${m === 0 ? " dv-slot-label__text--hour" : ""}`}>
+              <div
+                key={t}
+                className={`dv-gutter__slot${m === 0 ? " dv-gutter__slot--hour" : ""}`}
+              >
+                <span className={`dv-gutter__label${m === 0 ? " dv-gutter__label--hour" : ""}`}>
                   {formatTime12(t)}
                 </span>
               </div>
@@ -198,6 +220,7 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
 
       {/* ── Staff columns ── */}
       <div ref={containerRef} className="dv-columns">
+
         {/* Staff header */}
         <div ref={headerRef} className="dv-staff-header">
           <div className="dv-staff-header__inner" style={{ width: totalWidth }}>
@@ -211,11 +234,15 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
                   onClick={(e) => {
                     e.stopPropagation();
                     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                    setStaffMenu((prev) => prev?.staffId === staff.id ? null : { staffId: staff.id, x: rect.left, y: rect.bottom + 4 });
+                    setStaffMenu((prev) =>
+                      prev?.staffId === staff.id ? null : { staffId: staff.id, x: rect.left, y: rect.bottom + 4 }
+                    );
                   }}
                 >
                   <Avatar staff={staff} size={36} />
-                  <span className="dv-staff-name" style={{ maxWidth: COL_WIDTH - 8 }}>{staff.name}</span>
+                  <span className="dv-staff-name" style={{ maxWidth: COL_WIDTH - 8 }}>
+                    {staff.name}
+                  </span>
                 </div>
               );
             })}
@@ -224,6 +251,8 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
 
         {/* Scrollable body */}
         <div ref={scrollBodyRef} onScroll={onBodyScroll} className="dv-scroll-body">
+
+          {/* Empty state */}
           {dayBookings.length === 0 && !isInteracting && (
             <div className="dv-empty-state">
               <div className="dv-empty-state__icon">📅</div>
@@ -233,8 +262,10 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
           )}
 
           <div className="dv-grid" style={{ width: totalWidth }}>
-            {STAFF_LIST.map((staff) => {
+            {STAFF_LIST.map((staff, staffIndex) => {
               const isDragTarget = dragging?.currentStaffId === staff.id && dragging.booking.staffId !== staff.id;
+              const isFirstCol = staffIndex === 0;
+
               return (
                 <div
                   key={staff.id}
@@ -250,8 +281,13 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
                         key={t}
                         onClick={() => !blocked && !isInteracting && onSlotClick(staff.id, t)}
                         className={`dv-slot${m === 0 ? " dv-slot--hour" : ""}${blocked ? " dv-slot--blocked" : ""}`}
-                        onMouseEnter={(e) => { if (!blocked && !isInteracting) (e.currentTarget as HTMLElement).classList.add("dv-slot--hover"); }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).classList.remove("dv-slot--hover"); }}
+                        onMouseEnter={(e) => {
+                          if (!blocked && !isInteracting)
+                            (e.currentTarget as HTMLElement).classList.add("dv-slot--hover");
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLElement).classList.remove("dv-slot--hover");
+                        }}
                       />
                     );
                   })}
@@ -277,9 +313,14 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
                       const isDraggingThis = dragging?.booking.id === b.id;
                       const isResizingThis = resizing?.booking.id === b.id;
                       const chipTop = isDraggingThis ? dragging!.currentTop : timeToPx(b.startTime);
-                      const chipHeight = isResizingThis ? resizing!.currentHeight : Math.max(durationToPx(b.startTime, b.endTime), SLOT_HEIGHT);
+                      const chipHeight = isResizingThis
+                        ? resizing!.currentHeight
+                        : Math.max(durationToPx(b.startTime, b.endTime), SLOT_HEIGHT);
 
-                      const statusClass = b.status === "Confirmed" ? "confirmed" : b.status === "Pending" ? "pending" : "cancelled";
+                      const statusClass =
+                        b.status === "Confirmed" ? "confirmed"
+                        : b.status === "Pending" ? "pending"
+                        : "cancelled";
 
                       const previewStart = isDraggingThis
                         ? (() => {
@@ -316,10 +357,19 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
                             const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                             const fromBottom = rect.bottom - e.clientY;
                             if (fromBottom > 14) {
-                              e.stopPropagation(); e.preventDefault();
+                              e.stopPropagation();
+                              e.preventDefault();
                               setPopupBooking(null);
                               const origIndex = STAFF_LIST.findIndex((s) => s.id === b.staffId);
-                              setDragging({ booking: b, startX: e.clientX, startY: e.clientY, originalTop: timeToPx(b.startTime), currentTop: timeToPx(b.startTime), currentStaffId: b.staffId, currentStaffIndex: origIndex });
+                              setDragging({
+                                booking: b,
+                                startX: e.clientX,
+                                startY: e.clientY,
+                                originalTop: timeToPx(b.startTime),
+                                currentTop: timeToPx(b.startTime),
+                                currentStaffId: b.staffId,
+                                currentStaffIndex: origIndex,
+                              });
                             }
                           }}
                           onClick={(e) => {
@@ -331,16 +381,24 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
                           }}
                         >
                           <div className="dv-chip__body">
-                            <span className="dv-chip__time">{formatTime12(previewStart)} – {formatTime12(previewEnd)}</span>
+                            <span className="dv-chip__time">
+                              {formatTime12(previewStart)} – {formatTime12(previewEnd)}
+                            </span>
                             <span className="dv-chip__service">{b.services[0]?.service}</span>
                             <span className="dv-chip__client">👤 {b.clientName}</span>
                           </div>
                           <div
                             className="dv-chip__resize-handle"
                             onMouseDown={(e) => {
-                              e.stopPropagation(); e.preventDefault();
+                              e.stopPropagation();
+                              e.preventDefault();
                               setPopupBooking(null);
-                              setResizing({ booking: b, startY: e.clientY, originalHeight: Math.max(durationToPx(b.startTime, b.endTime), SLOT_HEIGHT), currentHeight: Math.max(durationToPx(b.startTime, b.endTime), SLOT_HEIGHT) });
+                              setResizing({
+                                booking: b,
+                                startY: e.clientY,
+                                originalHeight: Math.max(durationToPx(b.startTime, b.endTime), SLOT_HEIGHT),
+                                currentHeight: Math.max(durationToPx(b.startTime, b.endTime), SLOT_HEIGHT),
+                              });
                             }}
                           >
                             <div className="dv-chip__resize-bar" />
@@ -349,10 +407,12 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
                       );
                     })}
 
-                  {/* Now line */}
+                  {/* ── Now line — label ONLY on first column, bleeds into gutter ── */}
                   {isToday && (
                     <div className="dv-now-line" style={{ top: nowPx }}>
-                      <div className="dv-now-line__label">{nowTime}</div>
+                      {isFirstCol && (
+                        <div className="dv-now-line__label">{nowTime}</div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -364,7 +424,11 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
 
       {/* ── Staff context menu ── */}
       {staffMenu && (
-        <div ref={staffMenuRef} className="dv-staff-menu" style={{ top: staffMenu.y, left: staffMenu.x }}>
+        <div
+          ref={staffMenuRef}
+          className="dv-staff-menu"
+          style={{ top: staffMenu.y, left: staffMenu.x }}
+        >
           <button
             className="dv-staff-menu__item"
             onClick={() => { onBlockTime(staffMenu.staffId); setStaffMenu(null); }}
@@ -392,7 +456,11 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
           onView={onViewBill}
           onEdit={onEditBooking}
           onClose={() => setPopupBooking(null)}
-          style={{ position: "fixed", top: Math.min(popupPos.top, window.innerHeight - 360), left: Math.min(popupPos.left, window.innerWidth - 300) }}
+          style={{
+            position: "fixed",
+            top: Math.min(popupPos.top, window.innerHeight - 360),
+            left: Math.min(popupPos.left, window.innerWidth - 300),
+          }}
         />
       )}
     </div>
