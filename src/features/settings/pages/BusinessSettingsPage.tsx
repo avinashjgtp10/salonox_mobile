@@ -70,7 +70,15 @@ export default function BusinessSettingsPage() {
   };
 
   const handleSave = async () => {
-    const result = await dispatch(updateSalonThunk(form));
+    if (!currentSalon?.id) {
+      toast.error("Salon information not found");
+      return;
+    }
+
+    const result = await dispatch(
+      updateSalonThunk({ id: currentSalon.id, payload: form })
+    );
+
     if (updateSalonThunk.fulfilled.match(result)) {
       toast.success("Business settings saved");
       setIsDirty(false);

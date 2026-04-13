@@ -1,10 +1,5 @@
 import { useState } from "react";
 import {
-  MessageCircle,
-  CreditCard,
-  Mail,
-  Calendar,
-  BarChart2,
   ChevronDown,
   ChevronUp,
   ExternalLink,
