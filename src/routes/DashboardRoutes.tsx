@@ -12,6 +12,7 @@ import { ClientsRoutes } from "./ClientsRoutes";
 import { TeamRoutes } from "./TeamRoutes";
 import { SettingsRoutes } from "./SettingsRoutes";
 import { MarketingRoutes } from "./MarketingRoutes";
+import { OnlineBookingRoutes } from "./OnlineBookingRoutes";
 
 // Lazy-load the heavy dashboard-specific pages
 const DashboardPage = lazy(() =>
@@ -50,6 +51,7 @@ export const DashboardRoutes = (
       <Route path="team/*" element={<TeamRoutes />} />
       <Route path="settings/*" element={<SettingsRoutes />} />
       <Route path="marketing/*" element={<MarketingRoutes />} />
+      <Route path="online-booking/*" element={<OnlineBookingRoutes />} />
 
       <Route path="analytics" element={<ReportsPage />} />
       <Route path="profile"   element={<ProfilePage />} />
