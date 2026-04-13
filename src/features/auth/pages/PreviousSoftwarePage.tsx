@@ -1,8 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { FiArrowLeft, FiArrowRight } from "react-icons/fi";
-import salonImg from "../../../assets/images/salon.jpg";
 import "../styles/PreviousSoftwarePage.scss";
+import OnboardingImagePanel from "../components/OnboardingImagePanel";
 
 export default function PreviousSoftwarePage() {
   const navigate = useNavigate();
@@ -35,42 +35,37 @@ export default function PreviousSoftwarePage() {
 
   return (
     <div className="container-fluid p-0">
-      {/* Progress */}
-      <div className="progress" style={{ height: "5px" }}>
-        <div className="progress-bar bg-dark" style={{ width: "75%" }} />
+      {/* Progress bar */}
+      <div className="progress rounded-0" style={{ height: "4px", background: "#f3f4f6" }}>
+        <div className="progress-bar" style={{ width: "80%", background: "#111827" }} />
       </div>
 
-      <div className="row g-0 min-vh-100">
-        {/* LEFT SIDE */}
-        <div className="col-lg-5 col-12 bg-white p-5 position-relative">
+      <div className="row g-0" style={{ minHeight: "calc(100vh - 4px)" }}>
+        {/* LEFT PANEL */}
+        <div className="col-lg-5 col-12 bg-white p-4 p-lg-5 position-relative">
           <button
-            className="btn btn-light border rounded-circle position-absolute d-md-flex align-items-center justify-content-center"
-            style={{ top: "30px", left: "50px", width: "40px", height: "40px", padding: 0, zIndex: 10 }}
+            className="btn btn-light border rounded-circle position-absolute d-flex align-items-center justify-content-center"
+            style={{ top: "24px", left: "24px", width: "40px", height: "40px", padding: 0, zIndex: 10 }}
             onClick={() => navigate(-1)}
           >
-            <FiArrowLeft />
+            <FiArrowLeft size={16} />
           </button>
-          <div style={{ maxWidth: "420px" }} className="mt-5">
-            <p className="text-muted small">Account setup</p>
 
-            <h4 className="fw-bold my-3">
-              Which software are you currently using?
-            </h4>
-
-            <p className="text-muted small mb-4">
-              If you're looking to switch, we can help speed up your business
-              setup.
+          <div style={{ maxWidth: "420px" }} className="mt-4">
+            <p className="onboarding-step-label mb-1">Account setup &nbsp;·&nbsp; Step 7 of 8</p>
+            <h3 className="fw-bold mb-1" style={{ fontSize: "24px", color: "#111827", letterSpacing: "-0.02em" }}>
+              Which software do you currently use?
+            </h3>
+            <p className="text-muted mb-4" style={{ fontSize: "14px" }}>
+              We can help speed up your setup if you're switching.
             </p>
 
-            {/* BUTTON STYLE OPTIONS */}
-            <div className="d-grid gap-3">
+            <div className="d-grid gap-2">
               {softwareList.map((item, index) => (
                 <button
                   key={index}
                   type="button"
-                  className={`btn software-btn ${
-                    selected === item ? "active" : ""
-                  }`}
+                  className={`btn software-btn ${selected === item ? "active" : ""}`}
                   onClick={() => setSelected(item)}
                 >
                   {item}
@@ -78,63 +73,59 @@ export default function PreviousSoftwarePage() {
               ))}
             </div>
 
-            {/* Other Input */}
             {selected === "Other" && (
               <div className="mt-4">
                 <div className="d-flex justify-content-between mb-2">
-                  <label className="form-label">What other software?</label>
-                  <small className="text-muted">
-                    {otherSoftware.length}/30
-                  </small>
+                  <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
+                    What other software?
+                  </label>
+                  <small className="text-muted">{otherSoftware.length}/30</small>
                 </div>
-
                 <input
                   type="text"
-                  className={`form-control ${
-                    otherSoftware.length === 0 ? "is-invalid" : ""
-                  }`}
+                  className={`form-control ${otherSoftware.length === 0 ? "is-invalid" : ""}`}
                   placeholder="Type software name"
                   value={otherSoftware}
                   maxLength={30}
                   onChange={(e) => setOtherSoftware(e.target.value)}
+                  style={{ height: "48px", borderRadius: "12px", border: "1px solid #e5e7eb" }}
                 />
-
                 {otherSoftware.length === 0 && (
-                  <div className="invalid-feedback d-block">
-                    Other software is required
-                  </div>
+                  <div className="invalid-feedback d-block">Other software is required</div>
                 )}
               </div>
             )}
-          </div>
-        </div>
 
-        {/* RIGHT SIDE */}
-        <div
-          className="col-lg-7 d-none d-lg-block position-relative p-0"
-          style={{ minHeight: "100vh" }}
-        >
-          <img
-            src={salonImg}
-            alt="salon"
-            className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
-            style={{ zIndex: 0 }}
-          />
-
-          {/* Desktop Continue Button on Image */}
-          <div className="position-absolute top-0 end-0 p-4 z-3">
+            {/* Mobile continue button */}
             <button
-              className="btn btn-dark rounded-pill px-4"
-              disabled={
-                !selected ||
-                (selected === "Other" && otherSoftware.length === 0)
-              }
+              className="btn btn-dark w-100 rounded-pill mt-4 d-lg-none"
+              style={{ height: "52px", fontWeight: 600 }}
+              disabled={!selected || (selected === "Other" && otherSoftware.length === 0)}
               onClick={handleContinue}
             >
               Continue <FiArrowRight size={16} className="ms-1" />
             </button>
           </div>
         </div>
+
+        {/* RIGHT IMAGE PANEL */}
+        <OnboardingImagePanel
+          continueBtn={
+            <button
+              className="btn btn-light rounded-pill px-4 fw-semibold"
+              disabled={!selected || (selected === "Other" && otherSoftware.length === 0)}
+              onClick={handleContinue}
+              style={{ fontSize: "14px" }}
+            >
+              Continue <FiArrowRight size={14} className="ms-1" />
+            </button>
+          }
+          quote={{
+            text: "Switching from Booksy took less than 10 minutes. Wish I'd done it sooner.",
+            author: "Tom H.",
+            role: "Fitness & Wellness Coach",
+          }}
+        />
       </div>
     </div>
   );

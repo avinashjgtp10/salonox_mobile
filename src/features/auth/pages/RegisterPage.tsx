@@ -14,6 +14,7 @@ import salonImg from "../../../assets/images/salon.jpg";
 import Input from "../../../components/ui/Input";
 import Button from "../../../components/ui/Button";
 import SplitLayout from "../../../components/ui/SplitLayout";
+import "../styles/onboarding-shared.scss";
 interface FormState {
   fullName: string;
   businessName: string;
@@ -546,12 +547,58 @@ export default function RegisterPage() {
   );
 
   const RightSection = (
-    <img
-      src={salonImg}
-      alt="salon"
-      className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
-      style={{ zIndex: 0 }}
-    />
+    <div
+      className="d-flex flex-column onboarding-image-panel"
+      style={{ height: "100%", minHeight: "100vh" }}
+    >
+      <img
+        src={salonImg}
+        alt="salon"
+        className="oip-bg"
+      />
+      <div className="oip-overlay" />
+
+      {/* Brand top-left */}
+      <div className="oip-topbar">
+        <span className="oip-brand">salonox</span>
+      </div>
+
+      <div className="oip-spacer" />
+
+      {/* Bottom quote */}
+      <div className="oip-bottom">
+        <div className="oip-stats">
+          <div>
+            <div className="oip-stat-value">10K+</div>
+            <div className="oip-stat-label">Professionals</div>
+          </div>
+          <div>
+            <div className="oip-stat-value">4.9★</div>
+            <div className="oip-stat-label">App Rating</div>
+          </div>
+          <div>
+            <div className="oip-stat-value">Free</div>
+            <div className="oip-stat-label">7-day trial</div>
+          </div>
+        </div>
+        <div className="oip-quote-card">
+          <div className="oip-stars">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <svg key={i} width="14" height="14" viewBox="0 0 24 24" fill="#fbbf24" stroke="none">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+            ))}
+          </div>
+          <p className="oip-quote-text">
+            "Setting up on salonox was the best decision for my business. Everything just works — from day one."
+          </p>
+          <div className="oip-quote-author">
+            <span className="oip-author-name">Sarah M.</span>
+            <span className="oip-author-role">Hair Stylist, London</span>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 
   return (

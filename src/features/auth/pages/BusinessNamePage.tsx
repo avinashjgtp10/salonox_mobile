@@ -1,9 +1,9 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { FiArrowLeft } from "react-icons/fi";
+import { FiArrowLeft, FiArrowRight } from "react-icons/fi";
 import "../styles/BusinessNamePage.scss";
 import { useOnboarding } from "../../../context/OnboardingContext";
-import salonImg from "../../../assets/images/salon.jpg";
+import OnboardingImagePanel from "../components/OnboardingImagePanel";
 
 export default function BusinessNamePage() {
   const navigate = useNavigate();
@@ -18,59 +18,60 @@ export default function BusinessNamePage() {
   const handleContinue = () => {
     setSubmitted(true);
     if (!isValid) return;
-
     update({
       business_name: businessName.trim(),
       website_url: website.trim(),
     });
-
     navigate("/service-type");
   };
 
   return (
     <div className="container-fluid p-0">
-      <div className="progress rounded-0" style={{ height: "4px" }}>
-        <div className="progress-bar bg-dark" style={{ width: "30%" }} />
+      {/* Progress bar */}
+      <div className="progress rounded-0" style={{ height: "4px", background: "#f3f4f6" }}>
+        <div className="progress-bar" style={{ width: "20%", background: "#111827" }} />
       </div>
 
-      <div className="row g-0 min-vh-100">
-        <div className="col-lg-5 col-12 bg-light d-flex align-items-center justify-content-center p-4 position-relative">
+      <div className="row g-0" style={{ minHeight: "calc(100vh - 4px)" }}>
+        {/* LEFT PANEL */}
+        <div className="col-lg-5 col-12 bg-white d-flex align-items-center justify-content-center p-4 p-lg-5 position-relative">
           <button
-            className="btn btn-light border rounded-circle position-absolute d-md-flex align-items-center justify-content-center"
-            style={{ top: "30px", left: "50px", width: "40px", height: "40px", padding: 0, zIndex: 10 }}
+            className="btn btn-light border rounded-circle position-absolute d-flex align-items-center justify-content-center"
+            style={{ top: "24px", left: "24px", width: "40px", height: "40px", padding: 0, zIndex: 10 }}
             onClick={() => navigate(-1)}
           >
-            <FiArrowLeft />
+            <FiArrowLeft size={16} />
           </button>
-          <div
-            className="card shadow-sm p-4 w-100"
-            style={{ maxWidth: "480px" }}
-          >
-            <p className="text-muted small mb-2">Account setup</p>
-            <h4 className="fw-bold mb-2">What's your business name?</h4>
-            <p className="text-muted small mb-4">
-              This is the brand name your clients will see. Your billing and
-              legal name can be added later.
+
+          <div className="w-100" style={{ maxWidth: "420px" }}>
+            <p className="onboarding-step-label mb-1">Account setup &nbsp;·&nbsp; Step 2 of 8</p>
+            <h3 className="fw-bold mb-1" style={{ fontSize: "26px", color: "#111827", letterSpacing: "-0.02em" }}>
+              What's your business name?
+            </h3>
+            <p className="text-muted mb-4" style={{ fontSize: "14px" }}>
+              This is the brand name your clients will see. Your billing and legal name can be added later.
             </p>
 
             <div className="mb-3">
-              <label className="form-label fw-semibold">Business name *</label>
+              <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
+                Business name <span className="text-danger">*</span>
+              </label>
               <input
                 type="text"
                 className={`form-control ${submitted && !isValid ? "is-invalid" : ""}`}
+                placeholder="e.g. Glamour Salon"
                 value={businessName}
                 onChange={(e) => setBusinessName(e.target.value)}
+                style={{ height: "48px", borderRadius: "12px", border: "1px solid #e5e7eb", fontSize: "14px" }}
               />
               {submitted && !isValid && (
-                <div className="invalid-feedback">
-                  Business name must be at least 3 characters
-                </div>
+                <div className="invalid-feedback">Business name must be at least 3 characters</div>
               )}
             </div>
 
             <div className="mb-4">
-              <label className="form-label fw-semibold">
-                Website (Optional)
+              <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
+                Website <span className="text-muted fw-normal">(Optional)</span>
               </label>
               <input
                 type="text"
@@ -78,31 +79,28 @@ export default function BusinessNamePage() {
                 className="form-control"
                 value={website}
                 onChange={(e) => setWebsite(e.target.value)}
+                style={{ height: "48px", borderRadius: "12px", border: "1px solid #e5e7eb", fontSize: "14px" }}
               />
             </div>
 
             <button
               className="btn btn-dark w-100 rounded-pill"
+              style={{ height: "52px", fontWeight: 600, fontSize: "14px" }}
               onClick={handleContinue}
             >
-              Continue →
+              Continue <FiArrowRight size={14} className="ms-1" />
             </button>
           </div>
         </div>
 
-        <div
-          className="col-lg-7 d-none d-lg-block position-relative p-0"
-          style={{ minHeight: "100vh" }}
-        >
-          <img
-            src={salonImg}
-            alt="salon"
-            className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
-            style={{ zIndex: 0 }}
-          />
-
-
-        </div>
+        {/* RIGHT IMAGE PANEL */}
+        <OnboardingImagePanel
+          quote={{
+            text: "My clients love how easy it is to book. Revenue went up 40% in just 3 months after switching.",
+            author: "James K.",
+            role: "Master Barber, New York",
+          }}
+        />
       </div>
     </div>
   );
