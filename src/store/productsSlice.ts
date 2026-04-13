@@ -1,0 +1,124 @@
+import { createSlice } from "@reduxjs/toolkit";
+import {
+  fetchProductsThunk,
+  createProductThunk,
+  deleteProductThunk,
+  fetchBrandsThunk,
+  createBrandThunk,
+  deleteBrandThunk,
+  fetchCategoriesThunk,
+  createCategoryThunk,
+  deleteCategoryThunk,
+} from "../middleware/catalog/products.thunk";
+
+interface ProductsState {
+  items: any[];
+  total: number;
+  brands: any[];
+  categories: any[];
+  loading: {
+    fetchAll: boolean;
+    create: boolean;
+    delete: boolean;
+    brands: boolean;
+    categories: boolean;
+  };
+  error: string | null;
+}
+
+const initialState: ProductsState = {
+  items: [],
+  total: 0,
+  brands: [],
+  categories: [],
+  loading: { fetchAll: false, create: false, delete: false, brands: false, categories: false },
+  error: null,
+};
+
+const productsSlice = createSlice({
+  name: "products",
+  initialState,
+  reducers: {
+    clearProductsError(state) { state.error = null; },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchProductsThunk.pending, (state) => {
+        state.loading.fetchAll = true; state.error = null;
+      })
+      .addCase(fetchProductsThunk.fulfilled, (state, action) => {
+        state.loading.fetchAll = false;
+        state.items = action.payload.data;
+        state.total = action.payload.total;
+      })
+      .addCase(fetchProductsThunk.rejected, (state, action) => {
+        state.loading.fetchAll = false;
+        state.error = action.payload ?? "Error fetching products";
+      });
+
+    builder
+      .addCase(createProductThunk.pending, (state) => {
+        state.loading.create = true;
+      })
+      .addCase(createProductThunk.fulfilled, (state, action) => {
+        state.loading.create = false;
+        state.items.unshift(action.payload);
+        state.total += 1;
+      })
+      .addCase(createProductThunk.rejected, (state, action) => {
+        state.loading.create = false;
+        state.error = action.payload ?? "Error creating product";
+      });
+
+    builder
+      .addCase(deleteProductThunk.fulfilled, (state, action) => {
+        state.items = state.items.filter((p) => p.id !== action.payload);
+        state.total -= 1;
+      });
+
+    builder
+      .addCase(fetchBrandsThunk.pending, (state) => {
+        state.loading.brands = true;
+      })
+      .addCase(fetchBrandsThunk.fulfilled, (state, action) => {
+        state.loading.brands = false;
+        state.brands = action.payload;
+      })
+      .addCase(fetchBrandsThunk.rejected, (state, action) => {
+        state.loading.brands = false;
+        state.error = action.payload ?? "Error fetching brands";
+      });
+
+    builder
+      .addCase(createBrandThunk.fulfilled, (state, action) => {
+        state.brands.push(action.payload);
+      })
+      .addCase(deleteBrandThunk.fulfilled, (state, action) => {
+        state.brands = state.brands.filter((b) => b.id !== action.payload);
+      });
+
+    builder
+      .addCase(fetchCategoriesThunk.pending, (state) => {
+        state.loading.categories = true;
+      })
+      .addCase(fetchCategoriesThunk.fulfilled, (state, action) => {
+        state.loading.categories = false;
+        state.categories = action.payload;
+      })
+      .addCase(fetchCategoriesThunk.rejected, (state, action) => {
+        state.loading.categories = false;
+        state.error = action.payload ?? "Error fetching categories";
+      });
+
+    builder
+      .addCase(createCategoryThunk.fulfilled, (state, action) => {
+        state.categories.push(action.payload);
+      })
+      .addCase(deleteCategoryThunk.fulfilled, (state, action) => {
+        state.categories = state.categories.filter((c) => c.id !== action.payload);
+      });
+  },
+});
+
+export const { clearProductsError } = productsSlice.actions;
+export default productsSlice.reducer;

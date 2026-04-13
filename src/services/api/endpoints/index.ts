@@ -11,3 +11,5 @@ export * from "./setting.endpoints";
 export * from "./app.endpoints";
 export * from "./marketing.endpoints";
 export * from "./report.endpoints";
+export * from "./products.endpoints";
+export * from "./categories.endpoints";

@@ -1,0 +1,187 @@
+import { createAsyncThunk } from "@reduxjs/toolkit";
+import api from "../../services/api/axios";
+import { PRODUCTS, CATEGORIES } from "../../services/api/endpoints";
+import { ApiError } from "../../services/api/interceptors";
+
+const downloadFile = (blob: Blob, filename: string) => {
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+};
+
+export const fetchProductsThunk = createAsyncThunk<
+  { data: any[]; total: number },
+  void,
+  { rejectValue: string }
+>("products/fetchAll", async (_, { rejectWithValue }) => {
+  try {
+    const res = await api.get(PRODUCTS.LIST);
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to fetch products.");
+  }
+});
+
+export const createProductThunk = createAsyncThunk<
+  any,
+  Record<string, any>,
+  { rejectValue: string }
+>("products/create", async (payload, { rejectWithValue }) => {
+  try {
+    const res = await api.post(PRODUCTS.CREATE, payload);
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) {
+      console.error("Backend validation error:", err.message, err.errors);
+      let details = err.message;
+      if (err.errors) {
+        details += ": " + JSON.stringify(err.errors);
+      }
+      return rejectWithValue(details);
+    }
+    return rejectWithValue("Failed to create product.");
+  }
+});
+
+export const deleteProductThunk = createAsyncThunk<
+  string,
+  string,
+  { rejectValue: string }
+>("products/delete", async (id, { rejectWithValue }) => {
+  try {
+    await api.delete(PRODUCTS.DELETE(id));
+    return id;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to delete product.");
+  }
+});
+
+export const fetchBrandsThunk = createAsyncThunk<
+  any[],
+  void,
+  { rejectValue: string }
+>("products/fetchBrands", async (_, { rejectWithValue }) => {
+  try {
+    const res = await api.get(PRODUCTS.BRANDS);
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to fetch brands.");
+  }
+});
+
+export const createBrandThunk = createAsyncThunk<
+  any,
+  { name: string },
+  { rejectValue: string }
+>("products/createBrand", async (body, { rejectWithValue }) => {
+  try {
+    const res = await api.post(PRODUCTS.CREATE_BRAND, body);
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to create brand.");
+  }
+});
+
+export const deleteBrandThunk = createAsyncThunk<
+  string,
+  string,
+  { rejectValue: string }
+>("products/deleteBrand", async (id, { rejectWithValue }) => {
+  try {
+    await api.delete(PRODUCTS.DELETE_BRAND(id));
+    return id;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to delete brand.");
+  }
+});
+
+export const exportProductsCSVThunk = createAsyncThunk<
+  void, void, { rejectValue: string }
+>("products/exportCSV", async (_, { rejectWithValue }) => {
+  try {
+    const res = await api.get(PRODUCTS.EXPORT_CSV, { responseType: "blob" });
+    downloadFile(res.data, "products.csv");
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to export CSV.");
+  }
+});
+
+export const exportProductsExcelThunk = createAsyncThunk<
+  void, void, { rejectValue: string }
+>("products/exportExcel", async (_, { rejectWithValue }) => {
+  try {
+    const res = await api.get(PRODUCTS.EXPORT_EXCEL, { responseType: "blob" });
+    downloadFile(res.data, "products.xlsx");
+  } catch (err: any) {
+    const msg = err instanceof ApiError ? err.message : "Failed to export Excel.";
+    alert("Export Excel failed: " + msg);
+    return rejectWithValue(msg);
+  }
+});
+
+export const exportProductsPDFThunk = createAsyncThunk<
+  void, void, { rejectValue: string }
+>("products/exportPDF", async (_, { rejectWithValue }) => {
+  try {
+    const res = await api.get(PRODUCTS.EXPORT_PDF, { responseType: "blob" });
+    downloadFile(res.data, "products.pdf");
+  } catch (err: any) {
+    const msg = err instanceof ApiError ? err.message : "Failed to export PDF.";
+    alert("Export PDF failed: " + msg);
+    return rejectWithValue(msg);
+  }
+});
+
+// ── Categories ────────────────────────────────────────────────────────────────
+export const fetchCategoriesThunk = createAsyncThunk<
+  any[],
+  void,
+  { rejectValue: string }
+>("products/fetchCategories", async (_, { rejectWithValue }) => {
+  try {
+    const res = await api.get(CATEGORIES.LIST);
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to fetch categories.");
+  }
+});
+
+export const createCategoryThunk = createAsyncThunk<
+  any,
+  { name: string },
+  { rejectValue: string }
+>("products/createCategory", async (body, { rejectWithValue }) => {
+  try {
+    const res = await api.post(CATEGORIES.CREATE, body);
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to create category.");
+  }
+});
+
+export const deleteCategoryThunk = createAsyncThunk<
+  string,
+  string,
+  { rejectValue: string }
+>("products/deleteCategory", async (id, { rejectWithValue }) => {
+  try {
+    await api.delete(CATEGORIES.DELETE(id));
+    return id;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to delete category.");
+  }
+});
