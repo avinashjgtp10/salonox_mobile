@@ -60,8 +60,11 @@ const MembershipsLandingPage: React.FC = () => {
               >
                 Start now
               </button>
-              <button className="btn memberships-landing-page__learn-btn">
-                Learn more
+              <button
+                className="btn memberships-landing-page__learn-btn"
+                onClick={() => navigate("/dashboard/catalog/memberships/list")}
+              >
+                View memberships
               </button>
             </div>
           </div>

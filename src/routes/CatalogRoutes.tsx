@@ -13,6 +13,9 @@ const CategoriesPage = lazy(
 const MembershipsLandingPage = lazy(
   () => import("../features/catalog/pages/MembershipsLandingPage"),
 );
+const MembershipsListPage = lazy(
+  () => import("../features/catalog/pages/MembershipsListPage"),
+);
 const CreateMembershipPage = lazy(
   () => import("../features/catalog/pages/CreateMembershipPage"),
 );
@@ -53,6 +56,7 @@ export const CatalogRoutes = () => (
       <Route path="services/add" element={<AddServicePage />} />
       <Route path="services/categories" element={<CategoriesPage />} />
       <Route path="memberships" element={<MembershipsLandingPage />} />
+      <Route path="memberships/list" element={<MembershipsListPage />} />
       <Route path="memberships/create" element={<CreateMembershipPage />} />
       <Route path="products" element={<ProductsListPage />} />
       <Route path="products/landing" element={<ProductsLandingPage />} />
