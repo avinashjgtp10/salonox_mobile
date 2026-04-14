@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import type {
   Booking,
   ServiceItem,
@@ -40,6 +39,12 @@ type TempProduct = {
   qty: number;
   total: number;
 };
+type TempSubscription = {
+  tempId: string;
+  name: string;
+  duration: string;
+  price: number;
+};
 
 function validateRows(
   serviceRows: TempService[],
@@ -47,7 +52,6 @@ function validateRows(
   clientName: string,
   isWalkin: boolean,
   selectedClientId: string | null,
-  payMode: PaymentMode | "",
 ): string[] {
   const errors: string[] = [];
   if (!clientName.trim() && !isWalkin && !selectedClientId)
@@ -55,7 +59,6 @@ function validateRows(
   const hasSomething =
     serviceRows.some((r) => r.service) || packageRows.length > 0;
   if (!hasSomething) errors.push("no_rows");
-  if (!payMode) errors.push("paymode");
   serviceRows.forEach((r, i) => {
     if (!r.service) errors.push(`svc_${i}_service`);
     else if (!r.staffId) errors.push(`svc_${i}_staff`);
@@ -69,31 +72,21 @@ function printReceipt(booking: Booking) {
   const staffName =
     STAFF_LIST.find((s) => s.id === booking.staffId)?.name || booking.staffId;
   const generatedAt = new Date().toLocaleString("en-IN", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
+    weekday: "long", year: "numeric", month: "long",
+    day: "numeric", hour: "2-digit", minute: "2-digit",
   });
   const serviceRows = booking.services
-    .map(
-      (s) =>
-        `<tr><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0">${s.service}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0">${s.staff || staffName}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center">${s.qty}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right">₹${(s.total || 0).toFixed(2)}</td></tr>`,
-    )
-    .join("");
+    .map((s) =>
+      `<tr><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0">${s.service}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0">${s.staff || staffName}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center">${s.qty}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right">₹${(s.total || 0).toFixed(2)}</td></tr>`
+    ).join("");
   const pkgRows = (booking.packageItems || [])
-    .map(
-      (p) =>
-        `<tr><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0">${p.packageName} <span style="font-size:10px;color:#f59e0b">[Package]</span></td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0">—</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center">${p.qty}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right">₹${(p.total || 0).toFixed(2)}</td></tr>`,
-    )
-    .join("");
+    .map((p) =>
+      `<tr><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0">${p.packageName} <span style="font-size:10px;color:#f59e0b">[Package]</span></td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0">—</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center">${p.qty}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right">₹${(p.total || 0).toFixed(2)}</td></tr>`
+    ).join("");
   const payStatusColor =
-    booking.paymentStatus === "Paid"
-      ? "#22c55e"
-      : booking.paymentStatus === "Partial"
-        ? "#f59e0b"
-        : "#ef4444";
+    booking.paymentStatus === "Paid" ? "#22c55e"
+    : booking.paymentStatus === "Partial" ? "#f59e0b"
+    : "#ef4444";
   const html = `<!DOCTYPE html><html><head><title>Receipt — ${booking.clientName}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',sans-serif;padding:32px;color:#111;max-width:600px;margin:0 auto}@media print{body{padding:16px}}</style></head><body>
   <div style="text-align:center;margin-bottom:24px"><div style="font-size:26px;font-weight:800">SalonOx</div><div style="font-size:13px;color:#6b7280;margin-top:4px">Appointment Receipt</div><div style="font-size:11px;color:#9ca3af;margin-top:2px">${generatedAt}</div></div>
   <div style="display:flex;justify-content:space-between;background:#f9fafb;border-radius:8px;padding:14px 18px;margin-bottom:20px;gap:12px;flex-wrap:wrap">
@@ -133,51 +126,60 @@ const NewAppointmentModal: React.FC<Props> = ({
   const { addBooking, updateBooking, currentDate } = useSchedulerContext();
   const isEditMode = !!existingBooking;
 
+  // ── Client state ─────────────────────────────────────────────────────────
   const [clientSearch, setClientSearch] = useState(existingBooking?.clientName || "");
   const [selectedClientId, setSelectedClientId] = useState<string | null>(existingBooking?.clientId || null);
   const [isWalkin, setIsWalkin] = useState(!existingBooking?.clientId && !!existingBooking);
   const [showClientDrop, setShowClientDrop] = useState(false);
+
+  // ── Inline add-client form ───────────────────────────────────────────────
+  const [showAddClientForm, setShowAddClientForm] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [newClientPhone, setNewClientPhone] = useState("");
+  const [newClientGender, setNewClientGender] = useState<"Female" | "Male" | "Other">("Female");
+
+  // ── Date / calendar ──────────────────────────────────────────────────────
   const [calDate, setCalDate] = useState(existingBooking?.billDate || currentDate);
   const [showCal, setShowCal] = useState(false);
+
+  // ── Modal states ─────────────────────────────────────────────────────────
   const [showPkgModal, setShowPkgModal] = useState(false);
   const [savedBooking, setSavedBooking] = useState<Booking | null>(null);
 
+  // ── Rows ─────────────────────────────────────────────────────────────────
   const [serviceRows, setServiceRows] = useState<TempService[]>(
     existingBooking?.services.map((s) => ({ ...s, tempId: "sr_" + s.id })) || [
-      {
-        tempId: "sr_" + Date.now(),
-        id: "",
-        service: "",
-        staff: "",
-        staffId: defaultStaffId || "",
-        time: defaultTime || "10:00",
-        price: 0,
-        qty: 0,
-        total: 0,
-      },
+      { tempId: "sr_" + Date.now(), id: "", service: "", staff: "", staffId: defaultStaffId || "", time: defaultTime || "10:00", price: 0, qty: 0, total: 0 },
     ],
   );
   const [packageRows, setPackageRows] = useState<TempPkg[]>(
     existingBooking?.packageItems?.map((p) => ({ ...p, tempId: "pk_" + p.id })) || [],
   );
   const [productRows, setProductRows] = useState<TempProduct[]>([]);
+  const [subscriptionRows, setSubscriptionRows] = useState<TempSubscription[]>([]);
 
+  // ── Financials ───────────────────────────────────────────────────────────
   const [rewardPoints, setRewardPoints] = useState(existingBooking?.rewardPoints || "");
   const [exCharges, setExCharges] = useState(existingBooking?.exCharges || 0);
   const [tip, setTip] = useState<number>(0);
   const [discount, setDiscount] = useState(existingBooking?.discount || 0);
   const [discountType, setDiscountType] = useState<DiscountType>(existingBooking?.discountType || "Percentage (%)");
   const [gst, setGst] = useState(existingBooking?.gst || 0);
-  const [payMode, setPayMode] = useState<PaymentMode | "">(existingBooking?.paymentMode || "");
   const [adjustPayment, setAdjustPayment] = useState(existingBooking?.payingNow || 0);
   const [couponInput, setCouponInput] = useState(existingBooking?.couponCode || "");
   const [couponDiscount, setCouponDiscount] = useState(existingBooking?.couponDiscount || 0);
   const [couponApplied, setCouponApplied] = useState(existingBooking?.couponCode || "");
   const [couponError, setCouponError] = useState("");
+
+  // ── Notes & staff alert ──────────────────────────────────────────────────
   const [notes, setNotes] = useState(existingBooking?.notes || "");
+  const [staffAlert, setStaffAlert] = useState("");
+
+  // ── Validation ───────────────────────────────────────────────────────────
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const hasErr = (key: string) => validationErrors.includes(key);
 
+  // ── Derived ──────────────────────────────────────────────────────────────
   const selectedClient = CLIENT_LIST.find((c) => c.id === selectedClientId);
   const selectedStats = CLIENT_STATS?.find?.((c: any) => c.clientId === selectedClientId) as any;
   const filteredClients = CLIENT_LIST.filter(
@@ -208,7 +210,21 @@ const NewAppointmentModal: React.FC<Props> = ({
     setSelectedClientId(null);
     setClientSearch("Walk-In");
     setShowClientDrop(false);
+    setShowAddClientForm(false);
     setValidationErrors((e) => e.filter((x) => x !== "client"));
+  }
+
+  function handleSaveNewClient() {
+    if (!newClientName.trim() || !newClientPhone.trim()) return;
+    // Use inline client directly without navigation
+    setClientSearch(newClientName.trim());
+    setSelectedClientId(null);
+    setIsWalkin(false);
+    setShowAddClientForm(false);
+    setValidationErrors((e) => e.filter((x) => x !== "client"));
+    setNewClientName("");
+    setNewClientPhone("");
+    setNewClientGender("Female");
   }
 
   function handleApplyCoupon() {
@@ -225,9 +241,7 @@ const NewAppointmentModal: React.FC<Props> = ({
   }
 
   function updateServiceRow(id: string, field: string, value: string | number | boolean) {
-    setServiceRows((rows) =>
-      rows.map((r) => (r.tempId !== id ? r : { ...r, [field]: value })),
-    );
+    setServiceRows((rows) => rows.map((r) => (r.tempId !== id ? r : { ...r, [field]: value })));
   }
   function removeServiceRow(id: string) {
     setServiceRows((rows) => rows.filter((r) => r.tempId !== id));
@@ -235,15 +249,7 @@ const NewAppointmentModal: React.FC<Props> = ({
   function addPackage(pkg: (typeof PACKAGES_LIST)[0]) {
     setPackageRows((r) => [
       ...r,
-      {
-        tempId: "pk_" + Date.now(),
-        id: "",
-        packageId: pkg.id,
-        packageName: pkg.name,
-        price: pkg.price,
-        qty: 1,
-        total: pkg.price,
-      },
+      { tempId: "pk_" + Date.now(), id: "", packageId: pkg.id, packageName: pkg.name, price: pkg.price, qty: 1, total: pkg.price },
     ]);
     setShowPkgModal(false);
   }
@@ -254,22 +260,14 @@ const NewAppointmentModal: React.FC<Props> = ({
   }
 
   function handleSave() {
-    const resolvedClientName = isWalkin
-      ? "Walk-In"
-      : selectedClient?.name || clientSearch || "";
-    const resolvedClientPhone = isWalkin
-      ? ""
-      : selectedClient?.phone || existingBooking?.clientPhone || "";
-    const errors = validateRows(
-      serviceRows, packageRows, resolvedClientName,
-      isWalkin, selectedClientId, payMode,
-    );
+    const resolvedClientName = isWalkin ? "Walk-In" : selectedClient?.name || clientSearch || "";
+    const resolvedClientPhone = isWalkin ? "" : selectedClient?.phone || existingBooking?.clientPhone || "";
+    const errors = validateRows(serviceRows, packageRows, resolvedClientName, isWalkin, selectedClientId);
     if (errors.length > 0) { setValidationErrors(errors); return; }
     setValidationErrors([]);
 
     const paymentStatus = getPaymentStatus(adjustPayment, grandTotal);
-    const appointmentStatus =
-      paymentStatus === "Paid" ? ("Confirmed" as const) : ("Pending" as const);
+    const appointmentStatus = paymentStatus === "Paid" ? ("Confirmed" as const) : ("Pending" as const);
 
     if (isEditMode) {
       const firstRow = serviceRows[0];
@@ -280,45 +278,25 @@ const NewAppointmentModal: React.FC<Props> = ({
         clientId: selectedClientId || undefined,
         clientName: resolvedClientName,
         clientPhone: resolvedClientPhone,
-        startTime,
-        endTime,
+        startTime, endTime,
         staffId: firstRow?.staffId || existingBooking?.staffId || STAFF_LIST[0].id,
         billDate: calDate,
         services: serviceRows.map((r) => ({
-          id: r.id || "s_" + r.tempId,
-          service: r.service,
+          id: r.id || "s_" + r.tempId, service: r.service,
           staff: STAFF_LIST.find((s) => s.id === r.staffId)?.name || r.staff || "",
-          staffId: r.staffId,
-          time: r.time,
-          price: r.price,
-          qty: r.qty || 1,
-          total: r.total,
+          staffId: r.staffId, time: r.time, price: r.price, qty: r.qty || 1, total: r.total,
         })),
         groupItems: [],
         packageItems: packageRows.map((r) => ({
-          id: r.id || "pk_" + r.tempId,
-          packageId: r.packageId,
-          packageName: r.packageName,
-          price: r.price,
-          qty: r.qty,
-          total: r.total,
+          id: r.id || "pk_" + r.tempId, packageId: r.packageId,
+          packageName: r.packageName, price: r.price, qty: r.qty, total: r.total,
         })),
-        paymentMode: payMode as PaymentMode,
-        rewardPoints,
-        exCharges,
-        discount,
-        discountType,
-        gst,
-        couponCode: couponApplied,
-        couponDiscount,
-        subtotal,
-        taxableAmount: taxable,
-        grandTotal,
-        payingNow: adjustPayment,
-        dueAmount,
-        notes,
-        status: appointmentStatus,
-        paymentStatus,
+        paymentMode: "Cash" as PaymentMode,
+        rewardPoints, exCharges, discount, discountType, gst,
+        couponCode: couponApplied, couponDiscount, subtotal,
+        taxableAmount: taxable, grandTotal, payingNow: adjustPayment, dueAmount,
+        notes: notes + (staffAlert ? `\n Staff Alert: ${staffAlert}` : ""),
+        status: appointmentStatus, paymentStatus,
       } as any;
       (updated as any).tip = tip;
       updateBooking(updated);
@@ -343,50 +321,25 @@ const NewAppointmentModal: React.FC<Props> = ({
       const newBooking: Booking = {
         id: "b_" + Date.now(),
         clientId: selectedClientId || undefined,
-        clientName: resolvedClientName,
-        clientPhone: resolvedClientPhone,
-        staffId: primaryStaffId,
-        date: currentDate,
-        billDate: calDate,
-        startTime,
-        endTime,
-        services: serviceRows
-          .filter((r) => r.service)
-          .map((r) => ({
-            id: "s_" + r.tempId,
-            service: r.service,
-            staff: STAFF_LIST.find((s) => s.id === r.staffId)?.name || r.staff || "",
-            staffId: r.staffId,
-            time: r.time,
-            price: r.price,
-            qty: r.qty || 1,
-            total: r.total,
-          })),
+        clientName: resolvedClientName, clientPhone: resolvedClientPhone,
+        staffId: primaryStaffId, date: currentDate, billDate: calDate,
+        startTime, endTime,
+        services: serviceRows.filter((r) => r.service).map((r) => ({
+          id: "s_" + r.tempId, service: r.service,
+          staff: STAFF_LIST.find((s) => s.id === r.staffId)?.name || r.staff || "",
+          staffId: r.staffId, time: r.time, price: r.price, qty: r.qty || 1, total: r.total,
+        })),
         groupItems: [],
         packageItems: packageRows.map((r) => ({
-          id: "pk_" + r.tempId,
-          packageId: r.packageId,
-          packageName: r.packageName,
-          price: r.price,
-          qty: r.qty,
-          total: r.total,
+          id: "pk_" + r.tempId, packageId: r.packageId,
+          packageName: r.packageName, price: r.price, qty: r.qty, total: r.total,
         })),
-        status: appointmentStatus,
-        paymentStatus,
-        paymentMode: payMode as PaymentMode,
-        rewardPoints,
-        exCharges,
-        discount,
-        discountType,
-        gst,
-        couponCode: couponApplied,
-        couponDiscount,
-        subtotal,
-        taxableAmount: taxable,
-        grandTotal,
-        payingNow: adjustPayment,
-        dueAmount,
-        notes,
+        status: appointmentStatus, paymentStatus,
+        paymentMode: "Cash" as PaymentMode,
+        rewardPoints, exCharges, discount, discountType, gst,
+        couponCode: couponApplied, couponDiscount, subtotal,
+        taxableAmount: taxable, grandTotal, payingNow: adjustPayment, dueAmount,
+        notes: notes + (staffAlert ? `\n Staff Alert: ${staffAlert}` : ""),
       } as any;
       (newBooking as any).tip = tip;
       addBooking(newBooking);
@@ -400,63 +353,38 @@ const NewAppointmentModal: React.FC<Props> = ({
         const endTime = addMinutes(startTime, 30);
         const staffSubtotal = staffServices.reduce((a, r) => a + (r.total || 0), 0);
         const staffPayStatus = index === 0 ? paymentStatus : ("Unpaid" as const);
-        const staffApptStatus =
-          staffPayStatus === "Paid" ? ("Confirmed" as const) : ("Pending" as const);
+        const staffApptStatus = staffPayStatus === "Paid" ? ("Confirmed" as const) : ("Pending" as const);
         addBooking({
           id: "b_" + Date.now() + "_" + index,
           clientId: selectedClientId || undefined,
-          clientName: resolvedClientName,
-          clientPhone: resolvedClientPhone,
-          staffId,
-          date: currentDate,
-          billDate: calDate,
-          startTime,
-          endTime,
+          clientName: resolvedClientName, clientPhone: resolvedClientPhone,
+          staffId, date: currentDate, billDate: calDate, startTime, endTime,
           services: staffServices.map((r) => ({
-            id: "s_" + r.tempId,
-            service: r.service,
+            id: "s_" + r.tempId, service: r.service,
             staff: STAFF_LIST.find((s) => s.id === r.staffId)?.name || r.staff || "",
-            staffId: r.staffId,
-            time: r.time,
-            price: r.price,
-            qty: r.qty || 1,
-            total: r.total,
+            staffId: r.staffId, time: r.time, price: r.price, qty: r.qty || 1, total: r.total,
           })),
           groupItems: [],
-          packageItems:
-            index === 0
-              ? packageRows.map((r) => ({
-                  id: "pk_" + r.tempId,
-                  packageId: r.packageId,
-                  packageName: r.packageName,
-                  price: r.price,
-                  qty: r.qty,
-                  total: r.total,
-                }))
-              : [],
-          status: staffApptStatus,
-          paymentStatus: staffPayStatus,
-          paymentMode: payMode as PaymentMode,
+          packageItems: index === 0 ? packageRows.map((r) => ({
+            id: "pk_" + r.tempId, packageId: r.packageId,
+            packageName: r.packageName, price: r.price, qty: r.qty, total: r.total,
+          })) : [],
+          status: staffApptStatus, paymentStatus: staffPayStatus,
+          paymentMode: "Cash" as PaymentMode,
           rewardPoints: index === 0 ? rewardPoints : "",
           exCharges: index === 0 ? exCharges : 0,
-          discount: index === 0 ? discount : 0,
-          discountType,
+          discount: index === 0 ? discount : 0, discountType,
           gst: index === 0 ? gst : 0,
           couponCode: index === 0 ? couponApplied : "",
           couponDiscount: index === 0 ? couponDiscount : 0,
-          subtotal: staffSubtotal,
-          taxableAmount: staffSubtotal,
-          grandTotal: staffSubtotal,
-          payingNow: index === 0 ? adjustPayment : 0,
-          dueAmount: staffSubtotal,
-          notes,
+          subtotal: staffSubtotal, taxableAmount: staffSubtotal, grandTotal: staffSubtotal,
+          payingNow: index === 0 ? adjustPayment : 0, dueAmount: staffSubtotal,
+          notes: notes + (staffAlert ? `\n Staff Alert: ${staffAlert}` : ""),
         } as any);
       });
       onClose();
     }
   }
-
-  const navigate = useNavigate();
 
   // ── Success screen ────────────────────────────────────────────────────────
   if (savedBooking) {
@@ -490,16 +418,10 @@ const NewAppointmentModal: React.FC<Props> = ({
             </div>
           </div>
           <div className="success-actions">
-            <Button
-              variant="dark"
-              iconLeft={<span>🖨️</span>}
-              onClick={() => printReceipt(savedBooking)}
-            >
+            <Button variant="dark" iconLeft={<span>🖨️</span>} onClick={() => printReceipt(savedBooking)}>
               Print Receipt
             </Button>
-            <Button variant="outline-secondary" onClick={onClose}>
-              Close
-            </Button>
+            <Button variant="outline-secondary" onClick={onClose}>Close</Button>
           </div>
         </div>
       </div>
@@ -507,531 +429,472 @@ const NewAppointmentModal: React.FC<Props> = ({
   }
 
   return (
-    <div
-      className="appt-drawer-overlay"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
+    <div className="appt-drawer-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="appt-drawer-content">
 
-        {/* ── Header ─────────────────────────────────────────────────────── */}
+        {/* ── Header ───────────────────────────────────────────────────────── */}
         <div className="appt-drawer-header">
           <button className="btn-close-drawer" onClick={onClose}>✕</button>
           <h2>{isEditMode ? "Edit Appointment" : "New Appointment"}</h2>
-          {isEditMode && (
-            <span className="edit-badge">Editing #{existingBooking.id}</span>
-          )}
+          {isEditMode && <span className="edit-badge">Editing #{existingBooking.id}</span>}
         </div>
 
         <div className="appt-drawer-body">
 
-          {/* ── Client row ──────────────────────────────────────────────── */}
-          <div className="client-row">
-            <div className="client-row__search-wrap">
-              <input
-                className={`form-input${hasErr("client") ? " input-error" : ""}`}
-                placeholder="Search by Name / Phone (min 2 chars)"
-                value={clientSearch}
-                onChange={(e) => {
-                  setClientSearch(e.target.value);
-                  setShowClientDrop(true);
-                  setIsWalkin(false);
-                  setSelectedClientId(null);
-                  setValidationErrors((ev) => ev.filter((x) => x !== "client"));
+          {/* ── Section: Client ──────────────────────────────────────────── */}
+          <div className="appt-section">
+            <div className="appt-section__title">👤 Client</div>
+
+            <div className="client-row">
+              <div className="client-row__search-wrap">
+                <input
+                  className={`form-input${hasErr("client") ? " input-error" : ""}`}
+                  placeholder="Search by Name / Phone (min 2 chars)"
+                  value={clientSearch}
+                  onChange={(e) => {
+                    setClientSearch(e.target.value);
+                    setShowClientDrop(true);
+                    setIsWalkin(false);
+                    setSelectedClientId(null);
+                    setShowAddClientForm(false);
+                    setValidationErrors((ev) => ev.filter((x) => x !== "client"));
+                  }}
+                  onFocus={() => clientSearch.length >= 2 && setShowClientDrop(true)}
+                />
+                {hasErr("client") && <span className="err-text">Please select a client or choose Walk-In</span>}
+                {showClientDrop && filteredClients.length > 0 && (
+                  <div className="client-dropdown">
+                    {filteredClients.map((c) => (
+                      <div
+                        key={c.id}
+                        className="client-dropdown__item"
+                        onClick={() => {
+                          setSelectedClientId(c.id);
+                          setClientSearch(c.name);
+                          setShowClientDrop(false);
+                          setIsWalkin(false);
+                          setShowAddClientForm(false);
+                          setValidationErrors((ev) => ev.filter((x) => x !== "client"));
+                        }}
+                      >
+                        <div className="client-dropdown__name">{c.name}</div>
+                        <div className="client-dropdown__phone">{c.phone}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <Button variant={isWalkin ? "dark" : "secondary"} size="sm" onClick={handleWalkinClick}>
+                {isWalkin ? "✓ Walk-In" : "Walk-In"}
+              </Button>
+
+              <Button
+                variant="outline-secondary"
+                size="sm"
+                onClick={() => {
+                  setShowAddClientForm((v) => !v);
+                  setShowClientDrop(false);
                 }}
-                onFocus={() => clientSearch.length >= 2 && setShowClientDrop(true)}
-              />
-              {hasErr("client") && (
-                <span className="err-text">Please select a client or choose Walk-In</span>
-              )}
-              {showClientDrop && filteredClients.length > 0 && (
-                <div className="client-dropdown">
-                  {filteredClients.map((c) => (
-                    <div
-                      key={c.id}
-                      className="client-dropdown__item"
-                      onClick={() => {
-                        setSelectedClientId(c.id);
-                        setClientSearch(c.name);
-                        setShowClientDrop(false);
-                        setIsWalkin(false);
-                        setValidationErrors((ev) => ev.filter((x) => x !== "client"));
-                      }}
-                    >
-                      <div className="client-dropdown__name">{c.name}</div>
-                      <div className="client-dropdown__phone">{c.phone}</div>
+              >
+                {showAddClientForm ? "✕ Cancel" : "+ Add Client"}
+              </Button>
+
+              <div className="client-row__date-wrap">
+                <input
+                  readOnly
+                  value={calDate}
+                  onClick={() => setShowCal((v) => !v)}
+                  className="form-input client-row__date-input"
+                />
+                {showCal && (
+                  <div className="client-row__cal-popup">
+                    <MiniCalendar
+                      value={calDate}
+                      onChange={(d: string) => { setCalDate(d); setShowCal(false); }}
+                      onClose={() => setShowCal(false)}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ── Inline Add Client Form ── */}
+            {showAddClientForm && (
+              <div className="add-client-form">
+                <div className="add-client-form__grid">
+                  <div className="add-client-form__field">
+                    <label className="field-label">Full Name *</label>
+                    <input
+                      className="form-input form-input--sm"
+                      placeholder="e.g. Priya Sharma"
+                      value={newClientName}
+                      onChange={(e) => setNewClientName(e.target.value)}
+                    />
+                  </div>
+                  <div className="add-client-form__field">
+                    <label className="field-label">Mobile Number *</label>
+                    <input
+                      className="form-input form-input--sm"
+                      placeholder="e.g. 9876543210"
+                      value={newClientPhone}
+                      onChange={(e) => setNewClientPhone(e.target.value)}
+                    />
+                  </div>
+                  <div className="add-client-form__field">
+                    <label className="field-label">Gender</label>
+                    <div className="gender-btns">
+                      {(["Female", "Male", "Other"] as const).map((g) => (
+                        <button
+                          key={g}
+                          type="button"
+                          className={`gender-btn${newClientGender === g ? " gender-btn--active" : ""}`}
+                          onClick={() => setNewClientGender(g)}
+                        >
+                          {g}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="add-client-form__field add-client-form__field--action">
+                    <Button variant="dark" size="sm" onClick={handleSaveNewClient}>
+                      Save Client
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Client Stats Panel ── */}
+            {selectedClientId && selectedStats && (
+              <div className="client-stats-panel">
+                <div className="client-stats-panel__header">
+                  <div className="avatar">{selectedClient!.name.charAt(0)}</div>
+                  <div className="info">
+                    <div className="name">{selectedClient!.name}</div>
+                    <div className="sub">{selectedClient!.phone} &nbsp;·&nbsp; {selectedStats.address}</div>
+                  </div>
+                  {selectedStats.membership !== "NA" && (
+                    <span className={`membership-badge ${selectedStats.membership.toLowerCase()}`}>
+                      ⭐ {selectedStats.membership}
+                    </span>
+                  )}
+                </div>
+                <div className="client-stats-panel__grid">
+                  {(
+                    [
+                      ["Reward Points", selectedStats.rewardPoints, ""],
+                      ["Ewallet Amt", `₹${selectedStats.ewalletAmt}`, ""],
+                      ["Unpaid Amt", `₹${selectedStats.unpaidAmt}`, selectedStats.unpaidAmt > 0 ? "danger" : ""],
+                      ["Assign Discount", `${selectedStats.assignDiscount}%`, ""],
+                      ["Disc. Validity", selectedStats.discountValidity, ""],
+                      ["Membership", selectedStats.membership, ""],
+                      ["No Show", selectedStats.noShow, selectedStats.noShow > 0 ? "danger" : ""],
+                      ["Cancelled", selectedStats.cancelled, selectedStats.cancelled > 0 ? "danger" : ""],
+                      ["Total Visits", selectedStats.totalVisit, ""],
+                      ["Last Visit", selectedStats.lastVisit, ""],
+                      ["Total Revenue", `₹${selectedStats.totalRevenue?.toLocaleString()}`, "info"],
+                      ["View History", "Click Here", "link"],
+                    ] as [string, string | number, string][]
+                  ).map(([label, value, cls]) => (
+                    <div key={label} className={`info-cell ${cls}`}>
+                      <span className="info-cell__label">{label}</span>
+                      <span className="info-cell__value">{value}</span>
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-
-            <Button
-              variant={isWalkin ? "dark" : "secondary"}
-              size="sm"
-              onClick={handleWalkinClick}
-            >
-              {isWalkin ? "✓ Walk-In" : "Walk-In"}
-            </Button>
-
-            <Button
-              variant="outline-secondary"
-              size="sm"
-              onClick={() => { onClose(); navigate("/dashboard/clients/add"); }}
-            >
-              + Add Client
-            </Button>
-
-            <div className="client-row__date-wrap">
-              <input
-                readOnly
-                value={calDate}
-                onClick={() => setShowCal((v) => !v)}
-                className="form-input client-row__date-input"
-              />
-              {showCal && (
-                <div className="client-row__cal-popup">
-                  <MiniCalendar
-                    value={calDate}
-                    onChange={(d: string) => { setCalDate(d); setShowCal(false); }}
-                    onClose={() => setShowCal(false)}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* ── Client stats panel ──────────────────────────────────────── */}
-          {selectedClientId && selectedStats && (
-            <div className="client-stats-panel">
-              <div className="client-stats-panel__header">
-                <div className="avatar">{selectedClient!.name.charAt(0)}</div>
-                <div className="info">
-                  <div className="name">{selectedClient!.name}</div>
-                  <div className="sub">
-                    {selectedClient!.phone} &nbsp;·&nbsp; {selectedStats.address}
+                {(selectedStats.notes || selectedStats.staffAlert) && (
+                  <div className="client-stats-panel__notes-row">
+                    {selectedStats.notes && (
+                      <div>
+                        <div className="info-cell__label"> Notes</div>
+                        <div className="stats-note-text">{selectedStats.notes}</div>
+                      </div>
+                    )}
+                    {selectedStats.staffAlert && (
+                      <div>
+                        <div className="info-cell__label info-cell__label--alert"> Staff Alert</div>
+                        <div className="stats-alert-text">{selectedStats.staffAlert}</div>
+                      </div>
+                    )}
                   </div>
-                </div>
-                {selectedStats.membership !== "NA" && (
-                  <span className={`membership-badge ${selectedStats.membership.toLowerCase()}`}>
-                    ⭐ {selectedStats.membership}
-                  </span>
                 )}
               </div>
-              <div className="client-stats-panel__grid">
-                {(
-                  [
-                    ["Reward Points", selectedStats.rewardPoints, ""],
-                    ["Ewallet Amt", `₹${selectedStats.ewalletAmt}`, ""],
-                    ["Unpaid Amt", `₹${selectedStats.unpaidAmt}`, selectedStats.unpaidAmt > 0 ? "danger" : ""],
-                    ["Assign Discount", `${selectedStats.assignDiscount}%`, ""],
-                    ["Disc. Validity", selectedStats.discountValidity, ""],
-                    ["Membership", selectedStats.membership, ""],
-                    ["No Show", selectedStats.noShow, selectedStats.noShow > 0 ? "danger" : ""],
-                    ["Cancelled", selectedStats.cancelled, selectedStats.cancelled > 0 ? "danger" : ""],
-                    ["Total Visits", selectedStats.totalVisit, ""],
-                    ["Last Visit", selectedStats.lastVisit, ""],
-                    ["Total Revenue", `₹${selectedStats.totalRevenue?.toLocaleString()}`, "info"],
-                    ["View History", "Click Here", "link"],
-                  ] as [string, string | number, string][]
-                ).map(([label, value, cls]) => (
-                  <div key={label} className={`info-cell ${cls}`}>
-                    <span className="info-cell__label">{label}</span>
-                    <span className="info-cell__value">{value}</span>
+            )}
+          </div>
+
+          {/* ── Section: Services ────────────────────────────────────────── */}
+          <div className="appt-section">
+            <div className="appt-section__title">✂️ Services & Items</div>
+
+            {hasErr("no_rows") && (
+              <div className="no-rows-error">
+                 Add at least one service or package before saving.
+              </div>
+            )}
+
+            {/* Services table */}
+            <div className="table-header table-header--services">
+              <div>SERVICE</div><div>STAFF</div><div>TIME</div>
+              <div>PRICE</div><div>QTY</div><div>TOTAL</div><div />
+            </div>
+            {serviceRows.map((row, i) => (
+              <ServiceRow
+                key={row.tempId}
+                row={row}
+                onChange={updateServiceRow}
+                onRemove={removeServiceRow}
+                hasError={hasErr(`svc_${i}_service`) || hasErr(`svc_${i}_staff`) || hasErr(`svc_${i}_price`) || hasErr(`svc_${i}_qty`)}
+                errorFields={{
+                  service: hasErr(`svc_${i}_service`),
+                  staff: hasErr(`svc_${i}_staff`),
+                  price: hasErr(`svc_${i}_price`),
+                  qty: hasErr(`svc_${i}_qty`),
+                }}
+              />
+            ))}
+
+            {/* Packages */}
+            {packageRows.length > 0 && (
+              <>
+                <div className="table-header table-header--packages">
+                  <div>PACKAGE</div><div>PRICE</div><div>QTY</div><div>TOTAL</div><div />
+                </div>
+                {packageRows.map((row) => (
+                  <div key={row.tempId} className="pkg-row">
+                    <div className="pkg-row__name">{row.packageName}</div>
+                    <input readOnly value={row.price} className="form-input form-input--sm form-input--readonly" />
+                    <input
+                      type="number" min={1} value={row.qty}
+                      className="form-input form-input--sm"
+                      onChange={(e) => {
+                        const qty = Math.max(1, parseInt(e.target.value) || 1);
+                        setPackageRows((rows) => rows.map((r) => r.tempId === row.tempId ? { ...r, qty, total: r.price * qty } : r));
+                      }}
+                    />
+                    <input readOnly value={row.total} className="form-input form-input--sm form-input--readonly" />
+                    <button className="btn-icon btn-icon--danger" onClick={() => setPackageRows((r) => r.filter((x) => x.tempId !== row.tempId))}>🗑</button>
                   </div>
                 ))}
-              </div>
-              {(selectedStats.notes || selectedStats.staffAlert) && (
-                <div className="client-stats-panel__notes-row">
-                  {selectedStats.notes && (
-                    <div>
-                      <div className="info-cell__label">📝 Notes</div>
-                      <div className="stats-note-text">{selectedStats.notes}</div>
-                    </div>
-                  )}
-                  {selectedStats.staffAlert && (
-                    <div>
-                      <div className="info-cell__label info-cell__label--alert">🔔 Staff Alert</div>
-                      <div className="stats-alert-text">{selectedStats.staffAlert}</div>
-                    </div>
-                  )}
+              </>
+            )}
+
+            {/* Products */}
+            {productRows.length > 0 && (
+              <>
+                <div className="table-header table-header--products">
+                  <div>PRODUCT</div><div>PRICE</div><div>QTY</div><div>TOTAL</div><div />
                 </div>
-              )}
-            </div>
-          )}
-
-          {/* ── No rows error ────────────────────────────────────────────── */}
-          {hasErr("no_rows") && (
-            <div className="no-rows-error">
-              ⚠️ Add at least one service or package before saving.
-            </div>
-          )}
-
-          {/* ── Services table header ────────────────────────────────────── */}
-          <div className="table-header table-header--services">
-            <div>SERVICE</div>
-            <div>STAFF</div>
-            <div>TIME</div>
-            <div>PRICE</div>
-            <div>QTY</div>
-            <div>TOTAL</div>
-            <div />
-          </div>
-
-          {serviceRows.map((row, i) => (
-            <ServiceRow
-              key={row.tempId}
-              row={row}
-              onChange={updateServiceRow}
-              onRemove={removeServiceRow}
-              hasError={
-                hasErr(`svc_${i}_service`) ||
-                hasErr(`svc_${i}_staff`) ||
-                hasErr(`svc_${i}_price`) ||
-                hasErr(`svc_${i}_qty`)
-              }
-              errorFields={{
-                service: hasErr(`svc_${i}_service`),
-                staff:   hasErr(`svc_${i}_staff`),
-                price:   hasErr(`svc_${i}_price`),
-                qty:     hasErr(`svc_${i}_qty`),
-              }}
-            />
-          ))}
-
-          {/* ── Packages table ───────────────────────────────────────────── */}
-          {packageRows.length > 0 && (
-            <>
-              <div className="table-header table-header--packages">
-                <div>PACKAGE</div>
-                <div>PRICE</div>
-                <div>QTY</div>
-                <div>TOTAL</div>
-                <div />
-              </div>
-              {packageRows.map((row) => (
-                <div key={row.tempId} className="pkg-row">
-                  <div className="pkg-row__name">{row.packageName}</div>
-                  <input
-                    readOnly
-                    value={row.price}
-                    className="form-input form-input--sm form-input--readonly"
-                  />
-                  <input
-                    type="number"
-                    min={1}
-                    value={row.qty}
-                    className="form-input form-input--sm"
-                    onChange={(e) => {
-                      const qty = Math.max(1, parseInt(e.target.value) || 1);
-                      setPackageRows((rows) =>
-                        rows.map((r) =>
-                          r.tempId === row.tempId ? { ...r, qty, total: r.price * qty } : r,
-                        ),
-                      );
-                    }}
-                  />
-                  <input
-                    readOnly
-                    value={row.total}
-                    className="form-input form-input--sm form-input--readonly"
-                  />
-                  <button
-                    className="btn-icon btn-icon--danger"
-                    onClick={() =>
-                      setPackageRows((r) => r.filter((x) => x.tempId !== row.tempId))
-                    }
-                  >
-                    🗑
-                  </button>
-                </div>
-              ))}
-            </>
-          )}
-
-          {/* ── Products table ───────────────────────────────────────────── */}
-          {productRows.length > 0 && (
-            <>
-              <div className="table-header table-header--products">
-                <div>PRODUCT</div>
-                <div>PRICE</div>
-                <div>QTY</div>
-                <div>TOTAL</div>
-                <div />
-              </div>
-              {productRows.map((row) => (
-                <div key={row.tempId} className="product-row">
-                  <input
-                    placeholder="Product name"
-                    value={row.productName}
-                    className="form-input form-input--sm"
-                    onChange={(e) =>
-                      setProductRows((rows) =>
-                        rows.map((r) =>
-                          r.tempId === row.tempId ? { ...r, productName: e.target.value } : r,
-                        ),
-                      )
-                    }
-                  />
-                  <input
-                    type="number"
-                    min={0}
-                    value={row.price || ""}
-                    placeholder="0"
-                    className="form-input form-input--sm"
-                    onChange={(e) => {
-                      const price = Math.max(0, parseFloat(e.target.value) || 0);
-                      setProductRows((rows) =>
-                        rows.map((r) =>
-                          r.tempId === row.tempId ? { ...r, price, total: price * r.qty } : r,
-                        ),
-                      );
-                    }}
-                  />
-                  <input
-                    type="number"
-                    min={1}
-                    value={row.qty}
-                    className="form-input form-input--sm"
-                    onChange={(e) => {
-                      const qty = Math.max(1, parseInt(e.target.value) || 1);
-                      setProductRows((rows) =>
-                        rows.map((r) =>
-                          r.tempId === row.tempId ? { ...r, qty, total: r.price * qty } : r,
-                        ),
-                      );
-                    }}
-                  />
-                  <input
-                    readOnly
-                    value={row.total.toFixed(2)}
-                    className="form-input form-input--sm form-input--readonly"
-                  />
-                  <button
-                    className="btn-icon btn-icon--danger"
-                    onClick={() =>
-                      setProductRows((r) => r.filter((x) => x.tempId !== row.tempId))
-                    }
-                  >
-                    🗑
-                  </button>
-                </div>
-              ))}
-            </>
-          )}
-
-          {/* ── Action buttons ───────────────────────────────────────────── */}
-          <div className="appt-add-actions">
-            <Button
-              variant="dark"
-              size="sm"
-              onClick={() =>
-                setServiceRows((r) => [
-                  ...r,
-                  {
-                    tempId: "sr_" + Date.now(),
-                    id: "",
-                    service: "",
-                    staff: "",
-                    staffId: defaultStaffId || "",
-                    time: defaultTime || "10:00",
-                    price: 0,
-                    qty: 0,
-                    total: 0,
-                  },
-                ])
-              }
-            >
-              + Add Service
-            </Button>
-            <Button variant="dark" size="sm" onClick={() => setShowPkgModal(true)}>
-              + Add Package
-            </Button>
-            <Button
-              variant="dark"
-              size="sm"
-              onClick={() =>
-                setProductRows((r) => [
-                  ...r,
-                  { tempId: "pr_" + Date.now(), id: "", productName: "", price: 0, qty: 1, total: 0 },
-                ])
-              }
-            >
-              + Add Product
-            </Button>
-          </div>
-
-          {/* ── Extras grid ──────────────────────────────────────────────── */}
-          <div className="extras-grid">
-            {[
-              {
-                label: "Reward Points",
-                el: (
-                  <select
-                    className="form-input form-input--sm"
-                    value={rewardPoints}
-                    onChange={(e) => setRewardPoints(e.target.value)}
-                  >
-                    {REWARD_POINTS_OPTIONS.map((r) => <option key={r}>{r}</option>)}
-                  </select>
-                ),
-              },
-              {
-                label: "Ex Charges",
-                el: (
-                  <input
-                    type="number" min={0}
-                    className="form-input form-input--sm"
-                    value={exCharges || ""} placeholder="0"
-                    onChange={(e) => posNum(e.target.value, setExCharges)}
-                  />
-                ),
-              },
-              {
-                label: "Tip",
-                el: (
-                  <input
-                    type="number" min={0}
-                    className="form-input form-input--sm"
-                    value={tip || ""} placeholder="0"
-                    onChange={(e) => posNum(e.target.value, setTip)}
-                  />
-                ),
-              },
-              {
-                label: "Discount",
-                el: (
-                  <input
-                    type="number" min={0}
-                    className="form-input form-input--sm"
-                    value={discount || ""} placeholder="0"
-                    onChange={(e) => posNum(e.target.value, setDiscount)}
-                  />
-                ),
-              },
-              {
-                label: "Discount Type",
-                el: (
-                  <select
-                    className="form-input form-input--sm"
-                    value={discountType}
-                    onChange={(e) => setDiscountType(e.target.value as DiscountType)}
-                  >
-                    <option>Percentage (%)</option>
-                    <option>Flat (₹)</option>
-                  </select>
-                ),
-              },
-              {
-                label: "GST %",
-                el: (
-                  <input
-                    type="number" min={0}
-                    className="form-input form-input--sm"
-                    value={gst || ""} placeholder="0"
-                    onChange={(e) => posNum(e.target.value, setGst)}
-                  />
-                ),
-              },
-            ].map(({ label, el }) => (
-              <div key={label} className="extras-grid__field">
-                <label className="field-label">{label}</label>
-                {el}
-              </div>
-            ))}
-          </div>
-
-          {/* ── Payment + Totals ─────────────────────────────────────────── */}
-          <div className="payment-totals-row">
-            <div className="payment-left">
-
-              {/* Row 1: Payment Method + Adjust Payment */}
-              <div className="payment-grid">
-                <div className="payment-section">
-                  <label className="field-label">Payment Method</label>
-                  <div className="pay-method-btns">
-                    {(["Cash", "Card", "UPI"] as PaymentMode[]).map((m) => (
-                      <button
-                        key={m}
-                        type="button"
-                        className={`pay-method-btn${payMode === m ? " pay-method-btn--active" : ""}`}
-                        onClick={() => {
-                          setPayMode(m);
-                          setValidationErrors((ev) => ev.filter((x) => x !== "paymode"));
-                        }}
-                      >
-                        {m}
-                      </button>
-                    ))}
-                  </div>
-                  {hasErr("paymode") && (
-                    <span className="err-text">Please select a payment method</span>
-                  )}
-                </div>
-
-                <div className="payment-section">
-                  <label className="field-label">Adjust Payment</label>
-                  <input
-                    type="number" min={0}
-                    className="form-input form-input--sm"
-                    value={adjustPayment || ""} placeholder="0"
-                    onChange={(e) => posNum(e.target.value, setAdjustPayment)}
-                  />
-                </div>
-              </div>
-
-              {/* Row 2: Coupon Code + Notes */}
-              <div className="payment-grid">
-                <div className="payment-section">
-                  <label className="field-label">Coupon Code</label>
-                  <div className="coupon-row">
+                {productRows.map((row) => (
+                  <div key={row.tempId} className="product-row">
                     <input
+                      placeholder="Product name" value={row.productName}
                       className="form-input form-input--sm"
-                      placeholder="SAVE10, FLAT50, NEW20"
-                      value={couponInput}
-                      onChange={(e) => { setCouponInput(e.target.value); setCouponError(""); }}
-                      onKeyDown={(e) => e.key === "Enter" && handleApplyCoupon()}
+                      onChange={(e) => setProductRows((rows) => rows.map((r) => r.tempId === row.tempId ? { ...r, productName: e.target.value } : r))}
                     />
-                    <Button variant="dark" size="sm" onClick={handleApplyCoupon}>
-                      Apply
-                    </Button>
+                    <input
+                      type="number" min={0} value={row.price || ""} placeholder="0"
+                      className="form-input form-input--sm"
+                      onChange={(e) => {
+                        const price = Math.max(0, parseFloat(e.target.value) || 0);
+                        setProductRows((rows) => rows.map((r) => r.tempId === row.tempId ? { ...r, price, total: price * r.qty } : r));
+                      }}
+                    />
+                    <input
+                      type="number" min={1} value={row.qty}
+                      className="form-input form-input--sm"
+                      onChange={(e) => {
+                        const qty = Math.max(1, parseInt(e.target.value) || 1);
+                        setProductRows((rows) => rows.map((r) => r.tempId === row.tempId ? { ...r, qty, total: r.price * qty } : r));
+                      }}
+                    />
+                    <input readOnly value={row.total.toFixed(2)} className="form-input form-input--sm form-input--readonly" />
+                    <button className="btn-icon btn-icon--danger" onClick={() => setProductRows((r) => r.filter((x) => x.tempId !== row.tempId))}>🗑</button>
                   </div>
-                  {couponApplied && (
-                    <span className="coupon-success">
-                      ✓ "{couponApplied}" — ₹{couponDiscount} off
-                    </span>
-                  )}
-                  {couponError && <span className="err-text">{couponError}</span>}
+                ))}
+              </>
+            )}
+
+            {/* Subscriptions */}
+            {subscriptionRows.length > 0 && (
+              <>
+                <div className="table-header table-header--subscriptions">
+                  <div>SUBSCRIPTION</div><div>DURATION</div><div>PRICE</div><div />
+                </div>
+                {subscriptionRows.map((row) => (
+                  <div key={row.tempId} className="subscription-row">
+                    <input
+                      placeholder="Subscription name" value={row.name}
+                      className="form-input form-input--sm"
+                      onChange={(e) => setSubscriptionRows((rows) => rows.map((r) => r.tempId === row.tempId ? { ...r, name: e.target.value } : r))}
+                    />
+                    <select
+                      className="form-input form-input--sm"
+                      value={row.duration}
+                      onChange={(e) => setSubscriptionRows((rows) => rows.map((r) => r.tempId === row.tempId ? { ...r, duration: e.target.value } : r))}
+                    >
+                      <option>1 Month</option>
+                      <option>3 Months</option>
+                      <option>6 Months</option>
+                      <option>1 Year</option>
+                    </select>
+                    <input
+                      type="number" min={0} value={row.price || ""} placeholder="0"
+                      className="form-input form-input--sm"
+                      onChange={(e) => {
+                        const price = Math.max(0, parseFloat(e.target.value) || 0);
+                        setSubscriptionRows((rows) => rows.map((r) => r.tempId === row.tempId ? { ...r, price } : r));
+                      }}
+                    />
+                    <button className="btn-icon btn-icon--danger" onClick={() => setSubscriptionRows((r) => r.filter((x) => x.tempId !== row.tempId))}>🗑</button>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {/* Action buttons */}
+            <div className="appt-add-actions">
+              <Button variant="dark" size="sm"
+                onClick={() => setServiceRows((r) => [...r, { tempId: "sr_" + Date.now(), id: "", service: "", staff: "", staffId: defaultStaffId || "", time: defaultTime || "10:00", price: 0, qty: 0, total: 0 }])}>
+                + Service
+              </Button>
+              <Button variant="dark" size="sm" onClick={() => setShowPkgModal(true)}>
+                + Package
+              </Button>
+              <Button variant="dark" size="sm"
+                onClick={() => setProductRows((r) => [...r, { tempId: "pr_" + Date.now(), id: "", productName: "", price: 0, qty: 1, total: 0 }])}>
+                + Product
+              </Button>
+              <Button variant="dark" size="sm"
+                onClick={() => setSubscriptionRows((r) => [...r, { tempId: "sub_" + Date.now(), name: "", duration: "1 Month", price: 0 }])}>
+                + Subscription
+              </Button>
+            </div>
+          </div>
+
+          {/* ── Section: Charges & Discounts ─────────────────────────────── */}
+          <div className="appt-section">
+            <div className="appt-section__title"> Charges & Discounts</div>
+            <div className="extras-grid">
+              {[
+                {
+                  label: "Reward Points",
+                  el: (
+                    <select className="form-input form-input--sm" value={rewardPoints} onChange={(e) => setRewardPoints(e.target.value)}>
+                      {REWARD_POINTS_OPTIONS.map((r) => <option key={r}>{r}</option>)}
+                    </select>
+                  ),
+                },
+                {
+                  label: "Ex Charges",
+                  el: <input type="number" min={0} className="form-input form-input--sm" value={exCharges || ""} placeholder="0" onChange={(e) => posNum(e.target.value, setExCharges)} />,
+                },
+                {
+                  label: "Tip",
+                  el: <input type="number" min={0} className="form-input form-input--sm" value={tip || ""} placeholder="0" onChange={(e) => posNum(e.target.value, setTip)} />,
+                },
+                {
+                  label: "Discount",
+                  el: <input type="number" min={0} className="form-input form-input--sm" value={discount || ""} placeholder="0" onChange={(e) => posNum(e.target.value, setDiscount)} />,
+                },
+                {
+                  label: "Discount Type",
+                  el: (
+                    <select className="form-input form-input--sm" value={discountType} onChange={(e) => setDiscountType(e.target.value as DiscountType)}>
+                      <option>Percentage (%)</option>
+                      <option>Flat (₹)</option>
+                    </select>
+                  ),
+                },
+                {
+                  label: "GST %",
+                  el: <input type="number" min={0} className="form-input form-input--sm" value={gst || ""} placeholder="0" onChange={(e) => posNum(e.target.value, setGst)} />,
+                },
+              ].map(({ label, el }) => (
+                <div key={label} className="extras-grid__field">
+                  <label className="field-label">{label}</label>
+                  {el}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Section: Payment & Notes ──────────────────────────────────── */}
+          <div className="appt-section">
+            <div className="appt-section__title">📋 Payment & Notes</div>
+
+            <div className="payment-totals-row">
+              <div className="payment-left">
+
+                {/* Adjust Payment + Coupon */}
+                <div className="payment-grid">
+                  <div className="payment-section">
+                    <label className="field-label">Adjust Payment</label>
+                    <input
+                      type="number" min={0}
+                      className="form-input form-input--sm"
+                      value={adjustPayment || ""} placeholder="0"
+                      onChange={(e) => posNum(e.target.value, setAdjustPayment)}
+                    />
+                  </div>
+                  <div className="payment-section">
+                    <label className="field-label">Coupon Code</label>
+                    <div className="coupon-row">
+                      <input
+                        className="form-input form-input--sm"
+                        placeholder="SAVE10, FLAT50, NEW20"
+                        value={couponInput}
+                        onChange={(e) => { setCouponInput(e.target.value); setCouponError(""); }}
+                        onKeyDown={(e) => e.key === "Enter" && handleApplyCoupon()}
+                      />
+                      <Button variant="dark" size="sm" onClick={handleApplyCoupon}>Apply</Button>
+                    </div>
+                    {couponApplied && <span className="coupon-success">✓ "{couponApplied}" — ₹{couponDiscount} off</span>}
+                    {couponError && <span className="err-text">{couponError}</span>}
+                  </div>
                 </div>
 
-                <div className="payment-section">
-                  <label className="field-label">Notes</label>
-                  <textarea
-                    className="form-textarea form-textarea--sm"
-                    placeholder="Enter Notes"
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    rows={2}
-                  />
+                {/* Staff Alert + Notes */}
+                <div className="payment-grid">
+                  <div className="payment-section">
+                    <label className="field-label">🔔 Staff Alert</label>
+                    <input
+                      className="form-input form-input--sm staff-alert-input"
+                      placeholder="e.g. Client has allergy to chemicals"
+                      value={staffAlert}
+                      onChange={(e) => setStaffAlert(e.target.value)}
+                    />
+                  </div>
+                  <div className="payment-section">
+                    <label className="field-label">Notes</label>
+                    <textarea
+                      className="form-textarea form-textarea--sm"
+                      placeholder="Enter appointment notes"
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      rows={2}
+                    />
+                  </div>
                 </div>
+
               </div>
 
+              <TotalsPanel
+                subtotal={subtotal}
+                exCharges={exCharges}
+                discount={discount}
+                discountType={discountType}
+                gst={gst}
+                adjustPayment={adjustPayment}
+                couponDiscount={couponDiscount}
+                tip={tip}
+              />
             </div>
-
-            <TotalsPanel
-              subtotal={subtotal}
-              exCharges={exCharges}
-              discount={discount}
-              discountType={discountType}
-              gst={gst}
-              adjustPayment={adjustPayment}
-              couponDiscount={couponDiscount}
-              tip={tip}
-            />
           </div>
 
         </div>
 
-        {/* ── Footer ──────────────────────────────────────────────────────── */}
+        {/* ── Footer ───────────────────────────────────────────────────────── */}
         <div className="appt-drawer-footer">
           <Button variant="dark" fullWidth onClick={handleSave}>
             {isEditMode ? "Update Appointment" : "Save Appointment"}
@@ -1049,11 +912,7 @@ const NewAppointmentModal: React.FC<Props> = ({
               <button onClick={() => setShowPkgModal(false)} className="btn-close">✕</button>
             </div>
             {PACKAGES_LIST.map((pkg) => (
-              <div
-                key={pkg.id}
-                onClick={() => addPackage(pkg)}
-                className="pkg-picker-content__item"
-              >
+              <div key={pkg.id} onClick={() => addPackage(pkg)} className="pkg-picker-content__item">
                 <div className="pkg-info">
                   <div className="pkg-name">{pkg.name}</div>
                   <div className="pkg-services">{pkg.services.join(", ")}</div>

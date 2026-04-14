@@ -696,3 +696,118 @@
     span { cursor: pointer; margin-right: 4px; font-size: 13px; }
   }
 }
+/* ── Sections ── */
+.appt-section {
+  margin-bottom: 20px;
+  border: 1px solid $dashboard-border;
+  border-radius: 10px;
+  overflow: hidden;
+
+  &__title {
+    font-size: 12px;
+    font-weight: 700;
+    color: $dashboard-primary;
+    background: #f9fafb;
+    padding: 8px 14px;
+    border-bottom: 1px solid $dashboard-border;
+    letter-spacing: 0.3px;
+  }
+
+  /* inner content padding except tables */
+  .client-row,
+  .add-client-form,
+  .client-stats-panel,
+  .no-rows-error,
+  .appt-add-actions,
+  .extras-grid,
+  .payment-totals-row {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .client-row { padding-top: 12px; }
+  .appt-add-actions { padding-bottom: 12px; }
+  .extras-grid { padding-top: 12px; padding-bottom: 4px; }
+  .payment-totals-row { padding-top: 12px; padding-bottom: 14px; }
+}
+
+/* ── Inline Add Client Form ── */
+.add-client-form {
+  padding-top: 10px;
+  padding-bottom: 12px;
+  border-top: 1px dashed $dashboard-border;
+  background: #fafbff;
+
+  &__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto auto;
+    gap: 10px;
+    align-items: flex-end;
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    &--action {
+      display: flex;
+      align-items: flex-end;
+    }
+  }
+}
+
+/* ── Gender buttons ── */
+.gender-btns {
+  display: flex;
+  gap: 4px;
+}
+
+.gender-btn {
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid $dashboard-border;
+  background: $white;
+  color: #374151;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+
+  &--active {
+    background: $dashboard-primary;
+    color: $white;
+    border-color: $dashboard-primary;
+  }
+}
+
+/* ── Subscription row ── */
+.table-header--subscriptions {
+  grid-template-columns: 2fr 1fr 1fr 40px;
+  margin-top: 12px;
+  background: #ecfdf5;
+  color: #065f46;
+  border-bottom: 1px solid #a7f3d0;
+}
+
+.subscription-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 40px;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #ecfdf5;
+  align-items: center;
+  background: #f0fdf4;
+}
+
+/* ── Staff alert input ── */
+.staff-alert-input {
+  border-color: #fbbf24 !important;
+  background: #fffbeb !important;
+
+  &:focus {
+    border-color: #f59e0b !important;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15) !important;
+  }
+}
