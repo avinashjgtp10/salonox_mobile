@@ -184,6 +184,18 @@
   }
 }
 
+.settings-avatar--square {
+  border-radius: 14px;
+
+  img {
+    border-radius: 12px;
+  }
+
+  .settings-avatar-overlay {
+    border-radius: 12px;
+  }
+}
+
 .settings-avatar-overlay {
   position: absolute;
   inset: 0;
@@ -1022,4 +1034,586 @@
   .settings-nav-divider {
     display: none;
   }
+}
+
+/* ============================================================
+   SETTINGS LAYOUT
+   ============================================================ */
+
+.settings-wrapper {
+  padding: 24px 0;
+}
+
+.settings-heading {
+  font-size: 22px;
+  font-weight: 700;
+  color: $dashboard-primary;
+  margin: 0;
+}
+
+/* ============================================================
+   NOTIFICATIONS — EVENT TABLE
+   ============================================================ */
+
+.notif-table-header {
+  display: grid;
+  grid-template-columns: 1fr 80px 80px 80px;
+  padding: 10px 22px;
+  background: #f9fafb;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+
+  span + span {
+    text-align: center;
+  }
+}
+
+.notif-table-row {
+  display: grid;
+  grid-template-columns: 1fr 80px 80px 80px;
+  padding: 14px 22px;
+  border-bottom: 1px solid #f3f4f6;
+  align-items: center;
+  transition: background 0.12s;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: #fafafa;
+  }
+}
+
+.notif-event-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.notif-event-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.notif-event-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.notif-event-desc {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.notif-toggle-cell {
+  display: flex;
+  justify-content: center;
+}
+
+.notif-table-footer {
+  padding: 16px 22px;
+  border-top: 1px solid #f3f4f6;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ============================================================
+   PASSWORD FIELD & STRENGTH INDICATOR
+   ============================================================ */
+
+.settings-pw-wrap {
+  position: relative;
+}
+
+.settings-pw-eye-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b7280;
+  display: flex;
+  padding: 0;
+
+  &:hover {
+    color: $dashboard-primary;
+  }
+}
+
+.settings-pw-strength {
+  max-width: 320px;
+  margin-top: 12px;
+}
+
+.settings-pw-strength-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 6px;
+  color: #6b7280;
+}
+
+.settings-pw-strength-track {
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.settings-pw-strength-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s, background 0.3s;
+}
+
+.settings-pw-strength-list {
+  font-size: 11.5px;
+  color: #6b7280;
+  margin-top: 8px;
+  padding-left: 18px;
+  line-height: 1.8;
+  margin-bottom: 0;
+}
+
+/* ============================================================
+   BILLING — PLANS & CYCLE TOGGLE
+   ============================================================ */
+
+.settings-billing-plan-actions {
+  margin-top: 18px;
+  display: flex;
+  gap: 10px;
+}
+
+.settings-billing-cycle {
+  display: flex;
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.settings-billing-cycle-btn {
+  padding: 5px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  color: #6b7280;
+  transition: all 0.15s;
+
+  &.active {
+    background: #fff;
+    color: #111827;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  }
+}
+
+.settings-plans-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+
+  @media (max-width: 800px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.settings-plan-card {
+  border: 2px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 20px;
+  position: relative;
+  background: #fff;
+
+  &.current {
+    border-color: #111827;
+    background: #f9fafb;
+  }
+
+  &.popular {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  }
+}
+
+.settings-plan-badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: #111827;
+
+  &.best {
+    background: #f59e0b;
+  }
+}
+
+.settings-plan-header {
+  margin-bottom: 14px;
+}
+
+.settings-plan-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.settings-plan-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.settings-plan-price {
+  font-size: 26px;
+  font-weight: 800;
+  color: #111827;
+  margin-bottom: 8px;
+
+  span {
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 400;
+  }
+}
+
+.settings-plan-desc {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.settings-plan-features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 18px;
+}
+
+.settings-plan-feature-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.settings-payment-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  background: #f9fafb;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+}
+
+.settings-payment-card-num {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.settings-payment-card-meta {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.settings-billing-dl-btn {
+  background: none;
+  border: none;
+  color: #111827;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.12s;
+
+  &:hover {
+    background: #f3f4f6;
+  }
+}
+
+.settings-billing-cta {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 20px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.settings-billing-cta-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 3px;
+}
+
+.settings-billing-cta-sub {
+  font-size: 12.5px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.settings-usage-icon-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 200px;
+  flex-shrink: 0;
+}
+
+.settings-usage-icon {
+  width: 28px;
+  height: 28px;
+  background: #f3f4f6;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #374151;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   DATA & PRIVACY — CARDS, RETENTION, WARNINGS
+   ============================================================ */
+
+.settings-privacy-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+
+  @media (max-width: 800px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.settings-privacy-card {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.settings-privacy-card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.settings-privacy-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 4px;
+}
+
+.settings-privacy-card-desc {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.settings-retention-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 22px;
+  border-bottom: 1px solid #f3f4f6;
+  gap: 16px;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.settings-retention-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-retention-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.settings-retention-reason {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.settings-anonymize-info {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0 0 16px;
+}
+
+.settings-anonymize-warning {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 12.5px;
+  color: #92400e;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.settings-privacy-link {
+  font-size: 12.5px;
+  color: #111827;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+/* ============================================================
+   INTEGRATIONS — STATS & LIST ROWS
+   ============================================================ */
+
+.settings-integrations-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+
+  @media (max-width: 700px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.settings-stat-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.settings-stat-value {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.settings-stat-label {
+  font-size: 12.5px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.settings-integ-item {
+  border-bottom: 1px solid #f3f4f6;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.settings-integ-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 22px;
+  cursor: pointer;
+  transition: background 0.12s;
+
+  &:hover,
+  &.expanded {
+    background: #fafafa;
+  }
+}
+
+.settings-integ-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-integ-status-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-integ-config-panel {
+  padding: 0 22px 20px;
+  border-top: 1px solid #f3f4f6;
+  background: #fafafa;
+}
+
+.settings-integ-config-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.settings-integ-oauth-panel {
+  margin-top: 16px;
+}
+
+.settings-integ-oauth-desc {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0 0 14px;
+}
+
+.settings-integ-oauth-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }

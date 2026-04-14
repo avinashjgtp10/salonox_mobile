@@ -21,6 +21,8 @@ import { logout } from "../../../store/authSlice";
 import { useNavigate } from "react-router-dom";
 import { exportSettingsThunk } from "../../../middleware/setting/setting.thunk";
 import Button from "../../../components/ui/Button";
+import SettingsSection from "../components/SettingsSection";
+import SettingsToggle from "../components/SettingsToggle";
 
 interface ExportOption {
   id: string;
@@ -99,6 +101,30 @@ const retentionPolicies = [
   },
 ];
 
+const privacyCards = [
+  {
+    icon: <Shield size={18} />,
+    title: "End-to-end encryption",
+    desc: "All data is encrypted at rest and in transit using AES-256 and TLS 1.3.",
+    iconColor: "#2563eb",
+    iconBg: "#eff6ff",
+  },
+  {
+    icon: <Eye size={18} />,
+    title: "No data selling",
+    desc: "Your client data is never sold to or shared with third parties.",
+    iconColor: "#16a34a",
+    iconBg: "#f0fdf4",
+  },
+  {
+    icon: <Clock size={18} />,
+    title: "Retention policy",
+    desc: "Data is retained only for as long as legally required.",
+    iconColor: "#d97706",
+    iconBg: "#fffbeb",
+  },
+];
+
 export default function DataPrivacyPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -164,6 +190,20 @@ export default function DataPrivacyPage() {
     navigate("/login");
   };
 
+  const privacyPolicyLink = (
+    <a
+      href="#"
+      className="settings-privacy-link"
+      onClick={(e) => {
+        e.preventDefault();
+        toast("Privacy policy opens in new tab", { icon: "📄" });
+      }}
+    >
+      Privacy Policy
+      <ExternalLink size={12} />
+    </a>
+  );
+
   return (
     <>
       {/* Page Header */}
@@ -176,117 +216,32 @@ export default function DataPrivacyPage() {
       </div>
 
       {/* Privacy Overview */}
-      <div className="settings-section">
-        <div className="settings-section-header">
-          <div>
-            <p className="settings-section-title">Privacy Overview</p>
-            <p className="settings-section-desc">
-              How your business data is handled.
-            </p>
-          </div>
-          <a
-            href="#"
-            style={{
-              fontSize: 12.5,
-              color: "#111827",
-              fontWeight: 600,
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              textDecoration: "none",
-            }}
-            onClick={(e) => {
-              e.preventDefault();
-              toast("Privacy policy opens in new tab", { icon: "📄" });
-            }}
-          >
-            Privacy Policy
-            <ExternalLink size={12} />
-          </a>
-        </div>
-        <div className="settings-section-body">
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: 14,
-            }}
-          >
-            {[
-              {
-                icon: <Shield size={18} />,
-                title: "End-to-end encryption",
-                desc: "All data is encrypted at rest and in transit using AES-256 and TLS 1.3.",
-                iconColor: "#2563eb",
-                iconBg: "#eff6ff",
-              },
-              {
-                icon: <Eye size={18} />,
-                title: "No data selling",
-                desc: "Your client data is never sold to or shared with third parties.",
-                iconColor: "#16a34a",
-                iconBg: "#f0fdf4",
-              },
-              {
-                icon: <Clock size={18} />,
-                title: "Retention policy",
-                desc: "Data is retained only for as long as legally required.",
-                iconColor: "#d97706",
-                iconBg: "#fffbeb",
-              },
-            ].map((item) => (
+      <SettingsSection
+        title="Privacy Overview"
+        desc="How your business data is handled."
+        headerAction={privacyPolicyLink}
+      >
+        <div className="settings-privacy-grid">
+          {privacyCards.map((item) => (
+            <div key={item.title} className="settings-privacy-card">
               <div
-                key={item.title}
-                style={{
-                  background: "#f9fafb",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 12,
-                  padding: 16,
-                }}
+                className="settings-privacy-card-icon"
+                style={{ background: item.iconBg, color: item.iconColor }}
               >
-                <div
-                  style={{
-                    width: 36,
-                    height: 36,
-                    background: item.iconBg,
-                    color: item.iconColor,
-                    borderRadius: 9,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginBottom: 10,
-                  }}
-                >
-                  {item.icon}
-                </div>
-                <p
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 700,
-                    color: "#111827",
-                    margin: "0 0 4px",
-                  }}
-                >
-                  {item.title}
-                </p>
-                <p style={{ fontSize: 12, color: "#6b7280", margin: 0, lineHeight: 1.5 }}>
-                  {item.desc}
-                </p>
+                {item.icon}
               </div>
-            ))}
-          </div>
+              <p className="settings-privacy-card-title">{item.title}</p>
+              <p className="settings-privacy-card-desc">{item.desc}</p>
+            </div>
+          ))}
         </div>
-      </div>
+      </SettingsSection>
 
       {/* Export Data */}
-      <div className="settings-section">
-        <div className="settings-section-header">
-          <div>
-            <p className="settings-section-title">Export Your Data</p>
-            <p className="settings-section-desc">
-              Download your data in Excel format at any time.
-            </p>
-          </div>
+      <SettingsSection
+        title="Export Your Data"
+        desc="Download your data in Excel format at any time."
+        headerAction={
           <Button
             size="sm"
             loading={exportLoading === "all"}
@@ -295,243 +250,167 @@ export default function DataPrivacyPage() {
           >
             Export everything
           </Button>
-        </div>
-        <div className="settings-section-body">
-          {exportOptions.map((opt) => (
-            <div key={opt.id} className="settings-data-item">
-              <div
-                className="settings-data-icon"
-                style={{ background: opt.iconBg, color: opt.iconColor }}
-              >
-                {opt.icon}
-              </div>
-              <div className="settings-data-info">
-                <p className="settings-data-title">{opt.label}</p>
-                <p className="settings-data-desc">{opt.desc}</p>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <Button
-                    size="sm"
-                    variant="outline-secondary"
-                    loading={exportLoading === opt.id}
-                    iconLeft={<Download size={13} />}
-                    onClick={() => handleExport(opt)}
-                  >
-                    Export as Excel
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    loading={exportLoading === `${opt.id}-csv`}
-                    onClick={() => {
-                      setExportLoading(`${opt.id}-csv`);
-                      setTimeout(() => {
-                        setExportLoading(null);
-                        toast.success(`${opt.label} CSV export coming soon`);
-                      }, 600);
-                    }}
-                  >
-                    Export as CSV
-                  </Button>
-                </div>
+        }
+      >
+        {exportOptions.map((opt) => (
+          <div key={opt.id} className="settings-data-item">
+            <div
+              className="settings-data-icon"
+              style={{ background: opt.iconBg, color: opt.iconColor }}
+            >
+              {opt.icon}
+            </div>
+            <div className="settings-data-info">
+              <p className="settings-data-title">{opt.label}</p>
+              <p className="settings-data-desc">{opt.desc}</p>
+              <div className="d-flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline-secondary"
+                  loading={exportLoading === opt.id}
+                  iconLeft={<Download size={13} />}
+                  onClick={() => handleExport(opt)}
+                >
+                  Export as Excel
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  loading={exportLoading === `${opt.id}-csv`}
+                  onClick={() => {
+                    setExportLoading(`${opt.id}-csv`);
+                    setTimeout(() => {
+                      setExportLoading(null);
+                      toast.success(`${opt.label} CSV export coming soon`);
+                    }, 600);
+                  }}
+                >
+                  Export as CSV
+                </Button>
               </div>
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
+        ))}
+      </SettingsSection>
 
       {/* Data Visibility */}
-      <div className="settings-section">
-        <div className="settings-section-header">
-          <div>
-            <p className="settings-section-title">Data Visibility</p>
-            <p className="settings-section-desc">
-              Control what personal information is visible in reports.
-            </p>
-          </div>
-        </div>
-        <div className="settings-section-body">
-          <div className="settings-toggle-row">
-            <div
-              style={{
-                width: 38,
-                height: 38,
-                background: showPII ? "#f0fdf4" : "#f3f4f6",
-                borderRadius: 9,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: showPII ? "#16a34a" : "#6b7280",
-                flexShrink: 0,
-              }}
-            >
-              {showPII ? <Eye size={17} /> : <EyeOff size={17} />}
-            </div>
-            <div className="settings-toggle-info">
-              <p className="settings-toggle-title">Show PII in Reports</p>
-              <p className="settings-toggle-desc">
-                Display full names, phone numbers, and email addresses in
-                analytics and exports. Disable to show anonymised data.
-              </p>
-            </div>
-            <label className="settings-toggle">
-              <input
-                type="checkbox"
-                checked={showPII}
-                onChange={() => setShowPII((v) => !v)}
-              />
-              <span className="settings-toggle-slider" />
-            </label>
-          </div>
-        </div>
-      </div>
-
-      {/* Data Retention */}
-      <div className="settings-section">
-        <div className="settings-section-header">
-          <div>
-            <p className="settings-section-title">Data Retention Policy</p>
-            <p className="settings-section-desc">
-              How long different types of data are kept.
-            </p>
-          </div>
-        </div>
-        <div className="settings-section-body" style={{ padding: 0 }}>
-          {retentionPolicies.map((policy, idx) => (
-            <div
-              key={policy.label}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "14px 22px",
-                borderBottom:
-                  idx < retentionPolicies.length - 1
-                    ? "1px solid #f3f4f6"
-                    : "none",
-                gap: 16,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <CheckCircle2 size={15} color="#10b981" />
-                <div>
-                  <p
-                    style={{
-                      fontSize: 13.5,
-                      fontWeight: 600,
-                      color: "#111827",
-                      margin: 0,
-                    }}
-                  >
-                    {policy.label}
-                  </p>
-                  <p style={{ fontSize: 12, color: "#6b7280", margin: 0 }}>
-                    {policy.reason}
-                  </p>
-                </div>
-              </div>
-              <span className="s-badge s-badge-gray" style={{ whiteSpace: "nowrap" }}>
-                {policy.period}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Anonymise Inactive Clients */}
-      <div className="settings-section">
-        <div className="settings-section-header">
-          <div>
-            <p className="settings-section-title">Anonymise Inactive Clients</p>
-            <p className="settings-section-desc">
-              Remove personal details from clients who haven't visited in 2+ years.
-            </p>
-          </div>
-        </div>
-        <div className="settings-section-body">
-          <p style={{ fontSize: 13, color: "#6b7280", margin: "0 0 16px" }}>
-            This will replace personal identifiers (name, phone, email) with
-            anonymous IDs for clients inactive for more than 2 years. Appointment
-            history and payment records are preserved for compliance.
-          </p>
+      <SettingsSection
+        title="Data Visibility"
+        desc="Control what personal information is visible in reports."
+      >
+        <div className="settings-toggle-row">
           <div
+            className="settings-security-icon"
             style={{
-              background: "#fffbeb",
-              border: "1px solid #fde68a",
-              borderRadius: 10,
-              padding: "12px 14px",
-              fontSize: 12.5,
-              color: "#92400e",
-              marginBottom: 16,
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 8,
+              background: showPII ? "#f0fdf4" : "#f3f4f6",
+              color: showPII ? "#16a34a" : "#6b7280",
             }}
           >
-            <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-            <span>
-              This action is irreversible. Personal data removed this way cannot
-              be recovered. Make sure you have exported your data first.
+            {showPII ? <Eye size={17} /> : <EyeOff size={17} />}
+          </div>
+          <div className="settings-toggle-info">
+            <p className="settings-toggle-title">Show PII in Reports</p>
+            <p className="settings-toggle-desc">
+              Display full names, phone numbers, and email addresses in
+              analytics and exports. Disable to show anonymised data.
+            </p>
+          </div>
+          <SettingsToggle checked={showPII} onChange={() => setShowPII((v) => !v)} />
+        </div>
+      </SettingsSection>
+
+      {/* Data Retention */}
+      <SettingsSection
+        title="Data Retention Policy"
+        desc="How long different types of data are kept."
+        noPadding
+      >
+        {retentionPolicies.map((policy) => (
+          <div key={policy.label} className="settings-retention-row">
+            <div className="settings-retention-info">
+              <CheckCircle2 size={15} color="#10b981" />
+              <div>
+                <p className="settings-retention-label">{policy.label}</p>
+                <p className="settings-retention-reason">{policy.reason}</p>
+              </div>
+            </div>
+            <span className="s-badge s-badge-gray" style={{ whiteSpace: "nowrap" }}>
+              {policy.period}
             </span>
           </div>
-          <Button
-            size="sm"
-            variant="outline-warning"
-            loading={anonymizeLoading}
-            onClick={handleAnonymize}
-          >
-            Anonymise inactive clients
-          </Button>
+        ))}
+      </SettingsSection>
+
+      {/* Anonymise Inactive Clients */}
+      <SettingsSection
+        title="Anonymise Inactive Clients"
+        desc="Remove personal details from clients who haven't visited in 2+ years."
+      >
+        <p className="settings-anonymize-info">
+          This will replace personal identifiers (name, phone, email) with
+          anonymous IDs for clients inactive for more than 2 years. Appointment
+          history and payment records are preserved for compliance.
+        </p>
+        <div className="settings-anonymize-warning">
+          <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+          <span>
+            This action is irreversible. Personal data removed this way cannot
+            be recovered. Make sure you have exported your data first.
+          </span>
         </div>
-      </div>
+        <Button
+          size="sm"
+          variant="outline-warning"
+          loading={anonymizeLoading}
+          onClick={handleAnonymize}
+        >
+          Anonymise inactive clients
+        </Button>
+      </SettingsSection>
 
       {/* Request Data Deletion */}
-      <div className="settings-section">
-        <div className="settings-section-header">
-          <div>
-            <p className="settings-section-title">
-              <FileText size={15} className="me-2" />
-              GDPR / Data Deletion Request
-            </p>
-            <p className="settings-section-desc">
-              Submit a formal request to delete a specific client's data.
-            </p>
+      <SettingsSection
+        title={
+          <>
+            <FileText size={15} className="me-2" />
+            GDPR / Data Deletion Request
+          </>
+        }
+        desc="Submit a formal request to delete a specific client's data."
+      >
+        <div className="settings-form-grid">
+          <div className="settings-form-group">
+            <label className="settings-label">Client Email</label>
+            <input
+              className="settings-input"
+              type="email"
+              placeholder="client@example.com"
+            />
+            <span className="settings-hint">
+              We'll verify identity and process within 30 days as required by GDPR.
+            </span>
+          </div>
+          <div className="settings-form-group">
+            <label className="settings-label">Reason</label>
+            <select className="settings-select">
+              <option value="">Select reason</option>
+              <option value="client_request">Client deletion request</option>
+              <option value="gdpr_right_to_erasure">GDPR right to erasure</option>
+              <option value="ccpa_opt_out">CCPA opt-out</option>
+              <option value="other">Other</option>
+            </select>
           </div>
         </div>
-        <div className="settings-section-body">
-          <div className="settings-form-grid">
-            <div className="settings-form-group">
-              <label className="settings-label">Client Email</label>
-              <input
-                className="settings-input"
-                type="email"
-                placeholder="client@example.com"
-              />
-              <span className="settings-hint">
-                We'll verify identity and process within 30 days as required by GDPR.
-              </span>
-            </div>
-            <div className="settings-form-group">
-              <label className="settings-label">Reason</label>
-              <select className="settings-select">
-                <option value="">Select reason</option>
-                <option value="client_request">Client deletion request</option>
-                <option value="gdpr_right_to_erasure">GDPR right to erasure</option>
-                <option value="ccpa_opt_out">CCPA opt-out</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-          </div>
-          <div className="settings-form-actions">
-            <Button
-              size="sm"
-              variant="outline-danger"
-              onClick={() => toast("Deletion request submitted (demo)", { icon: "✅" })}
-            >
-              Submit deletion request
-            </Button>
-          </div>
+        <div className="settings-form-actions">
+          <Button
+            size="sm"
+            variant="outline-danger"
+            onClick={() => toast("Deletion request submitted (demo)", { icon: "✅" })}
+          >
+            Submit deletion request
+          </Button>
         </div>
-      </div>
+      </SettingsSection>
 
       {/* Danger Zone — Account Deletion */}
       <div className="settings-danger-zone">

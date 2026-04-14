@@ -58,13 +58,11 @@ export default function SettingsLayout() {
   const location = useLocation();
 
   return (
-    <div style={{ padding: "24px 0" }}>
+    <div className="settings-wrapper">
       {/* Page-level header */}
       <div className="d-flex align-items-center gap-2 mb-4">
         <Settings size={20} color="#111827" />
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: "#111827", margin: 0 }}>
-          Settings
-        </h1>
+        <h1 className="settings-heading">Settings</h1>
       </div>
 
       <div className="settings-root">

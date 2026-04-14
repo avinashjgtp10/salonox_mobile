@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import Button from "../../../components/ui/Button";
+import SettingsSection from "../components/SettingsSection";
 
 interface Plan {
   id: string;
@@ -158,6 +159,20 @@ export default function BillingPage() {
       ? Math.round(price * 12 * (1 - yearlyDiscount))
       : price;
 
+  const billingCycleToggle = (
+    <div className="settings-billing-cycle">
+      {(["monthly", "yearly"] as const).map((cycle) => (
+        <button
+          key={cycle}
+          onClick={() => setBillingCycle(cycle)}
+          className={`settings-billing-cycle-btn${billingCycle === cycle ? " active" : ""}`}
+        >
+          {cycle === "yearly" ? "Yearly (–20%)" : "Monthly"}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <>
       {/* Page Header */}
@@ -188,7 +203,7 @@ export default function BillingPage() {
             </span>
           ))}
         </div>
-        <div style={{ marginTop: 18, display: "flex", gap: 10 }}>
+        <div className="settings-billing-plan-actions">
           <Button
             size="sm"
             variant="light"
@@ -207,228 +222,98 @@ export default function BillingPage() {
       </div>
 
       {/* Usage */}
-      <div className="settings-section">
-        <div className="settings-section-header">
-          <div>
-            <p className="settings-section-title">Current Usage</p>
-            <p className="settings-section-desc">
-              Monthly usage for your Growth plan limits.
-            </p>
-          </div>
-        </div>
-        <div className="settings-section-body">
-          {usageData.map((item) => {
-            const pct = Math.min((item.used / item.limit) * 100, 100);
-            const isWarn = pct >= 80;
-            const isDanger = pct >= 95;
-            return (
-              <div key={item.label} className="settings-usage-row">
+      <SettingsSection
+        title="Current Usage"
+        desc="Monthly usage for your Growth plan limits."
+      >
+        {usageData.map((item) => {
+          const pct = Math.min((item.used / item.limit) * 100, 100);
+          const isWarn = pct >= 80;
+          const isDanger = pct >= 95;
+          return (
+            <div key={item.label} className="settings-usage-row">
+              <div className="settings-usage-icon-wrap">
+                <div className="settings-usage-icon">{item.icon}</div>
+                <span className="settings-usage-label">{item.label}</span>
+              </div>
+              <div className="settings-usage-bar-wrap">
                 <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    width: 200,
-                    flexShrink: 0,
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 28,
-                      height: 28,
-                      background: "#f3f4f6",
-                      borderRadius: 7,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "#374151",
-                      flexShrink: 0,
-                    }}
-                  >
-                    {item.icon}
+                  className={`settings-usage-bar ${isDanger ? "danger" : isWarn ? "warn" : ""}`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <span className="settings-usage-count">
+                {item.used.toLocaleString()} / {item.limit.toLocaleString()}
+              </span>
+            </div>
+          );
+        })}
+      </SettingsSection>
+
+      {/* Plans */}
+      <SettingsSection
+        title="Available Plans"
+        desc="Upgrade or downgrade at any time. Changes apply at the next billing date."
+        headerAction={billingCycleToggle}
+      >
+        <div className="settings-plans-grid">
+          {plans.map((plan) => {
+            const isCurrent = plan.id === currentPlan;
+            return (
+              <div
+                key={plan.id}
+                className={`settings-plan-card${isCurrent ? " current" : ""}${plan.highlight ? " popular" : ""}`}
+              >
+                {plan.badge && (
+                  <div className={`settings-plan-badge${plan.highlight ? "" : " best"}`}>
+                    {plan.badge}
                   </div>
-                  <span className="settings-usage-label" style={{ width: "auto" }}>
-                    {item.label}
-                  </span>
+                )}
+
+                <div className="settings-plan-header">
+                  <div className="settings-plan-name-row">
+                    {plan.id === "starter" && <Zap size={16} color="#6b7280" />}
+                    {plan.id === "growth" && <Sparkles size={16} color="#111827" />}
+                    {plan.id === "enterprise" && <Building2 size={16} color="#374151" />}
+                    <span className="settings-plan-name">{plan.name}</span>
+                  </div>
+                  <p className="settings-plan-price">
+                    ₹{adjustedPrice(plan.price).toLocaleString()}
+                    <span> /{billingCycle === "yearly" ? "year" : "mo"}</span>
+                  </p>
+                  <p className="settings-plan-desc">{plan.description}</p>
                 </div>
-                <div className="settings-usage-bar-wrap">
-                  <div
-                    className={`settings-usage-bar ${isDanger ? "danger" : isWarn ? "warn" : ""}`}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-                <span className="settings-usage-count">
-                  {item.used.toLocaleString()} / {item.limit.toLocaleString()}
-                </span>
+
+                <ul className="settings-plan-features">
+                  {plan.features.map((f) => (
+                    <li key={f} className="settings-plan-feature-item">
+                      <CheckCircle2 size={13} color="#10b981" strokeWidth={2.5} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+
+                <Button
+                  fullWidth
+                  size="sm"
+                  variant={isCurrent ? "outline-secondary" : "primary"}
+                  disabled={isCurrent}
+                  loading={upgradeLoading === plan.id}
+                  onClick={() => handleUpgrade(plan.id)}
+                >
+                  {isCurrent ? "Current plan" : "Upgrade"}
+                </Button>
               </div>
             );
           })}
         </div>
-      </div>
-
-      {/* Plans */}
-      <div className="settings-section">
-        <div className="settings-section-header">
-          <div>
-            <p className="settings-section-title">Available Plans</p>
-            <p className="settings-section-desc">
-              Upgrade or downgrade at any time. Changes apply at the next billing date.
-            </p>
-          </div>
-          {/* Billing Cycle Toggle */}
-          <div
-            style={{
-              display: "flex",
-              background: "#f3f4f6",
-              borderRadius: 8,
-              padding: 3,
-              gap: 2,
-            }}
-          >
-            {(["monthly", "yearly"] as const).map((cycle) => (
-              <button
-                key={cycle}
-                onClick={() => setBillingCycle(cycle)}
-                style={{
-                  padding: "5px 12px",
-                  border: "none",
-                  borderRadius: 6,
-                  fontSize: 12.5,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  background: billingCycle === cycle ? "#fff" : "transparent",
-                  color: billingCycle === cycle ? "#111827" : "#6b7280",
-                  boxShadow:
-                    billingCycle === cycle
-                      ? "0 1px 4px rgba(0,0,0,0.08)"
-                      : "none",
-                  transition: "all 0.15s",
-                }}
-              >
-                {cycle === "yearly" ? "Yearly (–20%)" : "Monthly"}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="settings-section-body">
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: 16,
-            }}
-          >
-            {plans.map((plan) => {
-              const isCurrent = plan.id === currentPlan;
-              return (
-                <div
-                  key={plan.id}
-                  style={{
-                    border: `2px solid ${isCurrent ? "#111827" : plan.highlight ? "#e5e7eb" : "#e5e7eb"}`,
-                    borderRadius: 14,
-                    padding: 20,
-                    position: "relative",
-                    background: isCurrent ? "#f9fafb" : "#fff",
-                    boxShadow: plan.highlight ? "0 4px 16px rgba(0,0,0,0.06)" : undefined,
-                  }}
-                >
-                  {plan.badge && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: -12,
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        background: plan.highlight ? "#111827" : "#f59e0b",
-                        color: "#fff",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        padding: "3px 10px",
-                        borderRadius: 999,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {plan.badge}
-                    </div>
-                  )}
-
-                  <div style={{ marginBottom: 14 }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        marginBottom: 6,
-                      }}
-                    >
-                      {plan.id === "starter" && <Zap size={16} color="#6b7280" />}
-                      {plan.id === "growth" && <Sparkles size={16} color="#111827" />}
-                      {plan.id === "enterprise" && <Building2 size={16} color="#374151" />}
-                      <span
-                        style={{ fontSize: 15, fontWeight: 700, color: "#111827" }}
-                      >
-                        {plan.name}
-                      </span>
-                    </div>
-                    <div style={{ marginBottom: 8 }}>
-                      <span style={{ fontSize: 26, fontWeight: 800, color: "#111827" }}>
-                        ₹{adjustedPrice(plan.price).toLocaleString()}
-                      </span>
-                      <span style={{ fontSize: 12, color: "#6b7280" }}>
-                        {" "}
-                        /{billingCycle === "yearly" ? "year" : "mo"}
-                      </span>
-                    </div>
-                    <p style={{ fontSize: 12, color: "#6b7280", margin: 0 }}>
-                      {plan.description}
-                    </p>
-                  </div>
-
-                  <ul style={{ listStyle: "none", padding: 0, margin: "0 0 18px" }}>
-                    {plan.features.map((f) => (
-                      <li
-                        key={f}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 7,
-                          fontSize: 12.5,
-                          color: "#374151",
-                          marginBottom: 6,
-                        }}
-                      >
-                        <CheckCircle2 size={13} color="#10b981" strokeWidth={2.5} />
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-
-                  <Button
-                    fullWidth
-                    size="sm"
-                    variant={isCurrent ? "outline-secondary" : "primary"}
-                    disabled={isCurrent}
-                    loading={upgradeLoading === plan.id}
-                    onClick={() => handleUpgrade(plan.id)}
-                  >
-                    {isCurrent ? "Current plan" : "Upgrade"}
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
+      </SettingsSection>
 
       {/* Payment Method */}
-      <div className="settings-section">
-        <div className="settings-section-header">
-          <div>
-            <p className="settings-section-title">Payment Method</p>
-            <p className="settings-section-desc">
-              Card used for recurring billing.
-            </p>
-          </div>
+      <SettingsSection
+        title="Payment Method"
+        desc="Card used for recurring billing."
+        headerAction={
           <Button
             size="sm"
             variant="outline-secondary"
@@ -436,133 +321,63 @@ export default function BillingPage() {
           >
             Update card
           </Button>
-        </div>
-        <div className="settings-section-body">
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 14,
-              padding: "14px 18px",
-              background: "#f9fafb",
-              borderRadius: 10,
-              border: "1px solid #e5e7eb",
-            }}
-          >
-            <CreditCard size={22} color="#374151" />
-            <div>
-              <p
-                style={{
-                  fontSize: 13.5,
-                  fontWeight: 600,
-                  color: "#111827",
-                  margin: 0,
-                }}
-              >
-                •••• •••• •••• 4242
-              </p>
-              <p style={{ fontSize: 12, color: "#6b7280", margin: 0 }}>
-                Visa &nbsp;·&nbsp; Expires 12/26
-              </p>
-            </div>
-            <span className="s-badge s-badge-success ms-auto">Default</span>
+        }
+      >
+        <div className="settings-payment-card">
+          <CreditCard size={22} color="#374151" />
+          <div>
+            <p className="settings-payment-card-num">•••• •••• •••• 4242</p>
+            <p className="settings-payment-card-meta">Visa &nbsp;·&nbsp; Expires 12/26</p>
           </div>
+          <span className="s-badge s-badge-success ms-auto">Default</span>
         </div>
-      </div>
+      </SettingsSection>
 
       {/* Billing History */}
-      <div className="settings-section">
-        <div className="settings-section-header">
-          <div>
-            <p className="settings-section-title">Billing History</p>
-            <p className="settings-section-desc">
-              Download past invoices for your records.
-            </p>
-          </div>
-        </div>
-        <div className="settings-section-body" style={{ padding: 0 }}>
-          <table className="settings-billing-table">
-            <thead className="settings-billing-head">
-              <tr>
-                <th>Invoice</th>
-                <th>Date</th>
-                <th>Description</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th>Action</th>
+      <SettingsSection
+        title="Billing History"
+        desc="Download past invoices for your records."
+        noPadding
+      >
+        <table className="settings-billing-table">
+          <thead className="settings-billing-head">
+            <tr>
+              <th>Invoice</th>
+              <th>Date</th>
+              <th>Description</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {invoices.map((inv) => (
+              <tr key={inv.id} className="settings-billing-row">
+                <td style={{ fontWeight: 600, fontSize: 12.5 }}>{inv.id}</td>
+                <td style={{ color: "#6b7280", fontSize: 13 }}>{inv.date}</td>
+                <td style={{ fontSize: 13 }}>{inv.description}</td>
+                <td style={{ fontWeight: 700 }}>₹{inv.amount.toLocaleString()}</td>
+                <td>{getStatusBadge(inv.status)}</td>
+                <td>
+                  <button
+                    className="settings-billing-dl-btn"
+                    onClick={() => toast("Invoice download coming soon", { icon: "📄" })}
+                  >
+                    <Download size={13} />
+                    PDF
+                  </button>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {invoices.map((inv) => (
-                <tr key={inv.id} className="settings-billing-row">
-                  <td style={{ fontWeight: 600, fontSize: 12.5 }}>{inv.id}</td>
-                  <td style={{ color: "#6b7280", fontSize: 13 }}>{inv.date}</td>
-                  <td style={{ fontSize: 13 }}>{inv.description}</td>
-                  <td style={{ fontWeight: 700 }}>
-                    ₹{inv.amount.toLocaleString()}
-                  </td>
-                  <td>{getStatusBadge(inv.status)}</td>
-                  <td>
-                    <button
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: "#111827",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
-                        fontSize: 12.5,
-                        fontWeight: 600,
-                        padding: "4px 8px",
-                        borderRadius: 6,
-                        transition: "background 0.12s",
-                      }}
-                      onMouseEnter={(e) =>
-                        ((e.currentTarget as HTMLButtonElement).style.background = "#f3f4f6")
-                      }
-                      onMouseLeave={(e) =>
-                        ((e.currentTarget as HTMLButtonElement).style.background = "")
-                      }
-                      onClick={() => toast("Invoice download coming soon", { icon: "📄" })}
-                    >
-                      <Download size={13} />
-                      PDF
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            ))}
+          </tbody>
+        </table>
+      </SettingsSection>
 
       {/* Need more? */}
-      <div
-        style={{
-          background: "#f9fafb",
-          border: "1px solid #e5e7eb",
-          borderRadius: 14,
-          padding: "20px 22px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 16,
-          flexWrap: "wrap",
-        }}
-      >
+      <div className="settings-billing-cta">
         <div>
-          <p
-            style={{
-              fontSize: 14,
-              fontWeight: 700,
-              color: "#111827",
-              margin: "0 0 3px",
-            }}
-          >
-            Need a custom plan?
-          </p>
-          <p style={{ fontSize: 12.5, color: "#6b7280", margin: 0 }}>
+          <p className="settings-billing-cta-title">Need a custom plan?</p>
+          <p className="settings-billing-cta-sub">
             Contact our sales team for volume pricing, multi-location setups, or
             custom integrations.
           </p>

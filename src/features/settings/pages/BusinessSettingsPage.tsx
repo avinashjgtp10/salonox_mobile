@@ -137,20 +137,13 @@ export default function BusinessSettingsPage() {
         </div>
         <div className="settings-section-body">
           <div className="settings-avatar-row">
-            <div className="settings-avatar" style={{ borderRadius: 14 }}>
+            <div className="settings-avatar settings-avatar--square">
               {currentSalon?.logo_url ? (
-                <img
-                  src={currentSalon.logo_url}
-                  alt="Business logo"
-                  style={{ borderRadius: 12 }}
-                />
+                <img src={currentSalon.logo_url} alt="Business logo" />
               ) : (
                 <span>{logoInitials}</span>
               )}
-              <div
-                className="settings-avatar-overlay"
-                style={{ borderRadius: 12 }}
-              >
+              <div className="settings-avatar-overlay">
                 <Upload size={18} />
               </div>
             </div>

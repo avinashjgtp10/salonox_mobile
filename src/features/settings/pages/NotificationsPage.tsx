@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import Button from "../../../components/ui/Button";
+import SettingsToggle from "../components/SettingsToggle";
+import SettingsSection from "../components/SettingsSection";
 
 interface NotifChannel {
   email: boolean;
@@ -186,19 +188,6 @@ export default function NotificationsPage() {
     toast.success("Notification preferences saved");
   };
 
-  const Toggle = ({
-    checked,
-    onChange,
-  }: {
-    checked: boolean;
-    onChange: () => void;
-  }) => (
-    <label className="settings-toggle">
-      <input type="checkbox" checked={checked} onChange={onChange} />
-      <span className="settings-toggle-slider" />
-    </label>
-  );
-
   return (
     <>
       {/* Page Header */}
@@ -210,252 +199,167 @@ export default function NotificationsPage() {
       </div>
 
       {/* Global Channels */}
-      <div className="settings-section">
-        <div className="settings-section-header">
-          <div>
-            <p className="settings-section-title">Notification Channels</p>
-            <p className="settings-section-desc">
-              Master switches for each delivery channel.
+      <SettingsSection
+        title="Notification Channels"
+        desc="Master switches for each delivery channel."
+      >
+        <div className="settings-toggle-row">
+          <div
+            className="settings-security-icon"
+            style={{ background: "#eff6ff", color: "#2563eb" }}
+          >
+            <Mail size={18} />
+          </div>
+          <div className="settings-toggle-info">
+            <p className="settings-toggle-title">Email Notifications</p>
+            <p className="settings-toggle-desc">
+              Receive notifications to {"{your email}"}
             </p>
           </div>
+          <SettingsToggle
+            checked={globalEmail}
+            onChange={() => setGlobalEmail((v) => !v)}
+          />
         </div>
-        <div className="settings-section-body">
-          <div className="settings-toggle-row">
-            <div
-              className="settings-security-icon"
-              style={{ background: "#eff6ff", color: "#2563eb" }}
-            >
-              <Mail size={18} />
-            </div>
-            <div className="settings-toggle-info">
-              <p className="settings-toggle-title">Email Notifications</p>
-              <p className="settings-toggle-desc">
-                Receive notifications to {"{your email}"}
-              </p>
-            </div>
-            <Toggle
-              checked={globalEmail}
-              onChange={() => setGlobalEmail((v) => !v)}
-            />
-          </div>
 
-          <div className="settings-toggle-row">
-            <div
-              className="settings-security-icon"
-              style={{ background: "#f0fdf4", color: "#16a34a" }}
-            >
-              <Smartphone size={18} />
-            </div>
-            <div className="settings-toggle-info">
-              <p className="settings-toggle-title">SMS Notifications</p>
-              <p className="settings-toggle-desc">
-                Receive text messages on your phone
-              </p>
-            </div>
-            <Toggle
-              checked={globalSms}
-              onChange={() => setGlobalSms((v) => !v)}
-            />
+        <div className="settings-toggle-row">
+          <div
+            className="settings-security-icon"
+            style={{ background: "#f0fdf4", color: "#16a34a" }}
+          >
+            <Smartphone size={18} />
           </div>
-
-          <div className="settings-toggle-row">
-            <div
-              className="settings-security-icon"
-              style={{ background: "#fffbeb", color: "#d97706" }}
-            >
-              <Monitor size={18} />
-            </div>
-            <div className="settings-toggle-info">
-              <p className="settings-toggle-title">In-App / Push Notifications</p>
-              <p className="settings-toggle-desc">
-                Receive alerts directly in the dashboard
-              </p>
-            </div>
-            <Toggle
-              checked={globalPush}
-              onChange={() => setGlobalPush((v) => !v)}
-            />
+          <div className="settings-toggle-info">
+            <p className="settings-toggle-title">SMS Notifications</p>
+            <p className="settings-toggle-desc">
+              Receive text messages on your phone
+            </p>
           </div>
+          <SettingsToggle
+            checked={globalSms}
+            onChange={() => setGlobalSms((v) => !v)}
+          />
         </div>
-      </div>
+
+        <div className="settings-toggle-row">
+          <div
+            className="settings-security-icon"
+            style={{ background: "#fffbeb", color: "#d97706" }}
+          >
+            <Monitor size={18} />
+          </div>
+          <div className="settings-toggle-info">
+            <p className="settings-toggle-title">In-App / Push Notifications</p>
+            <p className="settings-toggle-desc">
+              Receive alerts directly in the dashboard
+            </p>
+          </div>
+          <SettingsToggle
+            checked={globalPush}
+            onChange={() => setGlobalPush((v) => !v)}
+          />
+        </div>
+      </SettingsSection>
 
       {/* Per-Event Preferences */}
-      <div className="settings-section">
-        <div className="settings-section-header">
-          <div>
-            <p className="settings-section-title">Event Notifications</p>
-            <p className="settings-section-desc">
-              Fine-tune which events trigger notifications on each channel.
-            </p>
-          </div>
+      <SettingsSection
+        title="Event Notifications"
+        desc="Fine-tune which events trigger notifications on each channel."
+        noPadding
+      >
+        {/* Header Row */}
+        <div className="notif-table-header">
+          <span>Event</span>
+          <span>Email</span>
+          <span>SMS</span>
+          <span>Push</span>
         </div>
-        <div className="settings-section-body" style={{ padding: 0 }}>
-          {/* Header Row */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 80px 80px 80px",
-              padding: "10px 22px",
-              background: "#f9fafb",
-              borderBottom: "1px solid #f3f4f6",
-              fontSize: 11.5,
-              fontWeight: 700,
-              color: "#6b7280",
-              textTransform: "uppercase",
-              letterSpacing: "0.04em",
-            }}
-          >
-            <span>Event</span>
-            <span style={{ textAlign: "center" }}>Email</span>
-            <span style={{ textAlign: "center" }}>SMS</span>
-            <span style={{ textAlign: "center" }}>Push</span>
-          </div>
 
-          {notifRows.map((row, idx) => (
-            <div
-              key={row.key}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 80px 80px 80px",
-                padding: "14px 22px",
-                borderBottom: idx < notifRows.length - 1 ? "1px solid #f3f4f6" : "none",
-                alignItems: "center",
-                transition: "background 0.12s",
-              }}
-              onMouseEnter={(e) =>
-                ((e.currentTarget as HTMLDivElement).style.background = "#fafafa")
-              }
-              onMouseLeave={(e) =>
-                ((e.currentTarget as HTMLDivElement).style.background = "")
-              }
-            >
-              {/* Event Info */}
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div
-                  style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: 8,
-                    background: row.iconBg,
-                    color: row.iconColor,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  {row.icon}
-                </div>
-                <div>
-                  <p
-                    style={{
-                      fontSize: 13.5,
-                      fontWeight: 600,
-                      color: "#111827",
-                      margin: 0,
-                    }}
-                  >
-                    {row.label}
-                  </p>
-                  <p
-                    style={{
-                      fontSize: 12,
-                      color: "#6b7280",
-                      margin: 0,
-                    }}
-                  >
-                    {row.desc}
-                  </p>
-                </div>
+        {notifRows.map((row) => (
+          <div key={row.key} className="notif-table-row">
+            {/* Event Info */}
+            <div className="notif-event-info">
+              <div
+                className="notif-event-icon"
+                style={{ background: row.iconBg, color: row.iconColor }}
+              >
+                {row.icon}
               </div>
-
-              {/* Email toggle */}
-              <div style={{ display: "flex", justifyContent: "center" }}>
-                <Toggle
-                  checked={prefs[row.key].email && globalEmail}
-                  onChange={() => toggle(row.key, "email")}
-                />
-              </div>
-
-              {/* SMS toggle */}
-              <div style={{ display: "flex", justifyContent: "center" }}>
-                <Toggle
-                  checked={prefs[row.key].sms && globalSms}
-                  onChange={() => toggle(row.key, "sms")}
-                />
-              </div>
-
-              {/* Push toggle */}
-              <div style={{ display: "flex", justifyContent: "center" }}>
-                <Toggle
-                  checked={prefs[row.key].push && globalPush}
-                  onChange={() => toggle(row.key, "push")}
-                />
+              <div>
+                <p className="notif-event-label">{row.label}</p>
+                <p className="notif-event-desc">{row.desc}</p>
               </div>
             </div>
-          ))}
 
-          {/* Save Action */}
-          <div
-            style={{
-              padding: "16px 22px",
-              borderTop: "1px solid #f3f4f6",
-              display: "flex",
-              justifyContent: "flex-end",
-            }}
-          >
-            <Button
-              size="sm"
-              loading={saving}
-              onClick={handleSave}
-              iconLeft={<Save size={14} />}
-            >
-              Save preferences
-            </Button>
+            <div className="notif-toggle-cell">
+              <SettingsToggle
+                checked={prefs[row.key].email && globalEmail}
+                onChange={() => toggle(row.key, "email")}
+              />
+            </div>
+
+            <div className="notif-toggle-cell">
+              <SettingsToggle
+                checked={prefs[row.key].sms && globalSms}
+                onChange={() => toggle(row.key, "sms")}
+              />
+            </div>
+
+            <div className="notif-toggle-cell">
+              <SettingsToggle
+                checked={prefs[row.key].push && globalPush}
+                onChange={() => toggle(row.key, "push")}
+              />
+            </div>
           </div>
+        ))}
+
+        {/* Save Action */}
+        <div className="notif-table-footer">
+          <Button
+            size="sm"
+            loading={saving}
+            onClick={handleSave}
+            iconLeft={<Save size={14} />}
+          >
+            Save preferences
+          </Button>
         </div>
-      </div>
+      </SettingsSection>
 
       {/* Digest Settings */}
-      <div className="settings-section">
-        <div className="settings-section-header">
-          <div>
-            <p className="settings-section-title">Daily Digest</p>
-            <p className="settings-section-desc">
-              Receive a summary of your daily activity.
+      <SettingsSection
+        title="Daily Digest"
+        desc="Receive a summary of your daily activity."
+      >
+        <div className="settings-toggle-row">
+          <div className="settings-toggle-info">
+            <p className="settings-toggle-title">Morning Summary</p>
+            <p className="settings-toggle-desc">
+              Get a daily overview of today's appointments at 8:00 AM
             </p>
           </div>
+          <SettingsToggle checked onChange={() => {}} />
         </div>
-        <div className="settings-section-body">
-          <div className="settings-toggle-row">
-            <div className="settings-toggle-info">
-              <p className="settings-toggle-title">Morning Summary</p>
-              <p className="settings-toggle-desc">
-                Get a daily overview of today's appointments at 8:00 AM
-              </p>
-            </div>
-            <Toggle checked onChange={() => {}} />
+        <div className="settings-toggle-row">
+          <div className="settings-toggle-info">
+            <p className="settings-toggle-title">Evening Report</p>
+            <p className="settings-toggle-desc">
+              Daily revenue, completed appointments, and new clients at 8:00 PM
+            </p>
           </div>
-          <div className="settings-toggle-row">
-            <div className="settings-toggle-info">
-              <p className="settings-toggle-title">Evening Report</p>
-              <p className="settings-toggle-desc">
-                Daily revenue, completed appointments, and new clients at 8:00 PM
-              </p>
-            </div>
-            <Toggle checked={false} onChange={() => {}} />
-          </div>
-          <div className="settings-toggle-row">
-            <div className="settings-toggle-info">
-              <p className="settings-toggle-title">Weekly Performance Report</p>
-              <p className="settings-toggle-desc">
-                Detailed weekly analytics every Monday morning
-              </p>
-            </div>
-            <Toggle checked onChange={() => {}} />
-          </div>
+          <SettingsToggle checked={false} onChange={() => {}} />
         </div>
-      </div>
+        <div className="settings-toggle-row">
+          <div className="settings-toggle-info">
+            <p className="settings-toggle-title">Weekly Performance Report</p>
+            <p className="settings-toggle-desc">
+              Detailed weekly analytics every Monday morning
+            </p>
+          </div>
+          <SettingsToggle checked onChange={() => {}} />
+        </div>
+      </SettingsSection>
     </>
   );
 }
