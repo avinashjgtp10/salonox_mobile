@@ -6,12 +6,21 @@ export interface Service {
   category_name: string | null;
   price_type?: "fixed" | "from" | "free";
   price: string | number; // string from backend ("65.00"), display with ₹
+  discounted_price?: string | number | null;
   duration: number;
+  description?: string;
+  padding_before?: number;  // extra processing time before service (minutes)
+  padding_after?: number;   // extra processing time after service (minutes)
+  all_members?: boolean;    // true = all staff can perform this service
+  team_member_ids?: string[]; // specific staff IDs when all_members = false
   online_booking?: boolean;
   commission_enabled?: boolean;
   resource_required?: boolean;
   is_active: boolean;
-  salon_id?: string;
+  salon_id?: string | null;
+  gender_preference?: string | null;
+  image_url?: string | null;
+  treatment_type?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -21,10 +30,15 @@ export interface BasicDetailsData {
   categoryId: string;
   duration: number;
   price: number;
+  discountedPrice?: number | null;
   paddingBefore: number;
   paddingAfter: number;
   description: string;
   active: boolean;
+  colorLabel?: string;
+  treatmentType?: string | null;
+  genderPreference?: string | null;
+  imageUrl?: string | null;
 }
 
 export interface TeamMember {
