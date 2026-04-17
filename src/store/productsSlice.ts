@@ -2,6 +2,7 @@ import { createSlice } from "@reduxjs/toolkit";
 import {
   fetchProductsThunk,
   createProductThunk,
+  updateProductThunk,
   deleteProductThunk,
   fetchBrandsThunk,
   createBrandThunk,
@@ -19,6 +20,7 @@ interface ProductsState {
   loading: {
     fetchAll: boolean;
     create: boolean;
+    update: boolean;
     delete: boolean;
     brands: boolean;
     categories: boolean;
@@ -31,7 +33,7 @@ const initialState: ProductsState = {
   total: 0,
   brands: [],
   categories: [],
-  loading: { fetchAll: false, create: false, delete: false, brands: false, categories: false },
+  loading: { fetchAll: false, create: false, update: false, delete: false, brands: false, categories: false },
   error: null,
 };
 
@@ -68,6 +70,20 @@ const productsSlice = createSlice({
       .addCase(createProductThunk.rejected, (state, action) => {
         state.loading.create = false;
         state.error = action.payload ?? "Error creating product";
+      });
+
+    builder
+      .addCase(updateProductThunk.pending, (state) => {
+        state.loading.update = true; state.error = null;
+      })
+      .addCase(updateProductThunk.fulfilled, (state, action) => {
+        state.loading.update = false;
+        const idx = state.items.findIndex((p) => p.id === action.payload.id);
+        if (idx !== -1) state.items[idx] = action.payload;
+      })
+      .addCase(updateProductThunk.rejected, (state, action) => {
+        state.loading.update = false;
+        state.error = action.payload ?? "Error updating product";
       });
 
     builder

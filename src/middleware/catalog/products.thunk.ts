@@ -49,6 +49,20 @@ export const createProductThunk = createAsyncThunk<
   }
 });
 
+export const updateProductThunk = createAsyncThunk<
+  any,
+  { id: string; data: Record<string, any> },
+  { rejectValue: string }
+>("products/update", async ({ id, data }, { rejectWithValue }) => {
+  try {
+    const res = await api.patch(PRODUCTS.UPDATE(id), data);
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to update product.");
+  }
+});
+
 export const deleteProductThunk = createAsyncThunk<
   string,
   string,

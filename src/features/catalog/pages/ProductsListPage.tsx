@@ -14,6 +14,7 @@ import {
 } from "react-bootstrap-icons";
 import { Dropdown } from "react-bootstrap";
 import { useProducts } from "../hooks/useProducts";
+import ProductDrawer from "../components/ProductDrawer";
 import "../styles/ProductsListPage.scss";
 
 interface FilterState {
@@ -30,13 +31,14 @@ const ProductsListPage: React.FC = () => {
     products, brands, categories, loading, error,
     fetchProducts, fetchBrands, fetchCategories,
     createBrand, deleteCategory,
-    createCategory, deleteProduct,
+    createCategory, updateProduct, deleteProduct,
     exportCSV, exportExcel, exportPDF,
   } = useProducts();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [drawerProduct, setDrawerProduct] = useState<any | null>(null);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
   // Pending filter state (inside modal, not yet applied)
@@ -89,11 +91,11 @@ const ProductsListPage: React.FC = () => {
             : true
           : p.brand_id === appliedFilters.brand;
 
-      // Stock filter
+      // Stock filter — low: 1 (amount > 0 && amount < 2), out: 0
       const amount = p.amount ?? 0;
       const matchesStock =
         !appliedFilters.stock ||
-        (appliedFilters.stock === "low" ? amount > 0 && amount < 5 : true) ||
+        (appliedFilters.stock === "low" ? amount > 0 && amount < 2 : true) ||
         (appliedFilters.stock === "out" ? amount === 0 : true);
 
       return matchesSearch && matchesCategory && matchesBrand && matchesStock;
@@ -301,7 +303,16 @@ const ProductsListPage: React.FC = () => {
                 paginatedProducts.map((p: any) => (
                   <tr
                     key={p.id}
-                    className={selectedProducts.includes(p.id) ? "selected-row bg-light" : ""}
+                    className={[
+                      selectedProducts.includes(p.id) ? "selected-row bg-light" : "",
+                      drawerProduct?.id === p.id ? "drawer-selected" : "",
+                    ].filter(Boolean).join(" ")}
+                    style={{ cursor: "pointer" }}
+                    onClick={(e) => {
+                      // Don't open drawer when clicking the checkbox
+                      if ((e.target as HTMLElement).closest(".checkbox-cell")) return;
+                      setDrawerProduct(p);
+                    }}
                   >
                     <td className="checkbox-cell" style={{ width: "48px", paddingRight: 0 }}>
                       <input
@@ -319,8 +330,8 @@ const ProductsListPage: React.FC = () => {
                       </div>
                     </td>
                     <td>{p.category_id ? (categoryMap[p.category_id] ?? p.category_id) : "—"}</td>
-                    <td className={`stock-cell ${(p.amount ?? 0) < 5 ? "stock-cell--low" : ""}`}>
-                      {p.amount ?? 0} in stock
+                    <td className={`stock-cell ${(p.amount ?? 0) === 0 ? "stock-cell--out" : (p.amount ?? 0) < 2 ? "stock-cell--low" : ""}`}>
+                      {(p.amount ?? 0) === 0 ? "Out of stock" : `${p.amount} in stock`}
                     </td>
                     <td className="price-cell">₹{(p.retail_price ?? 0).toLocaleString()}</td>
                   </tr>
@@ -371,6 +382,21 @@ const ProductsListPage: React.FC = () => {
           </div>
         )}
       </footer>
+
+      {/* Product Drawer */}
+      {drawerProduct && (
+        <ProductDrawer
+          product={products.find((p: any) => p.id === drawerProduct.id) ?? drawerProduct}
+          brands={brands}
+          categories={categories}
+          loading={loading.update}
+          onClose={() => setDrawerProduct(null)}
+          onSave={async (id, data) => {
+            const result = await updateProduct(id, data);
+            return result;
+          }}
+        />
+      )}
 
       {/* Filter Modal */}
       {isFilterModalOpen && (

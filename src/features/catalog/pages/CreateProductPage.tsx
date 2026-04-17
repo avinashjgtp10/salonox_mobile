@@ -214,42 +214,26 @@ const CreateProductPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-3">
-              <div className="d-flex justify-content-between mb-1">
-                <label className="form-label fw-semibold mb-0" style={{ fontSize: "13px" }}>
-                  Short description
-                </label>
-                <span className="text-muted" style={{ fontSize: "12px" }}>
-                  {form.shortDescription.length}/100
-                </span>
-              </div>
-              <Input
-                type="text"
-                maxLength={100}
-                value={form.shortDescription}
-                onChange={(e) => setField("shortDescription", e.target.value)}
-                containerClass=""
-              />
-            </div>
+            <Input
+              label="Short description"
+              type="text"
+              maxLength={100}
+              value={form.shortDescription}
+              onChange={(e) => setField("shortDescription", e.target.value)}
+              containerClass="mt-3"
+              showCharCount
+            />
 
-            <div className="mt-3">
-              <div className="d-flex justify-content-between mb-1">
-                <label className="form-label fw-semibold mb-0" style={{ fontSize: "13px" }}>
-                  Product description
-                </label>
-                <span className="text-muted" style={{ fontSize: "12px" }}>
-                  {form.description.length}/1000
-                </span>
-              </div>
-              <Input
-                multiline
-                rows={4}
-                maxLength={1000}
-                value={form.description}
-                onChange={(e) => setField("description", e.target.value)}
-                containerClass=""
-              />
-            </div>
+            <Input
+              label="Product description"
+              multiline
+              rows={4}
+              maxLength={1000}
+              value={form.description}
+              onChange={(e) => setField("description", e.target.value)}
+              containerClass="mt-3"
+              showCharCount
+            />
 
             <Select
               label="Product category"

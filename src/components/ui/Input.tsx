@@ -12,6 +12,7 @@ interface InputProps extends Omit<
   rows?: number;
   iconLeft?: React.ReactNode;
   iconRight?: React.ReactNode;
+  showCharCount?: boolean;
   onChange?: (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => void;
@@ -27,6 +28,7 @@ const Input: React.FC<InputProps> = ({
   rows = 3,
   iconLeft,
   iconRight,
+  showCharCount = false,
   id,
   ...props
 }) => {
@@ -86,13 +88,20 @@ const Input: React.FC<InputProps> = ({
   return (
     <div className={containerClass}>
       {label && (
-        <label
-          htmlFor={inputId}
-          className="form-label fw-semibold"
-          style={{ fontSize: "13px" }}
-        >
-          {label}
-        </label>
+        <div className={showCharCount ? "d-flex justify-content-between align-items-center mb-1" : undefined}>
+          <label
+            htmlFor={inputId}
+            className="form-label fw-semibold mb-0"
+            style={{ fontSize: "13px" }}
+          >
+            {label}
+          </label>
+          {showCharCount && props.maxLength !== undefined && (
+            <span className="text-muted" style={{ fontSize: "12px" }}>
+              {String(props.value ?? "").length}/{props.maxLength}
+            </span>
+          )}
+        </div>
       )}
       {renderInput()}
       {error && (

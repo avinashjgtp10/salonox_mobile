@@ -6,6 +6,7 @@ import {
   fetchBrandsThunk,
   createBrandThunk,
   deleteBrandThunk,
+  updateProductThunk,
   deleteProductThunk,
   exportProductsCSVThunk,
   exportProductsExcelThunk,
@@ -35,6 +36,10 @@ export const useProducts = () => {
 
   const deleteBrand = useCallback((id: string) => {
     return dispatch(deleteBrandThunk(id));
+  }, [dispatch]);
+
+  const updateProduct = useCallback((id: string, data: Record<string, any>) => {
+    return dispatch(updateProductThunk({ id, data }));
   }, [dispatch]);
 
   const deleteProduct = useCallback((id: string) => {
@@ -70,7 +75,7 @@ export const useProducts = () => {
     fetchProducts, fetchBrands, fetchCategories,
     createBrand, deleteBrand,
     createCategory, deleteCategory,
-    deleteProduct,
+    updateProduct, deleteProduct,
     exportCSV, exportExcel, exportPDF,
   };
 };
