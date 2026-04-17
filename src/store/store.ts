@@ -25,6 +25,8 @@ import appReducer from "./appSlice";
 import schedulerReducer from "./schedulerSlice";
 import marketingReducer from "./marketingSlice";
 import reportReducer from "./reportSlice";
+import membershipReducer from "./membershipSlice";
+import { membershipsApi } from "../services/api/endpoints/memberships.endpoints";
 import productsReducer from "./productsSlice";
 
 // Security policy:
@@ -57,6 +59,8 @@ export const store = configureStore({
     scheduler: schedulerReducer,
     marketing: marketingReducer,
     report: reportReducer,
+    memberships: membershipReducer,
+    [membershipsApi.reducerPath]: membershipsApi.reducer,
     products: productsReducer,
   },
   middleware: (getDefaultMiddleware) =>
@@ -64,7 +68,7 @@ export const store = configureStore({
       serializableCheck: {
         ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
       },
-    }),
+    }).concat(membershipsApi.middleware),
 });
 
 export const persistor = persistStore(store);

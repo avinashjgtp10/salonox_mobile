@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 import PhoneInput from "react-phone-input-2";
 import { Country } from "country-state-city";
 import "react-phone-input-2/lib/style.css";
-import { registerThunk } from "../../../middleware/auth/authThunk";
+import { registerThunk, loginThunk } from "../../../middleware/auth/authThunk";
 import {
   sendEmailOtpThunk,
   verifyEmailOtpThunk,
@@ -197,8 +197,19 @@ export default function RegisterPage() {
       }),
     );
     if (registerThunk.fulfilled.match(result)) {
-      toast.success("Account created! Redirecting…", { id: tid });
-      navigate("/account-type");
+      toast.success("Account created! Logging you in…", { id: tid });
+      
+      // Auto-login the user so they get the access token and can proceed to onboarding
+      const loginRes = await dispatch(
+        loginThunk({ email: form.email, password: form.password })
+      );
+
+      if (loginThunk.fulfilled.match(loginRes)) {
+        navigate("/account-type");
+      } else {
+        toast.error("Auto-login failed. Please log in manually.");
+        navigate("/login");
+      }
     } else {
       const msg = result.payload as string;
       if (msg?.toLowerCase().includes("email already exist")) {

@@ -4,45 +4,42 @@ import Button from "../../../components/ui/Button";
 import "../styles/Membershipfilterdrawer.scss";
 
 interface FilterState {
-  sessions: string;
-  payment: string;
-  validFor: string;
+  sessions:        string;
+  payment:         string;
+  validFor:        string;
   onlyAllServices: boolean;
 }
 
 interface Props {
-  onClose: () => void;
-  onApply?: (filters: FilterState) => void;
+  onClose:         () => void;
+  onApply?:        (filters: FilterState) => void;
   initialFilters?: FilterState;
 }
 
+const DEFAULT: FilterState = {
+  sessions:        "Any number of sessions",
+  payment:         "All",
+  validFor:        "Any period",
+  onlyAllServices: false,
+};
+
 const MembershipFilterDrawer: React.FC<Props> = ({
-  onClose,
-  onApply,
-  initialFilters,
+  onClose, onApply, initialFilters,
 }) => {
-  const [filters, setFilters] = useState<FilterState>(
-    initialFilters || {
-      sessions: "Any number of sessions",
-      payment: "All",
-      validFor: "Any period",
-      onlyAllServices: false,
-    },
-  );
+  const [filters, setFilters] = useState<FilterState>(initialFilters ?? DEFAULT);
 
   const handleApply = () => {
     onApply?.(filters);
     onClose();
   };
 
-  const handleClear = () => {
-    setFilters({
-      sessions: "Any number of sessions",
-      payment: "All",
-      validFor: "Any period",
-      onlyAllServices: false,
-    });
-  };
+  const handleClear = () => setFilters(DEFAULT);
+
+  const activeCount = [
+    filters.sessions !== "Any number of sessions",
+    filters.validFor !== "Any period",
+    filters.onlyAllServices,
+  ].filter(Boolean).length;
 
   return (
     <div className="membership-filters-overlay" onClick={onClose}>
@@ -51,13 +48,19 @@ const MembershipFilterDrawer: React.FC<Props> = ({
         onClick={(e) => e.stopPropagation()}
       >
         <header className="membership-filters-drawer__header">
-          <h4 className="modal-title">Filters</h4>
+          <h4 className="modal-title">
+            Filters {activeCount > 0 && (
+              <span className="filter-count-badge">{activeCount}</span>
+            )}
+          </h4>
           <button className="close-icon-btn" onClick={onClose}>
             <X size={24} />
           </button>
         </header>
 
         <div className="membership-filters-drawer__body">
+
+          {/* Sessions filter */}
           <div className="filter-group">
             <label>Sessions</label>
             <div className="select-wrapper">
@@ -72,11 +75,13 @@ const MembershipFilterDrawer: React.FC<Props> = ({
                 <option>1 session</option>
                 <option>5 sessions</option>
                 <option>10 sessions</option>
+                <option>Unlimited</option>
               </select>
               <ChevronDown className="select-chevron" size={14} />
             </div>
           </div>
 
+          {/* Payment filter */}
           <div className="filter-group">
             <label>Payment</label>
             <div className="select-wrapper">
@@ -95,6 +100,7 @@ const MembershipFilterDrawer: React.FC<Props> = ({
             </div>
           </div>
 
+          {/* Valid for filter — maps directly to backend validFor field */}
           <div className="filter-group">
             <label>Valid for</label>
             <div className="select-wrapper">
@@ -106,14 +112,17 @@ const MembershipFilterDrawer: React.FC<Props> = ({
                 }
               >
                 <option>Any period</option>
-                <option>1 month</option>
-                <option>3 months</option>
-                <option>1 year</option>
+                <option value="1 month">1 month</option>
+                <option value="2 months">2 months</option>
+                <option value="3 months">3 months</option>
+                <option value="6 months">6 months</option>
+                <option value="1 year">1 year</option>
               </select>
               <ChevronDown className="select-chevron" size={14} />
             </div>
           </div>
 
+          {/* All services checkbox */}
           <div className="filter-group checkbox-group">
             <label className="checkbox-container">
               <input
