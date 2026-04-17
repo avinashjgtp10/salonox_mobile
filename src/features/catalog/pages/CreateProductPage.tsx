@@ -106,29 +106,24 @@ const CreateProductPage: React.FC = () => {
   };
 
   const handleSubmit = async () => {
-    const payload: any = {
+    const payload = {
       name: form.productName.trim(),
       measure_unit: form.measureUnit,
       retail_sales_enabled: form.retailSalesEnabled,
       tax_type: form.taxType,
       team_commission_enabled: form.commissionEnabled,
+      ...(form.barcode            && { barcode:              form.barcode }),
+      ...(form.brandId            && { brand_id:             form.brandId }),
+      ...(form.amount             && { amount:               parseFloat(form.amount) }),
+      ...(form.shortDescription   && { short_description:    form.shortDescription }),
+      ...(form.description        && { description:          form.description }),
+      ...(form.categoryId         && { category_id:          form.categoryId }),
+      ...(form.supplyPrice        && { supply_price:         parseFloat(form.supplyPrice) }),
+      ...(form.retailSalesEnabled && form.retailPrice      && { retail_price:        parseFloat(form.retailPrice) }),
+      ...(form.retailSalesEnabled && form.markupPercentage && { markup_percentage:   parseFloat(form.markupPercentage) }),
+      ...(form.taxType === "custom" && form.customTaxRate  && { custom_tax_rate:     parseFloat(form.customTaxRate) }),
+      ...(form.commissionEnabled  && form.commissionRate   && { team_commission_rate: parseFloat(form.commissionRate) }),
     };
-
-    if (form.barcode) payload.barcode = form.barcode;
-    if (form.brandId) payload.brand_id = form.brandId;
-    if (form.amount) payload.amount = parseFloat(form.amount);
-    if (form.shortDescription) payload.short_description = form.shortDescription;
-    if (form.description) payload.description = form.description;
-    if (form.categoryId) payload.category_id = form.categoryId;
-    if (form.supplyPrice) payload.supply_price = parseFloat(form.supplyPrice);
-    if (form.retailSalesEnabled && form.retailPrice)
-      payload.retail_price = parseFloat(form.retailPrice);
-    if (form.retailSalesEnabled && form.markupPercentage)
-      payload.markup_percentage = parseFloat(form.markupPercentage);
-    if (form.taxType === "custom" && form.customTaxRate)
-      payload.custom_tax_rate = parseFloat(form.customTaxRate);
-    if (form.commissionEnabled && form.commissionRate)
-      payload.team_commission_rate = parseFloat(form.commissionRate);
 
     const result = await dispatch(createProductThunk(payload));
     if (createProductThunk.fulfilled.match(result)) {
