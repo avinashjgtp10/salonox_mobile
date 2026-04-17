@@ -4,6 +4,7 @@ import { XLg } from "react-bootstrap-icons";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../../store/store";
 import { createProductThunk, fetchBrandsThunk, fetchCategoriesThunk } from "../../../middleware/catalog/products.thunk";
+import Alert from "../../../components/ui/Alert";
 import Card from "../../../components/ui/Card";
 import Input from "../../../components/ui/Input";
 import Button from "../../../components/ui/Button";
@@ -153,9 +154,7 @@ const CreateProductPage: React.FC = () => {
       <div className="cpp__body">
         <div className="container-narrow">
 
-          {error && (
-            <div className="alert alert-danger rounded-3 mb-4">{error}</div>
-          )}
+          {error && <Alert message={error} />}
 
           {/* 1. Basic info */}
           <Card title="Basic info" className="mb-4">
