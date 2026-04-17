@@ -28,35 +28,55 @@ const TAX_OPTIONS = [
   { value: "custom", label: "Custom" },
 ];
 
+interface FormState {
+  productName: string;
+  barcode: string;
+  brandId: string;
+  measureUnit: string;
+  amount: string;
+  shortDescription: string;
+  description: string;
+  categoryId: string;
+  supplyPrice: string;
+  retailSalesEnabled: boolean;
+  retailPrice: string;
+  markupPercentage: string;
+  taxType: string;
+  customTaxRate: string;
+  commissionEnabled: boolean;
+  commissionRate: string;
+}
+
+const initialForm: FormState = {
+  productName: "",
+  barcode: "",
+  brandId: "",
+  measureUnit: "ml",
+  amount: "",
+  shortDescription: "",
+  description: "",
+  categoryId: "",
+  supplyPrice: "",
+  retailSalesEnabled: true,
+  retailPrice: "",
+  markupPercentage: "",
+  taxType: "no_tax",
+  customTaxRate: "",
+  commissionEnabled: false,
+  commissionRate: "",
+};
+
 const CreateProductPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
-  const brands     = useSelector((state: RootState) => state.products.brands);
-  const categories = useSelector((state: RootState) => state.products.categories);
-  const loading    = useSelector((state: RootState) => state.products.loading.create);
-  const error      = useSelector((state: RootState) => state.products.error);
+  const { brands, categories, loading: { create: loading }, error } = useSelector(
+    (state: RootState) => state.products
+  );
 
-  // Basic info
-  const [productName, setProductName] = useState("");
-  const [barcode, setBarcode] = useState("");
-  const [brandId, setBrandId] = useState("");
-  const [measureUnit, setMeasureUnit] = useState("ml");
-  const [amount, setAmount] = useState("");
-  const [shortDescription, setShortDescription] = useState("");
-  const [description, setDescription] = useState("");
-  const [categoryId, setCategoryId] = useState("");
+  const [form, setForm] = useState<FormState>(initialForm);
 
-  // Pricing
-  const [supplyPrice, setSupplyPrice] = useState("");
-  const [retailSalesEnabled, setRetailSalesEnabled] = useState(true);
-  const [retailPrice, setRetailPrice] = useState("");
-  const [markupPercentage, setMarkupPercentage] = useState("");
-  const [taxType, setTaxType] = useState("no_tax");
-  const [customTaxRate, setCustomTaxRate] = useState("");
-
-  // Commission
-  const [commissionEnabled, setCommissionEnabled] = useState(false);
-  const [commissionRate, setCommissionRate] = useState("");
+  const setField = <K extends keyof FormState>(key: K, value: FormState[K]) =>
+    setForm((prev) => ({ ...prev, [key]: value }));
 
   useEffect(() => {
     dispatch(fetchBrandsThunk());
@@ -65,49 +85,50 @@ const CreateProductPage: React.FC = () => {
 
   // Auto-calculate markup when supply + retail price change
   useEffect(() => {
-    const supply = parseFloat(supplyPrice);
-    const retail = parseFloat(retailPrice);
+    const supply = parseFloat(form.supplyPrice);
+    const retail = parseFloat(form.retailPrice);
     if (supply > 0 && retail > 0) {
       const markup = (((retail - supply) / supply) * 100).toFixed(2);
-      setMarkupPercentage(markup);
+      setField("markupPercentage", markup);
     }
-  }, [supplyPrice, retailPrice]);
+  }, [form.supplyPrice, form.retailPrice]);
 
   // Auto-calculate retail price when markup changes
   const handleMarkupChange = (val: string) => {
-    setMarkupPercentage(val);
-    const supply = parseFloat(supplyPrice);
+    const supply = parseFloat(form.supplyPrice);
     const markup = parseFloat(val);
     if (supply > 0 && markup >= 0) {
       const retail = (supply * (1 + markup / 100)).toFixed(2);
-      setRetailPrice(retail);
+      setForm((prev) => ({ ...prev, markupPercentage: val, retailPrice: retail }));
+    } else {
+      setField("markupPercentage", val);
     }
   };
 
   const handleSubmit = async () => {
     const payload: any = {
-      name: productName.trim(),
-      measure_unit: measureUnit,
-      retail_sales_enabled: retailSalesEnabled,
-      tax_type: taxType,
-      team_commission_enabled: commissionEnabled,
+      name: form.productName.trim(),
+      measure_unit: form.measureUnit,
+      retail_sales_enabled: form.retailSalesEnabled,
+      tax_type: form.taxType,
+      team_commission_enabled: form.commissionEnabled,
     };
 
-    if (barcode) payload.barcode = barcode;
-    if (brandId) payload.brand_id = brandId;
-    if (amount) payload.amount = parseFloat(amount);
-    if (shortDescription) payload.short_description = shortDescription;
-    if (description) payload.description = description;
-    if (categoryId) payload.category_id = categoryId;
-    if (supplyPrice) payload.supply_price = parseFloat(supplyPrice);
-    if (retailSalesEnabled && retailPrice)
-      payload.retail_price = parseFloat(retailPrice);
-    if (retailSalesEnabled && markupPercentage)
-      payload.markup_percentage = parseFloat(markupPercentage);
-    if (taxType === "custom" && customTaxRate)
-      payload.custom_tax_rate = parseFloat(customTaxRate);
-    if (commissionEnabled && commissionRate)
-      payload.team_commission_rate = parseFloat(commissionRate);
+    if (form.barcode) payload.barcode = form.barcode;
+    if (form.brandId) payload.brand_id = form.brandId;
+    if (form.amount) payload.amount = parseFloat(form.amount);
+    if (form.shortDescription) payload.short_description = form.shortDescription;
+    if (form.description) payload.description = form.description;
+    if (form.categoryId) payload.category_id = form.categoryId;
+    if (form.supplyPrice) payload.supply_price = parseFloat(form.supplyPrice);
+    if (form.retailSalesEnabled && form.retailPrice)
+      payload.retail_price = parseFloat(form.retailPrice);
+    if (form.retailSalesEnabled && form.markupPercentage)
+      payload.markup_percentage = parseFloat(form.markupPercentage);
+    if (form.taxType === "custom" && form.customTaxRate)
+      payload.custom_tax_rate = parseFloat(form.customTaxRate);
+    if (form.commissionEnabled && form.commissionRate)
+      payload.team_commission_rate = parseFloat(form.commissionRate);
 
     const result = await dispatch(createProductThunk(payload));
     if (createProductThunk.fulfilled.match(result)) {
@@ -126,7 +147,7 @@ const CreateProductPage: React.FC = () => {
         <Button
           variant="dark"
           onClick={handleSubmit}
-          disabled={!productName.trim() || loading}
+          disabled={!form.productName.trim() || loading}
           className="cpp__submit-btn"
         >
           {loading ? "Saving..." : "Create product"}
@@ -146,8 +167,8 @@ const CreateProductPage: React.FC = () => {
             <Input
               label="Product name"
               placeholder="e.g. Organic Shampoo"
-              value={productName}
-              onChange={(e) => setProductName(e.target.value)}
+              value={form.productName}
+              onChange={(e) => setField("productName", e.target.value)}
               required
             />
 
@@ -159,8 +180,8 @@ const CreateProductPage: React.FC = () => {
                 type="text"
                 className="form-control"
                 placeholder="UPC, EAN, GTIN"
-                value={barcode}
-                onChange={(e) => setBarcode(e.target.value)}
+                value={form.barcode}
+                onChange={(e) => setField("barcode", e.target.value)}
               />
             </div>
 
@@ -170,8 +191,8 @@ const CreateProductPage: React.FC = () => {
               </label>
               <select
                 className="form-select"
-                value={brandId}
-                onChange={(e) => setBrandId(e.target.value)}
+                value={form.brandId}
+                onChange={(e) => setField("brandId", e.target.value)}
               >
                 <option value="">Select a brand</option>
                 {brands.map((b: any) => (
@@ -187,8 +208,8 @@ const CreateProductPage: React.FC = () => {
                 </label>
                 <select
                   className="form-select"
-                  value={measureUnit}
-                  onChange={(e) => setMeasureUnit(e.target.value)}
+                  value={form.measureUnit}
+                  onChange={(e) => setField("measureUnit", e.target.value)}
                 >
                   {MEASURE_UNITS.map((u) => (
                     <option key={u.value} value={u.value}>{u.label}</option>
@@ -201,7 +222,7 @@ const CreateProductPage: React.FC = () => {
                 </label>
                 <div className="cpp__price-wrap position-relative">
                   <span className="cpp__currency" style={{ fontSize: "12px", color: "#888" }}>
-                    {measureUnit}
+                    {form.measureUnit}
                   </span>
                   <input
                     type="number"
@@ -209,8 +230,8 @@ const CreateProductPage: React.FC = () => {
                     className="form-control"
                     style={{ paddingLeft: "2.8rem" }}
                     placeholder="0.00"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
+                    value={form.amount}
+                    onChange={(e) => setField("amount", e.target.value)}
                   />
                 </div>
               </div>
@@ -222,15 +243,15 @@ const CreateProductPage: React.FC = () => {
                   Short description
                 </label>
                 <span className="text-muted" style={{ fontSize: "12px" }}>
-                  {shortDescription.length}/100
+                  {form.shortDescription.length}/100
                 </span>
               </div>
               <input
                 type="text"
                 className="form-control"
                 maxLength={100}
-                value={shortDescription}
-                onChange={(e) => setShortDescription(e.target.value)}
+                value={form.shortDescription}
+                onChange={(e) => setField("shortDescription", e.target.value)}
               />
             </div>
 
@@ -240,15 +261,15 @@ const CreateProductPage: React.FC = () => {
                   Product description
                 </label>
                 <span className="text-muted" style={{ fontSize: "12px" }}>
-                  {description.length}/1000
+                  {form.description.length}/1000
                 </span>
               </div>
               <textarea
                 className="form-control"
                 rows={4}
                 maxLength={1000}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                value={form.description}
+                onChange={(e) => setField("description", e.target.value)}
               />
             </div>
 
@@ -258,8 +279,8 @@ const CreateProductPage: React.FC = () => {
               </label>
               <select
                 className="form-select"
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
+                value={form.categoryId}
+                onChange={(e) => setField("categoryId", e.target.value)}
               >
                 <option value="">Select a category</option>
                 {categories.map((c: any) => (
@@ -283,8 +304,8 @@ const CreateProductPage: React.FC = () => {
                   className="form-control"
                   style={{ paddingLeft: "3.2rem" }}
                   placeholder="0.00"
-                  value={supplyPrice}
-                  onChange={(e) => setSupplyPrice(e.target.value)}
+                  value={form.supplyPrice}
+                  onChange={(e) => setField("supplyPrice", e.target.value)}
                 />
               </div>
             </div>
@@ -303,15 +324,15 @@ const CreateProductPage: React.FC = () => {
                   className="form-check-input"
                   type="checkbox"
                   role="switch"
-                  checked={retailSalesEnabled}
-                  onChange={() => setRetailSalesEnabled(!retailSalesEnabled)}
+                  checked={form.retailSalesEnabled}
+                  onChange={() => setField("retailSalesEnabled", !form.retailSalesEnabled)}
                   style={{ cursor: "pointer", width: "2.5rem", height: "1.25rem" }}
                 />
               </div>
               <span style={{ fontSize: "14px" }}>Enable retail sales</span>
             </div>
 
-            {retailSalesEnabled && (
+            {form.retailSalesEnabled && (
               <div className="row g-3">
                 <div className="col-6">
                   <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
@@ -325,8 +346,8 @@ const CreateProductPage: React.FC = () => {
                       className="form-control"
                       style={{ paddingLeft: "3.2rem" }}
                       placeholder="0.00"
-                      value={retailPrice}
-                      onChange={(e) => setRetailPrice(e.target.value)}
+                      value={form.retailPrice}
+                      onChange={(e) => setField("retailPrice", e.target.value)}
                     />
                   </div>
                 </div>
@@ -342,7 +363,7 @@ const CreateProductPage: React.FC = () => {
                       className="form-control"
                       style={{ paddingLeft: "2.2rem" }}
                       placeholder="0.00"
-                      value={markupPercentage}
+                      value={form.markupPercentage}
                       onChange={(e) => handleMarkupChange(e.target.value)}
                     />
                   </div>
@@ -354,8 +375,8 @@ const CreateProductPage: React.FC = () => {
               <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Tax</label>
               <select
                 className="form-select"
-                value={taxType}
-                onChange={(e) => setTaxType(e.target.value)}
+                value={form.taxType}
+                onChange={(e) => setField("taxType", e.target.value)}
               >
                 {TAX_OPTIONS.map((t) => (
                   <option key={t.value} value={t.value}>{t.label}</option>
@@ -363,7 +384,7 @@ const CreateProductPage: React.FC = () => {
               </select>
             </div>
 
-            {taxType === "custom" && (
+            {form.taxType === "custom" && (
               <div className="mt-3 col-6">
                 <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
                   Custom tax rate (%)
@@ -373,8 +394,8 @@ const CreateProductPage: React.FC = () => {
                   min="0"
                   className="form-control"
                   placeholder="0.00"
-                  value={customTaxRate}
-                  onChange={(e) => setCustomTaxRate(e.target.value)}
+                  value={form.customTaxRate}
+                  onChange={(e) => setField("customTaxRate", e.target.value)}
                 />
               </div>
             )}
@@ -391,14 +412,14 @@ const CreateProductPage: React.FC = () => {
                   className="form-check-input"
                   type="checkbox"
                   role="switch"
-                  checked={commissionEnabled}
-                  onChange={() => setCommissionEnabled(!commissionEnabled)}
+                  checked={form.commissionEnabled}
+                  onChange={() => setField("commissionEnabled", !form.commissionEnabled)}
                   style={{ cursor: "pointer", width: "2.5rem", height: "1.25rem" }}
                 />
               </div>
               <span style={{ fontSize: "14px" }}>Enable team member commission</span>
             </div>
-            {commissionEnabled && (
+            {form.commissionEnabled && (
               <div className="col-6">
                 <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
                   Commission rate (%)
@@ -408,8 +429,8 @@ const CreateProductPage: React.FC = () => {
                   min="0"
                   className="form-control"
                   placeholder="0.00"
-                  value={commissionRate}
-                  onChange={(e) => setCommissionRate(e.target.value)}
+                  value={form.commissionRate}
+                  onChange={(e) => setField("commissionRate", e.target.value)}
                 />
               </div>
             )}
