@@ -4,7 +4,7 @@ interface InputProps extends Omit<
   React.InputHTMLAttributes<HTMLInputElement | HTMLTextAreaElement>,
   "onChange"
 > {
-  label?: string;
+  label?: React.ReactNode;
   error?: string;
   floating?: boolean;
   containerClass?: string;

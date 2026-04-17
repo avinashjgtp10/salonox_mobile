@@ -7,6 +7,7 @@ import { createProductThunk, fetchBrandsThunk, fetchCategoriesThunk } from "../.
 import Alert from "../../../components/ui/Alert";
 import Card from "../../../components/ui/Card";
 import Input from "../../../components/ui/Input";
+import Select from "../../../components/ui/Select";
 import Button from "../../../components/ui/Button";
 import "../styles/CreateProductPage.scss";
 
@@ -166,143 +167,115 @@ const CreateProductPage: React.FC = () => {
               required
             />
 
-            <div className="mt-3">
-              <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
-                Product barcode <span className="text-muted fw-normal">(Optional)</span>
-              </label>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="UPC, EAN, GTIN"
-                value={form.barcode}
-                onChange={(e) => setField("barcode", e.target.value)}
-              />
-            </div>
+            <Input
+              label={<>Product barcode <span className="text-muted fw-normal">(Optional)</span></>}
+              type="text"
+              placeholder="UPC, EAN, GTIN"
+              value={form.barcode}
+              onChange={(e) => setField("barcode", e.target.value)}
+              containerClass="mt-3"
+            />
 
-            <div className="mt-3">
-              <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
-                Product brand
-              </label>
-              <select
-                className="form-select"
-                value={form.brandId}
-                onChange={(e) => setField("brandId", e.target.value)}
-              >
-                <option value="">Select a brand</option>
-                {brands.map((b: any) => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
-            </div>
+            <Select
+              label="Product brand"
+              containerClass="mt-3"
+              value={form.brandId}
+              onChange={(e) => setField("brandId", e.target.value)}
+            >
+              <option value="">Select a brand</option>
+              {brands.map((b: any) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </Select>
 
             <div className="row g-3 mt-1">
               <div className="col-6">
-                <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
-                  Measure
-                </label>
-                <select
-                  className="form-select"
+                <Select
+                  label="Measure"
                   value={form.measureUnit}
                   onChange={(e) => setField("measureUnit", e.target.value)}
                 >
                   {MEASURE_UNITS.map((u) => (
                     <option key={u.value} value={u.value}>{u.label}</option>
                   ))}
-                </select>
+                </Select>
               </div>
               <div className="col-6">
-                <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
-                  Amount
-                </label>
-                <div className="cpp__price-wrap position-relative">
-                  <span className="cpp__currency" style={{ fontSize: "12px", color: "#888" }}>
-                    {form.measureUnit}
-                  </span>
-                  <input
-                    type="number"
-                    min="0"
-                    className="form-control"
-                    style={{ paddingLeft: "2.8rem" }}
-                    placeholder="0.00"
-                    value={form.amount}
-                    onChange={(e) => setField("amount", e.target.value)}
-                  />
-                </div>
+                <Input
+                  label="Amount"
+                  type="number"
+                  min="0"
+                  placeholder="0.00"
+                  value={form.amount}
+                  onChange={(e) => setField("amount", e.target.value)}
+                  iconLeft={<span style={{ fontSize: "12px" }}>{form.measureUnit}</span>}
+                  containerClass=""
+                />
               </div>
             </div>
 
             <div className="mt-3">
-              <div className="d-flex justify-content-between">
-                <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
+              <div className="d-flex justify-content-between mb-1">
+                <label className="form-label fw-semibold mb-0" style={{ fontSize: "13px" }}>
                   Short description
                 </label>
                 <span className="text-muted" style={{ fontSize: "12px" }}>
                   {form.shortDescription.length}/100
                 </span>
               </div>
-              <input
+              <Input
                 type="text"
-                className="form-control"
                 maxLength={100}
                 value={form.shortDescription}
                 onChange={(e) => setField("shortDescription", e.target.value)}
+                containerClass=""
               />
             </div>
 
             <div className="mt-3">
-              <div className="d-flex justify-content-between">
-                <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
+              <div className="d-flex justify-content-between mb-1">
+                <label className="form-label fw-semibold mb-0" style={{ fontSize: "13px" }}>
                   Product description
                 </label>
                 <span className="text-muted" style={{ fontSize: "12px" }}>
                   {form.description.length}/1000
                 </span>
               </div>
-              <textarea
-                className="form-control"
+              <Input
+                multiline
                 rows={4}
                 maxLength={1000}
                 value={form.description}
                 onChange={(e) => setField("description", e.target.value)}
+                containerClass=""
               />
             </div>
 
-            <div className="mt-3">
-              <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
-                Product category
-              </label>
-              <select
-                className="form-select"
-                value={form.categoryId}
-                onChange={(e) => setField("categoryId", e.target.value)}
-              >
-                <option value="">Select a category</option>
-                {categories.map((c: any) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
+            <Select
+              label="Product category"
+              containerClass="mt-3"
+              value={form.categoryId}
+              onChange={(e) => setField("categoryId", e.target.value)}
+            >
+              <option value="">Select a category</option>
+              {categories.map((c: any) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </Select>
           </Card>
 
           {/* 2. Pricing */}
           <Card title="Pricing" className="mb-4">
-            <div className="mt-1">
-              <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
-                Supply price
-              </label>
-              <div className="cpp__price-wrap position-relative">
-                <span className="cpp__currency">INR</span>
-                <input
-                  type="number"
-                  min="0"
-                  className="form-control"
-                  style={{ paddingLeft: "3.2rem" }}
-                  placeholder="0.00"
-                  value={form.supplyPrice}
-                  onChange={(e) => setField("supplyPrice", e.target.value)}
-                />
-              </div>
-            </div>
+            <Input
+              label="Supply price"
+              type="number"
+              min="0"
+              placeholder="0.00"
+              value={form.supplyPrice}
+              onChange={(e) => setField("supplyPrice", e.target.value)}
+              iconLeft={<span>INR</span>}
+              containerClass="mt-1"
+            />
 
             <div className="d-flex align-items-center justify-content-between mt-4 mb-1">
               <div>
@@ -329,67 +302,53 @@ const CreateProductPage: React.FC = () => {
             {form.retailSalesEnabled && (
               <div className="row g-3">
                 <div className="col-6">
-                  <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
-                    Retail price
-                  </label>
-                  <div className="cpp__price-wrap position-relative">
-                    <span className="cpp__currency">INR</span>
-                    <input
-                      type="number"
-                      min="0"
-                      className="form-control"
-                      style={{ paddingLeft: "3.2rem" }}
-                      placeholder="0.00"
-                      value={form.retailPrice}
-                      onChange={(e) => setField("retailPrice", e.target.value)}
-                    />
-                  </div>
+                  <Input
+                    label="Retail price"
+                    type="number"
+                    min="0"
+                    placeholder="0.00"
+                    value={form.retailPrice}
+                    onChange={(e) => setField("retailPrice", e.target.value)}
+                    iconLeft={<span>INR</span>}
+                    containerClass=""
+                  />
                 </div>
                 <div className="col-6">
-                  <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
-                    Markup
-                  </label>
-                  <div className="cpp__price-wrap position-relative">
-                    <span className="cpp__currency">%</span>
-                    <input
-                      type="number"
-                      min="0"
-                      className="form-control"
-                      style={{ paddingLeft: "2.2rem" }}
-                      placeholder="0.00"
-                      value={form.markupPercentage}
-                      onChange={(e) => handleMarkupChange(e.target.value)}
-                    />
-                  </div>
+                  <Input
+                    label="Markup"
+                    type="number"
+                    min="0"
+                    placeholder="0.00"
+                    value={form.markupPercentage}
+                    onChange={(e) => handleMarkupChange(e.target.value)}
+                    iconLeft={<span>%</span>}
+                    containerClass=""
+                  />
                 </div>
               </div>
             )}
 
-            <div className="mt-4">
-              <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Tax</label>
-              <select
-                className="form-select"
-                value={form.taxType}
-                onChange={(e) => setField("taxType", e.target.value)}
-              >
-                {TAX_OPTIONS.map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
-                ))}
-              </select>
-            </div>
+            <Select
+              label="Tax"
+              containerClass="mt-4"
+              value={form.taxType}
+              onChange={(e) => setField("taxType", e.target.value)}
+            >
+              {TAX_OPTIONS.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </Select>
 
             {form.taxType === "custom" && (
               <div className="mt-3 col-6">
-                <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
-                  Custom tax rate (%)
-                </label>
-                <input
+                <Input
+                  label="Custom tax rate (%)"
                   type="number"
                   min="0"
-                  className="form-control"
                   placeholder="0.00"
                   value={form.customTaxRate}
                   onChange={(e) => setField("customTaxRate", e.target.value)}
+                  containerClass=""
                 />
               </div>
             )}
@@ -415,16 +374,14 @@ const CreateProductPage: React.FC = () => {
             </div>
             {form.commissionEnabled && (
               <div className="col-6">
-                <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
-                  Commission rate (%)
-                </label>
-                <input
+                <Input
+                  label="Commission rate (%)"
                   type="number"
                   min="0"
-                  className="form-control"
                   placeholder="0.00"
                   value={form.commissionRate}
                   onChange={(e) => setField("commissionRate", e.target.value)}
+                  containerClass=""
                 />
               </div>
             )}
