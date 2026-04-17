@@ -17,12 +17,9 @@ import {
 
 export const useProducts = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const products   = useSelector((state: RootState) => state.products.items);
-  const total      = useSelector((state: RootState) => state.products.total);
-  const brands     = useSelector((state: RootState) => state.products.brands);
-  const categories = useSelector((state: RootState) => state.products.categories);
-  const loading    = useSelector((state: RootState) => state.products.loading);
-  const error      = useSelector((state: RootState) => state.products.error);
+  const { items: products, total, brands, categories, loading, error } = useSelector(
+    (state: RootState) => state.products
+  );
 
   const fetchProducts = useCallback(() => {
     dispatch(fetchProductsThunk());
