@@ -139,14 +139,8 @@ export default function VenueLocationPage() {
   const defaultCenter: [number, number] = [20.5937, 78.9629];
 
   return (
-    <div className="container-fluid p-0 venue-page position-relative">
-      <div className="progress rounded-0" style={{ height: "4px" }}>
-        <div className="progress-bar bg-dark" style={{ width: "60%" }} />
-      </div>
-
-
-
-      <div className="row g-0 min-vh-100">
+    <div className="container-fluid p-0 venue-page position-relative h-100">
+      <div className="row g-0" style={{ minHeight: "calc(100vh - 64px)" }}>
         {/* LEFT PANEL */}
         <div className="col-lg-5 col-12 bg-white p-5 position-relative d-flex flex-column">
           <button
@@ -160,7 +154,6 @@ export default function VenueLocationPage() {
 
 
           <div className="mt-5 pt-3" style={{ maxWidth: "420px" }}>
-            <p className="text-muted small">Account setup</p>
             <h3 className="fw-bold mb-3">Set your venue's physical location</h3>
             <p className="text-muted mb-4">
               Add your primary business location so your clients can easily find

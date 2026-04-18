@@ -15,17 +15,11 @@ export default function AccountTypePage() {
   };
 
   return (
-    <div className="container-fluid p-0">
-      {/* Progress bar */}
-      <div className="progress rounded-0" style={{ height: "4px", background: "#f3f4f6" }}>
-        <div className="progress-bar" style={{ width: "10%", background: "#111827" }} />
-      </div>
-
-      <div className="row g-0" style={{ minHeight: "calc(100vh - 4px)" }}>
+    <div className="container-fluid p-0 h-100">
+      <div className="row g-0" style={{ minHeight: "calc(100vh - 64px)" }}>
         {/* LEFT PANEL */}
         <div className="col-lg-5 col-12 d-flex align-items-center justify-content-center position-relative bg-white px-4 px-lg-5">
           <div className="w-100 account-wrapper">
-            <p className="onboarding-step-label">Account setup &nbsp;·&nbsp; Step 1 of 8</p>
             <h2 className="account-heading mb-4">
               How would you like to set up your account?
             </h2>

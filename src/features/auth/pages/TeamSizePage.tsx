@@ -25,13 +25,8 @@ export default function TeamSizePage() {
   };
 
   return (
-    <div className="container-fluid p-0 bg-page min-vh-100">
-      {/* Progress bar */}
-      <div className="progress rounded-0" style={{ height: "4px", background: "#f3f4f6" }}>
-        <div className="progress-bar" style={{ width: "60%", background: "#111827" }} />
-      </div>
-
-      <div className="row g-0" style={{ minHeight: "calc(100vh - 4px)" }}>
+    <div className="container-fluid p-0 bg-page h-100">
+      <div className="row g-0" style={{ minHeight: "calc(100vh - 64px)" }}>
         {/* LEFT PANEL */}
         <div className="col-lg-5 col-12 left-panel d-flex flex-column px-4 px-lg-5 position-relative bg-white">
           <button
@@ -44,7 +39,6 @@ export default function TeamSizePage() {
 
           <div className="flex-grow-1 d-flex align-items-center justify-content-center">
             <div className="w-100" style={{ maxWidth: "420px" }}>
-              <p className="onboarding-step-label mb-1">Account setup &nbsp;·&nbsp; Step 5 of 8</p>
               <h3 className="account-heading mb-2" style={{ fontSize: "26px" }}>What's your team size?</h3>
               <p className="account-subheading mb-4">
                 We'll recommend the right plan for your team.

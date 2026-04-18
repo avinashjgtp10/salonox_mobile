@@ -15,7 +15,7 @@ export default function SetupCompletePage() {
 
   return (
     <div className="container-fluid p-0">
-      <div className="row g-0" style={{ minHeight: "100vh" }}>
+      <div className="row g-0" style={{ minHeight: "calc(100vh - 64px)" }}>
         {/* LEFT PANEL — celebration */}
         <div className="col-lg-5 col-12 d-flex align-items-center justify-content-center bg-white p-4 p-lg-5">
           <div className="text-center setup-complete-content">

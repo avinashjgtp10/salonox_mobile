@@ -63,13 +63,8 @@ export default function RecommendationSourcePage() {
   const isDisabled = loading || !selected || (selected === "Other" && otherText.trim() === "");
 
   return (
-    <div className="recommend-container container-fluid p-0 position-relative">
-      {/* Progress bar */}
-      <div className="progress rounded-0" style={{ height: "4px", background: "#f3f4f6" }}>
-        <div className="progress-bar" style={{ width: "100%", background: "#111827" }} />
-      </div>
-
-      <div className="row g-0" style={{ minHeight: "calc(100vh - 4px)" }}>
+    <div className="recommend-container container-fluid p-0 position-relative h-100">
+      <div className="row g-0" style={{ minHeight: "calc(100vh - 64px)" }}>
         {/* LEFT PANEL */}
         <div className="col-lg-5 col-12 bg-white p-4 p-lg-5">
           <button
@@ -81,7 +76,6 @@ export default function RecommendationSourcePage() {
           </button>
 
           <div style={{ maxWidth: "420px" }}>
-            <p className="onboarding-step-label mb-1">Account setup &nbsp;·&nbsp; Step 8 of 8</p>
             <h3 className="fw-bold mb-1" style={{ fontSize: "24px", color: "#111827", letterSpacing: "-0.02em" }}>
               How did you hear about us?
             </h3>

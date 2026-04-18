@@ -18,13 +18,8 @@ export default function TeamSetupPage() {
   };
 
   return (
-    <div className="container-fluid p-0 bg-page min-vh-100">
-      {/* Progress bar */}
-      <div className="progress rounded-0" style={{ height: "4px", background: "#f3f4f6" }}>
-        <div className="progress-bar" style={{ width: "50%", background: "#111827" }} />
-      </div>
-
-      <div className="row g-0" style={{ minHeight: "calc(100vh - 4px)" }}>
+    <div className="container-fluid p-0 bg-page h-100">
+      <div className="row g-0" style={{ minHeight: "calc(100vh - 64px)" }}>
         {/* LEFT PANEL */}
         <div className="col-lg-5 col-12 left-panel d-flex flex-column px-4 px-lg-5 position-relative bg-white">
           <button
@@ -37,7 +32,6 @@ export default function TeamSetupPage() {
 
           <div className="flex-grow-1 d-flex align-items-center justify-content-center">
             <div className="w-100" style={{ maxWidth: "420px" }}>
-              <p className="onboarding-step-label mb-1">Account setup &nbsp;·&nbsp; Step 4 of 8</p>
               <h3 className="account-heading mb-2" style={{ fontSize: "26px" }}>Select your account type</h3>
               <p className="account-subheading mb-4">
                 This helps us personalise the tools and features for you.
