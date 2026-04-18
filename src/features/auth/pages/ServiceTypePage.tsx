@@ -12,11 +12,13 @@ import {
   FaDumbbell,
   FaUserTie,
 } from "react-icons/fa";
-import { FiArrowLeft, FiArrowRight } from "react-icons/fi";
+import { FiArrowRight } from "react-icons/fi";
 import { GiLipstick, GiRazor } from "react-icons/gi";
 import { MdOutlineFaceRetouchingNatural } from "react-icons/md";
 import { useOnboarding } from "../../../context/OnboardingContext";
 import OnboardingImagePanel from "../components/OnboardingImagePanel";
+import OnboardingPageWrapper from "../components/OnboardingPageWrapper";
+import OnboardingBackButton from "../components/OnboardingBackButton";
 
 export default function ServiceTypePage() {
   const navigate = useNavigate();
@@ -61,33 +63,22 @@ export default function ServiceTypePage() {
     if (name === "Other") setShowOtherInput(true);
   };
 
+  const isValid =
+    selected.length > 0 &&
+    !(selected.includes("Other") && otherValue.trim() === "");
+
   const handleContinue = () => {
-    if (selected.length === 0) {
-      setError("Please select at least one service.");
-      return;
-    }
-    if (selected.includes("Other") && otherValue.trim() === "") {
-      setError("Please enter your other service type.");
-      return;
-    }
-    const business_type =
-      selected[0] === "Other" ? otherValue.trim() : selected[0];
+    if (!isValid) return;
+    const business_type = selected[0] === "Other" ? otherValue.trim() : selected[0];
     update({ business_type });
     navigate("/team-setup");
   };
 
   return (
-    <div className="container-fluid p-0 bg-light h-100">
-      <div className="row g-0" style={{ minHeight: "calc(100vh - 64px)" }}>
+    <OnboardingPageWrapper className="bg-light">
         {/* LEFT PANEL */}
         <div className="col-lg-5 col-12 bg-white p-4 p-lg-5 position-relative">
-          <button
-            className="btn btn-light border rounded-circle position-absolute d-flex align-items-center justify-content-center"
-            style={{ top: "24px", left: "24px", width: "40px", height: "40px", padding: 0, zIndex: 10 }}
-            onClick={() => navigate(-1)}
-          >
-            <FiArrowLeft size={16} />
-          </button>
+          <OnboardingBackButton />
 
           <div className="mt-4">
             <h3 className="fw-bold mb-1" style={{ fontSize: "24px", color: "#111827", letterSpacing: "-0.02em" }}>
@@ -148,6 +139,7 @@ export default function ServiceTypePage() {
             <button
               className="btn btn-dark w-100 rounded-pill mt-4"
               style={{ height: "52px", fontWeight: 600, fontSize: "14px" }}
+              disabled={!isValid}
               onClick={handleContinue}
             >
               Continue <FiArrowRight size={14} className="ms-1" />
@@ -167,7 +159,6 @@ export default function ServiceTypePage() {
             role: "Beauty Salon Owner, Mumbai",
           }}
         />
-      </div>
-    </div>
+    </OnboardingPageWrapper>
   );
 }

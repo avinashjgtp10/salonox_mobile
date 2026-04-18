@@ -4,19 +4,21 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { FiArrowRight } from "react-icons/fi";
 import OnboardingImagePanel from "../components/OnboardingImagePanel";
+import OnboardingPageWrapper from "../components/OnboardingPageWrapper";
+import AutoNavigateIndicator from "../components/AutoNavigateIndicator";
+import { useAutoNavigate } from "../../../hooks/useAutoNavigate";
 
 export default function AccountTypePage() {
   const navigate = useNavigate();
   const [selected, setSelected] = useState<"new" | "join" | null>(null);
 
-  const handleContinue = () => {
+  useAutoNavigate(!!selected, () => {
     if (selected === "new") navigate("/business-name");
     if (selected === "join") navigate("/join-business");
-  };
+  }, 500);
 
   return (
-    <div className="container-fluid p-0 h-100">
-      <div className="row g-0" style={{ minHeight: "calc(100vh - 64px)" }}>
+    <OnboardingPageWrapper>
         {/* LEFT PANEL */}
         <div className="col-lg-5 col-12 d-flex align-items-center justify-content-center position-relative bg-white px-4 px-lg-5">
           <div className="w-100 account-wrapper">
@@ -50,30 +52,12 @@ export default function AccountTypePage() {
               </div>
             </div>
 
-            {/* Mobile-only Continue button */}
-            <button
-              className="btn btn-dark rounded-pill w-100 mt-4 d-lg-none"
-              style={{ height: "52px", fontWeight: 600 }}
-              disabled={!selected}
-              onClick={handleContinue}
-            >
-              Continue <FiArrowRight size={16} className="ms-1" />
-            </button>
+            <AutoNavigateIndicator visible={!!selected} className="justify-content-center" />
           </div>
         </div>
 
         {/* RIGHT IMAGE PANEL */}
         <OnboardingImagePanel
-          continueBtn={
-            <button
-              className="btn btn-light rounded-pill px-4 fw-semibold"
-              disabled={!selected}
-              onClick={handleContinue}
-              style={{ fontSize: "14px" }}
-            >
-              Continue <FiArrowRight size={14} className="ms-1" />
-            </button>
-          }
           stats={[
             { value: "10K+", label: "Professionals" },
             { value: "4.9★", label: "App Rating" },
@@ -84,7 +68,6 @@ export default function AccountTypePage() {
             role: "Hair Stylist, London",
           }}
         />
-      </div>
-    </div>
+    </OnboardingPageWrapper>
   );
 }

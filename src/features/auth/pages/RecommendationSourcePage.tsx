@@ -2,12 +2,14 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/RecommendationSourcePage.scss";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { FiArrowLeft, FiArrowRight } from "react-icons/fi";
+import { FiArrowLeft } from "react-icons/fi";
 import { useOnboarding } from "../../../context/OnboardingContext";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { saveSalonThunk } from "../../../middleware/salon/salon.thunk";
 import type { CreateSalonPayload } from "../../../types/salon.types";
 import OnboardingImagePanel from "../components/OnboardingImagePanel";
+import AutoNavigateIndicator from "../components/AutoNavigateIndicator";
+import { useAutoNavigate } from "../../../hooks/useAutoNavigate";
 
 const options = [
   "Recommended by a friend",
@@ -29,10 +31,8 @@ export default function RecommendationSourcePage() {
 
   const [selected, setSelected] = useState("");
   const [otherText, setOtherText] = useState("");
-  const [submitted, setSubmitted] = useState(false);
 
   const handleDone = async () => {
-    setSubmitted(true);
     if (!selected) return;
     if (selected === "Other" && otherText.trim() === "") return;
 
@@ -60,7 +60,9 @@ export default function RecommendationSourcePage() {
     }
   };
 
-  const isDisabled = loading || !selected || (selected === "Other" && otherText.trim() === "");
+  const isReadyToSubmit = !!selected && !(selected === "Other" && otherText.trim() === "");
+
+  useAutoNavigate(isReadyToSubmit && !loading, handleDone, 600);
 
   return (
     <div className="recommend-container container-fluid p-0 position-relative h-100">
@@ -93,10 +95,8 @@ export default function RecommendationSourcePage() {
               <button
                 key={index}
                 className={`recommend-pill rounded-pill mb-2 ${selected === item ? "active" : ""}`}
-                onClick={() => {
-                  setSelected(item);
-                  setSubmitted(false);
-                }}
+                onClick={() => setSelected(item)}
+                disabled={loading}
               >
                 {item}
               </button>
@@ -113,53 +113,21 @@ export default function RecommendationSourcePage() {
                   maxLength={255}
                   value={otherText}
                   onChange={(e) => setOtherText(e.target.value)}
-                  className={`form-control ${submitted && otherText.trim() === "" ? "is-invalid" : ""}`}
+                  className="form-control"
                   style={{ height: "48px", borderRadius: "12px", border: "1px solid #e5e7eb" }}
                 />
-                {submitted && otherText.trim() === "" && (
-                  <div className="invalid-feedback d-block">This field is required</div>
-                )}
               </div>
             )}
 
-            {/* Mobile complete button */}
-            <button
-              className="btn btn-dark w-100 rounded-pill mt-4 d-lg-none"
-              style={{ height: "52px", fontWeight: 600 }}
-              disabled={isDisabled}
-              onClick={handleDone}
-            >
-              {loading ? (
-                <>
-                  <span className="spinner-border spinner-border-sm me-2" />
-                  Saving...
-                </>
-              ) : (
-                <>Complete Setup <FiArrowRight size={16} className="ms-1" /></>
-              )}
-            </button>
+            <AutoNavigateIndicator
+              visible={isReadyToSubmit || loading}
+              message={loading ? "Saving your setup..." : "Continuing..."}
+            />
           </div>
         </div>
 
         {/* RIGHT IMAGE PANEL */}
         <OnboardingImagePanel
-          continueBtn={
-            <button
-              className="btn btn-light rounded-pill px-4 fw-semibold"
-              disabled={isDisabled}
-              onClick={handleDone}
-              style={{ fontSize: "14px" }}
-            >
-              {loading ? (
-                <>
-                  <span className="spinner-border spinner-border-sm me-2" style={{ width: "14px", height: "14px" }} />
-                  Saving...
-                </>
-              ) : (
-                <>Complete Setup <FiArrowRight size={14} className="ms-1" /></>
-              )}
-            </button>
-          }
           stats={[
             { value: "10K+", label: "Active users" },
             { value: "Weekly", label: "New joiners" },

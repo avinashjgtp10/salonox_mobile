@@ -77,9 +77,9 @@ export default function OnboardingTopBar() {
       </nav>
 
       {/* Counter */}
-      {currentStep > 0 && (
+      {currentSectionIdx >= 0 && (
         <div className="ob-topbar__counter">
-          Step {currentStep} of {TOTAL_STEPS}
+          Step {currentSectionIdx + 1} of {SECTIONS.length}
         </div>
       )}
     </div>

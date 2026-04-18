@@ -2,6 +2,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "leaflet/dist/leaflet.css";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
+import AutoNavigateIndicator from "../components/AutoNavigateIndicator";
 import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import L from "leaflet";
 import { FiArrowLeft, FiArrowRight } from "react-icons/fi";
@@ -35,7 +36,6 @@ export default function VenueLocationPage() {
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [noResults, setNoResults] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
   const [coords, setCoords] = useState<[number, number] | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -85,6 +85,14 @@ export default function VenueLocationPage() {
     };
   }, [address]);
 
+  const [navigating, setNavigating] = useState(false);
+
+  const doNavigate = (addr: string) => {
+    update({ address: addr.trim() });
+    setNavigating(true);
+    setTimeout(() => navigate("/previous-software"), 600);
+  };
+
   const selectSuggestion = (item: {
     display_name: string;
     lat: number;
@@ -94,7 +102,8 @@ export default function VenueLocationPage() {
     setCoords([item.lat, item.lon]);
     setSuggestions([]);
     setNoResults(false);
-    setSubmitted(false);
+
+    doNavigate(item.display_name);
   };
 
   const handleGetLocation = () => {
@@ -115,7 +124,8 @@ export default function VenueLocationPage() {
             setAddress(data.display_name);
             setCoords([c.latitude, c.longitude]);
             setSuggestions([]);
-            setSubmitted(false);
+        
+            doNavigate(data.display_name);
           }
         } catch {
           alert("Could not fetch address. Please type your location manually.");
@@ -127,13 +137,6 @@ export default function VenueLocationPage() {
         setLoading(false);
       },
     );
-  };
-
-  const handleContinue = () => {
-    setSubmitted(true);
-    if (!address.trim()) return;
-    update({ address: address.trim() });
-    navigate("/previous-software");
   };
 
   const defaultCenter: [number, number] = [20.5937, 78.9629];
@@ -169,30 +172,25 @@ export default function VenueLocationPage() {
                 />
                 <input
                   type="text"
-                  className={`form-control ps-5 pe-3 ${submitted && !address.trim() ? "is-invalid" : ""}`}
+                  className="form-control ps-5 pe-3"
                   placeholder="Search location (e.g., Lakme Academy Baramati)"
                   value={address}
-                  onChange={(e) => {
-                    setAddress(e.target.value);
-                    setSubmitted(false);
-                  }}
+                  onChange={(e) => setAddress(e.target.value)}
+                  disabled={navigating}
                 />
               </div>
               <button
                 className="btn btn-dark d-flex align-items-center justify-content-center rounded-circle shadow-sm"
                 style={{ width: "40px", height: "40px", flexShrink: 0 }}
-                onClick={handleContinue}
+                disabled={!address.trim() || navigating}
+                onClick={() => doNavigate(address)}
               >
-                <FiArrowRight size={20} />
+                <FiArrowRight size={18} />
               </button>
             </div>
-            <div className="position-relative">
-              {submitted && !address.trim() && (
-                <div className="invalid-feedback d-block mt-1">
-                  Please select your business location
-                </div>
-              )}
 
+            <AutoNavigateIndicator visible={navigating} className="mt-2" />
+            <div className="position-relative">
               {suggestions.length > 0 && (
                 <ul
                   className="list-group position-absolute w-100 mt-1 suggestion-box"

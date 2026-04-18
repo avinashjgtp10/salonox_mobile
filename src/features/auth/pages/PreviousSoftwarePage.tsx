@@ -1,8 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { FiArrowLeft, FiArrowRight } from "react-icons/fi";
+import { FiArrowLeft } from "react-icons/fi";
 import "../styles/PreviousSoftwarePage.scss";
 import OnboardingImagePanel from "../components/OnboardingImagePanel";
+import AutoNavigateIndicator from "../components/AutoNavigateIndicator";
+import { useAutoNavigate } from "../../../hooks/useAutoNavigate";
 
 export default function PreviousSoftwarePage() {
   const navigate = useNavigate();
@@ -29,9 +31,9 @@ export default function PreviousSoftwarePage() {
     "Other",
   ];
 
-  const handleContinue = () => {
-    navigate("/recommendation-source");
-  };
+  const isValid = !!selected && !(selected === "Other" && otherSoftware.trim() === "");
+
+  useAutoNavigate(isValid, () => navigate("/recommendation-source"), 500);
 
   return (
     <div className="container-fluid p-0 h-100">
@@ -90,30 +92,12 @@ export default function PreviousSoftwarePage() {
               </div>
             )}
 
-            {/* Mobile continue button */}
-            <button
-              className="btn btn-dark w-100 rounded-pill mt-4 d-lg-none"
-              style={{ height: "52px", fontWeight: 600 }}
-              disabled={!selected || (selected === "Other" && otherSoftware.length === 0)}
-              onClick={handleContinue}
-            >
-              Continue <FiArrowRight size={16} className="ms-1" />
-            </button>
+            <AutoNavigateIndicator visible={isValid} />
           </div>
         </div>
 
         {/* RIGHT IMAGE PANEL */}
         <OnboardingImagePanel
-          continueBtn={
-            <button
-              className="btn btn-light rounded-pill px-4 fw-semibold"
-              disabled={!selected || (selected === "Other" && otherSoftware.length === 0)}
-              onClick={handleContinue}
-              style={{ fontSize: "14px" }}
-            >
-              Continue <FiArrowRight size={14} className="ms-1" />
-            </button>
-          }
           quote={{
             text: "Switching from Booksy took less than 10 minutes. Wish I'd done it sooner.",
             author: "Tom H.",
