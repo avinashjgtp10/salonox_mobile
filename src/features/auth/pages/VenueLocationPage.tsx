@@ -3,7 +3,7 @@ import "leaflet/dist/leaflet.css";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import AutoNavigateIndicator from "../components/AutoNavigateIndicator";
-import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, useMap, ZoomControl } from "react-leaflet";
 import L from "leaflet";
 import { FiArrowLeft, FiArrowRight } from "react-icons/fi";
 import { HiOutlineLocationMarker } from "react-icons/hi";
@@ -46,7 +46,6 @@ export default function VenueLocationPage() {
       setNoResults(false);
       debounceRef.current = setTimeout(async () => {
         try {
-          // Photon API — great POI/business autocomplete, India-biased
           const res = await fetch(
             `https://photon.komoot.io/api/?q=${encodeURIComponent(address)}&limit=7&lang=en&lat=20.5937&lon=78.9629`,
           );
@@ -102,7 +101,6 @@ export default function VenueLocationPage() {
     setCoords([item.lat, item.lon]);
     setSuggestions([]);
     setNoResults(false);
-
     doNavigate(item.display_name);
   };
 
@@ -124,7 +122,6 @@ export default function VenueLocationPage() {
             setAddress(data.display_name);
             setCoords([c.latitude, c.longitude]);
             setSuggestions([]);
-        
             doNavigate(data.display_name);
           }
         } catch {
@@ -144,7 +141,8 @@ export default function VenueLocationPage() {
   return (
     <div className="container-fluid p-0 venue-page position-relative h-100">
       <div className="row g-0" style={{ minHeight: "calc(100vh - 64px)" }}>
-        {/* LEFT PANEL */}
+
+        {/* ── LEFT PANEL ── */}
         <div className="col-lg-5 col-12 bg-white p-5 position-relative d-flex flex-column">
           <button
             className="btn btn-light border rounded-circle position-absolute d-flex align-items-center justify-content-center"
@@ -154,13 +152,10 @@ export default function VenueLocationPage() {
             <FiArrowLeft />
           </button>
 
-
-
           <div className="mt-5 pt-3" style={{ maxWidth: "420px" }}>
             <h3 className="fw-bold mb-3">Set your venue's physical location</h3>
             <p className="text-muted mb-4">
-              Add your primary business location so your clients can easily find
-              you.
+              Add your primary business location so your clients can easily find you.
             </p>
 
             <div className="d-flex gap-2 align-items-center">
@@ -190,6 +185,7 @@ export default function VenueLocationPage() {
             </div>
 
             <AutoNavigateIndicator visible={navigating} className="mt-2" />
+
             <div className="position-relative">
               {suggestions.length > 0 && (
                 <ul
@@ -212,8 +208,7 @@ export default function VenueLocationPage() {
               {noResults && (
                 <div className="mt-2">
                   <small className="text-muted">
-                    No results found. Try a nearby area or type your address
-                    manually.
+                    No results found. Try a nearby area or type your address manually.
                   </small>
                 </div>
               )}
@@ -227,7 +222,7 @@ export default function VenueLocationPage() {
           </div>
         </div>
 
-        {/* RIGHT PANEL — full interactive map */}
+        {/* ── RIGHT PANEL — full interactive map ── */}
         <div
           className="col-lg-7 d-none d-lg-block position-relative p-0"
           style={{ minHeight: "100vh" }}
@@ -236,19 +231,22 @@ export default function VenueLocationPage() {
             center={coords ?? defaultCenter}
             zoom={coords ? 15 : 5}
             style={{ height: "100vh", width: "100%" }}
-            zoomControl={true}
+            zoomControl={false}          // ← disable default top-left zoom
             scrollWheelZoom={true}
           >
             <TileLayer
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             />
+
+            {/* ↓ zoom control placed bottom-right, away from navbar */}
+            <ZoomControl position="bottomright" />
+
             {coords && <Marker position={coords} />}
             <FlyTo coords={coords} />
           </MapContainer>
-
-
         </div>
+
       </div>
     </div>
   );
