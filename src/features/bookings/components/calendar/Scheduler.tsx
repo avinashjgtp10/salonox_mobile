@@ -8,6 +8,7 @@ import MonthView from "./MonthView";
 import ListWeekView from "./ListWeekView";
 import NewAppointmentModal from "../modals/NewAppointmentModal";
 import ViewBillModal from "../modals/ViewBillModal";
+import PaymentModal from "../modals/PaymentModal";
 import BlockTimeModal from "../modals/BlockTimeModal";
 import SettingsModal from "../modals/SettingsModal";
 
@@ -19,13 +20,9 @@ const SchedulerContent: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [viewingBooking, setViewingBooking] = useState<Booking | null>(null);
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
-  const [apptDefaults, setApptDefaults] = useState<{
-    staffId?: string;
-    defaultTime?: string;
-  }>({});
-  const [blockStaffId, setBlockStaffId] = useState<string | undefined>(
-    undefined,
-  );
+  const [paymentBooking, setPaymentBooking] = useState<Booking | null>(null);
+  const [apptDefaults, setApptDefaults] = useState<{ staffId?: string; defaultTime?: string }>({});
+  const [blockStaffId, setBlockStaffId] = useState<string | undefined>(undefined);
 
   function handleSlotClick(staffId: string, time: string) {
     setApptDefaults({ staffId, defaultTime: time });
@@ -36,6 +33,10 @@ const SchedulerContent: React.FC = () => {
   function handleEditBooking(booking: Booking) {
     setEditingBooking(booking);
     setShowNewAppt(true);
+  }
+
+  function handlePaymentBooking(booking: Booking) {
+    setPaymentBooking(booking);
   }
 
   function handleBlockTime(staffId?: string) {
@@ -55,73 +56,42 @@ const SchedulerContent: React.FC = () => {
   }
 
   return (
-    <div
-      style={{
-        fontFamily: "'Segoe UI', system-ui, sans-serif",
-        background: "#f8fafc",
-        height: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden" /* ← outer wrapper NEVER scrolls */,
-        position: "relative",
-      }}
-    >
-      {/* TopBar is FIXED at the top — never moves when grid scrolls */}
-      <div
-        style={{
-          flexShrink: 0 /* never shrinks */,
-          width: "100%" /* always full viewport width */,
-          overflow: "hidden" /* clips anything that tries to overflow */,
-          position: "relative",
-          zIndex: 30,
-        }}
-      >
+    <div style={{
+      fontFamily: "'Segoe UI', system-ui, sans-serif",
+      background: "#f8fafc",
+      height: "100vh",
+      display: "flex",
+      flexDirection: "column",
+      overflow: "hidden",
+      position: "relative",
+    }}>
+      <div style={{ flexShrink: 0, width: "100%", overflow: "hidden", position: "relative", zIndex: 30 }}>
         <TopBar
-          onNewAppointment={() => {
-            setEditingBooking(null);
-            setApptDefaults({});
-            setShowNewAppt(true);
-          }}
+          onNewAppointment={() => { setEditingBooking(null); setApptDefaults({}); setShowNewAppt(true); }}
           onBlockTime={() => handleBlockTime()}
           onSettings={() => setShowSettings(true)}
         />
       </div>
 
-      {/* Calendar area — this is the ONLY thing that scrolls horizontally */}
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          minHeight: 0,
-          /* Month and List Week scroll vertically, others are managed internally */
-          overflowY:
-            viewMode === "Month" || viewMode === "List Week"
-              ? "auto"
-              : "hidden",
-          overflowX:
-            "hidden" /* ← horizontal scroll stays INSIDE DayView/WeekView only */,
-        }}
-      >
+      <div style={{
+        flex: 1, display: "flex", flexDirection: "column", minHeight: 0,
+        overflowY: viewMode === "Month" || viewMode === "List Week" ? "auto" : "hidden",
+        overflowX: "hidden",
+      }}>
         {viewMode === "Day" && (
           <DayView
             onSlotClick={handleSlotClick}
             onViewBill={setViewingBooking}
             onEditBooking={handleEditBooking}
+            onPaymentBooking={handlePaymentBooking}
             onBlockTime={(staffId: string) => handleBlockTime(staffId)}
           />
         )}
         {viewMode === "Week" && (
-          <WeekView
-            onSlotClick={handleSlotClick}
-            onViewBill={setViewingBooking}
-          />
+          <WeekView onSlotClick={handleSlotClick} onViewBill={setViewingBooking} />
         )}
         {viewMode === "Month" && (
-          <MonthView
-            onDayClick={handleDayClick}
-            onViewBill={setViewingBooking}
-          />
+          <MonthView onDayClick={handleDayClick} onViewBill={setViewingBooking} />
         )}
         {viewMode === "List Week" && (
           <ListWeekView onViewBill={setViewingBooking} />
@@ -137,24 +107,18 @@ const SchedulerContent: React.FC = () => {
         />
       )}
       {showBlockTime && (
-        <BlockTimeModal
-          onClose={() => setShowBlockTime(false)}
-          defaultStaffId={blockStaffId}
-        />
+        <BlockTimeModal onClose={() => setShowBlockTime(false)} defaultStaffId={blockStaffId} />
       )}
       {viewingBooking && (
-        <ViewBillModal
-          booking={viewingBooking}
-          onClose={() => setViewingBooking(null)}
-        />
+        <ViewBillModal booking={viewingBooking} onClose={() => setViewingBooking(null)} />
+      )}
+      {paymentBooking && (
+        <PaymentModal booking={paymentBooking} onClose={() => setPaymentBooking(null)} />
       )}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </div>
   );
 };
 
-const Scheduler: React.FC = () => {
-  return <SchedulerContent />;
-};
-
+const Scheduler: React.FC = () => <SchedulerContent />;
 export default Scheduler;
