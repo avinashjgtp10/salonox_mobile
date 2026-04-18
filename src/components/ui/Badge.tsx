@@ -13,6 +13,7 @@ interface BadgeProps {
     | "dark";
   className?: string;
   pill?: boolean;
+  style?: React.CSSProperties;
 }
 
 const Badge: React.FC<BadgeProps> = ({
@@ -20,6 +21,7 @@ const Badge: React.FC<BadgeProps> = ({
   variant = "primary",
   className = "",
   pill = true,
+  style,
 }) => {
   const baseClass = "badge";
   const variantClass = `bg-${variant} text-white`;
@@ -28,6 +30,7 @@ const Badge: React.FC<BadgeProps> = ({
   return (
     <span
       className={`${baseClass} ${variantClass} ${roundedClass} ${className}`}
+      style={style}
     >
       {children}
     </span>

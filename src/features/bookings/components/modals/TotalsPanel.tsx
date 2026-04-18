@@ -3,79 +3,48 @@ import "../../styles/NewAppointmentModal.scss";
 
 interface TotalsPanelProps {
   subtotal: number;
+  serviceTotal: number;
+  packageTotal: number;
+  productTotal: number;
+  membershipTotal: number;
   exCharges: number;
   discount: number;
   discountType: string;
-  gst: number;
-  adjustPayment: number;
-  couponDiscount?: number;
   tip?: number;
 }
 
 const TotalsPanel: React.FC<TotalsPanelProps> = ({
-  subtotal,
-  exCharges,
-  discount,
-  discountType,
-  gst,
-  adjustPayment,
-  couponDiscount = 0,
-  tip = 0,
+  subtotal, serviceTotal, packageTotal, productTotal, membershipTotal,
+  exCharges, discount, discountType, tip = 0,
 }) => {
-  const discountVal =
-    discountType === "Percentage (%)" ? (subtotal * discount) / 100 : discount;
-  const totalDiscount = Math.min(discountVal + couponDiscount, subtotal);
+  const discountVal = discountType === "Percentage (%)" ? (subtotal * discount) / 100 : discount;
+  const totalDiscount = Math.min(discountVal, subtotal);
   const taxable = Math.max(0, subtotal - totalDiscount);
-  const gstVal = (taxable * gst) / 100;
-  const grandTotal = taxable + gstVal + exCharges + tip;
-  const due = Math.max(0, grandTotal - adjustPayment);
+  const grandTotal = taxable + exCharges + tip;
 
-  const rows: {
-    label: string;
-    value: string;
-    bold?: boolean;
-    colored?: string;
-  }[] = [
-    { label: "Subtotal", value: `₹${subtotal.toFixed(2)}` },
-    ...(totalDiscount > 0
-      ? [{ label: "Discount", value: `-₹${totalDiscount.toFixed(2)}`, colored: "#ef4444" }]
-      : []),
-    ...(gst > 0
-      ? [{ label: `GST ${gst}%`, value: `₹${gstVal.toFixed(2)}`, colored: "#f59e0b" }]
-      : []),
-    ...(exCharges > 0
-      ? [{ label: "Ex Charges", value: `₹${exCharges.toFixed(2)}` }]
-      : []),
-    ...(tip > 0
-      ? [{ label: "Tip", value: `₹${tip.toFixed(2)}` }]
-      : []),
-    { label: "Grand Total", value: `₹${grandTotal.toFixed(2)}`, bold: true },
-    {
-      label: "Paying Now",
-      value: `₹${adjustPayment.toFixed(2)}`,
-      colored: "#22c55e",
-    },
-    {
-      label: "Due Amount",
-      value: `₹${due.toFixed(2)}`,
-      colored: due > 0 ? "#ef4444" : undefined,
-    },
+  const rows = [
+    ...(serviceTotal    > 0 ? [{ label: "Service",    value: `₹${serviceTotal.toFixed(2)}`,    color: "" }] : []),
+    ...(packageTotal    > 0 ? [{ label: "Package",    value: `₹${packageTotal.toFixed(2)}`,    color: "" }] : []),
+    ...(productTotal    > 0 ? [{ label: "Product",    value: `₹${productTotal.toFixed(2)}`,    color: "" }] : []),
+    ...(membershipTotal > 0 ? [{ label: "Membership", value: `₹${membershipTotal.toFixed(2)}`, color: "" }] : []),
+    { label: "Subtotal", value: `₹${subtotal.toFixed(2)}`, color: "" },
+    ...(totalDiscount > 0 ? [{ label: "Discount", value: `-₹${totalDiscount.toFixed(2)}`, color: "text-danger" }] : []),
+    ...(exCharges     > 0 ? [{ label: "Ex Charges", value: `₹${exCharges.toFixed(2)}`, color: "" }] : []),
+    ...(tip           > 0 ? [{ label: "Tip",        value: `₹${tip.toFixed(2)}`,        color: "" }] : []),
+    { label: "Grand Total", value: `₹${grandTotal.toFixed(2)}`, color: "", bold: true },
   ];
 
   return (
-    <div className="totals-panel">
-      <div className="totals-panel__title">Summary</div>
-      {rows.map(({ label, value, bold, colored }) => (
-        <div
-          key={label}
-          className={`totals-panel__row${bold ? " totals-panel__row--grand" : ""}`}
-        >
-          <span className="totals-panel__label">{label}</span>
-          <span className="totals-panel__value" style={{ color: colored }}>
-            {value}
-          </span>
-        </div>
-      ))}
+    <div className="card border rounded-3 shadow-sm" style={{ minWidth: 220 }}>
+      <div className="card-body p-3">
+        <div className="text-uppercase fw-bold text-muted mb-2" style={{ fontSize: 10, letterSpacing: "0.5px" }}>Summary</div>
+        {rows.map(({ label, value, color, bold }) => (
+          <div key={label} className={`d-flex justify-content-between align-items-center py-1${bold ? " border-top mt-1 pt-2" : ""}`}>
+            <span className={`${bold ? "fw-bold" : "text-secondary"}`} style={{ fontSize: bold ? 13 : 12 }}>{label}</span>
+            <span className={`fw-semibold ${color}`} style={{ fontSize: bold ? 14 : 12 }}>{value}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
