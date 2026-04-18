@@ -555,7 +555,7 @@ export default function AppointmentsPage() {
                 onChange={(e) =>
                   setTempFilters({ ...tempFilters, staffId: e.target.value })
                 }
-                style={{ appearance: "none" }}
+                style={{ appearance: "none", backgroundImage: "none" }}
               >
                 <option value="all">All team members</option>
                 {staffList.map((staff: any) => (
@@ -580,7 +580,7 @@ export default function AppointmentsPage() {
                 onChange={(e) =>
                   setTempFilters({ ...tempFilters, channel: e.target.value })
                 }
-                style={{ appearance: "none" }}
+                style={{ appearance: "none", backgroundImage: "none" }}
               >
                 <option value="all">All channels</option>
                 <option value="online">All online channels</option>
@@ -608,7 +608,7 @@ export default function AppointmentsPage() {
                 onChange={(e) =>
                   setTempFilters({ ...tempFilters, status: e.target.value })
                 }
-                style={{ appearance: "none" }}
+                style={{ appearance: "none", backgroundImage: "none" }}
               >
                 <option value="all">All statuses</option>
                 <option value="booked">Booked</option>
@@ -754,76 +754,64 @@ export default function AppointmentsPage() {
       )}
 
       {/* ================= PAGINATION ================= */}
-      <div className="pagination-container d-flex align-items-center justify-content-between p-3 bg-white border-top rounded-bottom-4">
-        <div className="page-size-selector d-flex align-items-center gap-2 small text-muted">
-          Rows per page:
-          <select
-            className="form-select form-select-sm rounded-3 w-auto"
-            value={pageSize}
-            onChange={(e) => setPageSize(Number(e.target.value))}
-          >
-            {[10, 25, 50, 100].map((sz) => (
-              <option key={sz} value={sz}>
-                {sz}
-              </option>
-            ))}
-          </select>
+      <div className="appt-pagination">
+        <div className="appt-pagination__size">
+          <span>Rows per page:</span>
+          <div className="appt-pagination__size-wrap">
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              style={{ appearance: "none", backgroundImage: "none" }}
+            >
+              {[10, 25, 50, 100].map((sz) => (
+                <option key={sz} value={sz}>{sz}</option>
+              ))}
+            </select>
+            <ChevronDown size={12} className="appt-pagination__size-icon" />
+          </div>
         </div>
 
-        <div className="pagination-info small text-muted">
+        <div className="appt-pagination__info">
           Showing{" "}
-          {Math.min(
-            (currentPage - 1) * pageSize + 1,
-            filteredAppointments.length,
-          )}{" "}
-          to {Math.min(currentPage * pageSize, filteredAppointments.length)} of{" "}
+          {filteredAppointments.length === 0
+            ? 0
+            : Math.min((currentPage - 1) * pageSize + 1, filteredAppointments.length)}{" "}
+          –{" "}
+          {Math.min(currentPage * pageSize, filteredAppointments.length)} of{" "}
           {filteredAppointments.length} results
         </div>
 
         {totalPages > 1 && (
-          <div className="pagination-controls d-flex gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              pill
+          <div className="appt-pagination__controls">
+            <button
+              className="appt-pagination__btn"
               disabled={currentPage === 1}
               onClick={() => setCurrentPage((prev) => prev - 1)}
-              iconLeft={<ChevronLeft size={16} />}
             >
-              Previous
-            </Button>
+              <ChevronLeft size={14} /> Prev
+            </button>
 
-            <div className="d-flex gap-1 px-2">
-              {[...Array(totalPages)].map((_, i) => {
-                const pageNum = i + 1;
-                // Basic logic to show limited pages
-                if (pageNum < currentPage - 2 || pageNum > currentPage + 2)
-                  return null;
-                return (
-                  <Button
-                    key={pageNum}
-                    variant={currentPage === pageNum ? "dark" : "ghost"}
-                    size="sm"
-                    pill
-                    className="min-w-32px"
-                    onClick={() => setCurrentPage(pageNum)}
-                  >
-                    {pageNum}
-                  </Button>
-                );
-              })}
-            </div>
+            {[...Array(totalPages)].map((_, i) => {
+              const pageNum = i + 1;
+              if (pageNum < currentPage - 2 || pageNum > currentPage + 2) return null;
+              return (
+                <button
+                  key={pageNum}
+                  className={`appt-pagination__btn${currentPage === pageNum ? " appt-pagination__btn--active" : ""}`}
+                  onClick={() => setCurrentPage(pageNum)}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
 
-            <Button
-              variant="ghost"
-              size="sm"
-              pill
+            <button
+              className="appt-pagination__btn"
               disabled={currentPage === totalPages || totalPages === 0}
               onClick={() => setCurrentPage((prev) => prev + 1)}
-              iconRight={<ChevronRight size={16} />}
             >
-              Next
-            </Button>
+              Next <ChevronRight size={14} />
+            </button>
           </div>
         )}
       </div>

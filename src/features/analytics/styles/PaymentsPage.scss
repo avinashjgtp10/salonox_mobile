@@ -2,6 +2,33 @@
   padding: 2rem;
   background: #fafafa;
   min-height: calc(100vh - 60px);
+  font-family: 'Inter', sans-serif;
+
+  // ── Stat cards ──────────────────────────────────────────────────────────
+  .payments-stat-card {
+    background: #fff;
+    border: 1px solid #ecedf0;
+    border-radius: 12px;
+    padding: 18px 22px;
+  }
+
+  .payments-stat-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #6b717e;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+  }
+
+  .payments-stat-value {
+    font-size: 22px;
+    font-weight: 800;
+    color: #11141a;
+
+    &--green { color: #1a7a40; }
+    &--red   { color: #d93025; }
+  }
 
   .empty-state-card {
     background: white;
