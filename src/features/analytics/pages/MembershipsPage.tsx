@@ -4,15 +4,12 @@ import { ChevronDown, ArrowRepeat, Search, FileEarmarkText, FiletypeXlsx } from 
 import { useNavigate } from "react-router-dom";
 
 // UI Components
-import Button from "../../../components/ui/Button";
-import Card from "../../../components/ui/Card";
+import { Button, Card, Table, Pagination, Loader } from "../../../components/ui";
 import "../styles/MembershipsPage.scss";
 
 import type { AppDispatch, RootState } from "../../../store/store";
 import { fetchMembershipsThunk, exportMembershipsCsvThunk, exportMembershipsExcelThunk } from "../../../middleware/membership/membership.thunk";
 import type { Membership } from "../../../services/api/endpoints/memberships.endpoints";
-
-const ROWS_PER_PAGE = 10;
 
 export default function MembershipsPage() {
   const dispatch    = useDispatch<AppDispatch>();
@@ -20,13 +17,13 @@ export default function MembershipsPage() {
 
   // ── Redux ────────────────────────────────────────────────────────────────
   const memberships = useSelector((s: RootState) => s.memberships.items as Membership[]);
-  const total       = useSelector((s: RootState) => s.memberships.total);
   const isLoading   = useSelector((s: RootState) => s.memberships.loading);
 
   // ── State ────────────────────────────────────────────────────────────────
   const [showOptions, setShowOptions] = useState(false);
   const [searchTerm,  setSearchTerm]  = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize,    setPageSize]    = useState(10);
   const optionsRef = useRef<HTMLDivElement>(null);
 
   // ── Fetch on mount ────────────────────────────────────────────────────────
@@ -51,8 +48,7 @@ export default function MembershipsPage() {
     return !q || m.name.toLowerCase().includes(q) || (m.description || "").toLowerCase().includes(q);
   });
 
-  const totalPages = Math.ceil(filtered.length / ROWS_PER_PAGE);
-  const paginated  = filtered.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE);
+  const paginated  = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="memberships-page container-fluid">
@@ -138,118 +134,112 @@ export default function MembershipsPage() {
       {/* ── TABLE or EMPTY STATE ── */}
       {isLoading ? (
         <Card
-          className="text-center py-5 border-0 rounded-4 shadow-sm d-flex flex-column align-items-center justify-content-center"
+          className="text-center py-5 border-0 rounded-4 shadow-sm align-items-center justify-content-center d-flex"
           style={{ minHeight: "300px" }}
         >
-          <div className="spinner-border text-muted" role="status" />
-          <p className="text-muted small mt-3 mb-0">Loading memberships…</p>
+          <Loader message="Loading memberships…" className="py-5" />
         </Card>
-      ) : paginated.length > 0 ? (
-        <>
-          <div className="memberships-table-wrapper rounded-4 shadow-sm border bg-white overflow-hidden mb-4">
-            <table className="memberships-table w-100">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Sessions</th>
-                  <th>Valid For</th>
-                  <th>Online Sales</th>
-                  <th className="text-end">Price</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginated.map((m) => (
-                  <tr key={m.id} className="memberships-table-row">
-                    <td>
-                      <div className="fw-bold small d-flex align-items-center gap-2">
-                        <span
-                          className="memberships-color-dot"
-                          style={{ background: m.colour || "#6b717e" }}
-                        />
-                        {m.name}
-                      </div>
-                      {m.description && (
-                        <div className="text-muted" style={{ fontSize: "12px" }}>{m.description}</div>
-                      )}
-                    </td>
-                    <td className="small text-muted">
-                      {m.sessionType === "unlimited" ? "Unlimited" : `${m.numberOfSessions ?? "—"} sessions`}
-                    </td>
-                    <td className="small text-muted">{m.validFor}</td>
-                    <td className="small">
-                      <span className={`memberships-status-badge ${m.enableOnlineSales ? "badge-active" : "badge-inactive"}`}>
-                        {m.enableOnlineSales ? "Enabled" : "Disabled"}
-                      </span>
-                    </td>
-                    <td className="text-end fw-bold small">
-                      ₹{Number(m.price || 0).toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          <div className="d-flex align-items-center justify-content-between">
-            <div className="small text-muted">
-              Viewing {(currentPage - 1) * ROWS_PER_PAGE + 1}–{Math.min(currentPage * ROWS_PER_PAGE, filtered.length)} of {filtered.length} memberships
-            </div>
-            {totalPages > 1 && (
-              <div className="d-flex gap-1">
-                <button
-                  className="memberships-page-btn"
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage((p) => p - 1)}
-                >← Prev</button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <button
-                    key={page}
-                    className={`memberships-page-btn${currentPage === page ? " active" : ""}`}
-                    onClick={() => setCurrentPage(page)}
-                  >{page}</button>
-                ))}
-                <button
-                  className="memberships-page-btn"
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage((p) => p + 1)}
-                >Next →</button>
-              </div>
-            )}
-          </div>
-        </>
       ) : (
-        <Card
-          className="text-center py-5 border-0 rounded-4 empty-state-card shadow-sm mt-5 d-flex flex-column align-items-center justify-content-center flex-grow-1"
-          style={{ minHeight: "400px" }}
-        >
-          <div className="mb-4">
-            <div
-              className="d-flex align-items-center justify-content-center mx-auto empty-state-icon"
-              style={{ width: "60px", height: "60px", borderRadius: "15px", background: "linear-gradient(135deg, #a855f7 0%, #d946ef 100%)" }}
-            >
-              <ArrowRepeat size={30} className="text-white" />
-            </div>
-          </div>
-          <h4 className="fw-bold mb-2 text-dark h5">
-            {searchTerm ? "No memberships found" : "No memberships created yet"}
-          </h4>
-          <p className="text-muted small mb-4 mx-auto" style={{ maxWidth: "400px" }}>
-            {searchTerm
-              ? "Try a different search term."
-              : "Add memberships in minutes and start selling them online and via your store."}
-          </p>
-          {!searchTerm && (
-            <Button
-              variant="outline-dark"
-              pill
-              className="px-4 fw-bold"
-              onClick={() => navigate("/dashboard/catalog/memberships")}
-            >
-              Set up now
-            </Button>
-          )}
+        <Card noPadding className="border-0 shadow-sm rounded-4 overflow-hidden mb-4 p-0">
+          <Table
+            columns={[
+              {
+                header: "Name",
+                key: "name",
+                render: (m: any) => (
+                  <div>
+                    <div className="fw-bold small d-flex align-items-center gap-2">
+                      <span
+                        className="memberships-color-dot"
+                        style={{ background: m.colour || "#6b717e" }}
+                      />
+                      {m.name}
+                    </div>
+                    {m.description && (
+                      <div className="text-muted" style={{ fontSize: "12px" }}>{m.description}</div>
+                    )}
+                  </div>
+                )
+              },
+              {
+                header: "Sessions",
+                key: "sessions",
+                render: (m: any) => (
+                  <span className="small text-muted">
+                    {m.sessionType === "unlimited" ? "Unlimited" : `${m.numberOfSessions ?? "—"} sessions`}
+                  </span>
+                )
+              },
+              {
+                header: "Valid For",
+                key: "validFor",
+                render: (m: any) => <span className="small text-muted">{m.validFor}</span>
+              },
+              {
+                header: "Online Sales",
+                key: "online",
+                render: (m: any) => (
+                  <span className={`memberships-status-badge ${m.enableOnlineSales ? "badge-active" : "badge-inactive"}`}>
+                    {m.enableOnlineSales ? "Enabled" : "Disabled"}
+                  </span>
+                )
+              },
+              {
+                header: "Price",
+                key: "price",
+                align: "right",
+                width: "120px",
+                render: (m: any) => (
+                  <div className="fw-bold small">₹{Number(m.price || 0).toFixed(2)}</div>
+                )
+              }
+            ]}
+            data={paginated}
+            emptyMessage={
+              <div className="d-flex flex-column align-items-center justify-content-center py-5">
+                <div
+                  className="d-flex align-items-center justify-content-center mx-auto mb-3"
+                  style={{ width: "60px", height: "60px", borderRadius: "15px", background: "linear-gradient(135deg, #a855f7 0%, #d946ef 100%)" }}
+                >
+                  <ArrowRepeat size={30} className="text-white" />
+                </div>
+                <h5 className="fw-bold mb-1 text-dark">
+                  {searchTerm ? "No memberships found" : "No memberships created yet"}
+                </h5>
+                <p className="text-muted small mb-4 mx-auto" style={{ maxWidth: "400px" }}>
+                  {searchTerm
+                    ? "Try a different search term."
+                    : "Add memberships in minutes and start selling them online and via your store."}
+                </p>
+                {!searchTerm && (
+                  <Button
+                    variant="outline-dark"
+                    pill
+                    className="px-4 fw-bold"
+                    onClick={() => navigate("/dashboard/catalog/memberships")}
+                  >
+                    Set up now
+                  </Button>
+                )}
+              </div>
+            }
+          />
         </Card>
+      )}
+
+      {/* Pagination */}
+      {filtered.length > 0 && !isLoading && (
+        <Pagination
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalItems={filtered.length}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(sz) => {
+            setPageSize(sz);
+            setCurrentPage(1);
+          }}
+          className="mt-4 mb-4"
+        />
       )}
     </div>
   );

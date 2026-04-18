@@ -1,26 +1,25 @@
-import { useState, useMemo, useEffect } from "react";
+﻿import { useState, useMemo, useEffect } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import {
   Calendar3,
   Search,
   Sliders,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   SortDown,
   FiletypePdf,
   FiletypeCsv,
   FiletypeXlsx,
 } from "react-bootstrap-icons";
 
-import {
-  Button,
-  Input,
-  Modal,
-  Table,
-  Badge,
-  Card,
-  Loader,
-  Pagination,
-} from "../../../components/ui";
+// UI Components
+import Button from "../../../components/ui/Button";
+import Input from "../../../components/ui/Input";
+import Modal from "../../../components/ui/Modal";
+import Table from "../../../components/ui/Table";
+import Badge from "../../../components/ui/Badge";
+import Card from "../../../components/ui/Card";
 import { DateRange } from "react-date-range";
 import { subDays, format, isWithinInterval, parseISO } from "date-fns";
 import "react-date-range/dist/styles.css";
@@ -36,11 +35,11 @@ import type { Booking } from "../../../types/booking.types";
 export default function AppointmentsPage() {
   const dispatch = useDispatch<AppDispatch>();
 
-  // ── Redux: real data from backend ─────────────────────────────
+  // ΓöÇΓöÇ Redux: real data from backend ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
   const allBookings = useSelector((state: RootState) => (state.booking as any).items as Booking[]);
-  const staffList = useSelector((state: RootState) => (state.staff as any).items as any[]);
-  const isLoading = useSelector((state: RootState) => (state.booking as any).loading?.fetchAll as boolean ?? false);
-  const isExporting = useSelector((state: RootState) => (state.booking as any).loading?.export as boolean ?? false);
+  const staffList   = useSelector((state: RootState) => (state.staff as any).items as any[]);
+  const isLoading   = useSelector((state: RootState) => (state.booking as any).loading?.fetchAll as boolean ?? false);
+  const isExporting = useSelector((state: RootState) => (state.booking as any).loading?.export   as boolean ?? false);
 
   // Fetch on mount
   useEffect(() => {
@@ -127,7 +126,7 @@ export default function AppointmentsPage() {
   };
 
   const handleApplyRange = () => {
-    const formatted = `${format(range[0].startDate, "dd MMM")} – ${format(
+    const formatted = `${format(range[0].startDate, "dd MMM")} ΓÇô ${format(
       range[0].endDate,
       "dd MMM",
     )}`;
@@ -140,7 +139,7 @@ export default function AppointmentsPage() {
     setShowFiltersModal(false);
     dispatch(fetchBookingsThunk({
       staffId: tempFilters.staffId,
-      status: tempFilters.status,
+      status:  tempFilters.status,
     }));
   };
 
@@ -166,13 +165,13 @@ export default function AppointmentsPage() {
         filters: {
           status: appliedFilters.status !== "all" ? appliedFilters.status : undefined,
           start_date: format(range[0].startDate, "yyyy-MM-dd"),
-          end_date: format(range[0].endDate, "yyyy-MM-dd"),
+          end_date:   format(range[0].endDate,   "yyyy-MM-dd"),
         },
       })
     );
   };
 
-  // Build a quick id → full name lookup for staff
+  // Build a quick id ΓåÆ full name lookup for staff
   const staffById = useMemo<Record<string, string>>(
     () => Object.fromEntries(
       staffList.map((s: any) => [s.id, `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim()])
@@ -182,26 +181,19 @@ export default function AppointmentsPage() {
 
   // Map backend Appointment records to table-friendly shape
   const bookings = useMemo(() =>
-    allBookings.map((b: any) => ({
-      ...b,
-      id: b.id,
-      clientName: b.client?.first_name 
-        ? `${b.client.first_name} ${b.client.last_name || ""}`.trim() 
-        : b.client_id ?? "Walk-in",
-      services: b.services?.length ? b.services : [{ 
-        staffId: b.staff_id ?? "", 
-        service: b.service?.name || b.title || "Service" 
-      }],
-      status: b.status || "pending",
-      date: (b.scheduled_at || b.date)?.split("T")[0] ?? "",
-      startTime: (b.scheduled_at || b.start_time)?.split("T")?.[1]?.slice(0, 5) ?? "00:00",
-      endTime: (b.ends_at || b.end_time)?.split("T")?.[1]?.slice(0, 5) ?? "00:00",
-      billDate: b.created_at || b.createdDate || "",
-      createdById: b.created_by ?? "",
-      grandTotal: b.total_amount || b.price || 0,
+    allBookings.map((b: Booking) => ({
+      id:           b.id,
+      clientName:   b.client_id ?? "Walk-in",
+      services:     [{ staffId: b.staff_id ?? "", staff: b.staff_id ?? "", service: b.title ?? "" }],
+      status:       b.status,
+      date:         b.scheduled_at?.split("T")[0] ?? "",
+      startTime:    b.scheduled_at?.split("T")[1]?.slice(0, 5) ?? "00:00",
+      endTime:      b.ends_at?.split("T")[1]?.slice(0, 5) ?? "00:00",
+      billDate:     b.created_at,
+      createdById:  b.created_by ?? "",
+      grandTotal:   0,
     })),
-    [allBookings]
-  );
+  [allBookings]);
 
   // Sorting/Filtering Logic
   const filteredAppointments = useMemo(() => {
@@ -212,25 +204,20 @@ export default function AppointmentsPage() {
         booking.clientName.toLowerCase().includes(searchTerm.toLowerCase());
 
       // Date range filter
-      let matchesDate = false;
-      try {
-        const bookingDate = parseISO(booking.date || booking.billDate || new Date().toISOString());
-        const start = new Date(range[0].startDate);
-        const end = new Date(range[0].endDate);
-        start.setHours(0, 0, 0, 0);
-        end.setHours(23, 59, 59, 999);
-        matchesDate = isWithinInterval(bookingDate, { start, end });
-      } catch (e) {
-        matchesDate = false;
-      }
+      const bookingDate = parseISO(booking.date);
+      const start = range[0].startDate;
+      const end = range[0].endDate;
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+      const matchesDate = isWithinInterval(bookingDate, { start, end });
 
       // Modal filters
       const matchesStaff =
         appliedFilters.staffId === "all" ||
-        booking.services.some((s: any) => s.staffId === appliedFilters.staffId);
+        booking.services.some((s) => s.staffId === appliedFilters.staffId);
       const matchesStatus =
         appliedFilters.status === "all" ||
-        (booking.status || "").toLowerCase() === appliedFilters.status.toLowerCase();
+        booking.status.toLowerCase() === appliedFilters.status.toLowerCase();
       const matchesChannel = appliedFilters.channel === "all";
 
       return (
@@ -284,6 +271,7 @@ export default function AppointmentsPage() {
   }, [bookings, searchTerm, range, appliedFilters, sortConfig]);
 
   // Pagination Logic
+  const totalPages = Math.ceil(filteredAppointments.length / pageSize);
   const paginatedAppointments = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return filteredAppointments.slice(start, start + pageSize);
@@ -349,7 +337,7 @@ export default function AppointmentsPage() {
                 onClick={() => handleExport("csv")}
               >
                 <FiletypeCsv size={18} className="text-primary me-2" />
-                {isExporting ? "Exporting…" : "CSV"}
+                {isExporting ? "ExportingΓÇª" : "CSV"}
               </Button>
               <Button
                 variant="ghost"
@@ -359,7 +347,7 @@ export default function AppointmentsPage() {
                 onClick={() => handleExport("xlsx")}
               >
                 <FiletypeXlsx size={18} className="text-success me-2" />
-                {isExporting ? "Exporting…" : "Excel"}
+                {isExporting ? "ExportingΓÇª" : "Excel"}
               </Button>
             </div>
           )}
@@ -497,7 +485,7 @@ export default function AppointmentsPage() {
           {(appliedFilters.staffId !== "all" ||
             appliedFilters.status !== "all" ||
             appliedFilters.channel !== "all") &&
-            "•"}
+            "ΓÇó"}
         </Button>
 
         {/* Sorting Dropdown */}
@@ -567,7 +555,7 @@ export default function AppointmentsPage() {
                 onChange={(e) =>
                   setTempFilters({ ...tempFilters, staffId: e.target.value })
                 }
-                style={{ appearance: "none", backgroundImage: "none" }}
+                style={{ appearance: "none" }}
               >
                 <option value="all">All team members</option>
                 {staffList.map((staff: any) => (
@@ -592,7 +580,7 @@ export default function AppointmentsPage() {
                 onChange={(e) =>
                   setTempFilters({ ...tempFilters, channel: e.target.value })
                 }
-                style={{ appearance: "none", backgroundImage: "none" }}
+                style={{ appearance: "none" }}
               >
                 <option value="all">All channels</option>
                 <option value="online">All online channels</option>
@@ -620,7 +608,7 @@ export default function AppointmentsPage() {
                 onChange={(e) =>
                   setTempFilters({ ...tempFilters, status: e.target.value })
                 }
-                style={{ appearance: "none", backgroundImage: "none" }}
+                style={{ appearance: "none" }}
               >
                 <option value="all">All statuses</option>
                 <option value="booked">Booked</option>
@@ -641,17 +629,20 @@ export default function AppointmentsPage() {
 
       {/* ================= TABLE ================= */}
       {isLoading ? (
-        <Card noPadding className="mb-4">
-          <Loader message="Loading appointments…" className="py-5" />
+        <Card
+          className="text-center py-5 border-0 rounded-4 shadow-sm mb-4 d-flex flex-column align-items-center justify-content-center"
+          style={{ minHeight: "400px" }}
+        >
+          <div className="spinner-border text-muted" role="status" />
+          <p className="text-muted small mt-3 mb-0">Loading appointmentsΓÇª</p>
         </Card>
       ) : (
-        <Card noPadding className="mb-4 border-0 shadow-sm rounded-4 overflow-hidden">
+        <Card noPadding className="mb-4">
           <Table
             columns={[
               {
                 header: "Ref #",
                 key: "id",
-                width: "80px",
                 render: (item: any) => (
                   <a
                     href="#"
@@ -665,134 +656,177 @@ export default function AppointmentsPage() {
                 header: "Client",
                 key: "clientName",
                 render: (item: any) => (
-                  <span className="fw-bold text-dark text-nowrap">
+                  <a
+                    href="#"
+                    className="font-bold text-dark text-decoration-none"
+                  >
                     {item.clientName}
-                  </span>
+                  </a>
                 ),
               },
               {
                 header: "Service",
                 key: "services",
-                render: (item: any) => (
-                  <span className="text-dark">
-                    {item.services.map((s: any) => s.service).join(", ")}
-                  </span>
-                ),
+                render: (item: any) =>
+                  item.services.map((s: any) => s.service).join(", "),
               },
               {
                 header: "Created by",
                 key: "createdById",
-                render: (item: any) => <span className="text-muted">{staffById[item.createdById] || "—"}</span>,
+                render: (item: any) => staffById[item.createdById] || "ΓÇö",
               },
               {
                 header: "Created Date",
                 key: "billDate",
-                align: "center",
-                width: "15%",
-                render: (item: any) => item.billDate ? (
-                  <span className="text-muted">
-                    {format(parseISO(item.billDate), "dd MMM yyyy, h:mma").toLowerCase()}
-                  </span>
-                ) : <span className="text-muted">N/A</span>,
+                render: (item: any) => item.billDate ?
+                  format(
+                    parseISO(item.billDate),
+                    "dd MMM yyyy, h:mma",
+                  ).toLowerCase() : "N/A",
               },
               {
                 header: "Scheduled Date",
                 key: "date",
-                align: "center",
-                width: "15%",
                 render: (item: any) => {
                   try {
-                    return (
-                      <span className="text-muted text-nowrap">
-                        {format(parseISO(item.date + "T" + item.startTime), "dd MMM yyyy, h:mma").toLowerCase()}
-                      </span>
-                    );
+                    return format(
+                      parseISO(item.date + "T" + item.startTime),
+                      "dd MMM yyyy, h:mma",
+                    ).toLowerCase();
                   } catch (e) {
-                    return <span className="text-muted">Invalid date</span>;
+                    return "Invalid date";
                   }
                 }
               },
               {
                 header: "Duration",
                 key: "duration",
-                align: "center",
                 render: (item: any) => {
                   try {
                     const start = parseISO(item.date + "T" + item.startTime);
                     const end = parseISO(item.date + "T" + item.endTime);
                     const durMs = end.getTime() - start.getTime();
                     const durMins = Math.floor(durMs / (1000 * 60));
-                    if (isNaN(durMins)) return <span className="text-muted">N/A</span>;
-                    return (
-                      <span className="text-muted">
-                        {durMins >= 60 ? `${Math.floor(durMins / 60)}h ${durMins % 60}min` : `${durMins}min`}
-                      </span>
-                    );
+                    if (isNaN(durMins)) return "N/A";
+                    return durMins >= 60
+                      ? `${Math.floor(durMins / 60)}h ${durMins % 60}min`
+                      : `${durMins}min`;
                   } catch (e) {
-                    return <span className="text-muted">N/A</span>;
+                    return "N/A";
                   }
                 },
               },
               {
                 header: "Team member",
                 key: "staff",
-                render: (item: any) => <span className="text-muted">{staffById[item.services[0]?.staffId] || "—"}</span>,
+                render: (item: any) =>
+                  staffById[item.services[0]?.staffId] || "ΓÇö",
               },
               {
                 header: "Price",
                 key: "grandTotal",
-                align: "right",
-                width: "100px",
-                render: (item: any) => <span className="text-dark fw-medium">₹{Number(item.grandTotal || 0).toFixed(2)}</span>,
+                render: (item: any) => `Γé╣${Number(item.grandTotal || 0).toFixed(2)}`,
               },
               {
                 header: "Status",
                 key: "status",
-                align: "center",
-                width: "120px",
-                render: (item: any) => {
-                  const statusLabel = item.status ? item.status.toLowerCase() : "pending";
-                  const variantObj: Record<string, string> = {
-                    confirmed: "success",
-                    pending: "warning",
-                    cancelled: "danger",
-                    booked: "primary",
-                    completed: "info",
-                    no_show: "dark",
-                  };
-                  const variant = variantObj[statusLabel] || "secondary";
-
-                  return (
-                    <Badge variant={variant as any}>
-                      {item.status ? item.status.replace("_", " ") : "Pending"}
-                    </Badge>
-                  );
-                },
+                render: (item: any) => (
+                  <Badge
+                    variant={
+                      item.status?.toLowerCase() === "confirmed"
+                        ? "success"
+                        : item.status?.toLowerCase() === "completed"
+                          ? "info"
+                          : item.status?.toLowerCase() === "cancelled"
+                            ? "danger"
+                            : "warning"
+                    }
+                  >
+                    {item.status ? item.status.replace("_", " ") : "Unknown"}
+                  </Badge>
+                ),
               },
             ]}
             data={paginatedAppointments}
-            emptyMessage={
-              <div className="d-flex flex-column align-items-center justify-content-center py-5">
-                <div className="bg-light rounded-circle d-flex align-items-center justify-content-center mb-3" style={{ width: "64px", height: "64px" }}>
-                  <Calendar3 size={24} className="text-muted" />
-                </div>
-                <h5 className="fw-bold mb-1 text-dark">No bookings found</h5>
-                <p className="text-muted small mb-0">Try changing filters or date range</p>
-              </div>
-            }
+            emptyMessage="No appointments found matching your filters"
           />
         </Card>
       )}
 
       {/* ================= PAGINATION ================= */}
-      <Pagination
-        currentPage={currentPage}
-        pageSize={pageSize}
-        totalItems={filteredAppointments.length}
-        onPageChange={setCurrentPage}
-        onPageSizeChange={setPageSize}
-        className="mt-4 mb-4"
-      />
+      <div className="pagination-container d-flex align-items-center justify-content-between p-3 bg-white border-top rounded-bottom-4">
+        <div className="page-size-selector d-flex align-items-center gap-2 small text-muted">
+          Rows per page:
+          <select
+            className="form-select form-select-sm rounded-3 w-auto"
+            value={pageSize}
+            onChange={(e) => setPageSize(Number(e.target.value))}
+          >
+            {[10, 25, 50, 100].map((sz) => (
+              <option key={sz} value={sz}>
+                {sz}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="pagination-info small text-muted">
+          Showing{" "}
+          {Math.min(
+            (currentPage - 1) * pageSize + 1,
+            filteredAppointments.length,
+          )}{" "}
+          to {Math.min(currentPage * pageSize, filteredAppointments.length)} of{" "}
+          {filteredAppointments.length} results
+        </div>
+
+        {totalPages > 1 && (
+          <div className="pagination-controls d-flex gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              pill
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((prev) => prev - 1)}
+              iconLeft={<ChevronLeft size={16} />}
+            >
+              Previous
+            </Button>
+
+            <div className="d-flex gap-1 px-2">
+              {[...Array(totalPages)].map((_, i) => {
+                const pageNum = i + 1;
+                // Basic logic to show limited pages
+                if (pageNum < currentPage - 2 || pageNum > currentPage + 2)
+                  return null;
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={currentPage === pageNum ? "dark" : "ghost"}
+                    size="sm"
+                    pill
+                    className="min-w-32px"
+                    onClick={() => setCurrentPage(pageNum)}
+                  >
+                    {pageNum}
+                  </Button>
+                );
+              })}
+            </div>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              pill
+              disabled={currentPage === totalPages || totalPages === 0}
+              onClick={() => setCurrentPage((prev) => prev + 1)}
+              iconRight={<ChevronRight size={16} />}
+            >
+              Next
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

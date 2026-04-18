@@ -1,6 +1,6 @@
 import { castDraft } from "immer";
 import { createCRUDSlice } from "./utils/createCRUDSlice";
-import type { Sale, SaleSummary } from "../types/sale.types";
+import type { Sale } from "../types/sale.types";
 import {
   fetchSalesThunk,
   fetchSaleByIdThunk,

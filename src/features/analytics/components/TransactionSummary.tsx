@@ -1,5 +1,4 @@
-import Card from "../../../components/ui/Card";
-import Table from "../../../components/ui/Table";
+import { Card, Table, Loader } from "../../../components/ui";
 import type { Sale } from "../../../types/sale.types";
 import { format } from "date-fns";
 
@@ -57,10 +56,7 @@ export default function TransactionSummary({ sales, isLoading, selectedDate }: P
   if (isLoading) {
     return (
       <Card title="Transaction summary" noPadding className="mb-4">
-        <div className="d-flex align-items-center justify-content-center py-5">
-          <div className="spinner-border spinner-border-sm text-muted me-2" role="status" />
-          <span className="text-muted small">Loading…</span>
-        </div>
+        <Loader />
       </Card>
     );
   }

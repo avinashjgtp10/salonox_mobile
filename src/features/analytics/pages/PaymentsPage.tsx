@@ -5,17 +5,12 @@ import {
   Calendar3,
   Sliders,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   FileEarmarkText,
   CreditCard2Back,
 } from "react-bootstrap-icons";
 
 // UI Components
-import Button from "../../../components/ui/Button";
-import Input from "../../../components/ui/Input";
-import Modal from "../../../components/ui/Modal";
-import Card from "../../../components/ui/Card";
+import { Button, Input, Modal, Card, Table, Pagination, Loader } from "../../../components/ui";
 import { DateRangePicker } from "react-date-range";
 import type { RangeKeyDict, Range } from "react-date-range";
 import {
@@ -45,27 +40,25 @@ const PAYMENT_LABEL: Record<string, string> = {
 
 const STATUS_COLOR: Record<string, string> = {
   completed: "badge-status-completed",
-  refunded:  "badge-status-refunded",
+  refunded: "badge-status-refunded",
   cancelled: "badge-status-cancelled",
 };
-
-const ITEMS_PER_PAGE = 10;
 
 export default function PaymentsPage() {
   const dispatch = useDispatch<AppDispatch>();
 
   // ── Redux ─────────────────────────────────────────────────────────────────
-  const allSales   = useSelector((s: RootState) => (s.sale as any).items as Sale[]);
-  const isLoading  = useSelector((s: RootState) => (s.sale as any).loading?.fetchAll as boolean ?? false);
+  const allSales = useSelector((s: RootState) => (s.sale as any).items as Sale[]);
+  const isLoading = useSelector((s: RootState) => (s.sale as any).loading?.fetchAll as boolean ?? false);
   const isExporting = useSelector((s: RootState) => (s.sale as any).loading?.export as boolean ?? false);
-  const salonId    = useSelector((s: RootState) => (s.salon as any).currentSalon?.id as string | undefined);
 
   // ── State ─────────────────────────────────────────────────────────────────
   const [showCalendar, setShowCalendar] = useState(false);
-  const [showFilters,  setShowFilters]  = useState(false);
-  const [showOptions,  setShowOptions]  = useState(false);
-  const [searchTerm,   setSearchTerm]   = useState("");
-  const [currentPage,  setCurrentPage]  = useState(1);
+  const [showFilters, setShowFilters] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const [methodFilter, setMethodFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -84,7 +77,7 @@ export default function PaymentsPage() {
   }]);
 
   const calendarRef = useRef<HTMLDivElement>(null);
-  const optionsRef  = useRef<HTMLDivElement>(null);
+  const optionsRef = useRef<HTMLDivElement>(null);
 
   // ── Fetch on mount ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -116,9 +109,9 @@ export default function PaymentsPage() {
     const today = new Date();
     let start = today, end = today;
     switch (val) {
-      case "Yesterday":  start = end = subDays(today, 1); break;
-      case "This week":  start = startOfWeek(today, { weekStartsOn: 1 }); end = endOfWeek(today, { weekStartsOn: 1 }); break;
-      case "Last week":  start = startOfWeek(subDays(today, 7), { weekStartsOn: 1 }); end = endOfWeek(subDays(today, 7), { weekStartsOn: 1 }); break;
+      case "Yesterday": start = end = subDays(today, 1); break;
+      case "This week": start = startOfWeek(today, { weekStartsOn: 1 }); end = endOfWeek(today, { weekStartsOn: 1 }); break;
+      case "Last week": start = startOfWeek(subDays(today, 7), { weekStartsOn: 1 }); end = endOfWeek(subDays(today, 7), { weekStartsOn: 1 }); break;
       case "This month": start = startOfMonth(today); end = endOfMonth(today); break;
       case "Last month": start = startOfMonth(subMonths(today, 1)); end = endOfMonth(subMonths(today, 1)); break;
     }
@@ -149,7 +142,7 @@ export default function PaymentsPage() {
     try {
       const saleDate = parseISO(sale.created_at);
       const start = appliedRange[0].startDate!;
-      const end   = appliedRange[0].endDate!;
+      const end = appliedRange[0].endDate!;
       start.setHours(0, 0, 0, 0);
       end.setHours(23, 59, 59, 999);
       if (!isWithinInterval(saleDate, { start, end })) return false;
@@ -173,8 +166,7 @@ export default function PaymentsPage() {
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   );
 
-  const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE);
-  const paginated  = sorted.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const paginated = sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   // Summary totals
   const totalRevenue = filteredPayments
@@ -344,110 +336,101 @@ export default function PaymentsPage() {
       {/* ── TABLE or EMPTY STATE ── */}
       {isLoading ? (
         <Card
-          className="text-center py-5 border-0 rounded-4 shadow-sm"
+          className="text-center py-5 border-0 rounded-4 shadow-sm align-items-center justify-content-center d-flex"
           style={{ minHeight: "300px" }}
         >
-          <div className="d-flex flex-column align-items-center justify-content-center h-100">
-            <div className="spinner-border text-muted" role="status" />
-            <p className="text-muted small mt-3 mb-0">Loading payments…</p>
-          </div>
+          <Loader message="Loading payments…" className="py-5" />
         </Card>
-      ) : paginated.length > 0 ? (
-        <>
-          <div className="payments-table-wrapper rounded-4 shadow-sm border bg-white overflow-hidden">
-            <table className="payments-table w-100">
-              <thead>
-                <tr>
-                  <th>Sale #</th>
-                  <th>Date &amp; Time</th>
-                  <th>Client</th>
-                  <th>Method</th>
-                  <th>Status</th>
-                  <th className="text-end">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginated.map((sale) => (
-                  <tr key={sale.id} className="payments-table-row">
-                    <td className="fw-bold text-dark small">#{sale.id}</td>
-                    <td>
-                      <div className="fw-bold small">{format(parseISO(sale.created_at), "dd MMM yyyy")}</div>
-                      <div className="extra-small text-muted">{format(parseISO(sale.created_at), "HH:mm")}</div>
-                    </td>
-                    <td className="small">{sale.client_id ?? <span className="text-muted fst-italic">Walk-in</span>}</td>
-                    <td>
-                      {sale.payment_method ? (
-                        <span className="payment-method-badge badge-method-other">
-                          {PAYMENT_LABEL[sale.payment_method] ?? sale.payment_method}
-                        </span>
-                      ) : "—"}
-                    </td>
-                    <td>
-                      <span className={`payment-status-badge ${STATUS_COLOR[sale.status] ?? "badge-status-completed"}`}>
-                        {sale.status.charAt(0).toUpperCase() + sale.status.slice(1)}
-                      </span>
-                    </td>
-                    <td className="text-end fw-bold small">
-                      ₹{parseFloat(sale.total_amount || "0").toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* ── PAGINATION ── */}
-          <div className="payments-pagination d-flex align-items-center justify-content-between mt-4">
-            <div className="small text-muted">
-              Showing <strong>{(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, sorted.length)}</strong> of <strong>{sorted.length}</strong> transactions
-            </div>
-            <div className="d-flex align-items-center gap-2">
-              <button
-                className="pagination-btn"
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              >
-                <ChevronLeft size={14} />
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <button
-                  key={page}
-                  className={`pagination-num ${page === currentPage ? "active" : ""}`}
-                  onClick={() => setCurrentPage(page)}
-                >
-                  {page}
-                </button>
-              ))}
-              <button
-                className="pagination-btn"
-                disabled={currentPage === totalPages || totalPages === 0}
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              >
-                <ChevronRight size={14} />
-              </button>
-            </div>
-          </div>
-        </>
       ) : (
-        <Card
-          className="text-center py-5 border-0 rounded-4 empty-state-card shadow-sm mt-2 d-flex flex-column align-items-center justify-content-center"
-          style={{ minHeight: "340px" }}
-        >
-          <div className="mb-4">
-            <div
-              className="d-flex align-items-center justify-content-center mx-auto"
-              style={{ width: "60px", height: "60px", borderRadius: "15px", background: "linear-gradient(135deg, #a855f7 0%, #d946ef 100%)" }}
-            >
-              <CreditCard2Back size={30} className="text-white" />
-            </div>
-          </div>
-          <h4 className="fw-bold mb-2 text-dark h5">No results found</h4>
-          <p className="text-muted small">
-            {searchTerm || methodFilter !== "all" || statusFilter !== "all"
-              ? "Try adjusting your search or filters."
-              : "No payment transactions for the selected date range."}
-          </p>
+        <Card noPadding className="border-0 shadow-sm rounded-4 overflow-hidden mb-4 p-0">
+          <Table
+            columns={[
+              {
+                header: "Sale #",
+                key: "id",
+                width: "100px",
+                render: (sale: any) => <div className="fw-bold text-dark small">#{String(sale.id).substring(0, 8)}</div>
+              },
+              {
+                header: "Date & Time",
+                key: "date",
+                width: "15%",
+                render: (sale: any) => (
+                  <div>
+                    <div className="fw-bold small">{format(parseISO(sale.created_at || new Date().toISOString()), "dd MMM yyyy")}</div>
+                    <div className="extra-small text-muted">{format(parseISO(sale.created_at || new Date().toISOString()), "HH:mm")}</div>
+                  </div>
+                )
+              },
+              {
+                header: "Client",
+                key: "client_id",
+                render: (sale: any) => <div className="small">{sale.client_id ?? <span className="text-muted fst-italic">Walk-in</span>}</div>
+              },
+              {
+                header: "Method",
+                key: "payment_method",
+                render: (sale: any) => sale.payment_method ? (
+                  <span className="payment-method-badge badge-method-other">
+                    {PAYMENT_LABEL[sale.payment_method] ?? sale.payment_method}
+                  </span>
+                ) : "—"
+              },
+              {
+                header: "Status",
+                key: "status",
+                render: (sale: any) => (
+                  <span className={`payment-status-badge ${STATUS_COLOR[sale.status] ?? "badge-status-completed"}`}>
+                    {sale.status ? sale.status.charAt(0).toUpperCase() + sale.status.slice(1) : "Unknown"}
+                  </span>
+                )
+              },
+              {
+                header: "Amount",
+                key: "total_amount",
+                align: "right",
+                width: "120px",
+                render: (sale: any) => (
+                  <div className="fw-bold small">
+                    ₹{parseFloat(sale.total_amount || "0").toFixed(2)}
+                  </div>
+                )
+              }
+            ]}
+            data={paginated}
+            emptyMessage={
+              <div className="d-flex flex-column align-items-center justify-content-center py-5">
+                <div
+                  className="d-flex align-items-center justify-content-center mx-auto mb-3"
+                  style={{ width: "60px", height: "60px", borderRadius: "15px", background: "linear-gradient(135deg, #a855f7 0%, #d946ef 100%)" }}
+                >
+                  <CreditCard2Back size={30} className="text-white" />
+                </div>
+                <h5 className="fw-bold mb-1 text-dark">No results found</h5>
+                <p className="text-muted small mb-0">
+                  {searchTerm || methodFilter !== "all" || statusFilter !== "all"
+                    ? "Try adjusting your search or filters."
+                    : "No payment transactions for the selected date range."}
+                </p>
+              </div>
+            }
+          />
         </Card>
+      )}
+
+      {/* ── PAGINATION ── */}
+      {sorted.length > 0 && !isLoading && (
+        <Pagination
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalItems={sorted.length}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(sz) => {
+            setPageSize(sz);
+            setCurrentPage(1);
+          }}
+          className="mt-4 mb-4"
+        />
       )}
 
       {/* ── FILTER MODAL ── */}

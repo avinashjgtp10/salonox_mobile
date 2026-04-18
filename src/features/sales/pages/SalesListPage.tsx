@@ -36,7 +36,7 @@ import type { Sale, SaleSummary } from "../../../types/sale.types";
 import { useSale } from "../../analytics/context/SaleContext";
 import QuickSaleDrawer from "../../analytics/components/QuickSaleDrawer";
 import { format, subDays, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subMonths } from "date-fns";
-import { Button, Badge, Input, Modal, DownloadButton } from "../../../components/ui";
+import { Button, Badge, Input, Modal, DownloadButton, Table, Pagination, Loader } from "../../../components/ui";
 import api from "../../../services/api/axios";
 import { SALE } from "../../../services/api/endpoints";
 
@@ -48,12 +48,12 @@ const toISO = (d: Date) => format(d, "yyyy-MM-dd");
 
 const STATUS_META: Record<
   string,
-  { label: string; mod: string; Icon: React.FC<{ size?: number }> }
+  { label: string; mod: string; Icon: React.FC<{ size?: number; className?: string }> }
 > = {
   completed: { label: "Completed", mod: "completed", Icon: CheckCircleFill },
-  draft:     { label: "Draft",     mod: "draft",     Icon: ClockHistory },
+  draft: { label: "Draft", mod: "draft", Icon: ClockHistory },
   cancelled: { label: "Cancelled", mod: "cancelled", Icon: XCircleFill },
-  refunded:  { label: "Refunded",  mod: "refunded",  Icon: ArrowCounterclockwise },
+  refunded: { label: "Refunded", mod: "refunded", Icon: ArrowCounterclockwise },
 };
 
 const PAYMENT_LABEL: Record<string, string> = {
@@ -70,8 +70,6 @@ const SORT_OPTIONS = [
 const STATUS_FILTER_OPTIONS = ["All", "Completed", "Draft", "Cancelled", "Refunded"];
 const PAYMENT_FILTER_OPTIONS = ["All", "Cash", "Card", "UPI", "Gift Card", "Split"];
 
-const ROWS_PER_PAGE = 10;
-
 type DatePreset = "Today" | "Yesterday" | "This week" | "Last week" | "This month" | "Last month" | "All time";
 
 function getPresetRange(preset: DatePreset): { startDate?: string; endDate?: string } {
@@ -86,13 +84,13 @@ function getPresetRange(preset: DatePreset): { startDate?: string; endDate?: str
     case "This week":
       return {
         startDate: toISO(startOfWeek(today, { weekStartsOn: 1 })),
-        endDate:   toISO(endOfWeek(today,   { weekStartsOn: 1 })),
+        endDate: toISO(endOfWeek(today, { weekStartsOn: 1 })),
       };
     case "Last week": {
       const last = subDays(today, 7);
       return {
         startDate: toISO(startOfWeek(last, { weekStartsOn: 1 })),
-        endDate:   toISO(endOfWeek(last,   { weekStartsOn: 1 })),
+        endDate: toISO(endOfWeek(last, { weekStartsOn: 1 })),
       };
     }
     case "This month":
@@ -136,36 +134,37 @@ export default function SalesListPage() {
   const { drafts, cancelDraft } = useSale();
 
   // ── Local state ──────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab]           = useState<"sales" | "drafts">("sales");
-  const [search, setSearch]                 = useState("");
-  const [sortKey, setSortKey]               = useState("date_desc");
-  const [datePreset, setDatePreset]         = useState<DatePreset>("All time");
-  const [currentPage, setCurrentPage]       = useState(1);
+  const [activeTab, setActiveTab] = useState<"sales" | "drafts">("sales");
+  const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState("date_desc");
+  const [datePreset, setDatePreset] = useState<DatePreset>("All time");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Filters
-  const [showFilter, setShowFilter]         = useState(false);
-  const [statusFilter, setStatusFilter]     = useState<string>("All");
-  const [paymentFilter, setPaymentFilter]   = useState<string>("All");
+  const [showFilter, setShowFilter] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>("All");
+  const [paymentFilter, setPaymentFilter] = useState<string>("All");
   const [statusFilterOpen, setStatusFilterOpen] = useState(true);
   const [paymentFilterOpen, setPaymentFilterOpen] = useState(false);
 
   // Selection
-  const [selectedSales, setSelectedSales]   = useState<string[]>([]);
-  const [bulkEditOpen, setBulkEditOpen]     = useState(false);
+  const [selectedSales, setSelectedSales] = useState<string[]>([]);
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [deleteInput, setDeleteInput]       = useState("");
+  const [deleteInput, setDeleteInput] = useState("");
 
   // Dropdowns
-  const [showOptions,  setShowOptions]      = useState(false);
-  const [showSort,     setShowSort]         = useState(false);
-  const [showDateMenu, setShowDateMenu]     = useState(false);
-  const [drawerOpen,   setDrawerOpen]       = useState(false);
-  const [detailOpen,   setDetailOpen]       = useState(false);
-  const [toast,        setToast]            = useState<string | null>(null);
-  const [showBanner,   setShowBanner]       = useState(true);
+  const [showOptions, setShowOptions] = useState(false);
+  const [showSort, setShowSort] = useState(false);
+  const [showDateMenu, setShowDateMenu] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [showBanner, setShowBanner] = useState(true);
 
-  const optionsRef  = useRef<HTMLDivElement>(null);
-  const sortRef     = useRef<HTMLDivElement>(null);
+  const optionsRef = useRef<HTMLDivElement>(null);
+  const sortRef = useRef<HTMLDivElement>(null);
   const dateMenuRef = useRef<HTMLDivElement>(null);
   const bulkEditRef = useRef<HTMLDivElement>(null);
 
@@ -201,8 +200,8 @@ export default function SalesListPage() {
   // ── Close dropdowns on outside click ────────────────────────────────────────
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (optionsRef.current  && !optionsRef.current.contains(e.target as Node))  setShowOptions(false);
-      if (sortRef.current     && !sortRef.current.contains(e.target as Node))     setShowSort(false);
+      if (optionsRef.current && !optionsRef.current.contains(e.target as Node)) setShowOptions(false);
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) setShowSort(false);
       if (dateMenuRef.current && !dateMenuRef.current.contains(e.target as Node)) setShowDateMenu(false);
       if (bulkEditRef.current && !bulkEditRef.current.contains(e.target as Node)) setBulkEditOpen(false);
     };
@@ -263,10 +262,10 @@ export default function SalesListPage() {
 
   // Fallback client-side summary
   const summaryData = {
-    total_revenue:   summary?.total_revenue   ?? String(completedSales.filter(s => s.status === "completed").reduce((a, s) => a + parseFloat(s.total_amount || "0"), 0).toFixed(2)),
-    total_sales:     summary?.total_sales     ?? completedSales.length,
+    total_revenue: summary?.total_revenue ?? String(completedSales.filter(s => s.status === "completed").reduce((a, s) => a + parseFloat(s.total_amount || "0"), 0).toFixed(2)),
+    total_sales: summary?.total_sales ?? completedSales.length,
     completed_sales: summary?.completed_sales ?? completedSales.filter(s => s.status === "completed").length,
-    draft_sales:     summary?.draft_sales     ?? drafts.length,
+    draft_sales: summary?.draft_sales ?? drafts.length,
   };
 
   // Client-side search + status/payment filter + sort
@@ -279,10 +278,10 @@ export default function SalesListPage() {
       return matchSearch && matchStatus && matchPayment;
     })
     .sort((a, b) => {
-      if (sortKey === "date_desc")  return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      if (sortKey === "date_asc")   return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      if (sortKey === "date_desc") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      if (sortKey === "date_asc") return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
       if (sortKey === "total_desc") return parseFloat(b.total_amount) - parseFloat(a.total_amount);
-      if (sortKey === "total_asc")  return parseFloat(a.total_amount) - parseFloat(b.total_amount);
+      if (sortKey === "total_asc") return parseFloat(a.total_amount) - parseFloat(b.total_amount);
       return 0;
     });
 
@@ -292,17 +291,11 @@ export default function SalesListPage() {
   });
 
   // Pagination
-  const totalSalesPages = Math.ceil(displaySales.length / ROWS_PER_PAGE);
-  const totalDraftsPages = Math.ceil(displayDrafts.length / ROWS_PER_PAGE);
   const currentList = activeTab === "sales" ? displaySales : displayDrafts;
-  const totalPages  = activeTab === "sales" ? totalSalesPages : totalDraftsPages;
 
   const displaySalesForPage = activeTab === "sales"
-    ? displaySales.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE)
-    : displayDrafts.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE);
-
-  const startItem = currentList.length === 0 ? 0 : (currentPage - 1) * ROWS_PER_PAGE + 1;
-  const endItem   = Math.min(currentPage * ROWS_PER_PAGE, currentList.length);
+    ? displaySales.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+    : displayDrafts.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const openDetail = useCallback((id: string | number) => {
     dispatch(fetchSaleByIdThunk(id));
@@ -683,232 +676,245 @@ export default function SalesListPage() {
 
       {/* ── TABLE ──────────────────────────────────────────────────────────── */}
       {isLoading ? (
-        <div className="sales-pg__skeleton">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="sales-pg__skeleton-row" />
-          ))}
+        <div className="mb-4 bg-white rounded-4 shadow-sm py-5 text-center w-100 h-100">
+          <Loader message="Loading sales…" className="py-5" />
         </div>
       ) : (
         <div className="sales-pg__table-card">
-          {activeTab === "sales" ? (
-            displaySales.length > 0 ? (
-              <>
-                {/* Table header — bulk selected or normal */}
-                {selectedSales.length > 0 ? (
-                  <div className="sales-pg__table-header sales-pg__table-header--selected">
-                    <div className="sales-pg__col-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={selectedSales.length === displaySalesForPage.length && displaySalesForPage.length > 0}
-                        onChange={handleSelectAll}
-                      />
-                    </div>
-                    <div className="sales-pg__selected-bar">
-                      <div className="sales-pg__selected-count">
-                        {selectedSales.length === displaySales.length ? "All selected" : `${selectedSales.length} selected`}
-                        <span className="sales-pg__dot">•</span>
-                        <button
-                          className="sales-pg__deselect-btn"
-                          onClick={() => setSelectedSales([])}
-                        >
-                          Deselect
-                        </button>
-                      </div>
-                      <div className="sales-pg__selected-actions">
-                        <div className="sales-pg__bulk-dropdown" ref={bulkEditRef}>
-                          <button
-                            className="sales-pg__bulk-btn"
-                            onClick={() => setBulkEditOpen((v) => !v)}
-                          >
-                            Bulk actions {bulkEditOpen ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
-                          </button>
-                          {bulkEditOpen && (
-                            <div className="sales-pg__bulk-menu">
-                              <div
-                                className="sales-pg__bulk-item"
-                                onClick={() => {
-                                  setBulkEditOpen(false);
-                                  // export selected IDs
-                                  dispatch(exportSalesThunk({ format: "excel" }));
-                                }}
-                              >
-                                Export selected
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        <button
-                          className="sales-pg__delete-btn"
-                          onClick={() => setDeleteModalOpen(true)}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="sales-pg__table-header">
-                    <div className="sales-pg__col-checkbox">
-                      <input
-                        type="checkbox"
-                        onChange={handleSelectAll}
-                        checked={false}
-                      />
-                    </div>
-                    <div>Sale #</div>
-                    <div>Client</div>
-                    <div className="sales-pg__col--center">Status</div>
-                    <div>Payment</div>
-                    <div>Date</div>
-                    <div className="sales-pg__col--right">Total</div>
-                  </div>
-                )}
-
-                {/* Rows */}
-                {displaySalesForPage.map((sale) => {
-                  const meta = STATUS_META[sale.status] ?? { label: sale.status, mod: "draft", Icon: ClockHistory };
-                  const { Icon } = meta;
-                  const isChecked = selectedSales.includes(String(sale.id));
-                  return (
-                    <div
-                      key={sale.id}
-                      className={`sales-pg__table-row${isChecked ? " sales-pg__table-row--checked" : ""}`}
-                      onClick={() => openDetail(sale.id)}
-                    >
-                      <div className="sales-pg__col-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => {}}
-                          onClick={(e) => handleSelectSale(e, String(sale.id))}
-                        />
-                      </div>
-                      <div className="sales-pg__sale-num">#{sale.id}</div>
-                      <div className="sales-pg__client-cell">
-                        <div className="sales-pg__avatar">
-                          {sale.client_id
-                            ? sale.client_id.substring(0, 2).toUpperCase()
-                            : "WI"}
-                        </div>
-                        <div>
-                          <div className="sales-pg__client-name">
-                            {sale.client_id ?? <span className="sales-pg__walk-in">Walk-in</span>}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="sales-pg__col--center">
-                        <span className={`sales-pg__badge sales-pg__badge--${meta.mod}`}>
-                          <Icon size={11} /> {meta.label}
-                        </span>
-                      </div>
-                      <div className="sales-pg__muted-cell">
-                        {sale.payment_method ? (PAYMENT_LABEL[sale.payment_method] ?? sale.payment_method) : "—"}
-                      </div>
-                      <div className="sales-pg__muted-cell">
-                        {format(new Date(sale.created_at), "dd MMM yyyy")}
-                      </div>
-                      <div className="sales-pg__col--right sales-pg__amount-cell">
-                        {fmtMoney(sale.total_amount)}
-                      </div>
-                    </div>
-                  );
-                })}
-              </>
-            ) : (
-              <EmptyState
-                icon={<TagFill size={28} />}
-                title={search || activeFilterCount > 0 ? "No sales found" : "No sales yet"}
-                text={search || activeFilterCount > 0 ? "Try adjusting your search or filters." : "Start processing sales to see them here."}
-                actionLabel={!search && activeFilterCount === 0 ? "Create new sale" : undefined}
-                onAction={!search && activeFilterCount === 0 ? () => setDrawerOpen(true) : undefined}
-              />
-            )
-          ) : /* Drafts tab */
-          displayDrafts.length > 0 ? (
-            <>
-              <div className="sales-pg__table-header sales-pg__table-header--drafts">
-                <div>Draft #</div>
-                <div>Client</div>
-                <div className="sales-pg__col--center">Status</div>
-                <div>Created</div>
-                <div className="sales-pg__col--right">Total</div>
-              </div>
-              {displaySalesForPage.map((draft) => (
-                <div
-                  key={draft.id}
-                  className="sales-pg__table-row sales-pg__table-row--drafts"
-                  onClick={() => openDetail(draft.id)}
-                >
-                  <div className="sales-pg__sale-num">#{draft.id}</div>
-                  <div className="sales-pg__client-cell">
-                    <div className="sales-pg__avatar sales-pg__avatar--draft">
-                      {draft.client_id
-                        ? draft.client_id.substring(0, 2).toUpperCase()
-                        : "WI"}
-                    </div>
-                    <div className="sales-pg__client-name">
-                      {draft.client_id ?? <span className="sales-pg__walk-in">Walk-in</span>}
-                    </div>
-                  </div>
-                  <div className="sales-pg__col--center">
-                    <span className="sales-pg__badge sales-pg__badge--draft">
-                      <ClockHistory size={11} /> Draft
-                    </span>
-                  </div>
-                  <div className="sales-pg__muted-cell">
-                    {format(new Date(draft.created_at), "dd MMM yyyy, HH:mm")}
-                  </div>
-                  <div className="sales-pg__col--right sales-pg__amount-cell">
-                    {fmtMoney(draft.total_amount)}
-                  </div>
+          {/* Table header — bulk selected */}
+          {selectedSales.length > 0 && activeTab === "sales" && (
+            <div className="sales-pg__table-header sales-pg__table-header--selected mb-3 rounded-4 px-3 py-2 d-flex align-items-center justify-content-between shadow-sm border">
+              <div className="d-flex align-items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={selectedSales.length === displaySalesForPage.length && displaySalesForPage.length > 0}
+                  onChange={handleSelectAll}
+                />
+                <div className="sales-pg__selected-count">
+                  {selectedSales.length === displaySales.length ? "All selected" : `${selectedSales.length} selected`}
+                  <span className="sales-pg__dot mx-2">•</span>
+                  <button
+                    className="sales-pg__deselect-btn border-0 bg-transparent text-primary px-0"
+                    onClick={() => setSelectedSales([])}
+                  >
+                    Deselect
+                  </button>
                 </div>
-              ))}
-            </>
+              </div>
+              <div className="sales-pg__selected-actions d-flex gap-2">
+                <div className="sales-pg__bulk-dropdown position-relative" ref={bulkEditRef}>
+                  <Button
+                    variant="outline-dark"
+                    size="sm"
+                    pill
+                    onClick={() => setBulkEditOpen((v) => !v)}
+                    iconRight={bulkEditOpen ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                  >
+                    Bulk actions
+                  </Button>
+                  {bulkEditOpen && (
+                    <div className="sales-pg__bulk-menu position-absolute end-0 mt-2 bg-white border shadow-sm rounded-3 py-1 z-3 min-w-150px">
+                      <button
+                        className="dropdown-item py-2 small"
+                        onClick={() => {
+                          setBulkEditOpen(false);
+                          dispatch(exportSalesThunk({ format: "excel", date: datePreset }));
+                        }}
+                      >
+                        Export selected
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  pill
+                  onClick={() => setDeleteModalOpen(true)}
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "sales" ? (
+            <Table
+              columns={[
+                {
+                  header: (
+                    <input
+                      type="checkbox"
+                      onChange={handleSelectAll}
+                      checked={selectedSales.length === displaySalesForPage.length && displaySalesForPage.length > 0}
+                    />
+                  ),
+                  key: "checkbox",
+                  width: "40px",
+                  align: "center",
+                  render: (item: any) => {
+                    const isChecked = selectedSales.includes(String(item.id));
+                    return (
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => { }}
+                        onClick={(e) => handleSelectSale(e, String(item.id))}
+                      />
+                    );
+                  },
+                },
+                {
+                  header: "Sale #",
+                  key: "id",
+                  render: (item: any) => <div className="sales-pg__sale-num">#{String(item.id).substring(0, 8)}</div>,
+                },
+                {
+                  header: "Client",
+                  key: "client",
+                  render: (item: any) => (
+                    <div className="sales-pg__client-cell">
+                      <div className="sales-pg__avatar">
+                        {item.client_id ? String(item.client_id).substring(0, 2).toUpperCase() : "WI"}
+                      </div>
+                      <div className="sales-pg__client-name text-nowrap">
+                        {item.client_id ?? <span className="text-muted fst-italic">Walk-in</span>}
+                      </div>
+                    </div>
+                  ),
+                },
+                {
+                  header: "Status",
+                  key: "status",
+                  align: "center",
+                  render: (item: any) => {
+                    const meta = STATUS_META[item.status] ?? { label: item.status, mod: "draft", Icon: ClockHistory };
+                    const { Icon } = meta;
+                    return (
+                      <span className={`sales-pg__badge sales-pg__badge--${meta.mod}`}>
+                        <Icon size={11} className="me-1" /> {meta.label}
+                      </span>
+                    );
+                  },
+                },
+                {
+                  header: "Payment",
+                  key: "payment",
+                  render: (item: any) => (
+                    <div className="text-muted">
+                      {item.payment_method ? (PAYMENT_LABEL[item.payment_method] ?? item.payment_method) : "—"}
+                    </div>
+                  ),
+                },
+                {
+                  header: "Date",
+                  key: "date",
+                  render: (item: any) => (
+                    <div className="text-muted text-nowrap">
+                      {format(new Date(item.created_at || new Date()), "dd MMM yyyy")}
+                    </div>
+                  ),
+                },
+                {
+                  header: "Total",
+                  key: "total",
+                  align: "right",
+                  render: (item: any) => (
+                    <div className="fw-medium text-dark">{fmtMoney(item.total_amount)}</div>
+                  ),
+                },
+              ]}
+              data={displaySalesForPage}
+              onRowClick={(item: any) => openDetail(item.id)}
+              emptyMessage={
+                <EmptyState
+                  icon={<TagFill size={28} />}
+                  title={search || activeFilterCount > 0 ? "No sales found" : "No sales yet"}
+                  text={search || activeFilterCount > 0 ? "Try adjusting your search or filters." : "Start processing sales to see them here."}
+                  actionLabel={!search && activeFilterCount === 0 ? "Create new sale" : undefined}
+                  onAction={!search && activeFilterCount === 0 ? () => setDrawerOpen(true) : undefined}
+                />
+              }
+            />
           ) : (
-            <EmptyState
-              icon={<Receipt size={28} />}
-              title="No draft sales"
-              text="Drafts are saved when you don't complete a checkout."
-              actionLabel="Create sale"
-              onAction={() => setDrawerOpen(true)}
+            /* Drafts tab */
+            <Table
+              columns={[
+                {
+                  header: "Draft #",
+                  key: "id",
+                  render: (item: any) => <div className="sales-pg__sale-num">#{String(item.id).substring(0, 8)}</div>,
+                },
+                {
+                  header: "Client",
+                  key: "client",
+                  render: (item: any) => (
+                    <div className="sales-pg__client-cell">
+                      <div className="sales-pg__avatar sales-pg__avatar--draft">
+                        {item.client_id ? String(item.client_id).substring(0, 2).toUpperCase() : "WI"}
+                      </div>
+                      <div className="sales-pg__client-name text-nowrap">
+                        {item.client_id ?? <span className="text-muted fst-italic">Walk-in</span>}
+                      </div>
+                    </div>
+                  ),
+                },
+                {
+                  header: "Status",
+                  key: "status",
+                  align: "center",
+                  render: () => (
+                    <span className="sales-pg__badge sales-pg__badge--draft">
+                      <ClockHistory size={11} className="me-1" /> Draft
+                    </span>
+                  ),
+                },
+                {
+                  header: "Created",
+                  key: "date",
+                  render: (item: any) => (
+                    <div className="text-muted text-nowrap">
+                      {format(new Date(item.created_at || new Date()), "dd MMM yyyy, HH:mm")}
+                    </div>
+                  ),
+                },
+                {
+                  header: "Total",
+                  key: "total",
+                  align: "right",
+                  render: (item: any) => (
+                    <div className="fw-medium text-dark">{fmtMoney(item.total_amount)}</div>
+                  ),
+                },
+              ]}
+              data={displaySalesForPage}
+              onRowClick={(item: any) => openDetail(item.id)}
+              emptyMessage={
+                <EmptyState
+                  icon={<Receipt size={28} />}
+                  title="No draft sales"
+                  text="Drafts are saved when you don't complete a checkout."
+                  actionLabel="Create sale"
+                  onAction={() => setDrawerOpen(true)}
+                />
+              }
             />
           )}
         </div>
       )}
 
       {/* ── PAGINATION ─────────────────────────────────────────────────────── */}
-      {currentList.length > 0 && (
-        <div className="sales-pg__pagination-bar">
-          <div className="sales-pg__results-text">
-            Viewing {startItem}–{endItem} of {currentList.length} results
-          </div>
-          <div className="sales-pg__pagination-controls">
-            <button
-              className="sales-pg__page-btn"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage((p) => p - 1)}
-            >
-              ← Prev
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-              <button
-                key={page}
-                className={`sales-pg__page-btn${currentPage === page ? " sales-pg__page-btn--active" : ""}`}
-                onClick={() => setCurrentPage(page)}
-              >
-                {page}
-              </button>
-            ))}
-            <button
-              className="sales-pg__page-btn"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage((p) => p + 1)}
-            >
-              Next →
-            </button>
-          </div>
-        </div>
-      )}
+      <Pagination
+        currentPage={currentPage}
+        pageSize={pageSize}
+        totalItems={currentList.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={(sz) => {
+          setPageSize(sz);
+          setCurrentPage(1);
+        }}
+        className="mt-4"
+      />
 
       {/* ── SALE DETAIL DRAWER ─────────────────────────────────────────────── */}
       {detailOpen && (
@@ -927,7 +933,7 @@ export default function SalesListPage() {
             </div>
 
             {isLoadingDetail ? (
-              <div className="sales-pg__skeleton" style={{ padding: "24px" }}>
+              <div className="sales-pg__skeleton p-4">
                 {[...Array(5)].map((_, i) => (
                   <div key={i} className="sales-pg__skeleton-row" />
                 ))}
