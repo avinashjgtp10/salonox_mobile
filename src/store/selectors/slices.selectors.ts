@@ -23,10 +23,16 @@ export const selectIsOnboardingComplete = createSelector(
   selectAuthState,
   (a) => a.isOnboardingComplete,
 );
-export const selectAuthLoading = createSelector(
-  selectAuthState,
-  (a) => a.loading,
-);
+// Individual loading flags — avoids returning a new object reference on every render
+export const selectAuthLoginLoading = createSelector(selectAuthState, (a) => a.loading.login);
+export const selectAuthRegisterLoading = createSelector(selectAuthState, (a) => a.loading.register);
+export const selectAuthSendOtpLoading = createSelector(selectAuthState, (a) => a.loading.sendOtp);
+export const selectAuthVerifyOtpLoading = createSelector(selectAuthState, (a) => a.loading.verifyOtp);
+export const selectAuthForgotSendOtpLoading = createSelector(selectAuthState, (a) => a.loading.forgotSendOtp);
+export const selectAuthForgotVerifyOtpLoading = createSelector(selectAuthState, (a) => a.loading.forgotVerifyOtp);
+export const selectAuthForgotResetLoading = createSelector(selectAuthState, (a) => a.loading.forgotReset);
+/** @deprecated Use the individual selectAuth*Loading selectors to avoid unnecessary rerenders */
+export const selectAuthLoading = createSelector(selectAuthState, (a) => a.loading);
 export const selectAuthError = createSelector(selectAuthState, (a) => a.error);
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -38,10 +44,13 @@ export const selectUserProfile = createSelector(
   selectUserState,
   (u) => u.profile,
 );
-export const selectUserLoading = createSelector(
-  selectUserState,
-  (u) => u.loading,
-);
+// Individual loading flags — avoids returning a new object reference on every render
+export const selectUserFetchLoading = createSelector(selectUserState, (u) => u.loading.fetch);
+export const selectUserUpdateLoading = createSelector(selectUserState, (u) => u.loading.update);
+export const selectUserAvatarLoading = createSelector(selectUserState, (u) => u.loading.avatar);
+export const selectUserChangePasswordLoading = createSelector(selectUserState, (u) => u.loading.changePassword);
+/** @deprecated Use the individual selectUser*Loading selectors to avoid unnecessary rerenders */
+export const selectUserLoading = createSelector(selectUserState, (u) => u.loading);
 export const selectUserError = createSelector(selectUserState, (u) => u.error);
 export const selectIsUserLoaded = createSelector(
   selectUserProfile,

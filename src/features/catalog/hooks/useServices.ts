@@ -24,9 +24,10 @@ export const useServices = () => {
   const services = useSelector(
     (state: RootState) => (state.catalog as any).items as Service[],
   );
-  const rawCategories = useSelector(
-    (state: RootState) => ((state.catalog as any).categories as CategoryItem[]) || [],
+  const rawCategoriesFromStore = useSelector(
+    (state: RootState) => (state.catalog as any).categories as CategoryItem[] | undefined
   );
+  const rawCategories = rawCategoriesFromStore || [];
   const loading = useSelector(
     (state: RootState) =>
       ((state.catalog as any).loading?.fetchAll as boolean) ?? false,
