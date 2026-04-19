@@ -4,6 +4,7 @@ import type { Sale } from "../types/sale.types";
 import {
   fetchSalesThunk,
   fetchSaleByIdThunk,
+  fetchSaleSummaryThunk,
   createSaleThunk,
   updateSaleThunk,
   deleteSaleThunk,
@@ -21,12 +22,28 @@ const saleSlice = createCRUDSlice<Sale>({
     deleteThunk: deleteSaleThunk,
     exportThunk: exportSalesThunk,
   },
-  // extra loading flag for checkout operation
   extraInitialLoading: {
     checkout: false,
+    summary: false,
   },
-  // handle checkoutSaleThunk — updates the sale in the list (draft → completed)
   extraReducers: (builder) => {
+    // ── Summary ──────────────────────────────────────────────────────────────
+    builder
+      .addCase(fetchSaleSummaryThunk.pending, (state) => {
+        state.loading.summary = true;
+        state.error = null;
+      })
+      .addCase(fetchSaleSummaryThunk.fulfilled, (state, { payload }) => {
+        state.loading.summary = false;
+        (state as any).summary = payload;
+      })
+      .addCase(fetchSaleSummaryThunk.rejected, (state, { payload }) => {
+        state.loading.summary = false;
+        // summary failure is non-critical; keep existing data
+        state.error = (payload as string) ?? "Failed to fetch summary";
+      });
+
+    // ── Checkout ─────────────────────────────────────────────────────────────
     builder
       .addCase(checkoutSaleThunk.pending, (state) => {
         state.loading.checkout = true;
