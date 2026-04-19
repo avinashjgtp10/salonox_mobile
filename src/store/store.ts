@@ -25,6 +25,9 @@ import appReducer from "./appSlice";
 import schedulerReducer from "./schedulerSlice";
 import marketingReducer from "./marketingSlice";
 import reportReducer from "./reportSlice";
+import servicesReducer from "./servicesSlice";
+import categoriesReducer from "./categoriesSlice";
+import serviceFiltersReducer from "./serviceFiltersSlice";
 import membershipReducer from "./membershipSlice";
 import { membershipsApi } from "../services/api/endpoints/memberships.endpoints";
 
@@ -58,6 +61,9 @@ export const store = configureStore({
     scheduler: schedulerReducer,
     marketing: marketingReducer,
     report: reportReducer,
+    services: servicesReducer,
+    categories: categoriesReducer,
+    serviceFilters: serviceFiltersReducer,
     memberships: membershipReducer,
     [membershipsApi.reducerPath]: membershipsApi.reducer,
   },

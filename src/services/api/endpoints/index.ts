@@ -11,3 +11,4 @@ export * from "./setting.endpoints";
 export * from "./app.endpoints";
 export * from "./marketing.endpoints";
 export * from "./report.endpoints";
+export * from "./services.endpoints";
