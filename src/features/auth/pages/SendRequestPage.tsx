@@ -1,12 +1,14 @@
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/SendRequestPage.scss";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useState } from "react";
 import { FiArrowLeft } from "react-icons/fi";
-import salonImg from "../../../assets/images/salon.jpg";
+import OnboardingImagePanel from "../components/OnboardingImagePanel";
 
 export default function SendRequestPage() {
   const navigate = useNavigate();
+  const { state } = useLocation();
+  const business = state?.business;
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -22,77 +24,66 @@ export default function SendRequestPage() {
 
   return (
     <div className="container-fluid p-0 send-page">
-      {/* Progress */}
-      <div className="progress rounded-0 progress-top">
-        <div className="progress-bar progress-fill"></div>
-      </div>
-
-      {/* Top Right Buttons */}
-      <div className="position-absolute top-0 end-0 p-4 d-flex gap-3 z-3">
-        <button
-          className="btn btn-outline-secondary rounded-pill bg-white"
-          onClick={() => navigate("/dashboard")}
-        >
-          Close
-        </button>
-
-        <button className="btn btn-dark rounded-pill" onClick={handleSubmit}>
-          Send request
-        </button>
-      </div>
-
-      <div className="row g-0 min-vh-100">
+      <div className="row g-0" style={{ minHeight: "calc(100vh - 64px)" }}>
         {/* LEFT */}
-        <div className="col-lg-5 col-12 left-panel d-flex flex-column">
-          <div className="p-4">
-            <div className="back-circle" onClick={() => navigate(-1)}>
-              <FiArrowLeft />
-            </div>
-          </div>
+        <div className="col-lg-5 col-12 bg-white d-flex flex-column px-4 px-lg-5 position-relative">
+          <button
+            className="btn btn-light border rounded-circle position-absolute d-flex align-items-center justify-content-center"
+            style={{ top: "24px", left: "24px", width: "40px", height: "40px", padding: 0, zIndex: 10 }}
+            onClick={() => navigate(-1)}
+          >
+            <FiArrowLeft size={16} />
+          </button>
 
-          <div className="flex-grow-1 d-flex align-items-start justify-content-center pt-4">
-            <div className="content-wrapper">
-              <h2 className="page-heading mb-4">
-                Send a request to join <br />
-                DevoteTattoos
+          <div className="flex-grow-1 d-flex align-items-center justify-content-center">
+            <div className="w-100" style={{ maxWidth: "420px" }}>
+              <h2 className="fw-bold mb-1" style={{ fontSize: "24px", color: "#111827" }}>
+                Send a request to join
               </h2>
+              <p className="fw-semibold mb-4" style={{ fontSize: "18px", color: "#111827" }}>
+                {business?.business_name ?? "this business"}
+              </p>
 
-              <label className="form-label fw-semibold">
-                Add a message <span className="text-muted">(Optional)</span>
+              <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
+                Add a message <span className="text-muted fw-normal">(Optional)</span>
               </label>
 
-              <div className="d-flex justify-content-between small mb-2">
-                {error && <span className="text-danger">{error}</span>}
+              <div className="d-flex justify-content-end small mb-1">
                 <span className="text-muted">{message.length}/100</span>
               </div>
 
               <textarea
-                className={`form-control custom-textarea ${error ? "is-invalid" : ""}`}
+                className={`form-control ${error ? "is-invalid" : ""}`}
                 rows={4}
+                placeholder="Introduce yourself..."
                 value={message}
                 onChange={(e) => {
                   setMessage(e.target.value);
-                  if (e.target.value.length <= 100) {
-                    setError("");
-                  }
+                  if (e.target.value.length <= 100) setError("");
                 }}
+                style={{ borderRadius: "12px", border: "1px solid #e5e7eb", fontSize: "14px", resize: "none" }}
               />
+              {error && <div className="invalid-feedback d-block">{error}</div>}
+
+              <button
+                className="btn btn-dark w-100 rounded-pill mt-4"
+                style={{ height: "52px", fontWeight: 600, fontSize: "14px" }}
+                onClick={handleSubmit}
+              >
+                Send request
+              </button>
             </div>
           </div>
         </div>
 
-        {/* RIGHT IMAGE */}
-        <div
-          className="col-lg-7 d-none d-lg-block p-0"
-          style={{ minHeight: "100vh" }}
-        >
-          <img
-            src={salonImg}
-            alt="salon"
-            className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
-            style={{ zIndex: 0 }}
-          />
-        </div>
+        {/* RIGHT IMAGE PANEL */}
+        <OnboardingImagePanel
+          quote={{
+            text: "Joining the team was effortless. Everything I needed was ready on day one.",
+            author: "Carlos M.",
+            role: "Barber, Madrid",
+          }}
+        />
       </div>
     </div>
   );

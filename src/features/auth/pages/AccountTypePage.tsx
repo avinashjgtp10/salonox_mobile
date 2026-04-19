@@ -3,83 +3,71 @@ import "../styles/AccountTypePage.scss";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { FiArrowRight } from "react-icons/fi";
-import salonImg from "../../../assets/images/salon.jpg";
+import OnboardingImagePanel from "../components/OnboardingImagePanel";
+import OnboardingPageWrapper from "../components/OnboardingPageWrapper";
+import AutoNavigateIndicator from "../components/AutoNavigateIndicator";
+import { useAutoNavigate } from "../../../hooks/useAutoNavigate";
 
 export default function AccountTypePage() {
   const navigate = useNavigate();
   const [selected, setSelected] = useState<"new" | "join" | null>(null);
 
-  const handleContinue = () => {
+  useAutoNavigate(!!selected, () => {
     if (selected === "new") navigate("/business-name");
     if (selected === "join") navigate("/join-business");
-  };
+  }, 500);
 
   return (
-    <div className="container-fluid p-0">
-      <div className="row g-0 min-vh-100 position-relative">
-
+    <OnboardingPageWrapper>
         {/* LEFT PANEL */}
-        <div className="col-lg-5 col-md-6 d-flex align-items-center position-relative px-5 min-vh-100 left-panel">
+        <div className="col-lg-5 col-12 d-flex align-items-center justify-content-center position-relative bg-white px-4 px-lg-5">
           <div className="w-100 account-wrapper">
-            <h2 className="account-heading mb-5">
-              How would you like to set up your professional account?
+            <h2 className="account-heading mb-4">
+              How would you like to set up your account?
             </h2>
 
             <div
-              className={`card p-4 mb-4 shadow-sm account-card ${selected === "new" ? "border-dark bg-light" : ""}`}
+              className={`card p-4 mb-3 account-card ${selected === "new" ? "border-dark bg-light" : ""}`}
               onClick={() => setSelected("new")}
             >
               <div className="d-flex justify-content-between align-items-center">
-                <span className="fw-semibold">
-                  Create a new business account
-                </span>
-                <FiArrowRight />
-              </div>
-            </div>
-
-            <div
-              className={`card p-4 shadow-sm account-card ${selected === "join" ? "border-dark bg-light" : ""}`}
-              onClick={() => setSelected("join")}
-            >
-              <div className="d-flex justify-content-between align-items-center">
                 <div>
-                  <div className="fw-semibold">
-                    Join an existing business on salonox
-                  </div>
-                  <small className="text-muted">
-                    Find the business you want to join
-                  </small>
+                  <div className="fw-semibold">Create a new business account</div>
+                  <small className="text-muted">Set up your salon from scratch</small>
                 </div>
                 <FiArrowRight />
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* RIGHT IMAGE */}
-        <div
-          className="col-lg-7 col-md-6 d-none d-md-block p-0 position-relative"
-          style={{ minHeight: "100vh" }}
-        >
-          <img
-            src={salonImg}
-            alt="salon"
-            className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
-            style={{ zIndex: 0 }}
-          />
-
-          {/* Desktop Continue Button on Image */}
-          <div className="position-absolute top-0 end-0 p-4 z-3">
-            <button
-              className="btn btn-dark rounded-pill px-4"
-              disabled={!selected}
-              onClick={handleContinue}
+            <div
+              className={`card p-4 account-card ${selected === "join" ? "border-dark bg-light" : ""}`}
+              onClick={() => setSelected("join")}
             >
-              Continue <FiArrowRight size={16} className="ms-1" />
-            </button>
+              <div className="d-flex justify-content-between align-items-center">
+                <div>
+                  <div className="fw-semibold">Join an existing business on salonox</div>
+                  <small className="text-muted">Find the business you want to join</small>
+                </div>
+                <FiArrowRight />
+              </div>
+            </div>
+
+            <AutoNavigateIndicator visible={!!selected} className="justify-content-center" />
           </div>
         </div>
-      </div>
-    </div>
+
+        {/* RIGHT IMAGE PANEL */}
+        <OnboardingImagePanel
+          stats={[
+            { value: "10K+", label: "Professionals" },
+            { value: "4.9★", label: "App Rating" },
+          ]}
+          quote={{
+            text: "Setting up on salonox was the best decision for my business this year. Everything just works.",
+            author: "Sarah M.",
+            role: "Hair Stylist, London",
+          }}
+        />
+    </OnboardingPageWrapper>
   );
 }

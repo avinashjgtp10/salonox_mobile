@@ -1,102 +1,78 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { FiArrowLeft, FiArrowRight, FiUser, FiUsers } from "react-icons/fi";
+import { FiUser, FiUsers } from "react-icons/fi";
 import "../styles/TeamSetupPage.scss";
 import { useOnboarding } from "../../../context/OnboardingContext";
-import salonImg from "../../../assets/images/salon.jpg";
+import OnboardingImagePanel from "../components/OnboardingImagePanel";
+import OnboardingPageWrapper from "../components/OnboardingPageWrapper";
+import OnboardingBackButton from "../components/OnboardingBackButton";
+import OnboardingChoiceCard from "../components/OnboardingChoiceCard";
+import AutoNavigateIndicator from "../components/AutoNavigateIndicator";
+import { useAutoNavigate } from "../../../hooks/useAutoNavigate";
 
 export default function TeamSetupPage() {
   const navigate = useNavigate();
   const { update } = useOnboarding();
   const [selected, setSelected] = useState<"independent" | "team" | null>(null);
 
-  const handleContinue = () => {
-    if (!selected) return;
-    update({ team_type: selected });
+  useAutoNavigate(!!selected, () => {
+    update({ team_type: selected! });
     if (selected === "independent") navigate("/business-location");
     else navigate("/team-size");
-  };
+  }, 500);
 
   return (
-    <div className="container-fluid p-0 bg-page min-vh-100">
-      {/* PROGRESS BAR */}
-      <div className="progress onboarding-progress" style={{ height: "4px" }}>
-        <div className="progress-bar bg-dark" style={{ width: "30%" }} />
-      </div>
+    <OnboardingPageWrapper className="bg-page">
+      {/* LEFT PANEL */}
+      <div className="col-lg-5 col-12 left-panel d-flex flex-column px-4 px-lg-5 position-relative bg-white">
+        <OnboardingBackButton />
 
-      <div className="row g-0 min-vh-100">
-        <div className="col-lg-5 col-md-6 left-panel d-flex flex-column px-5 position-relative bg-white">
-          <button
-            className="btn btn-light border rounded-circle position-absolute d-md-flex align-items-center justify-content-center"
-            style={{ top: "30px", left: "50px", width: "40px", height: "40px", padding: 0, zIndex: 10 }}
-            onClick={() => navigate(-1)}
-          >
-            <FiArrowLeft />
-          </button>
+        <div className="flex-grow-1 d-flex align-items-center justify-content-center">
+          <div className="w-100" style={{ maxWidth: "420px" }}>
+            <h3 className="account-heading mb-2" style={{ fontSize: "26px" }}>Select your account type</h3>
+            <p className="account-subheading mb-4">
+              This helps us personalise the tools and features for you.
+            </p>
 
-
-          <div className="flex-grow-1 d-flex align-items-center justify-content-center">
-            <div
-              className="content-wrapper w-100"
-              style={{ maxWidth: "480px" }}
-            >
-              <p className="onboarding-step-label mb-2">Account setup</p>
-              <h2 className="account-heading mb-2">Select account type</h2>
-              <p className="text-muted mb-4">
-                This will help us set up your account correctly
-              </p>
-
-              <div className="row g-3">
-                <div className="col-12">
-                  <div
-                    className={`card p-4 text-center premium-choice-card ${selected === "independent" ? "selected" : ""}`}
-                    onClick={() => setSelected("independent")}
-                  >
-                    <div className="mb-2 fs-3 text-secondary">
-                      <FiUser />
-                    </div>
-                    <strong className="fs-5">I'm an independent</strong>
-                  </div>
+            <div className="d-flex flex-column gap-3">
+              <OnboardingChoiceCard
+                selected={selected === "independent"}
+                onClick={() => setSelected("independent")}
+                className="d-flex flex-row align-items-center gap-3"
+              >
+                <div className="choice-icon-bg flex-shrink-0"><FiUser size={20} /></div>
+                <div>
+                  <div className="fw-bold" style={{ fontSize: "15px", color: "#111827" }}>I'm an independent</div>
+                  <div className="text-muted" style={{ fontSize: "13px" }}>Solo professional or freelancer</div>
                 </div>
-                <div className="col-12">
-                  <div
-                    className={`card p-4 text-center premium-choice-card ${selected === "team" ? "selected" : ""}`}
-                    onClick={() => setSelected("team")}
-                  >
-                    <div className="mb-2 fs-3 text-secondary">
-                      <FiUsers />
-                    </div>
-                    <strong className="fs-5">I have a team</strong>
-                  </div>
+              </OnboardingChoiceCard>
+
+              <OnboardingChoiceCard
+                selected={selected === "team"}
+                onClick={() => setSelected("team")}
+                className="d-flex flex-row align-items-center gap-3"
+              >
+                <div className="choice-icon-bg flex-shrink-0"><FiUsers size={20} /></div>
+                <div>
+                  <div className="fw-bold" style={{ fontSize: "15px", color: "#111827" }}>I have a team</div>
+                  <div className="text-muted" style={{ fontSize: "13px" }}>Manage staff, schedules & payroll</div>
                 </div>
-              </div>
+              </OnboardingChoiceCard>
             </div>
-          </div>
-        </div>
 
-        <div
-          className="col-lg-7 d-none d-lg-block p-0 position-relative overflow-hidden"
-          style={{ minHeight: "100vh" }}
-        >
-          <img
-            src={salonImg}
-            alt="salon"
-            className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
-            style={{ zIndex: 0 }}
-          />
-
-          {/* Desktop Continue Button on Image */}
-          <div className="position-absolute top-0 end-0 p-4 z-3">
-            <button
-              className="btn btn-dark rounded-pill px-4"
-              disabled={!selected}
-              onClick={handleContinue}
-            >
-              Continue <FiArrowRight size={16} className="ms-1" />
-            </button>
+            <AutoNavigateIndicator visible={!!selected} className="justify-content-center" />
           </div>
         </div>
       </div>
-    </div>
+
+      {/* RIGHT IMAGE PANEL */}
+      <OnboardingImagePanel
+        quote={{
+          text: "Managing my team of 8 stylists has never been this smooth. The scheduling tools are a game-changer.",
+          author: "Rachel T.",
+          role: "Spa Manager, Dubai",
+        }}
+      />
+    </OnboardingPageWrapper>
   );
 }

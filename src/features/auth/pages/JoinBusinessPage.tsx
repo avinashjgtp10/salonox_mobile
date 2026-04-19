@@ -1,110 +1,130 @@
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/JoinBusinessPage.scss";
+import "../styles/onboarding-shared.scss";
 import { useNavigate } from "react-router-dom";
-import salonImg from "../../../assets/images/salon.jpg";
-import { useState, useEffect } from "react";
-import { FiSearch, FiArrowLeft } from "react-icons/fi";
+import { useState, useEffect, useRef } from "react";
+import { FiSearch } from "react-icons/fi";
+import api from "../../../services/api/axios";
+import { SALON } from "../../../services/api/endpoints";
+import OnboardingImagePanel from "../components/OnboardingImagePanel";
+import OnboardingPageWrapper from "../components/OnboardingPageWrapper";
+import OnboardingBackButton from "../components/OnboardingBackButton";
 
-const businesses = [
-  { id: 1, name: "Pink Hair Design", location: "London" },
-  { id: 2, name: "Glow Beauty Studio", location: "Manchester" },
-  { id: 3, name: "Urban Nails Spa", location: "Birmingham" },
-  { id: 4, name: "Elite Salon & Spa", location: "Leeds" },
-];
+interface Business {
+  id: string;
+  business_name: string;
+  address?: string;
+}
 
 export default function JoinBusinessPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
-  const [results, setResults] = useState<typeof businesses>([]);
-  const [selected, setSelected] = useState<any>(null);
+  const [results, setResults] = useState<Business[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (search.trim() === "") {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (search.trim().length < 2) {
       setResults([]);
-    } else {
-      const filtered = businesses.filter((biz) =>
-        biz.name.toLowerCase().includes(search.toLowerCase()),
-      );
-      setResults(filtered);
+      setError("");
+      return;
     }
+
+    debounceRef.current = setTimeout(async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const res = await api.get(SALON.LIST, { params: { search: search.trim() } });
+        const data: Business[] = res.data?.data ?? [];
+        setResults(data);
+        if (data.length === 0) setError("No businesses found. Try a different name.");
+      } catch {
+        setError("Could not search. Please try again.");
+        setResults([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 400);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, [search]);
 
+  const handleSelect = (biz: Business) => {
+    navigate("/send-request", { state: { business: biz } });
+  };
+
   return (
-    <div className="container-fluid p-0 join-page">
-      {/* 🔵 PROGRESS BAR */}
-      <div className="progress rounded-0 progress-top">
-        <div className="progress-bar progress-fill"></div>
-      </div>
+    <OnboardingPageWrapper className="join-page">
+      {/* LEFT SIDE */}
+      <div className="col-lg-5 col-12 left-panel bg-white d-flex flex-column px-4 px-lg-5 position-relative">
+        <OnboardingBackButton />
 
+        <div className="flex-grow-1 d-flex align-items-center justify-content-center">
+          <div className="ob-content-max">
+            <h2 className="ob-heading mb-1">Search for a business</h2>
+            <p className="ob-subtext mb-4">
+              Find a business to request login access to their workspace
+            </p>
 
-
-      <div className="row g-0 min-vh-100">
-        {/* LEFT SIDE */}
-        <div className="col-lg-5 col-12 left-panel d-flex flex-column">
-          {/* Back Circle */}
-          <div className="p-4">
-            <div className="back-circle" onClick={() => navigate(-1)}>
-              <FiArrowLeft />
+            <div className="position-relative mb-3">
+              <FiSearch className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted ob-search-icon" />
+              <input
+                type="text"
+                className="ob-input ps-5"
+                placeholder="Search by business name..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                autoFocus
+              />
             </div>
-          </div>
 
-          {/* Content */}
-          <div className="flex-grow-1 d-flex align-items-start justify-content-center pt-4">
-            <div className="content-wrapper">
-              <h2 className="page-heading">Search for a business</h2>
-
-              <p className="text-muted mb-4">
-                Find a business to request login access to their workspace
-              </p>
-
-              <div className="input-group mb-4">
-                <span className="input-group-text bg-white">
-                  <FiSearch />
-                </span>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Find a business in India"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
+            {loading && (
+              <div className="d-flex align-items-center text-muted mb-3 ob-loading-text">
+                <span className="spinner-border spinner-border-sm me-2 ob-spinner-sm" />
+                Searching...
               </div>
+            )}
 
-              {results.length > 0 && (
-                <div className="list-group custom-list">
-                  {results.map((biz) => (
-                    <button
-                      key={biz.id}
-                      className={`list-group-item list-group-item-action d-flex justify-content-between align-items-center
-                      ${selected?.id === biz.id ? "active" : ""}`}
-                      onClick={() => setSelected(biz)}
-                    >
-                      <div>
-                        <div className="fw-semibold">{biz.name}</div>
-                        <small>{biz.location}</small>
-                      </div>
-                      <span>→</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            {error && !loading && (
+              <p className="text-muted ob-loading-text">{error}</p>
+            )}
+
+            {results.length > 0 && (
+              <div className="list-group">
+                {results.map((biz) => (
+                  <button
+                    key={biz.id}
+                    className="ob-biz-list-item list-group-item list-group-item-action d-flex justify-content-between align-items-center py-3"
+                    onClick={() => handleSelect(biz)}
+                  >
+                    <div>
+                      <div className="ob-biz-name">{biz.business_name}</div>
+                      {biz.address && (
+                        <small className="text-muted">{biz.address}</small>
+                      )}
+                    </div>
+                    <span className="text-muted">→</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
-
-        {/* RIGHT IMAGE */}
-        <div
-          className="col-lg-7 d-none d-lg-block p-0"
-          style={{ minHeight: "100vh" }}
-        >
-          <img
-            src={salonImg}
-            alt="salon"
-            className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
-            style={{ zIndex: 0 }}
-          />
-        </div>
       </div>
-    </div>
+
+      {/* RIGHT IMAGE PANEL */}
+      <OnboardingImagePanel
+        quote={{
+          text: "Joining a team on salonox is seamless. I was up and running on my first day.",
+          author: "Maya S.",
+          role: "Senior Stylist, Paris",
+        }}
+      />
+    </OnboardingPageWrapper>
   );
 }

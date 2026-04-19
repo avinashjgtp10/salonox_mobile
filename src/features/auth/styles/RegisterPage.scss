@@ -119,28 +119,16 @@ h2 {
 
 /* ================= RIGHT SIDE IMAGE ================= */
 
-.col-lg-7 img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* Gradient overlay effect */
+/* Remove old gradient — OnboardingImagePanel handles its own overlay */
 .col-lg-7 {
   position: relative;
+  overflow: hidden;
 }
 
-.col-lg-7::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to right,
-    rgba(255, 255, 255, 0.9) 0%,
-    rgba(255, 255, 255, 0.6) 25%,
-    rgba(255, 255, 255, 0.2) 50%,
-    rgba(255, 255, 255, 0) 75%
-  );
+/* The onboarding-image-panel inside col-lg-7 must fill the container */
+.col-lg-7 .onboarding-image-panel {
+  width: 100%;
+  min-height: 100%;
 }
 
 /* ================= RESPONSIVE ================= */

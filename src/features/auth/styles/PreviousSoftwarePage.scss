@@ -18,8 +18,10 @@
 }
 
 .software-btn.active {
-  border: 2px solid #635bff;
+  border: 2px solid #111827;
   background: #ffffff;
+  color: #111827;
+  font-weight: 600;
 }
 
 .software-btn:focus {
