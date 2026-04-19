@@ -189,6 +189,43 @@ export const selectSettingError = settingBase.selectError;
 export const selectSettingCount = settingBase.selectCount;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Services
+// ─────────────────────────────────────────────────────────────────────────────
+const servicesBase = createCRUDSelectors((s: RootState) => s.services);
+
+export const selectAllServices = servicesBase.selectItems;
+export const selectSelectedService = servicesBase.selectSelectedItem;
+export const selectServicesLoading = servicesBase.selectLoading;
+export const selectServicesError = servicesBase.selectError;
+export const selectServicesPagination = servicesBase.selectPagination;
+export const selectServicesCount = servicesBase.selectCount;
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Categories
+// ─────────────────────────────────────────────────────────────────────────────
+const categoriesBase = createCRUDSelectors((s: RootState) => s.categories);
+
+export const selectAllCategories = categoriesBase.selectItems;
+export const selectSelectedCategory = categoriesBase.selectSelectedItem;
+export const selectCategoriesLoading = categoriesBase.selectLoading;
+export const selectCategoriesError = categoriesBase.selectError;
+export const selectCategoriesCount = categoriesBase.selectCount;
+
+// Derived selector: categories with their service count pre-computed.
+// Memoized so the .map() + .filter() only runs when services or categories change.
+export const selectCategoriesWithServiceCount = createSelector(
+  [selectAllServices, selectAllCategories],
+  (services, categories) =>
+    categories.map((cat) => ({
+      ...cat,
+      serviceCount: (services as Array<{ category_id?: string | number | null }>).filter(
+        (svc) => String(svc.category_id) === String(cat.id),
+      ).length,
+    })),
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 // App (External Integrations)
 // ─────────────────────────────────────────────────────────────────────────────
 const appBase = createCRUDSelectors((s: RootState) => s.app);

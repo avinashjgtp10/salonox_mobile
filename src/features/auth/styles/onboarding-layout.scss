@@ -1,0 +1,171 @@
+// ═══════════════════════════════════════════════════════════════
+//  ONBOARDING LAYOUT + TOP BAR  —  salonox
+// ═══════════════════════════════════════════════════════════════
+
+$bar-h: 64px;
+
+// ── Layout wrapper ───────────────────────────────────────────
+.ob-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+
+  &__content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+
+    // All direct page containers fill remaining height
+    > * { flex: 1; }
+  }
+}
+
+// ── Top bar ──────────────────────────────────────────────────
+.ob-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 500;
+  height: $bar-h;
+  background: #ffffff;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  gap: 24px;
+  flex-shrink: 0;
+
+  // ── Logo ─────────────────────────────────────────────────
+  &__logo {
+    font-family: 'Outfit', 'Inter', sans-serif;
+    font-weight: 800;
+    font-size: 18px;
+    color: #0f172a;
+    letter-spacing: -0.04em;
+    flex-shrink: 0;
+    user-select: none;
+  }
+
+  // ── Steps nav ────────────────────────────────────────────
+  &__steps {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex: 1;
+    justify-content: center;
+  }
+
+  // ── Single step ──────────────────────────────────────────
+  &__step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+
+    &-dot {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+      transition: all 0.25s ease;
+    }
+
+    &-label {
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      transition: color 0.2s ease;
+    }
+
+    // Connector line
+    .ob-topbar__connector {
+      display: block;
+      width: 40px;
+      height: 1.5px;
+      background: #e2e8f0;
+      margin: 0 10px;
+      border-radius: 2px;
+      flex-shrink: 0;
+      transition: background 0.3s ease;
+
+      &--done {
+        background: #111827;
+      }
+    }
+
+    // ── Upcoming ─────────────────────────────────────────
+    &--upcoming {
+      .ob-topbar__step-dot {
+        background: #f1f5f9;
+        color: #94a3b8;
+        border: 1.5px solid #e2e8f0;
+      }
+      .ob-topbar__step-label { color: #94a3b8; }
+    }
+
+    // ── Active ───────────────────────────────────────────
+    &--active {
+      .ob-topbar__step-dot {
+        background: #111827;
+        color: #ffffff;
+        border: 1.5px solid #111827;
+        box-shadow: 0 0 0 4px rgba(17, 24, 39, 0.08);
+      }
+      .ob-topbar__step-label {
+        color: #111827;
+        font-weight: 700;
+      }
+    }
+
+    // ── Completed ────────────────────────────────────────
+    &--completed {
+      .ob-topbar__step-dot {
+        background: #111827;
+        color: #ffffff;
+        border: 1.5px solid #111827;
+      }
+      .ob-topbar__step-label { color: #64748b; font-weight: 500; }
+    }
+  }
+
+  // ── Counter ──────────────────────────────────────────────
+  &__counter {
+    font-size: 12px;
+    font-weight: 600;
+    color: #94a3b8;
+    white-space: nowrap;
+    flex-shrink: 0;
+    letter-spacing: 0.02em;
+  }
+}
+
+// ── Responsive: hide labels on small screens ─────────────────
+@media (max-width: 768px) {
+  .ob-topbar {
+    padding: 0 16px;
+    gap: 12px;
+
+    &__steps {
+      gap: 0;
+    }
+
+    &__step {
+      &-label { display: none; }
+
+      .ob-topbar__connector { width: 20px; margin: 0 4px; }
+    }
+
+    &__counter { display: none; }
+  }
+}
+
+@media (max-width: 480px) {
+  .ob-topbar {
+    &__step .ob-topbar__connector { width: 12px; margin: 0 2px; }
+  }
+}

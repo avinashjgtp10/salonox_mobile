@@ -36,11 +36,12 @@
   border-bottom: 1px solid $dashboard-border;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 8px;
   position: sticky;
   top: 0;
   background: $white;
   z-index: 10;
+  overflow: visible;
 
   .btn-close-drawer {
     background: none;
@@ -136,7 +137,7 @@
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  z-index: 300;
+  z-index: 1200;
   background: $white;
   border: 1px solid $dashboard-border;
   border-radius: 8px;
@@ -278,7 +279,7 @@
   }
 
   &--packages {
-    grid-template-columns: 2fr 1fr 1fr 1fr 40px;
+    grid-template-columns: 2.5fr 0.8fr 0.65fr 0.9fr 36px;
     margin-top: 12px;
     background: #fef3c7;
     color: #92400e;
@@ -286,11 +287,38 @@
   }
 
   &--products {
-    grid-template-columns: 2fr 1fr 1fr 1fr 40px;
+    grid-template-columns: 2.5fr 0.8fr 0.65fr 0.9fr 36px;
     margin-top: 12px;
     background: #ede9fe;
     color: #5b21b6;
     border-bottom: 1px solid #ddd6fe;
+  }
+}
+
+/* ── Unified item row grid (Package / Product / Membership) ── */
+.item-row-grid {
+  display: grid;
+  gap: 6px;
+  padding: 8px 10px;
+  align-items: center;
+  background: #fff;
+
+  &--pkg {
+    grid-template-columns: 2.5fr 0.8fr 0.65fr 0.9fr 36px;
+    border-bottom: 1px solid #fef3c7;
+    background: #fffbeb;
+  }
+
+  &--prod {
+    grid-template-columns: 2.5fr 0.8fr 0.65fr 0.9fr 36px;
+    border-bottom: 1px solid #ede9fe;
+    background: #f5f3ff;
+  }
+
+  &--mem {
+    grid-template-columns: 2fr 0.9fr 0.7fr 0.55fr 0.8fr 36px;
+    border-bottom: 1px solid #d1fae5;
+    background: #f0fdf4;
   }
 }
 
@@ -514,12 +542,16 @@
   display: flex;
   justify-content: flex-end;
   align-items: center;
+  gap: 12px; /* 👈 ADD THIS */
   position: sticky;
   bottom: 0;
   background: $white;
   z-index: 10;
 }
 
+.appt-drawer-footer button {
+  flex: 1; /* 👈 makes both buttons equal */
+}
 /* ── Success screen ── */
 .success-icon-wrap {
   width: 72px;
@@ -701,7 +733,7 @@
   margin-bottom: 20px;
   border: 1px solid $dashboard-border;
   border-radius: 10px;
-  overflow: hidden;
+  overflow: visible;
 
   &__title {
     font-size: 12px;
@@ -711,6 +743,7 @@
     padding: 8px 14px;
     border-bottom: 1px solid $dashboard-border;
     letter-spacing: 0.3px;
+    border-radius: 10px 10px 0 0;
   }
 
   /* inner content padding except tables */
@@ -782,16 +815,16 @@
   }
 }
 
-/* ── Subscription row ── */
-.table-header--subscriptions {
-  grid-template-columns: 2fr 1fr 1fr 40px;
+/* ── Membership row ── */
+.table-header--membership {
+  grid-template-columns: 2fr 0.9fr 0.7fr 0.55fr 0.8fr 36px;
   margin-top: 12px;
   background: #ecfdf5;
   color: #065f46;
   border-bottom: 1px solid #a7f3d0;
 }
 
-.subscription-row {
+.Membership -row {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 40px;
   gap: 6px;
@@ -810,4 +843,16 @@
     border-color: #f59e0b !important;
     box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15) !important;
   }
+}
+.membership-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr auto;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.membership-row input,
+.membership-row select {
+  width: 100%;
 }

@@ -1,33 +1,38 @@
 import React, { useState } from "react";
 import { X, ChevronDown } from "react-bootstrap-icons";
+import { useServiceFilters } from "../hooks/useServiceFilters";
+import type { ServiceFiltersState } from "../../../store/serviceFiltersSlice";
 import "../styles/ServiceFilterDrawer.scss";
 
-interface FilterState {
-  status: string;
-  type: string;
-  teamMember: string;
-  onlineBooking: string;
-  commissions: string;
-  resourceRequirements: string;
+interface StaffOption {
+  id: string;
+  name: string;
 }
 
 interface Props {
   onClose: () => void;
-  onApply?: (filters: FilterState) => void;
+  staffMembers?: StaffOption[];
 }
 
-const ServiceFilterDrawer: React.FC<Props> = ({ onClose, onApply }) => {
-  const [filters, setFilters] = useState<FilterState>({
-    status: "Active",
-    type: "All types",
-    teamMember: "Any team member",
-    onlineBooking: "All status",
-    commissions: "All status",
-    resourceRequirements: "All status",
-  });
+const ServiceFilterDrawer: React.FC<Props> = ({
+  onClose,
+  staffMembers = [],
+}) => {
+  const { filters: reduxFilters, apply, reset, activeCount } = useServiceFilters();
+
+  // Local draft state — user edits here before pressing Apply
+  const [draft, setDraft] = useState<ServiceFiltersState>(reduxFilters);
+
+  const set = (key: keyof ServiceFiltersState, value: string) =>
+    setDraft((prev) => ({ ...prev, [key]: value }));
 
   const handleApply = () => {
-    onApply?.(filters);
+    apply(draft);
+    onClose();
+  };
+
+  const handleClear = () => {
+    reset();
     onClose();
   };
 
@@ -38,76 +43,43 @@ const ServiceFilterDrawer: React.FC<Props> = ({ onClose, onApply }) => {
         onClick={(e) => e.stopPropagation()}
       >
         <header className="service-filters-modal__header">
-          <h4 className="modal-title">Filters</h4>
+          <div className="d-flex align-items-center gap-2">
+            <h4 className="modal-title mb-0">Filters</h4>
+            {activeCount > 0 && (
+              <span className="sfd-badge">{activeCount} active</span>
+            )}
+          </div>
           <button className="close-icon-btn" onClick={onClose}>
             <X size={28} />
           </button>
         </header>
 
         <div className="service-filters-modal__body">
+          {/* Status */}
           <div className="filter-group">
             <label>Status</label>
             <div className="select-wrapper">
               <select
                 className="form-select-custom"
-                value={filters.status}
-                onChange={(e) =>
-                  setFilters({ ...filters, status: e.target.value })
-                }
+                value={draft.status}
+                onChange={(e) => set("status", e.target.value)}
               >
+                <option>All status</option>
                 <option>Active</option>
                 <option>Inactive</option>
-                <option>All status</option>
               </select>
               <ChevronDown className="select-chevron" size={14} />
             </div>
           </div>
 
-          <div className="filter-group">
-            <label>Type</label>
-            <div className="select-wrapper">
-              <select
-                className="form-select-custom"
-                value={filters.type}
-                onChange={(e) =>
-                  setFilters({ ...filters, type: e.target.value })
-                }
-              >
-                <option>All types</option>
-                <option>Service</option>
-                <option>Product</option>
-              </select>
-              <ChevronDown className="select-chevron" size={14} />
-            </div>
-          </div>
-
-          <div className="filter-group">
-            <label>Team member</label>
-            <div className="select-wrapper">
-              <select
-                className="form-select-custom"
-                value={filters.teamMember}
-                onChange={(e) =>
-                  setFilters({ ...filters, teamMember: e.target.value })
-                }
-              >
-                <option>Any team member</option>
-                <option>John Doe</option>
-                <option>Jane Smith</option>
-              </select>
-              <ChevronDown className="select-chevron" size={14} />
-            </div>
-          </div>
-
+          {/* Online bookings */}
           <div className="filter-group">
             <label>Online bookings</label>
             <div className="select-wrapper">
               <select
                 className="form-select-custom"
-                value={filters.onlineBooking}
-                onChange={(e) =>
-                  setFilters({ ...filters, onlineBooking: e.target.value })
-                }
+                value={draft.onlineBooking}
+                onChange={(e) => set("onlineBooking", e.target.value)}
               >
                 <option>All status</option>
                 <option>Enabled</option>
@@ -117,15 +89,14 @@ const ServiceFilterDrawer: React.FC<Props> = ({ onClose, onApply }) => {
             </div>
           </div>
 
+          {/* Commissions */}
           <div className="filter-group">
             <label>Commissions</label>
             <div className="select-wrapper">
               <select
                 className="form-select-custom"
-                value={filters.commissions}
-                onChange={(e) =>
-                  setFilters({ ...filters, commissions: e.target.value })
-                }
+                value={draft.commissions}
+                onChange={(e) => set("commissions", e.target.value)}
               >
                 <option>All status</option>
                 <option>Enabled</option>
@@ -135,18 +106,14 @@ const ServiceFilterDrawer: React.FC<Props> = ({ onClose, onApply }) => {
             </div>
           </div>
 
+          {/* Resource requirements */}
           <div className="filter-group">
             <label>Resource requirements</label>
             <div className="select-wrapper">
               <select
                 className="form-select-custom"
-                value={filters.resourceRequirements}
-                onChange={(e) =>
-                  setFilters({
-                    ...filters,
-                    resourceRequirements: e.target.value,
-                  })
-                }
+                value={draft.resourceRequirements}
+                onChange={(e) => set("resourceRequirements", e.target.value)}
               >
                 <option>All status</option>
                 <option>Required</option>
@@ -155,9 +122,34 @@ const ServiceFilterDrawer: React.FC<Props> = ({ onClose, onApply }) => {
               <ChevronDown className="select-chevron" size={14} />
             </div>
           </div>
+
+          {/* Team member */}
+          <div className="filter-group">
+            <label>Team member</label>
+            <div className="select-wrapper">
+              <select
+                className="form-select-custom"
+                value={draft.teamMember}
+                onChange={(e) => set("teamMember", e.target.value)}
+              >
+                <option value="Any team member">Any team member</option>
+                {staffMembers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="select-chevron" size={14} />
+            </div>
+          </div>
         </div>
 
         <footer className="service-filters-modal__footer">
+          {activeCount > 0 && (
+            <button className="btn-clear-rounded" onClick={handleClear}>
+              Clear all
+            </button>
+          )}
           <button className="btn-cancel-rounded" onClick={onClose}>
             Cancel
           </button>

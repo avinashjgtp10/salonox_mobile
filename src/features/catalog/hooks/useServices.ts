@@ -1,10 +1,16 @@
 import { useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import type { AppDispatch, RootState } from "../../../store/store";
+import type { AppDispatch } from "../../../store/store";
+import { fetchServicesThunk } from "../../../middleware/services/services.thunk";
+import type { FetchServicesParams } from "../../../middleware/services/services.thunk";
+import { fetchCategoriesThunk } from "../../../middleware/services/categories.thunk";
 import {
-  fetchCatalogThunk,
-} from "../../../middleware/catalog/catalog.thunk";
-
+  selectAllServices,
+  selectServicesLoading,
+  selectServicesError,
+  selectServicesPagination,
+  selectCategoriesWithServiceCount,
+} from "../../../store/selectors/slices.selectors";
 import type { Service } from "../types/catalog.types";
 
 export interface CategoryItem {
@@ -21,32 +27,27 @@ export interface CategoryView extends CategoryItem {
 export const useServices = () => {
   const dispatch = useDispatch<AppDispatch>();
 
-  const services = useSelector(
-    (state: RootState) => (state.catalog as any).items as Service[],
-  );
-  const rawCategoriesFromStore = useSelector(
-    (state: RootState) => (state.catalog as any).categories as CategoryItem[] | undefined
-  );
-  const rawCategories = rawCategoriesFromStore || [];
-  const loading = useSelector(
-    (state: RootState) =>
-      ((state.catalog as any).loading?.fetchAll as boolean) ?? false,
-  );
-  const error = useSelector(
-    (state: RootState) => (state.catalog as any).error as string | null,
+  const rawServices = useSelector(selectAllServices);
+  const services = (Array.isArray(rawServices) ? rawServices : []) as Service[];
+
+  // Memoized selector: categories with service counts. Only recomputes when
+  // services or categories in Redux state actually change.
+  const categories = useSelector(
+    selectCategoriesWithServiceCount,
+  ) as CategoryView[];
+
+  const loadingState = useSelector(selectServicesLoading);
+  const loading = loadingState?.fetchAll ?? false;
+  const error = useSelector(selectServicesError);
+  const pagination = useSelector(selectServicesPagination);
+
+  const fetchServices = useCallback(
+    (params?: FetchServicesParams) => {
+      dispatch(fetchServicesThunk(params));
+      dispatch(fetchCategoriesThunk());
+    },
+    [dispatch],
   );
 
-  // Derive serviceCount per category from the services list
-  const categories: CategoryView[] = (rawCategories || []).map((cat) => ({
-    ...cat,
-    serviceCount: services.filter(
-      (svc) => String(svc.category_id) === String(cat.id),
-    ).length,
-  }));
-
-  const fetchServices = useCallback(() => {
-    dispatch(fetchCatalogThunk());
-  }, [dispatch]);
-
-  return { services, categories, loading, error, fetchServices };
+  return { services, categories, loading, error, pagination, fetchServices };
 };

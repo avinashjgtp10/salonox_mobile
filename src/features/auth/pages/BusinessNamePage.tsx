@@ -1,9 +1,12 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { FiArrowLeft } from "react-icons/fi";
+import { FiArrowRight } from "react-icons/fi";
 import "../styles/BusinessNamePage.scss";
+import "../styles/onboarding-shared.scss";
 import { useOnboarding } from "../../../context/OnboardingContext";
-import salonImg from "../../../assets/images/salon.jpg";
+import OnboardingImagePanel from "../components/OnboardingImagePanel";
+import OnboardingPageWrapper from "../components/OnboardingPageWrapper";
+import OnboardingBackButton from "../components/OnboardingBackButton";
 
 export default function BusinessNamePage() {
   const navigate = useNavigate();
@@ -18,92 +21,70 @@ export default function BusinessNamePage() {
   const handleContinue = () => {
     setSubmitted(true);
     if (!isValid) return;
-
     update({
       business_name: businessName.trim(),
       website_url: website.trim(),
     });
-
     navigate("/service-type");
   };
 
   return (
-    <div className="container-fluid p-0">
-      <div className="progress rounded-0" style={{ height: "4px" }}>
-        <div className="progress-bar bg-dark" style={{ width: "30%" }} />
-      </div>
+    <OnboardingPageWrapper>
+      {/* LEFT PANEL */}
+      <div className="col-lg-5 col-12 bg-white d-flex align-items-center justify-content-center p-4 p-lg-5 position-relative">
+        <OnboardingBackButton />
 
-      <div className="row g-0 min-vh-100">
-        <div className="col-lg-5 col-12 bg-light d-flex align-items-center justify-content-center p-4 position-relative">
-          <button
-            className="btn btn-light border rounded-circle position-absolute d-md-flex align-items-center justify-content-center"
-            style={{ top: "30px", left: "50px", width: "40px", height: "40px", padding: 0, zIndex: 10 }}
-            onClick={() => navigate(-1)}
-          >
-            <FiArrowLeft />
-          </button>
-          <div
-            className="card shadow-sm p-4 w-100"
-            style={{ maxWidth: "480px" }}
-          >
-            <p className="text-muted small mb-2">Account setup</p>
-            <h4 className="fw-bold mb-2">What's your business name?</h4>
-            <p className="text-muted small mb-4">
-              This is the brand name your clients will see. Your billing and
-              legal name can be added later.
-            </p>
+        <div className="ob-content-max">
+          <h3 className="ob-heading mb-1">What's your business name?</h3>
+          <p className="ob-subtext mb-4">
+            This is the brand name your clients will see. Your billing and legal name can be added later.
+          </p>
 
-            <div className="mb-3">
-              <label className="form-label fw-semibold">Business name *</label>
-              <input
-                type="text"
-                className={`form-control ${submitted && !isValid ? "is-invalid" : ""}`}
-                value={businessName}
-                onChange={(e) => setBusinessName(e.target.value)}
-              />
-              {submitted && !isValid && (
-                <div className="invalid-feedback">
-                  Business name must be at least 3 characters
-                </div>
-              )}
-            </div>
-
-            <div className="mb-4">
-              <label className="form-label fw-semibold">
-                Website (Optional)
-              </label>
-              <input
-                type="text"
-                placeholder="www.yoursite.com"
-                className="form-control"
-                value={website}
-                onChange={(e) => setWebsite(e.target.value)}
-              />
-            </div>
-
-            <button
-              className="btn btn-dark w-100 rounded-pill"
-              onClick={handleContinue}
-            >
-              Continue →
-            </button>
+          <div className="mb-3">
+            <label className="ob-label">
+              Business name <span className="text-danger">*</span>
+            </label>
+            <input
+              type="text"
+              className={`ob-input ${submitted && !isValid ? "is-invalid" : ""}`}
+              placeholder="e.g. Glamour Salon"
+              value={businessName}
+              onChange={(e) => setBusinessName(e.target.value)}
+            />
+            {submitted && !isValid && (
+              <div className="invalid-feedback d-block ob-invalid-msg">
+                Business name must be at least 3 characters
+              </div>
+            )}
           </div>
-        </div>
 
-        <div
-          className="col-lg-7 d-none d-lg-block position-relative p-0"
-          style={{ minHeight: "100vh" }}
-        >
-          <img
-            src={salonImg}
-            alt="salon"
-            className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
-            style={{ zIndex: 0 }}
-          />
+          <div className="mb-4">
+            <label className="ob-label">
+              Website <span className="text-muted fw-normal">(Optional)</span>
+            </label>
+            <input
+              type="text"
+              placeholder="www.yoursite.com"
+              className="ob-input"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+            />
+          </div>
 
-
+          <button className="ob-btn-primary w-100" onClick={handleContinue}>
+            Continue <FiArrowRight size={14} className="ms-1" />
+          </button>
         </div>
       </div>
-    </div>
+
+      {/* RIGHT IMAGE PANEL */}
+      <OnboardingImagePanel
+        quote={{
+          text: "My clients love how easy it is to book. Revenue went up 40% in just 3 months after switching.",
+          author: "James K.",
+          role: "Master Barber, New York",
+        }}
+      />
+    </OnboardingPageWrapper>
   );
 }

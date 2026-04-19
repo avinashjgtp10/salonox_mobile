@@ -5,6 +5,7 @@ import { useSchedulerContext } from "../../store/SchedulerContext";
 import MiniCalendar from "../shared/MiniCalendar.tsx";
 import TimeSelect from "../shared/TimeSelect";
 import Button from "../../../../components/ui/Button";
+import Input from "../../../../components/ui/Input";
 
 interface Props {
   onClose: () => void;
@@ -14,105 +15,42 @@ interface Props {
 const BlockTimeModal: React.FC<Props> = ({ onClose, defaultStaffId }) => {
   const { addBlockedTime, currentDate, interval } = useSchedulerContext();
 
-  const [date, setDate] = useState(currentDate);
-  const [staffId, setStaffId] = useState(defaultStaffId || "");
+  const [date,      setDate]      = useState(currentDate);
+  const [staffId,   setStaffId]   = useState(defaultStaffId || "");
   const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
-  const [reason, setReason] = useState("");
-  const [showCal, setShowCal] = useState(false);
+  const [endTime,   setEndTime]   = useState("");
+  const [reason,    setReason]    = useState("");
+  const [showCal,   setShowCal]   = useState(false);
 
   const canSave = !!staffId && !!startTime && !!endTime;
 
   function handleSave() {
     if (!canSave) return;
-    const bt: BlockedTime = {
-      id: "bt_" + Date.now(),
-      staffId,
-      date,
-      startTime,
-      endTime,
-      reason,
-    };
+    const bt: BlockedTime = { id: "bt_" + Date.now(), staffId, date, startTime, endTime, reason };
     addBlockedTime(bt);
     onClose();
   }
 
   return (
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,.45)",
-        zIndex: 1000,
-        display: "flex",
-        justifyContent: "flex-end",
-      }}
+      className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-end"
+      style={{ background: "rgba(0,0,0,.45)", zIndex: 1000 }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div
-        style={{
-          width: "min(400px,100vw)",
-          background: "#fff",
-          height: "100vh",
-          overflowY: "auto",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
+      <div className="d-flex flex-column bg-white h-100" style={{ width: "min(400px,100vw)", overflowY: "auto" }}>
+
         {/* Header */}
-        <div
-          style={{
-            padding: "18px 24px 14px",
-            borderBottom: "1px solid #e5e7eb",
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            position: "sticky",
-            top: 0,
-            background: "#fff",
-            zIndex: 5,
-          }}
-        >
-          <button
-            onClick={onClose}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              fontSize: 20,
-            }}
-          >
-            ✕
-          </button>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
-            New Blocked Time
-          </h2>
+        <div className="d-flex align-items-center gap-2 px-4 py-3 border-bottom sticky-top bg-white" style={{ zIndex: 5 }}>
+          <button className="btn btn-sm btn-link text-dark p-0 text-decoration-none fs-5" onClick={onClose}>✕</button>
+          <h5 className="mb-0 fw-bold">New Blocked Time</h5>
         </div>
 
         {/* Body */}
-        <div
-          style={{
-            padding: 24,
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            gap: 16,
-          }}
-        >
+        <div className="p-4 d-flex flex-column gap-3 flex-grow-1">
+
           {/* Date */}
-          <div style={{ position: "relative" }}>
-            <label
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: "#6b7280",
-                display: "block",
-                marginBottom: 3,
-                textTransform: "uppercase",
-              }}
-            >
-              Date *
-            </label>
+          <div className="position-relative">
+            <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Date *</label>
             <input
               readOnly
               value={date}
@@ -121,139 +59,47 @@ const BlockTimeModal: React.FC<Props> = ({ onClose, defaultStaffId }) => {
               style={{ cursor: "pointer" }}
             />
             {showCal && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "100%",
-                  left: 0,
-                  zIndex: 400,
-                }}
-              >
-                <MiniCalendar
-                  value={date}
-                  onChange={(d) => {
-                    setDate(d);
-                    setShowCal(false);
-                  }}
-                  onClose={() => setShowCal(false)}
-                />
+              <div className="position-absolute" style={{ top: "100%", left: 0, zIndex: 400 }}>
+                <MiniCalendar value={date} onChange={(d) => { setDate(d); setShowCal(false); }} onClose={() => setShowCal(false)} />
               </div>
             )}
           </div>
 
           {/* Staff */}
           <div>
-            <label
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: "#6b7280",
-                display: "block",
-                marginBottom: 3,
-                textTransform: "uppercase",
-              }}
-            >
-              Staff *
-            </label>
-            <select
-              className="form-select"
-              value={staffId}
-              onChange={(e) => setStaffId(e.target.value)}
-            >
+            <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Staff *</label>
+            <select className="form-select" value={staffId} onChange={(e) => setStaffId(e.target.value)}>
               <option value="">Select Staff</option>
-              {STAFF_LIST.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
+              {STAFF_LIST.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
 
           {/* Start / End time */}
-          <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
-          >
-            <div>
-              <label
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: "#6b7280",
-                  display: "block",
-                  marginBottom: 3,
-                  textTransform: "uppercase",
-                }}
-              >
-                Start Time *
-              </label>
-              <TimeSelect
-                value={startTime}
-                onChange={setStartTime}
-                interval={interval}
-              />
+          <div className="row g-3">
+            <div className="col">
+              <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Start Time *</label>
+              <TimeSelect value={startTime} onChange={setStartTime} interval={interval} className="form-select" />
             </div>
-            <div>
-              <label
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: "#6b7280",
-                  display: "block",
-                  marginBottom: 3,
-                  textTransform: "uppercase",
-                }}
-              >
-                End Time *
-              </label>
-              <TimeSelect
-                value={endTime}
-                onChange={setEndTime}
-                interval={interval}
-              />
+            <div className="col">
+              <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>End Time *</label>
+              <TimeSelect value={endTime} onChange={setEndTime} interval={interval} className="form-select" />
             </div>
           </div>
 
           {/* Reason */}
-          <div>
-            <label
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: "#6b7280",
-                display: "block",
-                marginBottom: 3,
-                textTransform: "uppercase",
-              }}
-            >
-              Reason
-            </label>
-            <textarea
-              className="form-control"
-              rows={4}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </div>
+          <Input
+            label="Reason"
+            multiline
+            rows={4}
+            value={reason}
+            onChange={(e) => setReason((e.target as HTMLTextAreaElement).value)}
+            placeholder="e.g. Staff on leave"
+          />
         </div>
 
         {/* Footer */}
-        <div
-          style={{
-            padding: "14px 24px",
-            borderTop: "1px solid #e5e7eb",
-            display: "flex",
-            justifyContent: "flex-end",
-            position: "sticky",
-            bottom: 0,
-            background: "#fff",
-          }}
-        >
-          <Button
-            variant="dark"
-            disabled={!canSave}
-            onClick={handleSave}
-            style={{ opacity: canSave ? 1 : 0.5 }}
-          >
+        <div className="px-4 py-3 border-top sticky-bottom bg-white d-flex justify-content-end">
+          <Button variant="dark" disabled={!canSave} onClick={handleSave} style={{ opacity: canSave ? 1 : 0.5 }}>
             Save
           </Button>
         </div>
