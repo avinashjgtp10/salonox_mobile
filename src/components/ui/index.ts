@@ -11,3 +11,5 @@ export { default as SplitLayout } from "./SplitLayout";
 export { PageLoader } from "./PageLoader";
 export { default as Select } from "./Select";
 export { default as Table } from "./Table";
+export { default as Pagination } from "./Pagination";
+export { default as Loader } from "./Loader";

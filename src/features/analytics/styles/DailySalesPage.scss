@@ -219,6 +219,31 @@
   border-bottom: none;
 }
 
+/* ================= DAILY STAT CARDS ================= */
+
+.daily-stat-card {
+  background: #ffffff;
+  border: 1px solid #ecedf0;
+  border-radius: 12px;
+  padding: 18px 22px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.daily-stat-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #6b717e;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.daily-stat-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: #11141a;
+}
+
 /* ================= RESPONSIVE ================= */
 
 @media (max-width: 992px) {

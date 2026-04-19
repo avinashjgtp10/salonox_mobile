@@ -1,18 +1,34 @@
-import { Routes, Route } from "react-router-dom";
+import { lazy, Suspense } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { PageLoader } from "../components/ui/PageLoader";
+import SettingsLayout from "../features/settings/components/SettingsLayout";
 
-// NOTE: All Settings page components live in the features/settings-ui branch.
-// They will be imported and wired up here once that branch is merged into main.
-// The stub below keeps the build clean in the meantime.
-
-const SettingsComingSoon = () => (
-  <div style={{ padding: "2rem", textAlign: "center", color: "#888" }}>
-    Settings pages are in the <strong>features/settings-ui</strong> branch.
-    Merge that branch to restore all settings routes.
-  </div>
-);
+const ProfileSettingsPage   = lazy(() => import("../features/settings/pages/ProfileSettingsPage"));
+const BusinessSettingsPage  = lazy(() => import("../features/settings/pages/BusinessSettingsPage"));
+const AccountSettingsPage   = lazy(() => import("../features/settings/pages/AccountSettingsPage"));
+const NotificationsPage     = lazy(() => import("../features/settings/pages/NotificationsPage"));
+const RolesPermissionsPage  = lazy(() => import("../features/settings/pages/RolesPermissionsPage"));
+const IntegrationsPage      = lazy(() => import("../features/settings/pages/IntegrationsPage"));
+const BillingPage           = lazy(() => import("../features/settings/pages/BillingPage"));
+const DataPrivacyPage       = lazy(() => import("../features/settings/pages/DataPrivacyPage"));
 
 export const SettingsRoutes = () => (
-  <Routes>
-    <Route path="*" element={<SettingsComingSoon />} />
-  </Routes>
+  <Suspense fallback={<PageLoader />}>
+    <Routes>
+      <Route element={<SettingsLayout />}>
+        {/* Default redirect to profile */}
+        <Route index element={<Navigate to="profile" replace />} />
+        <Route path="profile"       element={<ProfileSettingsPage />} />
+        <Route path="business"      element={<BusinessSettingsPage />} />
+        <Route path="account"       element={<AccountSettingsPage />} />
+        <Route path="notifications" element={<NotificationsPage />} />
+        <Route path="roles"         element={<RolesPermissionsPage />} />
+        <Route path="integrations"  element={<IntegrationsPage />} />
+        <Route path="billing"       element={<BillingPage />} />
+        <Route path="data-privacy"  element={<DataPrivacyPage />} />
+        {/* Catch-all → profile */}
+        <Route path="*"             element={<Navigate to="profile" replace />} />
+      </Route>
+    </Routes>
+  </Suspense>
 );

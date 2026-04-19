@@ -13,3 +13,4 @@ export * from "./marketing.endpoints";
 export * from "./report.endpoints";
 export * from "./products.endpoints";
 export * from "./categories.endpoints";
+export * from "./services.endpoints";

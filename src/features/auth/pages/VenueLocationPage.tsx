@@ -2,7 +2,8 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "leaflet/dist/leaflet.css";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
-import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
+import AutoNavigateIndicator from "../components/AutoNavigateIndicator";
+import { MapContainer, TileLayer, Marker, useMap, ZoomControl } from "react-leaflet";
 import L from "leaflet";
 import { FiArrowLeft, FiArrowRight } from "react-icons/fi";
 import { HiOutlineLocationMarker } from "react-icons/hi";
@@ -35,18 +36,18 @@ export default function VenueLocationPage() {
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [noResults, setNoResults] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
   const [coords, setCoords] = useState<[number, number] | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navigatingRef = useRef(false);
 
   useEffect(() => {
+    if (navigatingRef.current) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     if (address.length > 2) {
       setNoResults(false);
       debounceRef.current = setTimeout(async () => {
         try {
-          // Photon API — great POI/business autocomplete, India-biased
           const res = await fetch(
             `https://photon.komoot.io/api/?q=${encodeURIComponent(address)}&limit=7&lang=en&lat=20.5937&lon=78.9629`,
           );
@@ -85,6 +86,17 @@ export default function VenueLocationPage() {
     };
   }, [address]);
 
+  const [navigating, setNavigating] = useState(false);
+
+  const doNavigate = (addr: string) => {
+    navigatingRef.current = true;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setSuggestions([]);
+    update({ address: addr.trim() });
+    setNavigating(true);
+    setTimeout(() => navigate("/previous-software"), 600);
+  };
+
   const selectSuggestion = (item: {
     display_name: string;
     lat: number;
@@ -94,7 +106,7 @@ export default function VenueLocationPage() {
     setCoords([item.lat, item.lon]);
     setSuggestions([]);
     setNoResults(false);
-    setSubmitted(false);
+    doNavigate(item.display_name);
   };
 
   const handleGetLocation = () => {
@@ -115,7 +127,7 @@ export default function VenueLocationPage() {
             setAddress(data.display_name);
             setCoords([c.latitude, c.longitude]);
             setSuggestions([]);
-            setSubmitted(false);
+            doNavigate(data.display_name);
           }
         } catch {
           alert("Could not fetch address. Please type your location manually.");
@@ -129,87 +141,60 @@ export default function VenueLocationPage() {
     );
   };
 
-  const handleContinue = () => {
-    setSubmitted(true);
-    if (!address.trim()) return;
-    update({ address: address.trim() });
-    navigate("/previous-software");
-  };
-
   const defaultCenter: [number, number] = [20.5937, 78.9629];
 
   return (
-    <div className="container-fluid p-0 venue-page position-relative">
-      <div className="progress rounded-0" style={{ height: "4px" }}>
-        <div className="progress-bar bg-dark" style={{ width: "60%" }} />
-      </div>
+    <div className="container-fluid p-0 venue-page position-relative h-100">
+      <div className="row g-0 ob-page-row">
 
-
-
-      <div className="row g-0 min-vh-100">
-        {/* LEFT PANEL */}
+        {/* ── LEFT PANEL ── */}
         <div className="col-lg-5 col-12 bg-white p-5 position-relative d-flex flex-column">
           <button
-            className="btn btn-light border rounded-circle position-absolute d-flex align-items-center justify-content-center"
-            style={{ top: "30px", left: "50px", width: "42px", height: "42px", zIndex: 10 }}
+            className="ob-back-btn position-absolute venue-back-btn"
             onClick={() => navigate(-1)}
           >
             <FiArrowLeft />
           </button>
 
-
-
-          <div className="mt-5 pt-3" style={{ maxWidth: "420px" }}>
-            <p className="text-muted small">Account setup</p>
-            <h3 className="fw-bold mb-3">Set your venue's physical location</h3>
-            <p className="text-muted mb-4">
-              Add your primary business location so your clients can easily find
-              you.
+          <div className="venue-content mt-5 pt-3">
+            <h3 className="ob-heading mb-3">Set your venue's physical location</h3>
+            <p className="ob-subtext mb-4">
+              Add your primary business location so your clients can easily find you.
             </p>
 
             <div className="d-flex gap-2 align-items-center">
               <div className="position-relative flex-grow-1">
                 <HiOutlineLocationMarker
-                  className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"
-                  style={{ cursor: "pointer", zIndex: 2 }}
+                  className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted venue-location-icon"
                   onClick={handleGetLocation}
                 />
                 <input
                   type="text"
-                  className={`form-control ps-5 pe-3 ${submitted && !address.trim() ? "is-invalid" : ""}`}
+                  className="form-control ps-5 pe-3"
                   placeholder="Search location (e.g., Lakme Academy Baramati)"
                   value={address}
-                  onChange={(e) => {
-                    setAddress(e.target.value);
-                    setSubmitted(false);
-                  }}
+                  onChange={(e) => setAddress(e.target.value)}
+                  disabled={navigating}
                 />
               </div>
               <button
-                className="btn btn-dark d-flex align-items-center justify-content-center rounded-circle shadow-sm"
-                style={{ width: "40px", height: "40px", flexShrink: 0 }}
-                onClick={handleContinue}
+                className="btn btn-dark d-flex align-items-center justify-content-center rounded-circle shadow-sm venue-continue-btn"
+                disabled={!address.trim() || navigating}
+                onClick={() => doNavigate(address)}
               >
-                <FiArrowRight size={20} />
+                <FiArrowRight size={18} />
               </button>
             </div>
-            <div className="position-relative">
-              {submitted && !address.trim() && (
-                <div className="invalid-feedback d-block mt-1">
-                  Please select your business location
-                </div>
-              )}
 
+            <AutoNavigateIndicator visible={navigating} className="mt-2" />
+
+            <div className="position-relative">
               {suggestions.length > 0 && (
-                <ul
-                  className="list-group position-absolute w-100 mt-1 suggestion-box"
-                  style={{ zIndex: 1050 }}
-                >
+                <ul className="list-group position-absolute w-100 mt-1 suggestion-box">
                   {suggestions.map((item, i) => (
                     <li
                       key={i}
-                      className="list-group-item list-group-item-action small py-2"
-                      style={{ cursor: "pointer" }}
+                      className="list-group-item list-group-item-action small py-2 suggestion-item"
                       onClick={() => selectSuggestion(item)}
                     >
                       {item.display_name}
@@ -221,8 +206,7 @@ export default function VenueLocationPage() {
               {noResults && (
                 <div className="mt-2">
                   <small className="text-muted">
-                    No results found. Try a nearby area or type your address
-                    manually.
+                    No results found. Try a nearby area or type your address manually.
                   </small>
                 </div>
               )}
@@ -236,28 +220,28 @@ export default function VenueLocationPage() {
           </div>
         </div>
 
-        {/* RIGHT PANEL — full interactive map */}
-        <div
-          className="col-lg-7 d-none d-lg-block position-relative p-0"
-          style={{ minHeight: "100vh" }}
-        >
+        {/* ── RIGHT PANEL — full interactive map ── */}
+        <div className="col-lg-7 d-none d-lg-block position-relative p-0 venue-map-panel">
           <MapContainer
             center={coords ?? defaultCenter}
             zoom={coords ? 15 : 5}
             style={{ height: "100vh", width: "100%" }}
-            zoomControl={true}
+            zoomControl={false}
             scrollWheelZoom={true}
           >
             <TileLayer
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             />
+
+            {/* ↓ zoom control placed bottom-right, away from navbar */}
+            <ZoomControl position="bottomright" />
+
             {coords && <Marker position={coords} />}
             <FlyTo coords={coords} />
           </MapContainer>
-
-
         </div>
+
       </div>
     </div>
   );

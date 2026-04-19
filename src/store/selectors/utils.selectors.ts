@@ -22,6 +22,7 @@ export function createCRUDSelectors<TEntity extends WithId>(
   );
   const selectLoading = createSelector(sliceSelector, (s) => s.loading);
   const selectError = createSelector(sliceSelector, (s) => s.error);
+  const selectPagination = createSelector(sliceSelector, (s) => s.pagination);
   const selectCount = createSelector(selectItems, (items) => items.length);
   const selectIsEmpty = createSelector(
     selectItems,
@@ -33,7 +34,9 @@ export function createCRUDSelectors<TEntity extends WithId>(
     selectSelectedItem,
     selectLoading,
     selectError,
+    selectPagination,
     selectCount,
     selectIsEmpty,
   };
 }
+

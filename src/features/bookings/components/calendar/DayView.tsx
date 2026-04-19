@@ -3,21 +3,23 @@ import type { Booking } from "../../types/scheduler-types";
 import { useScheduler, SLOT_HEIGHT } from "../../hooks/useScheduler";
 import { useBookings } from "../../hooks/useBookings";
 import { useSchedulerContext } from "../../store/SchedulerContext";
-import { STAFF_LIST } from "../../utils/schedulerMockData";
-import { formatTime12, getCurrentTime, addMinutes } from "../../utils/timeUtils";
+import { STAFF_LIST, CLIENT_STATS } from "../../utils/schedulerMockData";
+import { formatTime12, getCurrentTime, addMinutes, generateTimeSlots } from "../../utils/timeUtils";
 import Avatar from "../shared/Avatar";
-import BookingCard from "../booking/BookingCard";
 import "../../styles/DayView.scss";
 
 interface DayViewProps {
   onSlotClick: (staffId: string, time: string) => void;
   onViewBill: (booking: Booking) => void;
   onEditBooking: (booking: Booking) => void;
+  onPaymentBooking: (booking: Booking) => void;
   onBlockTime: (staffId: string) => void;
 }
 
-const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBooking, onBlockTime }) => {
-  const { currentDate, slots, timeToPx, durationToPx, intervalMins } = useScheduler();
+const DayView: React.FC<DayViewProps> = ({
+  onSlotClick, onEditBooking,  onBlockTime,
+}) => {
+  const { currentDate, timeToPx, durationToPx, intervalMins, interval } = useScheduler();
   const { blockedTimes, deleteBlockedTime, updateBooking } = useSchedulerContext();
   const { getBookingsByDate } = useBookings();
 
@@ -40,8 +42,6 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
   }, []);
 
   const [nowTime, setNowTime] = useState(getCurrentTime());
-  const [popupBooking, setPopupBooking] = useState<Booking | null>(null);
-  const [popupPos, setPopupPos] = useState({ top: 0, left: 0 });
   const [staffMenu, setStaffMenu] = useState<{ staffId: string; x: number; y: number } | null>(null);
 
   const [dragging, setDragging] = useState<{
@@ -107,12 +107,7 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
         const colShift = Math.round(deltaX / COL_WIDTH);
         const origIndex = STAFF_LIST.findIndex((s) => s.id === prev.booking.staffId);
         const newIndex = Math.max(0, Math.min(STAFF_LIST.length - 1, origIndex + colShift));
-        return {
-          ...prev,
-          currentTop: Math.max(0, snapped),
-          currentStaffId: STAFF_LIST[newIndex].id,
-          currentStaffIndex: newIndex,
-        };
+        return { ...prev, currentTop: Math.max(0, snapped), currentStaffId: STAFF_LIST[newIndex].id, currentStaffIndex: newIndex };
       });
     }
     function onMouseUp() {
@@ -127,24 +122,14 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
       const newEnd = addMinutes(newStart, duration);
       const newStaff = STAFF_LIST.find((s) => s.id === dragging.currentStaffId);
       updateBooking({
-        ...dragging.booking,
-        startTime: newStart,
-        endTime: newEnd,
-        staffId: dragging.currentStaffId,
-        services: dragging.booking.services.map((s) => ({
-          ...s,
-          staffId: dragging.currentStaffId,
-          staff: newStaff?.name || s.staff,
-        })),
+        ...dragging.booking, startTime: newStart, endTime: newEnd, staffId: dragging.currentStaffId,
+        services: dragging.booking.services.map((s) => ({ ...s, staffId: dragging.currentStaffId, staff: newStaff?.name || s.staff })),
       });
       setDragging(null);
     }
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
-    return () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
-    };
+    return () => { window.removeEventListener("mousemove", onMouseMove); window.removeEventListener("mouseup", onMouseUp); };
   }, [dragging, intervalMins, updateBooking, COL_WIDTH]);
 
   useEffect(() => {
@@ -173,14 +158,42 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
     }
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
-    return () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
-    };
+    return () => { window.removeEventListener("mousemove", onMouseMove); window.removeEventListener("mouseup", onMouseUp); };
   }, [resizing, intervalMins, updateBooking]);
 
   const dayBookings = getBookingsByDate(currentDate);
-  const dayBlocked = blockedTimes.filter((b) => b.date === currentDate);
+  const dayBlocked  = blockedTimes.filter((b) => b.date === currentDate);
+
+  // ── Smart visible hour range ─────────────────────────────────────────────
+  // Default: 9 AM – 7 PM when no bookings exist.
+  // With bookings: 1 hour before earliest start, 1 hour after latest end,
+  // always at least a 4-hour window, clamped to 0–24.
+  const DEFAULT_START = 9;
+  const DEFAULT_END   = 19;
+  const MIN_WINDOW    = 4; // minimum hours to show
+
+  const allEvents = [
+    ...dayBookings.map((b) => ({ start: b.startTime, end: b.endTime })),
+    ...dayBlocked.map((b)  => ({ start: b.startTime, end: b.endTime })),
+  ];
+
+  let startHour: number;
+  let endHour:   number;
+
+  if (allEvents.length === 0) {
+    startHour = DEFAULT_START;
+    endHour   = DEFAULT_END;
+  } else {
+    const toMins = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+    const earliestMins = Math.min(...allEvents.map((e) => toMins(e.start)));
+    const latestMins   = Math.max(...allEvents.map((e) => toMins(e.end)));
+    startHour = Math.max(0,  Math.floor(earliestMins / 60) - 1);
+    endHour   = Math.min(24, Math.ceil(latestMins   / 60) + 1);
+    // Enforce minimum window
+    if (endHour - startHour < MIN_WINDOW) endHour = Math.min(24, startHour + MIN_WINDOW);
+  }
+
+  const slots = generateTimeSlots(interval as any);
   const nowPx = timeToPx(nowTime);
   const isInteracting = !!(dragging || resizing);
   const totalWidth = STAFF_LIST.length * COL_WIDTH;
@@ -196,7 +209,7 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
   return (
     <div
       className={`dv-root${isInteracting ? " dv-root--interacting" : ""}${dragging ? " dv-root--dragging" : ""}${resizing ? " dv-root--resizing" : ""}`}
-      onClick={() => { setPopupBooking(null); setStaffMenu(null); }}
+      onClick={() => setStaffMenu(null)}
     >
       {/* ── Time gutter ── */}
       <div className="dv-gutter">
@@ -205,10 +218,7 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
           {slots.map((t) => {
             const [, m] = t.split(":").map(Number);
             return (
-              <div
-                key={t}
-                className={`dv-gutter__slot${m === 0 ? " dv-gutter__slot--hour" : ""}`}
-              >
+              <div key={t} className={`dv-gutter__slot${m === 0 ? " dv-gutter__slot--hour" : ""}`}>
                 <span className={`dv-gutter__label${m === 0 ? " dv-gutter__label--hour" : ""}`}>
                   {formatTime12(t)}
                 </span>
@@ -220,8 +230,6 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
 
       {/* ── Staff columns ── */}
       <div ref={containerRef} className="dv-columns">
-
-        {/* Staff header */}
         <div ref={headerRef} className="dv-staff-header">
           <div className="dv-staff-header__inner" style={{ width: totalWidth }}>
             {STAFF_LIST.map((staff) => {
@@ -234,25 +242,18 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
                   onClick={(e) => {
                     e.stopPropagation();
                     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                    setStaffMenu((prev) =>
-                      prev?.staffId === staff.id ? null : { staffId: staff.id, x: rect.left, y: rect.bottom + 4 }
-                    );
+                    setStaffMenu((prev) => prev?.staffId === staff.id ? null : { staffId: staff.id, x: rect.left, y: rect.bottom + 4 });
                   }}
                 >
                   <Avatar staff={staff} size={36} />
-                  <span className="dv-staff-name" style={{ maxWidth: COL_WIDTH - 8 }}>
-                    {staff.name}
-                  </span>
+                  <span className="dv-staff-name" style={{ maxWidth: COL_WIDTH - 8 }}>{staff.name}</span>
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* Scrollable body */}
         <div ref={scrollBodyRef} onScroll={onBodyScroll} className="dv-scroll-body">
-
-          {/* Empty state */}
           {dayBookings.length === 0 && !isInteracting && (
             <div className="dv-empty-state">
               <div className="dv-empty-state__icon">📅</div>
@@ -272,7 +273,6 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
                   className={`dv-staff-col${isDragTarget ? " dv-staff-col--drag-target" : ""}`}
                   style={{ width: COL_WIDTH }}
                 >
-                  {/* Slot cells */}
                   {slots.map((t) => {
                     const [, m] = t.split(":").map(Number);
                     const blocked = isSlotBlocked(staff.id, t);
@@ -281,29 +281,18 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
                         key={t}
                         onClick={() => !blocked && !isInteracting && onSlotClick(staff.id, t)}
                         className={`dv-slot${m === 0 ? " dv-slot--hour" : ""}${blocked ? " dv-slot--blocked" : ""}`}
-                        onMouseEnter={(e) => {
-                          if (!blocked && !isInteracting)
-                            (e.currentTarget as HTMLElement).classList.add("dv-slot--hover");
-                        }}
-                        onMouseLeave={(e) => {
-                          (e.currentTarget as HTMLElement).classList.remove("dv-slot--hover");
-                        }}
+                        onMouseEnter={(e) => { if (!blocked && !isInteracting) (e.currentTarget as HTMLElement).classList.add("dv-slot--hover"); }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).classList.remove("dv-slot--hover"); }}
                       />
                     );
                   })}
 
-                  {/* Block overlays */}
                   {dayBlocked.filter((b) => b.staffId === staff.id).map((b) => (
-                    <div
-                      key={b.id}
-                      className="dv-block-overlay"
-                      style={{ top: timeToPx(b.startTime), height: durationToPx(b.startTime, b.endTime) }}
-                    >
+                    <div key={b.id} className="dv-block-overlay" style={{ top: timeToPx(b.startTime), height: durationToPx(b.startTime, b.endTime) }}>
                       <span className="dv-block-overlay__label">🚫 {b.reason || "Blocked"}</span>
                     </div>
                   ))}
 
-                  {/* Booking chips */}
                   {dayBookings
                     .filter((b) => {
                       if (dragging?.booking.id === b.id) return dragging.currentStaffId === staff.id;
@@ -313,14 +302,11 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
                       const isDraggingThis = dragging?.booking.id === b.id;
                       const isResizingThis = resizing?.booking.id === b.id;
                       const chipTop = isDraggingThis ? dragging!.currentTop : timeToPx(b.startTime);
-                      const chipHeight = isResizingThis
-                        ? resizing!.currentHeight
-                        : Math.max(durationToPx(b.startTime, b.endTime), SLOT_HEIGHT);
+                      const chipHeight = isResizingThis ? resizing!.currentHeight : Math.max(durationToPx(b.startTime, b.endTime), SLOT_HEIGHT);
+                      const statusClass = b.status === "Confirmed" ? "confirmed" : b.status === "Pending" ? "pending" : "cancelled";
 
-                      const statusClass =
-                        b.status === "Confirmed" ? "confirmed"
-                        : b.status === "Pending" ? "pending"
-                        : "cancelled";
+                      const clientStats = CLIENT_STATS?.find?.((c: any) => c.clientId === b.clientId) as any;
+                      const lastNote = clientStats?.notes || "";
 
                       const previewStart = isDraggingThis
                         ? (() => {
@@ -357,48 +343,30 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
                             const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                             const fromBottom = rect.bottom - e.clientY;
                             if (fromBottom > 14) {
-                              e.stopPropagation();
-                              e.preventDefault();
-                              setPopupBooking(null);
+                              e.stopPropagation(); e.preventDefault();
                               const origIndex = STAFF_LIST.findIndex((s) => s.id === b.staffId);
-                              setDragging({
-                                booking: b,
-                                startX: e.clientX,
-                                startY: e.clientY,
-                                originalTop: timeToPx(b.startTime),
-                                currentTop: timeToPx(b.startTime),
-                                currentStaffId: b.staffId,
-                                currentStaffIndex: origIndex,
-                              });
+                              setDragging({ booking: b, startX: e.clientX, startY: e.clientY, originalTop: timeToPx(b.startTime), currentTop: timeToPx(b.startTime), currentStaffId: b.staffId, currentStaffIndex: origIndex });
                             }
                           }}
                           onClick={(e) => {
                             e.stopPropagation();
                             if (isInteracting) return;
-                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                            setPopupPos({ top: rect.top, left: rect.right + 8 });
-                            setPopupBooking(b);
+                            onEditBooking(b);
                           }}
                         >
                           <div className="dv-chip__body">
-                            <span className="dv-chip__time">
-                              {formatTime12(previewStart)} – {formatTime12(previewEnd)}
-                            </span>
+                            <span className="dv-chip__time">{formatTime12(previewStart)} – {formatTime12(previewEnd)}</span>
                             <span className="dv-chip__service">{b.services[0]?.service}</span>
                             <span className="dv-chip__client">👤 {b.clientName}</span>
+                            {lastNote && chipHeight >= SLOT_HEIGHT * 2 && (
+                              <span className="dv-chip__note">📝 {lastNote}</span>
+                            )}
                           </div>
                           <div
                             className="dv-chip__resize-handle"
                             onMouseDown={(e) => {
-                              e.stopPropagation();
-                              e.preventDefault();
-                              setPopupBooking(null);
-                              setResizing({
-                                booking: b,
-                                startY: e.clientY,
-                                originalHeight: Math.max(durationToPx(b.startTime, b.endTime), SLOT_HEIGHT),
-                                currentHeight: Math.max(durationToPx(b.startTime, b.endTime), SLOT_HEIGHT),
-                              });
+                              e.stopPropagation(); e.preventDefault();
+                              setResizing({ booking: b, startY: e.clientY, originalHeight: Math.max(durationToPx(b.startTime, b.endTime), SLOT_HEIGHT), currentHeight: Math.max(durationToPx(b.startTime, b.endTime), SLOT_HEIGHT) });
                             }}
                           >
                             <div className="dv-chip__resize-bar" />
@@ -407,12 +375,9 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
                       );
                     })}
 
-                  {/* ── Now line — label ONLY on first column, bleeds into gutter ── */}
                   {isToday && (
                     <div className="dv-now-line" style={{ top: nowPx }}>
-                      {isFirstCol && (
-                        <div className="dv-now-line__label">{nowTime}</div>
-                      )}
+                      {isFirstCol && <div className="dv-now-line__label">{nowTime}</div>}
                     </div>
                   )}
                 </div>
@@ -422,13 +387,9 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
         </div>
       </div>
 
-      {/* ── Staff context menu ── */}
+      {/* Staff context menu */}
       {staffMenu && (
-        <div
-          ref={staffMenuRef}
-          className="dv-staff-menu"
-          style={{ top: staffMenu.y, left: staffMenu.x }}
-        >
+        <div ref={staffMenuRef} className="dv-staff-menu" style={{ top: staffMenu.y, left: staffMenu.x }}>
           <button
             className="dv-staff-menu__item"
             onClick={() => { onBlockTime(staffMenu.staffId); setStaffMenu(null); }}
@@ -447,21 +408,6 @@ const DayView: React.FC<DayViewProps> = ({ onSlotClick, onViewBill, onEditBookin
             ✅ Remove Block Time
           </button>
         </div>
-      )}
-
-      {/* ── Booking popup ── */}
-      {popupBooking && !isInteracting && (
-        <BookingCard
-          booking={popupBooking}
-          onView={onViewBill}
-          onEdit={onEditBooking}
-          onClose={() => setPopupBooking(null)}
-          style={{
-            position: "fixed",
-            top: Math.min(popupPos.top, window.innerHeight - 360),
-            left: Math.min(popupPos.left, window.innerWidth - 300),
-          }}
-        />
       )}
     </div>
   );

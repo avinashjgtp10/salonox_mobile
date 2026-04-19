@@ -3,7 +3,7 @@ import { Routes, Route } from "react-router-dom";
 import { SaleProvider } from "../features/analytics/context/SaleContext";
 
 const SalesListPage = lazy(
-  () => import("../features/analytics/pages/SalesListPage"),
+  () => import("../features/sales/pages/SalesListPage"),
 );
 const DailySalesPage = lazy(
   () => import("../features/analytics/pages/DailySalesPage"),
