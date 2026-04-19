@@ -1,6 +1,6 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../services/api/axios";
-import { CATEGORIES } from "../../services/api/endpoints/services.endpoints";
+import { CATEGORIES } from "../../services/api/endpoints/categories.endpoints";
 import { ApiError } from "../../services/api/interceptors";
 
 /**
