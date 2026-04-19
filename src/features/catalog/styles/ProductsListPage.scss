@@ -173,7 +173,11 @@
               font-weight: 500;
 
               &--low {
-                color: #dc2626;
+                color: #b54708; // amber — 1 in stock
+              }
+
+              &--out {
+                color: #dc2626; // red — 0 in stock
               }
             }
 

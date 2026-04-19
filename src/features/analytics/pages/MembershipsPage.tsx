@@ -1,118 +1,246 @@
 import { useState, useRef, useEffect } from "react";
-import { ChevronDown, ArrowRepeat } from "react-bootstrap-icons";
+import { useDispatch, useSelector } from "react-redux";
+import { ChevronDown, ArrowRepeat, Search, FileEarmarkText, FiletypeXlsx } from "react-bootstrap-icons";
 import { useNavigate } from "react-router-dom";
 
 // UI Components
-import Button from "../../../components/ui/Button";
-import Card from "../../../components/ui/Card";
-import QuickSaleDrawer from "../components/QuickSaleDrawer";
+import { Button, Card, Table, Pagination, Loader } from "../../../components/ui";
 import "../styles/MembershipsPage.scss";
 
-export default function MembershipsPage() {
-  const [showOptions, setShowOptions] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const optionsRef = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
+import type { AppDispatch, RootState } from "../../../store/store";
+import { fetchMembershipsThunk, exportMembershipsCsvThunk, exportMembershipsExcelThunk } from "../../../middleware/membership/membership.thunk";
+import type { Membership } from "../../../services/api/endpoints/memberships.endpoints";
 
-  // Close overlays on outside click
+export default function MembershipsPage() {
+  const dispatch    = useDispatch<AppDispatch>();
+  const navigate    = useNavigate();
+
+  // ── Redux ────────────────────────────────────────────────────────────────
+  const memberships = useSelector((s: RootState) => s.memberships.items as Membership[]);
+  const isLoading   = useSelector((s: RootState) => s.memberships.loading);
+
+  // ── State ────────────────────────────────────────────────────────────────
+  const [showOptions, setShowOptions] = useState(false);
+  const [searchTerm,  setSearchTerm]  = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize,    setPageSize]    = useState(10);
+  const optionsRef = useRef<HTMLDivElement>(null);
+
+  // ── Fetch on mount ────────────────────────────────────────────────────────
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        optionsRef.current &&
-        !optionsRef.current.contains(event.target as Node)
-      ) {
+    dispatch(fetchMembershipsThunk());
+  }, [dispatch]);
+
+  // ── Close dropdown on outside click ──────────────────────────────────────
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (optionsRef.current && !optionsRef.current.contains(e.target as Node)) {
         setShowOptions(false);
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  // ── Filtered + paginated ─────────────────────────────────────────────────
+  const filtered = memberships.filter((m) => {
+    const q = searchTerm.toLowerCase();
+    return !q || m.name.toLowerCase().includes(q) || (m.description || "").toLowerCase().includes(q);
+  });
+
+  const paginated  = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="memberships-page container-fluid">
-      {/* HEADER */}
+      {/* ── HEADER ── */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
           <h3 className="h4 fw-bold mb-1">Memberships sold</h3>
           <p className="text-muted small mb-0">
             View and filter memberships purchased by your clients.{" "}
-            <a href="#" className="text-primary text-decoration-none">
-              Learn more
-            </a>
+            <a href="#" className="text-primary text-decoration-none">Learn more</a>
           </p>
         </div>
 
-        <div className="position-relative" ref={optionsRef}>
-          <Button
-            variant="outline-dark"
-            pill
-            onClick={() => setShowOptions(!showOptions)}
-            iconRight={
-              <ChevronDown
-                size={14}
-                className={`ms-1 transition-all ${showOptions ? "rotate-180" : ""}`}
-              />
-            }
-          >
-            Options
-          </Button>
-
-          {showOptions && (
-            <div
-              className="membership-options-menu shadow-lg border position-absolute end-0 mt-2 bg-white z-2 rounded-3 overflow-hidden"
-              style={{ minWidth: "200px" }}
+        <div className="d-flex gap-2 align-items-center">
+          <div className="position-relative" ref={optionsRef}>
+            <Button
+              variant="outline-dark"
+              pill
+              onClick={() => setShowOptions(!showOptions)}
+              iconRight={
+                <ChevronDown
+                  size={14}
+                  className={`ms-1 transition-all ${showOptions ? "rotate-180" : ""}`}
+                />
+              }
             >
-              <Button
-                variant="ghost"
-                fullWidth
-                className="text-start p-2 rounded-0"
-                onClick={() => setShowOptions(false)}
-              >
-                <span>Export to CSV</span>
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
+              Options
+            </Button>
 
-      {/* EMPTY STATE */}
-      <Card
-        className="text-center py-5 border-0 rounded-4 empty-state-card shadow-sm mt-5 d-flex flex-column align-items-center justify-content-center flex-grow-1"
-        style={{ minHeight: "400px" }}
-      >
-        <div className="mb-4">
-          <div
-            className="d-flex align-items-center justify-content-center mx-auto empty-state-icon"
-            style={{
-              width: "60px",
-              height: "60px",
-              borderRadius: "15px",
-              background: "linear-gradient(135deg, #a855f7 0%, #d946ef 100%)",
-            }}
-          >
-            <ArrowRepeat size={30} className="text-white" />
+            {showOptions && (
+              <div
+                className="membership-options-menu shadow-lg border position-absolute end-0 mt-2 bg-white z-2 rounded-3 overflow-hidden"
+                style={{ minWidth: "200px" }}
+              >
+                <div className="px-3 py-2 small fw-bold text-muted border-bottom">Export</div>
+                <Button
+                  variant="ghost"
+                  fullWidth
+                  className="text-start p-2 rounded-0 d-flex align-items-center"
+                  onClick={() => { dispatch(exportMembershipsCsvThunk()); setShowOptions(false); }}
+                >
+                  <FileEarmarkText size={15} className="text-primary me-2" />
+                  CSV
+                </Button>
+                <Button
+                  variant="ghost"
+                  fullWidth
+                  className="text-start p-2 rounded-0 d-flex align-items-center"
+                  onClick={() => { dispatch(exportMembershipsExcelThunk()); setShowOptions(false); }}
+                >
+                  <FiletypeXlsx size={15} className="text-success me-2" />
+                  Excel
+                </Button>
+              </div>
+            )}
           </div>
-        </div>
-        <h4 className="fw-bold mb-2 text-dark h5">No memberships created yet</h4>
-        <p className="text-muted small mb-4 mx-auto" style={{ maxWidth: '400px' }}>
-          Add memberships in minutes and start selling them online and via your store.
-        </p>
-        <div className="mt-2 text-center w-100 d-flex justify-content-center">
+
           <Button
-            variant="outline-dark"
+            variant="dark"
             pill
             className="px-4 fw-bold"
             onClick={() => navigate("/dashboard/catalog/memberships")}
           >
-            Set up now
+            Set up memberships
           </Button>
         </div>
-      </Card>
+      </div>
 
-      <QuickSaleDrawer
-        isOpen={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-      />
+      {/* ── SEARCH BAR ── */}
+      <div className="mb-4" style={{ maxWidth: "380px" }}>
+        <div className="memberships-search">
+          <Search size={14} className="memberships-search__icon" />
+          <input
+            type="text"
+            placeholder="Search memberships…"
+            value={searchTerm}
+            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+            className="memberships-search__input"
+          />
+        </div>
+      </div>
+
+      {/* ── TABLE or EMPTY STATE ── */}
+      {isLoading ? (
+        <Card
+          className="text-center py-5 border-0 rounded-4 shadow-sm align-items-center justify-content-center d-flex"
+          style={{ minHeight: "300px" }}
+        >
+          <Loader message="Loading memberships…" className="py-5" />
+        </Card>
+      ) : (
+        <Card noPadding className="border-0 shadow-sm rounded-4 overflow-hidden mb-4 p-0">
+          <Table
+            columns={[
+              {
+                header: "Name",
+                key: "name",
+                render: (m: any) => (
+                  <div>
+                    <div className="fw-bold small d-flex align-items-center gap-2">
+                      <span
+                        className="memberships-color-dot"
+                        style={{ background: m.colour || "#6b717e" }}
+                      />
+                      {m.name}
+                    </div>
+                    {m.description && (
+                      <div className="text-muted" style={{ fontSize: "12px" }}>{m.description}</div>
+                    )}
+                  </div>
+                )
+              },
+              {
+                header: "Sessions",
+                key: "sessions",
+                render: (m: any) => (
+                  <span className="small text-muted">
+                    {m.sessionType === "unlimited" ? "Unlimited" : `${m.numberOfSessions ?? "—"} sessions`}
+                  </span>
+                )
+              },
+              {
+                header: "Valid For",
+                key: "validFor",
+                render: (m: any) => <span className="small text-muted">{m.validFor}</span>
+              },
+              {
+                header: "Online Sales",
+                key: "online",
+                render: (m: any) => (
+                  <span className={`memberships-status-badge ${m.enableOnlineSales ? "badge-active" : "badge-inactive"}`}>
+                    {m.enableOnlineSales ? "Enabled" : "Disabled"}
+                  </span>
+                )
+              },
+              {
+                header: "Price",
+                key: "price",
+                align: "right",
+                width: "120px",
+                render: (m: any) => (
+                  <div className="fw-bold small">₹{Number(m.price || 0).toFixed(2)}</div>
+                )
+              }
+            ]}
+            data={paginated}
+            emptyMessage={
+              <div className="d-flex flex-column align-items-center justify-content-center py-5">
+                <div
+                  className="d-flex align-items-center justify-content-center mx-auto mb-3"
+                  style={{ width: "60px", height: "60px", borderRadius: "15px", background: "linear-gradient(135deg, #a855f7 0%, #d946ef 100%)" }}
+                >
+                  <ArrowRepeat size={30} className="text-white" />
+                </div>
+                <h5 className="fw-bold mb-1 text-dark">
+                  {searchTerm ? "No memberships found" : "No memberships created yet"}
+                </h5>
+                <p className="text-muted small mb-4 mx-auto" style={{ maxWidth: "400px" }}>
+                  {searchTerm
+                    ? "Try a different search term."
+                    : "Add memberships in minutes and start selling them online and via your store."}
+                </p>
+                {!searchTerm && (
+                  <Button
+                    variant="outline-dark"
+                    pill
+                    className="px-4 fw-bold"
+                    onClick={() => navigate("/dashboard/catalog/memberships")}
+                  >
+                    Set up now
+                  </Button>
+                )}
+              </div>
+            }
+          />
+        </Card>
+      )}
+
+      {/* Pagination */}
+      {filtered.length > 0 && !isLoading && (
+        <Pagination
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalItems={filtered.length}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(sz) => {
+            setPageSize(sz);
+            setCurrentPage(1);
+          }}
+          className="mt-4 mb-4"
+        />
+      )}
     </div>
   );
 }

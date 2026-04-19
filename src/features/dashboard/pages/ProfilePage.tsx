@@ -17,9 +17,16 @@ import {
   Eye,
   Camera,
   CheckCircleFill,
+  ArrowClockwise,
 } from "react-bootstrap-icons";
+import toast from "react-hot-toast";
 import type { AppDispatch, RootState } from "../../../store/store";
-import { updateUserThunk } from "../../../middleware/user/user.thunk";
+import {
+  fetchMeThunk,
+  updateUserThunk,
+  uploadAvatarThunk,
+  changePasswordThunk,
+} from "../../../middleware/user/user.thunk";
 import type { UpdateUserPayload } from "../../../types/user.types";
 import "../styles/ProfilePage.scss";
 
@@ -42,21 +49,32 @@ interface FieldProps {
   editing: boolean;
   type?: string;
   placeholder?: string;
+  readOnly?: boolean;
   onChange: (name: keyof UpdateUserPayload, value: string) => void;
 }
 
-const ProfileField = ({ label, value, name, icon, editing, type = "text", placeholder, onChange }: FieldProps) => (
+const ProfileField = ({
+  label,
+  value,
+  name,
+  icon,
+  editing,
+  type = "text",
+  placeholder,
+  readOnly = false,
+  onChange,
+}: FieldProps) => (
   <div className="pp-field">
     <label className="pp-field-label">{label}</label>
-    <div className={`pp-field-wrap ${editing ? "pp-field-wrap--active" : ""}`}>
+    <div className={`pp-field-wrap ${editing && !readOnly ? "pp-field-wrap--active" : ""}`}>
       <span className="pp-field-icon">{icon}</span>
-      {editing ? (
+      {editing && !readOnly ? (
         <input
           type={type}
           className="pp-field-input"
           value={value}
           placeholder={placeholder ?? label}
-          onChange={e => onChange(name, e.target.value)}
+          onChange={(e) => onChange(name, e.target.value)}
           autoComplete="off"
         />
       ) : (
@@ -64,7 +82,21 @@ const ProfileField = ({ label, value, name, icon, editing, type = "text", placeh
           {value || `No ${label.toLowerCase()} set`}
         </span>
       )}
+      {readOnly && editing && (
+        <span className="pp-field-readonly-badge">locked</span>
+      )}
     </div>
+  </div>
+);
+
+// ── Loading skeleton ──────────────────────────────────────────────────────────
+
+const ProfileSkeleton = () => (
+  <div className="pp-skeleton-wrap">
+    <div className="pp-skeleton pp-skeleton--avatar" />
+    <div className="pp-skeleton pp-skeleton--line pp-skeleton--lg" />
+    <div className="pp-skeleton pp-skeleton--line pp-skeleton--md" />
+    <div className="pp-skeleton pp-skeleton--line pp-skeleton--sm" />
   </div>
 );
 
@@ -74,7 +106,11 @@ export default function ProfilePage() {
   const navigate  = useNavigate();
   const dispatch  = useDispatch<AppDispatch>();
   const profile   = useSelector((s: RootState) => s.user.profile);
-  const saving    = useSelector((s: RootState) => s.user.loading.update);
+  const fetching       = useSelector((s: RootState) => s.user.loading.fetch);
+  const saving         = useSelector((s: RootState) => s.user.loading.update);
+  const uploading      = useSelector((s: RootState) => s.user.loading.avatar);
+  const changingPw     = useSelector((s: RootState) => s.user.loading.changePassword);
+  const fetchErr       = useSelector((s: RootState) => s.user.error);
 
   // ── Edit state ───────────────────────────────────────────────────────────────
   const [editing,   setEditing]   = useState(false);
@@ -96,7 +132,12 @@ export default function ProfilePage() {
   // Avatar upload ref
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Sync form from Redux on load / when profile changes
+  // ── Fetch profile on mount ────────────────────────────────────────────────────
+  useEffect(() => {
+    dispatch(fetchMeThunk());
+  }, [dispatch]);
+
+  // Sync form from Redux when profile loads / changes
   useEffect(() => {
     if (profile) {
       setForm({
@@ -105,6 +146,7 @@ export default function ProfilePage() {
         businessName: profile.businessName ?? "",
         address:      profile.address      ?? "",
         country:      profile.country      ?? "",
+        countryCode:  profile.countryCode  ?? "",
       });
     }
   }, [profile]);
@@ -132,8 +174,11 @@ export default function ProfilePage() {
     if (updateUserThunk.fulfilled.match(result)) {
       setSaved(true);
       setEditing(false);
+      toast.success("Profile updated successfully!");
     } else {
-      setFormError(String(result.payload ?? "Failed to save changes."));
+      const msg = String(result.payload ?? "Failed to save changes.");
+      setFormError(msg);
+      toast.error(msg);
     }
   };
 
@@ -145,26 +190,103 @@ export default function ProfilePage() {
         businessName: profile.businessName ?? "",
         address:      profile.address      ?? "",
         country:      profile.country      ?? "",
+        countryCode:  profile.countryCode  ?? "",
       });
     }
     setFormError(null);
     setEditing(false);
   };
 
-  const handlePasswordChange = () => {
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type & size
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be under 5 MB.");
+      return;
+    }
+
+    const result = await dispatch(uploadAvatarThunk(file));
+    if (uploadAvatarThunk.fulfilled.match(result)) {
+      toast.success("Profile photo updated!");
+    } else {
+      toast.error(String(result.payload ?? "Failed to upload photo."));
+    }
+    // Reset file input
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const handlePasswordChange = async () => {
     if (!pwCurrent) { setPwError("Current password is required."); return; }
     if (pwNew.length < 8) { setPwError("New password must be at least 8 characters."); return; }
+    if (!/[A-Z]/.test(pwNew)) { setPwError("New password must contain at least one uppercase letter."); return; }
+    if (!/[a-z]/.test(pwNew)) { setPwError("New password must contain at least one lowercase letter."); return; }
+    if (!/[0-9]/.test(pwNew)) { setPwError("New password must contain at least one number."); return; }
     if (pwNew !== pwConfirm) { setPwError("Passwords do not match."); return; }
     setPwError(null);
-    // TODO: wire to change-password API when available
-    setPwSuccess(true);
-    setPwCurrent(""); setPwNew(""); setPwConfirm("");
-    setTimeout(() => { setPwSuccess(false); setPwSection(false); }, 2000);
+
+    const result = await dispatch(changePasswordThunk({ currentPassword: pwCurrent, newPassword: pwNew }));
+    if (changePasswordThunk.fulfilled.match(result)) {
+      setPwSuccess(true);
+      setPwCurrent(""); setPwNew(""); setPwConfirm("");
+      toast.success("Password changed successfully!");
+      setTimeout(() => { setPwSuccess(false); setPwSection(false); }, 2000);
+    } else {
+      const msg = String(result.payload ?? "Failed to change password.");
+      setPwError(msg);
+      toast.error(msg);
+    }
   };
+
+  const handleRetry = () => dispatch(fetchMeThunk());
 
   const displayName = profile?.fullName   ?? "Salon Owner";
   const email       = profile?.email      ?? "";
   const initials    = getInitials(displayName);
+
+  // ── Loading state ─────────────────────────────────────────────────────────────
+  if (fetching && !profile) {
+    return (
+      <div className="pp-page">
+        <div className="pp-page-header">
+          <h1 className="pp-page-title">My Profile</h1>
+          <p className="pp-page-sub">Loading your profile…</p>
+        </div>
+        <div className="pp-layout">
+          <aside className="pp-sidebar"><ProfileSkeleton /></aside>
+          <div className="pp-main">
+            <div className="pp-section"><ProfileSkeleton /></div>
+            <div className="pp-section"><ProfileSkeleton /></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Error state ───────────────────────────────────────────────────────────────
+  if (fetchErr && !profile) {
+    return (
+      <div className="pp-page">
+        <div className="pp-page-header">
+          <button className="pp-back-btn" onClick={() => navigate(-1)}>
+            <ChevronLeft size={16} /><span>Back</span>
+          </button>
+          <h1 className="pp-page-title">My Profile</h1>
+        </div>
+        <div className="pp-fetch-error">
+          <p>{fetchErr}</p>
+          <button className="pp-retry-btn" onClick={handleRetry}>
+            <ArrowClockwise size={14} /> Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pp-page">
@@ -187,15 +309,27 @@ export default function ProfilePage() {
 
             {/* Avatar */}
             <div className="pp-avatar-wrap">
+              {(uploading) && (
+                <div className="pp-avatar-uploading">
+                  <span className="pp-spinner" />
+                </div>
+              )}
               {profile?.avatarUrl ? (
-                <img src={profile.avatarUrl} alt={displayName} className="pp-avatar-img" />
+                <img
+                  src={profile.avatarUrl}
+                  alt={displayName}
+                  className={`pp-avatar-img ${uploading ? "pp-avatar-img--dim" : ""}`}
+                />
               ) : (
-                <div className="pp-avatar-initials">{initials}</div>
+                <div className={`pp-avatar-initials ${uploading ? "pp-avatar-initials--dim" : ""}`}>
+                  {initials}
+                </div>
               )}
               <button
                 className="pp-avatar-camera-btn"
                 title="Change photo"
                 onClick={() => fileRef.current?.click()}
+                disabled={uploading}
               >
                 <Camera size={14} />
               </button>
@@ -204,7 +338,7 @@ export default function ProfilePage() {
                 type="file"
                 accept="image/*"
                 style={{ display: "none" }}
-                onChange={() => {/* TODO: avatar upload */}}
+                onChange={handleAvatarChange}
               />
             </div>
 
@@ -256,6 +390,10 @@ export default function ProfilePage() {
               <Building size={13} />
               <span className="pp-info-strip-val">{profile?.businessName || "—"}</span>
             </div>
+            <div className="pp-info-strip-row">
+              <Globe size={13} />
+              <span className="pp-info-strip-val">{profile?.country || "—"}</span>
+            </div>
           </div>
         </aside>
 
@@ -304,9 +442,10 @@ export default function ProfilePage() {
               <ProfileField
                 label="Email Address"
                 value={email}
-                name="fullName" /* email is read-only — no update field */
+                name="fullName"  /* email is read-only */
                 icon={<Envelope size={14} />}
-                editing={false}   /* email cannot be changed here */
+                editing={editing}
+                readOnly={true}
                 onChange={handleFieldChange}
               />
               <ProfileField
@@ -372,7 +511,7 @@ export default function ProfilePage() {
                 <ShieldLock size={16} />
               </div>
               <div>
-                <h3 className="pp-section-title">Account & Security</h3>
+                <h3 className="pp-section-title">Account &amp; Security</h3>
                 <p className="pp-section-sub">Manage your password and security settings</p>
               </div>
               <button
@@ -474,9 +613,13 @@ export default function ProfilePage() {
                     </div>
                   </div>
                 </div>
-                <button className="pp-pw-submit-btn" onClick={handlePasswordChange}>
-                  <ShieldLock size={14} />
-                  Update Password
+                <button
+                  className="pp-pw-submit-btn"
+                  onClick={handlePasswordChange}
+                  disabled={changingPw}
+                >
+                  {changingPw ? <span className="pp-spinner" style={{ borderTopColor: "#fff", borderColor: "rgba(255,255,255,0.35)" }} /> : <ShieldLock size={14} />}
+                  {changingPw ? "Updating…" : "Update Password"}
                 </button>
               </div>
             )}
