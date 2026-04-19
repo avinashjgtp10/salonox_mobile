@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Check2,
   BoxSeam,
@@ -210,6 +211,7 @@ const LandingView: React.FC<NavProps> = ({ onNavigate }) => (
 const PAGE_SIZE = 8;
 
 const ListView: React.FC<NavProps> = ({ onNavigate }) => {
+  const navigate = useNavigate();
   const [search, setSearch]   = useState("");
   const [page, setPage]       = useState(1);
   const [showOptions, setShowOptions] = useState(false);
@@ -258,6 +260,11 @@ const ListView: React.FC<NavProps> = ({ onNavigate }) => {
 
   const handleRowClick = (pkg: ApiPackage) => {
     setSelectedPkgId((prev) => (prev === pkg.id ? null : pkg.id));
+  };
+
+  const handleEdit = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    navigate(id);
   };
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
@@ -402,12 +409,20 @@ const ListView: React.FC<NavProps> = ({ onNavigate }) => {
                   <td className="price-cell">₹{pkg.basePrice.toLocaleString("en-IN")}</td>
                   <td>{statusBadge(pkg.status)}</td>
                   <td>
-                    <button
-                      className="btn btn-sm btn-outline-danger"
-                      onClick={(e) => handleDelete(e, pkg.id)}
-                    >
-                      Delete
-                    </button>
+                    <div className="d-flex gap-2">
+                      <button
+                        className="btn btn-sm btn-outline-primary"
+                        onClick={(e) => handleEdit(e, pkg.id)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={(e) => handleDelete(e, pkg.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
