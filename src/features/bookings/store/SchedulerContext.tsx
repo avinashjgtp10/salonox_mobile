@@ -1,14 +1,3 @@
-/**
- * SchedulerContext.tsx
- *
- * State previously held in a React Context is now owned by Redux (`schedulerSlice`).
- * This file keeps the same public interface so all consumers compile without changes.
- *
- * - `useSchedulerContext()` reads from Redux and returns dispatch-bound callbacks
- *   with the exact same shape as the old context value.
- * - `SchedulerProvider` is kept as a pass-through so existing import sites in
- *   DashboardProviders.tsx continue to compile until that wrapper is removed.
- */
 import type { ReactNode } from "react";
 import { useAppSelector, useAppDispatch } from "../../../hooks/useAppRedux";
 import {
@@ -21,6 +10,9 @@ import {
   setCurrentDate,
   setInterval,
   navigate,
+  updateClientNotes,
+  deductEWallet,
+  processPaymentRewards,
 } from "../../../store/schedulerSlice";
 import type {
   Booking,
@@ -36,7 +28,7 @@ export function SchedulerProvider({ children }: { children: ReactNode }) {
 
 export function useSchedulerContext() {
   const dispatch = useAppDispatch();
-  const { bookings, blockedTimes, viewMode, currentDate, interval } =
+  const { bookings, blockedTimes, viewMode, currentDate, interval, clientStats } =
     useAppSelector((s) => s.scheduler);
 
   return {
@@ -54,5 +46,13 @@ export function useSchedulerContext() {
     interval,
     setInterval: (i: IntervalOption) => dispatch(setInterval(i)),
     navigate: (dir: 1 | -1) => dispatch(navigate(dir)),
+    // ── New — client stats with live updates ─────────────────────────────
+    clientStats,
+    updateClientNotes: (clientId: string, notes: string, staffAlert: string) =>
+      dispatch(updateClientNotes({ clientId, notes, staffAlert })),
+    deductEWallet: (clientId: string, amount: number) =>
+      dispatch(deductEWallet({ clientId, amount })),
+    processPaymentRewards: (clientId: string, billAmount: number) =>
+      dispatch(processPaymentRewards({ clientId, billAmount })),
   };
 }

@@ -7,10 +7,7 @@ import Button from "../../../../components/ui/Button";
 import Badge from "../../../../components/ui/Badge";
 import "../../styles/ViewBillModal.scss";
 
-interface Props {
-  booking: Booking;
-  onClose: () => void;
-}
+interface Props { booking: Booking; onClose: () => void }
 
 const STATUS_OPTIONS: { value: BookingStatus; color: string; bg: string; label: string }[] = [
   { value: "Confirmed", color: "#15803d", bg: "#22c55e", label: "✓ Confirmed" },
@@ -21,61 +18,13 @@ const STATUS_OPTIONS: { value: BookingStatus; color: string; bg: string; label: 
 function printReceipt(booking: Booking) {
   const staffName = STAFF_LIST.find((s) => s.id === booking.staffId)?.name || booking.staffId || "—";
   const generatedAt = new Date().toLocaleString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
-
-  const serviceRows = booking.services.map((s) => `
-    <tr>
-      <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0">${s.service}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#6b7280">${s.staff || staffName}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center">${s.qty}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600">₹${(s.total || 0).toFixed(2)}</td>
-    </tr>`).join("");
-
-  const pkgRows = (booking.packageItems || []).map((p) => `
-    <tr>
-      <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0">${p.packageName} <span style="font-size:10px;color:#f59e0b;background:#fef3c7;padding:1px 5px;border-radius:3px">PKG</span></td>
-      <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#6b7280">—</td>
-      <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center">${p.qty}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600">₹${(p.total || 0).toFixed(2)}</td>
-    </tr>`).join("");
-
+  const serviceRows = booking.services.map((s) => `<tr><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0">${s.service}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#6b7280">${s.staff || staffName}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center">${s.qty}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600">₹${(s.total || 0).toFixed(2)}</td></tr>`).join("");
+  const pkgRows = (booking.packageItems || []).map((p) => `<tr><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0">${p.packageName} <span style="font-size:10px;color:#f59e0b;background:#fef3c7;padding:1px 5px;border-radius:3px">PKG</span></td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#6b7280">—</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center">${p.qty}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600">₹${(p.total || 0).toFixed(2)}</td></tr>`).join("");
   const payColor = booking.paymentStatus === "Paid" ? "#22c55e" : booking.paymentStatus === "Partial" ? "#f59e0b" : "#ef4444";
-
-  const html = `<!DOCTYPE html><html><head><title>Receipt — ${booking.clientName}</title>
-  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',sans-serif;padding:36px;color:#111;max-width:620px;margin:0 auto}@media print{body{padding:20px}}</style></head><body>
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px">
-    <div><div style="font-size:24px;font-weight:800;letter-spacing:-0.5px;color:#1f2937">SalonOx</div>
-    <div style="font-size:12px;color:#9ca3af;margin-top:3px">Appointment Receipt · ${generatedAt}</div></div>
-    <div style="background:${payColor}22;color:${payColor};border:1px solid ${payColor};border-radius:6px;padding:4px 14px;font-size:12px;font-weight:700">${booking.paymentStatus}</div>
-  </div>
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;background:#f9fafb;border-radius:10px;padding:16px 20px;margin-bottom:24px">
-    <div><div style="font-size:10px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Client</div><div style="font-size:14px;font-weight:700;margin-top:3px">${booking.clientName}</div>${booking.clientPhone ? `<div style="font-size:11px;color:#6b7280">${booking.clientPhone}</div>` : ""}</div>
-    <div><div style="font-size:10px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Staff</div><div style="font-size:13px;font-weight:600;margin-top:3px">${staffName}</div></div>
-    <div><div style="font-size:10px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Date</div><div style="font-size:13px;font-weight:600;margin-top:3px">${booking.billDate || booking.date}</div></div>
-    <div><div style="font-size:10px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Time</div><div style="font-size:13px;font-weight:600;margin-top:3px">${formatTime12(booking.startTime)} – ${formatTime12(booking.endTime)}</div></div>
-  </div>
-  <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px">
-    <thead><tr style="background:#1f2937;color:#fff"><th style="padding:10px 12px;text-align:left">Service</th><th style="padding:10px 12px;text-align:left">Staff</th><th style="padding:10px 12px;text-align:center">Qty</th><th style="padding:10px 12px;text-align:right">Amount</th></tr></thead>
-    <tbody>${serviceRows}${pkgRows}</tbody>
-  </table>
-  <div style="display:flex;justify-content:flex-end;margin-bottom:24px"><div style="width:260px">
-    ${booking.discount ? `<div style="display:flex;justify-content:space-between;font-size:12px;color:#6b7280;padding:4px 0">Subtotal<span>₹${(booking.subtotal || 0).toFixed(2)}</span></div><div style="display:flex;justify-content:space-between;font-size:12px;color:#ef4444;padding:4px 0">Discount<span>−₹${((booking.subtotal || 0) - (booking.taxableAmount || 0)).toFixed(2)}</span></div>` : ""}
-    ${booking.couponDiscount ? `<div style="display:flex;justify-content:space-between;font-size:12px;color:#22c55e;padding:4px 0">Coupon (${booking.couponCode})<span>−₹${booking.couponDiscount.toFixed(2)}</span></div>` : ""}
-    ${booking.gst ? `<div style="display:flex;justify-content:space-between;font-size:12px;color:#6b7280;padding:4px 0">GST (${booking.gst}%)<span>₹${((booking.grandTotal || 0) - (booking.taxableAmount || 0) - (booking.exCharges || 0)).toFixed(2)}</span></div>` : ""}
-    ${booking.exCharges ? `<div style="display:flex;justify-content:space-between;font-size:12px;color:#6b7280;padding:4px 0">Extra Charges<span>₹${booking.exCharges.toFixed(2)}</span></div>` : ""}
-    <div style="display:flex;justify-content:space-between;font-size:17px;font-weight:800;border-top:2px solid #1f2937;padding-top:10px;margin-top:6px">Grand Total<span>₹${(booking.grandTotal || 0).toFixed(2)}</span></div>
-    <div style="display:flex;justify-content:space-between;font-size:12px;color:#22c55e;margin-top:6px;font-weight:600">Paid<span>₹${(booking.payingNow || 0).toFixed(2)}</span></div>
-    ${(booking.dueAmount || 0) > 0 ? `<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;color:#ef4444;margin-top:4px">Balance Due<span>₹${(booking.dueAmount || 0).toFixed(2)}</span></div>` : ""}
-  </div></div>
-  ${booking.notes ? `<div style="padding:12px 16px;background:#f9fafb;border-radius:8px;border-left:3px solid #1f2937;margin-bottom:20px"><div style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Notes</div><div style="font-size:12px;color:#374151">${booking.notes}</div></div>` : ""}
-  <div style="text-align:center;font-size:11px;color:#9ca3af;border-top:1px solid #f0f0f0;padding-top:16px">Thank you for visiting SalonOx! 🌸</div>
-  </body></html>`;
-
+  const html = `<!DOCTYPE html><html><head><title>Receipt — ${booking.clientName}</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',sans-serif;padding:36px;color:#111;max-width:620px;margin:0 auto}@media print{body{padding:20px}}</style></head><body><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px"><div><div style="font-size:24px;font-weight:800;letter-spacing:-0.5px;color:#1f2937">SalonOx</div><div style="font-size:12px;color:#9ca3af;margin-top:3px">Appointment Receipt · ${generatedAt}</div></div><div style="background:${payColor}22;color:${payColor};border:1px solid ${payColor};border-radius:6px;padding:4px 14px;font-size:12px;font-weight:700">${booking.paymentStatus}</div></div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;background:#f9fafb;border-radius:10px;padding:16px 20px;margin-bottom:24px"><div><div style="font-size:10px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Client</div><div style="font-size:14px;font-weight:700;margin-top:3px">${booking.clientName}</div>${booking.clientPhone ? `<div style="font-size:11px;color:#6b7280">${booking.clientPhone}</div>` : ""}</div><div><div style="font-size:10px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Staff</div><div style="font-size:13px;font-weight:600;margin-top:3px">${staffName}</div></div><div><div style="font-size:10px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Date</div><div style="font-size:13px;font-weight:600;margin-top:3px">${booking.billDate || booking.date}</div></div><div><div style="font-size:10px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Time</div><div style="font-size:13px;font-weight:600;margin-top:3px">${formatTime12(booking.startTime)} – ${formatTime12(booking.endTime)}</div></div></div><table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px"><thead><tr style="background:#1f2937;color:#fff"><th style="padding:10px 12px;text-align:left">Service</th><th style="padding:10px 12px;text-align:left">Staff</th><th style="padding:10px 12px;text-align:center">Qty</th><th style="padding:10px 12px;text-align:right">Amount</th></tr></thead><tbody>${serviceRows}${pkgRows}</tbody></table><div style="display:flex;justify-content:flex-end;margin-bottom:24px"><div style="width:260px">${booking.discount ? `<div style="display:flex;justify-content:space-between;font-size:12px;color:#6b7280;padding:4px 0">Subtotal<span>₹${(booking.subtotal || 0).toFixed(2)}</span></div><div style="display:flex;justify-content:space-between;font-size:12px;color:#ef4444;padding:4px 0">Discount<span>−₹${((booking.subtotal || 0) - (booking.taxableAmount || 0)).toFixed(2)}</span></div>` : ""}${booking.couponDiscount ? `<div style="display:flex;justify-content:space-between;font-size:12px;color:#22c55e;padding:4px 0">Coupon (${booking.couponCode})<span>−₹${booking.couponDiscount.toFixed(2)}</span></div>` : ""}${booking.exCharges ? `<div style="display:flex;justify-content:space-between;font-size:12px;color:#6b7280;padding:4px 0">Extra Charges<span>₹${booking.exCharges.toFixed(2)}</span></div>` : ""}<div style="display:flex;justify-content:space-between;font-size:17px;font-weight:800;border-top:2px solid #1f2937;padding-top:10px;margin-top:6px">Grand Total<span>₹${(booking.grandTotal || 0).toFixed(2)}</span></div><div style="display:flex;justify-content:space-between;font-size:12px;color:#22c55e;margin-top:6px;font-weight:600">Paid<span>₹${(booking.payingNow || 0).toFixed(2)}</span></div>${(booking.dueAmount || 0) > 0 ? `<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;color:#ef4444;margin-top:4px">Balance Due<span>₹${(booking.dueAmount || 0).toFixed(2)}</span></div>` : ""}</div></div>${booking.notes ? `<div style="padding:12px 16px;background:#f9fafb;border-radius:8px;border-left:3px solid #1f2937;margin-bottom:20px"><div style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Notes</div><div style="font-size:12px;color:#374151">${booking.notes}</div></div>` : ""}<div style="text-align:center;font-size:11px;color:#9ca3af;border-top:1px solid #f0f0f0;padding-top:16px">Thank you for visiting SalonOx! 🌸</div></body></html>`;
   const win = window.open("", "_blank", "width=700,height=650");
   if (!win) { alert("Please allow popups."); return; }
-  win.document.write(html);
-  win.document.close();
-  win.focus();
-  setTimeout(() => win.print(), 500);
+  win.document.write(html); win.document.close(); win.focus(); setTimeout(() => win.print(), 500);
 }
 
 const ViewBillModal: React.FC<Props> = ({ booking, onClose }) => {
@@ -90,8 +39,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose }) => {
   const payVariant = booking.paymentStatus === "Paid" ? ("success" as const) : booking.paymentStatus === "Partial" ? ("warning" as const) : ("danger" as const);
 
   function handleStatusChange(s: BookingStatus) {
-    setStatus(s);
-    setShowStatusDrop(false);
+    setStatus(s); setShowStatusDrop(false);
     updateBooking({ ...booking, status: s });
   }
 
@@ -106,17 +54,13 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose }) => {
             <div className="vbm-avatar">{booking.clientName?.charAt(0) || "?"}</div>
             <div className="vbm-client-name">{booking.clientName}</div>
             {booking.clientPhone && <div className="vbm-client-phone">{booking.clientPhone}</div>}
-            {client && (
-              <div className="vbm-ewallet">
-                <span>💳 eWallet: ₹{client.eWallet?.toFixed(2) || "0.00"}</span>
-              </div>
-            )}
+            {client && <div className="vbm-ewallet"><span>💳 eWallet: ₹{client.eWallet?.toFixed(2) || "0.00"}</span></div>}
           </div>
 
           <div className="vbm-section">
             <div className="vbm-section-label">Payment</div>
             <Badge variant={payVariant}>{booking.paymentStatus}</Badge>
-            <div className="vbm-pay-mode">Mode: <strong>{booking.paymentMode || "—"}</strong></div>
+            <div className="vbm-pay-mode mt-1">Mode: <strong>{booking.paymentMode || "—"}</strong></div>
           </div>
 
           <div className="vbm-section">
@@ -143,11 +87,11 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose }) => {
           <div className="vbm-section">
             <div className="vbm-section-label">Summary</div>
             {[
-              ["Subtotal",  booking.subtotal,      "#374151", false],
-              ["Taxable",   booking.taxableAmount,  "#374151", false],
-              ["Total",     booking.grandTotal,     "#111827", true],
-              ["Paid",      booking.payingNow,      "#22c55e", false],
-              ["Due",       booking.dueAmount,      "#ef4444", false],
+              ["Subtotal", booking.subtotal,     "#374151", false],
+              ["Taxable",  booking.taxableAmount, "#374151", false],
+              ["Total",    booking.grandTotal,    "#111827", true],
+              ["Paid",     booking.payingNow,     "#22c55e", false],
+              ["Due",      booking.dueAmount,     "#ef4444", false],
             ].map(([l, v, c, bold]) => (
               <div key={l as string} className={`vbm-summary-row${bold ? " vbm-summary-row--bold" : ""}`} style={{ color: c as string }}>
                 <span>{l as string}</span>
@@ -158,27 +102,18 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose }) => {
 
           <div className="vbm-status-section">
             <div className="vbm-section-label">Status</div>
-            <div className="vbm-status-wrap">
-              <button
-                className="vbm-status-btn"
-                style={{ background: currentStatus.bg }}
-                onClick={() => setShowStatusDrop((v) => !v)}
-              >
+            <div className="vbm-status-wrap position-relative">
+              <button className="vbm-status-btn" style={{ background: currentStatus.bg }} onClick={() => setShowStatusDrop((v) => !v)}>
                 {currentStatus.label} <span className="vbm-status-btn__arrow">▼</span>
               </button>
               {showStatusDrop && (
                 <div className="vbm-status-drop">
                   {STATUS_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      className="vbm-status-drop__item"
-                      style={{ background: opt.bg, opacity: status === opt.value ? 1 : 0.82 }}
+                    <button key={opt.value} className="vbm-status-drop__item" style={{ background: opt.bg, opacity: status === opt.value ? 1 : 0.82 }}
                       onClick={() => handleStatusChange(opt.value)}
                       onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
                       onMouseLeave={(e) => (e.currentTarget.style.opacity = status === opt.value ? "1" : "0.82")}
-                    >
-                      {opt.label}
-                    </button>
+                    >{opt.label}</button>
                   ))}
                 </div>
               )}
@@ -190,10 +125,10 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose }) => {
         <div className="vbm-right">
           <div className="vbm-header">
             <div className="vbm-header__left">
-              <button className="vbm-close-btn" onClick={onClose}>✕</button>
+              <button className="vbm-close-btn btn btn-sm btn-link text-dark text-decoration-none" onClick={onClose}>✕</button>
               <div>
-                <h2 className="vbm-header__title">View Bill</h2>
-                <div className="vbm-header__id">#{booking.id}</div>
+                <h2 className="vbm-header__title mb-0">View Bill</h2>
+                <div className="vbm-header__id text-muted small">#{booking.id}</div>
               </div>
             </div>
             <Button variant="dark" size="sm" iconLeft={<span>🖨️</span>} onClick={() => printReceipt(booking)}>
@@ -201,16 +136,11 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose }) => {
             </Button>
           </div>
 
+          {/* Tabs */}
           <div className="vbm-tabs">
             <div className="vbm-tabs__inner">
               {(["Booking Details", "Activity Log"] as const).map((t) => (
-                <button
-                  key={t}
-                  className={`vbm-tab-btn${tab === t ? " vbm-tab-btn--active" : ""}`}
-                  onClick={() => setTab(t)}
-                >
-                  {t}
-                </button>
+                <button key={t} className={`vbm-tab-btn${tab === t ? " vbm-tab-btn--active" : ""}`} onClick={() => setTab(t)}>{t}</button>
               ))}
             </div>
           </div>
@@ -252,27 +182,16 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose }) => {
                   {[
                     booking.discount ? ["Discount", `−₹${((booking.subtotal || 0) - (booking.taxableAmount || 0)).toFixed(2)}`, "#ef4444"] : null,
                     booking.couponDiscount ? [`Coupon (${booking.couponCode})`, `−₹${(booking.couponDiscount || 0).toFixed(2)}`, "#22c55e"] : null,
-                    booking.gst ? [`GST (${booking.gst}%)`, `₹${((booking.grandTotal || 0) - (booking.taxableAmount || 0) - (booking.exCharges || 0)).toFixed(2)}`, "#374151"] : null,
                     booking.exCharges ? ["Extra Charges", `₹${(booking.exCharges || 0).toFixed(2)}`, "#374151"] : null,
                   ].filter(Boolean).map((row, i) => (
                     <div key={i} className="vbm-breakdown-row" style={{ color: row![2] as string }}>
-                      <span>{row![0] as string}</span>
-                      <span>{row![1] as string}</span>
+                      <span>{row![0] as string}</span><span>{row![1] as string}</span>
                     </div>
                   ))}
-                  <div className="vbm-breakdown-row vbm-breakdown-row--grand">
-                    <span>Grand Total</span>
-                    <span>₹{(booking.grandTotal || 0).toFixed(2)}</span>
-                  </div>
-                  <div className="vbm-breakdown-row vbm-breakdown-row--paid">
-                    <span>Paid</span>
-                    <span>₹{(booking.payingNow || 0).toFixed(2)}</span>
-                  </div>
+                  <div className="vbm-breakdown-row vbm-breakdown-row--grand"><span>Grand Total</span><span>₹{(booking.grandTotal || 0).toFixed(2)}</span></div>
+                  <div className="vbm-breakdown-row vbm-breakdown-row--paid"><span>Paid</span><span>₹{(booking.payingNow || 0).toFixed(2)}</span></div>
                   {(booking.dueAmount || 0) > 0 && (
-                    <div className="vbm-breakdown-row vbm-breakdown-row--due">
-                      <span>Balance Due</span>
-                      <span>₹{(booking.dueAmount || 0).toFixed(2)}</span>
-                    </div>
+                    <div className="vbm-breakdown-row vbm-breakdown-row--due"><span>Balance Due</span><span>₹{(booking.dueAmount || 0).toFixed(2)}</span></div>
                   )}
                 </div>
               </div>

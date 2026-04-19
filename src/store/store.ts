@@ -28,6 +28,8 @@ import reportReducer from "./reportSlice";
 import servicesReducer from "./servicesSlice";
 import categoriesReducer from "./categoriesSlice";
 import serviceFiltersReducer from "./serviceFiltersSlice";
+import membershipReducer from "./membershipSlice";
+import { membershipsApi } from "../services/api/endpoints/memberships.endpoints";
 
 // Security policy:
 //   accessToken  → NOT persisted (15-min lifetime; re-issued by the 401 interceptor)
@@ -62,13 +64,15 @@ export const store = configureStore({
     services: servicesReducer,
     categories: categoriesReducer,
     serviceFilters: serviceFiltersReducer,
+    memberships: membershipReducer,
+    [membershipsApi.reducerPath]: membershipsApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
         ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
       },
-    }),
+    }).concat(membershipsApi.middleware),
 });
 
 export const persistor = persistStore(store);
