@@ -46,6 +46,12 @@ const SuppliersListPage = lazy(
 const AddSupplierPage = lazy(
   () => import("../features/catalog/pages/AddSupplierPage"),
 );
+const PackagesPage = lazy(
+  () => import("../features/catalog/pages/Packages"),
+);
+const EditPackagePage = lazy(
+  () => import("../features/catalog/pages/EditPackagePage"),
+);
 
 import { PageLoader } from "../components/ui";
 
@@ -58,6 +64,8 @@ export const CatalogRoutes = () => (
       <Route path="memberships" element={<MembershipsLandingPage />} />
       <Route path="memberships/list" element={<MembershipsListPage />} />
       <Route path="memberships/create" element={<CreateMembershipPage />} />
+      <Route path="packages" element={<PackagesPage />} />
+      <Route path="packages/:id" element={<EditPackagePage />} />
       <Route path="products" element={<ProductsListPage />} />
       <Route path="products/landing" element={<ProductsLandingPage />} />
       <Route path="products/create" element={<CreateProductPage />} />

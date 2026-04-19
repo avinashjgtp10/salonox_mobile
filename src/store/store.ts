@@ -30,6 +30,7 @@ import categoriesReducer from "./categoriesSlice";
 import serviceFiltersReducer from "./serviceFiltersSlice";
 import membershipReducer from "./membershipSlice";
 import { membershipsApi } from "../services/api/endpoints/memberships.endpoints";
+import { packagesApi } from "../services/api/endpoints/packages.endpoints";
 import productsReducer from "./productsSlice";
 
 // Security policy:
@@ -67,6 +68,7 @@ export const store = configureStore({
     serviceFilters: serviceFiltersReducer,
     memberships: membershipReducer,
     [membershipsApi.reducerPath]: membershipsApi.reducer,
+    [packagesApi.reducerPath]: packagesApi.reducer,
     products: productsReducer,
   },
   middleware: (getDefaultMiddleware) =>
@@ -74,7 +76,9 @@ export const store = configureStore({
       serializableCheck: {
         ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
       },
-    }).concat(membershipsApi.middleware),
+    })
+      .concat(membershipsApi.middleware)
+      .concat(packagesApi.middleware),
 });
 
 export const persistor = persistStore(store);
