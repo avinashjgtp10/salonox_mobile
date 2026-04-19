@@ -30,6 +30,7 @@ import categoriesReducer from "./categoriesSlice";
 import serviceFiltersReducer from "./serviceFiltersSlice";
 import membershipReducer from "./membershipSlice";
 import { membershipsApi } from "../services/api/endpoints/memberships.endpoints";
+import productsReducer from "./productsSlice";
 
 // Security policy:
 //   accessToken  → NOT persisted (15-min lifetime; re-issued by the 401 interceptor)
@@ -66,6 +67,7 @@ export const store = configureStore({
     serviceFilters: serviceFiltersReducer,
     memberships: membershipReducer,
     [membershipsApi.reducerPath]: membershipsApi.reducer,
+    products: productsReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
