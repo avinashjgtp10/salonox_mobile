@@ -7,9 +7,3 @@ export const SERVICES = {
   DOWNLOAD_EXCEL: "/api/v1/services/download/excel",
   DOWNLOAD_CSV:   "/api/v1/services/download/csv",
 } as const;
-
-
-export const CATEGORIES = {
-  BASE:  "/api/v1/categories",
-  BY_ID: (id: string | number) => `/api/v1/categories/${id}`,
-} as const;
