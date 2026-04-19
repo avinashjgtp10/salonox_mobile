@@ -4,9 +4,53 @@ import { USER } from "../../services/api/endpoints";
 import { ApiError } from "../../services/api/interceptors";
 import type {
   User,
-  UserResponse,
   UpdateUserPayload,
 } from "../../types/user.types";
+
+// ── Backend raw response shape ─────────────────────────────────────────────────
+interface BackendUser {
+  id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string | null;
+  fullName?: string;
+  phone?: string | null;
+  businessName?: string | null;
+  address?: string | null;
+  country?: string | null;
+  countryCode?: string | null;
+  avatarUrl?: string | null;
+  isOnboardingComplete?: boolean;
+}
+
+interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message?: string;
+}
+
+/** Normalizes the backend user shape → our frontend User type */
+function toUser(raw: BackendUser): User {
+  const fullName =
+    raw.fullName?.trim() ||
+    [raw.firstName, raw.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim() ||
+    "";
+  return {
+    id: raw.id,
+    email: raw.email,
+    fullName,
+    phone: raw.phone ?? undefined,
+    businessName: raw.businessName ?? undefined,
+    address: raw.address ?? undefined,
+    country: raw.country ?? undefined,
+    countryCode: raw.countryCode ?? undefined,
+    avatarUrl: raw.avatarUrl ?? undefined,
+    isOnboardingComplete: raw.isOnboardingComplete,
+  };
+}
 
 // ── Fetch current user (me) ───────────────────────────────────────────────────
 export const fetchMeThunk = createAsyncThunk<
@@ -15,25 +59,77 @@ export const fetchMeThunk = createAsyncThunk<
   { rejectValue: string }
 >("user/fetchMe", async (_, { rejectWithValue }) => {
   try {
-    const res = await api.get<UserResponse>(USER.ME);
-    return res.data.data;
+    const res = await api.get<ApiResponse<BackendUser>>(USER.ME);
+    return toUser(res.data.data);
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to fetch user profile");
   }
 });
 
-// ── Update current user ───────────────────────────────────────────────────────
+// ── Update current user (me) ──────────────────────────────────────────────────
 export const updateUserThunk = createAsyncThunk<
   User,
   UpdateUserPayload,
   { rejectValue: string }
 >("user/update", async (payload, { rejectWithValue }) => {
   try {
-    const res = await api.put<UserResponse>(USER.UPDATE, payload);
-    return res.data.data;
+    // Split fullName back to firstName/lastName for the backend
+    const fullName = (payload.fullName || "").trim();
+    const parts = fullName.split(/\s+/);
+    const firstName = parts[0] || "";
+    const lastName = parts.length > 1 ? parts.slice(1).join(" ") : undefined;
+
+    const body: Record<string, any> = {
+      firstName,
+      ...(lastName !== undefined && { lastName }),
+      ...(payload.phone !== undefined && { phone: payload.phone }),
+      ...(payload.businessName !== undefined && { businessName: payload.businessName }),
+      ...(payload.address !== undefined && { address: payload.address }),
+      ...(payload.country !== undefined && { country: payload.country }),
+      ...(payload.countryCode !== undefined && { countryCode: payload.countryCode }),
+      ...(payload.avatarUrl !== undefined && { avatarUrl: payload.avatarUrl }),
+    };
+
+    const res = await api.patch<ApiResponse<BackendUser>>(USER.UPDATE_ME, body);
+    return toUser(res.data.data);
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to update user profile");
+  }
+});
+
+// ── Change password ───────────────────────────────────────────────────────────
+export const changePasswordThunk = createAsyncThunk<
+  void,
+  { currentPassword: string; newPassword: string },
+  { rejectValue: string }
+>("user/changePassword", async ({ currentPassword, newPassword }, { rejectWithValue }) => {
+  try {
+    await api.post(USER.CHANGE_PASSWORD, { currentPassword, newPassword });
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to change password");
+  }
+});
+
+// ── Upload avatar ─────────────────────────────────────────────────────────────
+export const uploadAvatarThunk = createAsyncThunk<
+  string,       // returns the new avatarUrl
+  File,
+  { rejectValue: string }
+>("user/uploadAvatar", async (file, { rejectWithValue }) => {
+  try {
+    const formData = new FormData();
+    formData.append("avatar", file);
+    const res = await api.post<ApiResponse<{ avatarUrl: string }>>(
+      USER.UPLOAD_AVATAR,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } },
+    );
+    return res.data.data.avatarUrl;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to upload avatar");
   }
 });
