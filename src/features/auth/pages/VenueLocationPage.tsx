@@ -38,8 +38,10 @@ export default function VenueLocationPage() {
   const [noResults, setNoResults] = useState(false);
   const [coords, setCoords] = useState<[number, number] | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navigatingRef = useRef(false);
 
   useEffect(() => {
+    if (navigatingRef.current) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     if (address.length > 2) {
@@ -87,6 +89,9 @@ export default function VenueLocationPage() {
   const [navigating, setNavigating] = useState(false);
 
   const doNavigate = (addr: string) => {
+    navigatingRef.current = true;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setSuggestions([]);
     update({ address: addr.trim() });
     setNavigating(true);
     setTimeout(() => navigate("/previous-software"), 600);
@@ -140,29 +145,27 @@ export default function VenueLocationPage() {
 
   return (
     <div className="container-fluid p-0 venue-page position-relative h-100">
-      <div className="row g-0" style={{ minHeight: "calc(100vh - 64px)" }}>
+      <div className="row g-0 ob-page-row">
 
         {/* ── LEFT PANEL ── */}
         <div className="col-lg-5 col-12 bg-white p-5 position-relative d-flex flex-column">
           <button
-            className="btn btn-light border rounded-circle position-absolute d-flex align-items-center justify-content-center"
-            style={{ top: "30px", left: "50px", width: "42px", height: "42px", zIndex: 10 }}
+            className="ob-back-btn position-absolute venue-back-btn"
             onClick={() => navigate(-1)}
           >
             <FiArrowLeft />
           </button>
 
-          <div className="mt-5 pt-3" style={{ maxWidth: "420px" }}>
-            <h3 className="fw-bold mb-3">Set your venue's physical location</h3>
-            <p className="text-muted mb-4">
+          <div className="venue-content mt-5 pt-3">
+            <h3 className="ob-heading mb-3">Set your venue's physical location</h3>
+            <p className="ob-subtext mb-4">
               Add your primary business location so your clients can easily find you.
             </p>
 
             <div className="d-flex gap-2 align-items-center">
               <div className="position-relative flex-grow-1">
                 <HiOutlineLocationMarker
-                  className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"
-                  style={{ cursor: "pointer", zIndex: 2 }}
+                  className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted venue-location-icon"
                   onClick={handleGetLocation}
                 />
                 <input
@@ -175,8 +178,7 @@ export default function VenueLocationPage() {
                 />
               </div>
               <button
-                className="btn btn-dark d-flex align-items-center justify-content-center rounded-circle shadow-sm"
-                style={{ width: "40px", height: "40px", flexShrink: 0 }}
+                className="btn btn-dark d-flex align-items-center justify-content-center rounded-circle shadow-sm venue-continue-btn"
                 disabled={!address.trim() || navigating}
                 onClick={() => doNavigate(address)}
               >
@@ -188,15 +190,11 @@ export default function VenueLocationPage() {
 
             <div className="position-relative">
               {suggestions.length > 0 && (
-                <ul
-                  className="list-group position-absolute w-100 mt-1 suggestion-box"
-                  style={{ zIndex: 1050 }}
-                >
+                <ul className="list-group position-absolute w-100 mt-1 suggestion-box">
                   {suggestions.map((item, i) => (
                     <li
                       key={i}
-                      className="list-group-item list-group-item-action small py-2"
-                      style={{ cursor: "pointer" }}
+                      className="list-group-item list-group-item-action small py-2 suggestion-item"
                       onClick={() => selectSuggestion(item)}
                     >
                       {item.display_name}
@@ -223,15 +221,12 @@ export default function VenueLocationPage() {
         </div>
 
         {/* ── RIGHT PANEL — full interactive map ── */}
-        <div
-          className="col-lg-7 d-none d-lg-block position-relative p-0"
-          style={{ minHeight: "100vh" }}
-        >
+        <div className="col-lg-7 d-none d-lg-block position-relative p-0 venue-map-panel">
           <MapContainer
             center={coords ?? defaultCenter}
             zoom={coords ? 15 : 5}
             style={{ height: "100vh", width: "100%" }}
-            zoomControl={false}          // ← disable default top-left zoom
+            zoomControl={false}
             scrollWheelZoom={true}
           >
             <TileLayer

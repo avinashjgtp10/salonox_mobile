@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { FiArrowLeft } from "react-icons/fi";
+import "../styles/onboarding-shared.scss";
 
 interface Props {
   onClick?: () => void;
@@ -11,8 +12,8 @@ export default function OnboardingBackButton({ onClick, top = "24px", left = "24
   const navigate = useNavigate();
   return (
     <button
-      className="btn btn-light border rounded-circle position-absolute d-flex align-items-center justify-content-center"
-      style={{ top, left, width: "40px", height: "40px", padding: 0, zIndex: 10 }}
+      className="ob-back-btn position-absolute"
+      style={{ top, left }}
       onClick={onClick ?? (() => navigate(-1))}
     >
       <FiArrowLeft size={16} />

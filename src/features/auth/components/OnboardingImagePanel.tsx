@@ -34,10 +34,7 @@ export default function OnboardingImagePanel({
   stats,
 }: Props) {
   return (
-    <div
-      className="col-lg-7 d-none d-lg-flex p-0 position-relative overflow-hidden onboarding-image-panel"
-      style={{ minHeight: "100vh" }}
-    >
+    <div className="col-lg-7 d-none d-lg-flex p-0 position-relative overflow-hidden onboarding-image-panel">
       {/* Background image */}
       <img
         src={salonImg}
@@ -74,7 +71,7 @@ export default function OnboardingImagePanel({
           <div className="oip-quote-card">
             <div className="oip-stars">
               {[1, 2, 3, 4, 5].map((i) => (
-                <FiStar key={i} style={{ fill: "#fbbf24", stroke: "none" }} />
+                <FiStar key={i} className="oip-star-icon" />
               ))}
             </div>
             <p className="oip-quote-text">"{quote.text}"</p>

@@ -1,5 +1,5 @@
 import { lazy } from "react";
-import { Route, Outlet } from "react-router-dom";
+import { Route } from "react-router-dom";
 import { OnboardingProvider } from "../context/OnboardingContext";
 import OnboardingGuard from "../components/guards/OnboardingGuard";
 import OnboardingLayout from "../features/auth/components/OnboardingLayout";

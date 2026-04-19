@@ -10,18 +10,6 @@ const SECTIONS = [
   { key: "finishing", label: "Finishing up", routes: ["/previous-software", "/recommendation-source"] },
 ];
 
-const STEP_MAP: Record<string, number> = {
-  "/account-type":           1,
-  "/business-name":          2,
-  "/service-type":           3,
-  "/team-setup":             4,
-  "/team-size":              5,
-  "/business-location":      6,
-  "/venue-location":         7,
-  "/previous-software":      8,
-  "/recommendation-source":  9,
-};
-const TOTAL_STEPS = 9;
 
 function CheckIcon() {
   return (
@@ -34,7 +22,6 @@ function CheckIcon() {
 export default function OnboardingTopBar() {
   const { pathname } = useLocation();
 
-  const currentStep = STEP_MAP[pathname] ?? 0;
   const currentSectionIdx = SECTIONS.findIndex((s) => s.routes.includes(pathname));
 
   // Determine section status: completed | active | upcoming
