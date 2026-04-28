@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
-import type { Booking } from "../../types/scheduler-types";
+import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
+import type { Booking, BlockedTime } from "../../types/scheduler-types";
 import { useScheduler, SLOT_HEIGHT } from "../../hooks/useScheduler";
 import { useBookings } from "../../hooks/useBookings";
 import { useSchedulerContext } from "../../store/SchedulerContext";
-import { STAFF_LIST, CLIENT_STATS } from "../../utils/schedulerMockData";
 import { formatTime12, getCurrentTime, addMinutes, generateTimeSlots } from "../../utils/timeUtils";
 import Avatar from "../shared/Avatar";
 import "../../styles/DayView.scss";
@@ -14,32 +13,41 @@ interface DayViewProps {
   onEditBooking: (booking: Booking) => void;
   onPaymentBooking: (booking: Booking) => void;
   onBlockTime: (staffId: string) => void;
+  onEditBlockTime: (block: BlockedTime) => void;
 }
 
 const DayView: React.FC<DayViewProps> = ({
-  onSlotClick, onEditBooking,  onBlockTime,
+  onSlotClick, onEditBooking, onBlockTime, onEditBlockTime,
 }) => {
   const { currentDate, timeToPx, durationToPx, intervalMins, interval } = useScheduler();
-  const { blockedTimes, deleteBlockedTime, updateBooking } = useSchedulerContext();
+  const { blockedTimes, deleteBlockedTime, updateBooking, staffList, selectedStaffId } = useSchedulerContext();
   const { getBookingsByDate } = useBookings();
+
+  const visibleStaff = selectedStaffId
+    ? staffList.filter((s) => s.id === selectedStaffId)
+    : staffList;
 
   const today = new Date().toISOString().slice(0, 10);
   const isToday = currentDate === today;
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const [COL_WIDTH, setCOL_WIDTH] = useState(160);
+  const [containerWidth, setContainerWidth] = useState(0);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     function measure() {
       if (containerRef.current) {
-        const available = containerRef.current.clientWidth;
-        setCOL_WIDTH(Math.max(160, Math.floor(available / STAFF_LIST.length)));
+        const w = containerRef.current.clientWidth;
+        if (w > 0) setContainerWidth(w);
       }
     }
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
   }, []);
+
+  const COL_WIDTH = containerWidth > 0
+    ? Math.max(160, Math.floor(containerWidth / visibleStaff.length))
+    : 160;
 
   const [nowTime, setNowTime] = useState(getCurrentTime());
   const [staffMenu, setStaffMenu] = useState<{ staffId: string; x: number; y: number } | null>(null);
@@ -105,9 +113,9 @@ const DayView: React.FC<DayViewProps> = ({
         const snapped = Math.round(rawTop / SLOT_HEIGHT) * SLOT_HEIGHT;
         const deltaX = e.clientX - prev.startX;
         const colShift = Math.round(deltaX / COL_WIDTH);
-        const origIndex = STAFF_LIST.findIndex((s) => s.id === prev.booking.staffId);
-        const newIndex = Math.max(0, Math.min(STAFF_LIST.length - 1, origIndex + colShift));
-        return { ...prev, currentTop: Math.max(0, snapped), currentStaffId: STAFF_LIST[newIndex].id, currentStaffIndex: newIndex };
+        const origIndex = visibleStaff.findIndex((s) => s.id === prev.booking.staffId);
+        const newIndex = Math.max(0, Math.min(visibleStaff.length - 1, origIndex + colShift));
+        return { ...prev, currentTop: Math.max(0, snapped), currentStaffId: visibleStaff[newIndex].id, currentStaffIndex: newIndex };
       });
     }
     function onMouseUp() {
@@ -120,10 +128,29 @@ const DayView: React.FC<DayViewProps> = ({
       const [eh, em] = dragging.booking.endTime.split(":").map(Number);
       const duration = eh * 60 + em - (sh * 60 + sm);
       const newEnd = addMinutes(newStart, duration);
-      const newStaff = STAFF_LIST.find((s) => s.id === dragging.currentStaffId);
+      const newStaff = visibleStaff.find((s) => s.id === dragging.currentStaffId);
+      const orig = (dragging.booking as any)._originalBooking || dragging.booking;
+      
+      const toMins = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+      const oldStartMins = toMins(orig.startTime);
+      const newStartMins = toMins(newStart);
+      const deltaMins = newStartMins - oldStartMins;
+
+      const updatedServices = orig.services?.map((s: any) => {
+        const sMins = toMins(s.time || orig.startTime) + deltaMins;
+        const sh = Math.floor(sMins / 60);
+        const sm = Math.round(sMins % 60);
+        const shiftedTime = `${sh.toString().padStart(2, "0")}:${sm.toString().padStart(2, "0")}`;
+        return { ...s, time: shiftedTime, staffId: dragging.currentStaffId, staff: newStaff?.name || s.staff };
+      }) || [];
+
+      const firstSvc = updatedServices[0];
       updateBooking({
-        ...dragging.booking, startTime: newStart, endTime: newEnd, staffId: dragging.currentStaffId,
-        services: dragging.booking.services.map((s) => ({ ...s, staffId: dragging.currentStaffId, staff: newStaff?.name || s.staff })),
+        ...orig,
+        startTime: firstSvc?.time || newStart,
+        endTime: firstSvc ? addMinutes(firstSvc.time, duration) : newEnd,
+        staffId: firstSvc?.staffId || dragging.currentStaffId,
+        services: updatedServices,
       });
       setDragging(null);
     }
@@ -153,7 +180,16 @@ const DayView: React.FC<DayViewProps> = ({
       const eh = Math.floor(endMins / 60);
       const em = Math.round(endMins % 60);
       const newEnd = `${eh.toString().padStart(2, "0")}:${em.toString().padStart(2, "0")}`;
-      updateBooking({ ...resizing.booking, endTime: newEnd });
+      const orig = (resizing.booking as any)._originalBooking || resizing.booking;
+      
+      // Update duration of the last service
+      const updatedServices = [...(orig.services || [])];
+      if (updatedServices.length > 0) {
+        const lastSvc = updatedServices[updatedServices.length - 1];
+        updatedServices[updatedServices.length - 1] = { ...lastSvc, endTime: newEnd, end_time: newEnd };
+      }
+
+      updateBooking({ ...orig, endTime: newEnd, services: updatedServices });
       setResizing(null);
     }
     window.addEventListener("mousemove", onMouseMove);
@@ -161,34 +197,66 @@ const DayView: React.FC<DayViewProps> = ({
     return () => { window.removeEventListener("mousemove", onMouseMove); window.removeEventListener("mouseup", onMouseUp); };
   }, [resizing, intervalMins, updateBooking]);
 
-  const dayBookings = getBookingsByDate(currentDate);
-  const dayBlocked  = blockedTimes.filter((b) => b.date === currentDate);
+  const rawDayBookings = getBookingsByDate(currentDate);
+  const dayBookings = rawDayBookings.map((b) => {
+    if (!b.services || b.services.length === 0) return { ...b, _originalBooking: b };
+
+    const toMins = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+    let minStartMins = Infinity;
+    let maxEndMins = -Infinity;
+
+    b.services.forEach(svc => {
+      const start = svc.time || b.startTime;
+      const end = (svc as any).endTime || (svc as any).end_time || addMinutes(start, (svc as any).duration || 30);
+      minStartMins = Math.min(minStartMins, toMins(start));
+      maxEndMins = Math.max(maxEndMins, toMins(end));
+    });
+
+    const hStart = Math.floor(minStartMins / 60);
+    const mStart = Math.round(minStartMins % 60);
+    const overallStartTime = `${hStart.toString().padStart(2, "0")}:${mStart.toString().padStart(2, "0")}`;
+
+    const hEnd = Math.floor(maxEndMins / 60);
+    const mEnd = Math.round(maxEndMins % 60);
+    const overallEndTime = `${hEnd.toString().padStart(2, "0")}:${mEnd.toString().padStart(2, "0")}`;
+
+    return {
+      ...b,
+      _originalBooking: b,
+      startTime: overallStartTime,
+      endTime: overallEndTime,
+      // ✅ staffId: prefer booking-level, then first service's staffId
+      staffId: b.staffId || b.services[0]?.staffId,
+    };
+  // ✅ Always sort by startTime so card order is stable and independent of Redux insertion order
+  }).sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
+  const dayBlocked = blockedTimes.filter((b) => b.date === currentDate);
 
   // ── Smart visible hour range ─────────────────────────────────────────────
   // Default: 9 AM – 7 PM when no bookings exist.
   // With bookings: 1 hour before earliest start, 1 hour after latest end,
   // always at least a 4-hour window, clamped to 0–24.
   const DEFAULT_START = 9;
-  const DEFAULT_END   = 19;
-  const MIN_WINDOW    = 4; // minimum hours to show
+  const DEFAULT_END = 19;
+  const MIN_WINDOW = 4; // minimum hours to show
 
   const allEvents = [
     ...dayBookings.map((b) => ({ start: b.startTime, end: b.endTime })),
-    ...dayBlocked.map((b)  => ({ start: b.startTime, end: b.endTime })),
+    ...dayBlocked.map((b) => ({ start: b.startTime, end: b.endTime })),
   ];
 
   let startHour: number;
-  let endHour:   number;
+  let endHour: number;
 
   if (allEvents.length === 0) {
     startHour = DEFAULT_START;
-    endHour   = DEFAULT_END;
+    endHour = DEFAULT_END;
   } else {
     const toMins = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
     const earliestMins = Math.min(...allEvents.map((e) => toMins(e.start)));
-    const latestMins   = Math.max(...allEvents.map((e) => toMins(e.end)));
-    startHour = Math.max(0,  Math.floor(earliestMins / 60) - 1);
-    endHour   = Math.min(24, Math.ceil(latestMins   / 60) + 1);
+    const latestMins = Math.max(...allEvents.map((e) => toMins(e.end)));
+    startHour = Math.max(0, Math.floor(earliestMins / 60) - 1);
+    endHour = Math.min(24, Math.ceil(latestMins / 60) + 1);
     // Enforce minimum window
     if (endHour - startHour < MIN_WINDOW) endHour = Math.min(24, startHour + MIN_WINDOW);
   }
@@ -196,10 +264,23 @@ const DayView: React.FC<DayViewProps> = ({
   const slots = generateTimeSlots(interval as any);
   const nowPx = timeToPx(nowTime);
   const isInteracting = !!(dragging || resizing);
-  const totalWidth = STAFF_LIST.length * COL_WIDTH;
+  const totalWidth = visibleStaff.length * COL_WIDTH;
 
   function isSlotBlocked(staffId: string, time: string) {
     return dayBlocked.some((b) => b.staffId === staffId && b.startTime <= time && time < b.endTime);
+  }
+
+  function isSlotBooked(staffId: string, slotTime: string) {
+    const toMins = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+    const slotMins = toMins(slotTime);
+    return dayBookings.some((b) => {
+      if ((b.status as string) === "Cancelled") return false;
+      // ✅ Match booking-level staffId OR any service staffId
+      const staffMatch = b.staffId === staffId || (b.services || []).some((s: any) => s.staffId === staffId);
+      return staffMatch &&
+        slotMins >= toMins(b.startTime) &&
+        slotMins < toMins(b.endTime);
+    });
   }
   function handleRemoveBlockTime(staffId: string) {
     dayBlocked.filter((b) => b.staffId === staffId).forEach((b) => deleteBlockedTime(b.id));
@@ -232,7 +313,7 @@ const DayView: React.FC<DayViewProps> = ({
       <div ref={containerRef} className="dv-columns">
         <div ref={headerRef} className="dv-staff-header">
           <div className="dv-staff-header__inner" style={{ width: totalWidth }}>
-            {STAFF_LIST.map((staff) => {
+            {visibleStaff.map((staff) => {
               const isDragTarget = dragging?.currentStaffId === staff.id && dragging.booking.staffId !== staff.id;
               return (
                 <div
@@ -263,7 +344,7 @@ const DayView: React.FC<DayViewProps> = ({
           )}
 
           <div className="dv-grid" style={{ width: totalWidth }}>
-            {STAFF_LIST.map((staff, staffIndex) => {
+            {visibleStaff.map((staff, staffIndex) => {
               const isDragTarget = dragging?.currentStaffId === staff.id && dragging.booking.staffId !== staff.id;
               const isFirstCol = staffIndex === 0;
 
@@ -276,87 +357,120 @@ const DayView: React.FC<DayViewProps> = ({
                   {slots.map((t) => {
                     const [, m] = t.split(":").map(Number);
                     const blocked = isSlotBlocked(staff.id, t);
+                    const booked = !blocked && isSlotBooked(staff.id, t);
+                    const unavailable = blocked || booked;
                     return (
                       <div
                         key={t}
-                        onClick={() => !blocked && !isInteracting && onSlotClick(staff.id, t)}
-                        className={`dv-slot${m === 0 ? " dv-slot--hour" : ""}${blocked ? " dv-slot--blocked" : ""}`}
-                        onMouseEnter={(e) => { if (!blocked && !isInteracting) (e.currentTarget as HTMLElement).classList.add("dv-slot--hover"); }}
+                        onClick={() => !unavailable && !isInteracting && onSlotClick(staff.id, t)}
+                        className={`dv-slot${m === 0 ? " dv-slot--hour" : ""}${blocked ? " dv-slot--blocked" : ""}${booked ? " dv-slot--booked" : ""}`}
+                        onMouseEnter={(e) => { if (!unavailable && !isInteracting) (e.currentTarget as HTMLElement).classList.add("dv-slot--hover"); }}
                         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).classList.remove("dv-slot--hover"); }}
                       />
                     );
                   })}
 
                   {dayBlocked.filter((b) => b.staffId === staff.id).map((b) => (
-                    <div key={b.id} className="dv-block-overlay" style={{ top: timeToPx(b.startTime), height: durationToPx(b.startTime, b.endTime) }}>
-                      <span className="dv-block-overlay__label">🚫 {b.reason || "Blocked"}</span>
+                    <div
+                      key={b.id}
+                      className="dv-block-overlay"
+                      style={{ top: timeToPx(b.startTime), height: durationToPx(b.startTime, b.endTime) }}
+                      title={b.reason ? `Blocked: ${b.reason}` : "Blocked"}
+                    >
+                      <div className="dv-block-overlay__content">
+                        <span className="dv-block-overlay__label">🚫 {b.reason || "Blocked"}</span>
+                        <div className="dv-block-overlay__actions">
+                          <button
+                            className="dv-block-overlay__btn"
+                            title="Edit block time"
+                            onClick={(e) => { e.stopPropagation(); onEditBlockTime(b); }}
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            className="dv-block-overlay__btn dv-block-overlay__btn--delete"
+                            title="Delete block time"
+                            onClick={(e) => { e.stopPropagation(); deleteBlockedTime(b.id); }}
+                          >
+                            🗑
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   ))}
 
                   {dayBookings
                     .filter((b) => {
                       if (dragging?.booking.id === b.id) return dragging.currentStaffId === staff.id;
-                      return b.staffId === staff.id;
+                      // ✅ Show booking in this column if the booking OR any of its services belongs to this staff
+                      const bookingMatchesStaff = b.staffId === staff.id;
+                      const serviceMatchesStaff = (b.services || []).some((s: any) => s.staffId === staff.id);
+                      return bookingMatchesStaff || serviceMatchesStaff;
                     })
                     .map((b) => {
                       const isDraggingThis = dragging?.booking.id === b.id;
                       const isResizingThis = resizing?.booking.id === b.id;
                       const chipTop = isDraggingThis ? dragging!.currentTop : timeToPx(b.startTime);
                       const chipHeight = isResizingThis ? resizing!.currentHeight : Math.max(durationToPx(b.startTime, b.endTime), SLOT_HEIGHT);
-                      const statusClass = b.status === "Confirmed" ? "confirmed" : b.status === "Pending" ? "pending" : "cancelled";
+                      const ps = (b.paymentStatus || "").toLowerCase();
+                      const bs = (b.status || "").toLowerCase();
+                      const isPaid = ps === "paid" || ps === "completed";
+                      const isPartial = ps === "partial";
+                      const isCancelled = bs === "cancelled";
+                      const statusClass = isCancelled ? "cancelled" : isPaid ? "confirmed" : isPartial ? "partial" : "pending";
 
-                      const clientStats = CLIENT_STATS?.find?.((c: any) => c.clientId === b.clientId) as any;
-                      const lastNote = clientStats?.notes || "";
+                      const lastNote = b.notes || "";
 
                       const previewStart = isDraggingThis
                         ? (() => {
-                            const totalMins = (dragging!.currentTop / SLOT_HEIGHT) * intervalMins;
-                            const h = Math.floor(totalMins / 60);
-                            const m = Math.round(totalMins % 60);
-                            return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
-                          })()
+                          const totalMins = (dragging!.currentTop / SLOT_HEIGHT) * intervalMins;
+                          const h = Math.floor(totalMins / 60);
+                          const m = Math.round(totalMins % 60);
+                          return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+                        })()
                         : b.startTime;
 
                       const previewEnd = isResizingThis
                         ? (() => {
-                            const [sh, sm] = b.startTime.split(":").map(Number);
-                            const addedMins = (resizing!.currentHeight / SLOT_HEIGHT) * intervalMins;
-                            const endMins = sh * 60 + sm + addedMins;
-                            const eh = Math.floor(endMins / 60);
-                            const em = Math.round(endMins % 60);
-                            return `${eh.toString().padStart(2, "0")}:${em.toString().padStart(2, "0")}`;
-                          })()
+                          const [sh, sm] = b.startTime.split(":").map(Number);
+                          const addedMins = (resizing!.currentHeight / SLOT_HEIGHT) * intervalMins;
+                          const endMins = sh * 60 + sm + addedMins;
+                          const eh = Math.floor(endMins / 60);
+                          const em = Math.round(endMins % 60);
+                          return `${eh.toString().padStart(2, "0")}:${em.toString().padStart(2, "0")}`;
+                        })()
                         : isDraggingThis
                           ? addMinutes(previewStart, (() => {
-                              const [sh, sm] = b.startTime.split(":").map(Number);
-                              const [eh, em] = b.endTime.split(":").map(Number);
-                              return eh * 60 + em - (sh * 60 + sm);
-                            })())
+                            const [sh, sm] = b.startTime.split(":").map(Number);
+                            const [eh, em] = b.endTime.split(":").map(Number);
+                            return eh * 60 + em - (sh * 60 + sm);
+                          })())
                           : b.endTime;
 
                       return (
                         <div
                           key={b.id}
                           className={`dv-chip dv-chip--${statusClass}${isDraggingThis ? " dv-chip--dragging" : ""}${isResizingThis ? " dv-chip--resizing" : ""}`}
-                          style={{ top: chipTop, height: chipHeight }}
+                          style={{ top: chipTop, height: chipHeight, cursor: isCancelled ? "pointer" : undefined }}
                           onMouseDown={(e) => {
+                            if (isCancelled) return;
                             const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                             const fromBottom = rect.bottom - e.clientY;
                             if (fromBottom > 14) {
                               e.stopPropagation(); e.preventDefault();
-                              const origIndex = STAFF_LIST.findIndex((s) => s.id === b.staffId);
+                              const origIndex = visibleStaff.findIndex((s) => s.id === b.staffId);
                               setDragging({ booking: b, startX: e.clientX, startY: e.clientY, originalTop: timeToPx(b.startTime), currentTop: timeToPx(b.startTime), currentStaffId: b.staffId, currentStaffIndex: origIndex });
                             }
                           }}
                           onClick={(e) => {
                             e.stopPropagation();
                             if (isInteracting) return;
-                            onEditBooking(b);
+                            onEditBooking((b as any)._originalBooking || b);
                           }}
                         >
                           <div className="dv-chip__body">
                             <span className="dv-chip__time">{formatTime12(previewStart)} – {formatTime12(previewEnd)}</span>
-                            <span className="dv-chip__service">{b.services[0]?.service}</span>
+                            <span className="dv-chip__service">{b.services.map((s: any) => s.service).join(", ")}</span>
                             <span className="dv-chip__client">👤 {b.clientName}</span>
                             {lastNote && chipHeight >= SLOT_HEIGHT * 2 && (
                               <span className="dv-chip__note">📝 {lastNote}</span>
@@ -365,6 +479,7 @@ const DayView: React.FC<DayViewProps> = ({
                           <div
                             className="dv-chip__resize-handle"
                             onMouseDown={(e) => {
+                              if (isCancelled) return;
                               e.stopPropagation(); e.preventDefault();
                               setResizing({ booking: b, startY: e.clientY, originalHeight: Math.max(durationToPx(b.startTime, b.endTime), SLOT_HEIGHT), currentHeight: Math.max(durationToPx(b.startTime, b.endTime), SLOT_HEIGHT) });
                             }}

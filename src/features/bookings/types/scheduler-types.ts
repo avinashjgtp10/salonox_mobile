@@ -24,6 +24,7 @@ export interface ServiceItem {
   price: number;
   qty: number;
   total: number;
+  duration?: number;
   isFav?: boolean;
 }
 export interface GroupItem {
@@ -63,6 +64,7 @@ export interface Booking {
   packageItems?: PackageItem[];
   status: BookingStatus;
   paymentStatus: PaymentStatus;
+  payment_status?: string | null;  // ✅ snake_case alias from DB/API
   paymentMode?: PaymentMode;
   rewardPoints?: string;
   exCharges?: number;

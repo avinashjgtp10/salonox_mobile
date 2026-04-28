@@ -75,9 +75,9 @@ export interface ApiResponse<T> {
 export const packagesApi = createApi({
   reducerPath: "packagesApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5000") + "/api/v1",
-    prepareHeaders: (headers) => {
-      const token = localStorage.getItem("token");
+    baseUrl: (import.meta.env.VITE_API_BASE_URL ?? "") + "/api/v1",
+    prepareHeaders: (headers, { getState }) => {
+      const token = (getState() as any)?.auth?.accessToken;
       if (token) headers.set("Authorization", `Bearer ${token}`);
       return headers;
     },

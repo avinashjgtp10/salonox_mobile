@@ -9,6 +9,8 @@ export type AppointmentStatus =
   | "cancelled"
   | "no_show";
 
+export type PaymentStatus = "unpaid" | "paid" | "partial" | "refunded";
+
 export interface Booking {
   id: EntityId;
   salon_id: string;
@@ -19,6 +21,7 @@ export interface Booking {
   title?: string | null;
   notes?: string | null;
   status: AppointmentStatus | string;
+  payment_status?: PaymentStatus | null;  // ✅ DB-level payment status (snake_case)
   scheduled_at: string;      // ISO timestamp
   duration_minutes: number;
   ends_at?: string | null;   // ISO timestamp
@@ -62,4 +65,3 @@ export interface BookingListResponse {
   data: Booking[];
   message?: string;
 }
-

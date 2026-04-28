@@ -8,6 +8,7 @@ interface TimeSelectProps {
   interval?: IntervalOption;
   className?: string;
   placeholder?: string;
+  disabled?: boolean;
 }
 
 const TimeSelect: React.FC<TimeSelectProps> = ({
@@ -16,6 +17,7 @@ const TimeSelect: React.FC<TimeSelectProps> = ({
   interval = "15 Mins",
   className = "form-select",
   placeholder,
+  disabled
 }) => {
   const slots = generateTimeSlots(interval);
   return (
@@ -23,6 +25,7 @@ const TimeSelect: React.FC<TimeSelectProps> = ({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className={className}
+      disabled={disabled}
     >
       {placeholder && <option value="">{placeholder}</option>}
       {slots.map((t) => (

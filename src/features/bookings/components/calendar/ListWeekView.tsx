@@ -103,12 +103,13 @@ const ListWeekView: React.FC<ListWeekViewProps> = ({ onViewBill }) => {
                       height: 36,
                       borderRadius: 2,
                       flexShrink: 0,
-                      background:
-                        b.paymentStatus === "Paid"
-                          ? "#22c55e"
-                          : b.paymentStatus === "Partial"
-                            ? "#f59e0b"
-                            : "#6b7280",
+                      background: (() => {
+                        const ps = (b.paymentStatus || "").toLowerCase();
+                        const bs = (b.status || "").toLowerCase();
+                        const isPaid = ps === "paid" || ps === "completed" || bs === "confirmed";
+                        const isCancelled = bs === "cancelled";
+                        return isCancelled ? "#ef4444" : isPaid ? "#22c55e" : "#f59e0b";
+                      })(),
                     }}
                   />
                   <div style={{ flex: 1, minWidth: 0 }}>

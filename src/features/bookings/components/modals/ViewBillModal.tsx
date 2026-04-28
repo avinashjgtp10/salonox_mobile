@@ -1,13 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import type { Booking, BookingStatus } from "../../types/scheduler-types";
-import { CLIENT_LIST, STAFF_LIST } from "../../utils/schedulerMockData";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import { formatTime12 } from "../../utils/timeUtils";
-import Button from "../../../../components/ui/Button";
 import Badge from "../../../../components/ui/Badge";
 import "../../styles/ViewBillModal.scss";
 
-interface Props { booking: Booking; onClose: () => void }
+interface Props { booking: Booking; onClose: () => void; onEdit?: (booking: Booking) => void; onCollectDue?: (booking: Booking) => void }
 
 const STATUS_OPTIONS: { value: BookingStatus; color: string; bg: string; label: string }[] = [
   { value: "Confirmed", color: "#15803d", bg: "#22c55e", label: "✓ Confirmed" },
@@ -15,8 +13,8 @@ const STATUS_OPTIONS: { value: BookingStatus; color: string; bg: string; label: 
   { value: "Cancelled", color: "#fff",    bg: "#ef4444", label: "✕ Cancelled"  },
 ];
 
-function printReceipt(booking: Booking) {
-  const staffName = STAFF_LIST.find((s) => s.id === booking.staffId)?.name || booking.staffId || "—";
+function printReceipt(booking: Booking, staffList: { id: string; name: string }[]) {
+  const staffName = staffList.find((s) => s.id === booking.staffId)?.name || booking.staffId || "—";
   const generatedAt = new Date().toLocaleString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
   const serviceRows = booking.services.map((s) => `<tr><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0">${s.service}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#6b7280">${s.staff || staffName}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center">${s.qty}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600">₹${(s.total || 0).toFixed(2)}</td></tr>`).join("");
   const pkgRows = (booking.packageItems || []).map((p) => `<tr><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0">${p.packageName} <span style="font-size:10px;color:#f59e0b;background:#fef3c7;padding:1px 5px;border-radius:3px">PKG</span></td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;color:#6b7280">—</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:center">${p.qty}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600">₹${(p.total || 0).toFixed(2)}</td></tr>`).join("");
@@ -27,14 +25,26 @@ function printReceipt(booking: Booking) {
   win.document.write(html); win.document.close(); win.focus(); setTimeout(() => win.print(), 500);
 }
 
-const ViewBillModal: React.FC<Props> = ({ booking, onClose }) => {
-  const { updateBooking } = useSchedulerContext();
+const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue }) => {
+  const { updateBooking, staffList, clientsList } = useSchedulerContext();
   const [tab, setTab] = useState<"Booking Details" | "Activity Log">("Booking Details");
   const [status, setStatus] = useState<BookingStatus>(booking.status);
   const [showStatusDrop, setShowStatusDrop] = useState(false);
+  const [showDotMenu, setShowDotMenu] = useState(false);
+  const dotMenuRef = useRef<HTMLDivElement>(null);
 
-  const client = CLIENT_LIST.find((c: any) => c.id === booking.clientId);
-  const staffName = STAFF_LIST.find((s) => s.id === booking.staffId)?.name || "—";
+  useEffect(() => {
+    if (!showDotMenu) return;
+    function handleOutside(e: MouseEvent) {
+      if (dotMenuRef.current && !dotMenuRef.current.contains(e.target as Node))
+        setShowDotMenu(false);
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [showDotMenu]);
+
+  const client = clientsList.find((c) => c.id === booking.clientId);
+  const staffName = staffList.find((s) => s.id === booking.staffId)?.name || "—";
   const currentStatus = STATUS_OPTIONS.find((s) => s.value === status) || STATUS_OPTIONS[0];
   const payVariant = booking.paymentStatus === "Paid" ? ("success" as const) : booking.paymentStatus === "Partial" ? ("warning" as const) : ("danger" as const);
 
@@ -100,6 +110,21 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose }) => {
             ))}
           </div>
 
+          {(booking.dueAmount || 0) > 0 && booking.paymentStatus === "Partial" && onCollectDue && (
+            <div className="vbm-section">
+              <button
+                onClick={() => { onClose(); onCollectDue(booking); }}
+                style={{
+                  width: "100%", background: "#f59e0b", color: "#fff",
+                  border: "none", borderRadius: 8, padding: "10px 0",
+                  fontSize: 13, fontWeight: 700, cursor: "pointer",
+                }}
+              >
+                ⏳ Collect Due — ₹{(booking.dueAmount || 0).toFixed(2)}
+              </button>
+            </div>
+          )}
+
           <div className="vbm-status-section">
             <div className="vbm-section-label">Status</div>
             <div className="vbm-status-wrap position-relative">
@@ -127,13 +152,38 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose }) => {
             <div className="vbm-header__left">
               <button className="vbm-close-btn btn btn-sm btn-link text-dark text-decoration-none" onClick={onClose}>✕</button>
               <div>
-                <h2 className="vbm-header__title mb-0">View Bill</h2>
+                <h2 className="vbm-header__title mb-0">View Appointment</h2>
                 <div className="vbm-header__id text-muted small">#{booking.id}</div>
               </div>
             </div>
-            <Button variant="dark" size="sm" iconLeft={<span>🖨️</span>} onClick={() => printReceipt(booking)}>
-              Print Receipt
-            </Button>
+            <div ref={dotMenuRef} style={{ position: "relative" }}>
+              <button
+                onClick={() => setShowDotMenu((v) => !v)}
+                style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: "5px 13px", cursor: "pointer", fontSize: 20, lineHeight: 1, color: "#374151", fontWeight: 700 }}
+                title="More options"
+              >⋮</button>
+              {showDotMenu && (
+                <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, boxShadow: "0 6px 24px rgba(0,0,0,0.13)", minWidth: 190, zIndex: 9999 }}>
+                  <button
+                    onClick={() => { setShowDotMenu(false); onClose(); onEdit?.(booking); }}
+                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#111827", borderRadius: "10px 10px 0 0", textAlign: "left" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                  >
+                    <span>✏️</span> Edit Appointment
+                  </button>
+                  <div style={{ height: 1, background: "#f3f4f6" }} />
+                  <button
+                    onClick={() => { setShowDotMenu(false); printReceipt(booking, staffList); }}
+                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#111827", borderRadius: "0 0 10px 10px", textAlign: "left" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                  >
+                    <span>🖨️</span> Print Receipt
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Tabs */}
