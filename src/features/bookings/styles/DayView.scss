@@ -11,9 +11,17 @@
   user-select: auto;
   cursor: default;
 
-  &--interacting { user-select: none; }
-  &--dragging    { cursor: grabbing; }
-  &--resizing    { cursor: ns-resize; }
+  &--interacting {
+    user-select: none;
+  }
+
+  &--dragging {
+    cursor: grabbing;
+  }
+
+  &--resizing {
+    cursor: ns-resize;
+  }
 }
 
 /* ── Time gutter ── */
@@ -87,7 +95,10 @@
   background: $white;
   z-index: 5;
 
-  &__inner { display: flex; height: 100%; }
+  &__inner {
+    display: flex;
+    height: 100%;
+  }
 }
 
 .dv-staff-col-header {
@@ -103,8 +114,13 @@
   background: $white;
   transition: background 0.15s;
 
-  &--drag-target { background: #eff6ff; }
-  &:hover        { background: #f9fafb; }
+  &--drag-target {
+    background: #eff6ff;
+  }
+
+  &:hover {
+    background: #f9fafb;
+  }
 }
 
 .dv-staff-name {
@@ -135,9 +151,22 @@
   pointer-events: none;
   z-index: 10;
 
-  &__icon  { font-size: 40px; margin-bottom: 10px; }
-  &__title { font-size: 15px; font-weight: 700; color: #374151; margin-bottom: 6px; }
-  &__sub   { font-size: 12px; color: #9ca3af; }
+  &__icon {
+    font-size: 40px;
+    margin-bottom: 10px;
+  }
+
+  &__title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #374151;
+    margin-bottom: 6px;
+  }
+
+  &__sub {
+    font-size: 12px;
+    color: #9ca3af;
+  }
 }
 
 /* ── Grid ── */
@@ -157,7 +186,9 @@
   transition: background 0.15s;
   overflow: visible;
 
-  &--drag-target { background: rgba(59, 130, 246, 0.04); }
+  &--drag-target {
+    background: rgba(59, 130, 246, 0.04);
+  }
 }
 
 /* ── Slot cell — height MUST equal SLOT_HEIGHT = 48 ── */
@@ -166,9 +197,23 @@
   border-bottom: 1px solid #f0f0f0;
   cursor: pointer;
 
-  &--hour    { border-bottom-color: #d1d5db; background: #fafafa; }
-  &--blocked { cursor: default; }
-  &--hover   { background: #f0f9ff; }
+  &--hour {
+    border-bottom-color: #d1d5db;
+    background: #fafafa;
+  }
+
+  &--blocked {
+    cursor: default;
+  }
+
+  &--booked {
+    cursor: not-allowed;
+    background: rgba(99, 102, 241, 0.06);
+  }
+
+  &--hover {
+    background: #f0f9ff;
+  }
 }
 
 /* ── Block overlay ── */
@@ -176,15 +221,24 @@
   position: absolute;
   left: 0;
   right: 0;
-  background: repeating-linear-gradient(
-    45deg, #fef2f2, #fef2f2 6px, #fee2e2 6px, #fee2e2 12px
-  );
+  background: repeating-linear-gradient(45deg, #fef2f2, #fef2f2 6px, #fee2e2 6px, #fee2e2 12px);
   border-left: 3px solid $danger;
   z-index: 3;
-  display: flex;
-  align-items: flex-start;
   padding: 4px 8px;
-  pointer-events: none;
+  pointer-events: all;
+  cursor: default;
+
+  &:hover .dv-block-overlay__actions {
+    opacity: 1;
+  }
+
+  &__content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 4px;
+  }
 
   &__label {
     font-size: 11px;
@@ -193,6 +247,34 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    flex: 1;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.15s;
+    flex-shrink: 0;
+  }
+
+  &__btn {
+    background: rgba(255,255,255,0.8);
+    border: 1px solid #fca5a5;
+    border-radius: 4px;
+    padding: 1px 4px;
+    font-size: 12px;
+    line-height: 1.4;
+    cursor: pointer;
+    transition: background 0.1s;
+
+    &:hover {
+      background: #fff;
+    }
+
+    &--delete:hover {
+      background: #fee2e2;
+    }
   }
 }
 
@@ -211,9 +293,21 @@
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
   transition: box-shadow 0.1s;
 
-  &--confirmed { background: linear-gradient(135deg, #22c55e, #16a34a); }
-  &--pending   { background: linear-gradient(135deg, #f59e0b, #d97706); }
-  &--cancelled { background: linear-gradient(135deg, #ef4444, #dc2626); }
+  &--confirmed {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+  }
+
+  &--pending {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+  }
+
+  &--partial {
+    background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  }
+
+  &--cancelled {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+  }
 
   &--dragging {
     z-index: 100;
@@ -229,8 +323,16 @@
     transition: none;
   }
 
-  &__body    { padding: 4px 8px; }
-  &__time    { display: block; font-size: 10px; opacity: 0.9; }
+  &__body {
+    padding: 4px 8px;
+  }
+
+  &__time {
+    display: block;
+    font-size: 10px;
+    opacity: 0.9;
+  }
+
   &__service {
     display: block;
     font-weight: 700;
@@ -239,7 +341,8 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  &__client  {
+
+  &__client {
     display: block;
     font-size: 10px;
     opacity: 0.85;
@@ -326,5 +429,8 @@
     transition: background 0.15s;
   }
 
-  &__divider { height: 1px; background: #f0f0f0; }
+  &__divider {
+    height: 1px;
+    background: #f0f0f0;
+  }
 }

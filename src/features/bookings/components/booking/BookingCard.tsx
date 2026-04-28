@@ -1,7 +1,6 @@
 import React from "react";
 import type { Booking } from "../../types/scheduler-types";
 import { formatTime12 } from "../../utils/timeUtils";
-import { CLIENT_STATS } from "../../utils/schedulerMockData";
 
 interface BookingCardProps {
   booking: Booking;
@@ -14,18 +13,16 @@ interface BookingCardProps {
 const BookingCard: React.FC<BookingCardProps> = ({
   booking, onEdit, onPayment, onClose, style,
 }) => {
-  const statusColor =
-    booking.status === "Confirmed" ? "#22c55e"
-    : booking.status === "Pending" ? "#f59e0b"
-    : "#ef4444";
-  const statusBg =
-    booking.status === "Confirmed" ? "#dcfce7"
-    : booking.status === "Pending" ? "#fef3c7"
-    : "#fef2f2";
+  const ps = (booking.paymentStatus || "").toLowerCase();
+  const bs = (booking.status || "").toLowerCase();
+  const isPaid = ps === "paid" || ps === "completed";
+  const isPartial = ps === "partial";
+  const isCancelled = bs === "cancelled";
 
-  // Last client note
-  const clientStats = CLIENT_STATS?.find?.((c: any) => c.clientId === booking.clientId) as any;
-  const lastNote = clientStats?.notes || "";
+  const statusColor = isCancelled ? "#ef4444" : isPaid ? "#22c55e" : isPartial ? "#7c3aed" : "#f59e0b";
+  const statusBg = isCancelled ? "#fef2f2" : isPaid ? "#dcfce7" : isPartial ? "#ede9fe" : "#fef3c7";
+
+  const lastNote = booking.notes || "";
 
   return (
     <div
@@ -72,7 +69,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
       {/* Payment + Bill */}
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginTop: 8 }}>
         <span>Payment: <span style={{
-          color: booking.paymentStatus === "Paid" ? "#22c55e" : booking.paymentStatus === "Partial" ? "#f59e0b" : "#ef4444",
+          color: booking.paymentStatus === "Paid" ? "#22c55e" : booking.paymentStatus === "Partial" ? "#7c3aed" : "#ef4444",
           fontWeight: 600,
         }}>{booking.paymentStatus}</span></span>
         <span>Bill: <strong>₹{(booking.grandTotal || 0).toFixed(2)}</strong></span>

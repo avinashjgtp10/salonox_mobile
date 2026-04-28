@@ -4,11 +4,9 @@ import type {
   BlockedTime,
   ViewMode,
   IntervalOption,
+  Staff,
+  Client,
 } from "../features/bookings/types/scheduler-types";
-import {
-  INITIAL_BOOKINGS,
-  INITIAL_BLOCKED,
-} from "../features/bookings/utils/schedulerMockData";
 
 // ── Loyalty / rewards helpers ────────────────────────────────────────────────
 export const MEMBERSHIP_TIERS = {
@@ -48,6 +46,12 @@ export interface ClientStat {
   staffAlert?: string;
 }
 
+// ── Scheduler lookup data (populated from API) ───────────────────────────────
+export interface SchedulerService { id: string; name: string; price: number; duration: number }
+export interface SchedulerPackage { id: string; name: string; price: number; services: string[] }
+export interface SchedulerProduct { name: string; price: number }
+export interface SchedulerMembership { name: string; price: number }
+
 // ── Slice state ──────────────────────────────────────────────────────────────
 interface SchedulerState {
   bookings: Booking[];
@@ -56,21 +60,59 @@ interface SchedulerState {
   currentDate: string;
   interval: IntervalOption;
   clientStats: ClientStat[];
+  staffList: Staff[];
+  selectedStaffId: string | null;
+  clientsList: Client[];
+  servicesList: SchedulerService[];
+  packagesList: SchedulerPackage[];
+  membershipsList: SchedulerMembership[];
+  productsList: SchedulerProduct[];
 }
 
 const initialState: SchedulerState = {
-  bookings: INITIAL_BOOKINGS,
-  blockedTimes: INITIAL_BLOCKED,
+  bookings: [],
+  blockedTimes: [],
   viewMode: "Day",
   currentDate: new Date().toISOString().slice(0, 10),
   interval: "30 Mins",
   clientStats: [],
+  staffList: [{ id: "1bc10cd5-1861-4e47-b450-3de2664cee6e", name: "Test Staff", initials: "TS", color: "#4f46e5" }, { id: "1bc10cd5-1861-4e47-b450-3de2664cee6e", name: "Test Staff", initials: "TS", color: "#4f46e5" }],
+  selectedStaffId: null,
+  clientsList: [],
+  servicesList: [],
+  packagesList: [],
+  membershipsList: [],
+  productsList: [],
 };
 
 const schedulerSlice = createSlice({
   name: "scheduler",
   initialState,
   reducers: {
+    setBookings(state, { payload }: PayloadAction<Booking[]>) {
+      state.bookings = payload;
+    },
+    setStaffList(state, { payload }: PayloadAction<Staff[]>) {
+      state.staffList = payload;
+    },
+    setSelectedStaffId(state, { payload }: PayloadAction<string | null>) {
+      state.selectedStaffId = payload;
+    },
+    setClientsList(state, { payload }: PayloadAction<Client[]>) {
+      state.clientsList = payload;
+    },
+    setServicesList(state, { payload }: PayloadAction<SchedulerService[]>) {
+      state.servicesList = payload;
+    },
+    setPackagesList(state, { payload }: PayloadAction<SchedulerPackage[]>) {
+      state.packagesList = payload;
+    },
+    setMembershipsList(state, { payload }: PayloadAction<SchedulerMembership[]>) {
+      state.membershipsList = payload;
+    },
+    setProductsList(state, { payload }: PayloadAction<SchedulerProduct[]>) {
+      state.productsList = payload;
+    },
     addBooking(state, { payload }: PayloadAction<Booking>) {
       state.bookings.push(payload);
     },
@@ -78,11 +120,46 @@ const schedulerSlice = createSlice({
       const idx = state.bookings.findIndex((b) => b.id === payload.id);
       if (idx !== -1) state.bookings[idx] = payload;
     },
+    // ✅ Patch ONLY payment-related fields — does NOT touch startTime/endTime/staffId
+    patchPaymentStatus(
+      state,
+      { payload }: PayloadAction<{
+        id: string;
+        paymentStatus: string;
+        payingNow?: number;
+        dueAmount?: number;
+        grandTotal?: number;
+      }>
+    ) {
+      const booking = state.bookings.find((b) => String(b.id) === String(payload.id));
+      if (booking) {
+        (booking as any).paymentStatus = payload.paymentStatus;
+        (booking as any).payment_status = payload.paymentStatus.toLowerCase();
+        if (payload.payingNow !== undefined) (booking as any).payingNow = payload.payingNow;
+        if (payload.dueAmount !== undefined) (booking as any).dueAmount = payload.dueAmount;
+        if (payload.grandTotal !== undefined) (booking as any).grandTotal = payload.grandTotal;
+      }
+    },
+    replaceBookingId(state, { payload }: PayloadAction<{ localId: string; realId: string }>) {
+      const idx = state.bookings.findIndex((b) => b.id === payload.localId);
+      if (idx !== -1) state.bookings[idx] = { ...state.bookings[idx], id: payload.realId };
+    },
     deleteBooking(state, { payload }: PayloadAction<string>) {
       state.bookings = state.bookings.filter((b) => b.id !== payload);
     },
+    setBlockedTimes(state, { payload }: PayloadAction<BlockedTime[]>) {
+      state.blockedTimes = payload;
+    },
     addBlockedTime(state, { payload }: PayloadAction<BlockedTime>) {
       state.blockedTimes.push(payload);
+    },
+    updateBlockedTime(state, { payload }: PayloadAction<BlockedTime>) {
+      const idx = state.blockedTimes.findIndex((b) => b.id === payload.id);
+      if (idx !== -1) state.blockedTimes[idx] = payload;
+    },
+    replaceBlockedTimeId(state, { payload }: PayloadAction<{ localId: string; realId: string }>) {
+      const idx = state.blockedTimes.findIndex((b) => b.id === payload.localId);
+      if (idx !== -1) state.blockedTimes[idx] = { ...state.blockedTimes[idx], id: payload.realId };
     },
     deleteBlockedTime(state, { payload }: PayloadAction<string>) {
       state.blockedTimes = state.blockedTimes.filter((b) => b.id !== payload);
@@ -146,10 +223,23 @@ const schedulerSlice = createSlice({
 });
 
 export const {
+  setBookings,
+  setStaffList,
+  setSelectedStaffId,
+  setClientsList,
+  setServicesList,
+  setPackagesList,
+  setMembershipsList,
+  setProductsList,
   addBooking,
   updateBooking,
+  patchPaymentStatus,
+  replaceBookingId,
   deleteBooking,
+  setBlockedTimes,
   addBlockedTime,
+  updateBlockedTime,
+  replaceBlockedTimeId,
   deleteBlockedTime,
   setViewMode,
   setCurrentDate,

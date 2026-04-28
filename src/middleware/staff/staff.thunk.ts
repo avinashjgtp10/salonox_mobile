@@ -16,9 +16,13 @@ export const fetchStaffThunk = createAsyncThunk<
   Staff[],
   void,
   { rejectValue: string }
->("staff/fetchAll", async (_, { rejectWithValue }) => {
+>("staff/fetchAll", async (_, { rejectWithValue, getState }) => {
   try {
-    const res = await api.get<StaffListResponse>(STAFF.BASE);
+    const state = getState() as any;
+    const salonId = state.salon?.currentSalon?.id;
+    const params = new URLSearchParams();
+    if (salonId) params.set("salon_id", String(salonId));
+    const res = await api.get<StaffListResponse>(`${STAFF.BASE}?${params.toString()}`);
     return res.data.data;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);

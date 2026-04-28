@@ -23,19 +23,26 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime }) => {
     navigate,
     interval,
     setInterval,
+    staffList,
+    selectedStaffId,
+    setSelectedStaffId,
   } = useSchedulerContext();
 
   const [showViewDrop, setShowViewDrop] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showStaffDrop, setShowStaffDrop] = useState(false);
 
   // ── Portal position state ─────────────────────────────────────────────────
   const [viewDropPos, setViewDropPos] = useState({ top: 0, left: 0 });
   const [datePickerPos, setDatePickerPos] = useState({ top: 0, left: 0 });
+  const [staffDropPos, setStaffDropPos] = useState({ top: 0, left: 0 });
 
   const viewDropBtnRef = useRef<HTMLButtonElement>(null);
   const dateBtnRef = useRef<HTMLButtonElement>(null);
   const viewDropRef = useRef<HTMLDivElement>(null);
   const datePickerRef = useRef<HTMLDivElement>(null);
+  const staffDropBtnRef = useRef<HTMLButtonElement>(null);
+  const staffDropRef = useRef<HTMLDivElement>(null);
 
   const today = new Date().toISOString().slice(0, 10);
   const isToday = currentDate === today;
@@ -58,6 +65,13 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime }) => {
         !dateBtnRef.current.contains(target)
       )
         setShowDatePicker(false);
+      if (
+        staffDropRef.current &&
+        !staffDropRef.current.contains(target) &&
+        staffDropBtnRef.current &&
+        !staffDropBtnRef.current.contains(target)
+      )
+        setShowStaffDrop(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -73,6 +87,10 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime }) => {
       if (showDatePicker && dateBtnRef.current) {
         const r = dateBtnRef.current.getBoundingClientRect();
         setDatePickerPos({ top: r.bottom + 6, left: r.left + r.width / 2 });
+      }
+      if (showStaffDrop && staffDropBtnRef.current) {
+        const r = staffDropBtnRef.current.getBoundingClientRect();
+        setStaffDropPos({ top: r.bottom + 4, left: r.left });
       }
     }
     window.addEventListener("scroll", reposition, true);
@@ -109,6 +127,18 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime }) => {
     }
     setShowDatePicker((v) => !v);
   }
+
+  function openStaffDrop() {
+    if (staffDropBtnRef.current) {
+      const r = staffDropBtnRef.current.getBoundingClientRect();
+      setStaffDropPos({ top: r.bottom + 4, left: r.left });
+    }
+    setShowStaffDrop((v) => !v);
+  }
+
+  const selectedStaffName = selectedStaffId
+    ? (staffList.find((s) => s.id === selectedStaffId)?.name ?? "Staff")
+    : "All Staff";
 
   return (
     <>
@@ -235,6 +265,29 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime }) => {
 
         {/* Spacer */}
         <div style={{ flex: 1, minWidth: 0 }} />
+
+        {/* Staff filter */}
+        <button
+          ref={staffDropBtnRef}
+          onMouseDown={(e) => { e.stopPropagation(); openStaffDrop(); }}
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            border: "1px solid #d1d5db", borderRadius: 6,
+            padding: "5px 10px", background: selectedStaffId ? "#eff6ff" : "#fff",
+            cursor: "pointer", fontSize: 12, fontWeight: 600,
+            fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0,
+            color: selectedStaffId ? "#3b82f6" : "#374151",
+          }}
+        >
+          {selectedStaffId && (
+            <span style={{
+              width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+              background: staffList.find((s) => s.id === selectedStaffId)?.color ?? "#4f46e5",
+            }} />
+          )}
+          {selectedStaffName}
+          <span style={{ fontSize: 9, opacity: 0.6 }}>▼</span>
+        </button>
 
         {/* Interval pills */}
         <div
@@ -376,6 +429,61 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime }) => {
               }}
               onClose={() => setShowDatePicker(false)}
             />
+          </div>,
+          document.body,
+        )}
+
+      {/* ── Staff filter PORTAL ── */}
+      {showStaffDrop &&
+        ReactDOM.createPortal(
+          <div
+            ref={staffDropRef}
+            style={{
+              position: "fixed",
+              top: staffDropPos.top,
+              left: staffDropPos.left,
+              zIndex: 99999,
+              background: "#fff",
+              border: "1px solid #e5e7eb",
+              borderRadius: 8,
+              boxShadow: "0 4px 16px rgba(0,0,0,.12)",
+              minWidth: 160,
+              overflow: "hidden",
+            }}
+          >
+            <button
+              onClick={() => { setSelectedStaffId(null); setShowStaffDrop(false); }}
+              style={{
+                display: "flex", alignItems: "center", gap: 8,
+                padding: "9px 14px", width: "100%",
+                background: !selectedStaffId ? "#f3f4f6" : "#fff",
+                border: "none", cursor: "pointer", fontSize: 13,
+                textAlign: "left", fontWeight: !selectedStaffId ? 600 : 400,
+                fontFamily: "inherit",
+              }}
+            >
+              All Staff
+            </button>
+            {staffList.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => { setSelectedStaffId(s.id); setShowStaffDrop(false); }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "9px 14px", width: "100%",
+                  background: selectedStaffId === s.id ? "#f3f4f6" : "#fff",
+                  border: "none", cursor: "pointer", fontSize: 13,
+                  textAlign: "left", fontWeight: selectedStaffId === s.id ? 600 : 400,
+                  fontFamily: "inherit",
+                }}
+              >
+                <span style={{
+                  width: 10, height: 10, borderRadius: "50%",
+                  background: s.color, flexShrink: 0,
+                }} />
+                {s.name}
+              </button>
+            ))}
           </div>,
           document.body,
         )}

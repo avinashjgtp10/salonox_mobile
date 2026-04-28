@@ -16,11 +16,11 @@ const MonthView: React.FC<MonthViewProps> = ({ onDayClick, onViewBill }) => {
   const days = getMonthDays(currentDate);
 
   function chipColor(b: Booking) {
-    return b.status === "Confirmed"
-      ? "#22c55e"
-      : b.status === "Pending"
-        ? "#f59e0b"
-        : "#ef4444";
+    const ps = (b.paymentStatus || "").toLowerCase();
+    const bs = (b.status || "").toLowerCase();
+    const isPaid = ps === "paid" || ps === "completed" || bs === "confirmed";
+    const isCancelled = bs === "cancelled";
+    return isCancelled ? "#ef4444" : isPaid ? "#22c55e" : "#f59e0b";
   }
 
   return (

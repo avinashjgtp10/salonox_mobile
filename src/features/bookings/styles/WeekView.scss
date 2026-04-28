@@ -114,6 +114,7 @@
 
   &--confirmed { background: linear-gradient(135deg, #22c55e, #16a34a); }
   &--pending   { background: linear-gradient(135deg, #f59e0b, #d97706); }
+  &--partial   { background: linear-gradient(135deg, #7c3aed, #6d28d9); }
   &--cancelled { background: linear-gradient(135deg, #ef4444, #dc2626); }
 }
 

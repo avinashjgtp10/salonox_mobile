@@ -51,7 +51,10 @@
     color: $dashboard-secondary;
     padding: 0;
     transition: color 0.2s;
-    &:hover { color: $dashboard-primary; }
+
+    &:hover {
+      color: $dashboard-primary;
+    }
   }
 
   h2 {
@@ -151,12 +154,26 @@
     border-bottom: 1px solid #f3f4f6;
     font-size: 12px;
     transition: background 0.15s;
-    &:hover { background: #f9fafb; }
-    &:last-child { border-bottom: none; }
+
+    &:hover {
+      background: #f9fafb;
+    }
+
+    &:last-child {
+      border-bottom: none;
+    }
   }
 
-  &__name  { font-weight: 600; color: $dashboard-primary; }
-  &__phone { color: $dashboard-secondary; font-size: 11px; margin-top: 2px; }
+  &__name {
+    font-weight: 600;
+    color: $dashboard-primary;
+  }
+
+  &__phone {
+    color: $dashboard-secondary;
+    font-size: 11px;
+    margin-top: 2px;
+  }
 }
 
 /* ── Input error state ── */
@@ -195,8 +212,16 @@
     }
 
     .info {
-      .name { font-weight: 700; font-size: 15px; color: $dashboard-primary; }
-      .sub  { font-size: 12px; color: $dashboard-secondary; }
+      .name {
+        font-weight: 700;
+        font-size: 15px;
+        color: $dashboard-primary;
+      }
+
+      .sub {
+        font-size: 12px;
+        color: $dashboard-secondary;
+      }
     }
 
     .membership-badge {
@@ -205,8 +230,16 @@
       font-weight: 700;
       padding: 3px 10px;
       border-radius: 20px;
-      &.platinum { background: #fef3c7; color: #92400e; }
-      &.gold     { background: #fde68a; color: #78350f; }
+
+      &.platinum {
+        background: #fef3c7;
+        color: #92400e;
+      }
+
+      &.gold {
+        background: #fde68a;
+        color: #78350f;
+      }
     }
   }
 
@@ -237,17 +270,43 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    &--alert { color: $danger; }
+
+    &--alert {
+      color: $danger;
+    }
   }
 
-  &__value { font-size: 13px; font-weight: 600; color: $dashboard-primary; }
-  &.danger .info-cell__value { color: $danger; }
-  &.info   .info-cell__value { color: $info; }
-  &.link   .info-cell__value { color: $info; text-decoration: underline; cursor: pointer; }
+  &__value {
+    font-size: 13px;
+    font-weight: 600;
+    color: $dashboard-primary;
+  }
+
+  &.danger .info-cell__value {
+    color: $danger;
+  }
+
+  &.info .info-cell__value {
+    color: $info;
+  }
+
+  &.link .info-cell__value {
+    color: $info;
+    text-decoration: underline;
+    cursor: pointer;
+  }
 }
 
-.stats-note-text  { font-size: 12px; color: #374151; }
-.stats-alert-text { font-size: 12px; color: $danger; font-weight: 600; }
+.stats-note-text {
+  font-size: 12px;
+  color: #374151;
+}
+
+.stats-alert-text {
+  font-size: 12px;
+  color: $danger;
+  font-weight: 600;
+}
 
 /* ── No rows error ── */
 .no-rows-error {
@@ -332,7 +391,11 @@
   align-items: center;
   background: #fffbeb;
 
-  &__name { font-size: 12px; font-weight: 600; color: $dashboard-primary; }
+  &__name {
+    font-size: 12px;
+    font-weight: 600;
+    color: $dashboard-primary;
+  }
 }
 
 /* ── Product row ── */
@@ -366,8 +429,14 @@
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   }
 
-  &--sm       { padding: 5px 8px; font-size: 12px; }
-  &--readonly { background: #f9fafb; }
+  &--sm {
+    padding: 5px 8px;
+    font-size: 12px;
+  }
+
+  &--readonly {
+    background: #f9fafb;
+  }
 }
 
 .form-textarea {
@@ -389,7 +458,11 @@
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   }
 
-  &--sm { min-height: 52px; font-size: 12px; padding: 5px 8px; }
+  &--sm {
+    min-height: 52px;
+    font-size: 12px;
+    padding: 5px 8px;
+  }
 }
 
 /* ── Add actions row ── */
@@ -469,7 +542,9 @@
     color: $white;
   }
 
-  &:hover:not(.pay-method-btn--active) { background: #f3f4f6; }
+  &:hover:not(.pay-method-btn--active) {
+    background: #f3f4f6;
+  }
 }
 
 /* ── Coupon ── */
@@ -510,7 +585,9 @@
     padding: 5px 0;
     border-bottom: 1px dotted #e5e7eb;
 
-    &:last-child { border-bottom: none; }
+    &:last-child {
+      border-bottom: none;
+    }
 
     &--grand {
       padding: 8px 0 5px;
@@ -523,6 +600,7 @@
         font-size: 13px;
         color: $dashboard-primary;
       }
+
       .totals-panel__value {
         font-weight: 800;
         font-size: 15px;
@@ -531,8 +609,16 @@
     }
   }
 
-  &__label { font-size: 12px; color: $dashboard-secondary; }
-  &__value  { font-size: 12px; font-weight: 600; color: $dashboard-primary; }
+  &__label {
+    font-size: 12px;
+    color: $dashboard-secondary;
+  }
+
+  &__value {
+    font-size: 12px;
+    font-weight: 600;
+    color: $dashboard-primary;
+  }
 }
 
 /* ── Footer ── */
@@ -542,7 +628,8 @@
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 12px; /* 👈 ADD THIS */
+  gap: 12px;
+  /* 👈 ADD THIS */
   position: sticky;
   bottom: 0;
   background: $white;
@@ -550,8 +637,10 @@
 }
 
 .appt-drawer-footer button {
-  flex: 1; /* 👈 makes both buttons equal */
+  flex: 1;
+  /* 👈 makes both buttons equal */
 }
+
 /* ── Success screen ── */
 .success-icon-wrap {
   width: 72px;
@@ -562,15 +651,29 @@
   justify-content: center;
   font-size: 36px;
 
-  &--paid    { background: #dcfce7; }
-  &--partial { background: #fef9c3; }
+  &--paid {
+    background: #dcfce7;
+  }
+
+  &--partial {
+    background: #fef9c3;
+  }
 }
 
 .success-info {
   text-align: center;
 
-  &__title { font-size: 20px; font-weight: 800; color: #111827; }
-  &__sub   { font-size: 13px; color: $dashboard-secondary; margin-top: 6px; }
+  &__title {
+    font-size: 20px;
+    font-weight: 800;
+    color: #111827;
+  }
+
+  &__sub {
+    font-size: 13px;
+    color: $dashboard-secondary;
+    margin-top: 6px;
+  }
 }
 
 .success-badges {
@@ -587,10 +690,28 @@
   font-size: 12px;
   font-weight: 700;
 
-  &--paid    { background: #22c55e22; color: #16a34a; border: 1px solid #22c55e; }
-  &--partial { background: #f59e0b22; color: #b45309; border: 1px solid #f59e0b; }
-  &--neutral { background: #f3f4f6; color: #374151; }
-  &--due     { background: #fef2f2; color: $danger; border: 1px solid $danger; }
+  &--paid {
+    background: #22c55e22;
+    color: #16a34a;
+    border: 1px solid #22c55e;
+  }
+
+  &--partial {
+    background: #f59e0b22;
+    color: #b45309;
+    border: 1px solid #f59e0b;
+  }
+
+  &--neutral {
+    background: #f3f4f6;
+    color: #374151;
+  }
+
+  &--due {
+    background: #fef2f2;
+    color: $danger;
+    border: 1px solid $danger;
+  }
 }
 
 .success-actions {
@@ -611,7 +732,9 @@
   transition: background 0.2s;
   color: $danger;
 
-  &--danger:hover { background: #fef2f2; }
+  &--danger:hover {
+    background: #fef2f2;
+  }
 }
 
 /* ── Package picker modal ── */
@@ -638,8 +761,20 @@
     align-items: center;
     margin-bottom: 18px;
 
-    h3 { margin: 0; font-size: 17px; font-weight: 700; color: $dashboard-primary; }
-    .btn-close { background: none; border: none; cursor: pointer; font-size: 20px; color: $dashboard-secondary; }
+    h3 {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 700;
+      color: $dashboard-primary;
+    }
+
+    .btn-close {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 20px;
+      color: $dashboard-secondary;
+    }
   }
 
   &__item {
@@ -653,14 +788,31 @@
     cursor: pointer;
     transition: all 0.2s;
 
-    &:hover { background: #f9fafb; border-color: $info; transform: translateY(-1px); }
-
-    .pkg-info {
-      .pkg-name     { font-weight: 600; font-size: 14px; color: $dashboard-primary; }
-      .pkg-services { font-size: 12px; color: $dashboard-secondary; margin-top: 3px; }
+    &:hover {
+      background: #f9fafb;
+      border-color: $info;
+      transform: translateY(-1px);
     }
 
-    .pkg-price { font-weight: 700; font-size: 15px; color: $dashboard-primary; }
+    .pkg-info {
+      .pkg-name {
+        font-weight: 600;
+        font-size: 14px;
+        color: $dashboard-primary;
+      }
+
+      .pkg-services {
+        font-size: 12px;
+        color: $dashboard-secondary;
+        margin-top: 3px;
+      }
+    }
+
+    .pkg-price {
+      font-weight: 700;
+      font-size: 15px;
+      color: $dashboard-primary;
+    }
   }
 }
 
@@ -678,8 +830,14 @@
   letter-spacing: 0.5px;
   border-bottom: 1px solid $dashboard-border;
 
-  &--services { grid-template-columns: 2fr 1.4fr 1.2fr 0.8fr 0.8fr 36px; }
-  &--groups   { grid-template-columns: 1fr 1.2fr 1.4fr 1.2fr 0.8fr 0.7fr 0.8fr 36px; margin-top: 18px; }
+  &--services {
+    grid-template-columns: 2fr 1.4fr 1.2fr 0.8fr 0.8fr 36px;
+  }
+
+  &--groups {
+    grid-template-columns: 1fr 1.2fr 1.4fr 1.2fr 0.8fr 0.7fr 0.8fr 36px;
+    margin-top: 18px;
+  }
 }
 
 .appt-modal__service-row {
@@ -725,9 +883,15 @@
       outline: none;
       width: 100%;
     }
-    span { cursor: pointer; margin-right: 4px; font-size: 13px; }
+
+    span {
+      cursor: pointer;
+      margin-right: 4px;
+      font-size: 13px;
+    }
   }
 }
+
 /* ── Sections ── */
 .appt-section {
   margin-bottom: 20px;
@@ -758,10 +922,23 @@
     padding-right: 14px;
   }
 
-  .client-row { padding-top: 12px; }
-  .appt-add-actions { padding-bottom: 12px; }
-  .extras-grid { padding-top: 12px; padding-bottom: 4px; }
-  .payment-totals-row { padding-top: 12px; padding-bottom: 14px; }
+  .client-row {
+    padding-top: 12px;
+  }
+
+  .appt-add-actions {
+    padding-bottom: 12px;
+  }
+
+  .extras-grid {
+    padding-top: 12px;
+    padding-bottom: 4px;
+  }
+
+  .payment-totals-row {
+    padding-top: 12px;
+    padding-bottom: 14px;
+  }
 }
 
 /* ── Inline Add Client Form ── */
@@ -844,6 +1021,7 @@
     box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15) !important;
   }
 }
+
 .membership-row {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr auto;
