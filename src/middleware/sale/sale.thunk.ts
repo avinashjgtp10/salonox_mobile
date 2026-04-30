@@ -118,10 +118,11 @@ export const checkoutSaleThunk = createAsyncThunk<
   { rejectValue: string }
 >(
   "sale/checkout",
-  async ({ id, payment_method, payment_reference }, { rejectWithValue }) => {
+  async ({ id, payment_method, amount_paid, payment_reference }, { rejectWithValue }) => {
     try {
       const res = await api.post<SaleResponse>(SALE.CHECKOUT(id), {
         payment_method,
+        amount_paid,
         ...(payment_reference ? { payment_reference } : {}),
       });
       return res.data.data;

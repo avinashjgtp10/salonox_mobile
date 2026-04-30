@@ -70,6 +70,7 @@ export interface UpdateSalePayload {
 export interface CheckoutSalePayload {
   id: EntityId;
   payment_method: PaymentMethod;
+  amount_paid: number;
   payment_reference?: string;
 }
 
