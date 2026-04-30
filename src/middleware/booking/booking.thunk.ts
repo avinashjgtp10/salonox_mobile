@@ -69,7 +69,7 @@ export const updateBookingThunk = createAsyncThunk<
   { rejectValue: string }
 >("booking/update", async ({ id, data }, { rejectWithValue }) => {
   try {
-    const res = await api.put<BookingResponse>(BOOKING.BY_ID(id), data);
+    const res = await api.patch<BookingResponse>(BOOKING.BY_ID(id), data);
     return res.data.data;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
@@ -89,6 +89,77 @@ export const deleteBookingThunk = createAsyncThunk<
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to delete booking");
+  }
+});
+
+// ── Status transitions ─────────────────────────────────────────────────────────
+export const confirmBookingThunk = createAsyncThunk<
+  Booking,
+  string | number,
+  { rejectValue: string }
+>("booking/confirm", async (id, { rejectWithValue }) => {
+  try {
+    const res = await api.post<BookingResponse>(BOOKING.CONFIRM(id));
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to confirm booking");
+  }
+});
+
+export const startBookingThunk = createAsyncThunk<
+  Booking,
+  string | number,
+  { rejectValue: string }
+>("booking/start", async (id, { rejectWithValue }) => {
+  try {
+    const res = await api.post<BookingResponse>(BOOKING.START(id));
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to start booking");
+  }
+});
+
+export const cancelBookingThunk = createAsyncThunk<
+  Booking,
+  string | number,
+  { rejectValue: string }
+>("booking/cancel", async (id, { rejectWithValue }) => {
+  try {
+    const res = await api.post<BookingResponse>(BOOKING.CANCEL(id));
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to cancel booking");
+  }
+});
+
+export const noShowBookingThunk = createAsyncThunk<
+  Booking,
+  string | number,
+  { rejectValue: string }
+>("booking/noShow", async (id, { rejectWithValue }) => {
+  try {
+    const res = await api.post<BookingResponse>(BOOKING.NO_SHOW(id));
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to mark no-show");
+  }
+});
+
+export const checkoutBookingThunk = createAsyncThunk<
+  Booking,
+  { id: string | number; data?: Record<string, any> },
+  { rejectValue: string }
+>("booking/checkout", async ({ id, data }, { rejectWithValue }) => {
+  try {
+    const res = await api.post<BookingResponse>(BOOKING.CHECKOUT(id), data);
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to checkout booking");
   }
 });
 

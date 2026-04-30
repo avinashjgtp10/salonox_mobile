@@ -8,7 +8,13 @@ export const PRODUCTS = {
   BRANDS:         "/api/v1/products/brands",
   BRAND_BY_ID:    (id: string) => `/api/v1/products/brands/${id}`,
   CREATE_BRAND:   "/api/v1/products/brands",
+  UPDATE_BRAND:   (id: string) => `/api/v1/products/brands/${id}`,
   DELETE_BRAND:   (id: string) => `/api/v1/products/brands/${id}`,
+
+  // ── Product photos ─────────────────────────────────────────────────────────
+  PHOTOS:         (id: string) => `/api/v1/products/${id}/photos`,
+  PHOTOS_REORDER: (id: string) => `/api/v1/products/${id}/photos/reorder`,
+  PHOTO_BY_ID:    (id: string, photoId: string) => `/api/v1/products/${id}/photos/${photoId}`,
 
   EXPORT_CSV:     "/api/v1/products/export/csv",
   EXPORT_EXCEL:   "/api/v1/products/export/excel",

@@ -1,8 +1,7 @@
 export const CLIENT = {
   BASE: "/api/v1/clients",
   BY_ID: (id: string | number) => `/api/v1/clients/${id}`,
-  BLOCK: "/api/v1/clients/block",
-  UNBLOCK: "/api/v1/clients/unblock",
+  BLOCK: "/api/v1/clients/block",   // POST = block, PATCH = unblock
   EXPORT: (format: "excel" | "csv") =>
     `/api/v1/clients/export?format=${format}`,
   IMPORT: "/api/v1/clients/import",

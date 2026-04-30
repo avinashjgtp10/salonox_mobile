@@ -63,7 +63,7 @@ export const updateStaffThunk = createAsyncThunk<
   { rejectValue: string }
 >("staff/update", async ({ id, data }, { rejectWithValue }) => {
   try {
-    const res = await api.put<StaffResponse>(STAFF.BY_ID(id), data);
+    const res = await api.patch<StaffResponse>(STAFF.BY_ID(id), data);
     return res.data.data;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);

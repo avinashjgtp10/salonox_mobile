@@ -1,502 +1,247 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import ShiftCell from "../../staff/components/ShiftCell";
-import MemberRowMenu from "../../staff/components/MemberRowMenu";
-import AddTimeOffModal from "../../staff/components/AddTimeOffModal";
-import AddShiftModal from "../../staff/components/AddShiftModal";
-import TeamMemberDrawer from "../../staff/components/TeamMemberDrawer";
-import type { ShiftTime } from "../../staff/components/AddShiftModal";
-import "../styles/ScheduledShiftsPage.scss";
-interface Member {
-  id: number;
-  name: string;
-  initials: string;
-  avatarColor: string;
-  totalHours: number;
+import React, { useState, useEffect, useCallback } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import type { AppDispatch, RootState } from "../../../store/store";
+import {
+  updateAvailability,
+  setDayOff,
+  setBlocked,
+  copyStaffWeek,
+  refreshSeedForWeek,
+} from "../../../store/shiftSlice";
+import { fetchDailyShifts } from "../../../middleware/shift/shiftThunk";
+import {
+  ScheduleTable,
+  ShiftDrawer,
+  CopyScheduleDrawer,
+} from "../../../components/staff-schedule";
+import type { DrawerMode } from "../../../components/staff-schedule";
+import {
+  getSundayOf,
+  toDateKey,
+  getWeekDates,
+  formatColHeader,
+  formatNavDate,
+} from "../../../components/staff-schedule/utils";
+import "../../../styles/schedule.css";
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+interface DrawerState {
+  mode: DrawerMode;
+  staffId: string | null;
+  date: string | null;
 }
 
-interface WeekDay {
-  label: string;
-  dateKey: string;
-  colHours: number;
-  isOff: boolean;
-}
+const INITIAL_DRAWER: DrawerState = { mode: null, staffId: null, date: null };
 
-type ShiftMap = Record<number, Record<string, ShiftTime | undefined>>;
-
-const MONTH_SHORT = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-function getMondayOf(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay();
-  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function toLocalDateKey(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function getWeekDays(monday: Date): WeekDay[] {
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    const isOff = d.getDay() === 0;
-    return {
-      label: `${DAY_SHORT[d.getDay()]}, ${d.getDate()} ${MONTH_SHORT[d.getMonth()]}`,
-      dateKey: toLocalDateKey(d),
-      colHours: isOff ? 0 : i === 5 ? 7 : 9,
-      isOff,
-    };
-  });
-}
-
-function formatRange(monday: Date): string {
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  return `${monday.getDate()} – ${sunday.getDate()} ${MONTH_SHORT[sunday.getMonth()]}, ${sunday.getFullYear()}`;
-}
-
-const MEMBERS: Member[] = [
-  {
-    id: 1,
-    name: "Dhumal Dipak",
-    initials: "DD",
-    avatarColor: "#5b5ef4",
-    totalHours: 52,
-  },
-];
-
-const SEED_SHIFTS: ShiftMap = {
-  1: {
-    "2026-03-09": { start: "10:00 AM", end: "7:00 PM" },
-    "2026-03-10": { start: "10:00 AM", end: "7:00 PM" },
-    "2026-03-11": { start: "10:00 AM", end: "7:00 PM" },
-    "2026-03-12": { start: "10:00 AM", end: "7:00 PM" },
-    "2026-03-13": { start: "10:00 AM", end: "7:00 PM" },
-    "2026-03-14": { start: "10:00 AM", end: "5:00 PM" },
-  },
-};
+/* ─────────────────────────────────────────────────────────────────────────── */
 
 const ScheduledShiftsPage: React.FC = () => {
-  const navigate = useNavigate();
-  const [monday, setMonday] = useState<Date>(() => getMondayOf(new Date()));
-  const [shifts, setShifts] = useState<ShiftMap>(SEED_SHIFTS);
-  const [showOpts, setShowOpts] = useState(false);
-  const [showAdd, setShowAdd] = useState(false);
-  const [timeOff, setTimeOff] = useState<{
-    show: boolean;
-    memberId?: number;
-    date?: string;
-  }>({ show: false });
-  const [shiftModal, setShiftModal] = useState<{
-    show: boolean;
-    memberId?: number;
-    date?: string;
-    initialShifts?: ShiftTime[];
-  }>({ show: false });
-  const [drawer, setDrawer] = useState<{ show: boolean; member: any | null }>({
-    show: false,
-    member: null,
+  const dispatch = useDispatch<AppDispatch>();
+  const { staffMembers, shifts, loading } = useSelector(
+    (s: RootState) => s.shift
+  );
+
+  // Current week – starts on Sunday
+  const [sunday, setSunday] = useState<Date>(() => getSundayOf(new Date()));
+  const [drawer, setDrawer] = useState<DrawerState>(INITIAL_DRAWER);
+  const [copyStaffId, setCopyStaffId] = useState<string | null>(null);
+
+  // Compute 7 week-date objects every time sunday changes
+  const weekDates = getWeekDates(sunday).map((d) => {
+    const { date, day } = formatColHeader(d);
+    return { date: d, dateKey: toDateKey(d), dateLabel: date, dayLabel: day };
   });
-  const [isStarted, setIsStarted] = useState(false);
 
-  const weekDays = getWeekDays(monday);
+  const weekStartKey = toDateKey(sunday);
 
+  // Fetch from API on week change; fall back to seed data on failure
+  useEffect(() => {
+    dispatch(fetchDailyShifts(weekStartKey));
+    dispatch(refreshSeedForWeek(weekStartKey));
+  }, [weekStartKey, dispatch]);
+
+  // ── Navigation ────────────────────────────────────────────────────────────
+  const goToToday = () => setSunday(getSundayOf(new Date()));
   const prevWeek = () => {
-    const d = new Date(monday);
+    const d = new Date(sunday);
     d.setDate(d.getDate() - 7);
-    setMonday(d);
+    setSunday(d);
   };
   const nextWeek = () => {
-    const d = new Date(monday);
+    const d = new Date(sunday);
     d.setDate(d.getDate() + 7);
-    setMonday(d);
-  };
-  const thisWeek = () => setMonday(getMondayOf(new Date()));
-
-  const handleAddShiftClick = (memberId: number, date: string) => {
-    setShiftModal({ show: true, memberId, date, initialShifts: [] });
+    setSunday(d);
   };
 
-  const handleEditDayClick = (memberId: number, date: string) => {
-    const existing = shifts[memberId]?.[date];
-    setShiftModal({
-      show: true,
-      memberId,
-      date,
-      initialShifts: existing ? [existing] : [],
-    });
-  };
+  // ── Drawer helpers ────────────────────────────────────────────────────────
+  const openDrawer = (mode: DrawerMode, staffId: string, date: string) =>
+    setDrawer({ mode, staffId, date });
+  const closeDrawer = () => setDrawer(INITIAL_DRAWER);
+  const closeCopy = () => setCopyStaffId(null);
 
-  const saveShifts = (
-    memberId: number,
+  // ── Cell action handlers ──────────────────────────────────────────────────
+  const handleEditWorkingHours = useCallback(
+    (staffId: string, date: string) => openDrawer("edit", staffId, date),
+    []
+  );
+  const handleAddTimeOff = useCallback(
+    (staffId: string, date: string) => openDrawer("timeoff", staffId, date),
+    []
+  );
+  const handleManageDayOff = useCallback(
+    (staffId: string, date: string) => openDrawer("dayoff", staffId, date),
+    []
+  );
+  const handleManageBlockedDay = useCallback(
+    (staffId: string, date: string) => openDrawer("blocked", staffId, date),
+    []
+  );
+  const handleCopy = useCallback((staffId: string) => {
+    setCopyStaffId(staffId);
+  }, []);
+
+  // ── Save: Edit Working Hours ──────────────────────────────────────────────
+  const handleSaveAvailability = (
+    staffId: string,
     date: string,
-    newShifts: ShiftTime[],
+    isAvailable: boolean,
+    startTime: string,
+    endTime: string
   ) => {
-    setShifts((p) => {
-      const memberShifts = { ...p[memberId] };
-      if (newShifts.length === 0) {
-        delete memberShifts[date];
-      } else {
-        // For now we only store the first shift to maintain compatibility with existing Map/Component
-        memberShifts[date] = newShifts[0];
-      }
-      return { ...p, [memberId]: memberShifts };
-    });
+    if (drawer.mode === "dayoff" || !isAvailable) {
+      dispatch(setDayOff({ staffId, date }));
+    } else if (drawer.mode === "blocked") {
+      dispatch(setBlocked({ staffId, date, startTime, endTime }));
+    } else {
+      dispatch(updateAvailability({ staffId, date, isAvailable, startTime, endTime }));
+    }
   };
 
-  const deleteShift = (memberId: number, date: string) => {
-    setShifts((p) => {
-      const copy = { ...p[memberId] };
-      delete copy[date];
-      return { ...p, [memberId]: copy };
-    });
-  };
-  const deleteAll = (memberId: number) =>
-    setShifts((p) => ({ ...p, [memberId]: {} }));
-  const closeDropdowns = () => {
-    setShowOpts(false);
-    setShowAdd(false);
+  // ── Save: Copy schedule ───────────────────────────────────────────────────
+  const handleSaveCopy = (
+    staffId: string,
+    fromDate: string,
+    toDates: string[],
+    _type: "day" | "week"
+  ) => {
+    dispatch(copyStaffWeek({ staffId, fromDate, toDates }));
   };
 
-  // --- Intro / Landing View ---
-  if (!isStarted) {
-    return (
-      <div className="ss-page ss-page--intro-state">
-        <div className="ss-page__intro">
-          <div className="ss-page__container">
-            <div className="ss-page__content">
-              <span className="ss-page__badge">Free to use</span>
-              <h1 className="ss-page__title">
-                Management made easy <br /> with scheduled shifts
-              </h1>
-              <p className="ss-page__subtext">
-                Plan your team's schedule, track availability, and ensure <br />
-                your salon is always perfectly staffed with salonox shifts.
-              </p>
-              <ul className="ss-page__features">
-                <li>
-                  <span className="ss-page__feature-icon">✓</span> Create and
-                  manage recurring shift patterns
-                </li>
-                <li>
-                  <span className="ss-page__feature-icon">✓</span> Track staff
-                  availability and time-off requests
-                </li>
-                <li>
-                  <span className="ss-page__feature-icon">✓</span> Seamlessly
-                  integrated with your booking calendar
-                </li>
-              </ul>
-              <div className="ss-page__actions">
-                <button
-                  className="ss-page__btn ss-page__btn--dark ss-page__btn--large"
-                  onClick={() => setIsStarted(true)}
-                >
-                  Start now
-                </button>
-                <button className="ss-page__btn ss-page__btn--outline ss-page__btn--large">
-                  Learn more
-                </button>
-              </div>
-            </div>
-            <div className="ss-page__visual">
-              {/* CSS-Based Illustration */}
-              <div className="sh-ill">
-                <div className="sh-ill__card sh-ill__card--left">
-                  <div className="sh-ill__header">
-                    <div className="sh-ill__status">Scheduled</div>
-                    <h3>Morning Shift</h3>
-                    <span>Mon 12 Nov 2023</span>
-                  </div>
-                  <div className="sh-ill__user">
-                    <div className="sh-ill__avatar">JD</div>
-                    <div className="sh-ill__user-info">
-                      <strong>Jane Doe</strong>
-                    </div>
-                  </div>
-                  <div className="sh-ill__list">
-                    <div className="sh-ill__item">
-                      <span className="dot dot--green"></span> 9:00 AM - 2:00 PM
-                    </div>
-                    <div className="sh-ill__item">
-                      <span className="dot dot--gray"></span>
-                      <div>
-                        <strong>Main Station</strong>
-                        <p>Primary Location</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+  // ── Derived: drawer staff + shift ─────────────────────────────────────────
+  const drawerStaff = staffMembers.find((s) => s.id === drawer.staffId) ?? null;
+  const drawerShift =
+    drawer.staffId && drawer.date
+      ? shifts[drawer.staffId]?.[drawer.date]
+      : undefined;
+  const copyStaff = staffMembers.find((s) => s.id === copyStaffId) ?? null;
 
-                <div className="sh-ill__card sh-ill__card--right">
-                  <div className="sh-ill__user">
-                    <div className="sh-ill__user-info">
-                      <h3>Weekly Overview</h3>
-                      <div className="sh-ill__rating">42 Hours Scheduled</div>
-                    </div>
-                  </div>
-                  <div className="sh-ill__data-list">
-                    <div className="sh-ill__data-item">
-                      <div className="sh-ill__data-label">
-                        <span className="icon icon--blue">🕒</span>
-                        <div>
-                          <strong>Mon - Fri</strong> <p>Standard Shift</p>
-                        </div>
-                      </div>
-                      <div className="sh-ill__data-val">40h</div>
-                    </div>
-                    <div className="sh-ill__data-item">
-                      <div className="sh-ill__data-label">
-                        <span className="icon icon--orange">📅</span>
-                        <div>
-                          <strong>Saturday</strong> <p>Overtime</p>
-                        </div>
-                      </div>
-                      <div className="sh-ill__data-val">2h</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // ── Nav date display ──────────────────────────────────────────────────────
+  const todayDisplay = formatNavDate(new Date());
 
-  // --- Active Scheduling View ---
   return (
-    <div className="ss-page ss-page--active" onClick={closeDropdowns}>
-      <div className="ss-page__header">
-        <h4 className="ss-page__title">Scheduled shifts</h4>
-        <div className="ss-page__actions" onClick={(e) => e.stopPropagation()}>
-          <div className="ss-page__dropdown-wrap">
-            <button
-              className="ss-page__btn ss-page__btn--outline"
-              onClick={() => {
-                setShowOpts((p) => !p);
-                setShowAdd(false);
-              }}
-            >
-              Options <span className="ss-page__caret">▾</span>
-            </button>
-            {showOpts && (
-              <ul className="ss-page__menu">
-                <li>
-                  <button
-                    className="ss-page__menu-item"
-                    onClick={closeDropdowns}
-                  >
-                    ⚙ Scheduling settings
-                  </button>
-                </li>
-              </ul>
-            )}
+    <div className="min-h-screen bg-gray-50">
+      {/* ── Page content ─────────────────────────────────────────────────── */}
+      <div className="px-6 py-5 max-w-screen-2xl mx-auto">
+
+        {/* Page title */}
+        <h1 className="text-xl font-semibold text-gray-800 mb-5 border-b border-gray-200 pb-3">
+          Staff Schedule
+        </h1>
+
+        {/* Legend + navigation row */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          {/* Legend */}
+          <div className="flex items-center gap-5 text-sm text-gray-600">
+            <span className="flex items-center gap-1.5">
+              <span className="w-3.5 h-3.5 rounded-sm bg-green-400 inline-block" />
+              Daily Working Hours
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-3.5 h-3.5 rounded-sm bg-red-400 inline-block" />
+              Blocked Hours
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-3.5 h-3.5 rounded-sm bg-yellow-300 inline-block" />
+              Day Off
+            </span>
           </div>
-          <div className="ss-page__dropdown-wrap">
+
+          {/* Week navigation */}
+          <div className="flex items-center gap-1">
             <button
-              className="ss-page__btn ss-page__btn--dark"
-              onClick={() => {
-                setShowAdd((p) => !p);
-                setShowOpts(false);
-              }}
+              className="p-1.5 text-gray-500 hover:text-gray-800 border border-gray-200 rounded hover:bg-white transition-colors"
+              onClick={prevWeek}
+              aria-label="Previous week"
             >
-              Add <span className="ss-page__caret">▾</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M15 18l-6-6 6-6" />
+              </svg>
             </button>
-            {showAdd && (
-              <ul className="ss-page__menu ss-page__menu--right">
-                <li>
-                  <button
-                    className="ss-page__menu-item"
-                    onClick={() => {
-                      setTimeOff({ show: true });
-                      closeDropdowns();
-                    }}
-                  >
-                    Time off
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className="ss-page__menu-item"
-                    onClick={() => {
-                      navigate("/dashboard/team/add");
-                      closeDropdowns();
-                    }}
-                  >
-                    New team member
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className="ss-page__menu-item"
-                    onClick={closeDropdowns}
-                  >
-                    Business closed period
-                  </button>
-                </li>
-              </ul>
-            )}
+
+            <button
+              className="px-3 py-1.5 text-sm font-medium text-gray-700 border border-gray-200 rounded hover:bg-white transition-colors mx-0.5"
+              onClick={goToToday}
+            >
+              Today
+            </button>
+
+            <div className="px-3 py-1.5 text-sm font-medium text-gray-700 border border-gray-200 rounded bg-white min-w-[130px] text-center">
+              {todayDisplay}
+            </div>
+
+            <button
+              className="p-1.5 text-gray-500 hover:text-gray-800 border border-gray-200 rounded hover:bg-white transition-colors"
+              onClick={nextWeek}
+              aria-label="Next week"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </button>
           </div>
         </div>
+
+        {/* Loading indicator */}
+        {loading && (
+          <div className="text-xs text-blue-500 mb-2 flex items-center gap-1">
+            <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+            </svg>
+            Syncing with server…
+          </div>
+        )}
+
+        {/* ── Schedule table ─────────────────────────────────────────────── */}
+        <ScheduleTable
+          staffMembers={staffMembers}
+          weekDates={weekDates}
+          shifts={shifts}
+          onEditWorkingHours={handleEditWorkingHours}
+          onAddTimeOff={handleAddTimeOff}
+          onManageDayOff={handleManageDayOff}
+          onManageBlockedDay={handleManageBlockedDay}
+          onCopy={handleCopy}
+        />
       </div>
 
-      <div className="ss-page__week-nav">
-        <button
-          className="ss-page__btn ss-page__btn--outline"
-          onClick={thisWeek}
-        >
-          This week
-        </button>
-        <button className="ss-page__btn ss-page__btn--icon" onClick={prevWeek}>
-          ‹
-        </button>
-        <span className="ss-page__week-label">{formatRange(monday)}</span>
-        <button className="ss-page__btn ss-page__btn--icon" onClick={nextWeek}>
-          ›
-        </button>
-      </div>
-
-      <div className="ss-page__table-wrap">
-        <table className="ss-table">
-          <thead>
-            <tr>
-              <th className="ss-table__th-member">
-                Team member <button className="ss-page__link">Change</button>
-              </th>
-              {weekDays.map((d) => (
-                <th key={d.dateKey} className="ss-table__th-day">
-                  <div className="ss-table__day-name">{d.label}</div>
-                  <div className="ss-table__day-hours">
-                    {d.colHours > 0 ? `${d.colHours}h` : "0min"}
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {MEMBERS.map((m) => (
-              <tr key={m.id} className="ss-table__row">
-                <td className="ss-table__td-member">
-                  <div className="ss-table__member-info">
-                    <div
-                      className="ss-table__avatar"
-                      style={{ background: m.avatarColor }}
-                    >
-                      {m.initials}
-                    </div>
-                    <div>
-                      <div className="ss-table__member-name">{m.name}</div>
-                      <div className="ss-table__member-hours">
-                        {m.totalHours}h
-                      </div>
-                    </div>
-                    <MemberRowMenu
-                      memberId={m.id}
-                      onSetRepeating={(mid) =>
-                        navigate(`/dashboard/team/repeating-shifts/${mid}`)
-                      }
-                      onUnassign={() => alert("Unassign")}
-                      onDeleteAll={deleteAll}
-                      onViewMember={(mid) =>
-                        setDrawer({
-                          show: true,
-                          member: MEMBERS.find((m) => m.id === mid) || null,
-                        })
-                      }
-                      onEditMember={(mid) => navigate(`/dashboard/team/${mid}`)}
-                    />
-                  </div>
-                </td>
-                {weekDays.map((d) => (
-                  <td key={d.dateKey} className="ss-table__td-day">
-                    <ShiftCell
-                      shift={shifts[m.id]?.[d.dateKey]}
-                      isOff={d.isOff}
-                      memberId={m.id}
-                      date={d.dateKey}
-                      onAddShift={handleAddShiftClick}
-                      onEditDay={handleEditDayClick}
-                      onSetRepeating={(mid) =>
-                        navigate(`/dashboard/team/repeating-shifts/${mid}`)
-                      }
-                      onViewMember={(mid) =>
-                        setDrawer({
-                          show: true,
-                          member: MEMBERS.find((m) => m.id === mid) || null,
-                        })
-                      }
-                      onAddTimeOff={(mid, date) =>
-                        setTimeOff({ show: true, memberId: mid, date })
-                      }
-                      onDeleteShift={deleteShift}
-                    />
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="ss-page__info-banner">
-        <span className="ss-page__info-icon">💡</span>
-        <p>
-          The team roster shows your availability for bookings and is not linked
-          to your business standard opening hours. To set your standard opening
-          hours, <button className="ss-page__link">click here</button>.
-        </p>
-      </div>
-
-      <AddTimeOffModal
-        show={timeOff.show}
-        members={MEMBERS}
-        defaultMemberId={timeOff.memberId}
-        defaultDate={timeOff.date}
-        onClose={() => setTimeOff({ show: false })}
-        onSave={(data) => console.log("Time off saved:", data)}
+      {/* ── ShiftDrawer ───────────────────────────────────────────────────── */}
+      <ShiftDrawer
+        open={drawer.mode !== null && drawer.mode !== "copy"}
+        staff={drawerStaff}
+        date={drawer.date}
+        shift={drawerShift}
+        onClose={closeDrawer}
+        onSave={handleSaveAvailability}
       />
 
-      <AddShiftModal
-        show={shiftModal.show}
-        member={
-          shiftModal.memberId
-            ? MEMBERS.find((m) => m.id === shiftModal.memberId) || null
-            : null
-        }
-        date={shiftModal.date || null}
-        initialShifts={shiftModal.initialShifts}
-        onClose={() => setShiftModal({ show: false })}
-        onSave={saveShifts}
-      />
-
-      <TeamMemberDrawer
-        show={drawer.show}
-        member={drawer.member}
-        onClose={() => setDrawer({ show: false, member: null })}
-        onViewCalendar={() => navigate("/dashboard/calendar")}
-        onViewShifts={() => navigate("/dashboard/team/shifts")}
-        onAddTimeOff={(mid) => setTimeOff({ show: true, memberId: mid })}
+      {/* ── CopyScheduleDrawer ────────────────────────────────────────────── */}
+      <CopyScheduleDrawer
+        open={copyStaffId !== null}
+        staff={copyStaff}
+        currentWeekDates={weekDates.map((w) => w.dateKey)}
+        onClose={closeCopy}
+        onSave={handleSaveCopy}
       />
     </div>
   );

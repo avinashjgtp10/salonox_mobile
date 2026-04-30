@@ -63,7 +63,7 @@ export const updateCalendarEventThunk = createAsyncThunk<
   { rejectValue: string }
 >("calendar/update", async ({ id, data }, { rejectWithValue }) => {
   try {
-    const res = await api.put<CalendarEventResponse>(CALENDAR.BY_ID(id), data);
+    const res = await api.patch<CalendarEventResponse>(CALENDAR.BY_ID(id), data);
     return res.data.data;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
@@ -100,5 +100,76 @@ export const exportCalendarEventsThunk = createAsyncThunk<
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to export calendar events");
+  }
+});
+
+// ── Status transitions ─────────────────────────────────────────────────────────
+export const confirmCalendarEventThunk = createAsyncThunk<
+  CalendarEvent,
+  string | number,
+  { rejectValue: string }
+>("calendar/confirm", async (id, { rejectWithValue }) => {
+  try {
+    const res = await api.post<CalendarEventResponse>(CALENDAR.CONFIRM(id));
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to confirm event");
+  }
+});
+
+export const startCalendarEventThunk = createAsyncThunk<
+  CalendarEvent,
+  string | number,
+  { rejectValue: string }
+>("calendar/start", async (id, { rejectWithValue }) => {
+  try {
+    const res = await api.post<CalendarEventResponse>(CALENDAR.START(id));
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to start event");
+  }
+});
+
+export const cancelCalendarEventThunk = createAsyncThunk<
+  CalendarEvent,
+  string | number,
+  { rejectValue: string }
+>("calendar/cancel", async (id, { rejectWithValue }) => {
+  try {
+    const res = await api.post<CalendarEventResponse>(CALENDAR.CANCEL(id));
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to cancel event");
+  }
+});
+
+export const noShowCalendarEventThunk = createAsyncThunk<
+  CalendarEvent,
+  string | number,
+  { rejectValue: string }
+>("calendar/noShow", async (id, { rejectWithValue }) => {
+  try {
+    const res = await api.post<CalendarEventResponse>(CALENDAR.NO_SHOW(id));
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to mark no-show");
+  }
+});
+
+export const checkoutCalendarEventThunk = createAsyncThunk<
+  CalendarEvent,
+  { id: string | number; data?: Record<string, any> },
+  { rejectValue: string }
+>("calendar/checkout", async ({ id, data }, { rejectWithValue }) => {
+  try {
+    const res = await api.post<CalendarEventResponse>(CALENDAR.CHECKOUT(id), data);
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to checkout event");
   }
 });

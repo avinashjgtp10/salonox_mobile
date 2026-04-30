@@ -1,18 +1,99 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Clipboard, Tag } from "react-bootstrap-icons";
 import "../styles/StaffCommissionsSection.scss";
+import api from "../../../services/api/axios";
+import { STAFF } from "../../../services/api/endpoints";
+import { toast } from "react-hot-toast";
 
-const StaffCommissionsSection: React.FC = () => {
-  const [servicesEnabled, setServicesEnabled] = useState(true);
-  const [productsEnabled, setProductsEnabled] = useState(false);
-  const [membershipsEnabled, setMembershipsEnabled] = useState(false);
-  const [giftCardsEnabled, setGiftCardsEnabled] = useState(true);
-  const [cancellationEnabled, setCancellationEnabled] = useState(true);
-  const [lateCancel, setLateCancel] = useState(false);
-  const [noShow, setNoShow] = useState(false);
+interface CommissionSetting {
+  category: "services" | "products" | "memberships" | "gift_cards" | "cancellation";
+  is_enabled: boolean;
+  commission_kind: "fixed_rate" | "percentage";
+  default_rate: number;
+  use_default_calculation: boolean;
+  pass_cancellation_fee_late: boolean;
+  pass_cancellation_fee_noshow: boolean;
+}
 
-  const [calcType, setCalcType] = useState("default");
-  const [giftCalcType, setGiftCalcType] = useState("default");
+interface StaffCommissionsSectionProps {
+  staffId?: string;
+  salonId?: string;
+  commissions?: any;
+  setCommissions?: (val: any) => void;
+}
+
+const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staffId, salonId, commissions, setCommissions }) => {
+  const [localSettings, setLocalSettings] = useState<Record<string, CommissionSetting>>({
+    services: { category: "services", is_enabled: true, commission_kind: "percentage", default_rate: 0, use_default_calculation: true, pass_cancellation_fee_late: false, pass_cancellation_fee_noshow: false },
+    products: { category: "products", is_enabled: false, commission_kind: "percentage", default_rate: 0, use_default_calculation: true, pass_cancellation_fee_late: false, pass_cancellation_fee_noshow: false },
+    memberships: { category: "memberships", is_enabled: false, commission_kind: "percentage", default_rate: 0, use_default_calculation: true, pass_cancellation_fee_late: false, pass_cancellation_fee_noshow: false },
+    gift_cards: { category: "gift_cards", is_enabled: true, commission_kind: "percentage", default_rate: 0, use_default_calculation: true, pass_cancellation_fee_late: false, pass_cancellation_fee_noshow: false },
+    cancellation: { category: "cancellation", is_enabled: true, commission_kind: "percentage", default_rate: 0, use_default_calculation: true, pass_cancellation_fee_late: false, pass_cancellation_fee_noshow: false },
+  });
+
+  const settings = commissions || localSettings;
+  const setSettings = setCommissions || setLocalSettings;
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (staffId && salonId && !commissions && staffId !== "undefined") {
+      const fetchCommissions = async () => {
+        try {
+          setIsLoading(true);
+          const response = await api.get(STAFF.COMMISSIONS(staffId), {
+            headers: { "x-salon-id": salonId },
+          });
+          const fetchedSettings: CommissionSetting[] = response.data.data;
+          
+          if (fetchedSettings && fetchedSettings.length > 0) {
+            const newSettings = { ...settings };
+            fetchedSettings.forEach((s) => {
+              newSettings[s.category] = s;
+            });
+            setSettings(newSettings);
+          }
+        } catch (error) {
+          console.error("Error fetching commissions:", error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchCommissions();
+    }
+  }, [staffId, salonId, commissions]);
+
+  const updateCategory = (category: string, patch: Partial<CommissionSetting>) => {
+    setSettings((prev: any) => ({
+      ...prev,
+      [category]: { ...prev[category], ...patch },
+    }));
+  };
+
+  const handleSave = async () => {
+    if (!staffId || !salonId || staffId === "undefined") {
+      toast("Please save the team member profile first");
+      return;
+    }
+    try {
+      setIsSaving(true);
+      const promises = Object.values(settings).map((s: any) => 
+        api.put(STAFF.COMMISSIONS(staffId), s, {
+          headers: { "x-salon-id": salonId },
+        })
+      );
+      await Promise.all(promises);
+      toast.success("Commission settings saved successfully");
+    } catch (error) {
+      console.error("Error saving commissions:", error);
+      toast.error("Failed to save commission settings");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (isLoading) return <div className="p-4 text-center">Loading commission settings...</div>;
 
   return (
     <div className="section commissions-section mt-1">
@@ -21,7 +102,7 @@ const StaffCommissionsSection: React.FC = () => {
         <div className="switch-info">
           <div className="switch-title">
             Services commission
-            {servicesEnabled ? (
+            {settings.services.is_enabled ? (
               <span className="badge-status on">On</span>
             ) : (
               <span className="badge-status off">Off</span>
@@ -36,32 +117,38 @@ const StaffCommissionsSection: React.FC = () => {
             className="form-check-input"
             type="checkbox"
             role="switch"
-            checked={servicesEnabled}
-            onChange={(e) => setServicesEnabled(e.target.checked)}
+            checked={settings.services.is_enabled}
+            onChange={(e) => updateCategory("services", { is_enabled: e.target.checked })}
           />
         </div>
       </div>
 
-      {servicesEnabled && (
+      {settings.services.is_enabled && (
         <div className="fade-in mb-4 pb-2">
           <div className="row g-3">
             <div className="col-12 col-md-6">
               <label className="control-label">Default commission type</label>
-              <select className="form-select">
-                <option>Fixed rate</option>
-                <option>Percentage</option>
+              <select 
+                className="form-select"
+                value={settings.services.commission_kind}
+                onChange={(e) => updateCategory("services", { commission_kind: e.target.value as any })}
+              >
+                <option value="fixed_rate">Fixed rate</option>
+                <option value="percentage">Percentage</option>
               </select>
             </div>
             <div className="col-12 col-md-6">
               <label className="control-label">Default rate</label>
               <div className="input-group">
                 <span className="input-group-text px-3 bg-white border-end-0">
-                  %
+                  {settings.services.commission_kind === "percentage" ? "%" : "₹"}
                 </span>
                 <input
                   type="number"
                   className="form-control border-start-0 ps-0"
                   placeholder="0"
+                  value={settings.services.default_rate}
+                  onChange={(e) => updateCategory("services", { default_rate: Number(e.target.value) })}
                 />
                 <span className="input-group-text bg-white">
                   <Tag size={14} color="#6b7280" />
@@ -87,9 +174,9 @@ const StaffCommissionsSection: React.FC = () => {
             <a href="#">Learn more</a>
           </p>
 
-          <div className="custom-radio" onClick={() => setCalcType("default")}>
+          <div className="custom-radio" onClick={() => updateCategory("services", { use_default_calculation: true })}>
             <div
-              className={`radio-circle ${calcType === "default" ? "active" : ""}`}
+              className={`radio-circle ${settings.services.use_default_calculation ? "active" : ""}`}
             ></div>
             <div className="radio-content">
               <div className="radio-title">Default settings</div>
@@ -99,9 +186,9 @@ const StaffCommissionsSection: React.FC = () => {
             </div>
           </div>
 
-          <div className="custom-radio" onClick={() => setCalcType("custom")}>
+          <div className="custom-radio" onClick={() => updateCategory("services", { use_default_calculation: false })}>
             <div
-              className={`radio-circle ${calcType === "custom" ? "active" : ""}`}
+              className={`radio-circle ${!settings.services.use_default_calculation ? "active" : ""}`}
             ></div>
             <div className="radio-content">
               <div className="radio-title" style={{ fontWeight: 400 }}>
@@ -122,7 +209,7 @@ const StaffCommissionsSection: React.FC = () => {
         <div className="switch-info">
           <div className="switch-title">
             Products commission
-            {productsEnabled ? (
+            {settings.products.is_enabled ? (
               <span className="badge-status on">On</span>
             ) : (
               <span className="badge-status off">Off</span>
@@ -137,8 +224,8 @@ const StaffCommissionsSection: React.FC = () => {
             className="form-check-input"
             type="checkbox"
             role="switch"
-            checked={productsEnabled}
-            onChange={(e) => setProductsEnabled(e.target.checked)}
+            checked={settings.products.is_enabled}
+            onChange={(e) => updateCategory("products", { is_enabled: e.target.checked })}
           />
         </div>
       </div>
@@ -150,7 +237,7 @@ const StaffCommissionsSection: React.FC = () => {
         <div className="switch-info">
           <div className="switch-title">
             Memberships commission
-            {membershipsEnabled ? (
+            {settings.memberships.is_enabled ? (
               <span className="badge-status on">On</span>
             ) : (
               <span className="badge-status off">Off</span>
@@ -165,8 +252,8 @@ const StaffCommissionsSection: React.FC = () => {
             className="form-check-input"
             type="checkbox"
             role="switch"
-            checked={membershipsEnabled}
-            onChange={(e) => setMembershipsEnabled(e.target.checked)}
+            checked={settings.memberships.is_enabled}
+            onChange={(e) => updateCategory("memberships", { is_enabled: e.target.checked })}
           />
         </div>
       </div>
@@ -178,7 +265,7 @@ const StaffCommissionsSection: React.FC = () => {
         <div className="switch-info">
           <div className="switch-title">
             Gift cards commission
-            {giftCardsEnabled ? (
+            {settings.gift_cards.is_enabled ? (
               <span className="badge-status on">On</span>
             ) : (
               <span className="badge-status off">Off</span>
@@ -193,32 +280,38 @@ const StaffCommissionsSection: React.FC = () => {
             className="form-check-input"
             type="checkbox"
             role="switch"
-            checked={giftCardsEnabled}
-            onChange={(e) => setGiftCardsEnabled(e.target.checked)}
+            checked={settings.gift_cards.is_enabled}
+            onChange={(e) => updateCategory("gift_cards", { is_enabled: e.target.checked })}
           />
         </div>
       </div>
 
-      {giftCardsEnabled && (
+      {settings.gift_cards.is_enabled && (
         <div className="fade-in mb-4 pb-2 mt-3">
           <div className="row g-3">
             <div className="col-12 col-md-6">
               <label className="control-label">Default commission type</label>
-              <select className="form-select">
-                <option>Fixed rate</option>
-                <option>Percentage</option>
+              <select 
+                className="form-select"
+                value={settings.gift_cards.commission_kind}
+                onChange={(e) => updateCategory("gift_cards", { commission_kind: e.target.value as any })}
+              >
+                <option value="fixed_rate">Fixed rate</option>
+                <option value="percentage">Percentage</option>
               </select>
             </div>
             <div className="col-12 col-md-6">
               <label className="control-label">Default rate</label>
               <div className="input-group">
                 <span className="input-group-text px-3 bg-white border-end-0">
-                  %
+                  {settings.gift_cards.commission_kind === "percentage" ? "%" : "₹"}
                 </span>
                 <input
                   type="number"
                   className="form-control border-start-0 ps-0"
                   placeholder="0"
+                  value={settings.gift_cards.default_rate}
+                  onChange={(e) => updateCategory("gift_cards", { default_rate: Number(e.target.value) })}
                 />
                 <span className="input-group-text bg-white">
                   <Tag size={14} color="#6b7280" />
@@ -235,10 +328,10 @@ const StaffCommissionsSection: React.FC = () => {
 
           <div
             className="custom-radio"
-            onClick={() => setGiftCalcType("default")}
+            onClick={() => updateCategory("gift_cards", { use_default_calculation: true })}
           >
             <div
-              className={`radio-circle ${giftCalcType === "default" ? "active" : ""}`}
+              className={`radio-circle ${settings.gift_cards.use_default_calculation ? "active" : ""}`}
             ></div>
             <div className="radio-content">
               <div className="radio-title">Default settings</div>
@@ -250,10 +343,10 @@ const StaffCommissionsSection: React.FC = () => {
 
           <div
             className="custom-radio"
-            onClick={() => setGiftCalcType("custom")}
+            onClick={() => updateCategory("gift_cards", { use_default_calculation: false })}
           >
             <div
-              className={`radio-circle ${giftCalcType === "custom" ? "active" : ""}`}
+              className={`radio-circle ${!settings.gift_cards.use_default_calculation ? "active" : ""}`}
             ></div>
             <div className="radio-content">
               <div className="radio-title" style={{ fontWeight: 400 }}>
@@ -274,7 +367,7 @@ const StaffCommissionsSection: React.FC = () => {
         <div className="switch-info">
           <div className="switch-title">
             Cancellation commission
-            {cancellationEnabled ? (
+            {settings.cancellation.is_enabled ? (
               <span className="badge-status on">On</span>
             ) : (
               <span className="badge-status off">Off</span>
@@ -290,13 +383,13 @@ const StaffCommissionsSection: React.FC = () => {
             className="form-check-input"
             type="checkbox"
             role="switch"
-            checked={cancellationEnabled}
-            onChange={(e) => setCancellationEnabled(e.target.checked)}
+            checked={settings.cancellation.is_enabled}
+            onChange={(e) => updateCategory("cancellation", { is_enabled: e.target.checked })}
           />
         </div>
       </div>
 
-      {cancellationEnabled && (
+      {settings.cancellation.is_enabled && (
         <div className="fade-in mb-4 pb-2 mt-3">
           {/* Late Cancellations */}
           <div className="d-flex align-items-flex-start gap-3 mb-3">
@@ -310,8 +403,8 @@ const StaffCommissionsSection: React.FC = () => {
                 cursor: "pointer",
                 accentColor: "#6c3ce1",
               }}
-              checked={lateCancel}
-              onChange={(e) => setLateCancel(e.target.checked)}
+              checked={settings.cancellation.pass_cancellation_fee_late}
+              onChange={(e) => updateCategory("cancellation", { pass_cancellation_fee_late: e.target.checked })}
             />
             <div>
               <label
@@ -346,8 +439,8 @@ const StaffCommissionsSection: React.FC = () => {
                 cursor: "pointer",
                 accentColor: "#6c3ce1",
               }}
-              checked={noShow}
-              onChange={(e) => setNoShow(e.target.checked)}
+              checked={settings.cancellation.pass_cancellation_fee_noshow}
+              onChange={(e) => updateCategory("cancellation", { pass_cancellation_fee_noshow: e.target.checked })}
             />
             <div>
               <label
@@ -371,6 +464,24 @@ const StaffCommissionsSection: React.FC = () => {
           </div>
         </div>
       )}
+
+      <div className="divider mt-4"></div>
+      
+      <div className="d-flex justify-content-end mt-4">
+        <button 
+          className="btn btn-primary px-4 py-2" 
+          onClick={handleSave}
+          disabled={isSaving}
+          style={{
+            backgroundColor: "#6c3ce1",
+            borderColor: "#6c3ce1",
+            borderRadius: "8px",
+            fontWeight: 500
+          }}
+        >
+          {isSaving ? "Saving..." : "Save changes"}
+        </button>
+      </div>
     </div>
   );
 };

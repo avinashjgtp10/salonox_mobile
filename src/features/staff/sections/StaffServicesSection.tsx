@@ -1,31 +1,66 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Search } from "react-bootstrap-icons";
 import "../styles/StaffServicesSection.scss";
+import api from "../../../services/api/axios";
+import { SERVICES as SERVICES_ENDPOINTS } from "../../../services/api/endpoints";
 
-const SERVICES = [
-  { id: "haircut", name: "Haircut", duration: "1h 30min", price: "₹25" },
-  { id: "blowdry", name: "Blow Dry", duration: "1h 30min", price: "₹25" },
-];
+interface StaffServicesSectionProps {
+  specialization?: string[];
+  setSpecialization?: (val: string[]) => void;
+  salonId?: string;
+}
 
-const StaffServicesSection: React.FC = () => {
-  const [selected, setSelected] = useState<string[]>([]);
+const StaffServicesSection: React.FC<StaffServicesSectionProps> = ({ 
+  specialization = [], 
+  setSpecialization = () => {},
+  salonId 
+}) => {
+  const [availableServices, setAvailableServices] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const toggle = (id: string) =>
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
+  useEffect(() => {
+    if (salonId) {
+      const fetchServices = async () => {
+        try {
+          setIsLoading(true);
+          const response = await api.get(SERVICES_ENDPOINTS.BASE, {
+            headers: { "x-salon-id": salonId }
+          });
+          setAvailableServices(response.data.data || []);
+        } catch (error) {
+          console.error("Error fetching services:", error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchServices();
+    }
+  }, [salonId]);
+
+  const toggle = (id: string) => {
+    const next = specialization.includes(id)
+      ? specialization.filter((x) => x !== id)
+      : [...specialization, id];
+    setSpecialization(next);
+  };
 
   const toggleAll = () => {
-    if (selected.length === SERVICES.length) {
-      setSelected([]);
+    if (specialization.length === availableServices.length) {
+      setSpecialization([]);
     } else {
-      setSelected(SERVICES.map((s) => s.id));
+      setSpecialization(availableServices.map((s) => s.id));
     }
   };
 
   const isAllSelected =
-    selected.length === SERVICES.length && SERVICES.length > 0;
+    availableServices.length > 0 && specialization.length === availableServices.length;
+
+  const filteredServices = availableServices.filter((s) =>
+    s.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  if (isLoading) return <div className="p-4 text-center">Loading services...</div>;
 
   return (
     <div className="section services-section">
@@ -48,46 +83,34 @@ const StaffServicesSection: React.FC = () => {
 
       <div className="service-list">
         {/* ALL SERVICES HEADER */}
-        <div
-          className="service-item pb-3"
-          style={{ borderBottom: "1px solid #f3f4f6" }}
-        >
+        {availableServices.length > 0 && (
           <div
-            className={`custom-checkbox ${isAllSelected ? "checked" : ""}`}
-            onClick={toggleAll}
+            className="service-item pb-3"
+            style={{ borderBottom: "1px solid #f3f4f6" }}
           >
-            {isAllSelected && <i className="bi bi-check" />}
+            <div
+              className={`custom-checkbox ${isAllSelected ? "checked" : ""}`}
+              onClick={toggleAll}
+            >
+              {isAllSelected && <i className="bi bi-check" />}
+            </div>
+            <div className="service-content">
+              <span className="service-name">
+                All services <span className="badge-count">{availableServices.length}</span>
+              </span>
+            </div>
           </div>
-          <div className="service-content">
-            <span className="service-name">
-              All services <span className="badge-count">2</span>
-            </span>
-          </div>
-        </div>
+        )}
 
-        {/* CATEGORY HEADER */}
-        <div
-          className="service-item pb-3 pt-4"
-          style={{ borderBottom: "1px solid #f3f4f6" }}
-        >
-          <div
-            className={`custom-checkbox ${isAllSelected ? "checked" : ""}`}
-            onClick={toggleAll}
-          >
-            {isAllSelected && <i className="bi bi-check" />}
+        {availableServices.length === 0 && !isLoading && (
+          <div className="p-4 text-center text-muted">
+            No services found. Please add services in the catalog first.
           </div>
-          <div className="service-content">
-            <span className="service-name" style={{ fontWeight: 500 }}>
-              Hair & styling <span className="badge-count">2</span>
-            </span>
-          </div>
-        </div>
+        )}
 
         {/* INDIVIDUAL SERVICES */}
-        {SERVICES.filter((s) =>
-          s.name.toLowerCase().includes(searchQuery.toLowerCase()),
-        ).map((service) => {
-          const isSelected = selected.includes(service.id);
+        {filteredServices.map((service) => {
+          const isSelected = specialization.includes(service.id);
           return (
             <div
               key={service.id}
@@ -102,9 +125,9 @@ const StaffServicesSection: React.FC = () => {
                 <div className="service-name" style={{ fontWeight: 400 }}>
                   {service.name}
                 </div>
-                <div className="service-duration">{service.duration}</div>
+                <div className="service-duration">{service.duration_minutes} min</div>
               </div>
-              <div className="service-price">{service.price}</div>
+              <div className="service-price">₹{service.price}</div>
             </div>
           );
         })}

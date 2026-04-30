@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from "react";
-import { ChevronDown, ChevronUp } from "react-bootstrap-icons";
+import { useState, useRef, useEffect } from "react";
+import { ChevronDown } from "react-bootstrap-icons";
 import "../styles/StaffSettingsSection.scss";
 
 const PERMISSIONS = ["No access", "Basic", "Low", "Medium", "High", "Manager"];
@@ -11,22 +11,18 @@ interface StaffSettingsProps {
   setPermissionLevel?: (val: string) => void;
 }
 
-const StaffSettingsSection: React.FC<StaffSettingsProps> = ({
+export default function StaffSettingsSection({
   allowCalendarBookings = true,
   setAllowCalendarBookings = () => {},
   permissionLevel = "Low",
   setPermissionLevel = () => {},
-}) => {
+}: StaffSettingsProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsDropdownOpen(false);
       }
     };
@@ -35,99 +31,66 @@ const StaffSettingsSection: React.FC<StaffSettingsProps> = ({
   }, []);
 
   return (
-    <div className="section settings-section">
-      {/* Appointment Settings */}
-      <h5 className="section__block-title">Appointment settings</h5>
-      <p className="section__block-subtitle">
-        Choose if this team member is bookable on the calendar
-      </p>
+    <div className="st-section">
+      <h5 className="st-section__title">Settings</h5>
+      <p className="st-section__subtitle">Configure team member permissions and booking availability</p>
 
-      <div className="custom-checkbox-row">
-        <input
-          type="checkbox"
-          id="calendar-bookings"
-          className="custom-checkbox-input"
-          checked={allowCalendarBookings}
-          onChange={(e) => setAllowCalendarBookings(e.target.checked)}
-        />
-        <div className="custom-checkbox-content">
-          <label htmlFor="calendar-bookings" className="custom-checkbox-label">
-            Allow calendar bookings
-          </label>
-          <span className="custom-checkbox-hint">
-            Allow this team member to receive bookings on the calendar
-          </span>
-        </div>
+      {/* Appointment Settings */}
+      <div className="st-field">
+        <h6 className="st-block-title">Appointment settings</h6>
+        <p className="st-block-subtitle">Choose if this team member is bookable on the calendar</p>
+
+        <label className="st-toggle-row">
+          <div className="st-toggle-content">
+            <span className="st-toggle-label">Allow calendar bookings</span>
+            <span className="st-toggle-hint">Enable this to let clients book appointments with this member</span>
+          </div>
+          <div className="st-toggle-switch">
+            <input
+              type="checkbox"
+              checked={allowCalendarBookings}
+              onChange={(e) => setAllowCalendarBookings(e.target.checked)}
+            />
+            <span className="st-slider"></span>
+          </div>
+        </label>
       </div>
 
-      {/* Permission level */}
-      <h5 className="section__block-title">Permission level</h5>
-      <p className="section__block-subtitle">
-        Choose the access level this team member has to the workspace
-      </p>
+      <hr className="st-divider" />
 
-      <div className="custom-select-wrapper" ref={dropdownRef}>
-        <div
-          className={`form-control ${isDropdownOpen ? "open" : ""}`}
-          style={{
-            cursor: "pointer",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            borderColor: isDropdownOpen ? "#6c3ce1" : "#e5e7eb",
-            boxShadow: isDropdownOpen ? "0 0 0 1px #6c3ce1" : "none",
-            borderRadius: isDropdownOpen ? "8px 8px 0 0" : "8px",
-          }}
-          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-        >
-          <span style={{ fontSize: "14px", fontWeight: 500, color: "#111827" }}>
-            {permissionLevel}
-          </span>
-          {isDropdownOpen ? (
-            <ChevronUp size={12} color="#6b7280" />
-          ) : (
-            <ChevronDown size={12} color="#6b7280" />
+      {/* Permission level */}
+      <div className="st-field">
+        <h6 className="st-block-title">Permission level</h6>
+        <p className="st-block-subtitle">Control what this team member can access in the workspace</p>
+
+        <div className="st-selector" ref={dropdownRef}>
+          <div
+            className={`st-selector-trigger ${isDropdownOpen ? "st-open" : ""}`}
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+          >
+            <span className="st-current-value">{permissionLevel}</span>
+            <ChevronDown size={14} className={`st-chevron ${isDropdownOpen ? "st-rotate" : ""}`} />
+          </div>
+
+          {isDropdownOpen && (
+            <div className="st-selector-menu">
+              {PERMISSIONS.map((perm) => (
+                <div
+                  key={perm}
+                  className={`st-selector-item ${permissionLevel === perm ? "st-active" : ""}`}
+                  onClick={() => {
+                    setPermissionLevel(perm);
+                    setIsDropdownOpen(false);
+                  }}
+                >
+                  <span className="st-item-label">{perm}</span>
+                  {permissionLevel === perm && <div className="st-active-dot"></div>}
+                </div>
+              ))}
+            </div>
           )}
         </div>
-
-        {isDropdownOpen && (
-          <div className="custom-dropdown-menu">
-            {PERMISSIONS.map((perm) => (
-              <div
-                key={perm}
-                className={`dropdown-item ${permissionLevel === perm ? "active" : ""}`}
-                style={{
-                  backgroundColor:
-                    permissionLevel === perm ? "#6b7280" : "transparent",
-                  color: permissionLevel === perm ? "#fff" : "#111827",
-                  padding: "12px 16px",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-                onMouseEnter={(e) => {
-                  if (permissionLevel !== perm) {
-                    e.currentTarget.style.backgroundColor = "#f3f4f6";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (permissionLevel !== perm) {
-                    e.currentTarget.style.backgroundColor = "transparent";
-                  }
-                }}
-                onClick={() => {
-                  setPermissionLevel(perm);
-                  setIsDropdownOpen(false);
-                }}
-              >
-                {perm}
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
-};
-
-export default StaffSettingsSection;
+}

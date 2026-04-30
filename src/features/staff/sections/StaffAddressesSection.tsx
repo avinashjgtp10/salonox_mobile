@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Pencil, Trash3 } from "react-bootstrap-icons";
 import NewAddressModal from "../../clients/pages/NewAddressModal";
 
 interface Address {
@@ -50,7 +51,7 @@ const StaffAddressesSection: React.FC<StaffAddressesProps> = ({
             </div>
             <div className="staff-list-item__actions">
               <button className="staff-list-item__action-btn">
-                <i className="bi bi-pencil" />
+                <Pencil size={14} />
               </button>
               <button
                 className="staff-list-item__action-btn staff-list-item__action-btn--danger"
@@ -58,7 +59,7 @@ const StaffAddressesSection: React.FC<StaffAddressesProps> = ({
                   setAddresses((p) => p.filter((a) => a.id !== addr.id))
                 }
               >
-                <i className="bi bi-trash" />
+                <Trash3 size={14} />
               </button>
             </div>
           </div>

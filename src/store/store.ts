@@ -32,6 +32,7 @@ import membershipReducer from "./membershipSlice";
 import { membershipsApi } from "../services/api/endpoints/memberships.endpoints";
 import { packagesApi } from "../services/api/endpoints/packages.endpoints";
 import productsReducer from "./productsSlice";
+import shiftReducer from "./shiftSlice";
 
 // Security policy:
 //   accessToken  → NOT persisted (15-min lifetime; re-issued by the 401 interceptor)
@@ -70,6 +71,7 @@ export const store = configureStore({
     [membershipsApi.reducerPath]: membershipsApi.reducer,
     [packagesApi.reducerPath]: packagesApi.reducer,
     products: productsReducer,
+    shift: shiftReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

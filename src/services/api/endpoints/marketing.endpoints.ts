@@ -10,6 +10,7 @@ export const MARKETING = {
   CAMPAIGN_PAUSE:     (id: string | number) => `/api/v1/campaigns/${id}/pause`,
   CAMPAIGN_RESUME:    (id: string | number) => `/api/v1/campaigns/${id}/resume`,
   CAMPAIGN_CONTACTS:  (id: string | number) => `/api/v1/campaigns/${id}/contacts`,
+  CAMPAIGN_REPORT:    (id: string | number, type: string) => `/api/v1/campaigns/${id}/report/${type}`,
 
   // ── Webhooks ─────────────────────────────────────────────────────────────────
   WEBHOOK_EVENTS: "/api/v1/webhooks/events",
