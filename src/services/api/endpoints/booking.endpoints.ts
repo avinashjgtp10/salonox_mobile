@@ -2,7 +2,7 @@ export const BOOKING = {
   BASE: "/api/v1/appointments",
   BY_ID: (id: string | number) => `/api/v1/appointments/${id}`,
   EXPORT: (
-    format: "excel" | "csv",
+    format: "excel" | "csv" | "pdf",
     filters?: { salon_id?: string; status?: string; start_date?: string; end_date?: string }
   ) => {
     const params = new URLSearchParams({ format });

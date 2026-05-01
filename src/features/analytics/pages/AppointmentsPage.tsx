@@ -154,15 +154,10 @@ export default function AppointmentsPage() {
 
   const handleExport = (type: string) => {
     setShowExport(false);
-    if (type === "pdf") {
-      // Client-side PDF: print the table
-      window.print();
-      return;
-    }
-    const fmt = type === "xlsx" ? "excel" : "csv";
+    const fmt = type === "xlsx" ? "excel" : type === "pdf" ? "pdf" : "csv";
     dispatch(
       exportBookingsThunk({
-        format: fmt as "excel" | "csv",
+        format: fmt as "excel" | "csv" | "pdf",
         filters: {
           status: appliedFilters.status !== "all" ? appliedFilters.status : undefined,
           start_date: format(range[0].startDate, "yyyy-MM-dd"),

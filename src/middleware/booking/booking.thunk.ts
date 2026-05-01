@@ -162,7 +162,7 @@ export const deleteBookingThunk = createAsyncThunk<
 export const exportBookingsThunk = createAsyncThunk<
   void,
   {
-    format: "excel" | "csv";
+    format: "excel" | "csv" | "pdf";
     filters?: {
       salon_id?: string;
       status?: string;
@@ -177,7 +177,8 @@ export const exportBookingsThunk = createAsyncThunk<
     const salonId = filters?.salon_id ?? state.salon.currentSalon?.id;
     const url = BOOKING.EXPORT(format, { ...filters, salon_id: salonId });
     const res = await api.get(url, { responseType: "blob" });
-    downloadBlob(res.data, `appointments.${format === "excel" ? "xlsx" : "csv"}`);
+    const ext = format === "excel" ? "xlsx" : format;
+    downloadBlob(res.data, `appointments.${ext}`);
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to export bookings");
