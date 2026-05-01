@@ -325,7 +325,7 @@ export default function ClientsListPage() {
           <Button
             variant="outline-dark"
             onClick={() =>
-              i18n.changeLanguage(i18n.language === "en" ? "es" : "en")
+              void i18n.changeLanguage(i18n.language === "en" ? "es" : "en")
             }
           >
             {i18n.language === "en" ? "Español" : "English"}

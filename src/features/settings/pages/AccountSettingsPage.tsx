@@ -330,7 +330,7 @@ export default function AccountSettingsPage() {
             <Button
               size="sm"
               variant="outline-secondary"
-              onClick={() => toast("SMS 2FA coming soon", { icon: "📱" })}
+              onClick={() => void toast("SMS 2FA coming soon", { icon: "📱" })}
             >
               Set up
             </Button>
