@@ -1,172 +1,141 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronDown, Search, Gear } from "react-bootstrap-icons";
-import "../styles/PayRunsPage.scss";
-import AddAdjustmentModal from "../components/AddAdjustmentModal";
+import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import { 
+  fetchPayRunsThunk, 
+  createPayRunThunk, 
+  updatePayRunThunk, 
+  deletePayRunThunk 
+} from "../../../middleware/payRun/payRun.thunk";
+import { clearPayRunError, clearPayRunSuccess } from "../../../store/payRunSlice";
+import type { PayRun } from "../../../types/payRun.types";
+import toast from "react-hot-toast";
+
+import PayRunSummaryCards from "../components/payruns/PayRunSummaryCards";
+import PayRunTable from "../components/payruns/PayRunTable";
+import PayRunFilterBar from "../components/payruns/PayRunFilterBar";
+import PayRunFormModal from "../components/payruns/PayRunFormModal";
+import PayRunDeleteModal from "../components/payruns/PayRunDeleteModal";
+import Button from "../../../components/ui/Button";
+import { Gear } from "react-bootstrap-icons";
 
 const PayRunsPage: React.FC = () => {
   const navigate = useNavigate();
-  const [isOptionsOpen, setIsOptionsOpen] = useState(false);
-  const [activeRowActions, setActiveRowActions] = useState<string | null>(null);
-  const [showAddAdjustment, setShowAddAdjustment] = useState(false);
-  const actionsRef = useRef<HTMLDivElement>(null);
+  const dispatch = useAppDispatch();
+  const { payRuns, summary, loading, error, success } = useAppSelector((state) => state.payRun);
 
-  // Click outside handler for actions dropdown
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [selectedPayRun, setSelectedPayRun] = useState<PayRun | null>(null);
+
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        actionsRef.current &&
-        !actionsRef.current.contains(event.target as Node)
-      ) {
-        setActiveRowActions(null);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    dispatch(fetchPayRunsThunk({}));
+  }, [dispatch]);
 
-  const toggleActions = (e: React.MouseEvent, id: string) => {
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      dispatch(clearPayRunError());
+    }
+    if (success) {
+      toast.success(selectedPayRun?.id ? "Pay run updated successfully" : "Pay adjustment added successfully");
+      dispatch(clearPayRunSuccess());
+      setIsFormOpen(false);
+      setSelectedPayRun(null);
+    }
+  }, [error, success, dispatch, selectedPayRun]);
+
+  const handleSearch = (value: string) => {
+    setSearchTerm(value);
+    dispatch(fetchPayRunsThunk({ search: value }));
+  };
+
+  const handleCreateOrUpdate = (data: Partial<PayRun>) => {
+    if (selectedPayRun?.id) {
+      dispatch(updatePayRunThunk({ id: selectedPayRun.id, data }));
+    } else {
+      dispatch(createPayRunThunk(data));
+    }
+  };
+
+  const handleDelete = () => {
+    if (selectedPayRun?.id) {
+      dispatch(deletePayRunThunk(selectedPayRun.id)).then((res) => {
+        if (res.meta.requestStatus === "fulfilled") {
+          toast.success("Pay run deleted successfully");
+          setIsDeleteOpen(false);
+          setSelectedPayRun(null);
+        }
+      });
+    }
+  };
+
+  const openEditModal = (e: React.MouseEvent, payRun: PayRun) => {
     e.stopPropagation();
-    setActiveRowActions(activeRowActions === id ? null : id);
+    setSelectedPayRun(payRun);
+    setIsFormOpen(true);
+  };
+
+  const openDeleteModal = (e: React.MouseEvent, payRun: PayRun) => {
+    e.stopPropagation();
+    setSelectedPayRun(payRun);
+    setIsDeleteOpen(true);
   };
 
   return (
-    <div className="pr-page">
-      <div className="pr-page__header">
-        <div className="pr-page__header-info">
-          <h2>Pay runs</h2>
-          <p>
-            Calculate and settle the amount owed to your team for tips,
-            commissions, and wages. <a href="#">Learn more</a>
+    <div className="p-6 max-w-[1600px] mx-auto animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-3xl font-black text-gray-900 tracking-tight">Pay runs</h1>
+          <p className="text-gray-500 mt-1 font-medium">
+            Calculate and settle the amount owed to your team for tips, commissions, and wages.
+            <a href="#" className="text-blue-600 hover:underline ml-1">Learn more</a>
           </p>
         </div>
-        <div className="pr-page__header-btns">
-          <div className="pr-page__options-wrap">
-            <button
-              className="pr-page__btn pr-page__btn--white"
-              onClick={() => setIsOptionsOpen(!isOptionsOpen)}
-            >
-              Options <ChevronDown size={12} />
-            </button>
-            {isOptionsOpen && (
-              <div className="pr-page__options-menu">
-                <div className="pr-page__options-item">
-                  <Gear size={16} /> Pay run settings
-                </div>
-              </div>
-            )}
-          </div>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" className="flex items-center gap-2 border-gray-200">
+            <Gear /> Settings
+          </Button>
+          <Button onClick={() => { setSelectedPayRun(null); setIsFormOpen(true); }}>
+            Add Adjustment
+          </Button>
         </div>
       </div>
 
-      <div className="pr-page__toolbar">
-        <div className="pr-page__date-selector">
-          <button className="pr-page__btn pr-page__btn--white">
-            Mar 9 – 15, 2026 <ChevronDown size={12} />
-          </button>
+      <PayRunSummaryCards summary={summary} />
+
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-1">
+        <div className="p-4 border-b border-gray-50">
+          <PayRunFilterBar 
+            onSearchChange={handleSearch} 
+            onDateChange={() => {}} 
+            currentDateRange="Mar 9 – 15, 2026" 
+          />
         </div>
-        <div className="pr-page__search-wrap">
-          <Search />
-          <input type="text" placeholder="Search by name" />
-        </div>
+        
+        <PayRunTable 
+          data={payRuns} 
+          loading={loading} 
+          onRowClick={(pr) => navigate(`/dashboard/team/payruns/${pr.id}`)}
+          onEdit={openEditModal}
+          onDelete={openDeleteModal}
+        />
       </div>
 
-      <div className="pr-page__summary">
-        <div className="pr-page__cards">
-          <div className="pr-page__card">
-            <label>Earnings</label>
-            <div className="pr-page__val">₮2,450.00</div>
-          </div>
-          <div className="pr-page__card">
-            <label>Other</label>
-            <div className="pr-page__val">₮150.00</div>
-          </div>
-          <div className="pr-page__card">
-            <label>Total</label>
-            <div className="pr-page__val">₮2,600.00</div>
-          </div>
-          <div className="pr-page__card">
-            <label>Paid</label>
-            <div className="pr-page__val">₮0.00</div>
-          </div>
-          <div className="pr-page__card pr-page__card--action">
-            <div>
-              <label>To pay</label>
-              <div className="pr-page__val">₮2,600.00</div>
-            </div>
-            <button className="pr-page__btn pr-page__btn--dark">
-              Pay team
-            </button>
-          </div>
-        </div>
-      </div>
+      <PayRunFormModal
+        isOpen={isFormOpen}
+        onClose={() => { setIsFormOpen(false); setSelectedPayRun(null); }}
+        onSubmit={handleCreateOrUpdate}
+        initialData={selectedPayRun || undefined}
+        loading={loading}
+      />
 
-      <div className="pr-page__list">
-        <div className="pr-page__list-header">
-          <div className="col-member">Team member</div>
-          <div className="col-earnings">Earnings</div>
-          <div className="col-other">Other</div>
-          <div className="col-total">Total</div>
-          <div className="col-paid">Paid</div>
-          <div className="col-topay">To pay</div>
-        </div>
-
-        <div
-          className="pr-page__list-item"
-          onClick={() => navigate("/dashboard/team/payruns/sd")}
-        >
-          <div className="col-member">
-            <div className="pr-page__avatar">SD</div>
-            <div className="pr-page__member-info">
-              <strong>shivani dhumal</strong>
-              <div
-                className="pr-page__actions-trigger-wrap"
-                ref={activeRowActions === "sd" ? actionsRef : null}
-              >
-                <div
-                  className="pr-page__actions-trigger"
-                  onClick={(e) => toggleActions(e, "sd")}
-                >
-                  Actions <ChevronDown size={10} />
-                </div>
-                {activeRowActions === "sd" && (
-                  <div className="pr-page__row-dropdown">
-                    <div
-                      className="pr-page__dropdown-item"
-                      onClick={() => navigate("/dashboard/team/payruns/sd")}
-                    >
-                      View breakdown
-                    </div>
-                    <div className="pr-page__dropdown-item">
-                      Edit team member
-                    </div>
-                    <div
-                      className="pr-page__dropdown-item"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowAddAdjustment(true);
-                        setActiveRowActions(null);
-                      }}
-                    >
-                      Add adjustment
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="col-earnings">₮2,450.00</div>
-          <div className="col-other">₮150.00</div>
-          <div className="col-total">₮2,600.00</div>
-          <div className="col-paid">₮0.00</div>
-          <div className="col-topay">₮2,600.00</div>
-        </div>
-      </div>
-
-      <AddAdjustmentModal
-        isOpen={showAddAdjustment}
-        onClose={() => setShowAddAdjustment(false)}
-        memberName="shivani dhumal"
+      <PayRunDeleteModal
+        isOpen={isDeleteOpen}
+        onClose={() => { setIsDeleteOpen(false); setSelectedPayRun(null); }}
+        onConfirm={handleDelete}
+        loading={loading}
+        itemName={selectedPayRun?.employeeName}
       />
     </div>
   );

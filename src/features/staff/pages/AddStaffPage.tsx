@@ -294,20 +294,16 @@ const AddStaffPage: React.FC = () => {
 
         // After creation, save sub-settings if they have been configured
         try {
-          const subPromises = [];
-
           // Save Wages
-          subPromises.push(api.put(STAFF.WAGES(newStaffId), wages, config));
+          await api.put(STAFF.WAGES(newStaffId), wages, config);
 
-          // Save Commissions
-          Object.values(commissions).forEach((c) => {
-            subPromises.push(api.put(STAFF.COMMISSIONS(newStaffId), c, config));
-          });
+          // Save Commissions (sequentially to avoid race conditions)
+          for (const c of Object.values(commissions)) {
+            await api.put(STAFF.COMMISSIONS(newStaffId), c, config);
+          }
 
           // Save Pay Runs
-          subPromises.push(api.put(STAFF.PAY_RUNS(newStaffId), payRuns, config));
-
-          await Promise.all(subPromises);
+          await api.put(STAFF.PAY_RUNS(newStaffId), payRuns, config);
         } catch (subError) {
           console.error("Error saving initial sub-settings:", subError);
           // Don't block navigation, just warn

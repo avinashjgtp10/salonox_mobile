@@ -18,8 +18,9 @@ export const fetchStaffThunk = createAsyncThunk<
   { rejectValue: string }
 >("staff/fetchAll", async (_, { rejectWithValue }) => {
   try {
-    const res = await api.get<StaffListResponse>(STAFF.BASE);
-    return res.data.data;
+    const res = await api.get<any>(STAFF.BASE);
+    const data = res.data?.data;
+    return Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to fetch staff");

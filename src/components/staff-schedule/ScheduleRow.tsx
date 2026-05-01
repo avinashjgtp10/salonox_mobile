@@ -17,6 +17,7 @@ interface ScheduleRowProps {
   onManageDayOff: (staffId: string, date: string) => void;
   onManageBlockedDay: (staffId: string, date: string) => void;
   onCopy: (staffId: string) => void;
+  onEditStaff: (staffId: string) => void;
 }
 
 const ScheduleRow: React.FC<ScheduleRowProps> = ({
@@ -28,6 +29,7 @@ const ScheduleRow: React.FC<ScheduleRowProps> = ({
   onManageDayOff,
   onManageBlockedDay,
   onCopy,
+  onEditStaff,
 }) => {
   return (
     <tr className="border-b border-gray-200 hover:bg-gray-50 transition-colors">
@@ -41,22 +43,26 @@ const ScheduleRow: React.FC<ScheduleRowProps> = ({
           </div>
           <span className="text-sm font-medium text-gray-800 truncate flex-1">{staff.name}</span>
           
-          {/* Raw edit staff icon */}
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer flex-shrink-0"
-            onClick={() => {/* TODO: Open staff edit drawer */}}
+          {/* Edit staff icon – using styleless button for reliability */}
+          <button
+            className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer flex-shrink-0 p-1 focus:outline-none"
+            style={{ background: 'none', border: 'none' }}
+            onClick={(e) => { e.stopPropagation(); onEditStaff(staff.id); }}
             title="Edit Staff"
           >
-            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
-          </svg>
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+            </svg>
+          </button>
         </div>
       </td>
 

@@ -1,6 +1,5 @@
 import React from "react";
-import type { StaffMember, ShiftMap, ShiftEntry } from "./types";
-import { formatColHeader } from "./utils";
+import type { StaffMember, ShiftMap } from "./types";
 import ScheduleRow from "./ScheduleRow";
 
 interface WeekDate {
@@ -19,6 +18,7 @@ interface ScheduleTableProps {
   onManageDayOff: (staffId: string, date: string) => void;
   onManageBlockedDay: (staffId: string, date: string) => void;
   onCopy: (staffId: string) => void;
+  onEditStaff: (staffId: string) => void;
 }
 
 const ScheduleTable: React.FC<ScheduleTableProps> = ({
@@ -30,6 +30,7 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({
   onManageDayOff,
   onManageBlockedDay,
   onCopy,
+  onEditStaff,
 }) => {
   return (
     <div className="overflow-x-auto rounded border border-gray-200 shadow-sm">
@@ -58,19 +59,34 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({
         </thead>
 
         <tbody>
-          {staffMembers.map((staff) => (
-            <ScheduleRow
-              key={staff.id}
-              staff={staff}
-              weekDates={weekDates}
-              shifts={shifts[staff.id] ?? {}}
-              onEditWorkingHours={onEditWorkingHours}
-              onAddTimeOff={onAddTimeOff}
-              onManageDayOff={onManageDayOff}
-              onManageBlockedDay={onManageBlockedDay}
-              onCopy={onCopy}
-            />
-          ))}
+          {staffMembers.length === 0 ? (
+            <tr>
+              <td colSpan={weekDates.length + 2} className="py-20 text-center">
+                <div className="flex flex-col items-center justify-center text-gray-500">
+                  <svg className="w-12 h-12 mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                  <p className="text-lg font-medium text-gray-600">No staff members found</p>
+                  <p className="text-sm text-gray-400 mt-1">Add staff members to your salon to start scheduling shifts.</p>
+                </div>
+              </td>
+            </tr>
+          ) : (
+            staffMembers.map((staff) => (
+              <ScheduleRow
+                key={staff.id}
+                staff={staff}
+                weekDates={weekDates}
+                shifts={shifts[staff.id] ?? {}}
+                onEditWorkingHours={onEditWorkingHours}
+                onAddTimeOff={onAddTimeOff}
+                onManageDayOff={onManageDayOff}
+                onManageBlockedDay={onManageBlockedDay}
+                onCopy={onCopy}
+                onEditStaff={onEditStaff}
+              />
+            ))
+          )}
         </tbody>
       </table>
     </div>

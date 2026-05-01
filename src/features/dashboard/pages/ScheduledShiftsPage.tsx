@@ -97,6 +97,11 @@ const ScheduledShiftsPage: React.FC = () => {
     (staffId: string, date: string) => openDrawer("blocked", staffId, date),
     []
   );
+  const handleEditStaff = useCallback((staffId: string) => {
+    // For now, open the working hours drawer for today's date
+    openDrawer("edit", staffId, toDateKey(new Date()));
+  }, []);
+
   const handleCopy = useCallback((staffId: string) => {
     setCopyStaffId(staffId);
   }, []);
@@ -123,9 +128,9 @@ const ScheduledShiftsPage: React.FC = () => {
     staffId: string,
     fromDate: string,
     toDates: string[],
-    _type: "day" | "week"
+    type: "day" | "week"
   ) => {
-    dispatch(copyStaffWeek({ staffId, fromDate, toDates }));
+    dispatch(copyStaffWeek({ staffId, fromDate, toDates, type }));
   };
 
   // ── Derived: drawer staff + shift ─────────────────────────────────────────
@@ -152,17 +157,17 @@ const ScheduledShiftsPage: React.FC = () => {
         {/* Legend + navigation row */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           {/* Legend */}
-          <div className="flex items-center gap-5 text-sm text-gray-600">
-            <span className="flex items-center gap-1.5">
-              <span className="w-3.5 h-3.5 rounded-sm bg-green-400 inline-block" />
+          <div className="flex items-center gap-4 text-xs font-semibold">
+            <span className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 border border-green-100 text-green-700">
+              <span className="w-2 h-2 rounded-full bg-green-500" />
               Daily Working Hours
             </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-3.5 h-3.5 rounded-sm bg-red-400 inline-block" />
+            <span className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 border border-red-100 text-red-700">
+              <span className="w-2 h-2 rounded-full bg-red-500" />
               Blocked Hours
             </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-3.5 h-3.5 rounded-sm bg-yellow-300 inline-block" />
+            <span className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-50 border border-yellow-100 text-yellow-700">
+              <span className="w-2 h-2 rounded-full bg-yellow-400" />
               Day Off
             </span>
           </div>
@@ -222,6 +227,7 @@ const ScheduledShiftsPage: React.FC = () => {
           onManageDayOff={handleManageDayOff}
           onManageBlockedDay={handleManageBlockedDay}
           onCopy={handleCopy}
+          onEditStaff={handleEditStaff}
         />
       </div>
 

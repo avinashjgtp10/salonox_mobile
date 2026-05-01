@@ -1,7 +1,9 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState, useCallback } from "react";
-import { useSelector } from "react-redux";
-import { selectCurrentSalon } from "../../../store/selectors/slices.selectors";
+import { useDispatch, useSelector } from "react-redux";
+import type { AppDispatch } from "../../../store/store";
+import { selectCurrentSalon, selectAllStaff, selectStaffLoading } from "../../../store/selectors/slices.selectors";
+import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import {
   Search as SearchIcon,
   Sliders,
@@ -66,8 +68,12 @@ export default function StaffListPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [staff, setStaff] = useState<StaffMember[]>([]);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useDispatch<AppDispatch>();
+  const staff = useSelector(selectAllStaff) as unknown as StaffMember[];
+  const loadingState = useSelector(selectStaffLoading);
+  // Using loading boolean depending on structure (usually boolean, but sometimes object)
+  const loading = typeof loadingState === "boolean" ? loadingState : (loadingState as any)?.fetch || false;
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [showFilter, setShowFilter] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
@@ -104,22 +110,16 @@ export default function StaffListPage() {
 
   const fetchStaff = useCallback(async () => {
     try {
-      setLoading(true);
-      const res = await api.get(STAFF.BASE);
-      const staffData = res.data?.data?.items || res.data?.data || res.data || [];
-      setStaff(Array.isArray(staffData) ? staffData : []);
+      await dispatch(fetchStaffThunk()).unwrap();
     } catch (error: any) {
       console.error("Error fetching staff", error);
-      console.error("Staff fetch error details:", error?.status, error?.message, error?.errors);
-      showToast(`Failed to load team members: ${error?.message || "Unknown error"}`, "error");
-    } finally {
-      setLoading(false);
+      showToast(`Failed to load team members: ${error || "Unknown error"}`, "error");
     }
-  }, [showToast]);
+  }, [dispatch, showToast]);
 
   useEffect(() => {
     fetchStaff();
-  }, [location.pathname]);
+  }, [location.pathname, fetchStaff]);
 
   // Close dropdowns on outside click
   useEffect(() => {

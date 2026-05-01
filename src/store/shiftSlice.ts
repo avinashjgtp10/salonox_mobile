@@ -6,6 +6,7 @@ import {
   addTimeOff,
   addDayOff,
   addBlockedTime,
+  saveStaffSchedule,
 } from "../middleware/shift/shiftThunk";
 
 interface ShiftState {
@@ -91,14 +92,41 @@ const shiftSlice = createSlice({
     },
     copyStaffWeek(
       state,
-      { payload }: PayloadAction<{ staffId: string; fromDate: string; toDates: string[] }>
+      { payload }: PayloadAction<{ staffId: string; fromDate: string; toDates: string[]; type: "day" | "week" }>
     ) {
-      const sourceShift = state.shifts[payload.staffId]?.[payload.fromDate];
-      if (!sourceShift) return;
-      payload.toDates.forEach((date) => {
-        if (!state.shifts[payload.staffId]) state.shifts[payload.staffId] = {};
-        state.shifts[payload.staffId][date] = { ...sourceShift, date };
-      });
+      if (!state.shifts[payload.staffId]) state.shifts[payload.staffId] = {};
+      
+      if (payload.type === "day") {
+        const sourceShift = state.shifts[payload.staffId]?.[payload.fromDate];
+        if (!sourceShift) return;
+        payload.toDates.forEach((date) => {
+          state.shifts[payload.staffId][date] = { ...sourceShift, date };
+        });
+      } else {
+        // Week Mode: Copy 7 days from the week containing fromDate to each week containing a toDate
+        const sourceSunday = getSundayOf(new Date(payload.fromDate + "T12:00:00"));
+        const sourceDays = Array.from({ length: 7 }, (_, i) => {
+          const d = new Date(sourceSunday);
+          d.setDate(d.getDate() + i);
+          return d.toISOString().split("T")[0];
+        });
+
+        const weekShifts = sourceDays.map(d => state.shifts[payload.staffId]?.[d]).filter(Boolean);
+        if (weekShifts.length === 0) return;
+
+        payload.toDates.forEach((targetDate) => {
+          const targetSunday = getSundayOf(new Date(targetDate + "T12:00:00"));
+          sourceDays.forEach((srcDate, i) => {
+            const shift = state.shifts[payload.staffId]?.[srcDate];
+            if (shift) {
+              const targetDay = new Date(targetSunday);
+              targetDay.setDate(targetDay.getDate() + i);
+              const targetDayStr = targetDay.toISOString().split("T")[0];
+              state.shifts[payload.staffId][targetDayStr] = { ...shift, date: targetDayStr };
+            }
+          });
+        });
+      }
     },
     refreshSeedForWeek(state, { payload }: PayloadAction<string>) {
       // payload = sunday ISO date key
@@ -159,6 +187,12 @@ const shiftSlice = createSlice({
             type: "blocked", isAvailable: false,
           };
         }
+      })
+      .addCase(saveStaffSchedule.pending, (state) => { state.loading = true; })
+      .addCase(saveStaffSchedule.fulfilled, (state) => { state.loading = false; })
+      .addCase(saveStaffSchedule.rejected, (state, { payload }) => { 
+        state.loading = false; 
+        state.error = payload as string; 
       });
   },
 });

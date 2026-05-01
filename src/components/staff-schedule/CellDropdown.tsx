@@ -36,7 +36,7 @@ const CellDropdown: React.FC<CellDropdownProps> = ({
 
   const item = (label: string, fn: () => void) => (
     <button
-      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+      className="block w-full text-left px-4 py-2.5 text-[13px] font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-all first:rounded-t-xl last:rounded-b-xl"
       onClick={() => { fn(); onClose(); }}
     >
       {label}
@@ -46,7 +46,7 @@ const CellDropdown: React.FC<CellDropdownProps> = ({
   return (
     <div
       ref={menuRef}
-      className="absolute z-50 bg-white border border-gray-200 rounded shadow-lg min-w-[190px] py-1"
+      className="absolute z-[80] bg-white rounded-xl shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1),0_8px_10px_-6px_rgba(0,0,0,0.1)] min-w-[200px] py-1 border border-gray-100/50"
       style={{ top: "100%", left: 0 }}
     >
       {item("Edit Working Hours", onEditWorkingHours)}
