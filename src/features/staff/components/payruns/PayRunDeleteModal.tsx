@@ -20,19 +20,36 @@ const PayRunDeleteModal: React.FC<PayRunDeleteModalProps> = ({
 }) => {
   return (
     <Modal show={isOpen} onClose={onClose} title="Delete Pay Run">
-      <div className="flex flex-col items-center text-center p-2">
-        <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4">
-          <ExclamationTriangleFill size={32} className="text-red-500" />
+      <div className="d-flex flex-column align-items-center text-center p-3">
+        <div 
+          className="rounded-circle d-flex align-items-center justify-content-center mb-4 shadow-sm"
+          style={{ width: '70px', height: '70px', backgroundColor: '#fff5f5', border: '1px solid #fee2e2' }}
+        >
+          <ExclamationTriangleFill size={32} style={{ color: '#ef4444' }} />
         </div>
-        <h3 className="text-lg font-bold text-gray-900 mb-2">Are you absolutely sure?</h3>
-        <p className="text-gray-500 mb-8 max-w-xs">
-          This action will permanently delete the pay run record for <span className="font-bold text-gray-900">{itemName}</span>. This cannot be undone.
+        
+        <h4 className="fw-black text-dark mb-2">Are you absolutely sure?</h4>
+        <p className="text-muted mb-5 mx-auto" style={{ maxWidth: '300px', fontSize: '14px', lineHeight: '1.6' }}>
+          This action will permanently delete the pay run record for 
+          <strong className="text-dark d-block mt-1">"{itemName || "this team member"}"</strong>
+          This operation cannot be reversed.
         </p>
-        <div className="flex w-full gap-3">
-          <Button variant="outline" className="flex-1 py-3" onClick={onClose} disabled={loading}>
+
+        <div className="d-flex w-100 gap-3 mt-2">
+          <Button 
+            variant="outline" 
+            className="flex-grow-1 rounded-pill py-2 fw-bold border shadow-sm" 
+            onClick={onClose} 
+            disabled={loading}
+          >
             No, Keep it
           </Button>
-          <Button variant="danger" className="flex-1 py-3" onClick={onConfirm} loading={loading}>
+          <Button 
+            variant="danger" 
+            className="flex-grow-1 rounded-pill py-2 fw-bold shadow" 
+            onClick={onConfirm} 
+            loading={loading}
+          >
             Yes, Delete
           </Button>
         </div>

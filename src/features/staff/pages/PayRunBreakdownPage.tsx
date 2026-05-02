@@ -10,7 +10,7 @@ import Loader from "../../../components/ui/Loader";
 
 const PayRunBreakdownPage: React.FC = () => {
   const navigate = useNavigate();
-  const { memberId } = useParams();
+  const { id } = useParams();
   const dispatch = useAppDispatch();
   const { loading } = useAppSelector((state) => state.payRun);
   
@@ -19,14 +19,14 @@ const PayRunBreakdownPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState("Overview");
 
   useEffect(() => {
-    if (memberId) {
-      dispatch(fetchPayRunByIdThunk(memberId)).then((res) => {
+    if (id) {
+      dispatch(fetchPayRunByIdThunk(id)).then((res) => {
         if (res.meta.requestStatus === "fulfilled") {
           setPayRun(res.payload);
         } else {
           // Mock data if API fails or for demo purposes
           setPayRun({
-            id: memberId,
+            id: id,
             employeeName: "Shivani Dhumal",
             payPeriodStart: "2026-03-09",
             payPeriodEnd: "2026-03-15",
@@ -43,7 +43,7 @@ const PayRunBreakdownPage: React.FC = () => {
         }
       });
     }
-  }, [memberId, dispatch]);
+  }, [id, dispatch]);
 
   if (loading && !payRun) {
     return (

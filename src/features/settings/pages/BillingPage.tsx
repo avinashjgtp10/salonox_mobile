@@ -207,14 +207,14 @@ export default function BillingPage() {
           <Button
             size="sm"
             variant="light"
-            onClick={() => toast("Manage subscription coming soon", { icon: "💳" })}
+            onClick={() => void toast("Manage subscription coming soon", { icon: "💳" })}
           >
             Manage subscription
           </Button>
           <Button
             size="sm"
             variant="outline-light"
-            onClick={() => toast("Cancel flow coming soon", { icon: "ℹ️" })}
+            onClick={() => void toast("Cancel flow coming soon", { icon: "ℹ️" })}
           >
             Cancel plan
           </Button>
@@ -317,7 +317,7 @@ export default function BillingPage() {
           <Button
             size="sm"
             variant="outline-secondary"
-            onClick={() => toast("Update card coming soon", { icon: "💳" })}
+            onClick={() => void toast("Update card coming soon", { icon: "💳" })}
           >
             Update card
           </Button>
@@ -386,7 +386,7 @@ export default function BillingPage() {
           size="sm"
           variant="outline-secondary"
           iconRight={<ArrowUpRight size={14} />}
-          onClick={() => toast("Contact sales coming soon", { icon: "📞" })}
+          onClick={() => void toast("Contact sales coming soon", { icon: "📞" })}
         >
           Contact sales
         </Button>

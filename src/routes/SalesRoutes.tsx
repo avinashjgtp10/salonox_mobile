@@ -5,6 +5,9 @@ import { SaleProvider } from "../features/analytics/context/SaleContext";
 const SalesListPage = lazy(
   () => import("../features/sales/pages/SalesListPage"),
 );
+const QuickSalePage = lazy(
+  () => import("../features/sales/pages/QuickSalePage"),
+);
 const DailySalesPage = lazy(
   () => import("../features/analytics/pages/DailySalesPage"),
 );
@@ -28,6 +31,7 @@ export const SalesRoutes = () => (
     <SaleProvider>
       <Routes>
         <Route index element={<SalesListPage />} />
+        <Route path="quick" element={<QuickSalePage />} />
         <Route path="daily" element={<DailySalesPage />} />
         <Route path="appointments" element={<AppointmentsPage />} />
         <Route path="payments" element={<PaymentsPage />} />

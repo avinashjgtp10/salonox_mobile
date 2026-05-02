@@ -1,0 +1,1054 @@
+// ═══════════════════════════════════════════════════════════════
+// QuickSalePage.scss  —  View Appointment style
+// ═══════════════════════════════════════════════════════════════
+
+$font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+$border: 1px solid #e5e7eb;
+$radius: 10px;
+$radius-sm: 6px;
+$gray-bg: #f9fafb;
+$text: #111827;
+$muted: #6b7280;
+$accent: #111827;
+
+.va-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: #f3f4f6;
+  font-family: $font;
+  font-size: 14px;
+  color: $text;
+}
+
+// ── Top Bar ──────────────────────────────────────────────────────
+.va-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background: #fff;
+  border-bottom: $border;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+
+  &__left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  &__title {
+    font-size: 16px;
+    font-weight: 600;
+    color: $text;
+  }
+}
+
+.va-close-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #d1d5db;
+  border-radius: $radius-sm;
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: $text;
+  transition: background 0.15s;
+
+  &:hover { background: #f3f4f6; }
+}
+
+.va-dots-btn {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #d1d5db;
+  border-radius: $radius-sm;
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: $text;
+  transition: background 0.15s;
+
+  &:hover { background: #f3f4f6; }
+}
+
+.va-dot-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: #fff;
+  border: $border;
+  border-radius: $radius;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+  min-width: 160px;
+  overflow: hidden;
+
+  &__item {
+    display: block;
+    width: 100%;
+    padding: 10px 16px;
+    text-align: left;
+    background: transparent;
+    border: none;
+    font-size: 13px;
+    cursor: pointer;
+    color: $text;
+
+    &:hover { background: $gray-bg; }
+
+    &--danger { color: #ef4444; }
+  }
+
+  &__divider {
+    height: 1px;
+    background: #f0f0f0;
+  }
+}
+
+// ── Body ─────────────────────────────────────────────────────────
+.va-body {
+  flex: 1;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 90px;
+}
+
+// ── Messages ─────────────────────────────────────────────────────
+.va-success-msg {
+  padding: 10px 14px;
+  background: #ecfdf5;
+  color: #065f46;
+  border-radius: $radius-sm;
+  font-size: 13px;
+  border: 1px solid #a7f3d0;
+}
+
+.va-error-msg {
+  padding: 10px 14px;
+  background: #fef2f2;
+  color: #991b1b;
+  border-radius: $radius-sm;
+  font-size: 13px;
+  border: 1px solid #fecaca;
+}
+
+// ── Section card ─────────────────────────────────────────────────
+.va-section {
+  background: #fff;
+  border: $border;
+  border-radius: $radius;
+  overflow: visible;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 16px;
+    border-bottom: $border;
+    font-size: 13px;
+    font-weight: 600;
+    color: $text;
+
+    svg { flex-shrink: 0; }
+  }
+
+  &__body {
+    padding: 14px 16px;
+  }
+}
+
+// ── Client row ───────────────────────────────────────────────────
+.va-client-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.va-search-field {
+  flex: 1;
+  min-width: 160px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: $radius-sm;
+  padding: 7px 10px;
+  background: $gray-bg;
+
+  &__input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    color: $text;
+    outline: none;
+
+    &::placeholder { color: $muted; }
+  }
+
+  &__clear {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: none;
+    background: #e5e7eb;
+    color: $muted;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    &:hover { background: #d1d5db; }
+  }
+}
+
+.va-walkin-btn {
+  padding: 8px 16px;
+  border-radius: $radius-sm;
+  background: #fff;
+  color: $text;
+  border: 1px solid #d1d5db;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+
+  &:hover { background: $gray-bg; }
+
+  &--active {
+    background: $accent;
+    color: #fff;
+    border-color: $accent;
+
+    &:hover { opacity: 0.88; background: $accent; }
+  }
+}
+
+.va-add-client-btn {
+  padding: 8px 14px;
+  border-radius: $radius-sm;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  font-size: 13px;
+  cursor: pointer;
+  color: $text;
+  white-space: nowrap;
+  transition: background 0.15s;
+
+  &:hover { background: $gray-bg; }
+}
+
+.va-date-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: $radius-sm;
+  padding: 7px 10px;
+  background: #fff;
+  cursor: pointer;
+  font-family: $font;
+  font-size: 13px;
+  color: $text;
+  white-space: nowrap;
+
+  &:hover {
+    border-color: #9ca3af;
+    background: #f9fafb;
+  }
+
+  span {
+    font-size: 13px;
+    color: $text;
+  }
+}
+
+// ── Client dropdown ──────────────────────────────────────────────
+.va-client-dropdown {
+  margin-top: 8px;
+  background: #fff;
+  border: $border;
+  border-radius: $radius;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: background 0.12s;
+
+    &:hover { background: $gray-bg; }
+  }
+
+  &__avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #e0e7ff;
+    color: #3730a3;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  &__name {
+    font-size: 13px;
+    font-weight: 500;
+    color: $text;
+  }
+
+  &__phone {
+    font-size: 12px;
+    color: $muted;
+  }
+
+  &__empty {
+    padding: 16px;
+    text-align: center;
+    font-size: 13px;
+    color: $muted;
+  }
+
+  &__cancel {
+    display: block;
+    width: 100%;
+    padding: 10px 14px;
+    text-align: center;
+    background: transparent;
+    border: none;
+    border-top: $border;
+    font-size: 13px;
+    color: $muted;
+    cursor: pointer;
+
+    &:hover { background: $gray-bg; }
+  }
+}
+
+// ── Add actions row (+ Service / + Product / + Membership) ───────
+.va-add-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+// ── Inline search dropdown ────────────────────────────────────────
+.va-inline-drop {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: $border;
+  border-radius: $radius-sm;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.1);
+  z-index: 200;
+  max-height: 200px;
+  overflow-y: auto;
+
+  &__item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.12s;
+
+    &:hover { background: $gray-bg; }
+  }
+
+  &__price {
+    font-size: 12px;
+    font-weight: 600;
+    color: $muted;
+  }
+}
+
+// ── Staff pill (dark, like View Appointment) ──────────────────────
+.va-staff-pill {
+  display: flex;
+  align-items: center;
+  background: #1f2937;
+  border-radius: 20px;
+  padding: 5px 10px;
+  gap: 6px;
+
+  select {
+    border: none;
+    background: transparent;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    outline: none;
+    cursor: pointer;
+    font-family: $font;
+    width: 100%;
+
+    option { color: #000; background: #fff; }
+  }
+}
+
+// ── Section header variants ───────────────────────────────────────
+.va-svc-col-hdrs--product  { background: #f0fdf4; }
+.va-svc-col-hdrs--membership { background: #faf5ff; }
+
+// ── Service column headers ────────────────────────────────────────
+.va-svc-col-hdrs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  color: $muted;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: $border;
+}
+
+// ── Service row ──────────────────────────────────────────────────
+.va-svc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: $border;
+
+  &__name {
+    font-size: 13px;
+    font-weight: 500;
+    color: $text;
+  }
+
+  &__total {
+    font-size: 13px;
+    font-weight: 600;
+    color: $text;
+  }
+
+  &__remove {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    color: #9ca3af;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 4px;
+    flex-shrink: 0;
+
+    &:hover { background: #fee2e2; color: #ef4444; }
+  }
+}
+
+// ── Staff select inside cart row ─────────────────────────────────
+.va-staff-select {
+  padding: 5px 28px 5px 10px;
+  border: none;
+  border-radius: 20px;
+  background: $accent;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='white' viewBox='0 0 16 16'%3E%3Cpath d='M8 10.5L3 5.5h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  max-width: 140px;
+}
+
+// ── Generic input ────────────────────────────────────────────────
+.va-inp {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: $radius-sm;
+  font-size: 13px;
+  background: $gray-bg;
+  color: $text;
+  outline: none;
+  font-family: $font;
+  transition: border-color 0.15s;
+
+  &:focus {
+    border-color: $accent;
+    background: #fff;
+  }
+}
+
+// ── Add service button ────────────────────────────────────────────
+.va-add-svc-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px dashed #d1d5db;
+  border-radius: $radius-sm;
+  background: transparent;
+  font-size: 13px;
+  color: $muted;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    border-color: $accent;
+    color: $accent;
+    background: $gray-bg;
+  }
+}
+
+// ── Item browser ─────────────────────────────────────────────────
+.va-item-browser {
+  margin-top: 12px;
+  border: $border;
+  border-radius: $radius;
+  overflow: hidden;
+}
+
+.va-item-tabs {
+  display: flex;
+  border-bottom: $border;
+  background: $gray-bg;
+}
+
+.va-item-tab {
+  flex: 1;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  color: $muted;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+
+  &--active {
+    color: $accent;
+    border-bottom-color: $accent;
+    background: #fff;
+  }
+
+  &:hover:not(&--active) { color: $text; }
+}
+
+.va-item-search {
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  border-bottom: $border;
+  font-size: 13px;
+  outline: none;
+  background: #fff;
+  font-family: $font;
+  color: $text;
+
+  &::placeholder { color: $muted; }
+}
+
+.va-item-list {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.va-item-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: $border;
+  transition: background 0.12s;
+
+  &:last-child { border-bottom: none; }
+  &:hover { background: $gray-bg; }
+
+  &__name { font-size: 13px; font-weight: 500; color: $text; }
+  &__sub { font-size: 12px; color: $muted; margin-top: 2px; }
+
+  &__right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  &__price { font-size: 13px; font-weight: 600; color: $text; }
+
+  &__add {
+    font-size: 12px;
+    font-weight: 600;
+    color: #3b82f6;
+    background: #eff6ff;
+    padding: 3px 8px;
+    border-radius: 20px;
+  }
+}
+
+.va-item-empty {
+  padding: 24px;
+  text-align: center;
+  font-size: 13px;
+  color: $muted;
+}
+
+// ── Charges grid ─────────────────────────────────────────────────
+.va-charges-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+
+  @media (max-width: 700px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  &__col { display: flex; flex-direction: column; gap: 6px; }
+}
+
+.va-field-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: $muted;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.va-tip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+// ── Payment methods ──────────────────────────────────────────────
+.va-payment-methods {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.va-pm-btn {
+  padding: 7px 16px;
+  border-radius: 20px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  color: $text;
+  transition: all 0.15s;
+
+  &:hover { background: $gray-bg; }
+
+  &--active {
+    background: $accent;
+    color: #fff;
+    border-color: $accent;
+  }
+}
+
+// ── Pay notes layout ─────────────────────────────────────────────
+.va-pay-notes-layout {
+  display: flex;
+  gap: 14px;
+  margin-top: 16px;
+  align-items: flex-start;
+
+  @media (max-width: 600px) { flex-direction: column; }
+
+  &__left { flex: 1; }
+}
+
+.va-staff-alert-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.va-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: $radius-sm;
+  font-size: 13px;
+  background: $gray-bg;
+  color: $text;
+  resize: vertical;
+  outline: none;
+  font-family: $font;
+  transition: border-color 0.15s;
+
+  &::placeholder { color: $muted; }
+  &:focus { border-color: $accent; background: #fff; }
+}
+
+// ── Summary box ──────────────────────────────────────────────────
+.va-summary-box {
+  min-width: 210px;
+  background: $gray-bg;
+  border: $border;
+  border-radius: $radius;
+  padding: 14px 16px;
+  flex-shrink: 0;
+
+  &__title {
+    font-size: 11px;
+    font-weight: 600;
+    color: $muted;
+    letter-spacing: 0.05em;
+    margin-bottom: 10px;
+  }
+}
+
+.va-summary-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 3px 0;
+  color: $text;
+
+  &--total {
+    font-weight: 700;
+    font-size: 14px;
+    border-top: $border;
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+}
+
+// ── Confirm & Pay section ────────────────────────────────────────
+.va-confirm-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 11px 16px;
+  border-bottom: $border;
+  font-size: 13px;
+
+  &:last-of-type { border-bottom: none; }
+
+  &__name { color: $text; font-weight: 500; }
+
+  &__staff {
+    color: $muted;
+    font-style: italic;
+    font-weight: 400;
+  }
+
+  &__price { font-weight: 600; color: $text; }
+}
+
+.va-progress-bar {
+  height: 4px;
+  background: $accent;
+  margin: 0 16px 8px;
+  border-radius: 2px;
+}
+
+// ── Bottom action bar ────────────────────────────────────────────
+.va-bottom-bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  background: #fff;
+  border-top: $border;
+  z-index: 10;
+}
+
+.va-update-btn {
+  flex: 1;
+  padding: 12px;
+  border-radius: $radius-sm;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: $text;
+  font-family: $font;
+  transition: background 0.15s;
+
+  &:hover:not(:disabled) { background: $gray-bg; }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.va-confirm-btn {
+  flex: 2;
+  padding: 12px;
+  border-radius: $radius-sm;
+  border: none;
+  background: #22c55e;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: $font;
+  transition: opacity 0.15s;
+
+  &:hover:not(:disabled) { opacity: 0.9; }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+// ── Add Client form ───────────────────────────────────────────────
+.va-add-client-form {
+  margin-top: 12px;
+  padding: 14px;
+  background: $gray-bg;
+  border: $border;
+  border-radius: $radius;
+
+  &__row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+
+  &__col {
+    flex: 1;
+    min-width: 130px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+
+    &--btn {
+      flex: 0 0 auto;
+      min-width: 110px;
+    }
+  }
+}
+
+.va-phone-group {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.va-phone-code {
+  width: 68px;
+  flex-shrink: 0;
+  padding: 7px 4px;
+  border: 1px solid #d1d5db;
+  border-radius: $radius-sm;
+  font-size: 12px;
+  background: #fff;
+  color: $text;
+  outline: none;
+  cursor: pointer;
+}
+
+.va-inp--error {
+  border-color: #ef4444 !important;
+  background: #fff5f5 !important;
+}
+
+.va-form-error {
+  font-size: 11px;
+  color: #ef4444;
+  margin-top: 2px;
+}
+
+.va-save-client-btn {
+  width: 100%;
+  padding: 9px 16px;
+  border-radius: $radius-sm;
+  border: none;
+  background: $accent;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) { opacity: 0.85; }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+// ── Split Payment Panel ───────────────────────────────────────────
+.va-split-panel {
+  margin-top: 14px;
+  border: 1px solid #e0e7ff;
+  border-radius: $radius;
+  background: #f8f9ff;
+  overflow: hidden;
+  animation: va-fade-in 0.18s ease;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #eef2ff;
+    font-size: 13px;
+    font-weight: 600;
+    color: #3730a3;
+    border-bottom: 1px solid #e0e7ff;
+  }
+
+  &__remaining {
+    font-size: 12px;
+    font-weight: 500;
+    color: #6366f1;
+    background: #e0e7ff;
+    padding: 2px 10px;
+    border-radius: 20px;
+
+    &--done {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    &--over {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+  }
+
+  &__total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    border-top: 1px solid #e0e7ff;
+    font-size: 13px;
+    font-weight: 600;
+    color: $text;
+    background: #eef2ff;
+  }
+
+  &__total-val {
+    color: #4f46e5;
+  }
+}
+
+.va-split-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.va-split-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e0e7ff;
+
+  &:last-child { border-bottom: none; }
+
+  &__label {
+    font-size: 13px;
+    font-weight: 500;
+    color: $text;
+    width: 56px;
+    flex-shrink: 0;
+  }
+
+  &__input-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #fff;
+    border: 1px solid #c7d2fe;
+    border-radius: $radius-sm;
+    padding: 0 8px;
+
+    &:focus-within {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+    }
+  }
+
+  &__currency {
+    font-size: 13px;
+    color: $muted;
+    flex-shrink: 0;
+  }
+
+  &__input {
+    flex: 1;
+    border: none !important;
+    background: transparent !important;
+    outline: none !important;
+    font-size: 13px;
+    color: $text;
+    padding: 7px 0 !important;
+    min-width: 0;
+
+    &:focus { border-color: transparent !important; background: transparent !important; }
+  }
+
+  &__fill {
+    flex-shrink: 0;
+    padding: 5px 10px;
+    border-radius: 20px;
+    border: 1px solid #a5b4fc;
+    background: #ede9fe;
+    color: #4f46e5;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+
+    &:hover {
+      background: #4f46e5;
+      color: #fff;
+      border-color: #4f46e5;
+    }
+  }
+}
+
+@keyframes va-fade-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

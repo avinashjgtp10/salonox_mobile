@@ -5,10 +5,10 @@ import {
   updateAvailability,
   setDayOff,
   setBlocked,
-  copyStaffWeek,
   refreshSeedForWeek,
 } from "../../../store/shiftSlice";
-import { fetchDailyShifts } from "../../../middleware/shift/shiftThunk";
+import { fetchDailyShifts, applyCopySchedule, saveStaffSchedule } from "../../../middleware/shift/shiftThunk";
+import toast from "react-hot-toast";
 import {
   ScheduleTable,
   ShiftDrawer,
@@ -55,10 +55,8 @@ const ScheduledShiftsPage: React.FC = () => {
 
   const weekStartKey = toDateKey(sunday);
 
-  // Fetch from API on week change; fall back to seed data on failure
   useEffect(() => {
     dispatch(fetchDailyShifts(weekStartKey));
-    dispatch(refreshSeedForWeek(weekStartKey));
   }, [weekStartKey, dispatch]);
 
   // ── Navigation ────────────────────────────────────────────────────────────
@@ -121,6 +119,24 @@ const ScheduledShiftsPage: React.FC = () => {
     } else {
       dispatch(updateAvailability({ staffId, date, isAvailable, startTime, endTime }));
     }
+
+    // Persist to backend
+    // Persist to backend: Send exactly 7 entries for the current week
+    const currentShifts = shifts[staffId] || {};
+    const items = weekDates.map(({ dateKey }) => {
+      const s = currentShifts[dateKey] || { startTime: "", endTime: "", isAvailable: false, type: "dayoff" };
+      return {
+        day_of_week: new Date(dateKey + "T12:00:00").getDay(),
+        start_time: s.startTime,
+        end_time: s.endTime,
+        is_available: s.isAvailable,
+        notes: s.type === "blocked" ? "Blocked" : ""
+      };
+    });
+    dispatch(saveStaffSchedule({ staffId, items }))
+      .unwrap()
+      .then(() => toast.success("Availability updated"))
+      .catch(() => toast.error("Failed to save changes"));
   };
 
   // ── Save: Copy schedule ───────────────────────────────────────────────────
@@ -130,7 +146,17 @@ const ScheduledShiftsPage: React.FC = () => {
     toDates: string[],
     type: "day" | "week"
   ) => {
-    dispatch(copyStaffWeek({ staffId, fromDate, toDates, type }));
+    toast.promise(
+      dispatch(applyCopySchedule({ staffId, fromDate, toDates, type })).unwrap(),
+      {
+        loading: 'Copying schedule...',
+        success: (res) => {
+          const weekMsg = type === "week" ? "Navigate to the target weeks to see changes." : "";
+          return `Schedule copied successfully! ${weekMsg}`;
+        },
+        error: 'Failed to copy schedule.',
+      }
+    );
   };
 
   // ── Derived: drawer staff + shift ─────────────────────────────────────────

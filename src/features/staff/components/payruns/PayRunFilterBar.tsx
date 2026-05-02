@@ -12,22 +12,17 @@ const PayRunFilterBar: React.FC<PayRunFilterBarProps> = ({
   currentDateRange 
 }) => {
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-      <div className="relative w-full sm:w-auto">
-        <button className="flex items-center justify-between gap-3 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors w-full sm:w-auto min-w-[180px]">
-          {currentDateRange}
-          <ChevronDown size={14} className="text-gray-400" />
-        </button>
+    <div className="pay-run-filter-bar d-flex flex-column flex-sm-row align-items-sm-center justify-content-between">
+      <div className="date-selector d-flex align-items-center justify-content-between gap-3 mb-2 mb-sm-0">
+        {currentDateRange}
+        <ChevronDown size={14} />
       </div>
       
-      <div className="relative w-full sm:max-w-xs">
-        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-          <Search size={14} className="text-gray-400" />
-        </div>
+      <div className="search-input-wrapper w-100">
+        <Search size={14} className="search-icon" />
         <input
           type="text"
           placeholder="Search by name..."
-          className="block w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 transition-all shadow-sm"
           onChange={(e) => onSearchChange(e.target.value)}
         />
       </div>

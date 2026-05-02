@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { 
-  fetchPayRunsThunk, 
-  createPayRunThunk, 
-  updatePayRunThunk, 
-  deletePayRunThunk 
+import {
+  fetchPayRunsThunk,
+  createPayRunThunk,
+  updatePayRunThunk,
+  deletePayRunThunk,
 } from "../../../middleware/payRun/payRun.thunk";
 import { clearPayRunError, clearPayRunSuccess } from "../../../store/payRunSlice";
 import type { PayRun } from "../../../types/payRun.types";
@@ -17,34 +17,67 @@ import PayRunFilterBar from "../components/payruns/PayRunFilterBar";
 import PayRunFormModal from "../components/payruns/PayRunFormModal";
 import PayRunDeleteModal from "../components/payruns/PayRunDeleteModal";
 import Button from "../../../components/ui/Button";
-import { Gear } from "react-bootstrap-icons";
+import { ChevronLeft, ChevronRight, Gear } from "react-bootstrap-icons";
+
+import "../styles/PayRunsPage.scss";
+
+const PAGE_SIZE = 10;
 
 const PayRunsPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { payRuns, summary, loading, error, success } = useAppSelector((state) => state.payRun);
+  const { payRuns, summary, loading, error, success } = useAppSelector(
+    (state) => state.payRun
+  );
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedPayRun, setSelectedPayRun] = useState<PayRun | null>(null);
+  const [, setSearchTerm] = useState("");
 
+  // ── Pagination state ────────────────────────────────────────────────────────
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(payRuns.length / PAGE_SIZE)),
+    [payRuns.length]
+  );
+
+  // Slice the current page's records
+  const pagedPayRuns = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return payRuns.slice(start, start + PAGE_SIZE);
+  }, [payRuns, currentPage]);
+
+  // Reset to page 1 when the list changes (after add / delete / search)
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [payRuns.length]);
+
+  // ── Initial load ────────────────────────────────────────────────────────────
   useEffect(() => {
     dispatch(fetchPayRunsThunk({}));
   }, [dispatch]);
 
+  // ── Toast feedback ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (error) {
       toast.error(error);
       dispatch(clearPayRunError());
     }
     if (success) {
-      toast.success(selectedPayRun?.id ? "Pay run updated successfully" : "Pay adjustment added successfully");
+      toast.success(
+        selectedPayRun?.id
+          ? "Pay run updated successfully"
+          : "Pay adjustment added successfully"
+      );
       dispatch(clearPayRunSuccess());
       setIsFormOpen(false);
       setSelectedPayRun(null);
     }
   }, [error, success, dispatch, selectedPayRun]);
 
+  // ── Handlers ────────────────────────────────────────────────────────────────
   const handleSearch = (value: string) => {
     setSearchTerm(value);
     dispatch(fetchPayRunsThunk({ search: value }));
@@ -60,7 +93,8 @@ const PayRunsPage: React.FC = () => {
 
   const handleDelete = () => {
     if (selectedPayRun?.id) {
-      dispatch(deletePayRunThunk(selectedPayRun.id)).then((res) => {
+      const staffId = selectedPayRun.staffId || selectedPayRun.staff_id;
+      dispatch(deletePayRunThunk({ id: selectedPayRun.id, staffId })).then((res) => {
         if (res.meta.requestStatus === "fulfilled") {
           toast.success("Pay run deleted successfully");
           setIsDeleteOpen(false);
@@ -82,46 +116,156 @@ const PayRunsPage: React.FC = () => {
     setIsDeleteOpen(true);
   };
 
+  const handlePayTeam = () => {
+    if (summary.toPay <= 0) {
+      toast.error("There are no pending amounts to pay.");
+      return;
+    }
+    toast.success(
+      `Processing payment of ₮${summary.toPay.toLocaleString()} for the team...`
+    );
+  };
+
+  // ── Range label e.g. "1–10 of 23" ──────────────────────────────────────────
+  const rangeStart = payRuns.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const rangeEnd   = Math.min(currentPage * PAGE_SIZE, payRuns.length);
+
   return (
-    <div className="p-6 max-w-[1600px] mx-auto animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+    <div className="pay-runs-container">
+      {/* ── Header ── */}
+      <div className="page-header d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
         <div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight">Pay runs</h1>
-          <p className="text-gray-500 mt-1 font-medium">
-            Calculate and settle the amount owed to your team for tips, commissions, and wages.
-            <a href="#" className="text-blue-600 hover:underline ml-1">Learn more</a>
+          <h1 className="title">Pay runs</h1>
+          <p className="subtitle">
+            Calculate and settle the amount owed to your team for tips,
+            commissions, and wages. <a href="#">Learn more</a>
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" className="flex items-center gap-2 border-gray-200">
+        <div className="d-flex align-items-center gap-3">
+          <Button
+            variant="outline"
+            className="d-flex align-items-center gap-2 border shadow-sm bg-white rounded-pill"
+          >
             <Gear /> Settings
           </Button>
-          <Button onClick={() => { setSelectedPayRun(null); setIsFormOpen(true); }}>
+          <Button
+            className="rounded-pill px-4 fw-bold shadow-sm"
+            onClick={() => { setSelectedPayRun(null); setIsFormOpen(true); }}
+          >
             Add Adjustment
           </Button>
         </div>
       </div>
 
-      <PayRunSummaryCards summary={summary} />
+      {/* ── Summary cards ── */}
+      <PayRunSummaryCards summary={summary} onPayTeam={handlePayTeam} />
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-1">
-        <div className="p-4 border-b border-gray-50">
-          <PayRunFilterBar 
-            onSearchChange={handleSearch} 
-            onDateChange={() => {}} 
-            currentDateRange="Mar 9 – 15, 2026" 
+      {/* ── Table ── */}
+      <div className="table-container">
+        <div className="filter-bar-wrapper">
+          <PayRunFilterBar
+            onSearchChange={handleSearch}
+            onDateChange={() => {}}
+            currentDateRange="Mar 9 – 15, 2026"
           />
         </div>
-        
-        <PayRunTable 
-          data={payRuns} 
-          loading={loading} 
+
+        <PayRunTable
+          data={pagedPayRuns}
+          loading={loading}
           onRowClick={(pr) => navigate(`/dashboard/team/payruns/${pr.id}`)}
           onEdit={openEditModal}
           onDelete={openDeleteModal}
         />
+
+        {/* ── Pagination ── */}
+        {payRuns.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "14px 20px",
+              borderTop: "1px solid #f0f0f0",
+              background: "#fff",
+              borderRadius: "0 0 12px 12px",
+            }}
+          >
+            {/* Left: record range */}
+            <span style={{ fontSize: 13, color: "#6b7280" }}>
+              Showing{" "}
+              <strong style={{ color: "#111827" }}>{rangeStart}–{rangeEnd}</strong>
+              {" "}of{" "}
+              <strong style={{ color: "#111827" }}>{payRuns.length}</strong>
+            </span>
+
+            {/* Right: Previous / Next */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "7px 16px",
+                  borderRadius: 8,
+                  border: "1px solid #e5e7eb",
+                  background: currentPage === 1 ? "#f9fafb" : "#fff",
+                  color: currentPage === 1 ? "#d1d5db" : "#374151",
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                  transition: "all 0.15s",
+                }}
+              >
+                <ChevronLeft size={14} />
+                Previous
+              </button>
+
+              {/* Current page indicator */}
+              <span
+                style={{
+                  minWidth: 32,
+                  textAlign: "center",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: "#111827",
+                  background: "#f3f4f6",
+                  borderRadius: 6,
+                  padding: "4px 10px",
+                }}
+              >
+                {currentPage} / {totalPages}
+              </span>
+
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "7px 16px",
+                  borderRadius: 8,
+                  border: "1px solid #e5e7eb",
+                  background: currentPage === totalPages ? "#f9fafb" : "#fff",
+                  color: currentPage === totalPages ? "#d1d5db" : "#374151",
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+                  transition: "all 0.15s",
+                }}
+              >
+                Next
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
+      {/* ── Modals ── */}
       <PayRunFormModal
         isOpen={isFormOpen}
         onClose={() => { setIsFormOpen(false); setSelectedPayRun(null); }}

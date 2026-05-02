@@ -1,8 +1,16 @@
 import React, { useState, useRef, useEffect } from "react";
 import type { Booking, ServiceItem, PackageItem, PaymentMode, DiscountType } from "../../types/scheduler-types";
-import { CLIENT_LIST, CLIENT_STATS, REWARD_POINTS_OPTIONS, COUPON_CODES, STAFF_LIST, PACKAGES_LIST } from "../../utils/schedulerMockData";
 import { useSchedulerContext } from "../../store/SchedulerContext";
-import { computePointsEarned, computeEWalletCredit, EWALLET_REDEEM_MINIMUM, MEMBERSHIP_TIERS } from "../../../../store/schedulerSlice";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function toApiStaffId(id?: string | null): string | undefined {
+  return id && UUID_RE.test(id) ? id : undefined;
+}
+import api from "../../../../services/api/axios";
+import { useAppDispatch } from "../../../../hooks/useAppRedux";
+import { createBookingThunk } from "../../../../middleware/booking/booking.thunk";
+import { useAppSelector } from "../../../../hooks/useAppRedux";
+import { computePointsEarned, computeEWalletCredit, EWALLET_REDEEM_MINIMUM, MEMBERSHIP_TIERS, replaceBookingId, updateBooking as updateBookingAction, deleteBooking as deleteBookingAction, patchPaymentStatus } from "../../../../store/schedulerSlice";
 import { addMinutes } from "../../utils/timeUtils";
 import MiniCalendar from "../shared/MiniCalendar.tsx";
 import ServiceRow from "./ServiceRow";
@@ -10,57 +18,53 @@ import TotalsPanel from "./TotalsPanel";
 import Button from "../../../../components/ui/Button";
 import Badge from "../../../../components/ui/Badge";
 import Input from "../../../../components/ui/Input";
+import ClientSearchInput from "../../../clients/components/ClientSearchInput";
 import "../../styles/NewAppointmentModal.scss";
+import "../../styles/ClientFormUI.scss";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 interface Props { onClose: () => void; defaultStaffId?: string; defaultTime?: string; existingBooking?: Booking }
-type TempService    = ServiceItem & { tempId: string };
-type TempPkg        = PackageItem & { tempId: string; search: string; showDrop: boolean };
-type TempProduct    = { tempId: string; id: string; productName: string; price: number; qty: number; total: number; search: string; showDrop: boolean };
+type TempService = ServiceItem & { tempId: string };
+type TempPkg = PackageItem & { tempId: string; search: string; showDrop: boolean };
+type TempProduct = { tempId: string; id: string; productName: string; price: number; qty: number; total: number; search: string; showDrop: boolean };
 type TempMembership = { tempId: string; name: string; duration: string; price: number; qty: number; total: number; search: string; showDrop: boolean };
-type SingleMethod   = "Cash" | "Card" | "UPI";
-type SplitEntry     = { method: SingleMethod; amount: string };
-type ApptStatus     = "NEW" | "UNPAID" | "PAID";
+type SingleMethod = "Cash" | "Card" | "UPI";
+type SplitEntry = { method: SingleMethod; amount: string };
+type ApptStatus = "NEW" | "UNPAID" | "PAID" | "CANCELLED";
 
 const SINGLE_METHODS: SingleMethod[] = ["Cash", "Card", "UPI"];
 const DURATIONS = ["1 Month", "3 Months", "6 Months", "1 Year"];
-const PRODUCTS_LIST = [
-  { name: "Argan Shampoo", price: 450 }, { name: "Keratin Mask", price: 750 },
-  { name: "Hair Serum", price: 600 },    { name: "Nail Polish Set", price: 350 },
-  { name: "Body Lotion", price: 500 },   { name: "Face Cream", price: 800 },
-];
-const MEMBERSHIPS_LIST = [
-  { name: "Silver Membership", price: 2000 }, { name: "Gold Membership", price: 5000 },
-  { name: "Platinum Membership", price: 10000 }, { name: "Bridal Club", price: 15000 },
-];
-const COUNTRY_CODES = [
-  { code: "+91", label: "🇮🇳 +91" }, { code: "+1",  label: "🇺🇸 +1" },
-  { code: "+44", label: "🇬🇧 +44" }, { code: "+61", label: "🇦🇺 +61" },
-  { code: "+971",label: "🇦🇪 +971"},
-];
+const REWARD_POINTS_OPTIONS = ["None", "Silver (50pts)", "Gold (100pts)", "Platinum (200pts)"];
+import { Country } from "country-state-city";
+
+const COUNTRY_CODES = Country.getAllCountries().map((c) => ({
+  code: c.phonecode.startsWith("+") ? c.phonecode : `+${c.phonecode}`,
+  label: `${c.isoCode} +${c.phonecode.replace("+", "")}`,
+  isoCode: c.isoCode,
+}));
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 function getMembershipLabel(r: number) {
   if (r >= MEMBERSHIP_TIERS.Platinum) return "Platinum";
-  if (r >= MEMBERSHIP_TIERS.Gold)     return "Gold";
-  if (r >= MEMBERSHIP_TIERS.Silver)   return "Silver";
+  if (r >= MEMBERSHIP_TIERS.Gold) return "Gold";
+  if (r >= MEMBERSHIP_TIERS.Silver) return "Silver";
   return "NA";
 }
 function getMembershipColor(t: string) {
   if (t === "Platinum") return "#7c3aed";
-  if (t === "Gold")     return "#d97706";
-  if (t === "Silver")   return "#64748b";
+  if (t === "Gold") return "#d97706";
+  if (t === "Silver") return "#64748b";
   return "#9ca3af";
 }
 function getNextTier(rev: number): { name: string; remaining: number } | null {
-  if (rev < MEMBERSHIP_TIERS.Silver)   return { name: "Silver",   remaining: MEMBERSHIP_TIERS.Silver   - rev };
-  if (rev < MEMBERSHIP_TIERS.Gold)     return { name: "Gold",     remaining: MEMBERSHIP_TIERS.Gold     - rev };
+  if (rev < MEMBERSHIP_TIERS.Silver) return { name: "Silver", remaining: MEMBERSHIP_TIERS.Silver - rev };
+  if (rev < MEMBERSHIP_TIERS.Gold) return { name: "Gold", remaining: MEMBERSHIP_TIERS.Gold - rev };
   if (rev < MEMBERSHIP_TIERS.Platinum) return { name: "Platinum", remaining: MEMBERSHIP_TIERS.Platinum - rev };
   return null;
 }
 
-function printBill(booking: Booking, paidMethods: Record<string, number>) {
-  const staffName = STAFF_LIST.find((s) => s.id === booking.staffId)?.name || "—";
+function printBill(booking: Booking, paidMethods: Record<string, number>, staffList: { id: string; name: string }[]) {
+  const staffName = staffList.find((s) => s.id === booking.staffId)?.name || "—";
   const methodStr = Object.entries(paidMethods).map(([m, a]) => `${m}: ₹${a.toFixed(2)}`).join(", ");
   const svcRows = booking.services.map((s) => `<tr><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0">${s.service}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;color:#6b7280">${s.staff || staffName}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center">${s.qty}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600">₹${(s.total || 0).toFixed(2)}</td></tr>`).join("");
   const pkgRows = (booking.packageItems || []).map((p) => `<tr><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0">${p.packageName} <span style="color:#f59e0b">[PKG]</span></td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;color:#6b7280">—</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center">${p.qty}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600">₹${(p.total || 0).toFixed(2)}</td></tr>`).join("");
@@ -77,13 +81,20 @@ function validateAll(svcRows: TempService[], pkgRows: TempPkg[], prodRows: TempP
     if (!newClientName.trim()) errors.push("new_client_name");
     if (!/^\d{10}$/.test(newClientPhone.trim())) errors.push("new_client_phone");
   }
-  const hasAnyItem = svcRows.some((r) => r.service) || pkgRows.length > 0 || prodRows.length > 0 || memRows.length > 0;
+  const activeSvcRows = svcRows.filter(r => r.service || (r as any).price > 0 || (r as any).staffId);
+  const hasAnyItem = activeSvcRows.length > 0 || pkgRows.length > 0 || prodRows.length > 0 || memRows.length > 0;
   if (!hasAnyItem) errors.push("no_rows");
   svcRows.forEach((r, i) => {
-    if (!r.service) errors.push(`svc_${i}_service`);
-    else if (!r.staffId) errors.push(`svc_${i}_staff`);
-    else if (!r.price || r.price <= 0) errors.push(`svc_${i}_price`);
-    else if (!r.qty   || r.qty   <= 0) errors.push(`svc_${i}_qty`);
+    // If it's the only row, totally empty, and we have packages/products, ignore it
+    if (!r.service && !r.staffId && !r.price && hasAnyItem && activeSvcRows.length === 0) return;
+
+    // Only validate if it's active or if there are no other items
+    if (activeSvcRows.length > 0 || !hasAnyItem || r.service || r.staffId || r.price) {
+      if (!r.service) errors.push(`svc_${i}_service`);
+      else if (!r.staffId) errors.push(`svc_${i}_staff`);
+      else if (!r.price || r.price <= 0) errors.push(`svc_${i}_price`);
+      else if (!r.qty || r.qty <= 0) errors.push(`svc_${i}_qty`);
+    }
   });
   pkgRows.forEach((r, i) => { if (!r.packageName) errors.push(`pkg_${i}_name`); });
   prodRows.forEach((r, i) => { if (!r.productName) errors.push(`prod_${i}_name`); });
@@ -125,31 +136,68 @@ const InlineDrop: React.FC<{
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, defaultTime, existingBooking }) => {
-  const { addBooking, updateBooking, currentDate, clientStats, deductEWallet, processPaymentRewards } = useSchedulerContext();
+  const { addBooking, updateBooking, currentDate, clientStats, deductEWallet, processPaymentRewards,
+    staffList, clientsList, packagesList, membershipsList, productsList, blockedTimes } = useSchedulerContext();
+  const dispatch = useAppDispatch();
+  const salonId = useAppSelector((s: any) => s.salon?.currentSalon?.id);
 
-  const apptStatus: ApptStatus = !existingBooking ? "NEW" : existingBooking.paymentStatus === "Paid" ? "PAID" : "UNPAID";
-  const [isEditing, setIsEditing]               = useState(false);
-  const formFrozen = apptStatus === "PAID" && !isEditing;
+  // ✅ FIX — read from both snake_case (DB) and camelCase (local state)
+  const paymentState = (
+    existingBooking?.payment_status ||
+    existingBooking?.paymentStatus ||
+    ""
+  ).toLowerCase();
+  const isActuallyPaid = paymentState === "paid";
+  const isActuallyPartial = paymentState === "partial";
+  const isCancelledBooking = (existingBooking?.status || "").toLowerCase() === "cancelled";
+  const apptStatus: ApptStatus = !existingBooking ? "NEW"
+    : isCancelledBooking ? "CANCELLED"
+      : isActuallyPaid ? "PAID"
+        : isActuallyPartial ? "UNPAID"  // treat partial as still needing payment
+          : "UNPAID";
+  const [isEditingState, setIsEditing] = useState(false);
+  // ✅ Feature 2 — allow editing PAID appointments to add new services
+  const isEditing = isEditingState && apptStatus !== "CANCELLED";
+  const formFrozen = !!existingBooking && !isEditing;
+  const clientFrozen = !!existingBooking;
 
   // 3-dot menu
-  const [showDotMenu, setShowDotMenu]           = useState(false);
-  const [paidMethodsSnap, setPaidMethodsSnap]   = useState<Record<string, number>>({});
+  const [showDotMenu, setShowDotMenu] = useState(false);
+  const [paidMethodsSnap, setPaidMethodsSnap] = useState<Record<string, number>>({});
   const dotMenuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const h = (e: MouseEvent) => { if (dotMenuRef.current && !dotMenuRef.current.contains(e.target as Node)) setShowDotMenu(false); };
     document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
   }, []);
 
+  // Client details fetched from API
+  const [selectedClientDetails, setSelectedClientDetails] = useState<any>(null);
+
   // Client
-  const [clientSearch,      setClientSearch]      = useState(existingBooking?.clientName || "");
-  const [selectedClientId,  setSelectedClientId]  = useState<string | null>(existingBooking?.clientId || null);
-  const [isWalkin,          setIsWalkin]          = useState(!existingBooking?.clientId && !!existingBooking);
-  const [showClientDrop,    setShowClientDrop]    = useState(false);
+  const _isWalkinInit = !existingBooking?.clientId && !!existingBooking;
+  const [clientSearch, setClientSearch] = useState(_isWalkinInit ? "Walk-in" : (existingBooking?.clientId ? existingBooking?.clientName || "" : ""));
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(existingBooking?.clientId || null);
+  const [isWalkin, setIsWalkin] = useState(_isWalkinInit);
   const [showAddClientForm, setShowAddClientForm] = useState(false);
-  const [newClientName,     setNewClientName]     = useState("");
-  const [newClientPhone,    setNewClientPhone]    = useState("");
-  const [newClientGender,   setNewClientGender]   = useState<""|"Female"|"Male"|"Other">("");
-  const [countryCode,       setCountryCode]       = useState("+91");
+  const [isClientSaved, setIsClientSaved] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [newClientLastName, setNewClientLastName] = useState("");
+  const [newClientPhone, setNewClientPhone] = useState("");
+  const [newClientGender, setNewClientGender] = useState<"" | "Female" | "Male" | "Other">("");
+  const [phoneDuplicate, setPhoneDuplicate] = useState(false);
+  const [phoneCheckLoading, setPhoneCheckLoading] = useState(false);
+  const [countryCode, setCountryCode] = useState("+91");
+  const [showCountryCodeMenu, setShowCountryCodeMenu] = useState(false);
+  const countryCodeRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (countryCodeRef.current && !countryCodeRef.current.contains(e.target as Node)) {
+        setShowCountryCodeMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
 
   // Date
   const [calDate, setCalDate] = useState(existingBooking?.billDate || currentDate);
@@ -157,129 +205,227 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
 
   // Rows
   const [serviceRows, setServiceRows] = useState<TempService[]>(
-    existingBooking?.services.map((s) => ({ ...s, tempId: "sr_" + s.id })) || [
+    (existingBooking?.services || []).length > 0 ? existingBooking!.services.map((s: any) => ({
+      ...s,
+      tempId: "sr_" + (s.id || "") + "_" + Math.random().toString(36).substring(2, 9),
+      staffId: s.staffId || existingBooking?.staffId || defaultStaffId || "",
+      staff: s.staff || (existingBooking as any)?.staffName || "",
+    })) : [
       { tempId: "sr_" + Date.now(), id: "", service: "", staff: "", staffId: defaultStaffId || "", time: defaultTime || "10:00", price: 0, qty: 0, total: 0 },
     ],
   );
-  const [packageRows,    setPackageRows]    = useState<TempPkg[]>(existingBooking?.packageItems?.map((p) => ({ ...p, tempId: "pk_" + p.id, search: p.packageName, showDrop: false })) || []);
-  const [productRows,    setProductRows]    = useState<TempProduct[]>(((existingBooking as any)?.productItems || []).map((p: any) => ({ ...p, tempId: p.tempId || "pr_" + Date.now(), search: p.productName || "", showDrop: false })));
+  const [packageRows, setPackageRows] = useState<TempPkg[]>((existingBooking?.packageItems || []).map((p: any) => ({ ...p, tempId: "pk_" + p.id, search: p.packageName, showDrop: false })));
+  const [productRows, setProductRows] = useState<TempProduct[]>(((existingBooking as any)?.productItems || []).map((p: any) => ({ ...p, tempId: p.tempId || "pr_" + Date.now(), search: p.productName || "", showDrop: false })));
   const [membershipRows, setMembershipRows] = useState<TempMembership[]>(((existingBooking as any)?.membershipItems || []).map((m: any) => ({ ...m, tempId: m.tempId || "sub_" + Date.now(), qty: m.qty || 1, total: m.total || m.price || 0, search: m.name || "", showDrop: false })));
 
-  const pkgDropRefs  = useRef(new Map<string, React.RefObject<HTMLDivElement | null>>());
+  const pkgDropRefs = useRef(new Map<string, React.RefObject<HTMLDivElement | null>>());
   const prodDropRefs = useRef(new Map<string, React.RefObject<HTMLDivElement | null>>());
-  const memDropRefs  = useRef(new Map<string, React.RefObject<HTMLDivElement | null>>());
-  const getPkgRef  = (id: string) => { if (!pkgDropRefs.current.has(id))  pkgDropRefs.current.set(id,  React.createRef()); return pkgDropRefs.current.get(id)!; };
+  const memDropRefs = useRef(new Map<string, React.RefObject<HTMLDivElement | null>>());
+  const getPkgRef = (id: string) => { if (!pkgDropRefs.current.has(id)) pkgDropRefs.current.set(id, React.createRef()); return pkgDropRefs.current.get(id)!; };
   const getProdRef = (id: string) => { if (!prodDropRefs.current.has(id)) prodDropRefs.current.set(id, React.createRef()); return prodDropRefs.current.get(id)!; };
-  const getMemRef  = (id: string) => { if (!memDropRefs.current.has(id))  memDropRefs.current.set(id,  React.createRef()); return memDropRefs.current.get(id)!; };
+  const getMemRef = (id: string) => { if (!memDropRefs.current.has(id)) memDropRefs.current.set(id, React.createRef()); return memDropRefs.current.get(id)!; };
   useEffect(() => {
     const h = (e: MouseEvent) => {
       const t = e.target as Node;
-      setPackageRows(   (rows) => rows.map((r) => { const ref = pkgDropRefs.current.get(r.tempId);  return ref?.current && !ref.current.contains(t) ? { ...r, showDrop: false } : r; }));
-      setProductRows(   (rows) => rows.map((r) => { const ref = prodDropRefs.current.get(r.tempId); return ref?.current && !ref.current.contains(t) ? { ...r, showDrop: false } : r; }));
-      setMembershipRows((rows) => rows.map((r) => { const ref = memDropRefs.current.get(r.tempId);  return ref?.current && !ref.current.contains(t) ? { ...r, showDrop: false } : r; }));
+      setPackageRows((rows) => rows.map((r) => { const ref = pkgDropRefs.current.get(r.tempId); return ref?.current && !ref.current.contains(t) ? { ...r, showDrop: false } : r; }));
+      setProductRows((rows) => rows.map((r) => { const ref = prodDropRefs.current.get(r.tempId); return ref?.current && !ref.current.contains(t) ? { ...r, showDrop: false } : r; }));
+      setMembershipRows((rows) => rows.map((r) => { const ref = memDropRefs.current.get(r.tempId); return ref?.current && !ref.current.contains(t) ? { ...r, showDrop: false } : r; }));
     };
     document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h);
   }, []);
 
   // Financials
   const [rewardPoints, setRewardPoints] = useState(existingBooking?.rewardPoints || "");
-  const [exCharges,    setExCharges]    = useState(existingBooking?.exCharges    || 0);
-  const [tip,          setTip]          = useState<number>((existingBooking as any)?.tip || 0);
-  const [discount,     setDiscount]     = useState(existingBooking?.discount     || 0);
+  const [exCharges, setExCharges] = useState(existingBooking?.exCharges || 0);
+  const [tip, setTip] = useState<number>((existingBooking as any)?.tip || 0);
+  const [discount, setDiscount] = useState(existingBooking?.discount || 0);
   const [discountType, setDiscountType] = useState<DiscountType>(existingBooking?.discountType || "Percentage (%)");
-  const [gst]                           = useState(existingBooking?.gst          || 0);
-  const [notes,        setNotes]        = useState(existingBooking?.notes || "");
-  const [staffAlert,   setStaffAlert]   = useState("");
+  const [gst] = useState(existingBooking?.gst || 0);
+  const [notes, setNotes] = useState(existingBooking?.notes || "");
+  const [staffAlert, setStaffAlert] = useState("");
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [blockTimeError, setBlockTimeError] = useState<string | null>(null);
   const hasErr = (k: string) => validationErrors.includes(k);
 
   // Payment
   const [showPaymentSection, setShowPaymentSection] = useState(false);
-  const [savedBookingRef,    setSavedBookingRef]    = useState<Booking | null>(null);
-  const [paymentMode,  setPaymentMode]  = useState<"single"|"split">("single");
-  const [singleMethod, setSingleMethod] = useState<SingleMethod | null>(null);
+  const [savedBookingRef, setSavedBookingRef] = useState<Booking | null>(null);
+  const [apiAppointmentId, setApiAppointmentId] = useState<string | null>(
+    existingBooking?.id && UUID_RE.test(String(existingBooking.id)) ? String(existingBooking.id) : null
+  );
+  const _pm = existingBooking?.paymentMode || "";
+  const [paymentMode, setPaymentMode] = useState<"single" | "split">(_pm.includes("+") ? "split" : "single");
+  const [singleMethod, setSingleMethod] = useState<SingleMethod | null>((_pm && !_pm.includes("+")) ? (_pm as SingleMethod) : null);
   const [payMethodError, setPayMethodError] = useState(false);
   const [splitEntries, setSplitEntries] = useState<SplitEntry[]>([{ method: "Cash", amount: "" }, { method: "Card", amount: "" }]);
-  const [couponInput,    setCouponInput]    = useState(existingBooking?.couponCode || "");
+  const [couponInput, setCouponInput] = useState(existingBooking?.couponCode || "");
   const [couponDiscount, setCouponDiscount] = useState(existingBooking?.couponDiscount || 0);
-  const [couponApplied,  setCouponApplied]  = useState(existingBooking?.couponCode || "");
-  const [couponError,    setCouponError]    = useState("");
+  const [couponApplied, setCouponApplied] = useState(existingBooking?.couponCode || "");
+  const [couponError, setCouponError] = useState("");
   const [useEWallet, setUseEWallet] = useState(false);
   const [eWalletAmt, setEWalletAmt] = useState(0);
-  const [isPaid]     = useState(apptStatus === "PAID");
-  const [_earnedPoints,  setEarnedPoints]  = useState(0);
-  const [_earnedWallet,  setEarnedWallet]  = useState(0);
+  const isPaid = apptStatus === "PAID";
+  // ✅ Feature 2 — the amount already paid on this appointment (don't re-charge it)
+  const alreadyPaidAmount = (isPaid || isActuallyPartial) ? (existingBooking?.payingNow ?? existingBooking?.grandTotal ?? 0) : 0;
+  const isPaymentFrozen = (isPaid || apptStatus === "CANCELLED") && !isEditing;
+  const priceFrozen = formFrozen;
+  const [_earnedPoints, setEarnedPoints] = useState(0);
+  const [_earnedWallet, setEarnedWallet] = useState(0);
   const [_newMembership, setNewMembership] = useState("");
   const [printAfterPayment, setPrintAfterPayment] = useState(false);
 
+  // Cancel & Delete
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [isCancelLoading, setIsCancelLoading] = useState(false);
+  const [isDeleteLoading, setIsDeleteLoading] = useState(false);
+  const [cancelDeleteError, setCancelDeleteError] = useState("");
+
   const paymentSectionRef = useRef<HTMLDivElement>(null);
 
+  // Fetch client details from API when a client is selected
+  useEffect(() => {
+    if (!selectedClientId) { setSelectedClientDetails(null); return; }
+    api.get(`/api/v1/clients/${selectedClientId}`)
+      .then((res) => setSelectedClientDetails(res.data?.data || null))
+      .catch((err) => console.error("Failed to fetch client details:", err));
+  }, [selectedClientId]);
+
   // Derived totals
-  const selectedClient  = CLIENT_LIST.find((c) => c.id === selectedClientId);
-  const selectedStats   = (CLIENT_STATS as any[])?.find?.((c: any) => c.clientId === selectedClientId);
-  const filteredClients = CLIENT_LIST.filter((c) => clientSearch.length >= 2 && (c.name.toLowerCase().includes(clientSearch.toLowerCase()) || c.phone.includes(clientSearch)));
-  const serviceTotal    = serviceRows.reduce((a, r)    => a + (r.total || 0), 0);
-  const packageTotal    = packageRows.reduce((a, r)    => a + (r.total || 0), 0);
-  const productTotal    = productRows.reduce((a, r)    => a + (r.total || 0), 0);
+  const safeClientFromDetails = selectedClientDetails ? {
+    id: selectedClientDetails.id,
+    name: selectedClientDetails.full_name || `${selectedClientDetails.first_name || ""} ${selectedClientDetails.last_name || ""}`.trim() || clientSearch,
+    phone: selectedClientDetails.phone_number || "",
+  } : null;
+  const selectedClient = clientsList.find((c) => c.id === selectedClientId) || safeClientFromDetails;
+  const selectedStats = selectedClientDetails ? {
+    address: selectedClientDetails.address || "N/A",
+    rewardPoints: selectedClientDetails.reward_points || selectedClientDetails.rewardPoints || "None",
+    ewalletAmt: selectedClientDetails.wallet_balance ?? selectedClientDetails.eWallet ?? 0,
+    unpaidAmt: selectedClientDetails.unpaid_amount ?? 0,
+    assignDiscount: selectedClientDetails.assign_discount ?? 0,
+    discountValidity: selectedClientDetails.discount_validity || "N/A",
+    membership: selectedClientDetails.membership_tier || selectedClientDetails.membership || "NA",
+    noShow: selectedClientDetails.no_show_count ?? 0,
+    cancelled: selectedClientDetails.cancelled_count ?? 0,
+    totalVisit: selectedClientDetails.total_visits ?? 0,
+    lastVisit: selectedClientDetails.last_visit_date || "N/A",
+    totalRevenue: selectedClientDetails.total_revenue ?? 0,
+  } : null;
+  const serviceTotal = serviceRows.reduce((a, r) => a + (r.total || 0), 0);
+  const packageTotal = packageRows.reduce((a, r) => a + (r.total || 0), 0);
+  const productTotal = productRows.reduce((a, r) => a + (r.total || 0), 0);
   const membershipTotal = membershipRows.reduce((a, r) => a + (r.total || r.price || 0), 0);
-  const subtotal        = serviceTotal + packageTotal + productTotal + membershipTotal;
-  const discountVal     = discountType === "Percentage (%)" ? (subtotal * discount) / 100 : discount;
-  const totalDisc       = Math.min(discountVal + couponDiscount, subtotal);
-  const taxable         = Math.max(0, subtotal - totalDisc);
-  const grandTotal      = taxable + (taxable * gst) / 100 + exCharges + tip;
-  const effectiveTotal  = Math.max(0, grandTotal - (useEWallet ? eWalletAmt : 0));
+  const subtotal = serviceTotal + packageTotal + productTotal + membershipTotal;
+  const discountVal = discountType === "Percentage (%)" ? (serviceTotal * discount) / 100 : discount;
+  const actualDiscountVal = Math.min(discountVal, serviceTotal);
+  const totalDisc = Math.min(actualDiscountVal + couponDiscount, subtotal);
+  const taxable = Math.max(0, subtotal - totalDisc);
+  const grandTotal = taxable + (taxable * gst) / 100 + exCharges + tip;
+  const effectiveTotal = Math.max(0, grandTotal - (useEWallet ? eWalletAmt : 0));
 
   // Loyalty
-  const clientStat           = clientStats.find((c) => c.clientId === selectedClientId);
-  const eWalletBalance       = clientStat?.ewalletAmt       ?? 0;
-  const currentRevenue       = clientStat?.totalRevenue      ?? 0;
-  const currentPoints        = clientStat?.rewardPointsTotal ?? 0;
-  const currentMembership    = clientStat?.membership        ?? "NA";
-  const canUseEWallet        = eWalletBalance >= EWALLET_REDEEM_MINIMUM;
-  const previewPoints        = computePointsEarned(effectiveTotal);
-  const previewWalletCred    = computeEWalletCredit(previewPoints);
-  const previewNewRevenue    = currentRevenue + effectiveTotal;
+  const clientStat = clientStats.find((c) => c.clientId === selectedClientId);
+  const eWalletBalance = clientStat?.ewalletAmt ?? 0;
+  const currentRevenue = clientStat?.totalRevenue ?? 0;
+  const currentPoints = clientStat?.rewardPointsTotal ?? 0;
+  const currentMembership = clientStat?.membership ?? "NA";
+  const canUseEWallet = eWalletBalance >= EWALLET_REDEEM_MINIMUM;
+  const previewPoints = computePointsEarned(effectiveTotal);
+  const previewWalletCred = computeEWalletCredit(previewPoints);
+  const previewNewRevenue = currentRevenue + effectiveTotal;
   const previewNewMembership = getMembershipLabel(previewNewRevenue);
-  const willUpgrade          = previewNewMembership !== currentMembership && previewNewMembership !== "NA";
-  const nextTier             = getNextTier(currentRevenue);
+  const willUpgrade = previewNewMembership !== currentMembership && previewNewMembership !== "NA";
+  const nextTier = getNextTier(currentRevenue);
 
   // Split
+  const remainingDue = Math.max(0, effectiveTotal - alreadyPaidAmount);
   const splitTotal = splitEntries.reduce((a, e) => a + (parseFloat(e.amount) || 0), 0);
-  const splitValid = paymentMode === "single" || Math.abs(splitTotal - effectiveTotal) <= 0.01;
-  const splitRemaining = effectiveTotal - splitTotal;
+  const splitValid = paymentMode === "single" || Math.abs(splitTotal - remainingDue) <= 0.01;
+  const splitRemaining = remainingDue - splitTotal;
 
-  function clearErr(...keys: string[])         { setValidationErrors((prev) => prev.filter((e) => !keys.includes(e))); }
-  function clearErrPrefix(prefix: string)      { setValidationErrors((prev) => prev.filter((e) => !e.startsWith(prefix))); }
+  function clearErr(...keys: string[]) { setValidationErrors((prev) => prev.filter((e) => !keys.includes(e))); }
+  function clearErrPrefix(prefix: string) { setValidationErrors((prev) => prev.filter((e) => !e.startsWith(prefix))); }
   function handleServiceRowClearError(tempId: string, field: string) { const idx = serviceRows.findIndex((r) => r.tempId === tempId); if (idx >= 0) clearErr(`svc_${idx}_${field}`); }
   function posNum(val: string, setter: (n: number) => void) { const n = parseFloat(val); setter(isNaN(n) || n < 0 ? 0 : n); }
 
   function handleWalkinClick() {
-    if (formFrozen) return;
-    setIsWalkin(true); setSelectedClientId(null); setClientSearch("Walk-In");
-    setShowClientDrop(false); setShowAddClientForm(false); clearErr("client");
+    if (clientFrozen) return;
+    setIsWalkin(true); setSelectedClientId(null); setClientSearch("Walk-in");
+    setShowAddClientForm(false); clearErr("client");
   }
 
-  function handleSaveNewClient() {
-    const nameOk  = newClientName.trim().length > 0;
+  async function handleSaveNewClient() {
+    if (phoneDuplicate) return;
+    const nameOk = newClientName.trim().length > 0;
+    const lastNameOk = newClientLastName.trim().length > 0;
     const phoneOk = /^\d{10}$/.test(newClientPhone.trim());
     const genderOk = newClientGender !== "";
     const errs: string[] = [];
-    if (!nameOk)  errs.push("new_client_name");
+    if (!nameOk) errs.push("new_client_name");
+    if (!lastNameOk) errs.push("new_client_last_name");
     if (!phoneOk) errs.push("new_client_phone");
     if (!genderOk) errs.push("new_client_gender");
     if (errs.length) { setValidationErrors((prev) => [...prev.filter((e) => !e.startsWith("new_client")), ...errs]); return; }
-    setClientSearch(newClientName.trim()); setSelectedClientId(null); setIsWalkin(false);
-    setShowAddClientForm(false); clearErr("client", "new_client_name", "new_client_phone", "new_client_gender");
-    setNewClientName(""); setNewClientPhone(""); setNewClientGender("");
+
+    setIsClientSaved(true); // Disable immediately to prevent multiple clicks
+
+    try {
+      const res = await api.post("/api/v1/clients", {
+        first_name: newClientName.trim(),
+        last_name: newClientLastName.trim(),
+        phone_number: countryCode + newClientPhone.trim(),
+        gender: newClientGender,
+        salon_id: salonId,
+      });
+      const createdId = res.data?.data?.id || res.data?.id || null;
+      setSelectedClientId(createdId ? String(createdId) : null);
+    } catch (err: any) {
+      console.error("Failed to create client:", err);
+      setIsClientSaved(false); // Re-enable if it failed
+      return;
+    }
+
+    setClientSearch(`${newClientName.trim()} ${newClientLastName.trim()}`.trim()); setIsWalkin(false);
+    setShowAddClientForm(false); clearErr("client", "new_client_name", "new_client_last_name", "new_client_phone", "new_client_gender");
+    setNewClientName(""); setNewClientLastName(""); setNewClientPhone(""); setNewClientGender("");
   }
 
-  function updateServiceRow(id: string, field: string, value: string | number | boolean) { setServiceRows((rows) => rows.map((r) => r.tempId !== id ? r : { ...r, [field]: value })); }
+  function updateServiceRow(id: string, field: string, value: string | number | boolean) {
+    setServiceRows((rows) => {
+      const updated = rows.map((r) => r.tempId !== id ? r : { ...r, [field]: value });
+      if (field === "duration" || field === "time") {
+        for (let i = 1; i < updated.length; i++) {
+          const prev = updated[i - 1];
+          updated[i] = { ...updated[i], time: addMinutes(prev.time, (prev as any).duration || 30) };
+        }
+      }
+      return updated;
+    });
+  }
   function removeServiceRow(id: string) { setServiceRows((r) => r.filter((x) => x.tempId !== id)); }
 
-  function handleApplyCoupon() {
+  async function handleApplyCoupon() {
     const code = couponInput.trim().toUpperCase();
-    if (COUPON_CODES[code] !== undefined) { setCouponDiscount(COUPON_CODES[code]); setCouponApplied(code); setCouponError(""); }
-    else { setCouponDiscount(0); setCouponApplied(""); setCouponError("Invalid coupon code"); }
+    if (!code) return;
+    try {
+      const res = await api.post("/api/v1/coupons/validate", {
+        code,
+        orderAmount: grandTotal || 0,
+        salonId,
+      });
+      const d = res.data?.data;
+      const discount = d?.discountAmount ?? d?.discount ?? d?.value ?? d?.amount;
+      if (discount !== undefined && discount !== null) {
+        setCouponDiscount(Number(discount));
+        setCouponApplied(d?.couponCode || code);
+        setCouponError("");
+      } else {
+        setCouponDiscount(0); setCouponApplied(""); setCouponError("Invalid coupon code");
+      }
+    } catch (err: any) {
+      setCouponDiscount(0); setCouponApplied("");
+      setCouponError(err?.response?.data?.error?.message || "Invalid or expired coupon");
+    }
   }
 
   function handleEWalletToggle(checked: boolean) {
@@ -287,33 +433,38 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
     setEWalletAmt(checked ? Math.min(eWalletBalance, Math.max(0, grandTotal - couponDiscount)) : 0);
   }
 
-  function resolvedName()  { return isWalkin ? "Walk-In" : selectedClient?.name  || clientSearch || ""; }
-  function resolvedPhone() { return isWalkin ? ""         : selectedClient?.phone || existingBooking?.clientPhone || ""; }
+  function resolvedName() { return isWalkin ? "Walk-In" : selectedClient?.name || clientSearch || ""; }
+  function resolvedPhone() { return isWalkin ? "" : selectedClient?.phone || existingBooking?.clientPhone || ""; }
 
-  function buildPayload(paying: number, payStatus: "Paid"|"Partial"|"Unpaid"): Booking {
-    const firstRow  = serviceRows[0];
+  function buildPayload(paying: number, payStatus: "Paid" | "Partial" | "Unpaid"): Booking {
+    const firstRow = serviceRows[0];
     const startTime = firstRow?.time || existingBooking?.startTime || defaultTime || "10:00";
-    const endTime   = addMinutes(startTime, 30);
+    const serviceDuration = (firstRow as any)?.duration || 30;
+    const endTime = addMinutes(startTime, serviceDuration);
     return {
       ...(existingBooking || {}),
-      id:          existingBooking?.id || "b_" + Date.now(),
-      clientId:    selectedClientId || undefined,
-      clientName:  resolvedName(),
+      id: existingBooking?.id || "b_" + Date.now(),
+      clientId: selectedClientId || undefined,
+      clientName: resolvedName(),
       clientPhone: resolvedPhone(),
-      staffId:     firstRow?.staffId || existingBooking?.staffId || STAFF_LIST[0].id,
+      staffId: firstRow?.staffId || existingBooking?.staffId || staffList[0]?.id || "",
       date: currentDate, billDate: calDate, startTime, endTime,
       services: serviceRows.filter((r) => r.service).map((r) => ({
         id: r.id || "s_" + r.tempId, service: r.service,
-        staff: STAFF_LIST.find((s) => s.id === r.staffId)?.name || r.staff || "",
+        staff: staffList.find((s) => s.id === r.staffId)?.name || r.staff || "",
         staffId: r.staffId, time: r.time, price: r.price, qty: r.qty || 1, total: r.total,
+        duration: (r as any).duration || 30,
       })),
       groupItems: [],
       packageItems: packageRows.map((r) => ({ id: r.id || "pk_" + r.tempId, packageId: r.packageId, packageName: r.packageName, price: r.price, qty: r.qty, total: r.total })),
       status: payStatus === "Paid" ? "Confirmed" : "Pending",
-      paymentStatus: payStatus, paymentMode: (singleMethod || "Cash") as PaymentMode,
+      paymentStatus: payStatus,
+      payment_status: payStatus.toLowerCase() as any, // ✅ FIX — keep snake_case in sync
+      paymentMode: (singleMethod || "Cash") as PaymentMode,
       rewardPoints, exCharges, discount, discountType, gst,
       couponCode: couponApplied, couponDiscount, subtotal,
       taxableAmount: taxable, grandTotal: effectiveTotal,
+      // ✅ Feature 2 — when editing a paid appt, dueAmount = new services cost only
       payingNow: paying, dueAmount: Math.max(0, effectiveTotal - paying),
       notes: notes + (staffAlert ? `\n Staff Alert: ${staffAlert}` : ""),
       tip: tip as any, productItems: productRows as any, membershipItems: membershipRows as any,
@@ -324,54 +475,322 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
     return validateAll(serviceRows, packageRows, productRows, membershipRows, resolvedName(), isWalkin, selectedClientId, showAddClientForm, newClientName, newClientPhone);
   }
 
-  function handleSave() {
+  async function resolveClientId(): Promise<string | undefined> {
+    if (selectedClientId) return selectedClientId;
+    if (showAddClientForm && newClientName.trim() && newClientLastName.trim() && /^\d{10}$/.test(newClientPhone.trim()) && newClientGender) {
+      try {
+        const res = await api.post("/api/v1/clients", {
+          first_name: newClientName.trim(),
+          last_name: newClientLastName.trim(),
+          phone_number: countryCode + newClientPhone.trim(),
+          gender: newClientGender,
+          salon_id: salonId,
+        });
+        const createdId = res.data?.data?.id || res.data?.id || null;
+        if (createdId) {
+          const id = String(createdId);
+          setSelectedClientId(id);
+          setClientSearch(`${newClientName.trim()} ${newClientLastName.trim()}`.trim());
+          setShowAddClientForm(false);
+          setNewClientName(""); setNewClientLastName(""); setNewClientPhone(""); setNewClientGender("");
+          return id;
+        }
+      } catch (err: any) {
+        console.error("Failed to create client:", err);
+      }
+    }
+    return undefined;
+  }
+
+  function checkBlockedTimeOverlap(bookingDate: string, startTime: string, endTime: string, staffId: string): boolean {
+    const toMins = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+    const sStart = toMins(startTime);
+    const sEnd = toMins(endTime || startTime);
+    return blockedTimes.some((b) =>
+      b.staffId === staffId &&
+      b.date === bookingDate &&
+      sStart < toMins(b.endTime) &&
+      sEnd > toMins(b.startTime)
+    );
+  }
+
+
+  async function handleSave() {
     const errors = runValidation();
     if (errors.length) { setValidationErrors(errors); return; }
     setValidationErrors([]);
+    setBlockTimeError(null);
+
+    // Check for blocked time and booking overlaps on all service rows
+    {
+      const bookingDate = calDate;
+      for (const row of serviceRows) {
+        if (!row.staffId) continue;
+        const rowStart = row.time || (defaultTime ?? "10:00");
+        const rowDuration = (row as any).duration || 30;
+        const rowEnd = addMinutes(rowStart, rowDuration);
+        if (checkBlockedTimeOverlap(bookingDate, rowStart, rowEnd, row.staffId)) {
+          setBlockTimeError("This time slot is blocked for the selected staff.");
+          return;
+        }
+      }
+    }
+    const clientId = await resolveClientId();
     const b = buildPayload(0, "Unpaid");
-    if (existingBooking) updateBooking(b); else addBooking(b);
+    if (existingBooking) {
+      updateBooking(b);
+    } else {
+      addBooking(b);
+      const localId = String(b.id);
+      const firstRow = b.services[0];
+      const startTime = firstRow?.time || defaultTime || "10:00";
+      if (salonId) {
+        (dispatch(createBookingThunk({
+          salon_id: salonId,
+          client_id: clientId || undefined,
+          staff_id: toApiStaffId(firstRow?.staffId) ?? toApiStaffId(staffList[0]?.id),
+          service_id: toApiStaffId(firstRow?.id) || undefined,
+          services: b.services.map((s: any) => { const dur = s.duration || 30; return { service_id: s.id, staff_id: s.staffId, time: s.time, start_time: s.time, end_time: addMinutes(s.time, dur), serviceId: s.id, staffId: s.staffId, startTime: s.time, endTime: addMinutes(s.time, dur), price: s.price, qty: s.qty, total: s.total }; }),
+          package_items: b.packageItems,
+          product_items: (b as any).productItems,
+          membership_items: (b as any).membershipItems,
+          scheduled_at: `${calDate}T${startTime}:00`,
+          duration_minutes: b.services[0]?.duration || 30,
+          status: "booked",
+          notes: notes + (staffAlert ? `\n Staff Alert: ${staffAlert}` : "") || undefined,
+        })) as any)
+          .then((action: any) => {
+            if (createBookingThunk.fulfilled.match(action)) {
+              const realId = String(action.payload?.id || "");
+              if (realId) {
+                dispatch(replaceBookingId({ localId, realId }));
+              }
+            }
+          })
+          .catch((err: any) => console.error("Failed to create booking:", err));
+      }
+    }
     onClose();
   }
 
-  function handleContinueToPayment() {
+  async function handleContinueToPayment() {
     const errors = runValidation();
+    console.log("Step1")
     if (errors.length) { setValidationErrors(errors); return; }
     setValidationErrors([]);
+    setBlockTimeError(null);
+
+    if (!existingBooking) {
+      for (const row of serviceRows) {
+        if (!row.staffId) continue;
+        const rowStart = row.time || (defaultTime ?? "10:00");
+        const rowEnd = (row as any).endTime || rowStart;
+        if (checkBlockedTimeOverlap(calDate, rowStart, rowEnd, row.staffId)) {
+          setBlockTimeError("This time slot is blocked for the selected staff.");
+          return;
+        }
+      }
+    }
+
+    const clientId = await resolveClientId();
     const b = buildPayload(0, "Unpaid");
-    if (existingBooking) updateBooking(b); else addBooking(b);
+    if (existingBooking) {
+      updateBooking(b);
+    } else {
+      addBooking(b);
+      const localId = String(b.id);
+      const firstRow = b.services[0];
+      const startTime = firstRow?.time || defaultTime || "10:00";
+      if (salonId) {
+        (dispatch(createBookingThunk({
+          salon_id: salonId,
+          client_id: clientId || undefined,
+          staff_id: toApiStaffId(firstRow?.staffId) ?? toApiStaffId(staffList[0]?.id),
+          service_id: toApiStaffId(firstRow?.id) || undefined,
+          services: b.services.map((s: any) => { const dur = s.duration || 30; return { service_id: s.id, staff_id: s.staffId, time: s.time, start_time: s.time, end_time: addMinutes(s.time, dur), serviceId: s.id, staffId: s.staffId, startTime: s.time, endTime: addMinutes(s.time, dur), price: s.price, qty: s.qty, total: s.total }; }),
+          package_items: b.packageItems,
+          product_items: (b as any).productItems,
+          membership_items: (b as any).membershipItems,
+          scheduled_at: `${calDate}T${startTime}:00`,
+          duration_minutes: b.services[0]?.duration || 30,
+          status: "booked",
+          notes: notes + (staffAlert ? `\n Staff Alert: ${staffAlert}` : "") || undefined,
+        })) as any)
+          .then((action: any) => {
+            if (createBookingThunk.fulfilled.match(action)) {
+              const realId = String(action.payload?.id || "");
+              if (realId) {
+                dispatch(replaceBookingId({ localId, realId }));
+                setApiAppointmentId(realId);
+              }
+            }
+          })
+          .catch((err: any) => console.error("Failed to create booking:", err));
+      }
+    }
     setSavedBookingRef(b);
     setShowPaymentSection(true);
     setTimeout(() => paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
   }
 
-  function handleCompletePayment() {
+  async function handleCompletePayment() {
+    const errors = runValidation();
+    if (errors.length) { setValidationErrors(errors); return; }
+    setValidationErrors([]);
+    const clientId = await resolveClientId();
+
     if (paymentMode === "single" && !singleMethod) { setPayMethodError(true); return; }
     setPayMethodError(false);
     const methods: Record<string, number> = {};
     if (useEWallet && eWalletAmt > 0) methods["eWallet"] = eWalletAmt;
+    // ✅ Feature 1 — allow partial: Paid only when totalPaid covers the REMAINING amount (after already-paid)
+    const remainingDue = Math.max(0, effectiveTotal - alreadyPaidAmount);
     if (paymentMode === "split") {
       splitEntries.forEach((e) => { const a = parseFloat(e.amount) || 0; if (a > 0) methods[e.method] = (methods[e.method] || 0) + a; });
-    } else { methods[singleMethod!] = effectiveTotal; }
-    const totalPaid  = Object.values(methods).reduce((a, b) => a + b, 0);
-    const payStatus: "Paid"|"Partial" = totalPaid >= effectiveTotal ? "Paid" : "Partial";
-    const updated    = buildPayload(totalPaid, payStatus);
-    updateBooking(updated);
-    if (useEWallet && eWalletAmt > 0 && selectedClientId) deductEWallet(selectedClientId, eWalletAmt);
-    if (selectedClientId && effectiveTotal > 0) {
+    } else { methods[singleMethod!] = remainingDue; }  // pay exactly the remaining balance
+    const totalPaid = Object.values(methods).reduce((a, b) => a + b, 0);
+    const chargeAmount = Math.min(totalPaid, remainingDue); // cap at what's actually due
+    const newDue = Math.max(0, parseFloat((remainingDue - chargeAmount).toFixed(2)));
+    const payStatus: "Paid" | "Partial" = newDue > 0 ? "Partial" : "Paid";
+
+    // ✅ FIX — Build payload only for the receipt/print; do NOT call updateBooking() here
+    // (updateBooking replaces the full booking object with recomputed startTime from serviceRows,
+    //  which moves the calendar card. We only patch payment fields below.)
+    const updated = buildPayload(totalPaid, payStatus);
+
+    //Save payment to backend
+    const _isRealId = (v: unknown) => !!v && !String(v).startsWith("b_");
+    const existingApptUuid = existingBooking && _isRealId(existingBooking.id) ? existingBooking.id : null;
+    const apptId = (_isRealId(apiAppointmentId) ? apiAppointmentId : null) || existingApptUuid;
+    if (salonId && apptId) {
+      const methodLabel = paymentMode === "split"
+        ? Object.keys(methods).filter((k) => k !== "eWallet").join("+").toLowerCase()
+        : (singleMethod || "cash").toLowerCase();
+      try {
+        await api.post("/api/v1/payments", {
+          appointment_id: apptId,
+          salon_id: salonId,
+          client_id: _isRealId(clientId) ? clientId : undefined,
+          gross_amount: grandTotal,                                          // full bill total
+          discount_amount: alreadyPaidAmount > 0 ? 0 : couponDiscount,
+          ewallet_used: useEWallet ? eWalletAmt : 0,
+          net_amount: effectiveTotal,                                        // after discounts
+          paid_amount: chargeAmount,                                         // amount paid in this transaction
+          due_amount: newDue,                                                // remaining after this payment
+          coupon_code: alreadyPaidAmount > 0 ? undefined : (couponApplied || undefined),
+          payment_method: methodLabel,
+          split_details: paymentMode === "split" ? methods : { [singleMethod!]: chargeAmount },
+          status: newDue > 0 ? "partial" : "completed",
+        });
+        // ✅ FIX — Only patch payment fields locally; do NOT refetch (prevents card position change)
+        const targetId = existingBooking?.id || savedBookingRef?.id || apiAppointmentId;
+        if (targetId) {
+          dispatch(patchPaymentStatus({
+            id: String(targetId),
+            paymentStatus: payStatus,
+            payingNow: totalPaid,
+            dueAmount: newDue,
+            grandTotal: effectiveTotal,
+          }));
+        }
+      } catch (err) {
+        console.error("Failed to save payment:", err);
+      }
+    }
+
+    if (useEWallet && eWalletAmt > 0 && clientId) deductEWallet(clientId, eWalletAmt);
+    if (clientId && effectiveTotal > 0) {
       const pts = computePointsEarned(effectiveTotal);
-      const wc  = computeEWalletCredit(pts);
-      const nt  = getMembershipLabel(currentRevenue + effectiveTotal);
-      setEarnedPoints(pts); setEarnedWallet(wc); // stored for future post-payment summary
+      const wc = computeEWalletCredit(pts);
+      const nt = getMembershipLabel(currentRevenue + effectiveTotal);
+      setEarnedPoints(pts); setEarnedWallet(wc);
       setNewMembership(nt !== currentMembership ? nt : "");
-      processPaymentRewards(selectedClientId, effectiveTotal);
+      processPaymentRewards(clientId, effectiveTotal);
     }
     setPaidMethodsSnap(methods);
     setSavedBookingRef(updated);
-    if (printAfterPayment) printBill(updated, methods);
+    if (printAfterPayment) printBill(updated, methods, staffList);
     onClose();
   }
 
   const phoneValid = (p: string) => /^\d{10}$/.test(p.trim());
+
+  async function checkPhoneExists(phone: string) {
+    if (!phoneValid(phone)) return;
+    setPhoneCheckLoading(true);
+    try {
+      const res = await api.get(`/api/v1/clients/search?q=${encodeURIComponent(phone)}`);
+      const raw = res.data?.data ?? res.data ?? [];
+      const list: any[] = Array.isArray(raw) ? raw : (raw.items ?? raw.data ?? []);
+      const found = list.some((c: any) => {
+        const stored = (c.phone_number ?? c.phone ?? "").replace(/\D/g, "");
+        return stored.endsWith(phone);
+      });
+      setPhoneDuplicate(found);
+    } catch {
+      setPhoneDuplicate(false);
+    } finally {
+      setPhoneCheckLoading(false);
+    }
+  }
+
+  async function handleCancelAppointment() {
+    if (!existingBooking) return;
+    const id = apiAppointmentId || (UUID_RE.test(String(existingBooking.id)) ? String(existingBooking.id) : null);
+    if (!id) {
+      alert("Appointment ID not found");
+      return;
+    }
+    setIsCancelLoading(true);
+    setCancelDeleteError("");
+    try {
+      // Backend route: POST /api/v1/appointments/:id/cancel
+      await api.post(`/api/v1/appointments/${id}/cancel`, {
+        salon_id: salonId,
+      });
+      // Update Redux state optimistically (no second API call)
+      dispatch(updateBookingAction({ ...existingBooking, status: "Cancelled" } as any));
+      setShowDotMenu(false);
+      setTimeout(() => onClose(), 300);
+    } catch (err: any) {
+      const errorMsg = err?.response?.data?.error?.message || "Failed to cancel appointment";
+      setCancelDeleteError(errorMsg);
+      console.error("Failed to cancel appointment:", err);
+    } finally {
+      setIsCancelLoading(false);
+    }
+  }
+
+  async function handleDeleteAppointment() {
+    if (!existingBooking) return;
+    const id = apiAppointmentId || (UUID_RE.test(String(existingBooking.id)) ? String(existingBooking.id) : null);
+    if (!id) {
+      setCancelDeleteError("Appointment ID not found");
+      return;
+    }
+    setIsDeleteLoading(true);
+    setCancelDeleteError("");
+    try {
+      await api.delete(`/api/v1/appointments/${id}`);
+      dispatch(deleteBookingAction(String(existingBooking.id)));
+      setShowDeleteConfirmation(false);
+      setShowDotMenu(false);
+      setTimeout(() => onClose(), 300);
+    } catch (err: any) {
+      if (err?.status === 404 || err?.response?.status === 404) {
+        dispatch(deleteBookingAction(String(existingBooking.id)));
+        setShowDeleteConfirmation(false);
+        setShowDotMenu(false);
+        setTimeout(() => onClose(), 300);
+        return;
+      }
+      const errorMsg = err?.response?.data?.error?.message || err?.response?.data?.message || err?.message || "Failed to delete appointment";
+      setCancelDeleteError(errorMsg);
+      console.error("Failed to delete appointment:", err);
+    } finally {
+      setIsDeleteLoading(false);
+    }
+  }
 
   // ─── RENDER ──────────────────────────────────────────────────────────────────
   return (
@@ -382,23 +801,30 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
         <div className="appt-drawer-header d-flex align-items-center gap-2" style={{ minWidth: 0 }}>
           <button className="btn-close-drawer btn btn-sm btn-link text-dark text-decoration-none fs-5 p-0" onClick={onClose}>✕</button>
           <h5 className="mb-0 fw-bold flex-grow-1" style={{ minWidth: 0 }}>
-            {apptStatus === "NEW" ? "New Appointment" : isPaid && !isEditing ? "View Appointment" : "Edit Appointment"}
+            {apptStatus === "NEW" ? "New Appointment" : !isEditing ? "View Appointment" : "Edit Appointment"}
           </h5>
-          {existingBooking && (
-            <Badge variant="primary" className="text-truncate" style={{ maxWidth: 90, fontSize: 11 }}>#{existingBooking.id.slice(-8)}</Badge>
-          )}
+          
           {isPaid && (
             <Badge variant="success">✓ Paid</Badge>
           )}
-          {isPaid && (
+          {existingBooking && (
             <div ref={dotMenuRef} className="position-relative flex-shrink-0">
               <button onClick={() => setShowDotMenu((v) => !v)}
                 className={`btn btn-sm ${showDotMenu ? "btn-light" : "btn-outline-secondary"}`}
                 style={{ width: 32, height: 32, fontSize: 20, lineHeight: 1 }} title="Actions">⋮</button>
               {showDotMenu && (
                 <div className="dropdown-menu show end-0" style={{ minWidth: 200, zIndex: 9999, position: "absolute" }}>
-                  <button className="dropdown-item d-flex align-items-center gap-2" onClick={() => { setIsEditing(true); setShowDotMenu(false); }}>✏️ Edit Appointment</button>
-                  <button className="dropdown-item d-flex align-items-center gap-2" onClick={() => { printBill((savedBookingRef || existingBooking)!, paidMethodsSnap); setShowDotMenu(false); }}>🖨️ Print Receipt</button>
+                  {!isEditing && apptStatus !== "CANCELLED" && (
+                    <button className="dropdown-item d-flex align-items-center gap-2" onClick={() => { setIsEditing(true); setShowDotMenu(false); }}>✏️ Edit Appointment</button>
+                  )}
+                  <button className="dropdown-item d-flex align-items-center gap-2" onClick={() => { printBill((savedBookingRef || existingBooking)!, paidMethodsSnap, staffList); setShowDotMenu(false); }}>🖨️ Print Receipt</button>
+                  <div className="dropdown-divider" style={{ margin: "4px 0" }}></div>
+                  <button className="dropdown-item d-flex align-items-center gap-2" onClick={() => handleCancelAppointment()} disabled={isCancelLoading || apptStatus === "CANCELLED"}>
+                    {isCancelLoading ? "⏳ Cancelling..." : apptStatus === "CANCELLED" ? "✓ Already Cancelled" : "⏸️ Cancel Appointment"}
+                  </button>
+                  <button className="dropdown-item d-flex align-items-center gap-2" onClick={() => { setShowDeleteConfirmation(true); setShowDotMenu(false); }} disabled={isDeleteLoading}>
+                    {isDeleteLoading ? "⏳ Deleting..." : "🗑️ Delete Appointment"}
+                  </button>
                 </div>
               )}
             </div>
@@ -410,7 +836,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
           <div className="d-flex align-items-center gap-2 px-3 py-2 bg-primary bg-opacity-10 border-bottom border-primary border-opacity-25 small text-primary">
             <span>✏️</span>
             <span>Editing mode — make changes then save.</span>
-            <button onClick={() => setIsEditing(false)} className="btn btn-sm btn-link text-secondary ms-auto p-0 text-decoration-none fw-bold">Cancel Editing</button>
+            <button onClick={() => { setIsEditing(false); setValidationErrors([]); }} className="btn btn-sm btn-link text-secondary ms-auto p-0 text-decoration-none fw-bold">Cancel Editing</button>
           </div>
         )}
 
@@ -418,40 +844,56 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
         <div className="appt-drawer-body" style={{ pointerEvents: formFrozen ? "none" : "auto", userSelect: formFrozen ? "none" : "auto" }}>
 
           {/* ── CLIENT ── */}
-          <div className="appt-section">
-            <div className="appt-section__title">👤 Client</div>
-            <div className="d-flex flex-wrap gap-2 align-items-start">
-              <div className="position-relative flex-grow-1" style={{ minWidth: 200 }}>
-                <input
-                  className={`form-control form-control-sm${hasErr("client") ? " is-invalid" : ""}`}
-                  placeholder="Search by Name / Phone (min 2 chars)"
+          <div className="client-section-card">
+            <div className="client-section-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+              Client
+            </div>
+            <div className="client-action-row">
+              <div className="search-input-wrapper">
+                <ClientSearchInput
                   value={clientSearch}
-                  disabled={formFrozen}
-                  onChange={(e) => { setClientSearch(e.target.value); setShowClientDrop(true); setIsWalkin(false); setSelectedClientId(null); setShowAddClientForm(false); if (e.target.value.trim()) clearErr("client"); }}
-                  onFocus={() => clientSearch.length >= 2 && setShowClientDrop(true)}
+                  onChange={(val) => {
+                    setClientSearch(val);
+                    if (val.trim()) clearErr("client");
+                    if (isWalkin) setIsWalkin(false);
+                    if (!val) {
+                      setSelectedClientId(null);
+                      setIsWalkin(false);
+                      setShowAddClientForm(false);
+                    }
+                  }}
+                  onSelect={(client) => {
+                    setSelectedClientId(String(client.id));
+                    setClientSearch(`${client.first_name} ${client.last_name || ""}`.trim());
+                    setIsWalkin(false);
+                    setShowAddClientForm(false);
+                    clearErr("client");
+                  }}
+                  disabled={clientFrozen}
+                  hasError={hasErr("client")}
                 />
-                {hasErr("client") && <div className="invalid-feedback d-block">Please select a client or choose Walk-In</div>}
-                {showClientDrop && filteredClients.length > 0 && !formFrozen && (
-                  <div className="dropdown-menu show w-100 p-0" style={{ zIndex: 200 }}>
-                    {filteredClients.map((c) => (
-                      <button key={c.id} className="dropdown-item" onClick={() => { setSelectedClientId(c.id); setClientSearch(c.name); setShowClientDrop(false); setIsWalkin(false); setShowAddClientForm(false); clearErr("client"); }}>
-                        <div className="fw-semibold small">{c.name}</div>
-                        <div className="text-muted" style={{ fontSize: 11 }}>{c.phone}</div>
-                      </button>
-                    ))}
-                  </div>
-                )}
+                {hasErr("client") && <div className="text-danger mt-1 small">Please select a client or choose Walk-In</div>}
               </div>
 
-              <Button variant={isWalkin ? "dark" : "outline-secondary"} size="sm" onClick={handleWalkinClick} disabled={formFrozen}>
-                {isWalkin ? "✓ Walk-In" : "Walk-In"}
-              </Button>
-              <Button variant="outline-secondary" size="sm" disabled={formFrozen} onClick={() => { setShowAddClientForm((v) => !v); setShowClientDrop(false); }}>
+              <button type="button" className={`client-action-btn ${isWalkin ? "active" : ""}`} onClick={handleWalkinClick} disabled={clientFrozen}>
+                Walk-In
+              </button>
+              <button type="button" className="client-action-btn" disabled={clientFrozen} onClick={() => { setShowAddClientForm((v) => !v); setIsClientSaved(false); }}>
                 {showAddClientForm ? "✕ Cancel" : "+ Add Client"}
-              </Button>
-              <div className="position-relative">
-                <input readOnly={formFrozen} value={calDate} onClick={() => !formFrozen && setShowCal((v) => !v)}
-                  className="form-control form-control-sm" style={{ cursor: formFrozen ? "not-allowed" : "pointer", width: 120 }} />
+              </button>
+
+              <div className="date-input-wrapper">
+                <input readOnly value={calDate} onClick={() => !formFrozen && setShowCal((v) => !v)} className="appt-date-input" />
+                <svg className="calendar-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="16" y1="2" x2="16" y2="6"></line>
+                  <line x1="8" y1="2" x2="8" y2="6"></line>
+                  <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
                 {showCal && !formFrozen && (
                   <div className="position-absolute" style={{ top: "100%", right: 0, zIndex: 400 }}>
                     <MiniCalendar value={calDate} onChange={(d: string) => { setCalDate(d); setShowCal(false); }} onClose={() => setShowCal(false)} />
@@ -459,90 +901,146 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                 )}
               </div>
             </div>
+          </div>
 
-            {/* ADD CLIENT FORM */}
-            {showAddClientForm && !formFrozen && (
-              <div className="card border rounded-3 p-3 mt-3">
-                <div className="row g-2">
-                  <div className="col-md-3">
-                    <label className="form-label fw-semibold mb-1" style={{ fontSize: 13 }}>Full Name *</label>
-                    <input
-                      className={`form-control form-control-sm${hasErr("new_client_name") ? " is-invalid" : ""}`}
-                      placeholder="e.g. Priya Sharma" value={newClientName}
-                      onChange={(e) => { setNewClientName(e.target.value); if (e.target.value.trim()) clearErr("new_client_name"); }}
-                    />
-                    {hasErr("new_client_name") && <div className="invalid-feedback d-block" style={{ fontSize: 11 }}>Full name is required</div>}
-                  </div>
-                  <div className="col-md-4">
-                    <label className="form-label fw-semibold mb-1" style={{ fontSize: 13 }}>Mobile Number *</label>
-                    <div className="input-group input-group-sm">
-                      <select value={countryCode} onChange={(e) => setCountryCode(e.target.value)} className="form-select" style={{ maxWidth: 100, flexShrink: 0 }}>
-                        {COUNTRY_CODES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
-                      </select>
-                      <input
-                        className={`form-control${hasErr("new_client_phone") ? " is-invalid" : ""}`}
-                        placeholder="10-digit number" value={newClientPhone} maxLength={10}
-                        onChange={(e) => { const val = e.target.value.replace(/\D/g, "").slice(0, 10); setNewClientPhone(val); if (phoneValid(val)) clearErr("new_client_phone"); }}
-                      />
-                      {hasErr("new_client_phone") && <div className="invalid-feedback">{newClientPhone.length === 0 ? "Required" : "Must be 10 digits"}</div>}
-                    </div>
-                    {hasErr("new_client_phone") && <div className="text-danger d-block" style={{ fontSize: 11, marginTop: 2 }}>{newClientPhone.length === 0 ? "Required" : "Must be 10 digits"}</div>}
-                  </div>
-                  <div className="col-md-2">
-                    <label className="form-label fw-semibold mb-1" style={{ fontSize: 13 }}>Gender *</label>
-                    <select className={`form-select form-select-sm${hasErr("new_client_gender") ? " is-invalid" : ""}`} value={newClientGender}
-                      onChange={(e) => { setNewClientGender(e.target.value as "Female" | "Male" | "Other"); clearErr("new_client_gender"); }}>
-                      <option value="">Select</option>
-                      <option value="Female">Female</option>
-                      <option value="Male">Male</option>
-                      <option value="Other">Other</option>
-                    </select>
-                    {hasErr("new_client_gender") && <div className="text-danger d-block" style={{ fontSize: 11, marginTop: 2 }}>Required</div>}
-                  </div>
-                  <div className="col-md-3">
-                    <label className="form-label fw-semibold mb-1 invisible" style={{ fontSize: 13 }}>_</label>
-                    <Button variant="dark" size="sm" fullWidth onClick={handleSaveNewClient}>Save Client</Button>
-                  </div>
+          {/* ADD CLIENT FORM */}
+          {showAddClientForm && !clientFrozen && (
+            <div className="client-form-card">
+              <div className="client-form-row">
+                <div className="client-form-col">
+                  <label className="field-label">First Name <span className="req">*</span></label>
+                  <input
+                    className={`form-control-custom${hasErr("new_client_name") ? " is-invalid" : ""}`}
+                    placeholder="e.g. Priya" value={newClientName}
+                    onChange={(e) => { setNewClientName(e.target.value); if (e.target.value.trim()) clearErr("new_client_name"); }}
+                  />
+                  {hasErr("new_client_name") && <div className="invalid-feedback d-block" style={{ fontSize: 11 }}>First name is required</div>}
                 </div>
-              </div>
-            )}
 
-            {/* CLIENT STATS */}
-            {selectedClientId && selectedStats && (
-              <div className="client-stats-panel mt-3">
-                <div className="client-stats-panel__header">
-                  <div className="avatar">{selectedClient!.name.charAt(0)}</div>
-                  <div className="info">
-                    <div className="name">{selectedClient!.name}</div>
-                    <div className="sub">{selectedClient!.phone} · {selectedStats.address}</div>
+                <div className="client-form-col">
+                  <label className="field-label">Last Name <span className="req">*</span></label>
+                  <input
+                    className={`form-control-custom${hasErr("new_client_last_name") ? " is-invalid" : ""}`}
+                    placeholder="e.g. Sharma" value={newClientLastName}
+                    onChange={(e) => { setNewClientLastName(e.target.value); if (e.target.value.trim()) clearErr("new_client_last_name"); }}
+                  />
+                  {hasErr("new_client_last_name") && <div className="invalid-feedback d-block" style={{ fontSize: 11 }}>Last name is required</div>}
+                </div>
+
+                <div className="client-form-col mobile-col">
+                  <label className="field-label">Mobile Number <span className="req">*</span></label>
+                  <div className={`mobile-input-group ${hasErr("new_client_phone") ? "is-invalid" : ""}`}>
+                    <div className="custom-country-select-wrapper" ref={countryCodeRef}>
+                      <button
+                        type="button"
+                        className="country-code-display"
+                        onClick={() => setShowCountryCodeMenu((prev) => !prev)}
+                      >
+                        {COUNTRY_CODES.find(c => c.code === countryCode)?.label || countryCode}
+                        <svg className="caret-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M6 9l6 6 6-6" />
+                        </svg>
+                      </button>
+                      {showCountryCodeMenu && (
+                        <div className="country-code-menu">
+                          {COUNTRY_CODES.map((c) => (
+                            <div
+                              key={c.isoCode}
+                              className={`country-code-item ${c.code === countryCode ? "selected" : ""}`}
+                              onClick={() => {
+                                setCountryCode(c.code);
+                                setShowCountryCodeMenu(false);
+                              }}
+                            >
+                              {c.label}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <input
+                      className="mobile-number-input"
+                      placeholder="10-digit number" value={newClientPhone} maxLength={10}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                        setNewClientPhone(val);
+                        if (phoneDuplicate) setPhoneDuplicate(false);
+                        if (phoneValid(val)) { clearErr("new_client_phone"); checkPhoneExists(val); }
+                      }}
+                      onBlur={() => { if (phoneValid(newClientPhone)) checkPhoneExists(newClientPhone); }}
+                    />
                   </div>
-                  {selectedStats.membership !== "NA" && (
-                    <Badge variant="warning">⭐ {selectedStats.membership}</Badge>
+                  {hasErr("new_client_phone") && <div className="text-danger d-block" style={{ fontSize: 11, marginTop: 2 }}>{newClientPhone.length === 0 ? "Required" : "Must be 10 digits"}</div>}
+                  {!hasErr("new_client_phone") && phoneDuplicate && (
+                    <div className="text-danger d-block" style={{ fontSize: 11, marginTop: 2 }}>Mobile number already exists</div>
+                  )}
+                  {!hasErr("new_client_phone") && phoneCheckLoading && (
+                    <div style={{ fontSize: 11, color: "#6b7280", marginTop: 3 }}>Checking…</div>
                   )}
                 </div>
-                <div className="client-stats-panel__grid">
-                  {([
-                    ["Reward Points", selectedStats.rewardPoints, ""],
-                    ["Ewallet Amt",   `₹${selectedStats.ewalletAmt}`, ""],
-                    ["Unpaid Amt",    `₹${selectedStats.unpaidAmt}`, selectedStats.unpaidAmt > 0 ? "danger" : ""],
-                    ["Assign Discount", `${selectedStats.assignDiscount}%`, ""],
-                    ["Disc. Validity", selectedStats.discountValidity, ""],
-                    ["Membership",    selectedStats.membership, ""],
-                    ["Cancelled",     selectedStats.cancelled, selectedStats.cancelled > 0 ? "danger" : ""],
-                    ["Total Visits",  selectedStats.totalVisit, ""],
-                    ["Last Visit",    selectedStats.lastVisit, ""],
-                    ["Total Revenue", `₹${selectedStats.totalRevenue?.toLocaleString()}`, "info"],
-                    ["View History",  "Click Here", "link"],
-                  ] as [string, string|number, string][]).map(([l, v, c]) => (
-                    <div key={l} className={`info-cell ${c}`}>
-                      <span className="info-cell__label">{l}</span>
-                      <span className="info-cell__value">{v}</span>
-                    </div>
-                  ))}
+
+                <div className="client-form-col gender-col">
+                  <label className="field-label">Gender <span className="req">*</span></label>
+                  <select className={`form-control-custom${hasErr("new_client_gender") ? " is-invalid" : ""}`} value={newClientGender}
+                    onChange={(e) => { setNewClientGender(e.target.value as "Female" | "Male" | "Other"); clearErr("new_client_gender"); }}>
+                    <option value="">Select</option>
+                    <option value="Female">Female</option>
+                    <option value="Male">Male</option>
+                    <option value="Other">Other</option>
+                  </select>
+                  {hasErr("new_client_gender") && <div className="text-danger d-block" style={{ fontSize: 11, marginTop: 2 }}>Required</div>}
+                </div>
+
+                <div className="client-form-col btn-col">
+                  <Button
+                    variant="dark"
+                    size="sm"
+                    fullWidth
+                    disabled={isClientSaved || phoneDuplicate || phoneCheckLoading}
+                    onClick={handleSaveNewClient}
+                  >
+                    {isClientSaved ? "Saved ✓" : "Save Client"}
+                  </Button>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* CLIENT STATS */}
+          {selectedClientId && selectedStats && (
+            <div className="client-stats-panel mt-3">
+              <div className="client-stats-panel__header">
+                <div className="avatar">{selectedClient!.name.charAt(0)}</div>
+                <div className="info">
+                  <div className="name">{selectedClient!.name}</div>
+                  <div className="sub">{selectedClient!.phone} · {selectedStats.address}</div>
+                </div>
+                {selectedStats.membership !== "NA" && (
+                  <Badge variant="warning">⭐ {selectedStats.membership}</Badge>
+                )}
+              </div>
+              <div className="client-stats-panel__grid">
+                {([
+                  ["Reward Points", selectedStats.rewardPoints, ""],
+                  ["Ewallet Amt", `₹${selectedStats.ewalletAmt}`, ""],
+                  ["Unpaid Amt", `₹${selectedStats.unpaidAmt}`, selectedStats.unpaidAmt > 0 ? "danger" : ""],
+                  ["Assign Discount", `${selectedStats.assignDiscount}%`, ""],
+                  ["Disc. Validity", selectedStats.discountValidity, ""],
+                  ["Membership", selectedStats.membership, ""],
+                  ["Cancelled", selectedStats.cancelled, selectedStats.cancelled > 0 ? "danger" : ""],
+                  ["Total Visits", selectedStats.totalVisit, ""],
+                  ["Last Visit", selectedStats.lastVisit, ""],
+                  ["Total Revenue", `₹${selectedStats.totalRevenue?.toLocaleString()}`, "info"],
+                  ["View History", "Click Here", "link"],
+                ] as [string, string | number, string][]).map(([l, v, c]) => (
+                  <div key={l} className={`info-cell ${c}`}>
+                    <span className="info-cell__label">{l}</span>
+                    <span className="info-cell__value">{v}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ── SERVICES & ITEMS ── */}
           <div className="appt-section">
@@ -554,28 +1052,30 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
             </div>
             {serviceRows.map((row, i) => (
               <ServiceRow key={row.tempId} row={row} onChange={updateServiceRow} onRemove={removeServiceRow} onClearError={handleServiceRowClearError}
-                hasError={hasErr(`svc_${i}_service`) || hasErr(`svc_${i}_staff`) || hasErr(`svc_${i}_price`) || hasErr(`svc_${i}_qty`)}
-                errorFields={{ service: hasErr(`svc_${i}_service`), staff: hasErr(`svc_${i}_staff`), price: hasErr(`svc_${i}_price`), qty: hasErr(`svc_${i}_qty`) }} />
+                disabled={priceFrozen}
+                hasError={!formFrozen && (hasErr(`svc_${i}_service`) || hasErr(`svc_${i}_staff`) || hasErr(`svc_${i}_price`) || hasErr(`svc_${i}_qty`))}
+                errorFields={formFrozen ? {} : { service: hasErr(`svc_${i}_service`), staff: hasErr(`svc_${i}_staff`), price: hasErr(`svc_${i}_price`), qty: hasErr(`svc_${i}_qty`) }} />
             ))}
 
             {/* Package rows */}
             {packageRows.length > 0 && (<>
               <div className="table-header table-header--packages"><div>PACKAGE</div><div>PRICE</div><div>QTY</div><div>TOTAL</div><div /></div>
               {packageRows.map((row, i) => {
-                const filtered = PACKAGES_LIST.filter((p) => p.name.toLowerCase().includes(row.search.toLowerCase()));
+                const filtered = (packagesList || []).filter((p: any) => p.name.toLowerCase().includes(row.search.toLowerCase()));
                 const hasRowErr = hasErr(`pkg_${i}_name`);
                 return (
                   <div key={row.tempId} className="item-row-grid item-row-grid--pkg border-bottom">
-                    <InlineDrop dropRef={getPkgRef(row.tempId)} search={row.search} showDrop={row.showDrop} placeholder="Search package…" disabled={formFrozen} hasError={hasRowErr}
+                    <InlineDrop dropRef={getPkgRef(row.tempId)} search={row.search} showDrop={row.showDrop} placeholder="Search package…" disabled={priceFrozen} hasError={hasRowErr}
                       onFocus={() => setPackageRows((r) => r.map((x) => ({ ...x, showDrop: x.tempId === row.tempId })))}
                       onSearchChange={(v) => setPackageRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, search: v, showDrop: true } : x))}
-                      items={filtered.map((p) => ({ label: p.name, sub: p.services.join(", "), price: p.price }))}
-                      onSelect={(item) => { const pkg = PACKAGES_LIST.find((p) => p.name === item.label)!; setPackageRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, packageId: pkg.id, packageName: pkg.name, price: pkg.price, qty: x.qty || 1, total: pkg.price * (x.qty || 1), search: pkg.name, showDrop: false } : x)); clearErrPrefix(`pkg_${i}_`); }} />
+                      items={filtered.map((p: any) => ({ label: p.name, sub: Array.isArray(p.services) ? p.services.join(", ") : "", price: p.price }))}
+                      onSelect={(item) => { const pkg = (packagesList || []).find((p: any) => p.name === item.label) as any; if (!pkg) return; setPackageRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, packageId: pkg.id, packageName: pkg.name, price: pkg.price, qty: x.qty || 1, total: pkg.price * (x.qty || 1), search: pkg.name, showDrop: false } : x)); clearErrPrefix(`pkg_${i}_`); }} />
                     <input readOnly value={`₹${row.price}`} className="form-control form-control-sm bg-white" />
-                    <input type="text" inputMode="numeric" min={1} value={row.qty} disabled={formFrozen} className="form-control form-control-sm"
-                      onChange={(e) => { const qty = Math.max(1, parseInt(e.target.value) || 1); setPackageRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty, total: x.price * qty } : x)); }} />
-                    <input readOnly value={(row.price * (row.qty || 1)).toFixed(2)} className="form-control form-control-sm bg-light fw-semibold" />
-                    {!formFrozen && <button onClick={() => { setPackageRows((r) => r.filter((x) => x.tempId !== row.tempId)); clearErrPrefix(`pkg_${i}_`); }} className="btn btn-sm btn-link text-danger p-0" style={{ fontSize: 16 }}>🗑</button>}
+                    <input type="text" inputMode="numeric" placeholder="1" value={row.qty} disabled={priceFrozen} className="form-control form-control-sm"
+                      onChange={(e) => { const val = e.target.value.replace(/[^0-9.]/g, ""); const num = parseFloat(val); setPackageRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: val as any, total: (!isNaN(num) && num > 0) ? x.price * num : x.total } : x)); }}
+                      onBlur={() => { const num = parseFloat(String(row.qty)); const clamped = !isNaN(num) && num >= 1 ? num : 1; setPackageRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: clamped, total: x.price * clamped } : x)); }} />
+                    <input readOnly value={row.total ? row.total.toFixed(2) : "0.00"} className="form-control form-control-sm bg-light fw-semibold text-secondary" />
+                    {!priceFrozen && <button onClick={() => { setPackageRows((r) => r.filter((x) => x.tempId !== row.tempId)); clearErrPrefix(`pkg_${i}_`); }} className="btn btn-sm btn-link text-danger p-0" style={{ fontSize: 16 }}>🗑</button>}
                     {hasRowErr && <div className="text-danger col-span-all" style={{ fontSize: 10 }}>Please select a package</div>}
                   </div>
                 );
@@ -586,20 +1086,21 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
             {productRows.length > 0 && (<>
               <div className="table-header table-header--products"><div>PRODUCT</div><div>PRICE</div><div>QTY</div><div>TOTAL</div><div /></div>
               {productRows.map((row, i) => {
-                const filtered = PRODUCTS_LIST.filter((p) => p.name.toLowerCase().includes(row.search.toLowerCase()));
+                const filtered = (productsList || []).filter((p: any) => p.name.toLowerCase().includes(row.search.toLowerCase()));
                 const hasRowErr = hasErr(`prod_${i}_name`);
                 return (
                   <div key={row.tempId} className="item-row-grid item-row-grid--prod border-bottom">
-                    <InlineDrop dropRef={getProdRef(row.tempId)} search={row.search} showDrop={row.showDrop} placeholder="Search product…" disabled={formFrozen} hasError={hasRowErr}
+                    <InlineDrop dropRef={getProdRef(row.tempId)} search={row.search} showDrop={row.showDrop} placeholder="Search product…" disabled={priceFrozen} hasError={hasRowErr}
                       onFocus={() => setProductRows((r) => r.map((x) => ({ ...x, showDrop: x.tempId === row.tempId })))}
                       onSearchChange={(v) => setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, search: v, showDrop: true } : x))}
-                      items={filtered.map((p) => ({ label: p.name, price: p.price }))}
-                      onSelect={(item) => { const prod = PRODUCTS_LIST.find((p) => p.name === item.label)!; setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, productName: prod.name, price: prod.price, total: prod.price * (x.qty || 1), search: prod.name, showDrop: false } : x)); clearErrPrefix(`prod_${i}_`); }} />
+                      items={filtered.map((p: any) => ({ label: p.name, price: p.price }))}
+                      onSelect={(item) => { const prod = (productsList || []).find((p: any) => p.name === item.label) as any; if (!prod) return; setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, productName: prod.name, price: prod.price, total: prod.price * (x.qty || 1), search: prod.name, showDrop: false } : x)); clearErrPrefix(`prod_${i}_`); }} />
                     <input readOnly value={`₹${row.price}`} className="form-control form-control-sm bg-white" />
-                    <input type="text" inputMode="numeric" min={1} value={row.qty} disabled={formFrozen} className="form-control form-control-sm"
-                      onChange={(e) => { const qty = Math.max(1, parseInt(e.target.value) || 1); setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty, total: x.price * qty } : x)); }} />
-                    <input readOnly value={(row.price * (row.qty || 1)).toFixed(2)} className="form-control form-control-sm bg-light fw-semibold" />
-                    {!formFrozen && <button onClick={() => { setProductRows((r) => r.filter((x) => x.tempId !== row.tempId)); clearErrPrefix(`prod_${i}_`); }} className="btn btn-sm btn-link text-danger p-0" style={{ fontSize: 16 }}>🗑</button>}
+                    <input type="text" inputMode="numeric" placeholder="1" value={row.qty} disabled={priceFrozen} className="form-control form-control-sm"
+                      onChange={(e) => { const val = e.target.value.replace(/[^0-9.]/g, ""); const num = parseFloat(val); setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: val as any, total: (!isNaN(num) && num > 0) ? x.price * num : x.total } : x)); }}
+                      onBlur={() => { const num = parseFloat(String(row.qty)); const clamped = !isNaN(num) && num >= 1 ? num : 1; setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: clamped, total: x.price * clamped } : x)); }} />
+                    <input readOnly value={row.total ? row.total.toFixed(2) : "0.00"} className="form-control form-control-sm bg-light fw-semibold text-secondary" />
+                    {!priceFrozen && <button onClick={() => { setProductRows((r) => r.filter((x) => x.tempId !== row.tempId)); clearErrPrefix(`prod_${i}_`); }} className="btn btn-sm btn-link text-danger p-0" style={{ fontSize: 16 }}>🗑</button>}
                     {hasRowErr && <div className="text-danger col-span-all" style={{ fontSize: 10 }}>Please select a product</div>}
                   </div>
                 );
@@ -610,24 +1111,25 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
             {membershipRows.length > 0 && (<>
               <div className="table-header table-header--membership"><div>MEMBERSHIP</div><div>DURATION</div><div>PRICE</div><div>QTY</div><div>TOTAL</div><div /></div>
               {membershipRows.map((row, i) => {
-                const filtered = MEMBERSHIPS_LIST.filter((m) => m.name.toLowerCase().includes(row.search.toLowerCase()));
+                const filtered = (membershipsList || []).filter((m: any) => m.name.toLowerCase().includes(row.search.toLowerCase()));
                 const hasRowErr = hasErr(`mem_${i}_name`);
                 return (
                   <div key={row.tempId} className="item-row-grid item-row-grid--mem border-bottom">
-                    <InlineDrop dropRef={getMemRef(row.tempId)} search={row.search} showDrop={row.showDrop} placeholder="Search membership…" disabled={formFrozen} hasError={hasRowErr}
+                    <InlineDrop dropRef={getMemRef(row.tempId)} search={row.search} showDrop={row.showDrop} placeholder="Search membership…" disabled={priceFrozen} hasError={hasRowErr}
                       onFocus={() => setMembershipRows((r) => r.map((x) => ({ ...x, showDrop: x.tempId === row.tempId })))}
                       onSearchChange={(v) => setMembershipRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, search: v, showDrop: true } : x))}
-                      items={filtered.map((m) => ({ label: m.name, price: m.price }))}
-                      onSelect={(item) => { const mem = MEMBERSHIPS_LIST.find((m) => m.name === item.label)!; setMembershipRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, name: mem.name, price: mem.price, qty: x.qty || 1, total: mem.price * (x.qty || 1), search: mem.name, showDrop: false } : x)); clearErrPrefix(`mem_${i}_`); }} />
-                    <select value={row.duration} disabled={formFrozen} className="form-select form-select-sm"
+                      items={filtered.map((m: any) => ({ label: m.name, price: m.price }))}
+                      onSelect={(item) => { const mem = (membershipsList || []).find((m: any) => m.name === item.label) as any; if (!mem) return; setMembershipRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, name: mem.name, price: mem.price, qty: x.qty || 1, total: mem.price * (x.qty || 1), search: mem.name, showDrop: false } : x)); clearErrPrefix(`mem_${i}_`); }} />
+                    <select value={row.duration} disabled={priceFrozen} className="form-select form-select-sm"
                       onChange={(e) => setMembershipRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, duration: e.target.value } : x))}>
                       {DURATIONS.map((d) => <option key={d}>{d}</option>)}
                     </select>
                     <input readOnly value={`₹${row.price}`} className="form-control form-control-sm bg-white" />
-                    <input type="text" inputMode="numeric" min={1} value={row.qty || 1} disabled={formFrozen} className="form-control form-control-sm"
-                      onChange={(e) => { const qty = Math.max(1, parseInt(e.target.value) || 1); setMembershipRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty, total: x.price * qty } : x)); }} />
-                    <input readOnly value={(row.price * (row.qty || 1)).toFixed(2)} className="form-control form-control-sm bg-light fw-semibold" />
-                    {!formFrozen && <button onClick={() => { setMembershipRows((r) => r.filter((x) => x.tempId !== row.tempId)); clearErrPrefix(`mem_${i}_`); }} className="btn btn-sm btn-link text-danger p-0" style={{ fontSize: 16 }}>🗑</button>}
+                    <input type="text" inputMode="numeric" placeholder="1" value={row.qty !== undefined ? row.qty : 1} disabled={priceFrozen} className="form-control form-control-sm"
+                      onChange={(e) => { const val = e.target.value.replace(/[^0-9.]/g, ""); const num = parseFloat(val); setMembershipRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: val as any, total: (!isNaN(num) && num > 0) ? x.price * num : x.total } : x)); }}
+                      onBlur={() => { const num = parseFloat(String(row.qty)); const clamped = !isNaN(num) && num >= 1 ? num : 1; setMembershipRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: clamped, total: x.price * clamped } : x)); }} />
+                    <input readOnly value={row.total ? row.total.toFixed(2) : "0.00"} className="form-control form-control-sm bg-light fw-semibold text-secondary" />
+                    {!priceFrozen && <button onClick={() => { setMembershipRows((r) => r.filter((x) => x.tempId !== row.tempId)); clearErrPrefix(`mem_${i}_`); }} className="btn btn-sm btn-link text-danger p-0" style={{ fontSize: 16 }}>🗑</button>}
                     {hasRowErr && <div className="text-danger col-span-all" style={{ fontSize: 10 }}>Please select a membership</div>}
                   </div>
                 );
@@ -635,12 +1137,16 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
             </>)}
 
             {/* Add buttons */}
-            {!formFrozen && (
+            {!priceFrozen && (
               <div className="appt-add-actions d-flex flex-wrap gap-2 mt-2">
-                <Button variant="dark" size="sm" onClick={() => setServiceRows((r) => [...r, { tempId: "sr_"+Date.now(), id: "", service: "", staff: "", staffId: defaultStaffId||"", time: defaultTime||"10:00", price: 0, qty: 0, total: 0 }])}>+ Service</Button>
-                <Button variant="dark" size="sm" onClick={() => setPackageRows((r) => [...r, { tempId: "pk_"+Date.now(), id: "", packageId: "", packageName: "", price: 0, qty: 1, total: 0, search: "", showDrop: true }])}>+ Package</Button>
-                <Button variant="dark" size="sm" onClick={() => setProductRows((r) => [...r, { tempId: "pr_"+Date.now(), id: "", productName: "", price: 0, qty: 1, total: 0, search: "", showDrop: true }])}>+ Product</Button>
-                <Button variant="dark" size="sm" onClick={() => setMembershipRows((r) => [...r, { tempId: "sub_"+Date.now(), name: "", duration: "1 Month", price: 0, qty: 1, total: 0, search: "", showDrop: true }])}>+ Membership</Button>
+                <Button variant="dark" size="sm" onClick={() => setServiceRows((r) => {
+                  const last = r[r.length - 1];
+                  const nextTime = last ? addMinutes(last.time, (last as any).duration || 30) : (defaultTime || "10:00");
+                  return [...r, { tempId: "sr_" + Date.now(), id: "", service: "", staff: "", staffId: last?.staffId || defaultStaffId || "", time: nextTime, price: 0, qty: 0, total: 0 }];
+                })}>+ Service</Button>
+                <Button variant="dark" size="sm" onClick={() => setPackageRows((r) => [...r, { tempId: "pk_" + Date.now(), id: "", packageId: "", packageName: "", price: 0, qty: 1, total: 0, search: "", showDrop: true }])}>+ Package</Button>
+                <Button variant="dark" size="sm" onClick={() => setProductRows((r) => [...r, { tempId: "pr_" + Date.now(), id: "", productName: "", price: 0, qty: 1, total: 0, search: "", showDrop: true }])}>+ Product</Button>
+                <Button variant="dark" size="sm" onClick={() => setMembershipRows((r) => [...r, { tempId: "sub_" + Date.now(), name: "", duration: "1 Month", price: 0, qty: 1, total: 0, search: "", showDrop: true }])}>+ Membership</Button>
               </div>
             )}
           </div>
@@ -650,26 +1156,26 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
             <div className="appt-section__title">⚡ Charges &amp; Discounts</div>
             <div className="row g-3">
               <div className="col">
-                <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Reward Points</label>
-                <select className="form-select form-select-sm" value={rewardPoints} disabled={formFrozen} onChange={(e) => setRewardPoints(e.target.value)}>
+                <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Reward Points {isPaid && <span title="Frozen field">🔒</span>}</label>
+                <select className="form-select form-select-sm" value={rewardPoints} disabled={priceFrozen} onChange={(e) => setRewardPoints(e.target.value)}>
                   {REWARD_POINTS_OPTIONS.map((r) => <option key={r}>{r}</option>)}
                 </select>
               </div>
               <div className="col">
-                <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Ex Charges</label>
-                <input type="text" inputMode="numeric" className="form-control form-control-sm" value={exCharges||""} placeholder="0" disabled={formFrozen} onChange={(e) => posNum(e.target.value.replace(/[^0-9.]/g,""), setExCharges)} />
+                <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Ex Charges {isPaid && <span title="Frozen field">🔒</span>}</label>
+                <input type="text" inputMode="numeric" className="form-control form-control-sm" value={exCharges || ""} placeholder="0" disabled={priceFrozen} onChange={(e) => posNum(e.target.value.replace(/[^0-9.]/g, ""), setExCharges)} />
               </div>
               <div className="col">
-                <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Tip</label>
-                <input type="text" inputMode="numeric" className="form-control form-control-sm" value={tip||""} placeholder="0" disabled={formFrozen} onChange={(e) => posNum(e.target.value.replace(/[^0-9.]/g,""), setTip)} />
+                <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Tip {isPaid && <span title="Frozen field">🔒</span>}</label>
+                <input type="text" inputMode="numeric" className="form-control form-control-sm" value={tip || ""} placeholder="0" disabled={priceFrozen} onChange={(e) => posNum(e.target.value.replace(/[^0-9.]/g, ""), setTip)} />
               </div>
               <div className="col">
-                <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Discount</label>
-                <input type="text" inputMode="numeric" className="form-control form-control-sm" value={discount||""} placeholder="0" disabled={formFrozen} onChange={(e) => posNum(e.target.value.replace(/[^0-9.]/g,""), setDiscount)} />
+                <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Discount {isPaid && <span title="Frozen field">🔒</span>}</label>
+                <input type="text" inputMode="numeric" className="form-control form-control-sm" value={discount || ""} placeholder="0" disabled={priceFrozen} onChange={(e) => posNum(e.target.value.replace(/[^0-9.]/g, ""), setDiscount)} />
               </div>
               <div className="col">
-                <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Discount Type</label>
-                <select className="form-select form-select-sm" value={discountType} disabled={formFrozen} onChange={(e) => setDiscountType(e.target.value as DiscountType)}>
+                <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Discount Type {isPaid && <span title="Frozen field">🔒</span>}</label>
+                <select className="form-select form-select-sm" value={discountType} disabled={priceFrozen} onChange={(e) => setDiscountType(e.target.value as DiscountType)}>
                   <option>Percentage (%)</option><option>Flat (₹)</option>
                 </select>
               </div>
@@ -699,17 +1205,19 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
           </div>
 
           {/* ── PAYMENT SECTION ── */}
-          {showPaymentSection && apptStatus !== "PAID" && !formFrozen && (
-            <div ref={paymentSectionRef} className="appt-section" style={{ borderColor: "#d1fae5", background: "#f0fdf4" }}>
-              <div className="appt-section__title" style={{ color: "#065f46" }}>💳 Confirm &amp; Pay</div>
+          {(showPaymentSection || isPaid) && (
+            <div ref={paymentSectionRef} className="appt-section" style={{ borderColor: isPaymentFrozen ? "#cbd5e1" : "#d1fae5", background: isPaymentFrozen ? "#f8fafc" : "#f0fdf4", pointerEvents: isPaymentFrozen ? "none" : "auto", userSelect: "auto", opacity: isPaymentFrozen ? 0.9 : 1 }}>
+              <div className="appt-section__title" style={{ color: isPaymentFrozen ? "#475569" : "#065f46" }}>
+                {isPaymentFrozen ? "💳 Payment Information 🔒" : "💳 Confirm & Pay"}
+              </div>
 
               {/* Loyalty bar */}
               {clientStat && (
                 <div className="d-flex border rounded-3 overflow-hidden mb-3 bg-white">
                   {[
                     { label: "Membership", value: currentMembership === "NA" ? "—" : `⭐ ${currentMembership}`, color: getMembershipColor(currentMembership) },
-                    { label: "Points",     value: `${currentPoints} pts`,         color: "#111827" },
-                    { label: "eWallet",    value: `₹${eWalletBalance.toFixed(2)}`, color: "#111827" },
+                    { label: "Points", value: `${currentPoints} pts`, color: "#111827" },
+                    { label: "eWallet", value: `₹${eWalletBalance.toFixed(2)}`, color: "#111827" },
                     ...(nextTier ? [{ label: `→ ${nextTier.name}`, value: `₹${nextTier.remaining.toLocaleString()} more`, color: "#6b7280" }] : []),
                   ].map((item, i, arr) => (
                     <div key={item.label} className={`flex-fill d-flex flex-column align-items-center py-2 px-1${i < arr.length - 1 ? " border-end" : ""}`}>
@@ -724,8 +1232,8 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
               <div className="card border rounded-3 overflow-hidden mb-3">
                 {serviceRows.filter((s) => s.service).map((s) => (
                   <div key={s.tempId} className="d-flex justify-content-between px-3 py-2 border-bottom small">
-                    <span>{s.service}{s.qty > 1 && <span className="text-muted"> ×{s.qty}</span>}<span className="text-muted fst-italic"> · {STAFF_LIST.find((st) => st.id === s.staffId)?.name}</span></span>
-                    <span className="fw-semibold">₹{(s.total||0).toFixed(2)}</span>
+                    <span>{s.service}{s.qty > 1 && <span className="text-muted"> ×{s.qty}</span>}<span className="text-muted fst-italic"> · {staffList.find((st) => st.id === s.staffId)?.name}</span></span>
+                    <span className="fw-semibold">₹{(s.total || 0).toFixed(2)}</span>
                   </div>
                 ))}
                 {packageRows.filter((p) => p.packageName).map((p) => (
@@ -736,7 +1244,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                 ))}
                 {discount > 0 && (
                   <div className="d-flex justify-content-between px-3 py-2 border-bottom small text-danger">
-                    <span>Discount</span><span className="fw-semibold">−₹{totalDisc.toFixed(2)}</span>
+                    <span>Discount</span><span className="fw-semibold">−₹{actualDiscountVal.toFixed(2)}</span>
                   </div>
                 )}
                 {couponDiscount > 0 && (
@@ -765,25 +1273,25 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
 
               {/* Coupon */}
               <div className="mb-3">
-                <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Coupon Code</label>
+                <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Coupon Code {isPaymentFrozen && <span title="Frozen field">🔒</span>}</label>
                 <div className="input-group input-group-sm">
-                  <input className="form-control" placeholder="SAVE10, FLAT50, NEW20" value={couponInput}
+                  <input className="form-control" disabled={isPaymentFrozen} placeholder="SAVE10, FLAT50, NEW20" value={couponInput}
                     onChange={(e) => { setCouponInput(e.target.value); setCouponError(""); }}
-                    onKeyDown={(e) => e.key === "Enter" && handleApplyCoupon()} />
-                  <Button variant="dark" size="sm" onClick={handleApplyCoupon}>Apply</Button>
+                    onKeyDown={(e) => e.key === "Enter" && !isPaymentFrozen && handleApplyCoupon()} />
+                  <Button variant="dark" size="sm" disabled={isPaymentFrozen} onClick={handleApplyCoupon}>Apply</Button>
                 </div>
                 {couponApplied && <div className="text-success small mt-1 fw-semibold">✓ "{couponApplied}" applied — ₹{couponDiscount} off</div>}
-                {couponError  && <div className="text-danger small mt-1">{couponError}</div>}
+                {couponError && <div className="text-danger small mt-1">{couponError}</div>}
               </div>
 
               {/* eWallet */}
               {eWalletBalance > 0 && (
-                <div className={`rounded-3 p-3 border mb-3 ${canUseEWallet ? "border-primary bg-light" : "bg-light"}`}>
+                <div className={`rounded-3 p-3 border mb-3 ${canUseEWallet && !isPaymentFrozen ? "border-primary bg-light" : "bg-light"}`}>
                   {canUseEWallet ? (
                     <>
                       <div className="form-check">
-                        <input type="checkbox" className="form-check-input" id="ew" checked={useEWallet} onChange={(e) => handleEWalletToggle(e.target.checked)} />
-                        <label className="form-check-label fw-semibold text-primary" htmlFor="ew">Use eWallet (Available: ₹{eWalletBalance.toFixed(2)})</label>
+                        <input type="checkbox" disabled={isPaymentFrozen} className="form-check-input" id="ew" checked={useEWallet} onChange={(e) => handleEWalletToggle(e.target.checked)} />
+                        <label className="form-check-label fw-semibold text-primary" htmlFor="ew">Use eWallet (Available: ₹{eWalletBalance.toFixed(2)}) {isPaymentFrozen && <span title="Frozen field">🔒</span>}</label>
                       </div>
                       {useEWallet && <div className="text-primary small mt-1 fw-semibold">✓ Applying ₹{eWalletAmt.toFixed(2)} from eWallet</div>}
                     </>
@@ -793,14 +1301,20 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                 </div>
               )}
 
-              {/* Payment method */}
+              {/* --- Payment Form --- */}
+              {alreadyPaidAmount > 0 && (
+                <div className="alert alert-secondary d-flex justify-content-between align-items-center py-2 px-3 mb-3" style={{ fontSize: 13, border: "1px dashed #cbd5e1", background: "#f8fafc" }}>
+                  <span className="fw-semibold text-secondary">Previously Paid: ₹{alreadyPaidAmount.toFixed(2)} ✓</span>
+                  <span className="fw-bold text-dark">Balance Due: ₹{remainingDue.toFixed(2)}</span>
+                </div>
+              )}
               <div className="mb-3">
                 <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>
-                  Payment Method <span className="text-danger">*</span>
+                  Payment Method <span className="text-danger">*</span> {isPaymentFrozen && <span title="Frozen field">🔒</span>}
                 </label>
                 <div className="d-flex gap-2 mb-3">
-                  {(["single","split"] as const).map((mode) => (
-                    <button key={mode} onClick={() => { setPaymentMode(mode); setPayMethodError(false); }} className={`btn btn-sm ${paymentMode === mode ? "btn-dark" : "btn-outline-secondary"}`}>
+                  {(["single", "split"] as const).map((mode) => (
+                    <button key={mode} disabled={isPaymentFrozen} onClick={() => { setPaymentMode(mode); setPayMethodError(false); }} className={`btn btn-sm ${paymentMode === mode ? "btn-dark" : "btn-outline-secondary"}`}>
                       {mode === "single" ? "Single" : "Split"}
                     </button>
                   ))}
@@ -809,7 +1323,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                   <>
                     <div className="d-flex flex-wrap gap-2">
                       {SINGLE_METHODS.map((m) => (
-                        <button key={m} onClick={() => { setSingleMethod(m); setPayMethodError(false); }}
+                        <button key={m} disabled={isPaymentFrozen} onClick={() => { setSingleMethod(m); setPayMethodError(false); }}
                           className={`btn btn-sm ${singleMethod === m ? "btn-dark" : "btn-outline-secondary"}${payMethodError ? " border-danger" : ""}`}>
                           {m === "Cash" ? "💵" : m === "Card" ? "💳" : "📱"} {m}
                         </button>
@@ -824,25 +1338,33 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                     {splitEntries.map((entry, idx) => (
                       <div key={idx} className="d-flex gap-2 align-items-center mb-2">
                         <div className="d-flex gap-1">
-                          {SINGLE_METHODS.map((m) => (
-                            <button key={m} onClick={() => setSplitEntries((entries) => entries.map((e, i) => i === idx ? { ...e, method: m } : e))}
-                              className={`btn btn-sm ${entry.method === m ? "btn-dark" : "btn-outline-secondary"}`} style={{ fontSize: 11 }}>
-                              {m === "Cash" ? "💵" : m === "Card" ? "💳" : "📱"} {m}
-                            </button>
-                          ))}
+                          {SINGLE_METHODS.map((m) => {
+                            const isUsedElsewhere = splitEntries.some((e, i) => i !== idx && e.method === m);
+                            return (
+                              <button key={m} disabled={isPaymentFrozen || isUsedElsewhere} onClick={() => setSplitEntries((entries) => entries.map((e, i) => i === idx ? { ...e, method: m, amount: e.amount || (splitRemaining > 0 ? splitRemaining.toFixed(2) : "") } : e))}
+                                className={`btn btn-sm ${entry.method === m ? "btn-dark" : "btn-outline-secondary"}`} style={{ fontSize: 11 }}>
+                                {m === "Cash" ? "💵" : m === "Card" ? "💳" : "📱"} {m}
+                              </button>
+                            );
+                          })}
                         </div>
-                        <input type="text" inputMode="numeric" placeholder="₹ Amount" value={entry.amount} className="form-control form-control-sm" style={{ width: 100 }}
-                          onChange={(e) => setSplitEntries((entries) => entries.map((en, i) => i === idx ? { ...en, amount: e.target.value.replace(/[^0-9.]/g,"") } : en))} />
-                        {splitEntries.length > 2 && (
+                        <input type="text" disabled={isPaymentFrozen} inputMode="numeric" placeholder="₹ Amount" value={entry.amount} className="form-control form-control-sm" style={{ width: 100 }}
+                          onChange={(e) => setSplitEntries((entries) => entries.map((en, i) => i === idx ? { ...en, amount: e.target.value.replace(/[^0-9.]/g, "") } : en))} />
+                        {splitEntries.length > 1 && !isPaymentFrozen && (
                           <button onClick={() => setSplitEntries((e) => e.filter((_, i) => i !== idx))} className="btn btn-sm btn-link text-danger p-0">✕</button>
                         )}
                       </div>
                     ))}
                     <div className="d-flex justify-content-between align-items-center mt-2 pt-2 border-top small">
-                      <button onClick={() => setSplitEntries((e) => [...e, { method: "Cash", amount: "" }])} className="btn btn-sm btn-link text-primary p-0 text-decoration-none fw-bold">+ Add Method</button>
+                      {splitEntries.length < SINGLE_METHODS.length && !isPaymentFrozen ? (
+                        <button onClick={() => {
+                          const nextUnused = SINGLE_METHODS.find(m => !splitEntries.some(e => e.method === m)) || SINGLE_METHODS[0];
+                          setSplitEntries((e) => [...e, { method: nextUnused, amount: splitRemaining > 0 ? splitRemaining.toFixed(2) : "" }]);
+                        }} className="btn btn-sm btn-link text-primary p-0 text-decoration-none fw-bold">+ Add Method</button>
+                      ) : <div></div>}
                       <div className="fw-semibold">
                         Total: <span className={splitValid ? "" : "text-danger"}>₹{splitTotal.toFixed(2)}</span>
-                        {!splitValid && splitRemaining > 0.01  && <span className="text-danger ms-1 small">₹{splitRemaining.toFixed(2)} remaining</span>}
+                        {!splitValid && splitRemaining > 0.01 && <span className="text-danger ms-1 small">₹{splitRemaining.toFixed(2)} remaining</span>}
                         {!splitValid && splitRemaining < -0.01 && <span className="text-danger ms-1 small">₹{Math.abs(splitRemaining).toFixed(2)} excess</span>}
                         {splitValid && <span className="text-success ms-1">✓</span>}
                       </div>
@@ -852,10 +1374,12 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
               </div>
 
               {/* Print toggle */}
-              <div className="form-check mb-2">
-                <input type="checkbox" className="form-check-input" id="printToggle" checked={printAfterPayment} onChange={(e) => setPrintAfterPayment(e.target.checked)} />
-                <label className="form-check-label small text-muted" htmlFor="printToggle">Print receipt after payment</label>
-              </div>
+              {!isPaymentFrozen && (
+                <div className="form-check mb-2">
+                  <input type="checkbox" className="form-check-input" id="printToggle" checked={printAfterPayment} onChange={(e) => setPrintAfterPayment(e.target.checked)} />
+                  <label className="form-check-label small text-muted" htmlFor="printToggle">Print receipt after payment</label>
+                </div>
+              )}
             </div>
           )}
 
@@ -863,36 +1387,167 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
 
         {/* ── FOOTER ── */}
         {apptStatus === "NEW" && (
-          <div className="appt-drawer-footer">
+          <div className="appt-drawer-footer" style={{ marginTop: "8px" }}>
+            {blockTimeError && (
+              <div className="alert alert-danger small py-2 w-100 mb-2" style={{ borderRadius: "6px" }}>
+                🚫 {blockTimeError}
+              </div>
+            )}
             <Button variant="dark" fullWidth onClick={handleSave}>Save Appointment</Button>
           </div>
         )}
 
-        {apptStatus === "UNPAID" && !isEditing && !isPaid && (
-          <div className="appt-drawer-footer">
+        {apptStatus === "UNPAID" && !isPaid && (
+          <div className="appt-drawer-footer" style={{ marginTop: "8px" }}>
+            {cancelDeleteError && (
+              <div className="alert alert-danger small py-2 w-100 mb-2" style={{ borderRadius: "6px" }}>{cancelDeleteError}</div>
+            )}
             {!showPaymentSection ? (
               <>
-                <Button variant="dark" fullWidth onClick={handleSave}>Update Appointment</Button>
+                {isEditing ? (
+                  <Button variant="dark" fullWidth onClick={handleSave}>Update Appointment</Button>
+                ) : (
+                  <Button variant="outline-secondary" fullWidth onClick={() => { setIsEditing(true); setShowDotMenu(false); }}>✏️ Update Appointment</Button>
+                )}
                 <Button fullWidth onClick={handleContinueToPayment} style={{ background: "linear-gradient(135deg,#10b981,#059669)", color: "#fff", border: "none", fontWeight: 700, boxShadow: "0 4px 14px rgba(16,185,129,0.3)" }}>
                   💳 Continue to Payment
                 </Button>
               </>
             ) : (
               <>
-                <Button variant="dark" fullWidth onClick={handleSave}>Update Appointment</Button>
-                <Button fullWidth onClick={handleCompletePayment} disabled={!splitValid || (paymentMode === "single" && !singleMethod)}
-                  style={{ background: (splitValid && (paymentMode !== "single" || singleMethod)) ? "linear-gradient(135deg,#10b981,#059669)" : "#d1d5db", color: "#fff", border: "none", fontWeight: 700, opacity: (splitValid && (paymentMode !== "single" || singleMethod)) ? 1 : 0.6, boxShadow: (splitValid && (paymentMode !== "single" || singleMethod)) ? "0 4px 14px rgba(16,185,129,0.35)" : "none" }}>
-                  ✅ Confirm &amp; Pay — ₹{effectiveTotal.toFixed(2)}
+                {isEditing ? (
+                  <Button variant="dark" fullWidth onClick={handleSave}>Update Appointment</Button>
+                ) : (
+                  <Button variant="outline-secondary" fullWidth onClick={() => { setIsEditing(true); setShowDotMenu(false); }}>✏️ Update Appointment</Button>
+                )}
+                <Button fullWidth onClick={handleCompletePayment}
+                  disabled={(paymentMode === "single" && !singleMethod) || (!existingBooking && !apiAppointmentId)}
+                  style={{
+                    background: ((paymentMode !== "single" || singleMethod) && (existingBooking || apiAppointmentId))
+                      ? splitTotal > 0 && splitTotal < remainingDue
+                        ? "linear-gradient(135deg,#7c3aed,#6d28d9)"  // purple = partial
+                        : "linear-gradient(135deg,#10b981,#059669)"  // green = full
+                      : "#d1d5db",
+                    color: "#fff", border: "none", fontWeight: 700,
+                    opacity: ((paymentMode !== "single" || singleMethod) && (existingBooking || apiAppointmentId)) ? 1 : 0.6,
+                    boxShadow: ((paymentMode !== "single" || singleMethod) && (existingBooking || apiAppointmentId))
+                      ? splitTotal > 0 && splitTotal < remainingDue
+                        ? "0 4px 14px rgba(124,58,237,0.35)"
+                        : "0 4px 14px rgba(16,185,129,0.35)"
+                      : "none",
+                    transition: "all 0.2s"
+                  }}>
+                  {(!existingBooking && !apiAppointmentId)
+                    ? "⏳ Creating Booking..."
+                    : paymentMode === "split" && splitTotal > 0 && splitTotal < remainingDue
+                      ? `🟣 Confirm Partial — ₹${splitTotal.toFixed(2)} (₹${(remainingDue - splitTotal).toFixed(2)} due)`
+                      : `✅ Confirm & Pay — ₹${remainingDue.toFixed(2)}`}
                 </Button>
               </>
             )}
           </div>
         )}
 
-        {isPaid && isEditing && (
+        {existingBooking && isEditing && apptStatus !== "UNPAID" && (
           <div className="appt-drawer-footer">
-            <Button variant="outline-secondary" fullWidth onClick={() => setIsEditing(false)}>Cancel</Button>
-            <Button variant="dark" fullWidth onClick={handleSave}>Save Changes</Button>
+            <Button variant="outline-secondary" fullWidth onClick={() => { setIsEditing(false); setValidationErrors([]); }}>Cancel</Button>
+            {/* ✅ Feature 2 — show remaining due for newly added services */}
+            {alreadyPaidAmount > 0 && effectiveTotal > alreadyPaidAmount && (
+              <div style={{ fontSize: 12, color: "#7c3aed", fontWeight: 600, textAlign: "center", width: "100%", padding: "4px 0" }}>
+                Already paid: ₹{alreadyPaidAmount.toFixed(2)} — New balance due: ₹{Math.max(0, effectiveTotal - alreadyPaidAmount).toFixed(2)}
+              </div>
+            )}
+            <Button variant="dark" fullWidth onClick={handleCompletePayment}>✅ Pay Balance — ₹{Math.max(0, effectiveTotal - alreadyPaidAmount).toFixed(2)}</Button>
+          </div>
+        )}
+
+        {isPaid && !isEditing && (
+          <div className="appt-drawer-footer" style={{ marginTop: "8px", justifyContent: "center", flexDirection: "column", gap: 8 }}>
+            <div className="text-success fw-bold p-2 d-flex align-items-center justify-content-center w-100" style={{ background: "#f0fdf4", border: "1px solid #10b981", borderRadius: "8px", gap: "8px" }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+              </svg>
+              Payment already completed
+            </div>
+
+
+          </div>
+        )}
+
+        {apptStatus === "CANCELLED" && !isEditing && (
+          <div className="appt-drawer-footer" style={{ marginTop: "8px", justifyContent: "center" }}>
+            {cancelDeleteError && (
+              <div className="alert alert-danger small py-2 w-100 mb-2" style={{ borderRadius: "6px" }}>{cancelDeleteError}</div>
+            )}
+            <div className="fw-bold p-2 d-flex align-items-center justify-content-center w-100" style={{ background: "#fef2f2", border: "1px solid #ef4444", borderRadius: "8px", gap: "8px", color: "#dc2626" }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="15" y1="9" x2="9" y2="15"></line>
+                <line x1="9" y1="9" x2="15" y2="15"></line>
+              </svg>
+              Appointment Cancelled
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteConfirmation && (
+          <div style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999
+          }} onClick={(e) => e.target === e.currentTarget && !isDeleteLoading && setShowDeleteConfirmation(false)}>
+            <div style={{
+              background: "#fff",
+              borderRadius: "8px",
+              padding: "24px",
+              maxWidth: "400px",
+              boxShadow: "0 10px 40px rgba(0,0,0,0.2)"
+            }}>
+              <div style={{ marginBottom: "16px" }}>
+                <h3 style={{ margin: "0 0 8px 0", color: "#1f2937" }}>Delete Appointment?</h3>
+                <p style={{ margin: 0, fontSize: "14px", color: "#6b7280", lineHeight: "1.5" }}>
+                  This action will permanently remove the appointment from the database. This cannot be undone.
+                </p>
+              </div>
+              {isPaid && (
+                <div style={{ marginBottom: "16px", padding: "10px 12px", background: "#fff7ed", border: "1px solid #f97316", borderRadius: "6px", fontSize: "13px", color: "#9a3412", display: "flex", alignItems: "flex-start", gap: "8px" }}>
+                  <span style={{ fontSize: "16px", flexShrink: 0 }}>⚠️</span>
+                  <span>This appointment has already been paid. Deleting it will <strong>not</strong> process a refund automatically.</span>
+                </div>
+              )}
+              {cancelDeleteError && (
+                <div className="alert alert-danger small py-2" style={{ marginBottom: "16px" }}>
+                  {cancelDeleteError}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+                <Button
+                  variant="outline-secondary"
+                  onClick={() => setShowDeleteConfirmation(false)}
+                  disabled={isDeleteLoading}
+                  style={{ minWidth: "120px" }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={handleDeleteAppointment}
+                  disabled={isDeleteLoading}
+                  style={{ minWidth: "120px" }}
+                >
+                  {isDeleteLoading ? "⏳ Deleting..." : "🗑️ Delete"}
+                </Button>
+              </div>
+            </div>
           </div>
         )}
 

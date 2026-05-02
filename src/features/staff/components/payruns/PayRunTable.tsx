@@ -15,65 +15,82 @@ const PayRunTable: React.FC<PayRunTableProps> = ({ data, loading, onRowClick, on
     {
       header: "Team member",
       key: "employeeName",
-      render: (item: PayRun) => (
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-sm">
-            {item.employeeAvatar || item.employeeName.split(" ").map(n => n[0]).join("").toUpperCase()}
-          </div>
-          <div className="flex flex-col">
-            <span className="font-bold text-gray-900">{item.employeeName}</span>
-            <div className="flex items-center gap-2">
+      render: (item: PayRun) => {
+        const name = item.employeeName || (item as any).fullName || (item as any).staffName || 
+          (item as any).first_name ? `${(item as any).first_name} ${(item as any).last_name || ""}`.trim() : 
+          "Unknown member";
+        const initials = item.employeeAvatar || name.split(" ").map(n => n[0]).join("").toUpperCase();
+        
+        return (
+          <div className="d-flex align-items-center gap-3 py-1">
+            <div 
+              className="rounded-circle d-flex align-items-center justify-content-center fw-bold text-primary bg-light border shadow-sm"
+              style={{ width: '38px', height: '38px', fontSize: '11px' }}
+            >
+              {initials}
+            </div>
+            <div className="d-flex flex-column">
+              <span className="fw-bold text-dark">{name}</span>
+              <div className="d-flex align-items-center gap-2 mt-1">
+                <button 
+                  className="btn btn-link p-0 text-decoration-none text-muted small hover-primary transition-colors"
+                  style={{ fontSize: '10px', fontWeight: 600 }}
+                  onClick={(e) => onEdit(e, item)}
+                >
+                  Edit
+                </button>
+              <span className="text-light" style={{ opacity: 0.5 }}>|</span>
               <button 
-                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
-                onClick={(e) => onEdit(e, item)}
-              >
-                Edit
-              </button>
-              <span className="text-gray-300">|</span>
-              <button 
-                className="flex items-center gap-1 text-xs text-red-600 hover:text-red-800 font-medium transition-colors"
+                className="btn btn-link p-0 text-decoration-none text-danger small transition-colors"
+                style={{ fontSize: '11px' }}
                 onClick={(e) => onDelete(e, item)}
               >
                 Delete
               </button>
             </div>
           </div>
-        </div>
-      ),
+          </div>
+        );
+      },
     },
     {
       header: "Earnings",
       key: "earnings",
+      align: "right",
       render: (item: PayRun) => (
-        <span className="font-medium">₮{item.earnings.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+        <span className="fw-medium text-dark">₮{(item.earnings || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
       ),
     },
     {
       header: "Other",
       key: "other",
+      align: "right",
       render: (item: PayRun) => (
-        <span className="font-medium text-gray-600">₮{item.other.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+        <span className="fw-medium text-muted">₮{(item.other || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
       ),
     },
     {
       header: "Total",
       key: "total",
+      align: "right",
       render: (item: PayRun) => (
-        <span className="font-bold text-gray-900">₮{item.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+        <span className="fw-bold text-dark">₮{(item.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
       ),
     },
     {
       header: "Paid",
       key: "paid",
+      align: "right",
       render: (item: PayRun) => (
-        <span className="font-medium text-green-600">₮{item.paid.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+        <span className="fw-medium text-success">₮{(item.paid || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
       ),
     },
     {
       header: "To pay",
       key: "toPay",
+      align: "right",
       render: (item: PayRun) => (
-        <span className="font-bold text-red-600">₮{item.toPay.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+        <span className="fw-black text-danger">₮{(item.toPay || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
       ),
     },
   ];

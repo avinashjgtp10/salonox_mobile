@@ -8,15 +8,23 @@ import {
   deletePayRunThunk,
 } from "../middleware/payRun/payRun.thunk";
 
+// ── Helper: recompute summary from current list ───────────────────────────────
+function computeSummary(runs: PayRun[]): PayRunSummary {
+  return runs.reduce(
+    (acc, r) => ({
+      earnings: acc.earnings + (r.earnings  || 0),
+      other:    acc.other    + (r.other     || 0),
+      total:    acc.total    + (r.total     || 0),
+      paid:     acc.paid     + (r.paid      || 0),
+      toPay:    acc.toPay    + (r.toPay     || 0),
+    }),
+    { earnings: 0, other: 0, total: 0, paid: 0, toPay: 0 }
+  );
+}
+
 const initialState: PayRunState = {
   payRuns: [],
-  summary: {
-    earnings: 0,
-    other: 0,
-    total: 0,
-    paid: 0,
-    toPay: 0,
-  },
+  summary: { earnings: 0, other: 0, total: 0, paid: 0, toPay: 0 },
   loading: false,
   error: null,
   success: false,
@@ -29,26 +37,23 @@ const payRunSlice = createSlice({
   name: "payRun",
   initialState,
   reducers: {
-    clearPayRunError: (state) => {
-      state.error = null;
-    },
-    clearPayRunSuccess: (state) => {
-      state.success = false;
-    },
+    clearPayRunError: (state) => { state.error = null; },
+    clearPayRunSuccess: (state) => { state.success = false; },
     setCurrentPage: (state, action: PayloadAction<number>) => {
       state.currentPage = action.payload;
     },
   },
   extraReducers: (builder) => {
-    // Fetch All
+
+    // ── Fetch All ────────────────────────────────────────────────────────────
     builder.addCase(fetchPayRunsThunk.pending, (state) => {
       state.loading = true;
       state.error = null;
     });
     builder.addCase(fetchPayRunsThunk.fulfilled, (state, action) => {
       state.loading = false;
-      state.payRuns = action.payload.items;
-      state.summary = action.payload.summary;
+      state.payRuns   = action.payload.items;
+      state.summary   = action.payload.summary;
       state.totalItems = action.payload.total;
     });
     builder.addCase(fetchPayRunsThunk.rejected, (state, action) => {
@@ -56,7 +61,7 @@ const payRunSlice = createSlice({
       state.error = action.payload as string;
     });
 
-    // Fetch By ID
+    // ── Fetch By ID ──────────────────────────────────────────────────────────
     builder.addCase(fetchPayRunByIdThunk.pending, (state) => {
       state.loading = true;
       state.error = null;
@@ -69,7 +74,7 @@ const payRunSlice = createSlice({
       state.error = action.payload as string;
     });
 
-    // Create
+    // ── Create ───────────────────────────────────────────────────────────────
     builder.addCase(createPayRunThunk.pending, (state) => {
       state.loading = true;
       state.error = null;
@@ -78,14 +83,19 @@ const payRunSlice = createSlice({
     builder.addCase(createPayRunThunk.fulfilled, (state, action) => {
       state.loading = false;
       state.success = true;
-      state.payRuns.unshift(action.payload);
+      // Deduplicate then prepend
+      const filtered = state.payRuns.filter((r) => r.id !== action.payload.id);
+      state.payRuns  = [action.payload, ...filtered];
+      state.totalItems = state.payRuns.length;
+      // Recompute summary so cards update immediately
+      state.summary  = computeSummary(state.payRuns);
     });
     builder.addCase(createPayRunThunk.rejected, (state, action) => {
       state.loading = false;
       state.error = action.payload as string;
     });
 
-    // Update
+    // ── Update ───────────────────────────────────────────────────────────────
     builder.addCase(updatePayRunThunk.pending, (state) => {
       state.loading = true;
       state.error = null;
@@ -94,24 +104,27 @@ const payRunSlice = createSlice({
     builder.addCase(updatePayRunThunk.fulfilled, (state, action) => {
       state.loading = false;
       state.success = true;
-      const index = state.payRuns.findIndex((pr) => pr.id === action.payload.id);
-      if (index !== -1) {
-        state.payRuns[index] = action.payload;
-      }
+      const idx = state.payRuns.findIndex((r) => r.id === action.payload.id);
+      if (idx !== -1) state.payRuns[idx] = action.payload;
+      // Recompute summary
+      state.summary = computeSummary(state.payRuns);
     });
     builder.addCase(updatePayRunThunk.rejected, (state, action) => {
       state.loading = false;
       state.error = action.payload as string;
     });
 
-    // Delete
+    // ── Delete ───────────────────────────────────────────────────────────────
     builder.addCase(deletePayRunThunk.pending, (state) => {
       state.loading = true;
       state.error = null;
     });
     builder.addCase(deletePayRunThunk.fulfilled, (state, action) => {
       state.loading = false;
-      state.payRuns = state.payRuns.filter((pr) => pr.id !== action.payload);
+      state.payRuns  = state.payRuns.filter((r) => r.id !== action.payload);
+      state.totalItems = state.payRuns.length;
+      // Recompute summary
+      state.summary  = computeSummary(state.payRuns);
     });
     builder.addCase(deletePayRunThunk.rejected, (state, action) => {
       state.loading = false;

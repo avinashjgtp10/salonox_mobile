@@ -1,3 +1,4 @@
+@use 'sass:color';
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 $font: 'Inter', sans-serif;
@@ -153,7 +154,7 @@ $radius-sm: 8px;
 
   &:hover {
     box-shadow: 0 4px 16px rgba(0,0,0,.08);
-    border-color: darken($border, 6%);
+    border-color: color.adjust($border, $lightness: -6%);
   }
 }
 
@@ -204,8 +205,10 @@ $radius-sm: 8px;
   margin: 0 0 14px;
   line-height: 1.5;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  box-orient: vertical;
+  #{'-webkit-box-orient'}: vertical;
+  line-clamp: 2;
+  #{'-webkit-line-clamp'}: 2;
   overflow: hidden;
 }
 

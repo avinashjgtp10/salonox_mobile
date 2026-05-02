@@ -1,4 +1,5 @@
 export * from "./auth.endpoints";
+export * from "./dashboard.endpoints";
 export * from "./user.endpoints";
 export * from "./salon.endpoints";
 export * from "./client.endpoints";
@@ -15,3 +16,6 @@ export * from "./products.endpoints";
 export * from "./categories.endpoints";
 export * from "./services.endpoints";
 export * from "./payRun.endpoints";
+export * from "./coupon.endpoints";
+export * from "./payment.endpoints";
+export * from "./blockedTime.endpoints";

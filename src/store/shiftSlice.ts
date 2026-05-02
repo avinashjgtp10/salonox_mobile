@@ -7,7 +7,9 @@ import {
   addDayOff,
   addBlockedTime,
   saveStaffSchedule,
+  applyCopySchedule,
 } from "../middleware/shift/shiftThunk";
+import { toDateKey } from "../components/staff-schedule/utils";
 
 interface ShiftState {
   staffMembers: StaffMember[];
@@ -20,8 +22,8 @@ interface ShiftState {
 const initialSunday = getSundayOf(new Date());
 
 const initialState: ShiftState = {
-  staffMembers: SEED_STAFF,
-  shifts: buildSeedShifts(initialSunday),
+  staffMembers: [],
+  shifts: {},
   loading: false,
   error: null,
   apiConnected: false,
@@ -90,44 +92,6 @@ const shiftSlice = createSlice({
         state.shifts[payload.staffId][payload.date] = newEntry;
       }
     },
-    copyStaffWeek(
-      state,
-      { payload }: PayloadAction<{ staffId: string; fromDate: string; toDates: string[]; type: "day" | "week" }>
-    ) {
-      if (!state.shifts[payload.staffId]) state.shifts[payload.staffId] = {};
-      
-      if (payload.type === "day") {
-        const sourceShift = state.shifts[payload.staffId]?.[payload.fromDate];
-        if (!sourceShift) return;
-        payload.toDates.forEach((date) => {
-          state.shifts[payload.staffId][date] = { ...sourceShift, date };
-        });
-      } else {
-        // Week Mode: Copy 7 days from the week containing fromDate to each week containing a toDate
-        const sourceSunday = getSundayOf(new Date(payload.fromDate + "T12:00:00"));
-        const sourceDays = Array.from({ length: 7 }, (_, i) => {
-          const d = new Date(sourceSunday);
-          d.setDate(d.getDate() + i);
-          return d.toISOString().split("T")[0];
-        });
-
-        const weekShifts = sourceDays.map(d => state.shifts[payload.staffId]?.[d]).filter(Boolean);
-        if (weekShifts.length === 0) return;
-
-        payload.toDates.forEach((targetDate) => {
-          const targetSunday = getSundayOf(new Date(targetDate + "T12:00:00"));
-          sourceDays.forEach((srcDate, i) => {
-            const shift = state.shifts[payload.staffId]?.[srcDate];
-            if (shift) {
-              const targetDay = new Date(targetSunday);
-              targetDay.setDate(targetDay.getDate() + i);
-              const targetDayStr = targetDay.toISOString().split("T")[0];
-              state.shifts[payload.staffId][targetDayStr] = { ...shift, date: targetDayStr };
-            }
-          });
-        });
-      }
-    },
     refreshSeedForWeek(state, { payload }: PayloadAction<string>) {
       // payload = sunday ISO date key
       const sunday = new Date(payload + "T12:00:00");
@@ -193,13 +157,57 @@ const shiftSlice = createSlice({
       .addCase(saveStaffSchedule.rejected, (state, { payload }) => { 
         state.loading = false; 
         state.error = payload as string; 
+      })
+      .addCase(applyCopySchedule.pending, (state, { meta }) => {
+        const { staffId, fromDate, toDates, type } = meta.arg;
+        if (!state.shifts[staffId]) state.shifts[staffId] = {};
+        
+        if (type === "day") {
+          const sourceShift = state.shifts[staffId]?.[fromDate];
+          toDates.forEach((date) => {
+            if (!sourceShift) {
+              delete state.shifts[staffId][date];
+            } else {
+              state.shifts[staffId][date] = { ...sourceShift, date };
+            }
+          });
+        } else {
+          const sourceSunday = getSundayOf(new Date(fromDate + "T12:00:00"));
+          const sourceDays = Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(sourceSunday);
+            d.setDate(sourceSunday.getDate() + i);
+            return toDateKey(d);
+          });
+
+          const targetSundays = new Set<string>();
+          toDates.forEach((d) => {
+            const sun = getSundayOf(new Date(d + "T12:00:00"));
+            targetSundays.add(toDateKey(sun));
+          });
+
+          targetSundays.forEach((sunStr) => {
+            const targetSunday = new Date(sunStr + "T12:00:00");
+            sourceDays.forEach((srcDateKey, i) => {
+              const shift = state.shifts[staffId]?.[srcDateKey];
+              const targetDay = new Date(targetSunday);
+              targetDay.setDate(targetSunday.getDate() + i);
+              const targetDayStr = toDateKey(targetDay);
+
+              if (shift) {
+                state.shifts[staffId][targetDayStr] = { ...shift, date: targetDayStr };
+              } else {
+                delete state.shifts[staffId][targetDayStr];
+              }
+            });
+          });
+        }
       });
   },
 });
 
 export const {
   setShiftEntry, removeShiftEntry, setDayOff, setBlocked,
-  updateAvailability, copyStaffWeek, refreshSeedForWeek,
+  updateAvailability, refreshSeedForWeek,
 } = shiftSlice.actions;
 
 export default shiftSlice.reducer;

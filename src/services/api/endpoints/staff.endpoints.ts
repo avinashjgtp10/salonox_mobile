@@ -32,6 +32,7 @@ export const STAFF = {
 
   // ── Pay Runs ───────────────────────────────────────────────────────────────
   PAY_RUNS: (staffId: string | number) => `/api/v1/staff/${staffId}/pay-runs`,
+  PAY_RUN_BY_ID: (staffId: string | number, id: string | number) => `/api/v1/staff/${staffId}/pay-runs/${id}`,
 
   // ── Schedules ──────────────────────────────────────────────────────────────
   SCHEDULES: (staffId: string | number) => `/api/v1/staff/${staffId}/scheduled`,

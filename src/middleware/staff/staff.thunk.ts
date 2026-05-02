@@ -6,7 +6,6 @@ import { downloadBlob } from "../../utils/downloadBlob";
 import type {
   Staff,
   StaffResponse,
-  StaffListResponse,
   CreateStaffPayload,
   UpdateStaffPayload,
 } from "../../types/staff.types";
@@ -16,9 +15,13 @@ export const fetchStaffThunk = createAsyncThunk<
   Staff[],
   void,
   { rejectValue: string }
->("staff/fetchAll", async (_, { rejectWithValue }) => {
+>("staff/fetchAll", async (_, { rejectWithValue, getState }) => {
   try {
-    const res = await api.get<any>(STAFF.BASE);
+    const state = getState() as any;
+    const salonId = state.salon?.currentSalon?.id;
+    const params = new URLSearchParams();
+    if (salonId) params.set("salon_id", String(salonId));
+    const res = await api.get<any>(`${STAFF.BASE}?${params.toString()}`);
     const data = res.data?.data;
     return Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
   } catch (err: any) {

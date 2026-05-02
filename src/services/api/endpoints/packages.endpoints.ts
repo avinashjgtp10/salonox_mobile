@@ -75,7 +75,7 @@ export interface ApiResponse<T> {
 export const packagesApi = createApi({
   reducerPath: "packagesApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5000") + "/api/v1",
+    baseUrl: (import.meta.env.VITE_API_BASE_URL ?? "") + "/api/v1",
     prepareHeaders: (headers, { getState }) => {
       const state = getState() as any;
       const token = state?.auth?.accessToken;

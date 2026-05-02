@@ -9,7 +9,7 @@ import {
   PURGE,
   REGISTER,
 } from "redux-persist";
-import storageSession from "redux-persist/lib/storage/session";
+import storage from "redux-persist/lib/storage";
 
 import authReducer, { type AuthState } from "./authSlice";
 import salonReducer from "./salonSlice";
@@ -34,16 +34,12 @@ import { packagesApi } from "../services/api/endpoints/packages.endpoints";
 import productsReducer from "./productsSlice";
 import shiftReducer from "./shiftSlice";
 import payRunReducer from "./payRunSlice";
+import dashboardReducer from "./dashboardSlice";
 
-// Security policy:
-//   accessToken  → NOT persisted (15-min lifetime; re-issued by the 401 interceptor)
-//   refreshToken → sessionStorage (cleared when browser tab closes, not accessible cross-tab)
-//   isOnboardingComplete → sessionStorage alongside refreshToken (non-sensitive UI flag)
-// localStorage is NOT used for any auth data — prevents XSS token theft via localStorage.
 const authPersistConfig = {
   key: "auth",
-  storage: storageSession,
-  whitelist: ["refreshToken", "isOnboardingComplete"],
+  storage,
+  whitelist: ["accessToken", "refreshToken", "isOnboardingComplete"],
 };
 
 export const store = configureStore({
@@ -74,6 +70,7 @@ export const store = configureStore({
     products: productsReducer,
     shift: shiftReducer,
     payRun: payRunReducer,
+    dashboard: dashboardReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

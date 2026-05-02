@@ -328,7 +328,7 @@ export default function IntegrationsPage() {
                                 size="sm"
                                 variant="ghost"
                                 iconRight={<ExternalLink size={13} />}
-                                onClick={() => window.open(integ.docUrl, "_blank")}
+                                onClick={() => void window.open(integ.docUrl, "_blank")}
                               >
                                 Documentation
                               </Button>
@@ -378,7 +378,7 @@ export default function IntegrationsPage() {
                                 size="sm"
                                 variant="ghost"
                                 iconRight={<ExternalLink size={13} />}
-                                onClick={() => window.open(integ.docUrl, "_blank")}
+                                onClick={() => void window.open(integ.docUrl, "_blank")}
                               >
                                 Learn more
                               </Button>

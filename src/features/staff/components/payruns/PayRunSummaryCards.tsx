@@ -4,9 +4,10 @@ import Card from "../../../../components/ui/Card";
 
 interface PayRunSummaryCardsProps {
   summary: PayRunSummary;
+  onPayTeam?: () => void;
 }
 
-const PayRunSummaryCards: React.FC<PayRunSummaryCardsProps> = ({ summary }) => {
+const PayRunSummaryCards: React.FC<PayRunSummaryCardsProps> = ({ summary, onPayTeam }) => {
   const cards = [
     { label: "Earnings", value: summary.earnings, color: "text-gray-900" },
     { label: "Other", value: summary.other, color: "text-gray-900" },
@@ -16,23 +17,27 @@ const PayRunSummaryCards: React.FC<PayRunSummaryCardsProps> = ({ summary }) => {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+    <div className="summary-grid">
       {cards.map((card, index) => (
-        <Card key={index} className={`p-4 ${card.isAction ? "bg-gray-50 border-gray-200" : ""}`}>
-          <div className="flex flex-col">
-            <span className="text-sm text-gray-500 font-medium">{card.label}</span>
-            <div className="flex items-center justify-between mt-1">
-              <span className={`text-xl font-bold ${card.color}`}>
-                ₮{card.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-              {card.isAction && (
-                <button className="bg-black text-white text-xs px-3 py-1.5 rounded-full font-medium hover:bg-gray-800 transition-colors">
-                  Pay team
-                </button>
-              )}
-            </div>
+        <div 
+          key={index} 
+          className={`summary-card ${card.isAction ? "action-card" : ""}`}
+        >
+          <span className="card-label">{card.label}</span>
+          <div className="card-content">
+            <span className={`card-value ${card.color.includes('green') ? 'text-green' : card.color.includes('red') ? 'text-red' : ''}`}>
+              ₮{card.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+            {card.isAction && (
+              <button 
+                onClick={onPayTeam}
+                className="btn-pay"
+              >
+                Pay team
+              </button>
+            )}
           </div>
-        </Card>
+        </div>
       ))}
     </div>
   );

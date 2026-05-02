@@ -50,7 +50,7 @@ export default function AcceptInvitePage() {
     verifyToken();
   }, [token]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
@@ -87,7 +87,7 @@ export default function AcceptInvitePage() {
   };
 
   if (verifying) {
-    return <PageLoader fullHeight message="Verifying invitation..." />;
+    return <PageLoader fullHeight />;
   }
 
   return (
@@ -145,7 +145,7 @@ export default function AcceptInvitePage() {
                     type="submit"
                     variant="primary"
                     size="lg"
-                    block
+                    fullWidth
                     loading={loading}
                     disabled={loading}
                   >

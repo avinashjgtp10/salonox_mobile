@@ -1,6 +1,7 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../services/api/axios";
-import { calcTotalHours } from "../../components/staff-schedule/utils";
+import shiftApi from "./shiftApi";
+import { calcTotalHours, getSundayOf, toDateKey } from "../../components/staff-schedule/utils";
 
 export const fetchDailyShifts = createAsyncThunk(
   "shift/fetchDailyShifts",
@@ -80,6 +81,48 @@ export const fetchDailyShifts = createAsyncThunk(
     } catch (err: any) {
       console.error("[fetchDailyShifts] Request failed:", err);
       return rejectWithValue(err.response?.data?.message || "Server connection failed");
+    }
+  }
+);
+
+export const applyCopySchedule = createAsyncThunk(
+  "shift/applyCopySchedule",
+  async (
+    { staffId, fromDate, toDates, type }: { staffId: string; fromDate: string; toDates: string[]; type: "day" | "week" },
+    { dispatch, getState }
+  ) => {
+    // 1. Local update is handled by shiftSlice.extraReducers (applyCopySchedule.pending)
+
+    // 2. Get updated shifts from state
+    const state = getState() as any;
+    const updatedShifts = state.shift.shifts[staffId] || {};
+
+    // 3. Prepare items for backend upsert
+    // 3. Prepare items for backend upsert: Send 7 entries (one for each day_of_week)
+    // We'll derive the 7-day pattern from the week containing the first target date
+    const targetSunday = getSundayOf(new Date(toDates[0] + "T12:00:00"));
+    const items = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(targetSunday);
+      d.setDate(targetSunday.getDate() + i);
+      const dateKey = toDateKey(d);
+      const s = updatedShifts[dateKey] || { startTime: "", endTime: "", isAvailable: false, type: "dayoff" };
+      
+      return {
+        day_of_week: d.getDay(),
+        start_time: s.startTime,
+        end_time: s.endTime,
+        is_available: !!s.isAvailable,
+        notes: s.type === "blocked" ? "Blocked" : ""
+      };
+    });
+
+    // 4. Save to backend
+    try {
+      await shiftApi.upsertStaffSchedules(staffId, items);
+      return { staffId, success: true };
+    } catch (err: any) {
+      console.error("[applyCopySchedule] Failed to persist:", err);
+      throw err;
     }
   }
 );
