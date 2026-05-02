@@ -21,8 +21,9 @@ import "../styles/StaffListPage.scss";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
 
-// UI Components — all from the barrel index
 import { Button, Input, Badge, DownloadButton } from "../../../components/ui";
+import TeamMemberDrawer from "../components/TeamMemberDrawer";
+
 export default function StaffListPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -71,6 +72,10 @@ export default function StaffListPage() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+
+  // Drawer state
+  const [selectedStaffId, setSelectedStaffId] = useState<number | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -555,7 +560,10 @@ export default function StaffListPage() {
                   <div
                     key={member.id}
                     className={`table-row d-flex align-items-center py-3 px-4 border-bottom cursor-pointer transition-all ${isChecked ? "bg-light opacity-75" : "hover-bg-light"}`}
-                    onClick={() => navigate(`/dashboard/team/${member.id}`)}
+                    onClick={() => {
+                      setSelectedStaffId(member.id);
+                      setIsDrawerOpen(true);
+                    }}
                   >
                     <div className="col-check" style={{ width: "40px" }}>
                       <input
@@ -626,7 +634,7 @@ export default function StaffListPage() {
                         className="p-1 text-muted hover-text-dark"
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/dashboard/team/${member.id}`);
+                          navigate(`/dashboard/team/edit/${member.id}`);
                         }}
                       >
                         <Pencil size={14} />
@@ -646,6 +654,12 @@ export default function StaffListPage() {
       >
         Viewing 1–{filtered.length} of {filtered.length} results
       </div>
+
+      <TeamMemberDrawer
+        memberId={selectedStaffId}
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+      />
     </div>
   );
 }

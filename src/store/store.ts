@@ -26,6 +26,7 @@ import schedulerReducer from "./schedulerSlice";
 import marketingReducer from "./marketingSlice";
 import reportReducer from "./reportSlice";
 import membershipReducer from "./membershipSlice";
+import inventoryReducer from "./inventorySlice";
 import { membershipsApi } from "../services/api/endpoints/memberships.endpoints";
 
 // Security policy:
@@ -59,6 +60,7 @@ export const store = configureStore({
     marketing: marketingReducer,
     report: reportReducer,
     memberships: membershipReducer,
+    inventory: inventoryReducer,
     [membershipsApi.reducerPath]: membershipsApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>

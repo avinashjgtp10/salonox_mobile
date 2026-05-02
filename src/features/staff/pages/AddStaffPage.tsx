@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/AddStaffPage.scss";
 import StaffProfileSection from "../sections/StaffProfileSection";
@@ -37,6 +37,7 @@ const sectionComponents: Record<SectionKey, React.FC> = {
 };
 
 const AddStaffPage: React.FC = () => {
+  const { id } = useParams();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState<SectionKey>("profile");
 
@@ -76,6 +77,49 @@ const AddStaffPage: React.FC = () => {
     showUnsavedDialog: false,
   });
 
+  useEffect(() => {
+    if (id) {
+      const fetchStaff = async () => {
+        try {
+          const res = await api.get(STAFF.BY_ID(id));
+          const data = res.data?.data || res.data;
+          if (data) {
+            setFormData({
+              firstName: data.first_name || "",
+              lastName: data.last_name || "",
+              email: data.email || "",
+              phone: data.phone_number || "",
+              additionalPhone: data.additional_phone || "",
+              country: data.country || "India",
+              birthdayDayMonth: data.birthday || "",
+              birthdayYear: data.birth_year || "",
+              calendarColor: data.calendar_color || "#93c5fd",
+              jobTitle: data.job_title || "",
+              startDateDayMonth: data.start_date || "",
+              startDateYear: data.start_year || "2026",
+              endDateDayMonth: data.end_date || "",
+              endDateYear: data.end_year || "",
+              employmentType: data.employment_type || "",
+              memberId: data.staff_member_id || "",
+              notes: data.notes || "",
+            });
+            setSettings({
+              allowCalendarBookings: data.allow_calendar_bookings ?? true,
+              permissionLevel: data.permission_level || "Low",
+            });
+            setLists({
+              addresses: data.addresses || [],
+              contacts: data.emergency_contacts || [],
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching staff:", error);
+        }
+      };
+      fetchStaff();
+    }
+  }, [id]);
+
   const isFirstNameInvalid =
     ui.attemptedSubmit && formData.firstName.trim() === "";
   const isEmailInvalid = ui.attemptedSubmit && formData.email.trim() === "";
@@ -112,10 +156,13 @@ const AddStaffPage: React.FC = () => {
         allow_calendar_bookings: settings.allowCalendarBookings,
         permission_level: settings.permissionLevel,
         addresses: lists.addresses,
-        emergency_contacts: lists.contacts,
       };
 
-      await api.post(STAFF.BASE, payload);
+      if (id) {
+        await api.patch(STAFF.BY_ID(id), payload);
+      } else {
+        await api.post(STAFF.BASE, payload);
+      }
       console.log("Staff saved successfully");
       navigate("/dashboard/team/members");
     } catch (error) {
@@ -182,7 +229,9 @@ const AddStaffPage: React.FC = () => {
   return (
     <div className="add-staff">
       <div className="add-staff__header">
-        <h5 className="add-staff__header-title">Add team member</h5>
+        <h5 className="add-staff__header-title">
+          {id ? "Edit team member" : "Add team member"}
+        </h5>
         <div className="add-staff__header-actions position-relative">
           {hasErrors && (
             <button
@@ -243,7 +292,7 @@ const AddStaffPage: React.FC = () => {
             Close
           </button>
           <button className="btn add-staff__btn-add" onClick={handleAddClick}>
-            Add
+            {id ? "Save" : "Add"}
           </button>
         </div>
       </div>

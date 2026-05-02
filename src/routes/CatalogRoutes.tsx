@@ -58,12 +58,14 @@ export const CatalogRoutes = () => (
       <Route path="memberships" element={<MembershipsLandingPage />} />
       <Route path="memberships/list" element={<MembershipsListPage />} />
       <Route path="memberships/create" element={<CreateMembershipPage />} />
+      <Route path="memberships/edit/:id" element={<CreateMembershipPage />} />
       <Route path="products" element={<ProductsListPage />} />
       <Route path="products/landing" element={<ProductsLandingPage />} />
       <Route path="products/create" element={<CreateProductPage />} />
       <Route path="products/import" element={<ImportProductsPage />} />
       <Route path="inventory/stocktakes" element={<StocktakesListPage />} />
       <Route path="inventory/stocktakes/new" element={<AddStocktakePage />} />
+      <Route path="inventory/stocktakes/edit/:id" element={<AddStocktakePage />} />
       <Route path="inventory/stock-orders" element={<StockOrdersListPage />} />
       <Route
         path="inventory/orders"
@@ -73,6 +75,7 @@ export const CatalogRoutes = () => (
       />
       <Route path="inventory/suppliers" element={<SuppliersListPage />} />
       <Route path="inventory/suppliers/new" element={<AddSupplierPage />} />
+      <Route path="inventory/suppliers/edit/:id" element={<AddSupplierPage />} />
     </Routes>
   </Suspense>
 );

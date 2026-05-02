@@ -17,6 +17,7 @@ import {
   selectMembershipsTotal,
 } from "../../../store/selectors/membership.selectors";
 import MembershipFilterDrawer from "../components/MembershipFilterDrawer";
+import MembershipDetailsDrawer from "../components/MembershipDetailsDrawer";
 import "../styles/MembershipsListPage.scss";
 
 const PAGE_SIZE = 20;
@@ -49,6 +50,10 @@ const MembershipsListPage: React.FC = () => {
   const [filters, setFilters]                   = useState<Filters>(DEFAULT_FILTERS);
   const [page, setPage]                         = useState(1);
   const [exporting, setExporting] = useState<"csv" | "excel" | "pdf" | null>(null); // ← updated type
+
+  // Drawer state
+  const [selectedMembershipId, setSelectedMembershipId] = useState<string | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const buildQuery = useCallback(() => ({
     search:      searchQuery.trim() || undefined,
@@ -203,8 +208,8 @@ const MembershipsListPage: React.FC = () => {
                 <th>Membership name</th>
                 <th>Valid for</th>
                 <th>Sessions</th>
-                <th>Price</th>
-                <th></th>
+                <th style={{ width: "120px" }}>Price</th>
+                <th style={{ width: "160px" }} className="text-end">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -212,9 +217,10 @@ const MembershipsListPage: React.FC = () => {
                 memberships.map((m) => (
                   <tr
                     key={m.id}
-                    onClick={() =>
-                      navigate(`/dashboard/catalog/memberships/${m.id}`)
-                    }
+                    onClick={() => {
+                      setSelectedMembershipId(String(m.id));
+                      setIsDrawerOpen(true);
+                    }}
                     style={{ cursor: "pointer" }}
                   >
                     <td className="membership-name-cell">
@@ -242,9 +248,15 @@ const MembershipsListPage: React.FC = () => {
                     <td className="price-cell">
                       ₹{Number(m.price).toLocaleString("en-IN")}
                     </td>
-                    <td>
+                    <td className="text-end" onClick={(e) => e.stopPropagation()}>
                       <button
-                        className="btn btn-sm btn-outline-danger"
+                        className="btn btn-sm btn-outline-dark rounded-pill px-3 fw-bold me-2"
+                        onClick={() => navigate(`/dashboard/catalog/memberships/edit/${m.id}`)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="btn btn-sm btn-outline-danger rounded-pill px-3 fw-bold"
                         onClick={(e) => handleDelete(e, m.id)}
                       >
                         Delete
@@ -296,6 +308,12 @@ const MembershipsListPage: React.FC = () => {
           initialFilters={filters}
         />
       )}
+
+      <MembershipDetailsDrawer
+        membershipId={selectedMembershipId}
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+      />
     </div>
   );
 };

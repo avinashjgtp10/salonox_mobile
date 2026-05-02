@@ -24,6 +24,7 @@ export const TeamRoutes = () => (
       <Route index element={<StaffListPage />} />
       <Route path="members" element={<StaffListPage />} />
       <Route path="add" element={<AddStaffPage />} />
+      <Route path="edit/:id" element={<AddStaffPage />} />
       <Route path="repeating-shifts/:id" element={<RepeatingShiftsPage />} />
       <Route path="payruns" element={<PayRunsPage />} />
       <Route path="payruns/:id" element={<PayRunBreakdownPage />} />

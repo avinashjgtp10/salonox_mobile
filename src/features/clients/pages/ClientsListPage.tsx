@@ -262,9 +262,8 @@ export default function ClientsListPage() {
                     {genderOptions.map((g) => (
                       <div
                         key={g}
-                        className={`option ${
-                          selectedGender === g ? "active" : ""
-                        }`}
+                        className={`option ${selectedGender === g ? "active" : ""
+                          }`}
                         onClick={() => setSelectedGender(g)}
                       >
                         <span>{g}</span>
@@ -637,7 +636,7 @@ export default function ClientsListPage() {
                       <input
                         type="checkbox"
                         checked={selectedClients.includes(String(client.id))}
-                        onChange={() => {}}
+                        onChange={() => { }}
                         onClick={(e) =>
                           handleSelectClient(e, String(client.id))
                         }
