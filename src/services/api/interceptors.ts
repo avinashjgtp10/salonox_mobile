@@ -54,9 +54,19 @@ export const applyInterceptors = (instance: AxiosInstance) => {
       );
 
       if (!isPublic) {
-        const accessToken = storeRef?.getState()?.auth?.accessToken;
+        const state = storeRef?.getState();
+
+        const accessToken = state?.auth?.accessToken;
         if (accessToken) {
           config.headers["Authorization"] = `Bearer ${accessToken}`;
+        }
+
+        // Only inject if caller hasn't set it already
+        if (!config.headers["x-salon-id"]) {
+          const salonId = state?.salon?.currentSalon?.id;
+          if (salonId) {
+            config.headers["x-salon-id"] = String(salonId);
+          }
         }
       }
 
@@ -72,6 +82,21 @@ export const applyInterceptors = (instance: AxiosInstance) => {
 
     // ❌ Non-2xx
     async (error: AxiosError) => {
+      if (error.response) {
+        console.error(
+          `[API ERROR] ${error.config?.method?.toUpperCase()} ${error.config?.url}:`,
+          {
+            status: error.response.status,
+            data: error.response.data,
+          },
+        );
+      } else {
+        console.error(
+          `[API ERROR] ${error.config?.method?.toUpperCase()} ${error.config?.url}:`,
+          error.message,
+        );
+      }
+
       const originalRequest = error.config as InternalAxiosRequestConfig & {
         _retry?: boolean;
       };
@@ -118,7 +143,7 @@ export const applyInterceptors = (instance: AxiosInstance) => {
           });
 
           const newToken = refreshData?.data?.accessToken || refreshData.accessToken;
-          
+
           if (!newToken) throw new Error("No token returned");
 
           // Dynamic imports here break the circular dependency at module root

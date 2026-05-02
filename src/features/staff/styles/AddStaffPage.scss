@@ -100,7 +100,7 @@ $transition:      0.18s ease;
     flex: 1;
     overflow: hidden;
     padding: 0 !important;
-    .row { height: 100%; flex-wrap: nowrap; }
+    > .row { height: 100%; flex-wrap: nowrap; }
   }
 
   &__sidebar {

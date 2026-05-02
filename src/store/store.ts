@@ -32,6 +32,8 @@ import membershipReducer from "./membershipSlice";
 import { membershipsApi } from "../services/api/endpoints/memberships.endpoints";
 import { packagesApi } from "../services/api/endpoints/packages.endpoints";
 import productsReducer from "./productsSlice";
+import shiftReducer from "./shiftSlice";
+import payRunReducer from "./payRunSlice";
 import dashboardReducer from "./dashboardSlice";
 
 const authPersistConfig = {
@@ -66,6 +68,8 @@ export const store = configureStore({
     [membershipsApi.reducerPath]: membershipsApi.reducer,
     [packagesApi.reducerPath]: packagesApi.reducer,
     products: productsReducer,
+    shift: shiftReducer,
+    payRun: payRunReducer,
     dashboard: dashboardReducer,
   },
   middleware: (getDefaultMiddleware) =>

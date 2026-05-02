@@ -17,11 +17,15 @@ const SendRequestPage = lazy(
 const RequestSuccessPage = lazy(
   () => import("../features/auth/pages/RequestSuccessPage"),
 );
+const AcceptInvitePage = lazy(
+  () => import("../features/auth/pages/AcceptInvitePage"),
+);
 
 export const AuthRoutes = (
   <>
     <Route path="/send-request" element={<SendRequestPage />} />
     <Route path="/request-success" element={<RequestSuccessPage />} />
+    <Route path="/accept-invite" element={<AcceptInvitePage />} />
     <Route element={<GuestGuard />}>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />

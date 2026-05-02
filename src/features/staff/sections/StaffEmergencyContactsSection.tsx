@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Pencil, Trash3 } from "react-bootstrap-icons";
 import AddEmergencyContactModal from "../components/AddEmergencyContactModal";
 
 interface Contact {
@@ -44,40 +45,36 @@ const StaffEmergencyContactsSection: React.FC<StaffEmergencyContactsProps> = ({
           <div className="staff-list-item__info">
             <div className="staff-list-item__label">{c.name}</div>
             <div className="staff-list-item__sub">
-              {c.relationship} · {c.phone} {c.email ? ` · ${c.email}` : ""}
+              {c.relationship}
+              {c.phone && ` · ${c.phone}`}
+              {c.email && ` · ${c.email}`}
             </div>
           </div>
           <div className="staff-list-item__actions">
             <button className="staff-list-item__action-btn">
-              <i className="bi bi-pencil" />
+              <Pencil size={14} />
             </button>
             <button
               className="staff-list-item__action-btn staff-list-item__action-btn--danger"
               onClick={() => setContacts((p) => p.filter((x) => x.id !== c.id))}
             >
-              <i className="bi bi-trash" />
+              <Trash3 size={14} />
             </button>
           </div>
         </div>
       ))}
 
       <button
-        className="btn d-inline-flex align-items-center gap-2"
+        className="btn btn-outline-primary d-inline-flex align-items-center gap-1 mt-3"
         style={{
-          border: "1px solid #e0e0e0",
-          backgroundColor: "#fff",
-          color: "#333",
-          borderRadius: "20px",
+          borderRadius: "8px",
           padding: "6px 16px",
-          fontSize: "13px",
+          fontSize: "14px",
           fontWeight: "500",
         }}
         onClick={() => setOpenContactModal(true)}
       >
-        <i
-          className="bi bi-plus"
-          style={{ fontSize: "18px", color: "#666", lineHeight: 1 }}
-        />{" "}
+        <span style={{ fontSize: "18px", lineHeight: 1 }}>+</span>
         Add an emergency contact
       </button>
 

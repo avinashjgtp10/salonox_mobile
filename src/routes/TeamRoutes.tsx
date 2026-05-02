@@ -1,33 +1,44 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
-
-const StaffListPage = lazy(
-  () => import("../features/staff/pages/StaffListPage"),
-);
-const AddStaffPage = lazy(() => import("../features/staff/pages/AddStaffPage"));
-const PayRunsPage = lazy(() => import("../features/staff/pages/PayRunsPage"));
-const PayRunBreakdownPage = lazy(
-  () => import("../features/staff/pages/PayRunBreakdownPage"),
-);
-const RepeatingShiftsPage = lazy(
-  () => import("../features/staff/pages/RepeatingShiftsPage"),
-);
-const ScheduledShiftsPage = lazy(
-  () => import("../features/dashboard/pages/ScheduledShiftsPage"),
-);
-
 import { PageLoader } from "../components/ui";
+
+const StaffListPage       = lazy(() => import("../features/staff/pages/StaffListPage"));
+const AddStaffPage        = lazy(() => import("../features/staff/pages/AddStaffPage"));
+const PayRunsPage         = lazy(() => import("../features/staff/pages/PayRunsPage"));
+const PayRunBreakdownPage = lazy(() => import("../features/staff/pages/PayRunBreakdownPage"));
+const RepeatingShiftsPage = lazy(() => import("../features/staff/pages/RepeatingShiftsPage"));
+const ScheduledShiftsPage = lazy(() => import("../features/dashboard/pages/ScheduledShiftsPage"));
+
+// New pages
+const StaffDashboardPage    = lazy(() => import("../features/staff/pages/StaffDashboardPage"));
+const StaffAppointmentsPage = lazy(() => import("../features/staff/pages/StaffAppointmentsPage"));
+const StaffCustomersPage    = lazy(() => import("../features/staff/pages/StaffCustomersPage"));
+const StaffServicesPage     = lazy(() => import("../features/staff/pages/StaffServicesPage"));
+const StaffSalesPage        = lazy(() => import("../features/staff/pages/StaffSalesPage"));
 
 export const TeamRoutes = () => (
   <Suspense fallback={<PageLoader />}>
     <Routes>
-      <Route index element={<StaffListPage />} />
-      <Route path="members" element={<StaffListPage />} />
-      <Route path="add" element={<AddStaffPage />} />
-      <Route path="repeating-shifts/:id" element={<RepeatingShiftsPage />} />
-      <Route path="payruns" element={<PayRunsPage />} />
-      <Route path="payruns/:id" element={<PayRunBreakdownPage />} />
-      <Route path="shifts" element={<ScheduledShiftsPage />} />
+      {/* Default → overview dashboard */}
+      <Route index element={<StaffDashboardPage />} />
+      <Route path="dashboard"    element={<StaffDashboardPage />} />
+
+      {/* Team management */}
+      <Route path="members"      element={<StaffListPage />} />
+      <Route path="add"          element={<AddStaffPage />} />
+      <Route path=":id"          element={<AddStaffPage />} />
+
+      {/* New feature pages */}
+      <Route path="appointments" element={<StaffAppointmentsPage />} />
+      <Route path="customers"    element={<StaffCustomersPage />} />
+      <Route path="services"     element={<StaffServicesPage />} />
+      <Route path="sales"        element={<StaffSalesPage />} />
+
+      {/* Existing pages */}
+      <Route path="shifts"                   element={<ScheduledShiftsPage />} />
+      <Route path="payruns"                  element={<PayRunsPage />} />
+      <Route path="payruns/:id"              element={<PayRunBreakdownPage />} />
+      <Route path="repeating-shifts/:id"     element={<RepeatingShiftsPage />} />
     </Routes>
   </Suspense>
 );

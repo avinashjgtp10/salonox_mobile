@@ -15,6 +15,7 @@ export * from "./report.endpoints";
 export * from "./products.endpoints";
 export * from "./categories.endpoints";
 export * from "./services.endpoints";
+export * from "./payRun.endpoints";
 export * from "./coupon.endpoints";
 export * from "./payment.endpoints";
 export * from "./blockedTime.endpoints";

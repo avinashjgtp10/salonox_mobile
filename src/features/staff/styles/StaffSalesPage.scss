@@ -1,0 +1,498 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+$font: 'Inter', sans-serif;
+$bg: #f8f9fb;
+$white: #ffffff;
+$border: #e5e7eb;
+$primary: #111827;
+$muted: #6b7280;
+$accent: #6366f1;
+$radius: 12px;
+$radius-sm: 8px;
+
+.sale-page {
+  padding: 28px 32px;
+  background: $bg;
+  min-height: 100%;
+  font-family: $font;
+
+  @media (max-width: 768px) { padding: 20px 16px; }
+}
+
+// ── Header ─────────────────────────────────────────────────────────────────────
+.sale-page__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.sale-page__title {
+  font-size: 22px;
+  font-weight: 700;
+  color: $primary;
+  margin: 0 0 4px;
+}
+
+.sale-page__subtitle {
+  font-size: 14px;
+  color: $muted;
+  margin: 0;
+}
+
+.sale-page__export-btn {
+  flex-shrink: 0;
+}
+
+// ── Summary ────────────────────────────────────────────────────────────────────
+.sale-page__summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+
+  @media (max-width: 768px) { grid-template-columns: 1fr; }
+}
+
+.sale-summary-card {
+  background: $white;
+  border: 1px solid $border;
+  border-radius: $radius;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: $radius $radius 0 0;
+  }
+
+  &--emerald {
+    .sale-summary-card__icon { background: #ecfdf5; color: #10b981; }
+    &::before { background: #10b981; }
+  }
+  &--indigo {
+    .sale-summary-card__icon { background: #eef2ff; color: $accent; }
+    &::before { background: $accent; }
+  }
+  &--amber {
+    .sale-summary-card__icon { background: #fffbeb; color: #f59e0b; }
+    &::before { background: #f59e0b; }
+  }
+}
+
+.sale-summary-card__icon {
+  width: 42px;
+  height: 42px;
+  border-radius: $radius-sm;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sale-summary-card__label {
+  font-size: 11px;
+  font-weight: 600;
+  color: $muted;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.sale-summary-card__value {
+  font-size: 22px;
+  font-weight: 700;
+  color: $primary;
+  letter-spacing: -0.02em;
+}
+
+// ── Toolbar ────────────────────────────────────────────────────────────────────
+.sale-page__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.sale-page__search-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 220px;
+  max-width: 400px;
+}
+
+.sale-page__search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: $muted;
+  pointer-events: none;
+}
+
+.sale-page__search {
+  width: 100%;
+  height: 38px;
+  padding: 0 34px 0 36px;
+  border: 1px solid $border;
+  border-radius: $radius-sm;
+  background: $white;
+  font-family: $font;
+  font-size: 13px;
+  color: $primary;
+  outline: none;
+  transition: border-color 0.15s;
+
+  &::placeholder { color: #9ca3af; }
+  &:focus { border-color: $accent; box-shadow: 0 0 0 3px rgba(99,102,241,.1); }
+}
+
+.sale-page__search-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: $muted;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+
+  &:hover { color: $primary; }
+}
+
+.sale-page__filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid $border;
+  border-radius: $radius-sm;
+  background: $white;
+  font-size: 13px;
+  font-weight: 500;
+  color: $primary;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover { border-color: $accent; }
+  &--active { border-color: $accent; background: #eef2ff; color: $accent; }
+}
+
+.sale-page__filter-count {
+  background: $accent;
+  color: $white;
+  border-radius: 50px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+}
+
+// ── Filters ────────────────────────────────────────────────────────────────────
+.sale-page__filters {
+  background: $white;
+  border: 1px solid $border;
+  border-radius: $radius;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-end;
+}
+
+.sale-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sale-filter-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: $muted;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sale-filter-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sale-pill {
+  padding: 5px 12px;
+  border-radius: 50px;
+  border: 1px solid $border;
+  background: $white;
+  font-size: 12px;
+  font-weight: 500;
+  color: $muted;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover { border-color: $accent; color: $accent; }
+  &--active { background: $accent; border-color: $accent; color: $white; }
+}
+
+.sale-date-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sale-date-input {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid $border;
+  border-radius: $radius-sm;
+  font-family: $font;
+  font-size: 13px;
+  color: $primary;
+  outline: none;
+  background: $white;
+
+  &:focus { border-color: $accent; }
+}
+
+.sale-date-sep {
+  font-size: 12px;
+  color: $muted;
+}
+
+.sale-clear-btn {
+  padding: 6px 14px;
+  border: 1px solid $border;
+  border-radius: $radius-sm;
+  background: $white;
+  font-size: 12px;
+  font-weight: 500;
+  color: #ef4444;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover { border-color: #ef4444; background: #fef2f2; }
+}
+
+// ── Table ──────────────────────────────────────────────────────────────────────
+.sale-page__card {
+  background: $white;
+  border: 1px solid $border;
+  border-radius: $radius;
+  overflow: hidden;
+}
+
+.sale-table__header {
+  display: grid;
+  grid-template-columns: 130px 1fr 1fr 120px 100px 120px;
+  padding: 0 20px;
+  background: #f9fafb;
+  border-bottom: 1px solid $border;
+
+  @media (max-width: 900px) { display: none; }
+}
+
+.sale-table__col {
+  padding: 12px 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: $muted;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+
+  &:not(:last-child) { padding-right: 16px; }
+}
+
+.sale-table__row {
+  display: grid;
+  grid-template-columns: 130px 1fr 1fr 120px 100px 120px;
+  padding: 0 20px;
+  border-bottom: 1px solid #f3f4f6;
+  transition: background 0.12s;
+
+  &:last-child { border-bottom: none; }
+  &:hover { background: #fafafa; }
+
+  .sale-table__col {
+    padding: 14px 0;
+    display: flex;
+    align-items: center;
+    font-size: 13px;
+  }
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 14px 16px;
+
+    .sale-table__col--date { grid-column: 1 / -1; }
+    .sale-table__col--amount { justify-content: flex-end; }
+  }
+}
+
+.sale-cell-primary {
+  font-size: 13px;
+  font-weight: 500;
+  color: $primary;
+}
+
+.sale-cell-muted {
+  font-size: 13px;
+  color: $muted;
+}
+
+.sale-cell-amount {
+  font-size: 14px;
+  font-weight: 700;
+  color: $primary;
+}
+
+// ── Status Badges ──────────────────────────────────────────────────────────────
+.sale-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 50px;
+  font-size: 11px;
+  font-weight: 600;
+
+  &--paid      { background: #ecfdf5; color: #10b981; }
+  &--pending   { background: #fffbeb; color: #f59e0b; }
+  &--refunded  { background: #eff6ff; color: #3b82f6; }
+  &--cancelled { background: #fef2f2; color: #ef4444; }
+}
+
+// ── Payment Tags ───────────────────────────────────────────────────────────────
+.sale-pay {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+
+  &--cash    { background: #ecfdf5; color: #059669; }
+  &--card    { background: #eff6ff; color: #2563eb; }
+  &--upi     { background: #f5f3ff; color: #7c3aed; }
+  &--online  { background: #fff7ed; color: #c2410c; }
+  &--default { background: #f3f4f6; color: $muted; }
+}
+
+// ── Empty ──────────────────────────────────────────────────────────────────────
+.sale-page__empty {
+  text-align: center;
+  padding: 64px 24px;
+}
+
+.sale-page__empty-icon {
+  color: #d1d5db;
+  margin-bottom: 12px;
+}
+
+.sale-page__empty-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: $primary;
+  margin: 0 0 8px;
+}
+
+.sale-page__empty-desc {
+  font-size: 14px;
+  color: $muted;
+  margin: 0;
+}
+
+// ── Pagination ─────────────────────────────────────────────────────────────────
+.sale-page__pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-top: 1px solid #f3f4f6;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.sale-page__pagination-info {
+  font-size: 13px;
+  color: $muted;
+}
+
+.sale-page__pagination-btns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sale-page__page-btn {
+  padding: 6px 14px;
+  border: 1px solid $border;
+  border-radius: $radius-sm;
+  background: $white;
+  font-size: 13px;
+  font-weight: 500;
+  color: $primary;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover:not(:disabled) { border-color: $accent; color: $accent; }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+
+.sale-page__page-num {
+  font-size: 13px;
+  font-weight: 600;
+  color: $primary;
+  min-width: 48px;
+  text-align: center;
+}
+
+// ── Skeleton ───────────────────────────────────────────────────────────────────
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+%sk-base {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 37%, #f0f0f0 63%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s ease infinite;
+  border-radius: 4px;
+}
+
+.sale-sk-list { display: flex; flex-direction: column; }
+
+.sale-sk-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f3f4f6;
+
+  &:last-child { border-bottom: none; }
+}
+
+.sale-sk {
+  @extend %sk-base;
+  height: 14px;
+
+  &--value   { height: 26px; width: 100px; border-radius: 6px; }
+  &--date    { width: 80px; }
+  &--name    { flex: 1; max-width: 130px; }
+  &--badge   { width: 70px; height: 20px; border-radius: 50px; }
+  &--pay     { width: 60px; }
+  &--amount  { width: 70px; }
+}
