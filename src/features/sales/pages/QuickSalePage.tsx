@@ -33,6 +33,7 @@ interface SvcRow {
 
 interface ProdRow {
   tempId: string;
+  id: string;
   productName: string;
   price: number;
   qty: number;
@@ -40,6 +41,7 @@ interface ProdRow {
   staffId: string;
   search: string;
   showDrop: boolean;
+  stock: number | null;
 }
 
 interface MemRow {
@@ -247,7 +249,7 @@ export default function QuickSalePage() {
   }
 
   function addProdRow() {
-    setProductRows((r) => [...r, { tempId: makeTempId(), productName: "", staffId: "", price: 0, qty: 1, total: 0, search: "", showDrop: false }]);
+    setProductRows((r) => [...r, { tempId: makeTempId(), id: "", productName: "", staffId: "", price: 0, qty: 1, total: 0, search: "", showDrop: false, stock: null }]);
   }
   function updateProdRow(tempId: string, patch: Partial<ProdRow>) {
     setProductRows((r) => r.map((x) => x.tempId === tempId ? { ...x, ...patch } : x));
@@ -361,6 +363,7 @@ export default function QuickSalePage() {
       })),
       ...productRows.filter((r) => r.productName).map((r) => ({
         item_type: "product" as const,
+        item_id: r.id || undefined,
         name: r.productName,
         quantity: Number(r.qty) || 0,
         unit_price: String(r.price),
@@ -895,18 +898,41 @@ export default function QuickSalePage() {
               <div key={row.tempId} className="va-svc-row">
                 <div style={{ flex: 2, position: "relative" }}>
                   <input className="va-inp" placeholder="Search product…" value={row.search}
+                    style={row.stock !== null && row.stock <= 0 ? { color: "#dc2626", fontWeight: 600 } : undefined}
                     onChange={(e) => updateProdRow(row.tempId, { search: e.target.value, showDrop: true })}
                     onFocus={() => updateProdRow(row.tempId, { showDrop: true })}
                     onBlur={() => setTimeout(() => updateProdRow(row.tempId, { showDrop: false }), 150)}
                   />
+                  {row.stock !== null && row.stock <= 0 && (
+                    <div style={{ position: "absolute", top: "-18px", right: "0", fontSize: "11px", color: "#dc2626", fontWeight: "bold", background: "#fee2e2", padding: "2px 6px", borderRadius: "4px" }}>
+                      Out of stock
+                    </div>
+                  )}
                   {row.showDrop && filtered.length > 0 && (
                     <div className="va-inline-drop">
                       {filtered.map((p, i) => (
-                        <div key={i} className="va-inline-drop__item"
-                          onMouseDown={() => { const q = Number(row.qty) || 1; updateProdRow(row.tempId, { productName: p.name, search: p.name, price: p.price, qty: q as any, total: p.price * q, showDrop: false }); }}
+                        <div key={p.id ?? i} className="va-inline-drop__item"
+                          onMouseDown={() => {
+                            const q = Number(row.qty) || 1;
+                            const pr = p.price === null ? 0 : p.price;
+                            updateProdRow(row.tempId, {
+                              id: p.id ?? "",
+                              productName: p.name,
+                              search: p.name,
+                              price: pr,
+                              qty: q as any,
+                              total: pr * q,
+                              stock: p.stock,
+                              showDrop: false,
+                            });
+                          }}
                         >
-                          <span>{p.name}</span>
-                          <span className="va-inline-drop__price">₹{p.price}</span>
+                          <span style={p.stock <= 0 ? { color: "#dc2626" } : undefined}>
+                            {p.name} {p.stock <= 0 && <span style={{ fontSize: "12px", fontWeight: 600 }}>(Out of stock)</span>}
+                          </span>
+                          <span className="va-inline-drop__price">
+                            {p.price === null ? <span style={{ fontSize: "12px", color: "#6c757d", fontStyle: "italic" }}>Price not available</span> : `₹${p.price}`}
+                          </span>
                         </div>
                       ))}
                     </div>

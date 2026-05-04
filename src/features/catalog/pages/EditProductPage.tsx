@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { XLg } from "react-bootstrap-icons";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../../store/store";
-import { createProductThunk, fetchBrandsThunk, fetchCategoriesThunk, createBrandThunk, createCategoryThunk } from "../../../middleware/catalog/products.thunk";
+import { updateProductThunk, fetchProductsThunk, fetchBrandsThunk, fetchCategoriesThunk, createBrandThunk, createCategoryThunk } from "../../../middleware/catalog/products.thunk";
 import Alert from "../../../components/ui/Alert";
 import Card from "../../../components/ui/Card";
 import Input from "../../../components/ui/Input";
@@ -43,12 +43,15 @@ const initialForm: FormState = {
   commissionRate: "",
 };
 
-const CreateProductPage: React.FC = () => {
+const EditProductPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
-  const { brands, categories, loading: { create: loading }, error } = useSelector(
+  const { items: products, brands, categories, loading: { update: loading }, error } = useSelector(
     (state: RootState) => state.products
   );
+
+  const product = products.find((p: any) => p.id === id);
 
   const [form, setForm] = useState<FormState>(initialForm);
   const [newBrand, setNewBrand] = useState("");
@@ -57,27 +60,37 @@ const CreateProductPage: React.FC = () => {
   const [newCategory, setNewCategory] = useState("");
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [savingCategory, setSavingCategory] = useState(false);
-  const [touched, setTouched] = useState<Record<string, boolean>>({});
-
-  const validationErrors = {
-    productName: !form.productName.trim() ? "Product name is required" : "",
-    categoryId: !form.categoryId ? "Product category is required" : "",
-    amount: !form.amount.trim() || isNaN(Number(form.amount)) ? "Product quantity is required" : "",
-    supplyPrice: !form.supplyPrice.trim() || isNaN(Number(form.supplyPrice)) || Number(form.supplyPrice) <= 0 ? "Supplier price is required" : "",
-  };
-
-  const isFormValid = Object.values(validationErrors).every((e) => !e);
-
-  const touch = (field: string) => setTouched((prev) => ({ ...prev, [field]: true }));
-  const touchAll = () => setTouched({ productName: true, categoryId: true, amount: true, supplyPrice: true });
 
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
   useEffect(() => {
+    if (products.length === 0) {
+      dispatch(fetchProductsThunk());
+    }
     dispatch(fetchBrandsThunk());
     dispatch(fetchCategoriesThunk());
-  }, [dispatch]);
+  }, [dispatch, products.length]);
+
+  // Pre-fill form when product loads
+  useEffect(() => {
+    if (product) {
+      setForm({
+        productName: product.name || "",
+        barcode: product.barcode || "",
+        brandId: product.brand_id || "",
+        categoryId: product.category_id || "",
+        amount: product.amount != null ? String(product.amount) : "",
+        description: product.description || "",
+        supplyPrice: product.supply_price != null ? String(product.supply_price) : "",
+        retailSalesEnabled: product.retail_sales_enabled ?? true,
+        retailPrice: product.retail_price != null ? String(product.retail_price) : "",
+        markupPercentage: product.markup_percentage != null ? String(product.markup_percentage) : "",
+        commissionEnabled: product.team_commission_enabled ?? false,
+        commissionRate: product.team_commission_rate != null ? String(product.team_commission_rate) : "",
+      });
+    }
+  }, [product]);
 
   // Auto-calculate markup when supply + retail price change
   useEffect(() => {
@@ -126,9 +139,6 @@ const CreateProductPage: React.FC = () => {
   };
 
   const handleSubmit = async () => {
-    touchAll();
-    if (!isFormValid) return;
-
     const payload = {
       name: form.productName.trim(),
       retail_sales_enabled: form.retailSalesEnabled,
@@ -144,8 +154,9 @@ const CreateProductPage: React.FC = () => {
       team_commission_rate: form.commissionEnabled && form.commissionRate ? parseFloat(form.commissionRate) : null,
     };
 
-    const result = await dispatch(createProductThunk(payload));
-    if (createProductThunk.fulfilled.match(result)) {
+    if (!id) return;
+    const result = await dispatch(updateProductThunk({ id, data: payload }));
+    if (updateProductThunk.fulfilled.match(result)) {
       navigate("/dashboard/catalog/products");
     }
   };
@@ -157,14 +168,14 @@ const CreateProductPage: React.FC = () => {
         <Button variant="ghost" onClick={() => navigate(-1)} className="cpp__close-btn p-0 border-0">
           <XLg size={20} />
         </Button>
-        <h5 className="cpp__topbar-title mb-0 fw-bold">Create a product</h5>
+        <h5 className="cpp__topbar-title mb-0 fw-bold">Edit product</h5>
         <Button
           variant="dark"
           onClick={handleSubmit}
-          disabled={loading}
+          disabled={!form.productName.trim() || loading}
           className="cpp__submit-btn"
         >
-          {loading ? "Saving..." : "Create product"}
+          {loading ? "Saving..." : "Save changes"}
         </Button>
       </div>
 
@@ -177,16 +188,12 @@ const CreateProductPage: React.FC = () => {
           {/* 1. Basic info */}
           <Card title="Basic info" className="mb-4">
             <Input
-              label={<>Product name <span style={{ color: "#dc2626" }}>*</span></>}
+              label="Product name"
               placeholder="e.g. Organic Shampoo"
               value={form.productName}
-              onChange={(e) => { setField("productName", e.target.value); touch("productName"); }}
-              onBlur={() => touch("productName")}
+              onChange={(e) => setField("productName", e.target.value)}
               required
             />
-            {touched.productName && validationErrors.productName && (
-              <div style={{ color: "#dc2626", fontSize: "12px", marginTop: "4px" }}>{validationErrors.productName}</div>
-            )}
 
             <Input
               label={<>Product barcode <span className="text-muted fw-normal">(Optional)</span></>}
@@ -208,58 +215,37 @@ const CreateProductPage: React.FC = () => {
                 <option key={b.id} value={b.id}>{b.name}</option>
               ))}
             </Select>
-            {/* Add Brand inline */}
             {!showAddBrand ? (
-              <button
-                type="button"
-                className="btn btn-link p-0 mt-1 text-decoration-none fw-medium"
+              <button type="button" className="btn btn-link p-0 mt-1 text-decoration-none fw-medium"
                 style={{ fontSize: "13px", color: "#6366f1" }}
-                onClick={() => setShowAddBrand(true)}
-              >
+                onClick={() => setShowAddBrand(true)}>
                 + Add a brand
               </button>
             ) : (
               <div className="d-flex align-items-center gap-2 mt-2 p-3 rounded-3 border bg-white" style={{ fontSize: "13px" }}>
-                <input
-                  autoFocus
-                  type="text"
+                <input autoFocus type="text"
                   className="form-control form-control-sm shadow-none border-secondary-subtle"
-                  placeholder="Brand name"
-                  value={newBrand}
+                  placeholder="Brand name" value={newBrand}
                   onChange={(e) => setNewBrand(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") handleAddBrand(); if (e.key === "Escape") setShowAddBrand(false); }}
-                />
-                <button
-                  type="button"
-                  className="btn btn-dark btn-sm rounded-pill px-3 fw-medium flex-shrink-0"
-                  onClick={handleAddBrand}
-                  disabled={!newBrand.trim() || savingBrand}
-                >
+                  onKeyDown={(e) => { if (e.key === "Enter") handleAddBrand(); if (e.key === "Escape") setShowAddBrand(false); }} />
+                <button type="button" className="btn btn-dark btn-sm rounded-pill px-3 fw-medium flex-shrink-0"
+                  onClick={handleAddBrand} disabled={!newBrand.trim() || savingBrand}>
                   {savingBrand ? "Saving..." : "Save"}
                 </button>
-                <button
-                  type="button"
-                  className="btn btn-light btn-sm rounded-pill px-3 fw-medium flex-shrink-0 border"
-                  onClick={() => { setShowAddBrand(false); setNewBrand(""); }}
-                >
-                  Cancel
-                </button>
+                <button type="button" className="btn btn-light btn-sm rounded-pill px-3 fw-medium flex-shrink-0 border"
+                  onClick={() => { setShowAddBrand(false); setNewBrand(""); }}>Cancel</button>
               </div>
             )}
 
             <Input
-              label={<>Product Quantity <span style={{ color: "#dc2626" }}>*</span></>}
+              label="Product Quantity"
               type="number"
               min="0"
               placeholder="0.00"
               value={form.amount}
-              onChange={(e) => { setField("amount", e.target.value); touch("amount"); }}
-              onBlur={() => touch("amount")}
+              onChange={(e) => setField("amount", e.target.value)}
               containerClass="mt-3"
             />
-            {touched.amount && validationErrors.amount && (
-              <div style={{ color: "#dc2626", fontSize: "12px", marginTop: "4px" }}>{validationErrors.amount}</div>
-            )}
 
             <Input
               label="Product description"
@@ -273,56 +259,35 @@ const CreateProductPage: React.FC = () => {
             />
 
             <Select
-              label={<>Product category <span style={{ color: "#dc2626" }}>*</span></>}
+              label="Product category"
               containerClass="mt-3"
               value={form.categoryId}
-              onChange={(e) => { setField("categoryId", e.target.value); touch("categoryId"); }}
-              onBlur={() => touch("categoryId")}
+              onChange={(e) => setField("categoryId", e.target.value)}
             >
               <option value="">Select a category</option>
               {categories.map((c: any) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </Select>
-            {touched.categoryId && validationErrors.categoryId && (
-              <div style={{ color: "#dc2626", fontSize: "12px", marginTop: "4px" }}>{validationErrors.categoryId}</div>
-            )}
-            {/* Add Category inline */}
             {!showAddCategory ? (
-              <button
-                type="button"
-                className="btn btn-link p-0 mt-1 text-decoration-none fw-medium"
+              <button type="button" className="btn btn-link p-0 mt-1 text-decoration-none fw-medium"
                 style={{ fontSize: "13px", color: "#6366f1" }}
-                onClick={() => setShowAddCategory(true)}
-              >
+                onClick={() => setShowAddCategory(true)}>
                 + Add a category
               </button>
             ) : (
               <div className="d-flex align-items-center gap-2 mt-2 p-3 rounded-3 border bg-white" style={{ fontSize: "13px" }}>
-                <input
-                  autoFocus
-                  type="text"
+                <input autoFocus type="text"
                   className="form-control form-control-sm shadow-none border-secondary-subtle"
-                  placeholder="Category name"
-                  value={newCategory}
+                  placeholder="Category name" value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") handleAddCategory(); if (e.key === "Escape") setShowAddCategory(false); }}
-                />
-                <button
-                  type="button"
-                  className="btn btn-dark btn-sm rounded-pill px-3 fw-medium flex-shrink-0"
-                  onClick={handleAddCategory}
-                  disabled={!newCategory.trim() || savingCategory}
-                >
+                  onKeyDown={(e) => { if (e.key === "Enter") handleAddCategory(); if (e.key === "Escape") setShowAddCategory(false); }} />
+                <button type="button" className="btn btn-dark btn-sm rounded-pill px-3 fw-medium flex-shrink-0"
+                  onClick={handleAddCategory} disabled={!newCategory.trim() || savingCategory}>
                   {savingCategory ? "Saving..." : "Save"}
                 </button>
-                <button
-                  type="button"
-                  className="btn btn-light btn-sm rounded-pill px-3 fw-medium flex-shrink-0 border"
-                  onClick={() => { setShowAddCategory(false); setNewCategory(""); }}
-                >
-                  Cancel
-                </button>
+                <button type="button" className="btn btn-light btn-sm rounded-pill px-3 fw-medium flex-shrink-0 border"
+                  onClick={() => { setShowAddCategory(false); setNewCategory(""); }}>Cancel</button>
               </div>
             )}
           </Card>
@@ -330,19 +295,15 @@ const CreateProductPage: React.FC = () => {
           {/* 2. Pricing */}
           <Card title="Pricing" className="mb-4">
             <Input
-              label={<>Supply price <span style={{ color: "#dc2626" }}>*</span></>}
+              label="Supply price"
               type="number"
               min="0"
               placeholder="0.00"
               value={form.supplyPrice}
-              onChange={(e) => { setField("supplyPrice", e.target.value); touch("supplyPrice"); }}
-              onBlur={() => touch("supplyPrice")}
+              onChange={(e) => setField("supplyPrice", e.target.value)}
               iconLeft={<span>INR</span>}
               containerClass="mt-1"
             />
-            {touched.supplyPrice && validationErrors.supplyPrice && (
-              <div style={{ color: "#dc2626", fontSize: "12px", marginTop: "4px" }}>{validationErrors.supplyPrice}</div>
-            )}
 
             <div className="d-flex align-items-center justify-content-between mt-4 mb-1">
               <div>
@@ -435,4 +396,4 @@ const CreateProductPage: React.FC = () => {
   );
 };
 
-export default CreateProductPage;
+export default EditProductPage;
