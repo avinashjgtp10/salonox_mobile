@@ -15,6 +15,8 @@ import {
 import { Dropdown } from "react-bootstrap";
 import { useProducts } from "../hooks/useProducts";
 import ProductDrawer from "../components/ProductDrawer";
+import Pagination from "../../../components/ui/Pagination";
+import Button from "../../../components/ui/Button";
 import "../styles/ProductsListPage.scss";
 
 interface FilterState {
@@ -30,8 +32,8 @@ const ProductsListPage: React.FC = () => {
   const {
     products, brands, categories, loading, error,
     fetchProducts, fetchBrands, fetchCategories,
-    createBrand, deleteCategory,
-    createCategory, updateProduct, deleteProduct,
+    createBrand, deleteBrand, deleteCategory,
+    createCategory, deleteProduct,
     exportCSV, exportExcel, exportPDF,
   } = useProducts();
 
@@ -51,13 +53,22 @@ const ProductsListPage: React.FC = () => {
   >("none");
   const [brandName, setBrandName] = useState("");
   const [categoryName, setCategoryName] = useState("");
-  const ROWS_PER_PAGE = 8;
+  const [pageSize, setPageSize] = useState(10);
 
   useEffect(() => {
     fetchProducts();
     fetchBrands();
     fetchCategories();
   }, [fetchProducts, fetchBrands, fetchCategories]);
+
+  // Re-fetch products whenever the page becomes visible (e.g. returning from Quick Sale)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") fetchProducts();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [fetchProducts]);
 
   // Build a lookup map from category_id -> category name
   const categoryMap = useMemo(() => {
@@ -91,12 +102,15 @@ const ProductsListPage: React.FC = () => {
             : true
           : p.brand_id === appliedFilters.brand;
 
-      // Stock filter — low: 1 (amount > 0 && amount < 2), out: 0
-      const amount = p.amount ?? 0;
-      const matchesStock =
-        !appliedFilters.stock ||
-        (appliedFilters.stock === "low" ? amount > 0 && amount < 2 : true) ||
-        (appliedFilters.stock === "out" ? amount === 0 : true);
+      // Stock filter
+      const rawAmt = parseFloat(p.amount);
+      const amount = isNaN(rawAmt) ? 0 : rawAmt;
+      let matchesStock = true;
+      if (appliedFilters.stock === "low") {
+        matchesStock = amount <= 5; // Include 0 in low stock
+      } else if (appliedFilters.stock === "out") {
+        matchesStock = amount <= 0;
+      }
 
       return matchesSearch && matchesCategory && matchesBrand && matchesStock;
     });
@@ -140,14 +154,10 @@ const ProductsListPage: React.FC = () => {
     );
   };
 
-  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / ROWS_PER_PAGE));
   const paginatedProducts = filteredProducts.slice(
-    (currentPage - 1) * ROWS_PER_PAGE,
-    currentPage * ROWS_PER_PAGE,
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
   );
-  const startItem = filteredProducts.length === 0 ? 0 : (currentPage - 1) * ROWS_PER_PAGE + 1;
-  const endItem = Math.min(currentPage * ROWS_PER_PAGE, filteredProducts.length);
-  const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
 
   return (
     <div className="products-list-page">
@@ -212,7 +222,8 @@ const ProductsListPage: React.FC = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <button
+        <Button
+          variant={hasActiveFilters ? "primary" : "outline"}
           className={`filter-btn flex-shrink-0${hasActiveFilters ? " filter-btn--active" : ""}`}
           onClick={handleOpenFilter}
         >
@@ -222,7 +233,7 @@ const ProductsListPage: React.FC = () => {
               {[appliedFilters.category, appliedFilters.brand, appliedFilters.stock].filter(Boolean).length}
             </span>
           )}
-        </button>
+        </Button>
 
         {selectedProducts.length > 0 && (
           <div className="bulk-actions d-flex align-items-center gap-3 ms-auto bg-light px-3 py-2 rounded-3 border">
@@ -240,12 +251,7 @@ const ProductsListPage: React.FC = () => {
               </button>
             </div>
             <div className="dropdown d-flex align-items-center border-start ps-3 ms-1">
-              <button
-                className="btn btn-outline-secondary dropdown-toggle bg-white d-flex align-items-center gap-2 fw-medium text-dark border shadow-sm"
-                data-bs-toggle="dropdown"
-              >
-                Bulk edit
-              </button>
+              
               <ul className="dropdown-menu shadow">
                 <li>
                   <button className="dropdown-item py-2 fw-medium text-dark">
@@ -294,7 +300,7 @@ const ProductsListPage: React.FC = () => {
                 </th>
                 <th>Product name & SKU</th>
                 <th>Category</th>
-                <th>Stock level</th>
+                <th>Stock  Left</th>
                 <th>Retail price</th>
               </tr>
             </thead>
@@ -330,10 +336,43 @@ const ProductsListPage: React.FC = () => {
                       </div>
                     </td>
                     <td>{p.category_id ? (categoryMap[p.category_id] ?? p.category_id) : "—"}</td>
-                    <td className={`stock-cell ${(p.amount ?? 0) === 0 ? "stock-cell--out" : (p.amount ?? 0) < 2 ? "stock-cell--low" : ""}`}>
-                      {(p.amount ?? 0) === 0 ? "Out of stock" : `${p.amount} in stock`}
+                    <td className="stock-cell">
+                      {(() => {
+                        const rawQty = parseFloat(p.amount);
+                        const qty = isNaN(rawQty) ? 0 : rawQty;
+                        if (qty <= 0) return (
+                          <span style={{ display: "inline-block", background: "#fee2e2", color: "#dc2626", fontWeight: 600, fontSize: "12px", padding: "4px 10px", borderRadius: "12px" }}>
+                            Out of stock
+                          </span>
+                        );
+                        if (qty <= 5) return (
+                          <span style={{ display: "inline-block", background: "#fef3c7", color: "#d97706", fontWeight: 600, fontSize: "12px", padding: "4px 10px", borderRadius: "12px" }}>
+                            {qty} low
+                          </span>
+                        );
+                        return (
+                          <span style={{ fontWeight: 500, color: "#111" }}>{qty}</span>
+                        );
+                      })()}
                     </td>
-                    <td className="price-cell">₹{(p.retail_price ?? 0).toLocaleString()}</td>
+                    <td className="price-cell">
+                      {(() => {
+                        const rp = parseFloat(p.retail_price);
+                        const sp = parseFloat(p.supply_price);
+                        const isValidRp = !isNaN(rp) && rp !== 0;
+                        const isValidSp = !isNaN(sp) && sp !== 0;
+
+                        if (isValidRp) return `₹${rp.toLocaleString()}`;
+                        if (isValidSp) return `₹${sp.toLocaleString()}`;
+                        
+                        // If it's explicitly 0 and intended, we could show ₹0, 
+                        // but requirement says 'If both missing -> Price not available'
+                        if (p.retail_price === 0 || p.retail_price === "0") return "₹0";
+                        if (p.supply_price === 0 || p.supply_price === "0") return "₹0";
+                        
+                        return <span className="text-muted fst-italic" style={{ fontSize: "12px" }}>Price not available</span>;
+                      })()}
+                    </td>
                   </tr>
                 ))
               ) : (
@@ -348,40 +387,14 @@ const ProductsListPage: React.FC = () => {
         )}
       </main>
 
-      <footer className="products-list-page__pagination">
-        <span className="page-info">
-          {filteredProducts.length === 0
-            ? "No results"
-            : `Viewing ${startItem}–${endItem} of ${filteredProducts.length} results`}
-        </span>
-        {totalPages > 1 && (
-          <div className="pagination-controls">
-            <button
-              className="pagination-btn"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage((p) => p - 1)}
-            >
-              ← Prev
-            </button>
-            {pageNumbers.map((page) => (
-              <button
-                key={page}
-                className={`pagination-btn ${currentPage === page ? "active" : ""}`}
-                onClick={() => setCurrentPage(page)}
-              >
-                {page}
-              </button>
-            ))}
-            <button
-              className="pagination-btn"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage((p) => p + 1)}
-            >
-              Next →
-            </button>
-          </div>
-        )}
-      </footer>
+      <Pagination
+        currentPage={currentPage}
+        pageSize={pageSize}
+        totalItems={filteredProducts.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={(sz) => { setPageSize(sz); setCurrentPage(1); }}
+        className="mt-4"
+      />
 
       {/* Product Drawer */}
       {drawerProduct && (
@@ -391,9 +404,9 @@ const ProductsListPage: React.FC = () => {
           categories={categories}
           loading={loading.update}
           onClose={() => setDrawerProduct(null)}
-          onSave={async (id, data) => {
-            const result = await updateProduct(id, data);
-            return result;
+          onDelete={async (id) => {
+            await deleteProduct(id);
+            setDrawerProduct(null);
           }}
         />
       )}
@@ -474,19 +487,18 @@ const ProductsListPage: React.FC = () => {
             </div>
 
             <div className="d-flex justify-content-end p-4 pt-1 gap-3">
-              <button
-                className="btn btn-outline-dark rounded-pill px-4 fw-medium border shadow-sm"
+              <Button
+                variant="outline"
                 onClick={handleClearFilters}
               >
                 Clear filters
-              </button>
-              <button
-                className="btn btn-dark rounded-pill px-4 fw-medium shadow-sm"
-                style={{ backgroundColor: "#101828", borderColor: "#101828" }}
+              </Button>
+              <Button
+                variant="primary"
                 onClick={handleApplyFilters}
               >
                 Apply
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -514,27 +526,33 @@ const ProductsListPage: React.FC = () => {
                   </div>
                   <h5 className="fw-bold mb-1 text-dark">No brands here yet.</h5>
                   <p className="text-muted mb-4 small">Your brands will appear here</p>
-                  <button
-                    className="btn btn-dark rounded-pill px-4 fw-medium"
+                  <Button
+                    variant="primary"
                     onClick={() => setActiveModal("add_brand")}
                   >
                     Add a brand
-                  </button>
+                  </Button>
                 </>
               ) : (
                 <div className="w-100 mt-3 text-start">
                   {brands.map((b: any) => (
                     <div key={b.id} className="d-flex justify-content-between align-items-center py-2 border-bottom">
                       <span>{b.name}</span>
+                      <button
+                        className="btn btn-sm btn-link text-danger p-0"
+                        onClick={() => deleteBrand(b.id)}
+                      >
+                        <X size={16} />
+                      </button>
                     </div>
                   ))}
                   <div className="text-center mt-4">
-                    <button
-                      className="btn btn-dark rounded-pill px-4 mt-3"
+                    <Button
+                      variant="primary"
                       onClick={() => setActiveModal("add_brand")}
                     >
                       Add a brand
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -571,15 +589,14 @@ const ProductsListPage: React.FC = () => {
               />
             </div>
             <div className="d-flex justify-content-end p-4 pt-2 gap-3">
-              <button
-                className="btn btn-light rounded-pill px-4 fw-medium border shadow-sm"
-                style={{ backgroundColor: "#fff" }}
+              <Button
+                variant="outline"
                 onClick={() => setActiveModal("brands")}
               >
                 Go back
-              </button>
-              <button
-                className="btn btn-dark rounded-pill px-4 fw-medium shadow-sm"
+              </Button>
+              <Button
+                variant="primary"
                 onClick={async () => {
                   if (brandName.trim()) {
                     await createBrand(brandName.trim());
@@ -589,7 +606,7 @@ const ProductsListPage: React.FC = () => {
                 }}
               >
                 Save
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -621,12 +638,12 @@ const ProductsListPage: React.FC = () => {
                   </div>
                   <h5 className="fw-bold mb-1 text-dark">No categories here yet.</h5>
                   <p className="text-muted mb-4 small">Your categories will appear here</p>
-                  <button
-                    className="btn btn-dark rounded-pill px-4 fw-medium"
+                  <Button
+                    variant="primary"
                     onClick={() => setActiveModal("add_category")}
                   >
                     Add a category
-                  </button>
+                  </Button>
                 </div>
               ) : (
                 <div className="w-100 text-start">
@@ -642,12 +659,12 @@ const ProductsListPage: React.FC = () => {
                     </div>
                   ))}
                   <div className="text-center mt-4">
-                    <button
-                      className="btn btn-dark rounded-pill px-4 mt-3"
+                    <Button
+                      variant="primary"
                       onClick={() => setActiveModal("add_category")}
                     >
                       Add a category
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -684,15 +701,14 @@ const ProductsListPage: React.FC = () => {
               />
             </div>
             <div className="d-flex justify-content-end p-4 pt-2 gap-3">
-              <button
-                className="btn btn-light rounded-pill px-4 fw-medium border shadow-sm"
-                style={{ backgroundColor: "#fff" }}
+              <Button
+                variant="outline"
                 onClick={() => setActiveModal("categories")}
               >
                 Go back
-              </button>
-              <button
-                className="btn btn-dark rounded-pill px-4 fw-medium shadow-sm"
+              </Button>
+              <Button
+                variant="primary"
                 onClick={async () => {
                   if (categoryName.trim()) {
                     await createCategory(categoryName.trim());
@@ -702,7 +718,7 @@ const ProductsListPage: React.FC = () => {
                 }}
               >
                 Save
-              </button>
+              </Button>
             </div>
           </div>
         </div>

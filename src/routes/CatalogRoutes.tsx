@@ -28,6 +28,9 @@ const ProductsLandingPage = lazy(
 const CreateProductPage = lazy(
   () => import("../features/catalog/pages/CreateProductPage"),
 );
+const EditProductPage = lazy(
+  () => import("../features/catalog/pages/EditProductPage"),
+);
 const ImportProductsPage = lazy(
   () => import("../features/catalog/pages/ImportProductsPage"),
 );
@@ -69,6 +72,7 @@ export const CatalogRoutes = () => (
       <Route path="products" element={<ProductsListPage />} />
       <Route path="products/landing" element={<ProductsLandingPage />} />
       <Route path="products/create" element={<CreateProductPage />} />
+      <Route path="products/edit/:id" element={<EditProductPage />} />
       <Route path="products/import" element={<ImportProductsPage />} />
       <Route path="inventory/stocktakes" element={<StocktakesListPage />} />
       <Route path="inventory/stocktakes/new" element={<AddStocktakePage />} />

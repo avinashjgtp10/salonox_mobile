@@ -26,7 +26,7 @@ import "../../styles/ClientFormUI.scss";
 interface Props { onClose: () => void; defaultStaffId?: string; defaultTime?: string; existingBooking?: Booking }
 type TempService = ServiceItem & { tempId: string };
 type TempPkg = PackageItem & { tempId: string; search: string; showDrop: boolean };
-type TempProduct = { tempId: string; id: string; productName: string; price: number; qty: number; total: number; search: string; showDrop: boolean };
+type TempProduct = { tempId: string; id: string; productName: string; price: number; qty: number; total: number; search: string; showDrop: boolean; stock?: number; };
 type TempMembership = { tempId: string; name: string; duration: string; price: number; qty: number; total: number; search: string; showDrop: boolean };
 type SingleMethod = "Cash" | "Card" | "UPI";
 type SplitEntry = { method: SingleMethod; amount: string };
@@ -103,16 +103,18 @@ function validateAll(svcRows: TempService[], pkgRows: TempPkg[], prodRows: TempP
 }
 
 // ─── Inline searchable dropdown ────────────────────────────────────────────────
-interface InlineDropItem { label: string; sub?: string; price: number }
+interface InlineDropItem { label: string; sub?: string; price: number; stockIndicator?: boolean; priceLabel?: React.ReactNode }
 const InlineDrop: React.FC<{
   search: string; onSearchChange: (v: string) => void; showDrop: boolean; onFocus: () => void;
   items: InlineDropItem[]; onSelect: (item: InlineDropItem) => void;
   placeholder?: string; dropRef: React.RefObject<HTMLDivElement | null>; disabled?: boolean; hasError?: boolean;
-}> = ({ search, onSearchChange, showDrop, onFocus, items, onSelect, placeholder = "Search…", dropRef, disabled, hasError }) => (
+  inputStyle?: React.CSSProperties;
+}> = ({ search, onSearchChange, showDrop, onFocus, items, onSelect, placeholder = "Search…", dropRef, disabled, hasError, inputStyle }) => (
   <div ref={dropRef} className="position-relative flex-grow-1">
     <input
       disabled={disabled}
       className={`form-control form-control-sm${hasError ? " is-invalid" : ""}`}
+      style={inputStyle}
       placeholder={placeholder}
       value={search}
       onChange={(e) => !disabled && onSearchChange(e.target.value)}
@@ -123,10 +125,12 @@ const InlineDrop: React.FC<{
         {items.map((item, i) => (
           <button key={i} className="dropdown-item d-flex justify-content-between py-1" style={{ fontSize: 12 }} onMouseDown={() => onSelect(item)}>
             <div>
-              <span className="fw-semibold">{item.label}</span>
+              <span className="fw-semibold" style={item.stockIndicator ? { color: "#dc2626" } : undefined}>
+                {item.label} {item.stockIndicator && <span style={{ fontSize: 10, fontWeight: 600 }}>(Out of stock)</span>}
+              </span>
               {item.sub && <div className="text-muted" style={{ fontSize: 10 }}>{item.sub}</div>}
             </div>
-            <span className="text-muted small">₹{item.price}</span>
+            <span className="text-muted small">{item.priceLabel ? item.priceLabel : `₹${item.price}`}</span>
           </button>
         ))}
       </div>
@@ -552,7 +556,12 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
           service_id: toApiStaffId(firstRow?.id) || undefined,
           services: b.services.map((s: any) => { const dur = s.duration || 30; return { service_id: s.id, staff_id: s.staffId, time: s.time, start_time: s.time, end_time: addMinutes(s.time, dur), serviceId: s.id, staffId: s.staffId, startTime: s.time, endTime: addMinutes(s.time, dur), price: s.price, qty: s.qty, total: s.total }; }),
           package_items: b.packageItems,
-          product_items: (b as any).productItems,
+          product_items: ((b as any).productItems || []).map((p: any) => ({
+            product_id: p.id || p.product_id || undefined,
+            name: p.productName || p.name || "",
+            price: p.price || 0,
+            quantity: p.qty || p.quantity || 1,
+          })),
           membership_items: (b as any).membershipItems,
           scheduled_at: `${calDate}T${startTime}:00`,
           duration_minutes: b.services[0]?.duration || 30,
@@ -609,7 +618,12 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
           service_id: toApiStaffId(firstRow?.id) || undefined,
           services: b.services.map((s: any) => { const dur = s.duration || 30; return { service_id: s.id, staff_id: s.staffId, time: s.time, start_time: s.time, end_time: addMinutes(s.time, dur), serviceId: s.id, staffId: s.staffId, startTime: s.time, endTime: addMinutes(s.time, dur), price: s.price, qty: s.qty, total: s.total }; }),
           package_items: b.packageItems,
-          product_items: (b as any).productItems,
+          product_items: ((b as any).productItems || []).map((p: any) => ({
+            product_id: p.id || p.product_id || undefined,
+            name: p.productName || p.name || "",
+            price: p.price || 0,
+            quantity: p.qty || p.quantity || 1,
+          })),
           membership_items: (b as any).membershipItems,
           scheduled_at: `${calDate}T${startTime}:00`,
           duration_minutes: b.services[0]?.duration || 30,
@@ -682,6 +696,51 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
           split_details: paymentMode === "split" ? methods : { [singleMethod!]: chargeAmount },
           status: newDue > 0 ? "partial" : "completed",
         });
+
+        // ── Trigger appointment checkout → creates sale + deducts product stock ──
+        try {
+          // Build sale items from current rows so backend can link them to the sale
+          const saleItems = [
+            ...serviceRows.filter((r) => r.service).map((r) => ({
+              item_type: "service",
+              item_id: r.id || undefined,
+              name: r.service,
+              quantity: r.qty || 1,
+              unit_price: r.price,
+            })),
+            ...packageRows.filter((r) => r.packageName).map((r) => ({
+              item_type: "service",
+              item_id: r.packageId || undefined,
+              name: r.packageName,
+              quantity: r.qty || 1,
+              unit_price: r.price,
+            })),
+            ...productRows.filter((r) => r.productName).map((r) => ({
+              item_type: "product",
+              item_id: r.id || undefined,
+              name: r.productName,
+              quantity: r.qty || 1,
+              unit_price: r.price,
+            })),
+            ...membershipRows.filter((r) => r.name).map((r) => ({
+              item_type: "membership",
+              item_id: undefined,
+              name: r.name,
+              quantity: r.qty || 1,
+              unit_price: r.price,
+            })),
+          ];
+          await api.post(`/api/v1/appointments/${apptId}/checkout`, {
+            items: saleItems,
+            payment_method: methodLabel,
+          });
+        } catch (checkoutErr: any) {
+          // If already checked out (400 "already has a linked sale"), silently ignore
+          if (checkoutErr?.response?.data?.code !== "BAD_REQUEST") {
+            console.error("Appointment checkout failed:", checkoutErr);
+          }
+        }
+
         // ✅ FIX — Only patch payment fields locally; do NOT refetch (prevents card position change)
         const targetId = existingBooking?.id || savedBookingRef?.id || apiAppointmentId;
         if (targetId) {
@@ -1089,12 +1148,23 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                 const filtered = (productsList || []).filter((p: any) => p.name.toLowerCase().includes(row.search.toLowerCase()));
                 const hasRowErr = hasErr(`prod_${i}_name`);
                 return (
-                  <div key={row.tempId} className="item-row-grid item-row-grid--prod border-bottom">
+                  <div key={row.tempId} className="item-row-grid item-row-grid--prod border-bottom" style={{ position: "relative" }}>
+                    {row.stock !== undefined && row.stock <= 0 && (
+                      <div style={{ position: "absolute", top: "-10px", left: "10px", fontSize: "10px", color: "#dc2626", fontWeight: "bold", background: "#fee2e2", padding: "1px 4px", borderRadius: "4px", zIndex: 10 }}>
+                        Out of stock
+                      </div>
+                    )}
                     <InlineDrop dropRef={getProdRef(row.tempId)} search={row.search} showDrop={row.showDrop} placeholder="Search product…" disabled={priceFrozen} hasError={hasRowErr}
+                      inputStyle={row.stock !== undefined && row.stock <= 0 ? { color: "#dc2626", fontWeight: 600 } : undefined}
                       onFocus={() => setProductRows((r) => r.map((x) => ({ ...x, showDrop: x.tempId === row.tempId })))}
                       onSearchChange={(v) => setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, search: v, showDrop: true } : x))}
-                      items={filtered.map((p: any) => ({ label: p.name, price: p.price }))}
-                      onSelect={(item) => { const prod = (productsList || []).find((p: any) => p.name === item.label) as any; if (!prod) return; setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, productName: prod.name, price: prod.price, total: prod.price * (x.qty || 1), search: prod.name, showDrop: false } : x)); clearErrPrefix(`prod_${i}_`); }} />
+                      items={filtered.map((p: any) => ({
+                        label: p.name,
+                        price: p.price === null ? 0 : p.price,
+                        stockIndicator: p.stock <= 0,
+                        priceLabel: p.price === null ? <span style={{ fontSize: 10, color: "#6c757d", fontStyle: "italic" }}>Price not available</span> : undefined
+                      }))}
+                      onSelect={(item) => { const prod = (productsList || []).find((p: any) => p.name === item.label) as any; if (!prod) return; setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, id: prod.id, productName: prod.name, price: prod.price, total: prod.price * (x.qty || 1), search: prod.name, showDrop: false, stock: prod.stock } : x)); clearErrPrefix(`prod_${i}_`); }} />
                     <input readOnly value={`₹${row.price}`} className="form-control form-control-sm bg-white" />
                     <input type="text" inputMode="numeric" placeholder="1" value={row.qty} disabled={priceFrozen} className="form-control form-control-sm"
                       onChange={(e) => { const val = e.target.value.replace(/[^0-9.]/g, ""); const num = parseFloat(val); setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: val as any, total: (!isNaN(num) && num > 0) ? x.price * num : x.total } : x)); }}

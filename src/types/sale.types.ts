@@ -45,6 +45,7 @@ export interface Sale {
 // ── Payloads ──────────────────────────────────────────────────────────────────
 export interface CreateSaleItemPayload {
   item_type: SaleItemType;
+  item_id?: string;
   name: string;
   quantity: number;
   unit_price: string;

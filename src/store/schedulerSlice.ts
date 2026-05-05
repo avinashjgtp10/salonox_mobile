@@ -49,7 +49,7 @@ export interface ClientStat {
 // ── Scheduler lookup data (populated from API) ───────────────────────────────
 export interface SchedulerService { id: string; name: string; price: number; duration: number }
 export interface SchedulerPackage { id: string; name: string; price: number; services: string[] }
-export interface SchedulerProduct { name: string; price: number }
+export interface SchedulerProduct { id: string; name: string; price: number | null; stock: number }
 export interface SchedulerMembership { name: string; price: number }
 
 // ── Slice state ──────────────────────────────────────────────────────────────

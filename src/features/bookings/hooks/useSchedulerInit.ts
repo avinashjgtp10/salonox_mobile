@@ -328,10 +328,27 @@ export function useSchedulerInit() {
   useEffect(() => {
     if (!apiProducts.length) return;
     dispatch(setProductsList(
-      apiProducts.map((p: any) => ({
-        name: p.name || "",
-        price: parseFloat(String(p.selling_price ?? p.sellingPrice ?? p.price ?? 0)) || 0,
-      }))
+      apiProducts.map((p: any) => {
+        const rp = parseFloat(String(p.retail_price ?? p.selling_price ?? p.sellingPrice ?? p.price));
+        const sp = parseFloat(String(p.supply_price));
+        const isValidRp = !isNaN(rp) && rp !== 0;
+        const isValidSp = !isNaN(sp) && sp !== 0;
+        
+        let price: number | null = null;
+        if (isValidRp) price = rp;
+        else if (isValidSp) price = sp;
+        else if (p.retail_price === 0 || p.retail_price === "0" || p.supply_price === 0 || p.supply_price === "0") price = 0;
+
+        const rawAmt = parseFloat(p.amount);
+        const stock = isNaN(rawAmt) ? 0 : rawAmt;
+
+        return {
+          id: String(p.id),
+          name: p.name || "",
+          price,
+          stock,
+        };
+      })
     ));
   }, [apiProducts, dispatch]);
 }
