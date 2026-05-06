@@ -1,172 +1,285 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronDown, Search, Gear } from "react-bootstrap-icons";
+import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import {
+  fetchPayRunsThunk,
+  createPayRunThunk,
+  updatePayRunThunk,
+  deletePayRunThunk,
+} from "../../../middleware/payRun/payRun.thunk";
+import { clearPayRunError, clearPayRunSuccess } from "../../../store/payRunSlice";
+import type { PayRun } from "../../../types/payRun.types";
+import toast from "react-hot-toast";
+
+import PayRunSummaryCards from "../components/payruns/PayRunSummaryCards";
+import PayRunTable from "../components/payruns/PayRunTable";
+import PayRunFilterBar from "../components/payruns/PayRunFilterBar";
+import PayRunFormModal from "../components/payruns/PayRunFormModal";
+import PayRunDeleteModal from "../components/payruns/PayRunDeleteModal";
+import Button from "../../../components/ui/Button";
+import { ChevronLeft, ChevronRight, Gear } from "react-bootstrap-icons";
+
 import "../styles/PayRunsPage.scss";
-import AddAdjustmentModal from "../components/AddAdjustmentModal";
+
+const PAGE_SIZE = 10;
 
 const PayRunsPage: React.FC = () => {
   const navigate = useNavigate();
-  const [isOptionsOpen, setIsOptionsOpen] = useState(false);
-  const [activeRowActions, setActiveRowActions] = useState<string | null>(null);
-  const [showAddAdjustment, setShowAddAdjustment] = useState(false);
-  const actionsRef = useRef<HTMLDivElement>(null);
+  const dispatch = useAppDispatch();
+  const { payRuns, summary, loading, error, success } = useAppSelector(
+    (state) => state.payRun
+  );
 
-  // Click outside handler for actions dropdown
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [selectedPayRun, setSelectedPayRun] = useState<PayRun | null>(null);
+  const [, setSearchTerm] = useState("");
+
+  // ── Pagination state ────────────────────────────────────────────────────────
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(payRuns.length / PAGE_SIZE)),
+    [payRuns.length]
+  );
+
+  // Slice the current page's records
+  const pagedPayRuns = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return payRuns.slice(start, start + PAGE_SIZE);
+  }, [payRuns, currentPage]);
+
+  // Reset to page 1 when the list changes (after add / delete / search)
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        actionsRef.current &&
-        !actionsRef.current.contains(event.target as Node)
-      ) {
-        setActiveRowActions(null);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    setCurrentPage(1);
+  }, [payRuns.length]);
 
-  const toggleActions = (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    setActiveRowActions(activeRowActions === id ? null : id);
+  // ── Initial load ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    dispatch(fetchPayRunsThunk({}));
+  }, [dispatch]);
+
+  // ── Toast feedback ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      dispatch(clearPayRunError());
+    }
+    if (success) {
+      toast.success(
+        selectedPayRun?.id
+          ? "Pay run updated successfully"
+          : "Pay adjustment added successfully"
+      );
+      dispatch(clearPayRunSuccess());
+      setIsFormOpen(false);
+      setSelectedPayRun(null);
+    }
+  }, [error, success, dispatch, selectedPayRun]);
+
+  // ── Handlers ────────────────────────────────────────────────────────────────
+  const handleSearch = (value: string) => {
+    setSearchTerm(value);
+    dispatch(fetchPayRunsThunk({ search: value }));
   };
 
+  const handleCreateOrUpdate = (data: Partial<PayRun>) => {
+    if (selectedPayRun?.id) {
+      dispatch(updatePayRunThunk({ id: selectedPayRun.id, data }));
+    } else {
+      dispatch(createPayRunThunk(data));
+    }
+  };
+
+  const handleDelete = () => {
+    if (selectedPayRun?.id) {
+      const staffId = selectedPayRun.staffId || selectedPayRun.staff_id;
+      dispatch(deletePayRunThunk({ id: selectedPayRun.id, staffId })).then((res) => {
+        if (res.meta.requestStatus === "fulfilled") {
+          toast.success("Pay run deleted successfully");
+          setIsDeleteOpen(false);
+          setSelectedPayRun(null);
+        }
+      });
+    }
+  };
+
+  const openEditModal = (e: React.MouseEvent, payRun: PayRun) => {
+    e.stopPropagation();
+    setSelectedPayRun(payRun);
+    setIsFormOpen(true);
+  };
+
+  const openDeleteModal = (e: React.MouseEvent, payRun: PayRun) => {
+    e.stopPropagation();
+    setSelectedPayRun(payRun);
+    setIsDeleteOpen(true);
+  };
+
+  const handlePayTeam = () => {
+    if (summary.toPay <= 0) {
+      toast.error("There are no pending amounts to pay.");
+      return;
+    }
+    toast.success(
+      `Processing payment of ₮${summary.toPay.toLocaleString()} for the team...`
+    );
+  };
+
+  // ── Range label e.g. "1–10 of 23" ──────────────────────────────────────────
+  const rangeStart = payRuns.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const rangeEnd   = Math.min(currentPage * PAGE_SIZE, payRuns.length);
+
   return (
-    <div className="pr-page">
-      <div className="pr-page__header">
-        <div className="pr-page__header-info">
-          <h2>Pay runs</h2>
-          <p>
+    <div className="pay-runs-container">
+      {/* ── Header ── */}
+      <div className="page-header d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+        <div>
+          <h1 className="title">Pay runs</h1>
+          <p className="subtitle">
             Calculate and settle the amount owed to your team for tips,
             commissions, and wages. <a href="#">Learn more</a>
           </p>
         </div>
-        <div className="pr-page__header-btns">
-          <div className="pr-page__options-wrap">
-            <button
-              className="pr-page__btn pr-page__btn--white"
-              onClick={() => setIsOptionsOpen(!isOptionsOpen)}
-            >
-              Options <ChevronDown size={12} />
-            </button>
-            {isOptionsOpen && (
-              <div className="pr-page__options-menu">
-                <div className="pr-page__options-item">
-                  <Gear size={16} /> Pay run settings
-                </div>
-              </div>
-            )}
-          </div>
+        <div className="d-flex align-items-center gap-3">
+          <Button
+            variant="outline"
+            className="d-flex align-items-center gap-2 border shadow-sm bg-white rounded-pill"
+          >
+            <Gear /> Settings
+          </Button>
+          <Button
+            className="rounded-pill px-4 fw-bold shadow-sm"
+            onClick={() => { setSelectedPayRun(null); setIsFormOpen(true); }}
+          >
+            Add Adjustment
+          </Button>
         </div>
       </div>
 
-      <div className="pr-page__toolbar">
-        <div className="pr-page__date-selector">
-          <button className="pr-page__btn pr-page__btn--white">
-            Mar 9 – 15, 2026 <ChevronDown size={12} />
-          </button>
-        </div>
-        <div className="pr-page__search-wrap">
-          <Search />
-          <input type="text" placeholder="Search by name" />
-        </div>
-      </div>
+      {/* ── Summary cards ── */}
+      <PayRunSummaryCards summary={summary} onPayTeam={handlePayTeam} />
 
-      <div className="pr-page__summary">
-        <div className="pr-page__cards">
-          <div className="pr-page__card">
-            <label>Earnings</label>
-            <div className="pr-page__val">₮2,450.00</div>
-          </div>
-          <div className="pr-page__card">
-            <label>Other</label>
-            <div className="pr-page__val">₮150.00</div>
-          </div>
-          <div className="pr-page__card">
-            <label>Total</label>
-            <div className="pr-page__val">₮2,600.00</div>
-          </div>
-          <div className="pr-page__card">
-            <label>Paid</label>
-            <div className="pr-page__val">₮0.00</div>
-          </div>
-          <div className="pr-page__card pr-page__card--action">
-            <div>
-              <label>To pay</label>
-              <div className="pr-page__val">₮2,600.00</div>
-            </div>
-            <button className="pr-page__btn pr-page__btn--dark">
-              Pay team
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="pr-page__list">
-        <div className="pr-page__list-header">
-          <div className="col-member">Team member</div>
-          <div className="col-earnings">Earnings</div>
-          <div className="col-other">Other</div>
-          <div className="col-total">Total</div>
-          <div className="col-paid">Paid</div>
-          <div className="col-topay">To pay</div>
+      {/* ── Table ── */}
+      <div className="table-container">
+        <div className="filter-bar-wrapper">
+          <PayRunFilterBar
+            onSearchChange={handleSearch}
+            onDateChange={() => {}}
+            currentDateRange="Mar 9 – 15, 2026"
+          />
         </div>
 
-        <div
-          className="pr-page__list-item"
-          onClick={() => navigate("/dashboard/team/payruns/sd")}
-        >
-          <div className="col-member">
-            <div className="pr-page__avatar">SD</div>
-            <div className="pr-page__member-info">
-              <strong>shivani dhumal</strong>
-              <div
-                className="pr-page__actions-trigger-wrap"
-                ref={activeRowActions === "sd" ? actionsRef : null}
+        <PayRunTable
+          data={pagedPayRuns}
+          loading={loading}
+          onRowClick={(pr) => navigate(`/dashboard/team/payruns/${pr.id}`)}
+          onEdit={openEditModal}
+          onDelete={openDeleteModal}
+        />
+
+        {/* ── Pagination ── */}
+        {payRuns.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "14px 20px",
+              borderTop: "1px solid #f0f0f0",
+              background: "#fff",
+              borderRadius: "0 0 12px 12px",
+            }}
+          >
+            {/* Left: record range */}
+            <span style={{ fontSize: 13, color: "#6b7280" }}>
+              Showing{" "}
+              <strong style={{ color: "#111827" }}>{rangeStart}–{rangeEnd}</strong>
+              {" "}of{" "}
+              <strong style={{ color: "#111827" }}>{payRuns.length}</strong>
+            </span>
+
+            {/* Right: Previous / Next */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "7px 16px",
+                  borderRadius: 8,
+                  border: "1px solid #e5e7eb",
+                  background: currentPage === 1 ? "#f9fafb" : "#fff",
+                  color: currentPage === 1 ? "#d1d5db" : "#374151",
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                  transition: "all 0.15s",
+                }}
               >
-                <div
-                  className="pr-page__actions-trigger"
-                  onClick={(e) => toggleActions(e, "sd")}
-                >
-                  Actions <ChevronDown size={10} />
-                </div>
-                {activeRowActions === "sd" && (
-                  <div className="pr-page__row-dropdown">
-                    <div
-                      className="pr-page__dropdown-item"
-                      onClick={() => navigate("/dashboard/team/payruns/sd")}
-                    >
-                      View breakdown
-                    </div>
-                    <div className="pr-page__dropdown-item">
-                      Edit team member
-                    </div>
-                    <div
-                      className="pr-page__dropdown-item"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowAddAdjustment(true);
-                        setActiveRowActions(null);
-                      }}
-                    >
-                      Add adjustment
-                    </div>
-                  </div>
-                )}
-              </div>
+                <ChevronLeft size={14} />
+                Previous
+              </button>
+
+              {/* Current page indicator */}
+              <span
+                style={{
+                  minWidth: 32,
+                  textAlign: "center",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: "#111827",
+                  background: "#f3f4f6",
+                  borderRadius: 6,
+                  padding: "4px 10px",
+                }}
+              >
+                {currentPage} / {totalPages}
+              </span>
+
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "7px 16px",
+                  borderRadius: 8,
+                  border: "1px solid #e5e7eb",
+                  background: currentPage === totalPages ? "#f9fafb" : "#fff",
+                  color: currentPage === totalPages ? "#d1d5db" : "#374151",
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+                  transition: "all 0.15s",
+                }}
+              >
+                Next
+                <ChevronRight size={14} />
+              </button>
             </div>
           </div>
-          <div className="col-earnings">₮2,450.00</div>
-          <div className="col-other">₮150.00</div>
-          <div className="col-total">₮2,600.00</div>
-          <div className="col-paid">₮0.00</div>
-          <div className="col-topay">₮2,600.00</div>
-        </div>
+        )}
       </div>
 
-      <AddAdjustmentModal
-        isOpen={showAddAdjustment}
-        onClose={() => setShowAddAdjustment(false)}
-        memberName="shivani dhumal"
+      {/* ── Modals ── */}
+      <PayRunFormModal
+        isOpen={isFormOpen}
+        onClose={() => { setIsFormOpen(false); setSelectedPayRun(null); }}
+        onSubmit={handleCreateOrUpdate}
+        initialData={selectedPayRun || undefined}
+        loading={loading}
+      />
+
+      <PayRunDeleteModal
+        isOpen={isDeleteOpen}
+        onClose={() => { setIsDeleteOpen(false); setSelectedPayRun(null); }}
+        onConfirm={handleDelete}
+        loading={loading}
+        itemName={selectedPayRun?.employeeName}
       />
     </div>
   );

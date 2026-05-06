@@ -23,10 +23,16 @@ export const selectIsOnboardingComplete = createSelector(
   selectAuthState,
   (a) => a.isOnboardingComplete,
 );
-export const selectAuthLoading = createSelector(
-  selectAuthState,
-  (a) => a.loading,
-);
+// Individual loading flags — avoids returning a new object reference on every render
+export const selectAuthLoginLoading = createSelector(selectAuthState, (a) => a.loading.login);
+export const selectAuthRegisterLoading = createSelector(selectAuthState, (a) => a.loading.register);
+export const selectAuthSendOtpLoading = createSelector(selectAuthState, (a) => a.loading.sendOtp);
+export const selectAuthVerifyOtpLoading = createSelector(selectAuthState, (a) => a.loading.verifyOtp);
+export const selectAuthForgotSendOtpLoading = createSelector(selectAuthState, (a) => a.loading.forgotSendOtp);
+export const selectAuthForgotVerifyOtpLoading = createSelector(selectAuthState, (a) => a.loading.forgotVerifyOtp);
+export const selectAuthForgotResetLoading = createSelector(selectAuthState, (a) => a.loading.forgotReset);
+/** @deprecated Use the individual selectAuth*Loading selectors to avoid unnecessary rerenders */
+export const selectAuthLoading = createSelector(selectAuthState, (a) => a.loading);
 export const selectAuthError = createSelector(selectAuthState, (a) => a.error);
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -38,10 +44,13 @@ export const selectUserProfile = createSelector(
   selectUserState,
   (u) => u.profile,
 );
-export const selectUserLoading = createSelector(
-  selectUserState,
-  (u) => u.loading,
-);
+// Individual loading flags — avoids returning a new object reference on every render
+export const selectUserFetchLoading = createSelector(selectUserState, (u) => u.loading.fetch);
+export const selectUserUpdateLoading = createSelector(selectUserState, (u) => u.loading.update);
+export const selectUserAvatarLoading = createSelector(selectUserState, (u) => u.loading.avatar);
+export const selectUserChangePasswordLoading = createSelector(selectUserState, (u) => u.loading.changePassword);
+/** @deprecated Use the individual selectUser*Loading selectors to avoid unnecessary rerenders */
+export const selectUserLoading = createSelector(selectUserState, (u) => u.loading);
 export const selectUserError = createSelector(selectUserState, (u) => u.error);
 export const selectIsUserLoaded = createSelector(
   selectUserProfile,
@@ -178,6 +187,43 @@ export const selectSelectedSetting = settingBase.selectSelectedItem;
 export const selectSettingLoading = settingBase.selectLoading;
 export const selectSettingError = settingBase.selectError;
 export const selectSettingCount = settingBase.selectCount;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Services
+// ─────────────────────────────────────────────────────────────────────────────
+const servicesBase = createCRUDSelectors((s: RootState) => s.services);
+
+export const selectAllServices = servicesBase.selectItems;
+export const selectSelectedService = servicesBase.selectSelectedItem;
+export const selectServicesLoading = servicesBase.selectLoading;
+export const selectServicesError = servicesBase.selectError;
+export const selectServicesPagination = servicesBase.selectPagination;
+export const selectServicesCount = servicesBase.selectCount;
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Categories
+// ─────────────────────────────────────────────────────────────────────────────
+const categoriesBase = createCRUDSelectors((s: RootState) => s.categories);
+
+export const selectAllCategories = categoriesBase.selectItems;
+export const selectSelectedCategory = categoriesBase.selectSelectedItem;
+export const selectCategoriesLoading = categoriesBase.selectLoading;
+export const selectCategoriesError = categoriesBase.selectError;
+export const selectCategoriesCount = categoriesBase.selectCount;
+
+// Derived selector: categories with their service count pre-computed.
+// Memoized so the .map() + .filter() only runs when services or categories change.
+export const selectCategoriesWithServiceCount = createSelector(
+  [selectAllServices, selectAllCategories],
+  (services, categories) =>
+    categories.map((cat) => ({
+      ...cat,
+      serviceCount: (services as Array<{ category_id?: string | number | null }>).filter(
+        (svc) => String(svc.category_id) === String(cat.id),
+      ).length,
+    })),
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // App (External Integrations)

@@ -1,57 +1,68 @@
-import { useEffect } from "react";
-import Card from "../../../components/ui/Card";
-import Table from "../../../components/ui/Table";
+import { Card, Table, Loader } from "../../../components/ui";
+import type { Sale } from "../../../types/sale.types";
+import { format } from "date-fns";
 
 interface Props {
+  sales: Sale[];
+  isLoading: boolean;
   selectedDate: Date;
 }
 
-export default function TransactionSummary({ selectedDate }: Props) {
-  const rows = [
-    "Services",
-    "Service add-ons",
-    "Products",
-    "Shipping",
-    "Gift cards",
-    "Memberships",
-    "Late cancellation fees",
-    "No-show fees",
-    "Refund amount",
-  ];
+const fmt = (n: number) => `₹${n.toFixed(2)}`;
 
-  useEffect(() => {
-    console.log("Fetching transaction summary for:", selectedDate);
+export default function TransactionSummary({ sales, isLoading, selectedDate }: Props) {
+  // ── Completed sales only (for positive amounts) ───────────────────────────
+  const completed = sales.filter((s) => s.status === "completed");
+  const refunded  = sales.filter((s) => s.status === "refunded");
 
-    // 🔥 API call here based on selectedDate
-  }, [selectedDate]);
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  const sum = (arr: Sale[], key: keyof Sale) =>
+    arr.reduce((acc, s) => acc + parseFloat((s[key] as string) || "0"), 0);
+
+  // Sale-level financial fields available in list response
+  const subtotal   = sum(completed, "subtotal");
+  const discounts  = sum(completed, "discount_amount");
+  const tips       = sum(completed, "tip_amount");
+  const taxes      = sum(completed, "tax_amount");
+  const grossTotal = sum(completed, "total_amount");
+  const refundTotal= sum(refunded,  "total_amount");
+
+  const completedQty = completed.length;
+  const refundedQty  = refunded.length;
 
   const columns = [
-    { header: "Item type", key: "type" },
-    { header: "Sales qty", key: "salesQty" },
-    { header: "Refund qty", key: "refundQty" },
+    { header: "Item type",   key: "type"      },
+    { header: "Sales qty",   key: "salesQty"  },
+    { header: "Refund qty",  key: "refundQty" },
     { header: "Gross total", key: "total", className: "text-end" },
   ];
 
   const data = [
-    ...rows.map((item, index) => ({
-      id: index,
-      type: item,
-      salesQty: "0",
-      refundQty: "0",
-      total: "₹0.00",
-    })),
+    { id: 0,       type: "Services",               salesQty: completedQty, refundQty: refundedQty, total: fmt(subtotal)   },
+    { id: 1,       type: "Discounts",               salesQty: "-",          refundQty: "-",         total: `-${fmt(discounts)}` },
+    { id: 2,       type: "Tips",                    salesQty: "-",          refundQty: "-",         total: fmt(tips)       },
+    { id: 3,       type: "Taxes",                   salesQty: "-",          refundQty: "-",         total: fmt(taxes)      },
+    { id: 4,       type: "Refund amount",           salesQty: "-",          refundQty: refundedQty, total: fmt(refundTotal) },
     {
       id: "total",
       type: "Total Sales",
-      salesQty: "0",
-      refundQty: "0",
-      total: "₹0.00",
+      salesQty: completedQty,
+      refundQty: refundedQty,
+      total: fmt(grossTotal - refundTotal),
       isTotal: true,
     },
   ];
 
+  if (isLoading) {
+    return (
+      <Card title="Transaction summary" noPadding className="mb-4">
+        <Loader />
+      </Card>
+    );
+  }
+
   return (
-    <Card title="Transaction summary" noPadding className="mb-4">
+    <Card title={`Transaction summary — ${format(selectedDate, "d MMM yyyy")}`} noPadding className="mb-4">
       <Table
         columns={columns}
         data={data}

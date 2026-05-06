@@ -12,11 +12,13 @@ import {
   FaDumbbell,
   FaUserTie,
 } from "react-icons/fa";
-import { FiArrowLeft } from "react-icons/fi";
+import { FiArrowRight } from "react-icons/fi";
 import { GiLipstick, GiRazor } from "react-icons/gi";
 import { MdOutlineFaceRetouchingNatural } from "react-icons/md";
 import { useOnboarding } from "../../../context/OnboardingContext";
-import salonImg from "../../../assets/images/salon.jpg";
+import OnboardingImagePanel from "../components/OnboardingImagePanel";
+import OnboardingPageWrapper from "../components/OnboardingPageWrapper";
+import OnboardingBackButton from "../components/OnboardingBackButton";
 
 export default function ServiceTypePage() {
   const navigate = useNavigate();
@@ -61,107 +63,102 @@ export default function ServiceTypePage() {
     if (name === "Other") setShowOtherInput(true);
   };
 
+  const isValid =
+    selected.length > 0 &&
+    !(selected.includes("Other") && otherValue.trim() === "");
+
   const handleContinue = () => {
-    if (selected.length === 0) {
-      setError("Please select at least one service.");
-      return;
-    }
-    if (selected.includes("Other") && otherValue.trim() === "") {
-      setError("Please enter your other service type.");
-      return;
-    }
-
-    const business_type =
-      selected[0] === "Other" ? otherValue.trim() : selected[0];
-
+    if (!isValid) return;
+    const business_type = selected[0] === "Other" ? otherValue.trim() : selected[0];
     update({ business_type });
     navigate("/team-setup");
   };
 
   return (
-    <div className="container-fluid p-0 bg-light">
-      <div className="progress rounded-0" style={{ height: "4px" }}>
-        <div className="progress-bar bg-dark" style={{ width: "40%" }} />
-      </div>
+    <OnboardingPageWrapper className="bg-light">
+        {/* LEFT PANEL */}
+        <div className="col-lg-5 col-12 bg-white p-4 p-lg-5 position-relative">
+          <OnboardingBackButton />
 
-      <div className="row g-0 min-vh-100">
-        <div className="col-lg-6 bg-white p-4 position-relative">
-          <button
-            className="btn btn-light border rounded-circle position-absolute d-md-flex align-items-center justify-content-center"
-            style={{ top: "30px", left: "50px", width: "40px", height: "40px", padding: 0, zIndex: 10 }}
-            onClick={() => navigate(-1)}
-          >
-            <FiArrowLeft />
-          </button>
-          <h4 className="fw-bold mt-5">
-            Select categories that best describe your business
-          </h4>
-          <p className="text-muted mb-4">
-            Choose your primary and up to 3 related service types
-          </p>
+          <div className="mt-4">
+            <h3 className="fw-bold mb-1" style={{ fontSize: "24px", color: "#111827", letterSpacing: "-0.02em" }}>
+              Select your service categories
+            </h3>
+            <p className="text-muted mb-3" style={{ fontSize: "14px" }}>
+              Choose your primary and up to 3 related service types
+            </p>
 
-          {error && <div className="alert alert-danger">{error}</div>}
+            {error && (
+              <div className="alert py-2 px-3 mb-3" style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", borderRadius: "10px", fontSize: "13px" }}>
+                {error}
+              </div>
+            )}
 
-          <div className="row g-3">
-            {categories.map((item) => {
-              const isSelected = selected.includes(item.name);
-              const index = selected.indexOf(item.name);
-              return (
-                <div key={item.name} className="col-md-6">
-                  <div
-                    className={`card salonox-card p-3 ${isSelected ? "active" : ""}`}
-                    onClick={() => handleSelect(item.name)}
-                  >
-                    {isSelected && (
-                      <span className="selection-badge">{index + 1}</span>
-                    )}
-                    {isSelected && index === 0 && (
-                      <span className="primary-badge">Primary</span>
-                    )}
-                    <div className="d-flex align-items-center gap-3">
-                      <div className="fs-5">{item.icon}</div>
-                      <div>{item.name}</div>
+            <div className="row g-2">
+              {categories.map((item) => {
+                const isSelected = selected.includes(item.name);
+                const index = selected.indexOf(item.name);
+                return (
+                  <div key={item.name} className="col-md-6">
+                    <div
+                      className={`card premium-choice-card p-3 ${isSelected ? "selected" : ""}`}
+                      onClick={() => handleSelect(item.name)}
+                    >
+                      {isSelected && (
+                        <span className="selection-badge">{index + 1}</span>
+                      )}
+                      {isSelected && index === 0 && (
+                        <span className="primary-tag">Primary</span>
+                      )}
+                      <div className="d-flex align-items-center gap-3">
+                        <div className="fs-5 text-secondary">{item.icon}</div>
+                        <div className="fw-medium" style={{ fontSize: "14px", color: "#111827" }}>{item.name}</div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {showOtherInput && (
-            <div className="mt-4">
-              <label className="form-label fw-semibold">
-                Other service type
-              </label>
-              <input
-                type="text"
-                className="form-control"
-                value={otherValue}
-                onChange={(e) => setOtherValue(e.target.value)}
-              />
+                );
+              })}
             </div>
-          )}
 
-          <button
-            className="btn btn-dark w-100 rounded-pill mt-4"
-            onClick={handleContinue}
-          >
-            Continue →
-          </button>
+            {showOtherInput && (
+              <div className="mt-3">
+                <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
+                  Other service type
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. Bridal makeup"
+                  value={otherValue}
+                  onChange={(e) => setOtherValue(e.target.value)}
+                  style={{ height: "48px", borderRadius: "12px", border: "1px solid #e5e7eb", fontSize: "14px" }}
+                />
+              </div>
+            )}
+
+            <button
+              className="btn btn-dark w-100 rounded-pill mt-4"
+              style={{ height: "52px", fontWeight: 600, fontSize: "14px" }}
+              disabled={!isValid}
+              onClick={handleContinue}
+            >
+              Continue <FiArrowRight size={14} className="ms-1" />
+            </button>
+          </div>
         </div>
 
-        <div
-          className="col-lg-6 d-none d-lg-block position-relative p-0"
-          style={{ minHeight: "100vh" }}
-        >
-          <img
-            src={salonImg}
-            alt="salon"
-            className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
-            style={{ zIndex: 0 }}
-          />
-        </div>
-      </div>
-    </div>
+        {/* RIGHT IMAGE PANEL */}
+        <OnboardingImagePanel
+          stats={[
+            { value: "500+", label: "Service Types" },
+            { value: "All-in-one", label: "Platform" },
+          ]}
+          quote={{
+            text: "From bookings to payments — salonox handles everything seamlessly. I focus on my clients, not admin.",
+            author: "Priya R.",
+            role: "Beauty Salon Owner, Mumbai",
+          }}
+        />
+    </OnboardingPageWrapper>
   );
 }

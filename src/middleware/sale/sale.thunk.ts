@@ -6,29 +6,62 @@ import { ApiError } from "../../services/api/interceptors";
 import { downloadBlob } from "../../utils/downloadBlob";
 import type {
   Sale,
+  SaleSummary,
   SaleResponse,
   SaleWithItemsResponse,
   SaleListResponse,
+  SaleSummaryResponse,
   CreateSalePayload,
   UpdateSalePayload,
   CheckoutSalePayload,
 } from "../../types/sale.types";
 
-// ── Fetch all sales (scoped to current salon) ──────────────────────────────────
+// ── Fetch all sales (optionally filtered) ─────────────────────────────────────
+export interface FetchSalesParams {
+  startDate?: string; // ISO date string e.g. "2026-03-01"
+  endDate?: string;   // ISO date string e.g. "2026-03-31"
+  status?: string;    // "completed" | "draft" | "cancelled" | "refunded"
+}
+
 export const fetchSalesThunk = createAsyncThunk<
   Sale[],
-  void,
+  FetchSalesParams | void,
   { rejectValue: string }
->("sale/fetchAll", async (_, { rejectWithValue, getState }) => {
+>("sale/fetchAll", async (params, { rejectWithValue, getState }) => {
   try {
     const state = getState() as any;
     const salonId = state.salon.currentSalon?.id;
-    const params = salonId ? `?salon_id=${salonId}` : "";
-    const res = await api.get<SaleListResponse>(`${SALE.BASE}${params}`);
+
+    const q = new URLSearchParams();
+    if (salonId) q.set("salon_id", String(salonId));
+    if (params?.startDate) q.set("start_date", params.startDate);
+    if (params?.endDate)   q.set("end_date",   params.endDate);
+    if (params?.status)    q.set("status",      params.status);
+
+    const url = `${SALE.BASE}${q.toString() ? `?${q}` : ""}`;
+    const res = await api.get<SaleListResponse>(url);
     return res.data.data;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to fetch sales");
+  }
+});
+
+// ── Fetch sales summary (stat cards) ──────────────────────────────────────────
+export const fetchSaleSummaryThunk = createAsyncThunk<
+  SaleSummary,
+  void,
+  { rejectValue: string }
+>("sale/fetchSummary", async (_, { rejectWithValue, getState }) => {
+  try {
+    const state = getState() as any;
+    const salonId = state.salon.currentSalon?.id;
+    const q = salonId ? `?salon_id=${salonId}` : "";
+    const res = await api.get<SaleSummaryResponse>(`${SALE.SUMMARY}${q}`);
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to fetch sales summary");
   }
 });
 
@@ -40,7 +73,6 @@ export const fetchSaleByIdThunk = createAsyncThunk<
 >("sale/fetchById", async (id, { rejectWithValue }) => {
   try {
     const res = await api.get<SaleWithItemsResponse>(SALE.BY_ID(id));
-    // Backend returns { sale, items } — merge items onto sale for convenience
     const { sale, items } = res.data.data;
     return { ...sale, items };
   } catch (err: any) {
@@ -80,17 +112,17 @@ export const updateSaleThunk = createAsyncThunk<
 });
 
 // ── Checkout sale (draft → completed) ─────────────────────────────────────────
-// Backend checkout returns Sale directly (not { sale, items })
 export const checkoutSaleThunk = createAsyncThunk<
   Sale,
   CheckoutSalePayload,
   { rejectValue: string }
 >(
   "sale/checkout",
-  async ({ id, payment_method, payment_reference }, { rejectWithValue }) => {
+  async ({ id, payment_method, amount_paid, payment_reference }, { rejectWithValue }) => {
     try {
       const res = await api.post<SaleResponse>(SALE.CHECKOUT(id), {
         payment_method,
+        amount_paid,
         ...(payment_reference ? { payment_reference } : {}),
       });
       return res.data.data;

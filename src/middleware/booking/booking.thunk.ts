@@ -11,6 +11,70 @@ import type {
   UpdateBookingPayload,
 } from "../../types/booking.types";
 
+function toLocalDateStr(iso: string): string {
+  const d = new Date(iso);
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+// ✅ Helper — maps every API booking to frontend Booking shape
+function mapBooking(appt: any): Booking {
+  // Parse HH:MM startTime from scheduled_at ISO string if startTime missing
+  let startTime: string = appt.startTime ?? "";
+  if (!startTime && appt.scheduled_at) {
+    const d = new Date(appt.scheduled_at);
+    startTime = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  }
+  // Parse HH:MM endTime from ends_at ISO string if endTime missing
+  let endTime: string = appt.endTime ?? "";
+  if (!endTime && appt.ends_at) {
+    const d = new Date(appt.ends_at);
+    endTime = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  }
+  // Map services — ensure each service has camelCase staffId
+  const services = (appt.services || []).map((s: any) => ({
+    ...s,
+    staffId: s.staffId || s.staff_id || appt.staffId || appt.staff_id || undefined,
+    time: s.time || s.start_time || startTime,
+  }));
+
+  // ✅ FIX — compute payingNow/dueAmount from paid_amount so alreadyPaidAmount is always correct
+  const grandTotalVal = parseFloat(String(appt.grand_total ?? appt.grandTotal ?? appt.total_amount ?? 0)) || 0;
+  const paidAmountVal = Number(appt.paid_amount ?? appt.payingNow ?? 0) || 0;
+  const payStatusStr  = (appt.payment_status ?? appt.paymentStatus ?? "").toLowerCase();
+  let payingNow = appt.payingNow;
+  let dueAmount  = appt.dueAmount;
+  // Only recompute when not already set (i.e. raw API response)
+  if (payingNow === undefined || payingNow === null) {
+    if (paidAmountVal > 0) {
+      payingNow = paidAmountVal;
+    } else if (payStatusStr === "paid" || payStatusStr === "completed") {
+      payingNow = grandTotalVal;
+    } else {
+      payingNow = 0;
+    }
+    dueAmount = Math.max(0, grandTotalVal - payingNow);
+  }
+
+  return {
+    ...appt,
+    payment_status: (appt.payment_status ?? "unpaid") as any,
+    // ✅ Map snake_case → camelCase so calendar staffId filter works
+    paymentStatus: appt.paymentStatus || appt.payment_status || "Unpaid",
+    staffId: appt.staffId || appt.staff_id || undefined,
+    date: appt.date ? toLocalDateStr(appt.date) : appt.date,
+    grandTotal: grandTotalVal || appt.grandTotal,
+    startTime,
+    endTime,
+    services,
+    payingNow,
+    dueAmount,
+  };
+}
+
 // ── Fetch bookings (scoped to current salon, optional server-side filters) ────
 export const fetchBookingsThunk = createAsyncThunk<
   Booking[],
@@ -25,7 +89,8 @@ export const fetchBookingsThunk = createAsyncThunk<
     if (filters?.staffId && filters.staffId !== "all") params.set("staff_id", filters.staffId);
     if (filters?.status  && filters.status  !== "all") params.set("status",   filters.status);
     const res = await api.get<BookingListResponse>(`${BOOKING.BASE}?${params.toString()}`);
-    return res.data.data;
+    // ✅ FIX — map every booking so payment_status is never lost
+    return res.data.data.map(mapBooking);
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to fetch bookings");
@@ -40,7 +105,8 @@ export const fetchBookingByIdThunk = createAsyncThunk<
 >("booking/fetchById", async (id, { rejectWithValue }) => {
   try {
     const res = await api.get<BookingResponse>(BOOKING.BY_ID(id));
-    return res.data.data;
+    // ✅ FIX — map single booking too
+    return mapBooking(res.data.data);
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to fetch booking");
@@ -55,7 +121,7 @@ export const createBookingThunk = createAsyncThunk<
 >("booking/create", async (payload, { rejectWithValue }) => {
   try {
     const res = await api.post<BookingResponse>(BOOKING.BASE, payload);
-    return res.data.data;
+    return mapBooking(res.data.data);
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to create booking");
@@ -69,8 +135,8 @@ export const updateBookingThunk = createAsyncThunk<
   { rejectValue: string }
 >("booking/update", async ({ id, data }, { rejectWithValue }) => {
   try {
-    const res = await api.put<BookingResponse>(BOOKING.BY_ID(id), data);
-    return res.data.data;
+    const res = await api.patch<BookingResponse>(BOOKING.BY_ID(id), data);
+    return mapBooking(res.data.data);
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to update booking");
@@ -92,11 +158,82 @@ export const deleteBookingThunk = createAsyncThunk<
   }
 });
 
+// ── Status transitions ─────────────────────────────────────────────────────────
+export const confirmBookingThunk = createAsyncThunk<
+  Booking,
+  string | number,
+  { rejectValue: string }
+>("booking/confirm", async (id, { rejectWithValue }) => {
+  try {
+    const res = await api.post<BookingResponse>(BOOKING.CONFIRM(id));
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to confirm booking");
+  }
+});
+
+export const startBookingThunk = createAsyncThunk<
+  Booking,
+  string | number,
+  { rejectValue: string }
+>("booking/start", async (id, { rejectWithValue }) => {
+  try {
+    const res = await api.post<BookingResponse>(BOOKING.START(id));
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to start booking");
+  }
+});
+
+export const cancelBookingThunk = createAsyncThunk<
+  Booking,
+  string | number,
+  { rejectValue: string }
+>("booking/cancel", async (id, { rejectWithValue }) => {
+  try {
+    const res = await api.post<BookingResponse>(BOOKING.CANCEL(id));
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to cancel booking");
+  }
+});
+
+export const noShowBookingThunk = createAsyncThunk<
+  Booking,
+  string | number,
+  { rejectValue: string }
+>("booking/noShow", async (id, { rejectWithValue }) => {
+  try {
+    const res = await api.post<BookingResponse>(BOOKING.NO_SHOW(id));
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to mark no-show");
+  }
+});
+
+export const checkoutBookingThunk = createAsyncThunk<
+  Booking,
+  { id: string | number; data?: Record<string, any> },
+  { rejectValue: string }
+>("booking/checkout", async ({ id, data }, { rejectWithValue }) => {
+  try {
+    const res = await api.post<BookingResponse>(BOOKING.CHECKOUT(id), data);
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to checkout booking");
+  }
+});
+
 // ── Export bookings (with optional date-range / status / salon filters) ─────────
 export const exportBookingsThunk = createAsyncThunk<
   void,
   {
-    format: "excel" | "csv";
+    format: "excel" | "csv" | "pdf";
     filters?: {
       salon_id?: string;
       status?: string;
@@ -111,10 +248,10 @@ export const exportBookingsThunk = createAsyncThunk<
     const salonId = filters?.salon_id ?? state.salon.currentSalon?.id;
     const url = BOOKING.EXPORT(format, { ...filters, salon_id: salonId });
     const res = await api.get(url, { responseType: "blob" });
-    downloadBlob(res.data, `appointments.${format === "excel" ? "xlsx" : "csv"}`);
+    const ext = format === "excel" ? "xlsx" : format;
+    downloadBlob(res.data, `appointments.${ext}`);
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to export bookings");
   }
 });
-

@@ -16,6 +16,13 @@ export interface CRUDLoadingState {
   [key: string]: boolean;
 }
 
+export interface PaginationInfo {
+  total: number;
+  page: number;
+  limit: number;
+  total_pages: number;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Base state every CRUD slice shares
 // ─────────────────────────────────────────────────────────────────────────────
@@ -24,6 +31,7 @@ export interface CRUDState<TEntity> {
   selectedItem: TEntity | null;
   loading: CRUDLoadingState;
   error: string | null;
+  pagination?: PaginationInfo;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -133,12 +141,26 @@ export function createCRUDSlice<TEntity extends WithId>({
         })
         .addCase(fetchAllThunk.fulfilled, (state, { payload }) => {
           state.loading.fetchAll = false;
-          state.items = castDraft(payload as TEntity[]);
+          // Handle both plain array and paginated response { data: [], pagination: {} }
+          if (
+            payload &&
+            typeof payload === "object" &&
+            "data" in (payload as any) &&
+            Array.isArray((payload as any).data)
+          ) {
+            state.items = castDraft((payload as any).data as TEntity[]);
+            state.pagination = (payload as any).pagination;
+          } else {
+            state.items = castDraft(payload as TEntity[]);
+            // Reset pagination if plain array is returned
+            state.pagination = undefined;
+          }
         })
         .addCase(fetchAllThunk.rejected, (state, { payload }) => {
           state.loading.fetchAll = false;
           state.error = (payload as string) ?? "Failed to fetch items";
         });
+
 
       // ── fetchById ───────────────────────────────────────────────────────────
       builder

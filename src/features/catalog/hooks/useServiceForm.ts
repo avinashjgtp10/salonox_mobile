@@ -1,5 +1,9 @@
 import { useState } from "react";
-import type { CatalogFormData } from "../types/catalog.types.ts";
+import { useDispatch } from "react-redux";
+import type { AppDispatch } from "../../../store/store";
+import { createServiceThunk, fetchServicesThunk } from "../../../middleware/services/services.thunk";
+import { fetchCategoriesThunk } from "../../../middleware/services/categories.thunk";
+import type { CatalogFormData, Service } from "../types/catalog.types.ts";
 
 const initialData: CatalogFormData = {
   basic: {
@@ -7,18 +11,19 @@ const initialData: CatalogFormData = {
     categoryId: "",
     duration: 30,
     price: 0,
+    discountedPrice: null,
     paddingBefore: 0,
     paddingAfter: 0,
     description: "",
     active: true,
+    treatmentType: null,
+    genderPreference: null,
+    imageUrl: null,
   },
   team: {
     allMembers: true,
     selectedMemberIds: [],
-    availableMembers: [
-      { id: "1", firstName: "Sarah", lastName: "Johnson", role: "Stylist" },
-      { id: "2", firstName: "Mike", lastName: "Williams", role: "Barber" },
-    ],
+    availableMembers: [],
   },
   resources: {
     requireResource: false,
@@ -50,20 +55,7 @@ const initialData: CatalogFormData = {
   commission: {
     defaultType: "percentage",
     defaultValue: 0,
-    memberCommissions: [
-      {
-        memberId: "1",
-        memberName: "Sarah Johnson",
-        commissionType: "percentage",
-        commissionValue: 0,
-      },
-      {
-        memberId: "2",
-        memberName: "Mike Williams",
-        commissionType: "percentage",
-        commissionValue: 0,
-      },
-    ],
+    memberCommissions: [],
   },
   settings: {
     cancellationNoticeHours: 24,
@@ -76,7 +68,10 @@ const initialData: CatalogFormData = {
 };
 
 export const useServiceForm = (_type: "single" | "bundle") => {
+  const dispatch = useDispatch<AppDispatch>();
   const [formData, setFormData] = useState<CatalogFormData>(initialData);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<
     Record<string, string[]>
   >({});
@@ -127,12 +122,51 @@ export const useServiceForm = (_type: "single" | "bundle") => {
     const isValid = validate();
     if (!isValid) return false;
 
-    console.log("Submitting:", formData);
-    return true;
-  };
+    setLoading(true);
+    setError(null);
 
-  const loading = false;
-  const error = null;
+    try {
+      // Map formData to Backend Service shape
+      const payload: Partial<Service> = {
+        name: formData.basic.name,
+        description: formData.basic.description || undefined,
+        category_id: formData.basic.categoryId || null,
+        price: formData.basic.price,
+        discounted_price: formData.basic.discountedPrice || null,
+        duration: formData.basic.duration,
+        padding_before: formData.basic.paddingBefore || undefined,
+        padding_after: formData.basic.paddingAfter || undefined,
+        is_active: formData.basic.active,
+        online_booking: formData.onlineBooking.enabled,
+        resource_required: formData.resources.requireResource,
+        commission_enabled: formData.commission.defaultValue > 0,
+        all_members: formData.team.allMembers,
+        team_member_ids: formData.team.allMembers
+          ? undefined
+          : formData.team.selectedMemberIds,
+        treatment_type: formData.basic.treatmentType || null,
+        gender_preference: formData.basic.genderPreference || null,
+        image_url: formData.basic.imageUrl || null,
+      };
+
+      const resultAction = await dispatch(createServiceThunk(payload));
+      if (createServiceThunk.fulfilled.match(resultAction)) {
+        // Refresh the services list and categories in Redux state so the list
+        // page shows up-to-date data immediately when the user navigates back.
+        dispatch(fetchServicesThunk({ page: 1, limit: 25 }));
+        dispatch(fetchCategoriesThunk());
+        return true;
+      } else {
+        setError(resultAction.payload as string);
+        return false;
+      }
+    } catch (err) {
+      setError("An unexpected error occurred");
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return {
     formData,
@@ -144,3 +178,4 @@ export const useServiceForm = (_type: "single" | "bundle") => {
     isSubmitted,
   };
 };
+

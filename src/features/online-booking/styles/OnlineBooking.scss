@@ -1,0 +1,714 @@
+@use "../../../styles/themes/variables" as *;
+
+/* ================================================================
+   ONLINE BOOKING — SHARED PAGE STYLES
+   ================================================================ */
+
+.ob-page {
+  max-width: 900px;
+  padding: 4px 0 48px;
+}
+
+/* ── Page Header ── */
+.ob-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.ob-page-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: $dashboard-primary;
+  margin: 0 0 4px;
+}
+
+.ob-page-sub {
+  font-size: 13px;
+  color: $dashboard-secondary;
+  margin: 0;
+}
+
+.ob-header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* ── Buttons ── */
+.ob-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 20px;
+  background: $btn-primary;
+  color: $white;
+  border: none;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s;
+
+  &:hover { background: $btn-hover; }
+}
+
+.ob-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 20px;
+  background: $white;
+  color: $dashboard-primary;
+  border: 1.5px solid $dashboard-border;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.18s, background 0.18s;
+
+  &:hover {
+    border-color: #9ca3af;
+    background: #f9fafb;
+  }
+}
+
+.ob-btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 20px;
+  background: #fef2f2;
+  color: $danger;
+  border: 1.5px solid #fecaca;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s;
+
+  &:hover { background: #fee2e2; }
+}
+
+/* ── Cards ── */
+.ob-card {
+  background: $white;
+  border: 1px solid $dashboard-border;
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  margin-bottom: 20px;
+}
+
+.ob-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.ob-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: $dashboard-primary;
+  margin: 0 0 3px;
+}
+
+.ob-card-sub {
+  font-size: 12.5px;
+  color: $dashboard-secondary;
+  margin: 0;
+}
+
+/* ── Status Badge ── */
+.ob-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+
+  &--active {
+    background: #f0fdf4;
+    color: #16a34a;
+    border: 1px solid #bbf7d0;
+  }
+
+  &--inactive {
+    background: #f9fafb;
+    color: $dashboard-secondary;
+    border: 1px solid $dashboard-border;
+  }
+
+  &--pending {
+    background: #fffbeb;
+    color: #d97706;
+    border: 1px solid #fde68a;
+  }
+}
+
+.ob-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  .ob-status--active &    { background: #16a34a; }
+  .ob-status--inactive &  { background: #9ca3af; }
+  .ob-status--pending &   { background: #d97706; }
+}
+
+/* ── Toggle Row ── */
+.ob-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+  border-bottom: 1px solid #f3f4f6;
+
+  &:last-child { border-bottom: none; }
+}
+
+.ob-toggle-info { flex: 1; min-width: 0; padding-right: 20px; }
+.ob-toggle-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: $dashboard-primary;
+  margin: 0 0 2px;
+}
+.ob-toggle-hint {
+  font-size: 12px;
+  color: $dashboard-secondary;
+  margin: 0;
+}
+
+/* Custom toggle switch */
+.ob-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+
+  input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+
+    &:checked + .ob-switch-track {
+      background: $btn-primary;
+    }
+
+    &:checked + .ob-switch-track .ob-switch-thumb {
+      transform: translateX(20px);
+    }
+  }
+
+  &-track {
+    position: absolute;
+    inset: 0;
+    background: #d1d5db;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  &-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    background: $white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+}
+
+/* ── Form Fields ── */
+.ob-form-group {
+  margin-bottom: 20px;
+}
+
+.ob-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: $dashboard-primary;
+  margin-bottom: 7px;
+}
+
+.ob-label-optional {
+  font-weight: 400;
+  color: $dashboard-secondary;
+  margin-left: 4px;
+}
+
+.ob-input,
+.ob-select,
+.ob-textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid $dashboard-border;
+  border-radius: 10px;
+  font-size: 13.5px;
+  color: $dashboard-primary;
+  background: $white;
+  outline: none;
+  transition: border-color 0.18s, box-shadow 0.18s;
+  font-family: inherit;
+  box-sizing: border-box;
+
+  &::placeholder { color: #9ca3af; }
+
+  &:focus {
+    border-color: $dashboard-primary;
+    box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.07);
+  }
+}
+
+.ob-textarea {
+  resize: vertical;
+  min-height: 90px;
+}
+
+.ob-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16'%3E%3Cpath fill='%236b7280' d='M7.247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+  cursor: pointer;
+}
+
+.ob-char-count {
+  text-align: right;
+  font-size: 11.5px;
+  color: $dashboard-secondary;
+  margin-top: 5px;
+}
+
+/* ── Two-col form grid ── */
+.ob-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+
+  @media (max-width: 640px) { grid-template-columns: 1fr; }
+}
+
+/* ── Info Banner ── */
+.ob-info-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 18px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.ob-info-icon {
+  color: #2563eb;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.ob-info-text {
+  font-size: 13px;
+  color: #1d4ed8;
+  margin: 0;
+  line-height: 1.5;
+
+  strong { font-weight: 600; }
+}
+
+/* ── Steps ── */
+.ob-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.ob-step {
+  display: flex;
+  gap: 16px;
+  padding: 20px 0;
+  border-bottom: 1px solid #f3f4f6;
+
+  &:last-child { border-bottom: none; }
+
+  &--done .ob-step-num {
+    background: $dashboard-primary;
+    color: $white;
+  }
+}
+
+.ob-step-num {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #f3f4f6;
+  color: $dashboard-primary;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ob-step-body { flex: 1; }
+.ob-step-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: $dashboard-primary;
+  margin: 0 0 4px;
+}
+.ob-step-desc {
+  font-size: 12.5px;
+  color: $dashboard-secondary;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── Integration Cards ── */
+.ob-integration-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+
+  @media (max-width: 640px) { grid-template-columns: 1fr; }
+}
+
+.ob-integration-card {
+  background: $white;
+  border: 1.5px solid $dashboard-border;
+  border-radius: 14px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: border-color 0.18s, box-shadow 0.18s;
+
+  &:hover {
+    border-color: #9ca3af;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  }
+
+  &--connected {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+  }
+}
+
+.ob-integration-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ob-integration-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+
+  &--google   { background: #fff3f3; }
+  &--facebook { background: #eff6ff; }
+  &--instagram { background: linear-gradient(135deg, #fdf0e8, #fce7f3); }
+}
+
+.ob-integration-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: $dashboard-primary;
+  margin: 0 0 4px;
+}
+
+.ob-integration-desc {
+  font-size: 12.5px;
+  color: $dashboard-secondary;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── Link Builder ── */
+.ob-link-display {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #f9fafb;
+  border: 1.5px solid $dashboard-border;
+  border-radius: 10px;
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 13px;
+  color: $dashboard-primary;
+  word-break: break-all;
+}
+
+.ob-link-url {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.ob-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  background: $white;
+  border: 1.5px solid $dashboard-border;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: $dashboard-primary;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+  flex-shrink: 0;
+
+  &:hover { background: #f3f4f6; }
+
+  &--copied {
+    background: #f0fdf4;
+    color: #16a34a;
+    border-color: #bbf7d0;
+  }
+}
+
+.ob-link-presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.ob-preset-card {
+  padding: 16px;
+  border: 1.5px solid $dashboard-border;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.18s, background 0.18s;
+  background: $white;
+
+  &:hover {
+    border-color: $dashboard-primary;
+    background: #f9fafb;
+  }
+
+  &--active {
+    border-color: $dashboard-primary;
+    background: #f9fafb;
+  }
+}
+
+.ob-preset-icon {
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+.ob-preset-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: $dashboard-primary;
+  margin: 0 0 3px;
+}
+
+.ob-preset-desc {
+  font-size: 11.5px;
+  color: $dashboard-secondary;
+  margin: 0;
+}
+
+/* ── QR code placeholder ── */
+.ob-qr-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px;
+  background: #f9fafb;
+  border: 1.5px dashed $dashboard-border;
+  border-radius: 12px;
+}
+
+.ob-qr-placeholder {
+  width: 100px;
+  height: 100px;
+  background: $white;
+  border: 1.5px solid $dashboard-border;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+}
+
+.ob-qr-label {
+  font-size: 13px;
+  color: $dashboard-secondary;
+  text-align: center;
+  margin: 0;
+}
+
+/* ── How-it-works strip ── */
+.ob-how-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 4px;
+
+  @media (max-width: 640px) { grid-template-columns: 1fr; }
+}
+
+.ob-how-item {
+  text-align: center;
+  padding: 20px 12px;
+}
+
+.ob-how-icon {
+  font-size: 30px;
+  margin-bottom: 10px;
+}
+
+.ob-how-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: $dashboard-primary;
+  margin: 0 0 5px;
+}
+
+.ob-how-desc {
+  font-size: 12px;
+  color: $dashboard-secondary;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── Business hours table ── */
+.ob-hours-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ob-hours-row {
+  display: grid;
+  grid-template-columns: 120px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid #f3f4f6;
+
+  &:last-child { border-bottom: none; }
+}
+
+.ob-hours-day {
+  font-size: 13px;
+  font-weight: 600;
+  color: $dashboard-primary;
+}
+
+.ob-hours-times {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .ob-input {
+    padding: 8px 10px;
+    font-size: 13px;
+    max-width: 110px;
+  }
+}
+
+.ob-hours-sep {
+  font-size: 12px;
+  color: $dashboard-secondary;
+  white-space: nowrap;
+}
+
+.ob-hours-closed {
+  font-size: 12px;
+  color: $dashboard-secondary;
+  font-style: italic;
+}
+
+/* ── Photo upload ── */
+.ob-photo-grid {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 16px;
+
+  @media (max-width: 500px) { grid-template-columns: 1fr; }
+}
+
+.ob-photo-slot {
+  border: 2px dashed $dashboard-border;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: border-color 0.18s, background 0.18s;
+  min-height: 120px;
+  padding: 16px;
+  font-size: 13px;
+  color: $dashboard-secondary;
+  text-align: center;
+
+  &:hover {
+    border-color: $dashboard-primary;
+    background: #f9fafb;
+    color: $dashboard-primary;
+  }
+
+  &--logo { border-radius: 50%; width: 100px; height: 100px; min-height: unset; padding: 0; align-self: center; justify-self: center; }
+}
+
+.ob-photo-upload-icon { font-size: 24px; }
+
+/* ── Divider ── */
+.ob-divider {
+  border: none;
+  border-top: 1px solid $dashboard-border;
+  margin: 24px 0;
+}
+
+/* ── Section label ── */
+.ob-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: $dashboard-secondary;
+  margin: 0 0 16px;
+}
+
+/* ── Empty state ── */
+.ob-empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: $dashboard-secondary;
+}
+
+.ob-empty-icon { font-size: 40px; margin-bottom: 12px; }
+.ob-empty-title { font-size: 15px; font-weight: 700; color: $dashboard-primary; margin: 0 0 6px; }
+.ob-empty-desc  { font-size: 13px; margin: 0 0 20px; }

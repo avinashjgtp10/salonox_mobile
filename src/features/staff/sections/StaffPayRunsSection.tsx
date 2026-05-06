@@ -1,15 +1,84 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { InfoCircle } from "react-bootstrap-icons";
 import "../styles/StaffPayRunsSection.scss";
+import api from "../../../services/api/axios";
+import { STAFF } from "../../../services/api/endpoints";
+import { toast } from "react-hot-toast";
 
-const StaffPayRunsSection: React.FC = () => {
-  const [payRunsEnabled, setPayRunsEnabled] = useState(true);
-  const [calcType, setCalcType] = useState("automatic");
-  const [deductProcessing, setDeductProcessing] = useState(false);
-  const [deductNewClient, setDeductNewClient] = useState(false);
-  const [recordCashAdvance, setRecordCashAdvance] = useState(false);
+interface PayRunSettings {
+  pay_runs_enabled: boolean;
+  payment_method: "pay_manually" | "bank_transfer";
+  calculation_type: "automatic" | "manual";
+  deduct_payment_processing_fees: boolean;
+  deduct_new_client_fees: boolean;
+  record_cash_advances: boolean;
+}
+
+interface StaffPayRunsSectionProps {
+  staffId?: string;
+  salonId?: string;
+  payRuns?: any;
+  setPayRuns?: (val: any) => void;
+}
+
+const StaffPayRunsSection: React.FC<StaffPayRunsSectionProps> = ({ staffId, salonId, payRuns, setPayRuns }) => {
+  const [localSettings, setLocalSettings] = useState<PayRunSettings>({
+    pay_runs_enabled: true,
+    payment_method: "pay_manually",
+    calculation_type: "automatic",
+    deduct_payment_processing_fees: false,
+    deduct_new_client_fees: false,
+    record_cash_advances: false,
+  });
+
+  const settings = payRuns || localSettings;
+  const setSettings = setPayRuns || setLocalSettings;
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("manual");
+
+  useEffect(() => {
+    if (staffId && salonId && !payRuns && staffId !== "undefined") {
+      const fetchPayRuns = async () => {
+        try {
+          setIsLoading(true);
+          const response = await api.get(STAFF.PAY_RUNS(staffId), {
+            headers: { "x-salon-id": salonId },
+          });
+          if (response.data.data) {
+            setSettings(response.data.data);
+          }
+        } catch (error) {
+          console.error("Error fetching pay runs:", error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchPayRuns();
+    }
+  }, [staffId, salonId, payRuns]);
+
+  const handleSave = async () => {
+    if (!staffId || !salonId || staffId === "undefined") {
+      toast("Please save the team member profile first");
+      return;
+    }
+    try {
+      setIsSaving(true);
+      await api.put(STAFF.PAY_RUNS(staffId), settings, {
+        headers: { "x-salon-id": salonId },
+      });
+      toast.success("Pay run settings saved successfully");
+    } catch (error) {
+      console.error("Error saving pay runs:", error);
+      toast.error("Failed to save pay run settings");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (isLoading) return <div className="p-4 text-center">Loading pay run settings...</div>;
 
   return (
     <div className="section payruns-section mt-1">
@@ -18,7 +87,7 @@ const StaffPayRunsSection: React.FC = () => {
         <div className="switch-info">
           <div className="switch-title">
             Pay runs
-            {payRunsEnabled ? (
+            {settings.pay_runs_enabled ? (
               <span className="badge-status on">On</span>
             ) : (
               <span className="badge-status off">Off</span>
@@ -34,13 +103,13 @@ const StaffPayRunsSection: React.FC = () => {
             className="form-check-input"
             type="checkbox"
             role="switch"
-            checked={payRunsEnabled}
-            onChange={(e) => setPayRunsEnabled(e.target.checked)}
+            checked={settings.pay_runs_enabled}
+            onChange={(e) => setSettings({ ...settings, pay_runs_enabled: e.target.checked })}
           />
         </div>
       </div>
 
-      {payRunsEnabled && (
+      {settings.pay_runs_enabled && (
         <div className="fade-in">
           {/* Preferred Payment Method */}
           <h6 className="section__block-title">Preferred payment method</h6>
@@ -53,16 +122,16 @@ const StaffPayRunsSection: React.FC = () => {
           <div className="payment-card mb-4">
             <div className="payment-card-left">
               <div className="payment-card-icon">
-                <i className="bi bi-credit-card-2-front" />
+                <i className={`bi ${settings.payment_method === "pay_manually" ? "bi-credit-card-2-front" : "bi-bank"}`} />
               </div>
               <div className="payment-card-info">
                 <div className="payment-card-title">
-                  {paymentMethod === "manual"
+                  {settings.payment_method === "pay_manually"
                     ? "Pay manually"
                     : "Bank transfer"}
                 </div>
                 <div className="payment-card-subtitle">
-                  {paymentMethod === "manual"
+                  {settings.payment_method === "pay_manually"
                     ? "Mark as paid outside of salonox"
                     : "Transfer to bank account"}
                 </div>
@@ -145,17 +214,17 @@ const StaffPayRunsSection: React.FC = () => {
 
                 {/* Option: Pay manually */}
                 <div
-                  onClick={() => setPaymentMethod("manual")}
+                  onClick={() => setSettings({ ...settings, payment_method: "pay_manually" })}
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: "14px",
                     padding: "14px 16px",
-                    border: `2px solid ${paymentMethod === "manual" ? "#6c3ce1" : "#e5e7eb"}`,
+                    border: `2px solid ${settings.payment_method === "pay_manually" ? "#6c3ce1" : "#e5e7eb"}`,
                     borderRadius: "10px",
                     cursor: "pointer",
                     marginBottom: "12px",
-                    background: paymentMethod === "manual" ? "#f5f3ff" : "#fff",
+                    background: settings.payment_method === "pay_manually" ? "#f5f3ff" : "#fff",
                     transition: "all 0.2s",
                   }}
                 >
@@ -195,17 +264,17 @@ const StaffPayRunsSection: React.FC = () => {
                         width: 18,
                         height: 18,
                         borderRadius: "50%",
-                        border: `2px solid ${paymentMethod === "manual" ? "#6c3ce1" : "#d1d5db"}`,
+                        border: `2px solid ${settings.payment_method === "pay_manually" ? "#6c3ce1" : "#d1d5db"}`,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
                         background:
-                          paymentMethod === "manual"
+                          settings.payment_method === "pay_manually"
                             ? "#6c3ce1"
                             : "transparent",
                       }}
                     >
-                      {paymentMethod === "manual" && (
+                      {settings.payment_method === "pay_manually" && (
                         <div
                           style={{
                             width: 7,
@@ -221,17 +290,17 @@ const StaffPayRunsSection: React.FC = () => {
 
                 {/* Option: Bank transfer */}
                 <div
-                  onClick={() => setPaymentMethod("bank")}
+                  onClick={() => setSettings({ ...settings, payment_method: "bank_transfer" })}
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: "14px",
                     padding: "14px 16px",
-                    border: `2px solid ${paymentMethod === "bank" ? "#6c3ce1" : "#e5e7eb"}`,
+                    border: `2px solid ${settings.payment_method === "bank_transfer" ? "#6c3ce1" : "#e5e7eb"}`,
                     borderRadius: "10px",
                     cursor: "pointer",
                     marginBottom: "24px",
-                    background: paymentMethod === "bank" ? "#f5f3ff" : "#fff",
+                    background: settings.payment_method === "bank_transfer" ? "#f5f3ff" : "#fff",
                     transition: "all 0.2s",
                   }}
                 >
@@ -271,15 +340,15 @@ const StaffPayRunsSection: React.FC = () => {
                         width: 18,
                         height: 18,
                         borderRadius: "50%",
-                        border: `2px solid ${paymentMethod === "bank" ? "#6c3ce1" : "#d1d5db"}`,
+                        border: `2px solid ${settings.payment_method === "bank_transfer" ? "#6c3ce1" : "#d1d5db"}`,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
                         background:
-                          paymentMethod === "bank" ? "#6c3ce1" : "transparent",
+                          settings.payment_method === "bank_transfer" ? "#6c3ce1" : "transparent",
                       }}
                     >
-                      {paymentMethod === "bank" && (
+                      {settings.payment_method === "bank_transfer" && (
                         <div
                           style={{
                             width: 7,
@@ -343,14 +412,14 @@ const StaffPayRunsSection: React.FC = () => {
 
           <select
             className="form-select mb-2"
-            value={calcType}
-            onChange={(e) => setCalcType(e.target.value)}
+            value={settings.calculation_type}
+            onChange={(e) => setSettings({ ...settings, calculation_type: e.target.value as any })}
           >
             <option value="automatic">Automatic calculation</option>
             <option value="manual">Manual entry</option>
           </select>
 
-          {calcType === "automatic" && (
+          {settings.calculation_type === "automatic" && (
             <div className="calc-info-box mb-4">
               <InfoCircle
                 style={{
@@ -384,8 +453,8 @@ const StaffPayRunsSection: React.FC = () => {
             <input
               type="checkbox"
               id="deduct-processing"
-              checked={deductProcessing}
-              onChange={(e) => setDeductProcessing(e.target.checked)}
+              checked={settings.deduct_payment_processing_fees}
+              onChange={(e) => setSettings({ ...settings, deduct_payment_processing_fees: e.target.checked })}
             />
             <div className="deduction-content">
               <label htmlFor="deduct-processing" className="deduction-title">
@@ -402,8 +471,8 @@ const StaffPayRunsSection: React.FC = () => {
             <input
               type="checkbox"
               id="deduct-new-client"
-              checked={deductNewClient}
-              onChange={(e) => setDeductNewClient(e.target.checked)}
+              checked={settings.deduct_new_client_fees}
+              onChange={(e) => setSettings({ ...settings, deduct_new_client_fees: e.target.checked })}
             />
             <div className="deduction-content">
               <label htmlFor="deduct-new-client" className="deduction-title">
@@ -428,8 +497,8 @@ const StaffPayRunsSection: React.FC = () => {
             <input
               type="checkbox"
               id="cash-advance"
-              checked={recordCashAdvance}
-              onChange={(e) => setRecordCashAdvance(e.target.checked)}
+              checked={settings.record_cash_advances}
+              onChange={(e) => setSettings({ ...settings, record_cash_advances: e.target.checked })}
             />
             <div className="deduction-content">
               <label htmlFor="cash-advance" className="deduction-title">
@@ -440,6 +509,24 @@ const StaffPayRunsSection: React.FC = () => {
                 taken the full cash amount as an advance within the pay period.
               </div>
             </div>
+          </div>
+
+          <div className="divider mt-4"></div>
+          
+          <div className="d-flex justify-content-end mt-4">
+            <button 
+              className="btn btn-primary px-4 py-2" 
+              onClick={handleSave}
+              disabled={isSaving}
+              style={{
+                backgroundColor: "#6c3ce1",
+                borderColor: "#6c3ce1",
+                borderRadius: "8px",
+                fontWeight: 500
+              }}
+            >
+              {isSaving ? "Saving..." : "Save changes"}
+            </button>
           </div>
         </div>
       )}

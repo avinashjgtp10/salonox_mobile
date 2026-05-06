@@ -5,56 +5,34 @@ interface Props {
   onClose: () => void;
 }
 
+const NAV_ITEMS = [
+  { to: "/dashboard/team/dashboard",    label: "Overview" },
+  { to: "/dashboard/team/members",      label: "Team members" },
+
+  { to: "/dashboard/team/shifts",       label: "Scheduled shifts" },
+  { to: "/dashboard/team/payruns",      label: "Pay runs" },
+];
+
 export default function TeamSubSidebar({ onClose }: Props) {
   return (
     <div className="sub-sidebar">
       <div className="sub-header">
         <h3>Team</h3>
-
         <button className="floating-close" onClick={onClose}>
           <ChevronLeft size={16} />
         </button>
       </div>
 
-      <NavLink
-        to="/dashboard/team/members"
-        className={({ isActive }) =>
-          isActive ? "sub-link active" : "sub-link"
-        }
-        onClick={onClose}
-      >
-        Team members
-      </NavLink>
-
-      <NavLink
-        to="/dashboard/team/shifts"
-        className={({ isActive }) =>
-          isActive ? "sub-link active" : "sub-link"
-        }
-        onClick={onClose}
-      >
-        Scheduled shifts
-      </NavLink>
-
-      <NavLink
-        to="/dashboard/team/timesheets"
-        className={({ isActive }) =>
-          isActive ? "sub-link active" : "sub-link"
-        }
-        onClick={onClose}
-      >
-        Timesheets
-      </NavLink>
-
-      <NavLink
-        to="/dashboard/team/payruns"
-        className={({ isActive }) =>
-          isActive ? "sub-link active" : "sub-link"
-        }
-        onClick={onClose}
-      >
-        Pay runs
-      </NavLink>
+      {NAV_ITEMS.map(({ to, label }) => (
+        <NavLink
+          key={to}
+          to={to}
+          className={({ isActive }) => (isActive ? "sub-link active" : "sub-link")}
+          onClick={onClose}
+        >
+          {label}
+        </NavLink>
+      ))}
     </div>
   );
 }

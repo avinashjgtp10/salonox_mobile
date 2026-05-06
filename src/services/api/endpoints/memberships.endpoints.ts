@@ -64,9 +64,12 @@ export const membershipsApi = createApi({
   reducerPath: "membershipsApi",
   baseQuery: fetchBaseQuery({
     baseUrl: (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5000") + "/api/v1",
-    prepareHeaders: (headers) => {
-      const token = localStorage.getItem("token");
+    prepareHeaders: (headers, { getState }) => {
+      const state = getState() as any;
+      const token = state?.auth?.accessToken;
       if (token) headers.set("Authorization", `Bearer ${token}`);
+      const salonId = state?.salon?.currentSalon?.id;
+      if (salonId) headers.set("x-salon-id", String(salonId));
       return headers;
     },
   }),

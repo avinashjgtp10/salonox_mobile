@@ -1,6 +1,7 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   House,
+  Lightning,
   Calendar,
   Tag,
   EmojiSmile,
@@ -48,6 +49,15 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
       >
         <House size={26} />
         <span className="nav-label">Home</span>
+      </NavLink>
+
+      <NavLink
+        to="/dashboard/sales/quick"
+        className={({ isActive }) => navClass(isActive)}
+        onClick={() => onMenuChange(null)}
+      >
+        <Lightning size={26} />
+        <span className="nav-label">Quick Sale</span>
       </NavLink>
 
       <NavLink

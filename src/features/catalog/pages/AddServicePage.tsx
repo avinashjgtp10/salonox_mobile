@@ -1,5 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import type { AppDispatch } from "../../../store/store";
+import { fetchCategoriesThunk } from "../../../middleware/services/categories.thunk";
+import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
+import { selectAllCategories, selectAllStaff, selectStaffLoading } from "../../../store/selectors/slices.selectors";
 import { useServiceForm } from "../hooks/useServiceForm.ts";
 import BasicDetailsTab from "../components/tabs/BasicDetailsTab.tsx";
 import TeamMembersTab from "../components/tabs/TeamMembersTab.tsx";
@@ -47,11 +52,34 @@ const settingsTabs: TabItem[] = [
 
 const AddServicePage: React.FC = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>();
   const [searchParams] = useSearchParams();
   const serviceType = (searchParams.get("type") || "single") as
     | "single"
     | "bundle";
   const [activeTab, setActiveTab] = useState<TabKey>("basic");
+
+  const rawCategories = useSelector(selectAllCategories);
+  const categories = (Array.isArray(rawCategories) ? rawCategories : []).map(
+    (c) => ({ id: c.id, name: c.name }),
+  );
+
+  const rawStaff = useSelector(selectAllStaff);
+  const staffLoading = useSelector(selectStaffLoading);
+  const staffMembers = (Array.isArray(rawStaff) ? rawStaff : []).map((s) => {
+    const parts = (s.fullName ?? "").split(" ");
+    return {
+      id: String(s.id),
+      firstName: parts[0] ?? "",
+      lastName: parts.slice(1).join(" ") ?? "",
+      role: s.role ?? "",
+    };
+  });
+
+  useEffect(() => {
+    dispatch(fetchCategoriesThunk());
+    dispatch(fetchStaffThunk());
+  }, [dispatch]);
   const {
     formData,
     updateField,
@@ -158,6 +186,7 @@ const AddServicePage: React.FC = () => {
                   onChange={(v: any) => updateField("basic", v)}
                   serviceType={serviceType}
                   errors={validationErrors.basic}
+                  categories={categories}
                 />
               )}
               {activeTab === "team" && (
@@ -165,6 +194,8 @@ const AddServicePage: React.FC = () => {
                   data={formData.team}
                   onChange={(v: any) => updateField("team", v)}
                   errors={validationErrors.team}
+                  staffMembers={staffMembers}
+                  staffLoading={staffLoading.fetchAll}
                 />
               )}
               {activeTab === "resources" && (

@@ -45,6 +45,7 @@ export interface Sale {
 // ── Payloads ──────────────────────────────────────────────────────────────────
 export interface CreateSaleItemPayload {
   item_type: SaleItemType;
+  item_id?: string;
   name: string;
   quantity: number;
   unit_price: string;
@@ -70,6 +71,7 @@ export interface UpdateSalePayload {
 export interface CheckoutSalePayload {
   id: EntityId;
   payment_method: PaymentMethod;
+  amount_paid: number;
   payment_reference?: string;
 }
 

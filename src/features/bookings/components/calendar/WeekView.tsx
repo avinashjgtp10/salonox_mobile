@@ -100,7 +100,13 @@ const WeekView: React.FC<WeekViewProps> = ({ onSlotClick, onViewBill }) => {
                   ))}
 
                   {dayBookings.map((b) => {
-                    const statusClass = b.status === "Confirmed" ? "confirmed" : b.status === "Pending" ? "pending" : "cancelled";
+                    const ps = (b.paymentStatus || "").toLowerCase();
+                    const bs = (b.status || "").toLowerCase();
+                    const isPaid = ps === "paid" || ps === "completed";
+                    const isPartial = ps === "partial";
+                    const isConfirmed = bs === "confirmed" || bs === "completed";
+                    const isCancelled = bs === "cancelled";
+                    const statusClass = isCancelled ? "cancelled" : isPaid ? "confirmed" : isPartial ? "partial" : isConfirmed ? "confirmed" : "pending";
                     return (
                       <div
                         key={b.id}

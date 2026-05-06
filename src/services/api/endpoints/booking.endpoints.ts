@@ -1,8 +1,16 @@
 export const BOOKING = {
   BASE: "/api/v1/appointments",
   BY_ID: (id: string | number) => `/api/v1/appointments/${id}`,
+
+  // ── Status transitions ─────────────────────────────────────────────────────
+  CONFIRM:  (id: string | number) => `/api/v1/appointments/${id}/confirm`,
+  START:    (id: string | number) => `/api/v1/appointments/${id}/start`,
+  CANCEL:   (id: string | number) => `/api/v1/appointments/${id}/cancel`,
+  NO_SHOW:  (id: string | number) => `/api/v1/appointments/${id}/no-show`,
+  CHECKOUT: (id: string | number) => `/api/v1/appointments/${id}/checkout`,
+
   EXPORT: (
-    format: "excel" | "csv",
+    format: "excel" | "csv" | "pdf",
     filters?: { salon_id?: string; status?: string; start_date?: string; end_date?: string }
   ) => {
     const params = new URLSearchParams({ format });

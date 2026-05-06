@@ -1,479 +1,705 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import type { AppDispatch } from "../../../store/store";
-import { deleteCatalogThunk } from "../../../middleware/catalog/catalog.thunk";
 import {
-  ChevronDown,
+  deleteServiceThunk,
+  downloadServicesExcelThunk,
+  downloadServicesCsvThunk,
+  downloadServicesPdfThunk,
+} from "../../../middleware/services/services.thunk";
+import {
   Search,
   Sliders,
-  ArrowsExpand,
-  Link45deg,
+  ChevronDown,
+  PlusLg,
   ArrowDownUp,
-  Gear,
+  TagFill,
   FileEarmarkPdf,
   FileEarmarkExcel,
   FiletypeCsv,
+  Trash3,
+  PencilSquare,
   X,
 } from "react-bootstrap-icons";
 import { useServices } from "../hooks/useServices.ts";
 import { useCategories } from "../hooks/useCategories.ts";
+import { useServiceFilters } from "../hooks/useServiceFilters.ts";
+import { useSelector as useReduxSelector } from "react-redux";
+import { selectAllStaff } from "../../../store/selectors/slices.selectors";
+import type { ServiceFiltersState } from "../../../store/serviceFiltersSlice";
 import ServiceFilterDrawer from "../components/ServiceFilterDrawer.tsx";
 import ManageOrderModal from "../components/ManageOrderModal.tsx";
-import ServiceActionsMenu from "../components/ServiceActionsMenu.tsx";
+import ServiceCard from "../components/shared/ServiceCard.tsx";
+import { ServiceListSkeleton } from "../components/shared/LoadingSkeletons.tsx";
+import EmptyState from "../components/shared/EmptyState.tsx";
+import ErrorState from "../components/shared/ErrorState.tsx";
+import Pagination from "../components/shared/Pagination.tsx";
 import "../styles/ServicesListPage.scss";
+
+const COLOR_OPTIONS = [
+  { hex: "#6366f1", name: "Indigo" },
+  { hex: "#10b981", name: "Emerald" },
+  { hex: "#f59e0b", name: "Amber" },
+  { hex: "#ef4444", name: "Red" },
+  { hex: "#8b5cf6", name: "Violet" },
+  { hex: "#ec4899", name: "Pink" },
+  { hex: "#06b6d4", name: "Cyan" },
+  { hex: "#64748b", name: "Slate" },
+];
+
+// Maps UI filter strings → API boolean params
+const buildFilterParams = (f: ServiceFiltersState): Record<string, any> => {
+  const p: Record<string, any> = {};
+  if (f.status === "Active")   p.isActive = true;
+  if (f.status === "Inactive") p.isActive = false;
+  if (f.onlineBooking === "Enabled")  p.onlineBooking = true;
+  if (f.onlineBooking === "Disabled") p.onlineBooking = false;
+  if (f.commissions === "Enabled")    p.commissionEnabled = true;
+  if (f.commissions === "Disabled")   p.commissionEnabled = false;
+  if (f.resourceRequirements === "Required")     p.resourceRequired = true;
+  if (f.resourceRequirements === "Not required") p.resourceRequired = false;
+  return p;
+};
 
 const ServicesListPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
-  const { services, categories, loading, error, fetchServices } = useServices();
-  const { createCategory, loading: catLoading } = useCategories();
-  const [showFilterDrawer, setShowFilterDrawer] = useState(false);
-  const [showManageOrder, setShowManageOrder] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [actionsMenuServiceId, setActionsMenuServiceId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showAddCategory, setShowAddCategory] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState("");
-  const [newCategoryColor, setNewCategoryColor] = useState("#3b82f6");
-  const [newCategoryDesc, setNewCategoryDesc] = useState("");
-  const [colorDropdownOpen, setColorDropdownOpen] = useState(false);
-  const [filters, setFilters] = useState({
-    status: "Active",
-    type: "All types",
-    teamMember: "Any team member",
-    onlineBooking: "All status",
-    commissions: "All status",
-    resourceRequirements: "All status",
-  });
+  const { services, categories, loading, error, pagination, fetchServices } =
+    useServices();
+  const { createCategory, updateCategory, deleteCategory, loading: catLoading } =
+    useCategories();
+  const { filters, activeCount: filterActiveCount } = useServiceFilters();
 
+  const rawStaff = useReduxSelector(selectAllStaff);
+  const staffNames = (Array.isArray(rawStaff) ? rawStaff : []).map((s) => ({
+    id: String(s.id),
+    name: s.fullName ?? "",
+  }));
+
+  // ── UI state ────────────────────────────────────────────────────────────────
+  const [showFilterDrawer, setShowFilterDrawer]   = useState(false);
+  const [showManageOrder, setShowManageOrder]     = useState(false);
+  const [selectedCategory, setSelectedCategory]  = useState<string>("all");
+  const [openCardMenu, setOpenCardMenu]           = useState<string | null>(null);
+  const [searchQuery, setSearchQuery]             = useState("");
+  const [showAddCategory, setShowAddCategory]     = useState(false);
+  const [newCategoryName, setNewCategoryName]     = useState("");
+  const [newCategoryColor, setNewCategoryColor]   = useState(COLOR_OPTIONS[0].hex);
+  const [newCategoryDesc, setNewCategoryDesc]     = useState("");
+  const [colorDropdownOpen, setColorDropdownOpen] = useState(false);
+  const [editingCategory, setEditingCategory]     = useState<{ id: string | number; name: string; description?: string } | null>(null);
+  const [editCategoryName, setEditCategoryName]   = useState("");
+  const [editCategoryDesc, setEditCategoryDesc]   = useState("");
+  const [deletingCategory, setDeletingCategory]   = useState<{ id: string | number; name: string } | null>(null);
+  const [currentPage, setCurrentPage]             = useState(1);
+  const [pageSize, setPageSize]                   = useState(25);
+
+  const addMenuRef = useRef<HTMLDivElement>(null);
+  const optMenuRef = useRef<HTMLDivElement>(null);
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  const [showOptMenu, setShowOptMenu] = useState(false);
+
+  // Reset to page 1 whenever filters / search / category change
   useEffect(() => {
-    fetchServices();
+    setCurrentPage(1);
+  }, [searchQuery, selectedCategory, filters]);
+
+  // Fetch from API on every dependency change
+  useEffect(() => {
+    fetchServices({
+      page: currentPage,
+      limit: pageSize,
+      search: searchQuery || undefined,
+      categoryId: selectedCategory !== "all" ? selectedCategory : undefined,
+      ...buildFilterParams(filters),
+    });
+  // fetchServices is stable (useCallback), filters is from Redux (stable ref when unchanged)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, pageSize, selectedCategory, searchQuery, filters, fetchServices]);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node))
+        setShowAddMenu(false);
+      if (optMenuRef.current && !optMenuRef.current.contains(e.target as Node))
+        setShowOptMenu(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // ── Download handlers ────────────────────────────────────────────────────────
+  const handleDownloadPdf = useCallback(() => {
+    dispatch(downloadServicesPdfThunk());
+    setShowOptMenu(false);
+  }, [dispatch]);
+
+  const handleDownloadExcel = useCallback(() => {
+    dispatch(downloadServicesExcelThunk());
+    setShowOptMenu(false);
+  }, [dispatch]);
+
+  const handleDownloadCsv = useCallback(() => {
+    dispatch(downloadServicesCsvThunk());
+    setShowOptMenu(false);
+  }, [dispatch]);
+
+  // ── Group services by category for display ───────────────────────────────────
   const groupedServices = useMemo(() => {
-    const filtered = services.filter((svc: any) => {
-      const matchesCategory =
-        selectedCategory === "all" ||
-        String(svc.category_id) === String(selectedCategory);
-      const matchesSearch = svc.name
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase());
-
-      // Status filter based on is_active flag
-      const matchesStatus =
-        filters.status === "All status" ||
-        (filters.status === "Active" && svc.is_active !== false) ||
-        (filters.status === "Inactive" && svc.is_active === false);
-
-      return matchesCategory && matchesSearch && matchesStatus;
-    });
-
     const groups: Record<
       string,
-      { id: string | number; name: string; services: any[] }
+      { id: string | number; name: string; color?: string; services: any[] }
     > = {};
 
-    categories.forEach((cat) => {
-      if (selectedCategory === "all" || String(selectedCategory) === String(cat.id)) {
-        groups[String(cat.id)] = { id: cat.id, name: cat.name, services: [] };
-      }
+    categories.forEach((cat: any) => {
+      groups[String(cat.id)] = {
+        id: cat.id,
+        name: cat.name,
+        color: cat.color,
+        services: [],
+      };
     });
 
-    filtered.forEach((svc) => {
+    services.forEach((svc: any) => {
       const key = String(svc.category_id);
       if (groups[key]) {
         groups[key].services.push(svc);
+      } else {
+        if (!groups["none"]) {
+          groups["none"] = { id: "none", name: "Other Services", services: [] };
+        }
+        groups["none"].services.push(svc);
       }
     });
 
     return Object.values(groups).filter((g) => g.services.length > 0);
-  }, [services, categories, selectedCategory, searchQuery]);
+  }, [services, categories]);
+
+  const resetCategoryForm = () => {
+    setNewCategoryName("");
+    setNewCategoryDesc("");
+    setNewCategoryColor(COLOR_OPTIONS[0].hex);
+  };
+
+  const hasActiveSearch = searchQuery.trim() !== "";
+  const hasActiveFilters = filterActiveCount > 0 || selectedCategory !== "all" || hasActiveSearch;
 
   return (
-    <div className="services-list-page">
-      <header className="services-list-page__header">
-        <div className="header-left">
-          <div className="title-content">
-            <h1>Service menu</h1>
-            <p>
-              View and manage the services offered by your business.{" "}
-              <a href="#" className="learn-more">
-                Learn more
-              </a>
-            </p>
-          </div>
+    <div className="slp">
+      {/* ── HEADER ─────────────────────────────────────────────────────────── */}
+      <header className="slp__header">
+        <div>
+          <h1 className="slp__title">Service menu</h1>
+          <p className="slp__subtitle">
+            View and manage the services offered by your business.{" "}
+            <a href="#" className="slp__learn">Learn more</a>
+          </p>
         </div>
-        <div className="services-list-page__actions">
-          <div className="dropdown">
-            <button className="btn btn-options" data-bs-toggle="dropdown">
-              Options <ChevronDown size={14} className="ms-1" />
-            </button>
-            <ul
-              className="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-4 py-2 mt-2"
-              style={{ minWidth: "240px" }}
+
+        <div className="slp__hdr-actions">
+          {/* Options dropdown */}
+          <div className="slp__dd-wrap" ref={optMenuRef}>
+            <button
+              className="slp__btn slp__btn--outline"
+              onClick={() => { setShowOptMenu((v) => !v); setShowAddMenu(false); }}
             >
-              <li>
-                <button className="dropdown-item d-flex align-items-center py-2 px-3 fw-medium">
-                  <Link45deg className="me-3" size={18} /> Quick booking link
-                </button>
-              </li>
-              <li>
-                <button
-                  className="dropdown-item d-flex align-items-center py-2 px-3 fw-medium"
-                  onClick={() => setShowManageOrder(true)}
-                >
-                  <ArrowDownUp className="me-3" size={16} /> Set menu order
-                </button>
-              </li>
-              <li>
-                <button className="dropdown-item d-flex align-items-center py-2 px-3 fw-medium">
-                  <ArrowDownUp className="me-3" size={16} /> Set booking
-                  sequence
-                </button>
-              </li>
-              <li>
-                <button className="dropdown-item d-flex align-items-center py-2 px-3 fw-medium">
-                  <Gear className="me-3" size={16} /> Settings
-                </button>
-              </li>
-              <li>
-                <hr className="dropdown-divider my-2 opacity-50" />
-              </li>
-              <li>
-                <button className="dropdown-item d-flex align-items-center py-2 px-3 fw-medium">
-                  <FileEarmarkPdf className="me-3" size={16} /> Download PDF
-                </button>
-              </li>
-              <li>
-                <button className="dropdown-item d-flex align-items-center py-2 px-3 fw-medium">
-                  <FileEarmarkExcel className="me-3" size={16} /> Download Excel
-                </button>
-              </li>
-              <li>
-                <button className="dropdown-item d-flex align-items-center py-2 px-3 fw-medium">
-                  <FiletypeCsv className="me-3" size={16} /> Download CSV
-                </button>
-              </li>
-            </ul>
-          </div>
-          <div className="dropdown">
-            <button className="btn btn-add-new" data-bs-toggle="dropdown">
-              Add <ChevronDown size={14} className="ms-1" />
+              Options <ChevronDown size={13} />
             </button>
-            <ul className="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-4">
-              <li>
-                <button
-                  className="dropdown-item py-2"
-                  onClick={() =>
-                    navigate("/dashboard/catalog/services/add?type=single")
-                  }
-                >
-                  Single Service
-                </button>
-              </li>
-              <li>
-                <button
-                  className="dropdown-item py-2"
-                  onClick={() =>
-                    navigate("/dashboard/catalog/services/add?type=bundle")
-                  }
-                >
-                  Bundle
-                </button>
-              </li>
-              <li>
-                <button
-                  className="dropdown-item py-2"
-                  onClick={() => setShowAddCategory(true)}
-                >
-                  Category
-                </button>
-              </li>
-            </ul>
+            {showOptMenu && (
+              <ul className="slp__dd-menu slp__dd-menu--left">
+                <li>
+                  <button
+                    className="slp__dd-item"
+                    onClick={() => { setShowManageOrder(true); setShowOptMenu(false); }}
+                  >
+                    <ArrowDownUp size={15} /> Set menu order
+                  </button>
+                </li>
+                <li><hr className="slp__dd-divider" /></li>
+                <li>
+                  <button className="slp__dd-item" onClick={handleDownloadPdf}>
+                    <FileEarmarkPdf size={15} /> Download PDF
+                  </button>
+                </li>
+                <li>
+                  <button className="slp__dd-item" onClick={handleDownloadExcel}>
+                    <FileEarmarkExcel size={15} /> Download Excel
+                  </button>
+                </li>
+                <li>
+                  <button className="slp__dd-item" onClick={handleDownloadCsv}>
+                    <FiletypeCsv size={15} /> Download CSV
+                  </button>
+                </li>
+              </ul>
+            )}
+          </div>
+
+          {/* Add dropdown */}
+          <div className="slp__dd-wrap" ref={addMenuRef}>
+            <button
+              className="slp__btn slp__btn--dark"
+              onClick={() => { setShowAddMenu((v) => !v); setShowOptMenu(false); }}
+            >
+              <PlusLg size={15} /> Add <ChevronDown size={13} />
+            </button>
+            {showAddMenu && (
+              <ul className="slp__dd-menu slp__dd-menu--right">
+                <li>
+                  <button
+                    className="slp__dd-item"
+                    onClick={() => { setShowAddMenu(false); navigate("/dashboard/catalog/services/add?type=single"); }}
+                  >
+                    Single Service
+                  </button>
+                </li>
+                <li>
+                  <button
+                    className="slp__dd-item"
+                    onClick={() => { setShowAddMenu(false); setShowAddCategory(true); }}
+                  >
+                    <TagFill size={13} /> Add Category
+                  </button>
+                </li>
+              </ul>
+            )}
           </div>
         </div>
       </header>
 
-      <div className="services-list-page__controls">
-        <div className="search-box">
-          <Search className="search-icon-abs" size={18} />
+      {/* ── CONTROLS ───────────────────────────────────────────────────────── */}
+      <div className="slp__controls">
+        <div className="slp__search">
+          <Search className="slp__search-icon" size={16} />
           <input
             type="text"
-            placeholder="Search service name"
+            placeholder="Search service name…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
+          {searchQuery && (
+            <button className="slp__search-clear" onClick={() => setSearchQuery("")}>
+              <X size={14} />
+            </button>
+          )}
         </div>
-        <button
-          className="filter-btn"
-          onClick={() => setShowFilterDrawer(true)}
-        >
-          Filters <Sliders size={16} className="ms-1" />
+        <button className="slp__ctrl-btn" onClick={() => setShowFilterDrawer(true)}>
+          <Sliders size={15} /> Filters
+          {filterActiveCount > 0 && (
+            <span className="slp__filter-badge">{filterActiveCount}</span>
+          )}
         </button>
         <button
-          className="manage-order-btn ms-auto"
+          className="slp__ctrl-btn slp__ctrl-btn--order"
           onClick={() => setShowManageOrder(true)}
         >
-          <ArrowsExpand size={16} className="me-2" /> Manage order
+          <ArrowDownUp size={15} /> Manage order
         </button>
       </div>
 
-      <main className="services-list-page__layout">
-        <aside className="services-list-page__sidebar">
-          <div className="sidebar-section">
-            <h3>Categories</h3>
-            <ul className="category-list">
-              <li
-                className={`category-item ${selectedCategory === "all" ? "active" : ""}`}
-                onClick={() => setSelectedCategory("all")}
-              >
-                <span className="cat-name">All categories</span>
-                <span className="count">{services.length}</span>
-              </li>
-              {categories.map((cat: any) => (
-                <li
-                  key={cat.id}
-                  className={`category-item ${String(selectedCategory) === String(cat.id) ? "active" : ""}`}
-                  onClick={() => setSelectedCategory(String(cat.id))}
-                >
-                  <span className="cat-name">{cat.name}</span>
-                  <span className="count">{cat.serviceCount || 0}</span>
-                </li>
-              ))}
-            </ul>
-            <button
-              className="add-category-link"
-              onClick={() => setShowAddCategory(true)}
+      {/* ── BODY ───────────────────────────────────────────────────────────── */}
+      <div className="slp__body">
+        {/* Sidebar */}
+        <aside className="slp__sidebar">
+          <p className="slp__sidebar-heading">Categories</p>
+          <ul className="slp__cat-list">
+            <li
+              className={`slp__cat-item ${selectedCategory === "all" ? "slp__cat-item--active" : ""}`}
+              onClick={() => setSelectedCategory("all")}
             >
-              Add category
-            </button>
-          </div>
+              <span>All categories</span>
+              <span className="slp__cat-badge">{services.length}</span>
+            </li>
+            {categories.map((cat: any) => (
+              <li
+                key={cat.id}
+                className={`slp__cat-item slp__cat-item--editable ${String(selectedCategory) === String(cat.id) ? "slp__cat-item--active" : ""}`}
+                onClick={() => setSelectedCategory(String(cat.id))}
+              >
+                <span className="d-flex align-items-center gap-2 slp__cat-name">
+                  {cat.color && (
+                    <span className="slp__cat-dot" style={{ background: cat.color }} />
+                  )}
+                  {cat.name}
+                </span>
+                <span className="slp__cat-badge">{cat.serviceCount || 0}</span>
+
+                <span className="slp__cat-actions" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    className="slp__cat-action-btn"
+                    title="Edit category"
+                    onClick={() => {
+                      setEditingCategory({ id: cat.id, name: cat.name });
+                      setEditCategoryName(cat.name);
+                      setEditCategoryDesc(cat.description ?? "");
+                    }}
+                  >
+                    <PencilSquare size={12} />
+                  </button>
+                  <button
+                    className="slp__cat-action-btn slp__cat-action-btn--danger"
+                    title="Delete category"
+                    onClick={() => setDeletingCategory({ id: cat.id, name: cat.name })}
+                  >
+                    <Trash3 size={12} />
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <button className="slp__add-cat-link" onClick={() => setShowAddCategory(true)}>
+            + Add category
+          </button>
         </aside>
 
-        <section className="services-list-page__content">
+        {/* Main content */}
+        <section className="slp__content">
           {loading ? (
-            <div className="services-list-page__loading">
-              <div className="spinner-border text-primary" />
-            </div>
+            <ServiceListSkeleton groups={2} />
           ) : error ? (
-            <div className="alert alert-danger rounded-4">{error}</div>
+            <ErrorState
+              message={String(error)}
+              onRetry={() =>
+                fetchServices({
+                  page: currentPage,
+                  limit: pageSize,
+                  search: searchQuery || undefined,
+                  categoryId: selectedCategory !== "all" ? selectedCategory : undefined,
+                  ...buildFilterParams(filters),
+                })
+              }
+            />
           ) : groupedServices.length === 0 ? (
-            <div className="text-center py-5 bg-white border rounded-4 no-results">
-              <p className="mb-3">No services found match your criteria.</p>
-              <button
-                className="btn btn-outline-dark rounded-pill px-4"
-                onClick={() => {
-                  setSearchQuery("");
-                  setSelectedCategory("all");
-                }}
-              >
-                Clear all filters
-              </button>
-            </div>
+            <EmptyState
+              icon={<TagFill size={32} />}
+              title="No services found"
+              description={
+                hasActiveFilters
+                  ? "Try adjusting your search or filters."
+                  : "Add your first service to get started."
+              }
+              secondaryAction={
+                hasActiveFilters
+                  ? {
+                      label: "Clear filters",
+                      onClick: () => {
+                        setSearchQuery("");
+                        setSelectedCategory("all");
+                      },
+                    }
+                  : undefined
+              }
+              action={
+                !hasActiveFilters
+                  ? {
+                      label: "Add service",
+                      onClick: () =>
+                        navigate("/dashboard/catalog/services/add?type=single"),
+                    }
+                  : undefined
+              }
+            />
           ) : (
             groupedServices.map((group) => (
-              <div key={group.id} className="service-group mb-5">
-                <div className="service-group__header d-flex justify-content-between align-items-center mb-3">
-                  <h2 className="group-title">{group.name}</h2>
-                  <div className="dropdown">
+              <div key={group.id} className="slp__group">
+                <div className="slp__group-header">
+                  <div className="d-flex align-items-center gap-2">
+                    {group.color && (
+                      <span
+                        className="slp__group-dot"
+                        style={{ background: group.color }}
+                      />
+                    )}
+                    <h2 className="slp__group-title">{group.name}</h2>
+                    <span className="slp__group-count">{group.services.length}</span>
+                  </div>
+                  <div className="slp__dd-wrap">
                     <button
-                      className="actions-btn rounded-pill border-0"
-                      data-bs-toggle="dropdown"
+                      className="slp__group-actions-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenCardMenu(
+                          openCardMenu === `group-${group.id}`
+                            ? null
+                            : `group-${group.id}`,
+                        );
+                      }}
                     >
-                      Actions <ChevronDown size={14} className="ms-1" />
+                      <ChevronDown size={14} /> Actions
                     </button>
-                    <ul className="dropdown-menu shadow-sm border-0 rounded-4">
-                      <li>
-                        <button className="dropdown-item py-2">
-                          Edit category
-                        </button>
-                      </li>
-                      <li>
-                        <button className="dropdown-item py-2 text-danger">
-                          Delete category
-                        </button>
-                      </li>
-                    </ul>
+                    {openCardMenu === `group-${group.id}` && (
+                      <ul className="slp__dd-menu slp__dd-menu--right">
+                        <li>
+                          <button
+                            className="slp__dd-item"
+                            onClick={() => {
+                              setEditingCategory({ id: group.id, name: group.name });
+                              setEditCategoryName(group.name);
+                              setEditCategoryDesc("");
+                              setOpenCardMenu(null);
+                            }}
+                          >
+                            <PencilSquare size={13} /> Edit category
+                          </button>
+                        </li>
+                        <li>
+                          <button
+                            className="slp__dd-item slp__dd-item--danger"
+                            onClick={() => {
+                              setDeletingCategory({ id: group.id, name: group.name });
+                              setOpenCardMenu(null);
+                            }}
+                          >
+                            <Trash3 size={13} /> Delete category
+                          </button>
+                        </li>
+                      </ul>
+                    )}
                   </div>
                 </div>
-                <div className="service-group__list rounded-4 overflow-hidden border">
+
+                <div className="slp__service-list">
                   {group.services.map((svc: any) => (
-                    <div
+                    <ServiceCard
                       key={svc.id}
-                      className={`service-card p-4 d-flex justify-content-between align-items-center ${selectedCategory === group.id ? "active-cat" : ""}`}
-                      onClick={() =>
-                        navigate(`/dashboard/catalog/services/${svc.id}`)
+                      service={svc}
+                      openMenuId={openCardMenu}
+                      onMenuToggle={setOpenCardMenu}
+                      onEdit={(id) =>
+                        navigate(`/dashboard/catalog/services/${id}/edit`)
                       }
-                    >
-                      <div className="card-left">
-                        <h4 className="service-name">{svc.name}</h4>
-                        <p className="service-meta">{svc.duration}min</p>
-                      </div>
-                      <div className="card-right d-flex align-items-center gap-4">
-                        <span className="price">₹{svc.price}</span>
-                        <div onClick={(e) => e.stopPropagation()}>
-                          <ServiceActionsMenu
-                            serviceId={String(svc.id)}
-                            open={actionsMenuServiceId === String(svc.id)}
-                            onToggle={() =>
-                              setActionsMenuServiceId(
-                                actionsMenuServiceId === String(svc.id)
-                                  ? null
-                                  : String(svc.id),
-                              )
-                            }
-                            onEdit={() =>
-                              navigate(
-                                `/dashboard/catalog/services/${svc.id}/edit`,
-                              )
-                            }
-                            onDelete={() => dispatch(deleteCatalogThunk(svc.id))}
-                            onQuickBookingLink={() =>
-                              navigate(
-                                `/dashboard/catalog/services/${svc.id}/quick-booking`,
-                              )
-                            }
-                            onSetMenuOrder={() => setShowManageOrder(true)}
-                            onSetBookingSequence={() =>
-                              navigate(
-                                `/dashboard/catalog/services/${svc.id}/booking-sequence`,
-                              )
-                            }
-                          />
-                        </div>
-                      </div>
-                    </div>
+                      onDelete={(id) => {
+                        dispatch(deleteServiceThunk(id));
+                        setOpenCardMenu(null);
+                      }}
+                      onClick={(id) =>
+                        navigate(`/dashboard/catalog/services/${id}`)
+                      }
+                    />
                   ))}
                 </div>
               </div>
             ))
           )}
         </section>
-      </main>
+      </div>
 
+      {/* ── PAGINATION ─────────────────────────────────────────────────────── */}
+      {!loading && pagination && pagination.total_pages > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={pagination.total_pages}
+          totalItems={pagination.total}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setCurrentPage(1);
+          }}
+        />
+      )}
+
+      {/* ── MODALS ─────────────────────────────────────────────────────────── */}
       {showFilterDrawer && (
         <ServiceFilterDrawer
           onClose={() => setShowFilterDrawer(false)}
-          onApply={(newFilters: any) => setFilters(newFilters)}
+          staffMembers={staffNames}
         />
       )}
       {showManageOrder && (
         <ManageOrderModal
           services={services}
           onClose={() => setShowManageOrder(false)}
-          onSave={() => {
-            fetchServices();
-            setShowManageOrder(false);
-          }}
+          onSave={() => { fetchServices(); setShowManageOrder(false); }}
         />
       )}
 
-      {/* ── ADD CATEGORY MODAL ── */}
-      {showAddCategory && (
-        <div
-          className="add-category-overlay"
-          onClick={() => setShowAddCategory(false)}
-        >
+      {/* ── EDIT CATEGORY MODAL ────────────────────────────────────────────── */}
+      {editingCategory && (
+        <div className="slp__overlay" onClick={() => setEditingCategory(null)}>
+          <div className="slp__modal" onClick={(e) => e.stopPropagation()}>
+            <div className="slp__modal-header">
+              <h4>Edit category</h4>
+              <button className="slp__modal-close" onClick={() => setEditingCategory(null)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="slp__modal-body">
+              <div className="slp__field">
+                <label>Category name</label>
+                <input
+                  className="slp__input"
+                  placeholder="e.g. Hair Services"
+                  value={editCategoryName}
+                  onChange={(e) => setEditCategoryName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="slp__field" style={{ marginTop: 16 }}>
+                <div className="d-flex justify-content-between align-items-center mb-1">
+                  <label style={{ margin: 0 }}>Description</label>
+                  <span style={{ fontSize: 12, color: "#9ca3af" }}>
+                    {editCategoryDesc.length}/255
+                  </span>
+                </div>
+                <textarea
+                  className="slp__textarea"
+                  rows={4}
+                  maxLength={255}
+                  value={editCategoryDesc}
+                  onChange={(e) => setEditCategoryDesc(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="slp__modal-footer">
+              <button
+                className="slp__btn slp__btn--ghost"
+                onClick={() => setEditingCategory(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="slp__btn slp__btn--dark"
+                disabled={!editCategoryName.trim() || catLoading}
+                onClick={async () => {
+                  await updateCategory(String(editingCategory.id), {
+                    name: editCategoryName.trim(),
+                    description: editCategoryDesc.trim() || undefined,
+                  });
+                  setEditingCategory(null);
+                  fetchServices();
+                }}
+              >
+                {catLoading ? "Saving…" : "Save changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── DELETE CATEGORY CONFIRM ─────────────────────────────────────────── */}
+      {deletingCategory && (
+        <div className="slp__overlay" onClick={() => setDeletingCategory(null)}>
           <div
-            className="add-category-modal"
+            className="slp__modal"
+            style={{ maxWidth: 420 }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <div className="acm-header">
-              <h4 className="acm-title">Add category</h4>
+            <div className="slp__modal-header">
+              <h4>Delete category</h4>
               <button
-                className="acm-close"
-                onClick={() => setShowAddCategory(false)}
+                className="slp__modal-close"
+                onClick={() => setDeletingCategory(null)}
               >
                 <X size={20} />
               </button>
             </div>
+            <div className="slp__modal-body">
+              <p className="text-muted small mb-0">
+                Are you sure you want to delete{" "}
+                <strong>{deletingCategory.name}</strong>? Services in this
+                category will become uncategorised.
+              </p>
+            </div>
+            <div className="slp__modal-footer">
+              <button
+                className="slp__btn slp__btn--ghost"
+                onClick={() => setDeletingCategory(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="slp__btn slp__btn--danger"
+                disabled={catLoading}
+                onClick={async () => {
+                  await deleteCategory(String(deletingCategory.id));
+                  setDeletingCategory(null);
+                  fetchServices();
+                }}
+              >
+                {catLoading ? "Deleting…" : "Delete category"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-            {/* Body */}
-            <div className="acm-body">
-              <div className="acm-row">
-                {/* Category name */}
-                <div className="acm-field">
-                  <label className="acm-label">Category name</label>
+      {/* ── ADD CATEGORY MODAL ─────────────────────────────────────────────── */}
+      {showAddCategory && (
+        <div
+          className="slp__overlay"
+          onClick={() => { setShowAddCategory(false); resetCategoryForm(); }}
+        >
+          <div className="slp__modal" onClick={(e) => e.stopPropagation()}>
+            <div className="slp__modal-header">
+              <h4>Add category</h4>
+              <button
+                className="slp__modal-close"
+                onClick={() => { setShowAddCategory(false); resetCategoryForm(); }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="slp__modal-body">
+              <div className="slp__modal-row">
+                <div className="slp__field">
+                  <label>Category name</label>
                   <input
-                    className="acm-input"
+                    className="slp__input"
                     placeholder="e.g. Hair Services"
                     value={newCategoryName}
                     onChange={(e) => setNewCategoryName(e.target.value)}
                     autoFocus
                   />
                 </div>
-
-                {/* Appointment color */}
-                <div className="acm-field acm-field--color">
-                  <label className="acm-label">Appointment color</label>
+                <div className="slp__field" style={{ position: "relative" }}>
+                  <label>Appointment color</label>
                   <div
-                    className="acm-color-dropdown"
+                    className="slp__color-toggle"
                     onClick={() => setColorDropdownOpen((o) => !o)}
                   >
                     <span
-                      className="acm-color-swatch"
+                      className="slp__color-swatch"
                       style={{ background: newCategoryColor }}
                     />
-                    <span className="acm-color-name">
-                      {(
-                        {
-                          "#3b82f6": "Blue",
-                          "#10b981": "Green",
-                          "#f59e0b": "Amber",
-                          "#ef4444": "Red",
-                          "#8b5cf6": "Purple",
-                          "#ec4899": "Pink",
-                          "#06b6d4": "Cyan",
-                          "#6b7280": "Gray",
-                        } as Record<string, string>
-                      )[newCategoryColor] || "Blue"}
+                    <span>
+                      {COLOR_OPTIONS.find((c) => c.hex === newCategoryColor)?.name ?? "Color"}
                     </span>
-                    <ChevronDown size={14} className="acm-chevron" />
+                    <ChevronDown size={13} />
                   </div>
                   {colorDropdownOpen && (
-                    <div className="acm-color-menu">
-                      {[
-                        { hex: "#3b82f6", name: "Blue" },
-                        { hex: "#10b981", name: "Green" },
-                        { hex: "#f59e0b", name: "Amber" },
-                        { hex: "#ef4444", name: "Red" },
-                        { hex: "#8b5cf6", name: "Purple" },
-                        { hex: "#ec4899", name: "Pink" },
-                        { hex: "#06b6d4", name: "Cyan" },
-                        { hex: "#6b7280", name: "Gray" },
-                      ].map((c) => (
+                    <div className="slp__color-menu">
+                      {COLOR_OPTIONS.map((c) => (
                         <div
                           key={c.hex}
-                          className={`acm-color-option ${newCategoryColor === c.hex ? "selected" : ""}`}
+                          className={`slp__color-opt ${newCategoryColor === c.hex ? "slp__color-opt--sel" : ""}`}
                           onClick={() => {
                             setNewCategoryColor(c.hex);
                             setColorDropdownOpen(false);
                           }}
                         >
                           <span
-                            className="acm-color-swatch"
+                            className="slp__color-swatch"
                             style={{ background: c.hex }}
                           />
-                          <span>{c.name}</span>
+                          {c.name}
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
               </div>
-
-              {/* Description */}
-              <div className="acm-field mt-3">
+              <div className="slp__field" style={{ marginTop: 16 }}>
                 <div className="d-flex justify-content-between align-items-center mb-1">
-                  <label className="acm-label mb-0">Description</label>
-                  <span className="acm-char-count">
+                  <label style={{ margin: 0 }}>Description</label>
+                  <span style={{ fontSize: 12, color: "#9ca3af" }}>
                     {newCategoryDesc.length}/255
                   </span>
                 </div>
                 <textarea
-                  className="acm-textarea"
+                  className="slp__textarea"
                   rows={4}
                   maxLength={255}
                   value={newCategoryDesc}
@@ -481,22 +707,15 @@ const ServicesListPage: React.FC = () => {
                 />
               </div>
             </div>
-
-            {/* Footer */}
-            <div className="acm-footer">
+            <div className="slp__modal-footer">
               <button
-                className="acm-btn acm-btn--cancel"
-                onClick={() => {
-                  setShowAddCategory(false);
-                  setNewCategoryName("");
-                  setNewCategoryDesc("");
-                  setNewCategoryColor("#3b82f6");
-                }}
+                className="slp__btn slp__btn--ghost"
+                onClick={() => { setShowAddCategory(false); resetCategoryForm(); }}
               >
                 Cancel
               </button>
               <button
-                className="acm-btn acm-btn--add"
+                className="slp__btn slp__btn--dark"
                 disabled={!newCategoryName.trim() || catLoading}
                 onClick={async () => {
                   await createCategory({
@@ -505,12 +724,11 @@ const ServicesListPage: React.FC = () => {
                     color: newCategoryColor,
                   });
                   setShowAddCategory(false);
-                  setNewCategoryName("");
-                  setNewCategoryDesc("");
-                  setNewCategoryColor("#3b82f6");
+                  resetCategoryForm();
+                  fetchServices();
                 }}
               >
-                Add
+                {catLoading ? "Adding…" : "Add category"}
               </button>
             </div>
           </div>

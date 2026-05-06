@@ -17,8 +17,8 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
   subtotal, serviceTotal, packageTotal, productTotal, membershipTotal,
   exCharges, discount, discountType, tip = 0,
 }) => {
-  const discountVal = discountType === "Percentage (%)" ? (subtotal * discount) / 100 : discount;
-  const totalDiscount = Math.min(discountVal, subtotal);
+  const discountVal = discountType === "Percentage (%)" ? (serviceTotal * discount) / 100 : discount;
+  const totalDiscount = Math.min(discountVal, serviceTotal);
   const taxable = Math.max(0, subtotal - totalDiscount);
   const grandTotal = taxable + exCharges + tip;
 
