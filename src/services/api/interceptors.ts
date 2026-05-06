@@ -103,7 +103,7 @@ export const applyInterceptors = (instance: AxiosInstance) => {
 
       const status = error.response?.status;
       const data = error.response?.data as any;
-      const message = data?.message ?? "Something went wrong";
+      const message = data?.error?.message ?? data?.message ?? "Something went wrong";
 
       // ── 401: silent token refresh ──────────────────────────────────────────
       if (status === 401 && !originalRequest._retry) {

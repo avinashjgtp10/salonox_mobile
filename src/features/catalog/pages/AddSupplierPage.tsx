@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Country, State, City } from "country-state-city";
-import "./AddSupplierPage.scss";
+import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import { createSupplierThunk, updateSupplierThunk } from "../../../middleware/inventory/inventory.thunk";
+import "../styles/AddSupplierPage.scss";
 
 const COUNTRIES = Country.getAllCountries().map((c) => ({
   code: c.isoCode,
@@ -23,7 +25,34 @@ const codeOf = (name: string) =>
 
 const AddSupplierPage: React.FC = () => {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const isEdit = !!id;
+  const dispatch = useAppDispatch();
+  const { suppliers } = useAppSelector((state) => state.inventory);
 
+  // Supplier details
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+
+  // Contact info
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [mobileNumber, setMobileNumber] = useState("");
+  const [telephone, setTelephone] = useState("");
+  const [email, setEmail] = useState("");
+  const [website, setWebsite] = useState("");
+
+  // Physical address
+  const [physStreet, setPhysStreet] = useState("");
+  const [physSuburb, setPhysSuburb] = useState("");
+  const [physZip, setPhysZip] = useState("");
+
+  // Postal address
+  const [postalStreet, setPostalStreet] = useState("");
+  const [postalSuburb, setPostalSuburb] = useState("");
+  const [postalZip, setPostalZip] = useState("");
+
+  // Dial codes
   const [mobileDialCode, setMobileDialCode] = useState(INDIA.dial);
   const [mobileSearch, setMobileSearch] = useState("");
   const [mobileDropOpen, setMobileDropOpen] = useState(false);
@@ -32,6 +61,7 @@ const AddSupplierPage: React.FC = () => {
   const [telSearch, setTelSearch] = useState("");
   const [telDropOpen, setTelDropOpen] = useState(false);
 
+  // Location dropdowns
   const [physCountry, setPhysCountry] = useState("India");
   const [physState, setPhysState] = useState("");
   const [physCity, setPhysCity] = useState("");
@@ -41,6 +71,10 @@ const AddSupplierPage: React.FC = () => {
   const [postalCity, setPostalCity] = useState("");
 
   const [sameAsPostal, setSameAsPostal] = useState(true);
+
+  // UI state
+  const [saving, setSaving] = useState(false);
+  const [nameError, setNameError] = useState(false);
 
   const filteredMobile = useMemo(
     () =>
@@ -80,8 +114,8 @@ const AddSupplierPage: React.FC = () => {
     [postalCountry, postalState],
   );
 
-  const handlePhysCountry = (name: string) => {
-    setPhysCountry(name);
+  const handlePhysCountry = (val: string) => {
+    setPhysCountry(val);
     setPhysState("");
     setPhysCity("");
   };
@@ -91,8 +125,8 @@ const AddSupplierPage: React.FC = () => {
     setPhysCity("");
   };
 
-  const handlePostalCountry = (name: string) => {
-    setPostalCountry(name);
+  const handlePostalCountry = (val: string) => {
+    setPostalCountry(val);
     setPostalState("");
     setPostalCity("");
   };
@@ -102,15 +136,98 @@ const AddSupplierPage: React.FC = () => {
     setPostalCity("");
   };
 
+  React.useEffect(() => {
+    if (isEdit && suppliers.length > 0) {
+      const s = suppliers.find((sup) => sup.id === id);
+      if (s) {
+        setName(s.name);
+        setDescription(s.description || "");
+        setFirstName(s.first_name || "");
+        setLastName(s.last_name || "");
+        setMobileDialCode(s.mobile_country_code || INDIA.dial);
+        setMobileNumber(s.mobile_number || "");
+        setTelDialCode(s.telephone_country_code || INDIA.dial);
+        setTelephone(s.telephone_number || "");
+        setEmail(s.email || "");
+        setWebsite(s.website || "");
+        setPhysStreet(s.street || "");
+        setPhysSuburb(s.suburb || "");
+        setPhysCountry(s.country || "India");
+        setPhysState(s.state || "");
+        setPhysCity(s.city || "");
+        setPhysZip(s.zip_code || "");
+        setSameAsPostal(s.same_as_physical);
+        if (!s.same_as_physical) {
+          setPostalStreet(s.postal_street || "");
+          setPostalSuburb(s.postal_suburb || "");
+          setPostalCountry(s.postal_country || "India");
+          setPostalState(s.postal_state || "");
+          setPostalCity(s.postal_city || "");
+          setPostalZip(s.postal_zip_code || "");
+        }
+      }
+    }
+  }, [isEdit, id, suppliers]);
+
+  const handleSave = async () => {
+    if (!name.trim()) {
+      setNameError(true);
+      return;
+    }
+    setNameError(false);
+
+    const payload = {
+      name: name.trim(),
+      description: description.trim() || undefined,
+      first_name: firstName.trim() || undefined,
+      last_name: lastName.trim() || undefined,
+      mobile_country_code: mobileDialCode || undefined,
+      mobile_number: mobileNumber.trim() || undefined,
+      telephone_country_code: telDialCode || undefined,
+      telephone_number: telephone.trim() || undefined,
+      email: email.trim() || undefined,
+      website: website.trim() || undefined,
+      street: physStreet.trim() || undefined,
+      suburb: physSuburb.trim() || undefined,
+      city: physCity || undefined,
+      state: physState || undefined,
+      zip_code: physZip.trim() || undefined,
+      country: physCountry || undefined,
+      same_as_physical: sameAsPostal,
+      postal_street: sameAsPostal ? null : postalStreet.trim() || null,
+      postal_suburb: sameAsPostal ? null : postalSuburb.trim() || null,
+      postal_city: sameAsPostal ? null : postalCity || null,
+      postal_state: sameAsPostal ? null : postalState || null,
+      postal_zip_code: sameAsPostal ? null : postalZip.trim() || null,
+      postal_country: sameAsPostal ? null : postalCountry || null,
+    };
+
+    try {
+      setSaving(true);
+      if (isEdit && id) {
+        await dispatch(updateSupplierThunk({ id, data: payload })).unwrap();
+      } else {
+        await dispatch(createSupplierThunk(payload)).unwrap();
+      }
+      navigate(-1);
+    } catch (err) {
+      console.error("Failed to save supplier:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="add-supplier-page">
       <div className="add-supplier-page__topbar">
-        <h2>Add a new supplier</h2>
+        <h2>{isEdit ? "Edit supplier" : "Add a new supplier"}</h2>
         <div className="topbar-actions">
           <button className="btn-close-top" onClick={() => navigate(-1)}>
             Close
           </button>
-          <button className="btn-save">Save</button>
+          <button className="btn-save" onClick={handleSave} disabled={saving}>
+            {saving ? "Saving..." : "Save"}
+          </button>
         </div>
       </div>
 
@@ -118,9 +235,22 @@ const AddSupplierPage: React.FC = () => {
         <section className="form-section">
           <h3>Supplier details</h3>
 
-          <div className="field-group">
-            <label>Supplier name</label>
-            <input type="text" placeholder="e.g. L'Oréal" />
+          <div className={`field-group${nameError ? " field-group--error" : ""}`}>
+            <label>
+              Supplier name <span style={{ color: "red" }}>*</span>
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. L'Oréal"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (e.target.value.trim()) setNameError(false);
+              }}
+            />
+            {nameError && (
+              <span className="field-error">Supplier name is required</span>
+            )}
           </div>
 
           <div className="field-group">
@@ -128,6 +258,8 @@ const AddSupplierPage: React.FC = () => {
             <textarea
               placeholder="e.g. Local provider of hair products"
               rows={4}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
             />
           </div>
         </section>
@@ -140,11 +272,21 @@ const AddSupplierPage: React.FC = () => {
           <div className="field-row-2">
             <div className="field-group">
               <label>First name</label>
-              <input type="text" placeholder="e.g. John" />
+              <input
+                type="text"
+                placeholder="e.g. John"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+              />
             </div>
             <div className="field-group">
               <label>Last name</label>
-              <input type="text" placeholder="e.g. Doe" />
+              <input
+                type="text"
+                placeholder="e.g. Doe"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+              />
             </div>
           </div>
 
@@ -161,7 +303,12 @@ const AddSupplierPage: React.FC = () => {
                 <span>{mobileDialCode}</span>
                 <span className="chevron">▾</span>
               </div>
-              <input type="tel" placeholder="Mobile number" />
+              <input
+                type="tel"
+                placeholder="Mobile number"
+                value={mobileNumber}
+                onChange={(e) => setMobileNumber(e.target.value)}
+              />
               {mobileDropOpen && (
                 <div
                   className="dial-dropdown"
@@ -212,7 +359,12 @@ const AddSupplierPage: React.FC = () => {
                 <span>{telDialCode}</span>
                 <span className="chevron">▾</span>
               </div>
-              <input type="tel" placeholder="Telephone number" />
+              <input
+                type="tel"
+                placeholder="Telephone number"
+                value={telephone}
+                onChange={(e) => setTelephone(e.target.value)}
+              />
               {telDropOpen && (
                 <div
                   className="dial-dropdown"
@@ -251,12 +403,22 @@ const AddSupplierPage: React.FC = () => {
 
           <div className="field-group">
             <label>Email</label>
-            <input type="email" placeholder="mail@example.com" />
+            <input
+              type="email"
+              placeholder="mail@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
           </div>
 
           <div className="field-group">
             <label>Website</label>
-            <input type="url" placeholder="www.google.com" />
+            <input
+              type="url"
+              placeholder="www.google.com"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+            />
           </div>
         </section>
 
@@ -267,12 +429,21 @@ const AddSupplierPage: React.FC = () => {
 
           <div className="field-group">
             <label>Street</label>
-            <input type="text" placeholder="e.g. 12 Main Street" />
+            <input
+              type="text"
+              placeholder="e.g. 12 Main Street"
+              value={physStreet}
+              onChange={(e) => setPhysStreet(e.target.value)}
+            />
           </div>
 
           <div className="field-group">
             <label>Suburb</label>
-            <input type="text" />
+            <input
+              type="text"
+              value={physSuburb}
+              onChange={(e) => setPhysSuburb(e.target.value)}
+            />
           </div>
 
           <div className="field-group">
@@ -305,7 +476,12 @@ const AddSupplierPage: React.FC = () => {
                   ))}
                 </select>
               ) : (
-                <input type="text" placeholder="State / Province" />
+                <input
+                  type="text"
+                  placeholder="State / Province"
+                  value={physState}
+                  onChange={(e) => setPhysState(e.target.value)}
+                />
               )}
             </div>
 
@@ -324,14 +500,23 @@ const AddSupplierPage: React.FC = () => {
                   ))}
                 </select>
               ) : (
-                <input type="text" placeholder="City" />
+                <input
+                  type="text"
+                  placeholder="City"
+                  value={physCity}
+                  onChange={(e) => setPhysCity(e.target.value)}
+                />
               )}
             </div>
           </div>
 
           <div className="field-group" style={{ maxWidth: 260 }}>
             <label>Zip / Postal Code</label>
-            <input type="text" />
+            <input
+              type="text"
+              value={physZip}
+              onChange={(e) => setPhysZip(e.target.value)}
+            />
           </div>
 
           <label className="checkbox-label">
@@ -352,12 +537,21 @@ const AddSupplierPage: React.FC = () => {
 
             <div className="field-group">
               <label>Street</label>
-              <input type="text" placeholder="e.g. 12 Main Street" />
+              <input
+                type="text"
+                placeholder="e.g. 12 Main Street"
+                value={postalStreet}
+                onChange={(e) => setPostalStreet(e.target.value)}
+              />
             </div>
 
             <div className="field-group">
               <label>Suburb</label>
-              <input type="text" />
+              <input
+                type="text"
+                value={postalSuburb}
+                onChange={(e) => setPostalSuburb(e.target.value)}
+              />
             </div>
 
             <div className="field-group">
@@ -390,7 +584,12 @@ const AddSupplierPage: React.FC = () => {
                     ))}
                   </select>
                 ) : (
-                  <input type="text" placeholder="State / Province" />
+                  <input
+                    type="text"
+                    placeholder="State / Province"
+                    value={postalState}
+                    onChange={(e) => setPostalState(e.target.value)}
+                  />
                 )}
               </div>
 
@@ -409,14 +608,23 @@ const AddSupplierPage: React.FC = () => {
                     ))}
                   </select>
                 ) : (
-                  <input type="text" placeholder="City" />
+                  <input
+                    type="text"
+                    placeholder="City"
+                    value={postalCity}
+                    onChange={(e) => setPostalCity(e.target.value)}
+                  />
                 )}
               </div>
             </div>
 
             <div className="field-group" style={{ maxWidth: 260 }}>
               <label>Zip / Postal Code</label>
-              <input type="text" />
+              <input
+                type="text"
+                value={postalZip}
+                onChange={(e) => setPostalZip(e.target.value)}
+              />
             </div>
 
             <div className="section-divider" />
@@ -427,7 +635,13 @@ const AddSupplierPage: React.FC = () => {
           <button className="btn-cancel" onClick={() => navigate(-1)}>
             Close
           </button>
-          <button className="btn-save-bottom">Save</button>
+          <button
+            className="btn-save-bottom"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? "Saving..." : "Save"}
+          </button>
         </div>
       </div>
     </div>

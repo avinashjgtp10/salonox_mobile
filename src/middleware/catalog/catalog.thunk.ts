@@ -6,7 +6,6 @@ import { downloadBlob } from "../../utils/downloadBlob";
 import type {
   CatalogItem,
   CatalogResponse,
-  CatalogListResponse,
   CreateCatalogPayload,
   UpdateCatalogPayload,
 } from "../../types/catalog.types";
@@ -18,7 +17,12 @@ export const fetchCatalogThunk = createAsyncThunk<
   { rejectValue: string }
 >("catalog/fetchAll", async (_, { rejectWithValue }) => {
   try {
-    const res = await api.get<CatalogListResponse>(CATALOG.BASE);
+    const res = await api.get<any>(CATALOG.BASE);
+    // If the backend returns a paginated object { data: [], total: ... }, extract the array
+    if (res.data.data && Array.isArray(res.data.data.data)) {
+      return res.data.data.data;
+    }
+    // Fallback to standard data property or the response data itself
     return res.data.data;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);

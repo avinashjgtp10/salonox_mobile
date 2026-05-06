@@ -120,41 +120,6 @@ const StockOrdersListPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="header-actions">
-            <div className="dropdown">
-              <button
-                className="btn-options dropdown-toggle"
-                type="button"
-                data-bs-toggle="dropdown"
-                aria-expanded="false"
-              >
-                Options <ChevronDown size={14} />
-              </button>
-              <ul
-                className="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-3 py-2"
-                style={{ minWidth: 200 }}
-              >
-                <li>
-                  <button
-                    className="dropdown-item py-2 px-3 fw-medium"
-                    onClick={() => navigate("/dashboard/catalog/products")}
-                  >
-                    Manage products
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className="dropdown-item py-2 px-3 fw-medium"
-                    onClick={() =>
-                      navigate("/dashboard/catalog/inventory/suppliers")
-                    }
-                  >
-                    Manage suppliers
-                  </button>
-                </li>
-              </ul>
-            </div>
-          </div>
         </header>
 
         {/* EMPTY STATE */}

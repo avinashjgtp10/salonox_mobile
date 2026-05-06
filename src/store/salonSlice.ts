@@ -4,25 +4,31 @@ import {
   getMySalonThunk,
   getSalonByIdThunk,
   updateSalonThunk,
+  fetchBranchesThunk,
+  createBranchThunk,
 } from "../middleware/salon/salon.thunk";
-import type { Salon } from "../types/salon.types";
+import type { Salon, Branch } from "../types/salon.types";
 
 interface SalonState {
   currentSalon: Salon | null;
+  branches: Branch[];
   loading: {
     save: boolean;
     fetch: boolean;
     update: boolean;
+    branches: boolean;
   };
   error: string | null;
 }
 
 const initialState: SalonState = {
   currentSalon: null,
+  branches: [],
   loading: {
     save: false,
     fetch: false,
     update: false,
+    branches: false,
   },
   error: null,
 };
@@ -95,6 +101,36 @@ const salonSlice = createSlice({
       .addCase(updateSalonThunk.rejected, (state, { payload }) => {
         state.loading.update = false;
         state.error = payload ?? "Something went wrong";
+      });
+
+    // ── Fetch Branches ────────────────────────────────────────────────────────
+    builder
+      .addCase(fetchBranchesThunk.pending, (state) => {
+        state.loading.branches = true;
+        state.error = null;
+      })
+      .addCase(fetchBranchesThunk.fulfilled, (state, { payload }) => {
+        state.loading.branches = false;
+        state.branches = payload;
+      })
+      .addCase(fetchBranchesThunk.rejected, (state, { payload }) => {
+        state.loading.branches = false;
+        state.error = payload ?? "Something went wrong";
+      });
+
+    // ── Create Branch ─────────────────────────────────────────────────────────
+    builder
+      .addCase(createBranchThunk.pending, (state) => {
+        state.loading.branches = true;
+        state.error = null;
+      })
+      .addCase(createBranchThunk.fulfilled, (state, { payload }) => {
+        state.loading.branches = false;
+        state.branches.push(payload);
+      })
+      .addCase(createBranchThunk.rejected, (state, { payload }) => {
+        state.loading.branches = false;
+        state.error = payload ?? "Failed to create branch";
       });
   },
 });

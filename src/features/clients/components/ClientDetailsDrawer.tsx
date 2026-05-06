@@ -9,6 +9,7 @@ import {
   Pencil,
   Upload,
 } from "react-bootstrap-icons";
+import { useNavigate } from "react-router-dom";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
 import "../styles/ClientDetailsDrawer.scss";
@@ -438,6 +439,7 @@ export default function ClientDetailsDrawer({
   isOpen,
   onClose,
 }: ClientDetailsDrawerProps) {
+  const navigate = useNavigate();
   const [client, setClient] = useState<any>(null);
   const [appointments, setAppointments] = useState<any[]>([]);
 
@@ -603,7 +605,14 @@ export default function ClientDetailsDrawer({
                           </div>
                         ))}
                         <div className="dropdown-divider" />
-                        <div className="dropdown-item">Edit client details</div>
+                        <div
+                          className="dropdown-item"
+                          onClick={() =>
+                            navigate(`/dashboard/clients/edit/${clientId}`)
+                          }
+                        >
+                          Edit client details
+                        </div>
                         <div className="dropdown-item">Merge profiles</div>
                         <div className="dropdown-item">Block client</div>
                         <div className="dropdown-divider" />
