@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -9,6 +9,13 @@ import {
   Trash2,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import {
+  fetchSettingsThunk,
+  createSettingThunk,
+  updateSettingThunk,
+} from "../../../middleware/setting/setting.thunk";
+import type { EntityId } from "../../../types/common.types";
 import Button from "../../../components/ui/Button";
 import SettingsSection from "../components/SettingsSection";
 
@@ -108,11 +115,68 @@ const initialIntegrations: Integration[] = [
 
 const categoryOrder = ["Messaging", "Payments", "Email", "Calendar", "Analytics"];
 
+const INTEG_KEY = "integrations_config";
+
 export default function IntegrationsPage() {
+  const dispatch = useAppDispatch();
+  const { items: settingItems } = useAppSelector((s) => s.setting);
+
   const [integrations, setIntegrations] = useState<Integration[]>(initialIntegrations);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
   const [testing, setTesting] = useState<string | null>(null);
+  const [settingId, setSettingId] = useState<EntityId | null>(null);
+
+  // Load persisted integration state on mount
+  useEffect(() => {
+    dispatch(fetchSettingsThunk());
+  }, [dispatch]);
+
+  useEffect(() => {
+    const found = settingItems.find((s) => s.key === INTEG_KEY);
+    if (!found) return;
+    setSettingId(found.id);
+    try {
+      const raw = typeof found.value === "string" ? found.value : JSON.stringify(found.value);
+      const stored: Record<string, { connected: boolean; fields: Record<string, string> }> = JSON.parse(raw);
+      setIntegrations((prev) =>
+        prev.map((integ) => {
+          const saved = stored[integ.id];
+          if (!saved) return integ;
+          return {
+            ...integ,
+            connected: saved.connected,
+            configFields: integ.configFields?.map((f) => ({
+              ...f,
+              value: saved.fields?.[f.key] ?? f.value,
+            })),
+          };
+        })
+      );
+    } catch {
+      // malformed — keep defaults
+    }
+  }, [settingItems]);
+
+  const persistIntegrations = async (updated: Integration[]) => {
+    const stored: Record<string, { connected: boolean; fields: Record<string, string> }> = {};
+    updated.forEach((i) => {
+      stored[i.id] = {
+        connected: i.connected,
+        fields: Object.fromEntries((i.configFields ?? []).map((f) => [f.key, f.value])),
+      };
+    });
+    const value = JSON.stringify(stored);
+    if (settingId) {
+      const result = await dispatch(updateSettingThunk({ id: settingId, data: { key: INTEG_KEY, value } }));
+      if (updateSettingThunk.fulfilled.match(result)) return;
+    } else {
+      const result = await dispatch(createSettingThunk({ key: INTEG_KEY, value, description: "Integrations configuration" }));
+      if (createSettingThunk.fulfilled.match(result)) {
+        setSettingId(result.payload.id);
+      }
+    }
+  };
 
   const handleFieldChange = (integId: string, fieldKey: string, val: string) => {
     setIntegrations((prev) =>
@@ -131,23 +195,24 @@ export default function IntegrationsPage() {
 
   const handleConnect = async (integId: string) => {
     setSaving(integId);
-    await new Promise((r) => setTimeout(r, 800));
-    setIntegrations((prev) =>
-      prev.map((i) => (i.id === integId ? { ...i, connected: true } : i))
+    const updated = integrations.map((i) =>
+      i.id === integId ? { ...i, connected: true } : i
     );
+    setIntegrations(updated);
+    await persistIntegrations(updated);
     setSaving(null);
     toast.success("Integration connected successfully");
     setExpandedId(null);
   };
 
-  const handleDisconnect = (integId: string) => {
-    setIntegrations((prev) =>
-      prev.map((i) =>
-        i.id === integId
-          ? { ...i, connected: false, configFields: i.configFields?.map((f) => ({ ...f, value: "" })) }
-          : i
-      )
+  const handleDisconnect = async (integId: string) => {
+    const updated = integrations.map((i) =>
+      i.id === integId
+        ? { ...i, connected: false, configFields: i.configFields?.map((f) => ({ ...f, value: "" })) }
+        : i
     );
+    setIntegrations(updated);
+    await persistIntegrations(updated);
     toast.success("Integration disconnected");
   };
 

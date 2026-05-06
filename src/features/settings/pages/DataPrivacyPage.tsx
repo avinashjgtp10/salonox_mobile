@@ -20,6 +20,8 @@ import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { logout } from "../../../store/authSlice";
 import { useNavigate } from "react-router-dom";
 import { exportSettingsThunk } from "../../../middleware/setting/setting.thunk";
+import api from "../../../services/api/axios";
+import { downloadBlob } from "../../../utils/downloadBlob";
 import Button from "../../../components/ui/Button";
 import SettingsSection from "../components/SettingsSection";
 import SettingsToggle from "../components/SettingsToggle";
@@ -134,26 +136,20 @@ export default function DataPrivacyPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [showPII, setShowPII] = useState(false);
   const [anonymizeLoading, setAnonymizeLoading] = useState(false);
+  const [gdprEmail, setGdprEmail] = useState("");
+  const [gdprReason, setGdprReason] = useState("");
+  const [gdprLoading, setGdprLoading] = useState(false);
 
-  const handleExport = async (option: ExportOption) => {
-    setExportLoading(option.id);
+  const handleExport = async (option: ExportOption, format: "excel" | "csv" = "excel") => {
+    const loadingKey = format === "csv" ? `${option.id}-csv` : option.id;
+    setExportLoading(loadingKey);
     try {
       if (option.id === "settings") {
-        await dispatch(exportSettingsThunk("excel"));
+        await dispatch(exportSettingsThunk(format));
       } else {
-        const res = await fetch(option.endpoint, {
-          headers: {
-            Authorization: `Bearer ${sessionStorage.getItem("token") || ""}`,
-          },
-        });
-        if (!res.ok) throw new Error("Export failed");
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${option.id}-export.xlsx`;
-        a.click();
-        URL.revokeObjectURL(url);
+        const endpoint = option.endpoint.replace("excel", format);
+        const res = await api.get(endpoint, { responseType: "blob" });
+        downloadBlob(res.data, `${option.id}-export.${format === "excel" ? "xlsx" : "csv"}`);
       }
       toast.success(`${option.label} exported successfully`);
     } catch {
@@ -165,16 +161,33 @@ export default function DataPrivacyPage() {
 
   const handleExportAll = async () => {
     setExportLoading("all");
-    await new Promise((r) => setTimeout(r, 1500));
-    setExportLoading(null);
-    toast.success("Full data export requested — you'll receive an email when ready");
+    try {
+      // Export each data type sequentially
+      for (const opt of exportOptions) {
+        if (opt.id !== "settings") {
+          const res = await api.get(opt.endpoint, { responseType: "blob" });
+          downloadBlob(res.data, `${opt.id}-export.xlsx`);
+        }
+      }
+      await dispatch(exportSettingsThunk("excel"));
+      toast.success("All data exported successfully");
+    } catch {
+      toast.error("Some exports failed — check individual exports below");
+    } finally {
+      setExportLoading(null);
+    }
   };
 
   const handleAnonymize = async () => {
     setAnonymizeLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setAnonymizeLoading(false);
-    toast.success("Inactive client data anonymized");
+    try {
+      await api.post("/api/v1/clients/anonymize-inactive");
+      toast.success("Inactive client data anonymized");
+    } catch {
+      toast("Anonymisation endpoint not available yet", { icon: "ℹ️" });
+    } finally {
+      setAnonymizeLoading(false);
+    }
   };
 
   const handleDeleteAccount = async () => {
@@ -183,11 +196,16 @@ export default function DataPrivacyPage() {
       return;
     }
     setDeleteLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setDeleteLoading(false);
-    toast.success("Account deletion request submitted");
-    dispatch(logout());
-    navigate("/login");
+    try {
+      await api.delete("/api/v1/auth/account");
+      toast.success("Account deletion requested. Data will be erased within 30 days.");
+      dispatch(logout());
+      navigate("/login");
+    } catch {
+      toast.error("Failed to submit deletion request. Contact support.");
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   const privacyPolicyLink = (
@@ -269,7 +287,7 @@ export default function DataPrivacyPage() {
                   variant="outline-secondary"
                   loading={exportLoading === opt.id}
                   iconLeft={<Download size={13} />}
-                  onClick={() => handleExport(opt)}
+                  onClick={() => handleExport(opt, "excel")}
                 >
                   Export as Excel
                 </Button>
@@ -277,13 +295,7 @@ export default function DataPrivacyPage() {
                   size="sm"
                   variant="ghost"
                   loading={exportLoading === `${opt.id}-csv`}
-                  onClick={() => {
-                    setExportLoading(`${opt.id}-csv`);
-                    setTimeout(() => {
-                      setExportLoading(null);
-                      toast.success(`${opt.label} CSV export coming soon`);
-                    }, 600);
-                  }}
+                  onClick={() => handleExport(opt, "csv")}
                 >
                   Export as CSV
                 </Button>
@@ -385,6 +397,8 @@ export default function DataPrivacyPage() {
               className="settings-input"
               type="email"
               placeholder="client@example.com"
+              value={gdprEmail}
+              onChange={(e) => setGdprEmail(e.target.value)}
             />
             <span className="settings-hint">
               We'll verify identity and process within 30 days as required by GDPR.
@@ -392,7 +406,11 @@ export default function DataPrivacyPage() {
           </div>
           <div className="settings-form-group">
             <label className="settings-label">Reason</label>
-            <select className="settings-select">
+            <select
+              className="settings-select"
+              value={gdprReason}
+              onChange={(e) => setGdprReason(e.target.value)}
+            >
               <option value="">Select reason</option>
               <option value="client_request">Client deletion request</option>
               <option value="gdpr_right_to_erasure">GDPR right to erasure</option>
@@ -405,7 +423,22 @@ export default function DataPrivacyPage() {
           <Button
             size="sm"
             variant="outline-danger"
-            onClick={() => toast("Deletion request submitted (demo)", { icon: "✅" })}
+            loading={gdprLoading}
+            onClick={async () => {
+              if (!gdprEmail) { toast.error("Enter a client email"); return; }
+              if (!gdprReason) { toast.error("Select a reason"); return; }
+              setGdprLoading(true);
+              try {
+                await api.post("/api/v1/clients/gdpr-delete", { email: gdprEmail, reason: gdprReason });
+                toast.success("Deletion request submitted successfully");
+                setGdprEmail("");
+                setGdprReason("");
+              } catch {
+                toast("GDPR endpoint not available yet", { icon: "ℹ️" });
+              } finally {
+                setGdprLoading(false);
+              }
+            }}
           >
             Submit deletion request
           </Button>
