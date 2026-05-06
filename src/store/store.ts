@@ -36,6 +36,7 @@ import productsReducer from "./productsSlice";
 import shiftReducer from "./shiftSlice";
 import payRunReducer from "./payRunSlice";
 import dashboardReducer from "./dashboardSlice";
+import billingReducer from "./billingSlice";
 
 const authPersistConfig = {
   key: "auth",
@@ -73,6 +74,7 @@ export const store = configureStore({
     shift: shiftReducer,
     payRun: payRunReducer,
     dashboard: dashboardReducer,
+    billing: billingReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

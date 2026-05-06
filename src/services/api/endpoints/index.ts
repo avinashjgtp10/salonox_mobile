@@ -19,3 +19,4 @@ export * from "./payRun.endpoints";
 export * from "./coupon.endpoints";
 export * from "./payment.endpoints";
 export * from "./blockedTime.endpoints";
+export * from "./billing.endpoints";
