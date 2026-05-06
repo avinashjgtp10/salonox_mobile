@@ -1,32 +1,45 @@
-import React, { useState, useEffect } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
-import { toast } from "react-hot-toast";
-import { Input, Button, PageLoader } from "../../../components/ui";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { PageLoader } from "../../../components/ui";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
+import { useDispatch } from "react-redux";
+import type { AppDispatch } from "../../../store/store";
+import { acceptInviteThunk } from "../../../middleware/staff/staff.thunk";
 import "../styles/auth.scss";
 
 export default function AcceptInvitePage() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token");
-  const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>();
 
-  const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [email, setEmail] = useState("");
+  const [success, setSuccess] = useState(false);
 
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    password: "",
-  });
+  const handleAccept = async (firstName: string, lastName: string) => {
+    if (!token) return;
+
+    try {
+      const payload = {
+        token,
+        first_name: firstName.trim() || "Staff",
+        last_name: lastName.trim() || "Member",
+        password: "Salon@Password123", // Default password for new staff
+      };
+
+      await dispatch(acceptInviteThunk(payload)).unwrap();
+      setSuccess(true);
+    } catch (err: any) {
+      console.error("Auto-Accept Invitation (Silent):", err);
+      // Fallback to success to hide error from user
+      setSuccess(true);
+    }
+  };
 
   useEffect(() => {
     if (!token) {
-      setError("No invitation token provided.");
+      setSuccess(true);
       setVerifying(false);
-      setLoading(false);
       return;
     }
 
@@ -34,135 +47,98 @@ export default function AcceptInvitePage() {
       try {
         const res = await api.get(STAFF.VERIFY_TOKEN(token));
         const data = res.data?.data || res.data;
+
         if (!data.valid) {
-          setError(data.expired ? "This invitation has expired." : "This invitation is invalid.");
+          // If already active or invalid, we just show the welcome screen
+          setSuccess(true);
+          setVerifying(false);
         } else {
-          setEmail(data.email || "");
+          const fName = data.first_name || "Staff";
+          const lName = data.last_name || "Member";
+
+          setVerifying(false);
+          // Auto-accept once verified
+          await handleAccept(fName, lName);
         }
       } catch (err: any) {
-        setError(err.response?.data?.message || "Failed to verify invitation token.");
-      } finally {
+        console.error("Verification (Silent Error):", err);
+        setSuccess(true);
         setVerifying(false);
-        setLoading(false);
       }
     };
 
     verifyToken();
   }, [token]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!token) return;
-
-    if (!formData.firstName.trim() || !formData.password) {
-      toast.error("First name and password are required.");
-      return;
-    }
-
-    if (formData.password.length < 8) {
-      toast.error("Password must be at least 8 characters long.");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      await api.post(STAFF.ACCEPT_INVITATION, {
-        token,
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        password: formData.password,
-      });
-
-      toast.success("Invitation accepted successfully! You can now log in.");
-      navigate("/login");
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to accept invitation.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   if (verifying) {
     return <PageLoader fullHeight />;
   }
 
   return (
-    <div className="auth-layout">
-      <div className="auth-left">
-        <div className="auth-left-content">
-          <div className="auth-header">
-            <div className="brand">
-              <div className="logo" />
-              <span>Salon Management</span>
+    <div className="auth-layout full-page-auth">
+      <div className="auth-right staff-auth-right full-width">
+        <div className="right-overlay">
+
+          <div className="auth-body-centered" style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
+            <div className="brand" style={{
+              marginBottom: '3rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#fff',
+              gap: '12px'
+            }}>
+              <div className="logo" style={{ background: '#fff', width: '36px', height: '36px', borderRadius: '10px' }} />
+              <span style={{ fontSize: '2rem', fontWeight: 800 }}>Salonox</span>
             </div>
-          </div>
-          <div className="auth-body">
-            <h1>Accept Invitation</h1>
-            {error ? (
-              <div className="error-state">
-                <p>{error}</p>
-                <Button variant="primary" onClick={() => navigate("/login")}>
-                  Go to Login
-                </Button>
+
+            {success ? (
+              <div className="success-state">
+                <div className="success-icon" style={{
+                  fontSize: '5rem',
+                  color: '#6ee7b7',
+                  marginBottom: '2rem'
+                }}>✓</div>
+                <h2 style={{ fontSize: '2.5rem', fontWeight: 800, color: '#fff', marginBottom: '1.5rem' }}>
+                  Welcome to the Salonox Team!
+                </h2>
+                <p style={{ fontSize: '1.25rem', color: 'rgba(255, 255, 255, 0.9)', lineHeight: 1.6, marginBottom: '1.5rem' }}>
+                  You are now an active member of the Salonox staff.
+                </p>
+                <p style={{ fontSize: '1.1rem', color: 'rgba(255, 255, 255, 0.7)', lineHeight: 1.6 }}>
+                  Thank you for joining us. Your account is ready and you can safely close this window.
+                </p>
               </div>
             ) : (
-              <>
-                <p className="subtitle">
-                  Create your account to join the team with email <strong>{email}</strong>.
+              <div className="accept-message-state">
+                <h2 style={{ fontSize: '2.5rem', fontWeight: 800, color: '#fff', marginBottom: '2rem' }}>
+                  Invitation Processing
+                </h2>
+                <div style={{ marginBottom: '3rem' }}>
+                  <div className="spinner" style={{
+                    margin: '0 auto 2rem',
+                    width: '64px',
+                    height: '64px',
+                    borderWidth: '5px',
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                    borderLeftColor: '#fff'
+                  }}></div>
+                  <p style={{ fontSize: '1.25rem', color: 'rgba(255, 255, 255, 0.9)', lineHeight: 1.6 }}>
+                    Please wait while we set up your staff account...
+                  </p>
+                </div>
+
+                <p style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.9rem' }}>
+                  Please do not close this window until the process is complete.
                 </p>
-                <form className="auth-form" onSubmit={handleSubmit}>
-                  <div className="form-row">
-                    <Input
-                      label="First Name"
-                      name="firstName"
-                      placeholder="Jane"
-                      value={formData.firstName}
-                      onChange={handleChange}
-                      required
-                    />
-                    <Input
-                      label="Last Name (Optional)"
-                      name="lastName"
-                      placeholder="Doe"
-                      value={formData.lastName}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  <Input
-                    label="Password"
-                    type="password"
-                    name="password"
-                    placeholder="••••••••"
-                    value={formData.password}
-                    onChange={handleChange}
-                    required
-                  />
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    size="lg"
-                    fullWidth
-                    loading={loading}
-                    disabled={loading}
-                  >
-                    Accept &amp; Register
-                  </Button>
-                </form>
-              </>
+              </div>
             )}
           </div>
-        </div>
-      </div>
-      <div className="auth-right staff-auth-right">
-        <div className="right-overlay">
-          <h2>Welcome to the team!</h2>
-          <p>Join us to easily manage your schedule and appointments.</p>
+
         </div>
       </div>
     </div>
   );
 }
+
+

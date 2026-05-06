@@ -538,6 +538,7 @@ $radius: 12px;
   border-radius: 99px;
 
   &--active { background: #d1fae5; color: #065f46; }
+  &--accepted { background: #dbeafe; color: #1e40af; }
   &--inactive { background: #f3f4f6; color: $muted; }
   &--pending { background: #fffbeb; color: #d97706; }
 }
@@ -547,6 +548,7 @@ $radius: 12px;
   height: 6px;
   border-radius: 50%;
   .slp-status-badge--active & { background: $success; }
+  .slp-status-badge--accepted & { background: #3b82f6; }
   .slp-status-badge--inactive & { background: #9ca3af; }
   .slp-status-badge--pending & { background: #f59e0b; }
 }
