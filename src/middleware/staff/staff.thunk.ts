@@ -104,3 +104,18 @@ export const exportStaffThunk = createAsyncThunk<
     return rejectWithValue("Failed to export staff");
   }
 });
+
+// ── Accept Invitation ──────────────────────────────────────────────────────────
+export const acceptInviteThunk = createAsyncThunk<
+  { staffId: string; accessToken: string; refreshToken: string; user: any; isOnboardingComplete: boolean },
+  { token: string; first_name: string; last_name?: string; password: string },
+  { rejectValue: string }
+>("staff/acceptInvite", async (payload, { rejectWithValue }) => {
+  try {
+    const res = await api.post(STAFF.ACCEPT_INVITATION, payload);
+    return res.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue(err.response?.data?.message || "Failed to accept invitation");
+  }
+});

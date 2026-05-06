@@ -46,6 +46,7 @@ interface StaffMember {
   location?: string;
   allow_calendar_bookings?: boolean;
   permission_level?: string;
+  is_active?: boolean;
   created_at?: string;
 }
 
@@ -60,8 +61,9 @@ const AVATAR_GRADIENTS = [
   "linear-gradient(135deg,#14b8a6,#0ea5e9)",
 ];
 
-function getGradient(id: number) {
-  return AVATAR_GRADIENTS[id % AVATAR_GRADIENTS.length];
+function getGradient(id: string | number) {
+  const seed = typeof id === "number" ? id : id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return AVATAR_GRADIENTS[seed % AVATAR_GRADIENTS.length];
 }
 
 export default function StaffListPage() {
@@ -119,6 +121,13 @@ export default function StaffListPage() {
 
   useEffect(() => {
     fetchStaff();
+    
+    // Polling: Auto-refresh staff list every 10 seconds to detect invitation acceptance
+    const pollInterval = setInterval(() => {
+      fetchStaff();
+    }, 10000);
+
+    return () => clearInterval(pollInterval);
   }, [location.pathname, fetchStaff]);
 
   // Close dropdowns on outside click
@@ -218,8 +227,8 @@ export default function StaffListPage() {
       selectedLocations.length === 0 || selectedLocations.includes(s.location || "");
     const matchesStatus =
       selectedStatus === "all" ||
-      (selectedStatus === "active" && (s.status || "Active").toLowerCase() === "active") ||
-      (selectedStatus === "archived" && (s.status || "").toLowerCase() !== "active");
+      (selectedStatus === "active" && (s.is_active !== false)) ||
+      (selectedStatus === "archived" && s.is_active === false);
     const matchesBookable =
       !bookable && !nonBookable
         ? true
@@ -567,7 +576,10 @@ export default function StaffListPage() {
           {/* Table Rows */}
           {sorted.map((member) => {
             const isChecked = selectedIds.includes(member.id);
-            const isActive = (member.status || "Active").toLowerCase() === "active";
+            const isActive = member.is_active ?? true;
+            const rawStatus = (member.status || member.invitation_status || "").toUpperCase();
+            const isPending = rawStatus === "PENDING";
+            const isAccepted = rawStatus === "ACCEPTED";
             const initials = `${(member.first_name?.[0] || "").toUpperCase()}${(member.last_name?.[0] || "").toUpperCase()}` || "??";
             const fullName = `${member.first_name || ""} ${member.last_name || ""}`.trim();
 
@@ -631,9 +643,9 @@ export default function StaffListPage() {
                 </div>
 
                 <div className="slp-col-status">
-                  <span className={`slp-status-badge ${member.invitation_status === 'pending' ? 'slp-status-badge--pending' : isActive ? 'slp-status-badge--active' : 'slp-status-badge--inactive'}`}>
+                  <span className={`slp-status-badge ${isPending ? 'slp-status-badge--pending' : isAccepted ? 'slp-status-badge--accepted' : isActive ? 'slp-status-badge--active' : 'slp-status-badge--inactive'}`}>
                     <span className="slp-status-dot" />
-                    {member.invitation_status === 'pending' ? 'Pending' : isActive ? 'Active' : 'Inactive'}
+                    {isPending ? 'Pending Acceptance' : isAccepted ? 'Accepted' : isActive ? 'Active' : 'Inactive'}
                   </span>
                 </div>
 
@@ -658,7 +670,7 @@ export default function StaffListPage() {
                     </button>
                     {actionMenuId === member.id && (
                       <div className="slp-action-menu">
-                        {member.invitation_status === 'pending' && (
+                        {isPending && (
                           <button
                             className="slp-action-item"
                             onClick={() => { member.id && handleResendInvite(member.id); }}
