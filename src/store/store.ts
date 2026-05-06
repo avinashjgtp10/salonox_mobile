@@ -29,12 +29,14 @@ import servicesReducer from "./servicesSlice";
 import categoriesReducer from "./categoriesSlice";
 import serviceFiltersReducer from "./serviceFiltersSlice";
 import membershipReducer from "./membershipSlice";
+import inventoryReducer from "./inventorySlice";
 import { membershipsApi } from "../services/api/endpoints/memberships.endpoints";
 import { packagesApi } from "../services/api/endpoints/packages.endpoints";
 import productsReducer from "./productsSlice";
 import shiftReducer from "./shiftSlice";
 import payRunReducer from "./payRunSlice";
 import dashboardReducer from "./dashboardSlice";
+import billingReducer from "./billingSlice";
 
 const authPersistConfig = {
   key: "auth",
@@ -65,12 +67,14 @@ export const store = configureStore({
     categories: categoriesReducer,
     serviceFilters: serviceFiltersReducer,
     memberships: membershipReducer,
+    inventory: inventoryReducer,
     [membershipsApi.reducerPath]: membershipsApi.reducer,
     [packagesApi.reducerPath]: packagesApi.reducer,
     products: productsReducer,
     shift: shiftReducer,
     payRun: payRunReducer,
     dashboard: dashboardReducer,
+    billing: billingReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

@@ -10,6 +10,8 @@ import {
   CreditCard,
   GraphUp,
 } from "react-bootstrap-icons";
+import api from "../../../services/api/axios";
+import { STAFF } from "../../../services/api/endpoints";
 import "../styles/TeamMemberDrawer.scss";
 
 interface PerformanceCardProps {
@@ -39,23 +41,18 @@ const PerformanceCard: React.FC<PerformanceCardProps> = ({
 );
 
 interface TeamMemberDrawerProps {
-  show: boolean;
+  isOpen: boolean;
   onClose: () => void;
-  member: {
-    id: number;
-    name: string;
-    initials: string;
-    avatarColor: string;
-  } | null;
+  memberId: number | null;
   onViewCalendar?: (id: number) => void;
   onViewShifts?: (id: number) => void;
   onAddTimeOff?: (id: number) => void;
 }
 
 const TeamMemberDrawer: React.FC<TeamMemberDrawerProps> = ({
-  show,
+  isOpen,
   onClose,
-  member,
+  memberId,
   onViewCalendar,
   onViewShifts,
   onAddTimeOff,
@@ -65,8 +62,33 @@ const TeamMemberDrawer: React.FC<TeamMemberDrawerProps> = ({
   const [timeRange, setTimeRange] = useState("Week to date");
   const [showRangeMenu, setShowRangeMenu] = useState(false);
   const [showActions, setShowActions] = useState(false);
+  const [member, setMember] = useState<any>(null);
 
-  if (!show || !member) return null;
+  React.useEffect(() => {
+    if (isOpen && memberId) {
+      const fetchMember = async () => {
+        try {
+          const res = await api.get(STAFF.BY_ID(memberId));
+          const data = res.data?.data || res.data;
+          if (data) {
+            setMember({
+              id: data.id,
+              name: `${data.first_name} ${data.last_name}`,
+              initials: (data.first_name?.[0] || "").toUpperCase(),
+              avatarColor: data.calendar_color || "#111827",
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching team member details:", error);
+        }
+      };
+      fetchMember();
+    } else if (!isOpen) {
+      setMember(null);
+    }
+  }, [isOpen, memberId]);
+
+  if (!isOpen || !member) return null;
 
   const tabs = [
     { id: "Overview", icon: <BarChartLine /> },
@@ -79,7 +101,7 @@ const TeamMemberDrawer: React.FC<TeamMemberDrawerProps> = ({
 
   return (
     <div
-      className={`tm-drawer-overlay ${show ? "show" : ""}`}
+      className={`tm-drawer-overlay ${isOpen ? "show" : ""}`}
       onClick={onClose}
     >
       <div className="tm-drawer" onClick={(e) => e.stopPropagation()}>
@@ -105,7 +127,7 @@ const TeamMemberDrawer: React.FC<TeamMemberDrawerProps> = ({
                     <button
                       className="actions-item"
                       onClick={() => {
-                        navigate(`/dashboard/team/${member.id}`);
+                        navigate(`/dashboard/team/edit/${member.id}`);
                         onClose();
                       }}
                     >

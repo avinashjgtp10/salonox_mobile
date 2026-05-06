@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { XLg, Search, Check2, CreditCard2Front } from "react-bootstrap-icons";
 
 import type { AppDispatch } from "../../../store/store";
-import { createMembershipThunk } from "../../../middleware/membership/membership.thunk";
+import { createMembershipThunk, updateMembershipThunk } from "../../../middleware/membership/membership.thunk";
+import api from "../../../services/api/axios";
 import {
   selectMembershipsSubmitting,
   selectMembershipsError,
@@ -24,6 +25,7 @@ const TAX_OPTIONS       = ["No tax", "5", "12", "18", "28"];   // plain numbers,
 // ── Component ─────────────────────────────────────────────────────────────────
 
 const CreateMembershipPage: React.FC = () => {
+  const { id } = useParams();
   const navigate   = useNavigate();
   const dispatch   = useDispatch<AppDispatch>();
   const submitting = useSelector(selectMembershipsSubmitting);
@@ -60,6 +62,35 @@ const CreateMembershipPage: React.FC = () => {
 
   // Clear API errors on unmount
   useEffect(() => () => { dispatch(clearMembershipError()); }, [dispatch]);
+
+  // Fetch membership if editing
+  useEffect(() => {
+    if (id) {
+      const fetchMembership = async () => {
+        try {
+          const res = await api.get(`/api/v1/memberships/${id}`);
+          const data = res.data?.data || res.data;
+          if (data) {
+            setMembershipName(data.name || "");
+            setDescription(data.description || "");
+            setSelectedServiceIds(data.includedServices?.map((s: any) => String(s.serviceId)) || []);
+            setSessions(data.sessionType === "unlimited" ? "Unlimited" : "Limited");
+            setNumSessions(data.numberOfSessions || 5);
+            setValidFor(data.validFor || "1 month");
+            setPrice(String(data.price || ""));
+            setTaxRate(data.taxRate ? String(data.taxRate) : "No tax");
+            setSelectedColour(data.colour || COLOURS[0]);
+            setOnlineSales(data.enableOnlineSales || false);
+            setOnlineRedemption(data.enableOnlineRedemption ?? true);
+            setTerms(data.termsAndConditions || "");
+          }
+        } catch (err) {
+          console.error("Error fetching membership:", err);
+        }
+      };
+      fetchMembership();
+    }
+  }, [id]);
 
   // ── Modal helpers ────────────────────────────────────────────────────────────
 
@@ -102,22 +133,24 @@ const CreateMembershipPage: React.FC = () => {
     const taxRateNum: number | undefined =
       taxRate === "No tax" ? undefined : parseFloat(taxRate);
 
-    const result = await dispatch(
-      createMembershipThunk({
-        name:                   membershipName.trim(),
-        description:            description.trim() || undefined,
-        includedServices,
-        sessionType:            sessions.toLowerCase(),
-        numberOfSessions:       sessions === "Limited" ? numSessions : undefined,
-        validFor,
-        price:                  parseFloat(price),
-        taxRate:                taxRateNum,
-        colour:                 selectedColour,
-        enableOnlineSales:      onlineSales,
-        enableOnlineRedemption: onlineRedemption,
-        termsAndConditions:     terms.trim() || undefined,
-      })
-    );
+    const payload = {
+      name:                   membershipName.trim(),
+      description:            description.trim() || undefined,
+      includedServices,
+      sessionType:            sessions.toLowerCase(),
+      numberOfSessions:       sessions === "Limited" ? numSessions : undefined,
+      validFor,
+      price:                  parseFloat(price),
+      taxRate:                taxRateNum,
+      colour:                 selectedColour,
+      enableOnlineSales:      onlineSales,
+      enableOnlineRedemption: onlineRedemption,
+      termsAndConditions:     terms.trim() || undefined,
+    };
+
+    const result = id
+      ? await dispatch(updateMembershipThunk({ id, data: payload }))
+      : await dispatch(createMembershipThunk(payload));
 
     if (createMembershipThunk.fulfilled.match(result)) {
       navigate("/dashboard/catalog/memberships/list");
@@ -133,13 +166,15 @@ const CreateMembershipPage: React.FC = () => {
         <button className="cmp__close-btn" onClick={() => navigate(-1)}>
           <XLg size={20} />
         </button>
-        <h5 className="cmp__topbar-title mb-0 fw-bold">Create a membership</h5>
+        <h5 className="cmp__topbar-title mb-0 fw-bold">
+          {id ? "Edit membership" : "Create a membership"}
+        </h5>
         <button
           className="btn cmp__submit-btn"
           onClick={handleSubmit}
           disabled={!membershipName.trim() || submitting}
         >
-          {submitting ? "Creating…" : "Create membership"}
+          {submitting ? (id ? "Saving…" : "Creating…") : (id ? "Save changes" : "Create membership")}
         </button>
       </div>
 
