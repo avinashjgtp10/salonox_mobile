@@ -21,7 +21,10 @@ export const loginThunk = createAsyncThunk<
     const res = await api.post<LoginResponse>(AUTH.LOGIN, payload);
     return res.data.data;
   } catch (err: any) {
-    if (err instanceof ApiError) return rejectWithValue(err.message);
+    if (err instanceof ApiError) {
+      if (err.status === 401) return rejectWithValue("Invalid email or password");
+      return rejectWithValue(err.message);
+    }
     return rejectWithValue("Invalid email or password");
   }
 });
@@ -42,12 +45,14 @@ export const refreshSessionThunk = createAsyncThunk<
   }
 
   try {
-    const res = await axios.post<{ accessToken: string }>(
-      `${import.meta.env.VITE_API_BASE_URL}${AUTH.REFRESH_TOKEN}`,
+    const res = await axios.post<{ data?: { accessToken: string }; accessToken?: string }>(
+      AUTH.REFRESH_TOKEN,
       { refreshToken },
       { headers: { "Content-Type": "application/json" } },
     );
-    return res.data.accessToken;
+    const newToken = res.data?.data?.accessToken ?? res.data?.accessToken;
+    if (!newToken) throw new Error("No token in refresh response");
+    return newToken;
   } catch {
     return rejectWithValue("Refresh token expired or invalid");
   }

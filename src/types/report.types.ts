@@ -160,6 +160,8 @@ export interface ServicesReport {
 export interface FetchReportPayload {
   tab: ReportTab;
   period: ReportPeriod;
+  from?: string;
+  to?: string;
 }
 
 export interface ExportReportPayload {

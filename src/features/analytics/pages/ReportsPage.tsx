@@ -16,6 +16,7 @@ import {
 import type { ReportPeriod, ReportTab } from "../../../types/report.types";
 import Button from "../../../components/ui/Button";
 import { PageLoader } from "../../../components/ui/PageLoader";
+import { Pagination } from "../../../components/ui";
 import "../styles/ReportsPage.scss";
 import {
   AreaChart, Area, BarChart, Bar,
@@ -235,8 +236,10 @@ const printTable = (
 
 const RevenueTab = ({
   trend,
+  services,
 }: {
   trend: typeof revenueBy7d;
+  services: typeof fallbackServiceData;
 }) => {
   const [showTarget, setShowTarget] = useState(true);
   const [showPrev, setShowPrev]     = useState(true);
@@ -296,14 +299,14 @@ const RevenueTab = ({
           <h4 className="rp-chart-title">Revenue by Service</h4>
           <p className="rp-chart-sub">Contribution per category</p>
           <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={fallbackServiceData} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }} barSize={10}>
+            <BarChart data={services} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }} barSize={10}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
               <XAxis type="number" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false}
                 tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
               <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: "#374151" }} axisLine={false} tickLine={false} width={72} />
               <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString()}`} />
               <Bar dataKey="revenue" name="Revenue" radius={[0, 4, 4, 0]}>
-                {fallbackServiceData.map((s) => <Cell key={s.name} fill={s.color} />)}
+                {services.map((s) => <Cell key={s.name} fill={s.color} />)}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -315,15 +318,15 @@ const RevenueTab = ({
           <p className="rp-chart-sub">Service share of total revenue</p>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
-              <Pie data={fallbackServiceData} cx="50%" cy="50%" innerRadius={60} outerRadius={95}
+              <Pie data={services} cx="50%" cy="50%" innerRadius={60} outerRadius={95}
                 paddingAngle={2} dataKey="revenue">
-                {fallbackServiceData.map((s) => <Cell key={s.name} fill={s.color} />)}
+                {services.map((s) => <Cell key={s.name} fill={s.color} />)}
               </Pie>
               <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString()}`} />
             </PieChart>
           </ResponsiveContainer>
           <div className="rp-pie-legend">
-            {fallbackServiceData.map(s => (
+            {services.map(s => (
               <div key={s.name} className="rp-pie-row">
                 <span className="rp-pie-dot" style={{ background: s.color }} />
                 <span>{s.name}</span>
@@ -414,7 +417,21 @@ const AppointmentsTab = ({ volume }: { volume: typeof appointmentsWeekly }) => (
   </div>
 );
 
-const ClientsTab = ({ growth }: { growth: typeof clientGrowth }) => (
+const fallbackTopClients = [
+  { id: "1", name: "Priya Sharma",  visits: 28, spend: 42800 },
+  { id: "2", name: "Meera Joshi",   visits: 24, spend: 38200 },
+  { id: "3", name: "Sneha Patel",   visits: 21, spend: 31500 },
+  { id: "4", name: "Riya Kapoor",   visits: 19, spend: 28900 },
+  { id: "5", name: "Ananya Verma",  visits: 16, spend: 24600 },
+];
+
+const ClientsTab = ({
+  growth,
+  topClients,
+}: {
+  growth: typeof clientGrowth;
+  topClients: typeof fallbackTopClients;
+}) => (
   <div className="rp-tab-body">
     <div className="rp-main-chart-card">
       <div className="rp-chart-header">
@@ -467,28 +484,27 @@ const ClientsTab = ({ growth }: { growth: typeof clientGrowth }) => (
         <h4 className="rp-chart-title">Top Clients</h4>
         <p className="rp-chart-sub">By total spend</p>
         <div className="rp-rank-list">
-          {[
-            { name: "Priya Sharma",  visits: 28, spend: "₹42,800", avatar: "PS" },
-            { name: "Meera Joshi",   visits: 24, spend: "₹38,200", avatar: "MJ" },
-            { name: "Sneha Patel",   visits: 21, spend: "₹31,500", avatar: "SP" },
-            { name: "Riya Kapoor",   visits: 19, spend: "₹28,900", avatar: "RK" },
-            { name: "Ananya Verma",  visits: 16, spend: "₹24,600", avatar: "AV" },
-          ].map((c, i) => (
-            <div key={c.name} className="rp-rank-row">
-              <span className="rp-rank-num">#{i+1}</span>
-              <div className="rp-rank-av">{c.avatar}</div>
-              <div className="rp-rank-info">
-                <div className="rp-rank-name">{c.name}</div>
-                <div className="rp-rank-sub">{c.visits} visits</div>
+          {topClients.map((c, i) => {
+            const initials = c.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+            return (
+              <div key={c.id ?? c.name} className="rp-rank-row">
+                <span className="rp-rank-num">#{i + 1}</span>
+                <div className="rp-rank-av">{initials}</div>
+                <div className="rp-rank-info">
+                  <div className="rp-rank-name">{c.name}</div>
+                  <div className="rp-rank-sub">{c.visits} visits</div>
+                </div>
+                <span className="rp-rank-val">₹{c.spend.toLocaleString()}</span>
               </div>
-              <span className="rp-rank-val">{c.spend}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
   </div>
 );
+
+const RADAR_COLORS = ["#111827", "#3b82f6", "#10b981"];
 
 const StaffTab = ({
   staffData,
@@ -496,7 +512,12 @@ const StaffTab = ({
 }: {
   staffData: typeof fallbackStaffData;
   radarStaff: Array<{ metric: string; [key: string]: string | number }>;
-}) => (
+}) => {
+  const radarNames = radarStaff.length > 0
+    ? Object.keys(radarStaff[0]).filter(k => k !== "metric").slice(0, 3)
+    : [];
+
+  return (
   <div className="rp-tab-body">
     <div className="rp-two-col">
       <div className="rp-chart-card rp-chart-card-tall">
@@ -506,15 +527,19 @@ const StaffTab = ({
           <RadarChart data={radarStaff}>
             <PolarGrid stroke="#f3f4f6" />
             <PolarAngleAxis dataKey="metric" tick={{ fontSize: 11, fill: "#6b7280" }} />
-            <Radar name="Anita K." dataKey="Anita K." stroke="#111827" fill="#111827" fillOpacity={0.08} strokeWidth={2} />
-            <Radar name="Pooja M." dataKey="Pooja M." stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.08} strokeWidth={2} />
-            <Radar name="Raj S."   dataKey="Raj S."   stroke="#10b981" fill="#10b981" fillOpacity={0.08} strokeWidth={2} />
+            {radarNames.map((name, i) => (
+              <Radar key={name} name={name} dataKey={name}
+                stroke={RADAR_COLORS[i]} fill={RADAR_COLORS[i]}
+                fillOpacity={0.08} strokeWidth={2} />
+            ))}
             <Tooltip />
           </RadarChart>
         </ResponsiveContainer>
         <div className="rp-legend-row mt-2 justify-content-center">
-          {[["#111827","Anita K."],["#3b82f6","Pooja M."],["#10b981","Raj S."]].map(([c,l]) => (
-            <span key={l} className="rp-leg-item"><span className="rp-pie-dot" style={{ background: c }} />{l}</span>
+          {radarNames.map((name, i) => (
+            <span key={name} className="rp-leg-item">
+              <span className="rp-pie-dot" style={{ background: RADAR_COLORS[i] }} />{name}
+            </span>
           ))}
         </div>
       </div>
@@ -564,7 +589,8 @@ const StaffTab = ({
       </div>
     </div>
   </div>
-);
+  );
+};
 
 const ServicesTab = ({ services }: { services: typeof fallbackServiceData }) => {
   const [sort, setSort] = useState<"revenue"|"bookings">("revenue");
@@ -634,10 +660,6 @@ interface AppointmentRow {
   centerName: string;
 }
 
-const MOCK_APPOINTMENTS: AppointmentRow[] = [
-  { appointmentDate: "08-04-2026", bookedDate: "08-04-2026", ticketNo: "SVB5888", guestName: "Manisha Singh", serviceName: "Regular Pedicure", serviceCode: "HF10002", centerName: "Sanghavi Nagar,Bara..." },
-  { appointmentDate: "08-04-2026", bookedDate: "08-04-2026", ticketNo: "SVB5888", guestName: "Manisha Singh", serviceName: "PediSmooth",       serviceCode: "HF30009", centerName: "Sanghavi Nagar,Bara..." },
-];
 
 const DATE_TYPE_OPTIONS  = ["Appointment Date", "Booking Date"];
 const APPT_STATUSES      = ["All", "Open", "Closed", "Cancelled", "No Show", "Checked-in", "Confirmed", "Deleted"];
@@ -655,8 +677,11 @@ const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBac
   const [selectedSources,   setSelectedSources]   = useState<string[]>(APPT_SOURCES);
   const [showSourceDrop,    setShowSourceDrop]    = useState(false);
   const [showExportDrop,    setShowExportDrop]    = useState(false);
-  const [rows,              setRows]              = useState<AppointmentRow[]>(MOCK_APPOINTMENTS);
+  const [rows,              setRows]              = useState<AppointmentRow[]>([]);
   const [loading,           setLoading]           = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize,    setPageSize]    = useState(10);
+  useEffect(() => { setCurrentPage(1); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -673,11 +698,24 @@ const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBac
       );
       if (res.data?.data) setRows(res.data.data);
     } catch {
-      // keep existing rows / fallback to mock
+      setRows([]);
     } finally {
       setLoading(false);
     }
   }, [dateType, dateFrom, dateTo, selectedStatuses, selectedSources]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    const close = () => {
+      setShowDtDrop(false);
+      setShowStatusDrop(false);
+      setShowSourceDrop(false);
+      setShowExportDrop(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
 
   const handleRefresh = () => { fetchData(); };
 
@@ -778,7 +816,7 @@ const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBac
             <span className="rp-detail-caret">▼</span>
           </button>
           {showDtDrop && (
-            <div className="rp-detail-dropdown">
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
               {DATE_TYPE_OPTIONS.map(opt => (
                 <div key={opt} className={`rp-detail-dropdown-item ${opt === dateType ? "active" : ""}`}
                   onClick={() => { setDateType(opt); setShowDtDrop(false); }}>
@@ -812,7 +850,7 @@ const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBac
             {statusLabel} <span className="rp-detail-caret">▼</span>
           </button>
           {showStatusDrop && (
-            <div className="rp-detail-dropdown rp-detail-dropdown-wide">
+            <div className="rp-detail-dropdown rp-detail-dropdown-wide" onMouseDown={e => e.stopPropagation()}>
               {/* Search */}
               <div className="rp-status-search-wrap">
                 <Search size={12} className="rp-status-search-ic" />
@@ -860,7 +898,7 @@ const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBac
             {sourceLabel} <span className="rp-detail-caret">▼</span>
           </button>
           {showSourceDrop && (
-            <div className="rp-detail-dropdown rp-detail-dropdown-wide">
+            <div className="rp-detail-dropdown rp-detail-dropdown-wide" onMouseDown={e => e.stopPropagation()}>
               {APPT_SOURCES.map(opt => (
                 <div key={opt} className="rp-detail-checkbox-item" onClick={() => toggleSource(opt)}>
                   <span className={`rp-detail-checkbox ${selectedSources.includes(opt) ? "checked" : ""}`}>
@@ -905,7 +943,7 @@ const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBac
             ) : rows.length === 0 ? (
               <tr><td colSpan={8} className="rp-detail-empty-cell">No data available</td></tr>
             ) : (
-              rows.map((row, i) => (
+              rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((row, i) => (
                 <tr key={i}>
                   <td>{row.appointmentDate}</td>
                   <td></td>
@@ -922,16 +960,11 @@ const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBac
         </table>
       </div>
 
-      {/* ── Pagination ── */}
-      <div className="rp-detail-pagination">
-        <span className="rp-detail-page-info">1 to {rows.length} of {rows.length}</span>
-        <div className="rp-detail-page-nav">
-          <button className="rp-detail-page-btn" disabled>‹</button>
-          <span className="rp-detail-page-cur">Page 1 of 1</span>
-          <button className="rp-detail-page-btn" disabled>›</button>
-        </div>
-      </div>
-
+      <Pagination
+        currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
+      />
     </div>
   );
 };
@@ -949,14 +982,6 @@ interface FinanceRow {
   center: string;
 }
 
-const MOCK_FINANCE: FinanceRow[] = [
-  { date: "2026-04-08", ticketNo: "SVB5001", clientName: "Priya Sharma",  service: "Hair Color",      amount: 2800, paymentMethod: "UPI",  staff: "Anita K.",  center: "Sanghavi Nagar" },
-  { date: "2026-04-08", ticketNo: "SVB5002", clientName: "Meera Joshi",   service: "Facial",           amount: 1500, paymentMethod: "Card", staff: "Pooja M.",  center: "Sanghavi Nagar" },
-  { date: "2026-04-08", ticketNo: "SVB5003", clientName: "Sneha Patel",   service: "Haircut",          amount: 600,  paymentMethod: "Cash", staff: "Raj S.",    center: "Sanghavi Nagar" },
-  { date: "2026-04-08", ticketNo: "SVB5004", clientName: "Riya Kapoor",   service: "Massage",          amount: 1800, paymentMethod: "UPI",  staff: "Neha T.",   center: "Sanghavi Nagar" },
-  { date: "2026-04-08", ticketNo: "SVB5005", clientName: "Ananya Verma",  service: "Bridal Package",   amount: 8500, paymentMethod: "Card", staff: "Anita K.",  center: "Sanghavi Nagar" },
-];
-
 const PAYMENT_METHODS = ["All", "Cash", "Card", "UPI", "Online", "Wallet"];
 
 const FinanceReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
@@ -967,8 +992,11 @@ const FinanceReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
   const [paymentMethod,   setPaymentMethod]   = useState("All");
   const [showMethodDrop,  setShowMethodDrop]  = useState(false);
   const [showExportDrop,  setShowExportDrop]  = useState(false);
-  const [rows,            setRows]            = useState<FinanceRow[]>(MOCK_FINANCE);
+  const [rows,            setRows]            = useState<FinanceRow[]>([]);
   const [loading,         setLoading]         = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize,    setPageSize]    = useState(10);
+  useEffect(() => { setCurrentPage(1); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -977,11 +1005,19 @@ const FinanceReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
       const res = await api.get<{ data: FinanceRow[] }>(`/api/v1/reports/finance/detail?${params}`);
       if (res.data?.data) setRows(res.data.data);
     } catch {
-      // fallback to mock
+      setRows([]);
     } finally {
       setLoading(false);
     }
   }, [dateFrom, dateTo, paymentMethod]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    const close = () => { setShowMethodDrop(false); setShowExportDrop(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
 
   const HEADERS = ["Date", "Ticket No", "Client Name", "Service", "Amount (₹)", "Payment Method", "Staff", "Center"];
   const exportRows = () => rows.map(r => [r.date, r.ticketNo, r.clientName, r.service, r.amount, r.paymentMethod, r.staff, r.center]);
@@ -1031,7 +1067,7 @@ const FinanceReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
             {paymentMethod} <span className="rp-detail-caret">▼</span>
           </button>
           {showMethodDrop && (
-            <div className="rp-detail-dropdown">
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
               {PAYMENT_METHODS.map(m => (
                 <div key={m} className={`rp-detail-dropdown-item ${m === paymentMethod ? "active" : ""}`}
                   onClick={() => { setPaymentMethod(m); setShowMethodDrop(false); }}>{m}</div>
@@ -1068,7 +1104,7 @@ const FinanceReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
               <tr><td colSpan={8} className="rp-detail-loading-cell"><PageLoader /></td></tr>
             ) : rows.length === 0 ? (
               <tr><td colSpan={8} className="rp-detail-empty-cell">No data available</td></tr>
-            ) : rows.map((r, i) => (
+            ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
               <tr key={i}>
                 <td>{r.date}</td>
                 <td><span className="rp-detail-link">{r.ticketNo}</span></td>
@@ -1084,14 +1120,11 @@ const FinanceReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
         </table>
       </div>
 
-      <div className="rp-detail-pagination">
-        <span className="rp-detail-page-info">1 to {rows.length} of {rows.length}</span>
-        <div className="rp-detail-page-nav">
-          <button className="rp-detail-page-btn" disabled>‹</button>
-          <span className="rp-detail-page-cur">Page 1 of 1</span>
-          <button className="rp-detail-page-btn" disabled>›</button>
-        </div>
-      </div>
+      <Pagination
+        currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
+      />
     </div>
   );
 };
@@ -1109,15 +1142,6 @@ interface InventoryRow {
   status: "In Stock" | "Low Stock" | "Out of Stock";
 }
 
-const MOCK_INVENTORY: InventoryRow[] = [
-  { product: "Loreal Shampoo 500ml",  category: "Hair Care",   sku: "LC001", currentStock: 24, reorderLevel: 10, unitCost: 450,  totalValue: 10800, status: "In Stock"    },
-  { product: "Wella Colour 60g",      category: "Hair Color",  sku: "WC002", currentStock: 6,  reorderLevel: 8,  unitCost: 320,  totalValue: 1920,  status: "Low Stock"   },
-  { product: "Kerastase Conditioner", category: "Hair Care",   sku: "KR003", currentStock: 0,  reorderLevel: 5,  unitCost: 980,  totalValue: 0,     status: "Out of Stock"},
-  { product: "OPI Nail Polish",       category: "Nails",       sku: "OP004", currentStock: 38, reorderLevel: 15, unitCost: 650,  totalValue: 24700, status: "In Stock"    },
-  { product: "Dermalogica Cleanser",  category: "Skin Care",   sku: "DM005", currentStock: 11, reorderLevel: 12, unitCost: 1200, totalValue: 13200, status: "Low Stock"   },
-  { product: "Massage Oil 200ml",     category: "Body Care",   sku: "MO006", currentStock: 18, reorderLevel: 8,  unitCost: 380,  totalValue: 6840,  status: "In Stock"    },
-];
-
 const INV_CATEGORIES = ["All", "Hair Care", "Hair Color", "Nails", "Skin Care", "Body Care"];
 const INV_STATUSES   = ["All", "In Stock", "Low Stock", "Out of Stock"];
 
@@ -1127,8 +1151,11 @@ const InventoryReportDetail = ({ report, onBack }: { report: ReportItem; onBack:
   const [showCatDrop,    setShowCatDrop]    = useState(false);
   const [showStsDrop,    setShowStsDrop]    = useState(false);
   const [showExportDrop, setShowExportDrop] = useState(false);
-  const [rows,           setRows]           = useState<InventoryRow[]>(MOCK_INVENTORY);
+  const [rows,           setRows]           = useState<InventoryRow[]>([]);
   const [loading,        setLoading]        = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize,    setPageSize]    = useState(10);
+  useEffect(() => { setCurrentPage(1); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -1137,15 +1164,19 @@ const InventoryReportDetail = ({ report, onBack }: { report: ReportItem; onBack:
       const res = await api.get<{ data: InventoryRow[] }>(`/api/v1/reports/inventory/detail?${params}`);
       if (res.data?.data) setRows(res.data.data);
     } catch {
-      // apply client-side filter on mock
-      setRows(MOCK_INVENTORY.filter(r =>
-        (category === "All" || r.category === category) &&
-        (stockStatus === "All" || r.status === stockStatus)
-      ));
+      setRows([]);
     } finally {
       setLoading(false);
     }
   }, [category, stockStatus]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    const close = () => { setShowCatDrop(false); setShowStsDrop(false); setShowExportDrop(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
 
   const HEADERS = ["Product", "Category", "SKU", "Current Stock", "Reorder Level", "Unit Cost (₹)", "Total Value (₹)", "Status"];
   const exportRows = () => rows.map(r => [r.product, r.category, r.sku, r.currentStock, r.reorderLevel, r.unitCost, r.totalValue, r.status]);
@@ -1190,7 +1221,7 @@ const InventoryReportDetail = ({ report, onBack }: { report: ReportItem; onBack:
             {category} <span className="rp-detail-caret">▼</span>
           </button>
           {showCatDrop && (
-            <div className="rp-detail-dropdown">
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
               {INV_CATEGORIES.map(c => (
                 <div key={c} className={`rp-detail-dropdown-item ${c === category ? "active" : ""}`}
                   onClick={() => { setCategory(c); setShowCatDrop(false); }}>{c}</div>
@@ -1204,7 +1235,7 @@ const InventoryReportDetail = ({ report, onBack }: { report: ReportItem; onBack:
             {stockStatus} <span className="rp-detail-caret">▼</span>
           </button>
           {showStsDrop && (
-            <div className="rp-detail-dropdown">
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
               {INV_STATUSES.map(s => (
                 <div key={s} className={`rp-detail-dropdown-item ${s === stockStatus ? "active" : ""}`}
                   onClick={() => { setStockStatus(s); setShowStsDrop(false); }}>{s}</div>
@@ -1241,7 +1272,7 @@ const InventoryReportDetail = ({ report, onBack }: { report: ReportItem; onBack:
               <tr><td colSpan={8} className="rp-detail-loading-cell"><PageLoader /></td></tr>
             ) : rows.length === 0 ? (
               <tr><td colSpan={8} className="rp-detail-empty-cell">No data available</td></tr>
-            ) : rows.map((r, i) => (
+            ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
               <tr key={i}>
                 <td className="fw-semibold">{r.product}</td>
                 <td>{r.category}</td>
@@ -1257,14 +1288,11 @@ const InventoryReportDetail = ({ report, onBack }: { report: ReportItem; onBack:
         </table>
       </div>
 
-      <div className="rp-detail-pagination">
-        <span className="rp-detail-page-info">1 to {rows.length} of {rows.length}</span>
-        <div className="rp-detail-page-nav">
-          <button className="rp-detail-page-btn" disabled>‹</button>
-          <span className="rp-detail-page-cur">Page 1 of 1</span>
-          <button className="rp-detail-page-btn" disabled>›</button>
-        </div>
-      </div>
+      <Pagination
+        currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
+      />
     </div>
   );
 };
@@ -1282,14 +1310,6 @@ interface PaymentRow {
   status: "Success" | "Pending" | "Failed" | "Refunded";
 }
 
-const MOCK_PAYMENTS: PaymentRow[] = [
-  { date: "2026-04-08", transactionId: "TXN8001", clientName: "Priya Sharma",  amount: 2800, gateway: "Razorpay", method: "UPI",         referenceNo: "RZP2024001", status: "Success"  },
-  { date: "2026-04-08", transactionId: "TXN8002", clientName: "Meera Joshi",   amount: 1500, gateway: "Stripe",   method: "Card",        referenceNo: "STR2024002", status: "Success"  },
-  { date: "2026-04-08", transactionId: "TXN8003", clientName: "Ananya Verma",  amount: 850,  gateway: "Paytm",    method: "Wallet",      referenceNo: "PTM2024003", status: "Pending"  },
-  { date: "2026-04-08", transactionId: "TXN8004", clientName: "Riya Kapoor",   amount: 3200, gateway: "Razorpay", method: "Net Banking", referenceNo: "RZP2024004", status: "Success"  },
-  { date: "2026-04-07", transactionId: "TXN8005", clientName: "Sneha Patel",   amount: 600,  gateway: "Stripe",   method: "Card",        referenceNo: "STR2024005", status: "Refunded" },
-];
-
 const PAY_GATEWAYS = ["All", "Razorpay", "Stripe", "Paytm", "PayU", "Cashfree"];
 const PAY_STATUSES = ["All", "Success", "Pending", "Failed", "Refunded"];
 
@@ -1303,8 +1323,11 @@ const PaymentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
   const [showGwDrop,      setShowGwDrop]      = useState(false);
   const [showPsDrop,      setShowPsDrop]      = useState(false);
   const [showExportDrop,  setShowExportDrop]  = useState(false);
-  const [rows,            setRows]            = useState<PaymentRow[]>(MOCK_PAYMENTS);
+  const [rows,            setRows]            = useState<PaymentRow[]>([]);
   const [loading,         setLoading]         = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize,    setPageSize]    = useState(10);
+  useEffect(() => { setCurrentPage(1); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -1313,14 +1336,19 @@ const PaymentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
       const res = await api.get<{ data: PaymentRow[] }>(`/api/v1/reports/payments/detail?${params}`);
       if (res.data?.data) setRows(res.data.data);
     } catch {
-      setRows(MOCK_PAYMENTS.filter(r =>
-        (gateway === "All" || r.gateway === gateway) &&
-        (payStatus === "All" || r.status === payStatus)
-      ));
+      setRows([]);
     } finally {
       setLoading(false);
     }
   }, [dateFrom, dateTo, gateway, payStatus]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    const close = () => { setShowGwDrop(false); setShowPsDrop(false); setShowExportDrop(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
 
   const HEADERS = ["Date", "Transaction ID", "Client Name", "Amount (₹)", "Gateway", "Method", "Reference No", "Status"];
   const exportRows = () => rows.map(r => [r.date, r.transactionId, r.clientName, r.amount, r.gateway, r.method, r.referenceNo, r.status]);
@@ -1373,7 +1401,7 @@ const PaymentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
             {gateway} <span className="rp-detail-caret">▼</span>
           </button>
           {showGwDrop && (
-            <div className="rp-detail-dropdown">
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
               {PAY_GATEWAYS.map(g => (
                 <div key={g} className={`rp-detail-dropdown-item ${g === gateway ? "active" : ""}`}
                   onClick={() => { setGateway(g); setShowGwDrop(false); }}>{g}</div>
@@ -1387,7 +1415,7 @@ const PaymentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
             {payStatus} <span className="rp-detail-caret">▼</span>
           </button>
           {showPsDrop && (
-            <div className="rp-detail-dropdown">
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
               {PAY_STATUSES.map(s => (
                 <div key={s} className={`rp-detail-dropdown-item ${s === payStatus ? "active" : ""}`}
                   onClick={() => { setPayStatus(s); setShowPsDrop(false); }}>{s}</div>
@@ -1424,7 +1452,7 @@ const PaymentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
               <tr><td colSpan={8} className="rp-detail-loading-cell"><PageLoader /></td></tr>
             ) : rows.length === 0 ? (
               <tr><td colSpan={8} className="rp-detail-empty-cell">No data available</td></tr>
-            ) : rows.map((r, i) => (
+            ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
               <tr key={i}>
                 <td>{r.date}</td>
                 <td><span className="rp-detail-link">{r.transactionId}</span></td>
@@ -1440,14 +1468,11 @@ const PaymentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
         </table>
       </div>
 
-      <div className="rp-detail-pagination">
-        <span className="rp-detail-page-info">1 to {rows.length} of {rows.length}</span>
-        <div className="rp-detail-page-nav">
-          <button className="rp-detail-page-btn" disabled>‹</button>
-          <span className="rp-detail-page-cur">Page 1 of 1</span>
-          <button className="rp-detail-page-btn" disabled>›</button>
-        </div>
-      </div>
+      <Pagination
+        currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
+      />
     </div>
   );
 };
@@ -1464,16 +1489,6 @@ interface DailyRow {
   paymentMethod: string;
 }
 
-const MOCK_DAILY: DailyRow[] = [
-  { time: "09:15",  ticketNo: "SVB6001", clientName: "Priya Sharma",  service: "Haircut",      staff: "Anita K.", amount: 600,  paymentMethod: "Cash" },
-  { time: "10:00",  ticketNo: "SVB6002", clientName: "Meera Joshi",   service: "Hair Color",   staff: "Pooja M.", amount: 2800, paymentMethod: "UPI"  },
-  { time: "11:30",  ticketNo: "SVB6003", clientName: "Sneha Patel",   service: "Facial",       staff: "Neha T.",  amount: 1500, paymentMethod: "Card" },
-  { time: "12:45",  ticketNo: "SVB6004", clientName: "Riya Kapoor",   service: "Massage",      staff: "Raj S.",   amount: 1800, paymentMethod: "UPI"  },
-  { time: "14:00",  ticketNo: "SVB6005", clientName: "Ananya Verma",  service: "Nails",        staff: "Anita K.", amount: 900,  paymentMethod: "Cash" },
-  { time: "15:30",  ticketNo: "SVB6006", clientName: "Divya Mehta",   service: "Bridal Pkg",   staff: "Pooja M.", amount: 8500, paymentMethod: "Card" },
-  { time: "16:15",  ticketNo: "SVB6007", clientName: "Kavya Singh",   service: "Haircut",      staff: "Raj S.",   amount: 600,  paymentMethod: "Cash" },
-];
-
 const DAILY_SERVICES = ["All", "Haircut", "Hair Color", "Facial", "Massage", "Nails", "Bridal Pkg"];
 const DAILY_STAFF_LIST = ["All", "Anita K.", "Pooja M.", "Raj S.", "Neha T.", "Vikram D."];
 
@@ -1485,8 +1500,11 @@ const DailyReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () 
   const [showSvcDrop,     setShowSvcDrop]     = useState(false);
   const [showStfDrop,     setShowStfDrop]     = useState(false);
   const [showExportDrop,  setShowExportDrop]  = useState(false);
-  const [rows,            setRows]            = useState<DailyRow[]>(MOCK_DAILY);
+  const [rows,            setRows]            = useState<DailyRow[]>([]);
   const [loading,         setLoading]         = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize,    setPageSize]    = useState(10);
+  useEffect(() => { setCurrentPage(1); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -1495,14 +1513,19 @@ const DailyReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () 
       const res = await api.get<{ data: DailyRow[] }>(`/api/v1/reports/daily/detail?${params}`);
       if (res.data?.data) setRows(res.data.data);
     } catch {
-      setRows(MOCK_DAILY.filter(r =>
-        (serviceFilter === "All" || r.service === serviceFilter) &&
-        (staffFilter   === "All" || r.staff   === staffFilter)
-      ));
+      setRows([]);
     } finally {
       setLoading(false);
     }
   }, [date, serviceFilter, staffFilter]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    const close = () => { setShowSvcDrop(false); setShowStfDrop(false); setShowExportDrop(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
 
   const totalRevenue = rows.reduce((sum, r) => sum + r.amount, 0);
   const HEADERS = ["Time", "Ticket No", "Client Name", "Service", "Staff", "Amount (₹)", "Payment Method"];
@@ -1555,7 +1578,7 @@ const DailyReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () 
             {serviceFilter} <span className="rp-detail-caret">▼</span>
           </button>
           {showSvcDrop && (
-            <div className="rp-detail-dropdown">
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
               {DAILY_SERVICES.map(s => (
                 <div key={s} className={`rp-detail-dropdown-item ${s === serviceFilter ? "active" : ""}`}
                   onClick={() => { setServiceFilter(s); setShowSvcDrop(false); }}>{s}</div>
@@ -1569,7 +1592,7 @@ const DailyReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () 
             {staffFilter} <span className="rp-detail-caret">▼</span>
           </button>
           {showStfDrop && (
-            <div className="rp-detail-dropdown">
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
               {DAILY_STAFF_LIST.map(s => (
                 <div key={s} className={`rp-detail-dropdown-item ${s === staffFilter ? "active" : ""}`}
                   onClick={() => { setStaffFilter(s); setShowStfDrop(false); }}>{s}</div>
@@ -1609,7 +1632,7 @@ const DailyReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () 
               <tr><td colSpan={7} className="rp-detail-loading-cell"><PageLoader /></td></tr>
             ) : rows.length === 0 ? (
               <tr><td colSpan={7} className="rp-detail-empty-cell">No data available</td></tr>
-            ) : rows.map((r, i) => (
+            ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
               <tr key={i}>
                 <td>{r.time}</td>
                 <td><span className="rp-detail-link">{r.ticketNo}</span></td>
@@ -1624,14 +1647,11 @@ const DailyReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () 
         </table>
       </div>
 
-      <div className="rp-detail-pagination">
-        <span className="rp-detail-page-info">1 to {rows.length} of {rows.length}</span>
-        <div className="rp-detail-page-nav">
-          <button className="rp-detail-page-btn" disabled>‹</button>
-          <span className="rp-detail-page-cur">Page 1 of 1</span>
-          <button className="rp-detail-page-btn" disabled>›</button>
-        </div>
-      </div>
+      <Pagination
+        currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
+      />
     </div>
   );
 };
@@ -1648,14 +1668,6 @@ interface MarketingRow {
   status: "Active" | "Inactive" | "Expired";
 }
 
-const MOCK_MARKETING: MarketingRow[] = [
-  { clientName: "Priya Sharma",  phone: "9876543210", pointsEarned: 2800, pointsRedeemed: 1200, balance: 1600, lastActivity: "2026-04-08", status: "Active"   },
-  { clientName: "Meera Joshi",   phone: "9765432109", pointsEarned: 3820, pointsRedeemed: 2000, balance: 1820, lastActivity: "2026-04-06", status: "Active"   },
-  { clientName: "Sneha Patel",   phone: "9654321098", pointsEarned: 1540, pointsRedeemed: 1540, balance: 0,    lastActivity: "2026-03-22", status: "Inactive" },
-  { clientName: "Riya Kapoor",   phone: "9543210987", pointsEarned: 4200, pointsRedeemed: 800,  balance: 3400, lastActivity: "2026-04-07", status: "Active"   },
-  { clientName: "Ananya Verma",  phone: "9432109876", pointsEarned: 690,  pointsRedeemed: 690,  balance: 0,    lastActivity: "2026-01-15", status: "Expired"  },
-];
-
 const MKT_STATUSES = ["All", "Active", "Inactive", "Expired"];
 
 const MarketingReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
@@ -1667,8 +1679,11 @@ const MarketingReportDetail = ({ report, onBack }: { report: ReportItem; onBack:
   const [mktStatus,       setMktStatus]       = useState("All");
   const [showStsDrop,     setShowStsDrop]     = useState(false);
   const [showExportDrop,  setShowExportDrop]  = useState(false);
-  const [rows,            setRows]            = useState<MarketingRow[]>(MOCK_MARKETING);
+  const [rows,            setRows]            = useState<MarketingRow[]>([]);
   const [loading,         setLoading]         = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize,    setPageSize]    = useState(10);
+  useEffect(() => { setCurrentPage(1); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -1677,14 +1692,19 @@ const MarketingReportDetail = ({ report, onBack }: { report: ReportItem; onBack:
       const res = await api.get<{ data: MarketingRow[] }>(`/api/v1/reports/marketing/detail?${params}`);
       if (res.data?.data) setRows(res.data.data);
     } catch {
-      setRows(MOCK_MARKETING.filter(r =>
-        (mktStatus === "All" || r.status === mktStatus) &&
-        (!clientSearch || r.clientName.toLowerCase().includes(clientSearch.toLowerCase()))
-      ));
+      setRows([]);
     } finally {
       setLoading(false);
     }
   }, [dateFrom, dateTo, mktStatus, clientSearch]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    const close = () => { setShowStsDrop(false); setShowExportDrop(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
 
   const HEADERS = ["Client Name", "Phone", "Points Earned", "Points Redeemed", "Balance", "Last Activity", "Status"];
   const exportRows = () => rows.map(r => [r.clientName, r.phone, r.pointsEarned, r.pointsRedeemed, r.balance, r.lastActivity, r.status]);
@@ -1749,7 +1769,7 @@ const MarketingReportDetail = ({ report, onBack }: { report: ReportItem; onBack:
             {mktStatus} <span className="rp-detail-caret">▼</span>
           </button>
           {showStsDrop && (
-            <div className="rp-detail-dropdown">
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
               {MKT_STATUSES.map(s => (
                 <div key={s} className={`rp-detail-dropdown-item ${s === mktStatus ? "active" : ""}`}
                   onClick={() => { setMktStatus(s); setShowStsDrop(false); }}>{s}</div>
@@ -1785,7 +1805,7 @@ const MarketingReportDetail = ({ report, onBack }: { report: ReportItem; onBack:
               <tr><td colSpan={7} className="rp-detail-loading-cell"><PageLoader /></td></tr>
             ) : rows.length === 0 ? (
               <tr><td colSpan={7} className="rp-detail-empty-cell">No data available</td></tr>
-            ) : rows.map((r, i) => (
+            ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
               <tr key={i}>
                 <td><span className="rp-detail-link">{r.clientName}</span></td>
                 <td>{r.phone}</td>
@@ -1800,14 +1820,11 @@ const MarketingReportDetail = ({ report, onBack }: { report: ReportItem; onBack:
         </table>
       </div>
 
-      <div className="rp-detail-pagination">
-        <span className="rp-detail-page-info">1 to {rows.length} of {rows.length}</span>
-        <div className="rp-detail-page-nav">
-          <button className="rp-detail-page-btn" disabled>‹</button>
-          <span className="rp-detail-page-cur">Page 1 of 1</span>
-          <button className="rp-detail-page-btn" disabled>›</button>
-        </div>
-      </div>
+      <Pagination
+        currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
+      />
     </div>
   );
 };
@@ -1826,14 +1843,6 @@ interface EmployeeRow {
   utilization: number;
 }
 
-const MOCK_EMPLOYEE: EmployeeRow[] = [
-  { name: "Anita K.",  role: "Senior Stylist",  department: "Hair",  servicesPerformed: 128, revenue: 94200, avgTicket: 736, bookings: 128, rating: 4.9, utilization: 88 },
-  { name: "Pooja M.",  role: "Stylist",          department: "Hair",  servicesPerformed: 105, revenue: 72800, avgTicket: 693, bookings: 105, rating: 4.8, utilization: 82 },
-  { name: "Raj S.",    role: "Therapist",        department: "Spa",   servicesPerformed: 98,  revenue: 41600, avgTicket: 424, bookings: 98,  rating: 4.7, utilization: 76 },
-  { name: "Neha T.",   role: "Nail Technician",  department: "Nails", servicesPerformed: 87,  revenue: 65200, avgTicket: 749, bookings: 87,  rating: 4.6, utilization: 71 },
-  { name: "Vikram D.", role: "Massage Therapist",department: "Spa",   servicesPerformed: 74,  revenue: 58900, avgTicket: 796, bookings: 74,  rating: 4.5, utilization: 65 },
-];
-
 const EMP_ROLES = ["All", "Senior Stylist", "Stylist", "Therapist", "Nail Technician", "Massage Therapist"];
 const EMP_DEPTS = ["All", "Hair", "Spa", "Nails", "Skin", "Makeup"];
 
@@ -1847,8 +1856,11 @@ const EmployeeReportDetail = ({ report, onBack }: { report: ReportItem; onBack: 
   const [showRoleDrop,    setShowRoleDrop]    = useState(false);
   const [showDeptDrop,    setShowDeptDrop]    = useState(false);
   const [showExportDrop,  setShowExportDrop]  = useState(false);
-  const [rows,            setRows]            = useState<EmployeeRow[]>(MOCK_EMPLOYEE);
+  const [rows,            setRows]            = useState<EmployeeRow[]>([]);
   const [loading,         setLoading]         = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize,    setPageSize]    = useState(10);
+  useEffect(() => { setCurrentPage(1); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -1857,14 +1869,19 @@ const EmployeeReportDetail = ({ report, onBack }: { report: ReportItem; onBack: 
       const res = await api.get<{ data: EmployeeRow[] }>(`/api/v1/reports/employee/detail?${params}`);
       if (res.data?.data) setRows(res.data.data);
     } catch {
-      setRows(MOCK_EMPLOYEE.filter(r =>
-        (role === "All" || r.role === role) &&
-        (dept === "All" || r.department === dept)
-      ));
+      setRows([]);
     } finally {
       setLoading(false);
     }
   }, [dateFrom, dateTo, role, dept]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    const close = () => { setShowRoleDrop(false); setShowDeptDrop(false); setShowExportDrop(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
 
   const HEADERS = ["Name", "Role", "Department", "Services", "Revenue (₹)", "Avg Ticket (₹)", "Bookings", "Rating", "Utilization (%)"];
   const exportRows = () => rows.map(r => [r.name, r.role, r.department, r.servicesPerformed, r.revenue, r.avgTicket, r.bookings, r.rating, r.utilization]);
@@ -1914,7 +1931,7 @@ const EmployeeReportDetail = ({ report, onBack }: { report: ReportItem; onBack: 
             {role.length > 16 ? role.slice(0, 16) + "…" : role} <span className="rp-detail-caret">▼</span>
           </button>
           {showRoleDrop && (
-            <div className="rp-detail-dropdown">
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
               {EMP_ROLES.map(r => (
                 <div key={r} className={`rp-detail-dropdown-item ${r === role ? "active" : ""}`}
                   onClick={() => { setRole(r); setShowRoleDrop(false); }}>{r}</div>
@@ -1928,7 +1945,7 @@ const EmployeeReportDetail = ({ report, onBack }: { report: ReportItem; onBack: 
             {dept} <span className="rp-detail-caret">▼</span>
           </button>
           {showDeptDrop && (
-            <div className="rp-detail-dropdown">
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
               {EMP_DEPTS.map(d => (
                 <div key={d} className={`rp-detail-dropdown-item ${d === dept ? "active" : ""}`}
                   onClick={() => { setDept(d); setShowDeptDrop(false); }}>{d}</div>
@@ -1966,7 +1983,7 @@ const EmployeeReportDetail = ({ report, onBack }: { report: ReportItem; onBack: 
               <tr><td colSpan={9} className="rp-detail-loading-cell"><PageLoader /></td></tr>
             ) : rows.length === 0 ? (
               <tr><td colSpan={9} className="rp-detail-empty-cell">No data available</td></tr>
-            ) : rows.map((r, i) => (
+            ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
               <tr key={i}>
                 <td style={{ color: "#9ca3af", fontSize: 12 }}>#{i + 1}</td>
                 <td className="fw-semibold">{r.name}</td>
@@ -1990,14 +2007,166 @@ const EmployeeReportDetail = ({ report, onBack }: { report: ReportItem; onBack: 
         </table>
       </div>
 
-      <div className="rp-detail-pagination">
-        <span className="rp-detail-page-info">1 to {rows.length} of {rows.length}</span>
-        <div className="rp-detail-page-nav">
-          <button className="rp-detail-page-btn" disabled>‹</button>
-          <span className="rp-detail-page-cur">Page 1 of 1</span>
-          <button className="rp-detail-page-btn" disabled>›</button>
+      <Pagination
+        currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
+      />
+    </div>
+  );
+};
+
+// ─── Revenue by Service Report Detail ────────────────────────────────────────
+
+interface RevenueByServiceRow {
+  name: string;
+  bookings: number;
+  revenue: number;
+  avgTicket: number;
+  growth: number;
+}
+
+const RevenueByServiceReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const today      = new Date().toISOString().slice(0, 10);
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+  const [dateFrom,       setDateFrom]       = useState(monthStart);
+  const [dateTo,         setDateTo]         = useState(today);
+  const [showExportDrop, setShowExportDrop] = useState(false);
+  const [rows,           setRows]           = useState<RevenueByServiceRow[]>([]);
+  const [loading,        setLoading]        = useState(false);
+  const [sortKey,        setSortKey]        = useState<"revenue" | "bookings">("revenue");
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ period: "custom", from: dateFrom, to: dateTo });
+      const res = await api.get<{ data: { services: RevenueByServiceRow[] } }>(
+        `/api/v1/reports/services?${params}`,
+      );
+      if (res.data?.data?.services?.length) setRows(res.data.data.services);
+    } catch {
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [dateFrom, dateTo]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const sorted = useMemo(
+    () => [...rows].sort((a, b) => b[sortKey] - a[sortKey]),
+    [rows, sortKey],
+  );
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize,    setPageSize]    = useState(10);
+  useEffect(() => { setCurrentPage(1); }, [sorted]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const HEADERS = ["Service Name", "Bookings", "Revenue (₹)", "Avg Ticket (₹)", "Growth %"];
+  const exportRows = () =>
+    sorted.map(r => [r.name, r.bookings, r.revenue, r.avgTicket, `${r.growth}%`]);
+
+  return (
+    <div className="rp-detail-view">
+      <div className="rp-detail-header">
+        <div className="rp-detail-back-row">
+          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
+            <ChevronLeft size={15} /> {report.name}
+          </Button>
+          <div className="rp-detail-view-icons">
+            <button className="rp-detail-icon-btn" title="Column view"><Grid3x3Gap size={16} /></button>
+            <div className="rp-detail-export-wrap">
+              <button className="rp-detail-icon-btn" title="Export" onClick={() => setShowExportDrop(v => !v)}>
+                <BoxArrowUp size={16} />
+              </button>
+              {showExportDrop && (
+                <div className="rp-detail-export-dropdown">
+                  <div className="rp-detail-export-item" onClick={() => { exportToExcel(HEADERS, exportRows(), `${report.name}-${dateFrom}-${dateTo}`); setShowExportDrop(false); }}>
+                    <FileEarmarkSpreadsheet size={14} /> Export to Excel
+                  </div>
+                  <div className="rp-detail-export-item" onClick={() => { printTable(report.name, HEADERS, exportRows()); setShowExportDrop(false); }}>
+                    <FiletypePdf size={14} /> Export to PDF
+                  </div>
+                </div>
+              )}
+            </div>
+            <button className="rp-detail-icon-btn" title="Info"><InfoCircle size={16} /></button>
+          </div>
+        </div>
+        <div className="rp-detail-tab-bar"><span className="rp-detail-tab active">Default View</span></div>
+      </div>
+
+      <div className="rp-detail-filters">
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Date Range</label>
+          <div className="rp-detail-date-range">
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="rp-detail-date-input" />
+            <span className="rp-detail-date-sep">-</span>
+            <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   className="rp-detail-date-input" />
+          </div>
+        </div>
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Sort By</label>
+          <div className="rp-detail-date-range">
+            {(["revenue", "bookings"] as const).map(k => (
+              <button
+                key={k}
+                className={`rp-detail-select ${sortKey === k ? "active" : ""}`}
+                style={{ marginRight: 6 }}
+                onClick={() => setSortKey(k)}
+              >
+                {k === "revenue" ? "Revenue" : "Bookings"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="rp-detail-filter-actions">
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
+            <Refresh size={13} /> Refresh
+          </Button>
+          <Button variant="ghost" className="rp-detail-save-btn">Save View</Button>
         </div>
       </div>
+
+      <div className="rp-detail-drag-hint"><span className="rp-detail-drag-check" /> Drag here to set row groups</div>
+
+      <div className="rp-detail-table-wrap">
+        <table className="rp-detail-table">
+          <thead>
+            <tr>
+              <th>Service Name</th>
+              <th>Bookings <span className="rp-th-sort">↕</span></th>
+              <th>Revenue (₹) <span className="rp-th-sort">↕</span></th>
+              <th>Avg Ticket (₹) <span className="rp-th-sort">↕</span></th>
+              <th>Growth %</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={5} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+            ) : sorted.length === 0 ? (
+              <tr><td colSpan={5} className="rp-detail-empty-cell">No data available</td></tr>
+            ) : sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
+              <tr key={i}>
+                <td className="fw-semibold">{r.name}</td>
+                <td>{r.bookings}</td>
+                <td className="fw-semibold">₹{r.revenue.toLocaleString()}</td>
+                <td>₹{r.avgTicket.toLocaleString()}</td>
+                <td>
+                  <span style={{ color: r.growth >= 0 ? "#10b981" : "#ef4444", fontWeight: 600 }}>
+                    {r.growth >= 0 ? "+" : ""}{r.growth}%
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <Pagination
+        currentPage={currentPage} pageSize={pageSize} totalItems={sorted.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
+      />
     </div>
   );
 };
@@ -2096,6 +2265,8 @@ export default function ReportsPage() {
   const [period, setPeriod]           = useState<ReportPeriod>("30d");
   const [tab, setTab]                 = useState<ReportTab>("revenue");
   const [showFilter, setShowFilter]   = useState(false);
+  const [filterFrom, setFilterFrom]   = useState("");
+  const [filterTo, setFilterTo]       = useState("");
 
   // ── Reports Dashboard state ──────────────────────────────────────────────────
   const [reportSearch, setReportSearch]         = useState("");
@@ -2129,15 +2300,20 @@ export default function ReportsPage() {
     setBookmarked(prev => prev.includes(id) ? prev.filter(b => b !== id) : [...prev, id]);
 
   // ── Fetch data when tab or period changes ────────────────────────────────────
-  const fetchCurrentTab = useCallback(() => {
+  const fetchCurrentTab = useCallback((from?: string, to?: string) => {
+    const f = from || filterFrom || undefined;
+    const t = to   || filterTo   || undefined;
     switch (tab) {
-      case "revenue":      dispatch(fetchRevenueReportThunk({ period }));      break;
-      case "appointments": dispatch(fetchAppointmentsReportThunk({ period })); break;
-      case "clients":      dispatch(fetchClientsReportThunk({ period }));      break;
-      case "staff":        dispatch(fetchStaffReportThunk({ period }));        break;
-      case "services":     dispatch(fetchServicesReportThunk({ period }));     break;
+      case "revenue":
+        dispatch(fetchRevenueReportThunk({ period, from: f, to: t }));
+        dispatch(fetchServicesReportThunk({ period, from: f, to: t }));
+        break;
+      case "appointments": dispatch(fetchAppointmentsReportThunk({ period, from: f, to: t })); break;
+      case "clients":      dispatch(fetchClientsReportThunk({ period, from: f, to: t }));      break;
+      case "staff":        dispatch(fetchStaffReportThunk({ period, from: f, to: t }));        break;
+      case "services":     dispatch(fetchServicesReportThunk({ period, from: f, to: t }));     break;
     }
-  }, [dispatch, tab, period]);
+  }, [dispatch, tab, period, filterFrom, filterTo]);
 
   useEffect(() => {
     fetchCurrentTab();
@@ -2154,6 +2330,9 @@ export default function ReportsPage() {
   const revenueTrend = revenueData?.trend ?? (period === "7d" ? revenueBy7d : revenueByMonth);
   const apptVolume   = appointmentsData?.volume ?? appointmentsWeekly;
   const clientGrowthData = clientsData?.growth ?? clientGrowth;
+  const topClientsList   = clientsData?.topClients
+    ? clientsData.topClients.map(c => ({ ...c, id: String(c.id) }))
+    : fallbackTopClients;
   const staffList    = staffData?.performance?.map((s, i) => ({
     ...s,
     color: fallbackStaffData[i % fallbackStaffData.length]?.color ?? "#111827",
@@ -2163,6 +2342,63 @@ export default function ReportsPage() {
     ...s,
     color: s.color ?? fallbackServiceData[i % fallbackServiceData.length]?.color ?? "#111827",
   })) ?? fallbackServiceData;
+
+  // ── Live KPI config built from API data (falls back to static kpiConfig) ─────
+  const liveKpis = useMemo(() => {
+    const fmtRupee = (n: number) =>
+      n >= 100_000 ? `₹${(n / 100_000).toFixed(1)}L`
+      : n >= 1_000 ? `₹${(n / 1_000).toFixed(1)}k`
+      : `₹${n.toLocaleString()}`;
+    const fmtPct  = (n: number) => `${n >= 0 ? "+" : ""}${n}%`;
+    const isUp    = (n: number) => n >= 0;
+
+    if (tab === "revenue" && revenueData?.kpi) {
+      const k = revenueData.kpi;
+      return [
+        { label: "Total Revenue",     value: fmtRupee(k.totalRevenue),    change: fmtPct(k.changes.totalRevenue),    up: isUp(k.changes.totalRevenue),    icon: <CurrencyRupee size={16}/>, color: "#10b981" },
+        { label: "Avg Daily Revenue", value: fmtRupee(k.avgDailyRevenue), change: fmtPct(k.changes.avgDailyRevenue), up: isUp(k.changes.avgDailyRevenue), icon: <GraphUpArrow  size={16}/>, color: "#3b82f6" },
+        { label: "Best Day Revenue",  value: fmtRupee(k.bestDayRevenue),  change: fmtPct(k.changes.bestDayRevenue),  up: isUp(k.changes.bestDayRevenue),  icon: <ArrowUpRight  size={16}/>, color: "#8b5cf6" },
+        { label: "Target Achieved",   value: `${k.targetAchieved}%`,      change: fmtPct(k.changes.targetAchieved),  up: isUp(k.changes.targetAchieved),  icon: <StarFill      size={16}/>, color: "#f59e0b" },
+      ];
+    }
+    if (tab === "appointments" && appointmentsData?.kpi) {
+      const k = appointmentsData.kpi;
+      return [
+        { label: "Total Bookings",    value: k.totalBookings.toLocaleString(), change: fmtPct(k.changes.totalBookings),    up: isUp(k.changes.totalBookings),    icon: <CalendarCheck  size={16}/>, color: "#3b82f6" },
+        { label: "Completion Rate",   value: `${k.completionRate}%`,           change: fmtPct(k.changes.completionRate),   up: isUp(k.changes.completionRate),   icon: <ArrowUpRight   size={16}/>, color: "#10b981" },
+        { label: "Cancellation Rate", value: `${k.cancellationRate}%`,         change: fmtPct(k.changes.cancellationRate), up: !isUp(k.changes.cancellationRate), icon: <ArrowDownRight size={16}/>, color: "#ef4444" },
+        { label: "Avg Duration",      value: `${k.avgDuration} min`,           change: `${k.changes.avgDuration} min`,     up: false,                             icon: <Calendar3      size={16}/>, color: "#8b5cf6" },
+      ];
+    }
+    if (tab === "clients" && clientsData?.kpi) {
+      const k = clientsData.kpi;
+      return [
+        { label: "Total Clients",      value: k.totalClients.toLocaleString(),       change: fmtPct(k.changes.totalClients),       up: isUp(k.changes.totalClients),       icon: <People        size={16}/>, color: "#3b82f6" },
+        { label: "New This Month",     value: k.newThisMonth.toString(),              change: fmtPct(k.changes.newThisMonth),       up: isUp(k.changes.newThisMonth),       icon: <ArrowUpRight  size={16}/>, color: "#10b981" },
+        { label: "Retention Rate",     value: `${k.retentionRate}%`,                 change: fmtPct(k.changes.retentionRate),      up: isUp(k.changes.retentionRate),      icon: <ArrowRepeat   size={16}/>, color: "#8b5cf6" },
+        { label: "Avg Visits/Client",  value: k.avgVisitsPerClient.toString(),        change: fmtPct(k.changes.avgVisitsPerClient), up: isUp(k.changes.avgVisitsPerClient), icon: <CalendarCheck size={16}/>, color: "#f59e0b" },
+      ];
+    }
+    if (tab === "staff" && staffData?.kpi) {
+      const k = staffData.kpi;
+      return [
+        { label: "Active Staff",    value: k.activeStaff.toString(),    change: fmtPct(k.changes.activeStaff),      up: isUp(k.changes.activeStaff),      icon: <People        size={16}/>, color: "#3b82f6" },
+        { label: "Avg Utilization", value: `${k.avgUtilization}%`,      change: fmtPct(k.changes.avgUtilization),   up: isUp(k.changes.avgUtilization),   icon: <GraphUpArrow  size={16}/>, color: "#10b981" },
+        { label: "Top Earner",      value: fmtRupee(k.topEarnerRevenue),change: fmtPct(k.changes.topEarnerRevenue), up: isUp(k.changes.topEarnerRevenue), icon: <CurrencyRupee size={16}/>, color: "#8b5cf6" },
+        { label: "Avg Rating",      value: k.avgRating.toFixed(2),      change: fmtPct(k.changes.avgRating),        up: isUp(k.changes.avgRating),        icon: <StarFill      size={16}/>, color: "#f59e0b" },
+      ];
+    }
+    if (tab === "services" && servicesData?.kpi) {
+      const k = servicesData.kpi;
+      return [
+        { label: "Active Services", value: k.activeServices.toString(),     change: fmtPct(k.changes.activeServices),    up: isUp(k.changes.activeServices),    icon: <Scissors      size={16}/>, color: "#3b82f6" },
+        { label: "Top Service Rev", value: fmtRupee(k.topServiceRevenue),   change: fmtPct(k.changes.topServiceRevenue), up: isUp(k.changes.topServiceRevenue), icon: <CurrencyRupee size={16}/>, color: "#10b981" },
+        { label: "Avg Ticket",      value: `₹${k.avgTicket.toLocaleString()}`, change: fmtPct(k.changes.avgTicket),    up: isUp(k.changes.avgTicket),         icon: <ArrowUpRight  size={16}/>, color: "#8b5cf6" },
+        { label: "New Services",    value: k.newServices.toString(),         change: fmtPct(k.changes.newServices),      up: isUp(k.changes.newServices),       icon: <ArrowRepeat   size={16}/>, color: "#f59e0b" },
+      ];
+    }
+    return kpiConfig[tab];
+  }, [tab, revenueData, appointmentsData, clientsData, staffData, servicesData]);
 
   // ── Tab / Period config ──────────────────────────────────────────────────────
   const periods: { key: ReportPeriod; label: string }[] = [
@@ -2180,12 +2416,16 @@ export default function ReportsPage() {
     { key: "services",     label: "Services",     icon: <Scissors       size={15} /> },
   ];
 
-  const kpis = kpiConfig[tab];
+  const kpis = liveKpis;
   const isTabLoading = loading[tab];
 
   // ── Export handler ───────────────────────────────────────────────────────────
   const handleExport = () => {
-    dispatch(exportReportThunk({ tab, period, format: "excel" }));
+    dispatch(exportReportThunk({
+      tab, period, format: "excel",
+      from: filterFrom || undefined,
+      to:   filterTo   || undefined,
+    }));
   };
 
   return (
@@ -2244,23 +2484,37 @@ export default function ReportsPage() {
             <label>Date Range</label>
             <div className="rp-filter-input-wrap">
               <Calendar3 size={13} className="rp-filter-ic" />
-              <input type="date" className="rp-filter-input" defaultValue="2024-01-01" />
+              <input
+                type="date"
+                className="rp-filter-input"
+                value={filterFrom}
+                onChange={e => setFilterFrom(e.target.value)}
+              />
               <span className="rp-filter-sep">→</span>
-              <input type="date" className="rp-filter-input" defaultValue="2024-12-31" />
+              <input
+                type="date"
+                className="rp-filter-input"
+                value={filterTo}
+                onChange={e => setFilterTo(e.target.value)}
+              />
             </div>
           </div>
           <div className="rp-filter-group">
             <label>Staff</label>
             <select className="rp-filter-select">
               <option>All Staff</option>
-              {fallbackStaffData.map(s => <option key={s.name}>{s.name}</option>)}
+              {(staffData?.performance ?? fallbackStaffData).map(s => (
+                <option key={s.name}>{s.name}</option>
+              ))}
             </select>
           </div>
           <div className="rp-filter-group">
             <label>Service</label>
             <select className="rp-filter-select">
               <option>All Services</option>
-              {fallbackServiceData.map(s => <option key={s.name}>{s.name}</option>)}
+              {(servicesData?.services ?? fallbackServiceData).map(s => (
+                <option key={s.name}>{s.name}</option>
+              ))}
             </select>
           </div>
           <div className="rp-filter-group">
@@ -2272,7 +2526,27 @@ export default function ReportsPage() {
               <option>UPI</option>
             </select>
           </div>
-          <Button variant="ghost" className="rp-apply-btn" onClick={fetchCurrentTab}>Apply</Button>
+          <Button
+            variant="ghost"
+            className="rp-apply-btn"
+            onClick={() => {
+              if (filterFrom && filterTo) {
+                setPeriod("30d"); // reset period pill when custom range is applied
+              }
+              fetchCurrentTab(filterFrom || undefined, filterTo || undefined);
+            }}
+          >
+            Apply
+          </Button>
+          {(filterFrom || filterTo) && (
+            <Button
+              variant="ghost"
+              className="rp-apply-btn"
+              onClick={() => { setFilterFrom(""); setFilterTo(""); fetchCurrentTab(); }}
+            >
+              Clear
+            </Button>
+          )}
         </div>
       )}
 
@@ -2316,9 +2590,9 @@ export default function ReportsPage() {
             <PageLoader />
           </div>
         )}
-        {tab === "revenue"      && <RevenueTab trend={revenueTrend} />}
+        {tab === "revenue"      && <RevenueTab trend={revenueTrend} services={serviceList} />}
         {tab === "appointments" && <AppointmentsTab volume={apptVolume} />}
-        {tab === "clients"      && <ClientsTab growth={clientGrowthData} />}
+        {tab === "clients"      && <ClientsTab growth={clientGrowthData} topClients={topClientsList} />}
         {tab === "staff"        && <StaffTab staffData={staffList} radarStaff={radarData} />}
         {tab === "services"     && <ServicesTab services={serviceList} />}
       </div>
@@ -2330,14 +2604,16 @@ export default function ReportsPage() {
         {openReport ? (
           <>
             <h2 className="rp-dashboard-title">Reports</h2>
-            {openReport.category === "Finance"      && <FinanceReportDetail    report={openReport} onBack={() => setOpenReport(null)} />}
-            {openReport.category === "Inventory"    && <InventoryReportDetail  report={openReport} onBack={() => setOpenReport(null)} />}
-            {openReport.category === "Payments"     && <PaymentReportDetail    report={openReport} onBack={() => setOpenReport(null)} />}
-            {openReport.category === "Daily Reports"&& <DailyReportDetail      report={openReport} onBack={() => setOpenReport(null)} />}
-            {openReport.category === "Marketing"    && <MarketingReportDetail  report={openReport} onBack={() => setOpenReport(null)} />}
-            {openReport.category === "Employee"     && <EmployeeReportDetail   report={openReport} onBack={() => setOpenReport(null)} />}
-            {(openReport.category === "Operational" || openReport.category === undefined) &&
-              <AppointmentReportDetail report={openReport} onBack={() => setOpenReport(null)} />}
+            {openReport.id === 10
+              ? <RevenueByServiceReportDetail report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.category === "Finance"      ? <FinanceReportDetail    report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.category === "Inventory"    ? <InventoryReportDetail  report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.category === "Payments"     ? <PaymentReportDetail    report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.category === "Daily Reports"? <DailyReportDetail      report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.category === "Marketing"    ? <MarketingReportDetail  report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.category === "Employee"     ? <EmployeeReportDetail   report={openReport} onBack={() => setOpenReport(null)} />
+              : <AppointmentReportDetail report={openReport} onBack={() => setOpenReport(null)} />
+            }
           </>
         ) : (
           <>

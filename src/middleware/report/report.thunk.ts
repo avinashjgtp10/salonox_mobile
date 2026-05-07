@@ -18,14 +18,16 @@ import type {
   ServicesReportResponse,
 } from "../../types/report.types";
 
+type FetchPayload = Pick<FetchReportPayload, "period" | "from" | "to">;
+
 // ── Revenue report ─────────────────────────────────────────────────────────────
 export const fetchRevenueReportThunk = createAsyncThunk<
   RevenueReport,
-  Pick<FetchReportPayload, "period">,
+  FetchPayload,
   { rejectValue: string }
->("report/fetchRevenue", async ({ period }, { rejectWithValue }) => {
+>("report/fetchRevenue", async ({ period, from, to }, { rejectWithValue }) => {
   try {
-    const res = await api.get<RevenueReportResponse>(REPORT.REVENUE(period));
+    const res = await api.get<RevenueReportResponse>(REPORT.REVENUE(period, from, to));
     return res.data.data;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
@@ -36,11 +38,11 @@ export const fetchRevenueReportThunk = createAsyncThunk<
 // ── Appointments report ────────────────────────────────────────────────────────
 export const fetchAppointmentsReportThunk = createAsyncThunk<
   AppointmentsReport,
-  Pick<FetchReportPayload, "period">,
+  FetchPayload,
   { rejectValue: string }
->("report/fetchAppointments", async ({ period }, { rejectWithValue }) => {
+>("report/fetchAppointments", async ({ period, from, to }, { rejectWithValue }) => {
   try {
-    const res = await api.get<AppointmentsReportResponse>(REPORT.APPOINTMENTS(period));
+    const res = await api.get<AppointmentsReportResponse>(REPORT.APPOINTMENTS(period, from, to));
     return res.data.data;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
@@ -51,11 +53,11 @@ export const fetchAppointmentsReportThunk = createAsyncThunk<
 // ── Clients report ────────────────────────────────────────────────────────────
 export const fetchClientsReportThunk = createAsyncThunk<
   ClientsReport,
-  Pick<FetchReportPayload, "period">,
+  FetchPayload,
   { rejectValue: string }
->("report/fetchClients", async ({ period }, { rejectWithValue }) => {
+>("report/fetchClients", async ({ period, from, to }, { rejectWithValue }) => {
   try {
-    const res = await api.get<ClientsReportResponse>(REPORT.CLIENTS(period));
+    const res = await api.get<ClientsReportResponse>(REPORT.CLIENTS(period, from, to));
     return res.data.data;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
@@ -66,11 +68,11 @@ export const fetchClientsReportThunk = createAsyncThunk<
 // ── Staff report ──────────────────────────────────────────────────────────────
 export const fetchStaffReportThunk = createAsyncThunk<
   StaffReport,
-  Pick<FetchReportPayload, "period">,
+  FetchPayload,
   { rejectValue: string }
->("report/fetchStaff", async ({ period }, { rejectWithValue }) => {
+>("report/fetchStaff", async ({ period, from, to }, { rejectWithValue }) => {
   try {
-    const res = await api.get<StaffReportResponse>(REPORT.STAFF(period));
+    const res = await api.get<StaffReportResponse>(REPORT.STAFF(period, from, to));
     return res.data.data;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
@@ -81,11 +83,11 @@ export const fetchStaffReportThunk = createAsyncThunk<
 // ── Services report ───────────────────────────────────────────────────────────
 export const fetchServicesReportThunk = createAsyncThunk<
   ServicesReport,
-  Pick<FetchReportPayload, "period">,
+  FetchPayload,
   { rejectValue: string }
->("report/fetchServices", async ({ period }, { rejectWithValue }) => {
+>("report/fetchServices", async ({ period, from, to }, { rejectWithValue }) => {
   try {
-    const res = await api.get<ServicesReportResponse>(REPORT.SERVICES(period));
+    const res = await api.get<ServicesReportResponse>(REPORT.SERVICES(period, from, to));
     return res.data.data;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
@@ -96,11 +98,11 @@ export const fetchServicesReportThunk = createAsyncThunk<
 // ── Export report ─────────────────────────────────────────────────────────────
 export const exportReportThunk = createAsyncThunk<
   void,
-  ExportReportPayload,
+  ExportReportPayload & { from?: string; to?: string },
   { rejectValue: string }
->("report/export", async ({ tab, period, format }, { rejectWithValue }) => {
+>("report/export", async ({ tab, period, format, from, to }, { rejectWithValue }) => {
   try {
-    const res = await api.get(REPORT.EXPORT(tab, period, format), {
+    const res = await api.get(REPORT.EXPORT(tab, period, format, from, to), {
       responseType: "blob",
     });
     downloadBlob(

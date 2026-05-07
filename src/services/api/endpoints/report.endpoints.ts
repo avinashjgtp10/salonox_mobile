@@ -1,14 +1,29 @@
 import type { ReportPeriod, ReportTab } from "../../../types/report.types";
 
+function buildUrl(base: string, period: ReportPeriod, from?: string, to?: string): string {
+  const q = new URLSearchParams({ period });
+  if (from) q.set("from", from);
+  if (to)   q.set("to",   to);
+  return `${base}?${q.toString()}`;
+}
+
 export const REPORT = {
-  REVENUE:      (period: ReportPeriod) => `/api/v1/reports/revenue?period=${period}`,
-  APPOINTMENTS: (period: ReportPeriod) => `/api/v1/reports/appointments?period=${period}`,
-  CLIENTS:      (period: ReportPeriod) => `/api/v1/reports/clients?period=${period}`,
-  STAFF:        (period: ReportPeriod) => `/api/v1/reports/staff?period=${period}`,
-  SERVICES:     (period: ReportPeriod) => `/api/v1/reports/services?period=${period}`,
-  EXPORT: (tab: ReportTab, period: ReportPeriod, format: "excel" | "csv") =>
-    `/api/v1/reports/export?tab=${tab}&period=${period}&format=${format}`,
-  // Detail endpoints — used by individual report detail views
+  REVENUE:      (period: ReportPeriod, from?: string, to?: string) =>
+    buildUrl("/api/v1/reports/revenue",      period, from, to),
+  APPOINTMENTS: (period: ReportPeriod, from?: string, to?: string) =>
+    buildUrl("/api/v1/reports/appointments", period, from, to),
+  CLIENTS:      (period: ReportPeriod, from?: string, to?: string) =>
+    buildUrl("/api/v1/reports/clients",      period, from, to),
+  STAFF:        (period: ReportPeriod, from?: string, to?: string) =>
+    buildUrl("/api/v1/reports/staff",        period, from, to),
+  SERVICES:     (period: ReportPeriod, from?: string, to?: string) =>
+    buildUrl("/api/v1/reports/services",     period, from, to),
+  EXPORT: (tab: ReportTab, period: ReportPeriod, format: "excel" | "csv", from?: string, to?: string) => {
+    const q = new URLSearchParams({ tab, period, format });
+    if (from) q.set("from", from);
+    if (to)   q.set("to",   to);
+    return `/api/v1/reports/export?${q.toString()}`;
+  },
   DETAIL: (category: string, params: string) =>
     `/api/v1/reports/${category}/detail?${params}`,
 } as const;
