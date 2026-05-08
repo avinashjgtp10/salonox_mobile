@@ -641,7 +641,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="db-staff-stats">
                       <div className="db-staff-rev">
-                        {rev > 0 ? `₹${(rev / 1000).toFixed(0)}k` : `${clients} clients`}
+                        {rev >= 1000 ? `₹${(rev / 1000).toFixed(0)}k` : `₹${rev}`}
                       </div>
                       {s.rating != null && (
                         <div className="db-staff-rating">
