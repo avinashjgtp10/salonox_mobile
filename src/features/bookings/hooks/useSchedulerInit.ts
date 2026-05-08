@@ -181,6 +181,12 @@ export function useSchedulerInit() {
 
   const { data: packagesData } = useListPackagesQuery({});
 
+  // ── Re-fetch active services every time the calendar mounts ─────────────────
+  useEffect(() => {
+    if (!salonId) return;
+    dispatch(fetchServicesThunk({ isActive: true }));
+  }, [dispatch, salonId]);
+
   // ── Initial fetch — runs once per salonId ───────────────────────────────────
   useEffect(() => {
     if (!salonId || initialized.current === salonId) return;
@@ -188,7 +194,6 @@ export function useSchedulerInit() {
 
     dispatch(fetchStaffThunk());
     dispatch(fetchClientsThunk());
-    dispatch(fetchServicesThunk());
     dispatch(fetchMembershipsThunk({}));
     dispatch(fetchProductsThunk());
 
@@ -265,7 +270,7 @@ export function useSchedulerInit() {
   useEffect(() => {
     if (!apiServices.length) return;
     dispatch(setServicesList(
-      apiServices.map((s: any) => ({
+      apiServices.filter((s: any) => s.is_active !== false).map((s: any) => ({
         id: String(s.id ?? ""),
         name: s.name,
         price: parseFloat(String(s.price)) || 0,
