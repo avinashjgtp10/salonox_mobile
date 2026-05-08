@@ -48,13 +48,15 @@ export const fetchTodayAppointmentsThunk = createAsyncThunk<
 
 export const fetchRevenueChartThunk = createAsyncThunk<
   RevenueDataPoint[],
-  void,
+  string | undefined,
   { rejectValue: string }
->("dashboard/fetchRevenue", async (_, { rejectWithValue, getState }) => {
+>("dashboard/fetchRevenue", async (period = "monthly", { rejectWithValue, getState }) => {
   try {
-    const res = await api.get<{ data: RevenueDataPoint[] }>(
-      `${DASHBOARD.REVENUE}${salonParam(getState)}`
-    );
+    const sp = salonParam(getState);
+    const url = sp
+      ? `${DASHBOARD.REVENUE}${sp}&period=${period}`
+      : `${DASHBOARD.REVENUE}?period=${period}`;
+    const res = await api.get<{ data: RevenueDataPoint[] }>(url);
     return res.data.data;
   } catch {
     return rejectWithValue("Failed to load revenue chart");

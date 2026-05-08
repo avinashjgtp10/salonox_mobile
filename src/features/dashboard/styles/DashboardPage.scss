@@ -442,6 +442,35 @@ body {
   color: $dashboard-secondary;
 }
 
+/* ── REVENUE PERIOD FILTERS ── */
+.db-rev-filters {
+  display: flex;
+  gap: 4px;
+}
+
+.db-rev-filter-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid $dashboard-border;
+  border-radius: 6px;
+  background: transparent;
+  color: $dashboard-secondary;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+
+  &:hover {
+    background: $dashboard-bg;
+    color: $dashboard-primary;
+  }
+
+  &.active {
+    background: $dashboard-primary;
+    color: $white;
+    border-color: $dashboard-primary;
+  }
+}
+
 /* ── TOOLTIP ── */
 .db-tooltip {
   background: $white;
