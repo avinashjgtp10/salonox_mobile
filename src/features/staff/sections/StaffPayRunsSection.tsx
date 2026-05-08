@@ -39,13 +39,13 @@ const StaffPayRunsSection: React.FC<StaffPayRunsSectionProps> = ({ staffId, salo
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   useEffect(() => {
-    if (staffId && salonId && !payRuns && staffId !== "undefined") {
+    if (staffId && !payRuns && staffId !== "undefined") {
       const fetchPayRuns = async () => {
+        const headers: Record<string, string> = {};
+        if (salonId) headers["x-salon-id"] = String(salonId);
         try {
           setIsLoading(true);
-          const response = await api.get(STAFF.PAY_RUNS(staffId), {
-            headers: { "x-salon-id": salonId },
-          });
+          const response = await api.get(STAFF.PAY_RUNS(staffId), { headers });
           if (response.data.data) {
             setSettings(response.data.data);
           }
@@ -60,19 +60,23 @@ const StaffPayRunsSection: React.FC<StaffPayRunsSectionProps> = ({ staffId, salo
   }, [staffId, salonId, payRuns]);
 
   const handleSave = async () => {
-    if (!staffId || !salonId || staffId === "undefined") {
+    if (!staffId || staffId === "undefined") {
       toast("Please save the team member profile first");
       return;
     }
+    const headers: Record<string, string> = {};
+    if (salonId) headers["x-salon-id"] = String(salonId);
     try {
       setIsSaving(true);
-      await api.put(STAFF.PAY_RUNS(staffId), settings, {
-        headers: { "x-salon-id": salonId },
-      });
+      await api.put(STAFF.PAY_RUNS(staffId), settings, { headers });
       toast.success("Pay run settings saved successfully");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving pay runs:", error);
-      toast.error("Failed to save pay run settings");
+      const msg =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to save pay run settings";
+      toast.error(msg);
     } finally {
       setIsSaving(false);
     }

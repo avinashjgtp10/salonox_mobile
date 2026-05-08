@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Home, Briefcase, MoreHorizontal, Check } from "lucide-react";
+import { Home, Briefcase, MoreHorizontal } from "lucide-react";
 import "../styles/NewAddressModal.scss";
 
 // UI Components
@@ -11,31 +11,39 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onSave: (address: any) => void;
+  initialData?: any;
 }
 
-export default function NewAddressModal({ open, onClose, onSave }: Props) {
+export default function NewAddressModal({ open, onClose, onSave, initialData }: Props) {
   const [type, setType] = useState("home");
   const [addressValue, setAddressValue] = useState("");
-  const [addressName, setAddressName] = useState("");
   const [aptSuite, setAptSuite] = useState("");
   const [district, setDistrict] = useState("");
   const [city, setCity] = useState("");
   const [postcode, setPostcode] = useState("");
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
-  // Reset state when modal opens
+  // Populate from initialData when editing, otherwise reset
   useEffect(() => {
     if (open) {
-      setAddressValue("");
-      setAddressName("");
-      setAptSuite("");
-      setDistrict("");
-      setCity("");
-      setPostcode("");
       setAttemptedSubmit(false);
-      setType("home");
+      if (initialData) {
+        setType(initialData.type || "home");
+        setAddressValue(initialData.line1 || "");
+        setAptSuite(initialData.line2 || "");
+        setDistrict(initialData.district || "");
+        setCity(initialData.city || "");
+        setPostcode(initialData.postcode || "");
+      } else {
+        setType("home");
+        setAddressValue("");
+        setAptSuite("");
+        setDistrict("");
+        setCity("");
+        setPostcode("");
+      }
     }
-  }, [open]);
+  }, [open, initialData]);
 
   const isAddressInvalid = attemptedSubmit && addressValue.trim() === "";
 
@@ -45,7 +53,7 @@ export default function NewAddressModal({ open, onClose, onSave }: Props) {
 
     const newAddress = {
       type,
-      label: addressName || type.charAt(0).toUpperCase() + type.slice(1),
+      label: type.charAt(0).toUpperCase() + type.slice(1),
       line1: addressValue,
       line2: aptSuite,
       city,
@@ -62,7 +70,7 @@ export default function NewAddressModal({ open, onClose, onSave }: Props) {
     <Modal
       show={open}
       onClose={onClose}
-      title="New address"
+      title={initialData ? "Edit address" : "New address"}
       size="md"
       centered
       footer={
@@ -106,15 +114,6 @@ export default function NewAddressModal({ open, onClose, onSave }: Props) {
 
         {/* FORM GRID */}
         <div className="row g-3">
-          <div className="col-12">
-            <Input 
-              label="Address name" 
-              placeholder="e.g. Home, Office" 
-              value={addressName}
-              onChange={(e) => setAddressName(e.target.value)}
-            />
-          </div>
-
           <div className="col-12">
             <Input
               label="Address line 1"

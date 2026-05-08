@@ -80,9 +80,15 @@ export const deleteStaffThunk = createAsyncThunk<
   string | number, // returns the deleted id so reducer can remove it
   string | number,
   { rejectValue: string }
->("staff/delete", async (id, { rejectWithValue }) => {
+>("staff/delete", async (id, { rejectWithValue, getState }) => {
   try {
-    await api.delete(STAFF.BY_ID(id));
+    const state = getState() as any;
+    const salonId = state.salon?.currentSalon?.id;
+    const headers: Record<string, string> = {};
+    if (salonId) headers["x-salon-id"] = String(salonId);
+    const params = new URLSearchParams();
+    if (salonId) params.set("salon_id", String(salonId));
+    await api.delete(`${STAFF.BY_ID(id)}?${params.toString()}`, { headers });
     return id;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);

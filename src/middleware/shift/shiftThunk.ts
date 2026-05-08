@@ -3,30 +3,42 @@ import api from "../../services/api/axios";
 import shiftApi from "./shiftApi";
 import { calcTotalHours, getSundayOf, toDateKey } from "../../components/staff-schedule/utils";
 
+const COLOR_KEY_TO_HEX: Record<string, string> = {
+  light_blue: "#7dd3fc", blue: "#3b82f6", dark_blue: "#1d4ed8",
+  purple: "#a855f7", violet: "#7c3aed", pink: "#f472b6",
+  hot_pink: "#ec4899", rose: "#f43f5e", orange: "#f97316",
+  yellow: "#eab308", lime: "#84cc16", green: "#22c55e",
+  teal: "#14b8a6", cyan: "#06b6d4",
+};
+
 export const fetchDailyShifts = createAsyncThunk(
   "shift/fetchDailyShifts",
-  async (weekStartDate: string, { rejectWithValue }) => {
-    console.log("[fetchDailyShifts] Starting for week:", weekStartDate);
+  async (weekStartDate: string, { rejectWithValue, getState }) => {
     try {
-      // 1. Fetch all staff members
-      const staffRes = await api.get("/api/v1/staff");
-      
-      const rawStaff = staffRes.data?.data?.items || staffRes.data?.data || [];
+      // Use staff already in Redux store to avoid a duplicate /api/v1/staff call
+      // when the staff list page has already fetched them.
+      const state = getState() as any;
+      const cachedStaff: any[] = state.staff?.items ?? [];
+
+      let rawStaff: any[];
+      if (cachedStaff.length > 0) {
+        rawStaff = cachedStaff;
+      } else {
+        const staffRes = await api.get("/api/v1/staff");
+        rawStaff = staffRes.data?.data?.items || staffRes.data?.data || [];
+      }
+
       if (!Array.isArray(rawStaff)) {
-        console.error("[fetchDailyShifts] Invalid staff list structure:", staffRes.data);
         return { staff: [], shifts: {} };
       }
 
-      // Map backend staff to the UI's StaffMember type
       const staffList = rawStaff.map((s: any) => ({
         id: s.id,
         name: `${s.first_name || ""} ${s.last_name || ""}`.trim() || s.email,
         initials: `${(s.first_name?.[0] || "").toUpperCase()}${(s.last_name?.[0] || "").toUpperCase()}` || "?",
-        avatarColor: s.calendar_color || "#3b82f6", // fallback to blue
+        avatarColor: COLOR_KEY_TO_HEX[s.calendar_color] ?? s.calendar_color ?? "#3b82f6",
         email: s.email,
       }));
-
-      console.log(`[fetchDailyShifts] Found and mapped ${staffList.length} staff members.`);
 
       // 2. Fetch schedules for each staff member in parallel
       const staffSchedules = await Promise.all(
@@ -34,8 +46,7 @@ export const fetchDailyShifts = createAsyncThunk(
           try {
             const res = await api.get(`/api/v1/staff/${s.id}/scheduled`);
             return { staffId: s.id, schedules: res.data.data || res.data };
-          } catch (err) {
-            console.warn(`[fetchDailyShifts] No schedules for staff ${s.id}`);
+          } catch {
             return { staffId: s.id, schedules: [] };
           }
         })
@@ -73,13 +84,11 @@ export const fetchDailyShifts = createAsyncThunk(
         });
       });
 
-      console.log("[fetchDailyShifts] Sync complete!");
       return {
         staff: staffList,
         shifts: shiftsMap,
       };
     } catch (err: any) {
-      console.error("[fetchDailyShifts] Request failed:", err);
       return rejectWithValue(err.response?.data?.message || "Server connection failed");
     }
   }
@@ -88,8 +97,8 @@ export const fetchDailyShifts = createAsyncThunk(
 export const applyCopySchedule = createAsyncThunk(
   "shift/applyCopySchedule",
   async (
-    { staffId, fromDate, toDates, type }: { staffId: string; fromDate: string; toDates: string[]; type: "day" | "week" },
-    { dispatch, getState }
+    { staffId, toDates }: { staffId: string; fromDate: string; toDates: string[]; type: "day" | "week" },
+    { getState }
   ) => {
     // 1. Local update is handled by shiftSlice.extraReducers (applyCopySchedule.pending)
 

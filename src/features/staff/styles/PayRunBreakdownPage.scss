@@ -1,0 +1,443 @@
+.prb-page {
+  padding: 28px 32px;
+  max-width: 1200px;
+  margin: 0 auto;
+  font-family: inherit;
+
+  // ── Header ──────────────────────────────────────────────────────────────────
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  &__header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  &__back-btn {
+    width: 36px;
+    height: 36px;
+    border: 1px solid #e5e7eb;
+    border-radius: 50%;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #374151;
+    transition: background 0.15s;
+
+    &:hover {
+      background: #f3f4f6;
+    }
+  }
+
+  &__title {
+    font-size: 22px;
+    font-weight: 800;
+    color: #111827;
+    margin: 0 0 2px;
+  }
+
+  &__subtitle {
+    font-size: 13px;
+    color: #6b7280;
+    margin: 0;
+  }
+
+  &__header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__action-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    cursor: pointer;
+    transition: background 0.15s;
+
+    &:hover {
+      background: #f9fafb;
+    }
+
+    &--primary {
+      background: #111827;
+      color: #fff;
+      border-color: #111827;
+
+      &:hover {
+        background: #1f2937;
+      }
+
+      &:disabled {
+        background: #6b7280;
+        border-color: #6b7280;
+        cursor: not-allowed;
+        opacity: 0.8;
+      }
+    }
+  }
+
+  // ── Layout ──────────────────────────────────────────────────────────────────
+  &__body {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 24px;
+    align-items: start;
+
+    @media (max-width: 900px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  // ── Cards ───────────────────────────────────────────────────────────────────
+  &__card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    overflow: hidden;
+
+    & + & {
+      margin-top: 16px;
+    }
+  }
+
+  &__card-body {
+    padding: 24px;
+  }
+
+  // ── Staff Summary Card ───────────────────────────────────────────────────────
+  &__staff-card {
+    padding: 28px 24px;
+    text-align: center;
+  }
+
+  &__avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: #fff;
+    font-size: 24px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 14px;
+    border: 4px solid #fff;
+    box-shadow: 0 2px 12px rgba(99,102,241,0.18);
+  }
+
+  &__staff-name {
+    font-size: 18px;
+    font-weight: 800;
+    color: #111827;
+    margin: 0 0 8px;
+  }
+
+  &__status-badge {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 12px;
+    border-radius: 20px;
+    background: #fef9c3;
+    color: #854d0e;
+
+    &--paid {
+      background: #dcfce7;
+      color: #166534;
+    }
+  }
+
+  &__amount-block {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid #f3f4f6;
+  }
+
+  &__amount-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6b7280;
+    margin-bottom: 6px;
+  }
+
+  &__amount-value {
+    font-size: 32px;
+    font-weight: 900;
+    color: #111827;
+  }
+
+  // ── Payment Info Card ────────────────────────────────────────────────────────
+  &__info-card {
+    padding: 20px 24px;
+  }
+
+  &__info-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+    margin: 0 0 16px;
+  }
+
+  &__info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f3f4f6;
+
+    &:last-of-type {
+      border-bottom: none;
+    }
+  }
+
+  &__info-key {
+    font-size: 13px;
+    color: #6b7280;
+  }
+
+  &__info-val {
+    font-size: 13px;
+    font-weight: 600;
+    color: #111827;
+  }
+
+  &__notes-block {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #f3f4f6;
+  }
+
+  &__notes-label {
+    font-size: 12px;
+    color: #6b7280;
+    margin-bottom: 4px;
+  }
+
+  &__notes-text {
+    font-size: 13px;
+    color: #374151;
+    font-style: italic;
+  }
+
+  // ── Tabs ────────────────────────────────────────────────────────────────────
+  &__tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid #f3f4f6;
+    margin-bottom: 24px;
+  }
+
+  &__tab {
+    padding: 10px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #9ca3af;
+    background: none;
+    border: none;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: color 0.15s, border-color 0.15s;
+
+    &:hover {
+      color: #374151;
+    }
+
+    &--active {
+      color: #6366f1;
+      border-bottom-color: #6366f1;
+    }
+  }
+
+  // ── Overview Stat Grid ───────────────────────────────────────────────────────
+  &__stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  &__stat-card {
+    padding: 16px 18px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+
+    &--green {
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+    }
+
+    &--red {
+      background: #fff1f2;
+      border-color: #fecdd3;
+    }
+  }
+
+  &__stat-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+
+    .prb-page__stat-card--green & { color: #15803d; }
+    .prb-page__stat-card--red  & { color: #be123c; }
+  }
+
+  &__stat-value {
+    font-size: 22px;
+    font-weight: 900;
+
+    .prb-page__stat-card--green & { color: #14532d; }
+    .prb-page__stat-card--red  & { color: #9f1239; }
+  }
+
+  // ── Earnings Breakdown Card ──────────────────────────────────────────────────
+  &__breakdown-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+
+  &__breakdown-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    background: #f9fafb;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  &__breakdown-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+    margin: 0;
+  }
+
+  &__breakdown-edit {
+    font-size: 13px;
+    font-weight: 600;
+    color: #6366f1;
+    background: none;
+    border: none;
+    cursor: pointer;
+
+    &:hover { text-decoration: underline; }
+  }
+
+  &__breakdown-body {
+    padding: 20px;
+  }
+
+  &__breakdown-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #f9fafb;
+
+    &:last-of-type {
+      border-bottom: none;
+    }
+
+    &--total {
+      border-top: 1px solid #e5e7eb;
+      padding-top: 14px;
+      margin-top: 4px;
+    }
+  }
+
+  &__breakdown-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 2px;
+  }
+
+  &__breakdown-sub {
+    font-size: 11px;
+    color: #9ca3af;
+  }
+
+  &__breakdown-amount {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+
+    &--total {
+      font-size: 17px;
+      font-weight: 900;
+    }
+  }
+
+  // ── Empty Deductions ─────────────────────────────────────────────────────────
+  &__empty-card {
+    border: 2px dashed #e5e7eb;
+    border-radius: 14px;
+    padding: 32px 24px;
+    text-align: center;
+  }
+
+  &__empty-icon {
+    width: 48px;
+    height: 48px;
+    background: #f9fafb;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 12px;
+    color: #9ca3af;
+  }
+
+  &__empty-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+    margin: 0 0 6px;
+  }
+
+  &__empty-desc {
+    font-size: 13px;
+    color: #6b7280;
+    margin: 0 0 16px;
+  }
+
+  &__empty-btn {
+    height: 34px;
+    padding: 0 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    cursor: pointer;
+
+    &:hover { background: #f9fafb; }
+  }
+}

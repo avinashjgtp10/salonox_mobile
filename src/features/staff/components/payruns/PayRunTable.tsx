@@ -16,10 +16,14 @@ const PayRunTable: React.FC<PayRunTableProps> = ({ data, loading, onRowClick, on
       header: "Team member",
       key: "employeeName",
       render: (item: PayRun) => {
-        const name = item.employeeName || (item as any).fullName || (item as any).staffName || 
-          (item as any).first_name ? `${(item as any).first_name} ${(item as any).last_name || ""}`.trim() : 
-          "Unknown member";
-        const initials = item.employeeAvatar || name.split(" ").map(n => n[0]).join("").toUpperCase();
+        const name =
+          item.employeeName ||
+          (item as any).fullName ||
+          (item as any).staffName ||
+          ((item as any).first_name
+            ? `${(item as any).first_name} ${(item as any).last_name || ""}`.trim()
+            : "Unknown member");
+        const initials = name.split(" ").map((n: string) => n[0]).join("").toUpperCase();
         
         return (
           <div className="d-flex align-items-center gap-3 py-1">
@@ -56,41 +60,41 @@ const PayRunTable: React.FC<PayRunTableProps> = ({ data, loading, onRowClick, on
     {
       header: "Earnings",
       key: "earnings",
-      align: "right",
+      align: "right" as const,
       render: (item: PayRun) => (
-        <span className="fw-medium text-dark">₮{(item.earnings || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+        <span className="fw-medium text-dark">₹{(item.earnings || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
       ),
     },
     {
       header: "Other",
       key: "other",
-      align: "right",
+      align: "right" as const,
       render: (item: PayRun) => (
-        <span className="fw-medium text-muted">₮{(item.other || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+        <span className="fw-medium text-muted">₹{(item.other || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
       ),
     },
     {
       header: "Total",
       key: "total",
-      align: "right",
+      align: "right" as const,
       render: (item: PayRun) => (
-        <span className="fw-bold text-dark">₮{(item.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+        <span className="fw-bold text-dark">₹{(item.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
       ),
     },
     {
       header: "Paid",
       key: "paid",
-      align: "right",
+      align: "right" as const,
       render: (item: PayRun) => (
-        <span className="fw-medium text-success">₮{(item.paid || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+        <span className="fw-medium text-success">₹{(item.paid || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
       ),
     },
     {
       header: "To pay",
       key: "toPay",
-      align: "right",
+      align: "right" as const,
       render: (item: PayRun) => (
-        <span className="fw-black text-danger">₮{(item.toPay || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+        <span className="fw-black text-danger">₹{(item.toPay || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
       ),
     },
   ];

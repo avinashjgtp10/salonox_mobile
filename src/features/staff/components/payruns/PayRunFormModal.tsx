@@ -74,11 +74,15 @@ const PayRunFormModal: React.FC<PayRunFormModalProps> = ({
     
     if (name === "staffId") {
       const selectedStaff = staffMembers.find(s => s.id.toString() === value);
-      const name = selectedStaff ? (selectedStaff.fullName || `${selectedStaff.first_name || ""} ${selectedStaff.last_name || ""}`.trim() || "Unnamed Staff") : "";
+      const employeeName = selectedStaff
+        ? (selectedStaff.fullName ||
+           `${selectedStaff.first_name || ""} ${selectedStaff.last_name || ""}`.trim() ||
+           "Unnamed Staff")
+        : "";
       setFormData(prev => ({
         ...prev,
         staffId: value,
-        employeeName: name
+        employeeName,
       }));
     } else {
       setFormData((prev) => ({
@@ -175,7 +179,7 @@ const PayRunFormModal: React.FC<PayRunFormModalProps> = ({
           <div className="row g-3">
             <div className="col-md-4">
               <Input
-                label="Earnings (₮)"
+                label="Earnings (₹)"
                 name="earnings"
                 type="number"
                 value={formData.earnings}
@@ -185,7 +189,7 @@ const PayRunFormModal: React.FC<PayRunFormModalProps> = ({
             </div>
             <div className="col-md-4">
               <Input
-                label="Other (₮)"
+                label="Other (₹)"
                 name="other"
                 type="number"
                 value={formData.other}
@@ -195,7 +199,7 @@ const PayRunFormModal: React.FC<PayRunFormModalProps> = ({
             </div>
             <div className="col-md-4">
               <Input
-                label="Deductions (₮)"
+                label="Deductions (₹)"
                 name="deductions"
                 type="number"
                 value={formData.deductions}
@@ -210,7 +214,7 @@ const PayRunFormModal: React.FC<PayRunFormModalProps> = ({
           <div>
             <div className="small fw-bold text-uppercase opacity-75">Net Salary</div>
             <div className="h3 fw-black mb-0">
-              ₮{calculateNetSalary().toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              ₹{calculateNetSalary().toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </div>
           </div>
           <div className="text-end opacity-50 small">
@@ -235,7 +239,7 @@ const PayRunFormModal: React.FC<PayRunFormModalProps> = ({
           <Button variant="outline" type="button" className="px-4 rounded-pill border" onClick={onClose} disabled={loading}>
             Cancel
           </Button>
-          <Button type="submit" className="px-5 rounded-pill fw-bold shadow" loading={loading}>
+          <Button variant="dark" type="submit" className="px-5 rounded-pill fw-bold shadow" loading={loading}>
             {initialData?.id ? "Update Pay Run" : "Save Adjustment"}
           </Button>
         </div>

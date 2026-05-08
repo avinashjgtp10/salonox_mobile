@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
@@ -85,6 +85,8 @@ const AddStaffPage: React.FC = () => {
     isLoading: false,
     isDuplicateEmail: false,
   });
+  // Synchronous guard — prevents double-submission before React re-renders the disabled button
+  const isSubmittingRef = useRef(false);
 
   const [wages, setWages] = useState({
     wages_enabled: false,
@@ -115,101 +117,100 @@ const AddStaffPage: React.FC = () => {
   });
 
   useEffect(() => {
-    if (id && salonId && id !== "undefined") {
-      const fetchStaff = async () => {
-        try {
-          setUi((prev) => ({ ...prev, isLoading: true }));
-          const response = await api.get(STAFF.BY_ID(id), {
-            headers: { "x-salon-id": salonId },
+    if (!id || id === "undefined" || id === "add") return;
+
+    const fetchStaff = async () => {
+      const headers: Record<string, string> = {};
+      if (salonId) headers["x-salon-id"] = String(salonId);
+
+      try {
+        setUi((prev) => ({ ...prev, isLoading: true }));
+        const response = await api.get(STAFF.BY_ID(id), { headers });
+        const staff = response.data.data;
+
+        const permissionLevelMapReverse: Record<string, string> = {
+          no_access: "No access",
+          basic: "Basic",
+          low: "Low",
+          medium: "Medium",
+          high: "High",
+          manager: "Manager",
+        };
+
+        setFormData((prev) => ({
+          ...prev,
+          firstName: staff.first_name || "",
+          lastName: staff.last_name || "",
+          email: staff.email || "",
+          phone: staff.phone_number || staff.phone || "",
+          additionalPhone: staff.additional_phone || staff.additional_phone_number || "",
+          country: staff.country || "India",
+          birthdayDayMonth: staff.birthday || staff.birth_day_month || "",
+          birthdayYear: staff.birth_year || "",
+          calendarColor: staff.calendar_color || "light_blue",
+          jobTitle: staff.job_title || "",
+          startDateDayMonth: staff.start_date_day_month || staff.start_date || "",
+          startDateYear: staff.start_year || "2026",
+          endDateDayMonth: staff.end_date_day_month || staff.end_date || "",
+          endDateYear: staff.end_year || "",
+          employmentType: staff.employment_type || "",
+          memberId: staff.staff_member_id || staff.member_id || "",
+          notes: staff.notes || "",
+          phoneCountryCode: staff.phone_country_code || "+91",
+          additionalPhoneCountryCode: staff.additional_phone_country_code || "+91",
+          specialization: staff.specialization || [],
+        }));
+
+        setSettings({
+          allowCalendarBookings: staff.allow_calendar_bookings ?? true,
+          permissionLevel: permissionLevelMapReverse[staff.permission_level] || "Low",
+        });
+
+        if (staff.addresses) setLists((prev) => ({ ...prev, addresses: staff.addresses }));
+        if (staff.emergency_contacts) setLists((prev) => ({ ...prev, contacts: staff.emergency_contacts }));
+
+      } catch (error: any) {
+        console.error("Error fetching staff:", error);
+        toast.error("Failed to load staff data. Please try again.");
+        setUi((prev) => ({ ...prev, isLoading: false }));
+        return;
+      }
+
+      try {
+        const [wagesRes, commissionsRes, payRunsRes] = await Promise.all([
+          api.get(STAFF.WAGES(id), { headers }),
+          api.get(STAFF.COMMISSIONS(id), { headers }),
+          api.get(STAFF.PAY_RUNS(id), { headers }),
+        ]);
+
+        if (wagesRes.data.data) setWages(wagesRes.data.data);
+        if (commissionsRes.data.data) {
+          const fetchedCommissions = commissionsRes.data.data;
+          const newCommissions = { ...commissions };
+          fetchedCommissions.forEach((c: any) => {
+            newCommissions[c.category] = c;
           });
-          const staff = response.data.data;
-
-          setFormData((prev) => ({
-            ...prev,
-            firstName: staff.first_name || "",
-            lastName: staff.last_name || "",
-            email: staff.email || "",
-            phone: staff.phone_number || "",
-            additionalPhone: staff.additional_phone || "",
-            country: staff.country || "India",
-            birthdayDayMonth: staff.birthday || "",
-            birthdayYear: staff.birth_year || "",
-            calendarColor: staff.calendar_color || "light_blue",
-            jobTitle: staff.job_title || "",
-            startDateDayMonth: staff.start_date || "",
-            startDateYear: staff.start_year || "2026",
-            endDateDayMonth: staff.end_date || "",
-            endDateYear: staff.end_year || "",
-            employmentType: staff.employment_type || "",
-            memberId: staff.staff_member_id || "",
-            notes: staff.notes || "",
-            phoneCountryCode: staff.phone_country_code || "+91",
-            additionalPhoneCountryCode: staff.additional_phone_country_code || "+91",
-            specialization: staff.specialization || [],
-          }));
-
-          const permissionLevelMapReverse: Record<string, string> = {
-            no_access: "No access",
-            basic: "Basic",
-            low: "Low",
-            medium: "Medium",
-            high: "High",
-            manager: "Manager",
-          };
-
-          setSettings({
-            allowCalendarBookings: staff.allow_calendar_bookings ?? true,
-            permissionLevel: permissionLevelMapReverse[staff.permission_level] || "Low",
-          });
-
-          // Fetch addresses and emergency contacts if they are separate endpoints or part of staff object
-          // Usually they are part of staff object in getById if implemented that way
-          if (staff.addresses) setLists((prev) => ({ ...prev, addresses: staff.addresses }));
-          if (staff.emergency_contacts) setLists((prev) => ({ ...prev, contacts: staff.emergency_contacts }));
-
-        } catch (error) {
-          console.error("Error fetching staff:", error);
+          setCommissions(newCommissions);
         }
+        if (payRunsRes.data.data) setPayRuns(payRunsRes.data.data);
+      } catch (error) {
+        console.error("Error fetching sub-settings:", error);
+      } finally {
+        setUi((prev) => ({ ...prev, isLoading: false }));
+      }
+    };
 
-        // Fetch additional settings
-        try {
-          const [wagesRes, commissionsRes, payRunsRes] = await Promise.all([
-            api.get(STAFF.WAGES(id), { headers: { "x-salon-id": salonId } }),
-            api.get(STAFF.COMMISSIONS(id), { headers: { "x-salon-id": salonId } }),
-            api.get(STAFF.PAY_RUNS(id), { headers: { "x-salon-id": salonId } }),
-          ]);
-
-          if (wagesRes.data.data) setWages(wagesRes.data.data);
-          if (commissionsRes.data.data) {
-            const fetchedCommissions = commissionsRes.data.data;
-            const newCommissions = { ...commissions };
-            fetchedCommissions.forEach((c: any) => {
-              newCommissions[c.category] = c;
-            });
-            setCommissions(newCommissions);
-          }
-          if (payRunsRes.data.data) setPayRuns(payRunsRes.data.data);
-        } catch (error) {
-          console.error("Error fetching sub-settings:", error);
-        } finally {
-          setUi((prev) => ({ ...prev, isLoading: false }));
-        }
-      };
-      fetchStaff();
-    }
+    fetchStaff();
   }, [id, salonId]);
 
   const isFirstNameInvalid =
     ui.attemptedSubmit && formData.firstName.trim() === "";
   const isEmailInvalid =
-    (ui.attemptedSubmit && formData.email.trim() === "") || ui.isDuplicateEmail;
-  const emailErrorMessage = ui.isDuplicateEmail
-    ? "A staff member with this email already exists"
-    : "Email is required";
+    ui.attemptedSubmit && formData.email.trim() === "";
+  const emailErrorMessage = "Email is required";
   const isPhoneInvalid =
     ui.attemptedSubmit &&
-    formData.phone.trim() !== "" &&
-    !/^\d{10}$/.test(formData.phone.trim());
+    (formData.phone.trim() === "" || !/^\d{10}$/.test(formData.phone.trim()));
 
   const isAdditionalPhoneInvalid =
     ui.attemptedSubmit &&
@@ -217,19 +218,19 @@ const AddStaffPage: React.FC = () => {
     !/^\d{10}$/.test(formData.additionalPhone.trim());
 
   const hasErrors = isFirstNameInvalid || isEmailInvalid || isPhoneInvalid || isAdditionalPhoneInvalid;
-  const errorCount =
-    (isFirstNameInvalid ? 1 : 0) +
-    (isEmailInvalid ? 1 : 0) +
-    (isPhoneInvalid ? 1 : 0) +
-    (isAdditionalPhoneInvalid ? 1 : 0);
 
   const handleAddClick = async () => {
     // Clear stale duplicate-email flag whenever user tries to submit again
     setUi((prev) => ({ ...prev, attemptedSubmit: true, isDuplicateEmail: false }));
-    if (formData.firstName.trim() === "" || formData.email.trim() === "" || isPhoneInvalid || isAdditionalPhoneInvalid) {
+    if (formData.firstName.trim() === "" || formData.email.trim() === "" || formData.phone.trim() === "" || isPhoneInvalid || isAdditionalPhoneInvalid) {
       setUi((prev) => ({ ...prev, showErrorPopup: true }));
       return;
     }
+
+    // Synchronous guard: ref is set/read in the same JS tick — prevents duplicate
+    // submissions that sneak through before React re-renders the disabled button.
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
 
     try {
       setUi((prev) => ({ ...prev, isLoading: true }));
@@ -340,6 +341,7 @@ const AddStaffPage: React.FC = () => {
       }
     } finally {
       setUi((prev) => ({ ...prev, isLoading: false }));
+      isSubmittingRef.current = false;
     }
   };
 
@@ -451,53 +453,6 @@ const AddStaffPage: React.FC = () => {
             </button>
           )}
 
-          {ui.showErrorPopup && hasErrors && (
-            <div
-              className="position-absolute bg-white shadow-lg border rounded p-3"
-              style={{
-                top: "45px",
-                right: "120px",
-                width: "320px",
-                zIndex: 1050,
-              }}
-            >
-              <h6 className="fw-bold mb-3" style={{ fontSize: "14px" }}>
-                {errorCount} {errorCount === 1 ? "error" : "errors"} found
-              </h6>
-              {isFirstNameInvalid && (
-                <div
-                  className="text-muted mb-2 bg-white p-2 rounded"
-                  style={{ fontSize: "12px", border: "1px solid #dc3545" }}
-                >
-                  First name is required
-                </div>
-              )}
-              {isEmailInvalid && (
-                <div
-                  className="text-muted mb-2 bg-white p-2 rounded"
-                  style={{ fontSize: "12px", border: "1px solid #dc3545" }}
-                >
-                  {emailErrorMessage}
-                </div>
-              )}
-              {isPhoneInvalid && (
-                <div
-                  className="text-muted mb-2 bg-white p-2 rounded"
-                  style={{ fontSize: "12px", border: "1px solid #dc3545" }}
-                >
-                  Phone number must be exactly 10 digits
-                </div>
-              )}
-              {isAdditionalPhoneInvalid && (
-                <div
-                  className="text-muted bg-white p-2 rounded"
-                  style={{ fontSize: "12px", border: "1px solid #dc3545" }}
-                >
-                  Additional phone must be exactly 10 digits
-                </div>
-              )}
-            </div>
-          )}
 
           <button
             className="btn add-staff__btn-close"
@@ -510,12 +465,13 @@ const AddStaffPage: React.FC = () => {
           <button
             className="btn add-staff__btn-add"
             onClick={handleAddClick}
-            disabled={ui.isLoading}
+            disabled={ui.isLoading || (activeSection === "addresses" && lists.addresses.length === 0)}
+            title={activeSection === "addresses" && lists.addresses.length === 0 ? "Add at least one address before saving" : undefined}
           >
-            {ui.isLoading ? (
-              <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-            ) : null}
-            {id ? "Save" : "Add"}
+            {ui.isLoading && (
+              <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+            )}
+            {ui.isLoading ? (id ? "Saving..." : "Adding...") : (id ? "Save" : "Add")}
           </button>
         </div>
       </div>

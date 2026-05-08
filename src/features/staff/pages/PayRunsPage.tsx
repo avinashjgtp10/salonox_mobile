@@ -16,6 +16,7 @@ import PayRunTable from "../components/payruns/PayRunTable";
 import PayRunFilterBar from "../components/payruns/PayRunFilterBar";
 import PayRunFormModal from "../components/payruns/PayRunFormModal";
 import PayRunDeleteModal from "../components/payruns/PayRunDeleteModal";
+import PayRunSettingsModal from "../components/payruns/PayRunSettingsModal";
 import Button from "../../../components/ui/Button";
 import { ChevronLeft, ChevronRight, Gear } from "react-bootstrap-icons";
 
@@ -32,6 +33,7 @@ const PayRunsPage: React.FC = () => {
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedPayRun, setSelectedPayRun] = useState<PayRun | null>(null);
   const [, setSearchTerm] = useState("");
 
@@ -122,7 +124,7 @@ const PayRunsPage: React.FC = () => {
       return;
     }
     toast.success(
-      `Processing payment of ₮${summary.toPay.toLocaleString()} for the team...`
+      `Processing payment of ₹${summary.toPay.toLocaleString()} for the team...`
     );
   };
 
@@ -145,10 +147,12 @@ const PayRunsPage: React.FC = () => {
           <Button
             variant="outline"
             className="d-flex align-items-center gap-2 border shadow-sm bg-white rounded-pill"
+            onClick={() => setIsSettingsOpen(true)}
           >
             <Gear /> Settings
           </Button>
           <Button
+            variant="dark"
             className="rounded-pill px-4 fw-bold shadow-sm"
             onClick={() => { setSelectedPayRun(null); setIsFormOpen(true); }}
           >
@@ -280,6 +284,11 @@ const PayRunsPage: React.FC = () => {
         onConfirm={handleDelete}
         loading={loading}
         itemName={selectedPayRun?.employeeName}
+      />
+
+      <PayRunSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
       />
     </div>
   );

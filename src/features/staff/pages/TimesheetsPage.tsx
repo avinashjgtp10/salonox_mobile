@@ -24,6 +24,7 @@ const TimesheetsPage: React.FC = () => {
   const [currentSort, setCurrentSort] = useState("Date (newest first)");
   const [startDate, setStartDate] = useState("2026-03-09");
   const [endDate, setEndDate] = useState("2026-03-15");
+  const [calendarBase, setCalendarBase] = useState({ month: 2, year: 2026 }); // 0-indexed month
   const [statusFilter, setStatusFilter] = useState("All");
   const [punctualityFilter, setPunctualityFilter] = useState("All clock ins");
   const sortRef = useRef<HTMLDivElement>(null);
@@ -61,6 +62,32 @@ const TimesheetsPage: React.FC = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const MONTH_NAMES = [
+    "January","February","March","April","May","June",
+    "July","August","September","October","November","December",
+  ];
+
+  const rightMonth =
+    calendarBase.month === 11
+      ? { month: 0, year: calendarBase.year + 1 }
+      : { month: calendarBase.month + 1, year: calendarBase.year };
+
+  const handleCalPrev = () => {
+    setCalendarBase((prev) =>
+      prev.month === 0
+        ? { month: 11, year: prev.year - 1 }
+        : { month: prev.month - 1, year: prev.year }
+    );
+  };
+
+  const handleCalNext = () => {
+    setCalendarBase((prev) =>
+      prev.month === 11
+        ? { month: 0, year: prev.year + 1 }
+        : { month: prev.month + 1, year: prev.year }
+    );
+  };
 
   const daysInMonth = (month: number, year: number) =>
     new Date(year, month + 1, 0).getDate();
@@ -349,12 +376,12 @@ const TimesheetsPage: React.FC = () => {
                     </div>
 
                     <div className="ts-cal-overlay__calendars">
-                      <button className="ts-cal-overlay__nav ts-cal-overlay__nav--prev">
+                      <button className="ts-cal-overlay__nav ts-cal-overlay__nav--prev" onClick={handleCalPrev}>
                         <ChevronLeft />
                       </button>
-                      {renderMonth(2, 2026, "March")}
-                      {renderMonth(3, 2026, "April")}
-                      <button className="ts-cal-overlay__nav ts-cal-overlay__nav--next">
+                      {renderMonth(calendarBase.month, calendarBase.year, MONTH_NAMES[calendarBase.month])}
+                      {renderMonth(rightMonth.month, rightMonth.year, MONTH_NAMES[rightMonth.month])}
+                      <button className="ts-cal-overlay__nav ts-cal-overlay__nav--next" onClick={handleCalNext}>
                         <ChevronRight />
                       </button>
                     </div>

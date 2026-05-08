@@ -4,24 +4,6 @@ import { Country } from "country-state-city";
 import { Person, Pencil } from "react-bootstrap-icons";
 import "../styles/StaffProfileSection.scss";
 
-const CALENDAR_COLOR_MAP: Record<string, string> = {
-  light_blue: "#93c5fd",
-  blue: "#3b82f6",
-  dark_blue: "#1d4ed8",
-  purple: "#8b5cf6",
-  violet: "#7c3aed",
-  pink: "#f472b6",
-  hot_pink: "#ec4899",
-  rose: "#fb7185",
-  orange: "#fb923c",
-  yellow: "#fbbf24",
-  lime: "#a3e635",
-  green: "#34d399",
-  teal: "#2dd4bf",
-  cyan: "#67e8f9",
-};
-
-const CALENDAR_COLORS = Object.keys(CALENDAR_COLOR_MAP);
 
 interface StaffProfileProps {
   firstName?: string;
@@ -69,6 +51,23 @@ interface StaffProfileProps {
   isAdditionalPhoneInvalid?: boolean;
 }
 
+const CALENDAR_COLORS: { key: string; hex: string; label: string }[] = [
+  { key: "light_blue",  hex: "#7dd3fc", label: "Light Blue" },
+  { key: "blue",        hex: "#3b82f6", label: "Blue" },
+  { key: "dark_blue",   hex: "#1d4ed8", label: "Dark Blue" },
+  { key: "purple",      hex: "#a855f7", label: "Purple" },
+  { key: "violet",      hex: "#7c3aed", label: "Violet" },
+  { key: "pink",        hex: "#f472b6", label: "Pink" },
+  { key: "hot_pink",    hex: "#ec4899", label: "Hot Pink" },
+  { key: "rose",        hex: "#f43f5e", label: "Rose" },
+  { key: "orange",      hex: "#f97316", label: "Orange" },
+  { key: "yellow",      hex: "#eab308", label: "Yellow" },
+  { key: "lime",        hex: "#84cc16", label: "Lime" },
+  { key: "green",       hex: "#22c55e", label: "Green" },
+  { key: "teal",        hex: "#14b8a6", label: "Teal" },
+  { key: "cyan",        hex: "#06b6d4", label: "Cyan" },
+];
+
 const COUNTRIES = Country.getAllCountries().map((c) => c.name).sort();
 
 const PHONE_CODES = Country.getAllCountries()
@@ -90,7 +89,7 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
   country = "India", setCountry = () => { },
   birthdayDayMonth = "", setBirthdayDayMonth = () => { },
   birthdayYear = "", setBirthdayYear = () => { },
-  calendarColor = "light_blue", setCalendarColor = () => { },
+  calendarColor = "#3b82f6", setCalendarColor = () => { },
   jobTitle = "", setJobTitle = () => { },
   startDateDayMonth = "", setStartDateDayMonth = () => { },
   startDateYear = "2026", setStartDateYear = () => { },
@@ -105,6 +104,9 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
   isPhoneInvalid = false,
   isAdditionalPhoneInvalid = false,
 }) => {
+  const selectedColor = CALENDAR_COLORS.find((c) => c.key === calendarColor);
+  const selectedColorHex   = selectedColor?.hex   ?? "#3b82f6";
+  const selectedColorLabel = selectedColor?.label ?? calendarColor;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   return (
@@ -165,6 +167,19 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
         />
       </div>
 
+      {/* Job Title / Role */}
+      <div className="sp-field">
+        <label className="sp-label">Job title / Role</label>
+        <input
+          type="text"
+          className="sp-input"
+          placeholder="e.g. Stylist, Therapist, Manager"
+          value={jobTitle}
+          onChange={(e) => setJobTitle(e.target.value)}
+        />
+        <p className="sp-hint">Visible to clients online and shown in the team member list</p>
+      </div>
+
       {/* Email */}
       <div className="sp-field">
         <label className="sp-label">
@@ -184,7 +199,7 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
 
       {/* Phone */}
       <div className="sp-field">
-        <label className="sp-label">Phone number</label>
+        <label className="sp-label">Phone number <span className="sp-required">*</span></label>
         <div className="sp-phone-group">
           <select
             className="sp-select sp-select--narrow"
@@ -207,7 +222,7 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
           />
         </div>
         {isPhoneInvalid && (
-          <p className="sp-error">Phone number must be exactly 10 digits</p>
+          <p className="sp-error">{phone.trim() === "" ? "Phone number is required" : "Phone number must be 10 digits"}</p>
         )}
       </div>
 
@@ -236,7 +251,7 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
           />
         </div>
         {isAdditionalPhoneInvalid && (
-          <p className="sp-error">Phone number must be exactly 10 digits</p>
+          <p className="sp-error">Additional phone must be 10 digits</p>
         )}
       </div>
 
@@ -281,30 +296,27 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
       {/* Calendar Color */}
       <div className="sp-field">
         <label className="sp-label">Calendar color</label>
+        <div className="sp-color-preview">
+          <span
+            className="sp-color-preview__swatch"
+            style={{ background: selectedColorHex }}
+          />
+          <span className="sp-color-preview__label">{selectedColorLabel}</span>
+        </div>
         <div className="sp-color-picker">
-          {CALENDAR_COLORS.map((colorKey) => (
+          {CALENDAR_COLORS.map(({ key, hex, label }) => (
             <button
-              key={colorKey}
+              key={key}
               type="button"
-              title={colorKey.replace(/_/g, " ")}
-              className={`sp-color-swatch ${calendarColor === colorKey ? "sp-color-swatch--selected" : ""}`}
-              style={{ backgroundColor: CALENDAR_COLOR_MAP[colorKey] }}
-              onClick={() => setCalendarColor(colorKey)}
+              title={label}
+              className={`sp-color-swatch${calendarColor === key ? " sp-color-swatch--selected" : ""}`}
+              style={{ background: hex }}
+              onClick={() => setCalendarColor(key)}
+              aria-label={label}
             />
           ))}
         </div>
-      </div>
-
-      {/* Job Title */}
-      <div className="sp-field">
-        <label className="sp-label">Job title</label>
-        <input
-          type="text"
-          className="sp-input"
-          value={jobTitle}
-          onChange={(e) => setJobTitle(e.target.value)}
-        />
-        <p className="sp-hint">Visible to clients online</p>
+        <p className="sp-hint">Shown on the calendar and schedule views</p>
       </div>
 
       <hr className="sp-divider" />
