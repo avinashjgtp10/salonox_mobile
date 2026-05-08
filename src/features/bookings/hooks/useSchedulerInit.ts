@@ -86,7 +86,8 @@ export function mapApiBooking(item: any, rawServices: any[] = [], rawStaff: any[
       return {
         id: svcId,
         service: s.name ?? s.service_name ?? s.service ?? svcLookup?.name ?? "",
-        staff: s.staff_name ?? s.staff ?? stfLookup?.fullName ?? stfLookup?.full_name ?? "",
+        staff: s.staff_name ?? s.staff ?? stfLookup?.fullName ?? stfLookup?.full_name
+          ?? (`${stfLookup?.first_name || ""} ${stfLookup?.last_name || ""}`.trim()) ?? "",
         staffId: stfId,
         time: s.time ?? `${hh}:${mm}`,
         price: parseFloat(String(s.price ?? 0)) || 0,
@@ -231,47 +232,20 @@ export function useSchedulerInit() {
   // ── Map staff ────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!apiStaff.length) {
-      // Dummy staff for testing when API returns no data
-      dispatch(setStaffList([
-        {
-          id: "1bc10cd5-1861-4e47-b450-3de2664cee6e",
-          name: "rutuja pagale",
-          initials: "TS",
-          color: STAFF_COLORS[0],
-        },
-        {
-          id: "f0568b32-ad16-4d82-9970-1255297d433b",
-          name: "shivani",
-          initials: "SH",
-          color: STAFF_COLORS[1],
-        },
-        {
-          id: "3ea896a3-b593-4cc8-b654-78b2ec297748",
-          name: "nishant",
-          initials: "NI",
-          color: STAFF_COLORS[2],
-        },
-        {
-          id: "0048782d-e6c1-4985-9dfa-1fd0f4d29167",
-          name: "poonam",
-          initials: "PO",
-          color: STAFF_COLORS[3],
-        },
-        {
-          id: "90f5857a-a7cb-41b0-8652-02997fb4fc35",
-          name: "siddhi",
-          initials: "SI",
-          color: STAFF_COLORS[4],
-        }
-      ]));
+      dispatch(setStaffList([]));
       return;
     }
-    const mapped: Staff[] = apiStaff.map((s: any, i: number) => ({
-      id: String(s.id),
-      name: s.fullName || s.full_name || "",
-      initials: getInitials(s.fullName || s.full_name || ""),
-      color: STAFF_COLORS[i % STAFF_COLORS.length],
-    }));
+    const mapped: Staff[] = apiStaff.map((s: any, i: number) => {
+      const name = s.fullName || s.full_name
+        || (`${s.first_name || ""} ${s.last_name || ""}`.trim())
+        || "";
+      return {
+        id: String(s.id),
+        name,
+        initials: getInitials(name),
+        color: STAFF_COLORS[i % STAFF_COLORS.length],
+      };
+    });
     dispatch(setStaffList(mapped));
   }, [apiStaff, dispatch]);
 
