@@ -5,7 +5,6 @@ import {
   updateAvailability,
   setDayOff,
   setBlocked,
-  refreshSeedForWeek,
 } from "../../../store/shiftSlice";
 import { fetchDailyShifts, applyCopySchedule, saveStaffSchedule } from "../../../middleware/shift/shiftThunk";
 import toast from "react-hot-toast";
@@ -22,9 +21,7 @@ import {
   formatColHeader,
   formatNavDate,
 } from "../../../components/staff-schedule/utils";
-import "../../../styles/schedule.css";
-
-/* ─────────────────────────────────────────────────────────────────────────── */
+import "../../../styles/schedule.scss";
 
 interface DrawerState {
   mode: DrawerMode;
@@ -34,7 +31,7 @@ interface DrawerState {
 
 const INITIAL_DRAWER: DrawerState = { mode: null, staffId: null, date: null };
 
-/* ─────────────────────────────────────────────────────────────────────────── */
+const PAGE_SIZE = 10;
 
 const ScheduledShiftsPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -42,12 +39,11 @@ const ScheduledShiftsPage: React.FC = () => {
     (s: RootState) => s.shift
   );
 
-  // Current week – starts on Sunday
   const [sunday, setSunday] = useState<Date>(() => getSundayOf(new Date()));
   const [drawer, setDrawer] = useState<DrawerState>(INITIAL_DRAWER);
   const [copyStaffId, setCopyStaffId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
 
-  // Compute 7 week-date objects every time sunday changes
   const weekDates = getWeekDates(sunday).map((d) => {
     const { date, day } = formatColHeader(d);
     return { date: d, dateKey: toDateKey(d), dateLabel: date, dayLabel: day };
@@ -57,9 +53,16 @@ const ScheduledShiftsPage: React.FC = () => {
 
   useEffect(() => {
     dispatch(fetchDailyShifts(weekStartKey));
+    setPage(1); // reset to first page on week change
   }, [weekStartKey, dispatch]);
 
-  // ── Navigation ────────────────────────────────────────────────────────────
+  // ── Pagination ────────────────────────────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(staffMembers.length / PAGE_SIZE));
+  const pagedStaff = staffMembers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const from = staffMembers.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const to   = Math.min(page * PAGE_SIZE, staffMembers.length);
+
+  // ── Navigation ───────────────────────────────────────────────────────────────
   const goToToday = () => setSunday(getSundayOf(new Date()));
   const prevWeek = () => {
     const d = new Date(sunday);
@@ -72,39 +75,33 @@ const ScheduledShiftsPage: React.FC = () => {
     setSunday(d);
   };
 
-  // ── Drawer helpers ────────────────────────────────────────────────────────
+  // ── Drawer helpers ────────────────────────────────────────────────────────────
   const openDrawer = (mode: DrawerMode, staffId: string, date: string) =>
     setDrawer({ mode, staffId, date });
   const closeDrawer = () => setDrawer(INITIAL_DRAWER);
   const closeCopy = () => setCopyStaffId(null);
 
-  // ── Cell action handlers ──────────────────────────────────────────────────
+  // ── Cell action handlers ──────────────────────────────────────────────────────
   const handleEditWorkingHours = useCallback(
-    (staffId: string, date: string) => openDrawer("edit", staffId, date),
-    []
+    (staffId: string, date: string) => openDrawer("edit", staffId, date), []
   );
   const handleAddTimeOff = useCallback(
-    (staffId: string, date: string) => openDrawer("timeoff", staffId, date),
-    []
+    (staffId: string, date: string) => openDrawer("timeoff", staffId, date), []
   );
   const handleManageDayOff = useCallback(
-    (staffId: string, date: string) => openDrawer("dayoff", staffId, date),
-    []
+    (staffId: string, date: string) => openDrawer("dayoff", staffId, date), []
   );
   const handleManageBlockedDay = useCallback(
-    (staffId: string, date: string) => openDrawer("blocked", staffId, date),
-    []
+    (staffId: string, date: string) => openDrawer("blocked", staffId, date), []
   );
   const handleEditStaff = useCallback((staffId: string) => {
-    // For now, open the working hours drawer for today's date
     openDrawer("edit", staffId, toDateKey(new Date()));
   }, []);
-
   const handleCopy = useCallback((staffId: string) => {
     setCopyStaffId(staffId);
   }, []);
 
-  // ── Save: Edit Working Hours ──────────────────────────────────────────────
+  // ── Save availability ─────────────────────────────────────────────────────────
   const handleSaveAvailability = (
     staffId: string,
     date: string,
@@ -120,8 +117,6 @@ const ScheduledShiftsPage: React.FC = () => {
       dispatch(updateAvailability({ staffId, date, isAvailable, startTime, endTime }));
     }
 
-    // Persist to backend
-    // Persist to backend: Send exactly 7 entries for the current week
     const currentShifts = shifts[staffId] || {};
     const items = weekDates.map(({ dateKey }) => {
       const s = currentShifts[dateKey] || { startTime: "", endTime: "", isAvailable: false, type: "dayoff" };
@@ -130,7 +125,7 @@ const ScheduledShiftsPage: React.FC = () => {
         start_time: s.startTime,
         end_time: s.endTime,
         is_available: s.isAvailable,
-        notes: s.type === "blocked" ? "Blocked" : ""
+        notes: s.type === "blocked" ? "Blocked" : "",
       };
     });
     dispatch(saveStaffSchedule({ staffId, items }))
@@ -139,7 +134,7 @@ const ScheduledShiftsPage: React.FC = () => {
       .catch(() => toast.error("Failed to save changes"));
   };
 
-  // ── Save: Copy schedule ───────────────────────────────────────────────────
+  // ── Copy schedule ─────────────────────────────────────────────────────────────
   const handleSaveCopy = (
     staffId: string,
     fromDate: string,
@@ -149,103 +144,77 @@ const ScheduledShiftsPage: React.FC = () => {
     toast.promise(
       dispatch(applyCopySchedule({ staffId, fromDate, toDates, type })).unwrap(),
       {
-        loading: 'Copying schedule...',
-        success: (res) => {
-          const weekMsg = type === "week" ? "Navigate to the target weeks to see changes." : "";
-          return `Schedule copied successfully! ${weekMsg}`;
-        },
-        error: 'Failed to copy schedule.',
+        loading: "Copying schedule...",
+        success: () => "Schedule copied successfully!",
+        error: "Failed to copy schedule.",
       }
     );
   };
 
-  // ── Derived: drawer staff + shift ─────────────────────────────────────────
   const drawerStaff = staffMembers.find((s) => s.id === drawer.staffId) ?? null;
   const drawerShift =
     drawer.staffId && drawer.date
       ? shifts[drawer.staffId]?.[drawer.date]
       : undefined;
   const copyStaff = staffMembers.find((s) => s.id === copyStaffId) ?? null;
-
-  // ── Nav date display ──────────────────────────────────────────────────────
   const todayDisplay = formatNavDate(new Date());
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* ── Page content ─────────────────────────────────────────────────── */}
-      <div className="px-6 py-5 max-w-screen-2xl mx-auto">
+    <div className="sched-page">
+      <div className="sched-page__content">
 
-        {/* Page title */}
-        <h1 className="text-xl font-semibold text-gray-800 mb-5 border-b border-gray-200 pb-3">
-          Staff Schedule
-        </h1>
+        <h1 className="sched-page__title">Staff Schedule</h1>
 
-        {/* Legend + navigation row */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-          {/* Legend */}
-          <div className="flex items-center gap-4 text-xs font-semibold">
-            <span className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 border border-green-100 text-green-700">
-              <span className="w-2 h-2 rounded-full bg-green-500" />
+        {/* Legend + navigation */}
+        <div className="sched-page__controls">
+          <div className="sched-page__legend">
+            <span className="sched-page__legend-item sched-page__legend-item--working">
+              <span className="sched-page__legend-dot sched-page__legend-dot--working" />
               Daily Working Hours
             </span>
-            <span className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-50 border border-red-100 text-red-700">
-              <span className="w-2 h-2 rounded-full bg-red-500" />
+            <span className="sched-page__legend-item sched-page__legend-item--blocked">
+              <span className="sched-page__legend-dot sched-page__legend-dot--blocked" />
               Blocked Hours
             </span>
-            <span className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-50 border border-yellow-100 text-yellow-700">
-              <span className="w-2 h-2 rounded-full bg-yellow-400" />
+            <span className="sched-page__legend-item sched-page__legend-item--dayoff">
+              <span className="sched-page__legend-dot sched-page__legend-dot--dayoff" />
               Day Off
             </span>
           </div>
 
-          {/* Week navigation */}
-          <div className="flex items-center gap-1">
-            <button
-              className="p-1.5 text-gray-500 hover:text-gray-800 border border-gray-200 rounded hover:bg-white transition-colors"
-              onClick={prevWeek}
-              aria-label="Previous week"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <div className="sched-page__nav">
+            <button className="sched-page__nav-btn" onClick={prevWeek} aria-label="Previous week">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M15 18l-6-6 6-6" />
               </svg>
             </button>
-
-            <button
-              className="px-3 py-1.5 text-sm font-medium text-gray-700 border border-gray-200 rounded hover:bg-white transition-colors mx-0.5"
-              onClick={goToToday}
-            >
+            <button className="sched-page__nav-btn sched-page__nav-btn--today" onClick={goToToday}>
               Today
             </button>
-
-            <div className="px-3 py-1.5 text-sm font-medium text-gray-700 border border-gray-200 rounded bg-white min-w-[130px] text-center">
+            <span className="sched-page__nav-btn sched-page__nav-btn--date">
               {todayDisplay}
-            </div>
-
-            <button
-              className="p-1.5 text-gray-500 hover:text-gray-800 border border-gray-200 rounded hover:bg-white transition-colors"
-              onClick={nextWeek}
-              aria-label="Next week"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            </span>
+            <button className="sched-page__nav-btn" onClick={nextWeek} aria-label="Next week">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M9 18l6-6-6-6" />
               </svg>
             </button>
           </div>
         </div>
 
-        {/* Loading indicator */}
+        {/* Syncing indicator */}
         {loading && (
-          <div className="text-xs text-blue-500 mb-2 flex items-center gap-1">
-            <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+          <div className="sched-page__syncing">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
               <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
             </svg>
             Syncing with server…
           </div>
         )}
 
-        {/* ── Schedule table ─────────────────────────────────────────────── */}
+        {/* Table */}
         <ScheduleTable
-          staffMembers={staffMembers}
+          staffMembers={pagedStaff}
           weekDates={weekDates}
           shifts={shifts}
           onEditWorkingHours={handleEditWorkingHours}
@@ -255,9 +224,66 @@ const ScheduledShiftsPage: React.FC = () => {
           onCopy={handleCopy}
           onEditStaff={handleEditStaff}
         />
+
+        {/* Pagination */}
+        {staffMembers.length > 0 && (
+          <div className="sched-pagination">
+            <span className="sched-pagination__info">
+              Showing <strong>{from}–{to}</strong> of <strong>{staffMembers.length}</strong> staff members
+            </span>
+
+            <div className="sched-pagination__controls">
+              {/* Prev */}
+              <button
+                className="sched-pagination__btn"
+                onClick={() => setPage((p) => p - 1)}
+                disabled={page === 1}
+                aria-label="Previous page"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+              </button>
+
+              {/* Page numbers */}
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                .reduce<(number | "…")[]>((acc, p, idx, arr) => {
+                  if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("…");
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, idx) =>
+                  p === "…" ? (
+                    <span key={`ellipsis-${idx}`} className="sched-pagination__ellipsis">…</span>
+                  ) : (
+                    <button
+                      key={p}
+                      className={`sched-pagination__btn${page === p ? " sched-pagination__btn--active" : ""}`}
+                      onClick={() => setPage(p as number)}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+
+              {/* Next */}
+              <button
+                className="sched-pagination__btn"
+                onClick={() => setPage((p) => p + 1)}
+                disabled={page === totalPages}
+                aria-label="Next page"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* ── ShiftDrawer ───────────────────────────────────────────────────── */}
+      {/* Drawers */}
       <ShiftDrawer
         open={drawer.mode !== null && drawer.mode !== "copy"}
         staff={drawerStaff}
@@ -266,8 +292,6 @@ const ScheduledShiftsPage: React.FC = () => {
         onClose={closeDrawer}
         onSave={handleSaveAvailability}
       />
-
-      {/* ── CopyScheduleDrawer ────────────────────────────────────────────── */}
       <CopyScheduleDrawer
         open={copyStaffId !== null}
         staff={copyStaff}

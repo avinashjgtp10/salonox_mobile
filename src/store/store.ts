@@ -33,7 +33,7 @@ import inventoryReducer from "./inventorySlice";
 import { membershipsApi } from "../services/api/endpoints/memberships.endpoints";
 import { packagesApi } from "../services/api/endpoints/packages.endpoints";
 import productsReducer from "./productsSlice";
-import shiftReducer from "./shiftSlice";
+import shiftReducer, { type ShiftState } from "./shiftSlice";
 import payRunReducer from "./payRunSlice";
 import dashboardReducer from "./dashboardSlice";
 import billingReducer from "./billingSlice";
@@ -42,6 +42,12 @@ const authPersistConfig = {
   key: "auth",
   storage,
   whitelist: ["accessToken", "refreshToken", "isOnboardingComplete"],
+};
+
+const shiftPersistConfig = {
+  key: "shift",
+  storage,
+  whitelist: ["staffMembers", "shifts"],   // only persist data, not loading/error flags
 };
 
 export const store = configureStore({
@@ -71,7 +77,7 @@ export const store = configureStore({
     [membershipsApi.reducerPath]: membershipsApi.reducer,
     [packagesApi.reducerPath]: packagesApi.reducer,
     products: productsReducer,
-    shift: shiftReducer,
+    shift: persistReducer(shiftPersistConfig, shiftReducer) as unknown as Reducer<ShiftState>,
     payRun: payRunReducer,
     dashboard: dashboardReducer,
     billing: billingReducer,

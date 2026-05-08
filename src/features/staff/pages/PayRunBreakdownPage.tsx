@@ -1,22 +1,26 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { fetchPayRunByIdThunk } from "../../../middleware/payRun/payRun.thunk";
-import { ChevronLeft, Printer, Download, Share } from "react-bootstrap-icons";
-import Card from "../../../components/ui/Card";
-import Button from "../../../components/ui/Button";
-import Badge from "../../../components/ui/Badge";
+import { fetchPayRunByIdThunk, updatePayRunThunk } from "../../../middleware/payRun/payRun.thunk";
+import { ChevronLeft, Printer, Download, ClockHistory, CashStack } from "react-bootstrap-icons";
 import Loader from "../../../components/ui/Loader";
+import { toast } from "react-hot-toast";
+import "../styles/PayRunBreakdownPage.scss";
+
+const fmt = (val: any) =>
+  Number(val || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
+
+const TABS = ["Overview", "Earnings", "Deductions", "History"];
 
 const PayRunBreakdownPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const dispatch = useAppDispatch();
   const { loading } = useAppSelector((state) => state.payRun);
-  
-  // Mocking current pay run details for the UI demo, in a real app this would come from state/selector
+
   const [payRun, setPayRun] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("Overview");
+  const [isPaying, setIsPaying] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -24,21 +28,21 @@ const PayRunBreakdownPage: React.FC = () => {
         if (res.meta.requestStatus === "fulfilled") {
           setPayRun(res.payload);
         } else {
-          // Mock data if API fails or for demo purposes
           setPayRun({
-            id: id,
+            id,
             employeeName: "Shivani Dhumal",
             payPeriodStart: "2026-03-09",
             payPeriodEnd: "2026-03-15",
-            earnings: 2450.00,
-            other: 150.00,
+            earnings: 2450.0,
+            other: 150.0,
             deductions: 0,
-            total: 2600.00,
+            total: 2600.0,
             paid: 0,
-            toPay: 2600.00,
+            toPay: 2600.0,
             status: "Pending",
             paymentMethod: "Bank Transfer",
-            notes: "Regular weekly pay run"
+            period: "Weekly",
+            notes: "Regular weekly pay run",
           });
         }
       });
@@ -47,7 +51,7 @@ const PayRunBreakdownPage: React.FC = () => {
 
   if (loading && !payRun) {
     return (
-      <div className="flex items-center justify-center h-[80vh]">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "80vh" }}>
         <Loader size="lg" />
       </div>
     );
@@ -55,142 +59,315 @@ const PayRunBreakdownPage: React.FC = () => {
 
   if (!payRun) return null;
 
+  const name: string =
+    payRun.employeeName || payRun.employee_name || payRun.staff_name || "Staff Member";
+  const initials = name
+    .split(" ")
+    .map((n: string) => n[0])
+    .join("")
+    .toUpperCase();
+
+  const earnings = Number(payRun.earnings || payRun.gross_earnings || 0);
+  const other = Number(payRun.other || payRun.adjustments || 0);
+  const deductions = Number(payRun.deductions || payRun.total_deductions || 0);
+  const total = Number(payRun.total || payRun.net_pay || 0);
+  const status: string = payRun.status || "Pending";
+  const periodStart = payRun.payPeriodStart || payRun.pay_period_start || "";
+  const periodEnd = payRun.payPeriodEnd || payRun.pay_period_end || "";
+
+  const handlePrint = () => window.print();
+
+  const handleExport = () => {
+    const rows = [
+      ["Field", "Value"],
+      ["Employee", name],
+      ["Status", status],
+      ["Period Start", periodStart],
+      ["Period End", periodEnd],
+      ["Gross Earnings", `₹${fmt(earnings)}`],
+      ["Adjustments / Other", `₹${fmt(other)}`],
+      ["Total Gross", `₹${fmt(earnings + other)}`],
+      ["Deductions", `₹${fmt(deductions)}`],
+      ["Net Pay", `₹${fmt(total)}`],
+      ["Payment Method", payRun.paymentMethod || payRun.payment_method || "—"],
+      ["Period", payRun.period || payRun.pay_period || "Weekly"],
+      ["Notes", payRun.notes || ""],
+    ];
+    const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `pay-run-${id || "export"}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handlePayNow = async () => {
+    if (status.toLowerCase() === "paid") {
+      toast("This pay run is already marked as paid.");
+      return;
+    }
+    setIsPaying(true);
+    const res = await dispatch(updatePayRunThunk({ id: payRun.id, data: { status: "paid", paid: total, toPay: 0 } }));
+    if (res.meta.requestStatus === "fulfilled") {
+      setPayRun((prev: any) => ({ ...prev, status: "paid", paid: total, toPay: 0 }));
+      toast.success("Pay run marked as paid!");
+    } else {
+      toast.error("Failed to update pay run status.");
+    }
+    setIsPaying(false);
+  };
+
   return (
-    <div className="p-6 max-w-[1200px] mx-auto animate-in slide-in-from-bottom-4 duration-500">
+    <div className="prb-page">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-4">
-          <button 
+      <div className="prb-page__header">
+        <div className="prb-page__header-left">
+          <button
+            className="prb-page__back-btn"
             onClick={() => navigate("/dashboard/team/payruns")}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
           >
-            <ChevronLeft size={24} />
+            <ChevronLeft size={18} />
           </button>
           <div>
-            <h1 className="text-2xl font-black text-gray-900">Pay Run Breakdown</h1>
-            <p className="text-gray-500 text-sm font-medium">
-              {new Date(payRun.payPeriodStart).toLocaleDateString()} – {new Date(payRun.payPeriodEnd).toLocaleDateString()}
+            <h1 className="prb-page__title">Pay Run Breakdown</h1>
+            <p className="prb-page__subtitle">
+              {periodStart ? new Date(periodStart).toLocaleDateString("en-IN") : "—"} –{" "}
+              {periodEnd ? new Date(periodEnd).toLocaleDateString("en-IN") : "—"}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" className="flex items-center gap-2">
-            <Printer /> Print
-          </Button>
-          <Button variant="outline" className="flex items-center gap-2">
-            <Download /> Export
-          </Button>
-          <Button>Pay Now</Button>
+        <div className="prb-page__header-actions">
+          <button className="prb-page__action-btn" onClick={handlePrint}>
+            <Printer size={14} /> Print
+          </button>
+          <button className="prb-page__action-btn" onClick={handleExport}>
+            <Download size={14} /> Export
+          </button>
+          <button
+            className="prb-page__action-btn prb-page__action-btn--primary"
+            onClick={handlePayNow}
+            disabled={isPaying || status.toLowerCase() === "paid"}
+          >
+            {isPaying ? "Processing..." : status.toLowerCase() === "paid" ? "Paid" : "Pay Now"}
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column: Summary & Actions */}
-        <div className="lg:col-span-1 space-y-6">
-          <Card className="p-6 text-center">
-            <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-2xl mx-auto mb-4 border-4 border-white shadow-sm">
-              {payRun.employeeName.split(" ").map((n: string) => n[0]).join("").toUpperCase()}
-            </div>
-            <h2 className="text-xl font-bold text-gray-900">{payRun.employeeName}</h2>
-            <Badge variant={payRun.status === "Paid" ? "success" : "warning"} className="mt-2">
-              {payRun.status}
-            </Badge>
-            
-            <div className="mt-8 pt-6 border-t border-gray-100">
-              <span className="text-sm text-gray-500 font-medium uppercase tracking-wider">Total Amount Owed</span>
-              <div className="text-4xl font-black text-gray-900 mt-2">
-                ₮{payRun.total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+      {/* Body */}
+      <div className="prb-page__body">
+        {/* ── Left Column ── */}
+        <div>
+          {/* Staff Summary Card */}
+          <div className="prb-page__card">
+            <div className="prb-page__staff-card">
+              <div className="prb-page__avatar">{initials}</div>
+              <h2 className="prb-page__staff-name">{name}</h2>
+              <span
+                className={`prb-page__status-badge${
+                  status.toLowerCase() === "paid" ? " prb-page__status-badge--paid" : ""
+                }`}
+              >
+                {status}
+              </span>
+              <div className="prb-page__amount-block">
+                <div className="prb-page__amount-label">Total Amount Owed</div>
+                <div className="prb-page__amount-value">₹{fmt(total)}</div>
               </div>
             </div>
-          </Card>
+          </div>
 
-          <Card className="p-6">
-            <h3 className="font-bold text-gray-900 mb-4">Payment Information</h3>
-            <div className="space-y-4">
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Method</span>
-                <span className="text-sm font-bold">{payRun.paymentMethod}</span>
+          {/* Payment Info Card */}
+          <div className="prb-page__card">
+            <div className="prb-page__info-card">
+              <h3 className="prb-page__info-title">Payment Information</h3>
+              <div className="prb-page__info-row">
+                <span className="prb-page__info-key">Method</span>
+                <span className="prb-page__info-val">
+                  {payRun.paymentMethod || payRun.payment_method || "—"}
+                </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Period</span>
-                <span className="text-sm font-bold">Weekly</span>
+              <div className="prb-page__info-row">
+                <span className="prb-page__info-key">Period</span>
+                <span className="prb-page__info-val">
+                  {payRun.period || payRun.pay_period || "Weekly"}
+                </span>
               </div>
-              <div className="pt-4 border-t border-gray-50">
-                <span className="text-sm text-gray-500 block mb-1">Notes</span>
-                <p className="text-sm text-gray-700 italic">"{payRun.notes || "No notes provided"}"</p>
+              <div className="prb-page__notes-block">
+                <div className="prb-page__notes-label">Notes</div>
+                <p className="prb-page__notes-text">
+                  "{payRun.notes || "No notes provided"}"
+                </p>
               </div>
             </div>
-          </Card>
+          </div>
         </div>
 
-        {/* Right Column: Detailed Breakdown */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex gap-4 border-b border-gray-100 mb-2">
-            {["Overview", "Earnings", "Deductions", "History"].map((tab) => (
+        {/* ── Right Column ── */}
+        <div>
+          {/* Tabs */}
+          <div className="prb-page__tabs">
+            {TABS.map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`pb-4 text-sm font-bold transition-all px-2 ${
-                  activeTab === tab 
-                    ? "text-blue-600 border-b-2 border-blue-600" 
-                    : "text-gray-400 hover:text-gray-600"
-                }`}
+                className={`prb-page__tab${activeTab === tab ? " prb-page__tab--active" : ""}`}
               >
                 {tab}
               </button>
             ))}
           </div>
 
+          {/* ── Overview Tab ── */}
           {activeTab === "Overview" && (
-            <div className="space-y-6 animate-in fade-in duration-300">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-green-50 rounded-2xl border border-green-100">
-                  <span className="text-xs font-bold text-green-700 uppercase">Gross Earnings</span>
-                  <div className="text-2xl font-black text-green-800 mt-1">₮{payRun.earnings.toLocaleString()}</div>
+            <div>
+              <div className="prb-page__stat-grid">
+                <div className="prb-page__stat-card prb-page__stat-card--green">
+                  <div className="prb-page__stat-label">Gross Earnings</div>
+                  <div className="prb-page__stat-value">₹{fmt(earnings)}</div>
                 </div>
-                <div className="p-4 bg-red-50 rounded-2xl border border-red-100">
-                  <span className="text-xs font-bold text-red-700 uppercase">Total Deductions</span>
-                  <div className="text-2xl font-black text-red-800 mt-1">₮{payRun.deductions.toLocaleString()}</div>
+                <div className="prb-page__stat-card prb-page__stat-card--red">
+                  <div className="prb-page__stat-label">Total Deductions</div>
+                  <div className="prb-page__stat-value">₹{fmt(deductions)}</div>
                 </div>
               </div>
 
-              <Card className="p-0 overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-50 bg-gray-50/50 flex justify-between items-center">
-                  <h3 className="font-bold text-gray-900">Earnings Breakdown</h3>
-                  <Button variant="ghost" size="sm" className="text-blue-600 font-bold">Edit</Button>
+              <div className="prb-page__breakdown-card">
+                <div className="prb-page__breakdown-header">
+                  <h3 className="prb-page__breakdown-title">Earnings Breakdown</h3>
+                  <button className="prb-page__breakdown-edit">Edit</button>
                 </div>
-                <div className="p-6 space-y-4">
-                  <div className="flex justify-between items-center">
+                <div className="prb-page__breakdown-body">
+                  <div className="prb-page__breakdown-row">
                     <div>
-                      <div className="font-bold text-gray-900">Base Salary / Wages</div>
-                      <div className="text-xs text-gray-500">Regular hourly rate</div>
+                      <div className="prb-page__breakdown-name">Base Salary / Wages</div>
+                      <div className="prb-page__breakdown-sub">Regular hourly rate</div>
                     </div>
-                    <span className="font-bold">₮{payRun.earnings.toLocaleString()}</span>
+                    <span className="prb-page__breakdown-amount">₹{fmt(earnings)}</span>
                   </div>
-                  <div className="flex justify-between items-center">
+                  <div className="prb-page__breakdown-row">
                     <div>
-                      <div className="font-bold text-gray-900">Adjustments / Other</div>
-                      <div className="text-xs text-gray-500">Bonuses and tips</div>
+                      <div className="prb-page__breakdown-name">Adjustments / Other</div>
+                      <div className="prb-page__breakdown-sub">Bonuses and tips</div>
                     </div>
-                    <span className="font-bold">₮{payRun.other.toLocaleString()}</span>
+                    <span className="prb-page__breakdown-amount">₹{fmt(other)}</span>
                   </div>
-                  <div className="pt-4 border-t border-gray-100 flex justify-between items-center">
-                    <span className="font-black text-gray-900">Total Gross</span>
-                    <span className="font-black text-xl text-gray-900">₮{(payRun.earnings + payRun.other).toLocaleString()}</span>
+                  <div className="prb-page__breakdown-row prb-page__breakdown-row--total">
+                    <span className="prb-page__breakdown-name">Total Gross</span>
+                    <span className="prb-page__breakdown-amount prb-page__breakdown-amount--total">
+                      ₹{fmt(earnings + other)}
+                    </span>
                   </div>
                 </div>
-              </Card>
+              </div>
 
-              <Card className="p-0 overflow-hidden border-dashed border-2">
-                <div className="p-8 text-center">
-                  <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <Share className="text-gray-400" />
+              {deductions === 0 ? (
+                <div className="prb-page__empty-card">
+                  <div className="prb-page__empty-icon">
+                    <CashStack size={20} />
                   </div>
-                  <h4 className="font-bold text-gray-900">No deductions recorded</h4>
-                  <p className="text-gray-500 text-sm mt-1 mb-4">Add tax, insurance or other deductions to this pay run.</p>
-                  <Button variant="outline" size="sm">Add Deduction</Button>
+                  <h4 className="prb-page__empty-title">No deductions recorded</h4>
+                  <p className="prb-page__empty-desc">
+                    Add tax, insurance or other deductions to this pay run.
+                  </p>
+                  <button className="prb-page__empty-btn">Add Deduction</button>
                 </div>
-              </Card>
+              ) : (
+                <div className="prb-page__breakdown-card">
+                  <div className="prb-page__breakdown-header">
+                    <h3 className="prb-page__breakdown-title">Deductions</h3>
+                  </div>
+                  <div className="prb-page__breakdown-body">
+                    <div className="prb-page__breakdown-row prb-page__breakdown-row--total">
+                      <span className="prb-page__breakdown-name">Total Deductions</span>
+                      <span className="prb-page__breakdown-amount prb-page__breakdown-amount--total">
+                        −₹{fmt(deductions)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Earnings Tab ── */}
+          {activeTab === "Earnings" && (
+            <div>
+              <div className="prb-page__breakdown-card">
+                <div className="prb-page__breakdown-header">
+                  <h3 className="prb-page__breakdown-title">Earnings Detail</h3>
+                  <button className="prb-page__breakdown-edit">Edit</button>
+                </div>
+                <div className="prb-page__breakdown-body">
+                  <div className="prb-page__breakdown-row">
+                    <div>
+                      <div className="prb-page__breakdown-name">Base Salary / Wages</div>
+                      <div className="prb-page__breakdown-sub">Regular hourly rate</div>
+                    </div>
+                    <span className="prb-page__breakdown-amount">₹{fmt(earnings)}</span>
+                  </div>
+                  <div className="prb-page__breakdown-row">
+                    <div>
+                      <div className="prb-page__breakdown-name">Adjustments / Other</div>
+                      <div className="prb-page__breakdown-sub">Bonuses and tips</div>
+                    </div>
+                    <span className="prb-page__breakdown-amount">₹{fmt(other)}</span>
+                  </div>
+                  <div className="prb-page__breakdown-row prb-page__breakdown-row--total">
+                    <span className="prb-page__breakdown-name">Gross Total</span>
+                    <span className="prb-page__breakdown-amount prb-page__breakdown-amount--total">
+                      ₹{fmt(earnings + other)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Deductions Tab ── */}
+          {activeTab === "Deductions" && (
+            <div>
+              {deductions === 0 ? (
+                <div className="prb-page__empty-card">
+                  <div className="prb-page__empty-icon">
+                    <CashStack size={20} />
+                  </div>
+                  <h4 className="prb-page__empty-title">No deductions recorded</h4>
+                  <p className="prb-page__empty-desc">
+                    Add tax, insurance or other deductions to this pay run.
+                  </p>
+                  <button className="prb-page__empty-btn">Add Deduction</button>
+                </div>
+              ) : (
+                <div className="prb-page__breakdown-card">
+                  <div className="prb-page__breakdown-header">
+                    <h3 className="prb-page__breakdown-title">Deductions</h3>
+                    <button className="prb-page__breakdown-edit">Edit</button>
+                  </div>
+                  <div className="prb-page__breakdown-body">
+                    <div className="prb-page__breakdown-row prb-page__breakdown-row--total">
+                      <span className="prb-page__breakdown-name">Total Deductions</span>
+                      <span className="prb-page__breakdown-amount prb-page__breakdown-amount--total">
+                        −₹{fmt(deductions)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── History Tab ── */}
+          {activeTab === "History" && (
+            <div className="prb-page__empty-card">
+              <div className="prb-page__empty-icon">
+                <ClockHistory size={20} />
+              </div>
+              <h4 className="prb-page__empty-title">No payment history</h4>
+              <p className="prb-page__empty-desc">
+                Payment history will appear here once this pay run is processed.
+              </p>
             </div>
           )}
         </div>

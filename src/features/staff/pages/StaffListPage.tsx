@@ -1,9 +1,9 @@
-import { useNavigate, useLocation } from "react-router-dom";
-import { useEffect, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch } from "../../../store/store";
 import { selectCurrentSalon, selectAllStaff, selectStaffLoading } from "../../../store/selectors/slices.selectors";
-import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
+import { fetchStaffThunk, deleteStaffThunk } from "../../../middleware/staff/staff.thunk";
 import {
   Search as SearchIcon,
   Sliders,
@@ -22,7 +22,6 @@ import {
   People,
   Trash,
   ThreeDots,
-  StarFill,
   TelephoneFill,
   EnvelopeFill,
   CheckCircleFill,
@@ -39,6 +38,7 @@ interface StaffMember {
   last_name: string;
   email: string;
   phone_number?: string;
+  phone?: string;
   status?: string;
   invitation_status?: string;
   job_title?: string;
@@ -66,9 +66,30 @@ function getGradient(id: string | number) {
   return AVATAR_GRADIENTS[seed % AVATAR_GRADIENTS.length];
 }
 
+const COLOR_KEY_TO_HEX: Record<string, string> = {
+  light_blue: "#7dd3fc", blue: "#3b82f6", dark_blue: "#1d4ed8",
+  purple: "#a855f7", violet: "#7c3aed", pink: "#f472b6",
+  hot_pink: "#ec4899", rose: "#f43f5e", orange: "#f97316",
+  yellow: "#eab308", lime: "#84cc16", green: "#22c55e",
+  teal: "#14b8a6", cyan: "#06b6d4",
+};
+
+function resolveColor(color?: string): string | undefined {
+  if (!color) return undefined;
+  return COLOR_KEY_TO_HEX[color] ?? color;
+}
+
+const PERMISSION_LABELS: Record<string, string> = {
+  no_access: "No Access",
+  basic:     "Basic",
+  low:       "Low",
+  medium:    "Medium",
+  high:      "High",
+  manager:   "Manager",
+};
+
 export default function StaffListPage() {
   const navigate = useNavigate();
-  const location = useLocation();
 
   const dispatch = useDispatch<AppDispatch>();
   const staff = useSelector(selectAllStaff) as unknown as StaffMember[];
@@ -76,6 +97,9 @@ export default function StaffListPage() {
   // Using loading boolean depending on structure (usually boolean, but sometimes object)
   const loading = typeof loadingState === "boolean" ? loadingState : (loadingState as any)?.fetch || false;
   
+  const PAGE_SIZE = 10;
+  const [currentPage, setCurrentPage] = useState(1);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [showFilter, setShowFilter] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
@@ -121,14 +145,11 @@ export default function StaffListPage() {
 
   useEffect(() => {
     fetchStaff();
-    
-    // Polling: Auto-refresh staff list every 10 seconds to detect invitation acceptance
-    const pollInterval = setInterval(() => {
-      fetchStaff();
-    }, 10000);
 
+    // Poll every 30 s to detect invitation acceptance without hammering the server
+    const pollInterval = setInterval(fetchStaff, 30000);
     return () => clearInterval(pollInterval);
-  }, [location.pathname, fetchStaff]);
+  }, [fetchStaff]);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -175,14 +196,13 @@ export default function StaffListPage() {
   const handleDeleteStaff = async (id: string) => {
     setDeletingId(id);
     try {
-      const params = new URLSearchParams();
-      if (salonId) params.set("salon_id", String(salonId));
-      await api.delete(`${STAFF.BY_ID(id)}?${params.toString()}`);
-      await fetchStaff();
+      await dispatch(deleteStaffThunk(id)).unwrap();
       showToast("Team member deleted successfully");
       setSelectedIds((prev) => prev.filter((x) => x !== id));
-    } catch {
-      showToast("Failed to delete team member", "error");
+      // Refetch to sync with server (handles edge cases where backend may have cascade effects)
+      fetchStaff();
+    } catch (err: any) {
+      showToast(err || "Failed to delete team member", "error");
     } finally {
       setDeletingId(null);
       setActionMenuId(null);
@@ -222,7 +242,7 @@ export default function StaffListPage() {
     const matchesSearch =
       name.includes(searchTerm.toLowerCase()) ||
       (s.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (s.phone_number || "").includes(searchTerm);
+      (s.phone_number || s.phone || "").includes(searchTerm);
     const matchesLocation =
       selectedLocations.length === 0 || selectedLocations.includes(s.location || "");
     const matchesStatus =
@@ -244,6 +264,18 @@ export default function StaffListPage() {
     if (selectedSort === "Name (Z-A)") return nameB.localeCompare(nameA);
     return 0;
   });
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const pagedSorted = useMemo(
+    () => sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [sorted, currentPage, PAGE_SIZE]
+  );
+
+  // Reset to page 1 when search / filter / sort changes
+  useEffect(() => { setCurrentPage(1); }, [searchTerm, selectedSort, selectedLocations, bookable, nonBookable, selectedStatus]);
+
+  const rangeFrom = sorted.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const rangeTo = Math.min(currentPage * PAGE_SIZE, sorted.length);
 
   return (
     <div className="staff-list-page">
@@ -574,7 +606,7 @@ export default function StaffListPage() {
           </div>
 
           {/* Table Rows */}
-          {sorted.map((member) => {
+          {pagedSorted.map((member) => {
             const isChecked = selectedIds.includes(member.id);
             const isActive = member.is_active ?? true;
             const rawStatus = (member.status || member.invitation_status || "").toUpperCase();
@@ -605,7 +637,7 @@ export default function StaffListPage() {
                     style={{ background: member.calendar_color ? undefined : getGradient(member.id) }}
                   >
                     {member.calendar_color ? (
-                      <span className="slp-avatar-initials" style={{ background: member.calendar_color }}>
+                      <span className="slp-avatar-initials" style={{ background: resolveColor(member.calendar_color) }}>
                         {initials}
                       </span>
                     ) : (
@@ -622,10 +654,10 @@ export default function StaffListPage() {
                 </div>
 
                 <div className="slp-col-contact">
-                  {member.phone_number ? (
+                  {(member.phone_number || member.phone) ? (
                     <div className="slp-contact-phone">
                       <TelephoneFill size={11} className="me-1" />
-                      {member.phone_number}
+                      {member.phone_number || member.phone}
                     </div>
                   ) : (
                     <span className="slp-no-data">—</span>
@@ -633,13 +665,15 @@ export default function StaffListPage() {
                 </div>
 
                 <div className="slp-col-role">
-                  {member.job_title ? (
-                    <span className="slp-role-tag">{member.job_title}</span>
-                  ) : member.permission_level ? (
-                    <span className="slp-role-tag slp-role-tag--perm">{member.permission_level}</span>
-                  ) : (
-                    <span className="slp-no-data">—</span>
-                  )}
+                  {(() => {
+                    const m = member as any;
+                    const jobTitle = m.job_title || m.jobTitle;
+                    const permKey = m.permission_level || m.permissionLevel || m.access_level || m.role;
+                    const label = PERMISSION_LABELS[permKey] || permKey;
+                    if (jobTitle) return <span className="slp-role-tag">{jobTitle}</span>;
+                    if (label) return <span className="slp-role-tag slp-role-tag--perm">{label}</span>;
+                    return <span className="slp-role-tag slp-role-tag--default">Staff</span>;
+                  })()}
                 </div>
 
                 <div className="slp-col-status">
@@ -708,15 +742,52 @@ export default function StaffListPage() {
         </div>
       )}
 
-      {/* ===== FOOTER ===== */}
+      {/* ===== FOOTER / PAGINATION ===== */}
       {!loading && sorted.length > 0 && (
         <div className="slp-footer">
           <span className="slp-footer-results">
-            Showing <strong>{sorted.length}</strong> of <strong>{staff.length}</strong> team members
+            Showing <strong>{rangeFrom}–{rangeTo}</strong> of <strong>{sorted.length}</strong> team members
           </span>
-          <div className="slp-footer-rating">
-            <StarFill size={12} className="me-1" style={{ color: "#f59e0b" }} />
-            <span>Ratings coming soon</span>
+
+          <div className="slp-pagination">
+            <button
+              className="slp-page-btn"
+              onClick={() => setCurrentPage((p) => p - 1)}
+              disabled={currentPage === 1}
+              aria-label="Previous page"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 18l-6-6 6-6" /></svg>
+            </button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+              .reduce<(number | "…")[]>((acc, p, idx, arr) => {
+                if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("…");
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((p, idx) =>
+                p === "…" ? (
+                  <span key={`e-${idx}`} className="slp-page-ellipsis">…</span>
+                ) : (
+                  <button
+                    key={p}
+                    className={`slp-page-btn${currentPage === p ? " slp-page-btn--active" : ""}`}
+                    onClick={() => setCurrentPage(p as number)}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
+
+            <button
+              className="slp-page-btn"
+              onClick={() => setCurrentPage((p) => p + 1)}
+              disabled={currentPage === totalPages}
+              aria-label="Next page"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 18l6-6-6-6" /></svg>
+            </button>
           </div>
         </div>
       )}

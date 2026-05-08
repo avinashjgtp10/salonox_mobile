@@ -43,14 +43,13 @@ const StaffWagesSection: React.FC<StaffWagesSectionProps> = ({ staffId, salonId,
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    // Only fetch if we are in "Edit" mode and don't have parent-managed state already
-    if (staffId && salonId && !wages && staffId !== "undefined") {
+    if (staffId && !wages && staffId !== "undefined") {
       const fetchWages = async () => {
+        const headers: Record<string, string> = {};
+        if (salonId) headers["x-salon-id"] = String(salonId);
         try {
           setIsLoading(true);
-          const response = await api.get(STAFF.WAGES(staffId), {
-            headers: { "x-salon-id": salonId },
-          });
+          const response = await api.get(STAFF.WAGES(staffId), { headers });
           if (response.data.data) {
             setSettings(response.data.data);
           }
@@ -65,19 +64,23 @@ const StaffWagesSection: React.FC<StaffWagesSectionProps> = ({ staffId, salonId,
   }, [staffId, salonId, wages]);
 
   const handleSave = async () => {
-    if (!staffId || !salonId || staffId === "undefined") {
+    if (!staffId || staffId === "undefined") {
       toast("Please save the team member profile first");
       return;
     }
+    const headers: Record<string, string> = {};
+    if (salonId) headers["x-salon-id"] = String(salonId);
     try {
       setIsSaving(true);
-      await api.put(STAFF.WAGES(staffId), settings, {
-        headers: { "x-salon-id": salonId },
-      });
+      await api.put(STAFF.WAGES(staffId), settings, { headers });
       toast.success("Wage settings saved successfully");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving wages:", error);
-      toast.error("Failed to save wage settings");
+      const msg =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to save wage settings";
+      toast.error(msg);
     } finally {
       setIsSaving(false);
     }

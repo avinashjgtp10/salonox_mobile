@@ -22,9 +22,27 @@ const StaffAddressesSection: React.FC<StaffAddressesProps> = ({
   setAddresses = () => {},
 }) => {
   const [openAddressModal, setOpenAddressModal] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<Address | null>(null);
 
   const handleSaveAddress = (addr: any) => {
-    setAddresses((prev) => [...prev, { id: Date.now(), ...addr }]);
+    if (editingAddress) {
+      setAddresses((prev) =>
+        prev.map((a) => (a.id === editingAddress.id ? { ...a, ...addr } : a))
+      );
+    } else {
+      setAddresses((prev) => [...prev, { id: Date.now(), ...addr }]);
+    }
+    setEditingAddress(null);
+    setOpenAddressModal(false);
+  };
+
+  const handleEditAddress = (addr: Address) => {
+    setEditingAddress(addr);
+    setOpenAddressModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setEditingAddress(null);
     setOpenAddressModal(false);
   };
 
@@ -50,7 +68,10 @@ const StaffAddressesSection: React.FC<StaffAddressesProps> = ({
               </div>
             </div>
             <div className="staff-list-item__actions">
-              <button className="staff-list-item__action-btn">
+              <button
+                className="staff-list-item__action-btn"
+                onClick={() => handleEditAddress(addr)}
+              >
                 <Pencil size={14} />
               </button>
               <button
@@ -75,8 +96,9 @@ const StaffAddressesSection: React.FC<StaffAddressesProps> = ({
       {/* ADDRESS MODAL */}
       <NewAddressModal
         open={openAddressModal}
-        onClose={() => setOpenAddressModal(false)}
+        onClose={handleCloseModal}
         onSave={handleSaveAddress}
+        initialData={editingAddress}
       />
     </div>
   );

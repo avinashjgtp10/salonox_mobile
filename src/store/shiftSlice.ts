@@ -1,6 +1,6 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { ShiftMap, StaffMember, ShiftEntry } from "../components/staff-schedule/types";
-import { SEED_STAFF, buildSeedShifts, getSundayOf, calcTotalHours } from "../components/staff-schedule/utils";
+import { buildSeedShifts, getSundayOf, calcTotalHours } from "../components/staff-schedule/utils";
 import {
   fetchDailyShifts,
   addTimeOff,
@@ -11,15 +11,13 @@ import {
 } from "../middleware/shift/shiftThunk";
 import { toDateKey } from "../components/staff-schedule/utils";
 
-interface ShiftState {
+export interface ShiftState {
   staffMembers: StaffMember[];
   shifts: ShiftMap;
   loading: boolean;
   error: string | null;
   apiConnected: boolean;
 }
-
-const initialSunday = getSundayOf(new Date());
 
 const initialState: ShiftState = {
   staffMembers: [],
