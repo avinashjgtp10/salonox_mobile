@@ -1,14 +1,12 @@
-import { useNavigate } from "react-router-dom";
-import { useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { useRef, useState, useEffect } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/AddClientPage.scss";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
 import { Person, Pencil, X } from "react-bootstrap-icons";
 import { Country } from "country-state-city";
-import { Button } from "../../../components/ui";
-
-import { useClientWizard } from "../context/ClientWizardContext";
+import { PageLoader, Button } from "../../../components/ui";
 
 const PHONE_CODES = Country.getAllCountries()
   .map((c) => ({
@@ -18,12 +16,15 @@ const PHONE_CODES = Country.getAllCountries()
   .filter((v, i, a) => a.findIndex((t) => t.label === v.label) === i)
   .sort((a, b) => a.label.localeCompare(b.label));
 
-export default function AddClientPage() {
+export default function EditClientPage() {
+  const { id } = useParams<{ id: string }>();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  const { resetWizard } = useClientWizard();
 
-  // Individual states for form inputs
+  const [loading, setLoading] = useState(true);
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -42,8 +43,42 @@ export default function AddClientPage() {
   const [country, setCountry] = useState("IN");
 
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
-  const [serverError, setServerError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    let isMounted = true;
+
+    api
+      .get(CLIENT.BY_ID(id))
+      .then((r) => {
+        if (!isMounted) return;
+        const c = r.data?.data || r.data;
+        setFirstName(c.first_name || "");
+        setLastName(c.last_name || "");
+        setEmail(c.email || "");
+        setPhone(c.phone_number || "");
+        setBirthday(c.birthday || "");
+        setYear(c.birth_year || "");
+        setGender(c.gender || "");
+        setPronouns(c.pronouns || "");
+        setOccupation(c.occupation || "");
+        setAdditionalEmail(c.additional_email || "");
+        setAdditionalPhone(c.additional_phone || "");
+        setPhoneCountryCode(c.phone_country_code || "+91");
+        setAdditionalPhoneCountryCode(c.additional_phone_country_code || "+91");
+        setClientSource(c.client_source || "walk_in");
+        setPreferredLanguage(c.preferred_language || "en");
+        setCountry(c.country || "IN");
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [id]);
 
   const isFirstNameInvalid = attemptedSubmit && firstName.trim() === "";
   const isEmailInvalid =
@@ -84,7 +119,6 @@ export default function AddClientPage() {
       return;
     }
 
-    setSaving(true);
     const payload = {
       first_name: firstName,
       last_name: lastName || null,
@@ -102,23 +136,25 @@ export default function AddClientPage() {
       client_source: clientSource || null,
       preferred_language: preferredLanguage || null,
       country: country || null,
-      addresses: [],
-      emergency_contacts: [],
     };
 
+    setSaving(true);
     try {
-      await api.post(CLIENT.BASE, payload);
-      resetWizard();
+      await api.patch(CLIENT.BY_ID(id!), payload);
       navigate("/dashboard/clients/list");
     } catch (error: any) {
       const msg =
         error?.response?.data?.error?.message ||
         error?.response?.data?.message ||
-        "Failed to save client. Please try again.";
+        "Failed to update client. Please try again.";
       setServerError(msg);
       setSaving(false);
     }
   };
+
+  if (loading) {
+    return <PageLoader fullHeight />;
+  }
 
   return (
     <div className="container-fluid p-4 bg-white position-relative">
@@ -154,16 +190,14 @@ export default function AddClientPage() {
 
       {/* HEADER */}
       <div className="d-flex justify-content-between align-items-center mb-4 mt-3">
-        <h2 className="fw-bold">Add a new client</h2>
-
+        <h2 className="fw-bold">Edit client</h2>
         <div className="d-flex gap-2">
           <button
             className="btn btn-outline-secondary"
             onClick={() => navigate("/dashboard/clients/list")}
           >
-            Close
+            Cancel
           </button>
-
           <Button
             variant="dark"
             onClick={handleSave}
@@ -179,34 +213,10 @@ export default function AddClientPage() {
         <div className="col-md-3">
           <div className="card p-3">
             <h6 className="fw-bold mb-3">Personal</h6>
-
             <div className="list-group">
               <button className="list-group-item list-group-item-action active d-flex justify-content-between align-items-center">
                 Profile
-                {hasErrors && (
-                  <span className="text-danger-dot">●</span>
-                )}
-              </button>
-
-              <button
-                className="list-group-item list-group-item-action"
-                onClick={() => navigate("/dashboard/clients/addresses")}
-              >
-                Addresses
-              </button>
-
-              <button
-                className="list-group-item list-group-item-action"
-                onClick={() => navigate("/dashboard/clients/emergency")}
-              >
-                Emergency contacts
-              </button>
-
-              <button
-                className="list-group-item list-group-item-action"
-                onClick={() => navigate("/dashboard/clients/settings")}
-              >
-                Settings
+                {hasErrors && <span className="text-danger-dot">●</span>}
               </button>
             </div>
           </div>
@@ -214,10 +224,8 @@ export default function AddClientPage() {
 
         {/* RIGHT FORM */}
         <div className="col-md-9">
-          {/* PROFILE SECTION */}
           <h5 className="fw-bold mb-3">Profile</h5>
-
-          <p className="text-muted">Manage your client’s personal profile</p>
+          <p className="text-muted">Manage your client's personal profile</p>
 
           <div className="d-flex align-items-center mb-4 mt-3">
             <div className="profile-image-upload position-relative d-inline-block">
@@ -229,11 +237,7 @@ export default function AddClientPage() {
               />
               <div
                 className="profile-placeholder rounded-circle d-flex justify-content-center align-items-center"
-                style={{
-                  width: "80px",
-                  height: "80px",
-                  backgroundColor: "#F0F0FE",
-                }}
+                style={{ width: "80px", height: "80px", backgroundColor: "#F0F0FE" }}
               >
                 <Person style={{ color: "#7A5CFF" }} size={48} />
               </div>
@@ -248,7 +252,6 @@ export default function AddClientPage() {
                   right: "0px",
                   backgroundColor: "#FAFAFA",
                   border: "1px solid #EAEAEA",
-                  padding: "0",
                 }}
               >
                 <Pencil size={12} style={{ color: "#888" }} />
@@ -283,9 +286,7 @@ export default function AddClientPage() {
             </div>
 
             <div className="col-md-6">
-              <label className="form-label">
-                Email <span className="text-danger">*</span>
-              </label>
+              <label className="form-label">Email <span className="text-danger">*</span></label>
               <input
                 type="email"
                 className={`form-control ${isEmailInvalid ? "is-invalid" : ""}`}
@@ -301,9 +302,7 @@ export default function AddClientPage() {
             </div>
 
             <div className="col-md-6">
-              <label className="form-label">
-                Phone <span className="text-danger">*</span>
-              </label>
+              <label className="form-label">Phone <span className="text-danger">*</span></label>
               <div className="ac-phone-group">
                 <select
                   className="form-select ac-phone-code"
@@ -383,14 +382,10 @@ export default function AddClientPage() {
             </div>
           </div>
 
-          {/* ================= ADDITIONAL INFO ================= */}
-
+          {/* ADDITIONAL INFO */}
           <div className="mt-5">
             <h5 className="fw-bold">Additional info</h5>
-
-            <p className="text-muted">
-              Edit additional information about the client
-            </p>
+            <p className="text-muted">Edit additional information about the client</p>
 
             <div className="row g-3 mt-2">
               <div className="col-md-6">
@@ -404,15 +399,6 @@ export default function AddClientPage() {
                   <option value="instagram">Instagram</option>
                   <option value="google">Google</option>
                 </select>
-              </div>
-
-              <div className="col-md-6">
-                <label className="form-label">Referred by</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Select a client"
-                />
               </div>
 
               <div className="col-md-6">
