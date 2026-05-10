@@ -1,6 +1,9 @@
 import React, { useState } from "react";
-import type { Booking } from "../../types/scheduler-types";
+import type { Booking, BlockedTime } from "../../types/scheduler-types";
+import { useAppDispatch, useAppSelector } from "../../../../hooks/useAppRedux";
+import { fetchBookingByIdThunk } from "../../../../middleware/booking/booking.thunk";
 import { useSchedulerContext } from "../../store/SchedulerContext";
+import { useSchedulerInit, mapApiBooking } from "../../hooks/useSchedulerInit";
 import TopBar from "./TopBar";
 import DayView from "./DayView";
 import WeekView from "./WeekView";
@@ -13,7 +16,12 @@ import BlockTimeModal from "../modals/BlockTimeModal";
 import SettingsModal from "../modals/SettingsModal";
 
 const SchedulerContent: React.FC = () => {
+  useSchedulerInit();
+  const dispatch = useAppDispatch();
   const { viewMode, setViewMode, setCurrentDate } = useSchedulerContext();
+  const apiServices = useAppSelector((s: any) => s.services?.items ?? []);
+
+  const apiStaff = useAppSelector((s: any) => s.staff?.items ?? []);
 
   const [showNewAppt, setShowNewAppt] = useState(false);
   const [showBlockTime, setShowBlockTime] = useState(false);
@@ -21,8 +29,10 @@ const SchedulerContent: React.FC = () => {
   const [viewingBooking, setViewingBooking] = useState<Booking | null>(null);
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const [paymentBooking, setPaymentBooking] = useState<Booking | null>(null);
+  const [collectDueMode, setCollectDueMode] = useState(false);
   const [apptDefaults, setApptDefaults] = useState<{ staffId?: string; defaultTime?: string }>({});
   const [blockStaffId, setBlockStaffId] = useState<string | undefined>(undefined);
+  const [editingBlockTime, setEditingBlockTime] = useState<BlockedTime | undefined>(undefined);
 
   function handleSlotClick(staffId: string, time: string) {
     setApptDefaults({ staffId, defaultTime: time });
@@ -30,7 +40,34 @@ const SchedulerContent: React.FC = () => {
     setShowNewAppt(true);
   }
 
-  function handleEditBooking(booking: Booking) {
+  /**
+   * For bookings that came from the API (non-temp ID), fetch the full record
+   * so the edit modal gets service line items and all details.
+   * Falls back to the cached local booking if the API call fails.
+   */
+  async function handleEditBooking(booking: Booking) {
+    const isApiBooking = !String(booking.id).startsWith("b_");
+    if (isApiBooking) {
+      try {
+        const action = await (dispatch(fetchBookingByIdThunk(booking.id)) as any);
+        if (fetchBookingByIdThunk.fulfilled.match(action)) {
+          const enriched = mapApiBooking(action.payload, apiServices, apiStaff);
+          // Merge: use enriched services/details but keep any local edits already in state
+          setEditingBooking({
+            ...booking,
+            ...enriched,
+            // Prefer the enriched services array if the backend returned any
+            services: enriched.services.length ? enriched.services : booking.services,
+            // Always trust local Redux paymentStatus — API may not have the column yet
+            paymentStatus: booking.paymentStatus,
+          });
+          setShowNewAppt(true);
+          return;
+        }
+      } catch {
+        // fall through — use cached booking
+      }
+    }
     setEditingBooking(booking);
     setShowNewAppt(true);
   }
@@ -39,8 +76,21 @@ const SchedulerContent: React.FC = () => {
     setPaymentBooking(booking);
   }
 
+  function handleCollectDue(booking: Booking) {
+    // Open PaymentModal in collect-due mode with the original booking intact
+    setPaymentBooking(booking);
+    setCollectDueMode(true);
+  }
+
   function handleBlockTime(staffId?: string) {
     setBlockStaffId(staffId);
+    setEditingBlockTime(undefined);
+    setShowBlockTime(true);
+  }
+
+  function handleEditBlockTime(block: BlockedTime) {
+    setEditingBlockTime(block);
+    setBlockStaffId(undefined);
     setShowBlockTime(true);
   }
 
@@ -85,6 +135,7 @@ const SchedulerContent: React.FC = () => {
             onEditBooking={handleEditBooking}
             onPaymentBooking={handlePaymentBooking}
             onBlockTime={(staffId: string) => handleBlockTime(staffId)}
+            onEditBlockTime={handleEditBlockTime}
           />
         )}
         {viewMode === "Week" && (
@@ -107,13 +158,26 @@ const SchedulerContent: React.FC = () => {
         />
       )}
       {showBlockTime && (
-        <BlockTimeModal onClose={() => setShowBlockTime(false)} defaultStaffId={blockStaffId} />
+        <BlockTimeModal
+          onClose={() => { setShowBlockTime(false); setEditingBlockTime(undefined); }}
+          defaultStaffId={blockStaffId}
+          editingBlock={editingBlockTime}
+        />
       )}
       {viewingBooking && (
-        <ViewBillModal booking={viewingBooking} onClose={() => setViewingBooking(null)} />
+        <ViewBillModal
+          booking={viewingBooking}
+          onClose={() => setViewingBooking(null)}
+          onEdit={(b) => { setViewingBooking(null); handleEditBooking(b); }}
+          onCollectDue={handleCollectDue}
+        />
       )}
       {paymentBooking && (
-        <PaymentModal booking={paymentBooking} onClose={() => setPaymentBooking(null)} />
+        <PaymentModal
+          booking={paymentBooking}
+          collectDue={collectDueMode}
+          onClose={() => { setPaymentBooking(null); setCollectDueMode(false); }}
+        />
       )}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </div>

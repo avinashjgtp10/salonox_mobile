@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   CreditCard,
   CheckCircle2,
@@ -13,151 +13,102 @@ import {
   Sparkles,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import {
+  fetchBillingPlansThunk,
+  fetchSubscriptionThunk,
+  fetchInvoicesThunk,
+  cancelSubscriptionThunk,
+} from "../../../middleware/billing/billing.thunk";
+import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
+import { fetchDashboardSummaryThunk } from "../../../middleware/dashboard/dashboard.thunk";
 import Button from "../../../components/ui/Button";
 import SettingsSection from "../components/SettingsSection";
 
-interface Plan {
-  id: string;
-  name: string;
-  price: number;
-  period: string;
-  description: string;
-  features: string[];
-  highlight?: boolean;
-  badge?: string;
-}
-
-interface Invoice {
-  id: string;
-  date: string;
-  amount: number;
-  status: "paid" | "pending" | "failed";
-  description: string;
-  invoice: string;
-}
-
-const plans: Plan[] = [
-  {
-    id: "starter",
-    name: "Starter",
-    price: 999,
-    period: "month",
-    description: "Perfect for solo stylists and small salons just getting started.",
-    features: [
-      "Up to 2 staff members",
-      "100 appointments/month",
-      "Basic client management",
-      "Payment processing",
-      "Email notifications",
-    ],
-  },
-  {
-    id: "growth",
-    name: "Growth",
-    price: 2499,
-    period: "month",
-    description: "For growing salons ready to scale their operations.",
-    features: [
-      "Up to 10 staff members",
-      "Unlimited appointments",
-      "Advanced client management",
-      "WhatsApp campaigns",
-      "Analytics & reports",
-      "Inventory management",
-      "Online booking page",
-      "Priority support",
-    ],
-    highlight: true,
-    badge: "Most Popular",
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    price: 5999,
-    period: "month",
-    description: "For large salons and chains with advanced requirements.",
-    features: [
-      "Unlimited staff",
-      "Multi-location support",
-      "Custom integrations",
-      "White-label booking",
-      "Dedicated account manager",
-      "API access",
-      "Custom reporting",
-      "SLA guarantee",
-    ],
-    badge: "Best Value",
-  },
-];
-
-const invoices: Invoice[] = [
-  {
-    id: "INV-2024-012",
-    date: "Dec 1, 2024",
-    amount: 2499,
-    status: "paid",
-    description: "Growth Plan — December 2024",
-    invoice: "#",
-  },
-  {
-    id: "INV-2024-011",
-    date: "Nov 1, 2024",
-    amount: 2499,
-    status: "paid",
-    description: "Growth Plan — November 2024",
-    invoice: "#",
-  },
-  {
-    id: "INV-2024-010",
-    date: "Oct 1, 2024",
-    amount: 2499,
-    status: "paid",
-    description: "Growth Plan — October 2024",
-    invoice: "#",
-  },
-  {
-    id: "INV-2024-009",
-    date: "Sep 1, 2024",
-    amount: 999,
-    status: "paid",
-    description: "Starter Plan — September 2024",
-    invoice: "#",
-  },
-];
-
-const usageData = [
-  { label: "Staff Members", used: 6, limit: 10, icon: <Users size={15} /> },
-  { label: "Appointments this month", used: 284, limit: 999, icon: <Calendar size={15} /> },
-  { label: "WhatsApp messages sent", used: 1820, limit: 5000, icon: <MessageCircle size={15} /> },
-  { label: "Analytics reports", used: 12, limit: 50, icon: <BarChart2 size={15} /> },
-];
+const planIcons: Record<string, React.ReactNode> = {
+  starter:    <Zap size={16} color="#6b7280" />,
+  growth:     <Sparkles size={16} color="#111827" />,
+  enterprise: <Building2 size={16} color="#374151" />,
+};
 
 export default function BillingPage() {
-  const [currentPlan] = useState("growth");
+  const dispatch = useAppDispatch();
+  const { plans, subscription, invoices, loading } = useAppSelector((s) => s.billing);
+  const { currentSalon } = useAppSelector((s) => s.salon);
+  const { items: staffList } = useAppSelector((s) => s.staff);
+  const { summary: dashSummary } = useAppSelector((s) => s.dashboard);
+
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
-  const [upgradeLoading, setUpgradeLoading] = useState<string | null>(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
 
-  const handleUpgrade = async (planId: string) => {
-    if (planId === currentPlan) return;
-    setUpgradeLoading(planId);
-    await new Promise((r) => setTimeout(r, 800));
-    setUpgradeLoading(null);
-    toast.success(`Upgrade to ${plans.find((p) => p.id === planId)?.name} initiated`);
-  };
+  useEffect(() => {
+    dispatch(fetchBillingPlansThunk());
+    dispatch(fetchStaffThunk());
+  }, [dispatch]);
 
-  const getStatusBadge = (status: Invoice["status"]) => {
-    if (status === "paid")
-      return <span className="s-badge s-badge-success">Paid</span>;
-    if (status === "pending")
-      return <span className="s-badge s-badge-warning">Pending</span>;
-    return <span className="s-badge s-badge-danger">Failed</span>;
+  useEffect(() => {
+    if (currentSalon?.id) {
+      dispatch(fetchDashboardSummaryThunk(currentSalon.id));
+    }
+  }, [dispatch, currentSalon?.id]);
+
+  const usageData = useMemo(() => [
+    { label: "Staff Members",           used: staffList.length,                         limit: 10,   icon: <Users size={15} /> },
+    { label: "Appointments this month", used: dashSummary?.totalAppointments ?? 0,      limit: 999,  icon: <Calendar size={15} /> },
+    { label: "WhatsApp messages sent",  used: 0,                                         limit: 5000, icon: <MessageCircle size={15} />, estimate: true },
+    { label: "Analytics reports",       used: 0,                                         limit: 50,   icon: <BarChart2 size={15} />,    estimate: true },
+  ], [staffList.length, dashSummary?.totalAppointments]);
+
+  useEffect(() => {
+    if (currentSalon?.id) {
+      dispatch(fetchSubscriptionThunk(currentSalon.id));
+      dispatch(fetchInvoicesThunk(currentSalon.id));
+    }
+  }, [dispatch, currentSalon?.id]);
+
+  const currentPlanId = subscription?.plan_id ?? null;
+  const activePlan = plans.find((p) => p.id === currentPlanId);
+
+  const handleCancelPlan = async () => {
+    if (!subscription?.id) return;
+    setCancelLoading(true);
+    const result = await dispatch(cancelSubscriptionThunk({ id: subscription.id }));
+    setCancelLoading(false);
+    if (cancelSubscriptionThunk.fulfilled.match(result)) {
+      toast.success("Subscription cancelled");
+    } else {
+      toast.error((result.payload as string) || "Failed to cancel subscription");
+    }
   };
 
   const yearlyDiscount = 0.2;
-  const adjustedPrice = (price: number) =>
-    billingCycle === "yearly"
-      ? Math.round(price * 12 * (1 - yearlyDiscount))
-      : price;
+  const displayPrice = (price: string) => {
+    const num = parseFloat(price);
+    return billingCycle === "yearly"
+      ? Math.round(num * 12 * (1 - yearlyDiscount))
+      : num;
+  };
+
+  const statusBadge = (status: string) => {
+    const map: Record<string, string> = {
+      active:   "s-badge-success",
+      trialing: "s-badge-info",
+      past_due: "s-badge-warning",
+      cancelled:"s-badge-gray",
+      inactive: "s-badge-gray",
+    };
+    return <span className={`s-badge ${map[status] ?? "s-badge-gray"}`}>{status}</span>;
+  };
+
+  const invoiceStatusBadge = (status: string) => {
+    const map: Record<string, string> = {
+      paid:  "s-badge-success",
+      open:  "s-badge-warning",
+      draft: "s-badge-gray",
+      void:  "s-badge-danger",
+    };
+    return <span className={`s-badge ${map[status] ?? "s-badge-gray"}`}>{status}</span>;
+  };
 
   const billingCycleToggle = (
     <div className="settings-billing-cycle">
@@ -184,48 +135,56 @@ export default function BillingPage() {
       </div>
 
       {/* Current Plan Banner */}
-      <div className="settings-billing-plan mb-4">
-        <p className="settings-billing-plan-label">Current Plan</p>
-        <p className="settings-billing-plan-name">Growth Plan</p>
-        <p className="settings-billing-plan-price">
-          ₹2,499 / month &nbsp;·&nbsp; Renews Jan 1, 2025
-        </p>
-        <div className="settings-billing-plan-features">
-          {[
-            "10 staff members",
-            "Unlimited appointments",
-            "WhatsApp campaigns",
-            "Analytics",
-          ].map((f) => (
-            <span key={f} className="settings-billing-plan-feature">
-              <CheckCircle2 size={13} />
-              {f}
-            </span>
-          ))}
+      {loading.subscription ? (
+        <div className="settings-section">
+          <div className="settings-section-body" style={{ padding: 24, color: "#6b7280", fontSize: 13 }}>
+            Loading subscription…
+          </div>
         </div>
-        <div className="settings-billing-plan-actions">
-          <Button
-            size="sm"
-            variant="light"
-            onClick={() => toast("Manage subscription coming soon", { icon: "💳" })}
-          >
-            Manage subscription
-          </Button>
-          <Button
-            size="sm"
-            variant="outline-light"
-            onClick={() => toast("Cancel flow coming soon", { icon: "ℹ️" })}
-          >
-            Cancel plan
-          </Button>
+      ) : subscription ? (
+        <div className="settings-billing-plan mb-4">
+          <p className="settings-billing-plan-label">Current Plan</p>
+          <p className="settings-billing-plan-name">
+            {activePlan?.name ?? "Plan"} &nbsp;
+            {statusBadge(subscription.status)}
+          </p>
+          <p className="settings-billing-plan-price">
+            ₹{parseFloat(subscription.total_amount).toLocaleString()} / month
+            &nbsp;·&nbsp; Renews{" "}
+            {new Date(subscription.current_period_end).toLocaleDateString("en-IN", {
+              day: "numeric", month: "short", year: "numeric",
+            })}
+          </p>
+          {subscription.card_last4 && (
+            <p style={{ fontSize: 13, color: "rgba(255,255,255,.7)", marginTop: 4 }}>
+              {subscription.card_brand ?? "Card"} ending ···· {subscription.card_last4}
+              &nbsp;·&nbsp; Expires {subscription.card_expiry}
+            </p>
+          )}
+          <div className="settings-billing-plan-actions">
+            <Button
+              size="sm"
+              variant="outline-light"
+              loading={cancelLoading}
+              onClick={handleCancelPlan}
+              disabled={subscription.status === "cancelled"}
+            >
+              {subscription.status === "cancelled" ? "Cancelled" : "Cancel plan"}
+            </Button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="settings-billing-plan mb-4" style={{ background: "#f9fafb", border: "1px solid #e5e7eb" }}>
+          <p className="settings-billing-plan-label" style={{ color: "#6b7280" }}>No Active Plan</p>
+          <p className="settings-billing-plan-name" style={{ color: "#111827" }}>Free tier</p>
+          <p className="settings-billing-plan-price" style={{ color: "#6b7280" }}>
+            Choose a plan below to unlock all features
+          </p>
+        </div>
+      )}
 
       {/* Usage */}
-      <SettingsSection
-        title="Current Usage"
-        desc="Monthly usage for your Growth plan limits."
-      >
+      <SettingsSection title="Current Usage" desc="Monthly usage — live data where available.">
         {usageData.map((item) => {
           const pct = Math.min((item.used / item.limit) * 100, 100);
           const isWarn = pct >= 80;
@@ -234,7 +193,14 @@ export default function BillingPage() {
             <div key={item.label} className="settings-usage-row">
               <div className="settings-usage-icon-wrap">
                 <div className="settings-usage-icon">{item.icon}</div>
-                <span className="settings-usage-label">{item.label}</span>
+                <span className="settings-usage-label">
+                  {item.label}
+                  {(item as any).estimate && (
+                    <span style={{ fontSize: 10, color: "#9ca3af", marginLeft: 4 }}>
+                      (not tracked yet)
+                    </span>
+                  )}
+                </span>
               </div>
               <div className="settings-usage-bar-wrap">
                 <div
@@ -243,7 +209,7 @@ export default function BillingPage() {
                 />
               </div>
               <span className="settings-usage-count">
-                {item.used.toLocaleString()} / {item.limit.toLocaleString()}
+                {(item as any).estimate ? "— " : item.used.toLocaleString() + " "}/ {item.limit.toLocaleString()}
               </span>
             </div>
           );
@@ -253,85 +219,95 @@ export default function BillingPage() {
       {/* Plans */}
       <SettingsSection
         title="Available Plans"
-        desc="Upgrade or downgrade at any time. Changes apply at the next billing date."
+        desc="Upgrade or downgrade at any time."
         headerAction={billingCycleToggle}
       >
-        <div className="settings-plans-grid">
-          {plans.map((plan) => {
-            const isCurrent = plan.id === currentPlan;
-            return (
-              <div
-                key={plan.id}
-                className={`settings-plan-card${isCurrent ? " current" : ""}${plan.highlight ? " popular" : ""}`}
-              >
-                {plan.badge && (
-                  <div className={`settings-plan-badge${plan.highlight ? "" : " best"}`}>
-                    {plan.badge}
-                  </div>
-                )}
-
-                <div className="settings-plan-header">
-                  <div className="settings-plan-name-row">
-                    {plan.id === "starter" && <Zap size={16} color="#6b7280" />}
-                    {plan.id === "growth" && <Sparkles size={16} color="#111827" />}
-                    {plan.id === "enterprise" && <Building2 size={16} color="#374151" />}
-                    <span className="settings-plan-name">{plan.name}</span>
-                  </div>
-                  <p className="settings-plan-price">
-                    ₹{adjustedPrice(plan.price).toLocaleString()}
-                    <span> /{billingCycle === "yearly" ? "year" : "mo"}</span>
-                  </p>
-                  <p className="settings-plan-desc">{plan.description}</p>
-                </div>
-
-                <ul className="settings-plan-features">
-                  {plan.features.map((f) => (
-                    <li key={f} className="settings-plan-feature-item">
-                      <CheckCircle2 size={13} color="#10b981" strokeWidth={2.5} />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-
-                <Button
-                  fullWidth
-                  size="sm"
-                  variant={isCurrent ? "outline-secondary" : "primary"}
-                  disabled={isCurrent}
-                  loading={upgradeLoading === plan.id}
-                  onClick={() => handleUpgrade(plan.id)}
+        {loading.plans ? (
+          <p style={{ fontSize: 13, color: "#6b7280" }}>Loading plans…</p>
+        ) : (
+          <div className="settings-plans-grid">
+            {plans.map((plan) => {
+              const isCurrent = plan.id === currentPlanId;
+              const price = displayPrice(plan.price_per_unit);
+              return (
+                <div
+                  key={plan.id}
+                  className={`settings-plan-card${isCurrent ? " current" : ""}`}
                 >
-                  {isCurrent ? "Current plan" : "Upgrade"}
-                </Button>
-              </div>
-            );
-          })}
-        </div>
+                  <div className="settings-plan-header">
+                    <div className="settings-plan-name-row">
+                      {planIcons[plan.name.toLowerCase()] ?? <Zap size={16} />}
+                      <span className="settings-plan-name">{plan.name}</span>
+                    </div>
+                    <p className="settings-plan-price">
+                      ₹{price.toLocaleString()}
+                      <span> /{billingCycle === "yearly" ? "year" : "mo"}</span>
+                    </p>
+                    {plan.description && (
+                      <p className="settings-plan-desc">{plan.description}</p>
+                    )}
+                  </div>
+
+                  {plan.features && (
+                    <ul className="settings-plan-features">
+                      {Object.entries(plan.features)
+                        .filter(([, v]) => v)
+                        .map(([k]) => (
+                          <li key={k} className="settings-plan-feature-item">
+                            <CheckCircle2 size={13} color="#10b981" strokeWidth={2.5} />
+                            {k.replace(/_/g, " ")}
+                          </li>
+                        ))}
+                    </ul>
+                  )}
+
+                  <Button
+                    fullWidth
+                    size="sm"
+                    variant={isCurrent ? "outline-secondary" : "primary"}
+                    disabled={isCurrent}
+                    onClick={() =>
+                      toast(`Upgrade to ${plan.name} coming soon`, { icon: "💳" })
+                    }
+                  >
+                    {isCurrent ? "Current plan" : "Upgrade"}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </SettingsSection>
 
       {/* Payment Method */}
-      <SettingsSection
-        title="Payment Method"
-        desc="Card used for recurring billing."
-        headerAction={
-          <Button
-            size="sm"
-            variant="outline-secondary"
-            onClick={() => toast("Update card coming soon", { icon: "💳" })}
-          >
-            Update card
-          </Button>
-        }
-      >
-        <div className="settings-payment-card">
-          <CreditCard size={22} color="#374151" />
-          <div>
-            <p className="settings-payment-card-num">•••• •••• •••• 4242</p>
-            <p className="settings-payment-card-meta">Visa &nbsp;·&nbsp; Expires 12/26</p>
+      {subscription?.card_last4 && (
+        <SettingsSection
+          title="Payment Method"
+          desc="Card used for recurring billing."
+          headerAction={
+            <Button
+              size="sm"
+              variant="outline-secondary"
+              onClick={() => toast("Update card coming soon", { icon: "💳" })}
+            >
+              Update card
+            </Button>
+          }
+        >
+          <div className="settings-payment-card">
+            <CreditCard size={22} color="#374151" />
+            <div>
+              <p className="settings-payment-card-num">
+                •••• •••• •••• {subscription.card_last4}
+              </p>
+              <p className="settings-payment-card-meta">
+                {subscription.card_brand ?? "Card"} &nbsp;·&nbsp; Expires {subscription.card_expiry}
+              </p>
+            </div>
+            <span className="s-badge s-badge-success ms-auto">Default</span>
           </div>
-          <span className="s-badge s-badge-success ms-auto">Default</span>
-        </div>
-      </SettingsSection>
+        </SettingsSection>
+      )}
 
       {/* Billing History */}
       <SettingsSection
@@ -339,38 +315,48 @@ export default function BillingPage() {
         desc="Download past invoices for your records."
         noPadding
       >
-        <table className="settings-billing-table">
-          <thead className="settings-billing-head">
-            <tr>
-              <th>Invoice</th>
-              <th>Date</th>
-              <th>Description</th>
-              <th>Amount</th>
-              <th>Status</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {invoices.map((inv) => (
-              <tr key={inv.id} className="settings-billing-row">
-                <td style={{ fontWeight: 600, fontSize: 12.5 }}>{inv.id}</td>
-                <td style={{ color: "#6b7280", fontSize: 13 }}>{inv.date}</td>
-                <td style={{ fontSize: 13 }}>{inv.description}</td>
-                <td style={{ fontWeight: 700 }}>₹{inv.amount.toLocaleString()}</td>
-                <td>{getStatusBadge(inv.status)}</td>
-                <td>
-                  <button
-                    className="settings-billing-dl-btn"
-                    onClick={() => toast("Invoice download coming soon", { icon: "📄" })}
-                  >
-                    <Download size={13} />
-                    PDF
-                  </button>
-                </td>
+        {loading.invoices ? (
+          <p style={{ fontSize: 13, color: "#6b7280", padding: "16px 22px" }}>Loading invoices…</p>
+        ) : invoices.length === 0 ? (
+          <p style={{ fontSize: 13, color: "#6b7280", padding: "16px 22px" }}>No invoices yet.</p>
+        ) : (
+          <table className="settings-billing-table">
+            <thead className="settings-billing-head">
+              <tr>
+                <th>Invoice</th>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Action</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {invoices.map((inv) => (
+                <tr key={inv.id} className="settings-billing-row">
+                  <td style={{ fontWeight: 600, fontSize: 12.5 }}>{inv.invoice_number}</td>
+                  <td style={{ color: "#6b7280", fontSize: 13 }}>
+                    {new Date(inv.created_at).toLocaleDateString("en-IN", {
+                      day: "numeric", month: "short", year: "numeric",
+                    })}
+                  </td>
+                  <td style={{ fontWeight: 700 }}>
+                    ₹{parseFloat(inv.total_amount).toLocaleString()}
+                  </td>
+                  <td>{invoiceStatusBadge(inv.status)}</td>
+                  <td>
+                    <button
+                      className="settings-billing-dl-btn"
+                      onClick={() => toast("Invoice PDF coming soon", { icon: "📄" })}
+                    >
+                      <Download size={13} />
+                      PDF
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </SettingsSection>
 
       {/* Need more? */}

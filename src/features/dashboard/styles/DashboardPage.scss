@@ -460,6 +460,35 @@ body {
   color: $dashboard-secondary;
 }
 
+/* ── REVENUE PERIOD FILTERS ── */
+.db-rev-filters {
+  display: flex;
+  gap: 4px;
+}
+
+.db-rev-filter-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid $dashboard-border;
+  border-radius: 6px;
+  background: transparent;
+  color: $dashboard-secondary;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+
+  &:hover {
+    background: $dashboard-bg;
+    color: $dashboard-primary;
+  }
+
+  &.active {
+    background: $dashboard-primary;
+    color: $white;
+    border-color: $dashboard-primary;
+  }
+}
+
 /* ── TOOLTIP ── */
 .db-tooltip {
   background: $white;
@@ -1266,4 +1295,211 @@ body {
   .db-appt-section-chips {
     display: none;
   }
+}
+
+/* ── SERVICES CATALOG CARD (donut layout) ── */
+.db-svc-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.db-svc-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.db-svc-more-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: none;
+  border: none;
+  border-radius: 7px;
+  color: $dashboard-secondary;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover { background: $dashboard-bg; color: $dashboard-primary; }
+}
+
+.db-svc-view-all-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: $dashboard-primary;
+  background: $white;
+  border: 1.5px solid $dashboard-border;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+
+  &:hover {
+    background: $dashboard-bg;
+    border-color: #9ca3af;
+  }
+}
+
+.db-svc-donut-layout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+  }
+}
+
+.db-svc-donut-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 200px;
+  height: 200px;
+}
+
+.db-svc-donut-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.db-svc-donut-total {
+  font-size: 20px;
+  font-weight: 700;
+  color: $dashboard-primary;
+  line-height: 1.1;
+}
+
+.db-svc-donut-label {
+  font-size: 11px;
+  color: $dashboard-secondary;
+  margin-top: 2px;
+}
+
+.db-svc-donut-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+.db-svc-donut-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px;
+  border-bottom: 1px solid #f3f4f6;
+  transition: background 0.12s;
+
+  &:last-child { border-bottom: none; }
+  &:hover { background: #f9fafb; border-radius: 8px; }
+}
+
+.db-svc-donut-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.db-svc-donut-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.db-svc-donut-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: $dashboard-primary;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.db-svc-donut-meta {
+  font-size: 11px;
+  color: $dashboard-secondary;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.db-svc-donut-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  gap: 1px;
+}
+
+.db-svc-donut-price {
+  font-size: 13px;
+  font-weight: 700;
+  color: $dashboard-primary;
+}
+
+.db-svc-donut-pct {
+  font-size: 11px;
+  color: $dashboard-secondary;
+}
+
+/* ── SECTION LOADING / ERROR / EMPTY ── */
+.db-section-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 0;
+}
+
+.db-section-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 16px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: #dc2626;
+  margin: 12px 0;
+}
+
+.db-retry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  padding: 4px 10px;
+  background: #dc2626;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+
+  &:hover { background: #b91c1c; }
+}
+
+.db-empty {
+  padding: 32px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: $dashboard-secondary;
 }

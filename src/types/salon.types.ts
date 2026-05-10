@@ -47,10 +47,36 @@ export type UpdateSalonPayload = Partial<CreateSalonPayload> & {
   onboarding_completed?: boolean;
 };
 
+export type Branch = {
+  id: string;
+  salon_id: string;
+  name: string;
+  address_line1: string;
+  address_line2: string | null;
+  city: string;
+  state: string;
+  pincode: string;
+  is_main: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ApiResponse<T> = {
   success: boolean;
   message: string;
   data: T;
+};
+
+export type CreateBranchPayload = {
+  salon_id: string;
+  name: string;
+  address_line1: string;
+  address_line2?: string;
+  city: string;
+  state: string;
+  pincode: string;
+  is_main?: boolean;
 };
 
 export type CreateSalonResponse = {

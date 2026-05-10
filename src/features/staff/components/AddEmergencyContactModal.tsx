@@ -1,23 +1,26 @@
 import { useState, useEffect } from "react";
-import { X } from "react-bootstrap-icons";
+import { Country } from "country-state-city";
+import Modal from "../../../components/ui/Modal";
+import Input from "../../../components/ui/Input";
+import Button from "../../../components/ui/Button";
 import "../styles/AddEmergencyContactModal.scss";
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  onSave: (contact: {
-    name: string;
-    relationship: string;
-    email: string;
-    phone: string;
-  }) => void;
+  onSave: (contact: any) => void;
+  initialData?: any;
 }
 
-export default function AddEmergencyContactModal({
-  open,
-  onClose,
-  onSave,
-}: Props) {
+const PHONE_CODES = Country.getAllCountries()
+  .map((c) => ({
+    code: c.phonecode.startsWith("+") ? c.phonecode : `+${c.phonecode}`,
+    label: `${c.isoCode} (${c.phonecode.startsWith("+") ? c.phonecode : `+${c.phonecode}`})`,
+  }))
+  .filter((v, i, a) => a.findIndex((t) => t.label === v.label) === i)
+  .sort((a, b) => a.label.localeCompare(b.label));
+
+export default function AddEmergencyContactModal({ open, onClose, onSave, initialData }: Props) {
   const [name, setName] = useState("");
   const [relationship, setRelationship] = useState("");
   const [email, setEmail] = useState("");
@@ -25,139 +28,134 @@ export default function AddEmergencyContactModal({
   const [phone, setPhone] = useState("");
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
-  // Reset state when modal opens
   useEffect(() => {
     if (open) {
-      setName("");
-      setRelationship("");
-      setEmail("");
-      setPhoneCode("+91");
-      setPhone("");
       setAttemptedSubmit(false);
+      if (initialData) {
+        setName(initialData.full_name || "");
+        setRelationship(initialData.relationship || "");
+        setEmail(initialData.email || "");
+        setPhoneCode(initialData.phone_country_code || "+91");
+        setPhone(initialData.phone_number || "");
+      } else {
+        setName("");
+        setRelationship("");
+        setEmail("");
+        setPhoneCode("+91");
+        setPhone("");
+      }
     }
-  }, [open]);
+  }, [open, initialData]);
 
   const isNameInvalid = attemptedSubmit && name.trim() === "";
   const isEmailInvalid = attemptedSubmit && email.trim() === "";
+  const isPhoneInvalid =
+    attemptedSubmit && phone.trim() !== "" && !/^\d{10,15}$/.test(phone.trim());
 
   const handleAdd = () => {
     setAttemptedSubmit(true);
-    if (name.trim() === "" || email.trim() === "") {
-      return;
-    }
-    onSave({ name, relationship, email, phone: `${phoneCode} ${phone}` });
+    if (name.trim() === "" || email.trim() === "" || isPhoneInvalid) return;
+
+    onSave({
+      full_name: name,
+      relationship,
+      email,
+      phone_number: phone,
+      phone_country_code: phoneCode,
+    });
     onClose();
   };
 
-  if (!open) return null;
-
   return (
-    <div className="emergency-overlay">
-      <div className="emergency-modal">
-        {/* HEADER */}
-        <div className="modal-header">
-          <h5 className="fw-bold mb-0">Add Emergency Contact</h5>
-          <button className="close-btn" onClick={onClose}>
-            <X size={24} />
-          </button>
-        </div>
-
-        {/* BODY */}
-        <div className="modal-body">
-          <div className="form-row">
-            <div className="form-group position-relative">
-              <label>Full name</label>
-              <input
-                placeholder="e.g. John Hancock"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className={`position-relative ${isNameInvalid ? "is-invalid pe-4" : ""}`}
-              />
-              {isNameInvalid && (
-                <i
-                  className="bi bi-exclamation-circle position-absolute text-danger"
-                  style={{ right: "10px", top: "35px", pointerEvents: "none" }}
-                />
-              )}
-              {isNameInvalid && (
-                <span className="invalid-feedback-modal">
-                  Full name is required
-                </span>
-              )}
-            </div>
-
-            <div className="form-group">
-              <label>Relationship</label>
-              <select
-                value={relationship}
-                onChange={(e) => setRelationship(e.target.value)}
-              >
-                <option value="">Select an option</option>
-                <option value="Spouse">Spouse</option>
-                <option value="Parent">Parent</option>
-                <option value="Sibling">Sibling</option>
-                <option value="Friend">Friend</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group position-relative">
-              <label>Email</label>
-              <input
-                type="email"
-                placeholder="example@domain.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className={`position-relative ${isEmailInvalid ? "is-invalid pe-4" : ""}`}
-              />
-              {isEmailInvalid && (
-                <i
-                  className="bi bi-exclamation-circle position-absolute text-danger"
-                  style={{ right: "10px", top: "35px", pointerEvents: "none" }}
-                />
-              )}
-              {isEmailInvalid && (
-                <span className="invalid-feedback-modal">
-                  Email is required
-                </span>
-              )}
-            </div>
-
-            <div className="form-group">
-              <label>Phone Number</label>
-              <div className="phone-group">
-                <select
-                  value={phoneCode}
-                  onChange={(e) => setPhoneCode(e.target.value)}
-                >
-                  <option value="+91">+91</option>
-                  <option value="+1">+1</option>
-                  <option value="+44">+44</option>
-                  <option value="+61">+61</option>
-                </select>
-                <input
-                  type="text"
-                  placeholder="e.g. +1234 567 8901"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* FOOTER */}
-        <div className="modal-footer">
-          <button className="cancel-btn btn-cancel" onClick={onClose}>
+    <Modal
+      show={open}
+      onClose={onClose}
+      title={initialData ? "Edit Emergency Contact" : "Add Emergency Contact"}
+      size="md"
+      centered
+      footer={
+        <div className="ec-modal-footer">
+          <Button variant="outline-dark" onClick={onClose} className="rounded-pill px-5">
             Cancel
-          </button>
-          <button className="add-btn" onClick={handleAdd}>
+          </Button>
+          <Button variant="dark" onClick={handleAdd} className="rounded-pill px-5">
             Add
-          </button>
+          </Button>
         </div>
+      }
+    >
+      <div className="ec-modal-body">
+
+        <div className="ec-field">
+          <Input
+            label="Full name"
+            placeholder="e.g. John Hancock"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            error={isNameInvalid ? "Full name is required" : ""}
+            required
+          />
+        </div>
+
+        <div className="ec-field">
+          <label className="ec-label">Relationship</label>
+          <select
+            className="ec-select"
+            value={relationship}
+            onChange={(e) => setRelationship(e.target.value)}
+          >
+            <option value="">Select an option</option>
+            <option value="Spouse">Spouse</option>
+            <option value="Parent">Parent</option>
+            <option value="Sibling">Sibling</option>
+            <option value="Friend">Friend</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <div className="ec-field">
+          <Input
+            label="Email"
+            type="email"
+            placeholder="example@domain.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            error={isEmailInvalid ? "Email is required" : ""}
+            required
+          />
+        </div>
+
+        <div className="ec-field">
+          <label className="ec-label">Phone number</label>
+          <div className="ec-phone-group">
+            <select
+              className="ec-select ec-select--narrow"
+              value={phoneCode}
+              onChange={(e) => setPhoneCode(e.target.value)}
+            >
+              {PHONE_CODES.map((p) => (
+                <option key={p.label} value={p.code}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+            <input
+              type="tel"
+              className={`ec-input ec-input--flex${isPhoneInvalid ? " ec-input--invalid" : ""}`}
+              placeholder="98765 43210"
+              value={phone}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, "");
+                if (val.length <= 15) setPhone(val);
+              }}
+            />
+          </div>
+          {isPhoneInvalid && (
+            <p className="ec-error">Phone number must be between 10 and 15 digits</p>
+          )}
+        </div>
+
       </div>
-    </div>
+    </Modal>
   );
 }

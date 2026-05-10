@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { XLg } from "react-bootstrap-icons";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../../store/store";
-import { createProductThunk, fetchBrandsThunk, fetchCategoriesThunk } from "../../../middleware/catalog/products.thunk";
+import { createProductThunk, fetchBrandsThunk, fetchCategoriesThunk, createBrandThunk, createCategoryThunk } from "../../../middleware/catalog/products.thunk";
 import Alert from "../../../components/ui/Alert";
 import Card from "../../../components/ui/Card";
 import Input from "../../../components/ui/Input";
@@ -11,40 +11,19 @@ import Select from "../../../components/ui/Select";
 import Button from "../../../components/ui/Button";
 import "../styles/CreateProductPage.scss";
 
-const MEASURE_UNITS = [
-  { value: "ml", label: "Milliliters (ml)" },
-  { value: "l", label: "Liters (l)" },
-  { value: "g", label: "Grams (g)" },
-  { value: "kg", label: "Kilograms (kg)" },
-  { value: "pcs", label: "Pieces (pcs)" },
-  { value: "oz", label: "Ounces (oz)" },
-  { value: "lb", label: "Pounds (lb)" },
-];
 
-const TAX_OPTIONS = [
-  { value: "no_tax", label: "Default: No tax" },
-  { value: "gst_5", label: "GST 5%" },
-  { value: "gst_12", label: "GST 12%" },
-  { value: "gst_18", label: "GST 18%" },
-  { value: "gst_28", label: "GST 28%" },
-  { value: "custom", label: "Custom" },
-];
 
 interface FormState {
   productName: string;
   barcode: string;
   brandId: string;
-  measureUnit: string;
   amount: string;
-  shortDescription: string;
   description: string;
   categoryId: string;
   supplyPrice: string;
   retailSalesEnabled: boolean;
   retailPrice: string;
   markupPercentage: string;
-  taxType: string;
-  customTaxRate: string;
   commissionEnabled: boolean;
   commissionRate: string;
 }
@@ -53,17 +32,13 @@ const initialForm: FormState = {
   productName: "",
   barcode: "",
   brandId: "",
-  measureUnit: "ml",
   amount: "",
-  shortDescription: "",
   description: "",
   categoryId: "",
   supplyPrice: "",
   retailSalesEnabled: true,
   retailPrice: "",
   markupPercentage: "",
-  taxType: "no_tax",
-  customTaxRate: "",
   commissionEnabled: false,
   commissionRate: "",
 };
@@ -76,6 +51,25 @@ const CreateProductPage: React.FC = () => {
   );
 
   const [form, setForm] = useState<FormState>(initialForm);
+  const [newBrand, setNewBrand] = useState("");
+  const [showAddBrand, setShowAddBrand] = useState(false);
+  const [savingBrand, setSavingBrand] = useState(false);
+  const [newCategory, setNewCategory] = useState("");
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [savingCategory, setSavingCategory] = useState(false);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  const validationErrors = {
+    productName: !form.productName.trim() ? "Product name is required" : "",
+    categoryId: !form.categoryId ? "Product category is required" : "",
+    amount: !form.amount.trim() || isNaN(Number(form.amount)) ? "Product quantity is required" : "",
+    supplyPrice: !form.supplyPrice.trim() || isNaN(Number(form.supplyPrice)) || Number(form.supplyPrice) <= 0 ? "Supplier price is required" : "",
+  };
+
+  const isFormValid = Object.values(validationErrors).every((e) => !e);
+
+  const touch = (field: string) => setTouched((prev) => ({ ...prev, [field]: true }));
+  const touchAll = () => setTouched({ productName: true, categoryId: true, amount: true, supplyPrice: true });
 
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -107,24 +101,47 @@ const CreateProductPage: React.FC = () => {
     }
   };
 
+  const handleAddBrand = async () => {
+    if (!newBrand.trim()) return;
+    setSavingBrand(true);
+    const result = await dispatch(createBrandThunk({ name: newBrand.trim() })) as any;
+    setSavingBrand(false);
+    if (result?.payload?.id) {
+      setField("brandId", result.payload.id);
+    }
+    setNewBrand("");
+    setShowAddBrand(false);
+  };
+
+  const handleAddCategory = async () => {
+    if (!newCategory.trim()) return;
+    setSavingCategory(true);
+    const result = await dispatch(createCategoryThunk({ name: newCategory.trim() })) as any;
+    setSavingCategory(false);
+    if (result?.payload?.id) {
+      setField("categoryId", result.payload.id);
+    }
+    setNewCategory("");
+    setShowAddCategory(false);
+  };
+
   const handleSubmit = async () => {
+    touchAll();
+    if (!isFormValid) return;
+
     const payload = {
       name: form.productName.trim(),
-      measure_unit: form.measureUnit,
       retail_sales_enabled: form.retailSalesEnabled,
-      tax_type: form.taxType,
       team_commission_enabled: form.commissionEnabled,
-      ...(form.barcode            && { barcode:              form.barcode }),
-      ...(form.brandId            && { brand_id:             form.brandId }),
-      ...(form.amount             && { amount:               parseFloat(form.amount) }),
-      ...(form.shortDescription   && { short_description:    form.shortDescription }),
-      ...(form.description        && { description:          form.description }),
-      ...(form.categoryId         && { category_id:          form.categoryId }),
-      ...(form.supplyPrice        && { supply_price:         parseFloat(form.supplyPrice) }),
-      ...(form.retailSalesEnabled && form.retailPrice      && { retail_price:        parseFloat(form.retailPrice) }),
-      ...(form.retailSalesEnabled && form.markupPercentage && { markup_percentage:   parseFloat(form.markupPercentage) }),
-      ...(form.taxType === "custom" && form.customTaxRate  && { custom_tax_rate:     parseFloat(form.customTaxRate) }),
-      ...(form.commissionEnabled  && form.commissionRate   && { team_commission_rate: parseFloat(form.commissionRate) }),
+      barcode: form.barcode || null,
+      brand_id: form.brandId || null,
+      category_id: form.categoryId || null,
+      amount: form.amount ? parseFloat(form.amount) : 0,
+      description: form.description || null,
+      supply_price: form.supplyPrice ? parseFloat(form.supplyPrice) : 0,
+      retail_price: form.retailSalesEnabled && form.retailPrice ? parseFloat(form.retailPrice) : null,
+      markup_percentage: form.retailSalesEnabled && form.markupPercentage ? parseFloat(form.markupPercentage) : null,
+      team_commission_rate: form.commissionEnabled && form.commissionRate ? parseFloat(form.commissionRate) : null,
     };
 
     const result = await dispatch(createProductThunk(payload));
@@ -144,7 +161,7 @@ const CreateProductPage: React.FC = () => {
         <Button
           variant="dark"
           onClick={handleSubmit}
-          disabled={!form.productName.trim() || loading}
+          disabled={loading}
           className="cpp__submit-btn"
         >
           {loading ? "Saving..." : "Create product"}
@@ -160,12 +177,16 @@ const CreateProductPage: React.FC = () => {
           {/* 1. Basic info */}
           <Card title="Basic info" className="mb-4">
             <Input
-              label="Product name"
+              label={<>Product name <span style={{ color: "#dc2626" }}>*</span></>}
               placeholder="e.g. Organic Shampoo"
               value={form.productName}
-              onChange={(e) => setField("productName", e.target.value)}
+              onChange={(e) => { setField("productName", e.target.value); touch("productName"); }}
+              onBlur={() => touch("productName")}
               required
             />
+            {touched.productName && validationErrors.productName && (
+              <div style={{ color: "#dc2626", fontSize: "12px", marginTop: "4px" }}>{validationErrors.productName}</div>
+            )}
 
             <Input
               label={<>Product barcode <span className="text-muted fw-normal">(Optional)</span></>}
@@ -187,42 +208,58 @@ const CreateProductPage: React.FC = () => {
                 <option key={b.id} value={b.id}>{b.name}</option>
               ))}
             </Select>
-
-            <div className="row g-3 mt-1">
-              <div className="col-6">
-                <Select
-                  label="Measure"
-                  value={form.measureUnit}
-                  onChange={(e) => setField("measureUnit", e.target.value)}
-                >
-                  {MEASURE_UNITS.map((u) => (
-                    <option key={u.value} value={u.value}>{u.label}</option>
-                  ))}
-                </Select>
-              </div>
-              <div className="col-6">
-                <Input
-                  label="Amount"
-                  type="number"
-                  min="0"
-                  placeholder="0.00"
-                  value={form.amount}
-                  onChange={(e) => setField("amount", e.target.value)}
-                  iconLeft={<span style={{ fontSize: "12px" }}>{form.measureUnit}</span>}
-                  containerClass=""
+            {/* Add Brand inline */}
+            {!showAddBrand ? (
+              <button
+                type="button"
+                className="btn btn-link p-0 mt-1 text-decoration-none fw-medium"
+                style={{ fontSize: "13px", color: "#6366f1" }}
+                onClick={() => setShowAddBrand(true)}
+              >
+                + Add a brand
+              </button>
+            ) : (
+              <div className="d-flex align-items-center gap-2 mt-2 p-3 rounded-3 border bg-white" style={{ fontSize: "13px" }}>
+                <input
+                  autoFocus
+                  type="text"
+                  className="form-control form-control-sm shadow-none border-secondary-subtle"
+                  placeholder="Brand name"
+                  value={newBrand}
+                  onChange={(e) => setNewBrand(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleAddBrand(); if (e.key === "Escape") setShowAddBrand(false); }}
                 />
+                <button
+                  type="button"
+                  className="btn btn-dark btn-sm rounded-pill px-3 fw-medium flex-shrink-0"
+                  onClick={handleAddBrand}
+                  disabled={!newBrand.trim() || savingBrand}
+                >
+                  {savingBrand ? "Saving..." : "Save"}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-light btn-sm rounded-pill px-3 fw-medium flex-shrink-0 border"
+                  onClick={() => { setShowAddBrand(false); setNewBrand(""); }}
+                >
+                  Cancel
+                </button>
               </div>
-            </div>
+            )}
 
             <Input
-              label="Short description"
-              type="text"
-              maxLength={100}
-              value={form.shortDescription}
-              onChange={(e) => setField("shortDescription", e.target.value)}
+              label={<>Product Quantity <span style={{ color: "#dc2626" }}>*</span></>}
+              type="number"
+              min="0"
+              placeholder="0.00"
+              value={form.amount}
+              onChange={(e) => { setField("amount", e.target.value); touch("amount"); }}
+              onBlur={() => touch("amount")}
               containerClass="mt-3"
-              showCharCount
             />
+            {touched.amount && validationErrors.amount && (
+              <div style={{ color: "#dc2626", fontSize: "12px", marginTop: "4px" }}>{validationErrors.amount}</div>
+            )}
 
             <Input
               label="Product description"
@@ -236,30 +273,76 @@ const CreateProductPage: React.FC = () => {
             />
 
             <Select
-              label="Product category"
+              label={<>Product category <span style={{ color: "#dc2626" }}>*</span></>}
               containerClass="mt-3"
               value={form.categoryId}
-              onChange={(e) => setField("categoryId", e.target.value)}
+              onChange={(e) => { setField("categoryId", e.target.value); touch("categoryId"); }}
+              onBlur={() => touch("categoryId")}
             >
               <option value="">Select a category</option>
               {categories.map((c: any) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </Select>
+            {touched.categoryId && validationErrors.categoryId && (
+              <div style={{ color: "#dc2626", fontSize: "12px", marginTop: "4px" }}>{validationErrors.categoryId}</div>
+            )}
+            {/* Add Category inline */}
+            {!showAddCategory ? (
+              <button
+                type="button"
+                className="btn btn-link p-0 mt-1 text-decoration-none fw-medium"
+                style={{ fontSize: "13px", color: "#6366f1" }}
+                onClick={() => setShowAddCategory(true)}
+              >
+                + Add a category
+              </button>
+            ) : (
+              <div className="d-flex align-items-center gap-2 mt-2 p-3 rounded-3 border bg-white" style={{ fontSize: "13px" }}>
+                <input
+                  autoFocus
+                  type="text"
+                  className="form-control form-control-sm shadow-none border-secondary-subtle"
+                  placeholder="Category name"
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleAddCategory(); if (e.key === "Escape") setShowAddCategory(false); }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-dark btn-sm rounded-pill px-3 fw-medium flex-shrink-0"
+                  onClick={handleAddCategory}
+                  disabled={!newCategory.trim() || savingCategory}
+                >
+                  {savingCategory ? "Saving..." : "Save"}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-light btn-sm rounded-pill px-3 fw-medium flex-shrink-0 border"
+                  onClick={() => { setShowAddCategory(false); setNewCategory(""); }}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </Card>
 
           {/* 2. Pricing */}
           <Card title="Pricing" className="mb-4">
             <Input
-              label="Supply price"
+              label={<>Supply price <span style={{ color: "#dc2626" }}>*</span></>}
               type="number"
               min="0"
               placeholder="0.00"
               value={form.supplyPrice}
-              onChange={(e) => setField("supplyPrice", e.target.value)}
+              onChange={(e) => { setField("supplyPrice", e.target.value); touch("supplyPrice"); }}
+              onBlur={() => touch("supplyPrice")}
               iconLeft={<span>INR</span>}
               containerClass="mt-1"
             />
+            {touched.supplyPrice && validationErrors.supplyPrice && (
+              <div style={{ color: "#dc2626", fontSize: "12px", marginTop: "4px" }}>{validationErrors.supplyPrice}</div>
+            )}
 
             <div className="d-flex align-items-center justify-content-between mt-4 mb-1">
               <div>
@@ -309,31 +392,6 @@ const CreateProductPage: React.FC = () => {
                     containerClass=""
                   />
                 </div>
-              </div>
-            )}
-
-            <Select
-              label="Tax"
-              containerClass="mt-4"
-              value={form.taxType}
-              onChange={(e) => setField("taxType", e.target.value)}
-            >
-              {TAX_OPTIONS.map((t) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
-            </Select>
-
-            {form.taxType === "custom" && (
-              <div className="mt-3 col-6">
-                <Input
-                  label="Custom tax rate (%)"
-                  type="number"
-                  min="0"
-                  placeholder="0.00"
-                  value={form.customTaxRate}
-                  onChange={(e) => setField("customTaxRate", e.target.value)}
-                  containerClass=""
-                />
               </div>
             )}
           </Card>

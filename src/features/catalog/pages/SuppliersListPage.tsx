@@ -6,119 +6,35 @@ import {
   ThreeDotsVertical,
 } from "react-bootstrap-icons";
 import { useNavigate } from "react-router-dom";
-import "./SuppliersListPage.scss";
-
-interface Supplier {
-  id: string;
-  name: string;
-  contact: string;
-  email: string;
-  phone: string;
-}
-
-const MOCK_SUPPLIERS: Supplier[] = [
-  {
-    id: "1",
-    name: "Beauty Care Inc",
-    contact: "Anita Sharma",
-    email: "anita@beautycare.com",
-    phone: "+91 98765 43210",
-  },
-  {
-    id: "2",
-    name: "Style Brands",
-    contact: "Rahul Mehta",
-    email: "rahul@stylebrands.com",
-    phone: "+91 87654 32109",
-  },
-  {
-    id: "3",
-    name: "ProHair Ltd",
-    contact: "Sneha Patel",
-    email: "sneha@prohair.in",
-    phone: "+91 76543 21098",
-  },
-  {
-    id: "4",
-    name: "Luxe Beauty",
-    contact: "Priya Nair",
-    email: "priya@luxebeauty.com",
-    phone: "+44 7911 123456",
-  },
-  {
-    id: "5",
-    name: "GlowSkin Co",
-    contact: "Amit Singh",
-    email: "amit@glowskin.co",
-    phone: "+1 555 234 5678",
-  },
-  {
-    id: "6",
-    name: "NailArt Pro",
-    contact: "Divya Kapoor",
-    email: "divya@nailartpro.com",
-    phone: "+91 65432 10987",
-  },
-  {
-    id: "7",
-    name: "ColorMix India",
-    contact: "Suresh Joshi",
-    email: "suresh@colormix.in",
-    phone: "+91 54321 09876",
-  },
-  {
-    id: "8",
-    name: "HairTech World",
-    contact: "Meena Gupta",
-    email: "meena@hairtech.com",
-    phone: "+61 412 345 678",
-  },
-  {
-    id: "9",
-    name: "Pure Naturals",
-    contact: "Lakshmi Iyer",
-    email: "lakshmi@purenaturals.in",
-    phone: "+91 43210 98765",
-  },
-  {
-    id: "10",
-    name: "Salon Essentials",
-    contact: "Vikram Rao",
-    email: "vikram@salonessentials.com",
-    phone: "+971 50 123 4567",
-  },
-  {
-    id: "11",
-    name: "Glam Supply Co",
-    contact: "Pooja Reddy",
-    email: "pooja@glamsupply.com",
-    phone: "+91 32109 87654",
-  },
-  {
-    id: "12",
-    name: "CutEdge Supplies",
-    contact: "Karan Verma",
-    email: "karan@cutedge.in",
-    phone: "+91 21098 76543",
-  },
-];
+import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import { fetchSuppliersThunk, deleteSupplierThunk } from "../../../middleware/inventory/inventory.thunk";
+import type { Supplier } from "../../../types/inventory.types";
+import "../styles/SuppliersListPage.scss";
 
 const ITEMS_PER_PAGE = 8;
 
 const SuppliersListPage: React.FC = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const { suppliers, loading, error } = useAppSelector((state) => state.inventory);
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+  useEffect(() => {
+    dispatch(fetchSuppliersThunk());
+  }, [dispatch]);
 
   const filtered = useMemo(
     () =>
-      MOCK_SUPPLIERS.filter(
+      suppliers.filter(
         (s) =>
           s.name.toLowerCase().includes(search.toLowerCase()) ||
-          s.contact.toLowerCase().includes(search.toLowerCase()) ||
-          s.email.toLowerCase().includes(search.toLowerCase()),
+          (s.first_name?.toLowerCase().includes(search.toLowerCase()) ?? false) ||
+          (s.last_name?.toLowerCase().includes(search.toLowerCase()) ?? false) ||
+          (s.email?.toLowerCase().includes(search.toLowerCase()) ?? false),
       ),
-    [search],
+    [search, suppliers],
   );
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
@@ -127,6 +43,13 @@ const SuppliersListPage: React.FC = () => {
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE,
   );
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm("Are you sure you want to delete this supplier?")) {
+      await dispatch(deleteSupplierThunk(id));
+      setActiveMenuId(null);
+    }
+  };
 
   return (
     <div className="suppliers-list-page">
@@ -181,20 +104,31 @@ const SuppliersListPage: React.FC = () => {
                   key={s.id}
                   className="cursor-pointer"
                   onClick={() =>
-                    navigate(`/dashboard/catalog/inventory/suppliers/${s.id}`)
+                    navigate(`/dashboard/catalog/inventory/suppliers/${s.id}/edit`)
                   }
                 >
                   <td className="fw-semibold">{s.name}</td>
-                  <td>{s.contact}</td>
-                  <td className="text-secondary">{s.email}</td>
-                  <td className="text-secondary">{s.phone}</td>
+                  <td>{s.first_name} {s.last_name}</td>
+                  <td className="text-secondary">{s.email || "—"}</td>
+                  <td className="text-secondary">{s.mobile_number || s.telephone_number || "—"}</td>
                   <td
                     className="actions-cell"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <button className="btn-icon">
-                      <ThreeDotsVertical size={15} />
-                    </button>
+                    <div className="dropdown-wrap">
+                      <button 
+                        className="btn-icon"
+                        onClick={() => setActiveMenuId(activeMenuId === s.id ? null : s.id)}
+                      >
+                        <ThreeDotsVertical size={15} />
+                      </button>
+                      {activeMenuId === s.id && (
+                        <div className="actions-dropdown">
+                          <button onClick={() => navigate(`/dashboard/catalog/inventory/suppliers/${s.id}/edit`)}>Edit</button>
+                          <button className="text-danger" onClick={() => handleDelete(s.id)}>Delete</button>
+                        </div>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

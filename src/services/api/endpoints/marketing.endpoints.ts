@@ -5,11 +5,12 @@ export const MARKETING = {
   TEMPLATE_SYNC:  (id: string | number) => `/api/v1/templates/${id}/sync`,
 
   // ── Campaigns ───────────────────────────────────────────────────────────────
-  CAMPAIGNS:         "/api/v1/campaigns",
-  CAMPAIGN_BY_ID:    (id: string | number) => `/api/v1/campaigns/${id}`,
-  CAMPAIGN_PAUSE:    (id: string | number) => `/api/v1/campaigns/${id}/pause`,
-  CAMPAIGN_RESUME:   (id: string | number) => `/api/v1/campaigns/${id}/resume`,
-  CAMPAIGN_CONTACTS: (id: string | number) => `/api/v1/campaigns/${id}/contacts`,
+  CAMPAIGNS:          "/api/v1/campaigns",
+  CAMPAIGN_BY_ID:     (id: string | number) => `/api/v1/campaigns/${id}`,
+  CAMPAIGN_PAUSE:     (id: string | number) => `/api/v1/campaigns/${id}/pause`,
+  CAMPAIGN_RESUME:    (id: string | number) => `/api/v1/campaigns/${id}/resume`,
+  CAMPAIGN_CONTACTS:  (id: string | number) => `/api/v1/campaigns/${id}/contacts`,
+  CAMPAIGN_REPORT:    (id: string | number, type: string) => `/api/v1/campaigns/${id}/report/${type}`,
 
   // ── Webhooks ──────────────────────────────────────────────────────────────
   WEBHOOK_EVENTS: "/api/v1/webhooks/events",   // ✓ confirmed in webhooks.routes.ts

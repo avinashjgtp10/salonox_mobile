@@ -6,7 +6,6 @@ import { downloadBlob } from "../../utils/downloadBlob";
 import type {
   Staff,
   StaffResponse,
-  StaffListResponse,
   CreateStaffPayload,
   UpdateStaffPayload,
 } from "../../types/staff.types";
@@ -16,10 +15,15 @@ export const fetchStaffThunk = createAsyncThunk<
   Staff[],
   void,
   { rejectValue: string }
->("staff/fetchAll", async (_, { rejectWithValue }) => {
+>("staff/fetchAll", async (_, { rejectWithValue, getState }) => {
   try {
-    const res = await api.get<StaffListResponse>(STAFF.BASE);
-    return res.data.data;
+    const state = getState() as any;
+    const salonId = state.salon?.currentSalon?.id;
+    const params = new URLSearchParams();
+    if (salonId) params.set("salon_id", String(salonId));
+    const res = await api.get<any>(`${STAFF.BASE}?${params.toString()}`);
+    const data = res.data?.data;
+    return Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to fetch staff");
@@ -63,7 +67,7 @@ export const updateStaffThunk = createAsyncThunk<
   { rejectValue: string }
 >("staff/update", async ({ id, data }, { rejectWithValue }) => {
   try {
-    const res = await api.put<StaffResponse>(STAFF.BY_ID(id), data);
+    const res = await api.patch<StaffResponse>(STAFF.BY_ID(id), data);
     return res.data.data;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
@@ -76,9 +80,15 @@ export const deleteStaffThunk = createAsyncThunk<
   string | number, // returns the deleted id so reducer can remove it
   string | number,
   { rejectValue: string }
->("staff/delete", async (id, { rejectWithValue }) => {
+>("staff/delete", async (id, { rejectWithValue, getState }) => {
   try {
-    await api.delete(STAFF.BY_ID(id));
+    const state = getState() as any;
+    const salonId = state.salon?.currentSalon?.id;
+    const headers: Record<string, string> = {};
+    if (salonId) headers["x-salon-id"] = String(salonId);
+    const params = new URLSearchParams();
+    if (salonId) params.set("salon_id", String(salonId));
+    await api.delete(`${STAFF.BY_ID(id)}?${params.toString()}`, { headers });
     return id;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
@@ -98,5 +108,20 @@ export const exportStaffThunk = createAsyncThunk<
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to export staff");
+  }
+});
+
+// ── Accept Invitation ──────────────────────────────────────────────────────────
+export const acceptInviteThunk = createAsyncThunk<
+  { staffId: string; accessToken: string; refreshToken: string; user: any; isOnboardingComplete: boolean },
+  { token: string; first_name: string; last_name?: string; password: string },
+  { rejectValue: string }
+>("staff/acceptInvite", async (payload, { rejectWithValue }) => {
+  try {
+    const res = await api.post(STAFF.ACCEPT_INVITATION, payload);
+    return res.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue(err.response?.data?.message || "Failed to accept invitation");
   }
 });

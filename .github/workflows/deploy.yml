@@ -15,13 +15,17 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --include=optional --no-package-lock
 
       - name: Build
         run: npm run build
+        env:
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_APP_NAME: Salonox
+          VITE_APP_ENV: production
 
       - name: Clean old files on EC2
         uses: appleboy/ssh-action@v1.0.3

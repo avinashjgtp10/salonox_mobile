@@ -8,6 +8,8 @@ import type {
   CreateSalonResponse,
   ApiResponse,
   Salon,
+  Branch,
+  CreateBranchPayload,
 } from "../../types/salon.types";
 
 // ── Save Salon (Create or Update) ─────────────────────────────────────────────
@@ -101,5 +103,35 @@ export const updateSalonThunk = createAsyncThunk<
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to update salon.");
+  }
+});
+
+// ── Fetch Branches By Salon ───────────────────────────────────────────────────
+export const fetchBranchesThunk = createAsyncThunk<
+  Branch[],
+  string,
+  { rejectValue: string }
+>("salon/fetchBranches", async (salonId, { rejectWithValue }) => {
+  try {
+    const res = await api.get<ApiResponse<Branch[]>>(SALON.BRANCHES_BY_SALON(salonId));
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to fetch branches.");
+  }
+});
+
+// ── Create Branch ─────────────────────────────────────────────────────────────
+export const createBranchThunk = createAsyncThunk<
+  Branch,
+  CreateBranchPayload,
+  { rejectValue: string }
+>("salon/createBranch", async (payload, { rejectWithValue }) => {
+  try {
+    const res = await api.post<ApiResponse<Branch>>(SALON.CREATE_BRANCH, payload);
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to create branch.");
   }
 });

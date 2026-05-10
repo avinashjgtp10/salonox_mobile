@@ -1,0 +1,603 @@
+// ── Schedule Page ─────────────────────────────────────────────────────────────
+
+.sched-page {
+  min-height: 100%;
+  background: #f8f9fb;
+
+  &__content {
+    padding: 24px 28px;
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+
+  &__title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #111827;
+    margin: 0 0 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  &__controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  // ── Legend ──────────────────────────────────────────────────────────────────
+  &__legend {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  &__legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+
+    &--working {
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+      color: #15803d;
+    }
+
+    &--blocked {
+      background: #fff1f2;
+      border-color: #fecdd3;
+      color: #be123c;
+    }
+
+    &--dayoff {
+      background: #fefce8;
+      border-color: #fef08a;
+      color: #a16207;
+    }
+  }
+
+  &__legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+
+    &--working  { background: #22c55e; }
+    &--blocked  { background: #ef4444; }
+    &--dayoff   { background: #facc15; }
+  }
+
+  // ── Week Navigation ──────────────────────────────────────────────────────────
+  &__nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  &__nav-btn {
+    all: unset;
+    box-sizing: border-box;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    color: #6b7280;
+    cursor: pointer;
+    background: #fff;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+
+    svg { display: block; }
+
+    &:hover {
+      background: #f3f4f6;
+      color: #111827;
+      border-color: #d1d5db;
+    }
+
+    &--today {
+      padding: 0 14px;
+      width: auto;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    &--date {
+      width: auto;
+      padding: 0 14px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #1f2937;
+      background: #fff;
+      cursor: default;
+      min-width: 130px;
+      justify-content: center;
+
+      &:hover {
+        background: #fff;
+        color: #1f2937;
+        border-color: #e5e7eb;
+      }
+    }
+  }
+
+  // ── Syncing indicator ────────────────────────────────────────────────────────
+  &__syncing {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: #6366f1;
+    margin-bottom: 10px;
+
+    svg {
+      display: block;
+      animation: schedSpin 1s linear infinite;
+    }
+  }
+}
+
+// ── Schedule Table ─────────────────────────────────────────────────────────────
+
+.sched-table {
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.05);
+  overflow-x: auto;        // horizontal scroll only — NO overflow:hidden so dropdowns aren't clipped
+
+  &__el {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 900px;
+    font-size: 0.875rem;
+  }
+
+  // ── Header ───────────────────────────────────────────────────────────────────
+  &__head-row {
+    background: #1e293b;
+  }
+
+  &__th-name {
+    position: sticky;
+    left: 0;
+    z-index: 20;
+    background: #1e293b;
+    text-align: left;
+    padding: 12px 16px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-right: 1px solid #334155;
+    min-width: 200px;
+    border-radius: 10px 0 0 0;   // round top-left of the table
+  }
+
+  &__th-date {
+    text-align: center;
+    padding: 10px 8px;
+    border-right: 1px solid #334155;
+    min-width: 120px;
+    vertical-align: middle;
+  }
+
+  &__th-date-val {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    line-height: 1.3;
+  }
+
+  &__th-date-day {
+    font-size: 0.7rem;
+    font-weight: 400;
+    color: #64748b;
+    margin-top: 2px;
+  }
+
+  &__th-copy {
+    min-width: 90px;
+    border: none;
+    border-radius: 0 10px 0 0;  // round top-right of the table
+  }
+
+  // ── Body ─────────────────────────────────────────────────────────────────────
+  &__row {
+    border-bottom: 1px solid #f1f5f9;
+    transition: background 0.12s;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &:hover .sched-table__td-name {
+      background: #fafafa;
+    }
+  }
+
+  &__td-name {
+    position: sticky;
+    left: 0;
+    z-index: 10;
+    background: #fff;
+    border-right: 1px solid #e5e7eb;
+    min-width: 200px;
+    max-width: 200px;
+    padding: 0;
+    transition: background 0.12s;
+  }
+
+  &__staff {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+  }
+
+  &__avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    text-transform: uppercase;
+  }
+
+  &__name {
+    font-size: 0.845rem;
+    font-weight: 600;
+    color: #1e293b;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__edit-btn {
+    all: unset;
+    box-sizing: border-box;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    color: #94a3b8;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s, color 0.15s;
+
+    svg { display: block; pointer-events: none; }
+
+    &:hover {
+      background: #f1f5f9;
+      color: #475569;
+    }
+  }
+
+  &__td-cell {
+    border-right: 1px solid #f1f5f9;
+    padding: 0;
+    vertical-align: top;
+    width: 128px;
+    min-width: 120px;
+  }
+
+  &__td-copy {
+    padding: 10px 12px 10px 8px;
+    text-align: right;
+    vertical-align: middle;
+  }
+
+  &__copy-btn {
+    all: unset;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #475569;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+
+    svg { display: block; pointer-events: none; }
+
+    &:hover {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+      color: #1e293b;
+    }
+  }
+
+  // ── Empty state ───────────────────────────────────────────────────────────────
+  &__empty {
+    &-cell {
+      padding: 60px 24px;
+      text-align: center;
+    }
+
+    &-icon {
+      width: 52px;
+      height: 52px;
+      margin: 0 auto 14px;
+      color: #cbd5e1;
+
+      svg { width: 100%; height: 100%; display: block; }
+    }
+
+    &-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #475569;
+      margin: 0 0 6px;
+    }
+
+    &-sub {
+      font-size: 0.845rem;
+      color: #94a3b8;
+      margin: 0;
+    }
+  }
+}
+
+// ── Schedule Cell ─────────────────────────────────────────────────────────────
+
+.sched-cell {
+  position: relative;
+  width: 100%;
+  min-height: 76px;
+  cursor: pointer;
+  transition: filter 0.12s;
+
+  &:hover {
+    filter: brightness(0.97);
+  }
+
+  &--empty {
+    background: #fff;
+
+    &:hover {
+      background: #f8fafc;
+      filter: none;
+    }
+  }
+
+  &--working {
+    background: #f0fdf4;
+  }
+
+  &--blocked {
+    background: #fff1f2;
+  }
+
+  &--dayoff {
+    background: #fefce8;
+  }
+
+  // ── Add button (empty cells) ──────────────────────────────────────────────────
+  &__add {
+    all: unset;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 76px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  &__add-icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1.5px solid #cbd5e1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+
+    .sched-cell--empty:hover & {
+      border-color: #64748b;
+      color: #334155;
+      background: #f1f5f9;
+    }
+  }
+
+  // ── Edit pencil (populated cells) ────────────────────────────────────────────
+  &__edit {
+    all: unset;
+    box-sizing: border-box;
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    color: rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    z-index: 5;
+    transition: background 0.15s, color 0.15s;
+
+    svg { display: block; pointer-events: none; }
+
+    &:hover {
+      background: rgba(0, 0, 0, 0.08);
+      color: rgba(0, 0, 0, 0.6);
+    }
+  }
+
+  // ── Time info ─────────────────────────────────────────────────────────────────
+  &__info {
+    padding: 8px 10px 8px;
+  }
+
+  &__time {
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.4;
+
+    .sched-cell--working  & { color: #166534; }
+    .sched-cell--blocked  & { color: #9f1239; }
+    .sched-cell--dayoff   & { color: #92400e; }
+  }
+
+  &__hours {
+    font-size: 0.68rem;
+    font-weight: 500;
+    margin-top: 3px;
+
+    .sched-cell--working  & { color: #16a34a; }
+    .sched-cell--blocked  & { color: #e11d48; }
+    .sched-cell--dayoff   & { color: #d97706; }
+  }
+}
+
+// ── Cell Dropdown ─────────────────────────────────────────────────────────────
+
+.sched-dropdown {
+  // position/top/left/z-index are set via inline style (portal renders into document.body)
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.06);
+  padding: 4px;
+
+  &__item {
+    all: unset;
+    box-sizing: border-box;
+    display: block;
+    width: 100%;
+    padding: 9px 14px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: #334155;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+
+    &:hover {
+      background: #eef2ff;
+      color: #4338ca;
+    }
+  }
+}
+
+// ── Pagination ─────────────────────────────────────────────────────────────────
+
+.sched-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 12px 4px;
+  border-top: 1px solid #e5e7eb;
+
+  &__info {
+    font-size: 0.82rem;
+    color: #6b7280;
+
+    strong {
+      color: #1e293b;
+      font-weight: 600;
+    }
+  }
+
+  &__controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  &__btn {
+    all: unset;
+    box-sizing: border-box;
+    min-width: 34px;
+    height: 34px;
+    padding: 0 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: #374151;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+
+    svg { display: block; pointer-events: none; }
+
+    &:hover:not(:disabled) {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+      color: #111827;
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    &--active {
+      background: #1e293b;
+      border-color: #1e293b;
+      color: #fff;
+      font-weight: 700;
+
+      &:hover:not(:disabled) {
+        background: #1e293b;
+        border-color: #1e293b;
+        color: #fff;
+      }
+    }
+  }
+
+  &__ellipsis {
+    min-width: 28px;
+    text-align: center;
+    font-size: 0.82rem;
+    color: #9ca3af;
+    user-select: none;
+  }
+}
+
+// ── Keyframes ────────────────────────────────────────────────────────────────
+@keyframes schedSpin {
+  to { transform: rotate(360deg); }
+}

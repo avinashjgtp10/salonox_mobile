@@ -3,7 +3,6 @@ import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  Search,
   Sliders,
   ChevronDown,
   ChevronUp,
@@ -19,6 +18,7 @@ import {
   DashCircleFill,
 } from "react-bootstrap-icons";
 import ClientDetailsDrawer from "../components/ClientDetailsDrawer";
+import ClientSearchInput from "../components/ClientSearchInput";
 
 // UI Components
 import {
@@ -262,9 +262,8 @@ export default function ClientsListPage() {
                     {genderOptions.map((g) => (
                       <div
                         key={g}
-                        className={`option ${
-                          selectedGender === g ? "active" : ""
-                        }`}
+                        className={`option ${selectedGender === g ? "active" : ""
+                          }`}
                         onClick={() => setSelectedGender(g)}
                       >
                         <span>{g}</span>
@@ -325,7 +324,7 @@ export default function ClientsListPage() {
           <Button
             variant="outline-dark"
             onClick={() =>
-              i18n.changeLanguage(i18n.language === "en" ? "es" : "en")
+              void i18n.changeLanguage(i18n.language === "en" ? "es" : "en")
             }
           >
             {i18n.language === "en" ? "Español" : "English"}
@@ -448,14 +447,14 @@ export default function ClientsListPage() {
       <div className="search-container mb-4">
         <div className="search-section d-flex align-items-center justify-content-between">
           <div className="search-left d-flex align-items-center gap-2 flex-grow-1 me-3">
-            <div style={{ maxWidth: "400px", flex: 1 }}>
-              <Input
-                placeholder="Name, email or phone"
-                className="mb-0"
-                containerClass="mb-0"
-                iconLeft={<Search size={16} />}
-              />
-            </div>
+            <ClientSearchInput
+              placeholder="Search by Name / Phone (min 2 chars)"
+              highlight
+              onSelect={(client) => {
+                setSelectedClientId(client.id);
+                setIsDrawerOpen(true);
+              }}
+            />
 
             <Button
               variant="outline-dark"
@@ -637,7 +636,7 @@ export default function ClientsListPage() {
                       <input
                         type="checkbox"
                         checked={selectedClients.includes(String(client.id))}
-                        onChange={() => {}}
+                        onChange={() => { }}
                         onClick={(e) =>
                           handleSelectClient(e, String(client.id))
                         }

@@ -1,5 +1,9 @@
-import { useNavigate, useLocation } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import type { AppDispatch } from "../../../store/store";
+import { selectCurrentSalon, selectAllStaff, selectStaffLoading } from "../../../store/selectors/slices.selectors";
+import { fetchStaffThunk, deleteStaffThunk } from "../../../middleware/staff/staff.thunk";
 import {
   Search as SearchIcon,
   Sliders,
@@ -16,88 +20,159 @@ import {
   FiletypeCsv,
   Pencil,
   People,
+  Trash,
+  ThreeDots,
+  TelephoneFill,
+  EnvelopeFill,
+  CheckCircleFill,
+  ExclamationCircleFill,
 } from "react-bootstrap-icons";
 import "../styles/StaffListPage.scss";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
+import { Button, Input, DownloadButton } from "../../../components/ui";
 
-// UI Components — all from the barrel index
-import { Button, Input, Badge, DownloadButton } from "../../../components/ui";
+interface StaffMember {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone_number?: string;
+  phone?: string;
+  status?: string;
+  invitation_status?: string;
+  job_title?: string;
+  calendar_color?: string;
+  location?: string;
+  allow_calendar_bookings?: boolean;
+  permission_level?: string;
+  is_active?: boolean;
+  created_at?: string;
+}
+
+const AVATAR_GRADIENTS = [
+  "linear-gradient(135deg,#6366f1,#8b5cf6)",
+  "linear-gradient(135deg,#f59e0b,#ef4444)",
+  "linear-gradient(135deg,#10b981,#059669)",
+  "linear-gradient(135deg,#3b82f6,#06b6d4)",
+  "linear-gradient(135deg,#ec4899,#f43f5e)",
+  "linear-gradient(135deg,#8b5cf6,#6366f1)",
+  "linear-gradient(135deg,#f97316,#fbbf24)",
+  "linear-gradient(135deg,#14b8a6,#0ea5e9)",
+];
+
+function getGradient(id: string | number) {
+  const seed = typeof id === "number" ? id : id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return AVATAR_GRADIENTS[seed % AVATAR_GRADIENTS.length];
+}
+
+const COLOR_KEY_TO_HEX: Record<string, string> = {
+  light_blue: "#7dd3fc", blue: "#3b82f6", dark_blue: "#1d4ed8",
+  purple: "#a855f7", violet: "#7c3aed", pink: "#f472b6",
+  hot_pink: "#ec4899", rose: "#f43f5e", orange: "#f97316",
+  yellow: "#eab308", lime: "#84cc16", green: "#22c55e",
+  teal: "#14b8a6", cyan: "#06b6d4",
+};
+
+function resolveColor(color?: string): string | undefined {
+  if (!color) return undefined;
+  return COLOR_KEY_TO_HEX[color] ?? color;
+}
+
+const PERMISSION_LABELS: Record<string, string> = {
+  no_access: "No Access",
+  basic:     "Basic",
+  low:       "Low",
+  medium:    "Medium",
+  high:      "High",
+  manager:   "Manager",
+};
+
 export default function StaffListPage() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const [staff, setStaff] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  const fetchStaff = async () => {
-    try {
-      setLoading(true);
-      const res = await api.get(STAFF.BASE);
-      console.log("STAFF API RESPONSE:", res.data);
-      const staffData = res.data?.data?.items || [];
-      setStaff(Array.isArray(staffData) ? staffData : []);
-    } catch (error) {
-      console.error("Error fetching staff", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const dispatch = useDispatch<AppDispatch>();
+  const staff = useSelector(selectAllStaff) as unknown as StaffMember[];
+  const loadingState = useSelector(selectStaffLoading);
+  // Using loading boolean depending on structure (usually boolean, but sometimes object)
+  const loading = typeof loadingState === "boolean" ? loadingState : (loadingState as any)?.fetch || false;
+  
+  const PAGE_SIZE = 10;
+  const [currentPage, setCurrentPage] = useState(1);
 
-  useEffect(() => {
-    fetchStaff();
-  }, [location]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showFilter, setShowFilter] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
+  const [selectedSort, setSelectedSort] = useState("Custom order");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const [actionMenuId, setActionMenuId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Filter state
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+  const [bookable, setBookable] = useState(false);
+  const [nonBookable, setNonBookable] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<"all" | "active" | "archived">("all");
 
   const locations = ["Main Branch", "Branch 2", "Branch 3"];
   const sortOptions = [
     "Custom order",
     "Name (A-Z)",
     "Name (Z-A)",
-    "Surname (A-Z)",
-    "Surname (Z-A)",
     "Started at (oldest first)",
     "Started at (newest first)",
     "Rating (highest first)",
-    "Rating (lowest first)",
-    "Updated at (oldest first)",
-    "Updated at (newest first)",
   ];
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [showFilter, setShowFilter] = useState(false);
-  const [sortOpen, setSortOpen] = useState(false);
-  const [selectedSort, setSelectedSort] = useState("Custom order");
+  const showToast = useCallback((msg: string, type: "success" | "error" = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3500);
+  }, []);
 
-  // Checkbox & Actions state
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const [optionsOpen, setOptionsOpen] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const currentSalon = useSelector(selectCurrentSalon);
+  const salonId = currentSalon?.id;
 
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  };
+  const fetchStaff = useCallback(async () => {
+    try {
+      await dispatch(fetchStaffThunk()).unwrap();
+    } catch (error: any) {
+      console.error("Error fetching staff", error);
+      showToast(`Failed to load team members: ${error || "Unknown error"}`, "error");
+    }
+  }, [dispatch, showToast]);
 
-  // Filter state
-  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
-  const [bookable, setBookable] = useState(false);
-  const [nonBookable, setNonBookable] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState<
-    "all" | "active" | "archived"
-  >("all");
+  useEffect(() => {
+    fetchStaff();
+
+    // Poll every 30 s to detect invitation acceptance without hammering the server
+    const pollInterval = setInterval(fetchStaff, 30000);
+    return () => clearInterval(pollInterval);
+  }, [fetchStaff]);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handler = () => {
+      setOptionsOpen(false);
+      setSortOpen(false);
+      setActionMenuId(null);
+    };
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, []);
 
   const toggleLocation = (loc: string) =>
     setSelectedLocations((prev) =>
-      prev.includes(loc) ? prev.filter((l) => l !== loc) : [...prev, loc],
+      prev.includes(loc) ? prev.filter((l) => l !== loc) : [...prev, loc]
     );
   const toggleAllLocations = () =>
-    setSelectedLocations((prev) =>
-      prev.length === locations.length ? [] : [...locations],
-    );
+    setSelectedLocations((prev) => (prev.length === locations.length ? [] : [...locations]));
 
-  const typeBadgeCount = (bookable ? 1 : 0) + (nonBookable ? 1 : 0);
   const totalFilterBadge =
     selectedLocations.length +
-    typeBadgeCount +
+    (bookable ? 1 : 0) +
+    (nonBookable ? 1 : 0) +
     (selectedStatus !== "all" ? 1 : 0);
 
   const clearFilters = () => {
@@ -111,65 +186,123 @@ export default function StaffListPage() {
     setSelectedIds(e.target.checked ? filtered.map((m) => m.id) : []);
   };
 
-  const handleCheck = (e: React.MouseEvent, id: number) => {
+  const handleCheck = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   };
 
-  const handleDeleteStaff = async (id: number) => {
+  const handleDeleteStaff = async (id: string) => {
+    setDeletingId(id);
     try {
-      await api.delete(STAFF.BY_ID(id));
-      await fetchStaff();
-      showToast("Staff member deleted successfully");
-    } catch (error) {
-      console.error("Error deleting staff", error);
-      showToast("Error deleting staff member");
+      await dispatch(deleteStaffThunk(id)).unwrap();
+      showToast("Team member deleted successfully");
+      setSelectedIds((prev) => prev.filter((x) => x !== id));
+      // Refetch to sync with server (handles edge cases where backend may have cascade effects)
+      fetchStaff();
+    } catch (err: any) {
+      showToast(err || "Failed to delete team member", "error");
+    } finally {
+      setDeletingId(null);
+      setActionMenuId(null);
     }
   };
 
+  const handleResendInvite = async (id: string) => {
+    try {
+      const params = new URLSearchParams();
+      if (salonId) params.set("salon_id", String(salonId));
+      await api.post(`${STAFF.BY_ID(id)}/resend-invite?${params.toString()}`);
+      showToast("Invitation resent successfully");
+    } catch {
+      showToast("Failed to resend invitation", "error");
+    } finally {
+      setActionMenuId(null);
+    }
+  };
+
+  const handleToggleStatus = async (member: StaffMember) => {
+    const isActive = (member.status || "Active").toLowerCase() === "active";
+    try {
+      const params = new URLSearchParams();
+      if (salonId) params.set("salon_id", String(salonId));
+      const url = isActive ? STAFF.DEACTIVATE(member.id) : STAFF.ACTIVATE(member.id);
+      await api.patch(`${url}?${params.toString()}`);
+      showToast(`${member.first_name} ${isActive ? "deactivated" : "activated"} successfully`);
+      fetchStaff();
+    } catch {
+      showToast("Failed to update status", "error");
+    }
+    setActionMenuId(null);
+  };
+
   const filtered = staff.filter((s) => {
+    const name = `${s.first_name || ""} ${s.last_name || ""}`.toLowerCase();
     const matchesSearch =
-      (s.first_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (s.last_name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (s.email || "").toLowerCase().includes(searchTerm.toLowerCase());
+      name.includes(searchTerm.toLowerCase()) ||
+      (s.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.phone_number || s.phone || "").includes(searchTerm);
     const matchesLocation =
-      selectedLocations.length === 0 || selectedLocations.includes(s.location);
+      selectedLocations.length === 0 || selectedLocations.includes(s.location || "");
     const matchesStatus =
       selectedStatus === "all" ||
-      (selectedStatus === "active" && s.status === "Active") ||
-      (selectedStatus === "archived" && s.status === "Inactive");
-    return matchesSearch && matchesLocation && matchesStatus;
+      (selectedStatus === "active" && (s.is_active !== false)) ||
+      (selectedStatus === "archived" && s.is_active === false);
+    const matchesBookable =
+      !bookable && !nonBookable
+        ? true
+        : (bookable && s.allow_calendar_bookings) ||
+        (nonBookable && !s.allow_calendar_bookings);
+    return matchesSearch && matchesLocation && matchesStatus && matchesBookable;
   });
 
+  const sorted = [...filtered].sort((a, b) => {
+    const nameA = `${a.first_name} ${a.last_name}`.toLowerCase();
+    const nameB = `${b.first_name} ${b.last_name}`.toLowerCase();
+    if (selectedSort === "Name (A-Z)") return nameA.localeCompare(nameB);
+    if (selectedSort === "Name (Z-A)") return nameB.localeCompare(nameA);
+    return 0;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const pagedSorted = useMemo(
+    () => sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [sorted, currentPage, PAGE_SIZE]
+  );
+
+  // Reset to page 1 when search / filter / sort changes
+  useEffect(() => { setCurrentPage(1); }, [searchTerm, selectedSort, selectedLocations, bookable, nonBookable, selectedStatus]);
+
+  const rangeFrom = sorted.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const rangeTo = Math.min(currentPage * PAGE_SIZE, sorted.length);
+
   return (
-    <div className="staff-list-page p-4">
+    <div className="staff-list-page">
       {/* ===== TOAST ===== */}
       {toast && (
-        <div className="sl-toast">
-          <span>{toast}</span>
+        <div className={`sl-toast ${toast.type === "error" ? "sl-toast--error" : ""}`}>
+          {toast.type === "success" ? (
+            <CheckCircleFill size={16} className="sl-toast-icon" />
+          ) : (
+            <ExclamationCircleFill size={16} className="sl-toast-icon" />
+          )}
+          <span>{toast.msg}</span>
           <button className="sl-toast-close" onClick={() => setToast(null)}>
             <X size={14} />
           </button>
         </div>
       )}
 
+      {/* ===== FILTER DRAWER ===== */}
       {showFilter && (
         <div className="sl-filter-overlay" onClick={() => setShowFilter(false)}>
-          <div
-            className="sl-filter-drawer"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="sl-filter-header border-bottom">
-              <button
-                className="sl-close-btn"
-                onClick={() => setShowFilter(false)}
-                type="button"
-              >
+          <div className="sl-filter-drawer" onClick={(e) => e.stopPropagation()}>
+            <div className="sl-filter-header">
+              <button className="sl-close-btn" onClick={() => setShowFilter(false)}>
                 <X size={16} />
               </button>
-              <h4 className="fw-bold mb-0">All filters</h4>
+              <h4>All filters</h4>
             </div>
             <div className="sl-filter-body">
               <FilterSection
@@ -200,32 +333,23 @@ export default function StaffListPage() {
                   </label>
                 ))}
               </FilterSection>
+
               <FilterSection
                 title="Type"
                 icon={<Calendar2Check size={15} />}
-                badge={typeBadgeCount || undefined}
-                onClear={() => {
-                  setBookable(false);
-                  setNonBookable(false);
-                }}
+                badge={(bookable ? 1 : 0) + (nonBookable ? 1 : 0) || undefined}
+                onClear={() => { setBookable(false); setNonBookable(false); }}
               >
                 <label className="fs-checkbox-row">
-                  <input
-                    type="checkbox"
-                    checked={bookable}
-                    onChange={() => setBookable(!bookable)}
-                  />
+                  <input type="checkbox" checked={bookable} onChange={() => setBookable(!bookable)} />
                   <span>Bookable</span>
                 </label>
                 <label className="fs-checkbox-row">
-                  <input
-                    type="checkbox"
-                    checked={nonBookable}
-                    onChange={() => setNonBookable(!nonBookable)}
-                  />
+                  <input type="checkbox" checked={nonBookable} onChange={() => setNonBookable(!nonBookable)} />
                   <span>Non-bookable</span>
                 </label>
               </FilterSection>
+
               <FilterSection
                 title="Status"
                 icon={<ToggleOn size={15} />}
@@ -239,124 +363,77 @@ export default function StaffListPage() {
                     onClick={() => setSelectedStatus(s)}
                   >
                     <span>
-                      {s === "all"
-                        ? "All team members"
-                        : s === "active"
-                          ? "Active"
-                          : "Archived"}
+                      {s === "all" ? "All team members" : s === "active" ? "Active" : "Archived"}
                     </span>
-                    {selectedStatus === s && (
-                      <span className="fs-radio-check">✓</span>
-                    )}
+                    {selectedStatus === s && <span className="fs-radio-check">✓</span>}
                   </div>
                 ))}
               </FilterSection>
             </div>
-            <div className="sl-filter-footer border-top">
-              <button className="sl-clear-btn" onClick={clearFilters}>
-                Clear filters
-              </button>
-              <button
-                className="sl-apply-btn"
-                onClick={() => setShowFilter(false)}
-              >
-                Apply
-              </button>
+            <div className="sl-filter-footer">
+              <button className="sl-clear-btn" onClick={clearFilters}>Clear filters</button>
+              <button className="sl-apply-btn" onClick={() => setShowFilter(false)}>Apply</button>
             </div>
           </div>
         </div>
       )}
 
       {/* ===== HEADER ===== */}
-      <div className="page-header d-flex align-items-center justify-content-between mb-4">
-        <div className="header-left">
-          <div className="title-container d-flex align-items-center">
-            <h2 className="page-title mb-0 h4 fw-bold">Team members</h2>
-            <Badge variant="dark" pill className="ms-3 count-badge">
-              {filtered.length}
-            </Badge>
+      <div className="slp-header">
+        <div className="slp-header__left">
+          <div className="slp-title-row">
+            <h2 className="slp-title">Team members</h2>
+            <span className="slp-count-badge">{sorted.length}</span>
           </div>
-          <p className="page-subtitle text-muted mt-2 small">
+          <p className="slp-subtitle">
             Manage your team, their roles and access levels.
-            <span className="learn-more-link text-primary cursor-pointer ms-1">
-              {" "}
-              Learn more
-            </span>
+            <span className="slp-learn-more">Learn more</span>
           </p>
         </div>
-
-        <div className="header-actions d-flex gap-2">
-          <div
-            className="options-dropdown position-relative"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="slp-header__right">
+          <div className="options-dropdown" onClick={(e) => e.stopPropagation()}>
             <Button
               variant="outline-dark"
               onClick={() => setOptionsOpen(!optionsOpen)}
-              iconRight={
-                <ChevronDown
-                  size={14}
-                  className={`chevron ${optionsOpen ? "open" : ""}`}
-                />
-              }
+              iconRight={<ChevronDown size={13} className={`chevron ${optionsOpen ? "open" : ""}`} />}
             >
               Options
             </Button>
             {optionsOpen && (
-              <div
-                className="options-menu shadow-lg border position-absolute end-0 mt-2 bg-white z-2 p-2 rounded-3"
-                style={{ width: "210px" }}
-              >
-                <div
-                  className="option-item p-2 cursor-pointer hover-bg-light rounded-2 small"
-                  onClick={() => setOptionsOpen(false)}
-                >
-                  <span className="me-2">🔗</span> Create share link
+              <div className="slp-options-menu">
+
+                <div className="slp-option-item" onClick={() => setOptionsOpen(false)}>
+                  <span>⚙️</span> Team settings
                 </div>
-                <div
-                  className="option-item p-2 cursor-pointer hover-bg-light rounded-2 small"
-                  onClick={() => setOptionsOpen(false)}
-                >
-                  <span className="me-2">⚙️</span> Team settings
-                </div>
-                <div className="divider border-top my-1" />
-                <div
-                  className="export-title px-2 py-1 extra-small fw-bold text-muted text-uppercase"
-                  style={{ letterSpacing: "0.05em" }}
-                >
-                  Export
-                </div>
+                <div className="slp-option-divider" />
+                <div className="slp-option-label">Export</div>
                 <DownloadButton
                   filename="staff.csv"
                   fetcher={async () => {
-                    const res = await api.get(STAFF.EXPORT("csv"), {
-                      responseType: "blob",
-                    });
+                    const res = await api.get(STAFF.EXPORT("csv"), { responseType: "blob" });
                     setOptionsOpen(false);
                     return res.data;
                   }}
                   variant="ghost"
                   size="sm"
                   iconLeft={<FiletypeCsv size={14} />}
-                  className="option-item w-100 text-start p-2 rounded-2 small"
+                  className="slp-option-item w-100 text-start"
                 >
-                  CSV
+                  Export CSV
                 </DownloadButton>
                 <DownloadButton
                   filename="staff.xlsx"
                   fetcher={async () => {
-                    const res = await api.get(STAFF.EXPORT("excel"), {
-                      responseType: "blob",
-                    });
+                    const res = await api.get(STAFF.EXPORT("excel"), { responseType: "blob" });
                     setOptionsOpen(false);
                     return res.data;
                   }}
                   variant="ghost"
                   size="sm"
                   iconLeft={<FileEarmarkExcel size={14} />}
-                  className="option-item w-100 text-start p-2 rounded-2 small"
+                  className="slp-option-item w-100 text-start"
                 >
-                  Excel
+                  Export Excel
                 </DownloadButton>
               </div>
             )}
@@ -364,292 +441,361 @@ export default function StaffListPage() {
           <Button
             variant="dark"
             pill
-            className="px-4"
+            className="slp-add-btn"
             onClick={() => navigate("/dashboard/team/add")}
             iconLeft={<PersonPlus size={16} />}
           >
-            Add
+            Add member
           </Button>
         </div>
       </div>
 
       {/* ===== INVITE BANNER ===== */}
-      <div
-        className="import-banner mb-4 p-4 rounded-4 position-relative d-flex justify-content-between align-items-center bg-dark text-white overflow-hidden"
-        style={{
-          background: "linear-gradient(90deg, #111827 0%, #1f2937 100%)",
-        }}
-      >
-        <div className="banner-content z-1">
-          <h3 className="h5 fw-bold mb-2">Invite your team members</h3>
-          <p className="small text-white-50 mb-3">
-            Invite your staff to use the app and manage their schedules,
-            services, and performance.
-          </p>
-          <div className="banner-actions d-flex align-items-center gap-3">
-            <Button
-              variant="light"
-              pill
-              size="sm"
-              className="fw-bold px-4"
-              onClick={() => navigate("/dashboard/team/add")}
-            >
-              Start inviting
-            </Button>
-            <span className="small text-white-50 cursor-pointer hover-text-white border-bottom border-white-50">
-              Learn more
-            </span>
+      <div className="slp-invite-banner">
+        <div className="slp-banner-content">
+          <div className="slp-banner-icon-wrap">
+            <People size={28} />
+          </div>
+          <div>
+            <h3 className="slp-banner-title">Invite your team members</h3>
+            <p className="slp-banner-desc">
+              Invite your staff to use the app and manage their schedules, services, and performance.
+            </p>
           </div>
         </div>
-        <div className="banner-image opacity-50">
-          <People size={80} className="text-white-50" />
+        <div className="slp-banner-actions">
+          <button className="slp-banner-btn" onClick={() => navigate("/dashboard/team/add")}>
+            Start inviting
+          </button>
+          <span className="slp-banner-link">Learn more</span>
         </div>
-        <button className="banner-close position-absolute top-0 end-0 m-3 border-0 bg-transparent text-white-50 hover-text-white">
-          <X size={20} />
-        </button>
       </div>
 
-      {/* ===== SEARCH + SORT ===== */}
-      <div className="search-container mb-4">
-        <div className="search-section d-flex align-items-center justify-content-between">
-          <div className="search-left d-flex align-items-center gap-2 flex-grow-1 me-3">
-            <div style={{ maxWidth: "400px", flex: 1 }}>
-              <Input
-                placeholder="Search team members"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="mb-0"
-                containerClass="mb-0"
-                iconLeft={<SearchIcon size={16} />}
-              />
+      {/* ===== SEARCH + FILTER + SORT ===== */}
+      <div className="slp-toolbar">
+        <div className="slp-toolbar__left">
+          <div className="slp-search-wrap">
+            <Input
+              placeholder="Search by name, email, phone..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="mb-0"
+              containerClass="mb-0"
+              iconLeft={<SearchIcon size={15} />}
+            />
+          </div>
+          <button
+            className="slp-filter-btn"
+            onClick={() => setShowFilter(true)}
+          >
+            <Sliders size={14} />
+            Filters
+            {totalFilterBadge > 0 && (
+              <span className="slp-filter-count">{totalFilterBadge}</span>
+            )}
+          </button>
+        </div>
+        <div className="slp-sort-wrap" onClick={(e) => e.stopPropagation()}>
+          <button className="slp-sort-btn" onClick={() => setSortOpen(!sortOpen)}>
+            <ArrowDownUp size={13} />
+            {selectedSort}
+            <ChevronDown size={13} />
+          </button>
+          {sortOpen && (
+            <div className="slp-sort-menu">
+              {sortOptions.map((opt) => (
+                <div
+                  key={opt}
+                  className={`slp-sort-item ${selectedSort === opt ? "active" : ""}`}
+                  onClick={() => { setSelectedSort(opt); setSortOpen(false); }}
+                >
+                  {opt}
+                  {selectedSort === opt && <span className="slp-sort-check">✓</span>}
+                </div>
+              ))}
             </div>
-            <Button
-              variant="outline-dark"
-              onClick={() => setShowFilter(true)}
-              iconLeft={<Sliders size={14} />}
-            >
-              Filters
-              {totalFilterBadge > 0 && (
-                <Badge variant="dark" pill className="ms-2">
-                  {totalFilterBadge}
-                </Badge>
-              )}
-            </Button>
-          </div>
-          <div className="sort-dropdown position-relative">
-            <Button
-              variant="outline-dark"
-              onClick={() => setSortOpen(!sortOpen)}
-              iconRight={<ArrowDownUp size={14} />}
-            >
-              {selectedSort}
-            </Button>
-            {sortOpen && (
-              <div
-                className="sort-menu shadow-lg border position-absolute end-0 mt-2 bg-white z-2 rounded-3 overflow-hidden"
-                style={{ width: "220px" }}
-              >
-                {sortOptions.map((opt) => (
-                  <div
-                    key={opt}
-                    className={`sort-item p-3 cursor-pointer small hover-bg-light ${selectedSort === opt ? "bg-light fw-bold" : ""}`}
-                    onClick={() => {
-                      setSelectedSort(opt);
-                      setSortOpen(false);
-                    }}
-                  >
-                    {opt}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
-      {/* ===== TABLE ===== */}
-      {loading ? (
-        <div className="text-center p-5">Loading team members...</div>
-      ) : (
-        <div className="table-card border-0 rounded-4 shadow-sm bg-white overflow-hidden">
-          <div className="staff-table">
-            {selectedIds.length > 0 ? (
-              <div className="table-header selected-header py-3 px-4 d-flex align-items-center gap-3 bg-light border-bottom">
-                <div className="col-checkbox">
-                  <input
-                    type="checkbox"
-                    className="form-check-input"
-                    checked={selectedIds.length === filtered.length}
-                    onChange={handleSelectAll}
-                  />
-                </div>
-                <div className="selected-actions-container flex-grow-1 d-flex justify-content-between align-items-center">
-                  <div className="selected-count small fw-bold">
-                    {selectedIds.length === filtered.length
-                      ? "All selected"
-                      : `${selectedIds.length} selected`}
-                    <span className="mx-2 text-muted">•</span>
-                    <button
-                      className="bg-transparent border-0 text-primary p-0 h6 mb-0 small fw-bold"
-                      onClick={() => setSelectedIds([])}
-                    >
-                      Deselect
-                    </button>
-                  </div>
-                  <div className="selected-actions-buttons d-flex gap-2">
-                    <Button
-                      variant="outline-dark"
-                      size="sm"
-                      pill
-                      className="px-3"
-                    >
-                      Bulk edit
-                    </Button>
-                    <Button
-                      variant="outline-danger"
-                      size="sm"
-                      pill
-                      className="px-3"
-                      onClick={() =>
-                        selectedIds.forEach((id) => handleDeleteStaff(id))
-                      }
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div
-                className="table-header py-3 px-4 border-bottom bg-light extra-small fw-bold text-muted text-uppercase d-flex align-items-center"
-                style={{ letterSpacing: "0.05em" }}
-              >
-                <div className="col-check" style={{ width: "40px" }}>
-                  <input
-                    type="checkbox"
-                    className="form-check-input"
-                    checked={
-                      selectedIds.length === filtered.length &&
-                      filtered.length > 0
-                    }
-                    onChange={handleSelectAll}
-                  />
-                </div>
-                <div className="col-name ms-3 flex-grow-1">Team member</div>
-                <div style={{ width: "200px" }}>Contact</div>
-                <div style={{ width: "150px" }}>Rating</div>
-                <div style={{ width: "100px" }}>Status</div>
-                <div style={{ width: "80px" }}></div>
-              </div>
-            )}
-
-            {filtered.length === 0 ? (
-              <div className="empty-state text-center p-5">
-                <PersonBadge size={40} className="text-muted opacity-25 mb-3" />
-                <p className="text-muted small">No team members found.</p>
-              </div>
-            ) : (
-              filtered.map((member) => {
-                const isChecked = selectedIds.includes(member.id);
-                return (
-                  <div
-                    key={member.id}
-                    className={`table-row d-flex align-items-center py-3 px-4 border-bottom cursor-pointer transition-all ${isChecked ? "bg-light opacity-75" : "hover-bg-light"}`}
-                    onClick={() => navigate(`/dashboard/team/${member.id}`)}
-                  >
-                    <div className="col-check" style={{ width: "40px" }}>
-                      <input
-                        type="checkbox"
-                        className="form-check-input"
-                        checked={isChecked}
-                        onChange={() => {}}
-                        onClick={(e) => handleCheck(e, member.id)}
-                      />
-                    </div>
-
-                    <div className="col-name ms-3 d-flex align-items-center flex-grow-1">
-                      <div
-                        className="avatar rounded-circle d-flex align-items-center justify-content-center bg-dark text-white fw-bold me-3"
-                        style={{
-                          width: "36px",
-                          height: "36px",
-                          fontSize: "13px",
-                          background:
-                            "linear-gradient(135deg, #111827 0%, #374151 100%)",
-                        }}
-                      >
-                        {(member.first_name?.[0] || "S").toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="name fw-bold small text-dark">{`${member.first_name || ""} ${member.last_name || ""}`}</div>
-                        <div className="email text-muted extra-small">
-                          {member.email}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div
-                      className="col-contact extra-small text-muted"
-                      style={{ width: "200px" }}
-                    >
-                      <div className="contact-phone fw-bold text-dark">
-                        {member.phone_number || "-"}
-                      </div>
-                    </div>
-
-                    <div className="col-rating" style={{ width: "150px" }}>
-                      <span className="no-reviews extra-small text-muted">
-                        No reviews yet
-                      </span>
-                    </div>
-
-                    <div className="col-status" style={{ width: "100px" }}>
-                      <Badge
-                        variant={
-                          member.status === "Inactive" ? "light" : "success"
-                        }
-                        pill
-                        className="extra-small px-3"
-                      >
-                        {member.status || "Active"}
-                      </Badge>
-                    </div>
-
-                    <div
-                      className="col-actions text-end"
-                      style={{ width: "80px" }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="p-1 text-muted hover-text-dark"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/dashboard/team/${member.id}`);
-                        }}
-                      >
-                        <Pencil size={14} />
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
+      {/* ===== BULK ACTION BAR ===== */}
+      {selectedIds.length > 0 && (
+        <div className="slp-bulk-bar">
+          <div className="slp-bulk-left">
+            <input
+              type="checkbox"
+              className="slp-checkbox"
+              checked={selectedIds.length === sorted.length && sorted.length > 0}
+              onChange={handleSelectAll}
+            />
+            <span className="slp-bulk-count">
+              {selectedIds.length === sorted.length ? "All selected" : `${selectedIds.length} selected`}
+            </span>
+            <button className="slp-deselect-btn" onClick={() => setSelectedIds([])}>
+              Deselect
+            </button>
+          </div>
+          <div className="slp-bulk-actions">
+            <button className="slp-bulk-btn slp-bulk-btn--outline">Bulk edit</button>
+            <button
+              className="slp-bulk-btn slp-bulk-btn--danger"
+              onClick={() => selectedIds.forEach((id) => handleDeleteStaff(id))}
+            >
+              <Trash size={13} /> Delete selected
+            </button>
           </div>
         </div>
       )}
 
-      <div
-        className="results-text mt-4 text-end extra-small text-muted fw-bold text-uppercase"
-        style={{ letterSpacing: "0.05em" }}
-      >
-        Viewing 1–{filtered.length} of {filtered.length} results
-      </div>
+      {/* ===== STAFF TABLE / CARDS ===== */}
+      {loading ? (
+        <div className="slp-skeleton-wrap">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="slp-skeleton-row">
+              <div className="slp-skeleton-check" />
+              <div className="slp-skeleton-avatar" />
+              <div className="slp-skeleton-info">
+                <div className="slp-skeleton-line slp-skeleton-line--name" />
+                <div className="slp-skeleton-line slp-skeleton-line--sub" />
+              </div>
+              <div className="slp-skeleton-line slp-skeleton-line--contact" />
+              <div className="slp-skeleton-line slp-skeleton-line--tag" />
+              <div className="slp-skeleton-line slp-skeleton-line--tag" />
+            </div>
+          ))}
+        </div>
+      ) : sorted.length === 0 ? (
+        <div className="slp-empty">
+          <div className="slp-empty__icon-wrap">
+            <PersonBadge size={36} />
+          </div>
+          <h3 className="slp-empty__title">
+            {searchTerm || totalFilterBadge > 0 ? "No results found" : "No team members yet"}
+          </h3>
+          <p className="slp-empty__desc">
+            {searchTerm || totalFilterBadge > 0
+              ? "Try adjusting your search or filters."
+              : "Add your first team member to get started."}
+          </p>
+          {!searchTerm && totalFilterBadge === 0 && (
+            <button
+              className="slp-empty__btn"
+              onClick={() => navigate("/dashboard/team/add")}
+            >
+              <PersonPlus size={15} /> Add team member
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="slp-table-card">
+          {/* Table Header */}
+          <div className="slp-table-header">
+            <div className="slp-col-check">
+              <input
+                type="checkbox"
+                className="slp-checkbox"
+                checked={selectedIds.length === sorted.length && sorted.length > 0}
+                onChange={handleSelectAll}
+              />
+            </div>
+            <div className="slp-col-member">Team member</div>
+            <div className="slp-col-contact">Contact</div>
+            <div className="slp-col-role">Role</div>
+            <div className="slp-col-status">Status</div>
+            <div className="slp-col-actions" />
+          </div>
+
+          {/* Table Rows */}
+          {pagedSorted.map((member) => {
+            const isChecked = selectedIds.includes(member.id);
+            const isActive = member.is_active ?? true;
+            const rawStatus = (member.status || member.invitation_status || "").toUpperCase();
+            const isPending = rawStatus === "PENDING";
+            const isAccepted = rawStatus === "ACCEPTED";
+            const initials = `${(member.first_name?.[0] || "").toUpperCase()}${(member.last_name?.[0] || "").toUpperCase()}` || "??";
+            const fullName = `${member.first_name || ""} ${member.last_name || ""}`.trim();
+
+            return (
+              <div
+                key={member.id}
+                className={`slp-table-row ${isChecked ? "slp-table-row--selected" : ""} ${deletingId === member.id ? "slp-table-row--deleting" : ""}`}
+                onClick={() => member.id && navigate(`/dashboard/team/${member.id}`)}
+              >
+                <div className="slp-col-check" onClick={(e) => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    className="slp-checkbox"
+                    checked={isChecked}
+                    onChange={() => { }}
+                    onClick={(e) => handleCheck(e, member.id)}
+                  />
+                </div>
+
+                <div className="slp-col-member">
+                  <div
+                    className="slp-avatar"
+                    style={{ background: member.calendar_color ? undefined : getGradient(member.id) }}
+                  >
+                    {member.calendar_color ? (
+                      <span className="slp-avatar-initials" style={{ background: resolveColor(member.calendar_color) }}>
+                        {initials}
+                      </span>
+                    ) : (
+                      <span className="slp-avatar-initials">{initials}</span>
+                    )}
+                  </div>
+                  <div className="slp-member-info">
+                    <div className="slp-member-name">{fullName || "Unknown"}</div>
+                    <div className="slp-member-email">
+                      <EnvelopeFill size={10} className="me-1" />
+                      {member.email || "—"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="slp-col-contact">
+                  {(member.phone_number || member.phone) ? (
+                    <div className="slp-contact-phone">
+                      <TelephoneFill size={11} className="me-1" />
+                      {member.phone_number || member.phone}
+                    </div>
+                  ) : (
+                    <span className="slp-no-data">—</span>
+                  )}
+                </div>
+
+                <div className="slp-col-role">
+                  {(() => {
+                    const m = member as any;
+                    const jobTitle = m.job_title || m.jobTitle;
+                    const permKey = m.permission_level || m.permissionLevel || m.access_level || m.role;
+                    const label = PERMISSION_LABELS[permKey] || permKey;
+                    if (jobTitle) return <span className="slp-role-tag">{jobTitle}</span>;
+                    if (label) return <span className="slp-role-tag slp-role-tag--perm">{label}</span>;
+                    return <span className="slp-role-tag slp-role-tag--default">Staff</span>;
+                  })()}
+                </div>
+
+                <div className="slp-col-status">
+                  <span className={`slp-status-badge ${isPending ? 'slp-status-badge--pending' : isAccepted ? 'slp-status-badge--accepted' : isActive ? 'slp-status-badge--active' : 'slp-status-badge--inactive'}`}>
+                    <span className="slp-status-dot" />
+                    {isPending ? 'Pending Acceptance' : isAccepted ? 'Accepted' : isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+
+                <div className="slp-col-actions" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    className="slp-edit-btn"
+                    onClick={(e) => { e.stopPropagation(); member.id && navigate(`/dashboard/team/${member.id}`); }}
+                    title="Edit"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                  <div className="slp-action-wrap">
+                    <button
+                      className="slp-more-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActionMenuId(actionMenuId === member.id ? null : member.id);
+                      }}
+                      title="More actions"
+                    >
+                      <ThreeDots size={16} />
+                    </button>
+                    {actionMenuId === member.id && (
+                      <div className="slp-action-menu">
+                        {isPending && (
+                          <button
+                            className="slp-action-item"
+                            onClick={() => { member.id && handleResendInvite(member.id); }}
+                          >
+                            <EnvelopeFill size={13} /> Resend invite
+                          </button>
+                        )}
+                        <button
+                          className="slp-action-item"
+                          onClick={() => { member.id && navigate(`/dashboard/team/${member.id}`); setActionMenuId(null); }}
+                        >
+                          <Pencil size={13} /> Edit profile
+                        </button>
+                        <button
+                          className="slp-action-item"
+                          onClick={() => handleToggleStatus(member)}
+                        >
+                          <ToggleOn size={13} /> {isActive ? "Deactivate" : "Activate"}
+                        </button>
+                        <div className="slp-action-divider" />
+                        <button
+                          className="slp-action-item slp-action-item--danger"
+                          onClick={() => handleDeleteStaff(member.id)}
+                          disabled={deletingId === member.id}
+                        >
+                          <Trash size={13} /> {deletingId === member.id ? "Deleting..." : "Delete"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ===== FOOTER / PAGINATION ===== */}
+      {!loading && sorted.length > 0 && (
+        <div className="slp-footer">
+          <span className="slp-footer-results">
+            Showing <strong>{rangeFrom}–{rangeTo}</strong> of <strong>{sorted.length}</strong> team members
+          </span>
+
+          <div className="slp-pagination">
+            <button
+              className="slp-page-btn"
+              onClick={() => setCurrentPage((p) => p - 1)}
+              disabled={currentPage === 1}
+              aria-label="Previous page"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 18l-6-6 6-6" /></svg>
+            </button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+              .reduce<(number | "…")[]>((acc, p, idx, arr) => {
+                if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("…");
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((p, idx) =>
+                p === "…" ? (
+                  <span key={`e-${idx}`} className="slp-page-ellipsis">…</span>
+                ) : (
+                  <button
+                    key={p}
+                    className={`slp-page-btn${currentPage === p ? " slp-page-btn--active" : ""}`}
+                    onClick={() => setCurrentPage(p as number)}
+                  >
+                    {p}
+                  </button>
+                )
+              )}
+
+            <button
+              className="slp-page-btn"
+              onClick={() => setCurrentPage((p) => p + 1)}
+              disabled={currentPage === totalPages}
+              aria-label="Next page"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 18l6-6-6-6" /></svg>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
+// ─── Filter Section Sub-component ────────────────────────────────────────────
 function FilterSection({
   title,
   icon,
@@ -676,13 +822,7 @@ function FilterSection({
         </div>
         <div className="fs-right">
           {badge && onClear && (
-            <span
-              className="fs-clear"
-              onClick={(e) => {
-                e.stopPropagation();
-                onClear();
-              }}
-            >
+            <span className="fs-clear" onClick={(e) => { e.stopPropagation(); onClear(); }}>
               Clear
             </span>
           )}

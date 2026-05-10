@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { PageLoader } from "./components/ui";
 import { AuthRoutes, OnboardingRoutes, DashboardRoutes } from "./routes";
+import SalonOxBot from './features/bot/SalonOxBot';
 
 function App() {
   return (
@@ -16,10 +17,13 @@ function App() {
 
           {/* ROOT */}
           <Route path="/" element={<Navigate to="/login" replace />} />
+          
 
           {DashboardRoutes}
         </Routes>
       </Suspense>
+      <SalonOxBot />
+
     </>
   );
 }

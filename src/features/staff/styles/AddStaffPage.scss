@@ -26,20 +26,20 @@ $transition:      0.18s ease;
 .add-staff {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background: #ffffff;
   font-family: 'Inter', -apple-system, sans-serif;
 
   &__header {
     height: 60px;
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 0 24px;
     background: #ffffff;
     border-bottom: 1px solid #eee;
-    position: sticky;
-    top: 0;
     z-index: 100;
 
     &-title {
@@ -98,9 +98,10 @@ $transition:      0.18s ease;
 
   &__body {
     flex: 1;
+    min-height: 0;          // critical: lets flex children shrink below content size
     overflow: hidden;
     padding: 0 !important;
-    .row { height: 100%; flex-wrap: nowrap; }
+    > .row { height: 100%; flex-wrap: nowrap; }
   }
 
   &__sidebar {
@@ -110,9 +111,7 @@ $transition:      0.18s ease;
     border-right: 1px solid #eee;
     padding: 24px 12px;
     overflow-y: auto;
-    height: calc(100vh - 60px);
-    position: sticky;
-    top: 60px;
+    height: 100%;
   }
 
   &__nav { padding: 0; }
@@ -168,12 +167,13 @@ $transition:      0.18s ease;
 
   &__content {
     background: #ffffff;
+    flex: 1;
     overflow-y: auto;
-    height: calc(100vh - 60px);
+    height: 100%;
     padding: 60px 40px 100px;
     display: flex;
     justify-content: center;
-    
+
     @media (max-width: 768px) { padding: 40px 20px; }
   }
 }

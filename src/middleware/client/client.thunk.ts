@@ -80,7 +80,7 @@ export const blockClientsThunk = createAsyncThunk<
   { rejectValue: string }
 >("client/block", async ({ ids, reason }, { rejectWithValue }) => {
   try {
-    await api.patch(CLIENT.BLOCK, { client_ids: ids, reason });
+    await api.post(CLIENT.BLOCK, { client_ids: ids, reason });
     return ids;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
@@ -95,7 +95,7 @@ export const unblockClientsThunk = createAsyncThunk<
   { rejectValue: string }
 >("client/unblock", async ({ ids }, { rejectWithValue }) => {
   try {
-    await api.patch(CLIENT.UNBLOCK, { client_ids: ids });
+    await api.patch(CLIENT.BLOCK, { client_ids: ids });
     return ids;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);

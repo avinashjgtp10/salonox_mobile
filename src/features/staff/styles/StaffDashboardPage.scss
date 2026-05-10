@@ -1,0 +1,396 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+// ── Design Tokens ──────────────────────────────────────────────────────────────
+$font:           'Inter', sans-serif;
+$bg:             #f8f9fb;
+$white:          #ffffff;
+$border:         #e5e7eb;
+$primary:        #111827;
+$muted:          #6b7280;
+$radius-sm:      8px;
+$radius:         12px;
+$radius-lg:      16px;
+
+$color-indigo:   #6366f1;
+$color-indigo-bg:#eef2ff;
+$color-emerald:  #10b981;
+$color-emerald-bg:#ecfdf5;
+$color-amber:    #f59e0b;
+$color-amber-bg: #fffbeb;
+$color-rose:     #ef4444;
+$color-rose-bg:  #fef2f2;
+$color-violet:   #8b5cf6;
+$color-violet-bg:#f5f3ff;
+$color-blue:     #3b82f6;
+$color-blue-bg:  #eff6ff;
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+.sdb {
+  padding: 28px 32px;
+  background: $bg;
+  min-height: 100%;
+  font-family: $font;
+
+  @media (max-width: 768px) {
+    padding: 20px 16px;
+  }
+}
+
+// ── Header ────────────────────────────────────────────────────────────────────
+.sdb__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 28px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.sdb__title {
+  font-size: 22px;
+  font-weight: 700;
+  color: $primary;
+  margin: 0 0 4px;
+}
+
+.sdb__subtitle {
+  font-size: 14px;
+  color: $muted;
+  margin: 0;
+}
+
+.sdb__add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  background: $primary;
+  color: $white;
+  border: none;
+  border-radius: 50px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.18s;
+
+  &:hover { background: #1f2937; }
+}
+
+// ── Stats Grid ─────────────────────────────────────────────────────────────────
+.sdb__stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+
+  @media (max-width: 1024px) { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 480px)  { grid-template-columns: 1fr; }
+}
+
+.sdb__stat {
+  background: $white;
+  border-radius: $radius;
+  padding: 20px;
+  border: 1px solid $border;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: $radius $radius 0 0;
+  }
+
+  &--indigo::before { background: $color-indigo; }
+  &--emerald::before { background: $color-emerald; }
+  &--amber::before { background: $color-amber; }
+  &--rose::before { background: $color-rose; }
+}
+
+.sdb__stat-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.sdb__stat-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: $muted;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sdb__stat-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: $radius-sm;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  .sdb__stat--indigo & { background: $color-indigo-bg; color: $color-indigo; }
+  .sdb__stat--emerald & { background: $color-emerald-bg; color: $color-emerald; }
+  .sdb__stat--amber & { background: $color-amber-bg; color: $color-amber; }
+  .sdb__stat--rose & { background: $color-rose-bg; color: $color-rose; }
+}
+
+.sdb__stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: $primary;
+  letter-spacing: -0.02em;
+}
+
+// ── Body Grid ──────────────────────────────────────────────────────────────────
+.sdb__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+
+  @media (max-width: 900px) { grid-template-columns: 1fr; }
+}
+
+// ── Card ───────────────────────────────────────────────────────────────────────
+.sdb__card {
+  background: $white;
+  border: 1px solid $border;
+  border-radius: $radius-lg;
+  padding: 24px;
+}
+
+.sdb__card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.sdb__card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: $primary;
+  margin: 0;
+}
+
+.sdb__card-link {
+  font-size: 13px;
+  font-weight: 500;
+  color: $color-indigo;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: opacity 0.15s;
+
+  &:hover { opacity: 0.75; }
+}
+
+// ── Member List ────────────────────────────────────────────────────────────────
+.sdb__member-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sdb__member-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: $radius-sm;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover { background: #f9fafb; }
+}
+
+.sdb__member-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: $white;
+}
+
+.sdb__member-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sdb__member-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: $primary;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sdb__member-role {
+  font-size: 12px;
+  color: $muted;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// ── Status Badge ───────────────────────────────────────────────────────────────
+.sdb__status-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 50px;
+  flex-shrink: 0;
+
+  &--active   { background: $color-emerald-bg; color: $color-emerald; }
+  &--inactive { background: #f3f4f6; color: $muted; }
+}
+
+// ── Quick Actions ──────────────────────────────────────────────────────────────
+.sdb__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sdb__action-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: $radius-sm;
+  border: 1px solid transparent;
+  background: #f9fafb;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+
+  &:hover {
+    background: $white;
+    border-color: $border;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  }
+
+  @mixin action-color($bg, $color) {
+    .sdb__action-icon { background: $bg; color: $color; }
+  }
+
+  &--indigo { @include action-color($color-indigo-bg, $color-indigo); }
+  &--emerald { @include action-color($color-emerald-bg, $color-emerald); }
+  &--amber { @include action-color($color-amber-bg, $color-amber); }
+  &--rose { @include action-color($color-rose-bg, $color-rose); }
+  &--violet { @include action-color($color-violet-bg, $color-violet); }
+  &--blue { @include action-color($color-blue-bg, $color-blue); }
+}
+
+.sdb__action-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: $radius-sm;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sdb__action-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sdb__action-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: $primary;
+}
+
+.sdb__action-desc {
+  font-size: 12px;
+  color: $muted;
+}
+
+.sdb__action-arrow {
+  color: $muted;
+  flex-shrink: 0;
+}
+
+// ── Empty State ────────────────────────────────────────────────────────────────
+.sdb__empty {
+  text-align: center;
+  padding: 32px 16px;
+
+  p {
+    font-size: 14px;
+    color: $muted;
+    margin: 8px 0 16px;
+  }
+}
+
+.sdb__empty-icon {
+  color: #d1d5db;
+}
+
+.sdb__empty-btn {
+  padding: 8px 20px;
+  background: $primary;
+  color: $white;
+  border: none;
+  border-radius: 50px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover { background: #1f2937; }
+}
+
+// ── Skeleton ───────────────────────────────────────────────────────────────────
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+%skeleton-base {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 37%, #f0f0f0 63%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s ease infinite;
+  border-radius: 4px;
+}
+
+.sdb__skeleton {
+  @extend %skeleton-base;
+
+  &--value  { height: 32px; width: 80px; border-radius: 6px; }
+  &--avatar { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; }
+  &--name   { height: 13px; width: 120px; }
+  &--sub    { height: 11px; width: 80px; }
+  &--badge  { height: 20px; width: 55px; border-radius: 50px; }
+}
+
+.sdb__member-skeleton {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+}
+
+.sdb__skeleton-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}

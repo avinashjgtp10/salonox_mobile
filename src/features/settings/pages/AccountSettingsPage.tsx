@@ -14,6 +14,7 @@ import {
 import toast from "react-hot-toast";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { logout } from "../../../store/authSlice";
+import { changePasswordThunk } from "../../../middleware/user/user.thunk";
 import { useNavigate } from "react-router-dom";
 import api from "../../../services/api/axios";
 import Button from "../../../components/ui/Button";
@@ -82,7 +83,7 @@ function PasswordField({
 export default function AccountSettingsPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { profile } = useAppSelector((s) => s.user);
+  const { profile, loading: userLoading } = useAppSelector((s) => s.user);
 
   const [pwForm, setPwForm] = useState<PasswordForm>({
     currentPassword: "",
@@ -92,7 +93,6 @@ export default function AccountSettingsPage() {
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [pwLoading, setPwLoading] = useState(false);
 
   const [twoFAEnabled, setTwoFAEnabled] = useState(false);
 
@@ -119,18 +119,17 @@ export default function AccountSettingsPage() {
       return;
     }
 
-    setPwLoading(true);
-    try {
-      await api.put("/api/v1/auth/change-password", {
+    const result = await dispatch(
+      changePasswordThunk({
         currentPassword: pwForm.currentPassword,
         newPassword: pwForm.newPassword,
-      });
+      })
+    );
+    if (changePasswordThunk.fulfilled.match(result)) {
       toast.success("Password changed successfully");
       setPwForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-    } catch {
-      toast.error("Failed to change password. Check your current password.");
-    } finally {
-      setPwLoading(false);
+    } else {
+      toast.error((result.payload as string) || "Failed to change password. Check your current password.");
     }
   };
 
@@ -268,7 +267,7 @@ export default function AccountSettingsPage() {
         <div className="settings-form-actions">
           <Button
             size="sm"
-            loading={pwLoading}
+            loading={userLoading.changePassword}
             onClick={handleSavePassword}
             iconLeft={<Save size={14} />}
           >
@@ -330,7 +329,7 @@ export default function AccountSettingsPage() {
             <Button
               size="sm"
               variant="outline-secondary"
-              onClick={() => toast("SMS 2FA coming soon", { icon: "📱" })}
+              onClick={() => void toast("SMS 2FA coming soon", { icon: "📱" })}
             >
               Set up
             </Button>

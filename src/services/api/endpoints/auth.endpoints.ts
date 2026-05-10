@@ -24,4 +24,5 @@ export const PUBLIC_ROUTES: string[] = [
   AUTH.FORGOT_PASSWORD_SEND_OTP,
   AUTH.FORGOT_PASSWORD_VERIFY_OTP,
   AUTH.FORGOT_PASSWORD_RESET,
+  "/api/v1/staff/invite",
 ];

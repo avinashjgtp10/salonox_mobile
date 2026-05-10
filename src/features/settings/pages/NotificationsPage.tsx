@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Bell,
   Mail,
@@ -13,9 +13,24 @@ import {
   Save,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import {
+  fetchSettingsThunk,
+  createSettingThunk,
+  updateSettingThunk,
+} from "../../../middleware/setting/setting.thunk";
+import type { EntityId } from "../../../types/common.types";
 import Button from "../../../components/ui/Button";
 import SettingsToggle from "../components/SettingsToggle";
 import SettingsSection from "../components/SettingsSection";
+
+const NOTIF_KEY = "notification_preferences";
+
+interface NotifStorage {
+  channels: { email: boolean; sms: boolean; push: boolean };
+  events: NotifPrefs;
+  digest: { morning: boolean; evening: boolean; weekly: boolean };
+}
 
 interface NotifChannel {
   email: boolean;
@@ -165,11 +180,46 @@ const notifRows: NotifRow[] = [
 ];
 
 export default function NotificationsPage() {
+  const dispatch = useAppDispatch();
+  const { items: settingItems } = useAppSelector((s) => s.setting);
+  const { profile } = useAppSelector((s) => s.user);
+
   const [prefs, setPrefs] = useState<NotifPrefs>(defaultPrefs);
   const [saving, setSaving] = useState(false);
   const [globalEmail, setGlobalEmail] = useState(true);
   const [globalSms, setGlobalSms] = useState(true);
   const [globalPush, setGlobalPush] = useState(true);
+  const [digestMorning, setDigestMorning] = useState(true);
+  const [digestEvening, setDigestEvening] = useState(false);
+  const [digestWeekly, setDigestWeekly] = useState(true);
+  const [settingId, setSettingId] = useState<EntityId | null>(null);
+
+  useEffect(() => {
+    dispatch(fetchSettingsThunk());
+  }, [dispatch]);
+
+  useEffect(() => {
+    const found = settingItems.find((s) => s.key === NOTIF_KEY);
+    if (!found) return;
+    setSettingId(found.id);
+    try {
+      const raw = typeof found.value === "string" ? found.value : JSON.stringify(found.value);
+      const stored: NotifStorage = JSON.parse(raw);
+      if (stored.channels) {
+        setGlobalEmail(stored.channels.email ?? true);
+        setGlobalSms(stored.channels.sms ?? true);
+        setGlobalPush(stored.channels.push ?? true);
+      }
+      if (stored.events) setPrefs(stored.events);
+      if (stored.digest) {
+        setDigestMorning(stored.digest.morning ?? true);
+        setDigestEvening(stored.digest.evening ?? false);
+        setDigestWeekly(stored.digest.weekly ?? true);
+      }
+    } catch {
+      // malformed value — keep defaults
+    }
+  }, [settingItems]);
 
   const toggle = (key: NotifKey, channel: Channel) => {
     setPrefs((prev) => ({
@@ -183,9 +233,32 @@ export default function NotificationsPage() {
 
   const handleSave = async () => {
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 600));
+    const stored: NotifStorage = {
+      channels: { email: globalEmail, sms: globalSms, push: globalPush },
+      events: prefs,
+      digest: { morning: digestMorning, evening: digestEvening, weekly: digestWeekly },
+    };
+    const value = JSON.stringify(stored);
+
+    let ok = false;
+    if (settingId) {
+      const result = await dispatch(
+        updateSettingThunk({ id: settingId, data: { key: NOTIF_KEY, value } })
+      );
+      ok = updateSettingThunk.fulfilled.match(result);
+    } else {
+      const result = await dispatch(
+        createSettingThunk({ key: NOTIF_KEY, value, description: "Notification preferences" })
+      );
+      if (createSettingThunk.fulfilled.match(result)) {
+        setSettingId(result.payload.id);
+        ok = true;
+      }
+    }
+
     setSaving(false);
-    toast.success("Notification preferences saved");
+    if (ok) toast.success("Notification preferences saved");
+    else toast.error("Failed to save preferences");
   };
 
   return (
@@ -213,7 +286,7 @@ export default function NotificationsPage() {
           <div className="settings-toggle-info">
             <p className="settings-toggle-title">Email Notifications</p>
             <p className="settings-toggle-desc">
-              Receive notifications to {"{your email}"}
+              Receive notifications to {profile?.email ?? "your email"}
             </p>
           </div>
           <SettingsToggle
@@ -339,7 +412,7 @@ export default function NotificationsPage() {
               Get a daily overview of today's appointments at 8:00 AM
             </p>
           </div>
-          <SettingsToggle checked onChange={() => {}} />
+          <SettingsToggle checked={digestMorning} onChange={() => setDigestMorning((v) => !v)} />
         </div>
         <div className="settings-toggle-row">
           <div className="settings-toggle-info">
@@ -348,7 +421,7 @@ export default function NotificationsPage() {
               Daily revenue, completed appointments, and new clients at 8:00 PM
             </p>
           </div>
-          <SettingsToggle checked={false} onChange={() => {}} />
+          <SettingsToggle checked={digestEvening} onChange={() => setDigestEvening((v) => !v)} />
         </div>
         <div className="settings-toggle-row">
           <div className="settings-toggle-info">
@@ -357,7 +430,7 @@ export default function NotificationsPage() {
               Detailed weekly analytics every Monday morning
             </p>
           </div>
-          <SettingsToggle checked onChange={() => {}} />
+          <SettingsToggle checked={digestWeekly} onChange={() => setDigestWeekly((v) => !v)} />
         </div>
       </SettingsSection>
     </>

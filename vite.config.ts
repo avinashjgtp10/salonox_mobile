@@ -1,7 +1,6 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
-
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
@@ -19,9 +18,12 @@ export default defineConfig(({ mode }) => {
       '/api': {
         target: proxyTarget,
         changeOrigin: true,
-        headers: {
-          Origin: 'http://localhost:3000',
-        },
+        headers: { Origin: 'http://localhost:3000' },
+      },
+      '/uploads': {
+        target: proxyTarget,
+        changeOrigin: true,
+        headers: { Origin: 'http://localhost:3000' },
       },
     },
   },
