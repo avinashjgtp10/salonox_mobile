@@ -3,6 +3,7 @@ import toast from "react-hot-toast";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchWaConfigThunk, saveWaConfigThunk, testWaConfigThunk } from "../../../middleware/marketing/marketing.thunk";
 import { Button, Input } from "../../../components/ui";
+import { API_ORIGIN } from "../../../services/api/baseUrl";
 import { useOnce } from "../../../hooks/useOnce";
 import type { SaveWaConfigPayload } from "../../../types/marketing.types";
 import "../styles/WaConfigPage.scss";
@@ -54,8 +55,7 @@ export default function WaConfigPage() {
     else toast.error((result.payload as string) ?? "Connection failed. Check your credentials.");
   });
 
-  const backendUrl  = import.meta.env.VITE_API_BASE_URL?.replace("/api/v1", "") ?? "";
-  const webhookUrl  = `${backendUrl}/api/v1/webhooks/whatsapp`;
+  const webhookUrl  = `${API_ORIGIN}/api/v1/webhooks/whatsapp`;
   const tierIndex   = TIERS.findIndex(t => t.value >= (config?.dailyLimit ?? 250));
   const safeIndex   = tierIndex === -1 ? TIERS.length - 1 : tierIndex;
   const qualityColor = config?.qualityRating === "GREEN" ? "#16a34a" : config?.qualityRating === "YELLOW" ? "#d97706" : "#dc2626";

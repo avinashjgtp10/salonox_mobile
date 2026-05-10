@@ -1,6 +1,7 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
 import api from "../../services/api/axios";
+import { API_ORIGIN } from "../../services/api/baseUrl";
 import { AUTH } from "../../services/api/endpoints";
 import { ApiError } from "../../services/api/interceptors";
 import type {
@@ -43,7 +44,7 @@ export const refreshSessionThunk = createAsyncThunk<
 
   try {
     const res = await axios.post<{ accessToken: string }>(
-      `${import.meta.env.VITE_API_BASE_URL}${AUTH.REFRESH_TOKEN}`,
+      `${API_ORIGIN}${AUTH.REFRESH_TOKEN}`,
       { refreshToken },
       { headers: { "Content-Type": "application/json" } },
     );

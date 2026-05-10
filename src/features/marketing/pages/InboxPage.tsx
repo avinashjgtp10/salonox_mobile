@@ -14,6 +14,7 @@ import {
   receiveConversations,
 } from '../../../store/inboxSlice'
 import type { WAConversation, WAMessage } from '../../../store/inboxSlice'
+import { API_ORIGIN } from '../../../services/api/baseUrl'
 import '../styles/InboxPage.scss'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -169,7 +170,7 @@ function ConversationItem({ conv, isActive, onClick }: { conv: WAConversation; i
 
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ?? import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') ?? 'http://localhost:3000'
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ?? (API_ORIGIN || 'http://localhost:3000')
 
 export default function InboxPage() {
   const dispatch = useAppDispatch()

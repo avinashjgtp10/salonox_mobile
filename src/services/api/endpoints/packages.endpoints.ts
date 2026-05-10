@@ -1,4 +1,5 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { API_V1_BASE_URL } from "../baseUrl";
 
 export interface PackageOffer {
   id?: string;
@@ -75,7 +76,7 @@ export interface ApiResponse<T> {
 export const packagesApi = createApi({
   reducerPath: "packagesApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: (import.meta.env.VITE_API_BASE_URL ?? "") + "/api/v1",
+    baseUrl: API_V1_BASE_URL,
     prepareHeaders: (headers, { getState }) => {
       const state = getState() as any;
       const token = state?.auth?.accessToken;
