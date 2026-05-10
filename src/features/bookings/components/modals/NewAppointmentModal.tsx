@@ -13,6 +13,7 @@ import { useAppSelector } from "../../../../hooks/useAppRedux";
 import { computePointsEarned, computeEWalletCredit, EWALLET_REDEEM_MINIMUM, MEMBERSHIP_TIERS, replaceBookingId, updateBooking as updateBookingAction, deleteBooking as deleteBookingAction, patchPaymentStatus } from "../../../../store/schedulerSlice";
 import { addMinutes } from "../../utils/timeUtils";
 import MiniCalendar from "../shared/MiniCalendar.tsx";
+import PaymentButton from "../shared/PaymentButton";
 import ServiceRow from "./ServiceRow";
 import TotalsPanel from "./TotalsPanel";
 import Button from "../../../../components/ui/Button";
@@ -246,7 +247,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
   const [discountType, setDiscountType] = useState<DiscountType>(existingBooking?.discountType || "Percentage (%)");
   const [gst] = useState(existingBooking?.gst || 0);
   const [notes, setNotes] = useState(existingBooking?.notes || "");
-  const [staffAlert, setStaffAlert] = useState("");
+  const [staffAlert, setStaffAlert] = useState((existingBooking as any)?.staffAlert || "");
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [blockTimeError, setBlockTimeError] = useState<string | null>(null);
   const hasErr = (k: string) => validationErrors.includes(k);
@@ -342,7 +343,12 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
   const nextTier = getNextTier(currentRevenue);
 
   // Split
-  const remainingDue = Math.max(0, effectiveTotal - alreadyPaidAmount);
+  // Fallback: if service prices weren't loaded (API gap), use the stored dueAmount directly
+  const serviceHasPrices = serviceRows.some(r => (r.price || 0) > 0 || (r.total || 0) > 0);
+  const storedDueAmount = Number((existingBooking as any)?.dueAmount ?? 0);
+  const remainingDue = isActuallyPartial && !isEditing && !serviceHasPrices && storedDueAmount > 0
+    ? storedDueAmount
+    : Math.max(0, effectiveTotal - alreadyPaidAmount);
   const splitTotal = splitEntries.reduce((a, e) => a + (parseFloat(e.amount) || 0), 0);
   const splitValid = paymentMode === "single" || Math.abs(splitTotal - remainingDue) <= 0.01;
   const splitRemaining = remainingDue - splitTotal;
@@ -470,7 +476,8 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
       taxableAmount: taxable, grandTotal: effectiveTotal,
       // ✅ Feature 2 — when editing a paid appt, dueAmount = new services cost only
       payingNow: paying, dueAmount: Math.max(0, effectiveTotal - paying),
-      notes: notes + (staffAlert ? `\n Staff Alert: ${staffAlert}` : ""),
+      notes: notes,
+      staffAlert: staffAlert,
       tip: tip as any, productItems: productRows as any, membershipItems: membershipRows as any,
     } as any;
   }
@@ -549,7 +556,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
       const firstRow = b.services[0];
       const startTime = firstRow?.time || defaultTime || "10:00";
       if (salonId) {
-        (dispatch(createBookingThunk({
+        const action: any = await dispatch(createBookingThunk({
           salon_id: salonId,
           client_id: clientId || undefined,
           staff_id: toApiStaffId(firstRow?.staffId) ?? toApiStaffId(staffList[0]?.id),
@@ -563,20 +570,23 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
             quantity: p.qty || p.quantity || 1,
           })),
           membership_items: (b as any).membershipItems,
-          scheduled_at: `${calDate}T${startTime}:00`,
+          scheduled_at: new Date(`${calDate}T${startTime}:00`).toISOString(),
           duration_minutes: b.services[0]?.duration || 30,
           status: "booked",
-          notes: notes + (staffAlert ? `\n Staff Alert: ${staffAlert}` : "") || undefined,
-        })) as any)
-          .then((action: any) => {
-            if (createBookingThunk.fulfilled.match(action)) {
-              const realId = String(action.payload?.id || "");
-              if (realId) {
-                dispatch(replaceBookingId({ localId, realId }));
-              }
-            }
-          })
-          .catch((err: any) => console.error("Failed to create booking:", err));
+          notes: notes || undefined,
+          staff_alert: staffAlert || undefined,
+        }));
+        
+        if (createBookingThunk.rejected.match(action)) {
+          dispatch(deleteBookingAction(b.id)); // Rollback optimistic add
+          setBlockTimeError(action.payload as string || "Staff member already has an appointment at this time");
+          return; // Prevent closing the modal
+        }
+
+        const realId = String(action.payload?.id || "");
+        if (realId) {
+          dispatch(replaceBookingId({ localId, realId }));
+        }
       }
     }
     onClose();
@@ -611,7 +621,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
       const firstRow = b.services[0];
       const startTime = firstRow?.time || defaultTime || "10:00";
       if (salonId) {
-        (dispatch(createBookingThunk({
+        const action: any = await dispatch(createBookingThunk({
           salon_id: salonId,
           client_id: clientId || undefined,
           staff_id: toApiStaffId(firstRow?.staffId) ?? toApiStaffId(staffList[0]?.id),
@@ -625,21 +635,24 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
             quantity: p.qty || p.quantity || 1,
           })),
           membership_items: (b as any).membershipItems,
-          scheduled_at: `${calDate}T${startTime}:00`,
+          scheduled_at: new Date(`${calDate}T${startTime}:00`).toISOString(),
           duration_minutes: b.services[0]?.duration || 30,
           status: "booked",
-          notes: notes + (staffAlert ? `\n Staff Alert: ${staffAlert}` : "") || undefined,
-        })) as any)
-          .then((action: any) => {
-            if (createBookingThunk.fulfilled.match(action)) {
-              const realId = String(action.payload?.id || "");
-              if (realId) {
-                dispatch(replaceBookingId({ localId, realId }));
-                setApiAppointmentId(realId);
-              }
-            }
-          })
-          .catch((err: any) => console.error("Failed to create booking:", err));
+          notes: notes || undefined,
+          staff_alert: staffAlert || undefined,
+        }));
+
+        if (createBookingThunk.rejected.match(action)) {
+          dispatch(deleteBookingAction(b.id)); // Rollback optimistic add
+          setBlockTimeError(action.payload as string || "Staff member already has an appointment at this time");
+          return; // Stop the flow
+        }
+
+        const realId = String(action.payload?.id || "");
+        if (realId) {
+          dispatch(replaceBookingId({ localId, realId }));
+          setApiAppointmentId(realId);
+        }
       }
     }
     setSavedBookingRef(b);
@@ -649,11 +662,11 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
 
   async function handleCompletePayment() {
     const errors = runValidation();
-    if (errors.length) { setValidationErrors(errors); return; }
+    if (errors.length) { setValidationErrors(errors); throw new Error("validation"); }
     setValidationErrors([]);
     const clientId = await resolveClientId();
 
-    if (paymentMode === "single" && !singleMethod) { setPayMethodError(true); return; }
+    if (paymentMode === "single" && !singleMethod) { setPayMethodError(true); throw new Error("no_method"); }
     setPayMethodError(false);
     const methods: Record<string, number> = {};
     if (useEWallet && eWalletAmt > 0) methods["eWallet"] = eWalletAmt;
@@ -862,7 +875,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
           <h5 className="mb-0 fw-bold flex-grow-1" style={{ minWidth: 0 }}>
             {apptStatus === "NEW" ? "New Appointment" : !isEditing ? "View Appointment" : "Edit Appointment"}
           </h5>
-          
+
           {isPaid && (
             <Badge variant="success">✓ Paid</Badge>
           )}
@@ -1490,29 +1503,19 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                 ) : (
                   <Button variant="outline-secondary" fullWidth onClick={() => { setIsEditing(true); setShowDotMenu(false); }}>✏️ Update Appointment</Button>
                 )}
-                <Button fullWidth onClick={handleCompletePayment}
-                  disabled={(paymentMode === "single" && !singleMethod) || (!existingBooking && !apiAppointmentId)}
-                  style={{
-                    background: ((paymentMode !== "single" || singleMethod) && (existingBooking || apiAppointmentId))
-                      ? splitTotal > 0 && splitTotal < remainingDue
-                        ? "linear-gradient(135deg,#7c3aed,#6d28d9)"  // purple = partial
-                        : "linear-gradient(135deg,#10b981,#059669)"  // green = full
-                      : "#d1d5db",
-                    color: "#fff", border: "none", fontWeight: 700,
-                    opacity: ((paymentMode !== "single" || singleMethod) && (existingBooking || apiAppointmentId)) ? 1 : 0.6,
-                    boxShadow: ((paymentMode !== "single" || singleMethod) && (existingBooking || apiAppointmentId))
-                      ? splitTotal > 0 && splitTotal < remainingDue
-                        ? "0 4px 14px rgba(124,58,237,0.35)"
-                        : "0 4px 14px rgba(16,185,129,0.35)"
-                      : "none",
-                    transition: "all 0.2s"
-                  }}>
-                  {(!existingBooking && !apiAppointmentId)
-                    ? "⏳ Creating Booking..."
-                    : paymentMode === "split" && splitTotal > 0 && splitTotal < remainingDue
-                      ? `🟣 Confirm Partial — ₹${splitTotal.toFixed(2)} (₹${(remainingDue - splitTotal).toFixed(2)} due)`
-                      : `✅ Confirm & Pay — ₹${remainingDue.toFixed(2)}`}
-                </Button>
+                <PaymentButton
+                  amount={paymentMode === "split" && splitTotal > 0 && splitTotal < remainingDue ? splitTotal : remainingDue}
+                  isPartial={paymentMode === "split" && splitTotal > 0 && splitTotal < remainingDue}
+                  disabled={(!existingBooking && !apiAppointmentId)}
+                  label={
+                    (!existingBooking && !apiAppointmentId)
+                      ? "⏳ Creating Booking..."
+                      : paymentMode === "split" && splitTotal > 0 && splitTotal < remainingDue
+                        ? `🟣 Confirm Partial — ₹${splitTotal.toFixed(2)} (₹${(remainingDue - splitTotal).toFixed(2)} due)`
+                        : `✅ Confirm & Pay — ₹${remainingDue.toFixed(2)}`
+                  }
+                  onClick={handleCompletePayment}
+                />
               </>
             )}
           </div>
@@ -1527,7 +1530,11 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                 Already paid: ₹{alreadyPaidAmount.toFixed(2)} — New balance due: ₹{Math.max(0, effectiveTotal - alreadyPaidAmount).toFixed(2)}
               </div>
             )}
-            <Button variant="dark" fullWidth onClick={handleCompletePayment}>✅ Pay Balance — ₹{Math.max(0, effectiveTotal - alreadyPaidAmount).toFixed(2)}</Button>
+            <PaymentButton
+              amount={Math.max(0, effectiveTotal - alreadyPaidAmount)}
+              label={`✅ Pay Balance — ₹${Math.max(0, effectiveTotal - alreadyPaidAmount).toFixed(2)}`}
+              onClick={handleCompletePayment}
+            />
           </div>
         )}
 

@@ -128,7 +128,6 @@ const DayView: React.FC<DayViewProps> = ({
       const [eh, em] = dragging.booking.endTime.split(":").map(Number);
       const duration = eh * 60 + em - (sh * 60 + sm);
       const newEnd = addMinutes(newStart, duration);
-      const newStaff = visibleStaff.find((s) => s.id === dragging.currentStaffId);
       const orig = (dragging.booking as any)._originalBooking || dragging.booking;
       
       const toMins = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
@@ -141,15 +140,15 @@ const DayView: React.FC<DayViewProps> = ({
         const sh = Math.floor(sMins / 60);
         const sm = Math.round(sMins % 60);
         const shiftedTime = `${sh.toString().padStart(2, "0")}:${sm.toString().padStart(2, "0")}`;
-        return { ...s, time: shiftedTime, staffId: dragging.currentStaffId, staff: newStaff?.name || s.staff };
+        // Only shift the time — preserve each service's original staffId and staff name
+        return { ...s, time: shiftedTime };
       }) || [];
 
-      const firstSvc = updatedServices[0];
       updateBooking({
         ...orig,
-        startTime: firstSvc?.time || newStart,
-        endTime: firstSvc ? addMinutes(firstSvc.time, duration) : newEnd,
-        staffId: firstSvc?.staffId || dragging.currentStaffId,
+        startTime: newStart,
+        endTime: newEnd,
+        staffId: dragging.currentStaffId,
         services: updatedServices,
       });
       setDragging(null);
@@ -275,11 +274,27 @@ const DayView: React.FC<DayViewProps> = ({
     const slotMins = toMins(slotTime);
     return dayBookings.some((b) => {
       if ((b.status as string) === "Cancelled") return false;
-      // ✅ Match booking-level staffId OR any service staffId
-      const staffMatch = b.staffId === staffId || (b.services || []).some((s: any) => s.staffId === staffId);
-      return staffMatch &&
-        slotMins >= toMins(b.startTime) &&
-        slotMins < toMins(b.endTime);
+
+      // Find services explicitly assigned to this staff member
+      const staffServices = (b.services || []).filter((s: any) => s.staffId === staffId);
+
+      if (staffServices.length > 0) {
+        // Block only during the windows this staff member is actually performing a service,
+        // not for the entire booking span that may include other staff members' services.
+        return staffServices.some((s: any) => {
+          const svcStart = s.time || b.startTime;
+          const svcEnd = (s as any).endTime || (s as any).end_time || addMinutes(svcStart, (s as any).duration || 30);
+          return slotMins >= toMins(svcStart) && slotMins < toMins(svcEnd);
+        });
+      }
+
+      // No service-level match — fall back to booking-level staffId with overall time range
+      // (covers single-service bookings where services don't carry individual staffIds)
+      if (b.staffId === staffId) {
+        return slotMins >= toMins(b.startTime) && slotMins < toMins(b.endTime);
+      }
+
+      return false;
     });
   }
   function handleRemoveBlockTime(staffId: string) {
@@ -410,14 +425,37 @@ const DayView: React.FC<DayViewProps> = ({
                     .map((b) => {
                       const isDraggingThis = dragging?.booking.id === b.id;
                       const isResizingThis = resizing?.booking.id === b.id;
-                      const chipTop = isDraggingThis ? dragging!.currentTop : timeToPx(b.startTime);
-                      const chipHeight = isResizingThis ? resizing!.currentHeight : Math.max(durationToPx(b.startTime, b.endTime), SLOT_HEIGHT);
+
+                      // Services belonging to THIS staff column
+                      const staffServices = (b.services || []).filter((s: any) => s.staffId === staff.id);
+                      const displayServices = staffServices.length > 0 ? staffServices : b.services;
+
+                      // Position chip at the earliest service time for this staff (not the overall booking start)
+                      const toMinsLocal = (t: string) => { const [hh, mm] = t.split(":").map(Number); return hh * 60 + mm; };
+                      const staffStart = staffServices.length > 0
+                        ? staffServices.reduce((min: string, s: any) => {
+                            const t = s.time || b.startTime;
+                            return toMinsLocal(t) < toMinsLocal(min) ? t : min;
+                          }, staffServices[0].time || b.startTime)
+                        : b.startTime;
+                      const staffEnd = staffServices.length > 0
+                        ? staffServices.reduce((max: string, s: any) => {
+                            const end = s.endTime || s.end_time || addMinutes(s.time || b.startTime, s.duration || 30);
+                            return toMinsLocal(end) > toMinsLocal(max) ? end : max;
+                          }, (() => { const s = staffServices[0] as any; return s.endTime || s.end_time || addMinutes(s.time || b.startTime, s.duration || 30); })())
+                        : b.endTime;
+
+                      const chipTop = isDraggingThis ? dragging!.currentTop : timeToPx(staffStart);
+                      const chipHeight = isResizingThis ? resizing!.currentHeight : Math.max(durationToPx(staffStart, staffEnd), SLOT_HEIGHT);
                       const ps = (b.paymentStatus || "").toLowerCase();
                       const bs = (b.status || "").toLowerCase();
+                      const rawStatus = ((b as any)._rawStatus || "").toLowerCase();
                       const isPaid = ps === "paid" || ps === "completed";
                       const isPartial = ps === "partial";
                       const isCancelled = bs === "cancelled";
-                      const statusClass = isCancelled ? "cancelled" : isPaid ? "confirmed" : isPartial ? "partial" : "pending";
+                      const isCompleted = rawStatus === "completed" || rawStatus === "no_show";
+                      const isReadOnly = isCancelled || isCompleted;
+                      const statusClass = isCancelled ? "cancelled" : isCompleted ? "confirmed" : isPaid ? "confirmed" : isPartial ? "partial" : "pending";
 
                       const lastNote = b.notes || "";
 
@@ -428,11 +466,11 @@ const DayView: React.FC<DayViewProps> = ({
                           const m = Math.round(totalMins % 60);
                           return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
                         })()
-                        : b.startTime;
+                        : staffStart;
 
                       const previewEnd = isResizingThis
                         ? (() => {
-                          const [sh, sm] = b.startTime.split(":").map(Number);
+                          const [sh, sm] = staffStart.split(":").map(Number);
                           const addedMins = (resizing!.currentHeight / SLOT_HEIGHT) * intervalMins;
                           const endMins = sh * 60 + sm + addedMins;
                           const eh = Math.floor(endMins / 60);
@@ -441,25 +479,25 @@ const DayView: React.FC<DayViewProps> = ({
                         })()
                         : isDraggingThis
                           ? addMinutes(previewStart, (() => {
-                            const [sh, sm] = b.startTime.split(":").map(Number);
-                            const [eh, em] = b.endTime.split(":").map(Number);
+                            const [sh, sm] = staffStart.split(":").map(Number);
+                            const [eh, em] = staffEnd.split(":").map(Number);
                             return eh * 60 + em - (sh * 60 + sm);
                           })())
-                          : b.endTime;
+                          : staffEnd;
 
                       return (
                         <div
                           key={b.id}
                           className={`dv-chip dv-chip--${statusClass}${isDraggingThis ? " dv-chip--dragging" : ""}${isResizingThis ? " dv-chip--resizing" : ""}`}
-                          style={{ top: chipTop, height: chipHeight, cursor: isCancelled ? "pointer" : undefined }}
+                          style={{ top: chipTop, height: chipHeight, cursor: isReadOnly ? "pointer" : undefined }}
                           onMouseDown={(e) => {
-                            if (isCancelled) return;
+                            if (isReadOnly) return;
                             const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                             const fromBottom = rect.bottom - e.clientY;
                             if (fromBottom > 14) {
                               e.stopPropagation(); e.preventDefault();
-                              const origIndex = visibleStaff.findIndex((s) => s.id === b.staffId);
-                              setDragging({ booking: b, startX: e.clientX, startY: e.clientY, originalTop: timeToPx(b.startTime), currentTop: timeToPx(b.startTime), currentStaffId: b.staffId, currentStaffIndex: origIndex });
+                              const origIndex = visibleStaff.findIndex((s) => s.id === staff.id);
+                              setDragging({ booking: b, startX: e.clientX, startY: e.clientY, originalTop: timeToPx(staffStart), currentTop: timeToPx(staffStart), currentStaffId: staff.id, currentStaffIndex: origIndex });
                             }
                           }}
                           onClick={(e) => {
@@ -470,8 +508,11 @@ const DayView: React.FC<DayViewProps> = ({
                         >
                           <div className="dv-chip__body">
                             <span className="dv-chip__time">{formatTime12(previewStart)} – {formatTime12(previewEnd)}</span>
-                            <span className="dv-chip__service">{b.services.map((s: any) => s.service).join(", ")}</span>
+                            <span className="dv-chip__service">{displayServices.map((s: any) => s.service).join(", ")}</span>
                             <span className="dv-chip__client">👤 {b.clientName}</span>
+                            {isPartial && (b as any).dueAmount > 0 && (
+                              <span className="dv-chip__due">Due ₹{Number((b as any).dueAmount).toFixed(2)}</span>
+                            )}
                             {lastNote && chipHeight >= SLOT_HEIGHT * 2 && (
                               <span className="dv-chip__note">📝 {lastNote}</span>
                             )}
@@ -479,9 +520,9 @@ const DayView: React.FC<DayViewProps> = ({
                           <div
                             className="dv-chip__resize-handle"
                             onMouseDown={(e) => {
-                              if (isCancelled) return;
+                              if (isReadOnly) return;
                               e.stopPropagation(); e.preventDefault();
-                              setResizing({ booking: b, startY: e.clientY, originalHeight: Math.max(durationToPx(b.startTime, b.endTime), SLOT_HEIGHT), currentHeight: Math.max(durationToPx(b.startTime, b.endTime), SLOT_HEIGHT) });
+                              setResizing({ booking: b, startY: e.clientY, originalHeight: Math.max(durationToPx(staffStart, staffEnd), SLOT_HEIGHT), currentHeight: Math.max(durationToPx(staffStart, staffEnd), SLOT_HEIGHT) });
                             }}
                           >
                             <div className="dv-chip__resize-bar" />

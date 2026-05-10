@@ -87,6 +87,13 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
             ))}
           </div>
 
+          {(booking as any).staffAlert && (
+            <div className="vbm-section">
+              <div className="vbm-section-label">🔔 Staff Alert</div>
+              <div className="vbm-notes-text">{(booking as any).staffAlert}</div>
+            </div>
+          )}
+
           {booking.notes && (
             <div className="vbm-section">
               <div className="vbm-section-label">📝 Notes</div>
@@ -257,6 +264,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                   { icon: "💰", label: "Grand Total", detail: `₹${(booking.grandTotal || 0).toFixed(2)}` },
                   ...(booking.payingNow ? [{ icon: "✅", label: "Amount Paid", detail: `₹${(booking.payingNow || 0).toFixed(2)}` }] : []),
                   ...(booking.dueAmount ? [{ icon: "⏳", label: "Balance Due", detail: `₹${(booking.dueAmount || 0).toFixed(2)}` }] : []),
+                  ...((booking as any).staffAlert ? [{ icon: "🔔", label: "Staff Alert", detail: (booking as any).staffAlert }] : []),
                   ...(booking.notes ? [{ icon: "📝", label: "Notes", detail: booking.notes }] : []),
                 ].map((entry, i, arr) => (
                   <div key={i} className={`vbm-log-entry${i < arr.length - 1 ? " vbm-log-entry--bordered" : ""}`}>
