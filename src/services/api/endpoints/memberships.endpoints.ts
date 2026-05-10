@@ -1,4 +1,5 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { API_V1_BASE_URL } from "../baseUrl";
 
 export interface IncludedService {
   serviceId: string;
@@ -63,7 +64,7 @@ export interface ApiResponse<T> {
 export const membershipsApi = createApi({
   reducerPath: "membershipsApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5000") + "/api/v1",
+    baseUrl: API_V1_BASE_URL,
     prepareHeaders: (headers, { getState }) => {
       const state = getState() as any;
       const token = state?.auth?.accessToken;

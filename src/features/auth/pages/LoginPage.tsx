@@ -4,6 +4,7 @@ import { FcGoogle } from "react-icons/fc";
 
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { loginThunk } from "../../../middleware/auth/authThunk";
+import { API_ORIGIN } from "../../../services/api/baseUrl";
 import salonImg from "../../../assets/images/salon.jpg";
 
 // UI Components
@@ -49,8 +50,7 @@ export default function LoginPage() {
 
   // 🔐 GOOGLE OAUTH
   const handleGoogleLogin = () => {
-    const backendUrl = import.meta.env.VITE_API_BASE_URL || "";
-    window.location.href = `${backendUrl}/api/v1/auth/google/start`;
+    window.location.href = `${API_ORIGIN}/api/v1/auth/google/start`;
   };
 
   const LeftSection = (
