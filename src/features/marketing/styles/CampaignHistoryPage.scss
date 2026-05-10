@@ -1,0 +1,91 @@
+@use './marketing-tokens' as *;
+
+.ch-page { padding: 24px 28px; background: #fff; min-height: 100%; }
+
+.ch-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 0.5px solid $gray-200; }
+.ch-title { font-size: 16px; font-weight: 500; color: $black; margin: 0 0 3px; }
+.ch-sub   { font-size: 12px; color: $gray-400; margin: 0; }
+
+.ch-summary {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+  background: $gray-200; border: 0.5px solid $gray-200; border-radius: $radius-lg; overflow: hidden; margin-bottom: 20px;
+}
+.ch-summary-card  { background: #fff; padding: 14px 16px; display: flex; flex-direction: column; gap: 3px; }
+.ch-summary-val   { font-size: 22px; font-weight: 500; color: $black; letter-spacing: -0.5px; }
+.ch-summary-label { font-size: 10px; color: $gray-400; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+
+.ch-loading { padding: 48px; text-align: center; font-size: 13px; color: $gray-400; }
+.ch-empty   { padding: 64px 24px; text-align: center; color: $gray-400; font-size: 13px; }
+.ch-empty-icon { font-size: 32px; margin-bottom: 12px; }
+
+.ch-list { display: flex; flex-direction: column; gap: 8px; }
+
+.ch-card {
+  background: #fff; border: 0.5px solid $gray-200; border-radius: $radius-lg; overflow: hidden;
+  transition: border-color 0.15s;
+  &:hover { border-color: $gray-300; }
+  &--open { border-color: $black; }
+}
+
+.ch-card-header { display: flex; align-items: center; gap: 16px; padding: 14px 16px; cursor: pointer; &:hover { background: $gray-50; } }
+.ch-card-left { flex: 1; min-width: 0; }
+.ch-card-name     { font-size: 14px; font-weight: 500; color: $black; margin: 0 0 2px; }
+.ch-card-template { font-size: 11px; color: $gray-400; margin: 0; }
+.ch-card-right    { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+.ch-status-badge { font-size: 10px; font-weight: 500; padding: 3px 10px; border-radius: 20px; }
+
+.ch-card-actions { display: flex; gap: 6px; }
+.ch-btn { font-size: 11px; padding: 4px 10px; border-radius: $radius-sm; cursor: pointer; font-weight: 500; border: none; }
+.ch-btn-pause  { background: rgba(245,158,11,0.1); color: #f59e0b; }
+.ch-btn-resume { background: rgba(37,211,102,0.12); color: #16a34a; }
+.ch-btn-export { background: $gray-100; color: $gray-500; border: 0.5px solid $gray-200; &:hover { color: $black; } }
+.ch-expand-icon { font-size: 10px; color: $gray-400; }
+
+.ch-progress-wrap { display: flex; align-items: center; gap: 10px; padding: 0 16px 10px; }
+.ch-progress-track { flex: 1; height: 3px; background: $gray-100; border-radius: 2px; overflow: hidden; }
+.ch-progress-fill  { height: 100%; background: $green; border-radius: 2px; transition: width 0.4s ease; }
+.ch-progress-label { font-size: 11px; color: $gray-400; white-space: nowrap; }
+
+.ch-stats-row { display: flex; gap: 16px; padding: 10px 16px; border-top: 0.5px solid $gray-200; background: $gray-50; flex-wrap: wrap; }
+.ch-stat      { display: flex; align-items: center; gap: 5px; }
+.ch-stat-dot  { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.ch-stat-val  { font-size: 13px; font-weight: 500; color: $black; }
+.ch-stat-label{ font-size: 10px; color: $gray-400; }
+.ch-stat-pct  { font-size: 10px; color: $gray-300; }
+.ch-stat-meta { margin-left: auto; }
+
+.ch-detail { border-top: 0.5px solid $gray-200; padding: 14px 16px; }
+.ch-detail-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+.ch-detail-title  { font-size: 12px; font-weight: 500; color: $black; }
+
+.ch-filter-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.ch-filter-tab {
+  font-size: 10px; padding: 3px 8px; border-radius: 20px; border: 0.5px solid $gray-200;
+  background: #fff; color: $gray-500; cursor: pointer; transition: all 0.15s;
+  &:hover { border-color: $gray-300; }
+  &--active { background: $black; color: #fff; border-color: $black; }
+}
+
+.ch-detail-loading { padding: 24px; text-align: center; font-size: 13px; color: $gray-400; }
+.ch-detail-empty   { font-size: 12px; color: $gray-400; text-align: center; padding: 24px; }
+
+.ch-contact-table { display: flex; flex-direction: column; }
+.ch-contact-row {
+  display: grid; grid-template-columns: 140px 120px 90px 80px 90px 80px;
+  gap: 8px; padding: 8px 0; border-bottom: 0.5px solid #f5f5f5;
+  font-size: 11px; color: $gray-500; align-items: center;
+  &--head { font-size: 10px; color: $gray-400; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 0.5px solid $gray-200; padding-bottom: 8px; }
+  &:last-child { border-bottom: none; }
+}
+.ch-contact-phone  { font-family: monospace; font-size: 11px; color: $black; }
+.ch-contact-status { font-weight: 500; }
+.ch-scheduled-time {
+  font-size: 12px;
+  color: #8b5cf6;
+  background: #f5f3ff;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 500;
+  white-space: nowrap;
+}

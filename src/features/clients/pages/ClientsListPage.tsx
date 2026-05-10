@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -16,9 +16,16 @@ import {
   FileEarmarkExcel,
   FiletypeCsv,
   DashCircleFill,
+  PersonPlus,
+  ThreeDotsVertical,
+  PencilSquare,
+  Trash,
+  SlashCircle,
+  CheckCircle,
 } from "react-bootstrap-icons";
 import ClientDetailsDrawer from "../components/ClientDetailsDrawer";
 import ClientSearchInput from "../components/ClientSearchInput";
+import { toast } from "react-hot-toast";
 
 // UI Components
 import {
@@ -27,13 +34,14 @@ import {
   Input,
   Modal,
   DownloadButton,
+  Loader,
 } from "../../../components/ui";
 import { useTranslation } from "react-i18next";
 
 import "../styles/ClientsListPage.scss";
 
 export default function ClientsListPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const [clients, setClients] = useState<any[]>([]);
@@ -41,24 +49,32 @@ export default function ClientsListPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const ROWS_PER_PAGE = 10;
 
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get(CLIENT.BASE);
-      console.log("CLIENT API RESPONSE:", res.data);
+      const res = await api.get(CLIENT.BASE, { params: { inactive: true } });
       const clientsData = res.data?.data?.items || [];
-      setClients(Array.isArray(clientsData) ? clientsData : []);
+      const mapped = Array.isArray(clientsData)
+        ? clientsData.map((c: any) => ({ ...c, is_blocked: !c.is_active }))
+        : [];
+      setClients(mapped);
       setCurrentPage(1);
     } catch (error) {
       console.error("Error fetching clients", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchClients();
-  }, [location]);
+  }, [fetchClients]);
+
+  useEffect(() => {
+    const handler = () => setOpenRowMenuId(null);
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, []);
 
   /* ================= FILTER STATE ================= */
   const [showFilter, setShowFilter] = useState(false);
@@ -89,6 +105,30 @@ export default function ClientsListPage() {
 
   const [selectedSort, setSelectedSort] = useState("Created at (newest first)");
 
+  const sortedClients = useMemo(() => {
+    const arr = [...clients];
+    switch (selectedSort) {
+      case "First name (A-Z)":
+        return arr.sort((a, b) => (a.first_name || "").localeCompare(b.first_name || ""));
+      case "First name (Z-A)":
+        return arr.sort((a, b) => (b.first_name || "").localeCompare(a.first_name || ""));
+      case "Last name (A-Z)":
+        return arr.sort((a, b) => (a.last_name || "").localeCompare(b.last_name || ""));
+      case "Last name (Z-A)":
+        return arr.sort((a, b) => (b.last_name || "").localeCompare(a.last_name || ""));
+      case "Gender (A-Z)":
+        return arr.sort((a, b) => (a.gender || "").localeCompare(b.gender || ""));
+      case "Gender (Z-A)":
+        return arr.sort((a, b) => (b.gender || "").localeCompare(a.gender || ""));
+      case "Created at (oldest first)":
+        return arr.sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
+      case "Created at (newest first)":
+        return arr.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+      default:
+        return arr;
+    }
+  }, [clients, selectedSort]);
+
   /* ================= OPTIONS DROPDOWN ================= */
   const [optionsOpen, setOptionsOpen] = useState(false);
 
@@ -105,12 +145,12 @@ export default function ClientsListPage() {
   const [selectedClientId, setSelectedClientId] = useState<
     string | number | null
   >(null);
-  const [tagsModalOpen, setTagsModalOpen] = useState(false);
-  const [tagInput, setTagInput] = useState("");
+  const [openRowMenuId, setOpenRowMenuId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked)
-      setSelectedClients(clients.map((c: any) => String(c.id)));
+      setSelectedClients(sortedClients.map((c: any) => String(c.id)));
     else setSelectedClients([]);
   };
 
@@ -122,39 +162,96 @@ export default function ClientsListPage() {
   };
 
   const handleDeleteClients = async () => {
+    setIsDeleting(true);
     try {
       await Promise.all(
-        selectedClients.map((id) => api.delete(CLIENT.BY_ID(id))),
+        selectedClients.map((id) => api.delete(CLIENT.BY_ID(id) + "?hard=true")),
+      );
+      toast.success(
+        selectedClients.length > 1
+          ? "Clients deleted successfully"
+          : "Client deleted successfully"
       );
       setSelectedClients([]);
       await fetchClients();
     } catch (error) {
       console.error("Error deleting clients", error);
+      toast.error("Failed to delete client(s)");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const handleBlockClients = async () => {
     if (selectedClients.length === 0) return;
     try {
-      await api.patch(CLIENT.BLOCK, {
+      await api.post(CLIENT.BLOCK, {
         client_ids: selectedClients,
         reason: blockReason,
       });
+      toast.success("Clients blocked successfully");
       setSelectedClients([]);
       await fetchClients();
     } catch (error) {
       console.error("Block error:", error);
+      toast.error("Failed to block clients");
     }
   };
 
   const handleUnblockClients = async () => {
     if (selectedClients.length === 0) return;
     try {
-      await api.patch(CLIENT.UNBLOCK, { client_ids: selectedClients });
+      await api.post(CLIENT.UNBLOCK, { client_ids: selectedClients });
+      toast.success("Clients unblocked successfully");
       setSelectedClients([]);
       await fetchClients();
     } catch (error) {
       console.error("Unblock error:", error);
+      toast.error("Failed to unblock clients");
+    }
+  };
+
+  const handleUnblockSingle = async (clientId: string) => {
+    // Optimistic update
+    setClients((prev) =>
+      prev.map((c) =>
+        String(c.id) === clientId ? { ...c, is_blocked: false } : c
+      )
+    );
+    try {
+      await api.post(CLIENT.UNBLOCK, { client_ids: [clientId] });
+      toast.success("Client unblocked successfully");
+    } catch (error: any) {
+      // Revert on failure
+      setClients((prev) =>
+        prev.map((c) =>
+          String(c.id) === clientId ? { ...c, is_blocked: true } : c
+        )
+      );
+      console.error("Unblock error:", error?.response?.data || error);
+      toast.error("Failed to unblock client");
+    }
+  };
+
+  const handleBlockSingle = async (clientId: string) => {
+    // Optimistic update
+    setClients((prev) =>
+      prev.map((c) =>
+        String(c.id) === clientId ? { ...c, is_blocked: true } : c
+      )
+    );
+    try {
+      await api.post(CLIENT.BLOCK, { client_ids: [clientId], reason: "Blocked by admin" });
+      toast.success("Client blocked successfully");
+    } catch (error: any) {
+      // Revert on failure
+      setClients((prev) =>
+        prev.map((c) =>
+          String(c.id) === clientId ? { ...c, is_blocked: false } : c
+        )
+      );
+      console.error("Block error:", error?.response?.data || error);
+      toast.error("Failed to block client");
     }
   };
 
@@ -164,10 +261,10 @@ export default function ClientsListPage() {
       await api.post(CLIENT.MERGE_DUPLICATES, { merge_by: "phone" });
       await fetchClients();
       setOptionsOpen(false);
-      alert("Duplicate clients merged successfully based on phone number.");
+      toast.success("Duplicate clients merged successfully");
     } catch (error) {
       console.error("Merge error:", error);
-      alert("Failed to merge duplicate clients.");
+      toast.error("Failed to merge duplicate clients");
     } finally {
       setLoading(false);
     }
@@ -188,10 +285,10 @@ export default function ClientsListPage() {
       setMergeModalOpen(false);
       setPrimaryClientId(null);
       await fetchClients();
-      alert("Clients merged successfully.");
+      toast.success("Clients merged successfully");
     } catch (error) {
       console.error("Merge error:", error);
-      alert("Failed to merge clients.");
+      toast.error("Failed to merge clients");
     } finally {
       setLoading(false);
     }
@@ -321,18 +418,11 @@ export default function ClientsListPage() {
         </div>
 
         <div className="header-actions">
-          <Button
-            variant="outline-dark"
-            onClick={() =>
-              void i18n.changeLanguage(i18n.language === "en" ? "es" : "en")
-            }
-          >
-            {i18n.language === "en" ? "Español" : "English"}
-          </Button>
           {/* OPTIONS DROPDOWN */}
           <div className="options-dropdown position-relative">
             <Button
               variant="outline-dark"
+              pill
               onClick={() => setOptionsOpen(!optionsOpen)}
               iconRight={
                 <ChevronDown
@@ -409,38 +499,38 @@ export default function ClientsListPage() {
           {/* ADD BUTTON */}
           <Button
             variant="dark"
+            pill
+            iconLeft={<PersonPlus size={14} />}
             onClick={() => navigate("/dashboard/clients/add")}
-            className="ms-2"
           >
             Add
           </Button>
         </div>
       </div>
 
-      {/* ================= IMPORT BANNER ================= */}
-      <div className="import-banner">
-        <div className="banner-content">
-          <h3>Import your client list</h3>
-          <p>
-            Takes a few minutes and prevents new client fees for existing
-            clients who book online
-          </p>
-          <div className="banner-actions">
-            <button
-              className="btn-banner-white"
-              onClick={() => navigate("/dashboard/clients/import")}
-            >
-              Start import
-            </button>
-            <span className="banner-link">Learn more</span>
+
+      {/* ================= ADD CLIENT BANNER ================= */}
+      <div className="clp-invite-banner">
+        <div className="clp-banner-content">
+          <div className="clp-banner-icon-wrap">
+            <People size={28} />
+          </div>
+          <div>
+            <h3 className="clp-banner-title">Add your clients</h3>
+            <p className="clp-banner-desc">
+              Add clients to keep track of their appointments, preferences, and history.
+            </p>
           </div>
         </div>
-        <div className="banner-image">
-          {/* This would ideally be the avatars image from the screenshot */}
+        <div className="clp-banner-actions">
+          <button
+            className="clp-banner-btn"
+            onClick={() => navigate("/dashboard/clients/add")}
+          >
+            Add client
+          </button>
+          <span className="clp-banner-link">Learn more</span>
         </div>
-        <button className="banner-close">
-          <X size={18} />
-        </button>
       </div>
 
       {/* ================= SEARCH + SORT ================= */}
@@ -504,7 +594,7 @@ export default function ClientsListPage() {
 
       {/* ================= TABLE ================= */}
       {loading ? (
-        <div className="text-center p-5">Loading clients...</div>
+        <Loader message="Loading clients..." size="md" />
       ) : (
         <div className="table-card">
           <div className="clients-table">
@@ -522,7 +612,7 @@ export default function ClientsListPage() {
                   style={{ gridColumn: "2 / -1" }}
                 >
                   <div className="selected-count">
-                    {selectedClients.length === clients.length
+                    {selectedClients.length === sortedClients.length
                       ? "All selected"
                       : `${selectedClients.length} selected`}
                     <span className="dot">•</span>
@@ -573,15 +663,6 @@ export default function ClientsListPage() {
                               Block customers
                             </div>
                           )}
-                          <div
-                            className="bulk-edit-item"
-                            onClick={() => {
-                              setBulkEditOpen(false);
-                              setTagsModalOpen(true);
-                            }}
-                          >
-                            Add tags
-                          </div>
                         </div>
                       )}
                     </div>
@@ -610,16 +691,17 @@ export default function ClientsListPage() {
                 <div>Reviews</div>
                 <div>Sales</div>
                 <div>Created at</div>
+                <div></div>
               </div>
             )}
 
-            {clients.length === 0 ? (
+            {sortedClients.length === 0 ? (
               <div className="text-center p-5 text-muted">
                 No clients found.
               </div>
             ) : (
               (() => {
-                const paginatedClients = clients.slice(
+                const paginatedClients = sortedClients.slice(
                   (currentPage - 1) * ROWS_PER_PAGE,
                   currentPage * ROWS_PER_PAGE,
                 );
@@ -672,12 +754,79 @@ export default function ClientsListPage() {
                     </div>
 
                     <div>{client.phone_number || "-"}</div>
-                    <div>-</div>
-                    <div>-</div>
+                    <div>
+                      {client.reviews_count > 0
+                        ? `${parseFloat(client.reviews_avg || "0").toFixed(1)} ★ (${client.reviews_count})`
+                        : "-"}
+                    </div>
+                    <div>
+                      ₹{parseFloat(client.total_sales || "0").toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
                     <div>
                       {client.created_at
                         ? new Date(client.created_at).toLocaleDateString()
                         : "-"}
+                    </div>
+
+                    {/* 3-dot row menu */}
+                    <div
+                      className="col-row-menu"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        className="row-menu-btn"
+                        onClick={() =>
+                          setOpenRowMenuId((prev) =>
+                            prev === String(client.id) ? null : String(client.id)
+                          )
+                        }
+                      >
+                        <ThreeDotsVertical size={16} />
+                      </button>
+                      {openRowMenuId === String(client.id) && (
+                        <div className="row-menu-dropdown">
+                          <div
+                            className="row-menu-item"
+                            onClick={() => {
+                              setOpenRowMenuId(null);
+                              navigate(`/dashboard/clients/edit/${client.id}`);
+                            }}
+                          >
+                            <PencilSquare size={14} /> Edit
+                          </div>
+                          {client.is_blocked ? (
+                            <div
+                              className="row-menu-item success"
+                              onClick={() => {
+                                setOpenRowMenuId(null);
+                                handleUnblockSingle(String(client.id));
+                              }}
+                            >
+                              <CheckCircle size={14} /> Unblock
+                            </div>
+                          ) : (
+                            <div
+                              className="row-menu-item warning"
+                              onClick={() => {
+                                setOpenRowMenuId(null);
+                                handleBlockSingle(String(client.id));
+                              }}
+                            >
+                              <SlashCircle size={14} /> Block
+                            </div>
+                          )}
+                          <div
+                            className="row-menu-item danger"
+                            onClick={() => {
+                              setOpenRowMenuId(null);
+                              setSelectedClients([String(client.id)]);
+                              setDeleteModalOpen(true);
+                            }}
+                          >
+                            <Trash size={14} /> Delete
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ));
@@ -688,11 +837,11 @@ export default function ClientsListPage() {
       )}
 
       {/* ================= PAGINATION ================= */}
-      {clients.length > 0 &&
+      {sortedClients.length > 0 &&
         (() => {
-          const totalPages = Math.ceil(clients.length / ROWS_PER_PAGE);
+          const totalPages = Math.ceil(sortedClients.length / ROWS_PER_PAGE);
           const startItem = (currentPage - 1) * ROWS_PER_PAGE + 1;
-          const endItem = Math.min(currentPage * ROWS_PER_PAGE, clients.length);
+          const endItem = Math.min(currentPage * ROWS_PER_PAGE, sortedClients.length);
           const pageNumbers = Array.from(
             { length: totalPages },
             (_, i) => i + 1,
@@ -700,7 +849,7 @@ export default function ClientsListPage() {
           return (
             <div className="pagination-bar d-flex align-items-center justify-content-between mt-4">
               <div className="results-text">
-                Viewing {startItem}–{endItem} of {clients.length} results
+                Viewing {startItem}–{endItem} of {sortedClients.length} results
               </div>
               <div className="pagination-controls d-flex align-items-center gap-1">
                 <button
@@ -741,7 +890,8 @@ export default function ClientsListPage() {
             <Button
               variant="danger"
               fullWidth
-              disabled={deleteInput !== "DELETE"}
+              disabled={deleteInput !== "DELETE" || isDeleting}
+              loading={isDeleting}
               onClick={async () => {
                 await handleDeleteClients();
                 setDeleteModalOpen(false);
@@ -840,73 +990,6 @@ export default function ClientsListPage() {
         </div>
       </Modal>
 
-      {/* ================= ADD TAGS MODAL ================= */}
-      <Modal
-        show={tagsModalOpen}
-        onClose={() => setTagsModalOpen(false)}
-        title="Add client tags"
-        footer={
-          <div className="d-flex justify-content-end gap-2 w-100">
-            <Button
-              variant="outline-dark"
-              onClick={() => {
-                setTagsModalOpen(false);
-                setTagInput("");
-              }}
-              style={{
-                borderRadius: "999px",
-                padding: "8px 24px",
-                fontWeight: 600,
-                border: "1px solid #d1d5db",
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="dark"
-              disabled={!tagInput}
-              onClick={() => {
-                setTagsModalOpen(false);
-                setTagInput("");
-                // handle add tags
-              }}
-              style={{
-                borderRadius: "999px",
-                padding: "8px 24px",
-                fontWeight: 600,
-              }}
-            >
-              Apply
-            </Button>
-          </div>
-        }
-      >
-        <div className="mb-4 mt-2">
-          <label className="form-label fw-bold" style={{ fontSize: "13px" }}>
-            Tags
-          </label>
-          <div className="position-relative">
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Select or create a tag"
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              style={{
-                padding: "10px 14px",
-                borderRadius: "8px",
-                border: "1px solid #d1d5db",
-                fontSize: "15px",
-              }}
-            />
-            <ChevronDown
-              size={14}
-              className="position-absolute text-muted"
-              style={{ right: "14px", top: "14px", pointerEvents: "none" }}
-            />
-          </div>
-        </div>
-      </Modal>
 
       {/* ================= MERGE MODAL ================= */}
       {mergeModalOpen && (

@@ -95,7 +95,7 @@ export const unblockClientsThunk = createAsyncThunk<
   { rejectValue: string }
 >("client/unblock", async ({ ids }, { rejectWithValue }) => {
   try {
-    await api.patch(CLIENT.BLOCK, { client_ids: ids });
+    await api.post(CLIENT.UNBLOCK, { client_ids: ids });
     return ids;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);

@@ -34,19 +34,46 @@ function mapBooking(appt: any): Booking {
     const d = new Date(appt.ends_at);
     endTime = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   }
-  // Map services — ensure each service has camelCase staffId
+
+  // Convert a service's start_time (possibly UTC HH:MM from DB) to local time.
+  // Uses the booking's scheduled_at ISO string as the timezone reference.
+  function svcTimeToLocal(svcStartTime: string): string {
+    if (!svcStartTime) return startTime;
+    // Full ISO datetime — parse directly to local
+    if (svcStartTime.includes("T") || svcStartTime.endsWith("Z")) {
+      const d = new Date(svcStartTime);
+      return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    }
+    // HH:MM — apply the same UTC→local offset as the booking's scheduled_at
+    if (!appt.scheduled_at || !startTime) return svcStartTime;
+    try {
+      const bookingDate = new Date(appt.scheduled_at);
+      const bookingUtcMins = bookingDate.getUTCHours() * 60 + bookingDate.getUTCMinutes();
+      const [bh, bm] = startTime.split(":").map(Number);
+      const tzOffsetMins = bh * 60 + bm - bookingUtcMins;
+      const [sh, sm] = svcStartTime.split(":").map(Number);
+      if (isNaN(sh) || isNaN(sm)) return startTime;
+      const svcLocalMins = ((sh * 60 + sm) + tzOffsetMins + 24 * 60) % (24 * 60);
+      return `${String(Math.floor(svcLocalMins / 60)).padStart(2, "0")}:${String(svcLocalMins % 60).padStart(2, "0")}`;
+    } catch {
+      return startTime;
+    }
+  }
+
+  // Map services — ensure each service has camelCase staffId and LOCAL time
   const services = (appt.services || []).map((s: any) => ({
     ...s,
     staffId: s.staffId || s.staff_id || appt.staffId || appt.staff_id || undefined,
-    time: s.time || s.start_time || startTime,
+    // s.time: custom field (local if returned by backend); s.start_time may be UTC HH:MM from DB
+    time: s.time || (s.start_time ? svcTimeToLocal(s.start_time) : startTime),
   }));
 
   // ✅ FIX — compute payingNow/dueAmount from paid_amount so alreadyPaidAmount is always correct
   const grandTotalVal = parseFloat(String(appt.grand_total ?? appt.grandTotal ?? appt.total_amount ?? 0)) || 0;
   const paidAmountVal = Number(appt.paid_amount ?? appt.payingNow ?? 0) || 0;
-  const payStatusStr  = (appt.payment_status ?? appt.paymentStatus ?? "").toLowerCase();
+  const payStatusStr = (appt.payment_status ?? appt.paymentStatus ?? "").toLowerCase();
   let payingNow = appt.payingNow;
-  let dueAmount  = appt.dueAmount;
+  let dueAmount = appt.dueAmount;
   // Only recompute when not already set (i.e. raw API response)
   if (payingNow === undefined || payingNow === null) {
     if (paidAmountVal > 0) {
@@ -58,6 +85,16 @@ function mapBooking(appt: any): Booking {
     }
     dueAmount = Math.max(0, grandTotalVal - payingNow);
   }
+
+  // Parse staff_alert and notes separately — support both new separate fields and old concatenated format
+  const rawNotes: string = appt.notes || "";
+  const legacySep = "\n Staff Alert: ";
+  const legacyIdx = rawNotes.indexOf(legacySep);
+  const parsedNotes = appt.staff_alert || appt.staffAlert
+    ? rawNotes
+    : (legacyIdx >= 0 ? rawNotes.substring(0, legacyIdx) : rawNotes);
+  const parsedStaffAlert = appt.staff_alert || appt.staffAlert ||
+    (legacyIdx >= 0 ? rawNotes.substring(legacyIdx + legacySep.length) : undefined);
 
   return {
     ...appt,
@@ -72,6 +109,8 @@ function mapBooking(appt: any): Booking {
     services,
     payingNow,
     dueAmount,
+    notes: parsedNotes,
+    staffAlert: parsedStaffAlert,
   };
 }
 
@@ -87,7 +126,7 @@ export const fetchBookingsThunk = createAsyncThunk<
     const params = new URLSearchParams();
     if (salonId) params.set("salon_id", String(salonId));
     if (filters?.staffId && filters.staffId !== "all") params.set("staff_id", filters.staffId);
-    if (filters?.status  && filters.status  !== "all") params.set("status",   filters.status);
+    if (filters?.status && filters.status !== "all") params.set("status", filters.status);
     const res = await api.get<BookingListResponse>(`${BOOKING.BASE}?${params.toString()}`);
     // ✅ FIX — map every booking so payment_status is never lost
     return res.data.data.map(mapBooking);

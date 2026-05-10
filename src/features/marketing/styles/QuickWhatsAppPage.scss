@@ -1,0 +1,168 @@
+@use './marketing-tokens' as *;
+
+.qwa-page {
+  padding: 24px 28px;
+  background: #fff;
+  min-height: 100%;
+}
+
+.qwa-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 0.5px solid $gray-200;
+}
+
+.qwa-title { font-size: 16px; font-weight: 500; color: $black; margin: 0 0 3px; }
+.qwa-sub   { font-size: 12px; color: $gray-400; margin: 0; }
+
+.qwa-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #16a34a;
+  background: $green-light;
+  border: 0.5px solid rgba(37,211,102,0.2);
+  border-radius: 20px;
+  padding: 5px 12px;
+  flex-shrink: 0;
+}
+
+.qwa-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: $green;
+  flex-shrink: 0;
+}
+
+.qwa-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.qwa-count {
+  font-size: 11px;
+  color: $gray-400;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.qwa-loading {
+  padding: 48px;
+  text-align: center;
+  font-size: 13px;
+  color: $gray-400;
+}
+
+.qwa-empty {
+  padding: 64px 24px;
+  text-align: center;
+  color: $gray-400;
+  p    { font-size: 14px; font-weight: 500; color: $gray-500; margin: 0 0 4px; }
+  span { font-size: 12px; }
+}
+
+.qwa-empty-icon { font-size: 36px; margin-bottom: 12px; }
+
+.qwa-list {
+  display: flex;
+  flex-direction: column;
+  border: 0.5px solid $gray-200;
+  border-radius: $radius-lg;
+  overflow: hidden;
+}
+
+.qwa-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  border-bottom: 0.5px solid #f5f5f5;
+  transition: background 0.1s;
+
+  &:last-child { border-bottom: none; }
+  &:hover { background: $gray-50; }
+}
+
+.qwa-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: $gray-100;
+  color: $gray-600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.qwa-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.qwa-name  { font-size: 13px; font-weight: 500; color: $black; }
+.qwa-phone { font-size: 11px; color: $gray-400; font-family: monospace; }
+.qwa-email { font-size: 11px; color: $gray-400; margin-right: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
+
+.qwa-wa-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: $radius-md;
+  border: 0.5px solid rgba(37,211,102,0.3);
+  background: $green-light;
+  color: #16a34a;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+
+  &:hover {
+    background: $green;
+    color: #fff;
+    border-color: $green;
+  }
+
+  svg { flex-shrink: 0; }
+}
+
+.qwa-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.qwa-call-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: $radius-md;
+  border: 0.5px solid rgba(59,130,246,0.3);
+  background: rgba(59,130,246,0.08);
+  color: #3b82f6;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  &:hover {
+    background: #3b82f6;
+    color: #fff;
+    border-color: #3b82f6;
+  }
+}
