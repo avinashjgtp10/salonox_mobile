@@ -274,11 +274,27 @@ const DayView: React.FC<DayViewProps> = ({
     const slotMins = toMins(slotTime);
     return dayBookings.some((b) => {
       if ((b.status as string) === "Cancelled") return false;
-      // ✅ Match booking-level staffId OR any service staffId
-      const staffMatch = b.staffId === staffId || (b.services || []).some((s: any) => s.staffId === staffId);
-      return staffMatch &&
-        slotMins >= toMins(b.startTime) &&
-        slotMins < toMins(b.endTime);
+
+      // Find services explicitly assigned to this staff member
+      const staffServices = (b.services || []).filter((s: any) => s.staffId === staffId);
+
+      if (staffServices.length > 0) {
+        // Block only during the windows this staff member is actually performing a service,
+        // not for the entire booking span that may include other staff members' services.
+        return staffServices.some((s: any) => {
+          const svcStart = s.time || b.startTime;
+          const svcEnd = (s as any).endTime || (s as any).end_time || addMinutes(svcStart, (s as any).duration || 30);
+          return slotMins >= toMins(svcStart) && slotMins < toMins(svcEnd);
+        });
+      }
+
+      // No service-level match — fall back to booking-level staffId with overall time range
+      // (covers single-service bookings where services don't carry individual staffIds)
+      if (b.staffId === staffId) {
+        return slotMins >= toMins(b.startTime) && slotMins < toMins(b.endTime);
+      }
+
+      return false;
     });
   }
   function handleRemoveBlockTime(staffId: string) {
@@ -433,10 +449,13 @@ const DayView: React.FC<DayViewProps> = ({
                       const chipHeight = isResizingThis ? resizing!.currentHeight : Math.max(durationToPx(staffStart, staffEnd), SLOT_HEIGHT);
                       const ps = (b.paymentStatus || "").toLowerCase();
                       const bs = (b.status || "").toLowerCase();
+                      const rawStatus = ((b as any)._rawStatus || "").toLowerCase();
                       const isPaid = ps === "paid" || ps === "completed";
                       const isPartial = ps === "partial";
                       const isCancelled = bs === "cancelled";
-                      const statusClass = isCancelled ? "cancelled" : isPaid ? "confirmed" : isPartial ? "partial" : "pending";
+                      const isCompleted = rawStatus === "completed" || rawStatus === "no_show";
+                      const isReadOnly = isCancelled || isCompleted;
+                      const statusClass = isCancelled ? "cancelled" : isCompleted ? "confirmed" : isPaid ? "confirmed" : isPartial ? "partial" : "pending";
 
                       const lastNote = b.notes || "";
 
@@ -470,9 +489,9 @@ const DayView: React.FC<DayViewProps> = ({
                         <div
                           key={b.id}
                           className={`dv-chip dv-chip--${statusClass}${isDraggingThis ? " dv-chip--dragging" : ""}${isResizingThis ? " dv-chip--resizing" : ""}`}
-                          style={{ top: chipTop, height: chipHeight, cursor: isCancelled ? "pointer" : undefined }}
+                          style={{ top: chipTop, height: chipHeight, cursor: isReadOnly ? "pointer" : undefined }}
                           onMouseDown={(e) => {
-                            if (isCancelled) return;
+                            if (isReadOnly) return;
                             const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                             const fromBottom = rect.bottom - e.clientY;
                             if (fromBottom > 14) {
@@ -491,6 +510,9 @@ const DayView: React.FC<DayViewProps> = ({
                             <span className="dv-chip__time">{formatTime12(previewStart)} – {formatTime12(previewEnd)}</span>
                             <span className="dv-chip__service">{displayServices.map((s: any) => s.service).join(", ")}</span>
                             <span className="dv-chip__client">👤 {b.clientName}</span>
+                            {isPartial && (b as any).dueAmount > 0 && (
+                              <span className="dv-chip__due">Due ₹{Number((b as any).dueAmount).toFixed(2)}</span>
+                            )}
                             {lastNote && chipHeight >= SLOT_HEIGHT * 2 && (
                               <span className="dv-chip__note">📝 {lastNote}</span>
                             )}
@@ -498,7 +520,7 @@ const DayView: React.FC<DayViewProps> = ({
                           <div
                             className="dv-chip__resize-handle"
                             onMouseDown={(e) => {
-                              if (isCancelled) return;
+                              if (isReadOnly) return;
                               e.stopPropagation(); e.preventDefault();
                               setResizing({ booking: b, startY: e.clientY, originalHeight: Math.max(durationToPx(staffStart, staffEnd), SLOT_HEIGHT), currentHeight: Math.max(durationToPx(staffStart, staffEnd), SLOT_HEIGHT) });
                             }}

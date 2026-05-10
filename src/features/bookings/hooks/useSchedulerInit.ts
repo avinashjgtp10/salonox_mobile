@@ -154,6 +154,7 @@ export function mapApiBooking(item: any, rawServices: any[] = [], rawStaff: any[
     endTime: `${endHH}:${endMM}`,
     services,
     status: mapBackendStatus(item.status),
+    _rawStatus: (item.status || "").toLowerCase(),
     paymentStatus: finalPayStatus,
     subtotal: grandTotal,
     taxableAmount: grandTotal,
@@ -312,7 +313,7 @@ export function useSchedulerInit() {
         const sp = parseFloat(String(p.supply_price));
         const isValidRp = !isNaN(rp) && rp !== 0;
         const isValidSp = !isNaN(sp) && sp !== 0;
-        
+
         let price: number | null = null;
         if (isValidRp) price = rp;
         else if (isValidSp) price = sp;

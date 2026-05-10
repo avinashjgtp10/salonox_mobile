@@ -75,18 +75,21 @@ export function useSchedulerContext() {
     addBooking: (b: Booking) => dispatch(addBooking(b)),
     updateBooking: (b: Booking) => {
       dispatch(updateBookingAction(b));
-      if (!String(b.id).startsWith("b_")) {
+      const rawStatus = ((b as any)._rawStatus || "").toLowerCase();
+      const isLocked = rawStatus === "completed" || rawStatus === "no_show";
+      if (!String(b.id).startsWith("b_") && !isLocked) {
         const [sh, sm] = b.startTime.split(":").map(Number);
         const [eh, em] = b.endTime.split(":").map(Number);
         const duration = Math.max(5, (eh * 60 + em) - (sh * 60 + sm));
-        (dispatch(updateBookingThunk({
+        return (dispatch(updateBookingThunk({
           id: b.id,
           data: {
-            scheduled_at: `${b.date}T${b.startTime}:00`,
-            ends_at: `${b.date}T${b.endTime}:00`,
+            scheduled_at: new Date(`${b.date}T${b.startTime}:00`).toISOString(),
+            ends_at: new Date(`${b.date}T${b.endTime}:00`).toISOString(),
             duration_minutes: duration,
             staff_id: toApiStaffId(b.staffId),
             notes: b.notes || undefined,
+            staff_alert: (b as any).staffAlert || undefined,
             status: b.status === "Cancelled" ? "cancelled"
               : b.status === "Pending" ? "booked"
                 : "confirmed",
@@ -104,10 +107,14 @@ export function useSchedulerContext() {
             membership_items: (b as any).membershipItems ?? [],
           },
         })) as any)
-          .catch((err: any) =>
-            console.error("Failed to sync booking update to API:", err)
-          );
+          .then((action: any) => {
+            if (updateBookingThunk.rejected.match(action)) {
+              throw new Error(action.payload as string || "Staff member already has an appointment at this time");
+            }
+            return action;
+          });
       }
+      return Promise.resolve();
     },
     deleteBooking: (id: string) => {
       dispatch(deleteBookingAction(id));
