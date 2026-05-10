@@ -41,13 +41,13 @@ import billingReducer from "./billingSlice";
 const authPersistConfig = {
   key: "auth",
   storage,
-  whitelist: ["accessToken", "refreshToken", "isOnboardingComplete"],
+  whitelist: ["refreshToken", "isOnboardingComplete"], // accessToken intentionally excluded — AuthGuard silently restores it via refreshToken on boot
 };
 
 const shiftPersistConfig = {
   key: "shift",
   storage,
-  whitelist: ["staffMembers", "shifts"],   // only persist data, not loading/error flags
+  whitelist: ["staffMembers", "shifts"],
 };
 
 export const store = configureStore({

@@ -8,3 +8,4 @@ export * from "./ClientsRoutes";
 export * from "./TeamRoutes";
 export * from "./SettingsRoutes";
 export * from "./MarketingRoutes";
+export * from "./LandingRoutes";
