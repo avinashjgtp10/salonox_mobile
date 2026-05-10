@@ -119,6 +119,24 @@
   margin-left: auto;
 }
 
+/* ================= PHONE GROUP ================= */
+
+.ac-phone-group {
+  display: flex;
+  gap: 8px;
+
+  .ac-phone-code {
+    width: 130px;
+    flex-shrink: 0;
+    font-size: 13px;
+  }
+
+  .form-control {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
 /* ================= ADDITIONAL INFO ================= */
 
 .additional-info {

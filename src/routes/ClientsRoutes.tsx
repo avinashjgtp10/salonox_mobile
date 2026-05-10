@@ -23,6 +23,9 @@ const ClientSettingsPage = lazy(
 const ImportClientsPage = lazy(
   () => import("../features/clients/pages/ImportClientsPage"),
 );
+const EditClientPage = lazy(
+  () => import("../features/clients/pages/EditClientPage"),
+);
 
 import { PageLoader } from "../components/ui";
 
@@ -33,6 +36,7 @@ export const ClientsRoutes = () => (
       <Route path="list" element={<ClientsListPage />} />
       <Route path="loyalty" element={<ClientLoyaltyPage />} />
       <Route path="import" element={<ImportClientsPage />} />
+      <Route path="edit/:id" element={<EditClientPage />} />
 
       <Route
         path="*"
