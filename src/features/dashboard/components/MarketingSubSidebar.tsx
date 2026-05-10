@@ -1,9 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { ChevronLeft } from "react-bootstrap-icons";
 
-interface Props {
-  onClose: () => void;
-}
+interface Props { onClose: () => void; }
 
 export default function MarketingSubSidebar({ onClose }: Props) {
   return (
@@ -15,48 +13,35 @@ export default function MarketingSubSidebar({ onClose }: Props) {
         </button>
       </div>
 
-      <h4 className="sub-section-title">WhatsApp</h4>
+      <div className="sub-category">WhatsApp</div>
 
-      <NavLink
-        to="/dashboard/marketing"
-        end
-        className={({ isActive }) => `sub-link${isActive ? ' active' : ''}`}
-      >
-        📊 Dashboard
+      <NavLink to="/dashboard/marketing" end className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
+        <i className="ti ti-layout-dashboard" aria-hidden="true" /> Dashboard
+      </NavLink>
+      <NavLink to="/dashboard/marketing/templates" className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
+        <i className="ti ti-template" aria-hidden="true" /> Templates
+      </NavLink>
+      <NavLink to="/dashboard/marketing/campaigns/create" className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
+        <i className="ti ti-send" aria-hidden="true" /> Blast Campaigns
+      </NavLink>
+      <NavLink to="/dashboard/marketing/campaigns/history" className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
+        <i className="ti ti-history" aria-hidden="true" /> Campaign History
+      </NavLink>
+      <NavLink to="/dashboard/marketing/inbox" className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
+        <i className="ti ti-message-circle" aria-hidden="true" /> Inbox
+      </NavLink>
+      <NavLink to="/dashboard/marketing/quick-whatsapp" className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
+        <i className="ti ti-brand-whatsapp" aria-hidden="true" /> Quick WhatsApp
+      </NavLink>
+      <NavLink to="/dashboard/marketing/webhooks" className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
+        <i className="ti ti-activity" aria-hidden="true" /> Message Logs
       </NavLink>
 
-      <NavLink
-        to="/dashboard/marketing/templates/create"
-        className={({ isActive }) => `sub-link${isActive ? ' active' : ''}`}
-      >
-        📐 Templates
-      </NavLink>
+      <hr className="sub-divider" />
+      <div className="sub-category">Configuration</div>
 
-      <NavLink
-        to="/dashboard/marketing/campaigns/create"
-        className={({ isActive }) => `sub-link${isActive ? ' active' : ''}`}
-      >
-        📣 Blast Campaigns
-      </NavLink>
-
-      
-
-      <NavLink
-        to="/dashboard/marketing/webhooks"
-        className={({ isActive }) => `sub-link${isActive ? ' active' : ''}`}
-      >
-        📡 Message Logs
-      </NavLink>
-
-      <hr />
-
-      <h4 className="sub-section-title">Configuration</h4>
-
-      <NavLink
-        to="/dashboard/marketing/config"
-        className={({ isActive }) => `sub-link${isActive ? ' active' : ''}`}
-      >
-        ⚙️ WhatsApp Config
+      <NavLink to="/dashboard/marketing/config" className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
+        <i className="ti ti-settings" aria-hidden="true" /> WhatsApp Config
       </NavLink>
     </div>
   );
