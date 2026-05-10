@@ -1,19 +1,15 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import {
-  fetchTemplatesThunk,
-  createTemplateThunk,
-  deleteTemplateThunk,
-  syncTemplateThunk,
-} from "../../../middleware/marketing/marketing.thunk";
-import { TemplateCard } from "../components";
+import { useAppDispatch } from "../../../hooks/useAppRedux";
+import { createTemplateThunk } from "../../../middleware/marketing/marketing.thunk";
+import { Button, Input, Modal } from "../../../components/ui";
+import { useOnce } from "../../../hooks/useOnce";
 import type { HeaderType, ButtonType, TemplateButton } from "../../../types/marketing.types";
 import "../styles/CreateTemplatePage.scss";
 
 const CATEGORIES = ["MARKETING", "UTILITY", "AUTHENTICATION"];
-const LANGUAGES = [
+const LANGUAGES  = [
   { value: "en_US", label: "English (US)" },
   { value: "hi_IN", label: "Hindi" },
   { value: "mr_IN", label: "Marathi" },
@@ -23,24 +19,18 @@ const LANGUAGES = [
 const BODY_LIMIT = 1024;
 
 export default function CreateTemplatePage() {
-  const navigate = useNavigate();
-  const fileRef  = useRef<HTMLInputElement>(null);
-  const dispatch = useAppDispatch();
-  const { templates, loading } = useAppSelector((s) => s.marketing);
+  const navigate  = useNavigate();
+  const fileRef   = useRef<HTMLInputElement>(null);
+  const dispatch  = useAppDispatch();
 
-  const [form, setForm] = useState({
-    name: "", category: "MARKETING", language: "en_US", bodyText: "", footerText: "",
-  });
+  const [form, setForm]                   = useState({ name: "", category: "MARKETING", language: "en_US", bodyText: "", footerText: "" });
   const [headerType, setHeaderType]       = useState<HeaderType>("none");
   const [headerText, setHeaderText]       = useState("");
   const [headerFile, setHeaderFile]       = useState<File | null>(null);
   const [headerPreview, setHeaderPreview] = useState("");
   const [buttons, setButtons]             = useState<TemplateButton[]>([]);
   const [errors, setErrors]               = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    dispatch(fetchTemplatesThunk());
-  }, [dispatch]);
+  const [confirmModal, setConfirmModal]   = useState<{ open: boolean; id: string }>({ open: false, id: "" });
 
   const up = (k: string, v: string) => {
     setForm((p) => ({ ...p, [k]: v }));
@@ -55,33 +45,27 @@ export default function CreateTemplatePage() {
       const r = new FileReader();
       r.onload = (ev) => setHeaderPreview(ev.target?.result as string);
       r.readAsDataURL(file);
+    } else {
+      setHeaderPreview("");
     }
   };
 
-  const addBtn = (type: ButtonType) => {
-    if (buttons.length >= 3) return;
-    setButtons((p) => [...p, { type, text: "", value: "" }]);
-  };
-  const updateBtn = (i: number, k: keyof TemplateButton, v: string) =>
-    setButtons((p) => p.map((b, idx) => (idx === i ? { ...b, [k]: v } : b)));
-  const removeBtn = (i: number) =>
-    setButtons((p) => p.filter((_, idx) => idx !== i));
+  const addBtn    = (type: ButtonType) => { if (buttons.length >= 3) return; setButtons((p) => [...p, { type, text: "", value: "" }]); };
+  const updateBtn = (i: number, k: keyof TemplateButton, v: string) => setButtons((p) => p.map((b, idx) => (idx === i ? { ...b, [k]: v } : b)));
+  const removeBtn = (i: number) => setButtons((p) => p.filter((_, idx) => idx !== i));
 
   const validate = () => {
     const e: Record<string, string> = {};
     if (!form.name) e.name = "Required";
-    else if (!/^[a-z0-9_]+$/.test(form.name))
-      e.name = "Lowercase, numbers and underscores only";
+    else if (!/^[a-z0-9_]+$/.test(form.name)) e.name = "Lowercase, numbers and underscores only";
     if (form.bodyText.length < 10) e.bodyText = "At least 10 characters";
-    if (headerType === "text" && !headerText)
-      e.headerText = "Header text required";
-    if (["image", "video", "document"].includes(headerType) && !headerFile)
-      e.headerFile = "Please upload a file";
+    if (headerType === "text" && !headerText) e.headerText = "Header text required";
+    if (["image", "video", "document"].includes(headerType) && !headerFile) e.headerFile = "Please upload a file";
     setErrors(e);
     return !Object.keys(e).length;
   };
 
-  const handleSubmit = async () => {
+  const [handleSubmit, submitting] = useOnce(async () => {
     if (!validate()) return;
     const fd = new FormData();
     fd.append("name", form.name);
@@ -93,110 +77,56 @@ export default function CreateTemplatePage() {
     if (headerType === "text") fd.append("headerText", headerText);
     if (headerFile) fd.append("headerFile", headerFile);
     fd.append("buttons", JSON.stringify(buttons));
-
     const result = await dispatch(createTemplateThunk(fd));
     if (createTemplateThunk.fulfilled.match(result)) {
       toast.success("Template submitted for approval!");
       setForm({ name: "", category: "MARKETING", language: "en_US", bodyText: "", footerText: "" });
-      setHeaderType("none");
-      setHeaderText("");
-      setHeaderFile(null);
-      setHeaderPreview("");
-      setButtons([]);
+      setHeaderType("none"); setHeaderText(""); setHeaderFile(null); setHeaderPreview(""); setButtons([]);
     } else {
       toast.error((result.payload as string) ?? "Failed to submit template");
     }
-  };
-
-  const handleDelete = async (id: string) => {
-    const result = await dispatch(deleteTemplateThunk(id));
-    if (deleteTemplateThunk.fulfilled.match(result)) {
-      toast.success("Template deleted");
-    } else {
-      toast.error("Failed to delete");
-    }
-  };
-
-  const handleSync = async (id: string) => {
-    const result = await dispatch(syncTemplateThunk(id));
-    if (syncTemplateThunk.fulfilled.match(result)) {
-      toast.success("Template synced!");
-    } else {
-      toast.error("Failed to sync template");
-    }
-  };
+  });
 
   const previewBody = (t: string) =>
-    t
-      .replace(/\{\{1\}\}/g, "<b>Priya</b>")
-      .replace(/\{\{2\}\}/g, "<b>30</b>")
-      .replace(/\{\{3\}\}/g, "<b>Jan 15</b>");
+    t.replace(/\{\{1\}\}/g, "<b>Priya</b>").replace(/\{\{2\}\}/g, "<b>30</b>").replace(/\{\{3\}\}/g, "<b>Jan 15</b>");
 
   return (
     <div className="ct-page">
-      {/* Header */}
       <div className="ct-topbar">
-        <button className="ct-back" onClick={() => navigate(-1)}>
-          ← Back
-        </button>
         <div>
-          <h1 className="ct-title">WhatsApp Templates</h1>
-          <p className="ct-sub">
-            Create a template and submit to Meta for approval
-          </p>
+          <h1 className="ct-title">Create Template</h1>
+          <p className="ct-sub">Design your WhatsApp message and submit to Meta for approval</p>
         </div>
       </div>
 
       <div className="ct-layout">
-        {/* ── LEFT: Form ── */}
         <div className="ct-form-col">
+
           {/* Basic Info */}
           <div className="ct-section">
             <div className="ct-section-title">Basic Info</div>
             <div className="ct-field">
               <label className="ct-label">Template Name *</label>
-              <input
-                className={`ct-input ${errors.name ? "error" : ""}`}
+              <Input
                 placeholder="e.g. summer_promo_2025"
                 value={form.name}
-                onChange={(e) =>
-                  up("name", e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))
-                }
+                error={errors.name}
+                containerClass="mb-0"
+                onChange={(e) => up("name", e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
               />
-              {errors.name && (
-                <span className="ct-error">{errors.name}</span>
-              )}
-              <span className="ct-hint">
-                Lowercase, numbers and underscores only
-              </span>
+              <span className="ct-hint">Lowercase, numbers and underscores only</span>
             </div>
             <div className="ct-row-2">
               <div className="ct-field">
                 <label className="ct-label">Category</label>
-                <select
-                  className="ct-select"
-                  value={form.category}
-                  onChange={(e) => up("category", e.target.value)}
-                >
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
+                <select className="ct-select" value={form.category} onChange={(e) => up("category", e.target.value)}>
+                  {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div className="ct-field">
                 <label className="ct-label">Language</label>
-                <select
-                  className="ct-select"
-                  value={form.language}
-                  onChange={(e) => up("language", e.target.value)}
-                >
-                  {LANGUAGES.map((l) => (
-                    <option key={l.value} value={l.value}>
-                      {l.label}
-                    </option>
-                  ))}
+                <select className="ct-select" value={form.language} onChange={(e) => up("language", e.target.value)}>
+                  {LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
                 </select>
               </div>
             </div>
@@ -204,75 +134,42 @@ export default function CreateTemplatePage() {
 
           {/* Header */}
           <div className="ct-section">
-            <div className="ct-section-title">
-              Header <span className="ct-optional">Optional</span>
-            </div>
+            <div className="ct-section-title">Header <span className="ct-optional">Optional</span></div>
             <div className="ct-header-types">
               {(["none", "text", "image", "video", "document"] as HeaderType[]).map((t) => (
-                <button
-                  key={t}
-                  className={`ct-header-btn ${headerType === t ? "active" : ""}`}
-                  onClick={() => {
-                    setHeaderType(t);
-                    setHeaderFile(null);
-                    setHeaderPreview("");
-                  }}
-                >
+                <button key={t} className={`ct-header-btn ${headerType === t ? "active" : ""}`}
+                  onClick={() => { setHeaderType(t); setHeaderFile(null); setHeaderPreview(""); }}>
                   {t.charAt(0).toUpperCase() + t.slice(1)}
                 </button>
               ))}
             </div>
             {headerType === "text" && (
               <div className="ct-field">
-                <input
-                  className={`ct-input ${errors.headerText ? "error" : ""}`}
-                  placeholder="Hello {{1}}! Welcome to our salon 🎉"
-                  value={headerText}
-                  onChange={(e) => setHeaderText(e.target.value)}
-                  maxLength={60}
-                />
-                {errors.headerText && (
-                  <span className="ct-error">{errors.headerText}</span>
-                )}
+                <Input placeholder="Hello {{1}}! Welcome to our salon 🎉" value={headerText}
+                  error={errors.headerText} containerClass="mb-0"
+                  onChange={(e) => setHeaderText(e.target.value)} maxLength={60} />
                 <span className="ct-hint">{headerText.length}/60</span>
               </div>
             )}
             {["image", "video", "document"].includes(headerType) && (
               <>
-                <div
-                  className={`ct-upload-zone ${errors.headerFile ? "error" : ""}`}
-                  onClick={() => fileRef.current?.click()}
-                >
-                  <input
-                    ref={fileRef}
-                    type="file"
-                    style={{ display: "none" }}
-                    accept={
-                      headerType === "image"
-                        ? "image/jpeg,image/png,image/webp"
-                        : headerType === "video"
-                          ? "video/mp4,video/3gpp"
-                          : "application/pdf,.doc,.docx"
-                    }
-                    onChange={handleFile}
-                  />
-                  {headerPreview && headerType === "image" ? (
-                    <img
-                      src={headerPreview}
-                      alt="preview"
-                      className="ct-upload-img"
-                    />
+                <div className={`ct-upload-zone ${errors.headerFile ? "error" : ""}`} onClick={() => fileRef.current?.click()}>
+                  <input ref={fileRef} type="file" style={{ display: "none" }}
+                    accept={headerType === "image" ? "image/jpeg,image/png,image/webp" : headerType === "video" ? "video/mp4,video/3gpp" : "application/pdf,.doc,.docx"}
+                    onChange={handleFile} />
+                  {headerType === "image" && headerPreview ? (
+                    <img src={headerPreview} alt="preview" className="ct-upload-img" />
                   ) : headerFile ? (
-                    <div className="ct-upload-file">{headerFile.name}</div>
+                    <div className="ct-upload-file">
+                      {headerType === "video" ? "🎬" : "📄"} {headerFile.name}
+                    </div>
                   ) : (
                     <div className="ct-upload-placeholder">
-                      Click to upload {headerType}
+                      {headerType === "video" ? "🎬 Click to upload video (MP4)" : headerType === "document" ? "📄 Click to upload document (PDF)" : "🖼 Click to upload image"}
                     </div>
                   )}
                 </div>
-                {errors.headerFile && (
-                  <span className="ct-error">{errors.headerFile}</span>
-                )}
+                {errors.headerFile && <span className="ct-error">{errors.headerFile}</span>}
               </>
             )}
           </div>
@@ -281,25 +178,13 @@ export default function CreateTemplatePage() {
           <div className="ct-section">
             <div className="ct-section-title">Body Message *</div>
             <div className="ct-field">
-              <textarea
-                className={`ct-textarea ${errors.bodyText ? "error" : ""}`}
-                rows={5}
+              <Input multiline rows={5} containerClass="mb-0"
                 placeholder="Hi {{1}}, get {{2}}% OFF at Glow Salon! Book by {{3}}. Reply STOP to opt out."
-                value={form.bodyText}
-                onChange={(e) =>
-                  up("bodyText", e.target.value.slice(0, BODY_LIMIT))
-                }
-              />
-              {errors.bodyText && (
-                <span className="ct-error">{errors.bodyText}</span>
-              )}
+                value={form.bodyText} error={errors.bodyText}
+                onChange={(e) => up("bodyText", e.target.value.slice(0, BODY_LIMIT))} />
               <div className="ct-body-footer">
-                <span className="ct-hint">
-                  Use {"{{1}}, {{2}}, {{3}}"} for variables from Excel
-                </span>
-                <span
-                  className={`ct-char-count ${form.bodyText.length > BODY_LIMIT * 0.9 ? "warn" : ""}`}
-                >
+                <span className="ct-hint">Use {"{{1}}, {{2}}, {{3}}"} for variables from Excel</span>
+                <span className={`ct-char-count ${form.bodyText.length > BODY_LIMIT * 0.9 ? "warn" : ""}`}>
                   {form.bodyText.length}/{BODY_LIMIT}
                 </span>
               </div>
@@ -307,116 +192,56 @@ export default function CreateTemplatePage() {
             <div className="ct-var-btns">
               <span className="ct-var-label">Insert:</span>
               {["{{1}}", "{{2}}", "{{3}}", "{{4}}"].map((v) => (
-                <button
-                  key={v}
-                  className="ct-var-btn"
-                  onClick={() => up("bodyText", form.bodyText + v)}
-                >
-                  {v}
-                </button>
+                <button key={v} className="ct-var-btn" onClick={() => up("bodyText", form.bodyText + v)}>{v}</button>
               ))}
             </div>
           </div>
 
           {/* Footer */}
           <div className="ct-section">
-            <div className="ct-section-title">
-              Footer <span className="ct-optional">Optional</span>
-            </div>
-            <input
-              className="ct-input"
-              placeholder="Glow Salon · Reply STOP to unsubscribe"
-              value={form.footerText}
-              onChange={(e) => up("footerText", e.target.value)}
-              maxLength={60}
-            />
+            <div className="ct-section-title">Footer <span className="ct-optional">Optional</span></div>
+            <Input placeholder="Glow Salon · Reply STOP to unsubscribe" value={form.footerText} containerClass="mb-0"
+              onChange={(e) => up("footerText", e.target.value)} maxLength={60} />
             <span className="ct-hint">{form.footerText.length}/60</span>
           </div>
 
           {/* Buttons */}
           <div className="ct-section">
-            <div className="ct-section-title">
-              Buttons <span className="ct-optional">Optional · Max 3</span>
-            </div>
+            <div className="ct-section-title">Buttons <span className="ct-optional">Optional · Max 3</span></div>
             {buttons.map((btn, i) => (
               <div key={i} className="ct-btn-item">
                 <div className="ct-btn-item-header">
-                  <span className="ct-btn-type">
-                    {btn.type === "quick_reply"
-                      ? "↩ Quick Reply"
-                      : btn.type === "url"
-                        ? "🔗 URL"
-                        : "📞 Phone"}
-                  </span>
-                  <button className="ct-remove-btn" onClick={() => removeBtn(i)}>
-                    ✕
-                  </button>
+                  <span className="ct-btn-type">{btn.type === "quick_reply" ? "↩ Quick Reply" : btn.type === "url" ? "🔗 URL" : "📞 Phone"}</span>
+                  <button className="ct-remove-btn" onClick={() => removeBtn(i)}>✕</button>
                 </div>
                 <div className="ct-row-2">
-                  <input
-                    className="ct-input"
-                    placeholder="Button text"
-                    value={btn.text}
-                    onChange={(e) => updateBtn(i, "text", e.target.value)}
-                    maxLength={25}
-                  />
-                  {btn.type === "url" && (
-                    <input
-                      className="ct-input"
-                      placeholder="https://yoursalon.com/book"
-                      value={btn.value}
-                      onChange={(e) => updateBtn(i, "value", e.target.value)}
-                    />
-                  )}
-                  {btn.type === "phone" && (
-                    <input
-                      className="ct-input"
-                      placeholder="+91 98765 43210"
-                      value={btn.value}
-                      onChange={(e) => updateBtn(i, "value", e.target.value)}
-                    />
-                  )}
+                  <Input placeholder="Button text" value={btn.text} containerClass="mb-0" maxLength={25}
+                    onChange={(e) => updateBtn(i, "text", e.target.value)} />
+                  {btn.type === "url" && <Input placeholder="https://yoursalon.com/book" value={btn.value} containerClass="mb-0" onChange={(e) => updateBtn(i, "value", e.target.value)} />}
+                  {btn.type === "phone" && <Input placeholder="+91 98765 43210" value={btn.value} containerClass="mb-0" onChange={(e) => updateBtn(i, "value", e.target.value)} />}
                 </div>
               </div>
             ))}
             {buttons.length < 3 && (
               <div className="ct-add-btns-row">
-                <button
-                  className="ct-add-btn"
-                  onClick={() => addBtn("quick_reply")}
-                >
-                  + Quick Reply
-                </button>
-                <button className="ct-add-btn" onClick={() => addBtn("url")}>
-                  + URL Button
-                </button>
-                <button className="ct-add-btn" onClick={() => addBtn("phone")}>
-                  + Phone Button
-                </button>
+                <button className="ct-add-btn" onClick={() => addBtn("quick_reply")}>+ Quick Reply</button>
+                <button className="ct-add-btn" onClick={() => addBtn("url")}>+ URL Button</button>
+                <button className="ct-add-btn" onClick={() => addBtn("phone")}>+ Phone Button</button>
               </div>
             )}
           </div>
 
           {/* Submit */}
           <div className="ct-actions">
-            <button className="ct-cancel-btn" onClick={() => navigate(-1)}>
-              Cancel
-            </button>
-            <button
-              className="ct-submit-btn"
-              onClick={handleSubmit}
-              disabled={loading.createTemplate}
-            >
-              {loading.createTemplate
-                ? "Submitting..."
-                : "🚀 Submit to Meta for Approval"}
-            </button>
+            <Button variant="ghost" onClick={() => navigate(-1)}>Cancel</Button>
+            <Button variant="success" loading={submitting} disabled={submitting} onClick={handleSubmit}>
+              🚀 Submit to Meta for Approval
+            </Button>
           </div>
         </div>
 
-        {/* ── RIGHT: Preview + Existing Templates ── */}
+        {/* Right: Preview only — NO existing templates */}
         <div className="ct-right-col">
-          {/* Live Phone Preview */}
           <div className="ct-preview-label">📱 Live Preview</div>
           <div className="ct-phone">
             <div className="ct-phone-header">
@@ -428,63 +253,65 @@ export default function CreateTemplatePage() {
             </div>
             <div className="ct-phone-body">
               <div className="ct-message">
+                {/* Image header */}
                 {headerType === "image" && headerPreview && (
-                  <img
-                    src={headerPreview}
-                    alt="header"
-                    className="ct-msg-img"
+                  <img src={headerPreview} alt="header" className="ct-msg-img" />
+                )}
+                {headerType === "image" && !headerPreview && (
+                  <div className="ct-msg-media-placeholder">🖼 Image header</div>
+                )}
+
+                {/* Video header */}
+                {headerType === "video" && headerFile && (
+                  <video
+                    src={URL.createObjectURL(headerFile)}
+                    controls
+                    className="ct-msg-video"
+                    style={{ width: "100%", borderRadius: 6, marginBottom: 8, maxHeight: 140 }}
                   />
                 )}
+                {headerType === "video" && !headerFile && (
+                  <div className="ct-msg-media-placeholder">🎬 Video header</div>
+                )}
+
+                {/* Document header */}
+                {headerType === "document" && headerFile && (
+                  <div className="ct-msg-doc">📄 {headerFile.name}</div>
+                )}
+                {headerType === "document" && !headerFile && (
+                  <div className="ct-msg-media-placeholder">📄 Document header</div>
+                )}
+
+                {/* Text header */}
                 {headerType === "text" && headerText && (
                   <div className="ct-msg-header-text">{headerText}</div>
                 )}
-                <div
-                  className="ct-msg-body"
-                  dangerouslySetInnerHTML={{
-                    __html: previewBody(
-                      form.bodyText || "Your message will appear here...",
-                    ),
-                  }}
+
+                <div className="ct-msg-body"
+                  dangerouslySetInnerHTML={{ __html: previewBody(form.bodyText || "Your message will appear here...") }}
                 />
-                {form.footerText && (
-                  <div className="ct-msg-footer">{form.footerText}</div>
-                )}
+                {form.footerText && <div className="ct-msg-footer">{form.footerText}</div>}
                 <div className="ct-msg-time">10:24 AM ✓✓</div>
               </div>
               {buttons.filter((b) => b.text).length > 0 && (
                 <div className="ct-msg-buttons">
-                  {buttons
-                    .filter((b) => b.text)
-                    .map((b, i) => (
-                      <div key={i} className="ct-msg-btn">
-                        {b.text}
-                      </div>
-                    ))}
+                  {buttons.filter((b) => b.text).map((b, i) => <div key={i} className="ct-msg-btn">{b.text}</div>)}
                 </div>
               )}
             </div>
           </div>
-
-          {/* Existing Templates */}
-          <div className="ct-existing-title">Existing Templates</div>
-          {loading.fetchTemplates ? (
-            <div className="ct-loading">Loading templates...</div>
-          ) : templates.length === 0 ? (
-            <div className="ct-empty">No templates yet</div>
-          ) : (
-            <div className="ct-templates-list">
-              {templates.map((t) => (
-                <TemplateCard
-                  key={t.id}
-                  template={t}
-                  onDelete={handleDelete}
-                  onSync={handleSync}
-                />
-              ))}
-            </div>
-          )}
         </div>
       </div>
+
+      <Modal show={confirmModal.open} onClose={() => setConfirmModal({ open: false, id: "" })} title="Delete Template" size="sm"
+        footer={
+          <div className="d-flex gap-2 justify-content-end w-100">
+            <Button variant="ghost" size="sm" onClick={() => setConfirmModal({ open: false, id: "" })}>Cancel</Button>
+            <Button variant="danger" size="sm" onClick={() => {}}>Delete</Button>
+          </div>
+        }>
+        <p className="mb-0" style={{ fontSize: 14, color: "#555" }}>Delete this template? This cannot be undone.</p>
+      </Modal>
     </div>
   );
 }

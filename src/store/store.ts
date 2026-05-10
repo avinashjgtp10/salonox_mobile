@@ -24,6 +24,7 @@ import settingReducer from "./settingSlice";
 import appReducer from "./appSlice";
 import schedulerReducer from "./schedulerSlice";
 import marketingReducer from "./marketingSlice";
+import inboxReducer from "./inboxSlice";
 import reportReducer from "./reportSlice";
 import servicesReducer from "./servicesSlice";
 import categoriesReducer from "./categoriesSlice";
@@ -62,6 +63,7 @@ export const store = configureStore({
     app: appReducer,
     scheduler: schedulerReducer,
     marketing: marketingReducer,
+    inbox: inboxReducer,
     report: reportReducer,
     services: servicesReducer,
     categories: categoriesReducer,

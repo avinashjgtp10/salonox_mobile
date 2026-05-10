@@ -216,7 +216,9 @@ body {
 }
 
 .sub-link {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 10px 14px;
   color: $dashboard-primary;
   font-size: 14px;
@@ -224,8 +226,24 @@ body {
   cursor: pointer;
   transition: 0.2s ease;
   text-decoration: none;
-  &:hover { background: $dashboard-bg; }
-  &.active { background: #e8e9f1; font-weight: 500; }
+
+  i {
+    font-size: 16px;
+    color: $dashboard-secondary;
+    flex-shrink: 0;
+    transition: color 0.2s;
+  }
+
+  &:hover {
+    background: $dashboard-bg;
+    i { color: $dashboard-primary; }
+  }
+
+  &.active {
+    background: #e8e9f1;
+    font-weight: 500;
+    i { color: #25d366; }
+  }
 }
 
 .sub-divider { margin: 22px 0; border: none; border-top: 1px solid $dashboard-border; }

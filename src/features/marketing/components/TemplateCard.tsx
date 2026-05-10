@@ -1,67 +1,100 @@
+import { useState } from "react";
 import type { Template, TemplateStatus } from "../../../types/marketing.types";
+import TemplatePreviewModal from "./TemplatePreviewModal";
+import { Button, Badge } from "../../../components/ui";
 import "../styles/TemplateCard.scss";
 
 interface Props {
-  template: Template;
-  onDelete: (id: string) => void;
-  onSync: (id: string) => void;
+  template:      Template;
+  onDelete:      (id: string) => void;
+  onSync:        (id: string) => void;
+  syncLoading?:  boolean;
+  deleteLoading?: boolean;
 }
 
-const STATUS_MAP: Record<TemplateStatus, { label: string; color: string; bg: string }> = {
-  APPROVED: { label: "Approved", color: "#16a34a", bg: "#f0fdf4" },
-  PENDING:  { label: "Pending",  color: "#d97706", bg: "#fffbeb" },
-  REJECTED: { label: "Rejected", color: "#dc2626", bg: "#fef2f2" },
+const STATUS_BADGE: Record<TemplateStatus, "success" | "warning" | "danger"> = {
+  APPROVED: "success",
+  PENDING:  "warning",
+  REJECTED: "danger",
 };
 
-export default function TemplateCard({ template, onDelete, onSync }: Props) {
-  const status = STATUS_MAP[template.status] ?? STATUS_MAP.PENDING;
+export default function TemplateCard({
+  template, onDelete, onSync, syncLoading, deleteLoading,
+}: Props) {
+  const [showPreview, setShowPreview] = useState(false);
+  const isApproved = template.status === "APPROVED";
 
   return (
-    <div className="tcard">
-      <div className="tcard-header">
-        <div className="tcard-name">{template.name}</div>
-        <span
-          className="tcard-status"
-          style={{ color: status.color, background: status.bg }}
-        >
-          {status.label}
-        </span>
-      </div>
+    <>
+      <div
+        className={`tcard ${isApproved ? "tcard--clickable" : ""}`}
+        onClick={() => { if (isApproved) setShowPreview(true); }}
+        title={isApproved ? "Click to preview" : undefined}
+      >
+        {/* Header: name + status badge */}
+        <div className="tcard-header">
+          <div className="tcard-name">{template.name}</div>
+          <Badge variant={STATUS_BADGE[template.status] ?? "secondary"} pill>
+            {template.status}
+          </Badge>
+        </div>
 
-      <div className="tcard-badges">
-        <span className="tcard-badge">{template.category}</span>
-        <span className="tcard-badge">{template.language}</span>
-      </div>
+        {/* Category + language pills */}
+        <div className="tcard-badges">
+          <span className="tcard-badge">{template.category}</span>
+          <span className="tcard-badge">{template.language}</span>
+        </div>
 
-      <div className="tcard-body">{template.bodyText}</div>
+        {/* Body preview */}
+        <div className="tcard-body">
+          {template.body_text ?? template.bodyText}
+        </div>
 
-      {template.rejectionReason && (
-        <div className="tcard-rejection">⚠️ {template.rejectionReason}</div>
-      )}
+        
 
-      <div className="tcard-footer">
-        <span className="tcard-date">
-          {template.createdAt
-            ? new Date(template.createdAt).toLocaleDateString("en-IN")
-            : "—"}
-        </span>
-        <div className="tcard-actions">
-          <button
-            className="tcard-btn"
-            onClick={() => onSync(String(template.id))}
-            title="Sync from Meta"
-          >
-            ↻
-          </button>
-          <button
-            className="tcard-btn danger"
-            onClick={() => onDelete(String(template.id))}
-            title="Delete"
-          >
-            ✕
-          </button>
+        {/* No header warning */}
+        {(template.header_type === "none") && (
+          <div className="tcard-no-header">⚠️ No header</div>
+        )}
+
+        {/* Footer: date + action buttons */}
+        <div className="tcard-footer">
+          <span className="tcard-date">
+            {(template.created_at ?? template.createdAt)
+              ? new Date((template.created_at ?? template.createdAt)!).toLocaleDateString("en-IN")
+              : "—"}
+          </span>
+          <div className="tcard-actions">
+            <Button
+              variant="outline-secondary"
+              size="sm"
+              loading={syncLoading}
+              disabled={syncLoading || deleteLoading}
+              title="Sync from Meta"
+              onClick={(e) => { e.stopPropagation(); onSync(String(template.id)); }}
+            >
+              ↻
+            </Button>
+            <Button
+              variant="outline-danger"
+              size="sm"
+              loading={deleteLoading}
+              disabled={syncLoading || deleteLoading}
+              title="Delete template"
+              onClick={(e) => { e.stopPropagation(); onDelete(String(template.id)); }}
+            >
+              ✕
+            </Button>
+          </div>
         </div>
       </div>
-    </div>
+
+      {showPreview && (
+        <TemplatePreviewModal
+          template={template}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
+    </>
   );
 }
