@@ -14,7 +14,9 @@ import salonImg from "../../../assets/images/salon.jpg";
 import Input from "../../../components/ui/Input";
 import Button from "../../../components/ui/Button";
 import SplitLayout from "../../../components/ui/SplitLayout";
+import "../styles/RegisterPage.scss";
 import "../styles/onboarding-shared.scss";
+
 interface FormState {
   fullName: string;
   businessName: string;
@@ -84,8 +86,7 @@ export default function RegisterPage() {
     const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!form.fullName.trim()) errs.fullName = "Full name is required";
-    if (!form.businessName.trim())
-      errs.businessName = "Business name is required";
+    if (!form.businessName.trim()) errs.businessName = "Business name is required";
     if (!form.address.trim()) errs.address = "Address is required";
     if (!form.country) errs.country = "Country is required";
     if (!form.phone) errs.phone = "Phone number is required";
@@ -139,10 +140,7 @@ export default function RegisterPage() {
   };
 
   const handleVerifyEmailOtp = async () => {
-    if (!emailOtp.trim()) {
-      toast.error("Enter the OTP");
-      return;
-    }
+    if (!emailOtp.trim()) { toast.error("Enter the OTP"); return; }
     setEmailOtpLoading(true);
     const tid = toast.loading("Verifying OTP…");
     const result = await dispatch(
@@ -159,19 +157,13 @@ export default function RegisterPage() {
   };
 
   const handleSendMobileOtp = () => {
-    if (!form.phone.trim()) {
-      toast.error("Enter your mobile number first");
-      return;
-    }
+    if (!form.phone.trim()) { toast.error("Enter your mobile number first"); return; }
     setMobileOtpSent(true);
     toast.success(`[Demo] Your OTP is: ${DEMO_MOBILE_OTP}`, { duration: 6000 });
   };
 
   const handleVerifyMobileOtp = () => {
-    if (!mobileOtp.trim()) {
-      toast.error("Enter the OTP");
-      return;
-    }
+    if (!mobileOtp.trim()) { toast.error("Enter the OTP"); return; }
     if (mobileOtp === DEMO_MOBILE_OTP) {
       setMobileOtpVerified(true);
       clearFieldError("mobileOtp");
@@ -199,12 +191,9 @@ export default function RegisterPage() {
     );
     if (registerThunk.fulfilled.match(result)) {
       toast.success("Account created! Logging you in…", { id: tid });
-      
-      // Auto-login the user so they get the access token and can proceed to onboarding
       const loginRes = await dispatch(
         loginThunk({ email: form.email, password: form.password })
       );
-
       if (loginThunk.fulfilled.match(loginRes)) {
         navigate("/account-type");
       } else {
@@ -224,348 +213,270 @@ export default function RegisterPage() {
   };
 
   const LeftSection = (
-    <div className="w-100 py-4" style={{ maxWidth: "420px" }}>
-      <div className="text-center mb-4">
-        <h4
-          className="brand-logo d-inline-block m-0"
-          style={{ fontSize: "24px" }}
-        >
+    <div className="rp-wrap">
+      <div className="rp-orb rp-orb--1" />
+      <div className="rp-orb rp-orb--2" />
+
+      <div className="rp-inner">
+        <div className="rp-brand">
+          <span className="rp-brand__gem" />
           salonox
-        </h4>
-      </div>
-
-      <h2 className="fw-bold mb-1">Create Account</h2>
-      <p className="text-muted mb-4" style={{ fontSize: "14px" }}>
-        Fill in the details below to get started.
-      </p>
-
-      <Input
-        label="Full Name"
-        placeholder="e.g. John Doe"
-        name="fullName"
-        value={form.fullName}
-        onChange={handleChange}
-        error={errors.fullName}
-      />
-
-      <Input
-        label="Business Name"
-        placeholder="e.g. Glamour Salon"
-        name="businessName"
-        value={form.businessName}
-        onChange={handleChange}
-        error={errors.businessName}
-      />
-
-      <Input
-        label="Address"
-        placeholder="e.g. 123 Main Street"
-        name="address"
-        value={form.address}
-        onChange={handleChange}
-        error={errors.address}
-      />
-
-      {/* EMAIL + OTP */}
-      <div className="mb-3">
-        <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
-          Email address
-        </label>
-        <div className="d-flex gap-2">
-          <input
-            type="email"
-            className={`form-control ${errors.email ? "is-invalid" : ""}`}
-            placeholder="example@domain.com"
-            name="email"
-            value={form.email}
-            onChange={(e) => {
-              handleChange(e);
-              if (emailOtpVerified || emailOtpSent) {
-                setEmailOtpSent(false);
-                setEmailOtpVerified(false);
-                setEmailOtp("");
-              }
-            }}
-            disabled={emailOtpVerified}
-          />
-          <Button
-            variant="outline-dark"
-            size="sm"
-            style={{ whiteSpace: "nowrap" }}
-            onClick={handleSendEmailOtp}
-            disabled={emailOtpVerified || emailOtpLoading}
-          >
-            {emailOtpVerified
-              ? "✓ Verified"
-              : emailOtpLoading && !emailOtpSent
-                ? "Sending…"
-                : emailOtpSent
-                  ? "Resend"
-                  : "Send OTP"}
-          </Button>
         </div>
-        {errors.email && (
-          <div className="text-danger mt-1" style={{ fontSize: "12px" }}>
-            {errors.email}
-          </div>
-        )}
-      </div>
 
-      {emailOtpSent && !emailOtpVerified && (
-        <div className="mb-3">
-          <label className="form-label" style={{ fontSize: "13px" }}>
-            Enter Email OTP
-          </label>
-          <div className="d-flex gap-2">
-            <input
-              className="form-control"
-              placeholder="6-digit OTP"
-              value={emailOtp}
-              maxLength={6}
-              onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, ""))}
-              onKeyDown={(e) => e.key === "Enter" && handleVerifyEmailOtp()}
-            />
-            <Button
-              variant="success"
-              size="sm"
-              onClick={handleVerifyEmailOtp}
-              disabled={emailOtpLoading || emailOtp.length < 6}
-            >
-              {emailOtpLoading ? "Verifying…" : "Verify"}
-            </Button>
-          </div>
+        <div className="rp-heading-block">
+          <h1 className="rp-heading">Create your<br />account.</h1>
+          <p className="rp-sub">Fill in the details below to get started.</p>
         </div>
-      )}
 
-      {emailOtpVerified && (
-        <div
-          className="mb-3 d-flex align-items-center gap-1"
-          style={{ fontSize: "13px", color: "#16a34a" }}
-        >
-          <span>✓</span>
-          <span>Email verified</span>
-        </div>
-      )}
-      {errors.emailOtp && (
-        <div className="text-danger mb-2" style={{ fontSize: "12px" }}>
-          {errors.emailOtp}
-        </div>
-      )}
-
-      {/* COUNTRY */}
-      <div className="mb-3">
-        <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
-          Country
-        </label>
-        <select
-          className={`form-select ${errors.country ? "is-invalid" : ""}`}
-          name="country"
-          value={form.country}
+        {/* ── FULL NAME ── */}
+        <Input
+          label="Full Name"
+          placeholder="e.g. John Doe"
+          name="fullName"
+          value={form.fullName}
           onChange={handleChange}
-        >
-          <option value="">Select Country</option>
-          {countries.map((c) => (
-            <option key={c.isoCode} value={c.isoCode}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-        {errors.country && (
-          <div className="invalid-feedback">{errors.country}</div>
-        )}
-      </div>
+          error={errors.fullName}
+          containerClass="rp-field"
+        />
 
-      {/* MOBILE + OTP */}
-      <div className="mb-3">
-        <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
-          Mobile number
-        </label>
-        <div className="d-flex gap-2 align-items-center">
-          <div style={{ flex: 1 }}>
-            <PhoneInput
-              country={form.country.toLowerCase() || "in"}
-              value={form.phone}
-              onChange={(value, countryData: any) => {
-                setForm((prev) => ({
-                  ...prev,
-                  phone: value,
-                  countryCode: countryData?.dialCode
-                    ? `+${countryData.dialCode}`
-                    : "",
-                }));
-                if (mobileOtpSent || mobileOtpVerified) {
-                  setMobileOtpSent(false);
-                  setMobileOtpVerified(false);
-                  setMobileOtp("");
-                }
-                clearFieldError("phone");
-              }}
-              disabled={mobileOtpVerified}
-              inputStyle={{ width: "100%", height: "38px", fontSize: "14px" }}
-            />
-          </div>
-          <Button
-            variant="outline-dark"
-            size="sm"
-            style={{ height: "38px", whiteSpace: "nowrap" }}
-            onClick={handleSendMobileOtp}
-            disabled={mobileOtpVerified}
-          >
-            {mobileOtpVerified
-              ? "✓ Verified"
-              : mobileOtpSent
-                ? "Resend"
-                : "Send OTP"}
-          </Button>
-        </div>
-        {errors.phone && (
-          <div className="text-danger mt-1" style={{ fontSize: "12px" }}>
-            {errors.phone}
-          </div>
-        )}
-      </div>
+        {/* ── BUSINESS NAME ── */}
+        <Input
+          label="Business Name"
+          placeholder="e.g. Glamour Salon"
+          name="businessName"
+          value={form.businessName}
+          onChange={handleChange}
+          error={errors.businessName}
+          containerClass="rp-field"
+        />
 
-      {mobileOtpSent && !mobileOtpVerified && (
-        <div className="mb-3">
-          <label className="form-label" style={{ fontSize: "13px" }}>
-            Enter Mobile OTP
-          </label>
-          <div
-            className="alert alert-warning py-1 px-2 mb-2"
-            style={{ fontSize: "12px" }}
-          >
-            🧪 <strong>Demo OTP:</strong> {DEMO_MOBILE_OTP}
-          </div>
-          <div className="d-flex gap-2">
+        {/* ── ADDRESS ── */}
+        <Input
+          label="Address"
+          placeholder="e.g. 123 Main Street"
+          name="address"
+          value={form.address}
+          onChange={handleChange}
+          error={errors.address}
+          containerClass="rp-field"
+        />
+
+        {/* ── EMAIL + OTP ── */}
+        <div className="rp-field">
+          <label className="rp-label">Email address</label>
+          <div className="rp-input-row">
             <input
-              className="form-control"
-              placeholder="6-digit OTP"
-              value={mobileOtp}
-              maxLength={6}
-              onChange={(e) => setMobileOtp(e.target.value.replace(/\D/g, ""))}
-              onKeyDown={(e) => e.key === "Enter" && handleVerifyMobileOtp()}
+              type="email"
+              className={`rp-input ${errors.email ? "rp-input--error" : ""}`}
+              placeholder="example@domain.com"
+              name="email"
+              value={form.email}
+              onChange={(e) => {
+                handleChange(e);
+                if (emailOtpVerified || emailOtpSent) {
+                  setEmailOtpSent(false);
+                  setEmailOtpVerified(false);
+                  setEmailOtp("");
+                }
+              }}
+              disabled={emailOtpVerified}
             />
-            <Button
-              variant="success"
-              size="sm"
-              onClick={handleVerifyMobileOtp}
-              disabled={mobileOtp.length < 6}
+            <button
+              className={`rp-otp-btn ${emailOtpVerified ? "rp-otp-btn--verified" : ""}`}
+              onClick={handleSendEmailOtp}
+              disabled={emailOtpVerified || emailOtpLoading}
+              type="button"
             >
-              Verify
-            </Button>
+              {emailOtpVerified
+                ? "✓ Verified"
+                : emailOtpLoading && !emailOtpSent
+                  ? "Sending…"
+                  : emailOtpSent
+                    ? "Resend"
+                    : "Send OTP"}
+            </button>
           </div>
+          {errors.email && <span className="rp-error-msg">{errors.email}</span>}
         </div>
-      )}
 
-      {mobileOtpVerified && (
-        <div
-          className="mb-3 d-flex align-items-center gap-1"
-          style={{ fontSize: "13px", color: "#16a34a" }}
-        >
-          <span>✓</span>
-          <span>Mobile number verified</span>
-        </div>
-      )}
-      {errors.mobileOtp && (
-        <div className="text-danger mb-2" style={{ fontSize: "12px" }}>
-          {errors.mobileOtp}
-        </div>
-      )}
-
-      <Input
-        type="password"
-        label="Password"
-        placeholder="8+ characters, letter & number"
-        name="password"
-        value={form.password}
-        onChange={handleChange}
-        error={errors.password}
-      />
-
-      {/* TERMS */}
-      <div className="mb-4">
-        <div className="form-check d-flex align-items-start gap-2">
-          <input
-            type="checkbox"
-            className="form-check-input mt-1 flex-shrink-0"
-            id="terms"
-            name="terms"
-            checked={form.terms}
-            onChange={handleChange}
-            style={{ width: "16px", height: "16px", cursor: "pointer" }}
-          />
-          <label
-            className="form-check-label"
-            htmlFor="terms"
-            style={{ fontSize: "13px", lineHeight: "1.5" }}
-          >
-            I agree to the{" "}
-            <a href="#" style={{ color: "#6c63ff", textDecoration: "none" }}>
-              Privacy Policy
-            </a>
-            ,{" "}
-            <a href="#" style={{ color: "#6c63ff", textDecoration: "none" }}>
-              Terms of Service
-            </a>{" "}
-            and{" "}
-            <a href="#" style={{ color: "#6c63ff", textDecoration: "none" }}>
-              Terms of Business
-            </a>
-            .
-          </label>
-        </div>
-        {errors.terms && (
-          <div className="text-danger mt-1" style={{ fontSize: "12px" }}>
-            {errors.terms}
+        {emailOtpSent && !emailOtpVerified && (
+          <div className="rp-field rp-otp-field">
+            <label className="rp-label">Enter Email OTP</label>
+            <div className="rp-input-row">
+              <input
+                className="rp-input"
+                placeholder="6-digit OTP"
+                value={emailOtp}
+                maxLength={6}
+                onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, ""))}
+                onKeyDown={(e) => e.key === "Enter" && handleVerifyEmailOtp()}
+              />
+              <button
+                className="rp-verify-btn"
+                onClick={handleVerifyEmailOtp}
+                disabled={emailOtpLoading || emailOtp.length < 6}
+                type="button"
+              >
+                {emailOtpLoading ? "Verifying…" : "Verify"}
+              </button>
+            </div>
           </div>
         )}
-      </div>
 
-      <Button
-        variant="dark"
-        fullWidth
-        onClick={handleRegister}
-        loading={loading}
-        size="lg"
-      >
-        Create account
-      </Button>
+        {emailOtpVerified && (
+          <div className="rp-verified-tag">
+            <span className="rp-verified-tag__check">✓</span>
+            Email verified
+          </div>
+        )}
+        {errors.emailOtp && <span className="rp-error-msg rp-error-msg--block">{errors.emailOtp}</span>}
 
-      <p className="text-center mt-3 mb-0">
-        <small className="text-muted">
-          Already have an account?{" "}
-          <span
-            className="fw-bold"
-            style={{ color: "#6c63ff", cursor: "pointer" }}
-            onClick={() => navigate("/login")}
+        {/* ── COUNTRY ── */}
+        <div className="rp-field">
+          <label className="rp-label">Country</label>
+          <select
+            className={`rp-select ${errors.country ? "rp-select--error" : ""}`}
+            name="country"
+            value={form.country}
+            onChange={handleChange}
           >
-            Login
-          </span>
-        </small>
-      </p>
+            <option value="">Select Country</option>
+            {countries.map((c) => (
+              <option key={c.isoCode} value={c.isoCode}>{c.name}</option>
+            ))}
+          </select>
+          {errors.country && <span className="rp-error-msg">{errors.country}</span>}
+        </div>
+
+        {/* ── MOBILE + OTP ── */}
+        <div className="rp-field">
+          <label className="rp-label">Mobile number</label>
+          <div className="rp-input-row rp-phone-row">
+            <div className="rp-phone-wrap">
+              <PhoneInput
+                country={form.country.toLowerCase() || "in"}
+                value={form.phone}
+                onChange={(value, countryData: any) => {
+                  setForm((prev) => ({
+                    ...prev,
+                    phone: value,
+                    countryCode: countryData?.dialCode ? `+${countryData.dialCode}` : "",
+                  }));
+                  if (mobileOtpSent || mobileOtpVerified) {
+                    setMobileOtpSent(false);
+                    setMobileOtpVerified(false);
+                    setMobileOtp("");
+                  }
+                  clearFieldError("phone");
+                }}
+                disabled={mobileOtpVerified}
+                inputStyle={{ width: "100%", height: "48px", fontSize: "14px", borderRadius: "10px", border: "1.5px solid #E8E4DE", fontFamily: "DM Sans, sans-serif" }}
+                buttonStyle={{ borderRadius: "10px 0 0 10px", border: "1.5px solid #E8E4DE", borderRight: "none", background: "#F9F8F6" }}
+              />
+            </div>
+            <button
+              className={`rp-otp-btn ${mobileOtpVerified ? "rp-otp-btn--verified" : ""}`}
+              onClick={handleSendMobileOtp}
+              disabled={mobileOtpVerified}
+              type="button"
+            >
+              {mobileOtpVerified ? "✓ Verified" : mobileOtpSent ? "Resend" : "Send OTP"}
+            </button>
+          </div>
+          {errors.phone && <span className="rp-error-msg">{errors.phone}</span>}
+        </div>
+
+        {mobileOtpSent && !mobileOtpVerified && (
+          <div className="rp-field rp-otp-field">
+            <label className="rp-label">Enter Mobile OTP</label>
+            <div className="rp-demo-hint">🧪 Demo OTP: <strong>{DEMO_MOBILE_OTP}</strong></div>
+            <div className="rp-input-row">
+              <input
+                className="rp-input"
+                placeholder="6-digit OTP"
+                value={mobileOtp}
+                maxLength={6}
+                onChange={(e) => setMobileOtp(e.target.value.replace(/\D/g, ""))}
+                onKeyDown={(e) => e.key === "Enter" && handleVerifyMobileOtp()}
+              />
+              <button
+                className="rp-verify-btn"
+                onClick={handleVerifyMobileOtp}
+                disabled={mobileOtp.length < 6}
+                type="button"
+              >
+                Verify
+              </button>
+            </div>
+          </div>
+        )}
+
+        {mobileOtpVerified && (
+          <div className="rp-verified-tag">
+            <span className="rp-verified-tag__check">✓</span>
+            Mobile number verified
+          </div>
+        )}
+        {errors.mobileOtp && <span className="rp-error-msg rp-error-msg--block">{errors.mobileOtp}</span>}
+
+        {/* ── PASSWORD ── */}
+        <Input
+          type="password"
+          label="Password"
+          placeholder="8+ characters, letter & number"
+          name="password"
+          value={form.password}
+          onChange={handleChange}
+          error={errors.password}
+          containerClass="rp-field"
+        />
+
+        {/* ── TERMS ── */}
+        <div className="rp-field rp-terms">
+          <label className="rp-terms__label">
+            <input
+              type="checkbox"
+              name="terms"
+              checked={form.terms}
+              onChange={handleChange}
+              className="rp-terms__check"
+            />
+            <span className="rp-terms__text">
+              I agree to the{" "}
+              <a href="#" className="rp-terms__link">Privacy Policy</a>,{" "}
+              <a href="#" className="rp-terms__link">Terms of Service</a> and{" "}
+              <a href="#" className="rp-terms__link">Terms of Business</a>.
+            </span>
+          </label>
+          {errors.terms && <span className="rp-error-msg">{errors.terms}</span>}
+        </div>
+
+        <Button
+          variant="dark"
+          fullWidth
+          onClick={handleRegister}
+          loading={loading}
+          className="rp-btn-primary"
+        >
+          Create account
+        </Button>
+
+        <p className="rp-login-link">
+          Already have an account?{" "}
+          <span onClick={() => navigate("/login")}>Sign in</span>
+        </p>
+      </div>
     </div>
   );
 
   const RightSection = (
-    <div
-      className="d-flex flex-column onboarding-image-panel"
-      style={{ height: "100%", minHeight: "100vh" }}
-    >
-      <img
-        src={salonImg}
-        alt="salon"
-        className="oip-bg"
-      />
+    <div className="d-flex flex-column onboarding-image-panel" style={{ height: "100%", minHeight: "100vh" }}>
+      <img src={salonImg} alt="salon" className="oip-bg" />
       <div className="oip-overlay" />
-
-      {/* Brand top-left */}
       <div className="oip-topbar">
         <span className="oip-brand">salonox</span>
       </div>
-
       <div className="oip-spacer" />
-
-      {/* Bottom quote */}
       <div className="oip-bottom">
         <div className="oip-stats">
           <div>
@@ -583,7 +494,7 @@ export default function RegisterPage() {
         </div>
         <div className="oip-quote-card">
           <div className="oip-stars">
-            {[1, 2, 3, 4, 5].map((i) => (
+            {[1,2,3,4,5].map((i) => (
               <svg key={i} width="14" height="14" viewBox="0 0 24 24" fill="#fbbf24" stroke="none">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
               </svg>

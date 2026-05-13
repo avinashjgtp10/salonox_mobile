@@ -1,140 +1,529 @@
-/* ================= MAIN LAYOUT ================= */
+// ═══════════════════════════════════════════════════
+//  RegisterPage — Luxury Redesign
+//  Matches LoginPage aesthetic: Cinzel + DM Sans
+// ═══════════════════════════════════════════════════
 
-body {
-  font-family: "Inter", sans-serif;
+// ── Tokens ──────────────────────────────────────────
+$gold:       #C9A96E;
+$gold-light: #E2C99A;
+$charcoal:   #0F0F0F;
+$off-white:  #FAFAF8;
+$muted:      #7A7672;
+$border:     #E8E4DE;
+$surface:    #F9F8F6;
+
+// ── Keyframes ───────────────────────────────────────
+
+@keyframes rp-fade-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-.container-fluid {
-  background: #ffffff;
+@keyframes rp-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
-/* ================= LEFT SIDE ================= */
-
-.col-lg-5 {
-  padding: 60px 50px;
+@keyframes rp-orb-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  40%       { transform: translate(20px, -15px) scale(1.06); }
+  70%       { transform: translate(-10px, 10px) scale(0.96); }
 }
 
-@media (max-width: 768px) {
-  .col-lg-5 {
-    padding: 40px 25px;
+@keyframes rp-gem-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(201, 169, 110, 0.5); }
+  50%       { box-shadow: 0 0 0 6px rgba(201, 169, 110, 0); }
+}
+
+@keyframes rp-otp-slide {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+// ── Root wrap ────────────────────────────────────────
+
+.rp-wrap {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background: $off-white;
+  overflow: hidden;
+  padding: 48px 24px 64px;
+
+  // Scoped input overrides — won't leak outside
+  .form-control {
+    height: 48px !important;
+    border-radius: 10px !important;
+    border: 1.5px solid $border !important;
+    background: #FFFFFF !important;
+    font-size: 14px !important;
+    font-family: 'DM Sans', sans-serif !important;
+    color: $charcoal !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+
+    &::placeholder { color: #C4BFB9 !important; }
+
+    &:focus {
+      border-color: $gold !important;
+      box-shadow: 0 0 0 3px rgba(201, 169, 110, 0.12) !important;
+      outline: none !important;
+    }
+
+    &.is-invalid { border-color: #E05C5C !important; }
+  }
+
+  .form-label {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    color: #5A5652 !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase !important;
+    margin-bottom: 8px !important;
+  }
+
+  .text-danger {
+    font-size: 12px !important;
+    color: #C0392B !important;
   }
 }
 
-/* ================= BRAND LOGO ================= */
+// ── Ambient orbs ────────────────────────────────────
 
-.brand-logo {
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  color: #000;
+.rp-orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(80px);
+  opacity: 0.22;
+  animation: rp-orb-drift 16s ease-in-out infinite;
 }
 
-/* ================= HEADINGS ================= */
-
-h2 {
-  font-size: 30px;
-  font-weight: 700;
-  color: #111;
+.rp-orb--1 {
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(201,169,110,0.5) 0%, transparent 70%);
+  top: -100px;
+  right: -100px;
+  animation-duration: 18s;
 }
 
-/* ================= INPUT STYLING ================= */
-
-.form-control,
-.form-select {
-  height: 52px !important;
-  border-radius: 12px !important;
-  border: 1px solid #d1d5db !important;
-  font-size: 14px !important;
-  transition: 0.3s ease;
+.rp-orb--2 {
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(201,169,110,0.3) 0%, transparent 70%);
+  bottom: 60px;
+  left: -80px;
+  animation-duration: 22s;
+  animation-delay: -8s;
 }
 
-.form-control:focus,
-.form-select:focus {
-  border-color: #000 !important;
-  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08) !important;
+// ── Inner ────────────────────────────────────────────
+
+.rp-inner {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 420px;
+  animation: rp-fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* ================= BUTTONS ================= */
+// ── Brand ────────────────────────────────────────────
 
-.btn-dark {
-  height: 52px;
-  border-radius: 28px;
+.rp-brand {
+  font-family: 'sans', serif;
+  font-size: 18px;
   font-weight: 600;
+  letter-spacing: 0.12em;
+  color: $charcoal;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 36px;
+  animation: rp-fade-in 0.5s 0.1s both;
+}
+
+.rp-brand__gem {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: $gold;
+  transform: rotate(45deg);
+  animation: rp-gem-pulse 2.4s ease-in-out infinite;
+}
+
+// ── Heading ───────────────────────────────────────────
+
+.rp-heading-block {
+  margin-bottom: 32px;
+  animation: rp-fade-up 0.6s 0.12s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.rp-heading {
+  font-family: 'sans', serif;
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 700;
+  color: $charcoal;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin: 0 0 10px;
+}
+
+.rp-sub {
   font-size: 14px;
-  transition: 0.25s ease;
+  color: $muted;
+  font-weight: 400;
+  line-height: 1.65;
+  margin: 0;
 }
 
-.btn-dark:hover {
-  background: #111;
-  transform: translateY(-1px);
+// ── Fields ───────────────────────────────────────────
+
+.rp-field {
+  margin-bottom: 18px;
+  animation: rp-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  @for $i from 1 through 14 {
+    &:nth-child(#{$i + 3}) {
+      animation-delay: #{$i * 0.045}s;
+    }
+  }
 }
 
-.btn-success {
-  height: 52px;
-  border-radius: 12px;
-  font-size: 14px;
-}
+// ── Custom label ──────────────────────────────────────
 
-/* ================= SMALL ERROR TEXT ================= */
-
-.text-danger {
-  font-size: 13px;
+.rp-label {
   display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #5A5652;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   margin-bottom: 8px;
 }
 
-/* ================= CHECKBOX ================= */
+// ── Custom input ──────────────────────────────────────
 
-.form-check-input {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-}
-
-.form-check-label {
+.rp-input {
+  width: 100%;
+  height: 48px;
+  border-radius: 10px;
+  border: 1.5px solid $border;
+  background: #FFFFFF;
   font-size: 14px;
+  font-family: 'DM Sans', sans-serif;
+  color: $charcoal;
+  padding: 0 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &::placeholder { color: #C4BFB9; }
+
+  &:focus {
+    border-color: $gold;
+    box-shadow: 0 0 0 3px rgba(201, 169, 110, 0.12);
+    outline: none;
+  }
+
+  &:disabled {
+    background: $surface;
+    color: $muted;
+    cursor: not-allowed;
+  }
+
+  &--error {
+    border-color: #E05C5C !important;
+  }
+}
+
+// ── Select ────────────────────────────────────────────
+
+.rp-select {
+  width: 100%;
+  height: 48px;
+  border-radius: 10px;
+  border: 1.5px solid $border;
+  background: #FFFFFF;
+  font-size: 14px;
+  font-family: 'DM Sans', sans-serif;
+  color: $charcoal;
+  padding: 0 14px;
   cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237A7672' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &:focus {
+    border-color: $gold;
+    box-shadow: 0 0 0 3px rgba(201, 169, 110, 0.12);
+    outline: none;
+  }
+
+  &--error { border-color: #E05C5C !important; }
 }
 
-/* ================= PHONE INPUT FIX ================= */
+// ── Input row (input + OTP btn) ───────────────────────
 
-.react-tel-input {
-  width: 100% !important;
-  margin-top: 10px;
+.rp-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 
-.react-tel-input .form-control {
-  width: 100% !important;
+.rp-phone-row {
+  align-items: flex-start;
+}
+
+.rp-phone-wrap {
+  flex: 1;
+
+  .react-tel-input {
+    width: 100% !important;
+
+    .form-control {
+      width: 100% !important;
+      height: 48px !important;
+      border-radius: 10px !important;
+      border: 1.5px solid $border !important;
+      padding-left: 54px !important;
+      font-size: 14px !important;
+      font-family: 'DM Sans', sans-serif !important;
+      color: $charcoal !important;
+
+      &:focus {
+        border-color: $gold !important;
+        box-shadow: 0 0 0 3px rgba(201, 169, 110, 0.12) !important;
+      }
+    }
+
+    .flag-dropdown {
+      border: 1.5px solid $border !important;
+      border-right: none !important;
+      border-radius: 10px 0 0 10px !important;
+      background: $surface !important;
+    }
+  }
+}
+
+// ── OTP send button ───────────────────────────────────
+
+.rp-otp-btn {
+  height: 48px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: 1.5px solid $charcoal;
+  background: transparent;
+  color: $charcoal;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'DM Sans', sans-serif;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  flex-shrink: 0;
+
+  &:hover:not(:disabled) {
+    background: $charcoal;
+    color: white;
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  &--verified {
+    border-color: #16A34A !important;
+    color: #16A34A !important;
+    background: rgba(22, 163, 74, 0.06) !important;
+    cursor: default !important;
+  }
+}
+
+// ── Verify button ─────────────────────────────────────
+
+.rp-verify-btn {
+  height: 48px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: none;
+  background: $charcoal;
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'DM Sans', sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s ease, opacity 0.2s ease;
+
+  &:hover:not(:disabled) { background: #1a1a1a; }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+
+// ── OTP field (animated entry) ─────────────────────────
+
+.rp-otp-field {
+  animation: rp-otp-slide 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+// ── Demo hint ─────────────────────────────────────────
+
+.rp-demo-hint {
+  font-size: 12px;
+  color: #92754A;
+  background: rgba(201, 169, 110, 0.10);
+  border: 1px solid rgba(201, 169, 110, 0.22);
+  border-radius: 8px;
+  padding: 7px 12px;
+  margin-bottom: 10px;
+}
+
+// ── Verified tag ──────────────────────────────────────
+
+.rp-verified-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #16A34A;
+  background: rgba(22, 163, 74, 0.08);
+  border: 1px solid rgba(22, 163, 74, 0.18);
+  border-radius: 100px;
+  padding: 5px 14px;
+  margin-bottom: 14px;
+  animation: rp-fade-in 0.3s ease;
+}
+
+.rp-verified-tag__check {
+  font-size: 11px;
+  font-weight: 800;
+}
+
+// ── Error message ─────────────────────────────────────
+
+.rp-error-msg {
+  font-size: 12px;
+  color: #C0392B;
+  margin-top: 5px;
+  display: inline-block;
+
+  &--block {
+    display: block;
+    margin-bottom: 10px;
+  }
+}
+
+// ── Terms ─────────────────────────────────────────────
+
+.rp-terms {
+  &__label {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    cursor: pointer;
+  }
+
+  &__check {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    border: 1.5px solid $border;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-top: 2px;
+    accent-color: $charcoal;
+  }
+
+  &__text {
+    font-size: 13px;
+    color: $muted;
+    line-height: 1.6;
+  }
+
+  &__link {
+    color: $gold;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s;
+
+    &:hover { color: #b8924a; }
+  }
+}
+
+// ── Primary CTA ───────────────────────────────────────
+
+.rp-btn-primary {
   height: 52px !important;
-  border-radius: 12px !important;
-  border: 1px solid #d1d5db !important;
-  padding-left: 60px !important;
-  font-size: 14px !important;
-}
-
-.react-tel-input .form-control:focus {
-  border-color: #000 !important;
-  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08) !important;
-}
-
-/* ================= RIGHT SIDE IMAGE ================= */
-
-/* Remove old gradient — OnboardingImagePanel handles its own overlay */
-.col-lg-7 {
+  border-radius: 100px !important;
+  font-family: 'DM Sans', sans-serif !important;
+  font-weight: 700 !important;
+  font-size: 15px !important;
+  letter-spacing: 0.04em !important;
+  background: $charcoal !important;
+  border-color: $charcoal !important;
+  color: white !important;
+  transition: background 0.22s ease, transform 0.2s ease, box-shadow 0.2s ease !important;
+  margin-top: 4px;
   position: relative;
   overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(201,169,110,0.18) 0%, transparent 60%);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    pointer-events: none;
+  }
+
+  &:hover:not(:disabled) {
+    background: #1a1a1a !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 8px 24px rgba(15, 15, 15, 0.22) !important;
+
+    &::before { opacity: 1; }
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0) !important;
+  }
 }
 
-/* The onboarding-image-panel inside col-lg-7 must fill the container */
-.col-lg-7 .onboarding-image-panel {
-  width: 100%;
-  min-height: 100%;
+// ── Login link ─────────────────────────────────────────
+
+.rp-login-link {
+  margin: 20px 0 0;
+  font-size: 14px;
+  color: $muted;
+  text-align: center;
+
+  span {
+    color: $charcoal;
+    font-weight: 700;
+    cursor: pointer;
+    border-bottom: 1.5px solid $gold;
+    padding-bottom: 1px;
+    transition: color 0.2s, border-color 0.2s;
+
+    &:hover { color: $gold; }
+  }
 }
 
-/* ================= RESPONSIVE ================= */
+// ── Responsive ────────────────────────────────────────
 
 @media (max-width: 992px) {
-  .col-lg-7 {
-    display: none !important;
-  }
+  .col-lg-7 { display: none !important; }
+}
+
+@media (max-width: 768px) {
+  .rp-wrap { padding: 40px 20px 60px; }
 }
