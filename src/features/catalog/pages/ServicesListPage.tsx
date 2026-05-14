@@ -8,6 +8,7 @@ import {
   downloadServicesCsvThunk,
   downloadServicesPdfThunk,
 } from "../../../middleware/services/services.thunk";
+import type { Service } from "../types/catalog.types";
 import {
   Search,
   Sliders,
@@ -30,6 +31,7 @@ import { selectAllStaff } from "../../../store/selectors/slices.selectors";
 import type { ServiceFiltersState } from "../../../store/serviceFiltersSlice";
 import ServiceFilterDrawer from "../components/ServiceFilterDrawer.tsx";
 import ManageOrderModal from "../components/ManageOrderModal.tsx";
+import ServiceDetailPanel from "../components/ServiceDetailPanel.tsx";
 import ServiceCard from "../components/shared/ServiceCard.tsx";
 import { ServiceListSkeleton } from "../components/shared/LoadingSkeletons.tsx";
 import EmptyState from "../components/shared/EmptyState.tsx";
@@ -94,6 +96,10 @@ const ServicesListPage: React.FC = () => {
   const [deletingCategory, setDeletingCategory]   = useState<{ id: string | number; name: string } | null>(null);
   const [currentPage, setCurrentPage]             = useState(1);
   const [pageSize, setPageSize]                   = useState(25);
+
+  const [selectedService, setSelectedService]   = useState<Service | null>(null);
+  const [deletingService, setDeletingService]   = useState<Service | null>(null);
+  const [deleteLoading, setDeleteLoading]       = useState(false);
 
   const addMenuRef = useRef<HTMLDivElement>(null);
   const optMenuRef = useRef<HTMLDivElement>(null);
@@ -300,7 +306,7 @@ const ServicesListPage: React.FC = () => {
       </div>
 
       {/* ── BODY ───────────────────────────────────────────────────────────── */}
-      <div className="slp__body">
+      <div className={`slp__body${selectedService ? " slp__body--panel-open" : ""}`}>
         {/* Sidebar */}
         <aside className="slp__sidebar">
           <p className="slp__sidebar-heading">Categories</p>
@@ -471,12 +477,19 @@ const ServicesListPage: React.FC = () => {
                         navigate(`/dashboard/catalog/services/${id}/edit`)
                       }
                       onDelete={(id) => {
-                        dispatch(deleteServiceThunk(id));
+                        const target = services.find(
+                          (s: any) => String(s.id) === String(id),
+                        );
+                        if (target) setDeletingService(target as Service);
                         setOpenCardMenu(null);
+                        setSelectedService(null);
                       }}
-                      onClick={(id) =>
-                        navigate(`/dashboard/catalog/services/${id}`)
-                      }
+                      onClick={(id) => {
+                        const target = services.find(
+                          (s: any) => String(s.id) === String(id),
+                        );
+                        if (target) setSelectedService(target as Service);
+                      }}
                     />
                   ))}
                 </div>
@@ -484,6 +497,18 @@ const ServicesListPage: React.FC = () => {
             ))
           )}
         </section>
+
+        {/* Detail panel */}
+        {selectedService && (
+          <ServiceDetailPanel
+            service={selectedService}
+            onClose={() => setSelectedService(null)}
+            onDelete={(svc) => {
+              setDeletingService(svc);
+              setSelectedService(null);
+            }}
+          />
+        )}
       </div>
 
       {/* ── PAGINATION ─────────────────────────────────────────────────────── */}
@@ -620,6 +645,62 @@ const ServicesListPage: React.FC = () => {
                 }}
               >
                 {catLoading ? "Deleting…" : "Delete category"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── DELETE SERVICE CONFIRM ─────────────────────────────────────────── */}
+      {deletingService && (
+        <div className="slp__overlay" onClick={() => setDeletingService(null)}>
+          <div
+            className="slp__modal"
+            style={{ maxWidth: 420 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="slp__modal-header">
+              <h4>Delete service</h4>
+              <button
+                className="slp__modal-close"
+                onClick={() => setDeletingService(null)}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="slp__modal-body">
+              <p className="text-muted small mb-0">
+                Are you sure you want to delete{" "}
+                <strong>{deletingService.name}</strong>? This action cannot be
+                undone.
+              </p>
+            </div>
+            <div className="slp__modal-footer">
+              <button
+                className="slp__btn slp__btn--ghost"
+                onClick={() => setDeletingService(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="slp__btn slp__btn--danger"
+                disabled={deleteLoading}
+                onClick={async () => {
+                  setDeleteLoading(true);
+                  await dispatch(deleteServiceThunk(deletingService.id));
+                  setDeleteLoading(false);
+                  setDeletingService(null);
+                  fetchServices({
+                    page: currentPage,
+                    limit: pageSize,
+                    search: searchQuery || undefined,
+                    categoryId:
+                      selectedCategory !== "all" ? selectedCategory : undefined,
+                    ...buildFilterParams(filters),
+                  });
+                }}
+              >
+                {deleteLoading ? "Deleting…" : "Delete service"}
               </button>
             </div>
           </div>
