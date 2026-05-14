@@ -21,7 +21,7 @@ import {
   cancelSubscriptionThunk,
 } from "../../../middleware/billing/billing.thunk";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
-import { fetchDashboardSummaryThunk } from "../../../middleware/dashboard/dashboard.thunk";
+import { fetchDashboardAll } from "../../../middleware/dashboard/dashboard.thunk";
 import Button from "../../../components/ui/Button";
 import SettingsSection from "../components/SettingsSection";
 
@@ -36,7 +36,7 @@ export default function BillingPage() {
   const { plans, subscription, invoices, loading } = useAppSelector((s) => s.billing);
   const { currentSalon } = useAppSelector((s) => s.salon);
   const { items: staffList } = useAppSelector((s) => s.staff);
-  const { summary: dashSummary } = useAppSelector((s) => s.dashboard);
+  const dashSummary = useAppSelector((s) => s.dashboard.data?.summary);
 
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [cancelLoading, setCancelLoading] = useState(false);
@@ -48,7 +48,7 @@ export default function BillingPage() {
 
   useEffect(() => {
     if (currentSalon?.id) {
-      dispatch(fetchDashboardSummaryThunk(currentSalon.id));
+      dispatch(fetchDashboardAll({ salonId: currentSalon.id }));
     }
   }, [dispatch, currentSalon?.id]);
 
