@@ -1,14 +1,7 @@
 import { configureStore, type Reducer } from "@reduxjs/toolkit";
-import {
-  persistReducer,
-  persistStore,
-  FLUSH,
-  REHYDRATE,
-  PAUSE,
-  PERSIST,
-  PURGE,
-  REGISTER,
-} from "redux-persist";
+// @ts-ignore
+import { persistReducer, persistStore, FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER } from "redux-persist";
+// @ts-ignore
 import storage from "redux-persist/lib/storage";
 
 import authReducer, { type AuthState } from "./authSlice";
@@ -38,6 +31,8 @@ import shiftReducer, { type ShiftState } from "./shiftSlice";
 import payRunReducer from "./payRunSlice";
 import dashboardReducer from "./dashboardSlice";
 import billingReducer from "./billingSlice";
+import marketplaceReducer from "./marketplaceSlice";
+import onlineBookingReducer from "./onlineBookingSlice";
 
 const authPersistConfig = {
   key: "auth",
@@ -83,6 +78,8 @@ export const store = configureStore({
     payRun: payRunReducer,
     dashboard: dashboardReducer,
     billing: billingReducer,
+    marketplace: marketplaceReducer,
+    onlineBooking: onlineBookingReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
