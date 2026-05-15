@@ -30,22 +30,14 @@ import {
   Megaphone,
   ChevronRight,
   ChevronLeft,
-  StarFill,
   CircleFill,
   ExclamationTriangleFill,
   ArrowRepeat,
   ThreeDots,
 } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import {
-  fetchDashboardSummaryThunk,
-  fetchTodayAppointmentsThunk,
-  fetchRevenueChartThunk,
-  fetchTopStaffThunk,
-} from "../../../middleware/dashboard/dashboard.thunk";
-import { fetchServicesThunk } from "../../../middleware/services/services.thunk";
+import { fetchDashboardAll } from "../../../middleware/dashboard/dashboard.thunk";
 import type { TodayAppointment } from "../../../types/dashboard.types";
-import api from "../../../services/api/axios";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -93,9 +85,6 @@ function fmtChange(n?: number) {
   return { label: `${n >= 0 ? "+" : ""}${abs}%`, up: n >= 0 };
 }
 
-function toISODate(d: Date) {
-  return d.toISOString().split("T")[0];
-}
 
 /** Normalise appointment row regardless of field naming from backend */
 function normalise(appt: TodayAppointment) {
@@ -182,65 +171,22 @@ export default function DashboardPage() {
   const navigate   = useNavigate();
   const dispatch   = useAppDispatch();
   const [apptPage, setApptPage] = useState(1);
-  const [apptChartData, setApptChartData] = useState<ApptChartEntry[]>([]);
-  const [chartLoading, setChartLoading] = useState(false);
   const [revPeriod, setRevPeriod] = useState<"today" | "weekly" | "monthly" | "yearly">("monthly");
 
-  const {
-    summary,
-    loading: { summary: loadingSummary, appointments: loadingAppts, revenue: loadingRevenue, topStaff: loadingStaff },
-    error:   { summary: errSummary,    appointments: errAppts,      revenue: errRevenue,     topStaff: errStaff },
-    appointments,
-    revenue,
-    topStaff,
-  } = useAppSelector((s) => s.dashboard);
-
-  const { items: allServices, loading: svcLoading, error: svcError } =
-    useAppSelector((s) => s.services);
-  const loadingServices = svcLoading.fetchAll;
-  const errServices     = svcError;
+  const { data, loading: dashLoading, error: dashError } = useAppSelector((s) => s.dashboard);
+  const summary      = data?.summary;
+  const appointments = (data?.todayAppointments ?? []) as TodayAppointment[];
+  const revenue      = data?.revenueChart ?? [];
+  const topStaff     = data?.topStaff ?? [];
+  const allServices  = data?.services ?? [];
 
   const salonId = useAppSelector((s: any) => s.salon?.currentSalon?.id ?? "");
 
-  const fetchAll = () => {
-    dispatch(fetchDashboardSummaryThunk());
-    dispatch(fetchTodayAppointmentsThunk());
-    dispatch(fetchRevenueChartThunk(revPeriod));
-    dispatch(fetchTopStaffThunk());
-    dispatch(fetchServicesThunk());
-  };
-
-  useEffect(() => { fetchAll(); }, []);  // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Re-fetch revenue when period filter changes
-  useEffect(() => {
-    dispatch(fetchRevenueChartThunk(revPeriod));
-  }, [revPeriod]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Fetch 3-day appointment chart: yesterday · today · tomorrow
   useEffect(() => {
     if (!salonId) return;
-    setChartLoading(true);
-    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-    const tomorrow  = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-    const base = `/api/v1/dashboard/appointments/today?salon_id=${encodeURIComponent(salonId)}`;
-    const countStatus = (appts: TodayAppointment[]) => ({
-      completed: appts.filter(a => a.status === "completed").length,
-      pending:   appts.filter(a => a.status === "upcoming" || a.status === "in-progress").length,
-      cancelled: appts.filter(a => a.status === "cancelled").length,
-    });
-    Promise.all([
-      api.get<{ data: TodayAppointment[] }>(`${base}&date=${toISODate(yesterday)}`),
-      api.get<{ data: TodayAppointment[] }>(base),
-      api.get<{ data: TodayAppointment[] }>(`${base}&date=${toISODate(tomorrow)}`),
-    ]).then(([yRes, tRes, tmRes]) => {
-      setApptChartData([
-        { label: "Yesterday", ...countStatus(yRes.data.data)  },
-        { label: "Today",     ...countStatus(tRes.data.data)  },
-        { label: "Tomorrow",  ...countStatus(tmRes.data.data) },
-      ]);
-    }).catch(() => {}).finally(() => setChartLoading(false));
-  }, [salonId]); // eslint-disable-line react-hooks/exhaustive-deps
+    const today = new Date().toISOString().split("T")[0];
+    dispatch(fetchDashboardAll({ salonId, period: revPeriod, date: today }));
+  }, [salonId, revPeriod]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset page when appointments list changes
   useEffect(() => { setApptPage(1); }, [appointments.length]);
@@ -251,14 +197,28 @@ export default function DashboardPage() {
   const totalApptPages  = Math.max(1, Math.ceil(normAppts.length / PAGE_SIZE));
   const pagedAppts      = normAppts.slice((apptPage - 1) * PAGE_SIZE, apptPage * PAGE_SIZE);
 
-  // Show only active services, cap at 6 for the dashboard card
   const activeServices = allServices.filter((s) => s.is_active).slice(0, 6);
+  const svcChartData = activeServices.map((svc, i) => ({
+    name:      svc.name,
+    value:     parseFloat(String(svc.price ?? 0)),
+    color:     SVC_CHART_COLORS[i % SVC_CHART_COLORS.length],
+    duration:  svc.duration ?? 0,
+    category:  svc.category_name ?? "",
+    priceType: svc.price_type,
+  }));
+
+  const apptChartData: ApptChartEntry[] = [{
+    label:     "Today",
+    completed: normAppts.filter(a => a.status === "completed").length,
+    pending:   normAppts.filter(a => a.status === "upcoming" || a.status === "in-progress").length,
+    cancelled: normAppts.filter(a => a.status === "cancelled").length,
+  }];
 
   const kpiCards = [
     {
       label: "Total Revenue",
       value: fmt(summary?.totalRevenue),
-      change: fmtChange(summary?.revenueChange),
+      change: fmtChange(summary?.revenueChange ?? undefined),
       sub: "vs last month",
       icon: <CurrencyRupee size={20} />,
       color: "#10b981",
@@ -267,7 +227,7 @@ export default function DashboardPage() {
     {
       label: "Appointments",
       value: summary?.totalAppointments?.toLocaleString("en-IN") ?? "—",
-      change: fmtChange(summary?.appointmentsChange),
+      change: fmtChange(summary?.appointmentsChange ?? undefined),
       sub: "this month",
       icon: <CalendarCheck size={20} />,
       color: "#3b82f6",
@@ -276,7 +236,7 @@ export default function DashboardPage() {
     {
       label: "Active Clients",
       value: summary?.totalClients?.toLocaleString("en-IN") ?? "—",
-      change: fmtChange(summary?.clientsChange),
+      change: fmtChange(summary?.clientsChange ?? undefined),
       sub: "total clients",
       icon: <People size={20} />,
       color: "#8b5cf6",
@@ -285,7 +245,7 @@ export default function DashboardPage() {
     {
       label: "Today's Revenue",
       value: fmt(summary?.todayRevenue),
-      change: fmtChange(summary?.todayRevenueChange),
+      change: fmtChange(summary?.todayRevenueChange ?? undefined),
       sub: `from ${summary?.todayAppointmentsCount ?? normAppts.length} appointments`,
       icon: <CurrencyRupee size={20} />,
       color: "#f59e0b",
@@ -327,10 +287,10 @@ export default function DashboardPage() {
       <div className="db-kpi-row">
         {kpiCards.map((card) => (
           <div className="db-kpi-card" key={card.label}>
-            {loadingSummary ? (
+            {dashLoading ? (
               <SectionSpinner />
-            ) : errSummary ? (
-              <SectionError message={errSummary} onRetry={() => dispatch(fetchDashboardSummaryThunk())} />
+            ) : dashError ? (
+              <SectionError message={dashError} onRetry={() => salonId && dispatch(fetchDashboardAll({ salonId, period: revPeriod }))} />
             ) : (
               <>
                 <div className="db-kpi-top">
@@ -380,10 +340,10 @@ export default function DashboardPage() {
               ))}
             </div>
           </div>
-          {loadingRevenue ? (
+          {dashLoading ? (
             <SectionSpinner />
-          ) : errRevenue ? (
-            <SectionError message={errRevenue} onRetry={() => dispatch(fetchRevenueChartThunk(revPeriod))} />
+          ) : dashError ? (
+            <SectionError message={dashError} onRetry={() => salonId && dispatch(fetchDashboardAll({ salonId, period: revPeriod }))} />
           ) : (
             <ResponsiveContainer width="100%" height={240}>
               <AreaChart data={revenue} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
@@ -423,15 +383,15 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Appointments bar chart — yesterday · today · tomorrow */}
+        {/* Appointments bar chart — today breakdown */}
         <div className="db-card db-card-md">
           <div className="db-card-header">
             <div>
               <h3 className="db-card-title">Today's Summary</h3>
-              <p className="db-card-sub">Yesterday · Today · Tomorrow</p>
+              <p className="db-card-sub">Appointment status breakdown</p>
             </div>
           </div>
-          {chartLoading ? (
+          {dashLoading ? (
             <SectionSpinner />
           ) : (
             <>
@@ -489,10 +449,10 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {loadingAppts ? (
+        {dashLoading ? (
           <SectionSpinner />
-        ) : errAppts ? (
-          <SectionError message={errAppts} onRetry={() => dispatch(fetchTodayAppointmentsThunk())} />
+        ) : dashError ? (
+          <SectionError message={dashError} onRetry={() => salonId && dispatch(fetchDashboardAll({ salonId, period: revPeriod }))} />
         ) : normAppts.length === 0 ? (
           <div className="db-empty">No appointments scheduled for today.</div>
         ) : (
@@ -574,7 +534,7 @@ export default function DashboardPage() {
             <div>
               <h3 className="db-card-title">Services</h3>
               <p className="db-card-sub">
-                {loadingServices ? "Loading…" : `${allServices.filter(s => s.is_active).length} active services`}
+                {dashLoading ? "Loading…" : `${allServices.filter(s => s.is_active).length} active services`}
               </p>
             </div>
             <div className="db-svc-header-actions">
@@ -585,21 +545,13 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {loadingServices ? (
+          {dashLoading ? (
             <SectionSpinner />
-          ) : errServices ? (
-            <SectionError message={errServices} onRetry={() => dispatch(fetchServicesThunk())} />
-          ) : activeServices.length === 0 ? (
+          ) : dashError ? (
+            <SectionError message={dashError} onRetry={() => salonId && dispatch(fetchDashboardAll({ salonId, period: revPeriod }))} />
+          ) : svcChartData.length === 0 ? (
             <div className="db-empty">No services found. Add your first service.</div>
           ) : (() => {
-            const svcChartData = activeServices.map((svc, i) => ({
-              name: svc.name,
-              value: parseFloat(String(svc.price ?? 0)),
-              color: SVC_CHART_COLORS[i % SVC_CHART_COLORS.length],
-              duration: svc.duration ?? 0,
-              category: svc.category_name ?? "",
-              priceType: svc.price_type,
-            }));
             const totalSvcValue = svcChartData.reduce((sum, s) => sum + s.value, 0);
             return (
               <div className="db-svc-donut-layout">
@@ -621,10 +573,7 @@ export default function DashboardPage() {
                         ))}
                       </Pie>
                       <Tooltip
-                        formatter={(val: any) => [
-                          `₹${(val || 0).toLocaleString("en-IN")}`,
-                          "",
-                        ]}
+                        formatter={(val: any) => [`₹${(val || 0).toLocaleString("en-IN")}`, ""]}
                         contentStyle={{ borderRadius: 10, fontSize: 12 }}
                       />
                     </PieChart>
@@ -677,17 +626,16 @@ export default function DashboardPage() {
               View all <ChevronRight size={14} />
             </button>
           </div>
-          {loadingStaff ? (
+          {dashLoading ? (
             <SectionSpinner />
-          ) : errStaff ? (
-            <SectionError message={errStaff} onRetry={() => dispatch(fetchTopStaffThunk())} />
+          ) : dashError ? (
+            <SectionError message={dashError} onRetry={() => salonId && dispatch(fetchDashboardAll({ salonId, period: revPeriod }))} />
           ) : topStaff.length === 0 ? (
             <div className="db-empty">No staff data available.</div>
           ) : (
             <div className="db-staff-list">
               {topStaff.slice(0, 3).map((s, i) => {
                 const initials = s.avatar ?? s.name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
-                const clients  = s.clientCount ?? s.bookings ?? 0;
                 const rev      = s.revenue ?? 0;
                 return (
                   <div className="db-staff-item" key={s.id}>
@@ -701,11 +649,6 @@ export default function DashboardPage() {
                       <div className="db-staff-rev">
                         {rev >= 1000 ? `₹${(rev / 1000).toFixed(0)}k` : `₹${rev}`}
                       </div>
-                      {s.rating != null && (
-                        <div className="db-staff-rating">
-                          <StarFill size={10} color="#f59e0b" /> {s.rating}
-                        </div>
-                      )}
                     </div>
                   </div>
                 );
