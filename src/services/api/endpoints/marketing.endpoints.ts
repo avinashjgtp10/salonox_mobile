@@ -21,5 +21,5 @@ export const MARKETING = {
   WA_CONFIG_TEST: "/api/v1/wa-config/test",    // ✓ confirmed in config.routes.ts (POST /test)
 
   // ── Dashboard ─────────────────────────────────────────────────────────────
-  DASHBOARD_STATS: "/api/v1/dashboard/stats",
+  DASHBOARD_STATS: "/api/v1/marketing/dashboard/stats",
 } as const;
