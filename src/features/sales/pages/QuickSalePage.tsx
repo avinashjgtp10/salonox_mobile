@@ -1,8 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { useSchedulerContext } from "../../bookings/store/SchedulerContext";
-import { useSchedulerInit } from "../../bookings/hooks/useSchedulerInit";
 import MiniCalendar from "../../bookings/components/shared/MiniCalendar";
 import ClientSearchInput, { type ClientSearchResult } from "../../clients/components/ClientSearchInput";
 import api from "../../../services/api/axios";
@@ -10,13 +8,37 @@ import {
   createSaleThunk,
   updateSaleThunk,
   checkoutSaleThunk,
+  fetchSaleInitThunk,
 } from "../../../middleware/sale/sale.thunk";
-import { createBookingThunk } from "../../../middleware/booking/booking.thunk";
 import type { AppDispatch, RootState } from "../../../store/store";
 import type { PaymentMethod } from "../../../types/sale.types";
 import "../styles/QuickSalePage.scss";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
+interface InitStaff {
+  id: string;
+  name: string;
+}
+
+interface InitService {
+  id: string;
+  name: string;
+  price: number;
+  duration: number;
+}
+
+interface LazyProduct {
+  id: string;
+  name: string;
+  price: number | null;
+  stock: number;
+}
+
+interface LazyMembership {
+  name: string;
+  price: number;
+}
+
 interface SvcRow {
   tempId: string;
   id: string;
@@ -64,9 +86,6 @@ interface SelectedClient {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const isUUID = (v: string | undefined | null) => v && UUID_RE.test(v);
-
 function makeTempId() {
   return Math.random().toString(36).substring(2, 9);
 }
@@ -91,6 +110,43 @@ function formatDisplayDate(iso: string): string {
   return `${d} ${months[parseInt(m, 10) - 1]} ${y}`;
 }
 
+function mapStaff(raw: any[]): InitStaff[] {
+  return raw.map((s) => ({
+    id: String(s.id),
+    name: s.full_name || `${s.first_name || ""} ${s.last_name || ""}`.trim() || s.fullName || "",
+  }));
+}
+
+function mapServices(raw: any[]): InitService[] {
+  return raw.map((s) => ({
+    id: String(s.id ?? ""),
+    name: s.name || "",
+    price: parseFloat(String(s.price)) || 0,
+    duration: Number(s.duration_minutes ?? s.duration) || 30,
+  }));
+}
+
+function mapProducts(raw: any[]): LazyProduct[] {
+  return raw.map((p) => {
+    const rp = parseFloat(String(p.retail_price ?? p.selling_price ?? p.sellingPrice ?? p.price));
+    const sp = parseFloat(String(p.supply_price));
+    let price: number | null = null;
+    if (!isNaN(rp) && rp !== 0) price = rp;
+    else if (!isNaN(sp) && sp !== 0) price = sp;
+    else if (p.retail_price === 0 || p.retail_price === "0") price = 0;
+    return {
+      id: String(p.id),
+      name: p.name || "",
+      price,
+      stock: isNaN(parseFloat(p.amount)) ? 0 : parseFloat(p.amount),
+    };
+  });
+}
+
+function mapMemberships(raw: any[]): LazyMembership[] {
+  return raw.map((m) => ({ name: m.name || "", price: m.price || 0 }));
+}
+
 // ── Constants ──────────────────────────────────────────────────────────────────
 const PAYMENT_METHODS: { id: PaymentMethod; label: string }[] = [
   { id: "cash", label: "Cash" },
@@ -99,24 +155,16 @@ const PAYMENT_METHODS: { id: PaymentMethod; label: string }[] = [
   { id: "gift_card", label: "Gift Card" },
 ];
 
-// Split-payment sub-methods (each can receive a partial amount)
 const SPLIT_METHODS: { id: string; label: string }[] = [
   { id: "cash", label: "Cash" },
   { id: "card", label: "Card" },
   { id: "upi", label: "UPI" },
 ];
 
-
-
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function QuickSalePage() {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-
-  useSchedulerInit();
-
-  const { staffList, servicesList, productsList, membershipsList, addBooking: addBookingToCalendar } =
-    useSchedulerContext();
 
   const salonId = useSelector(
     (s: RootState) => (s as any).salon?.currentSalon?.id,
@@ -128,13 +176,27 @@ export default function QuickSalePage() {
     (s: RootState) => (s as any).sale?.loading?.checkout ?? false,
   );
 
-  // ── Client ───────────────────────────────────────────────────────────────────
+  // ── Init data (services + staff from /sales/init) ─────────────────────────
+  const [staffList, setStaffList] = useState<InitStaff[]>([]);
+  const [servicesList, setServicesList] = useState<InitService[]>([]);
+  const [initLoading, setInitLoading] = useState(false);
+
+  // ── Lazy-loaded catalogs ──────────────────────────────────────────────────
+  const [productsList, setProductsList] = useState<LazyProduct[]>([]);
+  const productsLoaded = useRef(false);
+  const [productsLoading, setProductsLoading] = useState(false);
+
+  const [membershipsList, setMembershipsList] = useState<LazyMembership[]>([]);
+  const membershipsLoaded = useRef(false);
+  const [membershipsLoading, setMembershipsLoading] = useState(false);
+
+  // ── Client ─────────────────────────────────────────────────────────────────
   const [client, setClient] = useState<SelectedClient | null>(null);
   const [clientSearch, setClientSearch] = useState("");
   const [isWalkin, setIsWalkin] = useState(false);
   const [saleDate, setSaleDate] = useState(todayISO());
 
-  // ── Add Client form ───────────────────────────────────────────────────────────
+  // ── Add Client form ────────────────────────────────────────────────────────
   const [showAddClientForm, setShowAddClientForm] = useState(false);
   const [newClientFirstName, setNewClientFirstName] = useState("");
   const [newClientLastName, setNewClientLastName] = useState("");
@@ -146,12 +208,12 @@ export default function QuickSalePage() {
   const [phoneCheckLoading, setPhoneCheckLoading] = useState(false);
   const [formErrors, setFormErrors] = useState<string[]>([]);
 
-  // ── Item rows ─────────────────────────────────────────────────────────────────
+  // ── Item rows ──────────────────────────────────────────────────────────────
   const [serviceRows, setServiceRows] = useState<SvcRow[]>([]);
   const [productRows, setProductRows] = useState<ProdRow[]>([]);
   const [membershipRows, setMembershipRows] = useState<MemRow[]>([]);
 
-  // ── Charges & Discounts ───────────────────────────────────────────────────────
+  // ── Charges & Discounts ────────────────────────────────────────────────────
   const [exCharges, setExCharges] = useState<number>(0);
   const [exChargesStaffId, setExChargesStaffId] = useState<string>("");
   const [discountValue, setDiscountValue] = useState<number>(0);
@@ -160,12 +222,11 @@ export default function QuickSalePage() {
   const [customTip, setCustomTip] = useState("");
   const [showCustomTip, setShowCustomTip] = useState(false);
 
-  // ── Payment ──────────────────────────────────────────────────────────────────
+  // ── Payment ────────────────────────────────────────────────────────────────
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [paymentReference, setPaymentReference] = useState("");
   const [amountPaid, setAmountPaid] = useState("");
 
-  // Split-payment state
   const [isSplit, setIsSplit] = useState(false);
   const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>({
     cash: "",
@@ -173,20 +234,19 @@ export default function QuickSalePage() {
     upi: "",
   });
 
-  // Derived: total allocated in split mode (computed after grandTotal below)
   const splitTotal = Object.values(splitAmounts).reduce(
     (s, v) => s + (parseFloat(v) || 0),
     0
   );
 
-  // ── Notes ────────────────────────────────────────────────────────────────────
+  // ── Notes ──────────────────────────────────────────────────────────────────
   const [notes, setNotes] = useState("");
   const [isSavingClient, setIsSavingClient] = useState(false);
 
-  // ── Draft tracking ────────────────────────────────────────────────────────────
+  // ── Draft tracking ─────────────────────────────────────────────────────────
   const [currentSaleId, setCurrentSaleId] = useState<string | number | null>(null);
 
-  // ── UI ────────────────────────────────────────────────────────────────────────
+  // ── UI ─────────────────────────────────────────────────────────────────────
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
@@ -194,6 +254,19 @@ export default function QuickSalePage() {
   const dotMenuRef = useRef<HTMLDivElement>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const datePickerRef = useRef<HTMLDivElement>(null);
+
+  // ── Fetch init data on mount ───────────────────────────────────────────────
+  useEffect(() => {
+    setInitLoading(true);
+    dispatch(fetchSaleInitThunk())
+      .unwrap()
+      .then((data) => {
+        setStaffList(mapStaff(data.staff));
+        setServicesList(mapServices(data.services));
+      })
+      .catch(() => { /* silently ignore — user can still type manually */ })
+      .finally(() => setInitLoading(false));
+  }, [dispatch]);
 
   useEffect(() => {
     function onOutside(e: MouseEvent) {
@@ -206,7 +279,32 @@ export default function QuickSalePage() {
     return () => document.removeEventListener("mousedown", onOutside);
   }, []);
 
-  // ── Derived financials ────────────────────────────────────────────────────────
+  // ── Lazy-load helpers ──────────────────────────────────────────────────────
+  async function ensureProductsLoaded() {
+    if (productsLoaded.current) return;
+    setProductsLoading(true);
+    try {
+      const res = await api.get("/api/v1/products");
+      const raw = res.data?.data?.data ?? res.data?.data ?? res.data ?? [];
+      setProductsList(mapProducts(Array.isArray(raw) ? raw : []));
+      productsLoaded.current = true;
+    } catch { /* silently ignore */ }
+    finally { setProductsLoading(false); }
+  }
+
+  async function ensureMembershipsLoaded() {
+    if (membershipsLoaded.current) return;
+    setMembershipsLoading(true);
+    try {
+      const res = await api.get("/api/v1/memberships");
+      const raw = res.data?.data?.items ?? res.data?.data ?? res.data ?? [];
+      setMembershipsList(mapMemberships(Array.isArray(raw) ? raw : []));
+      membershipsLoaded.current = true;
+    } catch { /* silently ignore */ }
+    finally { setMembershipsLoading(false); }
+  }
+
+  // ── Derived financials ─────────────────────────────────────────────────────
   const hasItems =
     serviceRows.some((r) => r.service) ||
     productRows.length > 0 ||
@@ -237,7 +335,7 @@ export default function QuickSalePage() {
   const paid = parseFloat(amountPaid || "0");
   const due = Math.max(0, grandTotal - paid);
 
-  // ── Row operations ────────────────────────────────────────────────────────────
+  // ── Row operations ─────────────────────────────────────────────────────────
   function addSvcRow() {
     setServiceRows((r) => [...r, { tempId: makeTempId(), id: "", service: "", staffId: "", time: "10:00", price: 0, qty: 1, total: 0, duration: 30, search: "", showDrop: false }]);
   }
@@ -248,7 +346,8 @@ export default function QuickSalePage() {
     setServiceRows((r) => r.filter((x) => x.tempId !== tempId));
   }
 
-  function addProdRow() {
+  async function addProdRow() {
+    await ensureProductsLoaded();
     setProductRows((r) => [...r, { tempId: makeTempId(), id: "", productName: "", staffId: "", price: 0, qty: 1, total: 0, search: "", showDrop: false, stock: null }]);
   }
   function updateProdRow(tempId: string, patch: Partial<ProdRow>) {
@@ -258,7 +357,8 @@ export default function QuickSalePage() {
     setProductRows((r) => r.filter((x) => x.tempId !== tempId));
   }
 
-  function addMemRow() {
+  async function addMemRow() {
+    await ensureMembershipsLoaded();
     setMembershipRows((r) => [...r, { tempId: makeTempId(), name: "", staffId: "", price: 0, qty: 1, total: 0, search: "", showDrop: false }]);
   }
   function updateMemRow(tempId: string, patch: Partial<MemRow>) {
@@ -268,7 +368,7 @@ export default function QuickSalePage() {
     setMembershipRows((r) => r.filter((x) => x.tempId !== tempId));
   }
 
-  // ── Walk-In ───────────────────────────────────────────────────────────────────
+  // ── Walk-In ────────────────────────────────────────────────────────────────
   function handleWalkinClick() {
     setIsWalkin(true);
     setClient(null);
@@ -277,7 +377,7 @@ export default function QuickSalePage() {
     setFormErrors([]);
   }
 
-  // ── Add Client helpers ────────────────────────────────────────────────────────
+  // ── Add Client helpers ─────────────────────────────────────────────────────
   const phoneValid = (p: string) => /^\d{10}$/.test(p.trim());
 
   async function checkPhoneExists(phone: string) {
@@ -328,7 +428,7 @@ export default function QuickSalePage() {
     }
   }
 
-  // ── Reset ────────────────────────────────────────────────────────────────────
+  // ── Reset ──────────────────────────────────────────────────────────────────
   function resetForm() {
     setServiceRows([]);
     setProductRows([]);
@@ -352,7 +452,7 @@ export default function QuickSalePage() {
     setCurrentSaleId(null);
   }
 
-  // ── Shared payload builders ───────────────────────────────────────────────────
+  // ── Shared payload builders ────────────────────────────────────────────────
   function buildItemsPayload() {
     const lineItems: import("../../../types/sale.types").CreateSaleItemPayload[] = [
       ...serviceRows.filter((r) => r.service).map((r) => ({
@@ -385,7 +485,7 @@ export default function QuickSalePage() {
     return notes.trim() || undefined;
   }
 
-  // ── Save Draft ────────────────────────────────────────────────────────────────
+  // ── Save Draft ─────────────────────────────────────────────────────────────
   async function handleUpdateAppointment() {
     if (!salonId) { setErrorMsg("Salon not loaded. Please refresh."); return; }
     if (!hasItems) { setErrorMsg("Add at least one item before saving."); return; }
@@ -396,7 +496,6 @@ export default function QuickSalePage() {
 
     try {
       if (currentSaleId) {
-        // Update the existing draft
         const result = await dispatch(
           updateSaleThunk({
             id: currentSaleId,
@@ -415,10 +514,8 @@ export default function QuickSalePage() {
           setErrorMsg((result.payload as string) || "Failed to update draft.");
         }
       } else {
-        // Create a new draft and remember its ID
         const result = await dispatch(
           createSaleThunk({
-            salon_id: String(salonId),
             client_id: client?.id ?? null,
             status: "draft",
             items: buildItemsPayload(),
@@ -440,7 +537,7 @@ export default function QuickSalePage() {
     }
   }
 
-  // ── Pay Now ───────────────────────────────────────────────────────────────────
+  // ── Pay Now ────────────────────────────────────────────────────────────────
   async function handleConfirmAndPay() {
     if (!salonId) { setErrorMsg("Salon not loaded. Please refresh."); return; }
     if (!hasItems) { setErrorMsg("Add at least one service, product or membership."); return; }
@@ -453,10 +550,8 @@ export default function QuickSalePage() {
       let saleId = currentSaleId;
 
       if (!saleId) {
-        // No draft yet — create one first
         const createResult = await dispatch(
           createSaleThunk({
-            salon_id: String(salonId),
             client_id: client?.id ?? null,
             status: "draft",
             items: buildItemsPayload(),
@@ -476,7 +571,6 @@ export default function QuickSalePage() {
         setCurrentSaleId(saleId);
       }
 
-      // Build checkout payload — handle split
       const checkoutPayload = isSplit
         ? {
             id: saleId,
@@ -500,80 +594,6 @@ export default function QuickSalePage() {
       const checkoutResult = await dispatch(checkoutSaleThunk(checkoutPayload));
 
       if (checkoutSaleThunk.fulfilled.match(checkoutResult)) {
-        // Sync quick sale as a completed appointment on the calendar
-        const firstSvc = serviceRows.find((r) => r.service);
-        const totalDuration = serviceRows.reduce((acc, r) => acc + (Number(r.duration) || 30), 0) || 30;
-
-        // Compute scheduled_at from saleDate + first service time
-        let scheduledAt = new Date().toISOString();
-        const startTime = firstSvc?.time || new Date().toTimeString().slice(0, 5);
-        if (saleDate && startTime) {
-          const dt = new Date(`${saleDate}T${startTime}:00`);
-          if (!isNaN(dt.getTime())) scheduledAt = dt.toISOString();
-        }
-
-        // Compute end time string (HH:MM)
-        const [sh, sm] = startTime.split(":").map(Number);
-        const endMins = (sh * 60 + sm + totalDuration) % (24 * 60);
-        const endTime = `${String(Math.floor(endMins / 60)).padStart(2, "0")}:${String(endMins % 60).padStart(2, "0")}`;
-
-        try {
-          const bookingResult = await dispatch(createBookingThunk({
-            salon_id: String(salonId),
-            client_id: client?.id || undefined,
-            staff_id: isUUID(firstSvc?.staffId) ? firstSvc?.staffId : undefined,
-            service_id: isUUID(firstSvc?.id) ? firstSvc?.id : undefined,
-            scheduled_at: scheduledAt,
-            duration_minutes: totalDuration,
-            status: "completed",
-            title: client ? `Quick Sale – ${client.name}` : "Quick Sale – Walk-in",
-            services: serviceRows.filter((r) => r.service).map((r) => ({
-              service_id: isUUID(r.id) ? r.id : undefined,
-              staff_id: isUUID(r.staffId) ? r.staffId : undefined,
-              name: r.service,
-              price: r.price,
-              quantity: Number(r.qty) || 1,
-              time: r.time,
-            })),
-          }));
-
-          if (createBookingThunk.fulfilled.match(bookingResult)) {
-            // Add to the scheduler store so it appears on the calendar immediately
-            addBookingToCalendar({
-              id: String(bookingResult.payload.id),
-              clientId: client?.id,
-              clientName: client ? client.name : "Walk-in",
-              clientPhone: client?.phone || "",
-              staffId: firstSvc?.staffId || "",
-              date: saleDate,
-              billDate: saleDate,
-              startTime,
-              endTime,
-              status: "Confirmed",
-              paymentStatus: "Paid",
-              services: serviceRows.filter((r) => r.service).map((r) => ({
-                id: r.id || r.tempId,
-                service: r.service,
-                staff: staffList.find((s) => s.id === r.staffId)?.name || "",
-                staffId: r.staffId,
-                time: r.time,
-                price: r.price,
-                qty: Number(r.qty) || 1,
-                total: r.total,
-                duration: r.duration,
-              })),
-              subtotal: serviceTotal,
-              taxableAmount: serviceTotal,
-              grandTotal,
-              payingNow: grandTotal,
-              dueAmount: 0,
-              notes: notes || undefined,
-            } as any);
-          }
-        } catch (e) {
-          console.error("Failed to sync quick sale to calendar", e);
-        }
-
         setSuccessMsg("Sale completed successfully!");
         resetForm();
       } else {
@@ -586,7 +606,7 @@ export default function QuickSalePage() {
 
   const isBusy = isSubmitting || isCreating || isCheckingOut;
 
-  // ── Render ────────────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="va-page">
 
@@ -594,7 +614,7 @@ export default function QuickSalePage() {
       <div className="va-topbar">
         <div className="va-topbar__left">
           <button className="va-close-btn" onClick={() => navigate(-1)}>✕</button>
-          <span className="va-topbar__title">View Appointment</span>
+          <span className="va-topbar__title">Quick Sale</span>
         </div>
         <div ref={dotMenuRef} style={{ position: "relative" }}>
           <button className="va-dots-btn" onClick={() => setShowDotMenu((v) => !v)}>
@@ -624,6 +644,7 @@ export default function QuickSalePage() {
       <div className="va-body">
 
         {/* ── Messages ── */}
+        {initLoading && <div className="va-success-msg" style={{ background: "#f0f9ff", color: "#0369a1" }}>Loading…</div>}
         {successMsg && <div className="va-success-msg">{successMsg}</div>}
         {errorMsg && <div className="va-error-msg">{errorMsg}</div>}
 
@@ -639,7 +660,7 @@ export default function QuickSalePage() {
           </div>
           <div className="va-section__body">
             <div className="va-client-row">
-              {/* Live API client search */}
+              {/* Live API client search — debounced per keystroke */}
               <ClientSearchInput
                 value={clientSearch}
                 onChange={(val) => {
@@ -660,7 +681,6 @@ export default function QuickSalePage() {
                 placeholder="Search client by name or phone…"
               />
 
-              {/* Walk-in button */}
               <button
                 className={`va-walkin-btn${isWalkin ? " va-walkin-btn--active" : ""}`}
                 onClick={handleWalkinClick}
@@ -668,7 +688,6 @@ export default function QuickSalePage() {
                 Walk-In
               </button>
 
-              {/* Add Client toggle */}
               <button
                 className="va-add-client-btn"
                 onClick={() => { setShowAddClientForm((v) => !v); setIsClientSaved(false); }}
@@ -676,7 +695,6 @@ export default function QuickSalePage() {
                 {showAddClientForm ? "✕ Cancel" : "+ Add Client"}
               </button>
 
-              {/* Date picker */}
               <div ref={datePickerRef} style={{ position: "relative" }}>
                 <button
                   className="va-date-field"
@@ -811,7 +829,6 @@ export default function QuickSalePage() {
             const filtered = servicesList.filter((s) => s.name.toLowerCase().includes(row.search.toLowerCase()));
             return (
               <div key={row.tempId} className="va-svc-row">
-                {/* Service inline search */}
                 <div style={{ flex: 2, position: "relative" }}>
                   <input
                     className="va-inp"
@@ -827,7 +844,7 @@ export default function QuickSalePage() {
                         <div key={s.id} className="va-inline-drop__item"
                           onMouseDown={() => {
                             const q = Number(row.qty) || 1;
-                            updateSvcRow(row.tempId, { id: s.id, service: s.name, search: s.name, price: s.price, duration: s.duration || 30, qty: q as any, total: s.price * q, showDrop: false });
+                            updateSvcRow(row.tempId, { id: s.id, service: s.name, search: s.name, price: s.price, duration: s.duration, qty: q as any, total: s.price * q, showDrop: false });
                           }}
                         >
                           <span>{s.name}</span>
@@ -838,7 +855,6 @@ export default function QuickSalePage() {
                   )}
                 </div>
 
-                {/* Staff pill */}
                 <div style={{ flex: 1.5 }}>
                   <div className="va-staff-pill">
                     <select
@@ -851,31 +867,26 @@ export default function QuickSalePage() {
                   </div>
                 </div>
 
-                {/* Time */}
                 <div style={{ flex: 1 }}>
                   <input className="va-inp" placeholder="10:00" value={row.time}
                     onChange={(e) => updateSvcRow(row.tempId, { time: e.target.value })} />
                 </div>
 
-                {/* Price */}
                 <div style={{ flex: 1 }}>
                   <input className="va-inp" type="number" min={0} placeholder="0" value={row.price || ""}
                     onChange={(e) => { const p = parseFloat(e.target.value) || 0; updateSvcRow(row.tempId, { price: p, total: p * (Number(row.qty) || 0) }); }} />
                 </div>
 
-                {/* Qty */}
                 <div style={{ flex: 0.7 }}>
                   <input className="va-inp" type="number" value={row.qty}
-                    onChange={(e) => { 
-                      const val = e.target.value; 
-                      const q = val === "" ? "" : Number(val); 
-                      updateSvcRow(row.tempId, { qty: q as any, total: row.price * (Number(q) || 0) }); 
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const q = val === "" ? "" : Number(val);
+                      updateSvcRow(row.tempId, { qty: q as any, total: row.price * (Number(q) || 0) });
                     }} />
                 </div>
 
-                {/* Total */}
                 <div style={{ flex: 1 }} className="va-svc-row__total">₹{row.total.toFixed(2)}</div>
-
                 <button className="va-svc-row__remove" onClick={() => removeSvcRow(row.tempId)}>✕</button>
               </div>
             );
@@ -955,10 +966,10 @@ export default function QuickSalePage() {
                 </div>
                 <div style={{ flex: 0.7 }}>
                   <input className="va-inp" type="number" value={row.qty}
-                    onChange={(e) => { 
-                      const val = e.target.value; 
-                      const q = val === "" ? "" : Number(val); 
-                      updateProdRow(row.tempId, { qty: q as any, total: row.price * (Number(q) || 0) }); 
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const q = val === "" ? "" : Number(val);
+                      updateProdRow(row.tempId, { qty: q as any, total: row.price * (Number(q) || 0) });
                     }} />
                 </div>
                 <div style={{ flex: 1 }} className="va-svc-row__total">₹{row.total.toFixed(2)}</div>
@@ -1018,10 +1029,10 @@ export default function QuickSalePage() {
                 </div>
                 <div style={{ flex: 0.7 }}>
                   <input className="va-inp" type="number" value={row.qty}
-                    onChange={(e) => { 
-                      const val = e.target.value; 
-                      const q = val === "" ? "" : Number(val); 
-                      updateMemRow(row.tempId, { qty: q as any, total: row.price * (Number(q) || 0) }); 
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const q = val === "" ? "" : Number(val);
+                      updateMemRow(row.tempId, { qty: q as any, total: row.price * (Number(q) || 0) });
                     }} />
                 </div>
                 <div style={{ flex: 1 }} className="va-svc-row__total">₹{row.total.toFixed(2)}</div>
@@ -1037,13 +1048,13 @@ export default function QuickSalePage() {
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z" /></svg>
                 Service
               </button>
-              <button className="va-add-svc-btn" onClick={addProdRow}>
+              <button className="va-add-svc-btn" onClick={addProdRow} disabled={productsLoading}>
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z" /></svg>
-                Product
+                {productsLoading ? "Loading…" : "Product"}
               </button>
-              <button className="va-add-svc-btn" onClick={addMemRow}>
+              <button className="va-add-svc-btn" onClick={addMemRow} disabled={membershipsLoading}>
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z" /></svg>
-                Membership
+                {membershipsLoading ? "Loading…" : "Membership"}
               </button>
             </div>
           </div>
@@ -1153,23 +1164,21 @@ export default function QuickSalePage() {
           </div>
           <div className="va-section__body">
 
-            {/* Payment method */}
             <label className="va-field-label" style={{ marginBottom: 8 }}>Payment Method</label>
             <div className="va-payment-methods">
               {PAYMENT_METHODS.map((m) => (
                 <button
                   key={m.id}
                   className={`va-pm-btn${!isSplit && paymentMethod === m.id ? " va-pm-btn--active" : ""}`}
-                  onClick={() => { 
-                    setIsSplit(false); 
-                    setPaymentMethod(m.id); 
+                  onClick={() => {
+                    setIsSplit(false);
+                    setPaymentMethod(m.id);
                     setAmountPaid(grandTotal.toFixed(2));
                   }}
                 >
                   {m.label}
                 </button>
               ))}
-              {/* Split toggle */}
               <button
                 className={`va-pm-btn${isSplit ? " va-pm-btn--active" : ""}`}
                 onClick={() => setIsSplit((v) => !v)}
@@ -1178,7 +1187,6 @@ export default function QuickSalePage() {
               </button>
             </div>
 
-            {/* Single-method reference */}
             {!isSplit && (paymentMethod === "card" || paymentMethod === "upi") && (
               <input
                 className="va-inp"
@@ -1193,7 +1201,6 @@ export default function QuickSalePage() {
               />
             )}
 
-            {/* ── Split payment panel ── */}
             {isSplit && (
               <div className="va-split-panel">
                 <div className="va-split-panel__header">
@@ -1225,7 +1232,6 @@ export default function QuickSalePage() {
                           }
                         />
                       </div>
-                      {/* Quick-fill remaining */}
                       {splitRemaining > 0.001 && (parseFloat(splitAmounts[m.id] || "0") === 0) && (
                         <button
                           className="va-split-row__fill"
@@ -1246,7 +1252,6 @@ export default function QuickSalePage() {
               </div>
             )}
 
-            {/* Amount paid — hidden in split mode (split amounts define it) */}
             {!isSplit && (
               <div style={{ marginTop: 14 }}>
                 <label className="va-field-label">Amount Paid (₹)</label>
@@ -1261,7 +1266,6 @@ export default function QuickSalePage() {
             )}
 
             <div className="va-pay-notes-layout">
-              {/* Left: alert + notes */}
               <div className="va-pay-notes-layout__left">
                 <div style={{ marginTop: 0 }}>
                   <label className="va-field-label">Notes</label>
@@ -1275,7 +1279,6 @@ export default function QuickSalePage() {
                 </div>
               </div>
 
-              {/* Right: summary box */}
               <div className="va-summary-box">
                 <div className="va-summary-box__title">SUMMARY</div>
                 <div className="va-summary-row">
@@ -1365,7 +1368,6 @@ export default function QuickSalePage() {
 
       {/* ══════════════════ BOTTOM ACTION BAR ══════════════════ */}
       <div className="va-bottom-bar">
-        
         <button
           className="va-confirm-btn"
           disabled={!hasItems || isBusy}

@@ -53,7 +53,6 @@ export interface CreateSaleItemPayload {
 }
 
 export interface CreateSalePayload {
-  salon_id: string;
   client_id?: string | null;
   status?: SaleStatus;
   items: CreateSaleItemPayload[];

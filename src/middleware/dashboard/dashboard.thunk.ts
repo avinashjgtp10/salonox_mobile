@@ -44,15 +44,18 @@ export interface DashboardAllResponse {
   }>;
 }
 
-export const fetchDashboardAll = createAsyncThunk(
+export const fetchDashboardAll = createAsyncThunk<
+  DashboardAllResponse,
+  { period?: string; date?: string }
+>(
   "dashboard/fetchAll",
   async (
-    params: { salonId: string; period?: string; date?: string },
+    params: { period?: string; date?: string },
     { rejectWithValue }
   ) => {
     try {
-      const { salonId, period = "monthly", date } = params;
-      const query = new URLSearchParams({ salon_id: salonId, period });
+      const { period = "monthly", date } = params;
+      const query = new URLSearchParams({ period });
       if (date) query.set("date", date);
 
       const res = await api.get(`/api/v1/dashboard/all?${query.toString()}`);
