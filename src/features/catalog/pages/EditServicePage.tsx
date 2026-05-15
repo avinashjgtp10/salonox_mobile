@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch } from "../../../store/store";
 import { fetchCategoriesThunk } from "../../../middleware/services/categories.thunk";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
-import { selectAllCategories, selectAllStaff, selectStaffLoading } from "../../../store/selectors/slices.selectors";
-import { useServiceForm } from "../hooks/useServiceForm.ts";
+import {
+  selectAllCategories,
+  selectAllStaff,
+  selectStaffLoading,
+} from "../../../store/selectors/slices.selectors";
+import { useEditServiceForm } from "../hooks/useEditServiceForm.ts";
 import BasicDetailsTab from "../components/tabs/BasicDetailsTab.tsx";
 import TeamMembersTab from "../components/tabs/TeamMembersTab.tsx";
 import ResourcesTab from "../components/tabs/ResourcesTab.tsx";
@@ -31,7 +35,6 @@ type TabKey =
 interface TabItem {
   key: TabKey;
   label: string;
-  hasError?: boolean;
   count?: number;
 }
 
@@ -50,13 +53,10 @@ const settingsTabs: TabItem[] = [
   { key: "settings", label: "Settings" },
 ];
 
-const AddServicePage: React.FC = () => {
+const EditServicePage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
-  const [searchParams] = useSearchParams();
-  const serviceType = (searchParams.get("type") || "single") as
-    | "single"
-    | "bundle";
   const [activeTab, setActiveTab] = useState<TabKey>("basic");
 
   const rawCategories = useSelector(selectAllCategories);
@@ -77,15 +77,18 @@ const AddServicePage: React.FC = () => {
     dispatch(fetchCategoriesThunk());
     dispatch(fetchStaffThunk());
   }, [dispatch]);
+
   const {
     formData,
     updateField,
     handleSubmit,
+    fetchLoading,
     loading,
     error,
     validationErrors,
     isSubmitted,
-  } = useServiceForm(serviceType);
+    serviceName,
+  } = useEditServiceForm(id!);
 
   const onSubmit = async () => {
     const success = await handleSubmit();
@@ -105,10 +108,57 @@ const AddServicePage: React.FC = () => {
         {tab.count !== undefined && (
           <span className="nav-item-count">{tab.count}</span>
         )}
-        {(tab.hasError || hasErrors(tab.key)) && <div className="error-dot" />}
+        {hasErrors(tab.key) && <div className="error-dot" />}
       </div>
     </li>
   );
+
+  if (fetchLoading) {
+    return (
+      <div className="add-service-page">
+        <header className="add-service-page__header">
+          <div className="header-actions-right ms-auto">
+            <button
+              className="btn-close-text"
+              onClick={() => navigate("/dashboard/catalog/services")}
+            >
+              Close
+            </button>
+          </div>
+        </header>
+        <main className="add-service-page__layout">
+          <div className="layout-container" style={{ alignItems: "center", paddingTop: 80 }}>
+            <div className="d-flex flex-column align-items-center gap-3">
+              <span className="spinner-border" style={{ color: "#6366f1", width: 36, height: 36 }} />
+              <p className="text-muted small">Loading service…</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (!formData) {
+    return (
+      <div className="add-service-page">
+        <header className="add-service-page__header">
+          <div className="header-actions-right ms-auto">
+            <button
+              className="btn-close-text"
+              onClick={() => navigate("/dashboard/catalog/services")}
+            >
+              Close
+            </button>
+          </div>
+        </header>
+        <main className="add-service-page__layout">
+          <div className="layout-container">
+            <div className="alert alert-danger">{error ?? "Service not found."}</div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="add-service-page">
@@ -120,15 +170,11 @@ const AddServicePage: React.FC = () => {
           >
             Close
           </button>
-          <button
-            className="btn-save-pill"
-            onClick={onSubmit}
-            disabled={loading}
-          >
+          <button className="btn-save-pill" onClick={onSubmit} disabled={loading}>
             {loading ? (
               <span className="spinner-border spinner-border-sm me-2" />
             ) : (
-              "Save"
+              "Save changes"
             )}
           </button>
         </div>
@@ -137,7 +183,7 @@ const AddServicePage: React.FC = () => {
       <main className="add-service-page__layout">
         <div className="layout-container">
           <div className="layout-header">
-            <h1>New service</h1>
+            <h1>{serviceName || "Edit service"}</h1>
           </div>
 
           {isSubmitted && Object.keys(validationErrors).length > 0 && (
@@ -181,7 +227,7 @@ const AddServicePage: React.FC = () => {
                 <BasicDetailsTab
                   data={formData.basic}
                   onChange={(v: any) => updateField("basic", v)}
-                  serviceType={serviceType}
+                  serviceType="single"
                   errors={validationErrors.basic}
                   categories={categories}
                 />
@@ -245,4 +291,4 @@ const AddServicePage: React.FC = () => {
   );
 };
 
-export default AddServicePage;
+export default EditServicePage;

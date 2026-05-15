@@ -49,6 +49,20 @@ const ServiceCard: React.FC<ServiceCardProps> = React.memo(
           <CurrencyRupee size={14} />
           {service.price}
         </span>
+
+        {/* Directly visible Edit button */}
+        <button
+          className="slp__svc-edit-btn"
+          title="Edit service"
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit(service.id);
+          }}
+        >
+          <PencilSquare size={14} /> Edit
+        </button>
+
+        {/* Kebab menu for Delete */}
         <div className="slp__dd-wrap">
           <button
             className="slp__kebab"
@@ -63,14 +77,6 @@ const ServiceCard: React.FC<ServiceCardProps> = React.memo(
           </button>
           {openMenuId === String(service.id) && (
             <ul className="slp__dd-menu slp__dd-menu--right">
-              <li>
-                <button
-                  className="slp__dd-item"
-                  onClick={() => onEdit(service.id)}
-                >
-                  <PencilSquare size={13} /> Edit
-                </button>
-              </li>
               <li>
                 <button
                   className="slp__dd-item slp__dd-item--danger"

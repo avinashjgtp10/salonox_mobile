@@ -55,6 +55,9 @@ const PackagesPage = lazy(
 const EditPackagePage = lazy(
   () => import("../features/catalog/pages/EditPackagePage"),
 );
+const EditServicePage = lazy(
+  () => import("../features/catalog/pages/EditServicePage"),
+);
 
 import { PageLoader } from "../components/ui";
 
@@ -63,6 +66,7 @@ export const CatalogRoutes = () => (
     <Routes>
       <Route path="services" element={<ServicesListPage />} />
       <Route path="services/add" element={<AddServicePage />} />
+      <Route path="services/:id/edit" element={<EditServicePage />} />
       <Route path="services/categories" element={<CategoriesPage />} />
       <Route path="memberships" element={<MembershipsLandingPage />} />
       <Route path="memberships/list" element={<MembershipsListPage />} />
