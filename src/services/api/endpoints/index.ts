@@ -20,3 +20,6 @@ export * from "./coupon.endpoints";
 export * from "./payment.endpoints";
 export * from "./blockedTime.endpoints";
 export * from "./billing.endpoints";
+export * from "./gallery.endpoints";
+export * from "./marketplace.endpoints";
+export * from "./onlineBooking.endpoints";
