@@ -43,12 +43,17 @@ export const refreshSessionThunk = createAsyncThunk<
   }
 
   try {
-    const res = await axios.post<{ accessToken: string }>(
+    const res = await axios.post<{
+      data?: { accessToken: string };
+      accessToken?: string;
+    }>(
       `${API_ORIGIN}${AUTH.REFRESH_TOKEN}`,
       { refreshToken },
       { headers: { "Content-Type": "application/json" } },
     );
-    return res.data.accessToken;
+    const newToken = res.data?.data?.accessToken ?? res.data?.accessToken;
+    if (!newToken) return rejectWithValue("No access token in refresh response");
+    return newToken;
   } catch {
     return rejectWithValue("Refresh token expired or invalid");
   }
