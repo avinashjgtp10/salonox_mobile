@@ -15,24 +15,28 @@ $green-darker: #085041;
   background: $green;
   color: #fff;
   border: none;
-  cursor: pointer;
+  cursor: grab;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: transform 0.2s, background 0.2s;
   box-shadow: 0 4px 20px rgba(29, 158, 117, 0.4);
 
-  &:hover {
+  &:active { cursor: grabbing; transform: scale(0.95); }
+
+  &:hover:not(:active) {
     background: $green-dark;
     transform: scale(1.06);
   }
 
-  &:active { transform: scale(0.95); }
-
   &--open {
     background: #374151;
     box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-    &:hover { background: #1f2937; }
+    &:hover:not(:active) { background: #1f2937; }
+  }
+
+  &--dragged {
+    transition: background 0.2s;
   }
 }
 
@@ -69,6 +73,12 @@ $green-darker: #085041;
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+  cursor: grab;
+  user-select: none;
+
+  &--dragging {
+    cursor: grabbing;
+  }
 }
 
 .sbot-avatar {
