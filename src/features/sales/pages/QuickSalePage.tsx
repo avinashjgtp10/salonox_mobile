@@ -9,6 +9,9 @@ import {
   updateSaleThunk,
   checkoutSaleThunk,
   fetchSaleInitThunk,
+  fetchSaleProductsThunk,
+  fetchSaleMembershipsThunk,
+  deleteSaleThunk,
 } from "../../../middleware/sale/sale.thunk";
 import type { AppDispatch, RootState } from "../../../store/store";
 import type { PaymentMethod } from "../../../types/sale.types";
@@ -176,19 +179,26 @@ export default function QuickSalePage() {
     (s: RootState) => (s as any).sale?.loading?.checkout ?? false,
   );
 
+  // ── Redux-cached catalog data (persists across navigations) ──────────────
+  const initLoaded        = useSelector((s: RootState) => Boolean((s as any).sale?.initLoaded));
+  const cachedInitData    = useSelector((s: RootState) => (s as any).sale?.initData ?? null);
+  const initLoading       = useSelector((s: RootState) => (s as any).sale?.loading?.init ?? false);
+
+  const productsLoaded    = useSelector((s: RootState) => Boolean((s as any).sale?.productsLoaded));
+  const cachedProducts    = useSelector((s: RootState) => (s as any).sale?.catalogProducts ?? null);
+  const productsLoading   = useSelector((s: RootState) => (s as any).sale?.loading?.products ?? false);
+
+  const membershipsLoaded = useSelector((s: RootState) => Boolean((s as any).sale?.membershipsLoaded));
+  const cachedMemberships = useSelector((s: RootState) => (s as any).sale?.catalogMemberships ?? null);
+  const membershipsLoading = useSelector((s: RootState) => (s as any).sale?.loading?.memberships ?? false);
+
   // ── Init data (services + staff from /sales/init) ─────────────────────────
   const [staffList, setStaffList] = useState<InitStaff[]>([]);
   const [servicesList, setServicesList] = useState<InitService[]>([]);
-  const [initLoading, setInitLoading] = useState(false);
 
-  // ── Lazy-loaded catalogs ──────────────────────────────────────────────────
+  // ── Lazy-loaded catalogs (local display lists mapped from Redux) ───────────
   const [productsList, setProductsList] = useState<LazyProduct[]>([]);
-  const productsLoaded = useRef(false);
-  const [productsLoading, setProductsLoading] = useState(false);
-
   const [membershipsList, setMembershipsList] = useState<LazyMembership[]>([]);
-  const membershipsLoaded = useRef(false);
-  const [membershipsLoading, setMembershipsLoading] = useState(false);
 
   // ── Client ─────────────────────────────────────────────────────────────────
   const [client, setClient] = useState<SelectedClient | null>(null);
@@ -248,24 +258,37 @@ export default function QuickSalePage() {
 
   // ── UI ─────────────────────────────────────────────────────────────────────
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [showDotMenu, setShowDotMenu] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const dotMenuRef = useRef<HTMLDivElement>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const datePickerRef = useRef<HTMLDivElement>(null);
 
-  // ── Fetch init data on mount ───────────────────────────────────────────────
+  // ── Hydrate local display lists from Redux cache ──────────────────────────
+  // Runs when Redux data arrives (first fetch) or on re-mount (already cached).
   useEffect(() => {
-    setInitLoading(true);
-    dispatch(fetchSaleInitThunk())
-      .unwrap()
-      .then((data) => {
-        setStaffList(mapStaff(data.staff));
-        setServicesList(mapServices(data.services));
-      })
-      .catch(() => { /* silently ignore — user can still type manually */ })
-      .finally(() => setInitLoading(false));
+    if (cachedInitData) {
+      setStaffList(mapStaff(cachedInitData.staff));
+      setServicesList(mapServices(cachedInitData.services));
+    }
+  }, [cachedInitData]);
+
+  useEffect(() => {
+    if (cachedProducts) setProductsList(mapProducts(cachedProducts));
+  }, [cachedProducts]);
+
+  useEffect(() => {
+    if (cachedMemberships) setMembershipsList(mapMemberships(cachedMemberships));
+  }, [cachedMemberships]);
+
+  // ── Fetch init data on mount ──────────────────────────────────────────────
+  // fetchSaleInitThunk.condition skips the API call when already loaded or
+  // in-flight, so dispatching unconditionally here is safe.
+  useEffect(() => {
+    dispatch(fetchSaleInitThunk());
   }, [dispatch]);
 
   useEffect(() => {
@@ -280,28 +303,16 @@ export default function QuickSalePage() {
   }, []);
 
   // ── Lazy-load helpers ──────────────────────────────────────────────────────
+  // The thunk's built-in condition prevents duplicate or in-flight API calls.
+  // The matching useEffect above will hydrate local state when Redux updates.
   async function ensureProductsLoaded() {
-    if (productsLoaded.current) return;
-    setProductsLoading(true);
-    try {
-      const res = await api.get("/api/v1/products");
-      const raw = res.data?.data?.data ?? res.data?.data ?? res.data ?? [];
-      setProductsList(mapProducts(Array.isArray(raw) ? raw : []));
-      productsLoaded.current = true;
-    } catch { /* silently ignore */ }
-    finally { setProductsLoading(false); }
+    if (productsLoaded) return; // already cached in Redux
+    dispatch(fetchSaleProductsThunk());
   }
 
   async function ensureMembershipsLoaded() {
-    if (membershipsLoaded.current) return;
-    setMembershipsLoading(true);
-    try {
-      const res = await api.get("/api/v1/memberships");
-      const raw = res.data?.data?.items ?? res.data?.data ?? res.data ?? [];
-      setMembershipsList(mapMemberships(Array.isArray(raw) ? raw : []));
-      membershipsLoaded.current = true;
-    } catch { /* silently ignore */ }
-    finally { setMembershipsLoading(false); }
+    if (membershipsLoaded) return; // already cached in Redux
+    dispatch(fetchSaleMembershipsThunk());
   }
 
   // ── Derived financials ─────────────────────────────────────────────────────
@@ -450,6 +461,31 @@ export default function QuickSalePage() {
     setPaymentMethod("cash");
     setSaleDate(todayISO());
     setCurrentSaleId(null);
+  }
+
+  // ── Delete current draft sale ──────────────────────────────────────────────
+  async function handleDeleteSale() {
+    if (!currentSaleId) {
+      resetForm();
+      setShowDeleteConfirm(false);
+      setShowDotMenu(false);
+      return;
+    }
+    setIsDeleting(true);
+    setErrorMsg("");
+    try {
+      const result = await dispatch(deleteSaleThunk(currentSaleId));
+      if (deleteSaleThunk.fulfilled.match(result)) {
+        setSuccessMsg("Sale deleted.");
+        resetForm();
+      } else {
+        setErrorMsg((result.payload as string) || "Failed to delete sale.");
+      }
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+      setShowDotMenu(false);
+    }
   }
 
   // ── Shared payload builders ────────────────────────────────────────────────
@@ -604,7 +640,7 @@ export default function QuickSalePage() {
     }
   }
 
-  const isBusy = isSubmitting || isCreating || isCheckingOut;
+  const isBusy = isSubmitting || isCreating || isCheckingOut || isDeleting;
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -617,21 +653,59 @@ export default function QuickSalePage() {
           <span className="va-topbar__title">Quick Sale</span>
         </div>
         <div ref={dotMenuRef} style={{ position: "relative" }}>
-          <button className="va-dots-btn" onClick={() => setShowDotMenu((v) => !v)}>
+          <button className="va-dots-btn" onClick={() => { setShowDotMenu((v) => !v); setShowDeleteConfirm(false); }}>
             <span>⋯</span>
           </button>
           {showDotMenu && (
             <div className="va-dot-menu">
               <button
                 className="va-dot-menu__item"
-                onClick={() => { handleUpdateAppointment(); setShowDotMenu(false); }}
+                onClick={() => { handleUpdateAppointment(); setShowDotMenu(false); setShowDeleteConfirm(false); }}
               >
                 Save as Draft
               </button>
               <div className="va-dot-menu__divider" />
               <button
-                className="va-dot-menu__item va-dot-menu__item--danger"
-                onClick={() => { resetForm(); setShowDotMenu(false); }}
+                className={`va-dot-menu__item${!currentSaleId ? " va-dot-menu__item--disabled" : ""}`}
+                disabled={!currentSaleId || isBusy}
+                onClick={() => { handleUpdateAppointment(); setShowDotMenu(false); setShowDeleteConfirm(false); }}
+                title={!currentSaleId ? "Save as draft first to edit" : "Update this draft"}
+              >
+                ✏️ Edit
+              </button>
+              <div className="va-dot-menu__divider" />
+              {!showDeleteConfirm ? (
+                <button
+                  className="va-dot-menu__item va-dot-menu__item--danger"
+                  disabled={isBusy}
+                  onClick={() => setShowDeleteConfirm(true)}
+                >
+                  🗑 Delete
+                </button>
+              ) : (
+                <div className="va-dot-menu__confirm">
+                  <span className="va-dot-menu__confirm-text">Delete this sale?</span>
+                  <div className="va-dot-menu__confirm-actions">
+                    <button
+                      className="va-dot-menu__confirm-yes"
+                      disabled={isDeleting}
+                      onClick={handleDeleteSale}
+                    >
+                      {isDeleting ? "Deleting…" : "Yes, delete"}
+                    </button>
+                    <button
+                      className="va-dot-menu__confirm-no"
+                      onClick={() => setShowDeleteConfirm(false)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div className="va-dot-menu__divider" />
+              <button
+                className="va-dot-menu__item va-dot-menu__item--muted"
+                onClick={() => { resetForm(); setShowDotMenu(false); setShowDeleteConfirm(false); }}
               >
                 Clear Sale
               </button>

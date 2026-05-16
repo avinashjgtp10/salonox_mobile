@@ -16,25 +16,89 @@ import type {
   CheckoutSalePayload,
 } from "../../types/sale.types";
 
-// ── Fetch quick-sale init data (services + staff only) ────────────────────────
+// ── Quick-sale catalog types ──────────────────────────────────────────────────
 export interface SaleInitData {
   staff: any[];
   services: any[];
 }
 
+// ── Fetch init data (staff + services) ───────────────────────────────────────
+// condition: skip when already loaded OR a fetch is already in-flight
 export const fetchSaleInitThunk = createAsyncThunk<
   SaleInitData,
   void,
-  { rejectValue: string }
->("sale/init", async (_, { rejectWithValue }) => {
-  try {
-    const res = await api.get<{ data: SaleInitData }>(SALE.INIT);
-    return res.data.data;
-  } catch (err: any) {
-    if (err instanceof ApiError) return rejectWithValue(err.message);
-    return rejectWithValue("Failed to fetch sale init data");
-  }
-});
+  { state: any; rejectValue: string }
+>(
+  "sale/init",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await api.get<{ data: SaleInitData }>(SALE.INIT);
+      return res.data.data;
+    } catch (err: any) {
+      if (err instanceof ApiError) return rejectWithValue(err.message);
+      return rejectWithValue("Failed to fetch sale init data");
+    }
+  },
+  {
+    condition: (_, { getState }) => {
+      const sale = getState()?.sale;
+      // Skip if already loaded or a request is already in-flight
+      return !sale?.initLoaded && !sale?.loading?.init;
+    },
+  },
+);
+
+// ── Fetch products catalog (lazy, for Quick Sale product rows) ────────────────
+// condition: skip when already cached or a fetch is already in-flight
+export const fetchSaleProductsThunk = createAsyncThunk<
+  any[],
+  void,
+  { state: any; rejectValue: string }
+>(
+  "sale/fetchCatalogProducts",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await api.get("/api/v1/products");
+      const raw = res.data?.data?.data ?? res.data?.data ?? res.data ?? [];
+      return Array.isArray(raw) ? raw : [];
+    } catch (err: any) {
+      if (err instanceof ApiError) return rejectWithValue(err.message);
+      return rejectWithValue("Failed to fetch products");
+    }
+  },
+  {
+    condition: (_, { getState }) => {
+      const sale = getState()?.sale;
+      return !sale?.productsLoaded && !sale?.loading?.products;
+    },
+  },
+);
+
+// ── Fetch memberships catalog (lazy, for Quick Sale membership rows) ──────────
+// condition: skip when already cached or a fetch is already in-flight
+export const fetchSaleMembershipsThunk = createAsyncThunk<
+  any[],
+  void,
+  { state: any; rejectValue: string }
+>(
+  "sale/fetchCatalogMemberships",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await api.get("/api/v1/memberships");
+      const raw = res.data?.data?.items ?? res.data?.data ?? res.data ?? [];
+      return Array.isArray(raw) ? raw : [];
+    } catch (err: any) {
+      if (err instanceof ApiError) return rejectWithValue(err.message);
+      return rejectWithValue("Failed to fetch memberships");
+    }
+  },
+  {
+    condition: (_, { getState }) => {
+      const sale = getState()?.sale;
+      return !sale?.membershipsLoaded && !sale?.loading?.memberships;
+    },
+  },
+);
 
 // ── Fetch all sales (optionally filtered) ─────────────────────────────────────
 export interface FetchSalesParams {
