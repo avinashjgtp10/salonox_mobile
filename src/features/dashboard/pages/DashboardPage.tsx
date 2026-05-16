@@ -183,10 +183,9 @@ export default function DashboardPage() {
   const salonId = useAppSelector((s: any) => s.salon?.currentSalon?.id ?? "");
 
   useEffect(() => {
-    if (!salonId) return;
     const today = new Date().toISOString().split("T")[0];
-    dispatch(fetchDashboardAll({ salonId, period: revPeriod, date: today }));
-  }, [salonId, revPeriod]); // eslint-disable-line react-hooks/exhaustive-deps
+    dispatch(fetchDashboardAll({ period: revPeriod, date: today }));
+  }, [revPeriod]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset page when appointments list changes
   useEffect(() => { setApptPage(1); }, [appointments.length]);
@@ -290,7 +289,7 @@ export default function DashboardPage() {
             {dashLoading ? (
               <SectionSpinner />
             ) : dashError ? (
-              <SectionError message={dashError} onRetry={() => salonId && dispatch(fetchDashboardAll({ salonId, period: revPeriod }))} />
+              <SectionError message={dashError} onRetry={() => dispatch(fetchDashboardAll({ period: revPeriod }))} />
             ) : (
               <>
                 <div className="db-kpi-top">
@@ -343,7 +342,7 @@ export default function DashboardPage() {
           {dashLoading ? (
             <SectionSpinner />
           ) : dashError ? (
-            <SectionError message={dashError} onRetry={() => salonId && dispatch(fetchDashboardAll({ salonId, period: revPeriod }))} />
+            <SectionError message={dashError} onRetry={() => dispatch(fetchDashboardAll({ period: revPeriod }))} />
           ) : (
             <ResponsiveContainer width="100%" height={240}>
               <AreaChart data={revenue} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
@@ -452,7 +451,7 @@ export default function DashboardPage() {
         {dashLoading ? (
           <SectionSpinner />
         ) : dashError ? (
-          <SectionError message={dashError} onRetry={() => salonId && dispatch(fetchDashboardAll({ salonId, period: revPeriod }))} />
+          <SectionError message={dashError} onRetry={() => dispatch(fetchDashboardAll({ period: revPeriod }))} />
         ) : normAppts.length === 0 ? (
           <div className="db-empty">No appointments scheduled for today.</div>
         ) : (
@@ -548,7 +547,7 @@ export default function DashboardPage() {
           {dashLoading ? (
             <SectionSpinner />
           ) : dashError ? (
-            <SectionError message={dashError} onRetry={() => salonId && dispatch(fetchDashboardAll({ salonId, period: revPeriod }))} />
+            <SectionError message={dashError} onRetry={() => dispatch(fetchDashboardAll({ period: revPeriod }))} />
           ) : svcChartData.length === 0 ? (
             <div className="db-empty">No services found. Add your first service.</div>
           ) : (() => {
@@ -629,7 +628,7 @@ export default function DashboardPage() {
           {dashLoading ? (
             <SectionSpinner />
           ) : dashError ? (
-            <SectionError message={dashError} onRetry={() => salonId && dispatch(fetchDashboardAll({ salonId, period: revPeriod }))} />
+            <SectionError message={dashError} onRetry={() => dispatch(fetchDashboardAll({ period: revPeriod }))} />
           ) : topStaff.length === 0 ? (
             <div className="db-empty">No staff data available.</div>
           ) : (
