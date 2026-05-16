@@ -41,16 +41,26 @@ export default function SalonOxBot() {
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Close bot when leaving dashboard
+  // Drag state
+  const [winPos, setWinPos] = useState<{ x: number; y: number } | null>(null);
+  const [fabPos, setFabPos] = useState<{ x: number; y: number } | null>(null);
+  const [isDraggingWin, setIsDraggingWin] = useState(false);
+  const winRef = useRef<HTMLDivElement>(null);
+  const fabRef = useRef<HTMLButtonElement>(null);
+  const fabDragMoved = useRef(false);
+
   useEffect(() => {
-    if (!isDashboard) setOpen(false);
+    if (!isDashboard) {
+      setOpen(false);
+      setWinPos(null);
+      setFabPos(null);
+    }
   }, [isDashboard]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Don't render at all outside dashboard
   if (!isDashboard) return null;
 
   const reset = () => {
@@ -109,12 +119,86 @@ export default function SalonOxBot() {
     ]);
   };
 
+  // Drag the chat window via its header
+  const onHeaderMouseDown = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+
+    const rect = winRef.current!.getBoundingClientRect();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const origX = rect.left;
+    const origY = rect.top;
+
+    setIsDraggingWin(true);
+
+    const onMove = (ev: MouseEvent) => {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      const newX = Math.max(0, Math.min(window.innerWidth - rect.width, origX + dx));
+      const newY = Math.max(0, Math.min(window.innerHeight - rect.height, origY + dy));
+      setWinPos({ x: newX, y: newY });
+    };
+
+    const onUp = () => {
+      setIsDraggingWin(false);
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    e.preventDefault();
+  };
+
+  // Drag the FAB button; treat as click if mouse didn't move
+  const onFabMouseDown = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const rect = fabRef.current!.getBoundingClientRect();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const origX = rect.left;
+    const origY = rect.top;
+    fabDragMoved.current = false;
+
+    const onMove = (ev: MouseEvent) => {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      if (!fabDragMoved.current && Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+      fabDragMoved.current = true;
+      const newX = Math.max(0, Math.min(window.innerWidth - rect.width, origX + dx));
+      const newY = Math.max(0, Math.min(window.innerHeight - rect.height, origY + dy));
+      setFabPos({ x: newX, y: newY });
+    };
+
+    const onUp = () => {
+      if (!fabDragMoved.current) setOpen((o) => !o);
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  const winStyle: React.CSSProperties = winPos
+    ? { top: winPos.y, left: winPos.x, bottom: 'auto', right: 'auto' }
+    : {};
+
+  const fabStyle: React.CSSProperties = fabPos
+    ? { top: fabPos.y, left: fabPos.x, bottom: 'auto', right: 'auto' }
+    : {};
+
   return (
     <>
       {/* Floating Button */}
       <button
-        className={`sbot-fab ${open ? 'sbot-fab--open' : ''}`}
-        onClick={() => setOpen(!open)}
+        ref={fabRef}
+        className={`sbot-fab ${open ? 'sbot-fab--open' : ''} ${fabPos ? 'sbot-fab--dragged' : ''}`}
+        style={fabStyle}
+        onMouseDown={onFabMouseDown}
         aria-label="Toggle SalonOx Assistant"
       >
         {open ? (
@@ -126,10 +210,13 @@ export default function SalonOxBot() {
 
       {/* Chat Window */}
       {open && (
-        <div className="sbot-window">
+        <div ref={winRef} className="sbot-window" style={winStyle}>
 
-          {/* Header */}
-          <div className="sbot-header">
+          {/* Header — drag handle */}
+          <div
+            className={`sbot-header ${isDraggingWin ? 'sbot-header--dragging' : ''}`}
+            onMouseDown={onHeaderMouseDown}
+          >
             <div className="sbot-avatar">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
             </div>
