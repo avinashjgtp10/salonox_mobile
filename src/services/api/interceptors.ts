@@ -4,6 +4,7 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from "axios";
 // Removed static imports for store and authSlice to avoid circular dependencies
+import { API_ORIGIN } from "./baseUrl";
 import { PUBLIC_ROUTES, AUTH } from "./endpoints";
 
 // ─── Structured API Error ─────────────────────────────────────────────────────
@@ -147,7 +148,7 @@ export const applyInterceptors = (instance: AxiosInstance) => {
           const { data: refreshData } = await axios.post<{
             data?: { accessToken: string };
             accessToken?: string;
-          }>(AUTH.REFRESH_TOKEN, {
+          }>(`${API_ORIGIN}${AUTH.REFRESH_TOKEN}`, {
             refreshToken,
           });
 

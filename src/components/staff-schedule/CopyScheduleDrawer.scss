@@ -1,0 +1,355 @@
+// CopyScheduleDrawer — BEM: copy-drawer__*
+
+.copy-drawer {
+  &__backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1001;
+    background: rgba(17, 24, 39, 0.45);
+    backdrop-filter: blur(2px);
+  }
+
+  &__panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: 560px;
+    max-width: 100vw;
+    z-index: 1002;
+    background: #fff;
+    box-shadow: -6px 0 32px rgba(0, 0, 0, 0.18);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: cdSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  // ── Header ────────────────────────────────────────────────────────────────
+  &__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 18px 24px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    flex-shrink: 0;
+  }
+
+  &__title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #111827;
+    margin: 0 0 3px;
+  }
+
+  &__subtitle {
+    font-size: 0.78rem;
+    color: #6b7280;
+    margin: 0;
+  }
+
+  &__close {
+    all: unset;
+    box-sizing: border-box;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: #9ca3af;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s, color 0.15s;
+
+    svg { display: block; pointer-events: none; }
+
+    &:hover {
+      background: #f3f4f6;
+      color: #374151;
+    }
+  }
+
+  // ── Body ──────────────────────────────────────────────────────────────────
+  &__body {
+    flex: 1;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  // ── Left panel (source) ───────────────────────────────────────────────────
+  &__source {
+    padding: 24px;
+    border-right: 1px solid #f3f4f6;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__field-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  &__select {
+    all: unset;
+    box-sizing: border-box;
+    width: 100%;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 9px 10px;
+    font-size: 0.875rem;
+    color: #1f2937;
+    background: #fff;
+    cursor: pointer;
+    -webkit-appearance: auto;
+    appearance: auto;
+    transition: border-color 0.15s, box-shadow 0.15s;
+
+    &:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+    }
+  }
+
+  &__date-input {
+    all: unset;
+    box-sizing: border-box;
+    width: 100%;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 9px 10px;
+    font-size: 0.875rem;
+    color: #1f2937;
+    background: #fff;
+    cursor: pointer;
+    -webkit-appearance: auto;
+    appearance: auto;
+    transition: border-color 0.15s, box-shadow 0.15s;
+
+    &:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+    }
+  }
+
+  &__hint {
+    font-size: 0.7rem;
+    color: #9ca3af;
+    font-style: italic;
+    margin: 0;
+  }
+
+  // ── Right panel (calendar) ────────────────────────────────────────────────
+  &__target {
+    padding: 24px;
+    background: #fafafa;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  &__cal-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 14px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+
+  // ── Calendar nav ──────────────────────────────────────────────────────────
+  &__cal-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  &__cal-nav-btn {
+    all: unset;
+    box-sizing: border-box;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: #9ca3af;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+
+    svg { display: block; pointer-events: none; }
+
+    &:hover {
+      background: #f3f4f6;
+      color: #1f2937;
+    }
+  }
+
+  &__cal-month {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #1f2937;
+  }
+
+  // ── Calendar grid ─────────────────────────────────────────────────────────
+  &__cal-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    margin-bottom: 4px;
+  }
+
+  &__cal-weekday {
+    text-align: center;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding-bottom: 4px;
+  }
+
+  &__cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+  }
+
+  &__cal-day {
+    all: unset;
+    box-sizing: border-box;
+    width: 32px;
+    height: 32px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.78rem;
+    border-radius: 50%;
+    cursor: pointer;
+    color: #374151;
+    transition: background 0.12s, color 0.12s;
+
+    &:hover {
+      background: #f3f4f6;
+    }
+
+    &--today {
+      background: #eef2ff;
+      color: #4338ca;
+      font-weight: 700;
+    }
+
+    &--selected {
+      background: #4f46e5;
+      color: #fff;
+      font-weight: 700;
+      box-shadow: 0 1px 4px rgba(79, 70, 229, 0.3);
+
+      &:hover {
+        background: #4338ca;
+      }
+    }
+
+    &--empty {
+      cursor: default;
+      pointer-events: none;
+    }
+  }
+
+  // ── Selection summary ─────────────────────────────────────────────────────
+  &__cal-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: #6b7280;
+  }
+
+  &__cal-clear {
+    all: unset;
+    box-sizing: border-box;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #4f46e5;
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  // ── Footer ────────────────────────────────────────────────────────────────
+  &__footer {
+    display: flex;
+    gap: 10px;
+    padding: 16px 24px;
+    border-top: 1px solid #f0f0f0;
+    flex-shrink: 0;
+    background: #fff;
+  }
+
+  &__cancel {
+    all: unset;
+    box-sizing: border-box;
+    flex: 1;
+    padding: 10px 16px;
+    border: 1.5px solid #d1d5db;
+    border-radius: 8px;
+    color: #374151;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.15s;
+
+    &:hover {
+      background: #f9fafb;
+    }
+  }
+
+  &__confirm {
+    all: unset;
+    box-sizing: border-box;
+    flex: 2;
+    padding: 10px 16px;
+    background: #4f46e5;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+
+    &:hover {
+      background: #4338ca;
+    }
+
+    &:active {
+      transform: scale(0.98);
+    }
+
+    &:disabled {
+      background: #a5b4fc;
+      cursor: not-allowed;
+      transform: none;
+    }
+  }
+}
+
+@keyframes cdSlideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}

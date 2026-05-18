@@ -215,13 +215,19 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
               </span>
               <input
                 type="number"
+                min="0"
+                step="0.01"
                 className="form-control border-0 ps-2 shadow-none"
                 placeholder="0.00"
                 style={{ fontSize: "14.5px" }}
-                value={Number.isFinite(data.price) ? data.price : ""}
+                value={data.price || ""}
                 onChange={(e) => {
                   const parsed = parseFloat(e.target.value);
                   update("price", Number.isFinite(parsed) ? parsed : 0);
+                }}
+                onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                onKeyDown={(e) => {
+                  if (e.key === "ArrowUp" || e.key === "ArrowDown") e.preventDefault();
                 }}
               />
             </div>
@@ -244,6 +250,8 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
               </span>
               <input
                 type="number"
+                min="0"
+                step="0.01"
                 className="form-control border-0 ps-2 shadow-none"
                 placeholder="0.00"
                 style={{ fontSize: "14.5px" }}
@@ -251,6 +259,10 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
                 onChange={(e) => {
                   const parsed = parseFloat(e.target.value);
                   update("discountedPrice" as any, Number.isFinite(parsed) ? parsed : null);
+                }}
+                onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                onKeyDown={(e) => {
+                  if (e.key === "ArrowUp" || e.key === "ArrowDown") e.preventDefault();
                 }}
               />
             </div>

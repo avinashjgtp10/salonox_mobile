@@ -1,6 +1,7 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
 import api from "../../services/api/axios";
+import { API_ORIGIN } from "../../services/api/baseUrl";
 import { AUTH } from "../../services/api/endpoints";
 import { ApiError } from "../../services/api/interceptors";
 import type {
@@ -45,13 +46,16 @@ export const refreshSessionThunk = createAsyncThunk<
   }
 
   try {
-    const res = await axios.post<{ data?: { accessToken: string }; accessToken?: string }>(
-      AUTH.REFRESH_TOKEN,
+    const res = await axios.post<{
+      data?: { accessToken: string };
+      accessToken?: string;
+    }>(
+      `${API_ORIGIN}${AUTH.REFRESH_TOKEN}`,
       { refreshToken },
       { headers: { "Content-Type": "application/json" } },
     );
     const newToken = res.data?.data?.accessToken ?? res.data?.accessToken;
-    if (!newToken) throw new Error("No token in refresh response");
+    if (!newToken) return rejectWithValue("No access token in refresh response");
     return newToken;
   } catch {
     return rejectWithValue("Refresh token expired or invalid");

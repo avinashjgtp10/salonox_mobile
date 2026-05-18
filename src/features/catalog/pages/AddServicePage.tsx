@@ -66,15 +66,12 @@ const AddServicePage: React.FC = () => {
 
   const rawStaff = useSelector(selectAllStaff);
   const staffLoading = useSelector(selectStaffLoading);
-  const staffMembers = (Array.isArray(rawStaff) ? rawStaff : []).map((s) => {
-    const parts = (s.fullName ?? "").split(" ");
-    return {
-      id: String(s.id),
-      firstName: parts[0] ?? "",
-      lastName: parts.slice(1).join(" ") ?? "",
-      role: s.role ?? "",
-    };
-  });
+  const staffMembers = (Array.isArray(rawStaff) ? rawStaff : []).map((s) => ({
+    id: String(s.id),
+    firstName: s.first_name ?? "",
+    lastName: s.last_name ?? "",
+    role: s.designation ?? s.role ?? "",
+  }));
 
   useEffect(() => {
     dispatch(fetchCategoriesThunk());

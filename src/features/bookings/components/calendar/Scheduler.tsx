@@ -73,14 +73,34 @@ const SchedulerContent: React.FC = () => {
         const action = await (dispatch(fetchBookingByIdThunk(booking.id)) as any);
         if (fetchBookingByIdThunk.fulfilled.match(action)) {
           const enriched = mapApiBooking(action.payload, apiServices, apiStaff);
-          // Merge: use enriched services/details but keep any local edits already in state
+
+          // Build a price map from the local Redux booking (has prices from creation)
+          const localPriceMap = new Map(
+            (booking.services || []).map((s: any) => [String(s.id), s])
+          );
+
+          // Merge services: prefer enriched metadata (name/staff) but fill prices from local
+          const mergedServices = enriched.services.length
+            ? enriched.services.map((svc: any) => {
+                const local = localPriceMap.get(String(svc.id));
+                return {
+                  ...svc,
+                  price: (svc.price || 0) > 0 ? svc.price : (local?.price || 0),
+                  total: (svc.total || 0) > 0 ? svc.total : (local?.total || local?.price || 0),
+                  qty: svc.qty || local?.qty || 1,
+                };
+              })
+            : booking.services;
+
           setEditingBooking({
             ...booking,
             ...enriched,
-            // Prefer the enriched services array if the backend returned any
-            services: enriched.services.length ? enriched.services : booking.services,
-            // Always trust local Redux paymentStatus — API may not have the column yet
+            services: mergedServices,
+            // Always trust local Redux for payment fields — updated by patchPaymentStatus
             paymentStatus: booking.paymentStatus,
+            payingNow: booking.payingNow != null ? booking.payingNow : enriched.payingNow,
+            dueAmount: booking.dueAmount != null ? booking.dueAmount : enriched.dueAmount,
+            grandTotal: (booking.grandTotal || 0) > 0 ? booking.grandTotal : enriched.grandTotal,
           });
           setShowNewAppt(true);
           return;

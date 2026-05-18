@@ -1,14 +1,7 @@
 import { configureStore, type Reducer } from "@reduxjs/toolkit";
-import {
-  persistReducer,
-  persistStore,
-  FLUSH,
-  REHYDRATE,
-  PAUSE,
-  PERSIST,
-  PURGE,
-  REGISTER,
-} from "redux-persist";
+// @ts-ignore
+import { persistReducer, persistStore, FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER } from "redux-persist";
+// @ts-ignore
 import storage from "redux-persist/lib/storage";
 
 import authReducer, { type AuthState } from "./authSlice";
@@ -24,6 +17,7 @@ import settingReducer from "./settingSlice";
 import appReducer from "./appSlice";
 import schedulerReducer from "./schedulerSlice";
 import marketingReducer from "./marketingSlice";
+import inboxReducer from "./inboxSlice";
 import reportReducer from "./reportSlice";
 import servicesReducer from "./servicesSlice";
 import categoriesReducer from "./categoriesSlice";
@@ -33,15 +27,23 @@ import inventoryReducer from "./inventorySlice";
 import { membershipsApi } from "../services/api/endpoints/memberships.endpoints";
 import { packagesApi } from "../services/api/endpoints/packages.endpoints";
 import productsReducer from "./productsSlice";
-import shiftReducer from "./shiftSlice";
+import shiftReducer, { type ShiftState } from "./shiftSlice";
 import payRunReducer from "./payRunSlice";
 import dashboardReducer from "./dashboardSlice";
 import billingReducer from "./billingSlice";
+import marketplaceReducer from "./marketplaceSlice";
+import onlineBookingReducer from "./onlineBookingSlice";
 
 const authPersistConfig = {
   key: "auth",
   storage,
-  whitelist: ["accessToken", "refreshToken", "isOnboardingComplete"],
+  whitelist: ["refreshToken", "isOnboardingComplete"], // accessToken intentionally excluded — AuthGuard silently restores it via refreshToken on boot
+};
+
+const shiftPersistConfig = {
+  key: "shift",
+  storage,
+  whitelist: ["staffMembers", "shifts"],
 };
 
 export const store = configureStore({
@@ -62,6 +64,7 @@ export const store = configureStore({
     app: appReducer,
     scheduler: schedulerReducer,
     marketing: marketingReducer,
+    inbox: inboxReducer,
     report: reportReducer,
     services: servicesReducer,
     categories: categoriesReducer,
@@ -71,10 +74,12 @@ export const store = configureStore({
     [membershipsApi.reducerPath]: membershipsApi.reducer,
     [packagesApi.reducerPath]: packagesApi.reducer,
     products: productsReducer,
-    shift: shiftReducer,
+    shift: persistReducer(shiftPersistConfig, shiftReducer) as unknown as Reducer<ShiftState>,
     payRun: payRunReducer,
     dashboard: dashboardReducer,
     billing: billingReducer,
+    marketplace: marketplaceReducer,
+    onlineBooking: onlineBookingReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

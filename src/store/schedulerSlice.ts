@@ -76,7 +76,7 @@ const initialState: SchedulerState = {
   currentDate: new Date().toISOString().slice(0, 10),
   interval: "30 Mins",
   clientStats: [],
-  staffList: [{ id: "1bc10cd5-1861-4e47-b450-3de2664cee6e", name: "Test Staff", initials: "TS", color: "#4f46e5" }, { id: "1bc10cd5-1861-4e47-b450-3de2664cee6e", name: "Test Staff", initials: "TS", color: "#4f46e5" }],
+  staffList: [],
   selectedStaffId: null,
   clientsList: [],
   servicesList: [],

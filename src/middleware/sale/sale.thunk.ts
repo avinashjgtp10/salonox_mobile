@@ -16,6 +16,90 @@ import type {
   CheckoutSalePayload,
 } from "../../types/sale.types";
 
+// ── Quick-sale catalog types ──────────────────────────────────────────────────
+export interface SaleInitData {
+  staff: any[];
+  services: any[];
+}
+
+// ── Fetch init data (staff + services) ───────────────────────────────────────
+// condition: skip when already loaded OR a fetch is already in-flight
+export const fetchSaleInitThunk = createAsyncThunk<
+  SaleInitData,
+  void,
+  { state: any; rejectValue: string }
+>(
+  "sale/init",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await api.get<{ data: SaleInitData }>(SALE.INIT);
+      return res.data.data;
+    } catch (err: any) {
+      if (err instanceof ApiError) return rejectWithValue(err.message);
+      return rejectWithValue("Failed to fetch sale init data");
+    }
+  },
+  {
+    condition: (_, { getState }) => {
+      const sale = getState()?.sale;
+      // Skip if already loaded or a request is already in-flight
+      return !sale?.initLoaded && !sale?.loading?.init;
+    },
+  },
+);
+
+// ── Fetch products catalog (lazy, for Quick Sale product rows) ────────────────
+// condition: skip when already cached or a fetch is already in-flight
+export const fetchSaleProductsThunk = createAsyncThunk<
+  any[],
+  void,
+  { state: any; rejectValue: string }
+>(
+  "sale/fetchCatalogProducts",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await api.get("/api/v1/products");
+      const raw = res.data?.data?.data ?? res.data?.data ?? res.data ?? [];
+      return Array.isArray(raw) ? raw : [];
+    } catch (err: any) {
+      if (err instanceof ApiError) return rejectWithValue(err.message);
+      return rejectWithValue("Failed to fetch products");
+    }
+  },
+  {
+    condition: (_, { getState }) => {
+      const sale = getState()?.sale;
+      return !sale?.productsLoaded && !sale?.loading?.products;
+    },
+  },
+);
+
+// ── Fetch memberships catalog (lazy, for Quick Sale membership rows) ──────────
+// condition: skip when already cached or a fetch is already in-flight
+export const fetchSaleMembershipsThunk = createAsyncThunk<
+  any[],
+  void,
+  { state: any; rejectValue: string }
+>(
+  "sale/fetchCatalogMemberships",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await api.get("/api/v1/memberships");
+      const raw = res.data?.data?.items ?? res.data?.data ?? res.data ?? [];
+      return Array.isArray(raw) ? raw : [];
+    } catch (err: any) {
+      if (err instanceof ApiError) return rejectWithValue(err.message);
+      return rejectWithValue("Failed to fetch memberships");
+    }
+  },
+  {
+    condition: (_, { getState }) => {
+      const sale = getState()?.sale;
+      return !sale?.membershipsLoaded && !sale?.loading?.memberships;
+    },
+  },
+);
+
 // ── Fetch all sales (optionally filtered) ─────────────────────────────────────
 export interface FetchSalesParams {
   startDate?: string; // ISO date string e.g. "2026-03-01"
@@ -29,11 +113,7 @@ export const fetchSalesThunk = createAsyncThunk<
   { rejectValue: string }
 >("sale/fetchAll", async (params, { rejectWithValue, getState }) => {
   try {
-    const state = getState() as any;
-    const salonId = state.salon.currentSalon?.id;
-
     const q = new URLSearchParams();
-    if (salonId) q.set("salon_id", String(salonId));
     if (params?.startDate) q.set("start_date", params.startDate);
     if (params?.endDate)   q.set("end_date",   params.endDate);
     if (params?.status)    q.set("status",      params.status);
@@ -52,12 +132,9 @@ export const fetchSaleSummaryThunk = createAsyncThunk<
   SaleSummary,
   void,
   { rejectValue: string }
->("sale/fetchSummary", async (_, { rejectWithValue, getState }) => {
+>("sale/fetchSummary", async (_, { rejectWithValue }) => {
   try {
-    const state = getState() as any;
-    const salonId = state.salon.currentSalon?.id;
-    const q = salonId ? `?salon_id=${salonId}` : "";
-    const res = await api.get<SaleSummaryResponse>(`${SALE.SUMMARY}${q}`);
+    const res = await api.get<SaleSummaryResponse>(SALE.SUMMARY);
     return res.data.data;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
@@ -153,12 +230,9 @@ export const exportSalesThunk = createAsyncThunk<
   void,
   { format: "excel" | "csv" | "pdf"; date?: string },
   { rejectValue: string }
->("sale/export", async ({ format, date }, { rejectWithValue, getState }) => {
+>("sale/export", async ({ format, date }, { rejectWithValue }) => {
   try {
-    const state = getState() as any;
-    const salonId = state.salon.currentSalon?.id as string | undefined;
-
-    const url = SALE.EXPORT({ format, date, salonId });
+    const url = SALE.EXPORT({ format, date });
     const res = await api.get(url, { responseType: "blob" });
 
     const ext = format === "excel" ? "xlsx" : format;

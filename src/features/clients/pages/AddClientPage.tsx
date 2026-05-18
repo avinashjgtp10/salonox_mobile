@@ -5,8 +5,18 @@ import "../styles/AddClientPage.scss";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
 import { Person, Pencil, X } from "react-bootstrap-icons";
+import { Country } from "country-state-city";
+import { Button } from "../../../components/ui";
 
 import { useClientWizard } from "../context/ClientWizardContext";
+
+const PHONE_CODES = Country.getAllCountries()
+  .map((c) => ({
+    code: c.phonecode.startsWith("+") ? c.phonecode : `+${c.phonecode}`,
+    label: `${c.isoCode} (${c.phonecode.startsWith("+") ? c.phonecode : `+${c.phonecode}`})`,
+  }))
+  .filter((v, i, a) => a.findIndex((t) => t.label === v.label) === i)
+  .sort((a, b) => a.label.localeCompare(b.label));
 
 export default function AddClientPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -25,53 +35,95 @@ export default function AddClientPage() {
   const [occupation, setOccupation] = useState("");
   const [additionalEmail, setAdditionalEmail] = useState("");
   const [additionalPhone, setAdditionalPhone] = useState("");
+  const [phoneCountryCode, setPhoneCountryCode] = useState("+91");
+  const [additionalPhoneCountryCode, setAdditionalPhoneCountryCode] = useState("+91");
   const [clientSource, setClientSource] = useState("walk_in");
   const [preferredLanguage, setPreferredLanguage] = useState("en");
   const [country, setCountry] = useState("IN");
 
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const isFirstNameInvalid = attemptedSubmit && firstName.trim() === "";
+  const isEmailInvalid =
+    attemptedSubmit &&
+    (email.trim() === "" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()));
+  const isPhoneInvalid =
+    attemptedSubmit &&
+    (phone.trim() === "" || !/^\d{10}$/.test(phone.trim()));
+  const isAdditionalEmailInvalid =
+    attemptedSubmit &&
+    additionalEmail.trim() !== "" &&
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(additionalEmail.trim());
+  const isAdditionalPhoneInvalid =
+    attemptedSubmit &&
+    additionalPhone.trim() !== "" &&
+    !/^\d{10}$/.test(additionalPhone.trim());
+
+  const hasErrors =
+    isFirstNameInvalid ||
+    isEmailInvalid ||
+    isPhoneInvalid ||
+    isAdditionalEmailInvalid ||
+    isAdditionalPhoneInvalid;
 
   const handleSave = async () => {
-    if (firstName.trim() === "") {
-      setAttemptedSubmit(true);
+    if (saving) return;
+    setServerError(null);
+    setAttemptedSubmit(true);
+    if (
+      firstName.trim() === "" ||
+      email.trim() === "" ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ||
+      phone.trim() === "" ||
+      !/^\d{10}$/.test(phone.trim()) ||
+      (additionalEmail.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(additionalEmail.trim())) ||
+      (additionalPhone.trim() !== "" && !/^\d{10}$/.test(additionalPhone.trim()))
+    ) {
       return;
     }
 
+    setSaving(true);
     const payload = {
       first_name: firstName,
-      last_name: lastName,
-      email: email,
-      phone_number: phone,
-      birthday: birthday,
-      birth_year: year,
-      gender: gender,
-      pronouns: pronouns,
-      occupation: occupation,
-      additional_email: additionalEmail,
-      additional_phone: additionalPhone,
-      client_source: clientSource,
-      preferred_language: preferredLanguage,
-      country: country,
+      last_name: lastName || null,
+      email: email || null,
+      phone_number: phone || null,
+      phone_country_code: phoneCountryCode || null,
+      birthday_day_month: birthday || null,
+      birthday_year: year ? Number(year) : null,
+      gender: gender || null,
+      pronouns: pronouns || null,
+      occupation: occupation || null,
+      additional_email: additionalEmail || null,
+      additional_phone_number: additionalPhone || null,
+      additional_phone_country_code: additionalPhoneCountryCode || null,
+      client_source: clientSource || null,
+      preferred_language: preferredLanguage || null,
+      country: country || null,
       addresses: [],
-      emergency_contact: {},
+      emergency_contacts: [],
     };
 
     try {
       await api.post(CLIENT.BASE, payload);
       resetWizard();
       navigate("/dashboard/clients/list");
-    } catch (error) {
-      console.error("Error saving client:", error);
-      alert("Failed to save client. Please try again.");
+    } catch (error: any) {
+      const msg =
+        error?.response?.data?.error?.message ||
+        error?.response?.data?.message ||
+        "Failed to save client. Please try again.";
+      setServerError(msg);
+      setSaving(false);
     }
   };
 
   return (
     <div className="container-fluid p-4 bg-white position-relative">
       {/* ERROR TOAST */}
-      {isFirstNameInvalid && (
+      {(hasErrors || serverError) && (
         <div
           className="position-fixed d-flex align-items-center justify-content-between rounded-pill shadow-sm"
           style={{
@@ -84,15 +136,18 @@ export default function AddClientPage() {
             padding: "8px 16px",
             fontSize: "14px",
             fontWeight: "500",
-            minWidth: "250px",
+            minWidth: "280px",
+            maxWidth: "480px",
           }}
         >
-          <span>First name is required</span>
+          <span>
+            {serverError || "Please fix the errors below before saving"}
+          </span>
           <X
             size={20}
-            className="ms-3 cursor-pointer"
-            style={{ cursor: "pointer" }}
-            onClick={() => setAttemptedSubmit(false)}
+            className="ms-3"
+            style={{ cursor: "pointer", flexShrink: 0 }}
+            onClick={() => { setAttemptedSubmit(false); setServerError(null); }}
           />
         </div>
       )}
@@ -109,9 +164,13 @@ export default function AddClientPage() {
             Close
           </button>
 
-          <button type="button" className="btn btn-dark" onClick={handleSave}>
+          <Button
+            variant="dark"
+            onClick={handleSave}
+            loading={saving}
+          >
             Save
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -124,7 +183,7 @@ export default function AddClientPage() {
             <div className="list-group">
               <button className="list-group-item list-group-item-action active d-flex justify-content-between align-items-center">
                 Profile
-                {isFirstNameInvalid && (
+                {hasErrors && (
                   <span className="text-danger-dot">●</span>
                 )}
               </button>
@@ -199,7 +258,7 @@ export default function AddClientPage() {
 
           <div className="row g-3">
             <div className="col-md-6">
-              <label className="form-label">First name</label>
+              <label className="form-label">First name <span className="text-danger">*</span></label>
               <input
                 type="text"
                 className={`form-control ${isFirstNameInvalid ? "is-invalid" : ""}`}
@@ -224,25 +283,53 @@ export default function AddClientPage() {
             </div>
 
             <div className="col-md-6">
-              <label className="form-label">Email</label>
+              <label className="form-label">
+                Email <span className="text-danger">*</span>
+              </label>
               <input
                 type="email"
-                className="form-control"
+                className={`form-control ${isEmailInvalid ? "is-invalid" : ""}`}
                 placeholder="example@domain.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
+              {isEmailInvalid && (
+                <div className="invalid-feedback">
+                  {email.trim() === "" ? "Email is required" : "Enter a valid email address"}
+                </div>
+              )}
             </div>
 
             <div className="col-md-6">
-              <label className="form-label">Phone</label>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="+91 12345 67890"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
+              <label className="form-label">
+                Phone <span className="text-danger">*</span>
+              </label>
+              <div className="ac-phone-group">
+                <select
+                  className="form-select ac-phone-code"
+                  value={phoneCountryCode}
+                  onChange={(e) => setPhoneCountryCode(e.target.value)}
+                >
+                  {PHONE_CODES.map((p) => (
+                    <option key={p.label} value={p.code}>{p.label}</option>
+                  ))}
+                </select>
+                <input
+                  type="tel"
+                  className={`form-control ${isPhoneInvalid ? "is-invalid" : ""}`}
+                  placeholder="10-digit number"
+                  value={phone}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, "");
+                    if (val.length <= 10) setPhone(val);
+                  }}
+                />
+              </div>
+              {isPhoneInvalid && (
+                <div className="invalid-feedback" style={{ display: "block" }}>
+                  {phone.trim() === "" ? "Phone is required" : "Phone must be 10 digits"}
+                </div>
+              )}
             </div>
 
             <div className="col-md-6">
@@ -369,22 +456,44 @@ export default function AddClientPage() {
                 <label className="form-label">Additional email</label>
                 <input
                   type="email"
-                  className="form-control"
+                  className={`form-control ${isAdditionalEmailInvalid ? "is-invalid" : ""}`}
                   placeholder="example@domain.com"
                   value={additionalEmail}
                   onChange={(e) => setAdditionalEmail(e.target.value)}
                 />
+                {isAdditionalEmailInvalid && (
+                  <div className="invalid-feedback">Enter a valid email address</div>
+                )}
               </div>
 
               <div className="col-md-6">
                 <label className="form-label">Additional phone</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="+91 98765 43210"
-                  value={additionalPhone}
-                  onChange={(e) => setAdditionalPhone(e.target.value)}
-                />
+                <div className="ac-phone-group">
+                  <select
+                    className="form-select ac-phone-code"
+                    value={additionalPhoneCountryCode}
+                    onChange={(e) => setAdditionalPhoneCountryCode(e.target.value)}
+                  >
+                    {PHONE_CODES.map((p) => (
+                      <option key={p.label} value={p.code}>{p.label}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="tel"
+                    className={`form-control ${isAdditionalPhoneInvalid ? "is-invalid" : ""}`}
+                    placeholder="10-digit number"
+                    value={additionalPhone}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "");
+                      if (val.length <= 10) setAdditionalPhone(val);
+                    }}
+                  />
+                </div>
+                {isAdditionalPhoneInvalid && (
+                  <div className="invalid-feedback" style={{ display: "block" }}>
+                    Phone must be 10 digits
+                  </div>
+                )}
               </div>
             </div>
           </div>

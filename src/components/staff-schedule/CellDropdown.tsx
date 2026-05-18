@@ -1,4 +1,5 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState, useLayoutEffect } from "react";
+import ReactDOM from "react-dom";
 
 interface CellDropdownProps {
   onEditWorkingHours: () => void;
@@ -18,7 +19,42 @@ const CellDropdown: React.FC<CellDropdownProps> = ({
   anchorRef,
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
+  const [style, setStyle] = useState<React.CSSProperties>({ visibility: "hidden" });
 
+  // Position below the anchor using viewport coordinates (fixed)
+  useLayoutEffect(() => {
+    if (!anchorRef.current) return;
+    const rect = anchorRef.current.getBoundingClientRect();
+    const menuWidth = 210;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+
+    let top: number;
+    let left = rect.left;
+
+    if (spaceBelow >= 160 || spaceBelow >= spaceAbove) {
+      top = rect.bottom + 4;
+    } else {
+      top = rect.top - 4;
+      // will be shifted up by translateY below
+    }
+
+    // Prevent going off right edge
+    if (left + menuWidth > window.innerWidth - 8) {
+      left = window.innerWidth - menuWidth - 8;
+    }
+
+    setStyle({
+      position: "fixed",
+      top,
+      left,
+      zIndex: 9999,
+      minWidth: menuWidth,
+      visibility: "visible",
+    });
+  }, [anchorRef]);
+
+  // Close on outside click or scroll
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (
@@ -30,31 +66,34 @@ const CellDropdown: React.FC<CellDropdownProps> = ({
         onClose();
       }
     };
+    const onScroll = () => onClose();
+
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    window.addEventListener("scroll", onScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      window.removeEventListener("scroll", onScroll, true);
+    };
   }, [onClose, anchorRef]);
 
-  const item = (label: string, fn: () => void) => (
-    <button
-      className="block w-full text-left px-4 py-2.5 text-[13px] font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-all first:rounded-t-xl last:rounded-b-xl"
-      onClick={() => { fn(); onClose(); }}
-    >
-      {label}
-    </button>
-  );
-
-  return (
-    <div
-      ref={menuRef}
-      className="absolute z-[80] bg-white rounded-xl shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1),0_8px_10px_-6px_rgba(0,0,0,0.1)] min-w-[200px] py-1 border border-gray-100/50"
-      style={{ top: "100%", left: 0 }}
-    >
-      {item("Edit Working Hours", onEditWorkingHours)}
-      {item("Add Time Off", onAddTimeOff)}
-      {item("Manage Day Off", onManageDayOff)}
-      {item("Manage Blocked Day", onManageBlockedDay)}
+  const menu = (
+    <div ref={menuRef} className="sched-dropdown" style={style}>
+      <button className="sched-dropdown__item" onClick={() => { onEditWorkingHours(); onClose(); }}>
+        Edit Working Hours
+      </button>
+      <button className="sched-dropdown__item" onClick={() => { onAddTimeOff(); onClose(); }}>
+        Add Time Off
+      </button>
+      <button className="sched-dropdown__item" onClick={() => { onManageDayOff(); onClose(); }}>
+        Manage Day Off
+      </button>
+      <button className="sched-dropdown__item" onClick={() => { onManageBlockedDay(); onClose(); }}>
+        Manage Blocked Day
+      </button>
     </div>
   );
+
+  return ReactDOM.createPortal(menu, document.body);
 };
 
 export default CellDropdown;

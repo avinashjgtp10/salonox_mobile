@@ -59,7 +59,7 @@ const ProductsListPage: React.FC = () => {
     fetchProducts();
     fetchBrands();
     fetchCategories();
-  }, [fetchProducts, fetchBrands, fetchCategories]);
+  }, []);
 
   // Re-fetch products whenever the page becomes visible (e.g. returning from Quick Sale)
   useEffect(() => {
@@ -87,7 +87,7 @@ const ProductsListPage: React.FC = () => {
       // Category filter
       const matchesCategory =
         !appliedFilters.category ||
-        appliedFilters.category === "none"
+          appliedFilters.category === "none"
           ? appliedFilters.category === "none"
             ? !p.category_id
             : true
@@ -96,7 +96,7 @@ const ProductsListPage: React.FC = () => {
       // Brand filter
       const matchesBrand =
         !appliedFilters.brand ||
-        appliedFilters.brand === "none"
+          appliedFilters.brand === "none"
           ? appliedFilters.brand === "none"
             ? !p.brand_id
             : true
@@ -251,7 +251,7 @@ const ProductsListPage: React.FC = () => {
               </button>
             </div>
             <div className="dropdown d-flex align-items-center border-start ps-3 ms-1">
-              
+
               <ul className="dropdown-menu shadow">
                 <li>
                   <button className="dropdown-item py-2 fw-medium text-dark">
@@ -364,12 +364,12 @@ const ProductsListPage: React.FC = () => {
 
                         if (isValidRp) return `₹${rp.toLocaleString()}`;
                         if (isValidSp) return `₹${sp.toLocaleString()}`;
-                        
+
                         // If it's explicitly 0 and intended, we could show ₹0, 
                         // but requirement says 'If both missing -> Price not available'
                         if (p.retail_price === 0 || p.retail_price === "0") return "₹0";
                         if (p.supply_price === 0 || p.supply_price === "0") return "₹0";
-                        
+
                         return <span className="text-muted fst-italic" style={{ fontSize: "12px" }}>Price not available</span>;
                       })()}
                     </td>

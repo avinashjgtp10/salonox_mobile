@@ -216,7 +216,9 @@ body {
 }
 
 .sub-link {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 10px 14px;
   color: $dashboard-primary;
   font-size: 14px;
@@ -224,8 +226,24 @@ body {
   cursor: pointer;
   transition: 0.2s ease;
   text-decoration: none;
-  &:hover { background: $dashboard-bg; }
-  &.active { background: #e8e9f1; font-weight: 500; }
+
+  i {
+    font-size: 16px;
+    color: $dashboard-secondary;
+    flex-shrink: 0;
+    transition: color 0.2s;
+  }
+
+  &:hover {
+    background: $dashboard-bg;
+    i { color: $dashboard-primary; }
+  }
+
+  &.active {
+    background: #e8e9f1;
+    font-weight: 500;
+    i { color: #25d366; }
+  }
 }
 
 .sub-divider { margin: 22px 0; border: none; border-top: 1px solid $dashboard-border; }
@@ -440,6 +458,35 @@ body {
   gap: 5px;
   font-size: 12px;
   color: $dashboard-secondary;
+}
+
+/* ── REVENUE PERIOD FILTERS ── */
+.db-rev-filters {
+  display: flex;
+  gap: 4px;
+}
+
+.db-rev-filter-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid $dashboard-border;
+  border-radius: 6px;
+  background: transparent;
+  color: $dashboard-secondary;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+
+  &:hover {
+    background: $dashboard-bg;
+    color: $dashboard-primary;
+  }
+
+  &.active {
+    background: $dashboard-primary;
+    color: $white;
+    border-color: $dashboard-primary;
+  }
 }
 
 /* ── TOOLTIP ── */
