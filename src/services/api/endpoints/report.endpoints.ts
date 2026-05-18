@@ -26,4 +26,11 @@ export const REPORT = {
   },
   DETAIL: (category: string, params: string) =>
     `/api/v1/reports/${category}/detail?${params}`,
+  DASHBOARD: (params?: { search?: string; category?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.search) q.set("search", params.search);
+    if (params?.category && params.category !== "all") q.set("category", params.category);
+    const qs = q.toString();
+    return qs ? `/api/v1/reports?${qs}` : "/api/v1/reports";
+  },
 } as const;

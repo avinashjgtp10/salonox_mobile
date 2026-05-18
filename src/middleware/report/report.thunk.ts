@@ -16,6 +16,9 @@ import type {
   ClientsReportResponse,
   StaffReportResponse,
   ServicesReportResponse,
+  ReportsDashboard,
+  ReportsDashboardResponse,
+  FetchReportsDashboardPayload,
 } from "../../types/report.types";
 
 type FetchPayload = Pick<FetchReportPayload, "period" | "from" | "to">;
@@ -92,6 +95,21 @@ export const fetchServicesReportThunk = createAsyncThunk<
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to fetch services report");
+  }
+});
+
+// ── Reports Dashboard ─────────────────────────────────────────────────────────
+export const fetchReportsDashboardThunk = createAsyncThunk<
+  ReportsDashboard,
+  FetchReportsDashboardPayload | undefined,
+  { rejectValue: string }
+>("report/fetchDashboard", async (params, { rejectWithValue }) => {
+  try {
+    const res = await api.get<ReportsDashboardResponse>(REPORT.DASHBOARD(params));
+    return res.data.reportsDashboard;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to fetch reports dashboard");
   }
 });
 

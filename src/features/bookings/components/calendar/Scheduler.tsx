@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import type { Booking, BlockedTime } from "../../types/scheduler-types";
 import { useAppDispatch, useAppSelector } from "../../../../hooks/useAppRedux";
 import { fetchBookingByIdThunk } from "../../../../middleware/booking/booking.thunk";
@@ -18,6 +19,8 @@ import SettingsModal from "../modals/SettingsModal";
 const SchedulerContent: React.FC = () => {
   useSchedulerInit();
   const dispatch = useAppDispatch();
+  const location = useLocation();
+  const navigate = useNavigate();
   const { viewMode, setViewMode, setCurrentDate } = useSchedulerContext();
   const apiServices = useAppSelector((s: any) => s.services?.items ?? []);
 
@@ -33,6 +36,24 @@ const SchedulerContent: React.FC = () => {
   const [apptDefaults, setApptDefaults] = useState<{ staffId?: string; defaultTime?: string }>({});
   const [blockStaffId, setBlockStaffId] = useState<string | undefined>(undefined);
   const [editingBlockTime, setEditingBlockTime] = useState<BlockedTime | undefined>(undefined);
+
+  // Auto-open appointment for editing when navigated from Reports page
+  useEffect(() => {
+    const appointmentId = (location.state as any)?.openAppointmentId;
+    if (!appointmentId) return;
+    // Clear the state so refreshing doesn't re-open
+    navigate(location.pathname, { replace: true, state: {} });
+    (async () => {
+      try {
+        const action = await (dispatch(fetchBookingByIdThunk(appointmentId)) as any);
+        if (fetchBookingByIdThunk.fulfilled.match(action)) {
+          const enriched = mapApiBooking(action.payload, apiServices, apiStaff);
+          setEditingBooking(enriched);
+          setShowNewAppt(true);
+        }
+      } catch { /* ignore */ }
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleSlotClick(staffId: string, time: string) {
     setApptDefaults({ staffId, defaultTime: time });
