@@ -391,13 +391,16 @@ export default function ForgotPasswordPage() {
           <div className="mb-4 d-flex justify-content-center">
             <CheckCircle2 size={64} className="text-success" />
           </div>
-          <h3 className="fw-bold mb-2">Success!</h3>
-          <p className="text-muted mb-4" style={{ fontSize: "15px" }}>
+          <h3 className="fw-bold mb-2">Password Reset!</h3>
+          <p className="text-muted mb-2" style={{ fontSize: "15px" }}>
             Your password has been successfully reset. You can now use your new
             password to log in.
           </p>
+          <p className="text-muted mb-4" style={{ fontSize: "14px" }}>
+            A confirmation email has been sent to <strong>{email}</strong>.
+          </p>
           <Button variant="dark" fullWidth onClick={() => navigate("/login")}>
-            Return to Login
+            Login Now
           </Button>
         </div>
       );
