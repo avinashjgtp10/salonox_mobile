@@ -1,17 +1,24 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { fetchDashboardAll } from "../middleware/dashboard/dashboard.thunk";
+import {
+  fetchDashboardAll,
+  fetchRevenueChart,
+} from "../middleware/dashboard/dashboard.thunk";
 import type { DashboardAllResponse } from "../middleware/dashboard/dashboard.thunk";
 
 interface DashboardState {
   data: DashboardAllResponse | null;
-  loading: boolean;
+  loading: boolean;       // full-page initial load
+  chartLoading: boolean;  // chart-only reload on period change
   error: string | null;
+  chartError: string | null;
 }
 
 const initialState: DashboardState = {
   data: null,
   loading: false,
+  chartLoading: false,
   error: null,
+  chartError: null,
 };
 
 const dashboardSlice = createSlice({
@@ -21,9 +28,11 @@ const dashboardSlice = createSlice({
     clearDashboard: (state) => {
       state.data = null;
       state.error = null;
+      state.chartError = null;
     },
   },
   extraReducers: (builder) => {
+    // ── Full dashboard load ────────────────────────────────────────────────────
     builder
       .addCase(fetchDashboardAll.pending, (state) => {
         state.loading = true;
@@ -36,6 +45,24 @@ const dashboardSlice = createSlice({
       .addCase(fetchDashboardAll.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
+      });
+
+    // ── Chart-only reload (period filter) ─────────────────────────────────────
+    builder
+      .addCase(fetchRevenueChart.pending, (state) => {
+        state.chartLoading = true;
+        state.chartError = null;
+      })
+      .addCase(fetchRevenueChart.fulfilled, (state, action) => {
+        state.chartLoading = false;
+        // Only update the chart slice of data — everything else stays untouched
+        if (state.data) {
+          state.data.revenueChart = action.payload;
+        }
+      })
+      .addCase(fetchRevenueChart.rejected, (state, action) => {
+        state.chartLoading = false;
+        state.chartError = action.payload as string;
       });
   },
 });
