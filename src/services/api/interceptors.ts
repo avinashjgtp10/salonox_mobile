@@ -61,14 +61,6 @@ export const applyInterceptors = (instance: AxiosInstance) => {
         if (accessToken) {
           config.headers["Authorization"] = `Bearer ${accessToken}`;
         }
-
-        // Only inject if caller hasn't set it already
-        if (!config.headers["x-salon-id"]) {
-          const salonId = state?.salon?.currentSalon?.id;
-          if (salonId) {
-            config.headers["x-salon-id"] = String(salonId);
-          }
-        }
       }
 
       return config;

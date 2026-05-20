@@ -82,13 +82,7 @@ export const deleteStaffThunk = createAsyncThunk<
   { rejectValue: string }
 >("staff/delete", async (id, { rejectWithValue, getState }) => {
   try {
-    const state = getState() as any;
-    const salonId = state.salon?.currentSalon?.id;
-    const headers: Record<string, string> = {};
-    if (salonId) headers["x-salon-id"] = String(salonId);
-    const params = new URLSearchParams();
-    if (salonId) params.set("salon_id", String(salonId));
-    await api.delete(`${STAFF.BY_ID(id)}?${params.toString()}`, { headers });
+    await api.delete(STAFF.BY_ID(id));
     return id;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);

@@ -134,7 +134,6 @@ export function useSchedulerContext() {
       dispatch(addBlockedTimeAction(bt));
       if (salonId) {
         (dispatch(createBlockedTimeThunk({
-          salon_id: salonId,
           staff_id: bt.staffId,
           date: bt.date,
           start_time: bt.startTime,

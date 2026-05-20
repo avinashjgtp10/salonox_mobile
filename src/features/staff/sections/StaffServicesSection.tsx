@@ -24,9 +24,7 @@ const StaffServicesSection: React.FC<StaffServicesSectionProps> = ({
       const fetchServices = async () => {
         try {
           setIsLoading(true);
-          const response = await api.get(SERVICES_ENDPOINTS.BASE, {
-            headers: { "x-salon-id": salonId }
-          });
+          const response = await api.get(SERVICES_ENDPOINTS.BASE);
           setAvailableServices(response.data.data || []);
         } catch (error) {
           console.error("Error fetching services:", error);

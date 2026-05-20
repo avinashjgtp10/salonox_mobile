@@ -421,7 +421,6 @@ export default function QuickSalePage() {
         last_name: newClientLastName.trim(),
         phone_number: countryCode + newClientPhone.trim(),
         gender: newClientGender,
-        salon_id: String(salonId),
       });
       const saved = res.data?.data || res.data;
       const name = `${newClientFirstName.trim()} ${newClientLastName.trim()}`.trim();

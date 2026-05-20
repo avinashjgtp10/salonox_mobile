@@ -42,9 +42,7 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
       const fetchCommissions = async () => {
         try {
           setIsLoading(true);
-          const response = await api.get(STAFF.COMMISSIONS(staffId), {
-            headers: { "x-salon-id": salonId },
-          });
+          const response = await api.get(STAFF.COMMISSIONS(staffId));
           const fetchedSettings: CommissionSetting[] = response.data.data;
           
           if (fetchedSettings && fetchedSettings.length > 0) {
@@ -78,10 +76,8 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
     }
     try {
       setIsSaving(true);
-      const promises = Object.values(settings).map((s: any) => 
-        api.put(STAFF.COMMISSIONS(staffId), s, {
-          headers: { "x-salon-id": salonId },
-        })
+      const promises = Object.values(settings).map((s: any) =>
+        api.put(STAFF.COMMISSIONS(staffId), s)
       );
       await Promise.all(promises);
       toast.success("Commission settings saved successfully");
