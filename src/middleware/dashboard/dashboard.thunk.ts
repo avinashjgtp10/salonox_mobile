@@ -44,22 +44,37 @@ export interface DashboardAllResponse {
   }>;
 }
 
+// Full dashboard load — called once on mount
 export const fetchDashboardAll = createAsyncThunk<
   DashboardAllResponse,
   { period?: string; date?: string }
 >(
   "dashboard/fetchAll",
-  async (
-    params: { period?: string; date?: string },
-    { rejectWithValue }
-  ) => {
+  async (params, { rejectWithValue }) => {
     try {
       const { period = "monthly", date } = params;
       const query = new URLSearchParams({ period });
       if (date) query.set("date", date);
-
       const res = await api.get(`/api/v1/dashboard/all?${query.toString()}`);
       return res.data.data as DashboardAllResponse;
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data || err.message);
+    }
+  }
+);
+
+// Chart-only reload — called when the period filter changes
+export const fetchRevenueChart = createAsyncThunk<
+  Array<{ month: string; revenue: number; expenses: number }>,
+  { period: string }
+>(
+  "dashboard/fetchRevenueChart",
+  async ({ period }, { rejectWithValue }) => {
+    try {
+      const res = await api.get(`/api/v1/dashboard/revenue?period=${period}`);
+      // Backend may return { data: [...] } or [...] directly
+      const payload = res.data.data ?? res.data;
+      return Array.isArray(payload) ? payload : [];
     } catch (err: any) {
       return rejectWithValue(err.response?.data || err.message);
     }

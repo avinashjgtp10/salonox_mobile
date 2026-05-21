@@ -60,7 +60,6 @@ export default function StaffServicesPage() {
   const [total, setTotal] = useState(0);
   const limit = 20;
 
-  const headers = salonId ? { "x-salon-id": String(salonId) } : {};
 
   const fetchServices = useCallback(async () => {
     if (!salonId) return;
@@ -70,7 +69,7 @@ export default function StaffServicesPage() {
       if (search) params.set("search", search);
       if (categoryFilter !== "all") params.set("category", categoryFilter);
 
-      const res = await api.get(SERVICES.LIST(params.toString()), { headers });
+      const res = await api.get(SERVICES.LIST(params.toString()));
       const raw = res.data?.data?.items ?? res.data?.data ?? res.data ?? [];
       const arr: Service[] = Array.isArray(raw) ? raw : [];
       setServices(arr);

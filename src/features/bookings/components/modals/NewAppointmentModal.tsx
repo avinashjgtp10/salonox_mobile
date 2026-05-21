@@ -108,7 +108,7 @@ interface InlineDropItem { label: string; sub?: string; price: number; stockIndi
 const InlineDrop: React.FC<{
   search: string; onSearchChange: (v: string) => void; showDrop: boolean; onFocus: () => void;
   items: InlineDropItem[]; onSelect: (item: InlineDropItem) => void;
-  placeholder?: string; dropRef: React.RefObject<HTMLDivElement | null>; disabled?: boolean; hasError?: boolean;
+  placeholder?: string; dropRef: React.RefObject<HTMLDivElement>; disabled?: boolean; hasError?: boolean;
   inputStyle?: React.CSSProperties;
 }> = ({ search, onSearchChange, showDrop, onFocus, items, onSelect, placeholder = "Search…", dropRef, disabled, hasError, inputStyle }) => (
   <div ref={dropRef} className="position-relative flex-grow-1">
@@ -223,9 +223,9 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
   const [productRows, setProductRows] = useState<TempProduct[]>(((existingBooking as any)?.productItems || []).map((p: any) => ({ ...p, tempId: p.tempId || "pr_" + Date.now(), search: p.productName || "", showDrop: false })));
   const [membershipRows, setMembershipRows] = useState<TempMembership[]>(((existingBooking as any)?.membershipItems || []).map((m: any) => ({ ...m, tempId: m.tempId || "sub_" + Date.now(), qty: m.qty || 1, total: m.total || m.price || 0, search: m.name || "", showDrop: false })));
 
-  const pkgDropRefs = useRef(new Map<string, React.RefObject<HTMLDivElement | null>>());
-  const prodDropRefs = useRef(new Map<string, React.RefObject<HTMLDivElement | null>>());
-  const memDropRefs = useRef(new Map<string, React.RefObject<HTMLDivElement | null>>());
+  const pkgDropRefs = useRef(new Map<string, React.RefObject<HTMLDivElement>>());
+  const prodDropRefs = useRef(new Map<string, React.RefObject<HTMLDivElement>>());
+  const memDropRefs = useRef(new Map<string, React.RefObject<HTMLDivElement>>());
   const getPkgRef = (id: string) => { if (!pkgDropRefs.current.has(id)) pkgDropRefs.current.set(id, React.createRef()); return pkgDropRefs.current.get(id)!; };
   const getProdRef = (id: string) => { if (!prodDropRefs.current.has(id)) prodDropRefs.current.set(id, React.createRef()); return prodDropRefs.current.get(id)!; };
   const getMemRef = (id: string) => { if (!memDropRefs.current.has(id)) memDropRefs.current.set(id, React.createRef()); return memDropRefs.current.get(id)!; };
@@ -385,7 +385,6 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
         last_name: newClientLastName.trim(),
         phone_number: countryCode + newClientPhone.trim(),
         gender: newClientGender,
-        salon_id: salonId,
       });
       const createdId = res.data?.data?.id || res.data?.id || null;
       setSelectedClientId(createdId ? String(createdId) : null);
@@ -421,7 +420,6 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
       const res = await api.post("/api/v1/coupons/validate", {
         code,
         orderAmount: grandTotal || 0,
-        salonId,
       });
       const d = res.data?.data;
       const discount = d?.discountAmount ?? d?.discount ?? d?.value ?? d?.amount;
@@ -495,7 +493,6 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
           last_name: newClientLastName.trim(),
           phone_number: countryCode + newClientPhone.trim(),
           gender: newClientGender,
-          salon_id: salonId,
         });
         const createdId = res.data?.data?.id || res.data?.id || null;
         if (createdId) {
@@ -557,7 +554,6 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
       const startTime = firstRow?.time || defaultTime || "10:00";
       if (salonId) {
         const action: any = await dispatch(createBookingThunk({
-          salon_id: salonId,
           client_id: clientId || undefined,
           staff_id: toApiStaffId(firstRow?.staffId) ?? toApiStaffId(staffList[0]?.id),
           service_id: toApiStaffId(firstRow?.id) || undefined,
@@ -622,7 +618,6 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
       const startTime = firstRow?.time || defaultTime || "10:00";
       if (salonId) {
         const action: any = await dispatch(createBookingThunk({
-          salon_id: salonId,
           client_id: clientId || undefined,
           staff_id: toApiStaffId(firstRow?.staffId) ?? toApiStaffId(staffList[0]?.id),
           service_id: toApiStaffId(firstRow?.id) || undefined,
@@ -696,7 +691,6 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
       try {
         await api.post("/api/v1/payments", {
           appointment_id: apptId,
-          salon_id: salonId,
           client_id: _isRealId(clientId) ? clientId : undefined,
           gross_amount: grandTotal,                                          // full bill total
           discount_amount: alreadyPaidAmount > 0 ? 0 : couponDiscount,
@@ -817,9 +811,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
     setCancelDeleteError("");
     try {
       // Backend route: POST /api/v1/appointments/:id/cancel
-      await api.post(`/api/v1/appointments/${id}/cancel`, {
-        salon_id: salonId,
-      });
+      await api.post(`/api/v1/appointments/${id}/cancel`);
       // Update Redux state optimistically (no second API call)
       dispatch(updateBookingAction({ ...existingBooking, status: "Cancelled" } as any));
       setShowDotMenu(false);

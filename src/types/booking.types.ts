@@ -35,7 +35,7 @@ export interface Booking {
 
 // ── Payloads ──────────────────────────────────────────────────────────────────
 export interface CreateBookingPayload {
-  salon_id: string;
+  salon_id?: string;
   branch_id?: string;
   client_id?: string;
   staff_id?: string;

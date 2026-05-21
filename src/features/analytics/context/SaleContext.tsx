@@ -116,7 +116,6 @@ export function SaleProvider({ children }: { children: ReactNode }) {
 
       await dispatch(
         createSaleThunk({
-          salon_id: String(salonId),
           client_id: data.client?.id ?? null,
           status: "draft",
           items: data.cart.map((item) => ({

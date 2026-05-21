@@ -45,11 +45,9 @@ const StaffWagesSection: React.FC<StaffWagesSectionProps> = ({ staffId, salonId,
   useEffect(() => {
     if (staffId && !wages && staffId !== "undefined") {
       const fetchWages = async () => {
-        const headers: Record<string, string> = {};
-        if (salonId) headers["x-salon-id"] = String(salonId);
         try {
           setIsLoading(true);
-          const response = await api.get(STAFF.WAGES(staffId), { headers });
+          const response = await api.get(STAFF.WAGES(staffId));
           if (response.data.data) {
             setSettings(response.data.data);
           }
@@ -68,11 +66,9 @@ const StaffWagesSection: React.FC<StaffWagesSectionProps> = ({ staffId, salonId,
       toast("Please save the team member profile first");
       return;
     }
-    const headers: Record<string, string> = {};
-    if (salonId) headers["x-salon-id"] = String(salonId);
     try {
       setIsSaving(true);
-      await api.put(STAFF.WAGES(staffId), settings, { headers });
+      await api.put(STAFF.WAGES(staffId), settings);
       toast.success("Wage settings saved successfully");
     } catch (error: any) {
       console.error("Error saving wages:", error);
