@@ -22,7 +22,10 @@ export const loginThunk = createAsyncThunk<
     const res = await api.post<LoginResponse>(AUTH.LOGIN, payload);
     return res.data.data;
   } catch (err: any) {
-    if (err instanceof ApiError) return rejectWithValue(err.message);
+    if (err instanceof ApiError) {
+      if (err.status === 401) return rejectWithValue("Invalid email or password");
+      return rejectWithValue(err.message);
+    }
     return rejectWithValue("Invalid email or password");
   }
 });

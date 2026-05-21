@@ -104,10 +104,19 @@ export const applyInterceptors = (instance: AxiosInstance) => {
 
       const status = error.response?.status;
       const data = error.response?.data as any;
-      const message = data?.error?.message ?? data?.message ?? "Something went wrong";
+      const errField = data?.error;
+      const message =
+        (typeof errField === "string" ? errField : errField?.message ?? errField?.msg) ??
+        data?.message ??
+        data?.msg ??
+        "Something went wrong";
 
       // ── 401: silent token refresh ──────────────────────────────────────────
-      if (status === 401 && !originalRequest._retry) {
+      const isPublicRoute = PUBLIC_ROUTES.some((route) =>
+        originalRequest.url?.includes(route),
+      );
+
+      if (status === 401 && !originalRequest._retry && !isPublicRoute) {
         if (isRefreshing) {
           return new Promise<string>((resolve, reject) => {
             failedQueue.push({ resolve, reject });
@@ -181,6 +190,8 @@ export const applyInterceptors = (instance: AxiosInstance) => {
       switch (status) {
         case 400:
           return Promise.reject(new ApiError(400, message, data?.errors));
+        case 401:
+          return Promise.reject(new ApiError(401, message));
         case 403:
           return Promise.reject(new ApiError(403, message));
         case 404:

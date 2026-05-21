@@ -5,6 +5,7 @@ import type {
   ClientsReport,
   StaffReport,
   ServicesReport,
+  ReportsDashboard,
 } from "../types/report.types";
 import {
   fetchRevenueReportThunk,
@@ -13,6 +14,7 @@ import {
   fetchStaffReportThunk,
   fetchServicesReportThunk,
   exportReportThunk,
+  fetchReportsDashboardThunk,
 } from "../middleware/report/report.thunk";
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -22,6 +24,7 @@ export interface ReportState {
   clients: ClientsReport | null;
   staff: StaffReport | null;
   services: ServicesReport | null;
+  reportsDashboard: ReportsDashboard | null;
   loading: {
     revenue: boolean;
     appointments: boolean;
@@ -29,6 +32,7 @@ export interface ReportState {
     staff: boolean;
     services: boolean;
     export: boolean;
+    dashboard: boolean;
   };
   error: string | null;
 }
@@ -39,6 +43,7 @@ const initialState: ReportState = {
   clients: null,
   staff: null,
   services: null,
+  reportsDashboard: null,
   loading: {
     revenue: false,
     appointments: false,
@@ -46,6 +51,7 @@ const initialState: ReportState = {
     staff: false,
     services: false,
     export: false,
+    dashboard: false,
   },
   error: null,
 };
@@ -148,6 +154,21 @@ const reportSlice = createSlice({
       .addCase(exportReportThunk.rejected, (state, { payload }) => {
         state.loading.export = false;
         state.error = payload ?? "Failed to export report";
+      });
+
+    // ── Reports Dashboard ─────────────────────────────────────────────────────
+    builder
+      .addCase(fetchReportsDashboardThunk.pending, (state) => {
+        state.loading.dashboard = true;
+        state.error = null;
+      })
+      .addCase(fetchReportsDashboardThunk.fulfilled, (state, { payload }) => {
+        state.loading.dashboard = false;
+        state.reportsDashboard = payload;
+      })
+      .addCase(fetchReportsDashboardThunk.rejected, (state, { payload }) => {
+        state.loading.dashboard = false;
+        state.error = payload ?? "Failed to fetch reports dashboard";
       });
   },
 });
