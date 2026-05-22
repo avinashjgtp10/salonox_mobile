@@ -61,14 +61,6 @@ export const applyInterceptors = (instance: AxiosInstance) => {
         if (accessToken) {
           config.headers["Authorization"] = `Bearer ${accessToken}`;
         }
-
-        // Only inject if caller hasn't set it already
-        if (!config.headers["x-salon-id"]) {
-          const salonId = state?.salon?.currentSalon?.id;
-          if (salonId) {
-            config.headers["x-salon-id"] = String(salonId);
-          }
-        }
       }
 
       return config;
@@ -104,13 +96,20 @@ export const applyInterceptors = (instance: AxiosInstance) => {
 
       const status = error.response?.status;
       const data = error.response?.data as any;
-      const message = data?.error?.message ?? data?.message ?? "Something went wrong";
+      const errField = data?.error;
+      const message =
+        (typeof errField === "string" ? errField : errField?.message ?? errField?.msg) ??
+        data?.message ??
+        data?.msg ??
+        "Something went wrong";
 
       // ── 401: silent token refresh ──────────────────────────────────────────
       // Skip refresh for public routes (e.g. /login returning 401 for wrong credentials)
-      const isPublicRequest = PUBLIC_ROUTES.some(route => originalRequest.url?.includes(route));
+      const isPublicRoute = PUBLIC_ROUTES.some((route) =>
+        originalRequest.url?.includes(route),
+      );
 
-      if (status === 401 && !originalRequest._retry && !isPublicRequest) {
+      if (status === 401 && !originalRequest._retry && !isPublicRoute) {
         if (isRefreshing) {
           return new Promise<string>((resolve, reject) => {
             failedQueue.push({ resolve, reject });
@@ -184,6 +183,8 @@ export const applyInterceptors = (instance: AxiosInstance) => {
       switch (status) {
         case 400:
           return Promise.reject(new ApiError(400, message, data?.errors));
+        case 401:
+          return Promise.reject(new ApiError(401, message));
         case 403:
           return Promise.reject(new ApiError(403, message));
         case 404:

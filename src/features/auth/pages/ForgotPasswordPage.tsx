@@ -11,6 +11,7 @@ import {
 import { clearError } from "../../../store/authSlice";
 
 import SplitLayout from "../../../components/ui/SplitLayout";
+import Button from "../../../components/ui/Button";
 import salonImg from "../../../assets/images/salon.jpg";
 import "../styles/ForgotPasswordPage.scss";
 
@@ -23,9 +24,9 @@ export default function ForgotPasswordPage() {
 
   const [step, setStep] = useState(STEPS.EMAIL);
   const loading =
-    step === STEPS.EMAIL  ? authLoading.forgotSendOtp :
-    step === STEPS.OTP    ? authLoading.forgotVerifyOtp :
-    step === STEPS.RESET  ? authLoading.forgotReset : false;
+    step === STEPS.EMAIL ? authLoading.forgotSendOtp :
+      step === STEPS.OTP ? authLoading.forgotVerifyOtp :
+        step === STEPS.RESET ? authLoading.forgotReset : false;
 
   const [localError, setLocalError] = useState("");
   const [isResending, setIsResending] = useState(false);
@@ -33,13 +34,13 @@ export default function ForgotPasswordPage() {
   const [confirmPwError, setConfirmPwError] = useState("");
   const error = localError || reduxError;
 
-  const [email, setEmail]                     = useState("");
-  const [otp, setOtp]                         = useState(["", "", "", "", "", ""]);
-  const [newPassword, setNewPassword]         = useState("");
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
-  const [timeLeft, setTimeLeft]               = useState(0);
+  const [timeLeft, setTimeLeft] = useState(0);
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -252,20 +253,23 @@ export default function ForgotPasswordPage() {
       </>
     );
 
-    if (step === STEPS.SUCCESS) return (
-      <div className="fp-success">
-        <div className="fp-success__icon">
-          <CheckCircle2 size={36} />
+    if (step === STEPS.SUCCESS) {
+      return (
+        <div className="text-center py-4">
+          <div className="mb-4 d-flex justify-content-center">
+            <CheckCircle2 size={64} className="text-success" />
+          </div>
+          <h3 className="fw-bold mb-2">Success!</h3>
+          <p className="text-muted mb-4" style={{ fontSize: "15px" }}>
+            Your password has been successfully reset. You can now use your new
+            password to log in.
+          </p>
+          <Button variant="dark" fullWidth onClick={() => navigate("/login")}>
+            Return to Login
+          </Button>
         </div>
-        <h1 className="fp-heading">All done!</h1>
-        <p className="fp-sub">
-          Your password has been successfully reset. You can now sign in with your new password.
-        </p>
-        <button className="fp-btn-primary" onClick={() => navigate("/login")}>
-          Back to Login
-        </button>
-      </div>
-    );
+      );
+    }
   };
 
   const LeftSection = (
@@ -297,9 +301,9 @@ export default function ForgotPasswordPage() {
         </div>
         <div className="fp-testimonial">
           <div className="fp-testimonial__stars">
-            {[1,2,3,4,5].map(i => (
+            {[1, 2, 3, 4, 5].map(i => (
               <svg key={i} width="15" height="15" viewBox="0 0 24 24" fill="#C9A96E">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
               </svg>
             ))}
           </div>

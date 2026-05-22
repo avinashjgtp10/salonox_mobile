@@ -216,7 +216,6 @@ const PaymentModal: React.FC<Props> = ({ booking, onClose, collectDue = false })
       try {
         await api.post(PAYMENT.BASE, {
           appointment_id: appointmentId,
-          salon_id: salonId,
           client_id: booking.clientId && !String(booking.clientId).startsWith("b_") ? booking.clientId : undefined,
           gross_amount: collectDue ? (booking.grandTotal || grandTotal) : grandTotal,
           discount_amount: collectDue ? 0 : couponDiscount,

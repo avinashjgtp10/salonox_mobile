@@ -156,10 +156,101 @@ export interface ServicesReport {
   kpi: ServicesKPI;
 }
 
+// ── Reports Dashboard (GET /api/v1/reports) ───────────────────────────────────
+
+export interface ReportFilterOption {
+  value: string;
+  label: string;
+}
+
+export interface ReportFilter {
+  key: string;
+  type: "date-single" | "date-range" | "multi-select" | "dropdown";
+  label: string;
+  fromKey?: string;
+  toKey?: string;
+  options?: ReportFilterOption[];
+}
+
+export interface ReportTableColumn {
+  key: string;
+  label: string;
+  type: "text" | "date" | "time" | "number" | "currency" | "badge" | "link";
+  sortable?: boolean;
+}
+
+export interface ReportTableConfig {
+  columns: ReportTableColumn[];
+  rowsPerPage?: number[];
+  rowGrouping?: boolean;
+}
+
+export interface ReportPermissions {
+  view: boolean;
+  export: boolean;
+  saveView: boolean;
+  refresh: boolean;
+}
+
+export interface ReportPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface DashboardReport {
+  id: string;
+  name: string;
+  description: string;
+  tags: string[];
+  isNewVersion: boolean;
+  isBookmarked: boolean;
+  category: string;
+  permissions?: ReportPermissions;
+  filters?: ReportFilter[];
+  tableConfig?: ReportTableConfig;
+  data?: Record<string, unknown>[];
+  pagination?: ReportPagination;
+}
+
+export interface DashboardCategory {
+  key: string;
+  label: string;
+  count: number;
+}
+
+export interface ReportsDashboard {
+  title: string;
+  search: { placeholder: string };
+  categories: DashboardCategory[];
+  bookmarked: {
+    title: string;
+    emptyTitle: string;
+    emptySubtitle: string;
+    items: DashboardReport[];
+  };
+  reports: DashboardReport[];
+}
+
+export interface ReportsDashboardResponse {
+  success: boolean;
+  message: string;
+  timestamp: string;
+  reportsDashboard: ReportsDashboard;
+}
+
+export interface FetchReportsDashboardPayload {
+  search?: string;
+  category?: string;
+}
+
 // ── Query payload ─────────────────────────────────────────────────────────────
 export interface FetchReportPayload {
   tab: ReportTab;
   period: ReportPeriod;
+  from?: string;
+  to?: string;
 }
 
 export interface ExportReportPayload {

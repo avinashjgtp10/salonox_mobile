@@ -452,7 +452,6 @@ export default function QuickSaleDrawer({ isOpen, onClose }: Props) {
     // 1. Create a draft sale
     const createResult = await dispatch(
       createSaleThunk({
-        salon_id: String(salonId),
         client_id: client?.id ?? null,
         status: "draft",
         items: cart.map((item) => ({
@@ -494,7 +493,6 @@ export default function QuickSaleDrawer({ isOpen, onClose }: Props) {
     if (!salonId || cart.length === 0) return;
     await dispatch(
       createSaleThunk({
-        salon_id: String(salonId),
         client_id: client?.id ?? null,
         status: "draft",
         items: cart.map((item) => ({

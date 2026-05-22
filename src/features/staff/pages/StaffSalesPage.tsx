@@ -78,13 +78,12 @@ export default function StaffSalesPage() {
   const [total, setTotal] = useState(0);
   const limit = 20;
 
-  const headers = salonId ? { "x-salon-id": String(salonId) } : {};
 
   const fetchSummary = useCallback(async () => {
     if (!salonId) return;
     setLoadingSummary(true);
     try {
-      const res = await api.get(SALE.SUMMARY, { headers });
+      const res = await api.get(SALE.SUMMARY);
       setSummary(res.data?.data ?? res.data ?? null);
     } catch {
       // Summary is optional
@@ -103,7 +102,7 @@ export default function StaffSalesPage() {
       if (dateFrom) params.start_date = dateFrom;
       if (dateTo) params.end_date = dateTo;
 
-      const res = await api.get(SALE.BASE, { headers, params });
+      const res = await api.get(SALE.BASE, { params });
       const raw = res.data?.data?.items ?? res.data?.data ?? res.data ?? [];
       const arr = Array.isArray(raw) ? raw : [];
       setSales(arr);
@@ -146,8 +145,8 @@ export default function StaffSalesPage() {
           filename="sales.csv"
           fetcher={async () => {
             const res = await api.get(
-              SALE.EXPORT({ format: "csv", salonId: salonId ? String(salonId) : undefined }),
-              { responseType: "blob", headers }
+              SALE.EXPORT({ format: "csv" }),
+              { responseType: "blob" }
             );
             return res.data;
           }}

@@ -120,12 +120,9 @@ const AddStaffPage: React.FC = () => {
     if (!id || id === "undefined" || id === "add") return;
 
     const fetchStaff = async () => {
-      const headers: Record<string, string> = {};
-      if (salonId) headers["x-salon-id"] = String(salonId);
-
       try {
         setUi((prev) => ({ ...prev, isLoading: true }));
-        const response = await api.get(STAFF.BY_ID(id), { headers });
+        const response = await api.get(STAFF.BY_ID(id));
         const staff = response.data.data;
 
         const permissionLevelMapReverse: Record<string, string> = {
@@ -275,18 +272,12 @@ const AddStaffPage: React.FC = () => {
       if (formData.endDateDayMonth) payload.end_date = formData.endDateDayMonth;
       if (formData.endDateDayMonth && formData.endDateYear)
         payload.end_year = formData.endDateYear;
-      if (salonId) payload.salon_id = String(salonId);
-
-      const config = {
-        headers: { "x-salon-id": salonId }
-      };
-
       if (id && id !== "undefined") {
-        await api.patch(STAFF.BY_ID(id), payload, config);
+        await api.patch(STAFF.BY_ID(id), payload);
         toast.success("Staff updated successfully");
         navigate("/dashboard/team/members");
       } else {
-        const response = await api.post(STAFF.BASE, payload, config);
+        const response = await api.post(STAFF.BASE, payload);
         const newStaffId = response.data?.data?.staffId || response.data?.staffId || response.data?.data?.id || response.data?.id;
 
         if (!newStaffId) {
