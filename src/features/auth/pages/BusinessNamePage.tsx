@@ -72,7 +72,7 @@ export default function BusinessNamePage() {
           </div>
 
           <button className="ob-btn-primary w-100" onClick={handleContinue}>
-            Continue <FiArrowRight size={14} className="ms-1" />
+            Continue
           </button>
         </div>
       </div>

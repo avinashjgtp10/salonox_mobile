@@ -10,69 +10,50 @@ import {
 } from "../../../middleware/auth/forgotPasswordThunk";
 import { clearError } from "../../../store/authSlice";
 
-import Card from "../../../components/ui/Card";
-import Input from "../../../components/ui/Input";
-import Button from "../../../components/ui/Button";
 import SplitLayout from "../../../components/ui/SplitLayout";
-
 import salonImg from "../../../assets/images/salon.jpg";
-import "../styles/forgot-password.css";
+import "../styles/ForgotPasswordPage.scss";
 
-const STEPS = {
-  EMAIL: 1,
-  OTP: 2,
-  RESET: 3,
-  SUCCESS: 4,
-};
+const STEPS = { EMAIL: 1, OTP: 2, RESET: 3, SUCCESS: 4 };
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { loading: authLoading, error: reduxError } = useAppSelector(
-    (state) => state.auth,
-  );
+  const { loading: authLoading, error: reduxError } = useAppSelector(s => s.auth);
 
   const [step, setStep] = useState(STEPS.EMAIL);
-
-  // Map each wizard step to its specific loading flag
   const loading =
-    step === STEPS.EMAIL
-      ? authLoading.forgotSendOtp
-      : step === STEPS.OTP
-        ? authLoading.forgotVerifyOtp
-        : step === STEPS.RESET
-          ? authLoading.forgotReset
-          : false;
+    step === STEPS.EMAIL  ? authLoading.forgotSendOtp :
+    step === STEPS.OTP    ? authLoading.forgotVerifyOtp :
+    step === STEPS.RESET  ? authLoading.forgotReset : false;
+
   const [localError, setLocalError] = useState("");
   const [isResending, setIsResending] = useState(false);
-
+  const [newPwError, setNewPwError] = useState("");
+  const [confirmPwError, setConfirmPwError] = useState("");
   const error = localError || reduxError;
 
-  // Form states
-  const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-  const [newPassword, setNewPassword] = useState("");
+  const [email, setEmail]                     = useState("");
+  const [otp, setOtp]                         = useState(["", "", "", "", "", ""]);
+  const [newPassword, setNewPassword]         = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
+  const [timeLeft, setTimeLeft]               = useState(0);
 
-  // Timer state
-  const [timeLeft, setTimeLeft] = useState(0);
-
-  // Refs
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Clear errors on step change
   useEffect(() => {
     setLocalError("");
+    setNewPwError("");
+    setConfirmPwError("");
     dispatch(clearError());
   }, [step, dispatch]);
 
-  // Timer logic
   useEffect(() => {
     if (timeLeft > 0) {
-      const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
-      return () => clearTimeout(timer);
+      const t = setTimeout(() => setTimeLeft(t => t - 1), 1000);
+      return () => clearTimeout(t);
     }
   }, [timeLeft]);
 
@@ -81,357 +62,256 @@ export default function ForgotPasswordPage() {
     dispatch(clearError());
 
     if (step === STEPS.EMAIL) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!email.trim() || !emailRegex.test(email)) {
-        setLocalError("Please enter a valid email address.");
-        return;
-      }
-
+      const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!email.trim()) { setLocalError("Email address is required."); return; }
+      if (!emailRx.test(email)) { setLocalError("Please enter a valid email address."); return; }
       const result = await dispatch(forgotPasswordSendOtpThunk({ email }));
       if (forgotPasswordSendOtpThunk.fulfilled.match(result)) {
+        setOtp(["", "", "", "", "", ""]);
         setTimeLeft(60);
         setStep(STEPS.OTP);
         setTimeout(() => otpRefs.current[0]?.focus(), 100);
       }
     } else if (step === STEPS.OTP) {
       const otpString = otp.join("");
-      if (otpString.length !== 6) {
-        setLocalError("Please enter the complete 6-digit code.");
-        return;
-      }
-
-      const result = await dispatch(
-        forgotPasswordVerifyOtpThunk({ email, otp: otpString }),
-      );
-      if (forgotPasswordVerifyOtpThunk.fulfilled.match(result)) {
-        setStep(STEPS.RESET);
-      }
+      if (otpString.length !== 6) { setLocalError("Please enter the complete 6-digit code."); return; }
+      const result = await dispatch(forgotPasswordVerifyOtpThunk({ email, otp: otpString }));
+      if (forgotPasswordVerifyOtpThunk.fulfilled.match(result)) setStep(STEPS.RESET);
     } else if (step === STEPS.RESET) {
-      if (
-        !newPassword ||
-        newPassword.length < 8 ||
-        !/[A-Za-z]/.test(newPassword) ||
-        !/\d/.test(newPassword)
-      ) {
-        setLocalError(
-          "Password must be 8+ characters with a letter and number",
-        );
-        return;
-      }
-      if (newPassword !== confirmPassword) {
-        setLocalError("Passwords do not match.");
-        return;
-      }
-
-      const otpString = otp.join("");
-      const result = await dispatch(
-        forgotPasswordResetThunk({
-          email,
-          otp: otpString,
-          rawPassword: newPassword,
-        }),
-      );
-
-      if (forgotPasswordResetThunk.fulfilled.match(result)) {
-        setStep(STEPS.SUCCESS);
-      }
+      const pwInvalid = !newPassword || newPassword.length < 8 || !/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword);
+      const pwMismatch = newPassword !== confirmPassword;
+      setNewPwError(pwInvalid ? "Password must be 8+ characters with a letter and number." : "");
+      setConfirmPwError(pwMismatch ? "Passwords do not match." : "");
+      if (pwInvalid || pwMismatch) return;
+      const result = await dispatch(forgotPasswordResetThunk({ email, otp: otp.join(""), rawPassword: newPassword }));
+      if (forgotPasswordResetThunk.fulfilled.match(result)) setStep(STEPS.SUCCESS);
     }
   };
 
   const handleBack = () => {
-    if (step === STEPS.OTP || step === STEPS.RESET) {
-      setStep(step - 1);
-    } else {
-      navigate("/login");
-    }
+    if (step === STEPS.OTP || step === STEPS.RESET) setStep(step - 1);
+    else navigate("/login");
   };
 
   const handleResend = async () => {
-    if (timeLeft === 0) {
-      setIsResending(true);
-      const result = await dispatch(forgotPasswordSendOtpThunk({ email }));
-      setIsResending(false);
-      if (forgotPasswordSendOtpThunk.fulfilled.match(result)) {
-        setTimeLeft(60);
-      }
+    if (timeLeft > 0) return;
+    setIsResending(true);
+    const result = await dispatch(forgotPasswordSendOtpThunk({ email }));
+    setIsResending(false);
+    if (forgotPasswordSendOtpThunk.fulfilled.match(result)) {
+      setOtp(["", "", "", "", "", ""]);
+      setTimeLeft(60);
     }
   };
 
   const handleOtpChange = (index: number, value: string) => {
-    if (value.length > 1) {
-      value = value.charAt(value.length - 1);
-    }
-
+    if (value.length > 1) value = value.charAt(value.length - 1);
     if (!/^[0-9]*$/.test(value)) return;
-
-    const newOtp = [...otp];
-    newOtp[index] = value;
-    setOtp(newOtp);
-
-    if (value && index < 5) {
-      otpRefs.current[index + 1]?.focus();
-    }
+    const next = [...otp];
+    next[index] = value;
+    setOtp(next);
+    if (value && index < 5) otpRefs.current[index + 1]?.focus();
   };
 
-  const handleOtpKeyDown = (
-    index: number,
-    e: React.KeyboardEvent<HTMLInputElement>,
-  ) => {
-    if (e.key === "Backspace" && !otp[index] && index > 0) {
-      otpRefs.current[index - 1]?.focus();
-    }
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && !otp[index] && index > 0) otpRefs.current[index - 1]?.focus();
   };
 
   const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
-    const pastedData = e.clipboardData.getData("text/plain").slice(0, 6);
-    if (!/^\d+$/.test(pastedData)) return;
-
-    const chars = pastedData.split("");
-    const newOtp = [...otp];
-    chars.forEach((char, i) => {
-      newOtp[i] = char;
-    });
-    setOtp(newOtp);
-
-    const nextIndex = Math.min(chars.length, 5);
-    otpRefs.current[nextIndex]?.focus();
+    const pasted = e.clipboardData.getData("text/plain").slice(0, 6);
+    if (!/^\d+$/.test(pasted)) return;
+    const next = [...otp];
+    pasted.split("").forEach((c, i) => { next[i] = c; });
+    setOtp(next);
+    otpRefs.current[Math.min(pasted.length, 5)]?.focus();
   };
 
   const renderContent = () => {
-    if (step === STEPS.EMAIL) {
-      return (
-        <div>
-          <h3 className="fw-bold text-center mb-2">Forgot Password?</h3>
-          <p
-            className="text-muted text-center mb-4"
-            style={{ fontSize: "15px" }}
-          >
-            Enter your email and we'll send you a 6-digit code to reset your
-            password.
-          </p>
+    if (step === STEPS.EMAIL) return (
+      <>
+        <div className="fp-heading-block">
+          <h1 className="fp-heading">Forgot password?</h1>
+          <p className="fp-sub">Enter your email and we'll send you a 6-digit reset code.</p>
+        </div>
 
-          <Input
-            label="Email address"
+        <div className="fp-field">
+          <label className="fp-label">Email address <span className="fp-required">*</span></label>
+          <input
+            id="fp-email"
             type="email"
-            placeholder="your@email.com"
+            className={`fp-input${error ? " fp-input--error" : ""}`}
+            placeholder="name@example.com"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            containerClass="mb-4"
-            onKeyDown={(e) => e.key === "Enter" && handleNext()}
-            floating
+            onChange={e => { setEmail(e.target.value); setLocalError(""); dispatch(clearError()); }}
+            onKeyDown={e => e.key === "Enter" && handleNext()}
+            autoFocus
           />
-
-          {error && <div className="alert alert-danger py-2 mb-3">{error}</div>}
-
-          <Button
-            variant="dark"
-            fullWidth
-            onClick={handleNext}
-            loading={loading}
-          >
-            Send OTP
-          </Button>
-
-          <div className="text-center mt-4">
-            <button
-              onClick={() => navigate("/login")}
-              className="btn btn-link text-decoration-none p-0 fw-bold"
-              style={{ fontSize: "14px" }}
-            >
-              Back to Login
-            </button>
-          </div>
+          {error && <span className="fp-error-msg">{error}</span>}
         </div>
-      );
-    }
 
-    if (step === STEPS.OTP) {
-      return (
-        <div>
-          <div className="d-flex align-items-center mb-3">
-            <button onClick={handleBack} className="btn p-0 me-3 shadow-none">
-              <ArrowLeft size={20} />
-            </button>
-            <h3 className="fw-bold m-0">Enter Code</h3>
-          </div>
-          <p className="text-muted mb-4" style={{ fontSize: "15px" }}>
-            We sent a 6-digit code to <strong>{email}</strong>.
-          </p>
+        <button className="fp-btn-primary" onClick={handleNext} disabled={!!loading}>
+          {loading ? "Sending…" : "Send reset code"}
+        </button>
 
-          <div className="fp-otp-container">
-            {otp.map((digit, index) => (
-              <input
-                key={index}
-                ref={(el) => {
-                  otpRefs.current[index] = el;
-                }}
-                type="text"
-                inputMode="numeric"
-                className="fp-otp-input"
-                value={digit}
-                onChange={(e) => handleOtpChange(index, e.target.value)}
-                onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                onPaste={handleOtpPaste}
-                autoComplete="one-time-code"
-              />
-            ))}
-          </div>
-
-          {error && <div className="alert alert-danger py-2 mb-3">{error}</div>}
-
-          <Button
-            variant="dark"
-            fullWidth
-            onClick={handleNext}
-            className="mb-4"
-            disabled={loading}
-          >
-            Continue
-          </Button>
-
-          <div className="text-center">
-            <span className="text-muted" style={{ fontSize: "14px" }}>
-              Didn't receive the code?{" "}
-            </span>
-            <Button
-              variant="link"
-              onClick={handleResend}
-              disabled={timeLeft > 0 || isResending}
-              loading={isResending}
-              className={`p-0 text-decoration-none fw-bold shadow-none ${timeLeft > 0 ? "text-muted" : "text-primary"}`}
-              style={{ fontSize: "14px", verticalAlign: "baseline" }}
-            >
-              {timeLeft > 0 ? `Resend in ${timeLeft}s` : "Resend Code"}
-            </Button>
-          </div>
+        <div className="fp-back-link">
+          <button onClick={() => navigate("/login")}>
+            <ArrowLeft size={14} /> Back to Login
+          </button>
         </div>
-      );
-    }
+      </>
+    );
 
-    if (step === STEPS.RESET) {
-      return (
-        <div>
-          <div className="d-flex align-items-center mb-3">
-            <button onClick={handleBack} className="btn p-0 me-3 shadow-none">
-              <ArrowLeft size={20} />
-            </button>
-            <h3 className="fw-bold m-0">Reset Password</h3>
-          </div>
-          <p className="text-muted mb-4" style={{ fontSize: "15px" }}>
-            Create a new password that is 8+ characters long, including a letter
-            and a number.
-          </p>
+    if (step === STEPS.OTP) return (
+      <>
+        <div className="fp-heading-block">
+          <h1 className="fp-heading">Check your email</h1>
+          <p className="fp-sub">We sent a 6-digit code to <strong>{email}</strong>.</p>
+        </div>
 
-          <div className="position-relative mb-3">
-            <Input
-              label="New Password"
+        <div className="fp-otp-group">
+          {otp.map((digit, i) => (
+            <input
+              key={i}
+              ref={el => { otpRefs.current[i] = el; }}
+              type="text"
+              inputMode="numeric"
+              className={`fp-otp-box${digit ? " fp-otp-box--filled" : ""}`}
+              value={digit}
+              onChange={e => handleOtpChange(i, e.target.value)}
+              onKeyDown={e => handleOtpKeyDown(i, e)}
+              onPaste={handleOtpPaste}
+              autoComplete="off"
+            />
+          ))}
+        </div>
+
+        {error && <span className="fp-error-msg fp-error-msg--center">{error}</span>}
+
+        <button className="fp-btn-primary" onClick={handleNext} disabled={!!loading}>
+          {loading ? "Verifying…" : "Continue"}
+        </button>
+
+        <div className="fp-resend">
+          Didn't receive the code?
+          <button onClick={handleResend} disabled={timeLeft > 0 || isResending}>
+            {isResending ? "Resending…" : timeLeft > 0 ? `Resend in ${timeLeft}s` : "Resend code"}
+          </button>
+        </div>
+      </>
+    );
+
+    if (step === STEPS.RESET) return (
+      <>
+        <div className="fp-heading-block">
+          <h1 className="fp-heading">New password</h1>
+          <p className="fp-sub">Must be 8+ characters with at least one letter and one number.</p>
+        </div>
+
+        <div className="fp-field">
+          <label className="fp-label">New Password <span className="fp-required">*</span></label>
+          <div className="fp-pw-wrap">
+            <input
               type={showNewPassword ? "text" : "password"}
+              className={`fp-input${newPwError ? " fp-input--error" : ""}`}
               placeholder="8+ characters, letter & number"
               value={newPassword}
-              onChange={(e) => {
-                setNewPassword(e.target.value);
-                setLocalError("");
-                dispatch(clearError());
-              }}
-              onKeyDown={(e) => e.key === "Enter" && handleNext()}
-              floating
+              onChange={e => { setNewPassword(e.target.value); setNewPwError(""); dispatch(clearError()); }}
+              onKeyDown={e => e.key === "Enter" && handleNext()}
             />
-            <button
-              type="button"
-              className="btn btn-link position-absolute end-0 top-50 translate-middle-y text-muted px-3 shadow-none text-decoration-none"
-              style={{ zIndex: 10, marginTop: "12px" }}
-              onClick={() => setShowNewPassword(!showNewPassword)}
-            >
-              {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            <button type="button" className="fp-pw-eye" onClick={() => setShowNewPassword(p => !p)}>
+              {showNewPassword ? <EyeOff size={17} /> : <Eye size={17} />}
             </button>
           </div>
+          {newPwError && <span className="fp-error-msg">{newPwError}</span>}
+        </div>
 
-          <div className="position-relative mb-4">
-            <Input
-              label="Confirm Password"
-              type={showConfirmPassword ? "text" : "password"}
-              placeholder="Confirm new password"
+        <div className="fp-field">
+          <label className="fp-label">Confirm Password <span className="fp-required">*</span></label>
+          <div className="fp-pw-wrap">
+            <input
+              type={showConfirmPass ? "text" : "password"}
+              className={`fp-input${confirmPwError ? " fp-input--error" : ""}`}
+              placeholder="Re-enter your password"
               value={confirmPassword}
-              onChange={(e) => {
-                setConfirmPassword(e.target.value);
-                setLocalError("");
-                dispatch(clearError());
-              }}
-              onKeyDown={(e) => e.key === "Enter" && handleNext()}
-              floating
+              onChange={e => { setConfirmPassword(e.target.value); setConfirmPwError(""); dispatch(clearError()); }}
+              onKeyDown={e => e.key === "Enter" && handleNext()}
             />
-            <button
-              type="button"
-              className="btn btn-link position-absolute end-0 top-50 translate-middle-y text-muted px-3 shadow-none text-decoration-none"
-              style={{ zIndex: 10, marginTop: "12px" }}
-              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-            >
-              {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            <button type="button" className="fp-pw-eye" onClick={() => setShowConfirmPass(p => !p)}>
+              {showConfirmPass ? <EyeOff size={17} /> : <Eye size={17} />}
             </button>
           </div>
-
-          {error && <div className="alert alert-danger py-2 mb-3">{error}</div>}
-
-          <Button
-            variant="dark"
-            fullWidth
-            onClick={handleNext}
-            disabled={loading}
-          >
-            Continue
-          </Button>
+          {confirmPwError && <span className="fp-error-msg">{confirmPwError}</span>}
         </div>
-      );
-    }
 
-    if (step === STEPS.SUCCESS) {
-      return (
-        <div className="text-center py-4">
-          <div className="mb-4 d-flex justify-content-center">
-            <CheckCircle2 size={64} className="text-success" />
-          </div>
-          <h3 className="fw-bold mb-2">Success!</h3>
-          <p className="text-muted mb-4" style={{ fontSize: "15px" }}>
-            Your password has been successfully reset. You can now use your new
-            password to log in.
-          </p>
-          <Button variant="dark" fullWidth onClick={() => navigate("/login")}>
-            Return to Login
-          </Button>
+        {error && <span className="fp-error-msg">{error}</span>}
+
+        <button className="fp-btn-primary" onClick={handleNext} disabled={!!loading}>
+          {loading ? "Resetting…" : "Reset password"}
+        </button>
+      </>
+    );
+
+    if (step === STEPS.SUCCESS) return (
+      <div className="fp-success">
+        <div className="fp-success__icon">
+          <CheckCircle2 size={36} />
         </div>
-      );
-    }
+        <h1 className="fp-heading">All done!</h1>
+        <p className="fp-sub">
+          Your password has been successfully reset. You can now sign in with your new password.
+        </p>
+        <button className="fp-btn-primary" onClick={() => navigate("/login")}>
+          Back to Login
+        </button>
+      </div>
+    );
   };
 
   const LeftSection = (
-    <Card
-      className="forgot-password-card"
-      style={{ width: "100%", maxWidth: "420px" }}
-      title={
-        <div className="text-center w-100 mb-2">
-          <h4 className="brand-logo d-inline-block">salonox</h4>
+    <div className="fp-wrap">
+      <div className="fp-orb fp-orb--1" />
+      <div className="fp-orb fp-orb--2" />
+
+      <div className="fp-inner">
+        <div className="fp-brand">
+          <span className="fp-brand__gem" />
+          salonox
         </div>
-      }
-    >
-      <div className="fp-step-content" key={step}>
-        {renderContent()}
+
+        <div className="fp-step-content" key={step}>
+          {renderContent()}
+        </div>
       </div>
-    </Card>
+    </div>
   );
 
   const RightSection = (
-    <div className="w-100 h-100">
-      <img
-        src={salonImg}
-        alt="salon"
-        className="w-100 h-100 object-fit-cover position-absolute top-0 start-0"
-        style={{ zIndex: 0 }}
-      />
-      <div
-        className="right-overlay position-absolute top-0 start-0 w-100 h-100"
-        style={{ zIndex: 1, backgroundColor: "rgba(0,0,0,0.1)" }}
-      ></div>
+    <div className="fp-right">
+      <img src={salonImg} alt="salon" className="fp-right__img" />
+      <div className="fp-right__overlay" />
+      <div className="fp-right__content">
+        <div className="fp-badge">
+          <span className="fp-badge__dot" />
+          Trusted by 10,000+ salons across India
+        </div>
+        <div className="fp-testimonial">
+          <div className="fp-testimonial__stars">
+            {[1,2,3,4,5].map(i => (
+              <svg key={i} width="15" height="15" viewBox="0 0 24 24" fill="#C9A96E">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+            ))}
+          </div>
+          <blockquote className="fp-testimonial__quote">
+            "Recovering my account was effortless. The salonox team really thought of everything."
+          </blockquote>
+          <cite>
+            <div className="fp-testimonial__name">Aarti Menon</div>
+            <div className="fp-testimonial__role">Owner, Bliss Salon · Bengaluru</div>
+          </cite>
+        </div>
+      </div>
     </div>
   );
 
@@ -439,7 +319,7 @@ export default function ForgotPasswordPage() {
     <SplitLayout
       leftContent={LeftSection}
       rightContent={RightSection}
-      className="login-page-bg"
+      className="fp-root"
     />
   );
 }

@@ -22,8 +22,8 @@ export const loginThunk = createAsyncThunk<
     const res = await api.post<LoginResponse>(AUTH.LOGIN, payload);
     return res.data.data;
   } catch (err: any) {
-    if (err instanceof ApiError) return rejectWithValue(err.message);
-    return rejectWithValue("Invalid email or password");
+    if (err instanceof ApiError) return rejectWithValue("Invalid credentials.");
+    return rejectWithValue("Invalid credentials.");
   }
 });
 

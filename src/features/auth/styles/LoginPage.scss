@@ -4,6 +4,10 @@
 // ═══════════════════════════════════════════════════
 @use 'sass:color';
 
+// hide browser-native password eye icon globally for this page
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear { display: none; }
+
 // ── Tokens ──────────────────────────────────────────
 $gold:       #C9A96E;
 $gold-light: #E2C99A;
@@ -210,6 +214,10 @@ letter-spacing: -0.03em;
     &.is-invalid {
       border-color: #E05C5C !important;
     }
+
+    // hide browser-native password reveal button (Edge / IE)
+    &::-ms-reveal,
+    &::-ms-clear { display: none; }
   }
 }
 

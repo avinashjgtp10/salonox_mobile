@@ -3,11 +3,10 @@ import "../styles/onboarding-layout.scss";
 
 // ── Step → section mapping ────────────────────────────────────────────────────
 const SECTIONS = [
-  { key: "account",   label: "Account",      routes: ["/account-type"] },
   { key: "business",  label: "Business",     routes: ["/business-name", "/service-type"] },
   { key: "team",      label: "Team",         routes: ["/team-setup", "/team-size"] },
   { key: "location",  label: "Location",     routes: ["/business-location", "/venue-location"] },
-  { key: "finishing", label: "Finishing up", routes: ["/previous-software", "/recommendation-source"] },
+  { key: "finishing", label: "Finishing up", routes: ["/recommendation-source"] },
 ];
 
 

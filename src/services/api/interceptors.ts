@@ -107,7 +107,10 @@ export const applyInterceptors = (instance: AxiosInstance) => {
       const message = data?.error?.message ?? data?.message ?? "Something went wrong";
 
       // ── 401: silent token refresh ──────────────────────────────────────────
-      if (status === 401 && !originalRequest._retry) {
+      // Skip refresh for public routes (e.g. /login returning 401 for wrong credentials)
+      const isPublicRequest = PUBLIC_ROUTES.some(route => originalRequest.url?.includes(route));
+
+      if (status === 401 && !originalRequest._retry && !isPublicRequest) {
         if (isRefreshing) {
           return new Promise<string>((resolve, reject) => {
             failedQueue.push({ resolve, reject });
