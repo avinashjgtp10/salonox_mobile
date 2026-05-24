@@ -1,163 +1,279 @@
 @use './marketing-tokens' as *;
 
-.mkt-page {
-  padding: 24px 28px;
-  background: #fff;
-  min-height: 100%;
-}
+// ── Page ──────────────────────────────────────────────────────────────────────
+.mkt-page { padding: 24px 28px; background: #f9fafb; min-height: 100%; }
 
+// ── Header ────────────────────────────────────────────────────────────────────
 .mkt-page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 24px;
-  padding-bottom: 16px;
-  border-bottom: 0.5px solid $gray-200;
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e5e7eb;
+}
+.mkt-page-title { font-size: 22px; font-weight: 600; color: #111827; margin: 0 0 3px; }
+.mkt-page-sub   { font-size: 13px; color: #6b7280; margin: 0; }
+
+.mkt-header-btns { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+// ── Filter button ─────────────────────────────────────────────────────────────
+.mkt-filter-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 500; color: #6b7280;
+  background: #fff; border: 1px solid #e5e7eb;
+  border-radius: 8px; padding: 7px 12px;
+  cursor: pointer; transition: all 0.15s; position: relative; white-space: nowrap;
+  &:hover { border-color: #9ca3af; color: #111827; }
+  &--active { border-color: #111827; color: #111827; }
+  &--has    { border-color: #111827; }
+}
+.mkt-filter-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #10b981; position: absolute; top: 4px; right: 4px;
 }
 
-.mkt-page-title { font-size: 16px; font-weight: 500; color: $black; margin: 0 0 3px; }
-.mkt-page-sub   { font-size: 12px; color: $gray-400; margin: 0; }
-.mkt-header-btns { display: flex; gap: 8px; align-items: center; }
-
-.mkt-btn-primary {
-  background: $black; color: #fff; border: none;
-  font-size: 12px; font-weight: 500; padding: 7px 14px;
-  border-radius: $radius-md; cursor: pointer;
-  &:hover { background: #333; }
+// ── WA Banner ─────────────────────────────────────────────────────────────────
+.mkt-wa-banner {
+  display: flex; align-items: center; justify-content: space-between;
+  background: #fff; border: 1px solid #e5e7eb;
+  border-radius: 10px; padding: 10px 16px;
+  margin-bottom: 16px; gap: 12px;
+}
+.mkt-wa-banner-left {
+  display: flex; align-items: center; gap: 8px;
+  flex-wrap: wrap; font-size: 13px; color: #374151;
+}
+.mkt-wa-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #25d366; flex-shrink: 0;
+}
+.mkt-wa-phone   { font-weight: 600; color: #111827; }
+.mkt-wa-sep     { color: #d1d5db; }
+.mkt-wa-tier    { color: #6b7280; font-size: 12px; }
+.mkt-wa-quality { font-size: 12px; font-weight: 500; }
+.mkt-wa-config-link {
+  font-size: 12px; font-weight: 500; color: #374151;
+  background: #fff; border: 1px solid #e5e7eb;
+  border-radius: 8px; padding: 6px 14px;
+  cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: all 0.15s;
+  &:hover { border-color: #374151; }
 }
 
-.mkt-btn-outline {
-  background: transparent; color: $gray-500;
-  border: 0.5px solid $gray-200; font-size: 12px;
-  padding: 7px 14px; border-radius: $radius-md; cursor: pointer;
-  &:hover { border-color: $gray-400; color: $black; }
+// ── Limit banners ─────────────────────────────────────────────────────────────
+.mkt-limit-banner {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border-radius: 10px; margin-bottom: 14px;
+  &--exhausted { background: #fef2f2; border: 1px solid #fecaca; }
+  &--warning   { background: #fffbeb; border: 1px solid #fde68a; }
+}
+.mkt-limit-icon { font-size: 18px; flex-shrink: 0; }
+.mkt-limit-text {
+  flex: 1; display: flex; flex-direction: column; gap: 2px;
+  strong { font-size: 13px; color: #111827; }
+  span   { font-size: 12px; color: #6b7280; }
+}
+.mkt-limit-cta {
+  font-size: 12px; font-weight: 500; color: #374151;
+  background: #fff; border: 1px solid #e5e7eb;
+  border-radius: 8px; padding: 6px 12px; cursor: pointer; flex-shrink: 0;
+  &:hover { border-color: #9ca3af; }
 }
 
+// ── Filter panel ──────────────────────────────────────────────────────────────
+.mkt-filter-panel {
+  background: #fff; border: 1px solid #e5e7eb;
+  border-radius: 10px; padding: 14px; margin-bottom: 14px;
+}
+.mkt-filter-row   { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; }
+.mkt-filter-group { display: flex; flex-direction: column; gap: 6px; }
+.mkt-filter-label { font-size: 10px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; }
+.mkt-filter-dates { display: flex; align-items: center; gap: 8px; }
+.mkt-date-input {
+  font-size: 12px; color: #111827; border: 1px solid #e5e7eb;
+  border-radius: 8px; padding: 6px 10px; background: #fff; outline: none;
+  &:focus { border-color: #10b981; }
+}
+.mkt-date-sep    { font-size: 12px; color: #d1d5db; }
+.mkt-pill-group  { display: flex; gap: 4px; flex-wrap: wrap; }
+.mkt-pill {
+  font-size: 11px; font-weight: 500; color: #6b7280;
+  background: #fff; border: 1px solid #e5e7eb;
+  border-radius: 20px; padding: 4px 12px; cursor: pointer; transition: all 0.15s;
+  &:hover    { border-color: #9ca3af; color: #111827; }
+  &--active  { background: #111827; color: #fff; border-color: #111827; }
+}
+.mkt-filter-clear {
+  font-size: 11px; color: #9ca3af; background: none;
+  border: none; cursor: pointer; text-decoration: underline;
+  &:hover { color: #ef4444; }
+}
+.mkt-filter-note { font-size: 11px; color: #9ca3af; margin-top: 10px; padding-top: 10px; border-top: 1px solid #f3f4f6; }
+
+// ── Pending banner ────────────────────────────────────────────────────────────
+.mkt-pending-banner {
+  display: flex; align-items: center; gap: 10px;
+  background: #fffbeb; border: 1px solid #fde68a;
+  border-radius: 10px; padding: 10px 14px;
+  margin-bottom: 14px; cursor: pointer;
+  &:hover { background: #fef3c7; }
+}
+.mkt-pending-pulse {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #f59e0b; flex-shrink: 0;
+  animation: mkt-pulse 1.5s infinite;
+}
+.mkt-pending-text  { font-size: 12px; color: #92400e; flex: 1; strong { font-weight: 600; } }
+.mkt-pending-names { color: #b45309; }
+.mkt-pending-cta   { font-size: 12px; font-weight: 500; color: #92400e; white-space: nowrap; }
+
+// ── Loading ───────────────────────────────────────────────────────────────────
+.mkt-loading { padding: 48px; text-align: center; font-size: 13px; color: #9ca3af; }
+
+// ── KPI Grid — 5 columns ──────────────────────────────────────────────────────
 .mkt-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 1px;
-  background: $gray-200;
-  border: 0.5px solid $gray-200;
-  border-radius: $radius-lg;
-  overflow: hidden;
-  margin-bottom: 20px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
 }
-
 .mkt-kpi-card {
-  background: #fff;
-  padding: 16px;
-  position: relative;
-  transition: background 0.15s;
-  &:hover { background: $gray-50; }
+  background: #fff; border: 1px solid #e5e7eb;
+  border-radius: 10px; padding: 16px;
+  border-left: 3px solid transparent;
+  transition: box-shadow 0.15s;
+  &:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+}
+.mkt-kpi-top   { margin-bottom: 8px; }
+.mkt-kpi-icon  { font-size: 18px; }
+.mkt-kpi-value { font-size: 26px; font-weight: 700; color: #111827; letter-spacing: -0.5px; margin-bottom: 2px; }
+.mkt-kpi-label { font-size: 10px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+.mkt-kpi-sub   { font-size: 11px; color: #6b7280; }
+
+// ── Usage bar ─────────────────────────────────────────────────────────────────
+.mkt-usage-bar-wrap {
+  background: #fff; border: 1px solid #e5e7eb;
+  border-radius: 10px; padding: 14px 16px; margin-bottom: 16px;
+}
+.mkt-usage-bar-header {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
+}
+.mkt-usage-bar-label {
+  font-size: 12px; font-weight: 500; color: #374151; display: flex; align-items: center; gap: 8px;
+}
+.mkt-usage-bar-nums { font-size: 11px; color: #9ca3af; }
+.mkt-usage-bar-pct  { font-size: 12px; font-weight: 600; }
+.mkt-usage-track    { height: 6px; background: #f3f4f6; border-radius: 3px; overflow: hidden; }
+.mkt-usage-fill {
+  height: 100%; background: #10b981; border-radius: 3px; transition: width 0.4s ease;
+  &--warning   { background: #f59e0b; }
+  &--exhausted { background: #ef4444; }
+}
+.mkt-usage-hint {
+  font-size: 11px; margin-top: 6px;
+  &--red   { color: #ef4444; }
+  &--amber { color: #f59e0b; }
 }
 
-.mkt-kpi-accent {
-  width: 2px; height: 20px; border-radius: 2px;
-  position: absolute; left: 0; top: 50%; transform: translateY(-50%);
-}
-
-.mkt-kpi-value {
-  font-size: 22px; font-weight: 500; color: $black;
-  letter-spacing: -0.5px; line-height: 1; margin-bottom: 5px;
-}
-
-.mkt-kpi-label {
-  font-size: 10px; color: $gray-400; font-weight: 500;
-  text-transform: uppercase; letter-spacing: 0.5px;
-}
-
-.mkt-kpi-sub { font-size: 10px; color: $green; margin-top: 4px; }
-
-.mkt-bottom-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-}
-
+// ── Generic card ──────────────────────────────────────────────────────────────
 .mkt-card {
-  background: $gray-50;
-  border: 0.5px solid $gray-200;
-  border-radius: $radius-lg;
-  padding: 16px;
+  background: #fff; border: 1px solid #e5e7eb;
+  border-radius: 10px; padding: 16px; margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
 }
+.mkt-card-title    { font-size: 13px; font-weight: 600; color: #111827; margin-bottom: 14px; }
+.mkt-card-subtitle { font-size: 11px; color: #9ca3af; margin-top: -10px; margin-bottom: 12px; }
 
-.mkt-card-title {
-  font-size: 10px; color: $gray-400; font-weight: 500;
-  text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 14px;
+// ── Campaign performance card ──────────────────────────────────────────────────
+.mkt-perf-card   { padding-bottom: 0; }
+.mkt-perf-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.mkt-view-all    {
+  font-size: 12px; font-weight: 500; color: #6b7280;
+  background: none; border: none; cursor: pointer;
+  &:hover { color: #111827; text-decoration: underline; }
 }
+.mkt-table-empty { font-size: 13px; color: #9ca3af; text-align: center; padding: 32px; }
 
-.mkt-funnel { display: flex; flex-direction: column; gap: 10px; }
-
-.mkt-funnel-row { display: flex; align-items: center; gap: 10px; }
-
-.mkt-funnel-label { font-size: 11px; color: $gray-400; width: 65px; flex-shrink: 0; }
-
-.mkt-funnel-track {
-  flex: 1; height: 4px; background: $gray-100; border-radius: 2px; overflow: hidden;
-}
-
-.mkt-funnel-fill { height: 100%; border-radius: 2px; transition: width 0.4s ease; }
-
-.mkt-funnel-val { font-size: 11px; color: $gray-500; width: 42px; text-align: right; }
-
-.mkt-bar-chart {
-  display: flex; align-items: flex-end; gap: 3px; height: 80px; margin-top: 8px;
-}
-
-.mkt-bar-col {
-  flex: 1; display: flex; flex-direction: column;
-  align-items: center; height: 100%; justify-content: flex-end;
-}
-
-.mkt-bar-wrap { width: 100%; display: flex; align-items: flex-end; flex: 1; }
-
-.mkt-bar {
-  width: 100%; background: $black; border-radius: 2px 2px 0 0;
-  min-height: 2px; transition: height 0.3s ease; cursor: pointer;
-  &:hover { background: $green; }
-}
-
-.mkt-bar-label {
-  font-size: 8px; color: $gray-300; margin-top: 3px;
-  white-space: nowrap; overflow: hidden;
-}
-
-.mkt-loading {
-  padding: 48px; text-align: center;
-  font-size: 13px; color: $gray-400;
-}
-
-// Shared table styles used on dashboard
+// ── Table ─────────────────────────────────────────────────────────────────────
 .mkt-table {
-  width: 100%; border-collapse: collapse;
-  thead th {
-    font-size: 10px; color: $gray-400; font-weight: 500;
-    text-transform: uppercase; letter-spacing: 0.6px;
-    padding: 10px 14px; text-align: left; border-bottom: 0.5px solid $gray-200;
+  width: 100%; border-collapse: collapse; font-size: 12px;
+  thead tr { background: #f9fafb; border-bottom: 1px solid #e5e7eb; }
+  th {
+    padding: 10px 12px; text-align: left;
+    font-size: 10px; color: #9ca3af; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;
   }
-  tbody tr { transition: background 0.1s; &:hover td { background: $gray-50; } }
-  tbody td {
-    padding: 10px 14px; border-bottom: 0.5px solid #f5f5f5;
-    font-size: 12px; color: $gray-500; vertical-align: middle;
-    &:first-child { color: $black; font-weight: 500; }
-  }
+  tbody tr { border-bottom: 1px solid #f9fafb; transition: background 0.1s; }
+  td { padding: 10px 12px; color: #6b7280; vertical-align: middle; }
 }
+.mkt-campaign-row { cursor: pointer; &:hover { background: #f9fafb; } }
+.mkt-campaign-name { font-size: 13px; font-weight: 500; color: #111827; }
+.mkt-camp-name-cell { display: flex; align-items: center; gap: 6px; }
+.mkt-rank-badge     { font-size: 14px; }
+.mkt-td-fail        { color: #ef4444 !important; font-weight: 500; }
+.mkt-td-date        { color: #9ca3af; font-size: 11px; }
 
-.prog-track {
-  height: 3px; background: $gray-100; border-radius: 2px;
-  overflow: hidden; display: inline-block; width: 80px;
-  vertical-align: middle; margin-right: 6px;
-}
-.prog-fill { height: 100%; background: $green; border-radius: 2px; }
+// ── Rate bar ──────────────────────────────────────────────────────────────────
+.mkt-rate-bar-wrap  { display: flex; align-items: center; gap: 8px; }
+.mkt-rate-bar-track { flex: 1; height: 4px; background: #f3f4f6; border-radius: 2px; overflow: hidden; min-width: 60px; }
+.mkt-rate-bar-fill  { height: 100%; border-radius: 2px; }
+.mkt-rate-bar-pct   { font-size: 11px; font-weight: 500; white-space: nowrap; min-width: 32px; }
 
-.bdg {
-  display: inline-flex; align-items: center;
-  font-size: 10px; font-weight: 500;
-  padding: 2px 8px; border-radius: 20px;
+// ── Bottom row ────────────────────────────────────────────────────────────────
+.mkt-bottom-row    { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.mkt-funnel        { display: flex; flex-direction: column; gap: 10px; }
+.mkt-funnel-row    { display: flex; align-items: center; gap: 10px; }
+.mkt-funnel-label  { font-size: 12px; color: #6b7280; width: 60px; flex-shrink: 0; }
+.mkt-funnel-track  { flex: 1; height: 8px; background: #f3f4f6; border-radius: 4px; overflow: hidden; }
+.mkt-funnel-fill   { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+.mkt-funnel-val    { font-size: 12px; font-weight: 600; color: #111827; width: 50px; text-align: right; flex-shrink: 0; }
+.mkt-funnel-pct    { font-size: 11px; color: #9ca3af; width: 36px; text-align: right; flex-shrink: 0; }
+.mkt-funnel-note   { font-size: 10px; color: #9ca3af; margin-top: 8px; }
+.mkt-chart-empty   { font-size: 12px; color: #9ca3af; text-align: center; padding: 40px; }
+.mkt-chart-tooltip {
+  background: #111827; color: #fff; border-radius: 6px; padding: 8px 12px;
+  font-size: 11px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
-.bdg-green  { background: #f0fdf4; color: #16a34a; }
-.bdg-gray   { background: $gray-100; color: $gray-500; border: 0.5px solid $gray-200; }
-.bdg-red    { background: rgba(239,68,68,0.1); color: #ef4444; }
-.bdg-amber  { background: rgba(245,158,11,0.1); color: #f59e0b; }
-.bdg-black  { background: $black; color: #fff; }
+.mkt-ct-date { color: #9ca3af; margin-bottom: 2px; }
+.mkt-ct-val  { font-weight: 600; }
+
+// ── Insights row ──────────────────────────────────────────────────────────────
+.mkt-insight-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.mkt-insight-card { margin-bottom: 0 !important; }
+
+// ── Template list ─────────────────────────────────────────────────────────────
+.mkt-template-list { display: flex; flex-direction: column; gap: 10px; }
+.mkt-template-row  { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid #f9fafb; &:last-child { border-bottom: none; } }
+.mkt-template-rank { width: 20px; height: 20px; border-radius: 50%; background: #f3f4f6; color: #6b7280; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.mkt-template-info { flex: 1; min-width: 0; }
+.mkt-template-name { font-size: 13px; font-weight: 500; color: #111827; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mkt-template-meta { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+.mkt-template-rates { display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; }
+.mkt-template-rate  { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #6b7280; }
+.mkt-rate-dot       { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+// ── Engaged contacts ──────────────────────────────────────────────────────────
+.mkt-engaged-list   { display: flex; flex-direction: column; gap: 8px; }
+.mkt-engaged-row    { display: flex; align-items: center; gap: 12px; padding: 6px 0; border-bottom: 1px solid #f9fafb; &:last-child { border-bottom: none; } }
+.mkt-engaged-avatar { width: 32px; height: 32px; border-radius: 50%; background: #111827; color: #fff; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.mkt-engaged-info   { flex: 1; min-width: 0; }
+.mkt-engaged-name   { font-size: 13px; font-weight: 500; color: #111827; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mkt-engaged-phone  { font-size: 11px; color: #9ca3af; }
+.mkt-engaged-stats  { display: flex; gap: 12px; flex-shrink: 0; }
+.mkt-engaged-stat   { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.mkt-engaged-val    { font-size: 14px; font-weight: 700; color: #111827; line-height: 1; }
+.mkt-engaged-label  { font-size: 9px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.4px; }
+
+// ── Empty state ───────────────────────────────────────────────────────────────
+.mkt-empty-state   { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 64px 24px; text-align: center; }
+.mkt-empty-icon    { font-size: 48px; }
+.mkt-empty-title   { font-size: 20px; font-weight: 600; color: #111827; }
+.mkt-empty-sub     { font-size: 14px; color: #6b7280; max-width: 420px; line-height: 1.6; }
+.mkt-empty-actions { display: flex; gap: 10px; }
+.mkt-empty-steps   { display: flex; gap: 20px; margin-top: 8px; }
+.mkt-step          { display: flex; align-items: flex-start; gap: 10px; max-width: 200px; text-align: left; }
+.mkt-step-num      { width: 24px; height: 24px; border-radius: 50%; background: #111827; color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+.mkt-step-text     { font-size: 12px; color: #6b7280; line-height: 1.5; }
+.mkt-link          { font-size: 13px; color: #3b82f6; background: none; border: none; cursor: pointer; text-decoration: underline; }
+
+// ── Animations ────────────────────────────────────────────────────────────────
+@keyframes mkt-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
