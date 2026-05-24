@@ -16,14 +16,20 @@ export default function MarketingSubSidebar({ onClose }: Props) {
       <div className="sub-category">WhatsApp</div>
 
       <NavLink to="/dashboard/marketing" end className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
-        <i className="ti ti-layout-dashboard" aria-hidden="true" /> Dashboard
-      </NavLink>
-      <NavLink to="/dashboard/marketing/templates" className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
-        <i className="ti ti-template" aria-hidden="true" /> Templates
-      </NavLink>
-      <NavLink to="/dashboard/marketing/campaigns/create" className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
-        <i className="ti ti-send" aria-hidden="true" /> Blast Campaigns
-      </NavLink>
+  <i className="ti ti-layout-dashboard" aria-hidden="true" /> Dashboard
+</NavLink>
+
+<NavLink to="/dashboard/marketing/analytics" className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
+  <i className="ti ti-chart-bar" aria-hidden="true" /> Analytics
+</NavLink>
+
+<NavLink to="/dashboard/marketing/templates" className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
+  <i className="ti ti-template" aria-hidden="true" /> Templates
+</NavLink>
+
+<NavLink to="/dashboard/marketing/campaigns/create" className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
+  <i className="ti ti-send" aria-hidden="true" /> Blast Campaigns
+</NavLink>
       <NavLink to="/dashboard/marketing/campaigns/history" className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
         <i className="ti ti-history" aria-hidden="true" /> Campaign History
       </NavLink>

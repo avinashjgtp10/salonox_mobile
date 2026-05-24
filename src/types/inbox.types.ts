@@ -17,7 +17,9 @@ export interface WAMessage {
   body:           string
   wamid:          string | null
   status:         'SENT' | 'DELIVERED' | 'READ' | 'FAILED' | null
-  sent_at:        string   // ← matches backend DB column
+  sent_at:        string
   delivered_at:   string | null
   read_at:        string | null
+  media_type:     'image' | 'video' | 'document' | null   // ← add
+  media_url:      string | null                            // ← add
 }

@@ -1,25 +1,32 @@
-export const MARKETING = {
-  // ── Templates ───────────────────────────────────────────────────────────────
-  TEMPLATES:      "/api/v1/templates",
-  TEMPLATE_BY_ID: (id: string | number) => `/api/v1/templates/${id}`,
-  TEMPLATE_SYNC:  (id: string | number) => `/api/v1/templates/${id}/sync`,
+export const MARKETING_ENDPOINTS = {
+  TEMPLATES:         '/api/v1/templates',
+  TEMPLATE_BY_ID:    (id: string | number) => `/api/v1/templates/${id}`,
+  TEMPLATE_SYNC:     (id: string | number) => `/api/v1/templates/${id}/sync`,
+  TEMPLATE_FAVORITE: (id: string | number) => `/api/v1/templates/${id}/favorite`,
 
-  // ── Campaigns ───────────────────────────────────────────────────────────────
-  CAMPAIGNS:          "/api/v1/campaigns",
-  CAMPAIGN_BY_ID:     (id: string | number) => `/api/v1/campaigns/${id}`,
-  CAMPAIGN_PAUSE:     (id: string | number) => `/api/v1/campaigns/${id}/pause`,
-  CAMPAIGN_RESUME:    (id: string | number) => `/api/v1/campaigns/${id}/resume`,
-  CAMPAIGN_CONTACTS:  (id: string | number) => `/api/v1/campaigns/${id}/contacts`,
-  CAMPAIGN_REPORT:    (id: string | number, type: string) => `/api/v1/campaigns/${id}/report/${type}`,
+  CAMPAIGNS:         '/api/v1/campaigns',
+  CAMPAIGN_BY_ID:    (id: string | number) => `/api/v1/campaigns/${id}`,
+  CAMPAIGN_PAUSE:    (id: string | number) => `/api/v1/campaigns/${id}/pause`,
+  CAMPAIGN_RESUME:   (id: string | number) => `/api/v1/campaigns/${id}/resume`,
+  CAMPAIGN_CONTACTS: (id: string | number) => `/api/v1/campaigns/${id}/contacts`,
+  CAMPAIGN_REPORT:   (id: string | number, type: string) => `/api/v1/campaigns/${id}/report/${type}`,
 
-  // ── Webhooks ──────────────────────────────────────────────────────────────
-  WEBHOOK_EVENTS: "/api/v1/webhooks/events",   // ✓ confirmed in webhooks.routes.ts
+  WEBHOOK_EVENTS: '/api/v1/webhooks/events',
 
-  // ── WhatsApp Config ───────────────────────────────────────────────────────
-  // FIX: was /api/v1/settings/whatsapp — backend registers at /api/v1/wa-config
-  WA_CONFIG:      "/api/v1/wa-config",
-  WA_CONFIG_TEST: "/api/v1/wa-config/test",    // ✓ confirmed in config.routes.ts (POST /test)
+  WA_CONFIG:              '/api/v1/wa-config',
+  WA_CONFIG_TEST:         '/api/v1/wa-config/test',
+  WA_CONFIG_SYNC:         '/api/v1/wa-config/sync-limits',
+  WA_CONFIG_VERIFY_PHONE: '/api/v1/wa-config/verify-phone',
+  WA_CONFIG_VERIFY_APP:   '/api/v1/wa-config/verify-app',
+  WA_CONFIG_VERIFY_TOKEN: '/api/v1/wa-config/verify-token',
+  WA_CONFIG_VERIFY_ALL:   '/api/v1/wa-config/verify-all',
 
-  // ── Dashboard ─────────────────────────────────────────────────────────────
-  DASHBOARD_STATS: "/api/v1/marketing/dashboard/stats",
+  DASHBOARD_STATS: '/api/v1/marketing/dashboard/stats',
+  ANALYTICS:       '/api/v1/marketing/analytics',
+
+  INBOX_CONVERSATIONS: '/api/v1/inbox/conversations',
+  INBOX_MESSAGES:      (phone: string) => `/api/v1/inbox/conversations/${phone}/messages`,
+  INBOX_REPLY:         (phone: string) => `/api/v1/inbox/conversations/${phone}/reply`,
+
+  
 } as const;

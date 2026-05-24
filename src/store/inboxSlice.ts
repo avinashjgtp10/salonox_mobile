@@ -38,13 +38,22 @@ const inboxSlice = createSlice({
   name: 'inbox',
   initialState,
   reducers: {
+
     setActivePhone(state, { payload }: PayloadAction<string | null>) {
       state.activePhone = payload
-      if (payload === null) state.messages = []
+      if (payload === null) {
+        state.messages = []
+      } else {
+        // ✅ instantly zero unread badge when conversation is opened
+        const conv = state.conversations.find(c => c.contactPhone === payload)
+        if (conv) conv.unreadCount = 0
+      }
     },
+
     clearInboxError(state) {
       state.error = null
     },
+
     // Called by socket: new inbound message arrived
     receiveMessage(state, { payload }: PayloadAction<{
       contactPhone: string
@@ -58,9 +67,9 @@ const inboxSlice = createSlice({
       // Update conversation preview + unread badge
       const conv = state.conversations.find(c => c.contactPhone === payload.contactPhone)
       if (conv) {
-        conv.lastMessage    = payload.message.body
-        conv.lastMessageAt  = payload.message.sent_at
-        // Only increment unread if this convo isn't open
+        conv.lastMessage   = payload.message.body
+        conv.lastMessageAt = payload.message.sent_at
+        // Only increment unread if this convo isn't currently open
         if (state.activePhone !== payload.contactPhone) {
           conv.unreadCount = (conv.unreadCount ?? 0) + 1
         }
@@ -76,16 +85,20 @@ const inboxSlice = createSlice({
         })
       }
     },
+
     // Called by socket: full refreshed conversation list
     receiveConversations(state, { payload }: PayloadAction<WAConversation[]>) {
-      // Normalize snake_case from socket payload (same as thunk)
+      const activePhone = state.activePhone
       state.conversations = payload.map((c: any) => ({
         id:            c.id,
         contactPhone:  c.contact_phone  ?? c.contactPhone  ?? '',
         contactName:   c.contact_name   ?? c.contactName   ?? null,
         lastMessage:   c.last_message   ?? c.lastMessage   ?? '',
         lastMessageAt: c.last_message_at ?? c.lastMessageAt ?? null,
-        unreadCount:   c.unread_count   ?? c.unreadCount   ?? 0,
+        // ✅ keep unread=0 for currently open conversation even after socket refresh
+        unreadCount:   (c.contact_phone ?? c.contactPhone) === activePhone
+          ? 0
+          : (c.unread_count ?? c.unreadCount ?? 0),
       }))
     },
   },
@@ -99,7 +112,12 @@ const inboxSlice = createSlice({
       })
       .addCase(fetchConversationsThunk.fulfilled, (state, { payload }) => {
         state.loading.fetchConversations = false
-        state.conversations = payload
+        // ✅ keep unread=0 for currently open conversation
+        const activePhone = state.activePhone
+        state.conversations = payload.map((c: any) => ({
+          ...c,
+          unreadCount: c.contactPhone === activePhone ? 0 : (c.unreadCount ?? 0),
+        }))
       })
       .addCase(fetchConversationsThunk.rejected, (state, { payload }) => {
         state.loading.fetchConversations = false
@@ -133,7 +151,7 @@ const inboxSlice = createSlice({
         const conv = state.conversations.find(c => c.contactPhone === payload.phone)
         if (conv) {
           conv.lastMessage   = payload.message.body
-          conv.lastMessageAt = payload.message.sent_at  // ✅ fixed
+          conv.lastMessageAt = payload.message.sent_at
         }
       })
       .addCase(sendReplyThunk.rejected, (state, { payload }) => {
