@@ -20,6 +20,7 @@ interface Props {
   onChange?: (val: string) => void;
   disabled?: boolean;
   hasError?: boolean;
+  onNoResults?: (query: string) => void;
 }
 
 const RECENT_KEY = "client_recent_searches";
@@ -61,18 +62,20 @@ function HighlightText({ text, query }: { text: string; query: string }) {
 
 export default function ClientSearchInput({
   onSelect,
-  placeholder = "Search by Name / Phone (min 2 chars)",
+  placeholder = "Search client by 10 digit mobile number",
   highlight = true,
   value,
   onChange,
   disabled,
   hasError,
+  onNoResults,
 }: Props) {
   const [query, setQuery]       = useState(value ?? "");
   const [results, setResults]   = useState<ClientSearchResult[]>([]);
   const [loading, setLoading]   = useState(false);
   const [searched, setSearched] = useState(false); // did we complete at least one search for current query?
   const [error, setError]       = useState<string | null>(null);
+  const [touched, setTouched]   = useState(false);
   const [open, setOpen]         = useState(false);
   const [recent, setRecent]     = useState<string[]>(getRecent());
 
@@ -134,8 +137,8 @@ export default function ClientSearchInput({
   // ── Backend search ─────────────────────────────────────────────────────────
 
   const search = useCallback(async (term: string) => {
-    // Guard: walk-in or too short — clear results, stay closed
-    if (term.length < 2 || /^walk.?in$/i.test(term)) {
+    // Guard: only search for exactly 10-digit mobile number
+    if (term.length !== 10 || /^walk.?in$/i.test(term)) {
       setResults([]);
       setLoading(false);
       setSearched(false);
@@ -156,8 +159,12 @@ export default function ClientSearchInput({
 
       // Response shape: { data: ClientSearchResult[] }
       const raw = res.data?.data ?? res.data ?? [];
-      setResults(Array.isArray(raw) ? raw : []);
+      const resultArray = Array.isArray(raw) ? raw : [];
+      setResults(resultArray);
       setSearched(true);
+      if (resultArray.length === 0) {
+        onNoResults?.(term);
+      }
     } catch (err: any) {
       if (err?.name === "CanceledError" || err?.name === "AbortError") return;
       setError("Search failed. Check your connection and try again.");
@@ -187,9 +194,9 @@ export default function ClientSearchInput({
       setLoading(false);
       return;
     }
-
-    if (query.length < 2) {
-      // 1-char: don't search, but keep dropout closed (already set in onChange)
+    // Only trigger search when exactly 10 digits entered
+    if (query.length !== 10) {
+      setError(null);
       return;
     }
 
@@ -246,7 +253,7 @@ export default function ClientSearchInput({
   // - open=true + query >= 2 chars: show search area (loading / results / empty)
   // - open=true + query empty + recent items exist: show recent list
 
-  const showDropdown = open && (query.length >= 2 || (query.length === 0 && recent.length > 0));
+  const showDropdown = open && (query.length === 10 || (query.length === 0 && recent.length > 0));
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -280,14 +287,16 @@ export default function ClientSearchInput({
           spellCheck={false}
           id="client-search-field"
           onChange={(e) => {
-            const val = e.target.value;
-            // Update synchronously BEFORE setQuery so value-effect sees the
-            // latest user-typed string and skips the "external update" path.
+            // restrict input: allow only digits, max 10
+            let val = e.target.value.replace(/\D/g, "").slice(0, 10);
             userTypedRef.current = val;
             setQuery(val);
+            setTouched(true);
             onChange?.(val);
-            // Open dropdown for >=2 chars (search range) or empty (recents)
-            setOpen(val.length >= 2 || val.length === 0);
+            // Open dropdown only when 10 digits (search) or empty (recents)
+            setOpen(val.length === 10 || val.length === 0);
+            // clear validation error when full 10 digits entered
+            if (val.length === 10) setError(null);
           }}
           onFocus={() => {
             if (!disabled) setOpen(true);
@@ -297,6 +306,8 @@ export default function ClientSearchInput({
             // (onMouseDown+preventDefault on results keeps focus during selection,
             //  so onBlur only fires on genuine focus-away: Tab, click elsewhere.)
             cancelPending();
+            // show validation if incomplete
+            if (query.length > 0 && query.length < 10) setError("Please enter exactly 10 digits");
           }}
         />
 
@@ -310,6 +321,10 @@ export default function ClientSearchInput({
           <button className="search-clear-btn" type="button" aria-label="Clear" onClick={handleClear}>
             <X size={14} />
           </button>
+        )}
+        {/* Inline validation error */}
+        {error && (
+          <div className="client-search-error">{error}</div>
         )}
       </div>
 
