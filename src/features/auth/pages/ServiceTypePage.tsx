@@ -142,7 +142,7 @@ export default function ServiceTypePage() {
               disabled={!isValid}
               onClick={handleContinue}
             >
-              Continue <FiArrowRight size={14} className="ms-1" />
+              Continue
             </button>
           </div>
         </div>

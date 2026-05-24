@@ -4,9 +4,6 @@ import { OnboardingProvider } from "../context/OnboardingContext";
 import OnboardingGuard from "../components/guards/OnboardingGuard";
 import OnboardingLayout from "../features/auth/components/OnboardingLayout";
 
-const AccountTypePage = lazy(
-  () => import("../features/auth/pages/AccountTypePage"),
-);
 const BusinessNamePage = lazy(
   () => import("../features/auth/pages/BusinessNamePage"),
 );
@@ -22,9 +19,7 @@ const BusinessLocationPage = lazy(
 const VenueLocationPage = lazy(
   () => import("../features/auth/pages/VenueLocationPage"),
 );
-const PreviousSoftwarePage = lazy(
-  () => import("../features/auth/pages/PreviousSoftwarePage"),
-);
+
 const RecommendationSourcePage = lazy(
   () => import("../features/auth/pages/RecommendationSourcePage"),
 );
@@ -45,14 +40,13 @@ export const OnboardingRoutes = (
         </OnboardingProvider>
       }
     >
-      <Route path="/account-type" element={<AccountTypePage />} />
       <Route path="/business-name" element={<BusinessNamePage />} />
       <Route path="/service-type" element={<ServiceTypePage />} />
       <Route path="/team-setup" element={<TeamSetupPage />} />
       <Route path="/team-size" element={<TeamSizePage />} />
       <Route path="/business-location" element={<BusinessLocationPage />} />
       <Route path="/venue-location" element={<VenueLocationPage />} />
-      <Route path="/previous-software" element={<PreviousSoftwarePage />} />
+
       <Route
         path="/recommendation-source"
         element={<RecommendationSourcePage />}

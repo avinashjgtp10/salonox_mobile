@@ -34,7 +34,7 @@ export default function OAuthSuccessPage() {
     if (isOnboardingComplete) {
       navigate("/dashboard");
     } else {
-      navigate("/account-type");
+      navigate("/business-name");
     }
   }, []);
 

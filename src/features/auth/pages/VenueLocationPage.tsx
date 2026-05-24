@@ -33,16 +33,35 @@ export default function VenueLocationPage() {
   const { update } = useOnboarding();
 
   const [address, setAddress] = useState("");
+  const [manualAddress, setManualAddress] = useState("");
+  const [manualAddressError, setManualAddressError] = useState("");
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [noResults, setNoResults] = useState(false);
   const [coords, setCoords] = useState<[number, number] | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<{
+    display_name: string;
+    lat: number;
+    lon: number;
+  } | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const navigatingRef = useRef(false);
+  const justSelectedRef = useRef(false);
 
   useEffect(() => {
     if (navigatingRef.current) return;
+
+    // Skip fetch when address was just set by selecting a suggestion
+    if (justSelectedRef.current) {
+      justSelectedRef.current = false;
+      return;
+    }
+
     if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (selectedLocation && address !== selectedLocation.display_name) {
+      setSelectedLocation(null);
+    }
 
     if (address.length > 2) {
       setNoResults(false);
@@ -88,13 +107,24 @@ export default function VenueLocationPage() {
 
   const [navigating, setNavigating] = useState(false);
 
-  const doNavigate = (addr: string) => {
+  const validateManualAddress = (): boolean => {
+    const val = manualAddress.trim();
+    if (!val) {
+      setManualAddressError("Address is required");
+      return false;
+    }
+    setManualAddressError("");
+    return true;
+  };
+
+  const doNavigate = () => {
+    if (!validateManualAddress()) return;
     navigatingRef.current = true;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     setSuggestions([]);
-    update({ address: addr.trim() });
+    update({ address: manualAddress.trim() });
     setNavigating(true);
-    setTimeout(() => navigate("/previous-software"), 600);
+    setTimeout(() => navigate("/recommendation-source"), 600);
   };
 
   const selectSuggestion = (item: {
@@ -102,11 +132,14 @@ export default function VenueLocationPage() {
     lat: number;
     lon: number;
   }) => {
+    justSelectedRef.current = true;
     setAddress(item.display_name);
     setCoords([item.lat, item.lon]);
+    setSelectedLocation(item);
     setSuggestions([]);
     setNoResults(false);
-    doNavigate(item.display_name);
+    setManualAddress(item.display_name);
+    setManualAddressError("");
   };
 
   const handleGetLocation = () => {
@@ -124,10 +157,17 @@ export default function VenueLocationPage() {
           );
           const data = await res.json();
           if (data.display_name) {
+            justSelectedRef.current = true;
             setAddress(data.display_name);
             setCoords([c.latitude, c.longitude]);
+            setSelectedLocation({
+              display_name: data.display_name,
+              lat: c.latitude,
+              lon: c.longitude
+            });
             setSuggestions([]);
-            doNavigate(data.display_name);
+            setManualAddress(data.display_name);
+            setManualAddressError("");
           }
         } catch {
           alert("Could not fetch address. Please type your location manually.");
@@ -162,6 +202,7 @@ export default function VenueLocationPage() {
               Add your primary business location so your clients can easily find you.
             </p>
 
+            {/* ── Map search row ── */}
             <div className="d-flex gap-2 align-items-center">
               <div className="position-relative flex-grow-1">
                 <HiOutlineLocationMarker
@@ -177,17 +218,9 @@ export default function VenueLocationPage() {
                   disabled={navigating}
                 />
               </div>
-              <button
-                className="btn btn-dark d-flex align-items-center justify-content-center rounded-circle shadow-sm venue-continue-btn"
-                disabled={!address.trim() || navigating}
-                onClick={() => doNavigate(address)}
-              >
-                <FiArrowRight size={18} />
-              </button>
             </div>
 
-            <AutoNavigateIndicator visible={navigating} className="mt-2" />
-
+            {/* ── Suggestions dropdown ── */}
             <div className="position-relative">
               {suggestions.length > 0 && (
                 <ul className="list-group position-absolute w-100 mt-1 suggestion-box">
@@ -202,7 +235,6 @@ export default function VenueLocationPage() {
                   ))}
                 </ul>
               )}
-
               {noResults && (
                 <div className="mt-2">
                   <small className="text-muted">
@@ -217,6 +249,51 @@ export default function VenueLocationPage() {
                 Fetching live location...
               </small>
             )}
+
+            {/* ── OR divider ── */}
+            <div className="venue-or-divider">
+              <span className="venue-or-line" />
+              <span className="venue-or-text">OR</span>
+              <span className="venue-or-line" />
+            </div>
+
+            {/* ── Manual address textarea ── */}
+            <div className="venue-manual-address">
+              <label className="venue-manual-label">
+                Manual Address
+              </label>
+              <textarea
+                className={`venue-manual-textarea${manualAddressError ? " venue-manual-textarea--error" : ""}`}
+                placeholder="Enter full business address manually"
+                value={manualAddress}
+                rows={3}
+                disabled={navigating}
+                onChange={(e) => {
+                  setManualAddress(e.target.value);
+                  if (manualAddressError) setManualAddressError("");
+                }}
+                onBlur={() => {
+                  const val = manualAddress.trim();
+                  if (!val) setManualAddressError("Address is required");
+                  else setManualAddressError("");
+                }}
+              />
+              {manualAddressError && (
+                <span className="venue-manual-error">{manualAddressError}</span>
+              )}
+            </div>
+
+            {/* ── Continue button ── */}
+            <button
+              className="btn venue-continue-full mt-3 d-flex align-items-center justify-content-center gap-2"
+              disabled={navigating}
+              onClick={doNavigate}
+            >
+              {navigating ? "Saving…" : "Continue"}
+              {!navigating && <FiArrowRight size={16} />}
+            </button>
+
+            <AutoNavigateIndicator visible={navigating} className="mt-2" />
           </div>
         </div>
 
