@@ -21,7 +21,7 @@ import type {
   InitStaff, InitService, LazyProduct, LazyMembership,
   SvcRow, ProdRow, MemRow, SelectedClient, ItemTab,
 } from "../types/quickSale.types";
-import { PAYMENT_METHODS, SPLIT_METHODS } from "../types/quickSale.types";
+import { PAYMENT_METHODS } from "../types/quickSale.types";
 import {
   makeTempId, toInitials, todayISO, formatDisplayDate,
   mapStaff, mapServices, mapProducts, mapMemberships,
@@ -61,6 +61,7 @@ export default function QuickSalePage() {
   const [client,       setClient]       = useState<SelectedClient | null>(null);
   const [clientSearch, setClientSearch] = useState("");
   const [isWalkin,     setIsWalkin]     = useState(false);
+  const [clientError,  setClientError]  = useState("");
   const [saleDate,     setSaleDate]     = useState(todayISO());
 
   const [showAddClientForm,  setShowAddClientForm]  = useState(false);
@@ -86,14 +87,11 @@ export default function QuickSalePage() {
   const [customTip,     setCustomTip]     = useState("");
   const [showCustomTip, setShowCustomTip] = useState(false);
 
-  const [paymentMethod,    setPaymentMethod]    = useState<PaymentMethod>("cash");
-  const [paymentReference, setPaymentReference] = useState("");
-  const [amountPaid,       setAmountPaid]       = useState("");
-
-  const [isSplit,      setIsSplit]      = useState(false);
-  const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>({ cash: "", card: "", upi: "" });
-
-  const splitTotal = Object.values(splitAmounts).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+  const [selectedMethods,    setSelectedMethods]    = useState<string[]>([]);
+  const [paymentReference,   setPaymentReference]   = useState("");
+  const [amountPaid,         setAmountPaid]         = useState("");
+  const [splitAmounts,       setSplitAmounts]       = useState<Record<string, string>>({ cash: "", card: "", upi: "" });
+  const [paymentMethodError, setPaymentMethodError] = useState("");
 
   const [notes,         setNotes]         = useState("");
   const [isSavingClient, setIsSavingClient] = useState(false);
@@ -140,10 +138,13 @@ export default function QuickSalePage() {
   async function ensureMembershipsLoaded() { if (!membershipsLoaded) dispatch(fetchSaleMembershipsThunk()); }
 
   // ── Derived totals ─────────────────────────────────────────────────────────
+  const isSplit = selectedMethods.length > 1;
+  const splitTotal = selectedMethods.reduce((s, id) => s + (parseFloat(splitAmounts[id] || "0")), 0);
+
   const hasItems =
     serviceRows.some((r) => r.service) ||
-    productRows.length > 0 ||
-    membershipRows.length > 0;
+    productRows.some((r) => r.productName) ||
+    membershipRows.some((r) => r.name);
 
   const serviceTotal =
     serviceRows.reduce((s, r) => s + r.total, 0) +
@@ -165,7 +166,8 @@ export default function QuickSalePage() {
   // ── Row CRUD ───────────────────────────────────────────────────────────────
   function addSvcRow() {
     setActiveTab("services");
-    setServiceRows((r) => [...r, { tempId: makeTempId(), id: "", service: "", staffId: "", time: "10:00", price: 0, qty: 1, total: 0, duration: 30, search: "", showDrop: false, discountVal: 0, discountType: "percentage" }]);
+    setServiceRows((r) => [...r, { tempId: makeTempId(), id: "", service: "", staffId: "", time: "10:00", price: 0, qty: 1, total: 0, duration: 30, search: "", showDrop: false, discountVal: 0, discountType: "percentage", errors: [] }]);
+    setErrorMsg("");
   }
   function updateSvcRow(tid: string, p: Partial<SvcRow>) { setServiceRows((r) => r.map((x) => x.tempId === tid ? { ...x, ...p } : x)); }
   function removeSvcRow(tid: string) { setServiceRows((r) => r.filter((x) => x.tempId !== tid)); }
@@ -173,7 +175,8 @@ export default function QuickSalePage() {
   async function addProdRow() {
     await ensureProductsLoaded();
     setActiveTab("products");
-    setProductRows((r) => [...r, { tempId: makeTempId(), id: "", productName: "", staffId: "", price: 0, qty: 1, total: 0, search: "", showDrop: false, stock: null, discountVal: 0, discountType: "percentage" }]);
+    setProductRows((r) => [...r, { tempId: makeTempId(), id: "", productName: "", staffId: "", price: 0, qty: 1, total: 0, search: "", showDrop: false, stock: null, discountVal: 0, discountType: "percentage", errors: [] }]);
+    setErrorMsg("");
   }
   function updateProdRow(tid: string, p: Partial<ProdRow>) { setProductRows((r) => r.map((x) => x.tempId === tid ? { ...x, ...p } : x)); }
   function removeProdRow(tid: string) { setProductRows((r) => r.filter((x) => x.tempId !== tid)); }
@@ -181,22 +184,23 @@ export default function QuickSalePage() {
   async function addMemRow() {
     await ensureMembershipsLoaded();
     setActiveTab("memberships");
-    setMembershipRows((r) => [...r, { tempId: makeTempId(), name: "", staffId: "", price: 0, qty: 1, total: 0, search: "", showDrop: false, discountVal: 0, discountType: "percentage" }]);
+    setMembershipRows((r) => [...r, { tempId: makeTempId(), name: "", staffId: "", price: 0, qty: 1, total: 0, search: "", showDrop: false, discountVal: 0, discountType: "percentage", errors: [] }]);
+    setErrorMsg("");
   }
   function updateMemRow(tid: string, p: Partial<MemRow>) { setMembershipRows((r) => r.map((x) => x.tempId === tid ? { ...x, ...p } : x)); }
   function removeMemRow(tid: string) { setMembershipRows((r) => r.filter((x) => x.tempId !== tid)); }
 
   function handleTabClick(tab: ItemTab) {
     setActiveTab(tab);
-    if (tab === "services")    addSvcRow();
-    else if (tab === "products")    addProdRow();
-    else if (tab === "memberships") addMemRow();
+    if (tab === "products")    ensureProductsLoaded();
+    if (tab === "memberships") ensureMembershipsLoaded();
   }
 
   // ── Walk-In ────────────────────────────────────────────────────────────────
   function handleWalkinClick() {
     setIsWalkin(true); setClient(null);
     setClientSearch("Walk-in"); setShowAddClientForm(false); setFormErrors([]);
+    setClientError("");
   }
 
   // ── Add client ─────────────────────────────────────────────────────────────
@@ -245,6 +249,7 @@ export default function QuickSalePage() {
       setShowAddClientForm(false);
       setNewClientFirstName(""); setNewClientLastName(""); setNewClientPhone(""); setNewClientGender("");
       setFormErrors([]);
+      setClientError("");
     } catch (err: any) {
       setErrorMsg(err?.response?.data?.message || "Failed to save client.");
     } finally { setIsSavingClient(false); }
@@ -257,9 +262,11 @@ export default function QuickSalePage() {
     setShowAddClientForm(false);
     setNewClientFirstName(""); setNewClientLastName(""); setNewClientPhone(""); setNewClientGender("");
     setIsClientSaved(false); setPhoneDuplicate(false); setFormErrors([]);
+    setClientError("");
     setNotes(""); setDiscountValue(0); setExCharges(0);
     setTipPreset(null); setCustomTip(""); setShowCustomTip(false);
-    setAmountPaid(""); setPaymentReference(""); setPaymentMethod("cash");
+    setAmountPaid(""); setPaymentReference("");
+    setSelectedMethods([]); setSplitAmounts({ cash: "", card: "", upi: "" }); setPaymentMethodError("");
     setSaleDate(todayISO()); setCurrentSaleId(null);
   }
 
@@ -281,19 +288,16 @@ export default function QuickSalePage() {
   function buildItemsPayload() {
     const lineItems: import("../../../types/sale.types").CreateSaleItemPayload[] = [
       ...serviceRows.filter((r) => r.service).map((r) => {
-        const subtotal = r.price * r.qty;
-        const disc = r.discountType === "percentage" ? (subtotal * r.discountVal) / 100 : r.discountVal;
-        return { item_type: "service" as const, name: r.service, quantity: Number(r.qty) || 0, unit_price: String(r.price), discount_amount: disc > 0 ? disc.toFixed(2) : undefined };
+        const discAmt = (r.price * (Number(r.qty) || 0) * r.discountVal) / 100;
+        return { item_type: "service" as const, name: r.service, quantity: Number(r.qty) || 0, unit_price: String(r.price), discount_amount: discAmt > 0 ? discAmt.toFixed(2) : undefined };
       }),
       ...productRows.filter((r) => r.productName).map((r) => {
-        const subtotal = r.price * r.qty;
-        const disc = r.discountType === "percentage" ? (subtotal * r.discountVal) / 100 : r.discountVal;
-        return { item_type: "product" as const, item_id: r.id || undefined, name: r.productName, quantity: Number(r.qty) || 0, unit_price: String(r.price), discount_amount: disc > 0 ? disc.toFixed(2) : undefined };
+        const discAmt = (r.price * (Number(r.qty) || 0) * r.discountVal) / 100;
+        return { item_type: "product" as const, item_id: r.id || undefined, name: r.productName, quantity: Number(r.qty) || 0, unit_price: String(r.price), discount_amount: discAmt > 0 ? discAmt.toFixed(2) : undefined };
       }),
       ...membershipRows.filter((r) => r.name).map((r) => {
-        const subtotal = r.price * r.qty;
-        const disc = r.discountType === "percentage" ? (subtotal * r.discountVal) / 100 : r.discountVal;
-        return { item_type: "membership" as const, name: r.name, quantity: Number(r.qty) || 0, unit_price: String(r.price), discount_amount: disc > 0 ? disc.toFixed(2) : undefined };
+        const discAmt = (r.price * (Number(r.qty) || 0) * r.discountVal) / 100;
+        return { item_type: "membership" as const, name: r.name, quantity: Number(r.qty) || 0, unit_price: String(r.price), discount_amount: discAmt > 0 ? discAmt.toFixed(2) : undefined };
       }),
     ];
     if (exCharges > 0) lineItems.push({ item_type: "quick" as const, name: "Extra Charges", quantity: 1, unit_price: String(exCharges) });
@@ -302,10 +306,86 @@ export default function QuickSalePage() {
 
   function buildNotes() { return notes.trim() || undefined; }
 
+  // ── Validation ────────────────────────────────────────────────────────────
+  function runValidation(): boolean {
+    let ok = true;
+
+    // 1. Client
+    if (!client && !isWalkin) {
+      setClientError(
+        showAddClientForm
+          ? "Please save the new client or cancel the form."
+          : "Please select a client or choose Walk-In."
+      );
+      ok = false;
+    } else {
+      setClientError("");
+    }
+
+    // 2. Items — compute all row errors synchronously outside state setters
+    const hasAnyRows = serviceRows.length > 0 || productRows.length > 0 || membershipRows.length > 0;
+
+    if (!hasAnyRows) {
+      setErrorMsg("Add at least one service, product or membership.");
+      ok = false;
+    } else {
+      const newSvcRows = serviceRows.map((r) => {
+        const errs: string[] = [];
+        if (!r.service)        errs.push("service");
+        if (!r.staffId)        errs.push("staff");
+        if (Number(r.qty) < 1) errs.push("qty");
+        return { ...r, errors: errs };
+      });
+      const newProdRows = productRows.map((r) => {
+        const errs: string[] = [];
+        if (!r.productName)    errs.push("product");
+        if (!r.staffId)        errs.push("staff");
+        if (Number(r.qty) < 1) errs.push("qty");
+        return { ...r, errors: errs };
+      });
+      const newMemRows = membershipRows.map((r) => {
+        const errs: string[] = [];
+        if (!r.name)           errs.push("membership");
+        if (!r.staffId)        errs.push("staff");
+        if (Number(r.qty) < 1) errs.push("qty");
+        return { ...r, errors: errs };
+      });
+
+      setServiceRows(newSvcRows);
+      setProductRows(newProdRows);
+      setMembershipRows(newMemRows);
+
+      const firstErrTab: ItemTab | null =
+        newSvcRows.some((r) => r.errors.length > 0) ? "services" :
+        newProdRows.some((r) => r.errors.length > 0) ? "products"  :
+        newMemRows.some((r) => r.errors.length > 0)  ? "memberships" :
+        null;
+
+      if (firstErrTab) {
+        setActiveTab(firstErrTab);
+        setErrorMsg("Please fix the highlighted errors in your items.");
+        ok = false;
+      } else if (ok) {
+        setErrorMsg("");
+      }
+    }
+
+    return ok;
+  }
+
+  function runPaymentValidation(): boolean {
+    if (selectedMethods.length === 0) {
+      setPaymentMethodError("Please select a payment method.");
+      return false;
+    }
+    setPaymentMethodError("");
+    return true;
+  }
+
   // ── Save Draft ─────────────────────────────────────────────────────────────
   async function handleUpdateAppointment() {
     if (!salonId) { setErrorMsg("Salon not loaded. Please refresh."); return; }
-    if (!hasItems) { setErrorMsg("Add at least one item before saving."); return; }
+    if (!runValidation()) return;
 
     setIsSubmitting(true); setErrorMsg(""); setSuccessMsg("");
     try {
@@ -336,7 +416,9 @@ export default function QuickSalePage() {
   // ── Pay Now ────────────────────────────────────────────────────────────────
   async function handleConfirmAndPay() {
     if (!salonId) { setErrorMsg("Salon not loaded. Please refresh."); return; }
-    if (!hasItems) { setErrorMsg("Add at least one service, product or membership."); return; }
+    const itemsOk   = runValidation();
+    const paymentOk = runPaymentValidation();
+    if (!itemsOk || !paymentOk) return;
 
     setIsSubmitting(true); setErrorMsg(""); setSuccessMsg("");
     try {
@@ -359,10 +441,18 @@ export default function QuickSalePage() {
         ? {
             id: saleId, payment_method: "split" as PaymentMethod, amount_paid: splitTotal,
             payment_reference: JSON.stringify(
-              Object.fromEntries(SPLIT_METHODS.filter((m) => parseFloat(splitAmounts[m.id] || "0") > 0).map((m) => [m.id, parseFloat(splitAmounts[m.id] || "0")]))
+              Object.fromEntries(
+                selectedMethods
+                  .filter((id) => parseFloat(splitAmounts[id] || "0") > 0)
+                  .map((id) => [id, parseFloat(splitAmounts[id] || "0")])
+              )
             ),
           }
-        : { id: saleId, payment_method: paymentMethod, amount_paid: parseFloat(amountPaid || grandTotal.toString()), payment_reference: paymentReference || undefined };
+        : {
+            id: saleId, payment_method: selectedMethods[0] as PaymentMethod,
+            amount_paid: parseFloat(amountPaid || grandTotal.toString()),
+            payment_reference: paymentReference || undefined,
+          };
 
       const checkoutResult = await dispatch(checkoutSaleThunk(checkoutPayload));
       if (checkoutSaleThunk.fulfilled.match(checkoutResult)) {
@@ -457,6 +547,11 @@ export default function QuickSalePage() {
                       setClientSearch(val);
                       if (isWalkin) setIsWalkin(false);
                       if (!val) setClient(null);
+                      if (val) setClientError("");
+                      // clear stale name fields on every new search keystroke
+                      setNewClientFirstName("");
+                      setNewClientLastName("");
+                      setIsClientSaved(false);
                       if (isPhoneSearch(val)) {
                         const local = extractLocalPhone(val);
                         if (local.length === 10) {
@@ -467,14 +562,15 @@ export default function QuickSalePage() {
                       }
                     }}
                     onNoResults={(term) => {
-                      if (isPhoneSearch(term)) {
+                      const digits = term.replace(/\D/g, "");
+                      if (digits.length > 0 && digits === term.trim()) {
                         const local = extractLocalPhone(term);
                         setNewClientPhone(local);
                         setPhoneDuplicate(false);
                         setFormErrors((prev) => prev.filter((x) => x !== "phone"));
                         setShowAddClientForm(true);
                         setIsClientSaved(false);
-                        if (local.replace(/\D/g, "").length === 10) checkPhoneExists(local);
+                        if (local.length === 10) checkPhoneExists(local);
                       }
                     }}
                     onSelect={(c: ClientSearchResult) => {
@@ -489,9 +585,14 @@ export default function QuickSalePage() {
                         setPhoneDuplicate(false);
                         setFormErrors((prev) => prev.filter((x) => x !== "phone"));
                       }
+                      setShowAddClientForm(false);
+                      setFormErrors([]);
+                      setClientError("");
                     }}
                     placeholder="Search client by name or phone…"
+                    hasError={!!clientError}
                   />
+                  {clientError && <div className="qs-field-error" style={{ marginTop: 4, paddingLeft: 2 }}>{clientError}</div>}
                 </div>
 
                 <button className={`qs-pill-btn${isWalkin ? " qs-pill-btn--active" : ""}`} onClick={handleWalkinClick}>
@@ -573,14 +674,17 @@ export default function QuickSalePage() {
               <button className={`qs-type-tab${activeTab === "services" ? " qs-type-tab--active" : ""}`} onClick={() => handleTabClick("services")}>
                 ✂ Services
                 {serviceRows.length > 0 && <span className="qs-type-tab__count">{serviceRows.length}</span>}
+                {serviceRows.some((r) => r.errors.length > 0) && <span className="qs-tab-error-dot" />}
               </button>
               <button className={`qs-type-tab${activeTab === "products" ? " qs-type-tab--active" : ""}`} onClick={() => handleTabClick("products")}>
                 📦 Products
                 {productRows.length > 0 && <span className="qs-type-tab__count">{productRows.length}</span>}
+                {productRows.some((r) => r.errors.length > 0) && <span className="qs-tab-error-dot" />}
               </button>
               <button className={`qs-type-tab${activeTab === "memberships" ? " qs-type-tab--active" : ""}`} onClick={() => handleTabClick("memberships")}>
                 🎫 Memberships
                 {membershipRows.length > 0 && <span className="qs-type-tab__count">{membershipRows.length}</span>}
+                {membershipRows.some((r) => r.errors.length > 0) && <span className="qs-tab-error-dot" />}
               </button>
             </div>
 
@@ -591,9 +695,10 @@ export default function QuickSalePage() {
                 {serviceRows.map((row) => (
                   <ServiceItemRow key={row.tempId} row={row} staffList={staffList} servicesList={servicesList} onUpdate={updateSvcRow} onRemove={removeSvcRow} />
                 ))}
-                {serviceRows.length === 0 && (
-                  <ItemEmptyState icon="✂️" text="No services added yet" hint="+ Click to add a service" onClick={addSvcRow} />
-                )}
+                {serviceRows.length === 0
+                  ? <ItemEmptyState icon="✂️" text="No services added yet" hint="+ Click to add a service" onClick={addSvcRow} />
+                  : <button className="qs-add-row-btn" onClick={addSvcRow}><IconPlus /> Add Service</button>
+                }
               </>
             )}
 
@@ -604,9 +709,10 @@ export default function QuickSalePage() {
                 {productRows.map((row) => (
                   <ProductItemRow key={row.tempId} row={row} staffList={staffList} productsList={productsList} onUpdate={updateProdRow} onRemove={removeProdRow} />
                 ))}
-                {productRows.length === 0 && (
-                  <ItemEmptyState icon="📦" text="No products added yet" hint="+ Click to add a product" onClick={addProdRow} />
-                )}
+                {productRows.length === 0
+                  ? <ItemEmptyState icon="📦" text="No products added yet" hint="+ Click to add a product" onClick={addProdRow} />
+                  : <button className="qs-add-row-btn" onClick={addProdRow}><IconPlus /> Add Product</button>
+                }
               </>
             )}
 
@@ -617,9 +723,10 @@ export default function QuickSalePage() {
                 {membershipRows.map((row) => (
                   <MembershipItemRow key={row.tempId} row={row} staffList={staffList} membershipsList={membershipsList} onUpdate={updateMemRow} onRemove={removeMemRow} />
                 ))}
-                {membershipRows.length === 0 && (
-                  <ItemEmptyState icon="🎫" text="No memberships added yet" hint="+ Click to add a membership" onClick={addMemRow} />
-                )}
+                {membershipRows.length === 0
+                  ? <ItemEmptyState icon="🎫" text="No memberships added yet" hint="+ Click to add a membership" onClick={addMemRow} />
+                  : <button className="qs-add-row-btn" onClick={addMemRow}><IconPlus /> Add Membership</button>
+                }
               </>
             )}
           </div>
@@ -673,13 +780,14 @@ export default function QuickSalePage() {
 
         {/* ── RIGHT SIDEBAR ── */}
         <div className="qs-sidebar">
-          <div className="qs-sidebar__scroll">
 
-            {/* Order Summary */}
-            <div className="qs-sidebar-section">
-              <div className="qs-sidebar-section__title">📋 Order Summary</div>
+          {/* Order summary — items scroll, totals fixed */}
+          <div className="qs-sidebar__order">
+            <div className="qs-order-header">📋 Order Summary</div>
 
-              {hasItems && (
+            {/* Scrollable items list */}
+            <div className="qs-order-items">
+              {hasItems ? (
                 <div className="qs-confirm-list">
                   {serviceRows.filter((r) => r.service).map((r) => (
                     <div key={r.tempId} className="qs-confirm-item">
@@ -709,14 +817,15 @@ export default function QuickSalePage() {
                     </div>
                   ))}
                 </div>
-              )}
-
-              {!hasItems && (
-                <div style={{ padding: "16px 0", textAlign: "center", color: "#9ca3af", fontSize: 13 }}>
+              ) : (
+                <div style={{ padding: "14px 0", textAlign: "center", color: "#9ca3af", fontSize: 13 }}>
                   No items added yet
                 </div>
               )}
+            </div>
 
+            {/* Fixed totals */}
+            <div className="qs-order-totals">
               <div className="qs-summary-rows">
                 <div className="qs-summary-row">
                   <span className="qs-summary-row__label">Subtotal</span>
@@ -747,41 +856,42 @@ export default function QuickSalePage() {
               </div>
 
               {paid > 0 && (
-                <div className="qs-gap-row" style={{ marginBottom: 8 }}>
+                <div className="qs-gap-row" style={{ paddingBottom: 4 }}>
                   <span className="qs-badge qs-badge--paid">✓ Paid ₹{paid.toFixed(2)}</span>
                   {due > 0 && <span className="qs-badge qs-badge--due">Due ₹{due.toFixed(2)}</span>}
                 </div>
               )}
             </div>
+          </div>
 
-            {/* Payment section */}
-            <div className="qs-sidebar-section">
-              <div className="qs-sidebar-section__title"><IconPayment /> Payment Method</div>
+          {/* Fixed payment section */}
+          <div className="qs-sidebar__payment">
+            <div className="qs-sidebar-section__title"><IconPayment /> Payment Method</div>
 
               <div className="qs-payment-grid">
                 {PAYMENT_METHODS.map((m) => (
                   <button
                     key={m.id}
-                    className={`qs-pm-card${!isSplit && paymentMethod === m.id ? " qs-pm-card--active" : ""}`}
-                    onClick={() => { setIsSplit(false); setPaymentMethod(m.id); setAmountPaid(grandTotal.toFixed(2)); }}
+                    className={`qs-pm-card${selectedMethods.includes(m.id) ? " qs-pm-card--active" : ""}`}
+                    onClick={() => {
+                      setSelectedMethods((prev) =>
+                        prev.includes(m.id) ? prev.filter((id) => id !== m.id) : [...prev, m.id]
+                      );
+                      setPaymentMethodError("");
+                    }}
                   >
                     <span className="qs-pm-card__icon">{m.icon}</span>
                     <span className="qs-pm-card__label">{m.label}</span>
                   </button>
                 ))}
-                <button
-                  className={`qs-pm-card qs-pm-card--split${isSplit ? " qs-pm-card--active" : ""}`}
-                  onClick={() => setIsSplit((v) => !v)}
-                >
-                  <span className="qs-pm-card__icon">⚡</span>
-                  <span className="qs-pm-card__label">Split</span>
-                </button>
               </div>
 
-              {!isSplit && (paymentMethod === "card" || paymentMethod === "upi") && (
+              {paymentMethodError && <div className="qs-field-error" style={{ marginBottom: 8 }}>{paymentMethodError}</div>}
+
+              {!isSplit && selectedMethods.length === 1 && (selectedMethods[0] === "card" || selectedMethods[0] === "upi") && (
                 <input
                   className="qs-ref-input"
-                  placeholder={paymentMethod === "card" ? "Card ref / last 4 digits" : "UPI transaction ID"}
+                  placeholder={selectedMethods[0] === "card" ? "Card ref / last 4 digits" : "UPI transaction ID"}
                   value={paymentReference}
                   onChange={(e) => setPaymentReference(e.target.value)}
                 />
@@ -795,7 +905,7 @@ export default function QuickSalePage() {
                       {splitRemaining < -0.001 ? `Over ₹${Math.abs(splitRemaining).toFixed(2)}` : splitRemaining < 0.001 ? "✓ Full" : `₹${splitRemaining.toFixed(2)} left`}
                     </span>
                   </div>
-                  {SPLIT_METHODS.map((m) => (
+                  {PAYMENT_METHODS.filter((m) => selectedMethods.includes(m.id)).map((m) => (
                     <div key={m.id} className="qs-split-panel__row">
                       <span className="qs-split-panel__label">{m.label}</span>
                       <div className="qs-split-panel__input-wrap">
@@ -821,7 +931,7 @@ export default function QuickSalePage() {
                 </div>
               )}
 
-              {!isSplit && (
+              {selectedMethods.length === 1 && (
                 <div style={{ marginTop: 12 }}>
                   <label className="qs-label" style={{ marginBottom: 6, display: "block" }}>Amount Paid</label>
                   <div className="qs-amount-paid-group">
@@ -830,12 +940,11 @@ export default function QuickSalePage() {
                   </div>
                 </div>
               )}
-            </div>
           </div>
 
           <div className="qs-sidebar__footer">
-            <button className="qs-pay-btn" disabled={!hasItems || isBusy} onClick={handleConfirmAndPay}>
-              {isBusy ? "Processing…" : <>✓ Confirm &amp; Pay — ₹{grandTotal.toFixed(2)}</>}
+            <button className="qs-pay-btn" disabled={!hasItems || isBusy || (isSplit && splitRemaining < -0.001)} onClick={handleConfirmAndPay}>
+              {isBusy ? "Processing…" : <>✓ Confirm &amp; Pay — ₹{(isSplit ? splitTotal : parseFloat(amountPaid || grandTotal.toString())).toFixed(2)}</>}
             </button>
           </div>
         </div>

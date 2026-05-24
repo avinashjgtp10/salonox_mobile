@@ -10,6 +10,7 @@ export interface SvcRow {
   time: string; price: number; qty: number; total: number;
   duration: number; search: string; showDrop: boolean;
   discountVal: number; discountType: "percentage" | "flat";
+  errors: string[];
 }
 
 export interface ProdRow {
@@ -17,12 +18,14 @@ export interface ProdRow {
   qty: number; total: number; staffId: string; search: string;
   showDrop: boolean; stock: number | null;
   discountVal: number; discountType: "percentage" | "flat";
+  errors: string[];
 }
 
 export interface MemRow {
   tempId: string; name: string; price: number; qty: number;
   total: number; staffId: string; search: string; showDrop: boolean;
   discountVal: number; discountType: "percentage" | "flat";
+  errors: string[];
 }
 
 export interface SelectedClient {

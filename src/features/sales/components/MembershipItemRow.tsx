@@ -21,13 +21,14 @@ export default function MembershipItemRow({ row, staffList, membershipsList, onU
       {/* Membership search */}
       <div style={{ position: "relative" }}>
         <input
-          className="qs-inp"
+          className={`qs-inp${row.errors.includes("membership") ? " qs-inp--error" : ""}`}
           placeholder="Search membership…"
           value={row.search}
-          onChange={(e) => onUpdate(row.tempId, { search: e.target.value, showDrop: true })}
+          onChange={(e) => onUpdate(row.tempId, { search: e.target.value, showDrop: true, errors: row.errors.filter((e) => e !== "membership") })}
           onFocus={() => onUpdate(row.tempId, { showDrop: true })}
           onBlur={() => setTimeout(() => onUpdate(row.tempId, { showDrop: false }), 150)}
         />
+        {row.errors.includes("membership") && <div className="qs-field-error">Membership is required</div>}
         {row.showDrop && filtered.length > 0 && (
           <div className="qs-inline-drop">
             {filtered.map((m, i) => (
@@ -41,6 +42,7 @@ export default function MembershipItemRow({ row, staffList, membershipsList, onU
                     qty: q as any,
                     total: calcRowTotal(m.price, q, row.discountVal, row.discountType),
                     showDrop: false,
+                    errors: row.errors.filter((e) => e !== "membership"),
                   });
                 }}
               >
@@ -53,11 +55,17 @@ export default function MembershipItemRow({ row, staffList, membershipsList, onU
       </div>
 
       {/* Staff */}
-      <div className="qs-staff-pill">
-        <select value={row.staffId} onChange={(e) => onUpdate(row.tempId, { staffId: e.target.value })}>
-          <option value="">Any Staff</option>
-          {staffList.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
+      <div>
+        <div className={`qs-staff-pill${row.errors.includes("staff") ? " qs-staff-pill--error" : (!row.staffId ? " qs-staff-pill--empty" : "")}`}>
+          <select
+            value={row.staffId}
+            onChange={(e) => onUpdate(row.tempId, { staffId: e.target.value, errors: row.errors.filter((err) => err !== "staff") })}
+          >
+            <option value="">Select Staff</option>
+            {staffList.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+        {row.errors.includes("staff") && <div className="qs-field-error">Staff is required</div>}
       </div>
 
       {/* Price */}
@@ -73,15 +81,18 @@ export default function MembershipItemRow({ row, staffList, membershipsList, onU
       />
 
       {/* Qty */}
-      <input
-        className="qs-inp"
-        type="number"
-        value={row.qty}
-        onChange={(e) => {
-          const q = e.target.value === "" ? "" : Number(e.target.value);
-          onUpdate(row.tempId, { qty: q as any, total: calcRowTotal(row.price, Number(q) || 0, row.discountVal, row.discountType) });
-        }}
-      />
+      <div>
+        <input
+          className={`qs-inp${row.errors.includes("qty") ? " qs-inp--error" : ""}`}
+          type="number"
+          value={row.qty}
+          onChange={(e) => {
+            const q = e.target.value === "" ? "" : Number(e.target.value);
+            onUpdate(row.tempId, { qty: q as any, total: calcRowTotal(row.price, Number(q) || 0, row.discountVal, row.discountType), errors: row.errors.filter((e) => e !== "qty") });
+          }}
+        />
+        {row.errors.includes("qty") && <div className="qs-field-error">Min 1</div>}
+      </div>
 
       {/* Discount */}
       <input
@@ -91,8 +102,8 @@ export default function MembershipItemRow({ row, staffList, membershipsList, onU
         placeholder="0"
         value={row.discountVal || ""}
         onChange={(e) => {
-          const dv = Math.max(0, parseFloat(e.target.value) || 0);
-          onUpdate(row.tempId, { discountVal: dv, total: calcRowTotal(row.price, Number(row.qty) || 0, dv, "flat") });
+          const dv = Math.min(100, Math.max(0, parseFloat(e.target.value) || 0));
+          onUpdate(row.tempId, { discountVal: dv, total: calcRowTotal(row.price, Number(row.qty) || 0, dv, "percentage") });
         }}
       />
 
@@ -109,7 +120,7 @@ export function MembershipColHeaders() {
       <span>Staff</span>
       <span>Price ₹</span>
       <span>Qty</span>
-      <span>Discount</span>
+      <span>Disc %</span>
       <span style={{ textAlign: "right" }}>Total</span>
       <span style={{ width: 30 }} />
     </div>
