@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useAppSelector } from "../../../hooks/useAppRedux";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import {
   saveWaConfigThunk,
@@ -364,7 +365,8 @@ function SetupStage({ onBack }: { onBack: () => void }) {
   const step       = SETUP_STEPS[currentStep];
   const isLastStep = currentStep === SETUP_STEPS.length - 1;
   const progress   = Math.round(((currentStep + 1) / SETUP_STEPS.length) * 100);
-  const webhookUrl = API_ORIGIN + "/api/v1/webhooks/whatsapp";
+  const salonId = useAppSelector(s => (s as any).salon?.currentSalon?.id ?? '')
+  const webhookUrl = `${API_ORIGIN}/api/v1/webhooks/${salonId}/meta`
 
   const up = (key: keyof FormState, val: string) => {
     setForm(prev => ({ ...prev, [key]: val }));
