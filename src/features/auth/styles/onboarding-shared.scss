@@ -506,6 +506,13 @@
     text-shadow: 0 1px 12px rgba(0, 0, 0, 0.28);
   }
 
+  .oip-brand-logo {
+    width: 124px;
+    height: auto;
+    display: block;
+    filter: drop-shadow(0 1px 12px rgba(0, 0, 0, 0.28));
+  }
+
   // Stretch spacer
   .oip-spacer {
     flex: 1;

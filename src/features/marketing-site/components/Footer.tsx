@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import logo from '../../../assets/salonox_logo_black.svg'
 
 const footerLinks = {
   Product: [
@@ -31,7 +32,7 @@ export default function Footer() {
       <div className="sx-section">
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 48, marginBottom: 48 }}>
           <div>
-            <img src="/src/assets/logo.png" alt="SalonOx" style={{ height: 28, width: 'auto', marginBottom: 16, filter: 'var(--sx-logo-filter)', display: 'block' }} />
+            <img src={logo} alt="SalonOx salon management software" width="116" height="28" style={{ height: 28, width: 'auto', marginBottom: 16, filter: 'var(--sx-logo-filter)', display: 'block' }} />
             <p style={{ fontSize: 13.5, fontWeight: 300, color: 'var(--sx-text-muted)', lineHeight: 1.7, maxWidth: 260, marginBottom: 20 }}>
               The all-in-one platform for beauty, wellness &amp; fitness businesses. Powered by AI.
             </p>

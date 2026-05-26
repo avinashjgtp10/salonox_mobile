@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar/Navbar'
 import Footer from '../components/Footer'
+import SEO from '../components/SEO'
+import { coreKeywords, faqSchema, organizationSchema } from '../config/seo.config'
 import '../styles/support.scss'
 import '../styles/global.scss'
 
@@ -30,6 +32,13 @@ export default function SupportPage() {
 
   return (
     <div className="sp-root">
+      <SEO
+        title="SalonOx Support | Help for Salon Management Software"
+        description="Get support for SalonOx salon management software, including billing, appointments, WhatsApp setup, staff management and reports."
+        path="/support"
+        keywords={coreKeywords}
+        jsonLd={[organizationSchema, faqSchema(faqItems.map(item => ({ question: item.q, answer: item.a })))]}
+      />
       <Navbar />
       <section className="sp-hero">
         <div className="sp-hero-grid" />
