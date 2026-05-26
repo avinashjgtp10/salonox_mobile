@@ -90,7 +90,16 @@ export default function LandingPage() {
       <Navbar />
 
       <section className="lp-hero">
-        <div className="lp-hero-bg" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1600&q=80)' }} />
+        <img
+          src="https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1600&q=80"
+          alt=""
+          className="lp-hero-bg"
+          fetchPriority="high"
+          loading="eager"
+          decoding="async"
+          width="1600"
+          height="1067"
+        />
         <div className="lp-hero-overlay" />
         <div className="lp-hero-grid" />
         <div className="sx-section lp-hero-inner">
