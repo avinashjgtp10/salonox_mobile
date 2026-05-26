@@ -3,6 +3,7 @@ import { Routes, Route } from "react-router-dom";
 import { PageLoader } from "../components/ui";
 
 const StaffListPage       = lazy(() => import("../features/staff/pages/StaffListPage"));
+const ImportStaffPage     = lazy(() => import("../features/staff/pages/ImportStaffPage"));
 const AddStaffPage        = lazy(() => import("../features/staff/pages/AddStaffPage"));
 const PayRunsPage         = lazy(() => import("../features/staff/pages/PayRunsPage"));
 const PayRunBreakdownPage = lazy(() => import("../features/staff/pages/PayRunBreakdownPage"));
@@ -25,6 +26,7 @@ export const TeamRoutes = () => (
 
       {/* Team management */}
       <Route path="members"      element={<StaffListPage />} />
+      <Route path="import"       element={<ImportStaffPage />} />
       <Route path="add"          element={<AddStaffPage />} />
       <Route path=":id"          element={<AddStaffPage />} />
 

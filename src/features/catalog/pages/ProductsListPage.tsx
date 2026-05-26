@@ -106,9 +106,11 @@ const ProductsListPage: React.FC = () => {
       const rawAmt = parseFloat(p.amount);
       const amount = isNaN(rawAmt) ? 0 : rawAmt;
       let matchesStock = true;
-      if (appliedFilters.stock === "low") {
-        matchesStock = amount <= 5; // Include 0 in low stock
-      } else if (appliedFilters.stock === "out") {
+      
+    if (appliedFilters.stock === "low") {
+      matchesStock = amount > 0 && amount <= (p.qty_alert ?? 5);
+      
+    } else if (appliedFilters.stock === "out") {
         matchesStock = amount <= 0;
       }
 

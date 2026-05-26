@@ -1,55 +1,47 @@
 import { useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
-import "../styles/ImportClientsPage.scss";
-import api from "../../../services/api/axios";
-import { CLIENT } from "../../../services/api/endpoints";
+import "../styles/ImportProductsPage.scss";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Step = 1 | 2 | 3 | 4;
 
-const SALONOX_COLUMNS = [
+const SALONOX_PRODUCT_COLUMNS = [
   {
-    key: "firstName",
-    label: "First name",
+    key: "name",
+    label: "Product name",
     required: true,
-    hint: "First name of your client. Required for import.",
+    hint: "Product name. Required for import.",
   },
   {
-    key: "lastName",
-    label: "Last name",
+    key: "sku",
+    label: "SKU/Barcode",
     required: false,
-    hint: "Last name of your client.",
+    hint: "Stock keeping unit or barcode.",
   },
   {
-    key: "email",
-    label: "Email",
+    key: "category",
+    label: "Category",
     required: false,
-    hint: "Email of your client.",
+    hint: "Category of the product.",
   },
   {
-    key: "mobile",
-    label: "Mobile number",
+    key: "supplier",
+    label: "Supplier",
     required: false,
-    hint: "The mobile number of the client.",
+    hint: "Supplier of the product.",
   },
   {
-    key: "gender",
-    label: "Gender",
+    key: "retailPrice",
+    label: "Retail price",
     required: false,
-    hint: "Gender of the client.",
+    hint: "Selling price.",
   },
   {
-    key: "birthday",
-    label: "Birthday",
+    key: "stock",
+    label: "Stock quantity",
     required: false,
-    hint: "Birthday of the client.",
-  },
-  {
-    key: "clientNotes",
-    label: "Client notes",
-    required: false,
-    hint: "Important notes about the client.",
+    hint: "Current stock quantity level.",
   },
 ];
 
@@ -110,10 +102,10 @@ function StepUpload({
 
   return (
     <div className="col-md-6 mx-auto text-center">
-      <p className="step-label">Import clients</p>
+      <p className="step-label">Import products</p>
       <h2 className="step-title">Upload file</h2>
       <p className="step-desc">
-        Upload a CSV file with your client data, or download and fill the
+        Upload a CSV file with your product data, or download and fill the
         template below.
       </p>
 
@@ -173,7 +165,7 @@ function StepUpload({
       </div>
 
       <p className="text-muted small mt-3">
-        Don't have a file? Fill our template with your client information and
+        Don't have a file? Fill our template with your product information and
         upload.
       </p>
       <a href="#" className="download-link" onClick={(e) => e.preventDefault()}>
@@ -199,11 +191,11 @@ function StepColumnMatch({
 }) {
   return (
     <div className="col-md-8 mx-auto">
-      <p className="step-label">Import clients</p>
+      <p className="step-label">Import products</p>
       <h2 className="step-title">Review column matching</h2>
       <p className="step-desc">
         Make sure the columns in your file are matched correctly to the columns
-        in the client list.
+        in the product list.
       </p>
 
       <div className="ready-banner d-flex align-items-center mb-3">
@@ -223,11 +215,11 @@ function StepColumnMatch({
       )}
 
       <div className="row col-headers pb-2 mb-1">
-        <div className="col-6 col-head">Column in client list</div>
+        <div className="col-6 col-head">Column in product list</div>
         <div className="col-6 col-head">Column in your file</div>
       </div>
 
-      {SALONOX_COLUMNS.map((col) => (
+      {SALONOX_PRODUCT_COLUMNS.map((col) => (
         <div key={col.key} className="match-row">
           <div className="row align-items-start py-2">
             <div className="col-6">
@@ -269,8 +261,8 @@ function StepPreview({
 
   return (
     <div className="col-md-10 mx-auto">
-      <p className="step-label">Import clients</p>
-      <h2 className="step-title">Preview client list</h2>
+      <p className="step-label">Import products</p>
+      <h2 className="step-title">Preview product list</h2>
       <p className="step-desc">
         Check if all fields are imported correctly. Errors in a row will result
         in that row not being imported.
@@ -304,7 +296,7 @@ function StepPreview({
             <table className="table preview-table">
               <thead>
                 <tr>
-                  {SALONOX_COLUMNS.map((c) => (
+                  {SALONOX_PRODUCT_COLUMNS.map((c) => (
                     <th key={c.key}>{c.label}</th>
                   ))}
                 </tr>
@@ -312,7 +304,7 @@ function StepPreview({
               <tbody>
                 {previewRows.map((row, i) => (
                   <tr key={i}>
-                    {SALONOX_COLUMNS.map((c) => (
+                    {SALONOX_PRODUCT_COLUMNS.map((c) => (
                       <td key={c.key}>{row[c.key] ?? "—"}</td>
                     ))}
                   </tr>
@@ -333,52 +325,54 @@ function StepPreview({
 }
 
 // ─── Step 4 – Result ──────────────────────────────────────────────────────────
-interface ImportResult { imported: number; updated: number; skipped: number; total_rows: number; errors: string[]; }
-
-function StepResult({ success, result }: { success: boolean; result: ImportResult | null }) {
+function StepResult({ success }: { success: boolean }) {
   return (
     <div className="col-md-5 mx-auto text-center pt-5">
       <div className="result-icon mx-auto mb-4">
         {success ? (
           <svg viewBox="0 0 60 60" width="56">
-            <circle cx="30" cy="30" r="29" fill="#dcfce7" stroke="#86efac" strokeWidth="2" />
-            <path d="M18 30l9 9 15-18" stroke="#16a34a" strokeWidth="3" strokeLinecap="round" fill="none" />
+            <circle
+              cx="30"
+              cy="30"
+              r="29"
+              fill="#dcfce7"
+              stroke="#86efac"
+              strokeWidth="2"
+            />
+            <path
+              d="M18 30l9 9 15-18"
+              stroke="#16a34a"
+              strokeWidth="3"
+              strokeLinecap="round"
+              fill="none"
+            />
           </svg>
         ) : (
           <svg viewBox="0 0 60 60" width="56">
             <circle cx="30" cy="30" r="29" fill="#f1f5f9" />
-            <path d="M20 20L40 40M40 20L20 40" stroke="#94a3b8" strokeWidth="3.5" strokeLinecap="round" />
+            <path
+              d="M20 20L40 40M40 20L20 40"
+              stroke="#94a3b8"
+              strokeWidth="3.5"
+              strokeLinecap="round"
+            />
           </svg>
         )}
       </div>
-      <h2 className="step-title">{success ? "Import successful!" : "Import failed!"}</h2>
+      <h2 className="step-title">
+        {success ? "Import successful!" : "Import failed!"}
+      </h2>
       <p className={`step-desc ${success ? "text-success" : "text-muted"}`}>
-        {success ? "Your clients have been added to your client list." : "No clients have been added to your client list."}
+        {success
+          ? "Your products have been added to your inventory."
+          : "No products have been added to your inventory."}
       </p>
-
-      {result && (
-        <div className="import-result-stats">
-          <div className="irs-stat"><span className="irs-val">{result.total_rows}</span><span className="irs-lbl">Total rows</span></div>
-          <div className="irs-stat irs-stat--green"><span className="irs-val">{result.imported}</span><span className="irs-lbl">Imported</span></div>
-          <div className="irs-stat irs-stat--blue"><span className="irs-val">{result.updated}</span><span className="irs-lbl">Updated</span></div>
-          <div className="irs-stat irs-stat--amber"><span className="irs-val">{result.skipped}</span><span className="irs-lbl">Skipped</span></div>
-        </div>
-      )}
-
-      {result && result.errors.length > 0 && (
-        <div className="import-errors-wrap mt-3 text-start">
-          <p className="import-errors-title">Errors ({result.errors.length})</p>
-          <ul className="import-errors-list">
-            {result.errors.map((e, i) => <li key={i}>{e}</li>)}
-          </ul>
-        </div>
-      )}
     </div>
   );
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-export default function ImportClientsPage() {
+export default function ImportProductsPage() {
   const navigate = useNavigate();
 
   const [step, setStep] = useState<Step>(1);
@@ -387,10 +381,8 @@ export default function ImportClientsPage() {
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [matchErrors, setMatchErrors] = useState<Record<string, string>>({});
-  const [previewRows, setPreviewRows] = useState<Record<string, string>[]>([]);
-  const [importing, setImporting] = useState(false);
-  const [importSuccess, setImportSuccess] = useState(false);
-  const [importResult, setImportResult] = useState<{ imported: number; updated: number; skipped: number; total_rows: number; errors: string[] } | null>(null);
+  const [previewRows] = useState<Record<string, string>[]>([]);
+  const [importSuccess] = useState(false);
 
   const TOTAL = 4;
   const progressPct = ((step - 1) / (TOTAL - 1)) * 100;
@@ -402,13 +394,12 @@ export default function ImportClientsPage() {
       const reader = new FileReader();
       reader.onload = (e) => {
         const text = e.target?.result as string;
-        const lines = text.split("\n").filter((l) => l.trim());
-        const headers = (lines[0] ?? "")
+        const headers = (text.split("\n")[0] ?? "")
           .split(",")
           .map((h) => h.trim().replace(/^"|"$/g, ""));
         setCsvHeaders(headers);
         const auto: Record<string, string> = {};
-        SALONOX_COLUMNS.forEach((col) => {
+        SALONOX_PRODUCT_COLUMNS.forEach((col) => {
           const match = headers.find(
             (h) =>
               h.toLowerCase().includes(col.key.toLowerCase()) ||
@@ -417,16 +408,6 @@ export default function ImportClientsPage() {
           auto[col.key] = match ?? "None";
         });
         setMapping(auto);
-        const dataRows = lines.slice(1, 6);
-        setPreviewRows(dataRows.map((line) => {
-          const vals = line.split(",").map((v) => v.trim().replace(/^"|"$/g, ""));
-          const row: Record<string, string> = {};
-          SALONOX_COLUMNS.forEach((col) => {
-            const idx = headers.indexOf(auto[col.key] ?? "");
-            row[col.key] = idx >= 0 ? vals[idx] ?? "" : "";
-          });
-          return row;
-        }));
       };
       reader.readAsText(f);
     }
@@ -441,14 +422,14 @@ export default function ImportClientsPage() {
     });
   };
 
-  const handleNext = async () => {
+  const handleNext = () => {
     if (step === 1 && !file) {
       setUploadError("Please upload CSV file first");
       return;
     }
     if (step === 2) {
       const errs: Record<string, string> = {};
-      SALONOX_COLUMNS.filter((c) => c.required).forEach((c) => {
+      SALONOX_PRODUCT_COLUMNS.filter((c) => c.required).forEach((c) => {
         if (!mapping[c.key] || mapping[c.key] === "None")
           errs[c.key] = "This column is required.";
       });
@@ -458,33 +439,13 @@ export default function ImportClientsPage() {
       }
       setMatchErrors({});
     }
-    if (step === 3) {
-      if (!file) return;
-      setImporting(true);
-      try {
-        const formData = new FormData();
-        formData.append("file", file);
-        const res = await api.post(CLIENT.IMPORT, formData, {
-          headers: { "Content-Type": undefined },
-          timeout: 60_000,
-        });
-        const data = res.data?.data ?? res.data;
-        setImportResult(data);
-        setImportSuccess((data?.imported ?? 0) > 0 || (data?.updated ?? 0) > 0);
-      } catch (err: any) {
-        setImportResult({ imported: 0, updated: 0, skipped: 0, total_rows: 0, errors: [err?.message || "Import failed"] });
-        setImportSuccess(false);
-      } finally {
-        setImporting(false);
-      }
-    }
     setStep((p) => Math.min(p + 1, TOTAL) as Step);
   };
 
   const handleBack = () => setStep((p) => Math.max(p - 1, 1) as Step);
 
   return (
-    <div className="import-clients-page">
+    <div className="import-products-page">
       {/* TOP BAR */}
       <div className="import-topbar d-flex align-items-center px-4 py-2">
         <div className="d-flex align-items-center gap-2 flex-grow-1">
@@ -502,24 +463,23 @@ export default function ImportClientsPage() {
         </div>
         <div className="d-flex gap-2 ms-3">
           <button
-            className="btn btn-outline-secondary btn-sm rounded-pill"
-            onClick={() => navigate("/dashboard/clients/list")}
+            className="btn btn-outline-secondary btn-sm rounded-pill py-2 px-3 fw-medium"
+            onClick={() => navigate("/dashboard/catalog/products")}
           >
             Close
           </button>
           {step < 4 && (
             <button
-              className="btn btn-dark btn-sm rounded-pill"
+              className="btn btn-dark btn-sm rounded-pill py-2 px-3 fw-medium"
               onClick={handleNext}
-              disabled={importing}
             >
-              {importing ? "Importing…" : step === 3 ? "Start Import" : "Next step"}
+              {step === 3 ? "Start Import" : "Next step"}
             </button>
           )}
           {step === 4 && (
             <button
-              className="btn btn-dark btn-sm rounded-pill"
-              onClick={() => navigate("/dashboard/clients/list")}
+              className="btn btn-dark btn-sm rounded-pill py-2 px-3 fw-medium"
+              onClick={() => navigate("/dashboard/catalog/products")}
             >
               Done
             </button>
@@ -547,7 +507,7 @@ export default function ImportClientsPage() {
             />
           )}
           {step === 3 && <StepPreview previewRows={previewRows} />}
-          {step === 4 && <StepResult success={importSuccess} result={importResult} />}
+          {step === 4 && <StepResult success={importSuccess} />}
         </div>
       </div>
 

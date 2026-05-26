@@ -31,6 +31,7 @@ import "../styles/StaffListPage.scss";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
 import { Button, Input, DownloadButton } from "../../../components/ui";
+import StaffImportModal from "../components/StaffImportModal";
 
 interface StaffMember {
   id: string;
@@ -109,6 +110,7 @@ export default function StaffListPage() {
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showImport, setShowImport] = useState(false);
 
   // Filter state
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
@@ -404,6 +406,14 @@ export default function StaffListPage() {
 
                 <div className="slp-option-item" onClick={() => setOptionsOpen(false)}>
                   <span>⚙️</span> Team settings
+                </div>
+                <div className="slp-option-divider" />
+                <div className="slp-option-label">Import</div>
+                <div
+                  className="slp-option-item"
+                  onClick={() => { setShowImport(true); setOptionsOpen(false); }}
+                >
+                  <FiletypeCsv size={14} /> Import from CSV / Excel
                 </div>
                 <div className="slp-option-divider" />
                 <div className="slp-option-label">Export</div>
@@ -741,6 +751,13 @@ export default function StaffListPage() {
           })}
         </div>
       )}
+
+      {/* ===== IMPORT MODAL ===== */}
+      <StaffImportModal
+        show={showImport}
+        onClose={() => setShowImport(false)}
+        onSuccess={fetchStaff}
+      />
 
       {/* ===== FOOTER / PAGINATION ===== */}
       {!loading && sorted.length > 0 && (
