@@ -7,7 +7,7 @@ import ThemeToggle from '../ThemeToggle'
 import { useAppSelector } from '../../../../hooks/useAppRedux'
 import { businessTypes } from '../../config/businessTypes.config'
 import { features } from '../../config/features.config'
-import logo from '../../../../assets/logo-navbar.png'
+import logo from '../../../../assets/salonox_logo_black.svg'
 import '../../styles/navbar.scss'
 
 type ActiveMenu = 'business' | 'features' | 'support' | null

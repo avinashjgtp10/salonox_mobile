@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import logo from '../../../assets/logo-navbar.png'
+import logo from '../../../assets/salonox_logo_black.svg'
 
 const footerLinks = {
   Product: [
