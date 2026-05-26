@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar/Navbar'
 import Footer from '../components/Footer'
+import SEO from '../components/SEO'
+import { coreKeywords, organizationSchema } from '../config/seo.config'
 import '../styles/contactSales.scss'
 import '../styles/global.scss'
 
@@ -19,6 +21,13 @@ export default function ContactSalesPage() {
 
   return (
     <div className="cs-root">
+      <SEO
+        title="Book a SalonOx Demo | Salon Software for India"
+        description="Book a SalonOx demo for salon management software covering billing, appointments, staff, reports, CRM and WhatsApp marketing."
+        path="/contact-sales"
+        keywords={['book salon software demo', ...coreKeywords]}
+        jsonLd={organizationSchema}
+      />
       <Navbar />
       <section className="cs-hero">
         <div className="cs-hero-grid" />

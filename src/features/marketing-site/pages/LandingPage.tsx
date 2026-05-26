@@ -4,6 +4,8 @@ import Navbar from '../components/Navbar/Navbar'
 import Footer from '../components/Footer'
 import { beautyTypes, wellnessTypes, fitnessTypes } from '../config/businessTypes.config'
 import { featureGroups } from '../config/features.config'
+import SEO from '../components/SEO'
+import { coreKeywords, faqSchema, homepageFaqs, organizationSchema, softwareSchema } from '../config/seo.config'
 import '../styles/landing.scss'
 import '../styles/global.scss'
 import FeatureCarousel from '../components/FeatureCarousel'
@@ -78,6 +80,13 @@ export default function LandingPage() {
 
   return (
     <div className="lp-root">
+      <SEO
+        title="Salon Management Software | Billing, Staff & Marketing"
+        description="SalonOx is salon management software for billing, appointments, staff, reports, customer management and bulk WhatsApp marketing. Start a free trial."
+        path="/"
+        keywords={coreKeywords}
+        jsonLd={[softwareSchema, organizationSchema, faqSchema(homepageFaqs)]}
+      />
       <Navbar />
 
       <section className="lp-hero">
@@ -87,11 +96,11 @@ export default function LandingPage() {
         <div className="sx-section lp-hero-inner">
           <div className="lp-hero-text sx-animate-fade-up">
             <div className="lp-hero-badge"><span className="lp-badge-dot" />Now with SalonBot AI — your 24/7 business assistant</div>
-            <h1 className="lp-hero-h1">Every Booking.<br />Every Client.<br /><em>One Platform.</em></h1>
-            <p className="lp-hero-sub">The all-in-one platform for beauty, wellness &amp; fitness businesses. Appointments, staff, payments, WhatsApp marketing — all powered by AI.</p>
+            <h1 className="lp-hero-h1">Salon Management Software for Billing, Staff &amp; Marketing</h1>
+            <p className="lp-hero-sub">SalonOx brings appointment management, salon billing software, staff management, reports, customer CRM and bulk WhatsApp marketing into one platform built for salons in India.</p>
             <div className="lp-hero-ctas">
-              <button className="sx-btn-primary" onClick={() => navigate(dest)}>Start free trial →</button>
-              <button className="sx-btn-outline" onClick={() => navigate('')}>▶ Watch 2 min demo</button>
+              <button className="sx-btn-primary" onClick={() => navigate(dest)}>Start Free Trial</button>
+              <button className="sx-btn-outline" onClick={() => navigate('/contact-sales')}>Book Demo</button>
             </div>
             <p className="lp-hero-note">Free 14-day trial · No credit card · Setup in under 10 mins</p>
           </div>
@@ -108,6 +117,29 @@ export default function LandingPage() {
               <div className="lp-proof-lbl">{s.lbl}</div>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="lp-core sx-reveal">
+        <div className="sx-section">
+          <div className="sx-eyebrow">Core salon software</div>
+          <h2 className="lp-section-h2">Everything your salon needs to run and grow</h2>
+          <p className="lp-section-sub">A focused salon CRM, POS and appointment system for everyday operations, not a generic business tool.</p>
+          <div className="lp-core-grid">
+            {[
+              { title: 'Billing', body: 'GST-ready invoices, discounts, due amounts and UPI, card or cash payments.', path: '/salon-billing-software' },
+              { title: 'Appointment Management', body: 'Online booking, staff calendars, reminders and quick rescheduling.', path: '/salon-appointment-software' },
+              { title: 'Staff Management', body: 'Shifts, services, commissions, payroll and team performance reports.', path: '/salon-staff-management' },
+              { title: 'Reports & Analytics', body: 'Track revenue, bookings, services, staff utilisation and repeat clients.', path: '/features/reports-analytics' },
+              { title: 'Bulk WhatsApp Marketing', body: 'Target client segments with offers, reminders and reactivation campaigns.', path: '/salon-whatsapp-marketing' },
+              { title: 'Customer Management', body: 'Salon CRM software for client profiles, visit history and loyalty insights.', path: '/features/client-management' },
+            ].map(item => (
+              <button key={item.title} className="lp-core-card" onClick={() => navigate(item.path)}>
+                <h3>{item.title}</h3>
+                <p>{item.body}</p>
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -162,7 +194,7 @@ export default function LandingPage() {
             <button className="sx-btn-primary" onClick={() => navigate('/features/scheduler')}>Explore Scheduler →</button>
           </div>
           <div className="lp-deep-visual sx-animate-float">
-            <img src="https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=800&q=80" alt="Scheduler" className="lp-deep-img" />
+            <img src="https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=800&q=75&auto=format&fit=crop" alt="Salon appointment software scheduler view" className="lp-deep-img" loading="lazy" decoding="async" />
             <div className="lp-deep-img-overlay" />
           </div>
         </div>
@@ -178,7 +210,7 @@ export default function LandingPage() {
             <button className="sx-btn-primary" onClick={() => navigate('/features/whatsapp-marketing')}>Explore WhatsApp Marketing →</button>
           </div>
           <div className="lp-deep-visual sx-animate-float">
-            <img src="https://images.unsplash.com/photo-1611746872915-64382b5c76da?w=800&q=80" alt="WhatsApp Marketing" className="lp-deep-img" />
+            <img src="https://images.unsplash.com/photo-1611746872915-64382b5c76da?w=800&q=75&auto=format&fit=crop" alt="Bulk WhatsApp marketing for salon customers" className="lp-deep-img" loading="lazy" decoding="async" />
             <div className="lp-deep-img-overlay" />
           </div>
         </div>
@@ -194,7 +226,7 @@ export default function LandingPage() {
             <button className="sx-btn-primary" onClick={() => navigate('/features/salonbot-ai')}>Meet SalonBot →</button>
           </div>
           <div className="lp-deep-visual sx-animate-float">
-            <img src="https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=800&q=80" alt="SalonBot AI" className="lp-deep-img" />
+            <img src="https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=800&q=75&auto=format&fit=crop" alt="Salon AI assistant for bookings and customer support" className="lp-deep-img" loading="lazy" decoding="async" />
             <div className="lp-deep-img-overlay" />
           </div>
         </div>
@@ -210,7 +242,7 @@ export default function LandingPage() {
             <button className="sx-btn-primary" onClick={() => navigate('/features/reports-analytics')}>Explore Reports →</button>
           </div>
           <div className="lp-deep-visual sx-animate-float">
-            <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&q=80" alt="Reports" className="lp-deep-img" />
+            <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&q=75&auto=format&fit=crop" alt="Salon reports and analytics dashboard" className="lp-deep-img" loading="lazy" decoding="async" />
             <div className="lp-deep-img-overlay" />
           </div>
         </div>
@@ -226,7 +258,7 @@ export default function LandingPage() {
             <button className="sx-btn-primary" onClick={() => navigate('/features/loyalty-program')}>Explore Loyalty →</button>
           </div>
           <div className="lp-deep-visual sx-animate-float">
-            <img src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80" alt="Loyalty" className="lp-deep-img" />
+            <img src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=75&auto=format&fit=crop" alt="Salon customer loyalty and CRM software" className="lp-deep-img" loading="lazy" decoding="async" />
             <div className="lp-deep-img-overlay" />
           </div>
         </div>
@@ -259,14 +291,14 @@ export default function LandingPage() {
           <h2 className="lp-section-h2" style={{ textAlign: 'center' }}>Simple, honest pricing</h2>
           <p className="lp-section-sub" style={{ textAlign: 'center', margin: '0 auto 48px' }}>Start free for 14 days. No credit card required.</p>
           <div className="lp-pricing-grid">
-            {[{ name: 'Starter', price: '₹899', desc: 'Solo professionals', pop: false },{ name: 'Grow', price: '₹1,499', desc: 'Growing teams', pop: false },{ name: 'Ultimate', price: '₹2,499', desc: 'Full AI power', pop: true },{ name: 'Elite', price: '₹5,499', desc: 'Chains & franchises', pop: false }].map(p => (
+            {[{ name: 'Starter', price: '₹899', desc: 'Billing, appointments and CRM for solo professionals', pop: false },{ name: 'Grow', price: '₹1,499', desc: 'Staff, reports and marketing for growing teams', pop: false },{ name: 'Ultimate', price: '₹2,499', desc: 'POS, WhatsApp campaigns and AI insights', pop: true },{ name: 'Elite', price: '₹5,499', desc: 'Multi-location controls for chains and franchises', pop: false }].map(p => (
               <div key={p.name} className={`lp-price-card${p.pop ? ' lp-price-card--pop' : ''}`}>
                 {p.pop && <div className="lp-price-badge">Most Popular</div>}
                 <div className="lp-price-name">{p.name}</div>
                 <div className="lp-price-amt">{p.price}</div>
                 <div className="lp-price-period">/month</div>
                 <div className="lp-price-desc">{p.desc}</div>
-                <button className={p.pop ? 'sx-btn-primary' : 'sx-btn-outline'} style={{ width: '100%', justifyContent: 'center', marginTop: 'auto' }} onClick={() => navigate(dest)}>{p.pop ? 'Start free →' : 'Learn more'}</button>
+                <button className={p.pop ? 'sx-btn-primary' : 'sx-btn-outline'} style={{ width: '100%', justifyContent: 'center', marginTop: 'auto' }} onClick={() => navigate(p.pop ? dest : '/pricing')}>{p.pop ? 'Start Free Trial' : 'Compare plan'}</button>
               </div>
             ))}
           </div>
@@ -295,6 +327,21 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section className="lp-faq sx-reveal">
+        <div className="sx-section">
+          <div className="sx-eyebrow" style={{ justifyContent: 'center' }}>FAQ</div>
+          <h2 className="lp-section-h2" style={{ textAlign: 'center', marginBottom: 36 }}>Salon software questions</h2>
+          <div className="lp-faq-grid">
+            {homepageFaqs.map(item => (
+              <div key={item.question} className="lp-faq-card">
+                <h3>{item.question}</h3>
+                <p>{item.answer}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section className="lp-cta sx-reveal">
         <div className="lp-cta-bg" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=1600&q=80)' }} />
         <div className="lp-cta-overlay" />
@@ -303,11 +350,16 @@ export default function LandingPage() {
           <h2 className="lp-cta-h2">Run your business smarter.<br />Start today.</h2>
           <p className="lp-cta-sub">Join 500+ businesses already using SalonOx every day. Free 14-day trial, no credit card required.</p>
           <div className="lp-cta-actions">
-            <button className="sx-btn-primary" onClick={() => navigate(dest)}>Start free trial →</button>
-            <button className="sx-btn-outline" style={{ borderColor: 'rgba(255,255,255,0.3)', color: '#fff' }} onClick={() => navigate('/contact-sales')}>Talk to sales</button>
+            <button className="sx-btn-primary" onClick={() => navigate(dest)}>Start Free Trial</button>
+            <button className="sx-btn-outline" style={{ borderColor: 'rgba(255,255,255,0.3)', color: '#fff' }} onClick={() => navigate('/contact-sales')}>Book Demo</button>
           </div>
         </div>
       </section>
+
+      <div className="lp-mobile-sticky">
+        <button className="sx-btn-primary" onClick={() => navigate(dest)}>Start Free Trial</button>
+        <button className="sx-btn-outline" onClick={() => navigate('/contact-sales')}>Book Demo</button>
+      </div>
 
       <Footer />
     </div>
