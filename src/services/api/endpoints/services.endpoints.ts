@@ -5,6 +5,7 @@ export const SERVICES = {
   DOWNLOAD_PDF:   "/api/v1/services/download/pdf",
   DOWNLOAD_EXCEL: "/api/v1/services/download/excel",
   DOWNLOAD_CSV:   "/api/v1/services/download/csv",
+  IMPORT:         "/api/v1/services/import",
 
   // ── Bundles ────────────────────────────────────────────────────────────────
   BUNDLES:       "/api/v1/services/bundles",
