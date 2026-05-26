@@ -18,6 +18,7 @@ interface FormState {
   barcode: string;
   brandId: string;
   amount: string;
+  qtyAlert: string;
   description: string;
   categoryId: string;
   supplyPrice: string;
@@ -33,6 +34,7 @@ const initialForm: FormState = {
   barcode: "",
   brandId: "",
   amount: "",
+  qtyAlert: "",
   description: "",
   categoryId: "",
   supplyPrice: "",
@@ -137,6 +139,7 @@ const CreateProductPage: React.FC = () => {
       brand_id: form.brandId || null,
       category_id: form.categoryId || null,
       amount: form.amount ? parseFloat(form.amount) : 0,
+      qty_alert: form.qtyAlert ? parseInt(form.qtyAlert, 10) : null,
       description: form.description || null,
       supply_price: form.supplyPrice ? parseFloat(form.supplyPrice) : 0,
       retail_price: form.retailSalesEnabled && form.retailPrice ? parseFloat(form.retailPrice) : null,
@@ -260,6 +263,19 @@ const CreateProductPage: React.FC = () => {
             {touched.amount && validationErrors.amount && (
               <div style={{ color: "#dc2626", fontSize: "12px", marginTop: "4px" }}>{validationErrors.amount}</div>
             )}
+
+            <Input
+              label={<>Low stock alert <span className="text-muted fw-normal">(Optional)</span></>}
+              type="number"
+              min="0"
+              placeholder="e.g. 5"
+              value={form.qtyAlert}
+              onChange={(e) => setField("qtyAlert", e.target.value)}
+              containerClass="mt-3"
+            />
+            <div style={{ color: "#6b7280", fontSize: "12px", marginTop: "4px" }}>
+              Alert when stock drops to or below this number.
+            </div>
 
             <Input
               label="Product description"

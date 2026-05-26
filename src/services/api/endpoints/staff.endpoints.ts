@@ -6,6 +6,9 @@ export const STAFF = {
   // ── Export ─────────────────────────────────────────────────────────────────
   EXPORT: (format: "excel" | "csv") => `/api/v1/staff/export/${format}`,
 
+  // ── Import ─────────────────────────────────────────────────────────────────
+  IMPORT: "/api/v1/staff/import",
+
   // ── Invitation ─────────────────────────────────────────────────────────────
   VERIFY_TOKEN: (token: string) => `/api/v1/staff/invite/${token}/verify`,
   ACCEPT_INVITATION: "/api/v1/staff/invite/accept",
