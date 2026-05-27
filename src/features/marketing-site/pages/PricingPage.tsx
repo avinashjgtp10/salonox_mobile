@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar/Navbar'
 import Footer from '../components/Footer'
-import { plans, currencySymbol, type Currency } from '../config/pricing.config'
 import '../styles/pricing.scss'
 import '../styles/global.scss'
+import WhatsAppBubble from '../components/WhatsAppBubble'
 
 function useScrollReveal() {
   useEffect(() => {
@@ -15,112 +15,175 @@ function useScrollReveal() {
   }, [])
 }
 
+const allFeatures = [
+  { category: 'Scheduling', items: ['Unlimited appointments', 'Day / Week / Month / List views', 'Drag to reschedule', 'Staff columns with colour-coded bookings', 'Walk-in management', 'AI fills underbooked slots automatically'] },
+  { category: 'Staff & Payroll', items: ['Unlimited staff members', 'Staff shifts & availability', 'Roles & permissions', 'Payroll & commissions', 'Performance reports per staff'] },
+  { category: 'Clients & Loyalty', items: ['Client management & profiles', 'Visit history & notes', 'Loyalty program (Silver / Gold / Platinum)', 'eWallet', 'Automated loyalty tier upgrades'] },
+  { category: 'Payments & Billing', items: ['UPI / Card / Cash', 'GST-compliant invoicing', 'GSTIN, HSN/SAC codes', 'GSTR export', 'Billing & invoices'] },
+  { category: 'Marketing', items: ['WhatsApp reminders (unlimited)', 'WhatsApp Marketing campaigns', 'AI-written campaign copy', 'Target by visit history or tier', 'Delivery & read rate tracking'] },
+  { category: 'AI & Automation', items: ['SalonBot AI — 24/7 WhatsApp assistant', 'Daily business summaries', 'AI revenue forecasting', 'Automated client nudges', 'Smart slot filling'] },
+  { category: 'Online Presence', items: ['Online booking page', 'Reserve with Google', 'Branded booking page with your logo', 'Upfront payment collection'] },
+  { category: 'Reports & Analytics', items: ['Revenue & bookings dashboard', 'Staff performance analytics', 'Client behaviour insights', 'AI trend identification', 'One-click accountant export'] },
+  { category: 'Multi-location', items: ['Unlimited locations', 'Unified dashboard across all branches', 'Per-location settings & staff', 'AI benchmarks locations', 'Single login for all branches'] },
+  { category: 'Support', items: ['14-day free trial', 'Priority support', 'Dedicated account manager', 'Team training included', 'Data export & API access'] },
+]
+
 const faqItems = [
-  { q: 'Is there a free trial?', a: 'Yes — every plan comes with a 14-day free trial. No credit card required. You get full access to all features during your trial.' },
-  { q: 'Can I change my plan later?', a: 'Absolutely. You can upgrade or downgrade your plan at any time from your account settings. Changes take effect immediately.' },
-  { q: 'What happens after the trial ends?', a: "You'll be asked to choose a plan to continue. If you don't, your account is paused — your data is never deleted." },
-  { q: 'Do you support multiple locations?', a: 'Yes. Multi-location support is available on the Elite plan. Each branch has its own settings, staff, and calendar — managed from one dashboard.' },
-  { q: 'Is GST billing included?', a: 'Yes. All plans include fully GST-compliant invoicing with GSTIN fields, HSN/SAC codes, and export-ready GSTR summaries.' },
-  { q: 'What payment methods do you accept?', a: 'We accept UPI, all major credit and debit cards, and net banking for Indian accounts. International cards accepted for USD and EUR plans.' },
+  { q: 'Is there a free trial?', a: 'Yes — 14-day free trial with full access. No credit card required.' },
+  { q: 'What is included in both plans?', a: 'Every feature is included in both plans. The only difference is the billing cycle — quarterly or annual.' },
+  { q: 'Can I switch between plans?', a: 'Yes. You can switch from quarterly to annual (or vice versa) at any time from your account settings.' },
+  { q: 'Is there a special offer for new users?', a: 'Yes — a special offer is available for new users and is applied automatically at checkout. No coupon code needed.' },
+  { q: 'Is GST billing included?', a: 'Yes. Full GST-compliant invoicing with GSTIN fields, HSN/SAC codes, and export-ready GSTR summaries.' },
+  { q: 'What payment methods do you accept?', a: 'UPI, all major credit and debit cards, and net banking for Indian accounts.' },
+  { q: 'What happens after the trial ends?', a: "You'll be asked to choose a plan. If you don't, your account is paused — your data is never deleted." },
 ]
 
 export default function PricingPage() {
   const navigate = useNavigate()
-  const [currency, setCurrency] = useState<Currency>('INR')
   const [openFaq, setOpenFaq] = useState<number | null>(null)
   useScrollReveal()
   useEffect(() => { window.scrollTo(0, 0) }, [])
-  const sym = currencySymbol[currency]
 
   return (
     <div className="pp-root">
       <Navbar />
+
+      {/* HERO */}
       <section className="pp-hero">
         <div className="pp-hero-grid" />
         <div className="sx-section pp-hero-inner">
           <div className="sx-eyebrow" style={{ justifyContent: 'center' }}>Pricing</div>
           <h1 className="pp-hero-h1">Simple, honest pricing.<br /><span>Start free for 14 days.</span></h1>
-          <p className="pp-hero-sub">No hidden fees. No contracts. Cancel anytime. Every plan includes a 14-day free trial with full access.</p>
-          <div className="pp-currency-wrap">
-            <div className="pp-currency-toggle">
-              {(['INR', 'USD', 'EUR'] as Currency[]).map(c => (
-                <button key={c} className={`pp-currency-btn${currency === c ? ' pp-currency-btn--active' : ''}`} onClick={() => setCurrency(c)}>
-                  {c === 'INR' ? '🇮🇳 INR' : c === 'USD' ? '🌍 USD' : '🇪🇺 EUR'}
-                </button>
-              ))}
+          <p className="pp-hero-sub">No hidden fees. No contracts. Cancel anytime. Every plan includes every feature.</p>
+
+          {/* New user offer */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              background: 'color-mix(in srgb, var(--sx-green) 10%, transparent)',
+              border: '1px solid color-mix(in srgb, var(--sx-green) 25%, transparent)',
+              borderRadius: 999,
+              padding: '8px 20px',
+              fontSize: 13,
+              color: 'var(--sx-green)',
+              fontWeight: 500,
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+              Special offer available for new users
             </div>
           </div>
         </div>
       </section>
 
+      {/* PLANS */}
       <section className="pp-plans sx-reveal">
         <div className="sx-section">
-          <div className="pp-plans-grid">
-            {plans.map(plan => (
-              <div key={plan.id} className={`pp-plan-card${plan.highlighted ? ' pp-plan-card--pop' : ''}`}>
-                {plan.highlighted && <div className="pp-plan-badge">Most Popular</div>}
-                <div className="pp-plan-name">{plan.name}</div>
-                <div className="pp-plan-price-row"><span className="pp-plan-sym">{sym}</span><span className="pp-plan-amount">{plan.price[currency].toLocaleString()}</span></div>
-                <div className="pp-plan-period">{plan.period}</div>
-                <div className="pp-plan-trial">{plan.trial}</div>
-                <p className="pp-plan-desc">{plan.desc}</p>
-                <div className="pp-plan-divider" />
-                <ul className="pp-plan-features">
-                  {plan.features.map(f => <li key={f}><span className="pp-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg></span>{f}</li>)}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: 20,
+            maxWidth: 720,
+            margin: '0 auto 64px',
+          }}
+          className="lp-pricing-grid"
+          >
+            {/* Quarterly */}
+            <div className="pp-plan-card">
+              <div className="pp-plan-name">Quarterly</div>
+              <div className="pp-plan-price-row">
+                <span className="pp-plan-sym">₹</span>
+                <span className="pp-plan-amount">2,997</span>
+              </div>
+              <div className="pp-plan-period">per quarter</div>
+              <div className="pp-plan-monthly-equiv">₹999 / month · billed every 3 months</div>
+              <div className="pp-plan-trial">14-day free trial</div>
+              <div className="pp-plan-divider" />
+              <p className="pp-plan-desc">All features included. No limits.</p>
+              <button
+                className="sx-btn-outline"
+                style={{ width: '100%', justifyContent: 'center', marginTop: 'auto' }}
+                onClick={() => navigate('/register')}
+              >
+                Start free trial →
+              </button>
+            </div>
+
+            {/* Annual */}
+            <div className="pp-plan-card pp-plan-card--pop">
+              <div className="pp-plan-badge">Best Value</div>
+              <div className="pp-plan-name">Annual</div>
+              <div className="pp-plan-price-row">
+                <span className="pp-plan-sym">₹</span>
+                <span className="pp-plan-amount">10,788</span>
+              </div>
+              <div className="pp-plan-period">per year</div>
+              <div className="pp-plan-monthly-equiv">₹899 / month · billed annually · save 10%</div>
+              <div className="pp-plan-trial">14-day free trial</div>
+              <div className="pp-plan-divider" />
+              <p className="pp-plan-desc">All features included. No limits.</p>
+              <button
+                className="sx-btn-primary"
+                style={{ width: '100%', justifyContent: 'center', marginTop: 'auto' }}
+                onClick={() => navigate('/register')}
+              >
+                Start free trial →
+              </button>
+            </div>
+          </div>
+
+          {/* Everything included note */}
+          <div style={{ textAlign: 'center', marginBottom: 48 }}>
+            <p style={{ fontSize: 14, color: 'var(--sx-text-muted)', fontWeight: 300 }}>
+              Both plans include <strong style={{ color: 'var(--sx-text-primary)', fontWeight: 600 }}>every feature</strong> — no upsells, no locked tiers.
+            </p>
+          </div>
+
+          {/* Feature list */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: 24,
+          }}
+          className="pp-features-grid"
+          >
+            {allFeatures.map(cat => (
+              <div key={cat.category} style={{
+                background: 'var(--sx-bg-card)',
+                border: '1px solid var(--sx-border)',
+                borderRadius: 16,
+                padding: '20px 22px',
+              }}>
+                <div style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  textTransform: 'uppercase' as const,
+                  letterSpacing: '0.1em',
+                  color: 'var(--sx-accent)',
+                  marginBottom: 14,
+                }}>
+                  {cat.category}
+                </div>
+                <ul style={{ display: 'flex', flexDirection: 'column' as const, gap: 8 }}>
+                  {cat.items.map(item => (
+                    <li key={item} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: 'var(--sx-text-secondary)', fontWeight: 300, lineHeight: 1.5 }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--sx-green)" strokeWidth="2.5" style={{ flexShrink: 0, marginTop: 2 }}>
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      {item}
+                    </li>
+                  ))}
                 </ul>
-                <button className={plan.highlighted ? 'sx-btn-primary' : 'sx-btn-outline'} style={{ width: '100%', justifyContent: 'center', marginTop: 'auto' }} onClick={() => plan.id === 'elite' ? navigate('/contact-sales') : navigate('/register')}>
-                  {plan.cta} →
-                </button>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="pp-compare sx-reveal">
-        <div className="sx-section">
-          <div className="sx-eyebrow" style={{ justifyContent: 'center' }}>Compare plans</div>
-          <h2 className="pp-compare-h2">Everything side by side</h2>
-          <div className="pp-table-wrap">
-            <div className="pp-table">
-              <div className="pp-table-head">
-                <div className="pp-th pp-th--feature">Feature</div>
-                {plans.map(p => <div key={p.id} className={`pp-th${p.highlighted ? ' pp-th--pop' : ''}`}>{p.highlighted && <span className="pp-th-badge">Popular</span>}{p.name}</div>)}
-              </div>
-              {[
-                { label: 'Staff members', vals: ['2','5','Unlimited','Unlimited'] },
-                { label: 'Appointments / month', vals: ['100','Unlimited','Unlimited','Unlimited'] },
-                { label: 'Scheduler', vals: ['✓','✓','✓','✓'] },
-                { label: 'Online booking page', vals: ['—','✓','✓','✓'] },
-                { label: 'Client management', vals: ['✓','✓','✓','✓'] },
-                { label: 'UPI / Card / Cash', vals: ['✓','✓','✓','✓'] },
-                { label: 'GST billing', vals: ['✓','✓','✓','✓'] },
-                { label: 'WhatsApp reminders', vals: ['50/mo','200/mo','500/mo','Unlimited'] },
-                { label: 'Loyalty program', vals: ['—','✓','✓','✓'] },
-                { label: 'Inventory', vals: ['—','✓','✓','✓'] },
-                { label: 'Reports & analytics', vals: ['—','✓','✓','✓'] },
-                { label: 'WhatsApp Marketing', vals: ['—','—','500/mo','Unlimited'] },
-                { label: 'SalonBot AI', vals: ['—','—','✓','✓'] },
-                { label: 'Loyalty tiers', vals: ['—','—','✓','✓'] },
-                { label: 'eWallet', vals: ['—','—','✓','✓'] },
-                { label: 'Roles & permissions', vals: ['—','—','✓','✓'] },
-                { label: 'Payroll & commissions', vals: ['—','—','✓','✓'] },
-                { label: 'Reserve with Google', vals: ['—','—','✓','✓'] },
-                { label: 'Multi-location', vals: ['—','—','—','✓'] },
-                { label: 'Dedicated manager', vals: ['—','—','—','✓'] },
-                { label: 'Custom integrations', vals: ['—','—','—','✓'] },
-                { label: 'Priority support', vals: ['—','—','—','✓'] },
-              ].map((row, i) => (
-                <div key={row.label} className={`pp-table-row${i % 2 === 0 ? ' pp-table-row--alt' : ''}`}>
-                  <div className="pp-td pp-td--label">{row.label}</div>
-                  {row.vals.map((v, j) => <div key={j} className={`pp-td${plans[j]?.highlighted ? ' pp-td--pop' : ''}`}><span className={v === '✓' ? 'pp-yes' : v === '—' ? 'pp-no' : 'pp-val'}>{v}</span></div>)}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
+      {/* FAQ */}
       <section className="pp-faq sx-reveal">
         <div className="sx-section">
           <div className="sx-eyebrow" style={{ justifyContent: 'center' }}>FAQ</div>
@@ -129,7 +192,8 @@ export default function PricingPage() {
             {faqItems.map((item, i) => (
               <div key={i} className={`pp-faq-item${openFaq === i ? ' pp-faq-item--open' : ''}`}>
                 <button className="pp-faq-q" onClick={() => setOpenFaq(openFaq === i ? null : i)}>
-                  {item.q}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
+                  {item.q}
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
                 </button>
                 <div className={`pp-faq-a${openFaq === i ? ' pp-faq-a--open' : ''}`}><p>{item.a}</p></div>
               </div>
@@ -138,16 +202,18 @@ export default function PricingPage() {
         </div>
       </section>
 
+      {/* CTA */}
       <section className="pp-cta sx-reveal">
         <div className="sx-section pp-cta-inner">
-          <h2 className="pp-cta-h2">Still not sure which plan?</h2>
-          <p className="pp-cta-sub">Talk to our team — we'll help you find the right fit for your business size and goals.</p>
+          <h2 className="pp-cta-h2">Still have questions?</h2>
+          <p className="pp-cta-sub">Talk to our team — we're happy to help you get started.</p>
           <div className="pp-cta-actions">
-            <button className="sx-btn-outline" style={{ borderColor: 'rgba(255,255,255,0.3)', color: '#fff' }} onClick={() => navigate('/contact-sales')}>Talk to sales</button>
+            <button className="sx-btn-outline" onClick={() => navigate('/contact-sales')}>Talk to sales</button>
             <button className="sx-btn-primary" onClick={() => navigate('/register')}>Start free trial →</button>
           </div>
         </div>
       </section>
+      <WhatsAppBubble />
 
       <Footer />
     </div>

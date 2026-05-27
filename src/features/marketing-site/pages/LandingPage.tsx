@@ -8,6 +8,7 @@ import '../styles/landing.scss'
 import '../styles/global.scss'
 import FeatureCarousel from '../components/FeatureCarousel'
 import { useAppSelector } from '../../../hooks/useAppRedux'
+import WhatsAppBubble from '../components/WhatsAppBubble'
 
 function useScrollReveal() {
   useEffect(() => {
@@ -90,9 +91,44 @@ export default function LandingPage() {
             <h1 className="lp-hero-h1">Every Booking.<br />Every Client.<br /><em>One Platform.</em></h1>
             <p className="lp-hero-sub">The all-in-one platform for beauty, wellness &amp; fitness businesses. Appointments, staff, payments, WhatsApp marketing — all powered by AI.</p>
             <div className="lp-hero-ctas">
-              <button className="sx-btn-primary" onClick={() => navigate(dest)}>Start free trial →</button>
-              <button className="sx-btn-outline" onClick={() => navigate('')}>▶ Watch 2 min demo</button>
-            </div>
+  <button
+    className="sx-btn-primary"
+    onClick={() => navigate(dest)}
+  >
+    Start free trial →
+  </button>
+
+  <button
+    className="sx-btn-outline"
+    onClick={() => navigate('')}
+  >
+    ▶ Watch 2 min demo
+  </button>
+
+  <a
+    href="tel:+918010765945"
+    className="sx-btn-outline"
+    style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 8,
+      textDecoration: 'none',
+    }}
+  >
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.77a16 16 0 0 0 6.29 6.29l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+    </svg>
+
+    Call: 80107 65945
+  </a>
+</div>
             <p className="lp-hero-note">Free 14-day trial · No credit card · Setup in under 10 mins</p>
           </div>
           <div className="lp-hero-mockup sx-animate-float"><DashboardMockup /></div>
@@ -254,27 +290,79 @@ export default function LandingPage() {
       </section>
 
       <section className="lp-pricing-preview sx-reveal">
-        <div className="sx-section">
-          <div className="sx-eyebrow" style={{ justifyContent: 'center' }}>Pricing</div>
-          <h2 className="lp-section-h2" style={{ textAlign: 'center' }}>Simple, honest pricing</h2>
-          <p className="lp-section-sub" style={{ textAlign: 'center', margin: '0 auto 48px' }}>Start free for 14 days. No credit card required.</p>
-          <div className="lp-pricing-grid">
-            {[{ name: 'Starter', price: '₹899', desc: 'Solo professionals', pop: false },{ name: 'Grow', price: '₹1,499', desc: 'Growing teams', pop: false },{ name: 'Ultimate', price: '₹2,499', desc: 'Full AI power', pop: true },{ name: 'Elite', price: '₹5,499', desc: 'Chains & franchises', pop: false }].map(p => (
-              <div key={p.name} className={`lp-price-card${p.pop ? ' lp-price-card--pop' : ''}`}>
-                {p.pop && <div className="lp-price-badge">Most Popular</div>}
-                <div className="lp-price-name">{p.name}</div>
-                <div className="lp-price-amt">{p.price}</div>
-                <div className="lp-price-period">/month</div>
-                <div className="lp-price-desc">{p.desc}</div>
-                <button className={p.pop ? 'sx-btn-primary' : 'sx-btn-outline'} style={{ width: '100%', justifyContent: 'center', marginTop: 'auto' }} onClick={() => navigate(dest)}>{p.pop ? 'Start free →' : 'Learn more'}</button>
-              </div>
-            ))}
-          </div>
-          <div style={{ textAlign: 'center', marginTop: 32 }}>
-            <button className="sx-btn-outline" onClick={() => navigate('/pricing')}>See full pricing &amp; features →</button>
-          </div>
+  <div className="sx-section">
+    <div className="sx-eyebrow" style={{ justifyContent: 'center' }}>Pricing</div>
+    <h2 className="lp-section-h2" style={{ textAlign: 'center' }}>Simple, honest pricing</h2>
+    <p className="lp-section-sub" style={{ textAlign: 'center', margin: '0 auto 12px' }}>Start free for 14 days. No credit card required.</p>
+
+    {/* New user offer note */}
+    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 40 }}>
+      <div style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
+        background: 'color-mix(in srgb, var(--sx-green) 10%, transparent)',
+        border: '1px solid color-mix(in srgb, var(--sx-green) 25%, transparent)',
+        borderRadius: 999,
+        padding: '8px 20px',
+        fontSize: 13,
+        color: 'var(--sx-green)',
+        fontWeight: 500,
+      }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </svg>
+        Special offer available for new users
+      </div>
+    </div>
+
+    <div
+      className="lp-pricing-grid"
+      style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, maxWidth: 720, margin: '0 auto' }}
+    >
+      {/* Quarterly */}
+      <div className="lp-price-card">
+        <div className="lp-price-name">Quarterly</div>
+        <div className="lp-price-amt">₹2,997</div>
+        <div className="lp-price-period">per quarter</div>
+        <div style={{ fontSize: 11, color: 'var(--sx-text-muted)', marginBottom: 20 }}>
+          ₹999 / month · billed every 3 months
         </div>
-      </section>
+        <button
+          className="sx-btn-outline"
+          style={{ width: '100%', justifyContent: 'center' }}
+          onClick={() => navigate(dest)}
+        >
+          Start free trial →
+        </button>
+      </div>
+
+      {/* Annual */}
+      <div className="lp-price-card lp-price-card--pop">
+        <div className="lp-price-badge">Best Value</div>
+        <div className="lp-price-name">Annual</div>
+        <div className="lp-price-amt">₹10,788</div>
+        <div className="lp-price-period">per year</div>
+        <div style={{ fontSize: 11, color: 'var(--sx-text-muted)', marginBottom: 20 }}>
+          ₹899 / month · billed annually · save 10%
+        </div>
+        <button
+          className="sx-btn-primary"
+          style={{ width: '100%', justifyContent: 'center' }}
+          onClick={() => navigate(dest)}
+        >
+          Start free trial →
+        </button>
+      </div>
+    </div>
+
+    <div style={{ textAlign: 'center', marginTop: 32 }}>
+      <button className="sx-btn-outline" onClick={() => navigate('/pricing')}>
+        See full features &amp; plan details →
+      </button>
+    </div>
+  </div>
+</section>
 
       <section className="lp-testi sx-reveal">
         <div className="sx-section">
@@ -308,6 +396,7 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+      <WhatsAppBubble />
 
       <Footer />
     </div>

@@ -43,21 +43,16 @@
 .lp-hero-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    135deg,
-    rgba(9,9,9,0.92) 0%,
-    rgba(9,9,9,0.75) 50%,
-    rgba(9,9,9,0.5) 100%
-  );
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 0;
+}
 
-  [data-theme="light"] & {
-    background: linear-gradient(
-      135deg,
-      rgba(255,255,255,0.94) 0%,
-      rgba(255,255,255,0.8) 50%,
-      rgba(255,255,255,0.5) 100%
-    );
-  }
+[data-theme="light"] .lp-hero-overlay {
+  background: rgba(245, 244, 240, 0.72);
+}
+
+[data-theme="dark"] .lp-hero-overlay {
+  background: rgba(0, 0, 0, 0.62);
 }
 
 .lp-hero-grid {
@@ -82,7 +77,15 @@
 
   @media (max-width: 1024px) {
     grid-template-columns: 1fr;
-    gap: 48px;
+    gap: 40px;
+    padding-top: 60px;
+    padding-bottom: 60px;
+  }
+}
+
+.lp-hero-mockup {
+  @media (max-width: 1024px) {
+    display: none; // hide dashboard mockup on tablet/mobile — saves space
   }
 }
 
@@ -448,17 +451,27 @@
 .lp-deep-inner {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 72px;
+  gap: 64px;
   align-items: center;
 
-  &--reverse { direction: rtl;
-    > * { direction: ltr; }
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 32px;
   }
 
-  @media (max-width: 900px) {
-    grid-template-columns: 1fr;
-    direction: ltr;
-    gap: 40px;
+  &--reverse {
+    @media (min-width: 769px) { direction: rtl; > * { direction: ltr; } }
+    @media (max-width: 768px) { grid-template-columns: 1fr; }
+  }
+}
+
+.lp-deep-img {
+  width: 100%;
+  border-radius: 16px;
+  object-fit: cover;
+
+  @media (max-width: 768px) {
+    max-height: 260px;
   }
 }
 
@@ -547,12 +560,22 @@
 .lp-multiloc-inner {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 80px;
+  gap: 64px;
   align-items: center;
 
-  @media (max-width: 900px) {
+  @media (max-width: 768px) {
     grid-template-columns: 1fr;
     gap: 40px;
+  }
+}
+
+.lp-multiloc-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -636,11 +659,15 @@
 .lp-pricing-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin-bottom: 24px;
+  gap: 16px;
 
-  @media (max-width: 900px) { grid-template-columns: repeat(2, 1fr); }
-  @media (max-width: 480px) { grid-template-columns: 1fr; }
+  @media (max-width: 1024px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (max-width: 560px) {
+    grid-template-columns: 1fr;
+  }
 }
 
 .lp-price-card {
@@ -778,4 +805,68 @@
   gap: 12px;
   justify-content: center;
   flex-wrap: wrap;
+}
+// Proof bar wrapping
+.lp-proof-inner {
+  @media (max-width: 600px) {
+    flex-direction: column;
+    gap: 16px;
+  }
+}
+
+.lp-proof-div {
+  @media (max-width: 600px) { display: none; }
+}
+
+// Feature grid columns
+.lp-feat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+
+  @media (max-width: 900px) { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 560px) { grid-template-columns: 1fr; }
+}
+
+// Business type pill rows
+.lp-biz-cats {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+// Multi-location bullets full width on mobile
+.lp-multiloc-bullets {
+  @media (max-width: 480px) { font-size: 13px; }
+}
+
+// Deep sections padding on mobile
+.lp-deep {
+  padding: 72px 0;
+  @media (max-width: 768px) { padding: 48px 0; }
+}
+
+// CTA section
+.lp-cta-inner {
+  @media (max-width: 480px) {
+    .lp-cta-actions {
+      flex-direction: column;
+      align-items: stretch;
+      button { justify-content: center; }
+    }
+  }
+}
+
+// Hero bullets on mobile
+.lp-hero-ctas {
+  @media (max-width: 400px) {
+    flex-direction: column;
+    align-items: stretch;
+    button { justify-content: center; }
+  }
+}
+.lp-pricing-grid {
+  @media (max-width: 560px) {
+    grid-template-columns: 1fr !important;
+  }
 }

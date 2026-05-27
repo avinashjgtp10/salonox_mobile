@@ -330,3 +330,32 @@
 .fp-related-name  { font-size: 15px; font-weight: 600; color: var(--sx-text-primary); margin-bottom: 6px; }
 .fp-related-sub   { font-size: 12.5px; font-weight: 300; color: var(--sx-text-muted); line-height: 1.55; margin-bottom: 12px; }
 .fp-related-link  { font-size: 12px; font-weight: 500; display: inline-block; }
+.fp-hero {
+  min-height: auto;
+  @media (max-width: 768px) { min-height: auto; }
+}
+
+.fp-hero-inner {
+  @media (max-width: 768px) {
+    padding-top: 48px;
+    padding-bottom: 48px;
+  }
+}
+
+.fp-intro-img {
+  height: 380px;
+  @media (max-width: 768px) { height: 220px; }
+}
+
+// AI section if it has a 2-col layout
+.fp-ai-inner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  align-items: center;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+}

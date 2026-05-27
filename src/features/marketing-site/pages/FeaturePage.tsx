@@ -5,6 +5,7 @@ import Footer from '../components/Footer'
 import { features } from '../config/features.config'
 import '../styles/featurePage.scss'
 import '../styles/global.scss'
+import WhatsAppBubble from '../components/WhatsAppBubble'
 
 function useScrollReveal() {
   useEffect(() => {
@@ -150,6 +151,7 @@ export default function FeaturePage({ slug }: { slug: string }) {
           </div>
         </section>
       )}
+      <WhatsAppBubble />
       <Footer />
     </div>
   )

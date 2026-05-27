@@ -5,6 +5,7 @@ import MegaMenuFeatures from './MegaMenuFeatures'
 import MegaMenuSupport from './MegaMenuSupport'
 import ThemeToggle from '../ThemeToggle'
 import { useAppSelector } from '../../../../hooks/useAppRedux'
+import logo from '../../../../assets/logo.png'
 import '../../styles/navbar.scss'
 
 type ActiveMenu = 'business' | 'features' | 'support' | null
@@ -35,12 +36,13 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  // Fix #8: pointerdown works for both mouse and touch (iPad)
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
+    const handler = (e: PointerEvent) => {
       if (navRef.current && !navRef.current.contains(e.target as Node)) setActiveMenu(null)
     }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    document.addEventListener('pointerdown', handler)
+    return () => document.removeEventListener('pointerdown', handler)
   }, [])
 
   const handleNavigate = (path: string) => {
@@ -49,18 +51,30 @@ export default function Navbar() {
     setMobileOpen(false)
   }
 
+  // Fix #8: tap toggles menu on iPad instead of relying on hover only
+  const handleNavLinkInteraction = (link: typeof navLinks[0]) => {
+    if (link.path) {
+      handleNavigate(link.path)
+    } else {
+      setActiveMenu(prev => prev === link.menu ? null : link.menu!)
+    }
+  }
+
   return (
     <nav ref={navRef} className={`sx-navbar${scrolled ? ' sx-navbar--scrolled' : ''}`}>
+      {/* Fix #2: proper bundler import, not /src/assets/ path */}
       <div className="sx-brand" onClick={() => handleNavigate('/')}>
-        <img src="/src/assets/logo.png" alt="SalonOx" className="sx-brand-logo" />
+        <img src={logo} alt="SalonOx" className="sx-brand-logo" />
       </div>
 
       <ul className="sx-nav-links">
         {navLinks.map(link => (
           <li key={link.label} className="sx-nav-item">
-            <button className="sx-nav-link"
-              onClick={() => link.path ? handleNavigate(link.path) : setActiveMenu(prev => prev === link.menu ? null : link.menu!)}
-              onMouseEnter={() => { if (link.menu) setActiveMenu(link.menu) }}>
+            <button
+              className="sx-nav-link"
+              onClick={() => handleNavLinkInteraction(link)}
+              onMouseEnter={() => { if (link.menu) setActiveMenu(link.menu) }}
+            >
               {link.label}
               {link.menu && (
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
@@ -69,6 +83,7 @@ export default function Navbar() {
                 </svg>
               )}
             </button>
+            {/* Fix #8: z-index 1100 in SCSS so menus appear above hero overlays on iPad */}
             {link.menu === 'business' && activeMenu === 'business' && <MegaMenuBusinessTypes onClose={() => setActiveMenu(null)} />}
             {link.menu === 'features' && activeMenu === 'features' && <MegaMenuFeatures onClose={() => setActiveMenu(null)} />}
             {link.menu === 'support'  && activeMenu === 'support'  && <MegaMenuSupport onClose={() => setActiveMenu(null)} />}
@@ -76,22 +91,28 @@ export default function Navbar() {
         ))}
       </ul>
 
+      {/* Fix #4: breakpoint moved to 900px in SCSS so login always visible on normal desktops */}
       <div className="sx-nav-actions">
         <ThemeToggle />
         <button className="sx-btn-ghost" onClick={() => navigate(authDest('/login'))}>Log in</button>
         <button className="sx-btn-nav-primary" onClick={() => navigate(authDest('/register'))}>Start free</button>
       </div>
 
-      <button className={`sx-hamburger${mobileOpen ? ' sx-hamburger--open' : ''}`}
-        onClick={() => setMobileOpen(p => !p)} aria-label="Toggle menu">
+      <button
+        className={`sx-hamburger${mobileOpen ? ' sx-hamburger--open' : ''}`}
+        onClick={() => setMobileOpen(p => !p)}
+        aria-label="Toggle menu"
+      >
         <span /><span /><span />
       </button>
 
       <div className={`sx-mobile-menu${mobileOpen ? ' sx-mobile-menu--open' : ''}`}>
         {navLinks.map(link => (
           <div key={link.label}>
-            <button className={`sx-mobile-link${mobileExpanded === link.label ? ' sx-mobile-link--open' : ''}`}
-              onClick={() => link.path ? handleNavigate(link.path) : setMobileExpanded(prev => prev === link.label ? null : link.label)}>
+            <button
+              className={`sx-mobile-link${mobileExpanded === link.label ? ' sx-mobile-link--open' : ''}`}
+              onClick={() => link.path ? handleNavigate(link.path) : setMobileExpanded(prev => prev === link.label ? null : link.label)}
+            >
               {link.label}
               {link.menu && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>}
             </button>

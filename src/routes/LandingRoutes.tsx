@@ -3,19 +3,24 @@ import { Route } from "react-router-dom";
 import { businessTypes } from "../features/marketing-site/config/businessTypes.config";
 import { features } from "../features/marketing-site/config/features.config";
 
-const LandingPage = lazy(() => import("../features/marketing-site/pages/LandingPage"));
-const PricingPage = lazy(() => import("../features/marketing-site/pages/PricingPage"));
-const ContactSalesPage = lazy(() => import("../features/marketing-site/pages/ContactSalesPage"));
-const SupportPage = lazy(() => import("../features/marketing-site/pages/SupportPage"));
-const BusinessTypePage = lazy(() => import("../features/marketing-site/pages/BusinessTypePage"));
-const FeaturePage = lazy(() => import("../features/marketing-site/pages/FeaturePage"));
+const LandingPage       = lazy(() => import("../features/marketing-site/pages/LandingPage"));
+const PricingPage       = lazy(() => import("../features/marketing-site/pages/PricingPage"));
+const ContactSalesPage  = lazy(() => import("../features/marketing-site/pages/ContactSalesPage"));
+const SupportPage       = lazy(() => import("../features/marketing-site/pages/SupportPage"));
+const BusinessTypePage  = lazy(() => import("../features/marketing-site/pages/BusinessTypePage"));
+const FeaturePage       = lazy(() => import("../features/marketing-site/pages/FeaturePage"));
+const PolicyPage        = lazy(() => import("../features/marketing-site/pages/PolicyPage"));
 
 export const LandingRoutes = (
   <>
-    <Route path="/" element={<LandingPage />} />
-    <Route path="/pricing" element={<PricingPage />} />
+    <Route path="/"              element={<LandingPage />} />
+    <Route path="/pricing"       element={<PricingPage />} />
     <Route path="/contact-sales" element={<ContactSalesPage />} />
-    <Route path="/support" element={<SupportPage />} />
+    <Route path="/support"       element={<SupportPage />} />
+
+    <Route path="/privacy"      element={<Suspense fallback={null}><PolicyPage type="privacy" /></Suspense>} />
+    <Route path="/terms"        element={<Suspense fallback={null}><PolicyPage type="terms"   /></Suspense>} />
+    <Route path="/cookie-policy" element={<Suspense fallback={null}><PolicyPage type="cookie" /></Suspense>} />
 
     {businessTypes.map(bt => (
       <Route

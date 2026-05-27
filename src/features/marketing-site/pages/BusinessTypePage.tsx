@@ -5,6 +5,7 @@ import Footer from '../components/Footer'
 import { businessTypes } from '../config/businessTypes.config'
 import '../styles/businessType.scss'
 import '../styles/global.scss'
+import WhatsAppBubble from '../components/WhatsAppBubble'
 
 function useScrollReveal() {
   useEffect(() => {
@@ -142,6 +143,7 @@ export default function BusinessTypePage({ slug }: { slug: string }) {
           </div>
         </section>
       )}
+      <WhatsAppBubble />
       <Footer />
     </div>
   )
