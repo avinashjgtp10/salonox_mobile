@@ -5,8 +5,15 @@ import {
   updateAvailability,
   setDayOff,
   setBlocked,
+  removeShiftEntry,
 } from "../../../store/shiftSlice";
-import { fetchDailyShifts, applyCopySchedule, saveStaffSchedule } from "../../../middleware/shift/shiftThunk";
+import { bumpScheduleVersion } from "../../../store/schedulerSlice";
+import {
+  fetchDailyShifts,
+  applyCopySchedule,
+  saveSingleShiftThunk,
+  deleteSingleShiftThunk,
+} from "../../../middleware/shift/shiftThunk";
 import toast from "react-hot-toast";
 import {
   ScheduleTable,
@@ -14,12 +21,14 @@ import {
   CopyScheduleDrawer,
 } from "../../../components/staff-schedule";
 import type { DrawerMode } from "../../../components/staff-schedule";
+import Modal from "../../../components/ui/Modal";
 import {
   getSundayOf,
   toDateKey,
   getWeekDates,
   formatColHeader,
   formatNavDate,
+  convertTo24h,
 } from "../../../components/staff-schedule/utils";
 import "../../../styles/schedule.scss";
 
@@ -41,6 +50,7 @@ const ScheduledShiftsPage: React.FC = () => {
 
   const [sunday, setSunday] = useState<Date>(() => getSundayOf(new Date()));
   const [drawer, setDrawer] = useState<DrawerState>(INITIAL_DRAWER);
+  const [deleteTarget, setDeleteTarget] = useState<{ staffId: string; date: string } | null>(null);
   const [copyStaffId, setCopyStaffId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
@@ -94,12 +104,45 @@ const ScheduledShiftsPage: React.FC = () => {
   const handleManageBlockedDay = useCallback(
     (staffId: string, date: string) => openDrawer("blocked", staffId, date), []
   );
+  const handleDeleteTimeBlock = useCallback((staffId: string, date: string) => {
+    setDeleteTarget({ staffId, date });
+  }, []);
   const handleEditStaff = useCallback((staffId: string) => {
     openDrawer("edit", staffId, toDateKey(new Date()));
   }, []);
   const handleCopy = useCallback((staffId: string) => {
     setCopyStaffId(staffId);
   }, []);
+
+  const handleConfirmDeleteTimeBlock = () => {
+    if (!deleteTarget) return;
+    const { staffId, date } = deleteTarget;
+
+    console.log("[DEBUG] deletingStaffId:", staffId);
+    console.log("[DEBUG] deletingDate:", date);
+
+    const payload = { staff_id: staffId, date };
+    console.log("[DEBUG] delete payload:", payload);
+
+    dispatch(removeShiftEntry({ staffId, date }));
+    const remainingCount = Math.max(
+      0,
+      Object.values(shifts).reduce((count, staffShifts) => count + Object.keys(staffShifts).length, 0) - 1
+    );
+    console.log("[DEBUG] remaining schedule count:", remainingCount);
+
+    dispatch(deleteSingleShiftThunk(payload))
+      .unwrap()
+      .then((res) => {
+        console.log("[DEBUG] API response:", res);
+      })
+      .catch((err) => {
+        console.error("[DEBUG] Delete failed:", err);
+        toast.error("Failed to delete time block");
+      });
+
+    setDeleteTarget(null);
+  };
 
   // ── Save availability ─────────────────────────────────────────────────────────
   const handleSaveAvailability = (
@@ -109,6 +152,9 @@ const ScheduledShiftsPage: React.FC = () => {
     startTime: string,
     endTime: string
   ) => {
+    // 8. Add Temporary Debug Logs
+    console.log("[DEBUG] selectedDate:", date);
+    
     if (drawer.mode === "dayoff" || !isAvailable) {
       dispatch(setDayOff({ staffId, date }));
     } else if (drawer.mode === "blocked") {
@@ -117,21 +163,29 @@ const ScheduledShiftsPage: React.FC = () => {
       dispatch(updateAvailability({ staffId, date, isAvailable, startTime, endTime }));
     }
 
-    const currentShifts = shifts[staffId] || {};
-    const items = weekDates.map(({ dateKey }) => {
-      const s = currentShifts[dateKey] || { startTime: "", endTime: "", isAvailable: false, type: "dayoff" };
-      return {
-        day_of_week: new Date(dateKey + "T12:00:00").getDay(),
-        start_time: s.startTime,
-        end_time: s.endTime,
-        is_available: s.isAvailable,
-        notes: s.type === "blocked" ? "Blocked" : "",
-      };
-    });
-    dispatch(saveStaffSchedule({ staffId, items }))
+    const isDayOff = drawer.mode === "dayoff" || !isAvailable;
+
+    const payload = {
+      staff_id: staffId,
+      date: date,
+      start_time: isDayOff ? "" : convertTo24h(startTime),
+      end_time: isDayOff ? "" : convertTo24h(endTime)
+    };
+
+    console.log("[DEBUG] save payload:", payload);
+    console.log("[DEBUG] number of records being saved:", 1);
+
+    dispatch(saveSingleShiftThunk(payload))
       .unwrap()
-      .then(() => toast.success("Availability updated"))
-      .catch(() => toast.error("Failed to save changes"));
+      .then((res) => {
+        console.log("[DEBUG] API response:", res);
+        toast.success("Availability updated");
+        // No full-week repaint
+      })
+      .catch((err) => {
+        console.error("[DEBUG] Save failed:", err);
+        toast.error("Failed to save changes");
+      });
   };
 
   // ── Copy schedule ─────────────────────────────────────────────────────────────
@@ -141,14 +195,16 @@ const ScheduledShiftsPage: React.FC = () => {
     toDates: string[],
     type: "day" | "week"
   ) => {
-    toast.promise(
-      dispatch(applyCopySchedule({ staffId, fromDate, toDates, type })).unwrap(),
-      {
-        loading: "Copying schedule...",
-        success: () => "Schedule copied successfully!",
-        error: "Failed to copy schedule.",
-      }
-    );
+    dispatch(applyCopySchedule({ staffId, fromDate, toDates, type }))
+      .unwrap()
+      .then(() => {
+        toast.success("Schedule copied successfully");
+        dispatch(fetchDailyShifts(weekStartKey));
+        dispatch(bumpScheduleVersion());
+      })
+      .catch(() => {
+        toast.error("Failed to copy schedule");
+      });
   };
 
   const drawerStaff = staffMembers.find((s) => s.id === drawer.staffId) ?? null;
@@ -161,7 +217,7 @@ const ScheduledShiftsPage: React.FC = () => {
 
   return (
     <div className="sched-page">
-      <div className="sched-page__content">
+      <div className="sched-page__content" style={deleteTarget ? { pointerEvents: "none" } : undefined}>
 
         <h1 className="sched-page__title">Staff Schedule</h1>
 
@@ -202,16 +258,6 @@ const ScheduledShiftsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Syncing indicator */}
-        {loading && (
-          <div className="sched-page__syncing">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-            </svg>
-            Syncing with server…
-          </div>
-        )}
-
         {/* Table */}
         <ScheduleTable
           staffMembers={pagedStaff}
@@ -221,8 +267,10 @@ const ScheduledShiftsPage: React.FC = () => {
           onAddTimeOff={handleAddTimeOff}
           onManageDayOff={handleManageDayOff}
           onManageBlockedDay={handleManageBlockedDay}
+          onDeleteTimeBlock={handleDeleteTimeBlock}
           onCopy={handleCopy}
           onEditStaff={handleEditStaff}
+          isModalOpen={deleteTarget !== null}
         />
 
         {/* Pagination */}
@@ -299,6 +347,23 @@ const ScheduledShiftsPage: React.FC = () => {
         onClose={closeCopy}
         onSave={handleSaveCopy}
       />
+
+      <Modal
+        show={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        title="Delete Schedule?"
+        size="sm"
+      >
+        <p>Are you sure you want to remove this time block for the selected date?</p>
+        <div className="d-flex justify-content-end gap-2 mt-3">
+          <button className="btn btn-outline-secondary" onClick={() => setDeleteTarget(null)}>
+            Cancel
+          </button>
+          <button className="btn btn-danger" onClick={handleConfirmDeleteTimeBlock}>
+            Delete
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 };

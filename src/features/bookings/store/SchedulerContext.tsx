@@ -33,7 +33,6 @@ import {
   setSelectedStaffId,
 } from "../../../store/schedulerSlice";
 import { updateBookingThunk, deleteBookingThunk } from "../../../middleware/booking/booking.thunk";
-import { addMinutes } from "../utils/timeUtils";
 import {
   fetchBlockedTimesThunk,
   createBlockedTimeThunk,
@@ -67,6 +66,7 @@ export function useSchedulerContext() {
     packagesList,
     membershipsList,
     productsList,
+    staffSchedules,
   } = useAppSelector((s) => s.scheduler);
   const salonId = useAppSelector((s: any) => s.salon?.currentSalon?.id);
 
@@ -74,6 +74,8 @@ export function useSchedulerContext() {
     bookings,
     addBooking: (b: Booking) => dispatch(addBooking(b)),
     updateBooking: (b: Booking) => {
+      console.log("[DEBUG Drag & Drop Context] updateBooking called with payload:", b);
+      const previousBooking = bookings.find((existing) => String(existing.id) === String(b.id));
       dispatch(updateBookingAction(b));
       const rawStatus = ((b as any)._rawStatus || "").toLowerCase();
       const isLocked = rawStatus === "completed" || rawStatus === "no_show";
@@ -81,7 +83,7 @@ export function useSchedulerContext() {
         const [sh, sm] = b.startTime.split(":").map(Number);
         const [eh, em] = b.endTime.split(":").map(Number);
         const duration = Math.max(5, (eh * 60 + em) - (sh * 60 + sm));
-        return (dispatch(updateBookingThunk({
+        const apiPayload = {
           id: b.id,
           data: {
             scheduled_at: new Date(`${b.date}T${b.startTime}:00`).toISOString(),
@@ -93,25 +95,33 @@ export function useSchedulerContext() {
             status: b.status === "Cancelled" ? "cancelled"
               : b.status === "Pending" ? "booked"
                 : "confirmed",
-            services: b.services.map((s: any) => ({
-              service_id: s.id,
-              staff_id: toApiStaffId(s.staffId),
-              start_time: s.time,
-              end_time: addMinutes(s.time, s.duration || 30),
-              price: s.price,
-              qty: s.qty || 1,
-              total: s.total,
-            })),
+            title: (b as any).title,
+            // Do NOT send services when rescheduling — the API runs a per-service
+            // availability check that conflicts with the booking being moved itself.
+            // Services remain associated with the booking; only the booking-level
+            // time fields need to change for a drag-and-drop reschedule.
             package_items: b.packageItems ?? [],
             product_items: (b as any).productItems ?? [],
             membership_items: (b as any).membershipItems ?? [],
           },
-        })) as any)
+        };
+        console.log("[DEBUG Drag & Drop Context] Dispatching updateBookingThunk with payload:", apiPayload);
+        return (dispatch(updateBookingThunk(apiPayload)) as any)
           .then((action: any) => {
             if (updateBookingThunk.rejected.match(action)) {
+              console.error("[DEBUG Drag & Drop Context] updateBookingThunk rejected:", action.payload);
+              if (previousBooking) dispatch(updateBookingAction(previousBooking));
               throw new Error(action.payload as string || "Staff member already has an appointment at this time");
             }
+            // Keep the optimistic Redux update (already applied via dispatch(updateBookingAction(b))
+            // above). Overwriting with the API response would re-run svcTimeToLocal on service
+            // times that were already correctly set, causing a double-offset (wrong display time).
             return action;
+          })
+          .catch((err: any) => {
+            console.error("[DEBUG Drag & Drop Context] updateBooking catch error:", err);
+            if (previousBooking) dispatch(updateBookingAction(previousBooking));
+            throw err;
           });
       }
       return Promise.resolve();
@@ -134,6 +144,7 @@ export function useSchedulerContext() {
       dispatch(addBlockedTimeAction(bt));
       if (salonId) {
         (dispatch(createBlockedTimeThunk({
+          salon_id: salonId,
           staff_id: bt.staffId,
           date: bt.date,
           start_time: bt.startTime,
@@ -223,5 +234,6 @@ export function useSchedulerContext() {
     packagesList,
     membershipsList,
     productsList,
+    staffSchedules,
   };
 }

@@ -92,7 +92,7 @@ const Input: React.FC<InputProps> = ({
           <label
             htmlFor={inputId}
             className="form-label fw-semibold mb-0"
-            style={{ fontSize: "13px" }}
+            style={{ fontSize: "13px", color: "#374151" }}
           >
             {label}
           </label>

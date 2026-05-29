@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import type { ShiftEntry } from "./types";
 import CellDropdown from "./CellDropdown";
 
@@ -10,6 +10,8 @@ interface ScheduleCellProps {
   onAddTimeOff: (staffId: string, date: string) => void;
   onManageDayOff: (staffId: string, date: string) => void;
   onManageBlockedDay: (staffId: string, date: string) => void;
+  onDeleteTimeBlock: (staffId: string, date: string) => void;
+  isModalOpen?: boolean;
 }
 
 const ScheduleCell: React.FC<ScheduleCellProps> = ({
@@ -20,8 +22,16 @@ const ScheduleCell: React.FC<ScheduleCellProps> = ({
   onAddTimeOff,
   onManageDayOff,
   onManageBlockedDay,
+  onDeleteTimeBlock,
+  isModalOpen,
 }) => {
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (isModalOpen) {
+      setOpen(false);
+    }
+  }, [isModalOpen]);
   const cellRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
 
@@ -114,6 +124,7 @@ const ScheduleCell: React.FC<ScheduleCellProps> = ({
           onAddTimeOff={() => onAddTimeOff(staffId, date)}
           onManageDayOff={() => onManageDayOff(staffId, date)}
           onManageBlockedDay={() => onManageBlockedDay(staffId, date)}
+          onDeleteTimeBlock={() => onDeleteTimeBlock(staffId, date)}
           onClose={() => setOpen(false)}
         />
       )}

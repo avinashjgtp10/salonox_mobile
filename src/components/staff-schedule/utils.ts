@@ -56,6 +56,27 @@ export function calcTotalHours(start: string, end: string): string {
   return mins === 0 ? `${hrs} hrs` : `${hrs} hrs ${mins} mins`;
 }
 
+/** Convert 24h DB time ("09:00:00" or "09:00") → 12h UI format ("09:00 AM") */
+export function convertTo12h(time: string): string {
+  if (!time) return "";
+  if (time.includes("AM") || time.includes("PM")) return time; // already 12h
+  const [h, m] = time.split(":").map(Number);
+  const period = h < 12 ? "AM" : "PM";
+  const hour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${String(hour).padStart(2, "0")}:${String(m).padStart(2, "0")} ${period}`;
+}
+
+/** Convert 12h UI format ("09:00 AM") → 24h DB time ("09:00:00") */
+export function convertTo24h(time: string): string {
+  if (!time) return "";
+  if (!time.includes("AM") && !time.includes("PM")) return time; // already 24h
+  const [timePart, period] = time.split(" ");
+  let [h, m] = timePart.split(":").map(Number);
+  if (period === "PM" && h !== 12) h += 12;
+  if (period === "AM" && h === 12) h = 0;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`;
+}
+
 export function generateTimeOptions(): string[] {
   const opts: string[] = [];
   for (let h = 0; h < 24; h++) {
