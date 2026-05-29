@@ -1,23 +1,25 @@
 import { useState, useEffect, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import api from "../../../services/api/axios";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import { fetchClientsThunk } from "../../../middleware/client/client.thunk";
 import { fetchServicesThunk } from "../../../middleware/services/services.thunk";
 import { fetchMembershipsThunk } from "../../../middleware/membership/membership.thunk";
 import { fetchProductsThunk } from "../../../middleware/catalog/products.thunk";
 import { fetchBookingsThunk } from "../../../middleware/booking/booking.thunk";
-import { fetchBlockedTimesThunk } from "../../../middleware/blockedTime/blockedTime.thunk";
+import { fetchDailyShifts } from "../../../middleware/shift/shiftThunk";
 import { useListPackagesQuery } from "../../../services/api/endpoints/packages.endpoints";
 import {
   setBookings,
-  setBlockedTimes,
   setStaffList,
   setClientsList,
   setServicesList,
   setPackagesList,
   setMembershipsList,
   setProductsList,
+  setStaffSchedules,
 } from "../../../store/schedulerSlice";
+import type { StaffDaySchedule } from "../../../store/schedulerSlice";
 import type { Staff, Client, Booking, ServiceItem } from "../types/scheduler-types";
 
 const STAFF_COLORS = [
@@ -82,12 +84,17 @@ export function mapApiBooking(item: any, rawServices: any[] = [], rawStaff: any[
       const svcLookup = rawServices.find((rs: any) => String(rs.id) === String(s.service_id ?? s.id));
       const stfId = String(s.staff_id ?? item.staff_id ?? "");
       const stfLookup = rawStaff.find((rs: any) => String(rs.id) === stfId);
-
+      const svcName = s.name ?? s.service_name ?? (typeof s.service === "object" ? s.service?.name || s.service?.service : s.service) ?? svcLookup?.name ?? "";
+      
       return {
         id: svcId,
-        service: s.name ?? s.service_name ?? s.service ?? svcLookup?.name ?? "",
-        staff: s.staff_name ?? s.staff ?? stfLookup?.fullName ?? stfLookup?.full_name
-          ?? (`${stfLookup?.first_name || ""} ${stfLookup?.last_name || ""}`.trim()) ?? "",
+        service: svcName,
+        staff: (() => {
+          const raw = s.staff_name ?? s.staff
+            ?? `${stfLookup?.first_name || ""} ${stfLookup?.last_name || ""}`.trim()
+            ?? stfLookup?.fullName ?? stfLookup?.full_name ?? "";
+          return raw.includes(" ") ? raw : raw.replace(/([a-z])([A-Z])/g, "$1 $2");
+        })(),
         staffId: stfId,
         time: s.time ?? `${hh}:${mm}`,
         price: parseFloat(String(s.price ?? 0)) || 0,
@@ -142,8 +149,47 @@ export function mapApiBooking(item: any, rawServices: any[] = [], rawStaff: any[
     finalPayStatus = "Partial";
   }
 
+  // ── Products, packages, memberships ────────────────────────────────────────
+  const productItems = (item.product_items || item.productItems || item.products || []).map((p: any) => ({
+    id: String(p.id ?? ""),
+    productId: String(p.product_id ?? p.productId ?? ""),
+    productName: p.product_name ?? p.productName ?? p.name ?? "",
+    name: p.product_name ?? p.productName ?? p.name ?? "",
+    price: parseFloat(String(p.price ?? 0)) || 0,
+    qty: Number(p.qty ?? p.quantity ?? 1) || 1,
+    total: parseFloat(String(p.total ?? p.price ?? 0)) || 0,
+  }));
+
+  const packageItems = (item.package_items || item.packageItems || item.packages || []).map((p: any) => ({
+    id: String(p.id ?? ""),
+    packageId: String(p.package_id ?? p.packageId ?? ""),
+    packageName: p.package_name ?? p.packageName ?? p.name ?? "",
+    name: p.package_name ?? p.packageName ?? p.name ?? "",
+    price: parseFloat(String(p.price ?? 0)) || 0,
+    qty: Number(p.qty ?? p.quantity ?? 1) || 1,
+    total: parseFloat(String(p.total ?? p.price ?? 0)) || 0,
+  }));
+
+  const membershipItems = (item.membership_items || item.membershipItems || item.memberships || []).map((m: any) => ({
+    id: String(m.id ?? ""),
+    membershipId: String(m.membership_id ?? m.membershipId ?? ""),
+    membershipName: m.membership_name ?? m.membershipName ?? m.name ?? "",
+    name: m.membership_name ?? m.membershipName ?? m.name ?? "",
+    price: parseFloat(String(m.price ?? 0)) || 0,
+    qty: Number(m.qty ?? m.quantity ?? 1) || 1,
+    total: parseFloat(String(m.total ?? m.price ?? 0)) || 0,
+  }));
+  // ── Build combined title from all booking item types ──────────────────────
+  const title = (item.title && item.title !== "Appointment" && item.title !== "appointment") ? item.title : [
+    ...(services || []).map((s: any) => s.name || s.service).filter(Boolean),
+    ...(productItems || []).map((p: any) => p.name).filter(Boolean),
+    ...(packageItems || []).map((p: any) => p.name).filter(Boolean),
+    ...(membershipItems || []).map((m: any) => m.name).filter(Boolean),
+  ].join(", ") || "Appointment";
+
   return {
     id: String(item.id),
+    title,
     clientId: item.client_id ? String(item.client_id) : undefined,
     clientName: item.client?.fullName ?? item.client?.full_name ?? item.client_name ?? "",
     clientPhone: item.client?.phone ?? item.client_phone ?? "",
@@ -153,6 +199,12 @@ export function mapApiBooking(item: any, rawServices: any[] = [], rawStaff: any[
     startTime: `${hh}:${mm}`,
     endTime: `${endHH}:${endMM}`,
     services,
+    products: productItems,
+    productItems,
+    packages: packageItems,
+    packageItems,
+    memberships: membershipItems,
+    membershipItems,
     status: mapBackendStatus(item.status),
     _rawStatus: (item.status || "").toLowerCase(),
     paymentStatus: finalPayStatus,
@@ -162,6 +214,7 @@ export function mapApiBooking(item: any, rawServices: any[] = [], rawStaff: any[
     payingNow: paidAmount > 0 ? paidAmount : (finalPayStatus === "Paid" ? grandTotal : 0),
     dueAmount: grandTotal - (paidAmount > 0 ? paidAmount : (finalPayStatus === "Paid" ? grandTotal : 0)),
     notes: item.notes ?? "",
+    staffAlert: item.staff_alert || item.staffAlert || "",
   };
 }
 
@@ -170,7 +223,8 @@ export function useSchedulerInit() {
   const initialized = useRef<string | null>(null);
 
   const salonId = useAppSelector((s: any) => s.salon?.currentSalon?.id);
-  const currentDate = useAppSelector((s: any) => s.scheduler?.currentDate);
+  const scheduleVersion = useAppSelector((s: any) => s.scheduler?.scheduleVersion ?? 0);
+  const currentDate = useAppSelector((s: any) => s.scheduler?.currentDate ?? "");
   const apiStaff = useAppSelector((s: any) => s.staff.items);
   const apiClients = useAppSelector((s: any) => s.client.items);
   const apiServices = useAppSelector((s: any) => s.services.items);
@@ -205,28 +259,7 @@ export function useSchedulerInit() {
         }
       })
       .catch((err: any) => console.error("Failed to load bookings:", err));
-
-    // Fetch blocked times for current date on first load
-    (dispatch(fetchBlockedTimesThunk()) as any)
-      .then((action: any) => {
-        if (fetchBlockedTimesThunk.fulfilled.match(action)) {
-          dispatch(setBlockedTimes(action.payload));
-        }
-      })
-      .catch((err: any) => console.error("Failed to load blocked times:", err));
   }, [dispatch, salonId]);
-
-  // Re-fetch blocked times whenever the current date changes
-  useEffect(() => {
-    if (!salonId || !currentDate) return;
-    (dispatch(fetchBlockedTimesThunk({ date: currentDate })) as any)
-      .then((action: any) => {
-        if (fetchBlockedTimesThunk.fulfilled.match(action)) {
-          dispatch(setBlockedTimes(action.payload));
-        }
-      })
-      .catch(() => {/* silently ignore on date change */ });
-  }, [dispatch, currentDate, salonId]);
 
   // ── Re-map bookings whenever raw data or services change ─────────────────────
   // This ensures service names appear correctly even if services load after bookings
@@ -242,9 +275,10 @@ export function useSchedulerInit() {
       return;
     }
     const mapped: Staff[] = apiStaff.map((s: any, i: number) => {
-      const name = s.fullName || s.full_name
-        || (`${s.first_name || ""} ${s.last_name || ""}`.trim())
-        || "";
+      const fromParts = `${s.first_name || ""} ${s.last_name || ""}`.trim();
+      const rawFull = s.fullName || s.full_name || "";
+      const spacedFull = rawFull.includes(" ") ? rawFull : rawFull.replace(/([a-z])([A-Z])/g, "$1 $2");
+      const name = fromParts || spacedFull || "";
       return {
         id: String(s.id),
         name,
@@ -303,6 +337,55 @@ export function useSchedulerInit() {
       }))
     ));
   }, [apiMemberships, dispatch]);
+
+  // ── Fetch staff working-hour schedules (weekly pattern) ──────────────────────
+  // Triggered whenever the staff list changes so the calendar always reflects
+  // the latest saved shifts without requiring a full page reload.
+  useEffect(() => {
+    if (!apiStaff.length) return;
+    Promise.all(
+      apiStaff.map((s: any) =>
+        api
+          .get(`/api/v1/staff/${s.id}/scheduled`)
+          .then((res: any) => ({ staffId: String(s.id), data: res.data?.data || res.data || [] }))
+          .catch(() => ({ staffId: String(s.id), data: [] }))
+      )
+    )
+      .then((results) => {
+        const schedules: Record<string, Record<number, StaffDaySchedule>> = {};
+        results.forEach(({ staffId, data }) => {
+          schedules[staffId] = {};
+          if (Array.isArray(data)) {
+            data.forEach((sch: any) => {
+              const dow = Number(sch.day_of_week);
+              if (!isNaN(dow) && dow >= 0 && dow <= 6 && sch.is_available) {
+                // Only store records where the staff is actually working.
+                // is_available: false records are week-specific day-offs and must
+                // not pollute the recurring weekly calendar pattern.
+                schedules[staffId][dow] = {
+                  startTime: sch.start_time || "",
+                  endTime: sch.end_time || "",
+                  isAvailable: true,
+                };
+              }
+            });
+          }
+        });
+        dispatch(setStaffSchedules(schedules));
+      })
+      .catch(() => {/* non-critical — calendar still works without schedule data */});
+  }, [apiStaff, dispatch, scheduleVersion]);
+
+  // ── Fetch date-specific shifts for the current calendar week ─────────────────
+  // Keeps state.shift.shifts fresh so DayView can show working-hour blocks only
+  // for weeks that have been explicitly scheduled (not recurring forever).
+  useEffect(() => {
+    if (!currentDate || !salonId) return;
+    const d = new Date(currentDate + "T12:00:00");
+    d.setDate(d.getDate() - d.getDay()); // roll back to Sunday
+    const sundayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    dispatch(fetchDailyShifts(sundayKey));
+  }, [currentDate, salonId, dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Map products ─────────────────────────────────────────────────────────────
   useEffect(() => {

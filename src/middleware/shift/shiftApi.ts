@@ -49,9 +49,9 @@ const shiftApi = {
     date: string;
     startTime?: string;
     endTime?: string;
-  }) => api.post(`/api/v1/staff/${data.staffId}/scheduled`, {
+  }) => api.put(`/api/v1/staff/${data.staffId}/scheduled`, {
     items: [{
-      day_of_week: new Date(data.date).getDay(),
+      day_of_week: new Date(data.date + "T12:00:00").getDay(),
       is_available: false,
       start_time: data.startTime,
       end_time: data.endTime,
@@ -65,6 +65,39 @@ const shiftApi = {
     toDates: string[];
     type: "day" | "week";
   }) => api.post(`/api/v1/staff/${data.staffId}/copy-schedule`, data), // Hypothetical endpoint
+
+  // Save shift for a SPECIFIC date only — no recurring weekly propagation.
+  // The `date` field tells the backend to store this as a date-specific record.
+  // `day_of_week` is kept alongside it for backends that require both fields;
+  // when `date` is present the backend should use it as the primary key and
+  // must NOT apply the change to all other weeks' matching weekday.
+  saveSingleShift: (payload: {
+    staff_id: string;
+    date: string;
+    start_time: string;
+    end_time: string;
+  }) => {
+    const dateObj = new Date(payload.date + "T12:00:00");
+    const dayOfWeek = dateObj.getDay();
+    const isAvailable = !!(payload.start_time && payload.end_time);
+    return api.put(`/api/v1/staff/${payload.staff_id}/scheduled`, {
+      items: [
+        {
+          date: payload.date,          // specific date — save only this day
+          day_of_week: dayOfWeek,      // kept for backward compatibility
+          is_available: isAvailable,
+          start_time: isAvailable ? payload.start_time : null,
+          end_time: isAvailable ? payload.end_time : null,
+        }
+      ]
+    });
+  },
+
+  // Delete a single schedule block for the selected date only
+  deleteSingleShift: (payload: { staff_id: string; date: string }) =>
+    api.delete(`/api/v1/staff/${payload.staff_id}/scheduled`, {
+      params: { date: payload.date },
+    }),
 };
 
 export default shiftApi;

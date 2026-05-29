@@ -17,8 +17,10 @@ interface ScheduleTableProps {
   onAddTimeOff: (staffId: string, date: string) => void;
   onManageDayOff: (staffId: string, date: string) => void;
   onManageBlockedDay: (staffId: string, date: string) => void;
+  onDeleteTimeBlock: (staffId: string, date: string) => void;
   onCopy: (staffId: string) => void;
   onEditStaff: (staffId: string) => void;
+  isModalOpen?: boolean;
 }
 
 const ScheduleTable: React.FC<ScheduleTableProps> = ({
@@ -29,8 +31,10 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({
   onAddTimeOff,
   onManageDayOff,
   onManageBlockedDay,
+  onDeleteTimeBlock,
   onCopy,
   onEditStaff,
+  isModalOpen,
 }) => {
   return (
     <div className="sched-table">
@@ -72,8 +76,10 @@ const ScheduleTable: React.FC<ScheduleTableProps> = ({
                 onAddTimeOff={onAddTimeOff}
                 onManageDayOff={onManageDayOff}
                 onManageBlockedDay={onManageBlockedDay}
+                onDeleteTimeBlock={onDeleteTimeBlock}
                 onCopy={onCopy}
                 onEditStaff={onEditStaff}
+                isModalOpen={isModalOpen}
               />
             ))
           )}

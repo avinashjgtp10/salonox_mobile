@@ -23,6 +23,7 @@ export interface ServiceItem {
   time: string;
   price: number;
   qty: number;
+  discount?: number;
   total: number;
   duration?: number;
   isFav?: boolean;
@@ -51,6 +52,7 @@ export type PaymentMode = "Cash" | "Card" | "UPI" | "Ewallet";
 export type DiscountType = "Percentage (%)" | "Flat (₹)";
 export interface Booking {
   id: string;
+  title?: string;
   clientId?: string;
   clientName: string;
   clientPhone: string;
@@ -61,8 +63,14 @@ export interface Booking {
   endTime: string;
   services: ServiceItem[];
   groupItems?: GroupItem[];
+  packages?: PackageItem[];
   packageItems?: PackageItem[];
+  products?: any[];
+  productItems?: any[];
+  memberships?: any[];
+  membershipItems?: any[];
   status: BookingStatus;
+  _rawStatus?: string;
   paymentStatus: PaymentStatus;
   payment_status?: string | null;  // ✅ snake_case alias from DB/API
   paymentMode?: PaymentMode;

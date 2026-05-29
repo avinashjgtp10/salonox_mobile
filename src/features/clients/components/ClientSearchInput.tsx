@@ -10,6 +10,7 @@ export interface ClientSearchResult {
   last_name?: string;
   phone_number?: string;
   email?: string;
+  gender?: string;
 }
 
 interface Props {
@@ -25,6 +26,7 @@ interface Props {
 const RECENT_KEY = "client_recent_searches";
 const MAX_RECENT = 5;
 const DEBOUNCE_MS = 350;
+const MIN_CHARS = 3;
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 
@@ -43,7 +45,7 @@ function removeRecent(name: string) {
 // ── Highlight matching substring ──────────────────────────────────────────────
 
 function HighlightText({ text, query }: { text: string; query: string }) {
-  if (!query || query.length < 2) return <>{text}</>;
+  if (!query || query.length < MIN_CHARS) return <>{text}</>;
   const esc = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const parts = text.split(new RegExp(`(${esc})`, "gi"));
   return (
@@ -61,7 +63,7 @@ function HighlightText({ text, query }: { text: string; query: string }) {
 
 export default function ClientSearchInput({
   onSelect,
-  placeholder = "Search by Name / Phone (min 2 chars)",
+  placeholder = "Search by Name / Phone (min 3 chars)",
   highlight = true,
   value,
   onChange,
@@ -135,7 +137,7 @@ export default function ClientSearchInput({
 
   const search = useCallback(async (term: string) => {
     // Guard: walk-in or too short — clear results, stay closed
-    if (term.length < 2 || /^walk.?in$/i.test(term)) {
+    if (term.length < MIN_CHARS || /^walk.?in$/i.test(term)) {
       setResults([]);
       setLoading(false);
       setSearched(false);
@@ -159,7 +161,11 @@ export default function ClientSearchInput({
       setResults(Array.isArray(raw) ? raw : []);
       setSearched(true);
     } catch (err: any) {
-      if (err?.name === "CanceledError" || err?.name === "AbortError") return;
+      if (
+        err?.name === "CanceledError" ||
+        err?.name === "AbortError" ||
+        err?.code === "ERR_CANCELED"
+      ) return;
       setError("Search failed. Check your connection and try again.");
       setResults([]);
       setSearched(true);
@@ -188,8 +194,22 @@ export default function ClientSearchInput({
       return;
     }
 
-    if (query.length < 2) {
-      // 1-char: don't search, but keep dropout closed (already set in onChange)
+    // Phone number validation: if input contains any digits, it must be exactly 10 digits
+    const hasDigits = /\d/.test(query);
+    if (hasDigits) {
+      const digitCount = query.replace(/\D/g, "").length;
+      if (digitCount !== 10) {
+        setResults([]);
+        setLoading(false);
+        return;
+      }
+    }
+
+    // Clear any previous error since query is valid
+    setError(null);
+
+    if (query.length < MIN_CHARS) {
+      // fewer than MIN_CHARS: don't search yet
       return;
     }
 
@@ -246,7 +266,7 @@ export default function ClientSearchInput({
   // - open=true + query >= 2 chars: show search area (loading / results / empty)
   // - open=true + query empty + recent items exist: show recent list
 
-  const showDropdown = open && (query.length >= 2 || (query.length === 0 && recent.length > 0));
+  const showDropdown = open && (query.length >= MIN_CHARS || (query.length === 0 && recent.length > 0));
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -280,14 +300,27 @@ export default function ClientSearchInput({
           spellCheck={false}
           id="client-search-field"
           onChange={(e) => {
-            const val = e.target.value;
-            // Update synchronously BEFORE setQuery so value-effect sees the
-            // latest user-typed string and skips the "external update" path.
+            let val = e.target.value;
+
+            // Restrict input to 10 digits max if it starts with a number or is entirely digits
+            const cleanDigits = val.replace(/\D/g, "");
+            const startsWithDigit = /^\d/.test(val.trim());
+
+            if (startsWithDigit || /^\d+$/.test(cleanDigits)) {
+              val = cleanDigits.slice(0, 10);
+            }
+
             userTypedRef.current = val;
             setQuery(val);
             onChange?.(val);
-            // Open dropdown for >=2 chars (search range) or empty (recents)
-            setOpen(val.length >= 2 || val.length === 0);
+
+            // If it's a numeric search, only open the dropdown when exactly 10 digits are typed
+            const hasDigits = /\d/.test(val);
+            if (hasDigits) {
+              setOpen(val.length === 10);
+            } else {
+              setOpen(val.length >= MIN_CHARS || val.length === 0);
+            }
           }}
           onFocus={() => {
             if (!disabled) setOpen(true);
@@ -345,7 +378,7 @@ export default function ClientSearchInput({
           )}
 
           {/* Search results area */}
-          {query.length >= 2 && (
+          {query.length >= MIN_CHARS && (
             <>
               {/* Loading spinner */}
               {loading && (

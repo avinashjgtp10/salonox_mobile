@@ -75,6 +75,13 @@ export const applyInterceptors = (instance: AxiosInstance) => {
 
     // ❌ Non-2xx
     async (error: AxiosError) => {
+      // Pass cancel/abort errors through unchanged so callers can detect them.
+      // Without this, AbortController aborts get wrapped into ApiError and the
+      // caller's `err?.name === "CanceledError"` guard never fires.
+      if (axios.isCancel(error) || (error as any).code === "ERR_CANCELED") {
+        return Promise.reject(error);
+      }
+
       if (error.response) {
         console.error(
           `[API ERROR] ${error.config?.method?.toUpperCase()} ${error.config?.url}:`,

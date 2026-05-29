@@ -46,10 +46,8 @@ const fmtMoney = (v: string | number) =>
 
 const toISO = (d: Date) => format(d, "yyyy-MM-dd");
 
-const STATUS_META: Record<
-  string,
-  { label: string; mod: string; Icon: React.FC<{ size?: number; className?: string }> }
-> = {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const STATUS_META: Record<string, { label: string; mod: string; Icon: any }> = {
   completed: { label: "Completed", mod: "completed", Icon: CheckCircleFill },
   draft: { label: "Draft", mod: "draft", Icon: ClockHistory },
   cancelled: { label: "Cancelled", mod: "cancelled", Icon: XCircleFill },

@@ -732,14 +732,29 @@ export default function QuickSalePage() {
             Client
           </div>
           <div className="va-section__body">
-            <div className="va-client-row">
+            <div className="flex items-start gap-3 w-full">
               {/* Live API client search — debounced per keystroke */}
               <ClientSearchInput
                 value={clientSearch}
                 onChange={(val) => {
                   setClientSearch(val);
                   if (isWalkin) setIsWalkin(false);
-                  if (!val) setClient(null);
+                  if (!val) {
+                    setClient(null);
+                    setNewClientPhone("");
+                  }
+                  // When the query is numeric (phone number search), mirror it into
+                  // the Add Client phone field and open the form so the user can
+                  // fill in the remaining details without re-typing the number.
+                  const digits = val.replace(/\D/g, "");
+                  if (digits.length > 0 && /^[\d\s\-()+]+$/.test(val)) {
+                    const phone10 = digits.slice(-10);
+                    setNewClientPhone(phone10);
+                    setPhoneDuplicate(false);
+                    setFormErrors((p) => p.filter((x) => x !== "phone"));
+                    if (!showAddClientForm) setShowAddClientForm(true);
+                    setIsClientSaved(false);
+                  }
                 }}
                 onSelect={(c: ClientSearchResult) => {
                   const name = `${c.first_name} ${c.last_name || ""}`.trim();
@@ -750,27 +765,56 @@ export default function QuickSalePage() {
                     initials: toInitials(name),
                   });
                   setClientSearch(name);
+                  setIsWalkin(false);
+
+                  setNewClientFirstName(c.first_name || "");
+                  setNewClientLastName(c.last_name || "");
+
+                  // Strip country code — check longer prefixes first to avoid "+97" matching "+1"
+                  let phoneStr = c.phone_number || "";
+                  const CODES: [string, string][] = [["+971", "+971"], ["+91", "+91"], ["+44", "+44"], ["+1", "+1"]];
+                  for (const [code, label] of CODES) {
+                    if (phoneStr.startsWith(code)) {
+                      setCountryCode(label);
+                      phoneStr = phoneStr.slice(code.length);
+                      break;
+                    }
+                  }
+                  setNewClientPhone(phoneStr.replace(/\D/g, "").slice(-10));
+
+                  // Normalize gender to match <select> option values (API may return lowercase)
+                  const rawGender = (c.gender || "").toLowerCase();
+                  setNewClientGender(
+                    rawGender === "female" ? "Female" :
+                    rawGender === "male"   ? "Male"   :
+                    rawGender === "other"  ? "Other"  : ""
+                  );
+
+                  setPhoneDuplicate(false);
+                  setFormErrors([]);
+                  setShowAddClientForm(true);
+                  setIsClientSaved(true); // existing client — already saved in the system
                 }}
                 placeholder="Search client by name or phone…"
               />
 
               <button
-                className={`va-walkin-btn${isWalkin ? " va-walkin-btn--active" : ""}`}
+                className={`va-walkin-btn h-[42px] flex items-center justify-center${isWalkin ? " va-walkin-btn--active" : ""}`}
                 onClick={handleWalkinClick}
               >
                 Walk-In
               </button>
 
               <button
-                className="va-add-client-btn"
+                className="va-add-client-btn h-[42px] flex items-center justify-center"
                 onClick={() => { setShowAddClientForm((v) => !v); setIsClientSaved(false); }}
               >
                 {showAddClientForm ? "✕ Cancel" : "+ Add Client"}
               </button>
 
-              <div ref={datePickerRef} style={{ position: "relative" }}>
+              <div ref={datePickerRef} className="relative h-[42px]">
                 <button
-                  className="va-date-field"
+                  className="va-date-field h-[42px] flex items-center justify-center"
                   onClick={() => setShowDatePicker((v) => !v)}
                   type="button"
                 >
