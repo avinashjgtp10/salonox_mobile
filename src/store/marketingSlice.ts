@@ -5,6 +5,7 @@ import {
   createTemplateThunk,
   deleteTemplateThunk,
   syncTemplateThunk,
+  toggleTemplateFavoriteThunk,
   fetchCampaignsThunk,
   createCampaignThunk,
   pauseCampaignThunk,
@@ -13,31 +14,37 @@ import {
   fetchWaConfigThunk,
   saveWaConfigThunk,
   testWaConfigThunk,
+  syncWaLimitsThunk,
   fetchDashboardStatsThunk,
 } from "../middleware/marketing/marketing.thunk";
-
-// ── State ─────────────────────────────────────────────────────────────────────
+import { fetchAnalytics } from "../middleware/marketing/analytics.thunk";
+import type { WAAnalyticsStats } from "../middleware/marketing/analytics.thunk";
 
 interface MarketingState {
-  templates:     Template[];
-  campaigns:     Campaign[];
-  webhookEvents: WebhookEvent[];
-  waConfig:      WaConfig | null;
+  templates:      Template[];
+  campaigns:      Campaign[];
+  webhookEvents:  WebhookEvent[];
+  waConfig:       WaConfig | null;
   dashboardStats: DashboardStats | null;
+  analyticsData:  WAAnalyticsStats | null;
+  waConfigFetched: boolean;
   loading: {
-    fetchTemplates:     boolean;
-    createTemplate:     boolean;
-    deleteTemplate:     boolean;
-    syncTemplate:       boolean;
-    fetchCampaigns:     boolean;
-    createCampaign:     boolean;
-    pauseCampaign:      boolean;
-    resumeCampaign:     boolean;
-    fetchWebhookEvents: boolean;
-    fetchWaConfig:      boolean;
-    saveWaConfig:       boolean;
-    testWaConfig:       boolean;
-    fetchDashboardStats: boolean;
+    fetchTemplates:        boolean;
+    createTemplate:        boolean;
+    deleteTemplate:        boolean;
+    syncTemplate:          boolean;
+    toggleFavorite:        boolean;
+    fetchCampaigns:        boolean;
+    createCampaign:        boolean;
+    pauseCampaign:         boolean;
+    resumeCampaign:        boolean;
+    fetchWebhookEvents:    boolean;
+    fetchWaConfig:         boolean;
+    saveWaConfig:          boolean;
+    testWaConfig:          boolean;
+    syncWaLimits:          boolean;
+    fetchDashboardStats:   boolean;
+    fetchAnalytics:        boolean;
   };
   error: string | null;
 }
@@ -48,25 +55,28 @@ const initialState: MarketingState = {
   webhookEvents:  [],
   waConfig:       null,
   dashboardStats: null,
+  analyticsData:  null,
+  waConfigFetched: false,
   loading: {
-    fetchTemplates:     false,
-    createTemplate:     false,
-    deleteTemplate:     false,
-    syncTemplate:       false,
-    fetchCampaigns:     false,
-    createCampaign:     false,
-    pauseCampaign:      false,
-    resumeCampaign:     false,
-    fetchWebhookEvents: false,
-    fetchWaConfig:      false,
-    saveWaConfig:       false,
-    testWaConfig:       false,
-    fetchDashboardStats: false,
+    fetchTemplates:        false,
+    createTemplate:        false,
+    deleteTemplate:        false,
+    syncTemplate:          false,
+    toggleFavorite:        false,
+    fetchCampaigns:        false,
+    createCampaign:        false,
+    pauseCampaign:         false,
+    resumeCampaign:        false,
+    fetchWebhookEvents:    false,
+    fetchWaConfig:         false,
+    saveWaConfig:          false,
+    testWaConfig:          false,
+    syncWaLimits:          false,
+    fetchDashboardStats:   false,
+    fetchAnalytics:        false,
   },
   error: null,
 };
-
-// ── Slice ─────────────────────────────────────────────────────────────────────
 
 const marketingSlice = createSlice({
   name: "marketing",
@@ -78,6 +88,7 @@ const marketingSlice = createSlice({
   },
 
   extraReducers: (builder) => {
+
     // ── fetchTemplates ────────────────────────────────────────────────────────
     builder
       .addCase(fetchTemplatesThunk.pending, (state) => {
@@ -101,7 +112,7 @@ const marketingSlice = createSlice({
       })
       .addCase(createTemplateThunk.fulfilled, (state, { payload }) => {
         state.loading.createTemplate = false;
-        state.templates.unshift(payload); // FIX: unshift so newest appears first (matches DB ORDER BY created_at DESC)
+        state.templates.unshift(payload);
       })
       .addCase(createTemplateThunk.rejected, (state, { payload }) => {
         state.loading.createTemplate = false;
@@ -139,6 +150,26 @@ const marketingSlice = createSlice({
         state.error = payload ?? "Failed to sync template";
       });
 
+    // ── toggleTemplateFavorite ────────────────────────────────────────────────
+    builder
+      .addCase(toggleTemplateFavoriteThunk.pending, (state) => {
+        state.loading.toggleFavorite = true;
+      })
+      .addCase(toggleTemplateFavoriteThunk.fulfilled, (state, { payload }) => {
+        state.loading.toggleFavorite = false;
+        state.templates = state.templates
+          .map(t => t.id === payload.id ? payload : t)
+          .sort((a, b) => {
+            const af = (a as any).is_favorite ? 1 : 0;
+            const bf = (b as any).is_favorite ? 1 : 0;
+            return bf - af;
+          });
+      })
+      .addCase(toggleTemplateFavoriteThunk.rejected, (state, { payload }) => {
+        state.loading.toggleFavorite = false;
+        state.error = payload ?? "Failed to update favorite";
+      });
+
     // ── fetchCampaigns ────────────────────────────────────────────────────────
     builder
       .addCase(fetchCampaignsThunk.pending, (state) => {
@@ -162,7 +193,7 @@ const marketingSlice = createSlice({
       })
       .addCase(createCampaignThunk.fulfilled, (state, { payload }) => {
         state.loading.createCampaign = false;
-        state.campaigns.unshift(payload); // FIX: unshift so newest appears first
+        state.campaigns.unshift(payload);
       })
       .addCase(createCampaignThunk.rejected, (state, { payload }) => {
         state.loading.createCampaign = false;
@@ -194,7 +225,6 @@ const marketingSlice = createSlice({
       .addCase(resumeCampaignThunk.fulfilled, (state, { payload }) => {
         state.loading.resumeCampaign = false;
         const idx = state.campaigns.findIndex((c) => c.id === payload);
-        // FIX: backend resumes as SENDING, we display as RUNNING
         if (idx !== -1) state.campaigns[idx].status = "RUNNING";
       })
       .addCase(resumeCampaignThunk.rejected, (state, { payload }) => {
@@ -225,10 +255,12 @@ const marketingSlice = createSlice({
       })
       .addCase(fetchWaConfigThunk.fulfilled, (state, { payload }) => {
         state.loading.fetchWaConfig = false;
+        state.waConfigFetched = true;
         state.waConfig = payload;
       })
       .addCase(fetchWaConfigThunk.rejected, (state, { payload }) => {
         state.loading.fetchWaConfig = false;
+        state.waConfigFetched = true;
         state.error = payload ?? "Failed to fetch WhatsApp config";
       });
 
@@ -253,12 +285,28 @@ const marketingSlice = createSlice({
         state.loading.testWaConfig = true;
         state.error = null;
       })
-      .addCase(testWaConfigThunk.fulfilled, (state) => {
+      .addCase(testWaConfigThunk.fulfilled, (state, { payload }) => {
         state.loading.testWaConfig = false;
+        state.waConfig = payload;
       })
       .addCase(testWaConfigThunk.rejected, (state, { payload }) => {
         state.loading.testWaConfig = false;
         state.error = payload ?? "Connection failed";
+      });
+
+    // ── syncWaLimits ──────────────────────────────────────────────────────────
+    builder
+      .addCase(syncWaLimitsThunk.pending, (state) => {
+        state.loading.syncWaLimits = true;
+        state.error = null;
+      })
+      .addCase(syncWaLimitsThunk.fulfilled, (state, { payload }) => {
+        state.loading.syncWaLimits = false;
+        state.waConfig = payload;
+      })
+      .addCase(syncWaLimitsThunk.rejected, (state, { payload }) => {
+        state.loading.syncWaLimits = false;
+        state.error = payload ?? "Failed to sync limits";
       });
 
     // ── fetchDashboardStats ───────────────────────────────────────────────────
@@ -274,6 +322,21 @@ const marketingSlice = createSlice({
       .addCase(fetchDashboardStatsThunk.rejected, (state, { payload }) => {
         state.loading.fetchDashboardStats = false;
         state.error = payload ?? "Failed to fetch dashboard stats";
+      });
+
+    // ── fetchAnalytics ────────────────────────────────────────────────────────
+    builder
+      .addCase(fetchAnalytics.pending, (state) => {
+        state.loading.fetchAnalytics = true;
+        state.error = null;
+      })
+      .addCase(fetchAnalytics.fulfilled, (state, { payload }) => {
+        state.loading.fetchAnalytics = false;
+        state.analyticsData = payload;
+      })
+      .addCase(fetchAnalytics.rejected, (state, { payload }: any) => {
+        state.loading.fetchAnalytics = false;
+        state.error = payload?.message ?? "Failed to fetch analytics";
       });
   },
 });

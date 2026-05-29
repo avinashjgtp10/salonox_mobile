@@ -31,6 +31,7 @@ import { selectAllStaff } from "../../../store/selectors/slices.selectors";
 import type { ServiceFiltersState } from "../../../store/serviceFiltersSlice";
 import ServiceFilterDrawer from "../components/ServiceFilterDrawer.tsx";
 import ManageOrderModal from "../components/ManageOrderModal.tsx";
+import ServiceImportModal from "../components/ServiceImportModal.tsx";
 import ServiceDetailPanel from "../components/ServiceDetailPanel.tsx";
 import ServiceCard from "../components/shared/ServiceCard.tsx";
 import { ServiceListSkeleton } from "../components/shared/LoadingSkeletons.tsx";
@@ -82,6 +83,7 @@ const ServicesListPage: React.FC = () => {
   // ── UI state ────────────────────────────────────────────────────────────────
   const [showFilterDrawer, setShowFilterDrawer]   = useState(false);
   const [showManageOrder, setShowManageOrder]     = useState(false);
+  const [showImport, setShowImport]               = useState(false);
   const [selectedCategory, setSelectedCategory]  = useState<string>("all");
   const [openCardMenu, setOpenCardMenu]           = useState<string | null>(null);
   const [searchQuery, setSearchQuery]             = useState("");
@@ -221,6 +223,11 @@ const ServicesListPage: React.FC = () => {
                     onClick={() => { setShowManageOrder(true); setShowOptMenu(false); }}
                   >
                     <ArrowDownUp size={15} /> Set menu order
+                  </button>
+                </li>
+                <li>
+                  <button className="slp__dd-item" onClick={() => { setShowImport(true); setShowOptMenu(false); }}>
+                    <FiletypeCsv size={15} /> Import services
                   </button>
                 </li>
                 <li><hr className="slp__dd-divider" /></li>
@@ -540,6 +547,11 @@ const ServicesListPage: React.FC = () => {
           onSave={() => { fetchServices(); setShowManageOrder(false); }}
         />
       )}
+      <ServiceImportModal
+        show={showImport}
+        onClose={() => setShowImport(false)}
+        onSuccess={fetchServices}
+      />
 
       {/* ── EDIT CATEGORY MODAL ────────────────────────────────────────────── */}
       {editingCategory && (

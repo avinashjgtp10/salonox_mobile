@@ -2,134 +2,135 @@
 
 .tcard {
   background: #fff;
-  border: 0.5px solid $gray-200;
-  border-radius: $radius-lg;
-  padding: 14px 14px 36px; // extra bottom padding so checkbox doesn't overlap footer
-  transition: border-color 0.15s;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 14px;
+  transition: box-shadow 0.15s, border-color 0.15s;
   height: 100%;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  box-sizing: border-box;
 
   &--clickable {
     cursor: pointer;
-    &:hover { border-color: $gray-300; }
+    &:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.06); border-color: #d1d5db; }
   }
+  &--rejected  { border-color: rgba(239,68,68,0.25); background: rgba(239,68,68,0.02); }
+  &--pending   { border-color: rgba(245,158,11,0.25); background: rgba(245,158,11,0.02); }
+  &--favorite  { border-color: rgba(251,191,36,0.5); box-shadow: 0 0 0 1px rgba(251,191,36,0.2); }
+  &--approved  { &:hover { border-color: #10b981; } }
 }
 
+// ── Header ────────────────────────────────────────────────────────────────────
 .tcard-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  // status badge top-right, name takes remaining space
+  gap: 6px;
 }
 
 .tcard-name {
   font-size: 13px;
-  font-weight: 500;
-  color: $black;
-  flex: 1;
-  min-width: 0;
+  font-weight: 600;
+  color: #111827;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  // no overlap with checkbox since checkbox is now bottom-left
+  flex: 1;
+  min-width: 0;
 }
 
-.tcard-status {
-  font-size: 10px;
-  font-weight: 500;
-  padding: 2px 8px;
-  border-radius: 20px;
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
-.tcard-badges {
+.tcard-header-right {
   display: flex;
-  gap: 5px;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
+
+// ── Star / Favorite ───────────────────────────────────────────────────────────
+.tcard-star {
+  font-size: 15px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  opacity: 0.3;
+  transition: opacity 0.15s, transform 0.15s;
+  flex-shrink: 0;
+
+  &:hover:not(:disabled) { opacity: 1; transform: scale(1.2); }
+  &--active              { opacity: 1; }
+  &--spinning            { animation: tcard-spin 0.4s linear; }
+  &:disabled             { cursor: default; }
+}
+
+@keyframes tcard-spin {
+  0%   { transform: scale(1)   rotate(0deg);  }
+  50%  { transform: scale(1.3) rotate(20deg); }
+  100% { transform: scale(1)   rotate(0deg);  }
+}
+
+// ── Badges ────────────────────────────────────────────────────────────────────
+.tcard-badges { display: flex; gap: 4px; flex-wrap: wrap; }
 
 .tcard-badge {
-  font-size: 10px;
-  color: $gray-400;
-  background: $gray-100;
-  border: 0.5px solid $gray-200;
-  border-radius: 4px;
-  padding: 2px 6px;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 20px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  color: #6b7280;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.4px;
 }
 
+// ── Body ──────────────────────────────────────────────────────────────────────
 .tcard-body {
   font-size: 11px;
-  color: $gray-500;
-  line-height: 1.6;
+  color: #6b7280;
+  line-height: 1.5;
   flex: 1;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
+// ── Rejection ─────────────────────────────────────────────────────────────────
 .tcard-rejection {
-  font-size: 11px;
-  color: #ef4444;
-  background: rgba(239,68,68,0.08);
-  border-radius: $radius-sm;
+  background: rgba(239,68,68,0.06);
+  border: 1px solid rgba(239,68,68,0.2);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.tcard-rejection-label  { font-size: 10px; font-weight: 600; color: #dc2626; }
+.tcard-rejection-reason { font-size: 10px; color: #ef4444; }
+
+// ── Pending hint ──────────────────────────────────────────────────────────────
+.tcard-pending-hint {
+  font-size: 10px;
+  color: #b45309;
+  background: rgba(245,158,11,0.07);
+  border: 1px solid rgba(245,158,11,0.2);
+  border-radius: 6px;
   padding: 6px 8px;
 }
 
-.tcard-no-header {
-  font-size: 10px;
-  color: $gray-400;
-}
-
+// ── Footer ────────────────────────────────────────────────────────────────────
 .tcard-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-top: 0.5px solid $gray-200;
-  padding-top: 10px;
-  margin-top: 4px;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid #f3f4f6;
 }
 
-.tcard-date {
-  font-size: 10px;
-  color: $gray-400;
-  // pushed right since checkbox occupies bottom-left of the wrapper
-  padding-left: 22px;
-}
-
-.tcard-actions {
-  display: flex;
-  gap: 4px;
-}
-
-.tcard-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: $radius-sm;
-  border: 0.5px solid $gray-200;
-  background: #fff;
-  color: $gray-500;
-  font-size: 13px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-
-  &:hover { border-color: $gray-300; color: $black; }
-
-  &.danger {
-    &:hover {
-      border-color: rgba(239,68,68,0.3);
-      color: #ef4444;
-      background: rgba(239,68,68,0.05);
-    }
-  }
-}
+.tcard-date { font-size: 10px; color: #9ca3af; padding-left: 22px; }
+.tcard-actions { display: flex; gap: 6px; }

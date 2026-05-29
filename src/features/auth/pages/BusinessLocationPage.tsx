@@ -38,7 +38,7 @@ export default function BusinessLocationPage() {
   useAutoNavigate(!!selected, () => {
     update({ location_type: selected! });
     if (selected === "physical") navigate("/venue-location");
-    else navigate("/previous-software");
+    else navigate("/recommendation-source");
   }, 500);
 
   return (

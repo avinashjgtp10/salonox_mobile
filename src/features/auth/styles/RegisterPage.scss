@@ -133,17 +133,16 @@ $surface:    #F9F8F6;
 // ── Brand ────────────────────────────────────────────
 
 .rp-brand {
-  font-family: 'sans', serif;
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  color: $charcoal;
-  text-transform: uppercase;
   display: flex;
   align-items: center;
-  gap: 10px;
   margin-bottom: 36px;
   animation: rp-fade-in 0.5s 0.1s both;
+}
+
+.rp-brand__logo {
+  width: 124px;
+  height: auto;
+  display: block;
 }
 
 .rp-brand__gem {
@@ -204,6 +203,14 @@ $surface:    #F9F8F6;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   margin-bottom: 8px;
+}
+
+// ── Required asterisk ─────────────────────────────────
+
+.rp-required {
+  color: #E05C5C;
+  font-weight: 700;
+  margin-left: 2px;
 }
 
 // ── Custom input ──────────────────────────────────────
@@ -275,39 +282,107 @@ $surface:    #F9F8F6;
   align-items: center;
 }
 
-.rp-phone-row {
-  align-items: flex-start;
+// ── Phone group ───────────────────────────────────────
+
+.rp-phone-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
-.rp-phone-wrap {
-  flex: 1;
+.rp-country-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 48px;
+  padding: 0 10px 0 12px;
+  border-radius: 10px;
+  border: 1.5px solid $border;
+  background: $surface;
+  flex-shrink: 0;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  user-select: none;
 
-  .react-tel-input {
-    width: 100% !important;
-
-    .form-control {
-      width: 100% !important;
-      height: 48px !important;
-      border-radius: 10px !important;
-      border: 1.5px solid $border !important;
-      padding-left: 54px !important;
-      font-size: 14px !important;
-      font-family: 'DM Sans', sans-serif !important;
-      color: $charcoal !important;
-
-      &:focus {
-        border-color: $gold !important;
-        box-shadow: 0 0 0 3px rgba(201, 169, 110, 0.12) !important;
-      }
-    }
-
-    .flag-dropdown {
-      border: 1.5px solid $border !important;
-      border-right: none !important;
-      border-radius: 10px 0 0 10px !important;
-      background: $surface !important;
-    }
+  &:focus-within {
+    border-color: $gold;
+    box-shadow: 0 0 0 3px rgba(201, 169, 110, 0.12);
   }
+
+  &--disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.rp-country-iso {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'DM Sans', sans-serif;
+  color: $charcoal;
+  letter-spacing: 0.06em;
+  background: $border;
+  padding: 3px 6px;
+  border-radius: 5px;
+  line-height: 1;
+}
+
+.rp-dial-code {
+  font-size: 14px;
+  font-family: 'DM Sans', sans-serif;
+  color: $charcoal;
+  font-weight: 500;
+  min-width: 36px;
+}
+
+.rp-chevron {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.rp-dial-select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  border: none;
+  background: none;
+
+  &:disabled { cursor: not-allowed; }
+}
+
+.rp-phone-num-input {
+  flex: 1;
+  height: 48px;
+  min-width: 0;
+  border-radius: 10px;
+  border: 1.5px solid $border;
+  background: #FFFFFF;
+  font-size: 14px;
+  font-family: 'DM Sans', sans-serif;
+  color: $charcoal;
+  padding: 0 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+  &::placeholder { color: #C4BFB9; }
+
+  &:focus {
+    border-color: $gold;
+    box-shadow: 0 0 0 3px rgba(201, 169, 110, 0.12);
+    outline: none;
+  }
+
+  &:disabled {
+    background: $surface;
+    color: $muted;
+    cursor: not-allowed;
+  }
+
+  &.rp-input--error { border-color: #E05C5C !important; }
 }
 
 // ── OTP send button ───────────────────────────────────
@@ -407,6 +482,19 @@ $surface:    #F9F8F6;
   font-weight: 800;
 }
 
+// ── OTP inline message ───────────────────────────────
+
+.rp-otp-msg {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 6px;
+  font-family: 'DM Sans', sans-serif;
+
+  &--success { color: #22C55E; }
+  &--error   { color: #E05C5C; }
+}
+
 // ── Error message ─────────────────────────────────────
 
 .rp-error-msg {
@@ -419,6 +507,39 @@ $surface:    #F9F8F6;
     display: block;
     margin-bottom: 10px;
   }
+}
+
+// ── Password wrapper (eye toggle) ─────────────────────
+
+.rp-pw-wrap {
+  position: relative;
+
+  .rp-input {
+    padding-right: 44px;
+
+    &::-ms-reveal,
+    &::-ms-clear {
+      display: none;
+    }
+  }
+}
+
+.rp-pw-eye {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  padding: 0;
+  color: $muted;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  line-height: 1;
+  transition: color 0.2s;
+
+  &:hover { color: $charcoal; }
 }
 
 // ── Terms ─────────────────────────────────────────────

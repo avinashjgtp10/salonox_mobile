@@ -1,363 +1,376 @@
 // ═══════════════════════════════════════════════════════════════
-// QuickSalePage.scss  —  View Appointment style
+// QuickSalePage.scss — Modern Premium Redesign
 // ═══════════════════════════════════════════════════════════════
 
 $font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-$border: 1px solid #e5e7eb;
-$radius: 10px;
-$radius-sm: 6px;
-$gray-bg: #f9fafb;
+$primary: #6366f1;
+$primary-light: #eef2ff;
+$primary-dark: #4f46e5;
+$success: #10b981;
+$success-light: #d1fae5;
+$danger: #ef4444;
+$danger-light: #fee2e2;
+$warning: #f59e0b;
+$warning-light: #fef3c7;
 $text: #111827;
-$muted: #6b7280;
-$accent: #111827;
+$text-muted: #6b7280;
+$text-light: #9ca3af;
+$border: #e5e7eb;
+$border-focus: #6366f1;
+$bg: #f8f9fc;
+$bg-card: #ffffff;
+$bg-subtle: #f9fafb;
+$radius: 12px;
+$radius-sm: 8px;
+$radius-xs: 6px;
+$shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+$shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+$shadow-lg: 0 10px 30px rgba(0,0,0,0.1);
+$transition: 0.18s ease;
 
-.va-page {
+// ─── Reset + base ─────────────────────────────────────────────────
+*, *::before, *::after { box-sizing: border-box; }
+
+.qs-page {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: #f3f4f6;
+  background: $bg;
   font-family: $font;
   font-size: 14px;
   color: $text;
 }
 
-// ── Top Bar ──────────────────────────────────────────────────────
-.va-topbar {
+// ─── Top Bar ──────────────────────────────────────────────────────
+.qs-topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 18px;
-  background: #fff;
-  border-bottom: $border;
+  padding: 0 20px;
+  height: 56px;
+  background: $bg-card;
+  border-bottom: 1px solid $border;
   position: sticky;
   top: 0;
-  z-index: 20;
+  z-index: 50;
+  box-shadow: $shadow-sm;
 
   &__left {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
   }
 
   &__title {
-    font-size: 16px;
-    font-weight: 600;
+    font-size: 15px;
+    font-weight: 700;
     color: $text;
+    letter-spacing: -0.01em;
+  }
+
+  &__badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    background: $primary-light;
+    color: $primary;
+    letter-spacing: 0.02em;
   }
 }
 
-.va-close-btn {
-  width: 32px;
-  height: 32px;
-  border: 1px solid #d1d5db;
-  border-radius: $radius-sm;
-  background: #fff;
-  cursor: pointer;
+.qs-back-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
-  color: $text;
-  transition: background 0.15s;
-
-  &:hover { background: #f3f4f6; }
-}
-
-.va-dots-btn {
   width: 34px;
   height: 34px;
-  border: 1px solid #d1d5db;
   border-radius: $radius-sm;
-  background: #fff;
+  border: 1px solid $border;
+  background: $bg-card;
   cursor: pointer;
+  color: $text-muted;
+  font-size: 16px;
+  transition: all $transition;
+
+  &:hover {
+    background: $bg-subtle;
+    color: $text;
+    border-color: #d1d5db;
+  }
+}
+
+// ─── Dot menu ─────────────────────────────────────────────────────
+.qs-menu-btn {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: $radius-sm;
+  border: 1px solid $border;
+  background: $bg-card;
+  cursor: pointer;
+  color: $text-muted;
   font-size: 18px;
-  color: $text;
-  transition: background 0.15s;
+  letter-spacing: 2px;
+  transition: all $transition;
+  line-height: 1;
 
-  &:hover { background: #f3f4f6; }
+  &:hover {
+    background: $bg-subtle;
+    color: $text;
+    border-color: #d1d5db;
+  }
 }
 
-.va-dot-menu {
+.qs-dot-menu {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 8px);
   right: 0;
-  background: #fff;
-  border: $border;
+  background: $bg-card;
+  border: 1px solid $border;
   border-radius: $radius;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-  z-index: 100;
-  min-width: 160px;
+  box-shadow: $shadow-lg;
+  z-index: 200;
+  min-width: 180px;
   overflow: hidden;
+  animation: qs-pop-in 0.14s ease;
 
   &__item {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     width: 100%;
     padding: 10px 16px;
     text-align: left;
     background: transparent;
     border: none;
     font-size: 13px;
+    font-weight: 500;
     cursor: pointer;
     color: $text;
+    font-family: $font;
+    transition: background $transition;
 
-    &:hover { background: $gray-bg; }
-
-    &--danger { color: #ef4444; }
-
-    &--muted { color: #9ca3af; }
-
-    &--disabled {
-      color: #d1d5db;
-      cursor: not-allowed;
-      &:hover { background: transparent; }
-    }
+    &:hover { background: $bg-subtle; }
+    &--danger { color: $danger; }
+    &--muted { color: $text-light; }
+    &--disabled { color: #d1d5db; cursor: not-allowed; &:hover { background: transparent; } }
   }
 
-  &__divider {
-    height: 1px;
-    background: #f0f0f0;
-  }
+  &__divider { height: 1px; background: #f3f4f6; }
 
   &__confirm {
     padding: 10px 16px;
-
-    &-text {
-      display: block;
-      font-size: 12px;
-      color: #374151;
-      margin-bottom: 8px;
-      font-weight: 500;
-    }
-
-    &-actions {
-      display: flex;
-      gap: 6px;
-    }
-
+    &-text { display: block; font-size: 12px; color: #374151; margin-bottom: 8px; font-weight: 500; }
+    &-actions { display: flex; gap: 6px; }
     &-yes {
-      flex: 1;
-      padding: 5px 0;
-      background: #ef4444;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
+      flex: 1; padding: 6px 0; background: $danger; color: #fff; border: none;
+      border-radius: $radius-xs; font-size: 12px; font-weight: 600; cursor: pointer;
       &:hover { background: #dc2626; }
       &:disabled { opacity: 0.6; cursor: not-allowed; }
     }
-
     &-no {
-      flex: 1;
-      padding: 5px 0;
-      background: #f3f4f6;
-      color: #374151;
-      border: none;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      &:hover { background: #e5e7eb; }
+      flex: 1; padding: 6px 0; background: $bg-subtle; color: #374151; border: none;
+      border-radius: $radius-xs; font-size: 12px; font-weight: 600; cursor: pointer;
+      &:hover { background: $border; }
     }
   }
 }
 
-// ── Body ─────────────────────────────────────────────────────────
-.va-body {
+// ─── Alerts ───────────────────────────────────────────────────────
+.qs-alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: $radius-sm;
+  font-size: 13px;
+  font-weight: 500;
+  animation: qs-fade-in 0.2s ease;
+
+  &--success {
+    background: $success-light;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+  }
+  &--error {
+    background: $danger-light;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+  }
+  &--info {
+    background: $primary-light;
+    color: $primary-dark;
+    border: 1px solid #c7d2fe;
+  }
+}
+
+// ─── Main layout ──────────────────────────────────────────────────
+.qs-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 0;
   flex: 1;
-  padding: 14px;
+  align-items: start;
+  min-height: calc(100vh - 56px);
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+// ─── Left pane ────────────────────────────────────────────────────
+.qs-main {
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-bottom: 90px;
+  gap: 16px;
+  padding-bottom: 80px;
+
+  @media (max-width: 900px) {
+    padding-bottom: 200px;
+  }
 }
 
-// ── Messages ─────────────────────────────────────────────────────
-.va-success-msg {
-  padding: 10px 14px;
-  background: #ecfdf5;
-  color: #065f46;
-  border-radius: $radius-sm;
-  font-size: 13px;
-  border: 1px solid #a7f3d0;
+// ─── Right pane (summary + payment) ───────────────────────────────
+.qs-sidebar {
+  position: sticky;
+  top: 56px;
+  height: calc(100vh - 56px);
+  overflow: hidden;
+  border-left: 1px solid $border;
+  background: $bg-card;
+  display: flex;
+  flex-direction: column;
+
+  @media (max-width: 900px) {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    height: auto;
+    max-height: 90vh;
+    border-left: none;
+    border-top: 1px solid $border;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.1);
+    z-index: 30;
+  }
+
+  // Order summary — flex column; items scroll, totals fixed
+  &__order {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  // Fixed payment section — always fully visible
+  &__payment {
+    flex-shrink: 0;
+    padding: 14px 20px 12px;
+    border-top: 1px solid $border;
+    background: $bg-card;
+  }
+
+  &__footer {
+    flex-shrink: 0;
+    padding: 12px 20px 14px;
+    border-top: 1px solid $border;
+    background: $bg-card;
+  }
 }
 
-.va-error-msg {
-  padding: 10px 14px;
-  background: #fef2f2;
-  color: #991b1b;
-  border-radius: $radius-sm;
-  font-size: 13px;
-  border: 1px solid #fecaca;
-}
-
-// ── Section card ─────────────────────────────────────────────────
-.va-section {
-  background: #fff;
-  border: $border;
+// ─── Card sections ────────────────────────────────────────────────
+.qs-card {
+  background: $bg-card;
+  border: 1px solid $border;
   border-radius: $radius;
   overflow: visible;
+  box-shadow: $shadow-sm;
+  transition: box-shadow $transition;
 
-  &__header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 11px 16px;
-    border-bottom: $border;
-    font-size: 13px;
-    font-weight: 600;
-    color: $text;
-
-    svg { flex-shrink: 0; }
-  }
-
-  &__body {
-    padding: 14px 16px;
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
   }
 }
 
-// ── Client row ───────────────────────────────────────────────────
-.va-client-row {
+.qs-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid $border;
+
+  &__left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: $primary-light;
+    color: $primary;
+    flex-shrink: 0;
+  }
+
+  &__title {
+    font-size: 13px;
+    font-weight: 700;
+    color: $text;
+    letter-spacing: -0.01em;
+  }
+
+  &__action {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+}
+
+.qs-card-body {
+  padding: 16px 18px;
+}
+
+// ─── Client section ───────────────────────────────────────────────
+.qs-client-row {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
 
-.va-search-field {
-  flex: 1;
-  min-width: 160px;
+.qs-client-display {
   display: flex;
   align-items: center;
-  gap: 8px;
-  border: 1px solid #d1d5db;
-  border-radius: $radius-sm;
-  padding: 7px 10px;
-  background: $gray-bg;
-
-  &__input {
-    flex: 1;
-    border: none;
-    background: transparent;
-    font-size: 13px;
-    color: $text;
-    outline: none;
-
-    &::placeholder { color: $muted; }
-  }
-
-  &__clear {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    border: none;
-    background: #e5e7eb;
-    color: $muted;
-    font-size: 12px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-
-    &:hover { background: #d1d5db; }
-  }
-}
-
-.va-walkin-btn {
-  padding: 8px 16px;
-  border-radius: $radius-sm;
-  background: #fff;
-  color: $text;
-  border: 1px solid #d1d5db;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s;
-
-  &:hover { background: $gray-bg; }
-
-  &--active {
-    background: $accent;
-    color: #fff;
-    border-color: $accent;
-
-    &:hover { opacity: 0.88; background: $accent; }
-  }
-}
-
-.va-add-client-btn {
+  gap: 10px;
   padding: 8px 14px;
-  border-radius: $radius-sm;
-  background: #fff;
-  border: 1px solid #d1d5db;
-  font-size: 13px;
-  cursor: pointer;
-  color: $text;
-  white-space: nowrap;
-  transition: background 0.15s;
-
-  &:hover { background: $gray-bg; }
-}
-
-.va-date-field {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid #d1d5db;
-  border-radius: $radius-sm;
-  padding: 7px 10px;
-  background: #fff;
-  cursor: pointer;
-  font-family: $font;
-  font-size: 13px;
-  color: $text;
-  white-space: nowrap;
-
-  &:hover {
-    border-color: #9ca3af;
-    background: #f9fafb;
-  }
-
-  span {
-    font-size: 13px;
-    color: $text;
-  }
-}
-
-// ── Client dropdown ──────────────────────────────────────────────
-.va-client-dropdown {
-  margin-top: 8px;
-  background: #fff;
-  border: $border;
-  border-radius: $radius;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-
-  &__item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
-    cursor: pointer;
-    transition: background 0.12s;
-
-    &:hover { background: $gray-bg; }
-  }
+  background: $primary-light;
+  border-radius: 24px;
+  border: 1px solid #c7d2fe;
+  flex: 1;
+  min-width: 0;
 
   &__avatar {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
-    background: #e0e7ff;
-    color: #3730a3;
-    font-size: 12px;
-    font-weight: 600;
+    background: $primary;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -366,86 +379,248 @@ $accent: #111827;
 
   &__name {
     font-size: 13px;
-    font-weight: 500;
-    color: $text;
-  }
-
-  &__phone {
-    font-size: 12px;
-    color: $muted;
-  }
-
-  &__empty {
-    padding: 16px;
-    text-align: center;
-    font-size: 13px;
-    color: $muted;
-  }
-
-  &__cancel {
-    display: block;
-    width: 100%;
-    padding: 10px 14px;
-    text-align: center;
-    background: transparent;
-    border: none;
-    border-top: $border;
-    font-size: 13px;
-    color: $muted;
-    cursor: pointer;
-
-    &:hover { background: $gray-bg; }
-  }
-}
-
-// ── Add actions row (+ Service / + Product / + Membership) ───────
-.va-add-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-// ── Inline search dropdown ────────────────────────────────────────
-.va-inline-drop {
-  position: absolute;
-  top: calc(100% + 3px);
-  left: 0;
-  right: 0;
-  background: #fff;
-  border: $border;
-  border-radius: $radius-sm;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.1);
-  z-index: 200;
-  max-height: 200px;
-  overflow-y: auto;
-
-  &__item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 12px;
-    font-size: 13px;
-    cursor: pointer;
-    transition: background 0.12s;
-
-    &:hover { background: $gray-bg; }
-  }
-
-  &__price {
-    font-size: 12px;
     font-weight: 600;
-    color: $muted;
+    color: $primary-dark;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 
-// ── Staff pill (dark, like View Appointment) ──────────────────────
-.va-staff-pill {
+.qs-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 24px;
+  border: 1px solid $border;
+  background: $bg-card;
+  font-size: 13px;
+  font-weight: 500;
+  color: $text;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all $transition;
+
+  &:hover {
+    background: $bg-subtle;
+    border-color: #d1d5db;
+  }
+
+  &--active {
+    background: $text;
+    color: #fff;
+    border-color: $text;
+    &:hover { background: #1f2937; }
+  }
+
+  &--primary {
+    background: $primary-light;
+    color: $primary-dark;
+    border-color: #c7d2fe;
+    &:hover { background: #e0e7ff; }
+  }
+
+  &--sm {
+    padding: 5px 12px;
+    font-size: 12px;
+  }
+}
+
+.qs-date-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  border-radius: $radius-sm;
+  border: 1px solid $border;
+  background: $bg-card;
+  cursor: pointer;
+  font-family: $font;
+  font-size: 13px;
+  color: $text;
+  white-space: nowrap;
+  transition: all $transition;
+  font-weight: 500;
+
+  svg { color: $text-muted; flex-shrink: 0; }
+
+  &:hover {
+    border-color: #d1d5db;
+    background: $bg-subtle;
+  }
+}
+
+// ─── Add Client form ──────────────────────────────────────────────
+.qs-add-client-form {
+  margin-top: 14px;
+  padding: 16px;
+  background: $bg-subtle;
+  border: 1px solid $border;
+  border-radius: $radius;
+  animation: qs-fade-in 0.18s ease;
+
+  &__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1.4fr 1fr auto;
+    gap: 10px;
+    align-items: start;
+
+    @media (max-width: 800px) {
+      grid-template-columns: 1fr 1fr;
+    }
+    @media (max-width: 500px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+}
+
+// ─── Items section ────────────────────────────────────────────────
+.qs-type-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 12px 18px;
+  border-bottom: 1px solid $border;
+  background: $bg-subtle;
+}
+
+.qs-type-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  color: $text-muted;
+  font-family: $font;
+  transition: all $transition;
+
+  &:hover {
+    background: $bg-card;
+    color: $text;
+    border-color: $border;
+  }
+
+  &--active {
+    background: $text;
+    color: #fff;
+    border-color: $text;
+
+    &:hover { background: #1f2937; }
+  }
+
+  &__count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    background: rgba(255,255,255,0.2);
+    color: inherit;
+  }
+
+  &--active &__count {
+    background: rgba(255,255,255,0.25);
+  }
+
+  &-error-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #dc2626;
+    flex-shrink: 0;
+  }
+}
+
+// ─── Table headers ────────────────────────────────────────────────
+.qs-col-headers {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  font-size: 10px;
+  font-weight: 700;
+  color: $text-light;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: $bg-subtle;
+  border-bottom: 1px solid $border;
+}
+
+// ─── Item rows ────────────────────────────────────────────────────
+.qs-item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-bottom: 1px solid #f3f4f6;
+  transition: background $transition;
+
+  &:last-of-type { border-bottom: none; }
+  &:hover { background: $bg-subtle; }
+
+  &__total {
+    font-size: 13px;
+    font-weight: 700;
+    color: $text;
+    text-align: right;
+  }
+
+  &__remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: none;
+    background: transparent;
+    color: $text-light;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: $radius-xs;
+    flex-shrink: 0;
+    transition: all $transition;
+
+    &:hover {
+      background: $danger-light;
+      color: $danger;
+    }
+  }
+}
+
+// ─── Staff pill ───────────────────────────────────────────────────
+.qs-staff-pill {
   display: flex;
   align-items: center;
   background: #1f2937;
   border-radius: 20px;
   padding: 5px 10px;
-  gap: 6px;
+  min-width: 0;
+
+  &--error {
+    outline: 1.5px solid #dc2626;
+    select { color: #ef4444; }
+  }
+
+  &--empty {
+    select { color: rgba(255, 255, 255, 0.5); }
+  }
 
   select {
     border: none;
@@ -457,590 +632,337 @@ $accent: #111827;
     cursor: pointer;
     font-family: $font;
     width: 100%;
-
+    min-width: 0;
     option { color: #000; background: #fff; }
   }
 }
 
-// ── Section header variants ───────────────────────────────────────
-.va-svc-col-hdrs--product  { background: #f0fdf4; }
-.va-svc-col-hdrs--membership { background: #faf5ff; }
-
-// ── Service column headers ────────────────────────────────────────
-.va-svc-col-hdrs {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  font-size: 11px;
-  font-weight: 600;
-  color: $muted;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  border-bottom: $border;
-}
-
-// ── Service row ──────────────────────────────────────────────────
-.va-svc-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border-bottom: $border;
-
-  &__name {
-    font-size: 13px;
-    font-weight: 500;
-    color: $text;
-  }
-
-  &__total {
-    font-size: 13px;
-    font-weight: 600;
-    color: $text;
-  }
-
-  &__remove {
-    width: 28px;
-    height: 28px;
-    border: none;
-    background: transparent;
-    color: #9ca3af;
-    font-size: 14px;
-    cursor: pointer;
-    border-radius: 4px;
-    flex-shrink: 0;
-
-    &:hover { background: #fee2e2; color: #ef4444; }
-  }
-}
-
-// ── Staff select inside cart row ─────────────────────────────────
-.va-staff-select {
-  padding: 5px 28px 5px 10px;
-  border: none;
-  border-radius: 20px;
-  background: $accent;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  outline: none;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='white' viewBox='0 0 16 16'%3E%3Cpath d='M8 10.5L3 5.5h10z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 8px center;
-  max-width: 140px;
-}
-
-// ── Generic input ────────────────────────────────────────────────
-.va-inp {
-  width: 100%;
-  padding: 7px 10px;
-  border: 1px solid #d1d5db;
+// ─── Inline dropdown ─────────────────────────────────────────────
+.qs-inline-drop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: $bg-card;
+  border: 1px solid $border;
   border-radius: $radius-sm;
-  font-size: 13px;
-  background: $gray-bg;
-  color: $text;
-  outline: none;
-  font-family: $font;
-  transition: border-color 0.15s;
-
-  &:focus {
-    border-color: $accent;
-    background: #fff;
-  }
-}
-
-// ── Add service button ────────────────────────────────────────────
-.va-add-svc-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border: 1px dashed #d1d5db;
-  border-radius: $radius-sm;
-  background: transparent;
-  font-size: 13px;
-  color: $muted;
-  cursor: pointer;
-  transition: all 0.15s;
-
-  &:hover {
-    border-color: $accent;
-    color: $accent;
-    background: $gray-bg;
-  }
-}
-
-// ── Item browser ─────────────────────────────────────────────────
-.va-item-browser {
-  margin-top: 12px;
-  border: $border;
-  border-radius: $radius;
-  overflow: hidden;
-}
-
-.va-item-tabs {
-  display: flex;
-  border-bottom: $border;
-  background: $gray-bg;
-}
-
-.va-item-tab {
-  flex: 1;
-  padding: 8px 10px;
-  border: none;
-  background: transparent;
-  font-size: 12px;
-  font-weight: 500;
-  color: $muted;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  transition: all 0.15s;
-
-  &--active {
-    color: $accent;
-    border-bottom-color: $accent;
-    background: #fff;
-  }
-
-  &:hover:not(&--active) { color: $text; }
-}
-
-.va-item-search {
-  width: 100%;
-  padding: 10px 14px;
-  border: none;
-  border-bottom: $border;
-  font-size: 13px;
-  outline: none;
-  background: #fff;
-  font-family: $font;
-  color: $text;
-
-  &::placeholder { color: $muted; }
-}
-
-.va-item-list {
+  box-shadow: $shadow-md;
+  z-index: 300;
   max-height: 220px;
   overflow-y: auto;
-}
 
-.va-item-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  cursor: pointer;
-  border-bottom: $border;
-  transition: background 0.12s;
+  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar-thumb { background: $border; border-radius: 4px; }
 
-  &:last-child { border-bottom: none; }
-  &:hover { background: $gray-bg; }
-
-  &__name { font-size: 13px; font-weight: 500; color: $text; }
-  &__sub { font-size: 12px; color: $muted; margin-top: 2px; }
-
-  &__right {
+  &__item {
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    gap: 10px;
-    flex-shrink: 0;
-  }
+    padding: 9px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background $transition;
+    gap: 8px;
 
-  &__price { font-size: 13px; font-weight: 600; color: $text; }
+    &:hover { background: $primary-light; }
 
-  &__add {
-    font-size: 12px;
-    font-weight: 600;
-    color: #3b82f6;
-    background: #eff6ff;
-    padding: 3px 8px;
-    border-radius: 20px;
+    &__price {
+      font-size: 12px;
+      font-weight: 700;
+      color: $text-muted;
+      flex-shrink: 0;
+    }
   }
 }
 
-.va-item-empty {
-  padding: 24px;
-  text-align: center;
-  font-size: 13px;
-  color: $muted;
+// ─── Add row buttons ──────────────────────────────────────────────
+.qs-add-row-area {
+  padding: 12px 18px;
+  border-top: 1px dashed $border;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: $bg-subtle;
 }
 
-// ── Charges grid ─────────────────────────────────────────────────
-.va-charges-grid {
+.qs-add-row-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1.5px dashed #d1d5db;
+  border-radius: $radius-sm;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  color: $text-muted;
+  cursor: pointer;
+  font-family: $font;
+  transition: all $transition;
+
+  svg { flex-shrink: 0; }
+
+  &:hover:not(:disabled) {
+    border-color: $primary;
+    color: $primary;
+    background: $primary-light;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+// ─── Charges grid ────────────────────────────────────────────────
+.qs-charges-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
 
   @media (max-width: 700px) {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  &__col { display: flex; flex-direction: column; gap: 6px; }
-}
-
-.va-field-label {
-  display: block;
-  font-size: 11px;
-  font-weight: 600;
-  color: $muted;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.va-tip-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-// ── Payment methods ──────────────────────────────────────────────
-.va-payment-methods {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
-}
-
-.va-pm-btn {
-  padding: 7px 16px;
-  border-radius: 20px;
-  border: 1px solid #d1d5db;
-  background: #fff;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  color: $text;
-  transition: all 0.15s;
-
-  &:hover { background: $gray-bg; }
-
-  &--active {
-    background: $accent;
-    color: #fff;
-    border-color: $accent;
+  @media (max-width: 420px) {
+    grid-template-columns: 1fr;
   }
 }
 
-// ── Pay notes layout ─────────────────────────────────────────────
-.va-pay-notes-layout {
+.qs-charge-col {
   display: flex;
-  gap: 14px;
-  margin-top: 16px;
-  align-items: flex-start;
-
-  @media (max-width: 600px) { flex-direction: column; }
-
-  &__left { flex: 1; }
+  flex-direction: column;
+  gap: 6px;
 }
 
-.va-staff-alert-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
+// ─── Shared form controls ─────────────────────────────────────────
+.qs-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: $text-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-.va-textarea {
+.qs-inp {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #d1d5db;
+  padding: 8px 11px;
+  border: 1px solid $border;
   border-radius: $radius-sm;
   font-size: 13px;
-  background: $gray-bg;
+  background: $bg-subtle;
+  color: $text;
+  outline: none;
+  font-family: $font;
+  transition: all $transition;
+
+  &[type="number"] {
+    -moz-appearance: textfield;
+    &::-webkit-outer-spin-button,
+    &::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+  }
+
+  &:focus {
+    border-color: $border-focus;
+    background: $bg-card;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+  }
+
+  &--error {
+    border-color: $danger !important;
+    background: #fff5f5 !important;
+  }
+
+  &::placeholder { color: $text-light; }
+}
+
+.qs-form-error {
+  font-size: 11px;
+  color: $danger;
+  margin-top: 2px;
+}
+
+.qs-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid $border;
+  border-radius: $radius-sm;
+  font-size: 13px;
+  background: $bg-subtle;
   color: $text;
   resize: vertical;
   outline: none;
   font-family: $font;
-  transition: border-color 0.15s;
+  transition: all $transition;
 
-  &::placeholder { color: $muted; }
-  &:focus { border-color: $accent; background: #fff; }
+  &::placeholder { color: $text-light; }
+  &:focus {
+    border-color: $border-focus;
+    background: $bg-card;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+  }
 }
 
-// ── Summary box ──────────────────────────────────────────────────
-.va-summary-box {
-  min-width: 210px;
-  background: $gray-bg;
-  border: $border;
-  border-radius: $radius;
-  padding: 14px 16px;
-  flex-shrink: 0;
+.qs-phone-group {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  border: 1px solid $border;
+  border-radius: $radius-sm;
+  overflow: hidden;
+  transition: border-color $transition, box-shadow $transition;
 
-  &__title {
+  &:focus-within {
+    border-color: $border-focus;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  }
+}
+
+.qs-inp--error {
+  border-color: #dc2626 !important;
+  background: #fef2f2 !important;
+}
+
+.qs-field-error {
+  margin-top: 3px;
+  font-size: 11px;
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.qs-inp--phone-right {
+  flex: 1 !important;
+  min-width: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: $bg-card !important;
+}
+
+.qs-save-client-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 18px;
+  border-radius: $radius-sm;
+  border: none;
+  background: $text;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: $font;
+  transition: all $transition;
+
+  &:hover:not(:disabled) { background: #1f2937; }
+  &:disabled { opacity: 0.45; cursor: not-allowed; }
+}
+
+// ─── Payment method cards ─────────────────────────────────────────
+.qs-payment-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.qs-pm-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 8px;
+  border: 1.5px solid $border;
+  border-radius: $radius-sm;
+  background: $bg-card;
+  cursor: pointer;
+  font-family: $font;
+  transition: all $transition;
+  min-height: 72px;
+
+  &__icon {
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  &__label {
     font-size: 11px;
     font-weight: 600;
-    color: $muted;
-    letter-spacing: 0.05em;
-    margin-bottom: 10px;
-  }
-}
-
-.va-summary-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-  padding: 3px 0;
-  color: $text;
-
-  &--total {
-    font-weight: 700;
-    font-size: 14px;
-    border-top: $border;
-    margin-top: 8px;
-    padding-top: 8px;
-  }
-}
-
-// ── Confirm & Pay section ────────────────────────────────────────
-.va-confirm-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 11px 16px;
-  border-bottom: $border;
-  font-size: 13px;
-
-  &:last-of-type { border-bottom: none; }
-
-  &__name { color: $text; font-weight: 500; }
-
-  &__staff {
-    color: $muted;
-    font-style: italic;
-    font-weight: 400;
+    color: $text-muted;
+    text-align: center;
   }
 
-  &__price { font-weight: 600; color: $text; }
-}
-
-.va-progress-bar {
-  height: 4px;
-  background: $accent;
-  margin: 0 16px 8px;
-  border-radius: 2px;
-}
-
-// ── Bottom action bar ────────────────────────────────────────────
-.va-bottom-bar {
-  position: sticky;
-  bottom: 0;
-  display: flex;
-  gap: 10px;
-  padding: 12px 14px;
-  background: #fff;
-  border-top: $border;
-  z-index: 10;
-}
-
-.va-update-btn {
-  flex: 1;
-  padding: 12px;
-  border-radius: $radius-sm;
-  border: 1px solid #d1d5db;
-  background: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  color: $text;
-  font-family: $font;
-  transition: background 0.15s;
-
-  &:hover:not(:disabled) { background: $gray-bg; }
-
-  &:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
+  &:hover:not(&--active) {
+    border-color: #d1d5db;
+    background: $bg-subtle;
+    transform: translateY(-1px);
   }
-}
 
-.va-confirm-btn {
-  flex: 2;
-  padding: 12px;
-  border-radius: $radius-sm;
-  border: none;
-  background: #22c55e;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-family: $font;
-  transition: opacity 0.15s;
+  &--active {
+    border-color: $primary;
+    background: $primary-light;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
 
-  &:hover:not(:disabled) { opacity: 0.9; }
-
-  &:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
+    .qs-pm-card__icon { filter: none; }
+    .qs-pm-card__label { color: $primary-dark; font-weight: 700; }
   }
+
 }
 
-// ── Add Client form ───────────────────────────────────────────────
-.va-add-client-form {
+// ─── Split panel ──────────────────────────────────────────────────
+.qs-split-panel {
   margin-top: 12px;
-  padding: 14px;
-  background: $gray-bg;
-  border: $border;
+  border: 1px solid #c7d2fe;
   border-radius: $radius;
-
-  &__row {
-    display: flex;
-    gap: 10px;
-    align-items: flex-end;
-    flex-wrap: wrap;
-  }
-
-  &__col {
-    flex: 1;
-    min-width: 130px;
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-
-    &--btn {
-      flex: 0 0 auto;
-      min-width: 110px;
-    }
-  }
-}
-
-.va-phone-group {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.va-phone-code {
-  width: 68px;
-  flex-shrink: 0;
-  padding: 7px 4px;
-  border: 1px solid #d1d5db;
-  border-radius: $radius-sm;
-  font-size: 12px;
-  background: #fff;
-  color: $text;
-  outline: none;
-  cursor: pointer;
-}
-
-.va-inp--error {
-  border-color: #ef4444 !important;
-  background: #fff5f5 !important;
-}
-
-.va-form-error {
-  font-size: 11px;
-  color: #ef4444;
-  margin-top: 2px;
-}
-
-.va-save-client-btn {
-  width: 100%;
-  padding: 9px 16px;
-  border-radius: $radius-sm;
-  border: none;
-  background: $accent;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.15s;
-  white-space: nowrap;
-
-  &:hover:not(:disabled) { opacity: 0.85; }
-
-  &:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-}
-
-// ── Split Payment Panel ───────────────────────────────────────────
-.va-split-panel {
-  margin-top: 14px;
-  border: 1px solid #e0e7ff;
-  border-radius: $radius;
-  background: #f8f9ff;
+  background: $primary-light;
   overflow: hidden;
-  animation: va-fade-in 0.18s ease;
+  animation: qs-fade-in 0.18s ease;
 
   &__header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 10px 14px;
-    background: #eef2ff;
-    font-size: 13px;
-    font-weight: 600;
-    color: #3730a3;
-    border-bottom: 1px solid #e0e7ff;
+    background: #e0e7ff;
+    font-size: 12px;
+    font-weight: 700;
+    color: $primary-dark;
+    border-bottom: 1px solid #c7d2fe;
   }
 
-  &__remaining {
-    font-size: 12px;
-    font-weight: 500;
-    color: #6366f1;
-    background: #e0e7ff;
+  &__badge {
+    display: inline-flex;
+    align-items: center;
     padding: 2px 10px;
     border-radius: 20px;
-
-    &--done {
-      background: #d1fae5;
-      color: #065f46;
-    }
-
-    &--over {
-      background: #fee2e2;
-      color: #991b1b;
-    }
-  }
-
-  &__total-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 14px;
-    border-top: 1px solid #e0e7ff;
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 600;
-    color: $text;
-    background: #eef2ff;
+    background: $primary;
+    color: #fff;
+
+    &--done { background: $success; }
+    &--over { background: $danger; }
   }
 
-  &__total-val {
-    color: #4f46e5;
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid #c7d2fe;
+    &:last-child { border-bottom: none; }
   }
-}
-
-.va-split-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.va-split-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  border-bottom: 1px solid #e0e7ff;
-
-  &:last-child { border-bottom: none; }
 
   &__label {
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
     color: $text;
-    width: 56px;
+    width: 52px;
     flex-shrink: 0;
   }
 
@@ -1049,20 +971,22 @@ $accent: #111827;
     display: flex;
     align-items: center;
     gap: 4px;
-    background: #fff;
-    border: 1px solid #c7d2fe;
+    background: $bg-card;
+    border: 1px solid #a5b4fc;
     border-radius: $radius-sm;
-    padding: 0 8px;
+    padding: 0 10px 0 10px;
+    overflow: hidden;
+    transition: all $transition;
 
     &:focus-within {
-      border-color: #6366f1;
-      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+      border-color: $primary;
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
     }
   }
 
   &__currency {
     font-size: 13px;
-    color: $muted;
+    color: $text-muted;
     flex-shrink: 0;
   }
 
@@ -1073,34 +997,495 @@ $accent: #111827;
     outline: none !important;
     font-size: 13px;
     color: $text;
-    padding: 7px 0 !important;
+    padding: 8px 0 !important;
     min-width: 0;
-
-    &:focus { border-color: transparent !important; background: transparent !important; }
+    -moz-appearance: textfield;
+    &::-webkit-outer-spin-button,
+    &::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
   }
 
   &__fill {
     flex-shrink: 0;
-    padding: 5px 10px;
-    border-radius: 20px;
-    border: 1px solid #a5b4fc;
+    padding: 4px 10px;
+    border-radius: 0 $radius-sm $radius-sm 0;
+    border: none;
+    border-left: 1px solid #a5b4fc;
     background: #ede9fe;
-    color: #4f46e5;
+    color: $primary-dark;
     font-size: 11px;
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
-    transition: all 0.15s;
+    transition: all $transition;
+    font-family: $font;
+    height: 100%;
+    align-self: stretch;
 
-    &:hover {
-      background: #4f46e5;
-      color: #fff;
-      border-color: #4f46e5;
+    &:hover { background: $primary; color: #fff; }
+  }
+
+  &__total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    border-top: 1px solid #c7d2fe;
+    background: #e0e7ff;
+    font-size: 13px;
+    font-weight: 700;
+    color: $text;
+  }
+
+  &__total-val { color: $primary; }
+}
+
+// ─── Summary section (sidebar) ────────────────────────────────────
+.qs-summary-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: $text-light;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+}
+
+.qs-summary-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 16px;
+}
+
+.qs-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 13px;
+  color: $text;
+  border-bottom: 1px solid $bg-subtle;
+
+  &:last-child { border-bottom: none; }
+
+  &__label { color: $text-muted; font-weight: 500; }
+  &__value { font-weight: 600; }
+
+  &--discount { .qs-summary-row__value { color: $danger; } }
+  &--tip { .qs-summary-row__value { color: $success; } }
+
+  &--total {
+    padding: 10px 0;
+    margin-top: 4px;
+    border-top: 2px solid $border;
+    border-bottom: none;
+
+    .qs-summary-row__label {
+      font-size: 14px;
+      font-weight: 700;
+      color: $text;
+    }
+
+    .qs-summary-row__value {
+      font-size: 18px;
+      font-weight: 800;
+      color: $text;
+      letter-spacing: -0.02em;
     }
   }
 }
 
-@keyframes va-fade-in {
+// ─── Grand total card ────────────────────────────────────────────
+.qs-grand-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: $bg-subtle;
+  border: 1px solid $border;
+  border-radius: $radius-sm;
+  margin-bottom: 16px;
+
+  &__label {
+    font-size: 12px;
+    font-weight: 600;
+    color: $text-muted;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  &__amount {
+    font-size: 22px;
+    font-weight: 800;
+    color: $text;
+    letter-spacing: -0.03em;
+  }
+}
+
+// ─── Pay button ───────────────────────────────────────────────────
+.qs-pay-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 20px;
+  border-radius: $radius;
+  border: none;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: $font;
+  letter-spacing: -0.01em;
+  transition: all $transition;
+  box-shadow: 0 4px 12px rgba(16,185,129,0.3);
+
+  &:hover:not(:disabled) {
+    box-shadow: 0 6px 16px rgba(16,185,129,0.4);
+    transform: translateY(-1px);
+  }
+
+  &:active:not(:disabled) { transform: translateY(0); }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+    background: #d1d5db;
+  }
+}
+
+// ─── Confirm items list ───────────────────────────────────────────
+.qs-confirm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 14px;
+}
+
+.qs-confirm-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 13px;
+  gap: 8px;
+
+  &:last-child { border-bottom: none; }
+
+  &__info {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__name {
+    font-weight: 600;
+    color: $text;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__meta {
+    font-size: 11px;
+    color: $text-muted;
+    margin-top: 1px;
+  }
+
+  &__price {
+    font-weight: 700;
+    color: $text;
+    flex-shrink: 0;
+    font-size: 13px;
+  }
+}
+
+// ─── Amount paid input area ───────────────────────────────────────
+.qs-amount-paid-group {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border: 1px solid $border;
+  border-radius: $radius-sm;
+  overflow: hidden;
+  transition: all $transition;
+  background: $bg-card;
+
+  &:focus-within {
+    border-color: $border-focus;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+  }
+
+  &__prefix {
+    padding: 0 12px;
+    background: $bg-subtle;
+    border-right: 1px solid $border;
+    font-size: 13px;
+    font-weight: 600;
+    color: $text-muted;
+    height: 38px;
+    display: flex;
+    align-items: center;
+  }
+
+  &__input {
+    flex: 1;
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    color: $text;
+    outline: none;
+    font-family: $font;
+    font-weight: 600;
+    -moz-appearance: textfield;
+    &::-webkit-outer-spin-button,
+    &::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+  }
+}
+
+// ─── Due / paid badges ────────────────────────────────────────────
+.qs-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+
+  &--paid { background: $success-light; color: #065f46; }
+  &--due { background: $danger-light; color: #991b1b; }
+  &--zero { background: $bg-subtle; color: $text-muted; }
+}
+
+// ─── Notes area ───────────────────────────────────────────────────
+.qs-notes-section {
+  padding: 14px 18px;
+  border-top: 1px solid $border;
+}
+
+// ─── Empty state inside item rows ────────────────────────────────
+.qs-empty-rows {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  color: $text-light;
+
+  &__icon {
+    font-size: 28px;
+    margin-bottom: 10px;
+    opacity: 0.4;
+  }
+
+  &__text {
+    font-size: 13px;
+    font-weight: 500;
+    color: $text-light;
+  }
+
+  &__hint {
+    font-size: 12px;
+    color: $primary;
+    margin-top: 6px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  &--clickable {
+    cursor: pointer;
+    border-radius: 10px;
+    transition: background 0.15s ease;
+
+    &:hover {
+      background: rgba($primary, 0.04);
+
+      .qs-empty-rows__icon { opacity: 0.7; }
+      .qs-empty-rows__hint { opacity: 1; }
+    }
+  }
+}
+
+// ─── Out-of-stock badge ───────────────────────────────────────────
+.qs-oos-badge {
+  position: absolute;
+  top: -18px;
+  right: 0;
+  font-size: 10px;
+  font-weight: 700;
+  color: $danger;
+  background: $danger-light;
+  padding: 2px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+// ─── Section divider label ────────────────────────────────────────
+.qs-section-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 18px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: $text-light;
+  background: $bg-subtle;
+  border-bottom: 1px solid $border;
+
+  &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: $border;
+  }
+}
+
+// ─── Payment reference input ──────────────────────────────────────
+.qs-ref-input {
+  margin-top: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid $border;
+  border-radius: $radius-sm;
+  font-size: 13px;
+  background: $bg-subtle;
+  color: $text;
+  outline: none;
+  font-family: $font;
+  transition: all $transition;
+
+  &:focus {
+    border-color: $border-focus;
+    background: $bg-card;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+  }
+
+  &::placeholder { color: $text-light; }
+}
+
+// ─── Sidebar section headings ─────────────────────────────────────
+.qs-sidebar-section {
+  &__title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: $text-light;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+}
+
+// ─── Order summary inner layout ───────────────────────────────────
+.qs-order-header {
+  flex-shrink: 0;
+  padding: 14px 20px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: $text-light;
+}
+
+.qs-order-items {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 20px;
+
+  &::-webkit-scrollbar { width: 4px; }
+  &::-webkit-scrollbar-thumb { background: $border; border-radius: 4px; }
+}
+
+.qs-order-totals {
+  flex-shrink: 0;
+  padding: 8px 20px 12px;
+  border-top: 1px solid $border;
+  background: $bg-subtle;
+}
+
+// ─── Animations ───────────────────────────────────────────────────
+@keyframes qs-fade-in {
   from { opacity: 0; transform: translateY(-6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+@keyframes qs-pop-in {
+  from { opacity: 0; transform: scale(0.95) translateY(-4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+// ─── Utility ──────────────────────────────────────────────────────
+.qs-gap-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+// ─── Sidebar mobile toggle (collapsed state) ──────────────────────
+.qs-mobile-total-bar {
+  display: none;
+
+  @media (max-width: 900px) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    cursor: pointer;
+    border-bottom: 1px solid $border;
+  }
+
+  &__label {
+    font-size: 13px;
+    font-weight: 600;
+    color: $text-muted;
+  }
+
+  &__amount {
+    font-size: 16px;
+    font-weight: 800;
+    color: $text;
+    letter-spacing: -0.02em;
+  }
+}
+
+// ─── Grid layouts for Services, Products and Memberships to fix alignment issues ───
+.qs-col-headers--services, .qs-item-row--services {
+  display: grid !important;
+  grid-template-columns: 2fr 1.5fr 1fr 1fr 0.6fr 1.1fr 1fr 30px;
+  gap: 8px;
+  align-items: center;
+}
+
+.qs-col-headers--products, .qs-item-row--products {
+  display: grid !important;
+  grid-template-columns: 2fr 1.5fr 1fr 0.6fr 1.1fr 1fr 30px;
+  gap: 8px;
+  align-items: center;
+}
+
+.qs-col-headers--memberships, .qs-item-row--memberships {
+  display: grid !important;
+  grid-template-columns: 2fr 1.5fr 1fr 0.6fr 1.1fr 1fr 30px;
+  gap: 8px;
+  align-items: center;
+}
+
+

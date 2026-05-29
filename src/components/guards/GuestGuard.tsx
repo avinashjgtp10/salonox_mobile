@@ -10,7 +10,7 @@ const GuestGuard = () => {
     if (isOnboardingComplete) {
       return <Navigate to="/dashboard" replace />;
     } else {
-      return <Navigate to="/account-type" replace />;
+      return <Navigate to="/business-name" replace />;
     }
   }
 

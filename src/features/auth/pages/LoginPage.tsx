@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
+import { FiEye, FiEyeOff } from "react-icons/fi";
 
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { loginThunk } from "../../../middleware/auth/authThunk";
 import { API_ORIGIN } from "../../../services/api/baseUrl";
 import salonImg from "../../../assets/images/salon.jpg";
+import salonoxLogo from "../../../assets/salonox_logo_black.svg";
 
 import Input from "../../../components/ui/Input";
 import Button from "../../../components/ui/Button";
@@ -16,29 +18,67 @@ import "../styles/LoginPage.scss";
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [errors, setErrors] = useState<{ email?: string; password?: string; api?: string }>({});
+  const [submitted, setSubmitted] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { loading: authLoading } = useAppSelector((state) => state.auth);
   const loading = authLoading.login;
 
+  const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  const validateField = (name: "email" | "password", value: string): string => {
+    if (name === "email") {
+      if (!value.trim()) return "Email address is required";
+      if (!emailRx.test(value)) return "Please enter a valid email address";
+    }
+    if (name === "password") {
+      if (!value.trim()) return "Password is required";
+    }
+    return "";
+  };
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    if (submitted) {
+      const msg = validateField("email", value);
+      setErrors(prev => ({ ...prev, email: msg || undefined, api: undefined }));
+    }
+  };
+
+  const handlePasswordChange = (value: string) => {
+    setPassword(value);
+    const msg = submitted ? validateField("password", value) : "";
+    setErrors(prev => ({ ...prev, password: msg || undefined, api: undefined }));
+  };
+
   const handleLogin = async () => {
-    if (!email.trim() || !password.trim()) {
-      setError("Email and password are required");
+    setSubmitted(true);
+    const emailErr = validateField("email", email);
+    const passwordErr = validateField("password", password);
+    if (emailErr || passwordErr) {
+      setErrors({ email: emailErr || undefined, password: passwordErr || undefined });
+      const firstErrorId = emailErr ? "lp-email" : "lp-password";
+      const el = document.getElementById(firstErrorId);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.focus();
+      }
       return;
     }
-    setError("");
+    setErrors({});
     const result = await dispatch(loginThunk({ email, password }));
     if (loginThunk.fulfilled.match(result)) {
       const { isOnboardingComplete } = result.payload;
       if (isOnboardingComplete) {
         navigate("/dashboard");
       } else {
-        navigate("/account-type");
+        navigate("/business-name");
       }
     } else {
-      setError((result.payload as string) ?? "Invalid email or password");
+      setErrors({ api: "Invalid credentials." });
     }
   };
 
@@ -53,44 +93,55 @@ export default function LoginPage() {
 
       <div className="lp-inner">
         <div className="lp-brand">
-          <span className="lp-brand__gem" />
-          salonox
+          <img src={salonoxLogo} alt="SalonOx" className="lp-brand__logo" width="124" height="40" />
         </div>
 
         <div className="lp-heading-block">
-          <h1 className="lp-heading">Welcome<br />back.</h1>
+          <h1 className="lp-heading whitespace-nowrap">Welcome back.</h1>
           <p className="lp-sub">Sign in to manage your business.</p>
         </div>
 
         <div className="lp-form">
           <Input
+            id="lp-email"
             type="email"
-            label="Email address"
+            label={<>Email address <span style={{ color: "#E05C5C", fontWeight: 700 }}>*</span></>}
             placeholder="name@example.com"
             value={email}
-            onChange={(e) => { setEmail(e.target.value); setError(""); }}
+            onChange={(e) => handleEmailChange(e.target.value)}
+            error={errors.email}
             containerClass="lp-field"
           />
 
           <Input
-            type="password"
-            label="Password"
+            id="lp-password"
+            type={showPassword ? "text" : "password"}
+            label={<>Password <span style={{ color: "#E05C5C", fontWeight: 700 }}>*</span></>}
             placeholder="Enter your password"
             value={password}
-            onChange={(e) => { setPassword(e.target.value); setError(""); }}
+            onChange={(e) => handlePasswordChange(e.target.value)}
+            error={errors.password || errors.api}
             containerClass="lp-field"
             onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+            iconRight={
+              <button
+                type="button"
+                onClick={() => setShowPassword(p => !p)}
+                style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "#9CA3AF", display: "flex", alignItems: "center" }}
+              >
+                {showPassword ? <FiEyeOff size={17} /> : <FiEye size={17} />}
+              </button>
+            }
           />
 
-          {error && (
-            <div className="lp-error">
-              <span className="lp-error__icon">!</span>
-              {error}
+          <div className="flex items-center justify-between w-full mb-5" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px", width: "100%" }}>
+            <div className="flex items-center gap-2" style={{ display: "flex", alignItems: "center" }}>
+              <input type="checkbox" id="rememberMe" className="w-4 h-4 cursor-pointer accent-black" style={{ width: "16px", height: "16px", cursor: "pointer", accentColor: "black", marginRight: "8px", margin: 0 }} />
+              <label htmlFor="rememberMe" className="text-sm cursor-pointer text-gray-500 font-medium" style={{ fontSize: "13px", color: "#7A7672", cursor: "pointer", fontWeight: 500, margin: 0 }}>Remember me</label>
             </div>
-          )}
-
-          <div className="lp-forgot">
-            <span onClick={() => navigate("/forgot-password")}>Forgot password?</span>
+            <div className="lp-forgot" style={{ marginBottom: 0 }}>
+              <span className="text-black cursor-pointer font-medium" style={{ color: "black" }} onClick={() => navigate("/forgot-password")}>Forgot password?</span>
+            </div>
           </div>
 
           <Button

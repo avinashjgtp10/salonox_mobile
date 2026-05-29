@@ -70,7 +70,7 @@ const AuthGuard = () => {
   if (!accessToken) return <Navigate to="/login" replace />;
 
   // Session valid but onboarding incomplete
-  if (!verified) return <Navigate to="/account-type" replace />;
+  if (!verified) return <Navigate to="/business-name" replace />;
 
   return <Outlet />;
 };

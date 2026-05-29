@@ -1,91 +1,223 @@
 @use './marketing-tokens' as *;
 
-.ch-page { padding: 24px 28px; background: #fff; min-height: 100%; }
+.ch-page { padding: 24px 28px; background: #f9fafb; min-height: 100%; }
 
-.ch-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 0.5px solid $gray-200; }
-.ch-title { font-size: 16px; font-weight: 500; color: $black; margin: 0 0 3px; }
-.ch-sub   { font-size: 12px; color: $gray-400; margin: 0; }
-
-.ch-summary {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
-  background: $gray-200; border: 0.5px solid $gray-200; border-radius: $radius-lg; overflow: hidden; margin-bottom: 20px;
+// ── Header ────────────────────────────────────────────────────────────────────
+.ch-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e5e7eb;
 }
-.ch-summary-card  { background: #fff; padding: 14px 16px; display: flex; flex-direction: column; gap: 3px; }
-.ch-summary-val   { font-size: 22px; font-weight: 500; color: $black; letter-spacing: -0.5px; }
-.ch-summary-label { font-size: 10px; color: $gray-400; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+.ch-title { font-size: 15px; font-weight: 600; color: #111827; margin: 0 0 3px; }
+.ch-sub   { font-size: 12px; color: #6b7280; margin: 0; }
 
-.ch-loading { padding: 48px; text-align: center; font-size: 13px; color: $gray-400; }
-.ch-empty   { padding: 64px 24px; text-align: center; color: $gray-400; font-size: 13px; }
-.ch-empty-icon { font-size: 32px; margin-bottom: 12px; }
+// ── Summary ───────────────────────────────────────────────────────────────────
+.ch-summary {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  gap: 12px; margin-bottom: 16px;
+}
+.ch-summary-card {
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+  padding: 14px 16px; display: flex; flex-direction: column; gap: 3px;
+  transition: box-shadow 0.15s;
+  &:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+}
+.ch-summary-val   { font-size: 22px; font-weight: 600; color: #111827; letter-spacing: -0.5px; }
+.ch-summary-label { font-size: 10px; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
 
+// ── Toolbar ───────────────────────────────────────────────────────────────────
+.ch-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.ch-search  { flex: 1; }
+
+.ch-filter-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 500; color: #6b7280;
+  background: #fff; border: 1px solid #e5e7eb;
+  border-radius: 8px; padding: 7px 12px;
+  cursor: pointer; transition: all 0.15s; position: relative; white-space: nowrap;
+  &:hover { border-color: #9ca3af; color: #111827; }
+  &--active { border-color: #111827; color: #111827; background: #f9fafb; }
+  &--has { border-color: #111827; }
+}
+.ch-filter-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #10b981; position: absolute; top: 5px; right: 5px;
+}
+.ch-clear-btn {
+  font-size: 11px; color: #9ca3af; background: none;
+  border: none; cursor: pointer; padding: 4px 0; text-decoration: underline;
+  &:hover { color: #ef4444; }
+}
+
+// ── Filter panel ──────────────────────────────────────────────────────────────
+.ch-filter-panel {
+  background: #fff; border: 1px solid #e5e7eb;
+  border-radius: 10px; padding: 14px; margin-bottom: 14px;
+}
+.ch-filter-row  { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; }
+.ch-filter-group { display: flex; flex-direction: column; gap: 6px; }
+.ch-filter-label { font-size: 10px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; }
+.ch-pill-group   { display: flex; gap: 4px; flex-wrap: wrap; }
+.ch-pill {
+  font-size: 11px; font-weight: 500; color: #6b7280;
+  background: #fff; border: 1px solid #e5e7eb;
+  border-radius: 20px; padding: 4px 12px; cursor: pointer; transition: all 0.15s;
+  &:hover { border-color: #9ca3af; color: #111827; }
+  &--active { background: #111827; color: #fff; border-color: #111827; }
+}
+.ch-date-row   { display: flex; align-items: center; gap: 8px; }
+.ch-date-input {
+  font-size: 12px; color: #111827; border: 1px solid #e5e7eb;
+  border-radius: 8px; padding: 6px 10px; background: #fff; outline: none;
+  &:focus { border-color: #10b981; }
+}
+.ch-date-sep { font-size: 12px; color: #d1d5db; }
+
+// ── States ────────────────────────────────────────────────────────────────────
+.ch-loading    { padding: 48px; text-align: center; font-size: 13px; color: #9ca3af; }
+.ch-empty      { padding: 64px 24px; text-align: center; color: #9ca3af; font-size: 13px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.ch-empty-icon { font-size: 32px; }
+
+// ── Campaign cards ────────────────────────────────────────────────────────────
 .ch-list { display: flex; flex-direction: column; gap: 8px; }
 
 .ch-card {
-  background: #fff; border: 0.5px solid $gray-200; border-radius: $radius-lg; overflow: hidden;
-  transition: border-color 0.15s;
-  &:hover { border-color: $gray-300; }
-  &--open { border-color: $black; }
+  background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  &:hover  { border-color: #d1d5db; }
+  &--open  { border-color: #111827; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
 }
 
-.ch-card-header { display: flex; align-items: center; gap: 16px; padding: 14px 16px; cursor: pointer; &:hover { background: $gray-50; } }
-.ch-card-left { flex: 1; min-width: 0; }
-.ch-card-name     { font-size: 14px; font-weight: 500; color: $black; margin: 0 0 2px; }
-.ch-card-template { font-size: 11px; color: $gray-400; margin: 0; }
+.ch-card-header {
+  display: flex; align-items: center; gap: 16px; padding: 14px 16px;
+  cursor: pointer;
+  &:hover { background: #f9fafb; }
+}
+.ch-card-left     { flex: 1; min-width: 0; }
+.ch-card-name     { font-size: 14px; font-weight: 600; color: #111827; margin: 0 0 2px; }
+.ch-card-template { font-size: 11px; color: #9ca3af; margin: 0; }
 .ch-card-right    { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.ch-card-actions  { display: flex; gap: 6px; }
+.ch-expand-icon   { font-size: 10px; color: #9ca3af; }
 
-.ch-status-badge { font-size: 10px; font-weight: 500; padding: 3px 10px; border-radius: 20px; }
+.ch-scheduled-time {
+  font-size: 11px; color: #8b5cf6; background: #f5f3ff;
+  padding: 3px 8px; border-radius: 6px; font-weight: 500; white-space: nowrap;
+}
 
-.ch-card-actions { display: flex; gap: 6px; }
-.ch-btn { font-size: 11px; padding: 4px 10px; border-radius: $radius-sm; cursor: pointer; font-weight: 500; border: none; }
-.ch-btn-pause  { background: rgba(245,158,11,0.1); color: #f59e0b; }
-.ch-btn-resume { background: rgba(37,211,102,0.12); color: #16a34a; }
-.ch-btn-export { background: $gray-100; color: $gray-500; border: 0.5px solid $gray-200; &:hover { color: $black; } }
-.ch-expand-icon { font-size: 10px; color: $gray-400; }
+// ── Progress ──────────────────────────────────────────────────────────────────
+.ch-progress-wrap  { display: flex; align-items: center; gap: 10px; padding: 0 16px 10px; }
+.ch-progress-track { flex: 1; height: 4px; background: #f3f4f6; border-radius: 2px; overflow: hidden; }
+.ch-progress-fill  { height: 100%; background: #10b981; border-radius: 2px; transition: width 0.4s ease; }
+.ch-progress-label { font-size: 11px; color: #9ca3af; white-space: nowrap; }
 
-.ch-progress-wrap { display: flex; align-items: center; gap: 10px; padding: 0 16px 10px; }
-.ch-progress-track { flex: 1; height: 3px; background: $gray-100; border-radius: 2px; overflow: hidden; }
-.ch-progress-fill  { height: 100%; background: $green; border-radius: 2px; transition: width 0.4s ease; }
-.ch-progress-label { font-size: 11px; color: $gray-400; white-space: nowrap; }
+// ── Stats row ─────────────────────────────────────────────────────────────────
+.ch-stats-row {
+  display: flex; gap: 16px; padding: 10px 16px;
+  border-top: 1px solid #f3f4f6; background: #f9fafb; flex-wrap: wrap;
+}
+.ch-stat       { display: flex; align-items: center; gap: 5px; cursor: default; }
+.ch-stat-dot   { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.ch-stat-val   { font-size: 13px; font-weight: 600; color: #111827; }
+.ch-stat-label { font-size: 10px; color: #9ca3af; }
+.ch-stat-pct   { font-size: 10px; color: #d1d5db; }
+.ch-stat-meta  { margin-left: auto; }
 
-.ch-stats-row { display: flex; gap: 16px; padding: 10px 16px; border-top: 0.5px solid $gray-200; background: $gray-50; flex-wrap: wrap; }
-.ch-stat      { display: flex; align-items: center; gap: 5px; }
-.ch-stat-dot  { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-.ch-stat-val  { font-size: 13px; font-weight: 500; color: $black; }
-.ch-stat-label{ font-size: 10px; color: $gray-400; }
-.ch-stat-pct  { font-size: 10px; color: $gray-300; }
-.ch-stat-meta { margin-left: auto; }
-
-.ch-detail { border-top: 0.5px solid $gray-200; padding: 14px 16px; }
-.ch-detail-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
-.ch-detail-title  { font-size: 12px; font-weight: 500; color: $black; }
+// ── Detail / Contacts ─────────────────────────────────────────────────────────
+.ch-detail { border-top: 1px solid #e5e7eb; padding: 14px 16px; }
+.ch-detail-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px; flex-wrap: wrap; gap: 8px;
+}
+.ch-detail-title { font-size: 12px; font-weight: 600; color: #111827; }
+.ch-detail-total { font-weight: 400; color: #9ca3af; }
 
 .ch-filter-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
 .ch-filter-tab {
-  font-size: 10px; padding: 3px 8px; border-radius: 20px; border: 0.5px solid $gray-200;
-  background: #fff; color: $gray-500; cursor: pointer; transition: all 0.15s;
-  &:hover { border-color: $gray-300; }
-  &--active { background: $black; color: #fff; border-color: $black; }
+  font-size: 10px; padding: 3px 8px; border-radius: 20px;
+  border: 1px solid #e5e7eb; background: #fff; color: #6b7280;
+  cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 4px;
+  &:hover   { border-color: #9ca3af; }
+  &--active { background: #111827; color: #fff; border-color: #111827; }
+}
+.ch-filter-tab-count {
+  font-size: 9px; background: rgba(255,255,255,0.2); border-radius: 10px; padding: 0 4px;
 }
 
-.ch-detail-loading { padding: 24px; text-align: center; font-size: 13px; color: $gray-400; }
-.ch-detail-empty   { font-size: 12px; color: $gray-400; text-align: center; padding: 24px; }
+// ── Blocked note ──────────────────────────────────────────────────────────────
+.ch-blocked-note {
+  font-size: 11px; color: #b45309;
+  background: #fffbeb; border: 1px solid #fde68a;
+  border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;
+  line-height: 1.5;
+  strong { color: #92400e; }
+}
 
+.ch-detail-loading { padding: 24px; text-align: center; font-size: 13px; color: #9ca3af; }
+.ch-detail-empty   { font-size: 12px; color: #9ca3af; text-align: center; padding: 24px; }
+
+// ── Contact table ─────────────────────────────────────────────────────────────
 .ch-contact-table { display: flex; flex-direction: column; }
+
 .ch-contact-row {
-  display: grid; grid-template-columns: 140px 120px 90px 80px 90px 80px;
-  gap: 8px; padding: 8px 0; border-bottom: 0.5px solid #f5f5f5;
-  font-size: 11px; color: $gray-500; align-items: center;
-  &--head { font-size: 10px; color: $gray-400; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 0.5px solid $gray-200; padding-bottom: 8px; }
+  display: grid;
+  grid-template-columns: 140px 110px 90px 75px 90px 75px;
+  gap: 8px; padding: 8px 0;
+  border-bottom: 1px solid #f9fafb;
+  font-size: 11px; color: #6b7280; align-items: center;
+
+  &--head {
+    font-size: 10px; color: #9ca3af; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;
+  }
   &:last-child { border-bottom: none; }
+  &:hover:not(.ch-contact-row--head) { background: #f9fafb; }
 }
-.ch-contact-phone  { font-family: monospace; font-size: 11px; color: $black; }
-.ch-contact-status { font-weight: 500; }
-.ch-scheduled-time {
-  font-size: 12px;
-  color: #8b5cf6;
-  background: #f5f3ff;
-  padding: 3px 8px;
-  border-radius: 6px;
-  font-weight: 500;
-  white-space: nowrap;
+
+.ch-contact-phone {
+  font-family: monospace; font-size: 11px; color: #111827;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ch-contact-status { font-weight: 500; display: flex; align-items: center; gap: 4px; }
+.ch-contact-hint   { font-size: 11px; cursor: help; }
+
+// ── Contact pagination ────────────────────────────────────────────────────────
+.ch-contact-pagination {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 0 4px; margin-top: 8px;
+  border-top: 1px solid #f3f4f6;
+}
+.ch-contact-pagination-info { font-size: 11px; color: #9ca3af; }
+.ch-contact-pagination-btns { display: flex; align-items: center; gap: 10px; }
+.ch-contact-page-btn {
+  font-size: 11px; font-weight: 500; color: #374151;
+  background: #fff; border: 1px solid #e5e7eb;
+  border-radius: 6px; padding: 5px 12px; cursor: pointer; transition: all 0.15s;
+  &:hover:not(:disabled) { border-color: #9ca3af; background: #f9fafb; }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+.ch-contact-page-num { font-size: 11px; color: #6b7280; }
+
+// ── Campaign pagination ───────────────────────────────────────────────────────
+.ch-pagination-wrap {
+  margin-top: 16px; padding-top: 14px;
+  border-top: 1px solid #e5e7eb;
+  display: flex; justify-content: center;
+}
+.ch-pagination {
+  display: flex; align-items: center; gap: 12px;
+  background: #fff; border: 1px solid #e5e7eb;
+  border-radius: 10px; padding: 8px 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+}
+.ch-page-btn {
+  font-size: 12px; font-weight: 500; color: #374151;
+  background: #f9fafb; border: 1px solid #e5e7eb;
+  border-radius: 6px; padding: 5px 14px;
+  cursor: pointer; transition: all 0.15s;
+  &:hover:not(:disabled) { background: #111827; color: #fff; border-color: #111827; }
+  &:disabled { opacity: 0.35; cursor: not-allowed; }
+}
+.ch-page-info {
+  font-size: 12px; color: #6b7280; white-space: nowrap;
 }

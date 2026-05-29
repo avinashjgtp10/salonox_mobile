@@ -16,6 +16,8 @@ export const PRODUCTS = {
   PHOTOS_REORDER: (id: string) => `/api/v1/products/${id}/photos/reorder`,
   PHOTO_BY_ID:    (id: string, photoId: string) => `/api/v1/products/${id}/photos/${photoId}`,
 
+  // ── Import / Export ────────────────────────────────────────────────────────
+  IMPORT:         "/api/v1/products/import",
   EXPORT_CSV:     "/api/v1/products/export/csv",
   EXPORT_EXCEL:   "/api/v1/products/export/excel",
   EXPORT_PDF:     "/api/v1/products/export/pdf",

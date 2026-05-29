@@ -25,6 +25,7 @@ import {
 } from "react-bootstrap-icons";
 import ClientDetailsDrawer from "../components/ClientDetailsDrawer";
 import ClientSearchInput from "../components/ClientSearchInput";
+import ClientImportModal from "../components/ClientImportModal";
 import { toast } from "react-hot-toast";
 
 // UI Components
@@ -140,6 +141,7 @@ export default function ClientsListPage() {
   const [blockModalOpen, setBlockModalOpen] = useState(false);
   const [blockReason, setBlockReason] = useState("");
   const [mergeModalOpen, setMergeModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
   const [primaryClientId, setPrimaryClientId] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<
@@ -443,7 +445,7 @@ export default function ClientsListPage() {
                   className="option-item p-2 cursor-pointer"
                   onClick={() => {
                     setOptionsOpen(false);
-                    navigate("/dashboard/clients/import");
+                    setImportModalOpen(true);
                   }}
                 >
                   <ArrowRight size={14} className="me-2" />
@@ -1079,6 +1081,12 @@ export default function ClientsListPage() {
         clientId={selectedClientId}
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
+      />
+
+      <ClientImportModal
+        show={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onSuccess={fetchClients}
       />
     </div>
   );

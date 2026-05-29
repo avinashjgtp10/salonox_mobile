@@ -20,12 +20,24 @@ const RequestSuccessPage = lazy(
 const AcceptInvitePage = lazy(
   () => import("../features/auth/pages/AcceptInvitePage"),
 );
+const PrivacyPolicyPage = lazy(
+  () => import("../features/auth/pages/PrivacyPolicyPage"),
+);
+const TermsOfServicePage = lazy(
+  () => import("../features/auth/pages/TermsOfServicePage"),
+);
+const TermsOfBusinessPage = lazy(
+  () => import("../features/auth/pages/TermsOfBusinessPage"),
+);
 
 export const AuthRoutes = (
   <>
     <Route path="/send-request" element={<SendRequestPage />} />
     <Route path="/request-success" element={<RequestSuccessPage />} />
     <Route path="/accept-invite" element={<AcceptInvitePage />} />
+    <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+    <Route path="/terms-of-service" element={<TermsOfServicePage />} />
+    <Route path="/terms-of-business" element={<TermsOfBusinessPage />} />
     <Route element={<GuestGuard />}>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />

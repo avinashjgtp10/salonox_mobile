@@ -39,18 +39,7 @@ export default function AccountTypePage() {
               </div>
             </div>
 
-            <div
-              className={`card p-4 account-card ${selected === "join" ? "border-dark bg-light" : ""}`}
-              onClick={() => setSelected("join")}
-            >
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <div className="fw-semibold">Join an existing business on salonox</div>
-                  <small className="text-muted">Find the business you want to join</small>
-                </div>
-                <FiArrowRight />
-              </div>
-            </div>
+
 
             <AutoNavigateIndicator visible={!!selected} className="justify-content-center" />
           </div>

@@ -111,6 +111,7 @@ export const applyInterceptors = (instance: AxiosInstance) => {
         "Something went wrong";
 
       // ── 401: silent token refresh ──────────────────────────────────────────
+      // Skip refresh for public routes (e.g. /login returning 401 for wrong credentials)
       const isPublicRoute = PUBLIC_ROUTES.some((route) =>
         originalRequest.url?.includes(route),
       );

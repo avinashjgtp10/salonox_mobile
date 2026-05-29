@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar/Navbar'
 import Footer from '../components/Footer'
+import SEO from '../components/SEO'
 import { plans, currencySymbol, type Currency } from '../config/pricing.config'
+import { coreKeywords, faqSchema, organizationSchema, softwareSchema } from '../config/seo.config'
 import '../styles/pricing.scss'
 import '../styles/global.scss'
 
@@ -34,6 +36,13 @@ export default function PricingPage() {
 
   return (
     <div className="pp-root">
+      <SEO
+        title="SalonOx Pricing | Salon Management Software Plans"
+        description="Compare SalonOx pricing for salon billing, appointments, staff, CRM, POS, reports and WhatsApp marketing. Start a 14-day free trial."
+        path="/pricing"
+        keywords={coreKeywords}
+        jsonLd={[softwareSchema, organizationSchema, faqSchema(faqItems.map(item => ({ question: item.q, answer: item.a })))]}
+      />
       <Navbar />
       <section className="pp-hero">
         <div className="pp-hero-grid" />

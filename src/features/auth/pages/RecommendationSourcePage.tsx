@@ -2,11 +2,12 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/RecommendationSourcePage.scss";
 import "../styles/onboarding-shared.scss";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FiArrowLeft } from "react-icons/fi";
 import { useOnboarding } from "../../../context/OnboardingContext";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { saveSalonThunk } from "../../../middleware/salon/salon.thunk";
+import { clearSalon } from "../../../store/salonSlice";
 import type { CreateSalonPayload } from "../../../types/salon.types";
 import OnboardingImagePanel from "../components/OnboardingImagePanel";
 import OnboardingPageWrapper from "../components/OnboardingPageWrapper";
@@ -33,6 +34,10 @@ export default function RecommendationSourcePage() {
 
   const [selected, setSelected] = useState("");
   const [otherText, setOtherText] = useState("");
+
+  useEffect(() => {
+    dispatch(clearSalon());
+  }, [dispatch]);
 
   const handleDone = async () => {
     if (!selected) return;

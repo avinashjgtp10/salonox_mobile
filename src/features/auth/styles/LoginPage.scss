@@ -4,6 +4,10 @@
 // ═══════════════════════════════════════════════════
 @use 'sass:color';
 
+// hide browser-native password eye icon globally for this page
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear { display: none; }
+
 // ── Tokens ──────────────────────────────────────────
 $gold:       #C9A96E;
 $gold-light: #E2C99A;
@@ -118,17 +122,16 @@ $border:     #E8E4DE;
 // ── Brand ────────────────────────────────────────────
 
 .lp-brand {
-  font-family: 'sans', serif;
-  font-size: 18px;
-  font-weight: 800;
-letter-spacing: -0.03em; 
-  color: $charcoal;
-  text-transform: uppercase;
   display: flex;
   align-items: center;
-  gap: 10px;
   margin-bottom: 44px;
   animation: lp-fade-in 0.5s 0.1s both;
+}
+
+.lp-brand__logo {
+  width: 124px;
+  height: auto;
+  display: block;
 }
 
 .lp-brand__gem {
@@ -210,6 +213,10 @@ letter-spacing: -0.03em;
     &.is-invalid {
       border-color: #E05C5C !important;
     }
+
+    // hide browser-native password reveal button (Edge / IE)
+    &::-ms-reveal,
+    &::-ms-clear { display: none; }
   }
 }
 

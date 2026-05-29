@@ -2,7 +2,9 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar/Navbar'
 import Footer from '../components/Footer'
+import SEO from '../components/SEO'
 import { businessTypes } from '../config/businessTypes.config'
+import { coreKeywords, organizationSchema, softwareSchema } from '../config/seo.config'
 import '../styles/businessType.scss'
 import '../styles/global.scss'
 
@@ -36,6 +38,13 @@ export default function BusinessTypePage({ slug }: { slug: string }) {
 
   return (
     <div className="bt-root">
+      <SEO
+        title={`${data.name} Software | SalonOx Management Platform`}
+        description={data.subheadline}
+        path={`/business/${data.slug}`}
+        keywords={[`${data.name} software`, ...coreKeywords]}
+        jsonLd={[softwareSchema, organizationSchema]}
+      />
       <Navbar />
       <section className="bt-hero">
         <div className="bt-hero-bg" style={{ backgroundImage: `url(${data.heroImage})` }} />
@@ -63,7 +72,7 @@ export default function BusinessTypePage({ slug }: { slug: string }) {
             <h2 className="bt-intro-h2">Built specifically for {data.name} businesses</h2>
             <p className="bt-intro-body">{data.intro}</p>
           </div>
-          <div className="bt-intro-img-wrap sx-animate-float"><img src={data.heroImage} alt={data.name} className="bt-intro-img" /></div>
+          <div className="bt-intro-img-wrap sx-animate-float"><img src={data.heroImage} alt={`${data.name} business management software`} className="bt-intro-img" loading="lazy" decoding="async" /></div>
         </div>
       </section>
 

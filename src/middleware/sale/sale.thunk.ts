@@ -1,7 +1,7 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 
 import api from "../../services/api/axios";
-import { SALE } from "../../services/api/endpoints";
+import { SALE, STAFF } from "../../services/api/endpoints";
 import { ApiError } from "../../services/api/interceptors";
 import { downloadBlob } from "../../utils/downloadBlob";
 import type {
@@ -32,8 +32,13 @@ export const fetchSaleInitThunk = createAsyncThunk<
   "sale/init",
   async (_, { rejectWithValue }) => {
     try {
-      const res = await api.get<{ data: SaleInitData }>(SALE.INIT);
-      return res.data.data;
+      const [initRes, staffRes] = await Promise.all([
+        api.get<{ data: SaleInitData }>(SALE.INIT),
+        api.get(STAFF.BASE + "?limit=200"),
+      ]);
+      const services = initRes.data?.data?.services ?? [];
+      const staffRaw = staffRes.data?.data?.items ?? staffRes.data?.data ?? [];
+      return { services, staff: Array.isArray(staffRaw) ? staffRaw : [] };
     } catch (err: any) {
       if (err instanceof ApiError) return rejectWithValue(err.message);
       return rejectWithValue("Failed to fetch sale init data");

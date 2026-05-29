@@ -26,7 +26,7 @@ export const loginThunk = createAsyncThunk<
       if (err.status === 401) return rejectWithValue("Invalid email or password");
       return rejectWithValue(err.message);
     }
-    return rejectWithValue("Invalid email or password");
+    return rejectWithValue("Invalid credentials.");
   }
 });
 
