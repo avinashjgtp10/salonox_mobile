@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Search,
@@ -31,6 +31,7 @@ import {
   exportSalesThunk,
   deleteSaleThunk,
 } from "../../../middleware/sale/sale.thunk";
+import { fetchClientsThunk } from "../../../middleware/client/client.thunk";
 import { clearSaleError } from "../../../store/saleSlice";
 import type { Sale, SaleSummary } from "../../../types/sale.types";
 import { useSale } from "../../analytics/context/SaleContext";
@@ -128,6 +129,39 @@ export default function SalesListPage() {
   const apiError = useSelector(
     (s: RootState) => (s.sale as any).error as string | null,
   );
+  const rawClientItems = useSelector((s: RootState) => (s.client as any).items);
+
+  // Build id → full name lookup so the CLIENT column shows real names.
+  // state.client.items may be a plain array, { items: [], pagination } or { data: [] }
+  // depending on the API response — mirror the same defensive extraction used in
+  // QuickWhatsAppPage so all shapes are handled correctly.
+  const clientMap = useMemo(() => {
+    const list: any[] = Array.isArray(rawClientItems) ? rawClientItems
+      : Array.isArray(rawClientItems?.items) ? rawClientItems.items
+      : Array.isArray(rawClientItems?.data)  ? rawClientItems.data
+      : [];
+    const m: Record<string, string> = {};
+    list.forEach((c: any) => {
+      const name = (c.fullName || c.full_name || `${c.first_name || ""} ${c.last_name || ""}`.trim()) || "";
+      if (c.id && name) m[String(c.id)] = name;
+    });
+    return m;
+  }, [rawClientItems]);
+
+  const getClientName = (clientId: string | null, clientName?: string | null): string | null => {
+    if (!clientId) return null;
+    return clientName || clientMap[clientId] || null;
+  };
+
+  const getClientInitials = (clientId: string | null, clientName?: string | null): string => {
+    if (!clientId) return "WI";
+    const name = clientName || clientMap[clientId];
+    if (!name) return "CL";
+    const parts = name.trim().split(/\s+/);
+    return parts.length >= 2
+      ? (parts[0][0] + parts[1][0]).toUpperCase()
+      : name.substring(0, 2).toUpperCase();
+  };
 
   const { drafts, cancelDraft } = useSale();
 
@@ -173,7 +207,8 @@ export default function SalesListPage() {
   useEffect(() => {
     dispatch(fetchSalesThunk());
     dispatch(fetchSaleSummaryThunk());
-  }, [dispatch]);
+    dispatch(fetchClientsThunk());
+  }, [dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Refetch after QuickSaleDrawer creates a sale ─────────────────────────────
   useEffect(() => {
@@ -270,7 +305,8 @@ export default function SalesListPage() {
   const displaySales = completedSales
     .filter((s) => {
       const q = search.toLowerCase();
-      const matchSearch = !q || String(s.id).includes(q) || (s.client_id || "").toLowerCase().includes(q);
+      const resolvedName = (s.client_name || clientMap[String(s.client_id ?? "")] || "").toLowerCase();
+      const matchSearch = !q || String(s.id).toLowerCase().includes(q) || resolvedName.includes(q);
       const matchStatus = statusFilter === "All" || s.status === statusFilter.toLowerCase();
       const matchPayment = paymentFilter === "All" || s.payment_method === paymentFilter.toLowerCase().replace(" ", "_");
       return matchSearch && matchStatus && matchPayment;
@@ -285,7 +321,8 @@ export default function SalesListPage() {
 
   const displayDrafts = drafts.filter((d) => {
     const q = search.toLowerCase();
-    return !q || String(d.id).includes(q) || (d.client_id || "").toLowerCase().includes(q);
+    const resolvedName = (d.client_name || clientMap[String(d.client_id ?? "")] || "").toLowerCase();
+    return !q || String(d.id).toLowerCase().includes(q) || resolvedName.includes(q);
   });
 
   // Pagination
@@ -770,16 +807,22 @@ export default function SalesListPage() {
                 {
                   header: "Client",
                   key: "client",
-                  render: (item: any) => (
-                    <div className="sales-pg__client-cell">
-                      <div className="sales-pg__avatar">
-                        {item.client_id ? String(item.client_id).substring(0, 2).toUpperCase() : "WI"}
+                  render: (item: any) => {
+                    const name = getClientName(item.client_id, item.client_name);
+                    const isWalkin = !item.client_id;
+                    return (
+                      <div className="sales-pg__client-cell">
+                        <div className="sales-pg__avatar">
+                          {getClientInitials(item.client_id, item.client_name)}
+                        </div>
+                        <div className="sales-pg__client-name text-nowrap">
+                          {isWalkin
+                            ? <span className="text-muted fst-italic">Walk-in</span>
+                            : (name ?? <span className="text-muted fst-italic">Walk-in</span>)}
+                        </div>
                       </div>
-                      <div className="sales-pg__client-name text-nowrap">
-                        {item.client_id ?? <span className="text-muted fst-italic">Walk-in</span>}
-                      </div>
-                    </div>
-                  ),
+                    );
+                  },
                 },
                 {
                   header: "Status",
@@ -957,13 +1000,13 @@ export default function SalesListPage() {
                 {/* Client */}
                 <div className="sales-detail__client-card">
                   <div className="sales-detail__avatar">
-                    {selectedSale.client_id
-                      ? selectedSale.client_id.substring(0, 2).toUpperCase()
-                      : "WI"}
+                    {getClientInitials(selectedSale.client_id, selectedSale.client_name)}
                   </div>
                   <div>
                     <div className="sales-detail__client-name">
-                      {selectedSale.client_id ?? "Walk-in"}
+                      {selectedSale.client_id
+                        ? (getClientName(selectedSale.client_id, selectedSale.client_name) ?? "Walk-in")
+                        : "Walk-in"}
                     </div>
                     {selectedSale.payment_method && (
                       <div className="sales-detail__client-sub">

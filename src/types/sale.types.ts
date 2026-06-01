@@ -27,6 +27,7 @@ export interface Sale {
   id: EntityId;
   salon_id: string;
   client_id: string | null;
+  client_name?: string | null;
   status: SaleStatus;
   subtotal: string;
   discount_amount: string;
