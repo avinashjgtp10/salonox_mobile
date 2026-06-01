@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import {
   Calendar3,
@@ -16,7 +16,6 @@ import {
   Input,
   Modal,
   Table,
-  Badge,
   Card,
   Loader,
   Pagination,
@@ -55,7 +54,7 @@ export default function AppointmentsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showPicker, setShowPicker] = useState(false);
   const [showPresets, setShowPresets] = useState(false);
-  const [selectedLabel, setSelectedLabel] = useState("Last 30 days");
+  const [selectedLabel, setSelectedLabel] = useState("Today");
   const [showExport, setShowExport] = useState(false);
 
   // Filters Modal State
@@ -83,7 +82,7 @@ export default function AppointmentsPage() {
 
   const [range, setRange] = useState([
     {
-      startDate: subDays(today, 29),
+      startDate: today,
       endDate: today,
       key: "selection",
     },
@@ -699,15 +698,14 @@ export default function AppointmentsPage() {
                 width: "130px",
                 render: (item: any) => {
                   const apptStatus = (item.status || "booked").toLowerCase();
-                  const payStatus = (item.payment_status || item.paymentStatus || "unpaid").toLowerCase();
-
-                  const variantMap: Record<string, string> = {
-                    booked: "primary",
-                    confirmed: "success",
-                    in_progress: "warning",
-                    completed: "info",
-                    cancelled: "danger",
-                    no_show: "dark",
+                  const colorMap: Record<string, string> = {
+                    booked: "#3b82f6",
+                    confirmed: "#10b981",
+                    in_progress: "#f59e0b",
+                    completed: "#6366f1",
+                    cancelled: "#ef4444",
+                    no_show: "#6b7280",
+                    pending: "#f59e0b",
                   };
                   const labelMap: Record<string, string> = {
                     booked: "Booked",
@@ -716,28 +714,22 @@ export default function AppointmentsPage() {
                     completed: "Completed",
                     cancelled: "Cancelled",
                     no_show: "No Show",
+                    pending: "Pending",
                   };
-
-                  if (payStatus === "paid") {
-                    return <Badge variant="success">Paid</Badge>;
-                  }
-
-                  if (payStatus === "partial") {
-                    return (
-                      <>
-                        <Badge variant={(variantMap[apptStatus] || "secondary") as any}>
-                          {labelMap[apptStatus] || apptStatus.replace(/_/g, " ")}
-                        </Badge>
-                        {" "}
-                        <Badge variant="warning">Partial</Badge>
-                      </>
-                    );
-                  }
-
+                  const pillStyle: React.CSSProperties = {
+                    display: "inline-block",
+                    padding: "4px 12px",
+                    borderRadius: "100px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    color: "#fff",
+                    whiteSpace: "nowrap",
+                    background: colorMap[apptStatus] || "#6b7280",
+                  };
                   return (
-                    <Badge variant={(variantMap[apptStatus] || "secondary") as any}>
+                    <span style={pillStyle}>
                       {labelMap[apptStatus] || apptStatus.replace(/_/g, " ")}
-                    </Badge>
+                    </span>
                   );
                 },
               },
