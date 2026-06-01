@@ -51,7 +51,7 @@ export default function AppointmentsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showPicker, setShowPicker] = useState(false);
   const [showPresets, setShowPresets] = useState(false);
-  const [selectedLabel, setSelectedLabel] = useState("Month to date");
+  const [selectedLabel, setSelectedLabel] = useState("Last 30 days");
   const [showExport, setShowExport] = useState(false);
 
   // Filters Modal State
@@ -79,11 +79,12 @@ export default function AppointmentsPage() {
 
   const [range, setRange] = useState([
     {
-      startDate: new Date(today.getFullYear(), today.getMonth(), 1),
+      startDate: subDays(today, 29),
       endDate: today,
       key: "selection",
     },
   ]);
+  const [allTime, setAllTime] = useState(false);
 
   // Reset page when filters change
   useEffect(() => {
@@ -93,6 +94,7 @@ export default function AppointmentsPage() {
   const handlePreset = (label: string) => {
     setSelectedLabel(label);
     setShowPresets(false);
+    setAllTime(label === "All time");
 
     switch (label) {
       case "Today":
@@ -123,6 +125,10 @@ export default function AppointmentsPage() {
           },
         ]);
         break;
+      case "All time":
+        // Range is irrelevant when allTime is true; set wide to avoid stale state
+        setRange([{ startDate: new Date("2000-01-01"), endDate: new Date("2099-12-31"), key: "selection" }]);
+        break;
     }
   };
 
@@ -132,6 +138,7 @@ export default function AppointmentsPage() {
       "dd MMM",
     )}`;
     setSelectedLabel(formatted);
+    setAllTime(false);
     setShowPicker(false);
   };
 
@@ -170,7 +177,7 @@ export default function AppointmentsPage() {
   // Build a quick id → full name lookup for staff
   const staffById = useMemo<Record<string, string>>(
     () => Object.fromEntries(
-      staffList.map((s: any) => [s.id, `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim()])
+      (staffList || []).map((s: any) => [s.id, `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim()])
     ),
     [staffList],
   );
@@ -187,10 +194,12 @@ export default function AppointmentsPage() {
           : b.client?.first_name
             ? `${b.client.first_name} ${b.client.last_name || ""}`.trim()
             : "Walk-in",
-      services: b.services?.length ? b.services : [{
-        staffId: b.staff_id ?? "",
-        service: b.service?.name || b.title || "Service"
-      }],
+      services: b.services?.length
+        ? b.services.map((s: any) => ({
+            ...s,
+            service: s.service || s.name || b.title || "Service",
+          }))
+        : [{ staffId: b.staff_id ?? b.staffId ?? "", service: b.title || "Service" }],
       status: b.status || "pending",
       // Use mapBooking's already-converted local date/time values to avoid timezone split issues
       date: b.date || "",
@@ -198,7 +207,7 @@ export default function AppointmentsPage() {
       endTime: b.endTime || "00:00",
       billDate: b.created_at || b.createdDate || "",
       createdById: b.created_by ?? "",
-      grandTotal: b.total_amount || b.price || 0,
+      grandTotal: b.grandTotal || b.total_amount || b.price || 0,
     })),
     [allBookings]
   );
@@ -211,17 +220,26 @@ export default function AppointmentsPage() {
         String(booking.id).toLowerCase().includes(searchTerm.toLowerCase()) ||
         booking.clientName.toLowerCase().includes(searchTerm.toLowerCase());
 
-      // Date range filter
-      let matchesDate = false;
-      try {
-        const bookingDate = parseISO(booking.date || booking.billDate || new Date().toISOString());
-        const start = new Date(range[0].startDate);
-        const end = new Date(range[0].endDate);
-        start.setHours(0, 0, 0, 0);
-        end.setHours(23, 59, 59, 999);
-        matchesDate = isWithinInterval(bookingDate, { start, end });
-      } catch (e) {
-        matchesDate = false;
+      // Date range filter — skip entirely for "All time"
+      let matchesDate = allTime;
+      if (!allTime) {
+        try {
+          // Filter by scheduled date so upcoming appointments show within the chosen period
+          const scheduledDate = booking.date ? parseISO(booking.date) : null;
+          const createdDate = booking.billDate ? new Date(booking.billDate) : null;
+          const refDate = scheduledDate || createdDate;
+          if (!refDate) {
+            matchesDate = true;
+          } else {
+            const start = new Date(range[0].startDate);
+            const end = new Date(range[0].endDate);
+            start.setHours(0, 0, 0, 0);
+            end.setHours(23, 59, 59, 999);
+            matchesDate = isWithinInterval(refDate, { start, end });
+          }
+        } catch (e) {
+          matchesDate = true;
+        }
       }
 
       // Modal filters
@@ -281,7 +299,7 @@ export default function AppointmentsPage() {
     });
 
     return result;
-  }, [bookings, searchTerm, range, appliedFilters, sortConfig]);
+  }, [bookings, searchTerm, range, allTime, appliedFilters, sortConfig]);
 
   // Pagination Logic
   const paginatedAppointments = useMemo(() => {
@@ -419,6 +437,7 @@ export default function AppointmentsPage() {
                 {showPresets && (
                   <div className="custom-dropdown shadow border position-absolute start-0 w-100 mt-1 bg-white z-3 rounded-3 overflow-hidden">
                     {[
+                      "All time",
                       "Today",
                       "Yesterday",
                       "Last 7 days",
@@ -736,7 +755,16 @@ export default function AppointmentsPage() {
               {
                 header: "Team member",
                 key: "staff",
-                render: (item: any) => <span className="text-muted">{staffById[item.services[0]?.staffId] || "—"}</span>,
+                render: (item: any) => {
+                  // service-level staffId first, then appointment-level staffId, then created_by
+                  const staffId =
+                    item.services?.find((s: any) => s.staffId)?.staffId ||
+                    item.staffId ||
+                    item.staff_id ||
+                    item.createdById;
+                  const name = staffId ? staffById[staffId] : null;
+                  return <span className="text-muted">{name || "—"}</span>;
+                },
               },
               {
                 header: "Price",
@@ -749,23 +777,44 @@ export default function AppointmentsPage() {
                 header: "Status",
                 key: "status",
                 align: "center",
-                width: "120px",
+                width: "130px",
                 render: (item: any) => {
-                  const statusLabel = item.status ? item.status.toLowerCase() : "pending";
-                  const variantObj: Record<string, string> = {
-                    confirmed: "success",
-                    pending: "warning",
-                    cancelled: "danger",
+                  const apptStatus = (item.status || "booked").toLowerCase();
+                  const payStatus = (item.payment_status || item.paymentStatus || "unpaid").toLowerCase();
+
+                  const variantMap: Record<string, string> = {
                     booked: "primary",
+                    confirmed: "success",
+                    in_progress: "warning",
                     completed: "info",
+                    cancelled: "danger",
                     no_show: "dark",
                   };
-                  const variant = variantObj[statusLabel] || "secondary";
+                  const labelMap: Record<string, string> = {
+                    booked: "Booked",
+                    confirmed: "Confirmed",
+                    in_progress: "In Progress",
+                    completed: "Completed",
+                    cancelled: "Cancelled",
+                    no_show: "No Show",
+                  };
+
+                  // When fully paid, show "Paid" badge in green instead of appointment status
+                  if (payStatus === "paid") {
+                    return <Badge variant="success">Paid</Badge>;
+                  }
 
                   return (
-                    <Badge variant={variant as any}>
-                      {item.status ? item.status.replace("_", " ") : "Pending"}
-                    </Badge>
+                    <span>
+                      <Badge variant={(variantMap[apptStatus] || "secondary") as any}>
+                        {labelMap[apptStatus] || apptStatus.replace(/_/g, " ")}
+                      </Badge>
+                      {payStatus === "partial" && (
+                        <span className="ms-1">
+                          <Badge variant="warning">Partial</Badge>
+                        </span>
+                      )}
+                    </span>
                   );
                 },
               },

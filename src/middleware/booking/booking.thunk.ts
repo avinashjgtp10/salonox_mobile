@@ -106,7 +106,18 @@ function mapBooking(appt: any, servicesList?: any[]): Booking {
   }));
 
   // ✅ FIX — compute payingNow/dueAmount from paid_amount so alreadyPaidAmount is always correct
-  const grandTotalVal = parseFloat(String(appt.grand_total ?? appt.grandTotal ?? appt.total_amount ?? 0)) || 0;
+  // Sum prices from all JSONB item arrays when no top-level total is stored on the appointment
+  const computedTotal = [
+    ...(appt.services || []),
+    ...(appt.product_items || []),
+    ...(appt.package_items || []),
+    ...(appt.membership_items || []),
+  ].reduce((sum: number, item: any) => {
+    const price = parseFloat(String(item.price ?? 0)) || 0;
+    const qty = Number(item.quantity ?? item.qty ?? 1) || 1;
+    return sum + price * qty;
+  }, 0);
+  const grandTotalVal = parseFloat(String(appt.grand_total ?? appt.grandTotal ?? appt.total_amount ?? 0)) || computedTotal;
   const paidAmountVal = Number(appt.paid_amount ?? appt.payingNow ?? 0) || 0;
   const payStatusStr = (appt.payment_status ?? appt.paymentStatus ?? "").toLowerCase();
   let payingNow = appt.payingNow;
