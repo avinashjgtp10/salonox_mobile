@@ -31,6 +31,8 @@ import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../../store/store";
 import { fetchBookingsThunk, exportBookingsThunk } from "../../../middleware/booking/booking.thunk";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
+import { fetchClientsThunk } from "../../../middleware/client/client.thunk";
+import { selectAllClients } from "../../../store/selectors/slices.selectors";
 import type { Booking } from "../../../types/booking.types";
 
 export default function AppointmentsPage() {
@@ -39,6 +41,7 @@ export default function AppointmentsPage() {
   // ── Redux: real data from backend ─────────────────────────────
   const allBookings = useSelector((state: RootState) => (state.booking as any).items as Booking[]);
   const staffList = useSelector((state: RootState) => (state.staff as any).items as any[]);
+  const clientList = useSelector(selectAllClients);
   const isLoading = useSelector((state: RootState) => (state.booking as any).loading?.fetchAll as boolean ?? false);
   const isExporting = useSelector((state: RootState) => (state.booking as any).loading?.export as boolean ?? false);
 
@@ -46,6 +49,7 @@ export default function AppointmentsPage() {
   useEffect(() => {
     dispatch(fetchBookingsThunk());
     dispatch(fetchStaffThunk());
+    dispatch(fetchClientsThunk());
   }, [dispatch]);
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -177,23 +181,28 @@ export default function AppointmentsPage() {
   // Build a quick id → full name lookup for staff
   const staffById = useMemo<Record<string, string>>(
     () => Object.fromEntries(
-      (staffList || []).map((s: any) => [s.id, `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim()])
+      (Array.isArray(staffList) ? staffList : []).map((s: any) => [s.id, `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim()])
     ),
     [staffList],
   );
 
+  // Build a quick id → full name lookup for clients (fallback when backend JOIN not yet active)
+  const clientById = useMemo<Record<string, string>>(
+    () => Object.fromEntries(
+      (Array.isArray(clientList) ? clientList : []).map((c: any) => [c.id, c.fullName || c.full_name || `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim()])
+    ),
+    [clientList],
+  );
+
   // Map backend Appointment records to table-friendly shape
   const bookings = useMemo(() =>
-    allBookings.map((b: any) => ({
+    (Array.isArray(allBookings) ? allBookings : []).map((b: any) => ({
       ...b,
       id: b.id,
       clientName: b.client_name
-        ? b.client_name
-        : !b.client_id
-          ? "Walk-in"
-          : b.client?.first_name
-            ? `${b.client.first_name} ${b.client.last_name || ""}`.trim()
-            : "Walk-in",
+        || (b.client_id ? clientById[b.client_id] : null)
+        || (b.client?.first_name ? `${b.client.first_name} ${b.client.last_name || ""}`.trim() : null)
+        || (!b.client_id ? "Walk-in" : ""),
       services: b.services?.length
         ? b.services.map((s: any) => ({
             ...s,
@@ -209,7 +218,7 @@ export default function AppointmentsPage() {
       createdById: b.created_by ?? "",
       grandTotal: b.grandTotal || b.total_amount || b.price || 0,
     })),
-    [allBookings]
+    [allBookings, clientById]
   );
 
   // Sorting/Filtering Logic
