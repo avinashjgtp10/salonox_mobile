@@ -670,12 +670,9 @@ export default function AppointmentsPage() {
               {
                 header: "Ref #",
                 key: "id",
-                width: "80px",
+                width: "90px",
                 render: (item: any) => (
-                  <a
-                    href="#"
-                    className="text-primary text-decoration-none fw-bold"
-                  >
+                  <a href="#" className="text-primary text-decoration-none fw-bold">
                     #{String(item.id).substring(0, 8).toUpperCase()}
                   </a>
                 ),
@@ -684,94 +681,8 @@ export default function AppointmentsPage() {
                 header: "Client",
                 key: "clientName",
                 render: (item: any) => (
-                  <span className="fw-bold text-dark text-nowrap">
-                    {item.clientName}
-                  </span>
+                  <span className="fw-bold text-dark text-nowrap">{item.clientName}</span>
                 ),
-              },
-              {
-                header: "Service",
-                key: "services",
-                render: (item: any) => (
-                  <span className="text-dark">
-                    {item.services.map((s: any) => s.service).join(", ")}
-                  </span>
-                ),
-              },
-              {
-                header: "Created by",
-                key: "createdById",
-                render: (item: any) => <span className="text-muted">{staffById[item.createdById] || "—"}</span>,
-              },
-              {
-                header: "Created Date",
-                key: "billDate",
-                align: "center",
-                width: "15%",
-                render: (item: any) => item.billDate ? (
-                  <span className="text-muted">
-                    {format(parseISO(item.billDate), "dd MMM yyyy, h:mma").toLowerCase()}
-                  </span>
-                ) : <span className="text-muted">N/A</span>,
-              },
-              {
-                header: "Scheduled Date",
-                key: "date",
-                align: "center",
-                width: "15%",
-                render: (item: any) => {
-                  try {
-                    return (
-                      <span className="text-muted text-nowrap">
-                        {format(parseISO(item.date + "T" + item.startTime), "dd MMM yyyy, h:mma").toLowerCase()}
-                      </span>
-                    );
-                  } catch (e) {
-                    return <span className="text-muted">Invalid date</span>;
-                  }
-                }
-              },
-              {
-                header: "Duration",
-                key: "duration",
-                align: "center",
-                render: (item: any) => {
-                  try {
-                    const start = parseISO(item.date + "T" + item.startTime);
-                    const end = parseISO(item.date + "T" + item.endTime);
-                    const durMs = end.getTime() - start.getTime();
-                    const durMins = Math.floor(durMs / (1000 * 60));
-                    if (isNaN(durMins)) return <span className="text-muted">N/A</span>;
-                    return (
-                      <span className="text-muted">
-                        {durMins >= 60 ? `${Math.floor(durMins / 60)}h ${durMins % 60}min` : `${durMins}min`}
-                      </span>
-                    );
-                  } catch (e) {
-                    return <span className="text-muted">N/A</span>;
-                  }
-                },
-              },
-              {
-                header: "Team member",
-                key: "staff",
-                render: (item: any) => {
-                  // service-level staffId first, then appointment-level staffId, then created_by
-                  const staffId =
-                    item.services?.find((s: any) => s.staffId)?.staffId ||
-                    item.staffId ||
-                    item.staff_id ||
-                    item.createdById;
-                  const name = staffId ? staffById[staffId] : null;
-                  return <span className="text-muted">{name || "—"}</span>;
-                },
-              },
-              {
-                header: "Price",
-                key: "grandTotal",
-                align: "right",
-                width: "100px",
-                render: (item: any) => <span className="text-dark fw-medium">₹{Number(item.grandTotal || 0).toFixed(2)}</span>,
               },
               {
                 header: "Status",
@@ -799,7 +710,6 @@ export default function AppointmentsPage() {
                     no_show: "No Show",
                   };
 
-                  // When fully paid, show "Paid" badge in green instead of appointment status
                   if (payStatus === "paid") {
                     return <Badge variant="success">Paid</Badge>;
                   }
@@ -817,6 +727,71 @@ export default function AppointmentsPage() {
                     </span>
                   );
                 },
+              },
+              {
+                header: "Service",
+                key: "services",
+                render: (item: any) => (
+                  <span className="text-dark">
+                    {item.services.map((s: any) => s.service).join(", ")}
+                  </span>
+                ),
+              },
+              {
+                header: "Scheduled Date",
+                key: "date",
+                align: "center",
+                width: "15%",
+                render: (item: any) => {
+                  try {
+                    return (
+                      <span className="text-muted text-nowrap">
+                        {format(parseISO(item.date + "T" + item.startTime), "dd MMM yyyy, h:mma").toLowerCase()}
+                      </span>
+                    );
+                  } catch (e) {
+                    return <span className="text-muted">—</span>;
+                  }
+                },
+              },
+              {
+                header: "Duration",
+                key: "duration",
+                align: "center",
+                render: (item: any) => {
+                  try {
+                    const start = parseISO(item.date + "T" + item.startTime);
+                    const end = parseISO(item.date + "T" + item.endTime);
+                    const durMins = Math.floor((end.getTime() - start.getTime()) / 60000);
+                    if (isNaN(durMins) || durMins <= 0) return <span className="text-muted">—</span>;
+                    return (
+                      <span className="text-muted">
+                        {durMins >= 60 ? `${Math.floor(durMins / 60)}h ${durMins % 60}min` : `${durMins}min`}
+                      </span>
+                    );
+                  } catch (e) {
+                    return <span className="text-muted">—</span>;
+                  }
+                },
+              },
+              {
+                header: "Team member",
+                key: "staff",
+                render: (item: any) => {
+                  const staffId =
+                    item.services?.find((s: any) => s.staffId)?.staffId ||
+                    item.staffId ||
+                    item.staff_id;
+                  const name = staffId ? staffById[staffId] : null;
+                  return <span className="text-muted">{name || "—"}</span>;
+                },
+              },
+              {
+                header: "Price",
+                key: "grandTotal",
+                align: "right",
+                width: "100px",
+                render: (item: any) => <span className="text-dark fw-medium">₹{Number(item.grandTotal || 0).toFixed(2)}</span>,
               },
             ]}
             data={paginatedAppointments}
