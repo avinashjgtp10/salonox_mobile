@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import MiniCalendar from "../../bookings/components/shared/MiniCalendar";
 import ClientSearchInput, { type ClientSearchResult } from "../../clients/components/ClientSearchInput";
@@ -12,8 +12,10 @@ import {
   fetchSaleProductsThunk,
   fetchSaleMembershipsThunk,
   deleteSaleThunk,
+  fetchSaleByIdThunk,
 } from "../../../middleware/sale/sale.thunk";
 import { clearSaleError } from "../../../store/saleSlice";
+import { fetchClientsThunk } from "../../../middleware/client/client.thunk";
 import type { AppDispatch, RootState } from "../../../store/store";
 import type { PaymentMethod } from "../../../types/sale.types";
 
@@ -41,6 +43,25 @@ import "../styles/QuickSalePage.scss";
 export default function QuickSalePage() {
   const dispatch  = useDispatch<AppDispatch>();
   const navigate  = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editId     = searchParams.get("editId");
+  const isEditMode = Boolean(editId);
+
+  // In edit mode: Redux selectedItem holds the sale once fetchSaleByIdThunk resolves
+  const editSaleFetched = useSelector((s: RootState) => isEditMode ? (s.sale as any).selectedItem : null);
+  const rawClientItems  = useSelector((s: RootState) => (s.client as any).items);
+  const clientMap = useMemo(() => {
+    const list: any[] = Array.isArray(rawClientItems) ? rawClientItems
+      : Array.isArray(rawClientItems?.items) ? rawClientItems.items
+      : Array.isArray(rawClientItems?.data)  ? rawClientItems.data
+      : [];
+    const m: Record<string, string> = {};
+    list.forEach((c: any) => {
+      const name = (c.fullName || c.full_name || `${c.first_name || ""} ${c.last_name || ""}`.trim()) || "";
+      if (c.id && name) m[String(c.id)] = name;
+    });
+    return m;
+  }, [rawClientItems]);
 
   const salonId       = useSelector((s: RootState) => (s as any).salon?.currentSalon?.id);
   const isCreating    = useSelector((s: RootState) => (s as any).sale?.loading?.create ?? false);
@@ -124,6 +145,14 @@ export default function QuickSalePage() {
     dispatch(fetchSaleInitThunk());
   }, [dispatch]);
 
+  // In edit mode: fetch sale from backend and ensure clients are loaded for name resolution
+  useEffect(() => {
+    if (isEditMode && editId) {
+      dispatch(fetchSaleByIdThunk(editId));
+      dispatch(fetchClientsThunk());
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     function onOutside(e: MouseEvent) {
       if (dotMenuRef.current    && !dotMenuRef.current.contains(e.target as Node))    setShowDotMenu(false);
@@ -132,6 +161,94 @@ export default function QuickSalePage() {
     document.addEventListener("mousedown", onOutside);
     return () => document.removeEventListener("mousedown", onOutside);
   }, []);
+
+  // ── Populate form when fetched sale arrives in Redux (edit mode) ──────────────
+  useEffect(() => {
+    if (!isEditMode || !editSaleFetched) return;
+
+    // Sale ID
+    setCurrentSaleId(editSaleFetched.id);
+
+    // Client — use client_name from sale response, fall back to clientMap
+    if (editSaleFetched.client_id) {
+      const clientName = editSaleFetched.client_name || clientMap[String(editSaleFetched.client_id)] || "";
+      if (clientName) {
+        setClient({ id: String(editSaleFetched.client_id), name: clientName, phone: "", initials: toInitials(clientName) });
+        setClientSearch(clientName);
+        setIsWalkin(false);
+      } else {
+        // client_id present but name not yet resolved — will retry via clientMap effect below
+        setIsWalkin(false);
+      }
+    } else {
+      setIsWalkin(true);
+      setClientSearch("Walk-in");
+    }
+
+    // Date
+    if (editSaleFetched.created_at) setSaleDate(editSaleFetched.created_at.split("T")[0]);
+
+    // Notes
+    if (editSaleFetched.notes) setNotes(editSaleFetched.notes);
+
+    // Payment method
+    if (editSaleFetched.payment_method) {
+      setSelectedMethods([editSaleFetched.payment_method]);
+      setAmountPaid(editSaleFetched.total_amount || "");
+    }
+
+    // Items → rows
+    const svcRows: SvcRow[]   = [];
+    const prodRows: ProdRow[] = [];
+    const memRows: MemRow[]   = [];
+    let exChargesVal = 0;
+
+    (editSaleFetched.items ?? []).forEach((item: any) => {
+      const price    = parseFloat(item.unit_price    || "0");
+      const qty      = Number(item.quantity)          || 1;
+      const discAmt  = parseFloat(item.discount_amount || "0");
+      const discPct  = price * qty > 0 ? (discAmt / (price * qty)) * 100 : 0;
+      const total    = parseFloat(item.total_price   || String(price * qty));
+      // staff_id may exist on the backend response even if not in the TypeScript type
+      const staffId  = item.staff_id ? String(item.staff_id) : "";
+
+      if (item.item_type === "service") {
+        svcRows.push({ tempId: makeTempId(), id: item.item_id || "", service: item.name, staffId, time: "10:00", price, qty, total, duration: 30, search: item.name, showDrop: false, discountVal: discPct, discountType: "percentage", errors: [] });
+      } else if (item.item_type === "product") {
+        prodRows.push({ tempId: makeTempId(), id: item.item_id || "", productName: item.name, staffId, price, qty, total, search: item.name, showDrop: false, stock: null, discountVal: discPct, discountType: "percentage", errors: [] });
+      } else if (item.item_type === "membership") {
+        memRows.push({ tempId: makeTempId(), name: item.name, staffId, price, qty, total, search: item.name, showDrop: false, discountVal: discPct, discountType: "percentage", errors: [] });
+      } else if (item.item_type === "quick") {
+        exChargesVal = price;
+      }
+    });
+
+    if (svcRows.length)  { setServiceRows(svcRows);    setActiveTab("services"); }
+    if (prodRows.length) { setProductRows(prodRows);   if (!svcRows.length)  setActiveTab("products"); }
+    if (memRows.length)  { setMembershipRows(memRows); if (!svcRows.length && !prodRows.length) setActiveTab("memberships"); }
+    if (exChargesVal > 0) setExCharges(exChargesVal);
+
+    // Cart-level discount
+    if (editSaleFetched.discount_amount && parseFloat(editSaleFetched.discount_amount) > 0) {
+      setDiscountValue(parseFloat(editSaleFetched.discount_amount));
+      setDiscountType("flat");
+    }
+
+    // Tip
+    if (editSaleFetched.tip_amount && parseFloat(editSaleFetched.tip_amount) > 0) {
+      setTipPreset(parseFloat(editSaleFetched.tip_amount));
+    }
+  }, [editSaleFetched]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Resolve client name once clientMap loads (handles race with fetchClientsThunk) ─
+  useEffect(() => {
+    if (!isEditMode || !editSaleFetched?.client_id || client || isWalkin) return;
+    const name = editSaleFetched.client_name || clientMap[String(editSaleFetched.client_id)];
+    if (name) {
+      setClient({ id: String(editSaleFetched.client_id), name, phone: "", initials: toInitials(name) });
+      setClientSearch(name);
+    }
+  }, [clientMap]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Lazy loaders ───────────────────────────────────────────────────────────
   async function ensureProductsLoaded()    { if (!productsLoaded)    dispatch(fetchSaleProductsThunk()); }
@@ -289,15 +406,15 @@ export default function QuickSalePage() {
     const lineItems: import("../../../types/sale.types").CreateSaleItemPayload[] = [
       ...serviceRows.filter((r) => r.service).map((r) => {
         const discAmt = (r.price * (Number(r.qty) || 0) * r.discountVal) / 100;
-        return { item_type: "service" as const, name: r.service, quantity: Number(r.qty) || 0, unit_price: String(r.price), discount_amount: discAmt > 0 ? discAmt.toFixed(2) : undefined };
+        return { item_type: "service" as const, name: r.service, staff_id: r.staffId || undefined, quantity: Number(r.qty) || 0, unit_price: String(r.price), discount_amount: discAmt > 0 ? discAmt.toFixed(2) : undefined };
       }),
       ...productRows.filter((r) => r.productName).map((r) => {
         const discAmt = (r.price * (Number(r.qty) || 0) * r.discountVal) / 100;
-        return { item_type: "product" as const, item_id: r.id || undefined, name: r.productName, quantity: Number(r.qty) || 0, unit_price: String(r.price), discount_amount: discAmt > 0 ? discAmt.toFixed(2) : undefined };
+        return { item_type: "product" as const, item_id: r.id || undefined, name: r.productName, staff_id: r.staffId || undefined, quantity: Number(r.qty) || 0, unit_price: String(r.price), discount_amount: discAmt > 0 ? discAmt.toFixed(2) : undefined };
       }),
       ...membershipRows.filter((r) => r.name).map((r) => {
         const discAmt = (r.price * (Number(r.qty) || 0) * r.discountVal) / 100;
-        return { item_type: "membership" as const, name: r.name, quantity: Number(r.qty) || 0, unit_price: String(r.price), discount_amount: discAmt > 0 ? discAmt.toFixed(2) : undefined };
+        return { item_type: "membership" as const, name: r.name, staff_id: r.staffId || undefined, quantity: Number(r.qty) || 0, unit_price: String(r.price), discount_amount: discAmt > 0 ? discAmt.toFixed(2) : undefined };
       }),
     ];
     if (exCharges > 0) lineItems.push({ item_type: "quick" as const, name: "Extra Charges", quantity: 1, unit_price: String(exCharges) });
@@ -329,25 +446,26 @@ export default function QuickSalePage() {
       setErrorMsg("Add at least one service, product or membership.");
       ok = false;
     } else {
+      const staffRequired = !isEditMode;
       const newSvcRows = serviceRows.map((r) => {
         const errs: string[] = [];
-        if (!r.service)        errs.push("service");
-        if (!r.staffId)        errs.push("staff");
-        if (Number(r.qty) < 1) errs.push("qty");
+        if (!r.service)                  errs.push("service");
+        if (staffRequired && !r.staffId) errs.push("staff");
+        if (Number(r.qty) < 1)           errs.push("qty");
         return { ...r, errors: errs };
       });
       const newProdRows = productRows.map((r) => {
         const errs: string[] = [];
-        if (!r.productName)    errs.push("product");
-        if (!r.staffId)        errs.push("staff");
-        if (Number(r.qty) < 1) errs.push("qty");
+        if (!r.productName)              errs.push("product");
+        if (staffRequired && !r.staffId) errs.push("staff");
+        if (Number(r.qty) < 1)           errs.push("qty");
         return { ...r, errors: errs };
       });
       const newMemRows = membershipRows.map((r) => {
         const errs: string[] = [];
-        if (!r.name)           errs.push("membership");
-        if (!r.staffId)        errs.push("staff");
-        if (Number(r.qty) < 1) errs.push("qty");
+        if (!r.name)                     errs.push("membership");
+        if (staffRequired && !r.staffId) errs.push("staff");
+        if (Number(r.qty) < 1)           errs.push("qty");
         return { ...r, errors: errs };
       });
 
@@ -388,10 +506,11 @@ export default function QuickSalePage() {
     if (!runValidation()) return;
 
     setIsSubmitting(true); setErrorMsg(""); setSuccessMsg("");
+    const resolvedSaleId = currentSaleId ?? (isEditMode ? editId : null);
     try {
-      if (currentSaleId) {
+      if (resolvedSaleId) {
         const result = await dispatch(updateSaleThunk({
-          id: currentSaleId,
+          id: resolvedSaleId,
           data: { client_id: client?.id ?? null, items: buildItemsPayload(), discount_amount: cartDiscount > 0 ? cartDiscount.toFixed(2) : undefined, tip_amount: tipAmount > 0 ? tipAmount.toFixed(2) : undefined, notes: buildNotes() },
         }));
         if (updateSaleThunk.fulfilled.match(result)) setSuccessMsg("Draft updated successfully!");
@@ -463,6 +582,86 @@ export default function QuickSalePage() {
     } finally { setIsSubmitting(false); }
   }
 
+  // ── Pay Now in Edit mode (update items then checkout) ─────────────────────
+  async function handleCheckoutEditSale() {
+    const saleId = currentSaleId ?? editId;
+    if (!saleId) { setErrorMsg("Sale ID missing — cannot checkout."); return; }
+    const itemsOk   = runValidation();
+    const paymentOk = runPaymentValidation();
+    if (!itemsOk || !paymentOk) return;
+
+    setIsSubmitting(true); setErrorMsg(""); setSuccessMsg("");
+    try {
+      // Update items/amounts first
+      const updateResult = await dispatch(updateSaleThunk({
+        id: saleId,
+        data: {
+          client_id:       client?.id ?? null,
+          items:           buildItemsPayload(),
+          discount_amount: cartDiscount > 0 ? cartDiscount.toFixed(2) : "0",
+          tip_amount:      tipAmount    > 0 ? tipAmount.toFixed(2)    : "0",
+          notes:           buildNotes(),
+        },
+      }));
+      if (updateSaleThunk.rejected.match(updateResult)) {
+        setErrorMsg((updateResult.payload as string) || "Failed to update sale."); return;
+      }
+
+      // Then checkout
+      const checkoutPayload = isSplit
+        ? {
+            id: saleId, payment_method: "split" as PaymentMethod, amount_paid: splitTotal,
+            payment_reference: JSON.stringify(
+              Object.fromEntries(
+                selectedMethods
+                  .filter((id) => parseFloat(splitAmounts[id] || "0") > 0)
+                  .map((id) => [id, parseFloat(splitAmounts[id] || "0")])
+              )
+            ),
+          }
+        : {
+            id: saleId, payment_method: selectedMethods[0] as PaymentMethod,
+            amount_paid: parseFloat(amountPaid || grandTotal.toString()),
+            payment_reference: paymentReference || undefined,
+          };
+
+      const checkoutResult = await dispatch(checkoutSaleThunk(checkoutPayload));
+      if (checkoutSaleThunk.fulfilled.match(checkoutResult)) {
+        setSuccessMsg("Sale completed successfully!");
+        setTimeout(() => navigate("/dashboard/sales"), 1500);
+      } else {
+        setErrorMsg((checkoutResult.payload as string) || "Checkout failed.");
+      }
+    } finally { setIsSubmitting(false); }
+  }
+
+  // ── Update existing sale (Edit mode) ──────────────────────────────────────
+  async function handleUpdateSale() {
+    const saleId = currentSaleId ?? editId;
+    if (!saleId) { setErrorMsg("Sale ID missing — cannot update."); return; }
+    const itemsOk = runValidation();
+    if (!itemsOk) return;
+
+    setIsSubmitting(true); setErrorMsg(""); setSuccessMsg("");
+    try {
+      const result = await dispatch(updateSaleThunk({
+        id: saleId,
+        data: {
+          client_id:       client?.id ?? null,
+          items:           buildItemsPayload(),
+          discount_amount: cartDiscount > 0 ? cartDiscount.toFixed(2) : "0",
+          tip_amount:      tipAmount    > 0 ? tipAmount.toFixed(2)    : "0",
+          notes:           buildNotes(),
+        },
+      }));
+      if (updateSaleThunk.rejected.match(result)) {
+        setErrorMsg((result.payload as string) || "Failed to update sale."); return;
+      }
+      setSuccessMsg("Sale updated successfully.");
+      setTimeout(() => navigate("/dashboard/sales"), 1500);
+    } finally { setIsSubmitting(false); }
+  }
+
   const isBusy = isSubmitting || isCreating || isCheckingOut || isDeleting;
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -473,8 +672,9 @@ export default function QuickSalePage() {
       <div className="qs-topbar">
         <div className="qs-topbar__left">
           <button className="qs-back-btn" onClick={() => navigate(-1)} title="Go back">←</button>
-          <span className="qs-topbar__title">Quick Sale</span>
-          {currentSaleId && <span className="qs-topbar__badge">Draft</span>}
+          <span className="qs-topbar__title">{isEditMode ? "Edit Sale" : "Quick Sale"}</span>
+          {isEditMode && <span className="qs-topbar__badge qs-topbar__badge--edit">Editing</span>}
+          {!isEditMode && currentSaleId && <span className="qs-topbar__badge">Draft</span>}
         </div>
 
         <div ref={dotMenuRef} style={{ position: "relative" }}>
@@ -943,9 +1143,28 @@ export default function QuickSalePage() {
           </div>
 
           <div className="qs-sidebar__footer">
-            <button className="qs-pay-btn" disabled={!hasItems || isBusy || (isSplit && splitRemaining < -0.001)} onClick={handleConfirmAndPay}>
-              {isBusy ? "Processing…" : <>✓ Confirm &amp; Pay — ₹{(isSplit ? splitTotal : parseFloat(amountPaid || grandTotal.toString())).toFixed(2)}</>}
-            </button>
+            {isEditMode ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <button
+                  className="qs-pay-btn"
+                  disabled={!hasItems || isBusy || selectedMethods.length === 0}
+                  onClick={handleCheckoutEditSale}
+                >
+                  {isBusy ? "Processing…" : `✓ Pay Now — ₹${grandTotal.toFixed(2)}`}
+                </button>
+                <button
+                  className="qs-pay-btn qs-pay-btn--update"
+                  disabled={!hasItems || isBusy}
+                  onClick={handleUpdateSale}
+                >
+                  {isBusy ? "Saving…" : "Save Changes"}
+                </button>
+              </div>
+            ) : (
+              <button className="qs-pay-btn" disabled={!hasItems || isBusy || (isSplit && splitRemaining < -0.001)} onClick={handleConfirmAndPay}>
+                {isBusy ? "Processing…" : <>✓ Confirm &amp; Pay — ₹{(isSplit ? splitTotal : parseFloat(amountPaid || grandTotal.toString())).toFixed(2)}</>}
+              </button>
+            )}
           </div>
         </div>
       </div>

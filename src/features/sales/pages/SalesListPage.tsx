@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import {
   Search,
   Plus,
@@ -35,7 +36,6 @@ import { fetchClientsThunk } from "../../../middleware/client/client.thunk";
 import { clearSaleError } from "../../../store/saleSlice";
 import type { Sale, SaleSummary } from "../../../types/sale.types";
 import { useSale } from "../../analytics/context/SaleContext";
-import QuickSaleDrawer from "../../analytics/components/QuickSaleDrawer";
 import { format, subDays, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subMonths } from "date-fns";
 import { Button, Badge, Input, Modal, DownloadButton, Table, Pagination, Loader } from "../../../components/ui";
 import api from "../../../services/api/axios";
@@ -106,6 +106,7 @@ function getPresetRange(preset: DatePreset): { startDate?: string; endDate?: str
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function SalesListPage() {
   const dispatch = useDispatch<AppDispatch>();
+  const navigate = useNavigate();
 
   // ── Redux selectors ──────────────────────────────────────────────────────────
   const allSales = useSelector(
@@ -119,9 +120,6 @@ export default function SalesListPage() {
   );
   const isLoadingDetail = useSelector(
     (s: RootState) => (s.sale as any).loading?.fetchById as boolean ?? false,
-  );
-  const isCreatingSale = useSelector(
-    (s: RootState) => (s.sale as any).loading?.create as boolean ?? false,
   );
   const selectedSale = useSelector(
     (s: RootState) => (s.sale as any).selectedItem as Sale | null,
@@ -190,7 +188,6 @@ export default function SalesListPage() {
   const [showOptions, setShowOptions] = useState(false);
   const [showSort, setShowSort] = useState(false);
   const [showDateMenu, setShowDateMenu] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [showBanner, setShowBanner] = useState(true);
@@ -200,27 +197,12 @@ export default function SalesListPage() {
   const dateMenuRef = useRef<HTMLDivElement>(null);
   const bulkEditRef = useRef<HTMLDivElement>(null);
 
-  // Track whether a sale was created while drawer was open
-  const wasCreatingRef = useRef(false);
-
   // ── Initial fetch ────────────────────────────────────────────────────────────
   useEffect(() => {
     dispatch(fetchSalesThunk());
     dispatch(fetchSaleSummaryThunk());
     dispatch(fetchClientsThunk());
   }, [dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Refetch after QuickSaleDrawer creates a sale ─────────────────────────────
-  useEffect(() => {
-    if (isCreatingSale) {
-      wasCreatingRef.current = true;
-    } else if (wasCreatingRef.current) {
-      wasCreatingRef.current = false;
-      const range = getPresetRange(datePreset);
-      dispatch(fetchSalesThunk(range));
-      dispatch(fetchSaleSummaryThunk());
-    }
-  }, [isCreatingSale]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Show API errors as toast ─────────────────────────────────────────────────
   useEffect(() => {
@@ -541,7 +523,7 @@ export default function SalesListPage() {
 
           <Button
             variant="dark"
-            onClick={() => setDrawerOpen(true)}
+            onClick={() => navigate("/dashboard/sales/quick")}
             iconLeft={<Plus size={16} />}
           >
             New sale
@@ -586,7 +568,7 @@ export default function SalesListPage() {
             <div className="sales-pg__banner-actions">
               <button
                 className="sales-pg__banner-btn"
-                onClick={() => setDrawerOpen(true)}
+                onClick={() => navigate("/dashboard/sales/quick")}
               >
                 Create first sale
               </button>
@@ -873,7 +855,7 @@ export default function SalesListPage() {
                   title={search || activeFilterCount > 0 ? "No sales found" : "No sales yet"}
                   text={search || activeFilterCount > 0 ? "Try adjusting your search or filters." : "Start processing sales to see them here."}
                   actionLabel={!search && activeFilterCount === 0 ? "Create new sale" : undefined}
-                  onAction={!search && activeFilterCount === 0 ? () => setDrawerOpen(true) : undefined}
+                  onAction={!search && activeFilterCount === 0 ? () => navigate("/dashboard/sales/quick") : undefined}
                 />
               }
             />
@@ -889,16 +871,21 @@ export default function SalesListPage() {
                 {
                   header: "Client",
                   key: "client",
-                  render: (item: any) => (
-                    <div className="sales-pg__client-cell">
-                      <div className="sales-pg__avatar sales-pg__avatar--draft">
-                        {item.client_id ? String(item.client_id).substring(0, 2).toUpperCase() : "WI"}
+                  render: (item: any) => {
+                    const name = getClientName(item.client_id, item.client_name);
+                    return (
+                      <div className="sales-pg__client-cell">
+                        <div className="sales-pg__avatar sales-pg__avatar--draft">
+                          {getClientInitials(item.client_id, item.client_name)}
+                        </div>
+                        <div className="sales-pg__client-name text-nowrap">
+                          {!item.client_id
+                            ? <span className="text-muted fst-italic">Walk-in</span>
+                            : (name ?? <span className="text-muted fst-italic">Walk-in</span>)}
+                        </div>
                       </div>
-                      <div className="sales-pg__client-name text-nowrap">
-                        {item.client_id ?? <span className="text-muted fst-italic">Walk-in</span>}
-                      </div>
-                    </div>
-                  ),
+                    );
+                  },
                 },
                 {
                   header: "Status",
@@ -936,7 +923,7 @@ export default function SalesListPage() {
                   title="No draft sales"
                   text="Drafts are saved when you don't complete a checkout."
                   actionLabel="Create sale"
-                  onAction={() => setDrawerOpen(true)}
+                  onAction={() => navigate("/dashboard/sales/quick")}
                 />
               }
             />
@@ -966,11 +953,13 @@ export default function SalesListPage() {
                 <ChevronLeft size={16} />
               </button>
               <h3 className="sales-detail__title">
-                {isLoadingDetail ? "Loading…" : selectedSale ? `Sale #${selectedSale.id}` : "Sale details"}
+                {isLoadingDetail ? "Loading…" : selectedSale ? `Sale #${String(selectedSale.id).substring(0, 8)}` : "Sale details"}
               </h3>
-              <button className="sales-detail__close" onClick={closeDetail}>
-                <X size={17} />
-              </button>
+              <div className="sales-detail__header-actions">
+                <button className="sales-detail__close" onClick={closeDetail}>
+                  <X size={17} />
+                </button>
+              </div>
             </div>
 
             {isLoadingDetail ? (
@@ -1089,7 +1078,7 @@ export default function SalesListPage() {
                     </button>
                     <button
                       className="sales-pg__btn sales-pg__btn--dark"
-                      onClick={() => { closeDetail(); setDrawerOpen(true); }}
+                      onClick={() => { closeDetail(); navigate(`/dashboard/sales/quick?editId=${selectedSale.id}`); }}
                     >
                       Checkout
                     </button>
@@ -1139,11 +1128,6 @@ export default function SalesListPage() {
         />
       </Modal>
 
-      {/* Quick Sale Drawer */}
-      <QuickSaleDrawer
-        isOpen={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-      />
     </div>
   );
 }

@@ -78,6 +78,11 @@ $transition: 0.18s ease;
     background: $primary-light;
     color: $primary;
     letter-spacing: 0.02em;
+
+    &--edit {
+      background: #fff3e0;
+      color: #e65100;
+    }
   }
 }
 
@@ -206,6 +211,11 @@ $transition: 0.18s ease;
     background: $primary-light;
     color: $primary-dark;
     border: 1px solid #c7d2fe;
+  }
+  &--warning {
+    background: $warning-light;
+    color: #92400e;
+    border: 1px solid #fcd34d;
   }
 }
 
@@ -1157,6 +1167,20 @@ $transition: 0.18s ease;
     box-shadow: none;
     transform: none;
     background: #d1d5db;
+  }
+
+  &--update {
+    background: transparent;
+    color: $text-muted;
+    border: 1.5px solid $border;
+    box-shadow: none;
+    font-weight: 600;
+
+    &:hover:not(:disabled) {
+      background: $bg-subtle;
+      box-shadow: none;
+      transform: none;
+    }
   }
 }
 

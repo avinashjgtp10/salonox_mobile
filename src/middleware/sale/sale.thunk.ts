@@ -178,15 +178,17 @@ export const createSaleThunk = createAsyncThunk<
   }
 });
 
-// ── Update sale (PATCH — only drafts can be updated) ──────────────────────────
+// ── Update sale (PATCH) ────────────────────────────────────────────────────────
 export const updateSaleThunk = createAsyncThunk<
   Sale,
   UpdateSalePayload,
   { rejectValue: string }
 >("sale/update", async ({ id, data }, { rejectWithValue }) => {
   try {
-    const res = await api.patch<SaleResponse>(SALE.BY_ID(id), data);
-    return res.data.data;
+    const res = await api.patch<SaleWithItemsResponse>(SALE.BY_ID(id), data);
+    // Backend now returns { sale, items } — merge items onto sale for consistency
+    const { sale, items } = res.data.data;
+    return { ...sale, items };
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to update sale");

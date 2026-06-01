@@ -1097,6 +1097,34 @@
     }
   }
 
+  &__header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  &__edit-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 1.5px solid #6c47ff;
+    background: #fff;
+    color: #6c47ff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+
+    &:hover {
+      background: #6c47ff;
+      color: #fff;
+    }
+  }
+
   &__body {
     flex: 1;
     overflow-y: auto;
