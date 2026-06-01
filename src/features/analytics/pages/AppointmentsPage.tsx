@@ -224,10 +224,9 @@ export default function AppointmentsPage() {
       let matchesDate = allTime;
       if (!allTime) {
         try {
-          // Filter by scheduled date so upcoming appointments show within the chosen period
-          const scheduledDate = booking.date ? parseISO(booking.date) : null;
-          const createdDate = booking.billDate ? new Date(booking.billDate) : null;
-          const refDate = scheduledDate || createdDate;
+          // Filter by created_at (billDate) so appointments booked recently always appear
+          // regardless of when they are scheduled (future appointments are common in salons)
+          const refDate = booking.billDate ? new Date(booking.billDate) : null;
           if (!refDate) {
             matchesDate = true;
           } else {
@@ -714,17 +713,22 @@ export default function AppointmentsPage() {
                     return <Badge variant="success">Paid</Badge>;
                   }
 
+                  if (payStatus === "partial") {
+                    return (
+                      <>
+                        <Badge variant={(variantMap[apptStatus] || "secondary") as any}>
+                          {labelMap[apptStatus] || apptStatus.replace(/_/g, " ")}
+                        </Badge>
+                        {" "}
+                        <Badge variant="warning">Partial</Badge>
+                      </>
+                    );
+                  }
+
                   return (
-                    <span>
-                      <Badge variant={(variantMap[apptStatus] || "secondary") as any}>
-                        {labelMap[apptStatus] || apptStatus.replace(/_/g, " ")}
-                      </Badge>
-                      {payStatus === "partial" && (
-                        <span className="ms-1">
-                          <Badge variant="warning">Partial</Badge>
-                        </span>
-                      )}
-                    </span>
+                    <Badge variant={(variantMap[apptStatus] || "secondary") as any}>
+                      {labelMap[apptStatus] || apptStatus.replace(/_/g, " ")}
+                    </Badge>
                   );
                 },
               },
