@@ -180,17 +180,22 @@ export default function AppointmentsPage() {
     allBookings.map((b: any) => ({
       ...b,
       id: b.id,
-      clientName: b.client?.first_name 
-        ? `${b.client.first_name} ${b.client.last_name || ""}`.trim() 
-        : b.client_id ?? "Walk-in",
-      services: b.services?.length ? b.services : [{ 
-        staffId: b.staff_id ?? "", 
-        service: b.service?.name || b.title || "Service" 
+      clientName: b.client_name
+        ? b.client_name
+        : !b.client_id
+          ? "Walk-in"
+          : b.client?.first_name
+            ? `${b.client.first_name} ${b.client.last_name || ""}`.trim()
+            : "Walk-in",
+      services: b.services?.length ? b.services : [{
+        staffId: b.staff_id ?? "",
+        service: b.service?.name || b.title || "Service"
       }],
       status: b.status || "pending",
-      date: (b.scheduled_at || b.date)?.split("T")[0] ?? "",
-      startTime: (b.scheduled_at || b.start_time)?.split("T")?.[1]?.slice(0, 5) ?? "00:00",
-      endTime: (b.ends_at || b.end_time)?.split("T")?.[1]?.slice(0, 5) ?? "00:00",
+      // Use mapBooking's already-converted local date/time values to avoid timezone split issues
+      date: b.date || "",
+      startTime: b.startTime || "00:00",
+      endTime: b.endTime || "00:00",
       billDate: b.created_at || b.createdDate || "",
       createdById: b.created_by ?? "",
       grandTotal: b.total_amount || b.price || 0,
