@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import {
   Calendar3,
@@ -234,10 +234,12 @@ export default function AppointmentsPage() {
     setRange(newRange);
     setCurrentPage(1);
     fetchPage(1, pageSize, appliedFilters, isAll, newRange);
+    // Close picker immediately for presets (no manual Apply needed)
+    setShowPicker(false);
   };
 
   const handleApplyRange = () => {
-    const formatted = `${format(range[0].startDate, "dd MMM")} – ${format(range[0].endDate, "dd MMM")}`;
+    const formatted = `${format(range[0].startDate, "dd MMM yyyy")} – ${format(range[0].endDate, "dd MMM yyyy")}`;
     setSelectedLabel(formatted);
     setAllTime(false);
     setShowPicker(false);
@@ -567,8 +569,8 @@ export default function AppointmentsPage() {
 
           {showPicker && (
             <div
-              className="salonox-calendar-popup shadow-lg border position-absolute start-0 mt-2 bg-white z-2 p-3 rounded-4"
-              style={{ minWidth: "400px" }}
+              className="salonox-calendar-popup shadow-lg border position-absolute start-0 mt-2 bg-white z-2 rounded-4"
+              style={{ width: "360px", padding: "16px" }}
             >
               <div className="preset-selector mb-3 position-relative">
                 <Button
@@ -610,33 +612,50 @@ export default function AppointmentsPage() {
                 )}
               </div>
 
-              <div className="calendar-content">
-                <div className="d-flex gap-2 mb-3">
-                  <Input
-                    readOnly
-                    className="form-control-sm mb-0"
-                    value={format(range[0].startDate, "yyyy-MM-dd")}
-                    containerClass="flex-grow-1"
-                  />
-                  <Input
-                    readOnly
-                    className="form-control-sm mb-0"
-                    value={format(range[0].endDate, "yyyy-MM-dd")}
-                    containerClass="flex-grow-1"
-                  />
+              {allTime ? (
+                <div className="text-center py-3 px-2 text-muted small border rounded-3 bg-light mb-3">
+                  Showing all appointments across all dates
                 </div>
-                <div className="overflow-auto" style={{ maxWidth: "100%" }}>
-                  <DateRange
-                    ranges={range}
-                    onChange={(item: any) => setRange([item.selection])}
-                    months={2}
-                    direction="horizontal"
-                    rangeColors={["#000"]}
-                  />
+              ) : (
+                <div className="calendar-content">
+                  <div className="d-flex gap-2 mb-2 align-items-center">
+                    <Input
+                      readOnly
+                      className="form-control-sm mb-0 text-center"
+                      value={format(range[0].startDate, "dd MMM yyyy")}
+                      containerClass="flex-grow-1"
+                    />
+                    <span className="text-muted small flex-shrink-0">→</span>
+                    <Input
+                      readOnly
+                      className="form-control-sm mb-0 text-center"
+                      value={format(range[0].endDate, "dd MMM yyyy")}
+                      containerClass="flex-grow-1"
+                    />
+                  </div>
+                  <div style={{ margin: "0 -4px" }}>
+                    <DateRange
+                      ranges={range}
+                      onChange={(item: any) => {
+                        setAllTime(false);
+                        setRange([item.selection]);
+                      }}
+                      months={1}
+                      direction="vertical"
+                      rangeColors={["#000"]}
+                      showDateDisplay={false}
+                      showMonthAndYearPickers
+                      shownDate={
+                        range[0].startDate.getFullYear() < 2020
+                          ? new Date()
+                          : range[0].startDate
+                      }
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
-              <div className="calendar-footer d-flex justify-content-end gap-2 mt-3 pt-3 border-top">
+              <div className="calendar-footer d-flex justify-content-end gap-2 mt-2 pt-2 border-top">
                 <Button variant="ghost" pill size="sm" onClick={() => setShowPicker(false)}>
                   Cancel
                 </Button>

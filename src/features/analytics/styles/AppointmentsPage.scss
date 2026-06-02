@@ -99,57 +99,22 @@
     top: 100%;
     left: 0;
     margin-top: 8px;
-    width: 600px;
     background: white;
     border-radius: 12px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
     z-index: 1100;
-    overflow: hidden;
+    overflow: visible;
     border: 1px solid #eee;
 
-    .preset-selector {
-      padding: 16px;
-      border-bottom: 1px solid #f0f0f0;
-
-      .custom-select {
-        width: 100%;
-        padding: 10px;
-        border-radius: 8px;
-        border: 1px solid #ddd;
-        font-size: 14px;
-        background: #fafafa;
-        cursor: pointer;
-      }
-    }
-
     .calendar-content {
-      padding: 16px;
+      // no extra padding — popup inline style handles it
     }
 
     .calendar-footer {
-      padding: 16px;
       border-top: 1px solid #f0f0f0;
       display: flex;
       justify-content: flex-end;
       gap: 12px;
-      background: #fcfcfc;
-
-      .btn-cancel {
-        padding: 8px 20px;
-        border-radius: 30px;
-        border: 1px solid #ddd;
-        background: white;
-        font-weight: 500;
-      }
-
-      .btn-apply {
-        padding: 8px 20px;
-        border-radius: 30px;
-        border: none;
-        background: black;
-        color: white;
-        font-weight: 500;
-      }
     }
   }
 
@@ -359,6 +324,23 @@
 .rdrCalendarWrapper {
   color: #000;
   font-size: 14px;
+  width: 100% !important;
+}
+
+.rdrMonth {
+  width: 100% !important;
+}
+
+.rdrMonthAndYearWrapper {
+  padding-top: 0;
+}
+
+.rdrDays {
+  width: 100%;
+}
+
+.rdrDay {
+  height: 38px;
 }
 
 .rdrStartEdge, .rdrEndEdge {
