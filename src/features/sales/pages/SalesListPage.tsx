@@ -137,8 +137,8 @@ export default function SalesListPage() {
   const clientMap = useMemo(() => {
     const list: any[] = Array.isArray(rawClientItems) ? rawClientItems
       : Array.isArray(rawClientItems?.items) ? rawClientItems.items
-      : Array.isArray(rawClientItems?.data)  ? rawClientItems.data
-      : [];
+        : Array.isArray(rawClientItems?.data) ? rawClientItems.data
+          : [];
     const m: Record<string, string> = {};
     list.forEach((c: any) => {
       const name = (c.fullName || c.full_name || `${c.first_name || ""} ${c.last_name || ""}`.trim()) || "";
@@ -578,7 +578,7 @@ export default function SalesListPage() {
                 className="sales-pg__banner-btn"
                 onClick={() => navigate("/dashboard/sales/quick")}
               >
-                Create first sale
+                Create  sale
               </button>
               <span className="sales-pg__banner-link">
                 <ArrowRight size={13} /> Learn more
