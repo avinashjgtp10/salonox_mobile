@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import {
   Calendar3,
@@ -21,7 +21,7 @@ import {
   Pagination,
 } from "../../../components/ui";
 import { DateRange } from "react-date-range";
-import { subDays, format, isWithinInterval, parseISO } from "date-fns";
+import { subDays, format, parseISO } from "date-fns";
 import "react-date-range/dist/styles.css";
 import "react-date-range/dist/theme/default.css";
 import "../styles/AppointmentsPage.scss";
@@ -39,22 +39,16 @@ export default function AppointmentsPage() {
 
   // ── Redux: real data from backend ─────────────────────────────
   const allBookings = useSelector((state: RootState) => (state.booking as any).items as Booking[]);
+  const serverPagination = useSelector((state: RootState) => (state.booking as any).pagination as any);
   const staffList = useSelector((state: RootState) => (state.staff as any).items as any[]);
   const clientList = useSelector(selectAllClients);
   const isLoading = useSelector((state: RootState) => (state.booking as any).loading?.fetchAll as boolean ?? false);
   const isExporting = useSelector((state: RootState) => (state.booking as any).loading?.export as boolean ?? false);
 
-  // Fetch on mount
-  useEffect(() => {
-    dispatch(fetchBookingsThunk());
-    dispatch(fetchStaffThunk());
-    dispatch(fetchClientsThunk());
-  }, [dispatch]);
-
   const [searchTerm, setSearchTerm] = useState("");
   const [showPicker, setShowPicker] = useState(false);
   const [showPresets, setShowPresets] = useState(false);
-  const [selectedLabel, setSelectedLabel] = useState("Today");
+  const [selectedLabel, setSelectedLabel] = useState("All time");
   const [showExport, setShowExport] = useState(false);
 
   // Filters Modal State
@@ -82,76 +76,105 @@ export default function AppointmentsPage() {
 
   const [range, setRange] = useState([
     {
-      startDate: today,
-      endDate: today,
+      startDate: new Date("2000-01-01"),
+      endDate: new Date("2099-12-31"),
       key: "selection",
     },
   ]);
-  const [allTime, setAllTime] = useState(false);
+  const [allTime, setAllTime] = useState(true);
 
-  // Reset page when filters change
+  // ── Core fetch function — sends all active filters + pagination to server ──
+  const fetchPage = useCallback((
+    page: number,
+    size: number,
+    filters: { staffId: string; status: string },
+    isAllTime: boolean,
+    dateRange: typeof range,
+  ) => {
+    dispatch(fetchBookingsThunk({
+      page,
+      limit: size,
+      staffId: filters.staffId !== "all" ? filters.staffId : undefined,
+      status: filters.status !== "all" ? filters.status : undefined,
+      allTime: isAllTime,
+      startDate: !isAllTime ? format(dateRange[0].startDate, "yyyy-MM-dd") : undefined,
+      endDate: !isAllTime ? format(dateRange[0].endDate, "yyyy-MM-dd") : undefined,
+    }));
+  }, [dispatch]);
+
+  // Mount-only: initial data load + staff + clients
   useEffect(() => {
+    fetchPage(1, pageSize, appliedFilters, allTime, range);
+    dispatch(fetchStaffThunk());
+    dispatch(fetchClientsThunk());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    fetchPage(page, pageSize, appliedFilters, allTime, range);
+  };
+
+  const handlePageSizeChange = (size: number) => {
     setCurrentPage(1);
-  }, [searchTerm, range, appliedFilters, pageSize, sortConfig]);
+    setPageSize(size);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    fetchPage(1, size, appliedFilters, allTime, range);
+  };
 
   const handlePreset = (label: string) => {
     setSelectedLabel(label);
     setShowPresets(false);
-    setAllTime(label === "All time");
+    const isAll = label === "All time";
+    setAllTime(isAll);
 
+    let newRange = range;
     switch (label) {
       case "Today":
-        setRange([{ startDate: today, endDate: today, key: "selection" }]);
+        newRange = [{ startDate: today, endDate: today, key: "selection" }];
         break;
-      case "Yesterday":
+      case "Yesterday": {
         const yesterday = subDays(today, 1);
-        setRange([
-          { startDate: yesterday, endDate: yesterday, key: "selection" },
-        ]);
+        newRange = [{ startDate: yesterday, endDate: yesterday, key: "selection" }];
         break;
+      }
       case "Last 7 days":
-        setRange([
-          { startDate: subDays(today, 6), endDate: today, key: "selection" },
-        ]);
+        newRange = [{ startDate: subDays(today, 6), endDate: today, key: "selection" }];
         break;
       case "Last 30 days":
-        setRange([
-          { startDate: subDays(today, 29), endDate: today, key: "selection" },
-        ]);
+        newRange = [{ startDate: subDays(today, 29), endDate: today, key: "selection" }];
         break;
       case "Month to date":
-        setRange([
-          {
-            startDate: new Date(today.getFullYear(), today.getMonth(), 1),
-            endDate: today,
-            key: "selection",
-          },
-        ]);
+        newRange = [{
+          startDate: new Date(today.getFullYear(), today.getMonth(), 1),
+          endDate: today,
+          key: "selection",
+        }];
         break;
       case "All time":
-        // Range is irrelevant when allTime is true; set wide to avoid stale state
-        setRange([{ startDate: new Date("2000-01-01"), endDate: new Date("2099-12-31"), key: "selection" }]);
+        newRange = [{ startDate: new Date("2000-01-01"), endDate: new Date("2099-12-31"), key: "selection" }];
         break;
     }
+    setRange(newRange);
+    setCurrentPage(1);
+    fetchPage(1, pageSize, appliedFilters, isAll, newRange);
   };
 
   const handleApplyRange = () => {
-    const formatted = `${format(range[0].startDate, "dd MMM")} – ${format(
-      range[0].endDate,
-      "dd MMM",
-    )}`;
+    const formatted = `${format(range[0].startDate, "dd MMM")} – ${format(range[0].endDate, "dd MMM")}`;
     setSelectedLabel(formatted);
     setAllTime(false);
     setShowPicker(false);
+    setCurrentPage(1);
+    fetchPage(1, pageSize, appliedFilters, false, range);
   };
 
   const applyFilters = () => {
     setAppliedFilters(tempFilters);
     setShowFiltersModal(false);
-    dispatch(fetchBookingsThunk({
-      staffId: tempFilters.staffId,
-      status: tempFilters.status,
-    }));
+    setCurrentPage(1);
+    fetchPage(1, pageSize, tempFilters, allTime, range);
   };
 
   const clearFilters = () => {
@@ -159,7 +182,8 @@ export default function AppointmentsPage() {
     setTempFilters(cleared);
     setAppliedFilters(cleared);
     setShowFiltersModal(false);
-    dispatch(fetchBookingsThunk());
+    setCurrentPage(1);
+    fetchPage(1, pageSize, cleared, allTime, range);
   };
 
   const handleExport = (type: string) => {
@@ -170,8 +194,8 @@ export default function AppointmentsPage() {
         format: fmt as "excel" | "csv" | "pdf",
         filters: {
           status: appliedFilters.status !== "all" ? appliedFilters.status : undefined,
-          start_date: format(range[0].startDate, "yyyy-MM-dd"),
-          end_date: format(range[0].endDate, "yyyy-MM-dd"),
+          start_date: !allTime ? format(range[0].startDate, "yyyy-MM-dd") : undefined,
+          end_date: !allTime ? format(range[0].endDate, "yyyy-MM-dd") : undefined,
         },
       })
     );
@@ -209,7 +233,6 @@ export default function AppointmentsPage() {
           }))
         : [{ staffId: b.staff_id ?? b.staffId ?? "", service: b.title || "Service" }],
       status: b.status || "pending",
-      // Use mapBooking's already-converted local date/time values to avoid timezone split issues
       date: b.date || "",
       startTime: b.startTime || "00:00",
       endTime: b.endTime || "00:00",
@@ -220,99 +243,56 @@ export default function AppointmentsPage() {
     [allBookings, clientById]
   );
 
-  // Sorting/Filtering Logic
+  // Client-side search filter on current page's data only
   const filteredAppointments = useMemo(() => {
-    let result = bookings.filter((booking) => {
-      // Search filter
-      const matchesSearch =
-        String(booking.id).toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.clientName.toLowerCase().includes(searchTerm.toLowerCase());
+    if (!searchTerm.trim()) return bookings;
+    const term = searchTerm.toLowerCase();
+    return bookings.filter((b) =>
+      String(b.id).toLowerCase().includes(term) ||
+      b.clientName.toLowerCase().includes(term)
+    );
+  }, [bookings, searchTerm]);
 
-      // Date range filter — skip entirely for "All time"
-      let matchesDate = allTime;
-      if (!allTime) {
-        try {
-          // Filter by created_at (billDate) so appointments booked recently always appear
-          // regardless of when they are scheduled (future appointments are common in salons)
-          const refDate = booking.billDate ? new Date(booking.billDate) : null;
-          if (!refDate) {
-            matchesDate = true;
-          } else {
-            const start = new Date(range[0].startDate);
-            const end = new Date(range[0].endDate);
-            start.setHours(0, 0, 0, 0);
-            end.setHours(23, 59, 59, 999);
-            matchesDate = isWithinInterval(refDate, { start, end });
-          }
-        } catch (e) {
-          matchesDate = true;
-        }
-      }
-
-      // Modal filters
-      const matchesStaff =
-        appliedFilters.staffId === "all" ||
-        booking.services.some((s: any) => s.staffId === appliedFilters.staffId);
-      const matchesStatus =
-        appliedFilters.status === "all" ||
-        (booking.status || "").toLowerCase() === appliedFilters.status.toLowerCase();
-      const matchesChannel = appliedFilters.channel === "all";
-
-      return (
-        matchesSearch &&
-        matchesDate &&
-        matchesStaff &&
-        matchesStatus &&
-        matchesChannel
-      );
-    });
-
-    // Sort result
+  // Client-side sort on current page's data
+  const sortedAppointments = useMemo(() => {
+    const result = [...filteredAppointments];
     result.sort((a, b) => {
       const getDuration = (bk: any) => {
-        const s = parseISO(bk.date + "T" + bk.startTime);
-        const e = parseISO(bk.date + "T" + bk.endTime);
-        return e.getTime() - s.getTime();
+        try {
+          const s = parseISO(bk.date + "T" + bk.startTime);
+          const e = parseISO(bk.date + "T" + bk.endTime);
+          return e.getTime() - s.getTime();
+        } catch { return 0; }
       };
-
       switch (sortConfig) {
         case "created_oldest":
-          return (
-            parseISO(a.billDate || a.date).getTime() -
-            parseISO(b.billDate || b.date).getTime()
-          );
+          return new Date(a.billDate || a.date).getTime() - new Date(b.billDate || b.date).getTime();
         case "created_newest":
-          return (
-            parseISO(b.billDate || b.date).getTime() -
-            parseISO(a.billDate || a.date).getTime()
-          );
+          return new Date(b.billDate || b.date).getTime() - new Date(a.billDate || a.date).getTime();
         case "scheduled_oldest":
-          return (
-            parseISO(a.date + "T" + a.startTime).getTime() -
-            parseISO(b.date + "T" + b.startTime).getTime()
-          );
+          try { return parseISO(a.date + "T" + a.startTime).getTime() - parseISO(b.date + "T" + b.startTime).getTime(); }
+          catch { return 0; }
         case "scheduled_newest":
-          return (
-            parseISO(b.date + "T" + b.startTime).getTime() -
-            parseISO(a.date + "T" + a.startTime).getTime()
-          );
-        case "duration_shortest":
-          return getDuration(a) - getDuration(b);
-        case "duration_longest":
-          return getDuration(b) - getDuration(a);
-        default:
-          return 0;
+          try { return parseISO(b.date + "T" + b.startTime).getTime() - parseISO(a.date + "T" + a.startTime).getTime(); }
+          catch { return 0; }
+        case "duration_shortest": return getDuration(a) - getDuration(b);
+        case "duration_longest": return getDuration(b) - getDuration(a);
+        default: return 0;
       }
     });
-
     return result;
-  }, [bookings, searchTerm, range, allTime, appliedFilters, sortConfig]);
+  }, [filteredAppointments, sortConfig]);
 
-  // Pagination Logic
-  const paginatedAppointments = useMemo(() => {
+  // Total records for pagination — prefer server count, fall back to local
+  const totalRecords = serverPagination?.total ?? sortedAppointments.length;
+
+  // Safety slice: if server returns more rows than pageSize (e.g. old backend ignoring limit),
+  // paginate client-side so the table never shows more than pageSize rows.
+  const displayedAppointments = useMemo(() => {
+    if (serverPagination) return sortedAppointments; // server already paginated
     const start = (currentPage - 1) * pageSize;
-    return filteredAppointments.slice(start, start + pageSize);
-  }, [filteredAppointments, currentPage, pageSize]);
+    return sortedAppointments.slice(start, start + pageSize);
+  }, [sortedAppointments, serverPagination, currentPage, pageSize]);
 
   const sortOptions = [
     { label: "Created Date (oldest first)", value: "created_oldest" },
@@ -666,12 +646,13 @@ export default function AppointmentsPage() {
       </Modal>
 
       {/* ================= TABLE ================= */}
-      {isLoading ? (
-        <Card noPadding className="mb-4">
-          <Loader message="Loading appointments…" className="py-5" />
-        </Card>
-      ) : (
-        <Card noPadding className="mb-4 border-0 shadow-sm rounded-4 overflow-hidden">
+      <div className="position-relative mb-4">
+        {isLoading ? (
+          <Card noPadding>
+            <Loader message="Loading appointments…" className="py-5" />
+          </Card>
+        ) : (
+        <Card noPadding className="border-0 shadow-sm rounded-4 overflow-hidden">
           <Table
             columns={[
               {
@@ -799,7 +780,7 @@ export default function AppointmentsPage() {
                 render: (item: any) => <span className="text-dark fw-medium">₹{Number(item.grandTotal || 0).toFixed(2)}</span>,
               },
             ]}
-            data={paginatedAppointments}
+            data={displayedAppointments}
             emptyMessage={
               <div className="d-flex flex-column align-items-center justify-content-center py-5">
                 <div className="bg-light rounded-circle d-flex align-items-center justify-content-center mb-3" style={{ width: "64px", height: "64px" }}>
@@ -811,15 +792,16 @@ export default function AppointmentsPage() {
             }
           />
         </Card>
-      )}
+        )}
+      </div>
 
       {/* ================= PAGINATION ================= */}
       <Pagination
         currentPage={currentPage}
         pageSize={pageSize}
-        totalItems={filteredAppointments.length}
-        onPageChange={setCurrentPage}
-        onPageSizeChange={setPageSize}
+        totalItems={totalRecords}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
         className="mt-4 mb-4"
       />
     </div>

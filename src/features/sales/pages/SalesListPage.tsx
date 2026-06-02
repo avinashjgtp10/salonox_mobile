@@ -22,6 +22,7 @@ import {
   Sliders,
   CreditCard2Front,
   ArrowRight,
+  PencilFill,
 } from "react-bootstrap-icons";
 import "../styles/SalesListPage.scss";
 import type { AppDispatch, RootState } from "../../../store/store";
@@ -956,6 +957,16 @@ export default function SalesListPage() {
                 {isLoadingDetail ? "Loading…" : selectedSale ? `Sale #${String(selectedSale.id).substring(0, 8)}` : "Sale details"}
               </h3>
               <div className="sales-detail__header-actions">
+                {selectedSale && (
+                  <button
+                    className="sales-detail__edit-btn"
+                    title="Edit sale"
+                    onClick={() => { closeDetail(); navigate(`/dashboard/sales/quick?editId=${selectedSale.id}`); }}
+                  >
+                    <PencilFill size={13} />
+                    Edit
+                  </button>
+                )}
                 <button className="sales-detail__close" onClick={closeDetail}>
                   <X size={17} />
                 </button>
