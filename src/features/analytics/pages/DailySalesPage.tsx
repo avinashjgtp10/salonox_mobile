@@ -73,45 +73,26 @@ export default function DailySalesPage() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [calPos, setCalPos] = useState({ top: 0, left: 0 });
   const datePillRef = useRef<HTMLButtonElement>(null);
-  const calPortalRef = useRef<HTMLDivElement>(null);
+  // tracks whether calendar was open at the moment the button is pressed,
+  // so the onClick handler knows not to reopen it.
+  const wasOpenOnMouseDownRef = useRef(false);
 
-  function openDatePicker() {
+  function handleDateBtnMouseDown() {
+    wasOpenOnMouseDownRef.current = showDatePicker;
+    if (showDatePicker) setShowDatePicker(false);
+  }
+
+  function handleDateBtnClick() {
+    if (wasOpenOnMouseDownRef.current) {
+      wasOpenOnMouseDownRef.current = false;
+      return;
+    }
     if (datePillRef.current) {
       const r = datePillRef.current.getBoundingClientRect();
       setCalPos({ top: r.bottom + 8, left: r.left + r.width / 2 });
     }
-    setShowDatePicker((v) => !v);
+    setShowDatePicker(true);
   }
-
-  // Close calendar on outside click
-  useEffect(() => {
-    function handleOutside(e: MouseEvent) {
-      if (
-        calPortalRef.current && !calPortalRef.current.contains(e.target as Node) &&
-        datePillRef.current && !datePillRef.current.contains(e.target as Node)
-      ) {
-        setShowDatePicker(false);
-      }
-    }
-    document.addEventListener("mousedown", handleOutside);
-    return () => document.removeEventListener("mousedown", handleOutside);
-  }, []);
-
-  // Reposition on scroll/resize
-  useEffect(() => {
-    function reposition() {
-      if (showDatePicker && datePillRef.current) {
-        const r = datePillRef.current.getBoundingClientRect();
-        setCalPos({ top: r.bottom + 8, left: r.left + r.width / 2 });
-      }
-    }
-    window.addEventListener("scroll", reposition, true);
-    window.addEventListener("resize", reposition);
-    return () => {
-      window.removeEventListener("scroll", reposition, true);
-      window.removeEventListener("resize", reposition);
-    };
-  }, [showDatePicker]);
 
   // ── Export dropdown ───────────────────────────────────────────────────────
   const [showExport, setShowExport] = useState(false);
@@ -179,7 +160,7 @@ export default function DailySalesPage() {
               )}
             </div>
 
-            <Button variant="dark" pill className="px-4" onClick={() => setDrawerOpen(true)}>
+            <Button variant="dark" pill className="px-4" onClick={() => navigate("/dashboard/sales/quick")}>
               Add new
             </Button>
           </div>
@@ -195,7 +176,8 @@ export default function DailySalesPage() {
             <button
               ref={datePillRef}
               className={`date-text-btn px-3 small fw-bold${showDatePicker ? " date-text-btn--active" : ""}`}
-              onMouseDown={(e) => { e.stopPropagation(); openDatePicker(); }}
+              onMouseDown={handleDateBtnMouseDown}
+              onClick={handleDateBtnClick}
             >
               {format(selectedDate, "EEEE d MMM, yyyy")}
               <span style={{ fontSize: 9, opacity: 0.5, marginLeft: 4 }}>▼</span>
@@ -208,7 +190,6 @@ export default function DailySalesPage() {
         {/* ── MINI CALENDAR PORTAL ── */}
         {showDatePicker && ReactDOM.createPortal(
           <div
-            ref={calPortalRef}
             style={{
               position: "fixed",
               top: calPos.top,
