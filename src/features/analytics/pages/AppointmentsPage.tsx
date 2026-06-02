@@ -104,7 +104,9 @@ export default function AppointmentsPage() {
   const staffList = useSelector((state: RootState) => (state.staff as any).items as any[]);
   const clientList = useSelector(selectAllClients);
   const isLoading = useSelector((state: RootState) => (state.booking as any).loading?.fetchAll as boolean ?? false);
-  const isExporting = useSelector((state: RootState) => (state.booking as any).loading?.export as boolean ?? false);
+
+
+  const [exportingFormat, setExportingFormat] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [showPicker, setShowPicker] = useState(false);
@@ -272,10 +274,11 @@ export default function AppointmentsPage() {
     fetchPage(1, pageSize, cleared, allTime, range);
   };
 
-  const handleExport = (type: string) => {
+  const handleExport = async (type: string) => {
     setShowExport(false);
     const fmt = type === "xlsx" ? "excel" : type === "pdf" ? "pdf" : "csv";
-    dispatch(
+    setExportingFormat(fmt);
+    await dispatch(
       exportBookingsThunk({
         format: fmt as "excel" | "csv" | "pdf",
         filters: {
@@ -285,6 +288,7 @@ export default function AppointmentsPage() {
         },
       })
     );
+    setExportingFormat(null);
   };
 
   // ── Drawer handlers ────────────────────────────────────────────────────────
@@ -526,21 +530,21 @@ export default function AppointmentsPage() {
                 variant="ghost"
                 fullWidth
                 className="text-start p-2 rounded-0 border-bottom"
-                disabled={isExporting}
+                disabled={exportingFormat !== null}
                 onClick={() => handleExport("csv")}
               >
                 <FiletypeCsv size={18} className="text-primary me-2" />
-                {isExporting ? "Exporting…" : "CSV"}
+                {exportingFormat === "csv" ? "Exporting…" : "CSV"}
               </Button>
               <Button
                 variant="ghost"
                 fullWidth
                 className="text-start p-2 rounded-0"
-                disabled={isExporting}
+                disabled={exportingFormat !== null}
                 onClick={() => handleExport("xlsx")}
               >
                 <FiletypeXlsx size={18} className="text-success me-2" />
-                {isExporting ? "Exporting…" : "Excel"}
+                {exportingFormat === "excel" ? "Exporting…" : "Excel"}
               </Button>
             </div>
           )}
