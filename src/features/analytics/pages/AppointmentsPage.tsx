@@ -123,12 +123,10 @@ export default function AppointmentsPage() {
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [tempFilters, setTempFilters] = useState({
     staffId: "all",
-    channel: "all",
     status: "all",
   });
   const [appliedFilters, setAppliedFilters] = useState({
     staffId: "all",
-    channel: "all",
     status: "all",
   });
 
@@ -255,7 +253,7 @@ export default function AppointmentsPage() {
   };
 
   const clearFilters = () => {
-    const cleared = { staffId: "all", channel: "all", status: "all" };
+    const cleared = { staffId: "all", status: "all" };
     setTempFilters(cleared);
     setAppliedFilters(cleared);
     setShowFiltersModal(false);
@@ -675,8 +673,7 @@ export default function AppointmentsPage() {
         >
           Filters{" "}
           {(appliedFilters.staffId !== "all" ||
-            appliedFilters.status !== "all" ||
-            appliedFilters.channel !== "all") &&
+            appliedFilters.status !== "all") &&
             "•"}
         </Button>
 
@@ -748,29 +745,6 @@ export default function AppointmentsPage() {
                     {staff.first_name} {staff.last_name}
                   </option>
                 ))}
-              </select>
-              <ChevronDown className="position-absolute end-0 top-50 translate-middle-y me-3 text-muted pointer-events-none" size={14} />
-            </div>
-          </div>
-
-          <div className="mb-4">
-            <label className="form-label small fw-bold">Channel</label>
-            <div className="position-relative">
-              <select
-                className="form-select rounded-3 p-2 pe-5"
-                value={tempFilters.channel}
-                onChange={(e) => setTempFilters({ ...tempFilters, channel: e.target.value })}
-                style={{ appearance: "none", backgroundImage: "none" }}
-              >
-                <option value="all">All channels</option>
-                <option value="online">All online channels</option>
-                <option value="salonox">Marketplace - salonox</option>
-                <option value="book_now">Book now link</option>
-                <option value="facebook">Facebook</option>
-                <option value="instagram">Instagram</option>
-                <option value="google">Marketplace - Google Reserve</option>
-                <option value="automation">Marketing - Automations</option>
-                <option value="offline">Offline</option>
               </select>
               <ChevronDown className="position-absolute end-0 top-50 translate-middle-y me-3 text-muted pointer-events-none" size={14} />
             </div>
