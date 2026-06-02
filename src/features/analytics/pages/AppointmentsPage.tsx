@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import {
   Calendar3,
@@ -111,6 +111,17 @@ export default function AppointmentsPage() {
   const [showPresets, setShowPresets] = useState(false);
   const [selectedLabel, setSelectedLabel] = useState("All time");
   const [showExport, setShowExport] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleOutside(e: MouseEvent) {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
+        setShowExport(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, []);
 
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -483,7 +494,7 @@ export default function AppointmentsPage() {
           </p>
         </div>
 
-        <div className="position-relative">
+        <div className="position-relative" ref={exportRef}>
           <Button
             variant="outline-dark"
             pill
