@@ -25,7 +25,7 @@ import serviceFiltersReducer from "./serviceFiltersSlice";
 import membershipReducer from "./membershipSlice";
 import inventoryReducer from "./inventorySlice";
 import { membershipsApi } from "../services/api/endpoints/memberships.endpoints";
-import { packagesApi } from "../services/api/endpoints/packages.endpoints";
+import { packagesApi, clientPackagesApi } from "../services/api/endpoints/packages.endpoints";
 import productsReducer from "./productsSlice";
 import shiftReducer, { type ShiftState } from "./shiftSlice";
 import payRunReducer from "./payRunSlice";
@@ -73,6 +73,7 @@ export const store = configureStore({
     inventory: inventoryReducer,
     [membershipsApi.reducerPath]: membershipsApi.reducer,
     [packagesApi.reducerPath]: packagesApi.reducer,
+    [clientPackagesApi.reducerPath]: clientPackagesApi.reducer,
     products: productsReducer,
     shift: persistReducer(shiftPersistConfig, shiftReducer) as unknown as Reducer<ShiftState>,
     payRun: payRunReducer,
@@ -88,7 +89,8 @@ export const store = configureStore({
       },
     })
       .concat(membershipsApi.middleware)
-      .concat(packagesApi.middleware),
+      .concat(packagesApi.middleware)
+      .concat(clientPackagesApi.middleware),
 });
 
 export const persistor = persistStore(store);

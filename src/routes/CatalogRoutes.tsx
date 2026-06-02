@@ -55,6 +55,9 @@ const PackagesPage = lazy(
 const EditPackagePage = lazy(
   () => import("../features/catalog/pages/EditPackagePage"),
 );
+const PackageModule = lazy(
+  () => import("../components/packages/PackageModule"),
+);
 const EditServicePage = lazy(
   () => import("../features/catalog/pages/EditServicePage"),
 );
@@ -72,7 +75,8 @@ export const CatalogRoutes = () => (
       <Route path="memberships/list" element={<MembershipsListPage />} />
       <Route path="memberships/create" element={<CreateMembershipPage />} />
       <Route path="memberships/edit/:id" element={<CreateMembershipPage />} />
-      <Route path="packages" element={<PackagesPage />} />
+      <Route path="packages" element={<PackageModule />} />
+      <Route path="packages/legacy" element={<PackagesPage />} />
       <Route path="packages/:id" element={<EditPackagePage />} />
       <Route path="products" element={<ProductsListPage />} />
       <Route path="products/landing" element={<ProductsLandingPage />} />
