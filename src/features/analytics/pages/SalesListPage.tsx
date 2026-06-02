@@ -10,8 +10,6 @@ import {
   Plus,
   ChevronDown,
   TagFill,
-  Gear,
-  FileEarmarkPdf,
   FileEarmarkText,
   FileEarmarkExcel,
   Receipt,
@@ -59,9 +57,7 @@ export default function SalesListPage() {
   const isLoadingSales = useSelector(
     (state: RootState) => (state.sale as any).loading?.fetchAll as boolean ?? false,
   );
-  const isExporting = useSelector(
-    (state: RootState) => (state.sale as any).loading?.export as boolean ?? false,
-  );
+
 
   const completedSales = allSales.filter((s) => s.status !== "draft");
 
@@ -82,6 +78,8 @@ export default function SalesListPage() {
 
   // Tab State
   const [activeTab, setActiveTab] = useState<"sales" | "drafts">("sales");
+
+  const [exportingFormat, setExportingFormat] = useState<string | null>(null);
 
   // Dropdown states
   const [showOptions, setShowOptions] = useState(false);
@@ -226,7 +224,7 @@ export default function SalesListPage() {
         </div>
 
         <div className="d-flex gap-2" onClick={(e) => e.stopPropagation()}>
-          {/* Options Dropdown */}
+          {/* Export Dropdown */}
           <div className="position-relative" ref={optionsRef}>
             <Button
               variant="outline-dark"
@@ -239,59 +237,42 @@ export default function SalesListPage() {
                 />
               }
             >
-              Options
+              Export
             </Button>
             {showOptions && (
               <div
                 className="sales-dropdown-menu options-menu shadow-lg border position-absolute mt-2 bg-white z-2 rounded-3 overflow-hidden"
-                style={{ minWidth: "200px" }}
+                style={{ minWidth: "160px" }}
               >
                 <Button
                   variant="ghost"
                   fullWidth
-                  className="text-center p-3 rounded-0 border-bottom d-flex align-items-center justify-content-center"
-                  onClick={() => setShowOptions(false)}
-                >
-                  <Gear size={16} className="me-2 text-muted" />
-                  <span>Sales settings</span>
-                </Button>
-                <div className="px-3 py-2 small fw-bold text-muted border-bottom text-center">
-                  Export
-                </div>
-                <Button
-                  variant="ghost"
-                  fullWidth
-                  className="text-center p-3 rounded-0 border-bottom d-flex align-items-center justify-content-center"
-                  onClick={() => setShowOptions(false)}
-                >
-                  <FileEarmarkPdf size={16} className="text-danger me-2" />
-                  <span>PDF</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  fullWidth
-                  className="text-center p-3 rounded-0 border-bottom d-flex align-items-center justify-content-center"
-                  disabled={isExporting}
-                  onClick={() => {
-                    dispatch(exportSalesThunk({ format: "csv" }));
+                  className="text-start px-3 py-2 rounded-0 border-bottom d-flex align-items-center"
+                  disabled={exportingFormat !== null}
+                  onClick={async () => {
+                    setExportingFormat("csv");
                     setShowOptions(false);
+                    await dispatch(exportSalesThunk({ format: "csv" }));
+                    setExportingFormat(null);
                   }}
                 >
                   <FileEarmarkText size={16} className="text-primary me-2" />
-                  <span>{isExporting ? "Exporting…" : "CSV"}</span>
+                  <span>{exportingFormat === "csv" ? "Exporting…" : "CSV"}</span>
                 </Button>
                 <Button
                   variant="ghost"
                   fullWidth
-                  className="text-center p-3 rounded-0 d-flex align-items-center justify-content-center"
-                  disabled={isExporting}
-                  onClick={() => {
-                    dispatch(exportSalesThunk({ format: "excel" }));
+                  className="text-start px-3 py-2 rounded-0 d-flex align-items-center"
+                  disabled={exportingFormat !== null}
+                  onClick={async () => {
+                    setExportingFormat("excel");
                     setShowOptions(false);
+                    await dispatch(exportSalesThunk({ format: "excel" }));
+                    setExportingFormat(null);
                   }}
                 >
                   <FileEarmarkExcel size={16} className="text-success me-2" />
-                  <span>{isExporting ? "Exporting…" : "Excel"}</span>
+                  <span>{exportingFormat === "excel" ? "Exporting…" : "Excel"}</span>
                 </Button>
               </div>
             )}

@@ -154,6 +154,35 @@
   color: #111827;
 }
 
+/* Clickable date button */
+
+.date-text-btn {
+  padding: 5px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+
+  &:hover {
+    background: #f3f4f6;
+    border-color: #e5e7eb;
+  }
+
+  &--active {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+  }
+}
+
 /* Divider */
 
 .date-divider {

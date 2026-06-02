@@ -6,7 +6,6 @@ import { downloadBlob } from "../../utils/downloadBlob";
 import type {
   Booking,
   BookingResponse,
-  BookingListResponse,
   CreateBookingPayload,
   UpdateBookingPayload,
 } from "../../types/booking.types";
@@ -106,7 +105,18 @@ function mapBooking(appt: any, servicesList?: any[]): Booking {
   }));
 
   // ✅ FIX — compute payingNow/dueAmount from paid_amount so alreadyPaidAmount is always correct
-  const grandTotalVal = parseFloat(String(appt.grand_total ?? appt.grandTotal ?? appt.total_amount ?? 0)) || 0;
+  // Sum prices from all JSONB item arrays when no top-level total is stored on the appointment
+  const computedTotal = [
+    ...(appt.services || []),
+    ...(appt.product_items || []),
+    ...(appt.package_items || []),
+    ...(appt.membership_items || []),
+  ].reduce((sum: number, item: any) => {
+    const price = parseFloat(String(item.price ?? 0)) || 0;
+    const qty = Number(item.quantity ?? item.qty ?? 1) || 1;
+    return sum + price * qty;
+  }, 0);
+  const grandTotalVal = parseFloat(String(appt.grand_total ?? appt.grandTotal ?? appt.total_amount ?? 0)) || computedTotal;
   const paidAmountVal = Number(appt.paid_amount ?? appt.payingNow ?? 0) || 0;
   const payStatusStr = (appt.payment_status ?? appt.paymentStatus ?? "").toLowerCase();
   let payingNow = appt.payingNow;
@@ -169,10 +179,30 @@ function mapBooking(appt: any, servicesList?: any[]): Booking {
   };
 }
 
-// ── Fetch bookings (scoped to current salon, optional server-side filters) ────
+export interface BookingFetchFilters {
+  staffId?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
+  startDate?: string;
+  endDate?: string;
+  allTime?: boolean;
+}
+
+export interface BookingPaginatedResult {
+  data: Booking[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    total_pages: number;
+  };
+}
+
+// ── Fetch bookings (scoped to current salon, server-side pagination + filters) ─
 export const fetchBookingsThunk = createAsyncThunk<
-  Booking[],
-  { staffId?: string; status?: string } | void,
+  BookingPaginatedResult | Booking[],
+  BookingFetchFilters | void,
   { rejectValue: string }
 >("booking/fetchAll", async (filters, { rejectWithValue, getState }) => {
   try {
@@ -183,9 +213,31 @@ export const fetchBookingsThunk = createAsyncThunk<
     if (salonId) params.set("salon_id", String(salonId));
     if (filters?.staffId && filters.staffId !== "all") params.set("staff_id", filters.staffId);
     if (filters?.status && filters.status !== "all") params.set("status", filters.status);
-    const res = await api.get<BookingListResponse>(`${BOOKING.BASE}?${params.toString()}`);
-    // ✅ FIX — map every booking so payment_status is never lost
-    return res.data.data.map((item: any) => mapBooking(item, servicesList));
+    if (filters?.page) params.set("page", String(filters.page));
+    if (filters?.limit) params.set("limit", String(filters.limit));
+    if (!filters?.allTime) {
+      if (filters?.startDate) params.set("start_date", filters.startDate);
+      if (filters?.endDate) params.set("end_date", filters.endDate);
+    }
+    const res = await api.get(`${BOOKING.BASE}?${params.toString()}`);
+    const raw = res.data.data as any;
+
+    // Paginated response: { data: [], totalRecords, totalPages, currentPage }
+    if (raw && typeof raw === "object" && !Array.isArray(raw) && Array.isArray(raw.data)) {
+      return {
+        data: raw.data.map((item: any) => mapBooking(item, servicesList)),
+        pagination: {
+          total: raw.totalRecords ?? 0,
+          page: raw.currentPage ?? filters?.page ?? 1,
+          limit: filters?.limit ?? 50,
+          total_pages: raw.totalPages ?? 1,
+        },
+      };
+    }
+
+    // Fallback: plain array (e.g. when filtered by client_id)
+    const arr = Array.isArray(raw) ? raw : [];
+    return arr.map((item: any) => mapBooking(item, servicesList));
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to fetch bookings");
