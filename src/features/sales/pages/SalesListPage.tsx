@@ -391,7 +391,14 @@ export default function SalesListPage() {
                       <div
                         key={opt}
                         className={`sales-pg__filter-option${statusFilter === opt ? " sales-pg__filter-option--active" : ""}`}
-                        onClick={() => setStatusFilter(opt)}
+                        onClick={() => {
+                          if (opt === "Draft") {
+                            setShowFilter(false);
+                            handleTabChange("drafts");
+                          } else {
+                            setStatusFilter(opt);
+                          }
+                        }}
                       >
                         <span>{opt}</span>
                         {statusFilter === opt && <span className="sales-pg__filter-check">✓</span>}
