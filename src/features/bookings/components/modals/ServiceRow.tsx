@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import type { ServiceItem } from "../../types/scheduler-types";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import TimeSelect from "../shared/TimeSelect";
+import { Trash } from "react-bootstrap-icons";
 
 interface ServiceRowProps {
   row: ServiceItem & { tempId: string };
@@ -13,18 +14,14 @@ interface ServiceRowProps {
   disabled?: boolean;
 }
 
-const ERR_MSG: Record<string, string> = {
-  service: "Please select a service",
-  staff: "Please select staff",
-  price: "Please enter price",
-  qty: "Please enter qty",
-};
+function fmtName(n: string) { return n.includes(" ") ? n : n.replace(/([a-z])([A-Z])/g, "$1 $2"); }
 
 const ServiceRow: React.FC<ServiceRowProps> = ({ row, onChange, onRemove, onClearError, errorFields = {}, disabled }) => {
   const { interval, staffList, servicesList } = useSchedulerContext() as any;
   const [serviceSearch, setServiceSearch] = useState(row.service || "");
   const [showDrop, setShowDrop] = useState(false);
   const [qtyInput, setQtyInput] = useState(String(row.qty > 0 ? row.qty : 1));
+  const [discountInput, setDiscountInput] = useState(String(row.discount || ""));
   const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setServiceSearch(row.service || ""); }, [row.service]);
@@ -37,7 +34,13 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ row, onChange, onRemove, onClea
     return () => document.removeEventListener("mousedown", handle);
   }, []);
 
-  const filtered = (servicesList || []).filter((s: { name: string; duration?: number }) => s.name.toLowerCase().includes(serviceSearch.toLowerCase()));
+  const filtered = (servicesList || []).filter((s: { name: string }) =>
+    s.name.toLowerCase().includes(serviceSearch.toLowerCase())
+  );
+
+  function calcTotal(price: number, qty: number, disc: number) {
+    return Math.max(0, price * qty - disc);
+  }
 
   function selectService(s: { id?: string; name: string; price: number; duration?: number }) {
     setServiceSearch(s.name);
@@ -46,8 +49,9 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ row, onChange, onRemove, onClea
     onChange(row.tempId, "price", s.price);
     onChange(row.tempId, "duration", s.duration ?? 30);
     const qty = row.qty > 0 ? row.qty : 1;
+    const disc = parseFloat(discountInput) || 0;
     onChange(row.tempId, "qty", qty);
-    onChange(row.tempId, "total", s.price * qty);
+    onChange(row.tempId, "total", calcTotal(s.price, qty, disc));
     setShowDrop(false);
     onClearError?.(row.tempId, "service");
     onClearError?.(row.tempId, "price");
@@ -55,9 +59,10 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ row, onChange, onRemove, onClea
 
   function handlePriceChange(val: string) {
     const num = Math.max(0, parseFloat(val) || 0);
-    onChange(row.tempId, "price", num);
     const qty = row.qty > 0 ? row.qty : 1;
-    onChange(row.tempId, "total", num * qty);
+    const disc = parseFloat(discountInput) || 0;
+    onChange(row.tempId, "price", num);
+    onChange(row.tempId, "total", calcTotal(num, qty, disc));
     if (num > 0) onClearError?.(row.tempId, "price");
   }
 
@@ -65,8 +70,9 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ row, onChange, onRemove, onClea
     setQtyInput(val);
     const num = parseFloat(val);
     if (!isNaN(num) && num > 0) {
+      const disc = parseFloat(discountInput) || 0;
       onChange(row.tempId, "qty", num);
-      onChange(row.tempId, "total", (row.price || 0) * num);
+      onChange(row.tempId, "total", calcTotal(row.price || 0, num, disc));
       onClearError?.(row.tempId, "qty");
     }
   }
@@ -74,9 +80,26 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ row, onChange, onRemove, onClea
   function handleQtyBlur() {
     const num = parseFloat(qtyInput);
     const clamped = !isNaN(num) && num >= 1 ? num : 1;
+    const disc = parseFloat(discountInput) || 0;
     setQtyInput(String(clamped));
     onChange(row.tempId, "qty", clamped);
-    onChange(row.tempId, "total", (row.price || 0) * clamped);
+    onChange(row.tempId, "total", calcTotal(row.price || 0, clamped, disc));
+  }
+
+  function handleDiscountChange(val: string) {
+    setDiscountInput(val);
+    const disc = parseFloat(val) || 0;
+    const qty = row.qty > 0 ? row.qty : 1;
+    onChange(row.tempId, "discount", disc);
+    onChange(row.tempId, "total", calcTotal(row.price || 0, qty, disc));
+  }
+
+  function handleDiscountBlur() {
+    const disc = Math.max(0, parseFloat(discountInput) || 0);
+    const qty = row.qty > 0 ? row.qty : 1;
+    setDiscountInput(disc > 0 ? String(disc) : "");
+    onChange(row.tempId, "discount", disc);
+    onChange(row.tempId, "total", calcTotal(row.price || 0, qty, disc));
   }
 
   function handleStaffChange(staffId: string) {
@@ -87,68 +110,149 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ row, onChange, onRemove, onClea
   }
 
   return (
-    <div className="row g-1 px-2 py-2 border-bottom align-items-start bg-white mx-0">
-      {/* Service */}
-      <div className="col position-relative" ref={dropRef} style={{ minWidth: 140 }}>
-        <input
-          className={`form-control form-control-sm${errorFields.service ? " is-invalid" : ""}`}
-          placeholder="Search service…"
-          value={serviceSearch}
-          disabled={disabled}
-          onChange={(e) => { setServiceSearch(e.target.value); onChange(row.tempId, "service", e.target.value); setShowDrop(true); if (e.target.value.trim()) onClearError?.(row.tempId, "service"); }}
-          onFocus={() => setShowDrop(true)}
-        />
-        {errorFields.service && <div className="invalid-feedback d-block" style={{ fontSize: 10 }}>{ERR_MSG.service}</div>}
-        {showDrop && filtered.length > 0 && (
-          <div className="dropdown-menu show w-100 p-0" style={{ maxHeight: 200, overflowY: "auto", zIndex: 200 }}>
-            {filtered.map((s: { id?: string; name: string; price: number }) => (
-              <button key={s.name} className="dropdown-item d-flex justify-content-between py-1" style={{ fontSize: 12 }} onMouseDown={() => selectService(s)}>
-                <span className="fw-semibold">{s.name}</span>
-                <span className="text-muted small">₹{s.price}</span>
-              </button>
+    <div className="svc-row">
+
+      {/* ── SERVICE ── */}
+      <div className="svc-field" ref={dropRef}>
+        <span className="svc-field__label">Service</span>
+        <div className="svc-field__input-wrap">
+          <input
+            className={`svc-field__input${errorFields.service ? " svc-field__input--error" : ""}`}
+            placeholder="Search service…"
+            value={serviceSearch}
+            disabled={disabled}
+            onChange={(e) => {
+              setServiceSearch(e.target.value);
+              onChange(row.tempId, "service", e.target.value);
+              setShowDrop(true);
+              if (e.target.value.trim()) onClearError?.(row.tempId, "service");
+            }}
+            onFocus={() => setShowDrop(true)}
+          />
+          {showDrop && filtered.length > 0 && (
+            <div className="svc-dropdown">
+              {filtered.map((s: { id?: string; name: string; price: number }) => (
+                <button
+                  key={s.name}
+                  className="svc-dropdown__item"
+                  onMouseDown={() => selectService(s)}
+                >
+                  <span className="svc-dropdown__name">{s.name}</span>
+                  <span className="svc-dropdown__price">₹{s.price}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        {errorFields.service && <span className="svc-field__err">Select a service</span>}
+      </div>
+
+      {/* ── STAFF ── */}
+      <div className="svc-field">
+        <span className="svc-field__label">Staff</span>
+        <div className={`svc-staff-pill${errorFields.staff ? " svc-staff-pill--error" : ""}`}>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => !disabled && onChange(row.tempId, "staffId", "")}
+            className="svc-staff-pill__clear"
+          >×</button>
+          <select
+            disabled={disabled}
+            value={row.staffId}
+            onChange={(e) => handleStaffChange(e.target.value)}
+            className="svc-staff-pill__select"
+            style={{ color: row.staffId ? "#fff" : "#9ca3af" }}
+          >
+            <option value="" disabled style={{ color: "#000", background: "#fff" }}>Select Staff</option>
+            {(staffList || []).map((s: { id: string; name: string }) => (
+              <option key={s.id} value={s.id} style={{ color: "#000", background: "#fff" }}>
+                {fmtName(s.name)}
+              </option>
             ))}
-          </div>
+          </select>
+        </div>
+        {errorFields.staff && <span className="svc-field__err">Select staff</span>}
+      </div>
+
+      {/* ── TIME ── */}
+      <div className="svc-field">
+        <span className="svc-field__label">Time</span>
+        <TimeSelect
+          disabled={disabled}
+          value={row.time}
+          onChange={(val) => onChange(row.tempId, "time", val)}
+          interval={interval || "30 Mins"}
+          className="svc-field__input svc-field__select"
+        />
+      </div>
+
+      {/* ── PRICE ── */}
+      <div className="svc-field">
+        <span className="svc-field__label">Price</span>
+        <input
+          type="text"
+          disabled={disabled}
+          inputMode="numeric"
+          placeholder="0"
+          value={row.price || ""}
+          className={`svc-field__input${errorFields.price ? " svc-field__input--error" : ""}`}
+          onChange={(e) => handlePriceChange(e.target.value.replace(/[^0-9.]/g, ""))}
+        />
+        {errorFields.price && <span className="svc-field__err">Enter price</span>}
+      </div>
+
+      {/* ── QTY ── */}
+      <div className="svc-field">
+        <span className="svc-field__label">Qty</span>
+        <input
+          type="text"
+          disabled={disabled}
+          inputMode="numeric"
+          placeholder="1"
+          value={qtyInput}
+          className={`svc-field__input${errorFields.qty ? " svc-field__input--error" : ""}`}
+          onChange={(e) => handleQtyChange(e.target.value.replace(/[^0-9.]/g, ""))}
+          onBlur={handleQtyBlur}
+        />
+        {errorFields.qty && <span className="svc-field__err">Enter qty</span>}
+      </div>
+
+      {/* ── DISCOUNT ── */}
+      <div className="svc-field">
+        <span className="svc-field__label">Disc (₹)</span>
+        <input
+          type="text"
+          disabled={disabled}
+          inputMode="numeric"
+          placeholder="0"
+          value={discountInput}
+          className="svc-field__input"
+          onChange={(e) => handleDiscountChange(e.target.value.replace(/[^0-9.]/g, ""))}
+          onBlur={handleDiscountBlur}
+        />
+      </div>
+
+      {/* ── TOTAL ── */}
+      <div className="svc-field">
+        <span className="svc-field__label">Total</span>
+        <input
+          readOnly
+          value={row.total ? (row.total as number).toFixed(2) : "0.00"}
+          className="svc-field__input svc-field__input--readonly"
+        />
+      </div>
+
+      {/* ── DELETE ── */}
+      <div className="svc-field svc-field--del">
+        <span className="svc-field__label">&nbsp;</span>
+        {!disabled && (
+          <button className="svc-del-btn" onClick={() => onRemove(row.tempId)} title="Remove">
+            <Trash size={14} />
+          </button>
         )}
       </div>
 
-      {/* Staff */}
-      <div className="col" style={{ minWidth: 130 }}>
-        <div className={`d-flex align-items-center gap-1 rounded-pill px-2 py-1${errorFields.staff ? " border border-danger" : ""}`} style={{ background: "#1f2937" }}>
-          <span className="text-secondary" style={{ cursor: disabled ? "default" : "pointer", fontSize: 12, opacity: disabled ? 0.5 : 1 }} onClick={() => !disabled && onChange(row.tempId, "staffId", "")}>×</span>
-          <select disabled={disabled} value={row.staffId} onChange={(e) => handleStaffChange(e.target.value)} className="border-0 bg-transparent w-100" style={{ outline: "none", color: row.staffId ? "#fff" : "#9ca3af", fontSize: 12, fontWeight: 600, cursor: disabled ? "default" : "pointer", fontFamily: "inherit" }}>
-            <option value="" disabled style={{ color: "#000", background: "#fff" }}>Select Staff</option>
-            {(staffList || []).map((s: { id: string; name: string }) => <option key={s.id} value={s.id} style={{ color: "#000", background: "#fff" }}>{s.name}</option>)}
-          </select>
-        </div>
-        {errorFields.staff && <div className="text-danger" style={{ fontSize: 10 }}>{ERR_MSG.staff}</div>}
-      </div>
-
-      {/* Time */}
-      <div className="col" style={{ minWidth: 90 }}>
-        <TimeSelect disabled={disabled} value={row.time} onChange={(val) => onChange(row.tempId, "time", val)} interval={interval || "30 Mins"} className="form-select form-select-sm" />
-      </div>
-
-      {/* Price */}
-      <div className="col" style={{ minWidth: 70 }}>
-        <input type="text" disabled={disabled} inputMode="numeric" placeholder="0" value={row.price || ""} className={`form-control form-control-sm${errorFields.price ? " is-invalid" : ""}`} onChange={(e) => handlePriceChange(e.target.value.replace(/[^0-9.]/g, ""))} />
-        {errorFields.price && <div className="invalid-feedback d-block" style={{ fontSize: 10 }}>{ERR_MSG.price}</div>}
-      </div>
-
-      {/* Qty */}
-      <div className="col" style={{ minWidth: 60 }}>
-        <input type="text" disabled={disabled} inputMode="numeric" placeholder="1" value={qtyInput} className={`form-control form-control-sm${errorFields.qty ? " is-invalid" : ""}`} onChange={(e) => handleQtyChange(e.target.value.replace(/[^0-9.]/g, ""))} onBlur={handleQtyBlur} />
-        {errorFields.qty && <div className="invalid-feedback d-block" style={{ fontSize: 10 }}>{ERR_MSG.qty}</div>}
-      </div>
-
-      {/* Total */}
-      <div className="col" style={{ minWidth: 70 }}>
-        <input readOnly value={row.total ? (row.total as number).toFixed(2) : "0.00"} className="form-control form-control-sm bg-light fw-semibold text-secondary" />
-      </div>
-
-      {/* Delete */}
-      <div className="col-auto d-flex align-items-start pt-1">
-        {!disabled && <button className="btn btn-sm btn-link text-danger p-0" style={{ fontSize: 16 }} onClick={() => onRemove(row.tempId)}>🗑</button>}
-      </div>
     </div>
   );
 };

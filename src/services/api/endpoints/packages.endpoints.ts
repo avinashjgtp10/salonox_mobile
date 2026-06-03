@@ -1,6 +1,8 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { API_V1_BASE_URL } from "../baseUrl";
 
+export type PackageStatus = "Active" | "Draft" | "Inactive";
+
 export interface PackageOffer {
   id?: string;
   name?: string;
@@ -27,9 +29,9 @@ export interface Package {
   basePrice: number;
   discountValue?: number;
   discountType?: "percentage" | "fixed";
-  durationMinutes: number; // in minutes
+  durationMinutes: number;
   category: string;
-  status: "Active" | "Draft" | "Inactive";
+  status: PackageStatus;
   colour: string;
   serviceIds?: string[];
   offers?: PackageOffer[];
@@ -46,7 +48,7 @@ export interface CreatePackageDTO {
   discountType?: "percentage" | "fixed";
   durationMinutes: number;
   category: string;
-  status: "Active" | "Draft" | "Inactive";
+  status: PackageStatus;
   colour: string;
   serviceIds?: string[];
   offers?: PackageOffer[];
@@ -56,7 +58,7 @@ export interface UpdatePackageDTO extends Partial<CreatePackageDTO> {}
 
 export interface PackagesListQuery {
   category?: string;
-  status?: string;
+  status?: PackageStatus;
   search?: string;
   page?: number;
   limit?: number;
@@ -138,3 +140,144 @@ export const {
   useUpdatePackageMutation,
   useDeletePackageMutation,
 } = packagesApi;
+
+// ─── Client Package (sold / assigned to a client) ────────────────────────────
+
+export interface ClientPackageService {
+  serviceId: string;
+  serviceName: string;
+  totalSessions: number;
+  completedSessions: number;
+  remainingSessions: number;
+  price: number;
+  sessionHistory: Array<{
+    sessionNo: number;
+    date: string;
+    staff: string;
+    status: string;
+  }>;
+}
+
+export interface ClientPackage {
+  id: string;
+  clientId: string;
+  clientName: string;
+  mobile?: string;
+  email?: string;
+  packageName: string;
+  category: string;
+  branch: string;
+  createdDate: string;
+  expiryDate: string;
+  status: string;
+  basePrice: number;
+  gstPercentage: number;
+  gstAmount: number;
+  discount: number;
+  totalAmount: number;
+  services: ClientPackageService[];
+  paymentMethod: string;
+  paidAmount: number;
+  pendingAmount: number;
+  paymentStatus: string;
+}
+
+export interface CreateClientPackageDTO {
+  clientId: string;
+  packageName: string;
+  category: string;
+  branch: string;
+  expiryDate: string;
+  basePrice: number;
+  gstPercentage: number;
+  discount: number;
+  paymentMethod: string;
+  services: Array<{
+    serviceName: string;
+    totalSessions: number;
+    price: number;
+  }>;
+}
+
+export interface ClientPackagesListQuery {
+  clientId?: string;
+  status?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface ClientPackagesListResponse {
+  items: ClientPackage[];
+  total: number;
+}
+
+export interface CompleteSessionDTO {
+  serviceId: string;
+  staffName: string;
+}
+
+export const clientPackagesApi = createApi({
+  reducerPath: "clientPackagesApi",
+  baseQuery: fetchBaseQuery({
+    baseUrl: API_V1_BASE_URL,
+    prepareHeaders: (headers, { getState }) => {
+      const state = getState() as any;
+      const token = state?.auth?.accessToken;
+      if (token) headers.set("Authorization", `Bearer ${token}`);
+      return headers;
+    },
+  }),
+  tagTypes: ["ClientPackage"],
+
+  endpoints: (builder) => ({
+
+    listClientPackages: builder.query<ClientPackagesListResponse, ClientPackagesListQuery>({
+      query: (params = {}) => ({ url: "/client-packages", params }),
+      transformResponse: (res: ApiResponse<ClientPackagesListResponse>) => res.data,
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.items.map(({ id }) => ({ type: "ClientPackage" as const, id })),
+              { type: "ClientPackage", id: "LIST" },
+            ]
+          : [{ type: "ClientPackage", id: "LIST" }],
+    }),
+
+    getClientPackageById: builder.query<ClientPackage, string>({
+      query: (id) => `/client-packages/${id}`,
+      transformResponse: (res: ApiResponse<ClientPackage>) => res.data,
+      providesTags: (_result, _error, id) => [{ type: "ClientPackage", id }],
+    }),
+
+    createClientPackage: builder.mutation<ClientPackage, CreateClientPackageDTO>({
+      query: (body) => ({ url: "/client-packages", method: "POST", body }),
+      transformResponse: (res: ApiResponse<ClientPackage>) => res.data,
+      invalidatesTags: [{ type: "ClientPackage", id: "LIST" }],
+    }),
+
+    completeClientPackageSession: builder.mutation<
+      ClientPackage,
+      { id: string; body: CompleteSessionDTO }
+    >({
+      query: ({ id, body }) => ({
+        url: `/client-packages/${id}/sessions/complete`,
+        method: "POST",
+        body,
+      }),
+      transformResponse: (res: ApiResponse<ClientPackage>) => res.data,
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: "ClientPackage", id },
+        { type: "ClientPackage", id: "LIST" },
+      ],
+    }),
+
+  }),
+});
+
+export const {
+  useListClientPackagesQuery,
+  useGetClientPackageByIdQuery,
+  useCreateClientPackageMutation,
+  useCompleteClientPackageSessionMutation,
+} = clientPackagesApi;

@@ -2,6 +2,8 @@ import { useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/ImportClientsPage.scss";
+import api from "../../../services/api/axios";
+import { CLIENT } from "../../../services/api/endpoints";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Step = 1 | 2 | 3 | 4;
@@ -331,48 +333,46 @@ function StepPreview({
 }
 
 // ─── Step 4 – Result ──────────────────────────────────────────────────────────
-function StepResult({ success }: { success: boolean }) {
+interface ImportResult { imported: number; updated: number; skipped: number; total_rows: number; errors: string[]; }
+
+function StepResult({ success, result }: { success: boolean; result: ImportResult | null }) {
   return (
     <div className="col-md-5 mx-auto text-center pt-5">
       <div className="result-icon mx-auto mb-4">
         {success ? (
           <svg viewBox="0 0 60 60" width="56">
-            <circle
-              cx="30"
-              cy="30"
-              r="29"
-              fill="#dcfce7"
-              stroke="#86efac"
-              strokeWidth="2"
-            />
-            <path
-              d="M18 30l9 9 15-18"
-              stroke="#16a34a"
-              strokeWidth="3"
-              strokeLinecap="round"
-              fill="none"
-            />
+            <circle cx="30" cy="30" r="29" fill="#dcfce7" stroke="#86efac" strokeWidth="2" />
+            <path d="M18 30l9 9 15-18" stroke="#16a34a" strokeWidth="3" strokeLinecap="round" fill="none" />
           </svg>
         ) : (
           <svg viewBox="0 0 60 60" width="56">
             <circle cx="30" cy="30" r="29" fill="#f1f5f9" />
-            <path
-              d="M20 20L40 40M40 20L20 40"
-              stroke="#94a3b8"
-              strokeWidth="3.5"
-              strokeLinecap="round"
-            />
+            <path d="M20 20L40 40M40 20L20 40" stroke="#94a3b8" strokeWidth="3.5" strokeLinecap="round" />
           </svg>
         )}
       </div>
-      <h2 className="step-title">
-        {success ? "Import successful!" : "Import failed!"}
-      </h2>
+      <h2 className="step-title">{success ? "Import successful!" : "Import failed!"}</h2>
       <p className={`step-desc ${success ? "text-success" : "text-muted"}`}>
-        {success
-          ? "Your clients have been added to your client list."
-          : "No clients have been added to your client list."}
+        {success ? "Your clients have been added to your client list." : "No clients have been added to your client list."}
       </p>
+
+      {result && (
+        <div className="import-result-stats">
+          <div className="irs-stat"><span className="irs-val">{result.total_rows}</span><span className="irs-lbl">Total rows</span></div>
+          <div className="irs-stat irs-stat--green"><span className="irs-val">{result.imported}</span><span className="irs-lbl">Imported</span></div>
+          <div className="irs-stat irs-stat--blue"><span className="irs-val">{result.updated}</span><span className="irs-lbl">Updated</span></div>
+          <div className="irs-stat irs-stat--amber"><span className="irs-val">{result.skipped}</span><span className="irs-lbl">Skipped</span></div>
+        </div>
+      )}
+
+      {result && result.errors.length > 0 && (
+        <div className="import-errors-wrap mt-3 text-start">
+          <p className="import-errors-title">Errors ({result.errors.length})</p>
+          <ul className="import-errors-list">
+            {result.errors.map((e, i) => <li key={i}>{e}</li>)}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -387,8 +387,10 @@ export default function ImportClientsPage() {
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [matchErrors, setMatchErrors] = useState<Record<string, string>>({});
-  const [previewRows] = useState<Record<string, string>[]>([]);
-  const [importSuccess] = useState(false);
+  const [previewRows, setPreviewRows] = useState<Record<string, string>[]>([]);
+  const [importing, setImporting] = useState(false);
+  const [importSuccess, setImportSuccess] = useState(false);
+  const [importResult, setImportResult] = useState<{ imported: number; updated: number; skipped: number; total_rows: number; errors: string[] } | null>(null);
 
   const TOTAL = 4;
   const progressPct = ((step - 1) / (TOTAL - 1)) * 100;
@@ -400,7 +402,8 @@ export default function ImportClientsPage() {
       const reader = new FileReader();
       reader.onload = (e) => {
         const text = e.target?.result as string;
-        const headers = (text.split("\n")[0] ?? "")
+        const lines = text.split("\n").filter((l) => l.trim());
+        const headers = (lines[0] ?? "")
           .split(",")
           .map((h) => h.trim().replace(/^"|"$/g, ""));
         setCsvHeaders(headers);
@@ -414,6 +417,16 @@ export default function ImportClientsPage() {
           auto[col.key] = match ?? "None";
         });
         setMapping(auto);
+        const dataRows = lines.slice(1, 6);
+        setPreviewRows(dataRows.map((line) => {
+          const vals = line.split(",").map((v) => v.trim().replace(/^"|"$/g, ""));
+          const row: Record<string, string> = {};
+          SALONOX_COLUMNS.forEach((col) => {
+            const idx = headers.indexOf(auto[col.key] ?? "");
+            row[col.key] = idx >= 0 ? vals[idx] ?? "" : "";
+          });
+          return row;
+        }));
       };
       reader.readAsText(f);
     }
@@ -428,7 +441,7 @@ export default function ImportClientsPage() {
     });
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (step === 1 && !file) {
       setUploadError("Please upload CSV file first");
       return;
@@ -444,6 +457,26 @@ export default function ImportClientsPage() {
         return;
       }
       setMatchErrors({});
+    }
+    if (step === 3) {
+      if (!file) return;
+      setImporting(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await api.post(CLIENT.IMPORT, formData, {
+          headers: { "Content-Type": undefined },
+          timeout: 60_000,
+        });
+        const data = res.data?.data ?? res.data;
+        setImportResult(data);
+        setImportSuccess((data?.imported ?? 0) > 0 || (data?.updated ?? 0) > 0);
+      } catch (err: any) {
+        setImportResult({ imported: 0, updated: 0, skipped: 0, total_rows: 0, errors: [err?.message || "Import failed"] });
+        setImportSuccess(false);
+      } finally {
+        setImporting(false);
+      }
     }
     setStep((p) => Math.min(p + 1, TOTAL) as Step);
   };
@@ -478,8 +511,9 @@ export default function ImportClientsPage() {
             <button
               className="btn btn-dark btn-sm rounded-pill"
               onClick={handleNext}
+              disabled={importing}
             >
-              {step === 3 ? "Start Import" : "Next step"}
+              {importing ? "Importing…" : step === 3 ? "Start Import" : "Next step"}
             </button>
           )}
           {step === 4 && (
@@ -513,7 +547,7 @@ export default function ImportClientsPage() {
             />
           )}
           {step === 3 && <StepPreview previewRows={previewRows} />}
-          {step === 4 && <StepResult success={importSuccess} />}
+          {step === 4 && <StepResult success={importSuccess} result={importResult} />}
         </div>
       </div>
 

@@ -22,11 +22,16 @@
   &--resizing {
     cursor: ns-resize;
   }
+
+  &--updating {
+    pointer-events: none;
+    opacity: 0.8;
+  }
 }
 
 /* ── Time gutter ── */
 .dv-gutter {
-  width: 70px;
+  width: 80px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -63,16 +68,25 @@
   &__label {
     position: absolute;
     top: -8px;
-    right: 6px;
-    font-size: 10px;
+    right: 8px;
+    left: 4px;
+    font-size: 11px;
     color: #c4c4c4;
     font-weight: 400;
     white-space: nowrap;
+    text-align: right;
 
     &--hour {
       color: $dashboard-secondary;
       font-weight: 600;
     }
+  }
+
+  /* The first slot sits at y=0 in __body (overflow:hidden).
+     "top:-8px" would push the label above the clipping boundary —
+     pin it inside the slot so 12:00 AM is always fully visible. */
+  &__slot:first-child &__label {
+    top: 3px;
   }
 }
 
@@ -194,12 +208,12 @@
 /* ── Slot cell — height MUST equal SLOT_HEIGHT = 48 ── */
 .dv-slot {
   height: 48px;
-  border-bottom: 1px solid #f0f0f0;
+  /* Grid lines are now handled by .calendar-grid-line */
   cursor: pointer;
 
   &--hour {
-    border-bottom-color: #d1d5db;
-    background: #fafafa;
+    /* Available slots remain clean white */
+    background: transparent;
   }
 
   &--blocked {
@@ -211,8 +225,64 @@
     background: rgba(99, 102, 241, 0.06);
   }
 
+  &--off-hours {
+    cursor: not-allowed;
+    background: #f3f4f6;
+  }
+
   &--hover {
     background: #f0f9ff;
+  }
+}
+
+/* ── Off-hours (shift) overlay ──
+   Sits behind block overlays (z-index 2) and chips (z-index 5).
+   pointer-events: none — slot cells handle cursor/click blocking. */
+.dv-off-hours-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  pointer-events: none;
+  
+  /* Professional Striped Design */
+  background-color: #edf1f5;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(203, 213, 225, 0.45) 0px,
+    rgba(203, 213, 225, 0.45) 6px,
+    rgba(241, 245, 249, 0.45) 6px,
+    rgba(241, 245, 249, 0.45) 12px
+  );
+  border-left: 2px solid #cbd5e1;
+  filter: grayscale(10%);
+
+  &--dayoff {
+    border-left: none;
+  }
+
+  &__label {
+    position: sticky;
+    top: 8px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: #9ca3af;
+    letter-spacing: 0.3px;
+    padding: 4px 8px;
+    user-select: none;
+  }
+}
+
+.calendar-grid-line {
+  height: 48px; /* match SLOT_HEIGHT */
+  border-bottom: 1px solid #f0f0f0;
+  z-index: 2;
+  opacity: 0.7;
+  pointer-events: none;
+
+  &--hour {
+    border-bottom: 1px solid #d1d5db;
   }
 }
 
@@ -221,15 +291,27 @@
   position: absolute;
   left: 0;
   right: 0;
-  background: repeating-linear-gradient(45deg, #fef2f2, #fef2f2 6px, #fee2e2 6px, #fee2e2 12px);
-  border-left: 3px solid $danger;
-  z-index: 3;
   padding: 4px 8px;
-  pointer-events: all;
-  cursor: default;
+  
+  /* User CSS for professional blocked slot */
+  background-color: #edf1f5;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(203, 213, 225, 0.45) 0px,
+    rgba(203, 213, 225, 0.45) 6px,
+    rgba(241, 245, 249, 0.45) 6px,
+    rgba(241, 245, 249, 0.45) 12px
+  );
+  border-top: 1px solid #d7dde5;
+  border-bottom: 1px solid #d7dde5;
+  border-left: 3px solid #64748b;
+  z-index: 1;
+  pointer-events: none; /* Make unclickable per requirements */
+  filter: grayscale(10%);
 
+  /* Disable hover actions since pointer-events: none */
   &:hover .dv-block-overlay__actions {
-    opacity: 1;
+    opacity: 0; 
   }
 
   &__content {
@@ -323,6 +405,13 @@
     transition: none;
   }
 
+  &--disabled {
+    opacity: 0.6;
+    cursor: not-allowed !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    filter: grayscale(30%);
+  }
+
   &__body {
     padding: 4px 8px;
   }
@@ -334,12 +423,16 @@
   }
 
   &__service {
-    display: block;
-    font-weight: 700;
-    margin-top: 1px;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
+    word-break: break-word;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.3;
+    margin-top: 1px;
   }
 
   &__client {
@@ -388,7 +481,7 @@
 
 /* ── Now line ──
    Renders inside each staff column.
-   The label has left: -74px which bleeds into the gutter.
+   The label has left: -84px which bleeds into the gutter (80px wide + 4px).
    overflow: visible on .dv-staff-col allows this.
    The label only renders in the first column (controlled in TSX). */
 .dv-now-line {
@@ -402,7 +495,7 @@
 
   &__label {
     position: absolute;
-    left: -74px;
+    left: -84px;
     top: -10px;
     background: $danger;
     color: $white;

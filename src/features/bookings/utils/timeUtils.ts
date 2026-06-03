@@ -77,7 +77,7 @@ export function getWeekDays(dateStr: string): string[] {
 }
 
 export function getMonthDays(dateStr: string): (string | null)[] {
-  const d = new Date(dateStr);
+  const d = new Date(dateStr + "T12:00:00");
   const year = d.getFullYear();
   const month = d.getMonth();
   const firstDay = new Date(year, month, 1).getDay();

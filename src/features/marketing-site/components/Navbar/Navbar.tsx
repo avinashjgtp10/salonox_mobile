@@ -5,7 +5,9 @@ import MegaMenuFeatures from './MegaMenuFeatures'
 import MegaMenuSupport from './MegaMenuSupport'
 import ThemeToggle from '../ThemeToggle'
 import { useAppSelector } from '../../../../hooks/useAppRedux'
-import logo from '../../../../assets/logo.png'
+import { businessTypes } from '../../config/businessTypes.config'
+import { features } from '../../config/features.config'
+import logo from '../../../../assets/salonox_logo_black.svg'
 import '../../styles/navbar.scss'
 
 type ActiveMenu = 'business' | 'features' | 'support' | null
@@ -64,7 +66,7 @@ export default function Navbar() {
     <nav ref={navRef} className={`sx-navbar${scrolled ? ' sx-navbar--scrolled' : ''}`}>
       {/* Fix #2: proper bundler import, not /src/assets/ path */}
       <div className="sx-brand" onClick={() => handleNavigate('/')}>
-        <img src={logo} alt="SalonOx" className="sx-brand-logo" />
+        <img src={logo} alt="SalonOx salon management software" className="sx-brand-logo" width="132" height="32" />
       </div>
 
       <ul className="sx-nav-links">
@@ -119,10 +121,10 @@ export default function Navbar() {
 
             {link.menu === 'business' && mobileExpanded === link.label && (
               <div className="sx-mobile-sub">
-                {['Salon','Barber','Brow & Lash','Nail','Hair Removal','Makeup','Tanning','Tattoo','Spa','Aesthetic Clinic','Med Spa','Massage','Chiropractor','Nutritionist','Coaching','Physical Therapy','Yoga','Gym','Personal Trainer','Martial Arts','Pilates','Cross Training','Cycling','Dance Studio'].map(name => (
-                  <button key={name} className="sx-mobile-sub-link"
-                    onClick={() => handleNavigate(`/business/${name.toLowerCase().replace(/ & /g,'-').replace(/ /g,'-')}`)}>
-                    {name}
+                {businessTypes.map(item => (
+                  <button key={item.slug} className="sx-mobile-sub-link"
+                    onClick={() => handleNavigate(`/business/${item.slug}`)}>
+                    {item.name}
                   </button>
                 ))}
               </div>
@@ -130,10 +132,10 @@ export default function Navbar() {
 
             {link.menu === 'features' && mobileExpanded === link.label && (
               <div className="sx-mobile-sub">
-                {['Scheduler','Staff & Shifts','Payroll','Roles & Permissions','Reports & Analytics','Online Booking','Reserve with Google','Loyalty Program','Inventory','Multi-location','Billing & Invoices','UPI / Card / Cash','eWallet','GST Billing','Client Management','Loyalty Tiers','WhatsApp Reminders','Online Booking Page','WhatsApp Marketing','SalonBot (AI)'].map(name => (
-                  <button key={name} className="sx-mobile-sub-link"
-                    onClick={() => handleNavigate(`/features/${name.toLowerCase().replace(/ & /g,'-').replace(/\//g,'-').replace(/ \(/g,'-').replace(/\)/g,'').replace(/ /g,'-')}`)}>
-                    {name}
+                {features.map(item => (
+                  <button key={item.slug} className="sx-mobile-sub-link"
+                    onClick={() => handleNavigate(`/features/${item.slug}`)}>
+                    {item.name}
                   </button>
                 ))}
               </div>

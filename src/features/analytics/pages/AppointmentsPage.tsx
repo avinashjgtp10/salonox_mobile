@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import {
   Calendar3,
@@ -9,6 +9,14 @@ import {
   FiletypePdf,
   FiletypeCsv,
   FiletypeXlsx,
+  X,
+  ChevronLeft,
+  PencilFill,
+  XCircleFill,
+  PersonFill,
+  ClockFill,
+  CurrencyRupee,
+  CheckCircleFill,
 } from "react-bootstrap-icons";
 
 import {
@@ -16,54 +24,122 @@ import {
   Input,
   Modal,
   Table,
-  Badge,
   Card,
   Loader,
   Pagination,
 } from "../../../components/ui";
 import { DateRange } from "react-date-range";
-import { subDays, format, isWithinInterval, parseISO } from "date-fns";
+import { subDays, format, parseISO, differenceInMinutes } from "date-fns";
 import "react-date-range/dist/styles.css";
 import "react-date-range/dist/theme/default.css";
 import "../styles/AppointmentsPage.scss";
 
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import type { AppDispatch, RootState } from "../../../store/store";
-import { fetchBookingsThunk, exportBookingsThunk } from "../../../middleware/booking/booking.thunk";
+import {
+  fetchBookingsThunk,
+  exportBookingsThunk,
+  cancelBookingThunk,
+  fetchBookingByIdThunk,
+} from "../../../middleware/booking/booking.thunk";
+import { clearSelectedBooking } from "../../../store/bookingSlice";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
+import { fetchClientsThunk } from "../../../middleware/client/client.thunk";
+import { selectAllClients } from "../../../store/selectors/slices.selectors";
 import type { Booking } from "../../../types/booking.types";
+
+// ── Status helpers ─────────────────────────────────────────────────────────────
+const STATUS_COLOR: Record<string, string> = {
+  booked: "#3b82f6",
+  confirmed: "#10b981",
+  in_progress: "#f59e0b",
+  completed: "#6366f1",
+  cancelled: "#ef4444",
+  no_show: "#6b7280",
+  pending: "#f59e0b",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  booked: "Booked",
+  confirmed: "Confirmed",
+  in_progress: "In Progress",
+  completed: "Completed",
+  cancelled: "Cancelled",
+  no_show: "No Show",
+  pending: "Pending",
+};
+
+const PAYMENT_LABEL: Record<string, string> = {
+  paid: "Paid",
+  unpaid: "Unpaid",
+  partial: "Partial",
+  refunded: "Refunded",
+};
+
+const PAYMENT_COLOR: Record<string, string> = {
+  paid: "#10b981",
+  unpaid: "#ef4444",
+  partial: "#f59e0b",
+  refunded: "#6366f1",
+};
+
+const fmtMoney = (v: string | number) =>
+  "₹" + parseFloat(String(v || "0")).toFixed(2);
+
+function fmtDuration(mins: number) {
+  if (!mins || mins <= 0) return "—";
+  return mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}min` : `${mins}min`;
+}
 
 export default function AppointmentsPage() {
   const dispatch = useDispatch<AppDispatch>();
+  const navigate = useNavigate();
 
-  // ── Redux: real data from backend ─────────────────────────────
+  // ── Redux: real data from backend ──────────────────────────────────────────
   const allBookings = useSelector((state: RootState) => (state.booking as any).items as Booking[]);
+  const serverPagination = useSelector((state: RootState) => (state.booking as any).pagination as any);
+  const selectedBooking = useSelector((state: RootState) => (state.booking as any).selectedItem as any);
+  const isLoadingDetail = useSelector((state: RootState) => (state.booking as any).loading?.fetchById as boolean ?? false);
   const staffList = useSelector((state: RootState) => (state.staff as any).items as any[]);
+  const clientList = useSelector(selectAllClients);
   const isLoading = useSelector((state: RootState) => (state.booking as any).loading?.fetchAll as boolean ?? false);
-  const isExporting = useSelector((state: RootState) => (state.booking as any).loading?.export as boolean ?? false);
 
-  // Fetch on mount
-  useEffect(() => {
-    dispatch(fetchBookingsThunk());
-    dispatch(fetchStaffThunk());
-  }, [dispatch]);
+
+  const [exportingFormat, setExportingFormat] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [showPicker, setShowPicker] = useState(false);
   const [showPresets, setShowPresets] = useState(false);
-  const [selectedLabel, setSelectedLabel] = useState("Month to date");
+  const [selectedLabel, setSelectedLabel] = useState("All time");
   const [showExport, setShowExport] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleOutside(e: MouseEvent) {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
+        setShowExport(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, []);
+
+  // Drawer state
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerApptId, setDrawerApptId] = useState<string | null>(null);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
   // Filters Modal State
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [tempFilters, setTempFilters] = useState({
     staffId: "all",
-    channel: "all",
     status: "all",
   });
   const [appliedFilters, setAppliedFilters] = useState({
     staffId: "all",
-    channel: "all",
     status: "all",
   });
 
@@ -79,210 +155,265 @@ export default function AppointmentsPage() {
 
   const [range, setRange] = useState([
     {
-      startDate: new Date(today.getFullYear(), today.getMonth(), 1),
-      endDate: today,
+      startDate: new Date("2000-01-01"),
+      endDate: new Date("2099-12-31"),
       key: "selection",
     },
   ]);
+  const [allTime, setAllTime] = useState(true);
 
-  // Reset page when filters change
+  // ── Core fetch function ────────────────────────────────────────────────────
+  const fetchPage = useCallback((
+    page: number,
+    size: number,
+    filters: { staffId: string; status: string },
+    isAllTime: boolean,
+    dateRange: typeof range,
+  ) => {
+    dispatch(fetchBookingsThunk({
+      page,
+      limit: size,
+      staffId: filters.staffId !== "all" ? filters.staffId : undefined,
+      status: filters.status !== "all" ? filters.status : undefined,
+      allTime: isAllTime,
+      startDate: !isAllTime ? format(dateRange[0].startDate, "yyyy-MM-dd") : undefined,
+      endDate: !isAllTime ? format(dateRange[0].endDate, "yyyy-MM-dd") : undefined,
+    }));
+  }, [dispatch]);
+
+  // Mount-only: initial data load + staff + clients
   useEffect(() => {
+    fetchPage(1, pageSize, appliedFilters, allTime, range);
+    dispatch(fetchStaffThunk());
+    dispatch(fetchClientsThunk());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-dismiss toast
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    fetchPage(page, pageSize, appliedFilters, allTime, range);
+  };
+
+  const handlePageSizeChange = (size: number) => {
     setCurrentPage(1);
-  }, [searchTerm, range, appliedFilters, pageSize, sortConfig]);
+    setPageSize(size);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    fetchPage(1, size, appliedFilters, allTime, range);
+  };
 
   const handlePreset = (label: string) => {
     setSelectedLabel(label);
     setShowPresets(false);
+    const isAll = label === "All time";
+    setAllTime(isAll);
 
+    let newRange = range;
     switch (label) {
       case "Today":
-        setRange([{ startDate: today, endDate: today, key: "selection" }]);
+        newRange = [{ startDate: today, endDate: today, key: "selection" }];
         break;
-      case "Yesterday":
+      case "Yesterday": {
         const yesterday = subDays(today, 1);
-        setRange([
-          { startDate: yesterday, endDate: yesterday, key: "selection" },
-        ]);
+        newRange = [{ startDate: yesterday, endDate: yesterday, key: "selection" }];
         break;
+      }
       case "Last 7 days":
-        setRange([
-          { startDate: subDays(today, 6), endDate: today, key: "selection" },
-        ]);
+        newRange = [{ startDate: subDays(today, 6), endDate: today, key: "selection" }];
         break;
       case "Last 30 days":
-        setRange([
-          { startDate: subDays(today, 29), endDate: today, key: "selection" },
-        ]);
+        newRange = [{ startDate: subDays(today, 29), endDate: today, key: "selection" }];
         break;
       case "Month to date":
-        setRange([
-          {
-            startDate: new Date(today.getFullYear(), today.getMonth(), 1),
-            endDate: today,
-            key: "selection",
-          },
-        ]);
+        newRange = [{
+          startDate: new Date(today.getFullYear(), today.getMonth(), 1),
+          endDate: today,
+          key: "selection",
+        }];
+        break;
+      case "All time":
+        newRange = [{ startDate: new Date("2000-01-01"), endDate: new Date("2099-12-31"), key: "selection" }];
         break;
     }
+    setRange(newRange);
+    setCurrentPage(1);
+    fetchPage(1, pageSize, appliedFilters, isAll, newRange);
+    // Close picker immediately for presets (no manual Apply needed)
+    setShowPicker(false);
   };
 
   const handleApplyRange = () => {
-    const formatted = `${format(range[0].startDate, "dd MMM")} – ${format(
-      range[0].endDate,
-      "dd MMM",
-    )}`;
+    const formatted = `${format(range[0].startDate, "dd MMM yyyy")} – ${format(range[0].endDate, "dd MMM yyyy")}`;
     setSelectedLabel(formatted);
+    setAllTime(false);
     setShowPicker(false);
+    setCurrentPage(1);
+    fetchPage(1, pageSize, appliedFilters, false, range);
   };
 
   const applyFilters = () => {
     setAppliedFilters(tempFilters);
     setShowFiltersModal(false);
-    dispatch(fetchBookingsThunk({
-      staffId: tempFilters.staffId,
-      status: tempFilters.status,
-    }));
+    setCurrentPage(1);
+    fetchPage(1, pageSize, tempFilters, allTime, range);
   };
 
   const clearFilters = () => {
-    const cleared = { staffId: "all", channel: "all", status: "all" };
+    const cleared = { staffId: "all", status: "all" };
     setTempFilters(cleared);
     setAppliedFilters(cleared);
     setShowFiltersModal(false);
-    dispatch(fetchBookingsThunk());
+    setCurrentPage(1);
+    fetchPage(1, pageSize, cleared, allTime, range);
   };
 
-  const handleExport = (type: string) => {
+  const handleExport = async (type: string) => {
     setShowExport(false);
     const fmt = type === "xlsx" ? "excel" : type === "pdf" ? "pdf" : "csv";
-    dispatch(
+    setExportingFormat(fmt);
+    await dispatch(
       exportBookingsThunk({
         format: fmt as "excel" | "csv" | "pdf",
         filters: {
           status: appliedFilters.status !== "all" ? appliedFilters.status : undefined,
-          start_date: format(range[0].startDate, "yyyy-MM-dd"),
-          end_date: format(range[0].endDate, "yyyy-MM-dd"),
+          start_date: !allTime ? format(range[0].startDate, "yyyy-MM-dd") : undefined,
+          end_date: !allTime ? format(range[0].endDate, "yyyy-MM-dd") : undefined,
         },
       })
     );
+    setExportingFormat(null);
   };
 
-  // Build a quick id → full name lookup for staff
-  const staffById = useMemo<Record<string, string>>(
+  // ── Drawer handlers ────────────────────────────────────────────────────────
+  const openDrawer = useCallback((id: string) => {
+    setDrawerApptId(id);
+    setDrawerOpen(true);
+    dispatch(fetchBookingByIdThunk(id));
+  }, [dispatch]);
+
+  const closeDrawer = useCallback(() => {
+    setDrawerOpen(false);
+    setDrawerApptId(null);
+    dispatch(clearSelectedBooking());
+  }, [dispatch]);
+
+  const handleEditAppointment = () => {
+    if (!drawerApptId) return;
+    closeDrawer();
+    navigate("/dashboard/calendar", { state: { openAppointmentId: drawerApptId } });
+  };
+
+  const handleCancelAppointment = async () => {
+    if (!drawerApptId) return;
+    setCancelLoading(true);
+    try {
+      await (dispatch(cancelBookingThunk(drawerApptId)) as any);
+      setCancelConfirmOpen(false);
+      closeDrawer();
+      fetchPage(currentPage, pageSize, appliedFilters, allTime, range);
+      setToast({ msg: "Appointment cancelled successfully", type: "success" });
+    } catch {
+      setToast({ msg: "Failed to cancel appointment", type: "error" });
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
+  // ── Lookups ────────────────────────────────────────────────────────────────
+  const staffById = useMemo<Record<string, any>>(
     () => Object.fromEntries(
-      staffList.map((s: any) => [s.id, `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim()])
+      (Array.isArray(staffList) ? staffList : []).map((s: any) => [s.id, s])
     ),
     [staffList],
   );
 
-  // Map backend Appointment records to table-friendly shape
-  const bookings = useMemo(() =>
-    allBookings.map((b: any) => ({
-      ...b,
-      id: b.id,
-      clientName: b.client?.first_name 
-        ? `${b.client.first_name} ${b.client.last_name || ""}`.trim() 
-        : b.client_id ?? "Walk-in",
-      services: b.services?.length ? b.services : [{ 
-        staffId: b.staff_id ?? "", 
-        service: b.service?.name || b.title || "Service" 
-      }],
-      status: b.status || "pending",
-      date: (b.scheduled_at || b.date)?.split("T")[0] ?? "",
-      startTime: (b.scheduled_at || b.start_time)?.split("T")?.[1]?.slice(0, 5) ?? "00:00",
-      endTime: (b.ends_at || b.end_time)?.split("T")?.[1]?.slice(0, 5) ?? "00:00",
-      billDate: b.created_at || b.createdDate || "",
-      createdById: b.created_by ?? "",
-      grandTotal: b.total_amount || b.price || 0,
-    })),
-    [allBookings]
+  const clientById = useMemo<Record<string, any>>(
+    () => Object.fromEntries(
+      (Array.isArray(clientList) ? clientList : []).map((c: any) => [c.id, c])
+    ),
+    [clientList],
   );
 
-  // Sorting/Filtering Logic
+  // Map backend Appointment records to table-friendly shape
+  const bookings = useMemo(() =>
+    (Array.isArray(allBookings) ? allBookings : []).map((b: any) => ({
+      ...b,
+      id: b.id,
+      clientName: b.client_name
+        || (b.client_id ? (clientById[b.client_id]?.fullName || clientById[b.client_id]?.full_name || `${clientById[b.client_id]?.first_name ?? ""} ${clientById[b.client_id]?.last_name ?? ""}`.trim()) : null)
+        || (b.client?.first_name ? `${b.client.first_name} ${b.client.last_name || ""}`.trim() : null)
+        || (!b.client_id ? "Walk-in" : ""),
+      services: b.services?.length
+        ? b.services.map((s: any) => ({
+            ...s,
+            service: s.service || s.name || b.title || "Service",
+          }))
+        : [{ staffId: b.staff_id ?? b.staffId ?? "", service: b.title || "Service" }],
+      status: b.status || "pending",
+      date: b.date || "",
+      startTime: b.startTime || "00:00",
+      endTime: b.endTime || "00:00",
+      billDate: b.created_at || b.createdDate || "",
+      createdById: b.created_by ?? "",
+      grandTotal: b.grandTotal || b.total_amount || b.price || 0,
+    })),
+    [allBookings, clientById]
+  );
+
+  // Client-side search filter
   const filteredAppointments = useMemo(() => {
-    let result = bookings.filter((booking) => {
-      // Search filter
-      const matchesSearch =
-        String(booking.id).toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.clientName.toLowerCase().includes(searchTerm.toLowerCase());
+    if (!searchTerm.trim()) return bookings;
+    const term = searchTerm.toLowerCase();
+    return bookings.filter((b) =>
+      String(b.id).toLowerCase().includes(term) ||
+      b.clientName.toLowerCase().includes(term)
+    );
+  }, [bookings, searchTerm]);
 
-      // Date range filter
-      let matchesDate = false;
-      try {
-        const bookingDate = parseISO(booking.date || booking.billDate || new Date().toISOString());
-        const start = new Date(range[0].startDate);
-        const end = new Date(range[0].endDate);
-        start.setHours(0, 0, 0, 0);
-        end.setHours(23, 59, 59, 999);
-        matchesDate = isWithinInterval(bookingDate, { start, end });
-      } catch (e) {
-        matchesDate = false;
-      }
-
-      // Modal filters
-      const matchesStaff =
-        appliedFilters.staffId === "all" ||
-        booking.services.some((s: any) => s.staffId === appliedFilters.staffId);
-      const matchesStatus =
-        appliedFilters.status === "all" ||
-        (booking.status || "").toLowerCase() === appliedFilters.status.toLowerCase();
-      const matchesChannel = appliedFilters.channel === "all";
-
-      return (
-        matchesSearch &&
-        matchesDate &&
-        matchesStaff &&
-        matchesStatus &&
-        matchesChannel
-      );
-    });
-
-    // Sort result
+  // Client-side sort
+  const sortedAppointments = useMemo(() => {
+    const result = [...filteredAppointments];
     result.sort((a, b) => {
       const getDuration = (bk: any) => {
-        const s = parseISO(bk.date + "T" + bk.startTime);
-        const e = parseISO(bk.date + "T" + bk.endTime);
-        return e.getTime() - s.getTime();
+        try {
+          const s = parseISO(bk.date + "T" + bk.startTime);
+          const e = parseISO(bk.date + "T" + bk.endTime);
+          return e.getTime() - s.getTime();
+        } catch { return 0; }
       };
-
       switch (sortConfig) {
         case "created_oldest":
-          return (
-            parseISO(a.billDate || a.date).getTime() -
-            parseISO(b.billDate || b.date).getTime()
-          );
+          return new Date(a.billDate || a.date).getTime() - new Date(b.billDate || b.date).getTime();
         case "created_newest":
-          return (
-            parseISO(b.billDate || b.date).getTime() -
-            parseISO(a.billDate || a.date).getTime()
-          );
+          return new Date(b.billDate || b.date).getTime() - new Date(a.billDate || a.date).getTime();
         case "scheduled_oldest":
-          return (
-            parseISO(a.date + "T" + a.startTime).getTime() -
-            parseISO(b.date + "T" + b.startTime).getTime()
-          );
+          try { return parseISO(a.date + "T" + a.startTime).getTime() - parseISO(b.date + "T" + b.startTime).getTime(); }
+          catch { return 0; }
         case "scheduled_newest":
-          return (
-            parseISO(b.date + "T" + b.startTime).getTime() -
-            parseISO(a.date + "T" + a.startTime).getTime()
-          );
-        case "duration_shortest":
-          return getDuration(a) - getDuration(b);
-        case "duration_longest":
-          return getDuration(b) - getDuration(a);
-        default:
-          return 0;
+          try { return parseISO(b.date + "T" + b.startTime).getTime() - parseISO(a.date + "T" + a.startTime).getTime(); }
+          catch { return 0; }
+        case "duration_shortest": return getDuration(a) - getDuration(b);
+        case "duration_longest": return getDuration(b) - getDuration(a);
+        default: return 0;
       }
     });
-
     return result;
-  }, [bookings, searchTerm, range, appliedFilters, sortConfig]);
+  }, [filteredAppointments, sortConfig]);
 
-  // Pagination Logic
-  const paginatedAppointments = useMemo(() => {
+  const totalRecords = serverPagination?.total ?? sortedAppointments.length;
+
+  const displayedAppointments = useMemo(() => {
+    if (serverPagination) return sortedAppointments;
     const start = (currentPage - 1) * pageSize;
-    return filteredAppointments.slice(start, start + pageSize);
-  }, [filteredAppointments, currentPage, pageSize]);
+    return sortedAppointments.slice(start, start + pageSize);
+  }, [sortedAppointments, serverPagination, currentPage, pageSize]);
 
   const sortOptions = [
     { label: "Created Date (oldest first)", value: "created_oldest" },
@@ -293,12 +424,71 @@ export default function AppointmentsPage() {
     { label: "Duration (longest first)", value: "duration_longest" },
   ];
 
-  const currentSortLabel = sortOptions.find(
-    (o) => o.value === sortConfig,
-  )?.label;
+  const currentSortLabel = sortOptions.find((o) => o.value === sortConfig)?.label;
+
+  // ── Resolve drawer appointment data ───────────────────────────────────────
+  const drawerAppt = selectedBooking;
+  const drawerClient = drawerAppt?.client_id ? clientById[drawerAppt.client_id] : null;
+
+  const drawerClientName = drawerAppt?.client_name
+    || drawerAppt?.clientName
+    || (drawerClient ? (drawerClient.fullName || drawerClient.full_name || `${drawerClient.first_name || ""} ${drawerClient.last_name || ""}`.trim()) : null)
+    || (drawerAppt?.client?.first_name ? `${drawerAppt.client.first_name} ${drawerAppt.client.last_name || ""}`.trim() : null)
+    || (!drawerAppt?.client_id ? "Walk-in" : "Client");
+
+  const drawerClientPhone = drawerAppt?.client?.phone
+    || drawerAppt?.client?.mobile
+    || drawerAppt?.client?.phone_number
+    || drawerClient?.phone
+    || drawerClient?.mobile
+    || drawerClient?.phone_number
+    || null;
+
+  const drawerClientEmail = drawerAppt?.client?.email
+    || drawerClient?.email
+    || null;
+
+  const drawerClientGender = drawerAppt?.client?.gender
+    || drawerClient?.gender
+    || null;
+
+  const drawerClientNotes = drawerAppt?.client?.notes
+    || drawerClient?.notes
+    || null;
+
+  const drawerStaffId = drawerAppt?.staffId || drawerAppt?.staff_id
+    || drawerAppt?.services?.[0]?.staffId || drawerAppt?.services?.[0]?.staff_id;
+  const drawerStaff = drawerStaffId ? staffById[drawerStaffId] : null;
+  const drawerStaffName = drawerAppt?.staff_name
+    || (drawerStaff ? `${drawerStaff.first_name || ""} ${drawerStaff.last_name || ""}`.trim() : null)
+    || null;
+
+  let drawerDurationMins = 0;
+  try {
+    if (drawerAppt?.date && drawerAppt?.startTime && drawerAppt?.endTime) {
+      drawerDurationMins = differenceInMinutes(
+        parseISO(drawerAppt.date + "T" + drawerAppt.endTime),
+        parseISO(drawerAppt.date + "T" + drawerAppt.startTime),
+      );
+    } else if (drawerAppt?.duration_minutes) {
+      drawerDurationMins = drawerAppt.duration_minutes;
+    }
+  } catch { /* ignore */ }
+
+  const drawerStatus = (drawerAppt?.status || "").toLowerCase();
+  const isCancellable = !["cancelled", "completed", "no_show"].includes(drawerStatus);
 
   return (
     <div className="appointments-page">
+
+      {/* ── TOAST ───────────────────────────────────────────────────────────── */}
+      {toast && (
+        <div className={`appt-toast appt-toast--${toast.type}`}>
+          <span>{toast.msg}</span>
+          <button onClick={() => setToast(null)}><X size={14} /></button>
+        </div>
+      )}
+
       {/* ================= HEADER ================= */}
       <div className="appointments-header d-flex justify-content-between align-items-end mb-4">
         <div>
@@ -308,7 +498,7 @@ export default function AppointmentsPage() {
           </p>
         </div>
 
-        <div className="position-relative">
+        <div className="position-relative" ref={exportRef}>
           <Button
             variant="outline-dark"
             pill
@@ -340,21 +530,21 @@ export default function AppointmentsPage() {
                 variant="ghost"
                 fullWidth
                 className="text-start p-2 rounded-0 border-bottom"
-                disabled={isExporting}
+                disabled={exportingFormat !== null}
                 onClick={() => handleExport("csv")}
               >
                 <FiletypeCsv size={18} className="text-primary me-2" />
-                {isExporting ? "Exporting…" : "CSV"}
+                {exportingFormat === "csv" ? "Exporting…" : "CSV"}
               </Button>
               <Button
                 variant="ghost"
                 fullWidth
                 className="text-start p-2 rounded-0"
-                disabled={isExporting}
+                disabled={exportingFormat !== null}
                 onClick={() => handleExport("xlsx")}
               >
                 <FiletypeXlsx size={18} className="text-success me-2" />
-                {isExporting ? "Exporting…" : "Excel"}
+                {exportingFormat === "excel" ? "Exporting…" : "Excel"}
               </Button>
             </div>
           )}
@@ -392,8 +582,8 @@ export default function AppointmentsPage() {
 
           {showPicker && (
             <div
-              className="salonox-calendar-popup shadow-lg border position-absolute start-0 mt-2 bg-white z-2 p-3 rounded-4"
-              style={{ minWidth: "400px" }}
+              className="salonox-calendar-popup shadow-lg border position-absolute start-0 mt-2 bg-white z-2 rounded-4"
+              style={{ width: "360px", padding: "16px" }}
             >
               <div className="preset-selector mb-3 position-relative">
                 <Button
@@ -414,6 +604,7 @@ export default function AppointmentsPage() {
                 {showPresets && (
                   <div className="custom-dropdown shadow border position-absolute start-0 w-100 mt-1 bg-white z-3 rounded-3 overflow-hidden">
                     {[
+                      "All time",
                       "Today",
                       "Yesterday",
                       "Last 7 days",
@@ -434,47 +625,54 @@ export default function AppointmentsPage() {
                 )}
               </div>
 
-              <div className="calendar-content">
-                <div className="d-flex gap-2 mb-3">
-                  <Input
-                    readOnly
-                    className="form-control-sm mb-0"
-                    value={format(range[0].startDate, "yyyy-MM-dd")}
-                    containerClass="flex-grow-1"
-                  />
-                  <Input
-                    readOnly
-                    className="form-control-sm mb-0"
-                    value={format(range[0].endDate, "yyyy-MM-dd")}
-                    containerClass="flex-grow-1"
-                  />
+              {allTime ? (
+                <div className="text-center py-3 px-2 text-muted small border rounded-3 bg-light mb-3">
+                  Showing all appointments across all dates
                 </div>
-                <div className="overflow-auto" style={{ maxWidth: "100%" }}>
-                  <DateRange
-                    ranges={range}
-                    onChange={(item: any) => setRange([item.selection])}
-                    months={2}
-                    direction="horizontal"
-                    rangeColors={["#000"]}
-                  />
+              ) : (
+                <div className="calendar-content">
+                  <div className="d-flex gap-2 mb-2 align-items-center">
+                    <Input
+                      readOnly
+                      className="form-control-sm mb-0 text-center"
+                      value={format(range[0].startDate, "dd MMM yyyy")}
+                      containerClass="flex-grow-1"
+                    />
+                    <span className="text-muted small flex-shrink-0">→</span>
+                    <Input
+                      readOnly
+                      className="form-control-sm mb-0 text-center"
+                      value={format(range[0].endDate, "dd MMM yyyy")}
+                      containerClass="flex-grow-1"
+                    />
+                  </div>
+                  <div style={{ margin: "0 -4px" }}>
+                    <DateRange
+                      ranges={range}
+                      onChange={(item: any) => {
+                        setAllTime(false);
+                        setRange([item.selection]);
+                      }}
+                      months={1}
+                      direction="vertical"
+                      rangeColors={["#000"]}
+                      showDateDisplay={false}
+                      showMonthAndYearPickers
+                      shownDate={
+                        range[0].startDate.getFullYear() < 2020
+                          ? new Date()
+                          : range[0].startDate
+                      }
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
-              <div className="calendar-footer d-flex justify-content-end gap-2 mt-3 pt-3 border-top">
-                <Button
-                  variant="ghost"
-                  pill
-                  size="sm"
-                  onClick={() => setShowPicker(false)}
-                >
+              <div className="calendar-footer d-flex justify-content-end gap-2 mt-2 pt-2 border-top">
+                <Button variant="ghost" pill size="sm" onClick={() => setShowPicker(false)}>
                   Cancel
                 </Button>
-                <Button
-                  variant="dark"
-                  pill
-                  size="sm"
-                  onClick={handleApplyRange}
-                >
+                <Button variant="dark" pill size="sm" onClick={handleApplyRange}>
                   Apply
                 </Button>
               </div>
@@ -490,8 +688,7 @@ export default function AppointmentsPage() {
         >
           Filters{" "}
           {(appliedFilters.staffId !== "all" ||
-            appliedFilters.status !== "all" ||
-            appliedFilters.channel !== "all") &&
+            appliedFilters.status !== "all") &&
             "•"}
         </Button>
 
@@ -538,12 +735,7 @@ export default function AppointmentsPage() {
         size="lg"
         footer={
           <div className="d-flex justify-content-end gap-3 w-100">
-            <Button
-              variant="outline-dark"
-              pill
-              className="px-4"
-              onClick={clearFilters}
-            >
+            <Button variant="outline-dark" pill className="px-4" onClick={clearFilters}>
               Clear filters
             </Button>
             <Button variant="dark" pill className="px-4" onClick={applyFilters}>
@@ -559,9 +751,7 @@ export default function AppointmentsPage() {
               <select
                 className="form-select rounded-3 p-2 pe-5"
                 value={tempFilters.staffId}
-                onChange={(e) =>
-                  setTempFilters({ ...tempFilters, staffId: e.target.value })
-                }
+                onChange={(e) => setTempFilters({ ...tempFilters, staffId: e.target.value })}
                 style={{ appearance: "none", backgroundImage: "none" }}
               >
                 <option value="all">All team members</option>
@@ -571,38 +761,7 @@ export default function AppointmentsPage() {
                   </option>
                 ))}
               </select>
-              <ChevronDown
-                className="position-absolute end-0 top-50 translate-middle-y me-3 text-muted pointer-events-none"
-                size={14}
-              />
-            </div>
-          </div>
-
-          <div className="mb-4">
-            <label className="form-label small fw-bold">Channel</label>
-            <div className="position-relative">
-              <select
-                className="form-select rounded-3 p-2 pe-5"
-                value={tempFilters.channel}
-                onChange={(e) =>
-                  setTempFilters({ ...tempFilters, channel: e.target.value })
-                }
-                style={{ appearance: "none", backgroundImage: "none" }}
-              >
-                <option value="all">All channels</option>
-                <option value="online">All online channels</option>
-                <option value="salonox">Marketplace - salonox</option>
-                <option value="book_now">Book now link</option>
-                <option value="facebook">Facebook</option>
-                <option value="instagram">Instagram</option>
-                <option value="google">Marketplace - Google Reserve</option>
-                <option value="automation">Marketing - Automations</option>
-                <option value="offline">Offline</option>
-              </select>
-              <ChevronDown
-                className="position-absolute end-0 top-50 translate-middle-y me-3 text-muted pointer-events-none"
-                size={14}
-              />
+              <ChevronDown className="position-absolute end-0 top-50 translate-middle-y me-3 text-muted pointer-events-none" size={14} />
             </div>
           </div>
 
@@ -612,9 +771,7 @@ export default function AppointmentsPage() {
               <select
                 className="form-select rounded-3 p-2 pe-5"
                 value={tempFilters.status}
-                onChange={(e) =>
-                  setTempFilters({ ...tempFilters, status: e.target.value })
-                }
+                onChange={(e) => setTempFilters({ ...tempFilters, status: e.target.value })}
                 style={{ appearance: "none", backgroundImage: "none" }}
               >
                 <option value="all">All statuses</option>
@@ -625,169 +782,453 @@ export default function AppointmentsPage() {
                 <option value="cancelled">Cancelled</option>
                 <option value="no_show">No-show</option>
               </select>
-              <ChevronDown
-                className="position-absolute end-0 top-50 translate-middle-y me-3 text-muted pointer-events-none"
-                size={14}
-              />
+              <ChevronDown className="position-absolute end-0 top-50 translate-middle-y me-3 text-muted pointer-events-none" size={14} />
             </div>
           </div>
         </div>
       </Modal>
 
       {/* ================= TABLE ================= */}
-      {isLoading ? (
-        <Card noPadding className="mb-4">
-          <Loader message="Loading appointments…" className="py-5" />
-        </Card>
-      ) : (
-        <Card noPadding className="mb-4 border-0 shadow-sm rounded-4 overflow-hidden">
-          <Table
-            columns={[
-              {
-                header: "Ref #",
-                key: "id",
-                width: "80px",
-                render: (item: any) => (
-                  <a
-                    href="#"
-                    className="text-primary text-decoration-none fw-bold"
-                  >
-                    #{String(item.id).substring(0, 8).toUpperCase()}
-                  </a>
-                ),
-              },
-              {
-                header: "Client",
-                key: "clientName",
-                render: (item: any) => (
-                  <span className="fw-bold text-dark text-nowrap">
-                    {item.clientName}
-                  </span>
-                ),
-              },
-              {
-                header: "Service",
-                key: "services",
-                render: (item: any) => (
-                  <span className="text-dark">
-                    {item.services.map((s: any) => s.service).join(", ")}
-                  </span>
-                ),
-              },
-              {
-                header: "Created by",
-                key: "createdById",
-                render: (item: any) => <span className="text-muted">{staffById[item.createdById] || "—"}</span>,
-              },
-              {
-                header: "Created Date",
-                key: "billDate",
-                align: "center",
-                width: "15%",
-                render: (item: any) => item.billDate ? (
-                  <span className="text-muted">
-                    {format(parseISO(item.billDate), "dd MMM yyyy, h:mma").toLowerCase()}
-                  </span>
-                ) : <span className="text-muted">N/A</span>,
-              },
-              {
-                header: "Scheduled Date",
-                key: "date",
-                align: "center",
-                width: "15%",
-                render: (item: any) => {
-                  try {
+      <div className="position-relative mb-4">
+        {isLoading ? (
+          <Card noPadding>
+            <Loader message="Loading appointments…" className="py-5" />
+          </Card>
+        ) : (
+          <Card noPadding className="border-0 shadow-sm rounded-4 overflow-hidden">
+            <Table
+              columns={[
+                {
+                  header: "Ref #",
+                  key: "id",
+                  width: "90px",
+                  render: (item: any) => (
+                    <span className="text-primary fw-bold">
+                      #{String(item.id).substring(0, 8).toUpperCase()}
+                    </span>
+                  ),
+                },
+                {
+                  header: "Client",
+                  key: "clientName",
+                  render: (item: any) => (
+                    <span className="fw-bold text-dark text-nowrap">{item.clientName}</span>
+                  ),
+                },
+                {
+                  header: "Status",
+                  key: "status",
+                  align: "center",
+                  width: "130px",
+                  render: (item: any) => {
+                    const s = (item.status || "booked").toLowerCase();
                     return (
-                      <span className="text-muted text-nowrap">
-                        {format(parseISO(item.date + "T" + item.startTime), "dd MMM yyyy, h:mma").toLowerCase()}
+                      <span style={{
+                        display: "inline-block",
+                        padding: "4px 12px",
+                        borderRadius: "100px",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        color: "#fff",
+                        whiteSpace: "nowrap",
+                        background: STATUS_COLOR[s] || "#6b7280",
+                      }}>
+                        {STATUS_LABEL[s] || s.replace(/_/g, " ")}
                       </span>
                     );
-                  } catch (e) {
-                    return <span className="text-muted">Invalid date</span>;
-                  }
-                }
-              },
-              {
-                header: "Duration",
-                key: "duration",
-                align: "center",
-                render: (item: any) => {
-                  try {
-                    const start = parseISO(item.date + "T" + item.startTime);
-                    const end = parseISO(item.date + "T" + item.endTime);
-                    const durMs = end.getTime() - start.getTime();
-                    const durMins = Math.floor(durMs / (1000 * 60));
-                    if (isNaN(durMins)) return <span className="text-muted">N/A</span>;
-                    return (
-                      <span className="text-muted">
-                        {durMins >= 60 ? `${Math.floor(durMins / 60)}h ${durMins % 60}min` : `${durMins}min`}
-                      </span>
-                    );
-                  } catch (e) {
-                    return <span className="text-muted">N/A</span>;
-                  }
+                  },
                 },
-              },
-              {
-                header: "Team member",
-                key: "staff",
-                render: (item: any) => <span className="text-muted">{staffById[item.services[0]?.staffId] || "—"}</span>,
-              },
-              {
-                header: "Price",
-                key: "grandTotal",
-                align: "right",
-                width: "100px",
-                render: (item: any) => <span className="text-dark fw-medium">₹{Number(item.grandTotal || 0).toFixed(2)}</span>,
-              },
-              {
-                header: "Status",
-                key: "status",
-                align: "center",
-                width: "120px",
-                render: (item: any) => {
-                  const statusLabel = item.status ? item.status.toLowerCase() : "pending";
-                  const variantObj: Record<string, string> = {
-                    confirmed: "success",
-                    pending: "warning",
-                    cancelled: "danger",
-                    booked: "primary",
-                    completed: "info",
-                    no_show: "dark",
-                  };
-                  const variant = variantObj[statusLabel] || "secondary";
-
-                  return (
-                    <Badge variant={variant as any}>
-                      {item.status ? item.status.replace("_", " ") : "Pending"}
-                    </Badge>
-                  );
+                {
+                  header: "Service",
+                  key: "services",
+                  render: (item: any) => (
+                    <span className="text-dark">
+                      {item.services.map((s: any) => s.service).join(", ")}
+                    </span>
+                  ),
                 },
-              },
-            ]}
-            data={paginatedAppointments}
-            emptyMessage={
-              <div className="d-flex flex-column align-items-center justify-content-center py-5">
-                <div className="bg-light rounded-circle d-flex align-items-center justify-content-center mb-3" style={{ width: "64px", height: "64px" }}>
-                  <Calendar3 size={24} className="text-muted" />
+                {
+                  header: "Scheduled Date",
+                  key: "date",
+                  align: "center",
+                  width: "15%",
+                  render: (item: any) => {
+                    try {
+                      return (
+                        <span className="text-muted text-nowrap">
+                          {format(parseISO(item.date + "T" + item.startTime), "dd MMM yyyy, h:mma").toLowerCase()}
+                        </span>
+                      );
+                    } catch {
+                      return <span className="text-muted">—</span>;
+                    }
+                  },
+                },
+                {
+                  header: "Duration",
+                  key: "duration",
+                  align: "center",
+                  render: (item: any) => {
+                    try {
+                      const start = parseISO(item.date + "T" + item.startTime);
+                      const end = parseISO(item.date + "T" + item.endTime);
+                      const durMins = Math.floor((end.getTime() - start.getTime()) / 60000);
+                      if (isNaN(durMins) || durMins <= 0) return <span className="text-muted">—</span>;
+                      return (
+                        <span className="text-muted">{fmtDuration(durMins)}</span>
+                      );
+                    } catch {
+                      return <span className="text-muted">—</span>;
+                    }
+                  },
+                },
+                {
+                  header: "Team member",
+                  key: "staff",
+                  render: (item: any) => {
+                    const staffId =
+                      item.services?.find((s: any) => s.staffId)?.staffId ||
+                      item.staffId ||
+                      item.staff_id;
+                    const staff = staffId ? staffById[staffId] : null;
+                    const name = staff ? `${staff.first_name || ""} ${staff.last_name || ""}`.trim() : null;
+                    return <span className="text-muted">{name || "—"}</span>;
+                  },
+                },
+                {
+                  header: "Price",
+                  key: "grandTotal",
+                  align: "right",
+                  width: "100px",
+                  render: (item: any) => (
+                    <span className="text-dark fw-medium">₹{Number(item.grandTotal || 0).toFixed(2)}</span>
+                  ),
+                },
+              ]}
+              data={displayedAppointments}
+              onRowClick={(item: any) => openDrawer(String(item.id))}
+              emptyMessage={
+                <div className="d-flex flex-column align-items-center justify-content-center py-5">
+                  <div className="bg-light rounded-circle d-flex align-items-center justify-content-center mb-3" style={{ width: "64px", height: "64px" }}>
+                    <Calendar3 size={24} className="text-muted" />
+                  </div>
+                  <h5 className="fw-bold mb-1 text-dark">No bookings found</h5>
+                  <p className="text-muted small mb-0">Try changing filters or date range</p>
                 </div>
-                <h5 className="fw-bold mb-1 text-dark">No bookings found</h5>
-                <p className="text-muted small mb-0">Try changing filters or date range</p>
-              </div>
-            }
-          />
-        </Card>
-      )}
+              }
+            />
+          </Card>
+        )}
+      </div>
 
       {/* ================= PAGINATION ================= */}
       <Pagination
         currentPage={currentPage}
         pageSize={pageSize}
-        totalItems={filteredAppointments.length}
-        onPageChange={setCurrentPage}
-        onPageSizeChange={setPageSize}
+        totalItems={totalRecords}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
         className="mt-4 mb-4"
       />
+
+      {/* ================= APPOINTMENT DETAIL DRAWER ================= */}
+      {drawerOpen && (
+        <div className="appt-drawer-overlay" onClick={closeDrawer}>
+          <div className="appt-drawer" onClick={(e) => e.stopPropagation()}>
+
+            {/* Header */}
+            <div className="appt-drawer__header">
+              <button className="appt-drawer__back" onClick={closeDrawer}>
+                <ChevronLeft size={16} />
+              </button>
+              <h3 className="appt-drawer__title">
+                {isLoadingDetail
+                  ? "Loading…"
+                  : drawerAppt
+                  ? `Appt #${String(drawerAppt.id).substring(0, 8).toUpperCase()}`
+                  : "Appointment Details"}
+              </h3>
+              <button className="appt-drawer__close" onClick={closeDrawer}>
+                <X size={17} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="appt-drawer__body">
+              {isLoadingDetail ? (
+                <div className="appt-drawer__skeleton">
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className="appt-drawer__skeleton-row" />
+                  ))}
+                </div>
+              ) : !drawerAppt ? (
+                <p className="appt-drawer__error">Failed to load appointment details.</p>
+              ) : (
+                <>
+                  {/* Status + date row */}
+                  <div className="appt-drawer__meta-row">
+                    <span
+                      className="appt-drawer__status-badge"
+                      style={{ background: STATUS_COLOR[drawerStatus] || "#6b7280" }}
+                    >
+                      {STATUS_LABEL[drawerStatus] || drawerStatus}
+                    </span>
+                    <span className="appt-drawer__date-label">
+                      {drawerAppt.created_at
+                        ? format(new Date(drawerAppt.created_at), "dd MMM yyyy, HH:mm")
+                        : "—"}
+                    </span>
+                  </div>
+
+                  {/* ── CLIENT INFORMATION ───────────────────────────────── */}
+                  <div className="appt-drawer__section">
+                    <div className="appt-drawer__section-header">
+                      <PersonFill size={13} />
+                      <span>Client Information</span>
+                    </div>
+                    <div className="appt-drawer__client-card">
+                      <div className="appt-drawer__avatar">
+                        {drawerClientName === "Walk-in"
+                          ? "WI"
+                          : drawerClientName.trim().split(/\s+/).slice(0, 2).map((w: string) => w[0]).join("").toUpperCase() || "CL"}
+                      </div>
+                      <div className="appt-drawer__client-info">
+                        <div className="appt-drawer__client-name">{drawerClientName}</div>
+                        {drawerClientPhone && (
+                          <div className="appt-drawer__client-detail">{drawerClientPhone}</div>
+                        )}
+                        {drawerClientEmail && (
+                          <div className="appt-drawer__client-detail">{drawerClientEmail}</div>
+                        )}
+                        {drawerClientGender && (
+                          <div className="appt-drawer__client-detail" style={{ textTransform: "capitalize" }}>{drawerClientGender}</div>
+                        )}
+                      </div>
+                    </div>
+                    {drawerClientNotes && (
+                      <div className="appt-drawer__note-box">
+                        <span className="appt-drawer__note-label">Client note</span>
+                        <p className="appt-drawer__note-text">{drawerClientNotes}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ── APPOINTMENT INFORMATION ──────────────────────────── */}
+                  <div className="appt-drawer__section">
+                    <div className="appt-drawer__section-header">
+                      <ClockFill size={13} />
+                      <span>Appointment Information</span>
+                    </div>
+                    <div className="appt-drawer__info-grid">
+                      <InfoRow label="Reference" value={`#${String(drawerAppt.id).substring(0, 8).toUpperCase()}`} />
+                      <InfoRow label="Status" value={STATUS_LABEL[drawerStatus] || drawerStatus} />
+                      <InfoRow
+                        label="Date"
+                        value={drawerAppt.date
+                          ? format(new Date(drawerAppt.date), "dd MMM yyyy")
+                          : "—"}
+                      />
+                      <InfoRow
+                        label="Start time"
+                        value={drawerAppt.startTime
+                          ? format(parseISO(`2000-01-01T${drawerAppt.startTime}`), "h:mm a")
+                          : "—"}
+                      />
+                      <InfoRow
+                        label="End time"
+                        value={drawerAppt.endTime
+                          ? format(parseISO(`2000-01-01T${drawerAppt.endTime}`), "h:mm a")
+                          : "—"}
+                      />
+                      <InfoRow label="Duration" value={fmtDuration(drawerDurationMins)} />
+                      <InfoRow
+                        label="Created"
+                        value={drawerAppt.created_at
+                          ? format(new Date(drawerAppt.created_at), "dd MMM yyyy, HH:mm")
+                          : "—"}
+                      />
+                    </div>
+                    {drawerAppt.notes && (
+                      <div className="appt-drawer__note-box mt-2">
+                        <span className="appt-drawer__note-label">Appointment notes</span>
+                        <p className="appt-drawer__note-text">{drawerAppt.notes}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ── SERVICE INFORMATION ──────────────────────────────── */}
+                  {drawerAppt.services?.length > 0 && (
+                    <div className="appt-drawer__section">
+                      <div className="appt-drawer__section-header">
+                        <CheckCircleFill size={13} />
+                        <span>Service Information</span>
+                      </div>
+                      <div className="appt-drawer__services">
+                        {drawerAppt.services.map((svc: any, idx: number) => {
+                          const svcStaffId = svc.staffId || svc.staff_id;
+                          const svcStaff = svcStaffId ? staffById[svcStaffId] : null;
+                          const svcStaffName = svcStaff
+                            ? `${svcStaff.first_name || ""} ${svcStaff.last_name || ""}`.trim()
+                            : null;
+                          return (
+                            <div key={idx} className="appt-drawer__service-row">
+                              <div className="appt-drawer__service-main">
+                                <span className="appt-drawer__service-name">
+                                  {svc.name || svc.service || svc.service_name || "Service"}
+                                </span>
+                                {svcStaffName && (
+                                  <span className="appt-drawer__service-staff">
+                                    with {svcStaffName}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="appt-drawer__service-right">
+                                {svc.price > 0 && (
+                                  <span className="appt-drawer__service-price">{fmtMoney(svc.price)}</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── TEAM MEMBER INFORMATION ──────────────────────────── */}
+                  {drawerStaffName && (
+                    <div className="appt-drawer__section">
+                      <div className="appt-drawer__section-header">
+                        <PersonFill size={13} />
+                        <span>Team Member</span>
+                      </div>
+                      <div className="appt-drawer__client-card">
+                        <div className="appt-drawer__avatar appt-drawer__avatar--staff">
+                          {drawerStaffName.trim().split(/\s+/).slice(0, 2).map((w: string) => w[0]).join("").toUpperCase() || "ST"}
+                        </div>
+                        <div className="appt-drawer__client-info">
+                          <div className="appt-drawer__client-name">{drawerStaffName}</div>
+                          {drawerStaff?.role && (
+                            <div className="appt-drawer__client-detail" style={{ textTransform: "capitalize" }}>
+                              {drawerStaff.role}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── PAYMENT INFORMATION ──────────────────────────────── */}
+                  <div className="appt-drawer__section">
+                    <div className="appt-drawer__section-header">
+                      <CurrencyRupee size={13} />
+                      <span>Payment Information</span>
+                    </div>
+                    <div className="appt-drawer__totals">
+                      {(drawerAppt.grandTotal > 0 || drawerAppt.subtotal > 0) && (
+                        <div className="appt-drawer__total-row">
+                          <span>Subtotal</span>
+                          <span>{fmtMoney(drawerAppt.subtotal || drawerAppt.grandTotal || 0)}</span>
+                        </div>
+                      )}
+                      {parseFloat(String(drawerAppt.discount_amount || drawerAppt.discountAmount || 0)) > 0 && (
+                        <div className="appt-drawer__total-row appt-drawer__total-row--discount">
+                          <span>Discount</span>
+                          <span>−{fmtMoney(drawerAppt.discount_amount || drawerAppt.discountAmount)}</span>
+                        </div>
+                      )}
+                      {parseFloat(String(drawerAppt.tax_amount || drawerAppt.taxAmount || 0)) > 0 && (
+                        <div className="appt-drawer__total-row">
+                          <span>Tax</span>
+                          <span>{fmtMoney(drawerAppt.tax_amount || drawerAppt.taxAmount)}</span>
+                        </div>
+                      )}
+                      <div className="appt-drawer__total-row appt-drawer__total-row--grand">
+                        <span>Total</span>
+                        <span>{fmtMoney(drawerAppt.grandTotal || drawerAppt.total_amount || 0)}</span>
+                      </div>
+                      <div className="appt-drawer__total-row mt-2">
+                        <span>Payment status</span>
+                        <span
+                          className="appt-drawer__payment-badge"
+                          style={{
+                            color: PAYMENT_COLOR[(drawerAppt.payment_status || drawerAppt.paymentStatus || "unpaid").toLowerCase()] || "#6b7280",
+                          }}
+                        >
+                          {PAYMENT_LABEL[(drawerAppt.payment_status || drawerAppt.paymentStatus || "unpaid").toLowerCase()]
+                            || drawerAppt.payment_status
+                            || "Unpaid"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Footer actions */}
+            {!isLoadingDetail && drawerAppt && (
+              <div className="appt-drawer__footer">
+                {isCancellable && (
+                  <button
+                    className="appt-drawer__btn appt-drawer__btn--cancel"
+                    onClick={() => setCancelConfirmOpen(true)}
+                  >
+                    <XCircleFill size={14} />
+                    Cancel Appointment
+                  </button>
+                )}
+                <button
+                  className="appt-drawer__btn appt-drawer__btn--edit"
+                  onClick={handleEditAppointment}
+                >
+                  <PencilFill size={13} />
+                  Edit Appointment
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ================= CANCEL CONFIRM MODAL ================= */}
+      <Modal
+        show={cancelConfirmOpen}
+        onClose={() => setCancelConfirmOpen(false)}
+        title="Cancel appointment?"
+        footer={
+          <div className="d-flex flex-column gap-2 w-100">
+            <Button
+              variant="danger"
+              fullWidth
+              onClick={handleCancelAppointment}
+              disabled={cancelLoading}
+            >
+              {cancelLoading ? "Cancelling…" : "Yes, cancel appointment"}
+            </Button>
+            <Button
+              variant="outline-dark"
+              fullWidth
+              onClick={() => setCancelConfirmOpen(false)}
+            >
+              Keep appointment
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-muted small mb-0">
+          Are you sure you want to cancel this appointment? This action cannot be undone.
+        </p>
+      </Modal>
+    </div>
+  );
+}
+
+// ── Small helper component ─────────────────────────────────────────────────────
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="appt-drawer__info-row">
+      <span className="appt-drawer__info-label">{label}</span>
+      <span className="appt-drawer__info-value">{value}</span>
     </div>
   );
 }

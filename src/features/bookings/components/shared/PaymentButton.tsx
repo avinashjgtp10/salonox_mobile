@@ -1,11 +1,12 @@
 import React, { useRef, useState } from "react";
+import { CheckCircleFill, RecordCircle } from "react-bootstrap-icons";
 
 interface PaymentButtonProps {
   amount: number;
   onClick: () => Promise<void>;
   disabled?: boolean;
   isPartial?: boolean;
-  label?: string;
+  label?: React.ReactNode;
   fullWidth?: boolean;
 }
 
@@ -28,8 +29,8 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
     : "0 4px 14px rgba(16,185,129,0.35)";
 
   const displayLabel = label ?? (isPartial
-    ? `🟣 Confirm Partial — ₹${amount.toFixed(2)}`
-    : `✅ Confirm & Pay — ₹${amount.toFixed(2)}`);
+    ? <><RecordCircle size={13} style={{ marginRight: 4, verticalAlign: "middle", color: "#c4b5fd" }} />Confirm Partial — ₹{amount.toFixed(2)}</>
+    : <><CheckCircleFill size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />Confirm &amp; Pay — ₹{amount.toFixed(2)}</>);
 
   async function handleClick() {
     if (clickedRef.current || isPaying) return;

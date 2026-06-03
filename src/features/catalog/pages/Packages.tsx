@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Check2,
@@ -13,6 +13,9 @@ import {
   FiletypePdf,
   FiletypeXls,
   FiletypeCsv,
+  PersonFill,
+  PlusCircle,
+  FileEarmarkText,
 } from "react-bootstrap-icons";
 import PackageFilterDrawer from "../components/PackageFilterDrawer";
 import type { PackageFilterState } from "../components/PackageFilterDrawer";
@@ -23,23 +26,25 @@ import {
   useDeletePackageMutation,
 } from "../../../services/api/endpoints/packages.endpoints";
 import type { Package as ApiPackage } from "../../../services/api/endpoints/packages.endpoints";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch } from "../../../store/store";
 import { 
   exportPackagesCsvThunk, 
   exportPackagesPdfThunk, 
   exportPackagesExcelThunk 
 } from "../../../middleware/package/package.thunk";
+import { useServices } from "../hooks/useServices";
+import type { Service as ApiService } from "../types/catalog.types";
+import {
+  selectAllStaff,
+} from "../../../store/selectors/slices.selectors";
+import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
+import ClientSearchInput, { type ClientSearchResult } from "../../clients/components/ClientSearchInput";
 import "./Packages.scss";
 
 
 
-interface Service {
-  id: string;
-  name: string;
-  price: number;
-  category: string;
-}
+type Service = ApiService;
 
 interface Offer {
   id: number;
@@ -56,21 +61,7 @@ interface Offer {
 // ── Static Data ────────────────────────────────────────────────────────
 // Removed all static PACKAGES dummy data as requested.
 
-const ALL_SERVICES: Service[] = [
-  { id: "11111111-1111-1111-1111-111111111111",  name: "Head massage",    price: 499,  category: "Body"  },
-  { id: "22222222-2222-2222-2222-222222222222",  name: "Swedish massage", price: 1999, category: "Body"  },
-  { id: "33333333-3333-3333-3333-333333333333",  name: "Aromatherapy",    price: 1799, category: "Spa"   },
-  { id: "44444444-4444-4444-4444-444444444444",  name: "Hair cut",        price: 299,  category: "Hair"  },
-  { id: "55555555-5555-5555-5555-555555555555",  name: "Hair color",      price: 1499, category: "Hair"  },
-  { id: "66666666-6666-6666-6666-666666666666",  name: "Facial",          price: 999,  category: "Skin"  },
-  { id: "77777777-7777-7777-7777-777777777777",  name: "Cleanup",         price: 599,  category: "Skin"  },
-  { id: "88888888-8888-8888-8888-888888888888",  name: "Nail art",        price: 799,  category: "Nails" },
-  { id: "99999999-9999-9999-9999-999999999999",  name: "Manicure",        price: 499,  category: "Nails" },
-  { id: "00000000-0000-0000-0000-000000000000", name: "Body scrub",      price: 1299, category: "Body"  },
-];
-
-const SERVICE_CATEGORIES = ["All", "Hair", "Skin", "Nails", "Body", "Spa"];
-const CATEGORIES          = ["Spa", "Hair", "Skin", "Nails", "Body"];
+const CATEGORIES = ["Spa", "Hair", "Skin", "Nails", "Body"];
 
 const slugify = (v: string) =>
   v.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -78,7 +69,7 @@ const slugify = (v: string) =>
 // ─────────────────────────────────────────────────────────────────────
 // ROOT VIEW TYPE
 // ─────────────────────────────────────────────────────────────────────
-type View = "landing" | "list" | "create" | "success";
+type View = "landing" | "list" | "create" | "custom" | "success";
 
 const PackagesPage: React.FC = () => {
   const [view, setView] = useState<View>("landing");
@@ -86,6 +77,7 @@ const PackagesPage: React.FC = () => {
   if (view === "landing")  return <LandingView onNavigate={setView} />;
   if (view === "list")     return <ListView     onNavigate={setView} />;
   if (view === "create")   return <CreateView   onNavigate={setView} />;
+  if (view === "custom")   return <CustomPackageView onNavigate={setView} />;
   if (view === "success")  return <SuccessView  onNavigate={setView} />;
   return null;
 };
@@ -137,6 +129,9 @@ const LandingView: React.FC<NavProps> = ({ onNavigate }) => (
           <div className="d-flex align-items-center gap-3 flex-wrap">
             <button className="btn pkg-landing__cta-btn" onClick={() => onNavigate("create")}>
               Create package
+            </button>
+            <button className="btn pkg-landing__custom-btn" onClick={() => onNavigate("custom")}>
+              Custom Package
             </button>
             <button className="btn pkg-landing__learn-btn" onClick={() => onNavigate("list")}>
               View packages
@@ -494,14 +489,36 @@ const CreateView: React.FC<NavProps> = ({ onNavigate }) => {
   ]);
   const [saving, setSaving]           = useState(false);
 
+  const { services, fetchServices } = useServices();
+
+  useEffect(() => {
+    fetchServices({ limit: 1000 });
+  }, [fetchServices]);
+
+  const serviceCategories = useMemo(() => {
+    const cats = new Set<string>();
+    services.forEach((s) => {
+      if (s.category_name) cats.add(s.category_name);
+    });
+    return ["All", ...Array.from(cats)];
+  }, [services]);
+
+  const visibleSvcs = useMemo(() => {
+    return serviceFilter === "All"
+      ? services
+      : services.filter((s) => s.category_name === serviceFilter);
+  }, [services, serviceFilter]);
+
+  const estDuration = useMemo(() => {
+    return selectedServices.reduce((sum, s) => sum + (Number(s.duration) || 0), 0);
+  }, [selectedServices]);
+
   const handleNameChange = (v: string) => { setPkgName(v); setSlug(slugify(v)); };
 
   const toggleService = (svc: Service) =>
     setSelSvcs((prev) =>
       prev.find((s) => s.id === svc.id) ? prev.filter((s) => s.id !== svc.id) : [...prev, svc]
     );
-
-  const visibleSvcs = serviceFilter === "All" ? ALL_SERVICES : ALL_SERVICES.filter((s) => s.category === serviceFilter);
 
   const addOffer = () =>
     setOffers((prev) => [
@@ -530,7 +547,7 @@ const CreateView: React.FC<NavProps> = ({ onNavigate }) => {
         category,
         status: "Active",
         colour: "#10b981",
-        serviceIds: selectedServices.map((s) => s.id),
+        serviceIds: selectedServices.map((s) => String(s.id)),
         offers: offers.map((o) => ({ ...o, id: undefined })),
       }).unwrap();
       onNavigate("success");
@@ -666,7 +683,7 @@ const CreateView: React.FC<NavProps> = ({ onNavigate }) => {
 
               <label className="pkg-create__label mb-2">FILTER BY CATEGORY</label>
               <div className="pkg-chips mb-4">
-                {SERVICE_CATEGORIES.map((cat) => (
+                {serviceCategories.map((cat) => (
                   <button key={cat} className={`pkg-chip ${serviceFilter === cat ? "active" : ""}`} onClick={() => setSF(cat)}>
                     {cat}
                   </button>
@@ -687,7 +704,7 @@ const CreateView: React.FC<NavProps> = ({ onNavigate }) => {
 
               <div className="pkg-service-summary mt-3">
                 <span>Selected: <strong>{selectedServices.length} services</strong></span>
-                <span>Est. duration: <strong>{selectedServices.length * 30} min</strong></span>
+                <span>Est. duration: <strong>{estDuration} min</strong></span>
               </div>
             </div>
           )}
@@ -780,3 +797,443 @@ const SuccessView: React.FC<NavProps> = ({ onNavigate }) => (
     </div>
   </div>
 );
+
+// ═══════════════════════════════════════════════════════════════════════
+// CUSTOM PACKAGE VIEW
+// ═══════════════════════════════════════════════════════════════════════
+const CustomPackageView: React.FC<NavProps> = ({ onNavigate }) => {
+  const [guestCollapse, setGuestCollapse] = useState(false);
+  const [pkgCollapse, setPkgCollapse] = useState(false);
+  
+  // Guest state
+  const [searchAcrossCenters, setSearchAcrossCenters] = useState(true);
+  const [guestQuery, setGuestQuery] = useState("");
+  const [selectedGuest, setSelectedGuest] = useState<any>(null);
+  const [showCreateGuest, setShowCreateGuest] = useState(false);
+  const [newGuestName, setNewGuestName] = useState("");
+  const [newGuestPhone, setNewGuestPhone] = useState("");
+  const [newGuestEmail, setNewGuestEmail] = useState("");
+
+  // Package Details state
+  const [useTemplate, setUseTemplate] = useState<"no" | "yes">("no");
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [pkgCategory, setPkgCategory] = useState("");
+  const [businessUnit, setBusinessUnit] = useState("Default BU");
+  const [saleBy, setSaleBy] = useState("");
+  const [expert, setExpert] = useState("");
+  const [sacCode, setSacCode] = useState("");
+  const [showDesc, setShowDesc] = useState(false);
+  const [description, setDescription] = useState("");
+  
+  // Package Name pre-populated with timestamp matching: Custom Package-20260526133207
+  const [packageName, setPackageName] = useState(() => {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    return `Custom Package-${timestamp}`;
+  });
+
+  // Services & Save state
+  const [saving, setSaving] = useState(false);
+  
+  const dispatch = useDispatch<AppDispatch>();
+  const staff = useSelector(selectAllStaff) || [];
+  const { data: templates } = useListPackagesQuery({});
+  const [createPackage] = useCreatePackageMutation();
+
+  useEffect(() => {
+    dispatch(fetchStaffThunk());
+  }, [dispatch]);
+
+  // Safely resolve staff to array regardless of paginated vs plain response shape
+  const staffList = useMemo(() => {
+    if (Array.isArray(staff)) return staff;
+    if (staff && typeof staff === "object") {
+      if (Array.isArray((staff as any).data))  return (staff as any).data;
+      if (Array.isArray((staff as any).items)) return (staff as any).items;
+    }
+    return [];
+  }, [staff]);
+
+
+
+  // Handle template selection
+  const handleTemplateChange = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    if (!templateId) return;
+    const selected = templates?.items?.find((t: ApiPackage) => String(t.id) === templateId);
+    if (selected) {
+      if (selected.category) setPkgCategory(selected.category);
+      if (selected.description) {
+        setDescription(selected.description);
+        setShowDesc(true);
+      }
+    }
+  };
+
+  // Handle guest creation locally for mock/demo purposes
+  const handleCreateGuestSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newGuestName.trim()) return;
+    setSelectedGuest({
+      id: "temp-" + Date.now(),
+      firstName: newGuestName.split(" ")[0] || "New",
+      lastName: newGuestName.split(" ").slice(1).join(" ") || "Guest",
+      phone: newGuestPhone,
+      email: newGuestEmail,
+    });
+    setShowCreateGuest(false);
+  };
+
+  const handleSaveCustomPackage = async () => {
+    if (!selectedGuest) {
+      alert("Please select or create a guest first.");
+      return;
+    }
+    setSaving(true);
+    try {
+      // Map custom details to createPackage endpoint payload
+      await createPackage({
+        name: packageName,
+        description: `Custom package created for guest: ${selectedGuest.firstName} ${selectedGuest.lastName}. ${description}`,
+        basePrice: 0, // Admin sets dynamically inside invoice
+        discountValue: 0,
+        discountType: "fixed",
+        durationMinutes: 60,
+        category: pkgCategory || "Custom",
+        status: "Active",
+        colour: "#004eec",
+        serviceIds: [],
+        offers: [],
+      }).unwrap();
+      onNavigate("success");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to save custom package.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="pkg-create">
+      {/* Topbar */}
+      <div className="pkg-create__topbar d-flex align-items-center justify-content-between px-4">
+        <button className="pkg-create__close-btn" onClick={() => onNavigate("landing")}>
+          <X size={20} />
+        </button>
+        <span className="pkg-create__topbar-title">Custom Package For</span>
+        <button 
+          className="pkg-create__submit-btn" 
+          onClick={handleSaveCustomPackage} 
+          disabled={saving || !selectedGuest || !packageName.trim()}
+        >
+          {saving ? "Saving…" : "Save Package"}
+        </button>
+      </div>
+
+      <div className="pkg-create__body">
+        <div className="container-narrow">
+          
+          {/* ── GUEST DETAILS SECTION ── */}
+          <div className="custom-pkg-section">
+            <div 
+              className="custom-pkg-section__header" 
+              onClick={() => setGuestCollapse(!guestCollapse)}
+            >
+              <h6>Guest details</h6>
+              <span className="collapse-link">
+                {guestCollapse ? "Expand" : "Collapse"}
+              </span>
+            </div>
+            
+            {!guestCollapse && (
+              <div className="custom-pkg-section__body">
+                {selectedGuest ? (
+                  <div className="selected-guest-card">
+                    <div className="guest-info">
+                      <div className="name">
+                        <PersonFill /> {selectedGuest.firstName} {selectedGuest.lastName}
+                      </div>
+                      <div className="details">
+                        {selectedGuest.phone && `📞 ${selectedGuest.phone} `}
+                        {selectedGuest.email && `✉️ ${selectedGuest.email}`}
+                      </div>
+                    </div>
+                    <button 
+                      className="btn-remove-guest"
+                      onClick={() => setSelectedGuest(null)}
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="form-check mb-3">
+                      <input 
+                        type="checkbox" 
+                        className="form-check-input" 
+                        id="searchAcross" 
+                        checked={searchAcrossCenters}
+                        onChange={(e) => setSearchAcrossCenters(e.target.checked)}
+                      />
+                      <label className="form-check-label small" htmlFor="searchAcross">
+                        Search for guest across centers
+                      </label>
+                    </div>
+
+                    <div className="row g-2 align-items-center">
+                      <div className="col">
+                        <ClientSearchInput
+                          value={guestQuery}
+                          onChange={(val) => {
+                            setGuestQuery(val);
+                            if (!val) setSelectedGuest(null);
+                          }}
+                          onSelect={(c: ClientSearchResult) => {
+                            setSelectedGuest({
+                              id: String(c.id),
+                              firstName: c.first_name,
+                              lastName: c.last_name || "",
+                              phone: c.phone_number || "",
+                              email: c.email || "",
+                            });
+                            setGuestQuery("");
+                          }}
+                          placeholder="Search guest by name or phone…"
+                        />
+                      </div>
+                      <div className="col-auto">
+                        <span className="text-muted small">or</span>
+                      </div>
+                      <div className="col-auto">
+                        <button 
+                          className="btn btn-primary d-flex align-items-center gap-1"
+                          style={{ height: "48px", borderRadius: "12px" }}
+                          onClick={() => setShowCreateGuest(!showCreateGuest)}
+                        >
+                          <PlusCircle /> Create New Guest
+                        </button>
+                      </div>
+                    </div>
+
+                    {showCreateGuest && (
+                      <form onSubmit={handleCreateGuestSubmit} className="create-guest-form">
+                        <h6 className="fw-bold mb-3">Create New Guest</h6>
+                        <div className="row g-3">
+                          <div className="col-md-4">
+                            <label className="pkg-create__label">FULL NAME *</label>
+                            <input 
+                              type="text" 
+                              className="form-control pkg-create__input" 
+                              required 
+                              value={newGuestName}
+                              onChange={(e) => setNewGuestName(e.target.value)}
+                            />
+                          </div>
+                          <div className="col-md-4">
+                            <label className="pkg-create__label">PHONE NUMBER</label>
+                            <input 
+                              type="text" 
+                              className="form-control pkg-create__input" 
+                              value={newGuestPhone}
+                              onChange={(e) => setNewGuestPhone(e.target.value)}
+                            />
+                          </div>
+                          <div className="col-md-4">
+                            <label className="pkg-create__label">EMAIL ADDRESS</label>
+                            <input 
+                              type="email" 
+                              className="form-control pkg-create__input" 
+                              value={newGuestEmail}
+                              onChange={(e) => setNewGuestEmail(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <div className="d-flex justify-content-end gap-2 mt-3">
+                          <button 
+                            type="button" 
+                            className="btn btn-secondary" 
+                            onClick={() => setShowCreateGuest(false)}
+                          >
+                            Cancel
+                          </button>
+                          <button type="submit" className="btn btn-primary">
+                            Create & Select
+                          </button>
+                        </div>
+                      </form>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ── PACKAGE DETAILS SECTION ── */}
+          <div className="custom-pkg-section">
+            <div 
+              className="custom-pkg-section__header" 
+              onClick={() => setPkgCollapse(!pkgCollapse)}
+            >
+              <h6>Package Details</h6>
+              <span className="collapse-link">
+                {pkgCollapse ? "Expand" : "Collapse"}
+              </span>
+            </div>
+
+            {!pkgCollapse && (
+              <div className="custom-pkg-section__body">
+                <div className="mb-4">
+                  <label className="pkg-create__label">Create package using</label>
+                  <div className="template-toggle-group">
+                    <button 
+                      type="button"
+                      className={`toggle-btn ${useTemplate === "no" ? "active" : ""}`}
+                      onClick={() => {
+                        setUseTemplate("no");
+                        setSelectedTemplateId("");
+                      }}
+                    >
+                      <FileEarmarkText size={16} /> No Template
+                    </button>
+                    <button 
+                      type="button"
+                      className={`toggle-btn ${useTemplate === "yes" ? "active" : ""}`}
+                      onClick={() => setUseTemplate("yes")}
+                    >
+                      <Gem size={16} /> Template
+                    </button>
+                  </div>
+                  <span className="small text-muted d-block mt-1">
+                    Use an existing template to create custom package
+                  </span>
+                </div>
+
+                <div className="row g-3 mb-4">
+                  <div className="col-md-6">
+                    <label className="pkg-create__label">Package Category</label>
+                    <select 
+                      className="form-select pkg-create__select"
+                      value={pkgCategory}
+                      onChange={(e) => setPkgCategory(e.target.value)}
+                    >
+                      <option value="">Select Category</option>
+                      {CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="col-md-6">
+                    <label className="pkg-create__label">Template *</label>
+                    <select 
+                      className="form-select pkg-create__select"
+                      disabled={useTemplate === "no"}
+                      value={selectedTemplateId}
+                      onChange={(e) => handleTemplateChange(e.target.value)}
+                      required={useTemplate === "yes"}
+                    >
+                      <option value="">Select template</option>
+                      {templates?.items?.map((t: ApiPackage) => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="col-md-6">
+                    <label className="pkg-create__label">Business Unit</label>
+                    <select 
+                      className="form-select pkg-create__select"
+                      value={businessUnit}
+                      onChange={(e) => setBusinessUnit(e.target.value)}
+                    >
+                      <option value="Default BU">Default BU</option>
+                      <option value="Center 1">Center 1</option>
+                      <option value="Center 2">Center 2</option>
+                    </select>
+                  </div>
+
+                  <div className="col-md-6">
+                    <label className="pkg-create__label">Expert</label>
+                    <select 
+                      className="form-select pkg-create__select"
+                      value={expert}
+                      onChange={(e) => setExpert(e.target.value)}
+                    >
+                      <option value="">Select the expert</option>
+                      {staffList.map((s: any) => (
+                        <option key={s.id} value={s.id}>
+                          {s.fullName || `${s.first_name || s.firstName || ""} ${s.last_name || s.lastName || ""}`.trim()}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="col-md-6">
+                    <label className="pkg-create__label">Sale by</label>
+                    <select 
+                      className="form-select pkg-create__select"
+                      value={saleBy}
+                      onChange={(e) => setSaleBy(e.target.value)}
+                    >
+                      <option value="">Select Employee</option>
+                      {staffList.map((s: any) => (
+                        <option key={s.id} value={s.id}>
+                          {s.fullName || `${s.first_name || s.firstName || ""} ${s.last_name || s.lastName || ""}`.trim()}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="col-md-6">
+                    <label className="pkg-create__label">SAC</label>
+                    <input 
+                      type="text" 
+                      className="form-control pkg-create__input" 
+                      placeholder="Enter SAC code"
+                      value={sacCode}
+                      onChange={(e) => setSacCode(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="mb-3">
+                  <label className="pkg-create__label">Package Name</label>
+                  <input 
+                    type="text" 
+                    className="form-control pkg-create__input" 
+                    value={packageName}
+                    onChange={(e) => setPackageName(e.target.value)}
+                  />
+                </div>
+
+                {!showDesc ? (
+                  <button 
+                    type="button"
+                    className="btn btn-link p-0 text-decoration-none small fw-bold"
+                    onClick={() => setShowDesc(true)}
+                  >
+                    Add Description
+                  </button>
+                ) : (
+                  <div>
+                    <label className="pkg-create__label">Description</label>
+                    <textarea 
+                      className="form-control pkg-create__textarea" 
+                      rows={3}
+                      placeholder="Enter package description..."
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+};

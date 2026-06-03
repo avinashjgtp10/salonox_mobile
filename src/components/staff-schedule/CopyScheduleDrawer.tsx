@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import type { StaffMember } from "./types";
 import "./CopyScheduleDrawer.scss";
 
@@ -31,6 +31,40 @@ const CopyScheduleDrawer: React.FC<CopyScheduleDrawerProps> = ({
   const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
   const [calYear, setCalYear] = useState(today.getFullYear());
   const [calMonth, setCalMonth] = useState(today.getMonth());
+
+  // Reset state whenever the drawer is opened so it always reflects the currently viewed week
+  useEffect(() => {
+    if (!open) return;
+    const firstDate = currentWeekDates[0] ?? "";
+    setFromDate(firstDate);
+    setCopyType("day");
+    setSelectedDates(new Set());
+    if (firstDate) {
+      const d = new Date(firstDate + "T12:00:00");
+      setCalYear(d.getFullYear());
+      setCalMonth(d.getMonth());
+    } else {
+      const now = new Date();
+      setCalYear(now.getFullYear());
+      setCalMonth(now.getMonth());
+    }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When switching to Full Week, auto-select all days of the currently viewed week
+  useEffect(() => {
+    if (!open) return;
+    if (copyType === "week" && currentWeekDates.length > 0) {
+      setSelectedDates(new Set(currentWeekDates));
+      const firstDate = currentWeekDates[0];
+      if (firstDate) {
+        const d = new Date(firstDate + "T12:00:00");
+        setCalYear(d.getFullYear());
+        setCalMonth(d.getMonth());
+      }
+    } else if (copyType === "day") {
+      setSelectedDates(new Set());
+    }
+  }, [copyType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleDate = (dateStr: string) => {
     if (copyType === "day") {

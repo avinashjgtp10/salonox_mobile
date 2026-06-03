@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import ReactDOM from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { format, addDays, subDays, parseISO } from "date-fns";
 import { useDispatch, useSelector } from "react-redux";
@@ -11,6 +12,7 @@ import {
 import TransactionSummary from "../components/TransactionSummary";
 import CashMovementSummary from "../components/CashMovementSummary";
 import QuickSaleDrawer from "../components/QuickSaleDrawer";
+import MiniCalendar from "../../bookings/components/shared/MiniCalendar";
 import { exportSalesThunk, fetchSalesThunk } from "../../../middleware/sale/sale.thunk";
 import type { AppDispatch, RootState } from "../../../store/store";
 import type { Sale } from "../../../types/sale.types";
@@ -66,6 +68,31 @@ export default function DailySalesPage() {
 
   // ── Drawer ────────────────────────────────────────────────────────────────
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // ── Mini calendar ─────────────────────────────────────────────────────────
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [calPos, setCalPos] = useState({ top: 0, left: 0 });
+  const datePillRef = useRef<HTMLButtonElement>(null);
+  // tracks whether calendar was open at the moment the button is pressed,
+  // so the onClick handler knows not to reopen it.
+  const wasOpenOnMouseDownRef = useRef(false);
+
+  function handleDateBtnMouseDown() {
+    wasOpenOnMouseDownRef.current = showDatePicker;
+    if (showDatePicker) setShowDatePicker(false);
+  }
+
+  function handleDateBtnClick() {
+    if (wasOpenOnMouseDownRef.current) {
+      wasOpenOnMouseDownRef.current = false;
+      return;
+    }
+    if (datePillRef.current) {
+      const r = datePillRef.current.getBoundingClientRect();
+      setCalPos({ top: r.bottom + 8, left: r.left + r.width / 2 });
+    }
+    setShowDatePicker(true);
+  }
 
   // ── Export dropdown ───────────────────────────────────────────────────────
   const [showExport, setShowExport] = useState(false);
@@ -133,7 +160,7 @@ export default function DailySalesPage() {
               )}
             </div>
 
-            <Button variant="dark" pill className="px-4" onClick={() => setDrawerOpen(true)}>
+            <Button variant="dark" pill className="px-4" onClick={() => navigate("/dashboard/sales/quick")}>
               Add new
             </Button>
           </div>
@@ -146,13 +173,44 @@ export default function DailySalesPage() {
             <div className="vr mx-1" style={{ height: "20px", opacity: 0.1 }} />
             <Button variant="ghost" className="px-3 small fw-bold" onClick={handleToday}>Today</Button>
             <div className="vr mx-1" style={{ height: "20px", opacity: 0.1 }} />
-            <span className="date-text px-3 small fw-bold">
+            <button
+              ref={datePillRef}
+              className={`date-text-btn px-3 small fw-bold${showDatePicker ? " date-text-btn--active" : ""}`}
+              onMouseDown={handleDateBtnMouseDown}
+              onClick={handleDateBtnClick}
+            >
               {format(selectedDate, "EEEE d MMM, yyyy")}
-            </span>
+              <span style={{ fontSize: 9, opacity: 0.5, marginLeft: 4 }}>▼</span>
+            </button>
             <div className="vr mx-1" style={{ height: "20px", opacity: 0.1 }} />
             <Button variant="ghost" className="rounded-circle p-1" onClick={handleNext} iconLeft={<span>&#8250;</span>} />
           </div>
         </div>
+
+        {/* ── MINI CALENDAR PORTAL ── */}
+        {showDatePicker && ReactDOM.createPortal(
+          <div
+            style={{
+              position: "fixed",
+              top: calPos.top,
+              left: calPos.left,
+              transform: "translateX(-50%)",
+              zIndex: 99999,
+            }}
+          >
+            <MiniCalendar
+              value={format(selectedDate, "yyyy-MM-dd")}
+              onChange={(d) => {
+                const newDate = parseISO(d);
+                setSelectedDate(newDate);
+                updateDate(newDate);
+                setShowDatePicker(false);
+              }}
+              onClose={() => setShowDatePicker(false)}
+            />
+          </div>,
+          document.body,
+        )}
 
         {/* ── SUMMARY STATS ROW ── */}
         <div className="row g-3 mb-4">

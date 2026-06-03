@@ -1,7 +1,7 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../services/api/axios";
 import shiftApi from "./shiftApi";
-import { calcTotalHours, getSundayOf, toDateKey } from "../../components/staff-schedule/utils";
+import { calcTotalHours, getSundayOf, toDateKey, convertTo12h, convertTo24h } from "../../components/staff-schedule/utils";
 
 const COLOR_KEY_TO_HEX: Record<string, string> = {
   light_blue: "#7dd3fc", blue: "#3b82f6", dark_blue: "#1d4ed8",
@@ -68,16 +68,27 @@ export const fetchDailyShifts = createAsyncThunk(
         weekDates.forEach((dateStr) => {
           const dateObj = new Date(dateStr + "T12:00:00");
           const dayOfWeek = dateObj.getDay();
-          const daySched = schedules.find((sch: any) => sch.day_of_week === dayOfWeek);
+          // Normalise the API date field — it may arrive as a plain "YYYY-MM-DD"
+          // string or as a full ISO timestamp ("2026-05-24T18:30:00.000Z").
+          // Slicing to [0,10] makes both comparable to our dateStr.
+          const toYMD = (d: any) =>
+            d && typeof d === "string" ? d.slice(0, 10) : "";
+          // Prefer an exact date-specific record; fall back to a recurring
+          // record (no date field) only when no date-specific entry exists.
+          const daySched =
+            schedules.find((sch: any) => toYMD(sch.date) === dateStr) ??
+            schedules.find((sch: any) => !sch.date && sch.day_of_week === dayOfWeek);
 
           if (daySched) {
+            const start12 = daySched.start_time ? convertTo12h(daySched.start_time) : "";
+            const end12   = daySched.end_time   ? convertTo12h(daySched.end_time)   : "";
             shiftsMap[staffId][dateStr] = {
               staffId,
               date: dateStr,
-              startTime: daySched.start_time || "",
-              endTime: daySched.end_time || "",
-              totalHours: (daySched.start_time && daySched.end_time) ? calcTotalHours(daySched.start_time, daySched.end_time) : "",
-              type: daySched.is_available ? "working" : "dayoff",
+              startTime: start12,
+              endTime:   end12,
+              totalHours: (start12 && end12) ? calcTotalHours(start12, end12) : "",
+              type: daySched.is_available ? "working" : (daySched.notes === "Blocked" ? "blocked" : "dayoff"),
               isAvailable: daySched.is_available,
             };
           }
@@ -97,35 +108,74 @@ export const fetchDailyShifts = createAsyncThunk(
 export const applyCopySchedule = createAsyncThunk(
   "shift/applyCopySchedule",
   async (
-    { staffId, toDates }: { staffId: string; fromDate: string; toDates: string[]; type: "day" | "week" },
+    // NOTE: fromDate and type were previously not destructured here — both are now
+    // extracted so the thunk can read the source shift and handle day vs week mode.
+    { staffId, fromDate, toDates, type }: { staffId: string; fromDate: string; toDates: string[]; type: "day" | "week" },
     { getState }
   ) => {
-    // 1. Local update is handled by shiftSlice.extraReducers (applyCopySchedule.pending)
-
-    // 2. Get updated shifts from state
+    // The applyCopySchedule.pending reducer already applied the local UI update.
+    // fromDate's entry is never mutated by that reducer, so getState() here gives
+    // us the correct original source shift to copy from.
     const state = getState() as any;
-    const updatedShifts = state.shift.shifts[staffId] || {};
+    const allShifts = state.shift.shifts[staffId] || {};
 
-    // 3. Prepare items for backend upsert
-    // 3. Prepare items for backend upsert: Send 7 entries (one for each day_of_week)
-    // We'll derive the 7-day pattern from the week containing the first target date
-    const targetSunday = getSundayOf(new Date(toDates[0] + "T12:00:00"));
-    const items = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(targetSunday);
-      d.setDate(targetSunday.getDate() + i);
-      const dateKey = toDateKey(d);
-      const s = updatedShifts[dateKey] || { startTime: "", endTime: "", isAvailable: false, type: "dayoff" };
-      
-      return {
-        day_of_week: d.getDay(),
-        start_time: s.startTime,
-        end_time: s.endTime,
-        is_available: !!s.isAvailable,
-        notes: s.type === "blocked" ? "Blocked" : ""
-      };
-    });
+    const items: any[] = [];
 
-    // 4. Save to backend
+    if (type === "day") {
+      // ── Single-day copy ──────────────────────────────────────────────────────
+      // Build exactly one backend item per explicitly selected date.
+      // Never loop the whole week — toDates is the complete set of target dates.
+      const sourceShift = allShifts[fromDate];
+      toDates.forEach((date) => {
+        const dayOfWeek = new Date(date + "T12:00:00").getDay();
+        if (!sourceShift || !sourceShift.isAvailable) {
+          items.push({ date, day_of_week: dayOfWeek, is_available: false, start_time: "", end_time: "", notes: "" });
+        } else {
+          items.push({
+            date,
+            day_of_week: dayOfWeek,
+            is_available: true,
+            start_time: sourceShift.startTime ? convertTo24h(sourceShift.startTime) : "",
+            end_time: sourceShift.endTime ? convertTo24h(sourceShift.endTime) : "",
+            notes: sourceShift.type === "blocked" ? "Blocked" : "",
+          });
+        }
+      });
+    } else {
+      // ── Full-week copy ───────────────────────────────────────────────────────
+      // Copy the source date's schedule to all 7 days of each target week.
+      const sourceShift = allShifts[fromDate];
+
+      const targetSundays = new Set<string>();
+      toDates.forEach((d) => {
+        const sun = getSundayOf(new Date(d + "T12:00:00"));
+        targetSundays.add(toDateKey(sun));
+      });
+
+      targetSundays.forEach((sunStr) => {
+        const targetSunday = new Date(sunStr + "T12:00:00");
+        for (let i = 0; i < 7; i++) {
+          const targetDay = new Date(targetSunday);
+          targetDay.setDate(targetSunday.getDate() + i);
+          const targetDate = toDateKey(targetDay);
+          const dayOfWeek = targetDay.getDay();
+
+          if (!sourceShift || !sourceShift.isAvailable) {
+            items.push({ date: targetDate, day_of_week: dayOfWeek, is_available: false, start_time: "", end_time: "", notes: "" });
+          } else {
+            items.push({
+              date: targetDate,
+              day_of_week: dayOfWeek,
+              is_available: true,
+              start_time: sourceShift.startTime ? convertTo24h(sourceShift.startTime) : "",
+              end_time: sourceShift.endTime ? convertTo24h(sourceShift.endTime) : "",
+              notes: sourceShift.type === "blocked" ? "Blocked" : "",
+            });
+          }
+        }
+      });
+    }
+
     try {
       await shiftApi.upsertStaffSchedules(staffId, items);
       return { staffId, success: true };
@@ -144,6 +194,30 @@ export const saveStaffSchedule = createAsyncThunk(
       return res.data;
     } catch (err: any) {
       return rejectWithValue(err.response?.data?.message || "Failed to save schedule");
+    }
+  }
+);
+
+export const saveSingleShiftThunk = createAsyncThunk(
+  "shift/saveSingleShift",
+  async (payload: { staff_id: string; date: string; start_time: string; end_time: string }, { rejectWithValue }) => {
+    try {
+      const res = await shiftApi.saveSingleShift(payload);
+      return { ...res.data, payload }; // Return payload so reducer can use it if needed
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data?.message || "Failed to save shift");
+    }
+  }
+);
+
+export const deleteSingleShiftThunk = createAsyncThunk(
+  "shift/deleteSingleShift",
+  async (payload: { staff_id: string; date: string }, { rejectWithValue }) => {
+    try {
+      const res = await shiftApi.deleteSingleShift(payload);
+      return { ...res.data, payload };
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data?.message || "Failed to delete shift");
     }
   }
 );

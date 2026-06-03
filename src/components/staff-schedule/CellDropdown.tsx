@@ -6,6 +6,7 @@ interface CellDropdownProps {
   onAddTimeOff: () => void;
   onManageDayOff: () => void;
   onManageBlockedDay: () => void;
+  onDeleteTimeBlock?: () => void;
   onClose: () => void;
   anchorRef: React.RefObject<HTMLElement | null>;
 }
@@ -15,6 +16,7 @@ const CellDropdown: React.FC<CellDropdownProps> = ({
   onAddTimeOff,
   onManageDayOff,
   onManageBlockedDay,
+  onDeleteTimeBlock,
   onClose,
   anchorRef,
 }) => {
@@ -77,19 +79,33 @@ const CellDropdown: React.FC<CellDropdownProps> = ({
   }, [onClose, anchorRef]);
 
   const menu = (
-    <div ref={menuRef} className="sched-dropdown" style={style}>
-      <button className="sched-dropdown__item" onClick={() => { onEditWorkingHours(); onClose(); }}>
+    <div ref={menuRef} className="sched-dropdown" style={style} onClick={(e) => e.stopPropagation()}>
+      <button className="sched-dropdown__item" onClick={(e) => { e.stopPropagation(); onEditWorkingHours(); onClose(); }}>
         Edit Working Hours
       </button>
-      <button className="sched-dropdown__item" onClick={() => { onAddTimeOff(); onClose(); }}>
+      <button className="sched-dropdown__item" onClick={(e) => { e.stopPropagation(); onAddTimeOff(); onClose(); }}>
         Add Time Off
       </button>
-      <button className="sched-dropdown__item" onClick={() => { onManageDayOff(); onClose(); }}>
+      <button className="sched-dropdown__item" onClick={(e) => { e.stopPropagation(); onManageDayOff(); onClose(); }}>
         Manage Day Off
       </button>
-      <button className="sched-dropdown__item" onClick={() => { onManageBlockedDay(); onClose(); }}>
+      <button className="sched-dropdown__item" onClick={(e) => { e.stopPropagation(); onManageBlockedDay(); onClose(); }}>
         Manage Blocked Day
       </button>
+      {onDeleteTimeBlock && (
+        <button
+          className="sched-dropdown__item sched-dropdown__item--danger"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+            setTimeout(() => {
+              onDeleteTimeBlock();
+            }, 0);
+          }}
+        >
+          Delete Time Block
+        </button>
+      )}
     </div>
   );
 

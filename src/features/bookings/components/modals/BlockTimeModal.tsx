@@ -83,7 +83,7 @@ const BlockTimeModal: React.FC<Props> = ({ onClose, defaultStaffId, editingBlock
             <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Staff *</label>
             <select className="form-select" value={staffId} onChange={(e) => setStaffId(e.target.value)}>
               <option value="">Select Staff</option>
-              {(staffList || []).map((s: { id: string; name: string }) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              {(staffList || []).map((s: { id: string; name: string }) => <option key={s.id} value={s.id}>{s.name.includes(" ") ? s.name : s.name.replace(/([a-z])([A-Z])/g, "$1 $2")}</option>)}
             </select>
           </div>
 

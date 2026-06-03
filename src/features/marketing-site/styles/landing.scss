@@ -34,8 +34,10 @@
 .lp-hero-bg {
   position: absolute;
   inset: 0;
-  background-size: cover;
-  background-position: center;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
   animation: sx-ken-burns 20s ease-in-out infinite;
   will-change: transform;
 }
@@ -337,6 +339,46 @@
 }
 
 // ── FEATURES GRID ─────────────────────────────────────────────────────────
+.lp-core {
+  @include m.section-pad;
+  background: var(--sx-bg-0);
+}
+
+.lp-core-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+
+  @media (max-width: 900px) { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 560px) { grid-template-columns: 1fr; }
+}
+
+.lp-core-card {
+  @include m.card-base;
+  padding: 22px;
+  text-align: left;
+  min-height: 150px;
+  transition: border-color 0.2s, transform 0.2s;
+
+  h3 {
+    font-size: 17px;
+    line-height: 1.25;
+    color: var(--sx-text-primary);
+    margin-bottom: 10px;
+  }
+
+  p {
+    font-size: 13.5px;
+    line-height: 1.7;
+    color: var(--sx-text-muted);
+  }
+
+  &:hover {
+    border-color: var(--sx-accent);
+    transform: translateY(-2px);
+  }
+}
+
 .lp-features {
   @include m.section-pad;
   background: var(--sx-bg-0);
@@ -742,6 +784,37 @@
 .lp-testi-name { font-size: 13px; font-weight: 600; color: var(--sx-text-primary); }
 .lp-testi-role { font-size: 11.5px; color: var(--sx-text-faint); margin-top: 2px; }
 
+// ── FAQ ──────────────────────────────────────────────────────────────────
+.lp-faq {
+  @include m.section-pad;
+  background: var(--sx-bg-1);
+}
+
+.lp-faq-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+
+  @media (max-width: 760px) { grid-template-columns: 1fr; }
+}
+
+.lp-faq-card {
+  @include m.card-base;
+  padding: 24px;
+
+  h3 {
+    font-size: 16px;
+    color: var(--sx-text-primary);
+    margin-bottom: 8px;
+  }
+
+  p {
+    font-size: 13.5px;
+    color: var(--sx-text-muted);
+    line-height: 1.7;
+  }
+}
+
 // ── CTA BANNER ────────────────────────────────────────────────────────────
 .lp-cta {
   position: relative;
@@ -856,6 +929,33 @@
     }
   }
 }
+.lp-mobile-sticky {
+  display: none;
+
+  @media (max-width: 720px) {
+    position: fixed;
+    z-index: 80;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--sx-bg-0) 94%, transparent);
+    border-top: 1px solid var(--sx-border);
+    backdrop-filter: blur(14px);
+
+    .sx-btn-primary,
+    .sx-btn-outline {
+      width: 100%;
+      justify-content: center;
+      padding: 0 12px;
+      height: 42px;
+      white-space: nowrap;
+    }
+  }
+}
 
 // Hero bullets on mobile
 .lp-hero-ctas {
@@ -868,5 +968,10 @@
 .lp-pricing-grid {
   @media (max-width: 560px) {
     grid-template-columns: 1fr !important;
+  }
+}
+@media (max-width: 720px) {
+  .lp-root {
+    padding-bottom: 72px;
   }
 }

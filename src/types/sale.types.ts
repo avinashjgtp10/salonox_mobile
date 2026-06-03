@@ -15,6 +15,8 @@ export interface SaleItemDetail {
   id: EntityId;
   sale_id: EntityId;
   item_type: SaleItemType;
+  item_id: string | null;
+  staff_id: string | null;
   name: string;
   quantity: number;
   unit_price: string;
@@ -27,6 +29,7 @@ export interface Sale {
   id: EntityId;
   salon_id: string;
   client_id: string | null;
+  client_name?: string | null;
   status: SaleStatus;
   subtotal: string;
   discount_amount: string;
@@ -46,6 +49,7 @@ export interface Sale {
 export interface CreateSaleItemPayload {
   item_type: SaleItemType;
   item_id?: string;
+  staff_id?: string;
   name: string;
   quantity: number;
   unit_price: string;

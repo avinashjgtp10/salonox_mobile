@@ -16,8 +16,10 @@ interface ScheduleRowProps {
   onAddTimeOff: (staffId: string, date: string) => void;
   onManageDayOff: (staffId: string, date: string) => void;
   onManageBlockedDay: (staffId: string, date: string) => void;
+  onDeleteTimeBlock: (staffId: string, date: string) => void;
   onCopy: (staffId: string) => void;
   onEditStaff: (staffId: string) => void;
+  isModalOpen?: boolean;
 }
 
 const ScheduleRow: React.FC<ScheduleRowProps> = ({
@@ -28,8 +30,10 @@ const ScheduleRow: React.FC<ScheduleRowProps> = ({
   onAddTimeOff,
   onManageDayOff,
   onManageBlockedDay,
+  onDeleteTimeBlock,
   onCopy,
   onEditStaff,
+  isModalOpen,
 }) => {
   return (
     <tr className="sched-table__row">
@@ -57,7 +61,7 @@ const ScheduleRow: React.FC<ScheduleRowProps> = ({
 
       {/* Shift cells */}
       {weekDates.map(({ dateKey }) => (
-        <td key={dateKey} className="sched-table__td-cell">
+        <td key={`${staff.id}-${dateKey}`} className="sched-table__td-cell">
           <ScheduleCell
             shift={shifts[dateKey]}
             staffId={staff.id}
@@ -66,6 +70,8 @@ const ScheduleRow: React.FC<ScheduleRowProps> = ({
             onAddTimeOff={onAddTimeOff}
             onManageDayOff={onManageDayOff}
             onManageBlockedDay={onManageBlockedDay}
+            onDeleteTimeBlock={onDeleteTimeBlock}
+            isModalOpen={isModalOpen}
           />
         </td>
       ))}

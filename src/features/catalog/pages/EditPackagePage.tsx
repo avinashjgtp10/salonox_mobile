@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { X } from "react-bootstrap-icons";
 import {
@@ -6,13 +6,10 @@ import {
   useUpdatePackageMutation,
 } from "../../../services/api/endpoints/packages.endpoints";
 import type { UpdatePackageDTO } from "../../../services/api/endpoints/packages.endpoints";
+import { useServices } from "../hooks/useServices";
+import type { Service as ApiService } from "../types/catalog.types";
 
-interface Service {
-  id: string;
-  name: string;
-  price: number;
-  category: string;
-}
+type Service = ApiService;
 
 interface Offer {
   id: number;
@@ -26,21 +23,7 @@ interface Offer {
   active: boolean;
 }
 
-const ALL_SERVICES: Service[] = [
-  { id: "11111111-1111-1111-1111-111111111111", name: "Head massage",    price: 499,  category: "Body"  },
-  { id: "22222222-2222-2222-2222-222222222222", name: "Swedish massage", price: 1999, category: "Body"  },
-  { id: "33333333-3333-3333-3333-333333333333", name: "Aromatherapy",    price: 1799, category: "Spa"   },
-  { id: "44444444-4444-4444-4444-444444444444", name: "Hair cut",        price: 299,  category: "Hair"  },
-  { id: "55555555-5555-5555-5555-555555555555", name: "Hair color",      price: 1499, category: "Hair"  },
-  { id: "66666666-6666-6666-6666-666666666666", name: "Facial",          price: 999,  category: "Skin"  },
-  { id: "77777777-7777-7777-7777-777777777777", name: "Cleanup",         price: 599,  category: "Skin"  },
-  { id: "88888888-8888-8888-8888-888888888888", name: "Nail art",        price: 799,  category: "Nails" },
-  { id: "99999999-9999-9999-9999-999999999999", name: "Manicure",        price: 499,  category: "Nails" },
-  { id: "00000000-0000-0000-0000-000000000000", name: "Body scrub",      price: 1299, category: "Body"  },
-];
-
-const SERVICE_CATEGORIES = ["All", "Hair", "Skin", "Nails", "Body", "Spa"];
-const CATEGORIES          = ["Spa", "Hair", "Skin", "Nails", "Body"];
+const CATEGORIES = ["Spa", "Hair", "Skin", "Nails", "Body"];
 
 const slugify = (v: string) =>
   v.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -52,6 +35,7 @@ const EditPackagePage: React.FC = () => {
   const { data: pkg, isLoading, isError } = useGetPackageByIdQuery(id!, { skip: !id });
   const [updatePackage] = useUpdatePackageMutation();
 
+  // ── All state declarations first ─────────────────────────────────────────
   const [step, setStep]               = useState(1);
   const [pkgName, setPkgName]         = useState("");
   const [slug, setSlug]               = useState("");
@@ -69,7 +53,30 @@ const EditPackagePage: React.FC = () => {
   const [saving, setSaving]           = useState(false);
   const [initialized, setInitialized] = useState(false);
 
-  // Pre-fill form once package data is available
+  // ── Real services from API ──────────────────────────────────────────────
+  const { services, fetchServices } = useServices();
+
+  useEffect(() => {
+    fetchServices({ limit: 1000 });
+  }, [fetchServices]);
+
+  const serviceCategories = useMemo(() => {
+    const cats = new Set<string>();
+    services.forEach((s) => { if (s.category_name) cats.add(s.category_name); });
+    return ["All", ...Array.from(cats)];
+  }, [services]);
+
+  const visibleSvcs = useMemo(() =>
+    serviceFilter === "All"
+      ? services
+      : services.filter((s) => s.category_name === serviceFilter),
+  [services, serviceFilter]);
+
+  const estDuration = useMemo(() =>
+    selectedServices.reduce((sum, s) => sum + (Number(s.duration) || 0), 0),
+  [selectedServices]);
+
+  // Pre-fill form fields once package data is available (runs once)
   useEffect(() => {
     if (pkg && !initialized) {
       setPkgName(pkg.name ?? "");
@@ -82,12 +89,6 @@ const EditPackagePage: React.FC = () => {
       setCategory(pkg.category ?? "");
       setColour(pkg.colour ?? "#10b981");
       setStatus(pkg.status ?? "Active");
-
-      // Pre-select services from stored IDs
-      if (pkg.serviceIds?.length) {
-        const preSelected = ALL_SERVICES.filter((s) => pkg.serviceIds!.includes(s.id));
-        setSelSvcs(preSelected);
-      }
 
       // Pre-fill offers
       if (pkg.offers?.length) {
@@ -110,6 +111,17 @@ const EditPackagePage: React.FC = () => {
     }
   }, [pkg, initialized]);
 
+  // Pre-select services — runs whenever services (from API) or pkg changes.
+  // This handles the race condition where services load after the first effect.
+  useEffect(() => {
+    if (pkg?.serviceIds?.length && services.length > 0) {
+      const preSelected = services.filter((s) =>
+        pkg.serviceIds!.includes(String(s.id))
+      );
+      if (preSelected.length > 0) setSelSvcs(preSelected);
+    }
+  }, [pkg?.serviceIds, services]);
+
   const handleNameChange = (v: string) => {
     setPkgName(v);
     setSlug(slugify(v));
@@ -120,7 +132,7 @@ const EditPackagePage: React.FC = () => {
       prev.find((s) => s.id === svc.id) ? prev.filter((s) => s.id !== svc.id) : [...prev, svc]
     );
 
-  const visibleSvcs = serviceFilter === "All" ? ALL_SERVICES : ALL_SERVICES.filter((s) => s.category === serviceFilter);
+  // visibleSvcs and serviceCategories are computed via useMemo above
 
   const addOffer = () =>
     setOffers((prev) => [
@@ -148,7 +160,7 @@ const EditPackagePage: React.FC = () => {
         category,
         status,
         colour,
-        serviceIds: selectedServices.map((s) => s.id),
+        serviceIds: selectedServices.map((s) => String(s.id)),
         offers: offers.map(({ id: _id, ...rest }) => rest),
       };
       await updatePackage({ id, data: payload }).unwrap();
@@ -325,7 +337,7 @@ const EditPackagePage: React.FC = () => {
 
               <label className="pkg-create__label mb-2">FILTER BY CATEGORY</label>
               <div className="pkg-chips mb-4">
-                {SERVICE_CATEGORIES.map((cat) => (
+                {serviceCategories.map((cat) => (
                   <button key={cat} className={`pkg-chip ${serviceFilter === cat ? "active" : ""}`} onClick={() => setSF(cat)}>
                     {cat}
                   </button>
@@ -346,7 +358,7 @@ const EditPackagePage: React.FC = () => {
 
               <div className="pkg-service-summary mt-3">
                 <span>Selected: <strong>{selectedServices.length} services</strong></span>
-                <span>Est. duration: <strong>{selectedServices.length * 30} min</strong></span>
+                <span>Est. duration: <strong>{estDuration} min</strong></span>
               </div>
             </div>
           )}

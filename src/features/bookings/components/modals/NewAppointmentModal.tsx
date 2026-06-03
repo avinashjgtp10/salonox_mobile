@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import type { Booking, ServiceItem, PackageItem, PaymentMode, DiscountType } from "../../types/scheduler-types";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 
@@ -6,6 +7,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 function toApiStaffId(id?: string | null): string | undefined {
   return id && UUID_RE.test(id) ? id : undefined;
 }
+import toast from "react-hot-toast";
 import api from "../../../../services/api/axios";
 import { useAppDispatch } from "../../../../hooks/useAppRedux";
 import { createBookingThunk } from "../../../../middleware/booking/booking.thunk";
@@ -20,15 +22,21 @@ import Button from "../../../../components/ui/Button";
 import Badge from "../../../../components/ui/Badge";
 import Input from "../../../../components/ui/Input";
 import ClientSearchInput from "../../../clients/components/ClientSearchInput";
+import CountryPhoneSelect, { type CountryOption } from "../../../../components/ui/CountryPhoneSelect";
 import "../../styles/NewAppointmentModal.scss";
 import "../../styles/ClientFormUI.scss";
+import {
+  Lightning, FileText, BellFill, CreditCard2Front, CreditCard,
+  LockFill, Cash, Phone, ExclamationTriangleFill, XCircleFill, PencilFill, StarFill,
+  Printer, Trash, ArrowRepeat, Scissors, Gift, CheckCircleFill, RecordCircle,
+} from "react-bootstrap-icons";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 interface Props { onClose: () => void; defaultStaffId?: string; defaultTime?: string; existingBooking?: Booking }
 type TempService = ServiceItem & { tempId: string };
-type TempPkg = PackageItem & { tempId: string; search: string; showDrop: boolean };
-type TempProduct = { tempId: string; id: string; productName: string; price: number; qty: number; total: number; search: string; showDrop: boolean; stock?: number; };
-type TempMembership = { tempId: string; name: string; duration: string; price: number; qty: number; total: number; search: string; showDrop: boolean };
+type TempPkg = PackageItem & { tempId: string; search: string; showDrop: boolean; discount?: number };
+type TempProduct = { tempId: string; id: string; productName: string; price: number; qty: number; discount?: number; total: number; search: string; showDrop: boolean; stock?: number; };
+type TempMembership = { tempId: string; name: string; duration: string; price: number; qty: number; discount?: number; total: number; search: string; showDrop: boolean };
 type SingleMethod = "Cash" | "Card" | "UPI";
 type SplitEntry = { method: SingleMethod; amount: string };
 type ApptStatus = "NEW" | "UNPAID" | "PAID" | "CANCELLED";
@@ -142,8 +150,9 @@ const InlineDrop: React.FC<{
 // ─── Main Component ────────────────────────────────────────────────────────────
 const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, defaultTime, existingBooking }) => {
   const { addBooking, updateBooking, currentDate, clientStats, deductEWallet, processPaymentRewards,
-    staffList, clientsList, packagesList, membershipsList, productsList, blockedTimes } = useSchedulerContext();
+    staffList, clientsList, packagesList, membershipsList, productsList, blockedTimes, bookings } = useSchedulerContext();
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const salonId = useAppSelector((s: any) => s.salon?.currentSalon?.id);
 
   // ✅ FIX — read from both snake_case (DB) and camelCase (local state)
@@ -185,6 +194,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
   const [isWalkin, setIsWalkin] = useState(_isWalkinInit);
   const [showAddClientForm, setShowAddClientForm] = useState(false);
   const [isClientSaved, setIsClientSaved] = useState(false);
+  const [clientSearchKey, setClientSearchKey] = useState(0);
   const [newClientName, setNewClientName] = useState("");
   const [newClientLastName, setNewClientLastName] = useState("");
   const [newClientPhone, setNewClientPhone] = useState("");
@@ -192,17 +202,6 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
   const [phoneDuplicate, setPhoneDuplicate] = useState(false);
   const [phoneCheckLoading, setPhoneCheckLoading] = useState(false);
   const [countryCode, setCountryCode] = useState("+91");
-  const [showCountryCodeMenu, setShowCountryCodeMenu] = useState(false);
-  const countryCodeRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const handleOutsideClick = (e: MouseEvent) => {
-      if (countryCodeRef.current && !countryCodeRef.current.contains(e.target as Node)) {
-        setShowCountryCodeMenu(false);
-      }
-    };
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, []);
 
   // Date
   const [calDate, setCalDate] = useState(existingBooking?.billDate || currentDate);
@@ -279,7 +278,8 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
   const [_newMembership, setNewMembership] = useState("");
   const [printAfterPayment, setPrintAfterPayment] = useState(false);
 
-  // Cancel & Delete
+  // Save / Cancel / Delete
+  const [isSaving, setIsSaving] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [isCancelLoading, setIsCancelLoading] = useState(false);
   const [isDeleteLoading, setIsDeleteLoading] = useState(false);
@@ -323,7 +323,8 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
   const subtotal = serviceTotal + packageTotal + productTotal + membershipTotal;
   const discountVal = discountType === "Percentage (%)" ? (serviceTotal * discount) / 100 : discount;
   const actualDiscountVal = Math.min(discountVal, serviceTotal);
-  const totalDisc = Math.min(actualDiscountVal + couponDiscount, subtotal);
+  const totalCategoryDisc = actualDiscountVal;
+  const totalDisc = Math.min(totalCategoryDisc + couponDiscount, subtotal);
   const taxable = Math.max(0, subtotal - totalDisc);
   const grandTotal = taxable + (taxable * gst) / 100 + exCharges + tip;
   const effectiveTotal = Math.max(0, grandTotal - (useEWallet ? eWalletAmt : 0));
@@ -377,7 +378,10 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
     if (!genderOk) errs.push("new_client_gender");
     if (errs.length) { setValidationErrors((prev) => [...prev.filter((e) => !e.startsWith("new_client")), ...errs]); return; }
 
-    setIsClientSaved(true); // Disable immediately to prevent multiple clicks
+    // Capture name now — state cleared after await
+    const savedName = `${newClientName.trim()} ${newClientLastName.trim()}`.trim();
+
+    setIsClientSaved(true);
 
     try {
       const res = await api.post("/api/v1/clients", {
@@ -390,12 +394,17 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
       setSelectedClientId(createdId ? String(createdId) : null);
     } catch (err: any) {
       console.error("Failed to create client:", err);
-      setIsClientSaved(false); // Re-enable if it failed
+      setIsClientSaved(false);
       return;
     }
 
-    setClientSearch(`${newClientName.trim()} ${newClientLastName.trim()}`.trim()); setIsWalkin(false);
-    setShowAddClientForm(false); clearErr("client", "new_client_name", "new_client_last_name", "new_client_phone", "new_client_gender");
+    // Force-remount ClientSearchInput so it picks up the new name regardless
+    // of what was previously typed in the search box
+    setClientSearch(savedName);
+    setClientSearchKey((k) => k + 1);
+    setIsWalkin(false);
+    setShowAddClientForm(false);
+    clearErr("client", "new_client_name", "new_client_last_name", "new_client_phone", "new_client_gender");
     setNewClientName(""); setNewClientLastName(""); setNewClientPhone(""); setNewClientGender("");
   }
 
@@ -449,34 +458,49 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
     const startTime = firstRow?.time || existingBooking?.startTime || defaultTime || "10:00";
     const serviceDuration = (firstRow as any)?.duration || 30;
     const endTime = addMinutes(startTime, serviceDuration);
+
+    // ── Build combined title from all booking item types ──────────────────
+    const appointmentTitle = [
+      ...serviceRows.map((r) => r.service || (r as any).name).filter(Boolean),
+      ...productRows.map((r) => r.productName || (r as any).name).filter(Boolean),
+      ...packageRows.map((r) => r.packageName || (r as any).name).filter(Boolean),
+      ...membershipRows.map((r) => r.membershipName || (r as any).name).filter(Boolean),
+    ].filter(Boolean).join(", ");
+
     return {
       ...(existingBooking || {}),
       id: existingBooking?.id || "b_" + Date.now(),
+      title: appointmentTitle,
       clientId: selectedClientId || undefined,
       clientName: resolvedName(),
       clientPhone: resolvedPhone(),
       staffId: firstRow?.staffId || existingBooking?.staffId || staffList[0]?.id || "",
-      date: currentDate, billDate: calDate, startTime, endTime,
+      date: calDate, billDate: calDate, startTime, endTime,
       services: serviceRows.filter((r) => r.service).map((r) => ({
         id: r.id || "s_" + r.tempId, service: r.service,
+        name: r.service,
         staff: staffList.find((s) => s.id === r.staffId)?.name || r.staff || "",
         staffId: r.staffId, time: r.time, price: r.price, qty: r.qty || 1, total: r.total,
         duration: (r as any).duration || 30,
       })),
       groupItems: [],
-      packageItems: packageRows.map((r) => ({ id: r.id || "pk_" + r.tempId, packageId: r.packageId, packageName: r.packageName, price: r.price, qty: r.qty, total: r.total })),
+      packageItems: packageRows.map((r) => ({ id: r.id || "pk_" + r.tempId, packageId: r.packageId, packageName: r.packageName, name: r.packageName, price: r.price, qty: r.qty, total: r.total })),
       status: payStatus === "Paid" ? "Confirmed" : "Pending",
       paymentStatus: payStatus,
-      payment_status: payStatus.toLowerCase() as any, // ✅ FIX — keep snake_case in sync
+      payment_status: payStatus.toLowerCase() as any,
       paymentMode: (singleMethod || "Cash") as PaymentMode,
       rewardPoints, exCharges, discount, discountType, gst,
       couponCode: couponApplied, couponDiscount, subtotal,
       taxableAmount: taxable, grandTotal: effectiveTotal,
-      // ✅ Feature 2 — when editing a paid appt, dueAmount = new services cost only
       payingNow: paying, dueAmount: Math.max(0, effectiveTotal - paying),
       notes: notes,
       staffAlert: staffAlert,
-      tip: tip as any, productItems: productRows as any, membershipItems: membershipRows as any,
+      tip: tip as any,
+      productItems: productRows.map((r) => ({ ...r, name: r.productName || (r as any).name })),
+      products: productRows.map((r) => ({ ...r, name: r.productName || (r as any).name })),
+      packages: packageRows.map((r) => ({ id: r.id || "pk_" + r.tempId, packageId: r.packageId, packageName: r.packageName, name: r.packageName, price: r.price, qty: r.qty, total: r.total })),
+      membershipItems: membershipRows.map((r) => ({ ...r, name: r.membershipName || (r as any).name })),
+      memberships: membershipRows.map((r) => ({ ...r, name: r.membershipName || (r as any).name })),
     } as any;
   }
 
@@ -522,6 +546,24 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
     );
   }
 
+  function checkBookingConflict(bookingDate: string, startTime: string, endTime: string, staffId: string): boolean {
+    const editingBookingId = existingBooking?.id;
+    return bookings.some((existing) => {
+      const isSameBooking = editingBookingId !== undefined && editingBookingId !== null && 
+        (existing.id === editingBookingId || String(existing.id) === String(editingBookingId));
+      const existStatus = (existing.status || "").toLowerCase();
+      const existEnd = existing.endTime || existing.startTime;
+      return (
+        existing.staffId === staffId &&
+        existing.date === bookingDate &&
+        !isSameBooking &&
+        existStatus !== "cancelled" &&
+        existStatus !== "canceled" &&
+        startTime < existEnd &&
+        endTime > existing.startTime
+      );
+    });
+  }
 
   async function handleSave() {
     const errors = runValidation();
@@ -529,113 +571,172 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
     setValidationErrors([]);
     setBlockTimeError(null);
 
-    // Check for blocked time and booking overlaps on all service rows
-    {
-      const bookingDate = calDate;
-      for (const row of serviceRows) {
-        if (!row.staffId) continue;
-        const rowStart = row.time || (defaultTime ?? "10:00");
-        const rowDuration = (row as any).duration || 30;
-        const rowEnd = addMinutes(rowStart, rowDuration);
-        if (checkBlockedTimeOverlap(bookingDate, rowStart, rowEnd, row.staffId)) {
-          setBlockTimeError("This time slot is blocked for the selected staff.");
-          return;
-        }
+    // Check for blocked time overlaps on all service rows
+    const bookingDate = calDate;
+    for (const row of serviceRows) {
+      if (!row.staffId) continue;
+      const rowStart = row.time || (defaultTime ?? "10:00");
+      const rowDuration = (row as any).duration || 30;
+      const rowEnd = addMinutes(rowStart, rowDuration);
+      if (checkBlockedTimeOverlap(bookingDate, rowStart, rowEnd, row.staffId)) {
+        setBlockTimeError("This time slot is blocked for the selected staff.");
+        return;
       }
     }
-    const clientId = await resolveClientId();
-    const b = buildPayload(0, "Unpaid");
-    if (existingBooking) {
-      updateBooking(b);
-    } else {
-      addBooking(b);
-      const localId = String(b.id);
-      const firstRow = b.services[0];
-      const startTime = firstRow?.time || defaultTime || "10:00";
-      if (salonId) {
-        const action: any = await dispatch(createBookingThunk({
-          client_id: clientId || undefined,
-          staff_id: toApiStaffId(firstRow?.staffId) ?? toApiStaffId(staffList[0]?.id),
-          service_id: toApiStaffId(firstRow?.id) || undefined,
-          services: b.services.map((s: any) => { const dur = s.duration || 30; return { service_id: s.id, staff_id: s.staffId, time: s.time, start_time: s.time, end_time: addMinutes(s.time, dur), serviceId: s.id, staffId: s.staffId, startTime: s.time, endTime: addMinutes(s.time, dur), price: s.price, qty: s.qty, total: s.total }; }),
-          package_items: b.packageItems,
-          product_items: ((b as any).productItems || []).map((p: any) => ({
-            product_id: p.id || p.product_id || undefined,
-            name: p.productName || p.name || "",
-            price: p.price || 0,
-            quantity: p.qty || p.quantity || 1,
-          })),
-          membership_items: (b as any).membershipItems,
-          scheduled_at: new Date(`${calDate}T${startTime}:00`).toISOString(),
-          duration_minutes: b.services[0]?.duration || 30,
-          status: "booked",
-          notes: notes || undefined,
-          staff_alert: staffAlert || undefined,
-        }));
-        
-        if (createBookingThunk.rejected.match(action)) {
-          dispatch(deleteBookingAction(b.id)); // Rollback optimistic add
-          setBlockTimeError(action.payload as string || "Staff member already has an appointment at this time");
-          return; // Prevent closing the modal
-        }
 
-        const realId = String(action.payload?.id || "");
-        if (realId) {
-          dispatch(replaceBookingId({ localId, realId }));
-        }
+    setIsSaving(true);
+    try {
+      const clientId = await resolveClientId();
+      const b = buildPayload(0, "Unpaid");
+      if (existingBooking) {
+        updateBooking(b);
+      } else {
+        addBooking(b);
+        const localId = String(b.id);
+        const firstRow = b.services[0];
+        const startTime = firstRow?.time || defaultTime || "10:00";
+        const action: any = await dispatch(createBookingThunk({
+            salon_id: salonId || undefined,
+            client_id: clientId || undefined,
+            staff_id: toApiStaffId(firstRow?.staffId) ?? toApiStaffId(staffList[0]?.id),
+            service_id: toApiStaffId(firstRow?.id) || undefined,
+            services: b.services.map((s: any) => {
+              const svcLocal = s.time || startTime;
+              const svcDt = new Date(`${calDate}T${svcLocal}:00`);
+              const svcStartISO = svcDt.toISOString();
+              const svcEndISO = new Date(svcDt.getTime() + (s.duration || 30) * 60000).toISOString();
+              return {
+                service_id: s.id,
+                staff_id: toApiStaffId(s.staffId),
+                start_time: svcStartISO,
+                end_time: svcEndISO,
+                price: s.price,
+                qty: s.qty || 1,
+                total: s.total,
+              };
+            }),
+            package_items: b.packageItems,
+            product_items: ((b as any).productItems || []).map((p: any) => ({
+              product_id: p.id || p.product_id || undefined,
+              name: p.productName || p.name || "",
+              price: p.price || 0,
+              quantity: p.qty || p.quantity || 1,
+            })),
+            membership_items: (b as any).membershipItems,
+            scheduled_at: new Date(`${calDate}T${startTime}:00`).toISOString(),
+            duration_minutes: b.services[0]?.duration || 30,
+            status: "booked",
+            notes: notes || undefined,
+            staff_alert: staffAlert || undefined,
+          }));
+
+          if (createBookingThunk.rejected.match(action)) {
+            dispatch(deleteBookingAction(b.id)); // Rollback optimistic add
+            setBlockTimeError(action.payload as string || "Staff member already has an appointment at this time");
+            return; // Keep modal open
+          }
+
+          // ✅ FIX — merge server response into the optimistic booking so the calendar
+          // renders the correct date/time/staffId/color immediately, without waiting for
+          // the full re-fetch that handleCloseAppt triggers after the modal closes.
+          const apiBooking = action.payload as any;
+          const realId = String(apiBooking?.id || "");
+          if (realId) {
+            dispatch(replaceBookingId({ localId, realId }));
+            // Patch the now-id-corrected booking with any server-canonical fields
+            dispatch(updateBookingAction({
+              ...b,
+              id: realId,
+              // Prefer server date (already toLocalDateStr'd by mapBooking in the thunk)
+              date: apiBooking?.date || b.date,
+              startTime: apiBooking?.startTime || b.startTime,
+              endTime: apiBooking?.endTime || b.endTime,
+              staffId: apiBooking?.staffId || b.staffId,
+              status: apiBooking?.status || b.status,
+              paymentStatus: apiBooking?.paymentStatus || b.paymentStatus,
+            } as any));
+          }
       }
+      onClose();
+    } catch (err: any) {
+      console.error("Failed to save appointment:", err);
+      toast.error("Failed to save appointment. Please try again.");
+    } finally {
+      setIsSaving(false);
     }
-    onClose();
   }
 
   async function handleContinueToPayment() {
-    const errors = runValidation();
-    console.log("Step1")
-    if (errors.length) { setValidationErrors(errors); return; }
-    setValidationErrors([]);
-    setBlockTimeError(null);
+    try {
+      const errors = runValidation();
+      console.log("📋 Validation errors:", errors);
+      if (errors.length) { 
+        console.warn("❌ Validation failed:", errors);
+        setValidationErrors(errors); 
+        return; 
+      }
+      setValidationErrors([]);
+      setBlockTimeError(null);
 
-    if (!existingBooking) {
-      for (const row of serviceRows) {
-        if (!row.staffId) continue;
-        const rowStart = row.time || (defaultTime ?? "10:00");
-        const rowEnd = (row as any).endTime || rowStart;
-        if (checkBlockedTimeOverlap(calDate, rowStart, rowEnd, row.staffId)) {
-          setBlockTimeError("This time slot is blocked for the selected staff.");
-          return;
+      if (!existingBooking) {
+        for (const row of serviceRows) {
+          if (!row.staffId) continue;
+          const rowStart = row.time || (defaultTime ?? "10:00");
+          const rowDuration = (row as any).duration || 30;
+          const rowEnd = addMinutes(rowStart, rowDuration);
+          if (checkBlockedTimeOverlap(calDate, rowStart, rowEnd, row.staffId)) {
+            setBlockTimeError("This time slot is blocked for the selected staff.");
+            return;
+          }
         }
       }
-    }
 
-    const clientId = await resolveClientId();
-    const b = buildPayload(0, "Unpaid");
-    if (existingBooking) {
-      updateBooking(b);
-    } else {
-      addBooking(b);
-      const localId = String(b.id);
-      const firstRow = b.services[0];
-      const startTime = firstRow?.time || defaultTime || "10:00";
-      if (salonId) {
+      console.log("✅ Validation passed, preparing payment...");
+      const clientId = await resolveClientId();
+      const b = buildPayload(0, "Unpaid");
+      console.log("📦 Booking payload:", b);
+      // For existing bookings: do NOT call updateBooking(b) — it replaces the full booking in
+      // Redux with paymentStatus:"Unpaid" and sends a PATCH that can shift the card's time slot.
+      // Just show the payment section; patchPaymentStatus updates the status after payment.
+      if (!existingBooking) {
+        addBooking(b);
+        const localId = String(b.id);
+        const firstRow = b.services[0];
+        const startTime = firstRow?.time || defaultTime || "10:00";
         const action: any = await dispatch(createBookingThunk({
-          client_id: clientId || undefined,
-          staff_id: toApiStaffId(firstRow?.staffId) ?? toApiStaffId(staffList[0]?.id),
-          service_id: toApiStaffId(firstRow?.id) || undefined,
-          services: b.services.map((s: any) => { const dur = s.duration || 30; return { service_id: s.id, staff_id: s.staffId, time: s.time, start_time: s.time, end_time: addMinutes(s.time, dur), serviceId: s.id, staffId: s.staffId, startTime: s.time, endTime: addMinutes(s.time, dur), price: s.price, qty: s.qty, total: s.total }; }),
-          package_items: b.packageItems,
-          product_items: ((b as any).productItems || []).map((p: any) => ({
-            product_id: p.id || p.product_id || undefined,
-            name: p.productName || p.name || "",
-            price: p.price || 0,
-            quantity: p.qty || p.quantity || 1,
-          })),
-          membership_items: (b as any).membershipItems,
-          scheduled_at: new Date(`${calDate}T${startTime}:00`).toISOString(),
-          duration_minutes: b.services[0]?.duration || 30,
-          status: "booked",
-          notes: notes || undefined,
-          staff_alert: staffAlert || undefined,
-        }));
+            salon_id: salonId || undefined,
+            client_id: clientId || undefined,
+            staff_id: toApiStaffId(firstRow?.staffId) ?? toApiStaffId(staffList[0]?.id),
+            service_id: toApiStaffId(firstRow?.id) || undefined,
+            services: b.services.map((s: any) => {
+              const svcLocal = s.time || startTime;
+              const svcDt = new Date(`${calDate}T${svcLocal}:00`);
+              const svcStartISO = svcDt.toISOString();
+              const svcEndISO = new Date(svcDt.getTime() + (s.duration || 30) * 60000).toISOString();
+              return {
+                service_id: s.id,
+                staff_id: toApiStaffId(s.staffId),
+                start_time: svcStartISO,
+                end_time: svcEndISO,
+                price: s.price,
+                qty: s.qty || 1,
+                total: s.total,
+              };
+            }),
+            package_items: b.packageItems,
+            product_items: ((b as any).productItems || []).map((p: any) => ({
+              product_id: p.id || p.product_id || undefined,
+              name: p.productName || p.name || "",
+              price: p.price || 0,
+              quantity: p.qty || p.quantity || 1,
+            })),
+            membership_items: (b as any).membershipItems,
+            scheduled_at: new Date(`${calDate}T${startTime}:00`).toISOString(),
+            duration_minutes: b.services[0]?.duration || 30,
+            status: "booked",
+            notes: notes || undefined,
+            staff_alert: staffAlert || undefined,
+          }));
 
         if (createBookingThunk.rejected.match(action)) {
           dispatch(deleteBookingAction(b.id)); // Rollback optimistic add
@@ -643,16 +744,31 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
           return; // Stop the flow
         }
 
-        const realId = String(action.payload?.id || "");
+        // ✅ FIX — merge server response into the optimistic booking immediately
+        const apiBooking = action.payload as any;
+        const realId = String(apiBooking?.id || "");
         if (realId) {
           dispatch(replaceBookingId({ localId, realId }));
+          dispatch(updateBookingAction({
+            ...b,
+            id: realId,
+            date: apiBooking?.date || b.date,
+            startTime: apiBooking?.startTime || b.startTime,
+            endTime: apiBooking?.endTime || b.endTime,
+            staffId: apiBooking?.staffId || b.staffId,
+            status: apiBooking?.status || b.status,
+            paymentStatus: apiBooking?.paymentStatus || b.paymentStatus,
+          } as any));
           setApiAppointmentId(realId);
         }
       }
+      setSavedBookingRef(b);
+      setShowPaymentSection(true);
+      setTimeout(() => paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+    } catch (err: any) {
+      console.error("Failed to continue to payment:", err);
+      toast.error("Unable to continue to payment. Please try again.");
     }
-    setSavedBookingRef(b);
-    setShowPaymentSection(true);
-    setTimeout(() => paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
   }
 
   async function handleCompletePayment() {
@@ -684,86 +800,96 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
     const _isRealId = (v: unknown) => !!v && !String(v).startsWith("b_");
     const existingApptUuid = existingBooking && _isRealId(existingBooking.id) ? existingBooking.id : null;
     const apptId = (_isRealId(apiAppointmentId) ? apiAppointmentId : null) || existingApptUuid;
-    if (salonId && apptId) {
+    if (apptId) {
       const methodLabel = paymentMode === "split"
         ? Object.keys(methods).filter((k) => k !== "eWallet").join("+").toLowerCase()
         : (singleMethod || "cash").toLowerCase();
+
+      // ── Call payment API ─────────────────────────────────────────────────────
       try {
         await api.post("/api/v1/payments", {
+          salon_id: salonId || undefined,
           appointment_id: apptId,
           client_id: _isRealId(clientId) ? clientId : undefined,
-          gross_amount: grandTotal,                                          // full bill total
+          gross_amount: grandTotal,
           discount_amount: alreadyPaidAmount > 0 ? 0 : couponDiscount,
           ewallet_used: useEWallet ? eWalletAmt : 0,
-          net_amount: effectiveTotal,                                        // after discounts
-          paid_amount: chargeAmount,                                         // amount paid in this transaction
-          due_amount: newDue,                                                // remaining after this payment
+          net_amount: effectiveTotal,
+          paid_amount: chargeAmount,
+          due_amount: newDue,
           coupon_code: alreadyPaidAmount > 0 ? undefined : (couponApplied || undefined),
           payment_method: methodLabel,
           split_details: paymentMode === "split" ? methods : { [singleMethod!]: chargeAmount },
           status: newDue > 0 ? "partial" : "completed",
         });
-
-        // ── Trigger appointment checkout → creates sale + deducts product stock ──
-        try {
-          // Build sale items from current rows so backend can link them to the sale
-          const saleItems = [
-            ...serviceRows.filter((r) => r.service).map((r) => ({
-              item_type: "service",
-              item_id: r.id || undefined,
-              name: r.service,
-              quantity: r.qty || 1,
-              unit_price: r.price,
-            })),
-            ...packageRows.filter((r) => r.packageName).map((r) => ({
-              item_type: "service",
-              item_id: r.packageId || undefined,
-              name: r.packageName,
-              quantity: r.qty || 1,
-              unit_price: r.price,
-            })),
-            ...productRows.filter((r) => r.productName).map((r) => ({
-              item_type: "product",
-              item_id: r.id || undefined,
-              name: r.productName,
-              quantity: r.qty || 1,
-              unit_price: r.price,
-            })),
-            ...membershipRows.filter((r) => r.name).map((r) => ({
-              item_type: "membership",
-              item_id: undefined,
-              name: r.name,
-              quantity: r.qty || 1,
-              unit_price: r.price,
-            })),
-          ];
-          await api.post(`/api/v1/appointments/${apptId}/checkout`, {
-            items: saleItems,
-            payment_method: methodLabel,
-          });
-        } catch (checkoutErr: any) {
-          // If already checked out (400 "already has a linked sale"), silently ignore
-          if (checkoutErr?.response?.data?.code !== "BAD_REQUEST") {
-            console.error("Appointment checkout failed:", checkoutErr);
-          }
+      } catch (err: any) {
+        // "Appointment is already completed" means the appointment was already paid/checked-out
+        // — treat this as a success state, not a blocking error.
+        const msg: string = err?.message || err?.response?.data?.error?.message || "";
+        const alreadyCompleted = msg.toLowerCase().includes("already completed");
+        if (!alreadyCompleted) {
+          toast.error(msg || "Payment failed. Please try again.");
+          throw err; // re-throw so PaymentButton resets its loading/disabled state
         }
+        // fall through — continue to patchPaymentStatus and onClose()
+      }
 
-        // ✅ FIX — Only patch payment fields locally; do NOT refetch (prevents card position change)
-        const targetId = existingBooking?.id || savedBookingRef?.id || apiAppointmentId;
-        if (targetId) {
-          dispatch(patchPaymentStatus({
-            id: String(targetId),
-            paymentStatus: payStatus,
-            payingNow: totalPaid,
-            dueAmount: newDue,
-            grandTotal: effectiveTotal,
-          }));
-        }
-      } catch (err) {
-        console.error("Failed to save payment:", err);
+      // ── Trigger appointment checkout ─────────────────────────────────────────
+      try {
+        const saleItems = [
+          ...serviceRows.filter((r) => r.service).map((r) => ({
+            item_type: "service",
+            item_id: r.id || undefined,
+            name: r.service,
+            quantity: r.qty || 1,
+            unit_price: r.price,
+          })),
+          ...packageRows.filter((r) => r.packageName).map((r) => ({
+            item_type: "service",
+            item_id: r.packageId || undefined,
+            name: r.packageName,
+            quantity: r.qty || 1,
+            unit_price: r.price,
+          })),
+          ...productRows.filter((r) => r.productName).map((r) => ({
+            item_type: "product",
+            item_id: r.id || undefined,
+            name: r.productName,
+            quantity: r.qty || 1,
+            unit_price: r.price,
+          })),
+          ...membershipRows.filter((r) => r.name).map((r) => ({
+            item_type: "membership",
+            item_id: undefined,
+            name: r.name,
+            quantity: r.qty || 1,
+            unit_price: r.price,
+          })),
+        ];
+        await api.post(`/api/v1/appointments/${apptId}/checkout`, {
+          salon_id: salonId || undefined,
+          items: saleItems,
+          payment_method: methodLabel,
+        });
+      } catch {
+        // Non-critical — payment already succeeded; ignore checkout errors
+        // (e.g. "Appointment is already completed", "already has a linked sale")
+      }
+
+      // ── Patch Redux immediately so calendar chip color updates before onClose() ──
+      const targetId = existingBooking?.id || apiAppointmentId || savedBookingRef?.id;
+      if (targetId) {
+        dispatch(patchPaymentStatus({
+          id: String(targetId),
+          paymentStatus: payStatus,
+          payingNow: totalPaid,
+          dueAmount: newDue,
+          grandTotal: effectiveTotal,
+        }));
       }
     }
 
+    // ── Success: update local state, reward points, then close ──────────────
     if (useEWallet && eWalletAmt > 0 && clientId) deductEWallet(clientId, eWalletAmt);
     if (clientId && effectiveTotal > 0) {
       const pts = computePointsEarned(effectiveTotal);
@@ -776,6 +902,9 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
     setPaidMethodsSnap(methods);
     setSavedBookingRef(updated);
     if (printAfterPayment) printBill(updated, methods, staffList);
+    if (payStatus !== "Paid") {
+      toast.success("Partial payment recorded.");
+    }
     onClose();
   }
 
@@ -862,14 +991,14 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
       <div className="appt-drawer-content">
 
         {/* HEADER */}
-        <div className="appt-drawer-header d-flex align-items-center gap-2" style={{ minWidth: 0 }}>
+        <div className="appt-drawer-header" style={{ minWidth: 0 }}>
           <button className="btn-close-drawer btn btn-sm btn-link text-dark text-decoration-none fs-5 p-0" onClick={onClose}>✕</button>
           <h5 className="mb-0 fw-bold flex-grow-1" style={{ minWidth: 0 }}>
             {apptStatus === "NEW" ? "New Appointment" : !isEditing ? "View Appointment" : "Edit Appointment"}
           </h5>
 
           {isPaid && (
-            <Badge variant="success">✓ Paid</Badge>
+            <span className="appt-header-status-badge appt-header-status-badge--paid">✓ Paid</span>
           )}
           {existingBooking && (
             <div ref={dotMenuRef} className="position-relative flex-shrink-0">
@@ -879,15 +1008,15 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
               {showDotMenu && (
                 <div className="dropdown-menu show end-0" style={{ minWidth: 200, zIndex: 9999, position: "absolute" }}>
                   {!isEditing && apptStatus !== "CANCELLED" && (
-                    <button className="dropdown-item d-flex align-items-center gap-2" onClick={() => { setIsEditing(true); setShowDotMenu(false); }}>✏️ Edit Appointment</button>
+                    <button className="dropdown-item d-flex align-items-center gap-2" onClick={() => { setIsEditing(true); setShowDotMenu(false); }}><PencilFill size={13} />Edit Appointment</button>
                   )}
-                  <button className="dropdown-item d-flex align-items-center gap-2" onClick={() => { printBill((savedBookingRef || existingBooking)!, paidMethodsSnap, staffList); setShowDotMenu(false); }}>🖨️ Print Receipt</button>
+                  <button className="dropdown-item d-flex align-items-center gap-2" onClick={() => { printBill((savedBookingRef || existingBooking)!, paidMethodsSnap, staffList); setShowDotMenu(false); }}><Printer size={13} />Print Receipt</button>
                   <div className="dropdown-divider" style={{ margin: "4px 0" }}></div>
                   <button className="dropdown-item d-flex align-items-center gap-2" onClick={() => handleCancelAppointment()} disabled={isCancelLoading || apptStatus === "CANCELLED"}>
-                    {isCancelLoading ? "⏳ Cancelling..." : apptStatus === "CANCELLED" ? "✓ Already Cancelled" : "⏸️ Cancel Appointment"}
+                    {isCancelLoading ? <><ArrowRepeat size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />Cancelling...</> : apptStatus === "CANCELLED" ? "✓ Already Cancelled" : "Cancel Appointment"}
                   </button>
                   <button className="dropdown-item d-flex align-items-center gap-2" onClick={() => { setShowDeleteConfirmation(true); setShowDotMenu(false); }} disabled={isDeleteLoading}>
-                    {isDeleteLoading ? "⏳ Deleting..." : "🗑️ Delete Appointment"}
+                    {isDeleteLoading ? <><ArrowRepeat size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />Deleting...</> : <><Trash size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />Delete Appointment</>}
                   </button>
                 </div>
               )}
@@ -895,10 +1024,19 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
           )}
         </div>
 
+        {/* CONFLICT ERROR BANNER */}
+        {blockTimeError && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "#fef2f2", borderBottom: "1px solid #fecaca", color: "#dc2626", fontSize: 13, fontWeight: 500 }}>
+            <ExclamationTriangleFill size={13} style={{ flexShrink: 0 }} />
+            {blockTimeError}
+            <button onClick={() => setBlockTimeError(null)} style={{ marginLeft: "auto", background: "none", border: "none", color: "#dc2626", cursor: "pointer", fontSize: 16, lineHeight: 1, padding: 0 }}>✕</button>
+          </div>
+        )}
+
         {/* EDITING BANNER */}
         {isEditing && (
           <div className="d-flex align-items-center gap-2 px-3 py-2 bg-primary bg-opacity-10 border-bottom border-primary border-opacity-25 small text-primary">
-            <span>✏️</span>
+            <PencilFill size={13} />
             <span>Editing mode — make changes then save.</span>
             <button onClick={() => { setIsEditing(false); setValidationErrors([]); }} className="btn btn-sm btn-link text-secondary ms-auto p-0 text-decoration-none fw-bold">Cancel Editing</button>
           </div>
@@ -919,6 +1057,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
             <div className="client-action-row">
               <div className="search-input-wrapper">
                 <ClientSearchInput
+                  key={clientSearchKey}
                   value={clientSearch}
                   onChange={(val) => {
                     setClientSearch(val);
@@ -928,14 +1067,63 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                       setSelectedClientId(null);
                       setIsWalkin(false);
                       setShowAddClientForm(false);
+                      setNewClientName(""); setNewClientLastName(""); setNewClientPhone(""); setNewClientGender("");
+                      return;
+                    }
+                    // Mirror phone digits typed in search bar → Mobile Number field
+                    const digits = val.replace(/\D/g, "");
+                    if (digits.length > 0 && /^[\d\s\-()+]+$/.test(val)) {
+                      const phone10 = digits.slice(-10);
+                      setNewClientPhone(phone10);
+                      setPhoneDuplicate(false);
+                      clearErr("new_client_phone");
+                      if (!showAddClientForm) setShowAddClientForm(true);
+                      setIsClientSaved(false);
+                    }
+
+                    // Mirror typed name → First Name / Last Name fields
+                    // Activates when the query is 3+ chars and looks like a name (starts with a letter)
+                    const trimmed = val.trim();
+                    if (trimmed.length >= 3 && /^[a-zA-Z]/.test(trimmed)) {
+                      const parts = trimmed.split(/\s+/);
+                      setNewClientName(parts[0]);
+                      if (parts.length > 1) {
+                        setNewClientLastName(parts.slice(1).join(" "));
+                        clearErr("new_client_last_name");
+                      }
+                      clearErr("new_client_name");
+                      if (!showAddClientForm) setShowAddClientForm(true);
+                      setIsClientSaved(false);
                     }
                   }}
                   onSelect={(client) => {
                     setSelectedClientId(String(client.id));
-                    setClientSearch(`${client.first_name} ${client.last_name || ""}`.trim());
+                    const fullName = `${client.first_name} ${client.last_name || ""}`.trim();
+                    setClientSearch(fullName);
                     setIsWalkin(false);
-                    setShowAddClientForm(false);
                     clearErr("client");
+
+                    // Auto-fill Add Client form with selected client's details
+                    setNewClientName(client.first_name || "");
+                    setNewClientLastName(client.last_name || "");
+                    
+                    let phoneStr = client.phone_number || "";
+                    let matchedCountryCode = "+91";
+                    const possibleCodes = COUNTRY_CODES.map(c => c.code).sort((a, b) => b.length - a.length);
+                    for (const code of possibleCodes) {
+                      if (phoneStr.startsWith(code)) {
+                        matchedCountryCode = code;
+                        phoneStr = phoneStr.substring(code.length);
+                        break;
+                      }
+                    }
+                    setCountryCode(matchedCountryCode);
+                    setNewClientPhone(phoneStr.replace(/\D/g, "").slice(-10));
+                    setNewClientGender((client.gender as any) || "");
+                    
+                    // Open the form so the user sees the auto-filled data
+                    setShowAddClientForm(true);
+                    setIsClientSaved(true); // existing client — already in the system
                   }}
                   disabled={clientFrozen}
                   hasError={hasErr("client")}
@@ -946,7 +1134,18 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
               <button type="button" className={`client-action-btn ${isWalkin ? "active" : ""}`} onClick={handleWalkinClick} disabled={clientFrozen}>
                 Walk-In
               </button>
-              <button type="button" className="client-action-btn" disabled={clientFrozen} onClick={() => { setShowAddClientForm((v) => !v); setIsClientSaved(false); }}>
+              <button type="button" className="client-action-btn" disabled={clientFrozen} onClick={() => {
+                const willClose = showAddClientForm;
+                setShowAddClientForm((v) => !v);
+                setIsClientSaved(false);
+                clearErr("new_client_name", "new_client_last_name", "new_client_phone", "new_client_gender");
+                if (willClose) {
+                  // Only clear form if no client is selected (so auto-filled data isn't wiped on re-open)
+                  if (!selectedClientId) {
+                    setNewClientName(""); setNewClientLastName(""); setNewClientPhone(""); setNewClientGender("");
+                  }
+                }
+              }}>
                 {showAddClientForm ? "✕ Cancel" : "+ Add Client"}
               </button>
 
@@ -971,57 +1170,43 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
           {showAddClientForm && !clientFrozen && (
             <div className="client-form-card">
               <div className="client-form-row">
+
+                {/* First Name */}
                 <div className="client-form-col">
                   <label className="field-label">First Name <span className="req">*</span></label>
                   <input
                     className={`form-control-custom${hasErr("new_client_name") ? " is-invalid" : ""}`}
                     placeholder="e.g. Priya" value={newClientName}
-                    onChange={(e) => { setNewClientName(e.target.value); if (e.target.value.trim()) clearErr("new_client_name"); }}
+                    onChange={(e) => { setNewClientName(e.target.value); clearErr("new_client_name"); }}
+                    onBlur={() => { if (!newClientName.trim()) setValidationErrors((prev) => [...prev.filter((e) => e !== "new_client_name"), "new_client_name"]); }}
                   />
-                  {hasErr("new_client_name") && <div className="invalid-feedback d-block" style={{ fontSize: 11 }}>First name is required</div>}
+                  <div className="field-error-slot">
+                    {hasErr("new_client_name") && <span>First name is required</span>}
+                  </div>
                 </div>
 
+                {/* Last Name */}
                 <div className="client-form-col">
                   <label className="field-label">Last Name <span className="req">*</span></label>
                   <input
                     className={`form-control-custom${hasErr("new_client_last_name") ? " is-invalid" : ""}`}
                     placeholder="e.g. Sharma" value={newClientLastName}
-                    onChange={(e) => { setNewClientLastName(e.target.value); if (e.target.value.trim()) clearErr("new_client_last_name"); }}
+                    onChange={(e) => { setNewClientLastName(e.target.value); clearErr("new_client_last_name"); }}
+                    onBlur={() => { if (!newClientLastName.trim()) setValidationErrors((prev) => [...prev.filter((e) => e !== "new_client_last_name"), "new_client_last_name"]); }}
                   />
-                  {hasErr("new_client_last_name") && <div className="invalid-feedback d-block" style={{ fontSize: 11 }}>Last name is required</div>}
+                  <div className="field-error-slot">
+                    {hasErr("new_client_last_name") && <span>Last name is required</span>}
+                  </div>
                 </div>
 
+                {/* Mobile Number */}
                 <div className="client-form-col mobile-col">
                   <label className="field-label">Mobile Number <span className="req">*</span></label>
                   <div className={`mobile-input-group ${hasErr("new_client_phone") ? "is-invalid" : ""}`}>
-                    <div className="custom-country-select-wrapper" ref={countryCodeRef}>
-                      <button
-                        type="button"
-                        className="country-code-display"
-                        onClick={() => setShowCountryCodeMenu((prev) => !prev)}
-                      >
-                        {COUNTRY_CODES.find(c => c.code === countryCode)?.label || countryCode}
-                        <svg className="caret-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M6 9l6 6 6-6" />
-                        </svg>
-                      </button>
-                      {showCountryCodeMenu && (
-                        <div className="country-code-menu">
-                          {COUNTRY_CODES.map((c) => (
-                            <div
-                              key={c.isoCode}
-                              className={`country-code-item ${c.code === countryCode ? "selected" : ""}`}
-                              onClick={() => {
-                                setCountryCode(c.code);
-                                setShowCountryCodeMenu(false);
-                              }}
-                            >
-                              {c.label}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    <CountryPhoneSelect
+                      value={countryCode}
+                      onChange={(c: CountryOption) => setCountryCode(c.dialCode)}
+                    />
                     <input
                       className="mobile-number-input"
                       placeholder="10-digit number" value={newClientPhone} maxLength={10}
@@ -1029,43 +1214,53 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                         const val = e.target.value.replace(/\D/g, "").slice(0, 10);
                         setNewClientPhone(val);
                         if (phoneDuplicate) setPhoneDuplicate(false);
-                        if (phoneValid(val)) { clearErr("new_client_phone"); checkPhoneExists(val); }
+                        clearErr("new_client_phone");
+                        if (phoneValid(val)) checkPhoneExists(val);
                       }}
-                      onBlur={() => { if (phoneValid(newClientPhone)) checkPhoneExists(newClientPhone); }}
+                      onBlur={() => {
+                        if (!newClientPhone.trim()) {
+                          setValidationErrors((prev) => [...prev.filter((e) => e !== "new_client_phone"), "new_client_phone"]);
+                        } else if (phoneValid(newClientPhone)) {
+                          checkPhoneExists(newClientPhone);
+                        } else {
+                          setValidationErrors((prev) => [...prev.filter((e) => e !== "new_client_phone"), "new_client_phone"]);
+                        }
+                      }}
                     />
                   </div>
-                  {hasErr("new_client_phone") && <div className="text-danger d-block" style={{ fontSize: 11, marginTop: 2 }}>{newClientPhone.length === 0 ? "Required" : "Must be 10 digits"}</div>}
-                  {!hasErr("new_client_phone") && phoneDuplicate && (
-                    <div className="text-danger d-block" style={{ fontSize: 11, marginTop: 2 }}>Mobile number already exists</div>
-                  )}
-                  {!hasErr("new_client_phone") && phoneCheckLoading && (
-                    <div style={{ fontSize: 11, color: "#6b7280", marginTop: 3 }}>Checking…</div>
-                  )}
+                  <div className="field-error-slot">
+                    {hasErr("new_client_phone") && <span>{newClientPhone.length === 0 ? "Mobile number is required" : "Must be 10 digits"}</span>}
+                    {!hasErr("new_client_phone") && phoneDuplicate && <span>Mobile number already exists</span>}
+                    {!hasErr("new_client_phone") && !phoneDuplicate && phoneCheckLoading && <span style={{ color: "#6b7280" }}>Checking…</span>}
+                  </div>
                 </div>
 
+                {/* Gender */}
                 <div className="client-form-col gender-col">
                   <label className="field-label">Gender <span className="req">*</span></label>
                   <select className={`form-control-custom${hasErr("new_client_gender") ? " is-invalid" : ""}`} value={newClientGender}
-                    onChange={(e) => { setNewClientGender(e.target.value as "Female" | "Male" | "Other"); clearErr("new_client_gender"); }}>
+                    onChange={(e) => { setNewClientGender(e.target.value as "Female" | "Male" | "Other"); clearErr("new_client_gender"); }}
+                    onBlur={() => { if (!newClientGender) setValidationErrors((prev) => [...prev.filter((e) => e !== "new_client_gender"), "new_client_gender"]); }}>
                     <option value="">Select</option>
                     <option value="Female">Female</option>
                     <option value="Male">Male</option>
                     <option value="Other">Other</option>
                   </select>
-                  {hasErr("new_client_gender") && <div className="text-danger d-block" style={{ fontSize: 11, marginTop: 2 }}>Required</div>}
+                  <div className="field-error-slot">
+                    {hasErr("new_client_gender") && <span>Gender is required</span>}
+                  </div>
                 </div>
 
+                {/* Save Button — offset by label height via btn-col padding-top */}
                 <div className="client-form-col btn-col">
-                  <Button
-                    variant="dark"
-                    size="sm"
-                    fullWidth
+                  <Button variant="dark" fullWidth
                     disabled={isClientSaved || phoneDuplicate || phoneCheckLoading}
-                    onClick={handleSaveNewClient}
-                  >
+                    onClick={handleSaveNewClient}>
                     {isClientSaved ? "Saved ✓" : "Save Client"}
                   </Button>
+                  <div className="field-error-slot" />
                 </div>
+
               </div>
             </div>
           )}
@@ -1080,7 +1275,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                   <div className="sub">{selectedClient!.phone} · {selectedStats.address}</div>
                 </div>
                 {selectedStats.membership !== "NA" && (
-                  <Badge variant="warning">⭐ {selectedStats.membership}</Badge>
+                  <Badge variant="warning"><StarFill size={11} style={{ marginRight: 4, verticalAlign: "middle" }} />{selectedStats.membership}</Badge>
                 )}
               </div>
               <div className="client-stats-panel__grid">
@@ -1095,25 +1290,51 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                   ["Total Visits", selectedStats.totalVisit, ""],
                   ["Last Visit", selectedStats.lastVisit, ""],
                   ["Total Revenue", `₹${selectedStats.totalRevenue?.toLocaleString()}`, "info"],
-                  ["View History", "Click Here", "link"],
                 ] as [string, string | number, string][]).map(([l, v, c]) => (
                   <div key={l} className={`info-cell ${c}`}>
                     <span className="info-cell__label">{l}</span>
                     <span className="info-cell__value">{v}</span>
                   </div>
                 ))}
+                {/* View History — navigates to the client's profile page */}
+                <div className="info-cell">
+                  <span className="info-cell__label">View History</span>
+                  <button
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 5,
+                      background: "#111827",
+                      color: "#ffffff",
+                      border: "none",
+                      borderRadius: 6,
+                      padding: "4px 12px",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      letterSpacing: "0.2px",
+                      transition: "background 0.15s",
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "#374151")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "#111827")}
+                    onClick={() => {
+                      onClose();
+                      navigate(`/dashboard/clients/edit/${selectedClientId}`);
+                    }}
+                  >
+                    ↗ Click Here
+                  </button>
+                </div>
               </div>
             </div>
           )}
 
           {/* ── SERVICES & ITEMS ── */}
           <div className="appt-section">
-            <div className="appt-section__title">✂️ Services &amp; Items</div>
+            <div className="appt-section__title"><Scissors size={13} style={{ marginRight: 5, verticalAlign: "middle" }} />Services &amp; Items</div>
             {hasErr("no_rows") && <div className="alert alert-danger py-2 small">Add at least one service, package, product or membership before saving.</div>}
 
-            <div className="table-header table-header--services">
-              <div>SERVICE</div><div>STAFF</div><div>TIME</div><div>PRICE</div><div>QTY</div><div>TOTAL</div><div />
-            </div>
             {serviceRows.map((row, i) => (
               <ServiceRow key={row.tempId} row={row} onChange={updateServiceRow} onRemove={removeServiceRow} onClearError={handleServiceRowClearError}
                 disabled={priceFrozen}
@@ -1123,7 +1344,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
 
             {/* Package rows */}
             {packageRows.length > 0 && (<>
-              <div className="table-header table-header--packages"><div>PACKAGE</div><div>PRICE</div><div>QTY</div><div>TOTAL</div><div /></div>
+              <div className="table-header table-header--packages"><div>PACKAGE</div><div>PRICE</div><div>QTY</div><div>DISC (₹)</div><div>TOTAL</div><div /></div>
               {packageRows.map((row, i) => {
                 const filtered = (packagesList || []).filter((p: any) => p.name.toLowerCase().includes(row.search.toLowerCase()));
                 const hasRowErr = hasErr(`pkg_${i}_name`);
@@ -1133,13 +1354,15 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                       onFocus={() => setPackageRows((r) => r.map((x) => ({ ...x, showDrop: x.tempId === row.tempId })))}
                       onSearchChange={(v) => setPackageRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, search: v, showDrop: true } : x))}
                       items={filtered.map((p: any) => ({ label: p.name, sub: Array.isArray(p.services) ? p.services.join(", ") : "", price: p.price }))}
-                      onSelect={(item) => { const pkg = (packagesList || []).find((p: any) => p.name === item.label) as any; if (!pkg) return; setPackageRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, packageId: pkg.id, packageName: pkg.name, price: pkg.price, qty: x.qty || 1, total: pkg.price * (x.qty || 1), search: pkg.name, showDrop: false } : x)); clearErrPrefix(`pkg_${i}_`); }} />
+                      onSelect={(item) => { const pkg = (packagesList || []).find((p: any) => p.name === item.label) as any; if (!pkg) return; setPackageRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, packageId: pkg.id, packageName: pkg.name, price: pkg.price, qty: x.qty || 1, total: Math.max(0, pkg.price * (x.qty || 1) - (x.discount || 0)), search: pkg.name, showDrop: false } : x)); clearErrPrefix(`pkg_${i}_`); }} />
                     <input readOnly value={`₹${row.price}`} className="form-control form-control-sm bg-white" />
                     <input type="text" inputMode="numeric" placeholder="1" value={row.qty} disabled={priceFrozen} className="form-control form-control-sm"
-                      onChange={(e) => { const val = e.target.value.replace(/[^0-9.]/g, ""); const num = parseFloat(val); setPackageRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: val as any, total: (!isNaN(num) && num > 0) ? x.price * num : x.total } : x)); }}
-                      onBlur={() => { const num = parseFloat(String(row.qty)); const clamped = !isNaN(num) && num >= 1 ? num : 1; setPackageRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: clamped, total: x.price * clamped } : x)); }} />
+                      onChange={(e) => { const val = e.target.value.replace(/[^0-9.]/g, ""); const num = parseFloat(val); setPackageRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: val as any, total: (!isNaN(num) && num > 0) ? Math.max(0, x.price * num - (x.discount || 0)) : x.total } : x)); }}
+                      onBlur={() => { const num = parseFloat(String(row.qty)); const clamped = !isNaN(num) && num >= 1 ? num : 1; setPackageRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: clamped, total: Math.max(0, x.price * clamped - (x.discount || 0)) } : x)); }} />
+                    <input type="text" inputMode="numeric" placeholder="0" value={row.discount || ""} disabled={priceFrozen} className="form-control form-control-sm"
+                      onChange={(e) => { const disc = Math.max(0, parseFloat(e.target.value.replace(/[^0-9.]/g, "")) || 0); setPackageRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, discount: disc, total: Math.max(0, x.price * (x.qty || 1) - disc) } : x)); }} />
                     <input readOnly value={row.total ? row.total.toFixed(2) : "0.00"} className="form-control form-control-sm bg-light fw-semibold text-secondary" />
-                    {!priceFrozen && <button onClick={() => { setPackageRows((r) => r.filter((x) => x.tempId !== row.tempId)); clearErrPrefix(`pkg_${i}_`); }} className="btn btn-sm btn-link text-danger p-0" style={{ fontSize: 16 }}>🗑</button>}
+                    {!priceFrozen && <button onClick={() => { setPackageRows((r) => r.filter((x) => x.tempId !== row.tempId)); clearErrPrefix(`pkg_${i}_`); }} className="btn btn-sm btn-link text-danger p-0"><Trash size={14} /></button>}
                     {hasRowErr && <div className="text-danger col-span-all" style={{ fontSize: 10 }}>Please select a package</div>}
                   </div>
                 );
@@ -1148,7 +1371,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
 
             {/* Product rows */}
             {productRows.length > 0 && (<>
-              <div className="table-header table-header--products"><div>PRODUCT</div><div>PRICE</div><div>QTY</div><div>TOTAL</div><div /></div>
+              <div className="table-header table-header--products"><div>PRODUCT</div><div>PRICE</div><div>QTY</div><div>DISC (₹)</div><div>TOTAL</div><div /></div>
               {productRows.map((row, i) => {
                 const filtered = (productsList || []).filter((p: any) => p.name.toLowerCase().includes(row.search.toLowerCase()));
                 const hasRowErr = hasErr(`prod_${i}_name`);
@@ -1169,13 +1392,15 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                         stockIndicator: p.stock <= 0,
                         priceLabel: p.price === null ? <span style={{ fontSize: 10, color: "#6c757d", fontStyle: "italic" }}>Price not available</span> : undefined
                       }))}
-                      onSelect={(item) => { const prod = (productsList || []).find((p: any) => p.name === item.label) as any; if (!prod) return; setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, id: prod.id, productName: prod.name, price: prod.price, total: prod.price * (x.qty || 1), search: prod.name, showDrop: false, stock: prod.stock } : x)); clearErrPrefix(`prod_${i}_`); }} />
+                      onSelect={(item) => { const prod = (productsList || []).find((p: any) => p.name === item.label) as any; if (!prod) return; setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, id: prod.id, productName: prod.name, price: prod.price, total: Math.max(0, prod.price * (x.qty || 1) - (x.discount || 0)), search: prod.name, showDrop: false, stock: prod.stock } : x)); clearErrPrefix(`prod_${i}_`); }} />
                     <input readOnly value={`₹${row.price}`} className="form-control form-control-sm bg-white" />
                     <input type="text" inputMode="numeric" placeholder="1" value={row.qty} disabled={priceFrozen} className="form-control form-control-sm"
-                      onChange={(e) => { const val = e.target.value.replace(/[^0-9.]/g, ""); const num = parseFloat(val); setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: val as any, total: (!isNaN(num) && num > 0) ? x.price * num : x.total } : x)); }}
-                      onBlur={() => { const num = parseFloat(String(row.qty)); const clamped = !isNaN(num) && num >= 1 ? num : 1; setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: clamped, total: x.price * clamped } : x)); }} />
+                      onChange={(e) => { const val = e.target.value.replace(/[^0-9.]/g, ""); const num = parseFloat(val); setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: val as any, total: (!isNaN(num) && num > 0) ? Math.max(0, x.price * num - (x.discount || 0)) : x.total } : x)); }}
+                      onBlur={() => { const num = parseFloat(String(row.qty)); const clamped = !isNaN(num) && num >= 1 ? num : 1; setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: clamped, total: Math.max(0, x.price * clamped - (x.discount || 0)) } : x)); }} />
+                    <input type="text" inputMode="numeric" placeholder="0" value={row.discount || ""} disabled={priceFrozen} className="form-control form-control-sm"
+                      onChange={(e) => { const disc = Math.max(0, parseFloat(e.target.value.replace(/[^0-9.]/g, "")) || 0); setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, discount: disc, total: Math.max(0, x.price * (x.qty || 1) - disc) } : x)); }} />
                     <input readOnly value={row.total ? row.total.toFixed(2) : "0.00"} className="form-control form-control-sm bg-light fw-semibold text-secondary" />
-                    {!priceFrozen && <button onClick={() => { setProductRows((r) => r.filter((x) => x.tempId !== row.tempId)); clearErrPrefix(`prod_${i}_`); }} className="btn btn-sm btn-link text-danger p-0" style={{ fontSize: 16 }}>🗑</button>}
+                    {!priceFrozen && <button onClick={() => { setProductRows((r) => r.filter((x) => x.tempId !== row.tempId)); clearErrPrefix(`prod_${i}_`); }} className="btn btn-sm btn-link text-danger p-0"><Trash size={14} /></button>}
                     {hasRowErr && <div className="text-danger col-span-all" style={{ fontSize: 10 }}>Please select a product</div>}
                   </div>
                 );
@@ -1184,7 +1409,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
 
             {/* Membership rows */}
             {membershipRows.length > 0 && (<>
-              <div className="table-header table-header--membership"><div>MEMBERSHIP</div><div>DURATION</div><div>PRICE</div><div>QTY</div><div>TOTAL</div><div /></div>
+              <div className="table-header table-header--membership"><div>MEMBERSHIP</div><div>DURATION</div><div>PRICE</div><div>QTY</div><div>DISC (₹)</div><div>TOTAL</div><div /></div>
               {membershipRows.map((row, i) => {
                 const filtered = (membershipsList || []).filter((m: any) => m.name.toLowerCase().includes(row.search.toLowerCase()));
                 const hasRowErr = hasErr(`mem_${i}_name`);
@@ -1194,17 +1419,19 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                       onFocus={() => setMembershipRows((r) => r.map((x) => ({ ...x, showDrop: x.tempId === row.tempId })))}
                       onSearchChange={(v) => setMembershipRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, search: v, showDrop: true } : x))}
                       items={filtered.map((m: any) => ({ label: m.name, price: m.price }))}
-                      onSelect={(item) => { const mem = (membershipsList || []).find((m: any) => m.name === item.label) as any; if (!mem) return; setMembershipRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, name: mem.name, price: mem.price, qty: x.qty || 1, total: mem.price * (x.qty || 1), search: mem.name, showDrop: false } : x)); clearErrPrefix(`mem_${i}_`); }} />
+                      onSelect={(item) => { const mem = (membershipsList || []).find((m: any) => m.name === item.label) as any; if (!mem) return; setMembershipRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, name: mem.name, price: mem.price, qty: x.qty || 1, total: Math.max(0, mem.price * (x.qty || 1) - (x.discount || 0)), search: mem.name, showDrop: false } : x)); clearErrPrefix(`mem_${i}_`); }} />
                     <select value={row.duration} disabled={priceFrozen} className="form-select form-select-sm"
                       onChange={(e) => setMembershipRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, duration: e.target.value } : x))}>
                       {DURATIONS.map((d) => <option key={d}>{d}</option>)}
                     </select>
                     <input readOnly value={`₹${row.price}`} className="form-control form-control-sm bg-white" />
                     <input type="text" inputMode="numeric" placeholder="1" value={row.qty !== undefined ? row.qty : 1} disabled={priceFrozen} className="form-control form-control-sm"
-                      onChange={(e) => { const val = e.target.value.replace(/[^0-9.]/g, ""); const num = parseFloat(val); setMembershipRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: val as any, total: (!isNaN(num) && num > 0) ? x.price * num : x.total } : x)); }}
-                      onBlur={() => { const num = parseFloat(String(row.qty)); const clamped = !isNaN(num) && num >= 1 ? num : 1; setMembershipRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: clamped, total: x.price * clamped } : x)); }} />
+                      onChange={(e) => { const val = e.target.value.replace(/[^0-9.]/g, ""); const num = parseFloat(val); setMembershipRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: val as any, total: (!isNaN(num) && num > 0) ? Math.max(0, x.price * num - (x.discount || 0)) : x.total } : x)); }}
+                      onBlur={() => { const num = parseFloat(String(row.qty)); const clamped = !isNaN(num) && num >= 1 ? num : 1; setMembershipRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: clamped, total: Math.max(0, x.price * clamped - (x.discount || 0)) } : x)); }} />
+                    <input type="text" inputMode="numeric" placeholder="0" value={row.discount || ""} disabled={priceFrozen} className="form-control form-control-sm"
+                      onChange={(e) => { const disc = Math.max(0, parseFloat(e.target.value.replace(/[^0-9.]/g, "")) || 0); setMembershipRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, discount: disc, total: Math.max(0, x.price * (x.qty || 1) - disc) } : x)); }} />
                     <input readOnly value={row.total ? row.total.toFixed(2) : "0.00"} className="form-control form-control-sm bg-light fw-semibold text-secondary" />
-                    {!priceFrozen && <button onClick={() => { setMembershipRows((r) => r.filter((x) => x.tempId !== row.tempId)); clearErrPrefix(`mem_${i}_`); }} className="btn btn-sm btn-link text-danger p-0" style={{ fontSize: 16 }}>🗑</button>}
+                    {!priceFrozen && <button onClick={() => { setMembershipRows((r) => r.filter((x) => x.tempId !== row.tempId)); clearErrPrefix(`mem_${i}_`); }} className="btn btn-sm btn-link text-danger p-0"><Trash size={14} /></button>}
                     {hasRowErr && <div className="text-danger col-span-all" style={{ fontSize: 10 }}>Please select a membership</div>}
                   </div>
                 );
@@ -1228,43 +1455,49 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
 
           {/* ── CHARGES & DISCOUNTS ── */}
           <div className="appt-section">
-            <div className="appt-section__title">⚡ Charges &amp; Discounts</div>
-            <div className="row g-3">
-              <div className="col">
-                <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Reward Points {isPaid && <span title="Frozen field">🔒</span>}</label>
-                <select className="form-select form-select-sm" value={rewardPoints} disabled={priceFrozen} onChange={(e) => setRewardPoints(e.target.value)}>
+            <div className="appt-section__title"><Lightning size={13} style={{ marginRight: 5, verticalAlign: "middle" }} />Charges &amp; Discounts</div>
+            <div className="charges-discounts-row">
+
+              <div className="charges-field">
+                <label>Reward Points {isPaid && <LockFill size={10} title="Frozen field" style={{ color: "#94a3b8" }} />}</label>
+                <select className="form-select" value={rewardPoints} disabled={priceFrozen} onChange={(e) => setRewardPoints(e.target.value)}>
                   {REWARD_POINTS_OPTIONS.map((r) => <option key={r}>{r}</option>)}
                 </select>
               </div>
-              <div className="col">
-                <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Ex Charges {isPaid && <span title="Frozen field">🔒</span>}</label>
-                <input type="text" inputMode="numeric" className="form-control form-control-sm" value={exCharges || ""} placeholder="0" disabled={priceFrozen} onChange={(e) => posNum(e.target.value.replace(/[^0-9.]/g, ""), setExCharges)} />
+
+              <div className="charges-field">
+                <label>Ex Charges {isPaid && <LockFill size={10} title="Frozen field" style={{ color: "#94a3b8" }} />}</label>
+                <input type="text" inputMode="numeric" className="form-control" value={exCharges || ""} placeholder="0" disabled={priceFrozen} onChange={(e) => posNum(e.target.value.replace(/[^0-9.]/g, ""), setExCharges)} />
               </div>
-              <div className="col">
-                <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Tip {isPaid && <span title="Frozen field">🔒</span>}</label>
-                <input type="text" inputMode="numeric" className="form-control form-control-sm" value={tip || ""} placeholder="0" disabled={priceFrozen} onChange={(e) => posNum(e.target.value.replace(/[^0-9.]/g, ""), setTip)} />
+
+              <div className="charges-field">
+                <label>Tip {isPaid && <LockFill size={10} title="Frozen field" style={{ color: "#94a3b8" }} />}</label>
+                <input type="text" inputMode="numeric" className="form-control" value={tip || ""} placeholder="0" disabled={priceFrozen} onChange={(e) => posNum(e.target.value.replace(/[^0-9.]/g, ""), setTip)} />
               </div>
-              <div className="col">
-                <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Discount {isPaid && <span title="Frozen field">🔒</span>}</label>
-                <input type="text" inputMode="numeric" className="form-control form-control-sm" value={discount || ""} placeholder="0" disabled={priceFrozen} onChange={(e) => posNum(e.target.value.replace(/[^0-9.]/g, ""), setDiscount)} />
+
+              <div className="charges-field">
+                <label>Svc Discount {isPaid && <LockFill size={10} title="Frozen field" style={{ color: "#94a3b8" }} />}</label>
+                <input type="text" inputMode="numeric" className="form-control" value={discount || ""} placeholder="0" disabled={priceFrozen} onChange={(e) => posNum(e.target.value.replace(/[^0-9.]/g, ""), setDiscount)} />
               </div>
-              <div className="col">
-                <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Discount Type {isPaid && <span title="Frozen field">🔒</span>}</label>
-                <select className="form-select form-select-sm" value={discountType} disabled={priceFrozen} onChange={(e) => setDiscountType(e.target.value as DiscountType)}>
+
+              <div className="charges-field">
+                <label>Disc. Type {isPaid && <LockFill size={10} title="Frozen field" style={{ color: "#94a3b8" }} />}</label>
+                <select className="form-select" value={discountType} disabled={priceFrozen} onChange={(e) => setDiscountType(e.target.value as DiscountType)}>
                   <option>Percentage (%)</option><option>Flat (₹)</option>
                 </select>
               </div>
+
             </div>
           </div>
 
           {/* ── PAYMENT & NOTES ── */}
           <div className="appt-section">
-            <div className="appt-section__title">📋 Payment &amp; Notes</div>
+            <div className="appt-section__title"><FileText size={13} style={{ marginRight: 5, verticalAlign: "middle" }} />Payment &amp; Notes</div>
             <div className="row g-3">
               <div className="col-md-8">
                 <div className="row g-3">
                   <div className="col-12">
-                    <Input label="🔔 Staff Alert" placeholder="e.g. Client has allergy to chemicals" value={staffAlert} disabled={formFrozen}
+                    <Input label={<><BellFill size={12} />Staff Alert</>} placeholder="e.g. Client has allergy to chemicals" value={staffAlert} disabled={formFrozen}
                       onChange={(e) => setStaffAlert((e.target as HTMLInputElement).value)} />
                   </div>
                   <div className="col-12">
@@ -1274,30 +1507,30 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                 </div>
               </div>
               <div className="col-md-4">
-                <TotalsPanel subtotal={subtotal} serviceTotal={serviceTotal} packageTotal={packageTotal} productTotal={productTotal} membershipTotal={membershipTotal} exCharges={exCharges} discount={discount} discountType={discountType} tip={tip} />
+                <TotalsPanel subtotal={subtotal} serviceTotal={serviceTotal} packageTotal={packageTotal} productTotal={productTotal} membershipTotal={membershipTotal} exCharges={exCharges} discount={discount} discountType={discountType} totalDiscount={totalCategoryDisc} tip={tip} />
               </div>
             </div>
           </div>
 
           {/* ── PAYMENT SECTION ── */}
           {(showPaymentSection || isPaid) && (
-            <div ref={paymentSectionRef} className="appt-section" style={{ borderColor: isPaymentFrozen ? "#cbd5e1" : "#d1fae5", background: isPaymentFrozen ? "#f8fafc" : "#f0fdf4", pointerEvents: isPaymentFrozen ? "none" : "auto", userSelect: "auto", opacity: isPaymentFrozen ? 0.9 : 1 }}>
+            <div ref={paymentSectionRef} className="appt-section pay-section" style={{ borderColor: isPaymentFrozen ? "#cbd5e1" : "#d1fae5", background: isPaymentFrozen ? "#f8fafc" : "#f0fdf4", pointerEvents: isPaymentFrozen ? "none" : "auto", userSelect: "auto", opacity: isPaymentFrozen ? 0.9 : 1 }}>
               <div className="appt-section__title" style={{ color: isPaymentFrozen ? "#475569" : "#065f46" }}>
-                {isPaymentFrozen ? "💳 Payment Information 🔒" : "💳 Confirm & Pay"}
+                {isPaymentFrozen ? <><CreditCard2Front size={14} style={{ marginRight: 5, verticalAlign: "middle" }} />Payment Information <LockFill size={11} style={{ marginLeft: 2, verticalAlign: "middle", color: "#94a3b8" }} /></> : <><CreditCard2Front size={14} style={{ marginRight: 5, verticalAlign: "middle" }} />Confirm &amp; Pay</>}
               </div>
 
               {/* Loyalty bar */}
               {clientStat && (
                 <div className="d-flex border rounded-3 overflow-hidden mb-3 bg-white">
                   {[
-                    { label: "Membership", value: currentMembership === "NA" ? "—" : `⭐ ${currentMembership}`, color: getMembershipColor(currentMembership) },
+                    { label: "Membership", value: currentMembership === "NA" ? "—" : currentMembership, color: getMembershipColor(currentMembership), star: currentMembership !== "NA" },
                     { label: "Points", value: `${currentPoints} pts`, color: "#111827" },
                     { label: "eWallet", value: `₹${eWalletBalance.toFixed(2)}`, color: "#111827" },
                     ...(nextTier ? [{ label: `→ ${nextTier.name}`, value: `₹${nextTier.remaining.toLocaleString()} more`, color: "#6b7280" }] : []),
                   ].map((item, i, arr) => (
                     <div key={item.label} className={`flex-fill d-flex flex-column align-items-center py-2 px-1${i < arr.length - 1 ? " border-end" : ""}`}>
                       <span className="text-uppercase fw-bold text-muted mb-1" style={{ fontSize: 9, letterSpacing: "0.04em" }}>{item.label}</span>
-                      <span className="fw-bold" style={{ fontSize: 12, color: item.color }}>{item.value}</span>
+                      <span className="fw-bold" style={{ fontSize: 12, color: item.color }}>{(item as any).star && <StarFill size={10} style={{ marginRight: 3, verticalAlign: "middle" }} />}{item.value}</span>
                     </div>
                   ))}
                 </div>
@@ -1340,23 +1573,24 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
 
               {/* Rewards preview */}
               {effectiveTotal > 0 && (
-                <div className="alert alert-warning py-2 px-3 mb-3 small">
-                  🎁 Earn <strong>{previewPoints} pts</strong> → ₹{previewWalletCred.toFixed(2)} eWallet credit
-                  {willUpgrade && <span className="fw-bold ms-1" style={{ color: getMembershipColor(previewNewMembership) }}>· Upgrades to {previewNewMembership}!</span>}
+                <div className="pay-rewards">
+                  <Gift size={13} />
+                  <span>Earn <strong>{previewPoints} pts</strong> → ₹{previewWalletCred.toFixed(2)} eWallet credit</span>
+                  {willUpgrade && <span className="pay-rewards__upgrade" style={{ color: getMembershipColor(previewNewMembership) }}>· Upgrades to {previewNewMembership}!</span>}
                 </div>
               )}
 
               {/* Coupon */}
-              <div className="mb-3">
-                <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Coupon Code {isPaymentFrozen && <span title="Frozen field">🔒</span>}</label>
-                <div className="input-group input-group-sm">
-                  <input className="form-control" disabled={isPaymentFrozen} placeholder="SAVE10, FLAT50, NEW20" value={couponInput}
+              <div className="pay-coupon">
+                <label className="pay-section__lbl">Coupon Code {isPaymentFrozen && <LockFill size={10} title="Frozen field" style={{ marginLeft: 3, verticalAlign: "middle", color: "#94a3b8" }} />}</label>
+                <div className="pay-coupon__row">
+                  <input disabled={isPaymentFrozen} placeholder="SAVE10, FLAT50, NEW20" value={couponInput}
                     onChange={(e) => { setCouponInput(e.target.value); setCouponError(""); }}
                     onKeyDown={(e) => e.key === "Enter" && !isPaymentFrozen && handleApplyCoupon()} />
-                  <Button variant="dark" size="sm" disabled={isPaymentFrozen} onClick={handleApplyCoupon}>Apply</Button>
+                  <button disabled={isPaymentFrozen} onClick={handleApplyCoupon}>Apply</button>
                 </div>
-                {couponApplied && <div className="text-success small mt-1 fw-semibold">✓ "{couponApplied}" applied — ₹{couponDiscount} off</div>}
-                {couponError && <div className="text-danger small mt-1">{couponError}</div>}
+                {couponApplied && <div className="pay-coupon__success">✓ "{couponApplied}" applied — ₹{couponDiscount} off</div>}
+                {couponError && <div className="pay-coupon__error">{couponError}</div>}
               </div>
 
               {/* eWallet */}
@@ -1366,12 +1600,12 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                     <>
                       <div className="form-check">
                         <input type="checkbox" disabled={isPaymentFrozen} className="form-check-input" id="ew" checked={useEWallet} onChange={(e) => handleEWalletToggle(e.target.checked)} />
-                        <label className="form-check-label fw-semibold text-primary" htmlFor="ew">Use eWallet (Available: ₹{eWalletBalance.toFixed(2)}) {isPaymentFrozen && <span title="Frozen field">🔒</span>}</label>
+                        <label className="form-check-label fw-semibold text-primary" htmlFor="ew">Use eWallet (Available: ₹{eWalletBalance.toFixed(2)}) {isPaymentFrozen && <LockFill size={10} title="Frozen field" style={{ marginLeft: 3, verticalAlign: "middle", color: "#94a3b8" }} />}</label>
                       </div>
                       {useEWallet && <div className="text-primary small mt-1 fw-semibold">✓ Applying ₹{eWalletAmt.toFixed(2)} from eWallet</div>}
                     </>
                   ) : (
-                    <div className="small text-muted">🔒 eWallet: ₹{eWalletBalance.toFixed(2)} — Redeemable at ₹{EWALLET_REDEEM_MINIMUM}</div>
+                    <div className="small text-muted"><LockFill size={10} style={{ marginRight: 4, verticalAlign: "middle" }} />eWallet: ₹{eWalletBalance.toFixed(2)} — Redeemable at ₹{EWALLET_REDEEM_MINIMUM}</div>
                   )}
                 </div>
               )}
@@ -1383,29 +1617,29 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                   <span className="fw-bold text-dark">Balance Due: ₹{remainingDue.toFixed(2)}</span>
                 </div>
               )}
-              <div className="mb-3">
-                <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>
-                  Payment Method <span className="text-danger">*</span> {isPaymentFrozen && <span title="Frozen field">🔒</span>}
+              <div className="pay-method">
+                <label className="pay-section__lbl">
+                  Payment Method <span style={{ color: "#ef4444" }}>*</span> {isPaymentFrozen && <LockFill size={10} title="Frozen field" style={{ marginLeft: 3, verticalAlign: "middle", color: "#94a3b8" }} />}
                 </label>
-                <div className="d-flex gap-2 mb-3">
+                <div className="pay-method__toggle">
                   {(["single", "split"] as const).map((mode) => (
-                    <button key={mode} disabled={isPaymentFrozen} onClick={() => { setPaymentMode(mode); setPayMethodError(false); }} className={`btn btn-sm ${paymentMode === mode ? "btn-dark" : "btn-outline-secondary"}`}>
+                    <button key={mode} disabled={isPaymentFrozen} onClick={() => { setPaymentMode(mode); setPayMethodError(false); }} className={paymentMode === mode ? "active" : ""}>
                       {mode === "single" ? "Single" : "Split"}
                     </button>
                   ))}
                 </div>
                 {paymentMode === "single" ? (
                   <>
-                    <div className="d-flex flex-wrap gap-2">
+                    <div className="pay-method__options">
                       {SINGLE_METHODS.map((m) => (
                         <button key={m} disabled={isPaymentFrozen} onClick={() => { setSingleMethod(m); setPayMethodError(false); }}
-                          className={`btn btn-sm ${singleMethod === m ? "btn-dark" : "btn-outline-secondary"}${payMethodError ? " border-danger" : ""}`}>
-                          {m === "Cash" ? "💵" : m === "Card" ? "💳" : "📱"} {m}
+                          className={`${singleMethod === m ? "active" : ""}${payMethodError ? " error" : ""}`}>
+                          {m === "Cash" ? <Cash size={13} /> : m === "Card" ? <CreditCard size={13} /> : <Phone size={13} />}{m}
                         </button>
                       ))}
                     </div>
                     {payMethodError && (
-                      <div className="text-danger small mt-1 fw-semibold">⚠ Please select a payment method to continue.</div>
+                      <div className="pay-method__error"><ExclamationTriangleFill size={12} />Please select a payment method to continue.</div>
                     )}
                   </>
                 ) : (
@@ -1418,7 +1652,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                             return (
                               <button key={m} disabled={isPaymentFrozen || isUsedElsewhere} onClick={() => setSplitEntries((entries) => entries.map((e, i) => i === idx ? { ...e, method: m, amount: e.amount || (splitRemaining > 0 ? splitRemaining.toFixed(2) : "") } : e))}
                                 className={`btn btn-sm ${entry.method === m ? "btn-dark" : "btn-outline-secondary"}`} style={{ fontSize: 11 }}>
-                                {m === "Cash" ? "💵" : m === "Card" ? "💳" : "📱"} {m}
+                                {m === "Cash" ? <Cash size={12} style={{ marginRight: 4, verticalAlign: "middle" }} /> : m === "Card" ? <CreditCard size={12} style={{ marginRight: 4, verticalAlign: "middle" }} /> : <Phone size={12} style={{ marginRight: 4, verticalAlign: "middle" }} />}{m}
                               </button>
                             );
                           })}
@@ -1450,9 +1684,9 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
 
               {/* Print toggle */}
               {!isPaymentFrozen && (
-                <div className="form-check mb-2">
-                  <input type="checkbox" className="form-check-input" id="printToggle" checked={printAfterPayment} onChange={(e) => setPrintAfterPayment(e.target.checked)} />
-                  <label className="form-check-label small text-muted" htmlFor="printToggle">Print receipt after payment</label>
+                <div className="pay-print-check">
+                  <input type="checkbox" id="printToggle" checked={printAfterPayment} onChange={(e) => setPrintAfterPayment(e.target.checked)} />
+                  <label htmlFor="printToggle">Print receipt after payment</label>
                 </div>
               )}
             </div>
@@ -1463,12 +1697,9 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
         {/* ── FOOTER ── */}
         {apptStatus === "NEW" && (
           <div className="appt-drawer-footer" style={{ marginTop: "8px" }}>
-            {blockTimeError && (
-              <div className="alert alert-danger small py-2 w-100 mb-2" style={{ borderRadius: "6px" }}>
-                🚫 {blockTimeError}
-              </div>
-            )}
-            <Button variant="dark" fullWidth onClick={handleSave}>Save Appointment</Button>
+            <Button variant="dark" fullWidth onClick={handleSave} disabled={isSaving}>
+              {isSaving ? "Saving…" : "Save Appointment"}
+            </Button>
           </div>
         )}
 
@@ -1482,10 +1713,10 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                 {isEditing ? (
                   <Button variant="dark" fullWidth onClick={handleSave}>Update Appointment</Button>
                 ) : (
-                  <Button variant="outline-secondary" fullWidth onClick={() => { setIsEditing(true); setShowDotMenu(false); }}>✏️ Update Appointment</Button>
+                  <Button variant="outline-secondary" fullWidth onClick={() => { setIsEditing(true); setShowDotMenu(false); }}><PencilFill size={13} style={{ marginRight: 6, verticalAlign: "middle" }} />Update Appointment</Button>
                 )}
                 <Button fullWidth onClick={handleContinueToPayment} style={{ background: "linear-gradient(135deg,#10b981,#059669)", color: "#fff", border: "none", fontWeight: 700, boxShadow: "0 4px 14px rgba(16,185,129,0.3)" }}>
-                  💳 Continue to Payment
+                  <CreditCard2Front size={14} style={{ marginRight: 6, verticalAlign: "middle" }} />Continue to Payment
                 </Button>
               </>
             ) : (
@@ -1493,7 +1724,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                 {isEditing ? (
                   <Button variant="dark" fullWidth onClick={handleSave}>Update Appointment</Button>
                 ) : (
-                  <Button variant="outline-secondary" fullWidth onClick={() => { setIsEditing(true); setShowDotMenu(false); }}>✏️ Update Appointment</Button>
+                  <Button variant="outline-secondary" fullWidth onClick={() => { setIsEditing(true); setShowDotMenu(false); }}><PencilFill size={13} style={{ marginRight: 6, verticalAlign: "middle" }} />Update Appointment</Button>
                 )}
                 <PaymentButton
                   amount={paymentMode === "split" && splitTotal > 0 && splitTotal < remainingDue ? splitTotal : remainingDue}
@@ -1501,10 +1732,10 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                   disabled={(!existingBooking && !apiAppointmentId)}
                   label={
                     (!existingBooking && !apiAppointmentId)
-                      ? "⏳ Creating Booking..."
+                      ? <><ArrowRepeat size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />Creating Booking...</>
                       : paymentMode === "split" && splitTotal > 0 && splitTotal < remainingDue
-                        ? `🟣 Confirm Partial — ₹${splitTotal.toFixed(2)} (₹${(remainingDue - splitTotal).toFixed(2)} due)`
-                        : `✅ Confirm & Pay — ₹${remainingDue.toFixed(2)}`
+                        ? <><RecordCircle size={13} style={{ marginRight: 4, verticalAlign: "middle", color: "#7c3aed" }} />Confirm Partial — ₹{splitTotal.toFixed(2)} (₹{(remainingDue - splitTotal).toFixed(2)} due)</>
+                        : <><CheckCircleFill size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />Confirm &amp; Pay — ₹{remainingDue.toFixed(2)}</>
                   }
                   onClick={handleCompletePayment}
                 />
@@ -1514,17 +1745,24 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
         )}
 
         {existingBooking && isEditing && apptStatus !== "UNPAID" && (
-          <div className="appt-drawer-footer">
-            <Button variant="outline-secondary" fullWidth onClick={() => { setIsEditing(false); setValidationErrors([]); }}>Cancel</Button>
-            {/* ✅ Feature 2 — show remaining due for newly added services */}
-            {alreadyPaidAmount > 0 && effectiveTotal > alreadyPaidAmount && (
-              <div style={{ fontSize: 12, color: "#7c3aed", fontWeight: 600, textAlign: "center", width: "100%", padding: "4px 0" }}>
-                Already paid: ₹{alreadyPaidAmount.toFixed(2)} — New balance due: ₹{Math.max(0, effectiveTotal - alreadyPaidAmount).toFixed(2)}
+          <div className="appt-drawer-footer appt-drawer-footer--three-col">
+            {/* Left: Cancel */}
+            <Button variant="outline-secondary" onClick={() => { setIsEditing(false); setValidationErrors([]); }}>Cancel</Button>
+
+            {/* Center: Payment summary */}
+            {alreadyPaidAmount > 0 && effectiveTotal > alreadyPaidAmount ? (
+              <div className="appt-drawer-footer__summary">
+                Paid: ₹{alreadyPaidAmount.toFixed(2)} &nbsp;|&nbsp; Due: ₹{Math.max(0, effectiveTotal - alreadyPaidAmount).toFixed(2)}
               </div>
+            ) : (
+              <div className="appt-drawer-footer__summary" />
             )}
+
+            {/* Right: Pay Balance */}
             <PaymentButton
               amount={Math.max(0, effectiveTotal - alreadyPaidAmount)}
-              label={`✅ Pay Balance — ₹${Math.max(0, effectiveTotal - alreadyPaidAmount).toFixed(2)}`}
+              fullWidth={false}
+              label={<><CheckCircleFill size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />Pay Balance — ₹{Math.max(0, effectiveTotal - alreadyPaidAmount).toFixed(2)}</>}
               onClick={handleCompletePayment}
             />
           </div>
@@ -1589,7 +1827,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
               </div>
               {isPaid && (
                 <div style={{ marginBottom: "16px", padding: "10px 12px", background: "#fff7ed", border: "1px solid #f97316", borderRadius: "6px", fontSize: "13px", color: "#9a3412", display: "flex", alignItems: "flex-start", gap: "8px" }}>
-                  <span style={{ fontSize: "16px", flexShrink: 0 }}>⚠️</span>
+                  <ExclamationTriangleFill size={16} style={{ flexShrink: 0, color: "#f97316" }} />
                   <span>This appointment has already been paid. Deleting it will <strong>not</strong> process a refund automatically.</span>
                 </div>
               )}
@@ -1613,7 +1851,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                   disabled={isDeleteLoading}
                   style={{ minWidth: "120px" }}
                 >
-                  {isDeleteLoading ? "⏳ Deleting..." : "🗑️ Delete"}
+                  {isDeleteLoading ? <><ArrowRepeat size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />Deleting...</> : <><Trash size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />Delete</>}
                 </Button>
               </div>
             </div>

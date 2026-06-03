@@ -2,7 +2,9 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar/Navbar'
 import Footer from '../components/Footer'
+import SEO from '../components/SEO'
 import { features } from '../config/features.config'
+import { coreKeywords, organizationSchema, softwareSchema } from '../config/seo.config'
 import '../styles/featurePage.scss'
 import '../styles/global.scss'
 import WhatsAppBubble from '../components/WhatsAppBubble'
@@ -42,6 +44,13 @@ export default function FeaturePage({ slug }: { slug: string }) {
 
   return (
     <div className="fp-root">
+      <SEO
+        title={`${data.name} | Salon Management Software | SalonOx`}
+        description={data.subheadline}
+        path={`/features/${data.slug}`}
+        keywords={[data.name, ...coreKeywords]}
+        jsonLd={[softwareSchema, organizationSchema]}
+      />
       <Navbar />
       <section className="fp-hero">
         <div className="fp-hero-bg" style={{ backgroundImage: `url(${data.heroImage})` }} />

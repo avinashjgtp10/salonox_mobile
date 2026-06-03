@@ -133,17 +133,16 @@ $surface:    #F9F8F6;
 // ── Brand ────────────────────────────────────────────
 
 .rp-brand {
-  font-family: 'sans', serif;
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  color: $charcoal;
-  text-transform: uppercase;
   display: flex;
   align-items: center;
-  gap: 10px;
   margin-bottom: 36px;
   animation: rp-fade-in 0.5s 0.1s both;
+}
+
+.rp-brand__logo {
+  width: 124px;
+  height: auto;
+  display: block;
 }
 
 .rp-brand__gem {

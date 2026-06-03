@@ -9,6 +9,8 @@ import {
 } from "../../../middleware/auth/otpThunk";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import salonImg from "../../../assets/images/salon.jpg";
+import salonoxLogoBlack from "../../../assets/salonox_logo_black.svg";
+import salonoxLogoLight from "../../../assets/salonox_logo.svg";
 import Input from "../../../components/ui/Input";
 import Button from "../../../components/ui/Button";
 import SplitLayout from "../../../components/ui/SplitLayout";
@@ -278,8 +280,7 @@ export default function RegisterPage() {
 
       <div className="rp-inner">
         <div className="rp-brand">
-          <span className="rp-brand__gem" />
-          salonox
+          <img src={salonoxLogoBlack} alt="SalonOx" className="rp-brand__logo" width="124" height="40" />
         </div>
 
         <div className="rp-heading-block">
@@ -512,7 +513,7 @@ export default function RegisterPage() {
       <img src={salonImg} alt="salon" className="oip-bg" />
       <div className="oip-overlay" />
       <div className="oip-topbar">
-        <span className="oip-brand">salonox</span>
+        <img src={salonoxLogoLight} alt="SalonOx" className="oip-brand-logo" width="124" height="40" />
       </div>
       <div className="oip-spacer" />
       <div className="oip-bottom">

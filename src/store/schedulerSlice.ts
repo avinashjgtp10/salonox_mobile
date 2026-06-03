@@ -52,6 +52,13 @@ export interface SchedulerPackage { id: string; name: string; price: number; ser
 export interface SchedulerProduct { id: string; name: string; price: number | null; stock: number }
 export interface SchedulerMembership { name: string; price: number }
 
+// ── Staff schedule shape (day_of_week → working hours) ───────────────────────
+export interface StaffDaySchedule {
+  startTime: string;   // "HH:MM" 24-h
+  endTime: string;     // "HH:MM" 24-h
+  isAvailable: boolean;
+}
+
 // ── Slice state ──────────────────────────────────────────────────────────────
 interface SchedulerState {
   bookings: Booking[];
@@ -67,6 +74,10 @@ interface SchedulerState {
   packagesList: SchedulerPackage[];
   membershipsList: SchedulerMembership[];
   productsList: SchedulerProduct[];
+  /** staffId → dayOfWeek (0=Sun…6=Sat) → working hours */
+  staffSchedules: Record<string, Record<number, StaffDaySchedule>>;
+  /** Bumped whenever staff schedules are saved — triggers calendar re-fetch */
+  scheduleVersion: number;
 }
 
 const initialState: SchedulerState = {
@@ -83,6 +94,8 @@ const initialState: SchedulerState = {
   packagesList: [],
   membershipsList: [],
   productsList: [],
+  staffSchedules: {},
+  scheduleVersion: 0,
 };
 
 const schedulerSlice = createSlice({
@@ -113,12 +126,27 @@ const schedulerSlice = createSlice({
     setProductsList(state, { payload }: PayloadAction<SchedulerProduct[]>) {
       state.productsList = payload;
     },
+    setStaffSchedules(
+      state,
+      { payload }: PayloadAction<Record<string, Record<number, StaffDaySchedule>>>
+    ) {
+      state.staffSchedules = payload;
+    },
+    bumpScheduleVersion(state) {
+      state.scheduleVersion += 1;
+    },
     addBooking(state, { payload }: PayloadAction<Booking>) {
       state.bookings.push(payload);
     },
     updateBooking(state, { payload }: PayloadAction<Booking>) {
+      console.log("[DEBUG Drag & Drop Reducer] updateBooking reducer called with payload:", payload);
       const idx = state.bookings.findIndex((b) => b.id === payload.id);
-      if (idx !== -1) state.bookings[idx] = payload;
+      if (idx !== -1) {
+        state.bookings[idx] = payload;
+        console.log("[DEBUG Drag & Drop Reducer] Updated booking inside state:", state.bookings[idx]);
+      } else {
+        console.warn("[DEBUG Drag & Drop Reducer] Booking ID not found in state:", payload.id);
+      }
     },
     // ✅ Patch ONLY payment-related fields — does NOT touch startTime/endTime/staffId
     patchPaymentStatus(
@@ -231,6 +259,8 @@ export const {
   setPackagesList,
   setMembershipsList,
   setProductsList,
+  setStaffSchedules,
+  bumpScheduleVersion,
   addBooking,
   updateBooking,
   patchPaymentStatus,

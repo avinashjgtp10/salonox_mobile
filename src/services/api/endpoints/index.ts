@@ -23,3 +23,4 @@ export * from "./billing.endpoints";
 export * from "./gallery.endpoints";
 export * from "./marketplace.endpoints";
 export * from "./onlineBooking.endpoints";
+export * from "./packages.endpoints";

@@ -155,7 +155,7 @@ export default function RolesPermissionsPage() {
   };
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
-  const isOwner = profile?.role === "salon_owner" || (profile as any)?.role === "admin";
+  const isOwner = (profile as any)?.role === "salon_owner" || (profile as any)?.role === "admin";
 
   const getRoleBadge = (role?: string) => {
     if (!role) return null;
@@ -356,7 +356,7 @@ export default function RolesPermissionsPage() {
           )}
 
           <div className="mt-3">
-            <Button size="sm" variant="outline-secondary" onClick={() => (window.location.href = "/dashboard/team")}>
+            <Button size="sm" variant="outline-secondary" onClick={() => { window.location.href = "/dashboard/team"; }}>
               Manage team roles →
             </Button>
           </div>
