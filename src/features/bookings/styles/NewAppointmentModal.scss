@@ -1075,6 +1075,13 @@
     font-size: 11px;
     flex-shrink: 0;
   }
+
+  &__searching {
+    padding: 10px 12px;
+    font-size: 12px;
+    color: #9ca3af;
+    text-align: center;
+  }
 }
 
 /* ── Row delete button ── */
