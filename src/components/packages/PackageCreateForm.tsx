@@ -8,7 +8,7 @@ import ClientSelectorWithAdd from "./ClientSelectorWithAdd";
 import { useCreateClientPackage } from "../../hooks/packages/usePackages";
 import { useServices } from "../../features/catalog/hooks/useServices";
 
-interface NewService { id: number; name: string; sessions: number; price: number; }
+interface NewService { id: number; name: string; sessions: number; sessionsStr: string; price: number; priceStr: string; }
 
 interface Props {
   selectedClient: ClientSearchResult | null;
@@ -17,9 +17,14 @@ interface Props {
   onSaved: (pkg: ClientPackage) => void;
 }
 
-const GST_OPTIONS     = [0, 5, 12, 18, 28];
-const PAYMENT_METHODS = ["Cash","Card","UPI","Net banking"];
-const BRANCHES        = ["Default BU","Center 1","Center 2"];
+const GST_OPTIONS = [0, 5, 12, 18, 28];
+
+const PKG_PAYMENT_METHODS = [
+  { id: "cash",        label: "Cash",        icon: "💵" },
+  { id: "card",        label: "Card",        icon: "💳" },
+  { id: "upi",         label: "UPI",         icon: "📱" },
+  { id: "net_banking", label: "Net banking", icon: "🏦" },
+];
 
 type Step = 1 | 2 | 3;
 
@@ -39,15 +44,19 @@ const PackageCreateForm: React.FC<Props> = ({
   const [step,       setStep]      = useState<Step>(1);
   const [pkgName,    setPkgName]   = useState("");
   const [category,   setCategory]  = useState("");
-  const [branch,     setBranch]    = useState("Default BU");
   const [expiry,     setExpiry]    = useState("");
-  const [basePrice,  setBasePrice] = useState(0);
-  const [gstPct,     setGstPct]    = useState(18);
-  const [discount,   setDiscount]  = useState(0);
-  const [payMethod,  setPayMethod] = useState("Cash");
-  const [apiError,   setApiError]  = useState<string | null>(null);
+  const [neverExpires, setNeverExpires] = useState(false);
+  const [basePrice,    setBasePrice]    = useState(0);
+  const [basePriceStr, setBasePriceStr] = useState("0");
+  const [gstPct,       setGstPct]       = useState(18);
+  const [discount,     setDiscount]     = useState(0);
+  const [discountStr,  setDiscountStr]  = useState("0");
+  const [selectedMethods, setSelectedMethods] = useState<string[]>(["cash"]);
+  const [splitAmounts,    setSplitAmounts]    = useState<Record<string, string>>({});
+  const [payMethodError,  setPayMethodError]  = useState("");
+  const [apiError,        setApiError]        = useState<string | null>(null);
   const [services,   setServices]  = useState<NewService[]>([
-    { id: 1, name: "", sessions: 5, price: 0 },
+    { id: 1, name: "", sessions: 5, sessionsStr: "5", price: 0, priceStr: "0" },
   ]);
 
   const { createClientPackage, isLoading } = useCreateClientPackage();
@@ -59,6 +68,10 @@ const PackageCreateForm: React.FC<Props> = ({
   const gstAmount   = Math.round(afterDisc * gstPct) / 100;
   const totalAmount = afterDisc + gstAmount;
 
+  const isSplit      = selectedMethods.length > 1;
+  const splitTotal   = selectedMethods.reduce((s, id) => s + (parseFloat(splitAmounts[id] || "0")), 0);
+  const splitRemaining = totalAmount - splitTotal;
+
   const clientFullName = selectedClient
     ? `${selectedClient.first_name} ${selectedClient.last_name ?? ""}`.trim()
     : "";
@@ -67,26 +80,26 @@ const PackageCreateForm: React.FC<Props> = ({
   const step2Valid = services.some(s => s.name !== "");
   const canNext    = step === 1 ? step1Valid : step === 2 ? step2Valid : basePrice >= 0;
 
-  const addService    = () => setServices(p => [...p, { id: Date.now(), name: "", sessions: 5, price: 0 }]);
+  const addService    = () => setServices(p => [...p, { id: Date.now(), name: "", sessions: 5, sessionsStr: "5", price: 0, priceStr: "0" }]);
   const removeService = (id: number) => setServices(p => p.filter(s => s.id !== id));
   const updateService = (id: number, field: keyof NewService, value: string | number) =>
     setServices(p => p.map(s => s.id === id ? { ...s, [field]: value } : s));
 
   const handleSave = async () => {
     if (!selectedClient || isLoading) return;
-    setApiError(null);
+    if (selectedMethods.length === 0) { setPayMethodError("Please select a payment method."); return; }
+    setApiError(null); setPayMethodError("");
 
     try {
       const pkg = await createClientPackage({
         clientId:      String(selectedClient.id),
         packageName:   pkgName,
         category,
-        branch,
-        expiryDate:    expiry || "2026-12-31",
+        expiryDate:    neverExpires ? null : (expiry || "2026-12-31"),
         basePrice,
         gstPercentage: gstPct,
         discount,
-        paymentMethod: payMethod,
+        paymentMethod: isSplit ? "split" : selectedMethods[0],
         services: services
           .filter(s => s.name)
           .map(s => ({
@@ -187,13 +200,24 @@ const PackageCreateForm: React.FC<Props> = ({
                 ))}
               </select>
             </Field>
-            <Field label="Branch">
-              <select value={branch} onChange={e => setBranch(e.target.value)} className={styles.select}>
-                {BRANCHES.map(b => <option key={b}>{b}</option>)}
-              </select>
-            </Field>
             <Field label="Expiry date">
-              <input type="date" value={expiry} onChange={e => setExpiry(e.target.value)} className={styles.input} />
+              <input
+                type="date"
+                value={expiry}
+                onChange={e => setExpiry(e.target.value)}
+                className={styles.input}
+                disabled={neverExpires}
+                style={neverExpires ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+              />
+              <label style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, cursor: "pointer", fontSize: 12, color: "#6b7280", userSelect: "none" }}>
+                <input
+                  type="checkbox"
+                  checked={neverExpires}
+                  onChange={e => { setNeverExpires(e.target.checked); if (e.target.checked) setExpiry(""); }}
+                  style={{ width: 14, height: 14, cursor: "pointer", accentColor: "#111827" }}
+                />
+                Never expires
+              </label>
             </Field>
           </div>
           {!selectedClient && (
@@ -220,11 +244,32 @@ const PackageCreateForm: React.FC<Props> = ({
                   options={apiServices.map(s => String(s.name))}
                   loading={servicesLoading}
                   onChange={name => updateService(svc.id, "name", name)}
+                  onSearch={q => fetchServices({ search: q, limit: 30 })}
                 />
-                <input type="number" min={1} max={100} value={svc.sessions} onChange={e => updateService(svc.id, "sessions", +e.target.value)} className={styles.input} style={{ textAlign: "center" }} />
+                <input
+                  type="number"
+                  value={svc.sessionsStr}
+                  onChange={e => {
+                    updateService(svc.id, "sessionsStr", e.target.value);
+                    updateService(svc.id, "sessions", parseInt(e.target.value) || 0);
+                  }}
+                  onFocus={e => e.target.select()}
+                  className={styles.input}
+                  style={{ textAlign: "center" }}
+                />
                 <div className={styles.inputPrefix}>
                   <span className={styles.inputPrefixSymbol}>₹</span>
-                  <input type="number" min={0} value={svc.price} onChange={e => updateService(svc.id, "price", +e.target.value)} className={styles.input} />
+                  <input
+                    type="number"
+                    min={0}
+                    value={svc.priceStr}
+                    onChange={e => {
+                      updateService(svc.id, "priceStr", e.target.value);
+                      updateService(svc.id, "price", parseFloat(e.target.value) || 0);
+                    }}
+                    onFocus={e => e.target.select()}
+                    className={styles.input}
+                  />
                 </div>
                 <button onClick={() => removeService(svc.id)} disabled={services.length <= 1} className={styles.btnDanger}>✕</button>
               </div>
@@ -242,7 +287,17 @@ const PackageCreateForm: React.FC<Props> = ({
               <Field label="Package price (₹)" required>
                 <div className={styles.inputPrefix}>
                   <span className={styles.inputPrefixSymbol}>₹</span>
-                  <input type="number" min={0} value={basePrice} onChange={e => setBasePrice(+e.target.value)} className={styles.input} />
+                  <input
+                    type="number"
+                    min={0}
+                    value={basePriceStr}
+                    onChange={e => {
+                      setBasePriceStr(e.target.value);
+                      setBasePrice(parseFloat(e.target.value) || 0);
+                    }}
+                    onFocus={e => e.target.select()}
+                    className={styles.input}
+                  />
                 </div>
               </Field>
               <Field label="GST (%)">
@@ -253,7 +308,17 @@ const PackageCreateForm: React.FC<Props> = ({
               <Field label="Discount (₹)">
                 <div className={styles.inputPrefix}>
                   <span className={styles.inputPrefixSymbol}>₹</span>
-                  <input type="number" min={0} value={discount} onChange={e => setDiscount(+e.target.value)} className={styles.input} />
+                  <input
+                    type="number"
+                    min={0}
+                    value={discountStr}
+                    onChange={e => {
+                      setDiscountStr(e.target.value);
+                      setDiscount(parseFloat(e.target.value) || 0);
+                    }}
+                    onFocus={e => e.target.select()}
+                    className={styles.input}
+                  />
                 </div>
               </Field>
             </div>
@@ -268,8 +333,15 @@ const PackageCreateForm: React.FC<Props> = ({
           </Section>
           <Section title="Payment method">
             <div className={styles.payMethod}>
-              {PAYMENT_METHODS.map(m => (
-                <button key={m} onClick={() => setPayMethod(m)} className={`${styles.payChip} ${m === payMethod ? styles["payChip--active"] : ""}`}>{m}</button>
+              {PKG_PAYMENT_METHODS.map(m => (
+                <button
+                  key={m.id}
+                  onClick={() => setPayMethod(m.id)}
+                  className={`${styles.payChip} ${m.id === payMethod ? styles["payChip--active"] : ""}`}
+                >
+                  <span className={styles.payChipIcon}>{m.icon}</span>
+                  <span className={styles.payChipLabel}>{m.label}</span>
+                </button>
               ))}
             </div>
           </Section>
@@ -331,13 +403,20 @@ const ServiceSearchInput: React.FC<{
   options: string[];
   loading: boolean;
   onChange: (v: string) => void;
-}> = ({ value, options, loading, onChange }) => {
-  const [query,  setQuery]  = useState(value);
-  const [open,   setOpen]   = useState(false);
+  onSearch: (q: string) => void;
+}> = ({ value, options, loading, onChange, onSearch }) => {
+  const [query, setQuery] = useState(value);
+  const [open,  setOpen]  = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   // keep local query in sync when value is reset from outside
   useEffect(() => { setQuery(value); }, [value]);
+
+  // debounce API search — fires 300ms after the user stops typing
+  useEffect(() => {
+    const t = setTimeout(() => onSearch(query), 300);
+    return () => clearTimeout(t);
+  }, [query]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // close on outside click
   useEffect(() => {
@@ -348,6 +427,7 @@ const ServiceSearchInput: React.FC<{
     return () => document.removeEventListener("mousedown", onOutside);
   }, []);
 
+  // filter already-loaded options immediately for instant visual feedback
   const filtered = options.filter(o => o.toLowerCase().includes(query.toLowerCase()));
 
   return (

@@ -187,7 +187,7 @@ export interface CreateClientPackageDTO {
   packageName: string;
   category: string;
   branch: string;
-  expiryDate: string;
+  expiryDate: string | null;
   basePrice: number;
   gstPercentage: number;
   discount: number;
