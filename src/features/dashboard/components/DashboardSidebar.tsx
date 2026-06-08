@@ -14,6 +14,7 @@ import {
   Gear,
   QuestionCircle,
 } from "react-bootstrap-icons";
+import { usePermissions } from "../../../hooks/usePermissions";
 
 type MenuKey =
   | "sales"
@@ -30,6 +31,7 @@ interface Props {
 
 export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
   const navigate = useNavigate();
+  const { can } = usePermissions();
 
   function navClass(isActive: boolean) {
     return isActive ? "nav-btn route-active" : "nav-btn";
@@ -41,97 +43,117 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
 
   return (
     <aside className="sidebar">
-      <NavLink
-        to="/dashboard"
-        end
-        className={({ isActive }) => navClass(isActive)}
-        onClick={() => onMenuChange(null)}
-      >
-        <House size={26} />
-        <span className="nav-label">Home</span>
-      </NavLink>
+      {can("view_dashboard") && (
+        <NavLink
+          to="/dashboard"
+          end
+          className={({ isActive }) => navClass(isActive)}
+          onClick={() => onMenuChange(null)}
+        >
+          <House size={26} />
+          <span className="nav-label">Home</span>
+        </NavLink>
+      )}
 
-      <NavLink
-        to="/dashboard/sales/quick"
-        className={({ isActive }) => navClass(isActive)}
-        onClick={() => onMenuChange(null)}
-      >
-        <Lightning size={26} />
-        <span className="nav-label">Quick Sale</span>
-      </NavLink>
+      {can("view_sales") && can("create_sales") && (
+        <NavLink
+          to="/dashboard/sales/quick"
+          className={({ isActive }) => navClass(isActive)}
+          onClick={() => onMenuChange(null)}
+        >
+          <Lightning size={26} />
+          <span className="nav-label">Quick Sale</span>
+        </NavLink>
+      )}
 
-      <NavLink
-        to="calendar"
-        className={({ isActive }) => navClass(isActive)}
-        onClick={() => onMenuChange(null)}
-      >
-        <Calendar size={26} />
-        <span className="nav-label">Calendar</span>
-      </NavLink>
+      {can("view_appointments") && (
+        <NavLink
+          to="calendar"
+          className={({ isActive }) => navClass(isActive)}
+          onClick={() => onMenuChange(null)}
+        >
+          <Calendar size={26} />
+          <span className="nav-label">Calendar</span>
+        </NavLink>
+      )}
 
-      <div
-        className={menuClass("sales")}
-        onClick={() => {
-          onMenuChange("sales");
-          navigate("/dashboard/sales");
-        }}
-      >
-        <Tag size={26} />
-        <span className="nav-label">Sales</span>
-      </div>
+      {can("view_sales") && (
+        <div
+          className={menuClass("sales")}
+          onClick={() => {
+            onMenuChange("sales");
+            navigate("/dashboard/sales");
+          }}
+        >
+          <Tag size={26} />
+          <span className="nav-label">Sales</span>
+        </div>
+      )}
 
-      <div
-        className={menuClass("clients")}
-        onClick={() => onMenuChange(openMenu === "clients" ? null : "clients")}
-      >
-        <EmojiSmile size={26} />
-        <span className="nav-label">Clients</span>
-      </div>
+      {can("view_clients") && (
+        <div
+          className={menuClass("clients")}
+          onClick={() => onMenuChange(openMenu === "clients" ? null : "clients")}
+        >
+          <EmojiSmile size={26} />
+          <span className="nav-label">Clients</span>
+        </div>
+      )}
 
-      <div
-        className={menuClass("catalog")}
-        onClick={() => onMenuChange(openMenu === "catalog" ? null : "catalog")}
-      >
-        <Book size={26} />
-        <span className="nav-label">Catalog</span>
-      </div>
+      {can("view_catalog") && (
+        <div
+          className={menuClass("catalog")}
+          onClick={() => onMenuChange(openMenu === "catalog" ? null : "catalog")}
+        >
+          <Book size={26} />
+          <span className="nav-label">Catalog</span>
+        </div>
+      )}
 
-      <div
-        className={menuClass("onlineBooking")}
-        onClick={() =>
-          onMenuChange(openMenu === "onlineBooking" ? null : "onlineBooking")
-        }
-      >
-        <Person size={26} />
-        <span className="nav-label">Online booking</span>
-      </div>
+      {can("view_appointments") && (
+        <div
+          className={menuClass("onlineBooking")}
+          onClick={() =>
+            onMenuChange(openMenu === "onlineBooking" ? null : "onlineBooking")
+          }
+        >
+          <Person size={26} />
+          <span className="nav-label">Online booking</span>
+        </div>
+      )}
 
-      <div
-        className={menuClass("marketing")}
-        onClick={() =>
-          onMenuChange(openMenu === "marketing" ? null : "marketing")
-        }
-      >
-        <Megaphone size={26} />
-        <span className="nav-label">Marketing</span>
-      </div>
+      {can("view_marketing") && (
+        <div
+          className={menuClass("marketing")}
+          onClick={() =>
+            onMenuChange(openMenu === "marketing" ? null : "marketing")
+          }
+        >
+          <Megaphone size={26} />
+          <span className="nav-label">Marketing</span>
+        </div>
+      )}
 
-      <div
-        className={menuClass("team")}
-        onClick={() => onMenuChange(openMenu === "team" ? null : "team")}
-      >
-        <People size={26} />
-        <span className="nav-label">Team</span>
-      </div>
+      {can("view_team") && (
+        <div
+          className={menuClass("team")}
+          onClick={() => onMenuChange(openMenu === "team" ? null : "team")}
+        >
+          <People size={26} />
+          <span className="nav-label">Team</span>
+        </div>
+      )}
 
-      <NavLink
-        to="analytics"
-        className={({ isActive }) => navClass(isActive)}
-        onClick={() => onMenuChange(null)}
-      >
-        <GraphUpArrow size={26} />
-        <span className="nav-label">Reports</span>
-      </NavLink>
+      {can("view_analytics") && (
+        <NavLink
+          to="analytics"
+          className={({ isActive }) => navClass(isActive)}
+          onClick={() => onMenuChange(null)}
+        >
+          <GraphUpArrow size={26} />
+          <span className="nav-label">Reports</span>
+        </NavLink>
+      )}
 
       <NavLink
         to="apps"
@@ -144,14 +166,16 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
 
       <div className="nav-spacer" />
 
-      <NavLink
-        to="settings"
-        className={({ isActive }) => navClass(isActive)}
-        onClick={() => onMenuChange(null)}
-      >
-        <Gear size={26} />
-        <span className="nav-label">Settings</span>
-      </NavLink>
+      {can("view_settings") && (
+        <NavLink
+          to="settings"
+          className={({ isActive }) => navClass(isActive)}
+          onClick={() => onMenuChange(null)}
+        >
+          <Gear size={26} />
+          <span className="nav-label">Settings</span>
+        </NavLink>
+      )}
 
       <NavLink
         to="help"

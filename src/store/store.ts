@@ -37,7 +37,7 @@ import onlineBookingReducer from "./onlineBookingSlice";
 const authPersistConfig = {
   key: "auth",
   storage,
-  whitelist: ["refreshToken", "isOnboardingComplete"], // accessToken intentionally excluded — AuthGuard silently restores it via refreshToken on boot
+  whitelist: ["refreshToken", "isOnboardingComplete", "custom_permissions"], // accessToken intentionally excluded — AuthGuard silently restores it via refreshToken on boot
 };
 
 const shiftPersistConfig = {

@@ -12,6 +12,7 @@ export interface User {
   countryCode?: string;
   avatarUrl?: string;
   isOnboardingComplete?: boolean;
+  custom_permissions?: Record<string, boolean> | null;
 }
 
 // ── Payloads ──────────────────────────────────────────────────────────────────

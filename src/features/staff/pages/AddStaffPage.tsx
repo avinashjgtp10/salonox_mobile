@@ -66,6 +66,8 @@ const AddStaffPage: React.FC = () => {
     phoneCountryCode: "+91",
     additionalPhoneCountryCode: "+91",
     specialization: [] as string[],
+    password: "",
+    confirmPassword: "",
   });
 
   const [settings, setSettings] = useState({
@@ -214,12 +216,22 @@ const AddStaffPage: React.FC = () => {
     formData.additionalPhone.trim() !== "" &&
     !/^\d{10}$/.test(formData.additionalPhone.trim());
 
-  const hasErrors = isFirstNameInvalid || isEmailInvalid || isPhoneInvalid || isAdditionalPhoneInvalid;
+  const isPasswordInvalid =
+    ui.attemptedSubmit &&
+    formData.password.trim() !== "" &&
+    formData.password.trim().length < 8;
+
+  const isConfirmPasswordInvalid =
+    ui.attemptedSubmit &&
+    formData.password.trim() !== "" &&
+    formData.confirmPassword !== formData.password;
+
+  const hasErrors = isFirstNameInvalid || isEmailInvalid || isPhoneInvalid || isAdditionalPhoneInvalid || isPasswordInvalid || isConfirmPasswordInvalid;
 
   const handleAddClick = async () => {
     // Clear stale duplicate-email flag whenever user tries to submit again
     setUi((prev) => ({ ...prev, attemptedSubmit: true, isDuplicateEmail: false }));
-    if (formData.firstName.trim() === "" || formData.email.trim() === "" || formData.phone.trim() === "" || isPhoneInvalid || isAdditionalPhoneInvalid) {
+    if (formData.firstName.trim() === "" || formData.email.trim() === "" || formData.phone.trim() === "" || isPhoneInvalid || isAdditionalPhoneInvalid || isPasswordInvalid || isConfirmPasswordInvalid) {
       setUi((prev) => ({ ...prev, showErrorPopup: true }));
       return;
     }
@@ -231,22 +243,11 @@ const AddStaffPage: React.FC = () => {
 
     try {
       setUi((prev) => ({ ...prev, isLoading: true }));
-      // Convert display label → backend enum (e.g. "No access" → "no_access")
-      const permissionLevelMap: Record<string, string> = {
-        "No access": "no_access",
-        "Basic": "basic",
-        "Low": "low",
-        "Medium": "medium",
-        "High": "high",
-        "Manager": "manager",
-      };
-
       const payload: Record<string, any> = {
         first_name: formData.firstName,
         email: formData.email,
         calendar_color: formData.calendarColor,
         allow_calendar_bookings: settings.allowCalendarBookings,
-        permission_level: permissionLevelMap[settings.permissionLevel] ?? settings.permissionLevel.toLowerCase(),
       };
 
       if (lists.addresses.length > 0) payload.addresses = lists.addresses;
@@ -272,6 +273,7 @@ const AddStaffPage: React.FC = () => {
       if (formData.endDateDayMonth) payload.end_date = formData.endDateDayMonth;
       if (formData.endDateDayMonth && formData.endDateYear)
         payload.end_year = formData.endDateYear;
+      if (formData.password.trim()) payload.password = formData.password.trim();
       if (id && id !== "undefined") {
         await api.patch(STAFF.BY_ID(id), payload);
         toast.success("Staff updated successfully");
@@ -381,6 +383,8 @@ const AddStaffPage: React.FC = () => {
     componentProps.emailErrorMessage = emailErrorMessage;
     componentProps.isPhoneInvalid = isPhoneInvalid;
     componentProps.isAdditionalPhoneInvalid = isAdditionalPhoneInvalid;
+    componentProps.isPasswordInvalid = isPasswordInvalid;
+    componentProps.isConfirmPasswordInvalid = isConfirmPasswordInvalid;
     // Override setEmail so editing the field clears the duplicate-email backend error
     componentProps.setEmail = (val: string) => {
       setFormData((prev) => ({ ...prev, email: val }));
