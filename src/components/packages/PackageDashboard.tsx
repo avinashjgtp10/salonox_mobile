@@ -21,7 +21,8 @@ function initials(name: string) {
   return name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
 }
 
-function daysUntil(dateStr: string) {
+function daysUntil(dateStr: string | null) {
+  if (dateStr === null) return Infinity;
   return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86_400_000);
 }
 
@@ -74,7 +75,10 @@ const PackageDashboard: React.FC<Props> = ({
     if (statusFilter === "active")  result = result.filter(p => daysUntil(p.expiryDate) >= 0);
     if (statusFilter === "expired") result = result.filter(p => daysUntil(p.expiryDate) < 0);
     if (sortBy === "newest") result.sort((a, b) => b.id.localeCompare(a.id));
-    if (sortBy === "expiry") result.sort((a, b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime());
+    if (sortBy === "expiry") result.sort((a, b) =>
+      (a.expiryDate ? new Date(a.expiryDate).getTime() : Infinity) -
+      (b.expiryDate ? new Date(b.expiryDate).getTime() : Infinity)
+    );
     if (sortBy === "amount") result.sort((a, b) => b.totalAmount - a.totalAmount);
     return result;
   }, [allClientPkgs, search, statusFilter, sortBy]);
@@ -290,9 +294,9 @@ const PackageDashboard: React.FC<Props> = ({
               const expiringSoon = !expired && days <= 30;
               const currentTabId = activeTab || pkg.services[0]?.serviceId;
               const histSvc      = pkg.services.find(s => s.serviceId === currentTabId) ?? pkg.services[0];
-              const expiryFmt    = new Date(pkg.expiryDate).toLocaleDateString("en-IN", {
-                day: "2-digit", month: "short", year: "numeric",
-              });
+              const expiryFmt    = pkg.expiryDate
+                ? new Date(pkg.expiryDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+                : "Never expires";
 
               return (
                 <React.Fragment key={pkg.id}>

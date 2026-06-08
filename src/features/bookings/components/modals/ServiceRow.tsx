@@ -8,6 +8,18 @@ import { SERVICES } from "../../../../services/api/endpoints/services.endpoints"
 
 const DEBOUNCE_MS = 350;
 
+interface ServiceDto {
+  id?: string | number;
+  name?: string;
+  price?: string | number;
+  duration?: number;
+}
+
+interface StaffDto {
+  id: string | number;
+  name: string;
+}
+
 interface SearchServiceResult {
   id: string;
   name: string;
@@ -30,6 +42,10 @@ interface ServiceRowProps {
   hasError?: boolean;
   errorFields?: { service?: boolean; staff?: boolean; price?: boolean; qty?: boolean };
   disabled?: boolean;
+}
+
+function hasDataArray(v: unknown): v is { data: unknown[] } {
+  return v !== null && typeof v === "object" && Array.isArray((v as Record<string, unknown>).data);
 }
 
 function fmtName(n: string) { return n.includes(" ") ? n : n.replace(/([a-z])([A-Z])/g, "$1 $2"); }
@@ -183,7 +199,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ row, onChange, onRemove, onClea
   }
 
   function handleStaffChange(staffId: string) {
-    const staffName = (staffList || []).find((s: any) => String(s.id) === staffId)?.name || "";
+    const staffName = ((staffList || []) as StaffDto[]).find((s: StaffDto) => String(s.id) === staffId)?.name || "";
     onChange(row.tempId, "staffId", staffId);
     onChange(row.tempId, "staff", staffName);
     if (staffId) onClearError?.(row.tempId, "staff");
@@ -211,6 +227,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ row, onChange, onRemove, onClea
               ) : (
                 displayResults.map((s) => (
                   <button
+                    type="button"
                     key={s.id ?? s.name}
                     className="svc-dropdown__item"
                     onMouseDown={() => selectService(s)}
