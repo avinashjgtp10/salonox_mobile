@@ -169,9 +169,6 @@ export default function QuickSalePage() {
   useEffect(() => {
     if (!isEditMode || !editSaleFetched) return;
 
-    // Clear any stale error from a prior checkout attempt on this completed sale
-    setErrorMsg("");
-
     // Sale ID
     setCurrentSaleId(editSaleFetched.id);
 
