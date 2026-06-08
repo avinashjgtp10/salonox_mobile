@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar/Navbar'
 import Footer from '../components/Footer'
-import SEO from '../components/SEO'
-import { coreKeywords, organizationSchema } from '../config/seo.config'
 import '../styles/contactSales.scss'
 import '../styles/global.scss'
 import WhatsAppBubble from '../components/WhatsAppBubble'
@@ -15,7 +13,7 @@ function sendWhatsAppLead(form: {
   firstName: string; lastName: string; email: string; phone: string
   businessName: string; businessType: string; teamSize: string
   locations: string; message: string
-}) {
+}): boolean {
   const text = `🔔 *New Lead — SalonOx*
 
 👤 *Name:* ${form.firstName} ${form.lastName}
@@ -28,7 +26,9 @@ function sendWhatsAppLead(form: {
 
 ⏰ ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`
 
-  window.open(`https://wa.me/918010765945?text=${encodeURIComponent(text)}`, '_blank')
+  const popup = window.open(`https://wa.me/918010765945?text=${encodeURIComponent(text)}`, '_blank')
+  // Returns false if popup was blocked (null or undefined means blocked)
+  return popup !== null && popup !== undefined
 }
 
 export default function ContactSalesPage() {
@@ -38,6 +38,7 @@ export default function ContactSalesPage() {
     businessName: '', businessType: '', teamSize: '', locations: '', message: ''
   })
   const [submitted, setSubmitted] = useState(false)
+  const [popupBlocked, setPopupBlocked] = useState(false)
 
   useEffect(() => { window.scrollTo(0, 0) }, [])
 
@@ -46,19 +47,18 @@ export default function ContactSalesPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    sendWhatsAppLead(form)
+    setPopupBlocked(false)
+    const opened = sendWhatsAppLead(form)
+    if (!opened) {
+      // Popup was blocked — keep the form visible and inform the user
+      setPopupBlocked(true)
+      return
+    }
     setSubmitted(true)
   }
 
   return (
     <div className="cs-root">
-      <SEO
-        title="Book a SalonOx Demo | Salon Software for India"
-        description="Book a SalonOx demo for salon management software covering billing, appointments, staff, reports, CRM and WhatsApp marketing."
-        path="/contact-sales"
-        keywords={['book salon software demo', ...coreKeywords]}
-        jsonLd={organizationSchema}
-      />
       <Navbar />
       <section className="cs-hero">
         <div className="cs-hero-grid" />
@@ -88,6 +88,31 @@ export default function ContactSalesPage() {
             ) : (
               <form className="cs-form" onSubmit={handleSubmit}>
                 <h2 className="cs-form-title">Tell us about yourself</h2>
+
+                {/* Popup-blocked warning */}
+                {popupBlocked && (
+                  <div style={{
+                    marginBottom: 20,
+                    padding: '12px 16px',
+                    borderRadius: 10,
+                    background: 'color-mix(in srgb, var(--sx-amber) 12%, transparent)',
+                    border: '1px solid color-mix(in srgb, var(--sx-amber) 30%, transparent)',
+                    fontSize: 13,
+                    color: 'var(--sx-text-secondary)',
+                    lineHeight: 1.6,
+                  }}>
+                    ⚠️ Your browser blocked the WhatsApp popup. Please{' '}
+                    <a
+                      href={`https://wa.me/918010765945?text=${encodeURIComponent(`New lead from ${form.firstName} ${form.lastName}`)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: 'var(--sx-accent)', textDecoration: 'underline' }}
+                    >
+                      click here to open WhatsApp
+                    </a>{' '}
+                    or allow popups for this site and try again.
+                  </div>
+                )}
 
                 <div className="cs-form-row">
                   <div className="cs-form-group">
@@ -143,10 +168,7 @@ export default function ContactSalesPage() {
                   <textarea className="cs-textarea" name="message" placeholder="Tell us about your current setup, challenges, or questions..." value={form.message} onChange={handleChange} rows={4} />
                 </div>
 
-                <button
-                  type="submit"
-                  className="sx-btn-primary cs-submit"
-                >
+                <button type="submit" className="sx-btn-primary cs-submit">
                   Send message →
                 </button>
                 <p className="cs-privacy">By submitting, you agree to our Privacy Policy. We'll never share your data with third parties.</p>

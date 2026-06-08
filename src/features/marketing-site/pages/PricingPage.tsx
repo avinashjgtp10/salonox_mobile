@@ -2,17 +2,32 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar/Navbar'
 import Footer from '../components/Footer'
-import SEO from '../components/SEO'
-import { plans, currencySymbol, type Currency } from '../config/pricing.config'
-import { coreKeywords, faqSchema, organizationSchema, softwareSchema } from '../config/seo.config'
 import '../styles/pricing.scss'
 import '../styles/global.scss'
 import WhatsAppBubble from '../components/WhatsAppBubble'
+import {
+  plans,
+  currencySymbol,
+  getPlanPrice,
+  getCycleLabel,
+  getMonthlyEquiv,
+  type Currency,
+  type BillingCycle,
+} from '../config/pricing.config'
 
 function useScrollReveal() {
   useEffect(() => {
     const els = document.querySelectorAll('.sx-reveal')
-    const observer = new IntersectionObserver(entries => entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('is-visible'); observer.unobserve(e.target) } }), { threshold: 0.1 })
+    const observer = new IntersectionObserver(
+      entries =>
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            e.target.classList.add('is-visible')
+            observer.unobserve(e.target)
+          }
+        }),
+      { threshold: 0.1 },
+    )
     els.forEach(el => observer.observe(el))
     return () => observer.disconnect()
   }, [])
@@ -41,21 +56,26 @@ const faqItems = [
   { q: 'What happens after the trial ends?', a: "You'll be asked to choose a plan. If you don't, your account is paused — your data is never deleted." },
 ]
 
+function formatPrice(amount: number, currency: Currency): string {
+  if (currency === 'INR') {
+    return amount.toLocaleString('en-IN')
+  }
+  return amount.toLocaleString('en-US')
+}
+
 export default function PricingPage() {
   const navigate = useNavigate()
   const [openFaq, setOpenFaq] = useState<number | null>(null)
+  const [currency, setCurrency] = useState<Currency>('INR')
   useScrollReveal()
   useEffect(() => { window.scrollTo(0, 0) }, [])
 
+  const sym = currencySymbol[currency]
+
+  const cycles: BillingCycle[] = ['quarterly', 'annual']
+
   return (
     <div className="pp-root">
-      <SEO
-        title="SalonOx Pricing | Salon Management Software Plans"
-        description="Compare SalonOx pricing for salon billing, appointments, staff, CRM, POS, reports and WhatsApp marketing. Start a 14-day free trial."
-        path="/pricing"
-        keywords={coreKeywords}
-        jsonLd={[softwareSchema, organizationSchema, faqSchema(faqItems.map(item => ({ question: item.q, answer: item.a })))]}
-      />
       <Navbar />
 
       {/* HERO */}
@@ -86,63 +106,83 @@ export default function PricingPage() {
               Special offer available for new users
             </div>
           </div>
+
+          {/* Currency switcher */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 20 }}>
+            {(['INR', 'USD', 'EUR'] as Currency[]).map(c => (
+              <button
+                key={c}
+                onClick={() => setCurrency(c)}
+                style={{
+                  padding: '6px 16px',
+                  borderRadius: 999,
+                  border: '1px solid var(--sx-border)',
+                  background: currency === c ? 'var(--sx-accent)' : 'transparent',
+                  color: currency === c ? '#fff' : 'var(--sx-text-secondary)',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                }}
+              >
+                {currencySymbol[c]} {c}
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* PLANS */}
       <section className="pp-plans sx-reveal">
         <div className="sx-section">
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: 20,
-            maxWidth: 720,
-            margin: '0 auto 64px',
-          }}
-          className="lp-pricing-grid"
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: 20,
+              maxWidth: 720,
+              margin: '0 auto 64px',
+            }}
+            className="lp-pricing-grid"
           >
-            {/* Quarterly */}
-            <div className="pp-plan-card">
-              <div className="pp-plan-name">Quarterly</div>
-              <div className="pp-plan-price-row">
-                <span className="pp-plan-sym">₹</span>
-                <span className="pp-plan-amount">2,997</span>
-              </div>
-              <div className="pp-plan-period">per quarter</div>
-              <div className="pp-plan-monthly-equiv">₹999 / month · billed every 3 months</div>
-              <div className="pp-plan-trial">14-day free trial</div>
-              <div className="pp-plan-divider" />
-              <p className="pp-plan-desc">All features included. No limits.</p>
-              <button
-                className="sx-btn-outline"
-                style={{ width: '100%', justifyContent: 'center', marginTop: 'auto' }}
-                onClick={() => navigate('/register')}
-              >
-                Start free trial →
-              </button>
-            </div>
+            {cycles.map(cycle => {
+              // Use the Starter plan as the single-plan model (all features included in every plan)
+              const plan = plans.find(p => p.id === 'starter')!
+              const price = getPlanPrice(plan, currency, cycle)
+              const cycleLabel = getCycleLabel(cycle)
+              const monthlyEquiv = getMonthlyEquiv(plan, currency, cycle)
+              const isAnnual = cycle === 'annual'
 
-            {/* Annual */}
-            <div className="pp-plan-card pp-plan-card--pop">
-              <div className="pp-plan-badge">Best Value</div>
-              <div className="pp-plan-name">Annual</div>
-              <div className="pp-plan-price-row">
-                <span className="pp-plan-sym">₹</span>
-                <span className="pp-plan-amount">10,788</span>
-              </div>
-              <div className="pp-plan-period">per year</div>
-              <div className="pp-plan-monthly-equiv">₹899 / month · billed annually · save 10%</div>
-              <div className="pp-plan-trial">14-day free trial</div>
-              <div className="pp-plan-divider" />
-              <p className="pp-plan-desc">All features included. No limits.</p>
-              <button
-                className="sx-btn-primary"
-                style={{ width: '100%', justifyContent: 'center', marginTop: 'auto' }}
-                onClick={() => navigate('/register')}
-              >
-                Start free trial →
-              </button>
-            </div>
+              return (
+                <div
+                  key={cycle}
+                  className={`pp-plan-card${isAnnual ? ' pp-plan-card--pop' : ''}`}
+                >
+                  {isAnnual && <div className="pp-plan-badge">Best Value</div>}
+                  <div className="pp-plan-name">
+                    {cycle.charAt(0).toUpperCase() + cycle.slice(1)}
+                  </div>
+                  <div className="pp-plan-price-row">
+                    <span className="pp-plan-sym">{sym}</span>
+                    <span className="pp-plan-amount">{formatPrice(price, currency)}</span>
+                  </div>
+                  <div className="pp-plan-period">{cycleLabel}</div>
+                  <div className="pp-plan-monthly-equiv">
+                    {sym}{formatPrice(monthlyEquiv, currency)} / month
+                    {isAnnual ? ' · billed annually · save 10%' : ' · billed every 3 months'}
+                  </div>
+                  <div className="pp-plan-trial">{plan.trial}</div>
+                  <div className="pp-plan-divider" />
+                  <p className="pp-plan-desc">All features included. No limits.</p>
+                  <button
+                    className={isAnnual ? 'sx-btn-primary' : 'sx-btn-outline'}
+                    style={{ width: '100%', justifyContent: 'center', marginTop: 'auto' }}
+                    onClick={() => navigate('/register')}
+                  >
+                    Start free trial →
+                  </button>
+                </div>
+              )
+            })}
           </div>
 
           {/* Everything included note */}
@@ -153,20 +193,24 @@ export default function PricingPage() {
           </div>
 
           {/* Feature list */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: 24,
-          }}
-          className="pp-features-grid"
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: 24,
+            }}
+            className="pp-features-grid"
           >
             {allFeatures.map(cat => (
-              <div key={cat.category} style={{
-                background: 'var(--sx-bg-card)',
-                border: '1px solid var(--sx-border)',
-                borderRadius: 16,
-                padding: '20px 22px',
-              }}>
+              <div
+                key={cat.category}
+                style={{
+                  background: 'var(--sx-bg-card)',
+                  border: '1px solid var(--sx-border)',
+                  borderRadius: 16,
+                  padding: '20px 22px',
+                }}
+              >
                 <div style={{
                   fontSize: 11,
                   fontWeight: 700,
@@ -179,7 +223,18 @@ export default function PricingPage() {
                 </div>
                 <ul style={{ display: 'flex', flexDirection: 'column' as const, gap: 8 }}>
                   {cat.items.map(item => (
-                    <li key={item} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: 'var(--sx-text-secondary)', fontWeight: 300, lineHeight: 1.5 }}>
+                    <li
+                      key={item}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 8,
+                        fontSize: 13,
+                        color: 'var(--sx-text-secondary)',
+                        fontWeight: 300,
+                        lineHeight: 1.5,
+                      }}
+                    >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--sx-green)" strokeWidth="2.5" style={{ flexShrink: 0, marginTop: 2 }}>
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
@@ -203,9 +258,13 @@ export default function PricingPage() {
               <div key={i} className={`pp-faq-item${openFaq === i ? ' pp-faq-item--open' : ''}`}>
                 <button className="pp-faq-q" onClick={() => setOpenFaq(openFaq === i ? null : i)}>
                   {item.q}
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
                 </button>
-                <div className={`pp-faq-a${openFaq === i ? ' pp-faq-a--open' : ''}`}><p>{item.a}</p></div>
+                <div className={`pp-faq-a${openFaq === i ? ' pp-faq-a--open' : ''}`}>
+                  <p>{item.a}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -223,8 +282,8 @@ export default function PricingPage() {
           </div>
         </div>
       </section>
-      <WhatsAppBubble />
 
+      <WhatsAppBubble />
       <Footer />
     </div>
   )

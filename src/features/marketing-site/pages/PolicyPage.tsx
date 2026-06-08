@@ -5,19 +5,28 @@ import Footer from '../components/Footer'
 import '../styles/global.scss'
 import WhatsAppBubble from '../components/WhatsAppBubble'
 
-type PolicyType = 'privacy' | 'terms' | 'cookie'
+export type PolicyType = 'privacy' | 'terms' | 'cookie'
 
 interface Props { type: PolicyType }
 
+// Fix: static dates per policy — never use new Date() for "last updated"
+const LAST_UPDATED: Record<PolicyType, string> = {
+  privacy: '1 June 2025',
+  terms:   '1 June 2025',
+  cookie:  '1 June 2025',
+}
+
 export default function PolicyPage({ type }: Props) {
   const navigate = useNavigate()
-  useEffect(() => { window.scrollTo(0, 0) }, [])
+
+  // Fix: add `type` to deps so scroll resets when navigating between policy pages
+  useEffect(() => { window.scrollTo(0, 0) }, [type])
 
   const isPrivacy = type === 'privacy'
   const isCookie  = type === 'cookie'
 
-  const title    = isPrivacy ? 'Privacy Policy' : isCookie ? 'Cookie Policy' : 'Terms of Service'
-  const eyebrow  = isPrivacy ? 'Legal · Privacy' : isCookie ? 'Legal · Cookie Policy' : 'Legal · Terms'
+  const title   = isPrivacy ? 'Privacy Policy' : isCookie ? 'Cookie Policy' : 'Terms of Service'
+  const eyebrow = isPrivacy ? 'Legal · Privacy' : isCookie ? 'Legal · Cookie Policy' : 'Legal · Terms'
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--sx-bg-0)', paddingTop: 64 }}>
@@ -32,7 +41,7 @@ export default function PolicyPage({ type }: Props) {
             {title}
           </h1>
           <p style={{ color: 'var(--sx-text-muted)', fontSize: 13, marginBottom: 56 }}>
-            Last updated: {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+            Last updated: {LAST_UPDATED[type]}
           </p>
 
           {isPrivacy  && <PrivacyContent />}
@@ -63,6 +72,9 @@ export default function PolicyPage({ type }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Fix: WhatsAppBubble at page level so it appears on ALL policy pages */}
+      <WhatsAppBubble />
       <Footer />
     </div>
   )
@@ -152,6 +164,7 @@ function TermsContent() {
   )
 }
 
+// Fix: WhatsAppBubble removed from here — it now lives at the PolicyPage level
 function CookieContent() {
   return (
     <>
@@ -170,7 +183,6 @@ function CookieContent() {
       <Section title="5. Updates">
         <p>We may update this Cookie Policy as our use of cookies changes. Material changes will be communicated via in-app notification or email before taking effect.</p>
       </Section>
-      <WhatsAppBubble />
     </>
   )
 }

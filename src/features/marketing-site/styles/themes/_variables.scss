@@ -74,11 +74,11 @@
 // ── FIXED TOKENS ──────────────────────────────────────────────────────────
 $font-display: 'Bricolage Grotesque', sans-serif;
 $font-body:    'Plus Jakarta Sans', sans-serif;
-
+// Fix: no blank line before $bp-* group (scss/dollar-variable-empty-line-before)
 $bp-desktop:  1280px;
 $bp-tablet:   1024px;
 $bp-phone:    768px;
 $bp-small:    480px;
-
+// Fix: no blank line before $ease-* group (scss/dollar-variable-empty-line-before)
 $ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
 $ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
