@@ -100,8 +100,114 @@ export default function DailySalesPage() {
 
   const handleExport = (exportFormat: "pdf" | "csv" | "excel") => {
     setShowExport(false);
+    if (exportFormat === "pdf") {
+      exportPdfFrontend();
+      return;
+    }
     const date = format(selectedDate, "yyyy-MM-dd");
     dispatch(exportSalesThunk({ format: exportFormat, date }));
+  };
+
+  const exportPdfFrontend = () => {
+    const dateLabel = format(selectedDate, "dd MMMM yyyy");
+    const shortId   = (id: string | number) => String(id).slice(0, 8).toUpperCase();
+    const money     = (v: string | number) => `₹${parseFloat(String(v) || "0").toFixed(2)}`;
+    const capFirst  = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
+
+    const rows = daySales.filter(s => s.status !== "draft").map(s => {
+      const clientLabel = s.client_name
+        ? s.client_name
+        : s.client_id
+          ? shortId(s.client_id)
+          : "Walk-in";
+      return `
+        <tr>
+          <td>${shortId(s.id)}</td>
+          <td><span class="badge badge-${s.status}">${capFirst(s.status)}</span></td>
+          <td>${clientLabel}</td>
+          <td>${money(s.subtotal)}</td>
+          <td>${money(s.discount_amount)}</td>
+          <td>${money(s.tip_amount)}</td>
+          <td>${money(s.tax_amount)}</td>
+          <td class="total">${money(s.total_amount)}</td>
+          <td>${capFirst(s.payment_method ?? "")}</td>
+          <td>${format(new Date(s.created_at), "dd/MM/yyyy HH:mm")}</td>
+        </tr>`;
+    }).join("");
+
+    const grandTotal = daySales
+      .filter(s => s.status === "completed")
+      .reduce((sum, s) => sum + parseFloat(s.total_amount || "0"), 0);
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Daily Sales Report – ${dateLabel}</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: Arial, sans-serif; font-size: 12px; color: #1a1a1a; padding: 24px; }
+    h1 { font-size: 20px; font-weight: 700; text-align: center; margin-bottom: 4px; }
+    .sub { text-align:center; color:#666; font-size:13px; margin-bottom:20px; }
+    table { width:100%; border-collapse:collapse; margin-bottom:16px; }
+    th { background:#1a1a1a; color:#fff; padding:8px 10px; font-size:11px; text-align:left; white-space:nowrap; }
+    td { padding:7px 10px; border-bottom:1px solid #e5e7eb; font-size:12px; vertical-align:middle; }
+    tr:nth-child(even) td { background:#f9fafb; }
+    td.total { font-weight:700; color:#1a1a1a; }
+    .badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:10px; font-weight:600; }
+    .badge-completed { background:#ecfdf5; color:#059669; }
+    .badge-refunded  { background:#fef2f2; color:#dc2626; }
+    .badge-cancelled { background:#f3f4f6; color:#374151; }
+    .summary { background:#f8f9fb; border:1px solid #e5e7eb; border-radius:8px; padding:12px 16px; display:flex; gap:32px; margin-top:4px; }
+    .summary-item label { font-size:10px; color:#6b7280; text-transform:uppercase; letter-spacing:.04em; display:block; margin-bottom:3px; }
+    .summary-item span  { font-size:15px; font-weight:700; }
+    @media print { body { padding:12px; } }
+  </style>
+</head>
+<body>
+  <h1>Daily Sales Report</h1>
+  <p class="sub">Date: ${dateLabel}</p>
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Status</th>
+        <th>Client</th>
+        <th>Subtotal</th>
+        <th>Discount</th>
+        <th>Tip</th>
+        <th>Tax</th>
+        <th>Total</th>
+        <th>Payment</th>
+        <th>Time</th>
+      </tr>
+    </thead>
+    <tbody>${rows || '<tr><td colspan="10" style="text-align:center;padding:20px;color:#9ca3af;">No completed sales for this date</td></tr>'}</tbody>
+  </table>
+  <div class="summary">
+    <div class="summary-item">
+      <label>Total Revenue</label>
+      <span>₹${grandTotal.toFixed(2)}</span>
+    </div>
+    <div class="summary-item">
+      <label>Transactions</label>
+      <span>${daySales.filter(s => s.status !== "draft").length}</span>
+    </div>
+    <div class="summary-item">
+      <label>Completed</label>
+      <span>${daySales.filter(s => s.status === "completed").length}</span>
+    </div>
+    <div class="summary-item">
+      <label>Refunded</label>
+      <span>${daySales.filter(s => s.status === "refunded").length}</span>
+    </div>
+  </div>
+  <script>window.onload = () => { window.print(); }<\/script>
+</body>
+</html>`;
+
+    const w = window.open("", "_blank");
+    if (w) { w.document.write(html); w.document.close(); }
   };
 
   useEffect(() => {

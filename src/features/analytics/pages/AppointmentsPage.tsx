@@ -169,6 +169,7 @@ export default function AppointmentsPage() {
     filters: { staffId: string; status: string },
     isAllTime: boolean,
     dateRange: typeof range,
+    search?: string,
   ) => {
     dispatch(fetchBookingsThunk({
       page,
@@ -178,6 +179,7 @@ export default function AppointmentsPage() {
       allTime: isAllTime,
       startDate: !isAllTime ? format(dateRange[0].startDate, "yyyy-MM-dd") : undefined,
       endDate: !isAllTime ? format(dateRange[0].endDate, "yyyy-MM-dd") : undefined,
+      search: search && search.replace(/^#/, "").trim() ? search : undefined,
     }));
   }, [dispatch]);
 
@@ -189,6 +191,17 @@ export default function AppointmentsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Debounced API search when searchTerm changes
+  useEffect(() => {
+    const q = searchTerm.replace(/^#/, "").trim();
+    const timer = setTimeout(() => {
+      setCurrentPage(1);
+      fetchPage(1, pageSize, appliedFilters, allTime, range, q ? searchTerm : undefined);
+    }, 350);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm]);
+
   // Auto-dismiss toast
   useEffect(() => {
     if (!toast) return;
@@ -199,14 +212,14 @@ export default function AppointmentsPage() {
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: "smooth" });
-    fetchPage(page, pageSize, appliedFilters, allTime, range);
+    fetchPage(page, pageSize, appliedFilters, allTime, range, searchTerm || undefined);
   };
 
   const handlePageSizeChange = (size: number) => {
     setCurrentPage(1);
     setPageSize(size);
     window.scrollTo({ top: 0, behavior: "smooth" });
-    fetchPage(1, size, appliedFilters, allTime, range);
+    fetchPage(1, size, appliedFilters, allTime, range, searchTerm || undefined);
   };
 
   const handlePreset = (label: string) => {
@@ -370,11 +383,20 @@ export default function AppointmentsPage() {
   // Client-side search filter
   const filteredAppointments = useMemo(() => {
     if (!searchTerm.trim()) return bookings;
-    const term = searchTerm.toLowerCase();
-    return bookings.filter((b) =>
-      String(b.id).toLowerCase().includes(term) ||
-      b.clientName.toLowerCase().includes(term)
-    );
+    // strip leading # so users can type "#6EDA3359" or just "6EDA3359"
+    const raw  = searchTerm.trim();
+    const term = (raw.startsWith("#") ? raw.slice(1) : raw).toLowerCase();
+    return bookings.filter((b) => {
+      const shortRef = String(b.id).substring(0, 8).toLowerCase();
+      return (
+        shortRef.includes(term) ||
+        String(b.id).toLowerCase().includes(term) ||
+        (b.clientName || "").toLowerCase().includes(term) ||
+        (b.services || []).some((s: any) =>
+          (s.service || s.name || "").toLowerCase().includes(term)
+        )
+      );
+    });
   }, [bookings, searchTerm]);
 
   // Client-side sort
@@ -555,7 +577,7 @@ export default function AppointmentsPage() {
       <div className="appointments-toolbar mb-4 d-flex gap-2 align-items-center flex-wrap">
         <div style={{ maxWidth: "300px", flex: 1 }}>
           <Input
-            placeholder="Search by Reference or Client"
+            placeholder="Search ref # or client name…"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="mb-0"

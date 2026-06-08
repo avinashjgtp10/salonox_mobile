@@ -27,6 +27,13 @@ interface SearchServiceResult {
   duration: number;
 }
 
+interface RawServiceItem {
+  id?: string | number;
+  name?: string;
+  price?: string | number;
+  duration?: string | number;
+}
+
 interface ServiceRowProps {
   row: ServiceItem & { tempId: string };
   onChange: (id: string, field: string, value: string | number | boolean) => void;
@@ -74,30 +81,31 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ row, onChange, onRemove, onClea
 
   async function fetchServiceResults(term: string) {
     if (abortRef.current) abortRef.current.abort();
-    abortRef.current = new AbortController();
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
       const params = `search=${encodeURIComponent(term)}&is_active=true&limit=20`;
-      const res = await api.get(SERVICES.LIST(params), { signal: abortRef.current.signal });
-      const raw: unknown = res.data;
-      const envelope = (raw !== null && typeof raw === "object" && "data" in raw)
-        ? (raw as Record<string, unknown>).data
-        : undefined;
-      const items: ServiceDto[] = Array.isArray(envelope)
-        ? (envelope as ServiceDto[])
-        : hasDataArray(envelope) ? (envelope.data as ServiceDto[]) : [];
-      setApiResults(
-        items.map((s: ServiceDto) => ({
-          id: String(s.id ?? ""),
-          name: s.name ?? "",
-          price: parseFloat(String(s.price ?? 0)) || 0,
-          duration: Number(s.duration) || 30,
-        }))
-      );
-      setIsSearching(false);
-    } catch (err) {
-      if (!(err instanceof DOMException && err.name === "AbortError")) {
-        setIsSearching(false);
+      const res = await api.get(SERVICES.LIST(params), { signal: controller.signal });
+      const payload = (res.data as { data: unknown })?.data;
+      const items: RawServiceItem[] = Array.isArray(payload)
+        ? (payload as RawServiceItem[])
+        : Array.isArray((payload as { data?: unknown })?.data)
+          ? (payload as { data: RawServiceItem[] }).data
+          : [];
+      if (abortRef.current === controller) {
+        setApiResults(
+          items.map((s: RawServiceItem) => ({
+            id: String(s.id ?? ""),
+            name: s.name ?? "",
+            price: parseFloat(String(s.price ?? 0)) || 0,
+            duration: Number(s.duration) || 30,
+          }))
+        );
       }
+    } catch {
+      // aborted or failed — keep showing existing results
+    } finally {
+      if (abortRef.current === controller) setIsSearching(false);
     }
   }
 
@@ -110,7 +118,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ row, onChange, onRemove, onClea
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     if (!value.trim()) {
-      if (abortRef.current) { abortRef.current.abort(); abortRef.current = null; }
+      abortRef.current?.abort();
       setApiResults(null);
       setIsSearching(false);
       return;
