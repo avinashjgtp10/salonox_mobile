@@ -1,25 +1,25 @@
 // ── DARK MODE (default) ────────────────────────────────────────────────────
 :root,
 [data-theme="dark"] {
-  --sx-bg-0:           #090909;
-  --sx-bg-1:           #0f0f0f;
-  --sx-bg-2:           #161616;
-  --sx-bg-card:        #1a1a1a;
-  --sx-bg-card-hover:  #1f1f1f;
-  --sx-logo-filter: invert(1);
+  --sx-bg-0:           #111113;
+  --sx-bg-1:           #17171a;
+  --sx-bg-2:           #1e1e22;
+  --sx-bg-card:        #222226;
+  --sx-bg-card-hover:  #27272c;
+  --sx-logo-filter:    invert(1);
 
-  --sx-text-primary:   #f0ede8;
-  --sx-text-secondary: rgba(240, 237, 232, 0.55);
-  --sx-text-muted:     rgba(240, 237, 232, 0.35);
-  --sx-text-faint:     rgba(240, 237, 232, 0.18);
+  --sx-text-primary:   #e8e6e1;
+  --sx-text-secondary: rgba(232, 230, 225, 0.6);
+  --sx-text-muted:     rgba(232, 230, 225, 0.38);
+  --sx-text-faint:     rgba(232, 230, 225, 0.2);
 
-  --sx-border:         rgba(255, 255, 255, 0.07);
-  --sx-border-hover:   rgba(255, 255, 255, 0.14);
+  --sx-border:         rgba(255, 255, 255, 0.08);
+  --sx-border-hover:   rgba(255, 255, 255, 0.16);
 
-  --sx-accent:         #ffffff;
-  --sx-accent-text:    #090909;
-  --sx-accent-muted:   rgba(255, 255, 255, 0.08);
-  --sx-accent-border:  rgba(255, 255, 255, 0.2);
+  --sx-accent:         #e8e6e1;
+  --sx-accent-text:    #111113;
+  --sx-accent-muted:   rgba(232, 230, 225, 0.09);
+  --sx-accent-border:  rgba(232, 230, 225, 0.22);
 
   --sx-blue:           #60a5fa;
   --sx-pink:           #f472b6;
@@ -27,35 +27,35 @@
   --sx-green:          #10b981;
   --sx-purple:         #a78bfa;
 
-  --sx-nav-bg:         rgba(9, 9, 9, 0.92);
-  --sx-mega-bg:        #111111;
+  --sx-nav-bg:         rgba(17, 17, 19, 0.92);
+  --sx-mega-bg:        #18181b;
 
-  --sx-shadow-sm:      0 2px 8px rgba(0, 0, 0, 0.4);
-  --sx-shadow-md:      0 8px 32px rgba(0, 0, 0, 0.5);
-  --sx-shadow-lg:      0 24px 64px rgba(0, 0, 0, 0.6);
+  --sx-shadow-sm:      0 2px 8px rgba(0, 0, 0, 0.45);
+  --sx-shadow-md:      0 8px 32px rgba(0, 0, 0, 0.55);
+  --sx-shadow-lg:      0 24px 64px rgba(0, 0, 0, 0.65);
 }
 
 // ── LIGHT MODE ─────────────────────────────────────────────────────────────
 [data-theme="light"] {
-  --sx-bg-0:           #ffffff;
-  --sx-bg-1:           #f5f5f3;
-  --sx-bg-2:           #efefec;
-  --sx-bg-card:        #ffffff;
-  --sx-bg-card-hover:  #f9f9f7;
-  --sx-logo-filter: invert(0);
+  --sx-bg-0:           #f5f4f0;
+  --sx-bg-1:           #edecea;
+  --sx-bg-2:           #e4e3df;
+  --sx-bg-card:        #f0efec;
+  --sx-bg-card-hover:  #e8e7e3;
+  --sx-logo-filter:    invert(0);
 
-  --sx-text-primary:   #0a0a0f;
-  --sx-text-secondary: #374151;
-  --sx-text-muted:     #6b7280;
-  --sx-text-faint:     #9ca3af;
+  --sx-text-primary:   #1c1b1a;
+  --sx-text-secondary: #4a4845;
+  --sx-text-muted:     #7a7875;
+  --sx-text-faint:     #a8a6a3;
 
-  --sx-border:         rgba(10, 10, 15, 0.08);
-  --sx-border-hover:   rgba(10, 10, 15, 0.16);
+  --sx-border:         rgba(28, 27, 26, 0.1);
+  --sx-border-hover:   rgba(28, 27, 26, 0.2);
 
-  --sx-accent:         #111827;
-  --sx-accent-text:    #ffffff;
-  --sx-accent-muted:   rgba(17, 24, 39, 0.06);
-  --sx-accent-border:  rgba(17, 24, 39, 0.15);
+  --sx-accent:         #1c1b1a;
+  --sx-accent-text:    #f5f4f0;
+  --sx-accent-muted:   rgba(28, 27, 26, 0.07);
+  --sx-accent-border:  rgba(28, 27, 26, 0.18);
 
   --sx-blue:           #3b82f6;
   --sx-pink:           #ec4899;
@@ -63,22 +63,22 @@
   --sx-green:          #10b981;
   --sx-purple:         #8b5cf6;
 
-  --sx-nav-bg:         rgba(255, 255, 255, 0.92);
-  --sx-mega-bg:        #ffffff;
+  --sx-nav-bg:         rgba(245, 244, 240, 0.93);
+  --sx-mega-bg:        #f0efec;
 
-  --sx-shadow-sm:      0 2px 8px rgba(0, 0, 0, 0.06);
-  --sx-shadow-md:      0 8px 32px rgba(0, 0, 0, 0.08);
-  --sx-shadow-lg:      0 24px 64px rgba(0, 0, 0, 0.1);
+  --sx-shadow-sm:      0 2px 8px rgba(0, 0, 0, 0.07);
+  --sx-shadow-md:      0 8px 32px rgba(0, 0, 0, 0.09);
+  --sx-shadow-lg:      0 24px 64px rgba(0, 0, 0, 0.12);
 }
 
 // ── FIXED TOKENS ──────────────────────────────────────────────────────────
 $font-display: 'Bricolage Grotesque', sans-serif;
 $font-body:    'Plus Jakarta Sans', sans-serif;
-
-$bp-desktop:     1280px;
-$bp-tablet:      1024px;
-$bp-phone:       768px;
-$bp-small:       480px;
-
-$ease-smooth:    cubic-bezier(0.4, 0, 0.2, 1);
-$ease-bounce:    cubic-bezier(0.34, 1.56, 0.64, 1);
+// Fix: no blank line before $bp-* group (scss/dollar-variable-empty-line-before)
+$bp-desktop:  1280px;
+$bp-tablet:   1024px;
+$bp-phone:    768px;
+$bp-small:    480px;
+// Fix: no blank line before $ease-* group (scss/dollar-variable-empty-line-before)
+$ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+$ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);

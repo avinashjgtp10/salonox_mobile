@@ -7,6 +7,7 @@ import { businessTypes } from '../config/businessTypes.config'
 import { coreKeywords, organizationSchema, softwareSchema } from '../config/seo.config'
 import '../styles/businessType.scss'
 import '../styles/global.scss'
+import WhatsAppBubble from '../components/WhatsAppBubble'
 
 function useScrollReveal() {
   useEffect(() => {
@@ -151,6 +152,7 @@ export default function BusinessTypePage({ slug }: { slug: string }) {
           </div>
         </section>
       )}
+      <WhatsAppBubble />
       <Footer />
     </div>
   )

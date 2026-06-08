@@ -20,8 +20,20 @@ export default function FeatureCarousel() {
   const navigate = useNavigate()
   const [active, setActive] = useState(0)
   const [modal, setModal] = useState<typeof carouselFeatures[0] | null>(null)
+  const [spacing, setSpacing] = useState(320)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const total = carouselFeatures.length
+
+  // Responsive card spacing based on screen width
+  useEffect(() => {
+    const update = () => {
+      const w = window.innerWidth
+      setSpacing(w < 480 ? 220 : w < 768 ? 260 : 320)
+    }
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [])
 
   useEffect(() => {
     if (modal) { if (intervalRef.current) clearInterval(intervalRef.current); return }
@@ -34,7 +46,6 @@ export default function FeatureCarousel() {
     const normalizedOffset = offset > total / 2 ? offset - total : offset
     const absOffset = Math.abs(normalizedOffset)
     const isFront = normalizedOffset === 0
-    const spacing = 320
     return {
       transform: `translateX(${normalizedOffset * spacing}px) rotateY(${isFront ? 0 : normalizedOffset > 0 ? -45 : 45}deg) scale(${isFront ? 1 : absOffset === 1 ? 0.82 : 0.68})`,
       opacity: absOffset <= 2 ? (isFront ? 1 : absOffset === 1 ? 0.6 : 0.25) : 0,

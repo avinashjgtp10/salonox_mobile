@@ -34,10 +34,8 @@
 .lp-hero-bg {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
+  background-size: cover;
+  background-position: center;
   animation: sx-ken-burns 20s ease-in-out infinite;
   will-change: transform;
 }
@@ -45,21 +43,16 @@
 .lp-hero-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    135deg,
-    rgba(9,9,9,0.92) 0%,
-    rgba(9,9,9,0.75) 50%,
-    rgba(9,9,9,0.5) 100%
-  );
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 0;
+}
 
-  [data-theme="light"] & {
-    background: linear-gradient(
-      135deg,
-      rgba(255,255,255,0.94) 0%,
-      rgba(255,255,255,0.8) 50%,
-      rgba(255,255,255,0.5) 100%
-    );
-  }
+[data-theme="light"] .lp-hero-overlay {
+  background: rgba(245, 244, 240, 0.72);
+}
+
+[data-theme="dark"] .lp-hero-overlay {
+  background: rgba(0, 0, 0, 0.62);
 }
 
 .lp-hero-grid {
@@ -84,7 +77,15 @@
 
   @media (max-width: 1024px) {
     grid-template-columns: 1fr;
-    gap: 48px;
+    gap: 40px;
+    padding-top: 60px;
+    padding-bottom: 60px;
+  }
+}
+
+.lp-hero-mockup {
+  @media (max-width: 1024px) {
+    display: none; // hide dashboard mockup on tablet/mobile — saves space
   }
 }
 
@@ -135,6 +136,13 @@
   align-items: center;
   flex-wrap: wrap;
   margin-bottom: 16px;
+
+  @media (max-width: 400px) {
+    flex-direction: column;
+    align-items: stretch;
+
+    button { justify-content: center; }
+  }
 }
 
 .lp-hero-note {
@@ -304,6 +312,12 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 20px;
+
+  // Fix: proof bar wrapping on mobile (consolidated from duplicate below)
+  @media (max-width: 600px) {
+    flex-direction: column;
+    gap: 16px;
+  }
 }
 
 .lp-proof-stat {
@@ -317,6 +331,8 @@
   width: 1px;
   height: 32px;
   background: var(--sx-border);
+
+  @media (max-width: 600px) { display: none; }
 }
 
 .lp-proof-val {
@@ -336,51 +352,15 @@
 }
 
 // ── FEATURES GRID ─────────────────────────────────────────────────────────
-.lp-core {
-  @include m.section-pad;
-  background: var(--sx-bg-0);
-}
-
-.lp-core-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-
-  @media (max-width: 900px) { grid-template-columns: repeat(2, 1fr); }
-  @media (max-width: 560px) { grid-template-columns: 1fr; }
-}
-
-.lp-core-card {
-  @include m.card-base;
-  padding: 22px;
-  text-align: left;
-  min-height: 150px;
-  transition: border-color 0.2s, transform 0.2s;
-
-  h3 {
-    font-size: 17px;
-    line-height: 1.25;
-    color: var(--sx-text-primary);
-    margin-bottom: 10px;
-  }
-
-  p {
-    font-size: 13.5px;
-    line-height: 1.7;
-    color: var(--sx-text-muted);
-  }
-
-  &:hover {
-    border-color: var(--sx-accent);
-    transform: translateY(-2px);
-  }
-}
-
 .lp-features {
   @include m.section-pad;
   background: var(--sx-bg-0);
 }
 
+// Fix: single canonical .lp-feat-grid declaration — preserves the 1px border
+// divider trick (gap:1px + background:border) while adding correct responsive
+// column counts. The stale duplicate at the bottom of the original file that
+// clobbered these values has been removed.
 .lp-feat-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -443,7 +423,7 @@
 .lp-biz-cats {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 32px;
 }
 
 .lp-biz-cat-lbl {
@@ -481,6 +461,9 @@
 .lp-deep {
   @include m.section-pad;
   background: var(--sx-bg-0);
+  padding: 72px 0;
+
+  @media (max-width: 768px) { padding: 48px 0; }
 
   &--dark {
     background: var(--sx-bg-1);
@@ -490,17 +473,27 @@
 .lp-deep-inner {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 72px;
+  gap: 64px;
   align-items: center;
 
-  &--reverse { direction: rtl;
-    > * { direction: ltr; }
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 32px;
   }
 
-  @media (max-width: 900px) {
-    grid-template-columns: 1fr;
-    direction: ltr;
-    gap: 40px;
+  &--reverse {
+    @media (min-width: 769px) { direction: rtl; > * { direction: ltr; } }
+    @media (max-width: 768px) { grid-template-columns: 1fr; }
+  }
+}
+
+.lp-deep-img {
+  width: 100%;
+  border-radius: 16px;
+  object-fit: cover;
+
+  @media (max-width: 768px) {
+    max-height: 260px;
   }
 }
 
@@ -589,12 +582,25 @@
 .lp-multiloc-inner {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 80px;
+  gap: 64px;
   align-items: center;
 
-  @media (max-width: 900px) {
+  @media (max-width: 768px) {
     grid-template-columns: 1fr;
     gap: 40px;
+  }
+}
+
+// Fix: single canonical .lp-multiloc-stats — the duplicate at lines 666–670
+// in the original file (grid-template-columns: 1fr 1fr, no breakpoints) was
+// overriding this mobile single-column rule at ≤480px. Removed the duplicate.
+.lp-multiloc-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -614,6 +620,8 @@
   flex-direction: column;
   gap: 12px;
   margin-bottom: 32px;
+
+  @media (max-width: 480px) { font-size: 13px; }
 
   li {
     display: flex;
@@ -638,12 +646,6 @@
   margin-top: 1px;
 
   svg { width: 10px; height: 10px; }
-}
-
-.lp-multiloc-stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
 }
 
 .lp-multiloc-stat {
@@ -678,11 +680,15 @@
 .lp-pricing-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin-bottom: 24px;
+  gap: 16px;
 
-  @media (max-width: 900px) { grid-template-columns: repeat(2, 1fr); }
-  @media (max-width: 480px) { grid-template-columns: 1fr; }
+  @media (max-width: 1024px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (max-width: 560px) {
+    grid-template-columns: 1fr;
+  }
 }
 
 .lp-price-card {
@@ -757,37 +763,6 @@
 .lp-testi-name { font-size: 13px; font-weight: 600; color: var(--sx-text-primary); }
 .lp-testi-role { font-size: 11.5px; color: var(--sx-text-faint); margin-top: 2px; }
 
-// ── FAQ ──────────────────────────────────────────────────────────────────
-.lp-faq {
-  @include m.section-pad;
-  background: var(--sx-bg-1);
-}
-
-.lp-faq-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
-
-  @media (max-width: 760px) { grid-template-columns: 1fr; }
-}
-
-.lp-faq-card {
-  @include m.card-base;
-  padding: 24px;
-
-  h3 {
-    font-size: 16px;
-    color: var(--sx-text-primary);
-    margin-bottom: 8px;
-  }
-
-  p {
-    font-size: 13.5px;
-    color: var(--sx-text-muted);
-    line-height: 1.7;
-  }
-}
-
 // ── CTA BANNER ────────────────────────────────────────────────────────────
 .lp-cta {
   position: relative;
@@ -810,7 +785,18 @@
   background: rgba(9, 9, 9, 0.82);
 }
 
-.lp-cta-inner { position: relative; z-index: 1; }
+.lp-cta-inner {
+  position: relative;
+  z-index: 1;
+
+  @media (max-width: 480px) {
+    .lp-cta-actions {
+      flex-direction: column;
+      align-items: stretch;
+      button { justify-content: center; }
+    }
+  }
+}
 
 .lp-cta-badge {
   display: inline-block;
@@ -851,38 +837,4 @@
   gap: 12px;
   justify-content: center;
   flex-wrap: wrap;
-}
-
-.lp-mobile-sticky {
-  display: none;
-
-  @media (max-width: 720px) {
-    position: fixed;
-    z-index: 80;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
-    background: color-mix(in srgb, var(--sx-bg-0) 94%, transparent);
-    border-top: 1px solid var(--sx-border);
-    backdrop-filter: blur(14px);
-
-    .sx-btn-primary,
-    .sx-btn-outline {
-      width: 100%;
-      justify-content: center;
-      padding: 0 12px;
-      height: 42px;
-      white-space: nowrap;
-    }
-  }
-}
-
-@media (max-width: 720px) {
-  .lp-root {
-    padding-bottom: 72px;
-  }
 }
