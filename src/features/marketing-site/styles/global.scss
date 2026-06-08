@@ -1,7 +1,6 @@
 @use './themes/variables' as *;
 
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap');
-
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -143,90 +142,5 @@ ul, ol { list-style: none; }
   &.is-visible {
     opacity: 1;
     transform: none;
-  }
-}
-
-// ── Footer ────────────────────────────────────────────────────────────────
-.sx-footer {
-  background: var(--sx-bg-0);
-  border-top: 1px solid var(--sx-border);
-  padding: 64px 0 32px;
-}
-
-.sx-footer-grid {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
-  gap: 48px;
-  margin-bottom: 48px;
-
-  @media (max-width: 900px) {
-    grid-template-columns: 1fr 1fr;
-    gap: 32px;
-  }
-
-  @media (max-width: 560px) {
-    grid-template-columns: 1fr;
-    gap: 28px;
-  }
-}
-
-.sx-footer-brand {
-  @media (max-width: 900px) {
-    grid-column: 1 / -1; // brand spans full width on tablet before link cols wrap
-  }
-}
-
-.sx-footer-bottom {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: 24px;
-  border-top: 1px solid var(--sx-border);
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.sx-footer-legal {
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-
-  @media (max-width: 480px) {
-    gap: 12px;
-  }
-}
-
-// ── Image theme adjustments ────────────────────────────────────────────────
-[data-theme="dark"] {
-  img:not(.sx-brand-logo) {
-    filter: brightness(0.7) contrast(1.1) saturate(0.85);
-    transition: filter 0.3s ease;
-  }
-
-  .lp-deep-visual img,
-  .fp-intro-img,
-  .bt-intro-img {
-    filter: brightness(0.6) contrast(1.15) saturate(0.8);
-  }
-
-  .fc-card-img {
-    filter: brightness(0.55) contrast(1.1) saturate(0.75);
-  }
-}
-
-[data-theme="light"] {
-  img:not(.sx-brand-logo) {
-    filter: brightness(1.08) contrast(0.95) saturate(1.1);
-    transition: filter 0.3s ease;
-  }
-
-  .lp-deep-visual img,
-  .fp-intro-img,
-  .bt-intro-img {
-    filter: brightness(1.12) contrast(0.93) saturate(1.15);
-  }
-
-  .fc-card-img {
-    filter: brightness(1.1) contrast(0.92) saturate(1.1);
   }
 }

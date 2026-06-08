@@ -7,7 +7,6 @@ import { features } from '../config/features.config'
 import { coreKeywords, organizationSchema, softwareSchema } from '../config/seo.config'
 import '../styles/featurePage.scss'
 import '../styles/global.scss'
-import WhatsAppBubble from '../components/WhatsAppBubble'
 
 function useScrollReveal() {
   useEffect(() => {
@@ -160,7 +159,6 @@ export default function FeaturePage({ slug }: { slug: string }) {
           </div>
         </section>
       )}
-      <WhatsAppBubble />
       <Footer />
     </div>
   )

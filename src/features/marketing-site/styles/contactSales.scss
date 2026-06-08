@@ -292,11 +292,3 @@
 
 .cs-quote-name { font-size: 13px; font-weight: 600; color: var(--sx-text-primary); }
 .cs-quote-role { font-size: 11px; color: var(--sx-text-faint); margin-top: 2px; }
-.cs-form-wrap {
-  padding: 36px;
-  @media (max-width: 480px) { padding: 20px 16px; }
-}
-
-.cs-content {
-  @media (max-width: 480px) { padding: 40px 0 60px; }
-}

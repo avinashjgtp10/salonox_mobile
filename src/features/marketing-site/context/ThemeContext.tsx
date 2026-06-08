@@ -8,13 +8,13 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: 'light',
+  theme: 'dark',
   toggleTheme: () => {},
 })
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
-    return (localStorage.getItem('sx-theme') as Theme) || 'light'
+    return (localStorage.getItem('sx-theme') as Theme) || 'dark'
   })
 
   useEffect(() => {
