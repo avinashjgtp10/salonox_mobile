@@ -8,6 +8,18 @@ import { SERVICES } from "../../../../services/api/endpoints/services.endpoints"
 
 const DEBOUNCE_MS = 350;
 
+interface ServiceDto {
+  id?: string | number;
+  name?: string;
+  price?: string | number;
+  duration?: number;
+}
+
+interface StaffDto {
+  id: string | number;
+  name: string;
+}
+
 interface SearchServiceResult {
   id: string;
   name: string;
@@ -23,6 +35,10 @@ interface ServiceRowProps {
   hasError?: boolean;
   errorFields?: { service?: boolean; staff?: boolean; price?: boolean; qty?: boolean };
   disabled?: boolean;
+}
+
+function hasDataArray(v: unknown): v is { data: unknown[] } {
+  return v !== null && typeof v === "object" && Array.isArray((v as Record<string, unknown>).data);
 }
 
 function fmtName(n: string) { return n.includes(" ") ? n : n.replace(/([a-z])([A-Z])/g, "$1 $2"); }
@@ -62,20 +78,26 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ row, onChange, onRemove, onClea
     try {
       const params = `search=${encodeURIComponent(term)}&is_active=true&limit=20`;
       const res = await api.get(SERVICES.LIST(params), { signal: abortRef.current.signal });
-      const payload = (res.data as any)?.data;
-      const items: any[] = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : []);
+      const raw: unknown = res.data;
+      const envelope = (raw !== null && typeof raw === "object" && "data" in raw)
+        ? (raw as Record<string, unknown>).data
+        : undefined;
+      const items: ServiceDto[] = Array.isArray(envelope)
+        ? (envelope as ServiceDto[])
+        : hasDataArray(envelope) ? (envelope.data as ServiceDto[]) : [];
       setApiResults(
-        items.map((s: any) => ({
+        items.map((s: ServiceDto) => ({
           id: String(s.id ?? ""),
           name: s.name ?? "",
           price: parseFloat(String(s.price ?? 0)) || 0,
           duration: Number(s.duration) || 30,
         }))
       );
-    } catch {
-      // aborted or failed — keep showing existing results
-    } finally {
       setIsSearching(false);
+    } catch (err) {
+      if (!(err instanceof DOMException && err.name === "AbortError")) {
+        setIsSearching(false);
+      }
     }
   }
 
@@ -88,6 +110,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ row, onChange, onRemove, onClea
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     if (!value.trim()) {
+      if (abortRef.current) { abortRef.current.abort(); abortRef.current = null; }
       setApiResults(null);
       setIsSearching(false);
       return;
@@ -168,7 +191,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ row, onChange, onRemove, onClea
   }
 
   function handleStaffChange(staffId: string) {
-    const staffName = (staffList || []).find((s: any) => String(s.id) === staffId)?.name || "";
+    const staffName = ((staffList || []) as StaffDto[]).find((s: StaffDto) => String(s.id) === staffId)?.name || "";
     onChange(row.tempId, "staffId", staffId);
     onChange(row.tempId, "staff", staffName);
     if (staffId) onClearError?.(row.tempId, "staff");
@@ -196,6 +219,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ row, onChange, onRemove, onClea
               ) : (
                 displayResults.map((s) => (
                   <button
+                    type="button"
                     key={s.id ?? s.name}
                     className="svc-dropdown__item"
                     onMouseDown={() => selectService(s)}

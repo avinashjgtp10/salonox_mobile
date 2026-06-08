@@ -76,7 +76,7 @@ const PackageCreateForm: React.FC<Props> = ({
     ? `${selectedClient.first_name} ${selectedClient.last_name ?? ""}`.trim()
     : "";
 
-  const step1Valid = !!selectedClient && pkgName.trim() !== "" && category !== "";
+  const step1Valid = !!selectedClient && pkgName.trim() !== "" && category !== "" && (neverExpires || expiry !== "");
   const step2Valid = services.some(s => s.name !== "");
   const canNext    = step === 1 ? step1Valid : step === 2 ? step2Valid : basePrice >= 0;
 
@@ -95,7 +95,7 @@ const PackageCreateForm: React.FC<Props> = ({
         clientId:      String(selectedClient.id),
         packageName:   pkgName,
         category,
-        expiryDate:    neverExpires ? null : (expiry || "2026-12-31"),
+        expiryDate:    neverExpires ? null : expiry,
         basePrice,
         gstPercentage: gstPct,
         discount,
@@ -336,8 +336,10 @@ const PackageCreateForm: React.FC<Props> = ({
               {PKG_PAYMENT_METHODS.map(m => (
                 <button
                   key={m.id}
-                  onClick={() => setPayMethod(m.id)}
-                  className={`${styles.payChip} ${m.id === payMethod ? styles["payChip--active"] : ""}`}
+                  onClick={() => setSelectedMethods(prev =>
+                    prev.includes(m.id) ? prev.filter(id => id !== m.id) : [...prev, m.id]
+                  )}
+                  className={`${styles.payChip} ${selectedMethods.includes(m.id) ? styles["payChip--active"] : ""}`}
                 >
                   <span className={styles.payChipIcon}>{m.icon}</span>
                   <span className={styles.payChipLabel}>{m.label}</span>
