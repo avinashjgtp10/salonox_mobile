@@ -168,7 +168,7 @@ export interface ClientPackage {
   category: string;
   branch: string;
   createdDate: string;
-  expiryDate: string;
+  expiryDate: string | null;
   status: string;
   basePrice: number;
   gstPercentage: number;
@@ -187,7 +187,7 @@ export interface CreateClientPackageDTO {
   packageName: string;
   category: string;
   branch: string;
-  expiryDate: string;
+  expiryDate: string | null;
   basePrice: number;
   gstPercentage: number;
   discount: number;

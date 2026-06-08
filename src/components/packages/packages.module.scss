@@ -455,20 +455,33 @@ $shadow-focus: 0 0 0 3px rgba(99,102,241,.18);
 .inputPrefix    { position:relative; .input { padding-left:22px; } }
 .inputPrefixSymbol { position:absolute; left:9px; top:50%; transform:translateY(-50%); font-size:13px; color:$muted; pointer-events:none; }
 
-// ─── Payment chips ────────────────────────────────────────────────────────────
-.payMethod { display:flex; gap:8px; flex-wrap:wrap; }
+// ─── Payment method cards ─────────────────────────────────────────────────────
+.payMethod { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
 
 .payChip {
-  padding:6px 14px;
-  border-radius:$radius-pill;
-  font-size:13px; font-weight:500;
-  cursor:pointer; border:1px solid $border;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:7px; padding:14px 8px; min-height:80px;
+  border-radius:$radius;
+  font-size:12px; font-weight:500;
+  cursor:pointer; border:1.5px solid $border;
   background:$white; color:$muted;
   font-family:inherit;
   @include transition;
 
-  &--active { border-color:$color-indigo; background:$color-indigo-bg; color:$color-indigo; font-weight:600; }
-  &:hover:not(.payChip--active) { border-color:#a5b4fc; color:$color-indigo; }
+  .payChipIcon { font-size:22px; line-height:1; }
+  .payChipLabel { font-size:12px; font-weight:600; color:$muted; }
+
+  &--active {
+    border-color:$color-indigo;
+    background:$color-indigo-bg;
+    box-shadow:0 0 0 3px rgba(99,102,241,0.12);
+    .payChipLabel { color:$color-indigo; font-weight:700; }
+  }
+  &:hover:not(#{&}--active) {
+    border-color:#a5b4fc;
+    background:#fafaff;
+    transform:translateY(-1px);
+  }
 }
 
 // ─── Price box ────────────────────────────────────────────────────────────────
