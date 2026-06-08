@@ -114,7 +114,7 @@ export default function CreateCampaignPage() {
       api.get("/api/v1/categories").then(res => {
         const data = res.data?.data ?? res.data ?? [];
         setCategories(Array.isArray(data) ? data : []);
-      }).catch(() => {});
+      }).catch(() => { toast.error("Failed to load service categories"); });
     }
   }, [step, source, categories.length]);
 
