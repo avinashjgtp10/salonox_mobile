@@ -110,6 +110,13 @@ export const useEditServiceForm = (serviceId: string | number) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serviceId]);
 
+  // Re-run validation live once the user has attempted a submit, so inline
+  // errors clear as soon as the user fixes the problem.
+  useEffect(() => {
+    if (isSubmitted && formData) validate(formData);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData, isSubmitted]);
+
   const updateField = <K extends keyof CatalogFormData>(
     section: K,
     value: CatalogFormData[K],
@@ -143,20 +150,21 @@ export const useEditServiceForm = (serviceId: string | number) => {
     setLoading(true);
     setError(null);
     try {
-      // Only send fields that exist as columns in the services table.
-      // Extra frontend-only fields (all_members, padding_before, etc.) are omitted.
       const payload: Record<string, unknown> = {
         name: formData.basic.name,
         description: formData.basic.description || undefined,
         category_id: formData.basic.categoryId || null,
         price: formData.basic.price,
+        discounted_price: formData.basic.discountedPrice ?? null,
         duration: formData.basic.duration,
+        padding_before: formData.basic.paddingBefore ?? 0,
+        padding_after: formData.basic.paddingAfter ?? 0,
         is_active: formData.basic.active,
         online_booking: formData.onlineBooking.enabled,
         resource_required: formData.resources.requireResource,
         commission_enabled: formData.commission.defaultValue > 0,
-        treatment_type: formData.basic.treatmentType || null,
-        // staff update — backend reads team_member_ids and calls replaceStaff
+        treatment_type: formData.basic.treatmentType ?? null,
+        gender_preference: formData.basic.genderPreference ?? null,
         team_member_ids: formData.team.allMembers
           ? []
           : formData.team.selectedMemberIds,

@@ -21,7 +21,6 @@ export default function CatalogSubSidebar({ onClose }: Props) {
         className={({ isActive }) =>
           isActive ? "sub-link active" : "sub-link"
         }
-        onClick={onClose}
       >
         Service menu
       </NavLink>
@@ -31,7 +30,6 @@ export default function CatalogSubSidebar({ onClose }: Props) {
         className={({ isActive }) =>
           isActive ? "sub-link active" : "sub-link"
         }
-        onClick={onClose}
       >
         Memberships
       </NavLink>
@@ -41,7 +39,6 @@ export default function CatalogSubSidebar({ onClose }: Props) {
         className={({ isActive }) =>
           isActive ? "sub-link active" : "sub-link"
         }
-        onClick={onClose}
       >
         Products
       </NavLink>
@@ -51,7 +48,6 @@ export default function CatalogSubSidebar({ onClose }: Props) {
         className={({ isActive }) =>
           isActive ? "sub-link active" : "sub-link"
         }
-        onClick={onClose}
       >
         Packages
       </NavLink>
@@ -63,7 +59,6 @@ export default function CatalogSubSidebar({ onClose }: Props) {
         className={({ isActive }) =>
           isActive ? "sub-link active" : "sub-link"
         }
-        onClick={onClose}
       >
         Stocktakes
       </NavLink>
@@ -72,7 +67,6 @@ export default function CatalogSubSidebar({ onClose }: Props) {
         className={({ isActive }) =>
           isActive ? "sub-link active" : "sub-link"
         }
-        onClick={onClose}
       >
         Stock orders
       </NavLink>
@@ -81,7 +75,6 @@ export default function CatalogSubSidebar({ onClose }: Props) {
         className={({ isActive }) =>
           isActive ? "sub-link active" : "sub-link"
         }
-        onClick={onClose}
       >
         Suppliers
       </NavLink>

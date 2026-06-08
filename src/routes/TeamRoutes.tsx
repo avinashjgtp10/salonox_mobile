@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { PageLoader } from "../components/ui";
 
 const StaffListPage       = lazy(() => import("../features/staff/pages/StaffListPage"));
@@ -20,8 +20,8 @@ const StaffSalesPage        = lazy(() => import("../features/staff/pages/StaffSa
 export const TeamRoutes = () => (
   <Suspense fallback={<PageLoader />}>
     <Routes>
-      {/* Default → overview dashboard */}
-      <Route index element={<StaffDashboardPage />} />
+      {/* Default → members list */}
+      <Route index element={<Navigate to="members" replace />} />
       <Route path="dashboard"    element={<StaffDashboardPage />} />
 
       {/* Team management */}

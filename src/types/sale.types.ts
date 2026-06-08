@@ -2,13 +2,20 @@
 import type { EntityId } from "./common.types";
 
 export type SaleStatus = "draft" | "completed" | "cancelled" | "refunded";
-export type PaymentMethod = "cash" | "card" | "gift_card" | "split" | "upi";
+export type PaymentMethod = "cash" | "card" | "gift_card" | "split" | "upi" | "bank_transfer" | "wallet";
 export type SaleItemType =
   | "service"
   | "product"
   | "membership"
   | "gift_card"
   | "quick";
+
+// ── Split payment breakdown ────────────────────────────────────────────────────
+export interface SplitPaymentLine {
+  method: PaymentMethod | string;
+  amount: string | number;
+  reference?: string | null;
+}
 
 // ── Core entities ─────────────────────────────────────────────────────────────
 export interface SaleItemDetail {
@@ -17,6 +24,7 @@ export interface SaleItemDetail {
   item_type: SaleItemType;
   item_id: string | null;
   staff_id: string | null;
+  staff_name?: string | null;
   name: string;
   quantity: number;
   unit_price: string;
@@ -30,6 +38,7 @@ export interface Sale {
   salon_id: string;
   client_id: string | null;
   client_name?: string | null;
+  client_phone?: string | null;
   status: SaleStatus;
   subtotal: string;
   discount_amount: string;
@@ -43,6 +52,7 @@ export interface Sale {
   updated_at: string;
   // included when fetched by ID
   items?: SaleItemDetail[];
+  split_payments?: SplitPaymentLine[];
 }
 
 // ── Payloads ──────────────────────────────────────────────────────────────────

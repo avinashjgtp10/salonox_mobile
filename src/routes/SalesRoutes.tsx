@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { SaleProvider } from "../features/analytics/context/SaleContext";
 
 const SalesListPage = lazy(
@@ -30,13 +30,16 @@ export const SalesRoutes = () => (
   <Suspense fallback={<PageLoader />}>
     <SaleProvider>
       <Routes>
-        <Route index element={<SalesListPage />} />
+        {/* Default: /sales → appointments */}
+        <Route index element={<Navigate to="appointments" replace />} />
+        <Route path="list" element={<SalesListPage />} />
         <Route path="quick" element={<QuickSalePage />} />
         <Route path="daily" element={<DailySalesPage />} />
         <Route path="appointments" element={<AppointmentsPage />} />
         <Route path="payments" element={<PaymentsPage />} />
         <Route path="gift-cards" element={<GiftCardsPage />} />
         <Route path="memberships" element={<MembershipsPage />} />
+        <Route path="*" element={<Navigate to="appointments" replace />} />
       </Routes>
     </SaleProvider>
   </Suspense>

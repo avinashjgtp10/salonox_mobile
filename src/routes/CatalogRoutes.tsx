@@ -67,6 +67,10 @@ import { PageLoader } from "../components/ui";
 export const CatalogRoutes = () => (
   <Suspense fallback={<PageLoader />}>
     <Routes>
+      {/* Default: catalog index → service menu */}
+      <Route index element={<Navigate to="/dashboard/catalog/services" replace />} />
+      {/* Inventory parent → stocktakes */}
+      <Route path="inventory" element={<Navigate to="/dashboard/catalog/inventory/stocktakes" replace />} />
       <Route path="services" element={<ServicesListPage />} />
       <Route path="services/add" element={<AddServicePage />} />
       <Route path="services/:id/edit" element={<EditServicePage />} />
@@ -96,6 +100,8 @@ export const CatalogRoutes = () => (
       <Route path="inventory/suppliers" element={<SuppliersListPage />} />
       <Route path="inventory/suppliers/new" element={<AddSupplierPage />} />
       <Route path="inventory/suppliers/edit/:id" element={<AddSupplierPage />} />
+      {/* Catch-all → service menu */}
+      <Route path="*" element={<Navigate to="/dashboard/catalog/services" replace />} />
     </Routes>
   </Suspense>
 );

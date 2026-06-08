@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { ClientWizardProvider } from "../features/clients/context/ClientWizardContext";
 
 const ClientsListPage = lazy(
@@ -32,7 +32,7 @@ import { PageLoader } from "../components/ui";
 export const ClientsRoutes = () => (
   <Suspense fallback={<PageLoader />}>
     <Routes>
-      <Route index element={<ClientsListPage />} />
+      <Route index element={<Navigate to="list" replace />} />
       <Route path="list" element={<ClientsListPage />} />
       <Route path="loyalty" element={<ClientLoyaltyPage />} />
       <Route path="import" element={<ImportClientsPage />} />

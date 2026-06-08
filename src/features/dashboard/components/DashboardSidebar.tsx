@@ -72,8 +72,12 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
       <div
         className={menuClass("sales")}
         onClick={() => {
-          onMenuChange("sales");
-          navigate("/dashboard/sales");
+          if (openMenu !== "sales") {
+            onMenuChange("sales");
+            navigate("/dashboard/sales/appointments");
+          } else {
+            onMenuChange(null);
+          }
         }}
       >
         <Tag size={26} />
@@ -82,7 +86,14 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
 
       <div
         className={menuClass("clients")}
-        onClick={() => onMenuChange(openMenu === "clients" ? null : "clients")}
+        onClick={() => {
+          if (openMenu !== "clients") {
+            onMenuChange("clients");
+            navigate("/dashboard/clients/list");
+          } else {
+            onMenuChange(null);
+          }
+        }}
       >
         <EmojiSmile size={26} />
         <span className="nav-label">Clients</span>
@@ -90,7 +101,14 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
 
       <div
         className={menuClass("catalog")}
-        onClick={() => onMenuChange(openMenu === "catalog" ? null : "catalog")}
+        onClick={() => {
+          if (openMenu !== "catalog") {
+            onMenuChange("catalog");
+            navigate("/dashboard/catalog/services");
+          } else {
+            onMenuChange(null);
+          }
+        }}
       >
         <Book size={26} />
         <span className="nav-label">Catalog</span>
@@ -98,9 +116,14 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
 
       <div
         className={menuClass("onlineBooking")}
-        onClick={() =>
-          onMenuChange(openMenu === "onlineBooking" ? null : "onlineBooking")
-        }
+        onClick={() => {
+          if (openMenu !== "onlineBooking") {
+            onMenuChange("onlineBooking");
+            navigate("/dashboard/online-booking/marketplace");
+          } else {
+            onMenuChange(null);
+          }
+        }}
       >
         <Person size={26} />
         <span className="nav-label">Online booking</span>
@@ -108,9 +131,14 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
 
       <div
         className={menuClass("marketing")}
-        onClick={() =>
-          onMenuChange(openMenu === "marketing" ? null : "marketing")
-        }
+        onClick={() => {
+          if (openMenu !== "marketing") {
+            onMenuChange("marketing");
+            navigate("/dashboard/marketing");
+          } else {
+            onMenuChange(null);
+          }
+        }}
       >
         <Megaphone size={26} />
         <span className="nav-label">Marketing</span>
@@ -118,7 +146,14 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
 
       <div
         className={menuClass("team")}
-        onClick={() => onMenuChange(openMenu === "team" ? null : "team")}
+        onClick={() => {
+          if (openMenu !== "team") {
+            onMenuChange("team");
+            navigate("/dashboard/team/members");
+          } else {
+            onMenuChange(null);
+          }
+        }}
       >
         <People size={26} />
         <span className="nav-label">Team</span>
