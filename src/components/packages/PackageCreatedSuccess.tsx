@@ -15,9 +15,9 @@ function initials(name: string) {
 }
 
 const PackageCreatedSuccess: React.FC<Props> = ({ pkg, onViewPackages, onCreateAnother }) => {
-  const expiryFmt = new Date(pkg.expiryDate).toLocaleDateString("en-IN", {
-    day: "2-digit", month: "short", year: "numeric",
-  });
+  const expiryFmt = pkg.expiryDate
+    ? new Date(pkg.expiryDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+    : "Never expires";
 
   return (
     <div style={{ maxWidth: 680, margin: "0 auto" }}>

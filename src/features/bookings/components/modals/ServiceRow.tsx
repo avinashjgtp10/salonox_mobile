@@ -3,6 +3,36 @@ import type { ServiceItem } from "../../types/scheduler-types";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import TimeSelect from "../shared/TimeSelect";
 import { Trash } from "react-bootstrap-icons";
+import api from "../../../../services/api/axios";
+import { SERVICES } from "../../../../services/api/endpoints/services.endpoints";
+
+const DEBOUNCE_MS = 350;
+
+interface ServiceDto {
+  id?: string | number;
+  name?: string;
+  price?: string | number;
+  duration?: number;
+}
+
+interface StaffDto {
+  id: string | number;
+  name: string;
+}
+
+interface SearchServiceResult {
+  id: string;
+  name: string;
+  price: number;
+  duration: number;
+}
+
+interface RawServiceItem {
+  id?: string | number;
+  name?: string;
+  price?: string | number;
+  duration?: string | number;
+}
 
 interface ServiceRowProps {
   row: ServiceItem & { tempId: string };
@@ -14,6 +44,10 @@ interface ServiceRowProps {
   disabled?: boolean;
 }
 
+function hasDataArray(v: unknown): v is { data: unknown[] } {
+  return v !== null && typeof v === "object" && Array.isArray((v as Record<string, unknown>).data);
+}
+
 function fmtName(n: string) { return n.includes(" ") ? n : n.replace(/([a-z])([A-Z])/g, "$1 $2"); }
 
 const ServiceRow: React.FC<ServiceRowProps> = ({ row, onChange, onRemove, onClearError, errorFields = {}, disabled }) => {
@@ -22,7 +56,11 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ row, onChange, onRemove, onClea
   const [showDrop, setShowDrop] = useState(false);
   const [qtyInput, setQtyInput] = useState(String(row.qty > 0 ? row.qty : 1));
   const [discountInput, setDiscountInput] = useState(String(row.discount || ""));
+  const [apiResults, setApiResults] = useState<SearchServiceResult[] | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => { setServiceSearch(row.service || ""); }, [row.service]);
   useEffect(() => { setQtyInput(String(row.qty > 0 ? row.qty : 1)); }, [row.tempId]);
@@ -34,9 +72,67 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ row, onChange, onRemove, onClea
     return () => document.removeEventListener("mousedown", handle);
   }, []);
 
-  const filtered = (servicesList || []).filter((s: { name: string }) =>
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (abortRef.current) abortRef.current.abort();
+    };
+  }, []);
+
+  async function fetchServiceResults(term: string) {
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    try {
+      const params = `search=${encodeURIComponent(term)}&is_active=true&limit=20`;
+      const res = await api.get(SERVICES.LIST(params), { signal: controller.signal });
+      const payload = (res.data as { data: unknown })?.data;
+      const items: RawServiceItem[] = Array.isArray(payload)
+        ? (payload as RawServiceItem[])
+        : Array.isArray((payload as { data?: unknown })?.data)
+          ? (payload as { data: RawServiceItem[] }).data
+          : [];
+      if (abortRef.current === controller) {
+        setApiResults(
+          items.map((s: RawServiceItem) => ({
+            id: String(s.id ?? ""),
+            name: s.name ?? "",
+            price: parseFloat(String(s.price ?? 0)) || 0,
+            duration: Number(s.duration) || 30,
+          }))
+        );
+      }
+    } catch {
+      // aborted or failed — keep showing existing results
+    } finally {
+      if (abortRef.current === controller) setIsSearching(false);
+    }
+  }
+
+  function handleServiceSearchChange(value: string) {
+    setServiceSearch(value);
+    onChange(row.tempId, "service", value);
+    setShowDrop(true);
+    if (value.trim()) onClearError?.(row.tempId, "service");
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (!value.trim()) {
+      abortRef.current?.abort();
+      setApiResults(null);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    debounceRef.current = setTimeout(() => fetchServiceResults(value.trim()), DEBOUNCE_MS);
+  }
+
+  const localFiltered = (servicesList || []).filter((s: { name: string }) =>
     s.name.toLowerCase().includes(serviceSearch.toLowerCase())
   );
+  const displayResults: Array<{ id?: string; name: string; price: number; duration?: number }> =
+    apiResults !== null ? apiResults : localFiltered;
 
   function calcTotal(price: number, qty: number, disc: number) {
     return Math.max(0, price * qty - disc);
@@ -103,7 +199,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ row, onChange, onRemove, onClea
   }
 
   function handleStaffChange(staffId: string) {
-    const staffName = (staffList || []).find((s: any) => String(s.id) === staffId)?.name || "";
+    const staffName = ((staffList || []) as StaffDto[]).find((s: StaffDto) => String(s.id) === staffId)?.name || "";
     onChange(row.tempId, "staffId", staffId);
     onChange(row.tempId, "staff", staffName);
     if (staffId) onClearError?.(row.tempId, "staff");
@@ -121,26 +217,26 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ row, onChange, onRemove, onClea
             placeholder="Search service…"
             value={serviceSearch}
             disabled={disabled}
-            onChange={(e) => {
-              setServiceSearch(e.target.value);
-              onChange(row.tempId, "service", e.target.value);
-              setShowDrop(true);
-              if (e.target.value.trim()) onClearError?.(row.tempId, "service");
-            }}
+            onChange={(e) => handleServiceSearchChange(e.target.value)}
             onFocus={() => setShowDrop(true)}
           />
-          {showDrop && filtered.length > 0 && (
+          {showDrop && (isSearching || displayResults.length > 0) && (
             <div className="svc-dropdown">
-              {filtered.map((s: { id?: string; name: string; price: number }) => (
-                <button
-                  key={s.name}
-                  className="svc-dropdown__item"
-                  onMouseDown={() => selectService(s)}
-                >
-                  <span className="svc-dropdown__name">{s.name}</span>
-                  <span className="svc-dropdown__price">₹{s.price}</span>
-                </button>
-              ))}
+              {isSearching ? (
+                <div className="svc-dropdown__searching">Searching…</div>
+              ) : (
+                displayResults.map((s) => (
+                  <button
+                    type="button"
+                    key={s.id ?? s.name}
+                    className="svc-dropdown__item"
+                    onMouseDown={() => selectService(s)}
+                  >
+                    <span className="svc-dropdown__name">{s.name}</span>
+                    <span className="svc-dropdown__price">₹{s.price}</span>
+                  </button>
+                ))
+              )}
             </div>
           )}
         </div>
