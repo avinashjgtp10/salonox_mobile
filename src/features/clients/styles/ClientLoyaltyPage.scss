@@ -40,7 +40,25 @@
   --lp-color-danger: #dc2626;
   --lp-color-danger-light: #fef2f2;
 
+  --lp-color-avatar-bg-start: #ede9fe;
+  --lp-color-avatar-bg-end: #ddd6fe;
+
   // Spacing & Padding
+  --lp-spacing-xxs: 2px;
+  --lp-spacing-xs: 4px;
+  --lp-spacing-xs-2: 5px;
+  --lp-spacing-sm: 6px;
+  --lp-spacing-md: 8px;
+  --lp-spacing-lg: 10px;
+  --lp-spacing-xl: 12px;
+  --lp-spacing-xxl: 14px;
+  --lp-spacing-3px: 3px;
+  
+  --lp-spacing-layout-sm: 16px;
+  --lp-spacing-layout-md: 20px;
+  --lp-spacing-layout-lg: 22px;
+  --lp-spacing-layout-xl: 24px;
+
   --lp-spacing-page-padding: 24px 28px;
   --lp-spacing-btn-padding: 9px 16px;
   --lp-spacing-stat-padding: 18px 20px;
@@ -53,6 +71,19 @@
   --lp-spacing-rule-item-padding: 13px;
   --lp-spacing-reward-item-padding: 13px 15px;
 
+  --lp-spacing-table-topbar-padding: 14px 18px;
+  --lp-spacing-table-empty-padding: 44px 16px;
+  --lp-spacing-tier-badge-padding: 3px 10px;
+  --lp-spacing-status-badge-padding: 3px 9px;
+  --lp-spacing-action-menu-item-padding: 9px 14px;
+  --lp-spacing-pagination-padding: 12px 18px;
+  --lp-spacing-page-btn-padding: 0 6px;
+  --lp-spacing-radio-padding: 9px 10px;
+  --lp-spacing-preview-padding: 12px 14px;
+  --lp-spacing-reward-pts-padding: 4px 10px;
+
+  --lp-spacing-card-title-margin-bottom: 18px;
+
   // Radii
   --lp-radius-btn: 9px;
   --lp-radius-stat: 14px;
@@ -64,6 +95,11 @@
   --lp-radius-page-btn: 8px;
   --lp-radius-rule-item: 11px;
   --lp-radius-reward-item: 12px;
+
+  --lp-radius-stat-icon: 12px;
+  --lp-radius-icon-btn: 8px;
+  --lp-radius-preview: 10px;
+  --lp-radius-reward-icon: 11px;
 
   // Transitions
   --lp-transition-fast: 0.1s;
@@ -79,8 +115,19 @@
   --lp-shadow-hover-reward: 0 4px 14px rgba(0, 0, 0, 0.07);
   --lp-shadow-focus: 0 0 0 3px rgba(124, 58, 237, 0.08);
 
+  --lp-border-width-default: 1px;
   --lp-border-width-btn: 1.5px;
   --lp-border-width-input: 1.5px;
+  --lp-border-width-thick: 4px;
+
+  // Dimensions & Heights
+  --lp-size-stat-icon: 44px;
+  --lp-size-avatar: 34px;
+  --lp-size-reward-icon: 42px;
+  --lp-size-icon-btn: 30px;
+  --lp-height-input-sm: 36px;
+  --lp-height-input-md: 38px;
+  --lp-width-panel: 296px;
 }
 
 .lp-page {
@@ -95,15 +142,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 22px;
-  gap: 16px;
+  margin-bottom: var(--lp-spacing-layout-lg);
+  gap: var(--lp-spacing-layout-sm);
   flex-wrap: wrap;
 
   &__title {
     font-size: 21px;
     font-weight: 800;
     color: var(--lp-color-text-dark);
-    margin: 0 0 3px;
+    margin: 0 0 var(--lp-spacing-xs-2);
     letter-spacing: -0.3px;
   }
 
@@ -115,7 +162,7 @@
 
   &__actions {
     display: flex;
-    gap: 10px;
+    gap: var(--lp-spacing-lg);
     flex-shrink: 0;
   }
 }
@@ -124,7 +171,7 @@
 .lp-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--lp-spacing-sm);
   border: none;
   border-radius: var(--lp-radius-btn);
   font-size: 13px;
@@ -165,8 +212,8 @@
 .lp-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-  margin-bottom: 20px;
+  gap: var(--lp-spacing-xxl);
+  margin-bottom: var(--lp-spacing-layout-md);
 
   @media (max-width: 900px) { grid-template-columns: repeat(2, 1fr); }
   @media (max-width: 560px) { grid-template-columns: 1fr; }
@@ -178,9 +225,9 @@
   padding: var(--lp-spacing-stat-padding);
   display: flex;
   align-items: flex-start;
-  gap: 14px;
+  gap: var(--lp-spacing-xxl);
   box-shadow: var(--lp-shadow-sm);
-  border: 1px solid var(--lp-color-border-light);
+  border: var(--lp-border-width-default) solid var(--lp-color-border-light);
   transition: box-shadow var(--lp-transition-slow), transform var(--lp-transition-slow);
 
   &:hover {
@@ -189,9 +236,9 @@
   }
 
   &__icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
+    width: var(--lp-size-stat-icon);
+    height: var(--lp-size-stat-icon);
+    border-radius: var(--lp-radius-stat-icon);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -202,14 +249,14 @@
     font-size: 11.5px;
     font-weight: 500;
     color: var(--lp-color-text-muted);
-    margin: 0 0 5px;
+    margin: 0 0 var(--lp-spacing-xs-2);
   }
 
   &__value {
     font-size: 26px;
     font-weight: 800;
     color: var(--lp-color-text-dark);
-    margin: 0 0 3px;
+    margin: 0 0 var(--lp-spacing-xs-2);
     letter-spacing: -0.5px;
     line-height: 1;
   }
@@ -229,9 +276,9 @@
 // ── Main content row (table + panel) ─────────────────────────────────────────
 .lp-main-row {
   display: grid;
-  grid-template-columns: 1fr 296px;
-  gap: 16px;
-  margin-bottom: 16px;
+  grid-template-columns: 1fr var(--lp-width-panel);
+  gap: var(--lp-spacing-layout-sm);
+  margin-bottom: var(--lp-spacing-layout-sm);
   align-items: start;
 
   @media (max-width: 1024px) { grid-template-columns: 1fr; }
@@ -241,7 +288,7 @@
 .lp-table-section {
   background: var(--lp-color-white);
   border-radius: var(--lp-radius-card);
-  border: 1px solid var(--lp-color-border-light);
+  border: var(--lp-border-width-default) solid var(--lp-color-border-light);
   box-shadow: var(--lp-shadow-sm);
   overflow: hidden;
 }
@@ -249,9 +296,9 @@
 .lp-table-topbar {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--lp-color-border-lighter);
+  gap: var(--lp-spacing-lg);
+  padding: var(--lp-spacing-table-topbar-padding);
+  border-bottom: var(--lp-border-width-default) solid var(--lp-color-border-lighter);
   flex-wrap: wrap;
 }
 
@@ -272,7 +319,7 @@
 
 .lp-search {
   width: 100%;
-  height: 36px;
+  height: var(--lp-height-input-sm);
   padding: var(--lp-spacing-search-padding);
   border: var(--lp-border-width-input) solid var(--lp-color-border);
   border-radius: var(--lp-radius-input);
@@ -294,8 +341,8 @@
 .lp-filter-wrap {
   display: flex;
   align-items: center;
-  gap: 6px;
-  height: 36px;
+  gap: var(--lp-spacing-sm);
+  height: var(--lp-height-input-sm);
   padding: var(--lp-spacing-filter-padding);
   border: var(--lp-border-width-input) solid var(--lp-color-border);
   border-radius: var(--lp-radius-input);
@@ -333,7 +380,7 @@
     letter-spacing: 0.06em;
     color: var(--lp-color-text-ghost);
     background: var(--lp-color-bg-thead);
-    border-bottom: 1px solid var(--lp-color-border-lighter);
+    border-bottom: var(--lp-border-width-default) solid var(--lp-color-border-lighter);
     text-align: left;
     white-space: nowrap;
   }
@@ -344,7 +391,7 @@
 
   td {
     padding: var(--lp-spacing-table-td-padding);
-    border-bottom: 1px solid var(--lp-color-border-row);
+    border-bottom: var(--lp-border-width-default) solid var(--lp-color-border-row);
     vertical-align: middle;
     color: var(--lp-color-text-body);
   }
@@ -356,7 +403,7 @@
 
 .lp-table-empty {
   text-align: center !important;
-  padding: 44px 16px !important;
+  padding: var(--lp-spacing-table-empty-padding) !important;
   color: var(--lp-color-text-placeholder);
   font-size: 13px;
 }
@@ -364,14 +411,14 @@
 .lp-customer-cell {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--lp-spacing-lg);
 }
 
 .lp-avatar {
-  width: 34px;
-  height: 34px;
+  width: var(--lp-size-avatar);
+  height: var(--lp-size-avatar);
   border-radius: var(--lp-radius-avatar);
-  background: linear-gradient(135deg, #ede9fe, #ddd6fe);
+  background: linear-gradient(135deg, var(--lp-color-avatar-bg-start), var(--lp-color-avatar-bg-end));
   color: var(--lp-color-primary);
   display: flex;
   align-items: center;
@@ -398,7 +445,7 @@
 .lp-points-cell {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--lp-spacing-xs-2);
 }
 
 .lp-pts-star { color: var(--lp-color-amber); flex-shrink: 0; }
@@ -412,8 +459,8 @@
 .lp-tier-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 10px;
+  gap: var(--lp-spacing-xs);
+  padding: var(--lp-spacing-tier-badge-padding);
   border-radius: var(--lp-radius-badge);
   font-size: 11.5px;
   font-weight: 700;
@@ -423,8 +470,8 @@
 .lp-status-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 9px;
+  gap: var(--lp-spacing-xs);
+  padding: var(--lp-spacing-status-badge-padding);
   border-radius: var(--lp-radius-badge);
   font-size: 11.5px;
   font-weight: 600;
@@ -437,14 +484,14 @@
 .lp-actions-cell {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--lp-spacing-xxs);
 }
 
 .lp-icon-btn {
-  width: 30px;
-  height: 30px;
+  width: var(--lp-size-icon-btn);
+  height: var(--lp-size-icon-btn);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--lp-radius-icon-btn);
   background: transparent;
   color: var(--lp-color-text-ghost);
   cursor: pointer;
@@ -461,7 +508,7 @@
   right: 0;
   top: calc(100% + 4px);
   background: var(--lp-color-white);
-  border: 1px solid var(--lp-color-border);
+  border: var(--lp-border-width-default) solid var(--lp-color-border);
   border-radius: var(--lp-radius-action-menu);
   box-shadow: var(--lp-shadow-lg);
   z-index: 50;
@@ -471,9 +518,9 @@
   &__item {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--lp-spacing-md);
     width: 100%;
-    padding: 9px 14px;
+    padding: var(--lp-spacing-action-menu-item-padding);
     border: none;
     background: transparent;
     font-size: 13px;
@@ -495,8 +542,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 18px;
-  border-top: 1px solid var(--lp-color-border-lighter);
+  padding: var(--lp-spacing-pagination-padding);
+  border-top: var(--lp-border-width-default) solid var(--lp-color-border-lighter);
 
   &__info {
     font-size: 12px;
@@ -505,13 +552,13 @@
 
   &__btns {
     display: flex;
-    gap: 4px;
+    gap: var(--lp-spacing-xs);
   }
 }
 
 .lp-page-btn {
-  min-width: 30px;
-  height: 30px;
+  min-width: var(--lp-size-icon-btn);
+  height: var(--lp-size-icon-btn);
   border: var(--lp-border-width-btn) solid var(--lp-color-border);
   border-radius: var(--lp-radius-page-btn);
   background: var(--lp-color-white);
@@ -522,7 +569,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 6px;
+  padding: var(--lp-spacing-page-btn-padding);
   transition: border-color var(--lp-transition-btn), color var(--lp-transition-btn), background-color var(--lp-transition-btn), opacity var(--lp-transition-btn);
 
   &:hover:not(:disabled) { border-color: var(--lp-color-primary); color: var(--lp-color-primary); }
@@ -539,14 +586,14 @@
 .lp-panel {
   background: var(--lp-color-white);
   border-radius: var(--lp-radius-card);
-  border: 1px solid var(--lp-color-border-light);
+  border: var(--lp-border-width-default) solid var(--lp-color-border-light);
   box-shadow: var(--lp-shadow-sm);
   padding: var(--lp-spacing-panel-padding);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--lp-spacing-layout-sm);
 
-  &__head { display: flex; flex-direction: column; gap: 4px; }
+  &__head { display: flex; flex-direction: column; gap: var(--lp-spacing-xs); }
 
   &__title {
     font-size: 14.5px;
@@ -569,15 +616,15 @@
   &__actions {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding-top: 4px;
+    gap: var(--lp-spacing-md);
+    padding-top: var(--lp-spacing-xs);
   }
 }
 
 .lp-form-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--lp-spacing-sm);
 }
 
 .lp-label {
@@ -590,7 +637,7 @@
 
 .lp-select {
   width: 100%;
-  height: 38px;
+  height: var(--lp-height-input-md);
   padding: 0 30px 0 12px;
   border: var(--lp-border-width-input) solid var(--lp-color-border);
   border-radius: var(--lp-radius-input);
@@ -620,7 +667,7 @@
 
 .lp-input {
   width: 100%;
-  height: 38px;
+  height: var(--lp-height-input-md);
   padding: 0 12px;
   border: var(--lp-border-width-input) solid var(--lp-color-border);
   border-radius: var(--lp-radius-input);
@@ -641,7 +688,7 @@
 
 .lp-radio-group {
   display: flex;
-  gap: 8px;
+  gap: var(--lp-spacing-md);
 }
 
 .lp-radio {
@@ -649,8 +696,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 9px 10px;
+  gap: var(--lp-spacing-sm);
+  padding: var(--lp-spacing-radio-padding);
   border: var(--lp-border-width-input) solid var(--lp-color-border);
   border-radius: var(--lp-radius-input);
   font-size: 12.5px;
@@ -672,9 +719,9 @@
 
 .lp-preview {
   background: var(--lp-color-primary-light);
-  border: 1px solid var(--lp-color-border-preview-badge);
-  border-radius: 10px;
-  padding: 12px 14px;
+  border: var(--lp-border-width-default) solid var(--lp-color-border-preview-badge);
+  border-radius: var(--lp-radius-preview);
+  padding: var(--lp-spacing-preview-padding);
 
   &__label {
     font-size: 10px;
@@ -682,7 +729,7 @@
     text-transform: uppercase;
     letter-spacing: 0.07em;
     color: var(--lp-color-primary);
-    margin: 0 0 5px;
+    margin: 0 0 var(--lp-spacing-xs-2);
   }
 
   &__text {
@@ -697,7 +744,7 @@
 .lp-bottom-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: var(--lp-spacing-layout-sm);
 
   @media (max-width: 800px) { grid-template-columns: 1fr; }
 }
@@ -705,7 +752,7 @@
 .lp-card {
   background: var(--lp-color-white);
   border-radius: var(--lp-radius-card);
-  border: 1px solid var(--lp-color-border-light);
+  border: var(--lp-border-width-default) solid var(--lp-color-border-light);
   box-shadow: var(--lp-shadow-sm);
   padding: var(--lp-spacing-card-padding);
 
@@ -713,10 +760,10 @@
     font-size: 14.5px;
     font-weight: 700;
     color: var(--lp-color-text-dark);
-    margin: 0 0 18px;
+    margin: 0 0 var(--lp-spacing-card-title-margin-bottom);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--lp-spacing-md);
 
     &-icon { color: var(--lp-color-primary); }
   }
@@ -726,7 +773,7 @@
 .lp-rules-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: var(--lp-spacing-lg);
 
   @media (max-width: 600px) { grid-template-columns: 1fr; }
 }
@@ -734,9 +781,9 @@
 .lp-rule-item {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: var(--lp-spacing-lg);
   background: var(--lp-color-bg-page);
-  border: 1px solid var(--lp-color-border-light);
+  border: var(--lp-border-width-default) solid var(--lp-color-border-light);
   border-radius: var(--lp-radius-rule-item);
   padding: var(--lp-spacing-rule-item-padding);
   transition: box-shadow var(--lp-transition-normal);
@@ -751,7 +798,7 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--lp-color-text-muted);
-    margin: 0 0 3px;
+    margin: 0 0 var(--lp-spacing-3px);
   }
 
   &__value {
@@ -766,20 +813,20 @@
 .lp-rewards-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--lp-spacing-lg);
 }
 
 .lp-reward-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--lp-spacing-xl);
   background: var(--lp-color-bg-input);
-  border-left: 4px solid transparent;
+  border-left: var(--lp-border-width-thick) solid transparent;
   border-radius: var(--lp-radius-reward-item);
   padding: var(--lp-spacing-reward-item-padding);
-  border-top: 1px solid var(--lp-color-border-light);
-  border-right: 1px solid var(--lp-color-border-light);
-  border-bottom: 1px solid var(--lp-color-border-light);
+  border-top: var(--lp-border-width-default) solid var(--lp-color-border-light);
+  border-right: var(--lp-border-width-default) solid var(--lp-color-border-light);
+  border-bottom: var(--lp-border-width-default) solid var(--lp-color-border-light);
   transition: box-shadow var(--lp-transition-normal), transform var(--lp-transition-normal);
 
   &:hover {
@@ -788,9 +835,9 @@
   }
 
   &__icon {
-    width: 42px;
-    height: 42px;
-    border-radius: 11px;
+    width: var(--lp-size-reward-icon);
+    height: var(--lp-size-reward-icon);
+    border-radius: var(--lp-radius-reward-icon);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -804,7 +851,7 @@
     font-size: 13.5px;
     font-weight: 700;
     color: var(--lp-color-text-dark);
-    margin: 0 0 2px;
+    margin: 0 0 var(--lp-spacing-xxs);
   }
 
   &__desc {
@@ -816,8 +863,8 @@
   &__pts {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 4px 10px;
+    gap: var(--lp-spacing-xs);
+    padding: var(--lp-spacing-reward-pts-padding);
     border-radius: var(--lp-radius-badge);
     font-size: 12px;
     font-weight: 700;

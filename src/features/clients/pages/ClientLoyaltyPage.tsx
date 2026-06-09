@@ -128,13 +128,9 @@ export default function ClientLoyaltyPage() {
     if (customerId) setSelectedCustomer(customerId);
     if (newPoints !== undefined) {
       setPoints(newPoints);
-    } else {
-      setPoints("");
     }
     if (newAction !== undefined) {
       setAction(newAction);
-    } else {
-      setAction("add");
     }
     setTimeout(() => panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   };
@@ -242,7 +238,7 @@ export default function ClientLoyaltyPage() {
           </button>
           <button
             className="lp-btn lp-btn--primary"
-            onClick={() => focusPanel()}
+            onClick={() => focusPanel(undefined, "add")}
           >
             <Plus size={13} /> Add Points
           </button>
@@ -399,7 +395,7 @@ export default function ClientLoyaltyPage() {
                             <div className="lp-action-menu">
                               <button
                                 className="lp-action-menu__item"
-                                onClick={() => { focusPanel(c.id); setActionMenuId(null); }}
+                                onClick={() => { focusPanel(c.id, "add"); setActionMenuId(null); }}
                               >
                                 <Plus size={13} /> Add Points
                               </button>
