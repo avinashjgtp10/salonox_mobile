@@ -1,4 +1,14 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+
+function decodeJwtRole(token: string): string | null {
+  try {
+    const payload = token.split(".")[1];
+    const decoded = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
+    return decoded?.role ?? null;
+  } catch {
+    return null;
+  }
+}
 import {
   loginThunk,
   registerThunk,
@@ -28,6 +38,8 @@ export interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
   isOnboardingComplete: boolean;
+  role: string | null;
+  custom_permissions: Record<string, boolean> | null;
   loading: AuthLoadingState;
   error: string | null;
 }
@@ -36,6 +48,8 @@ const initialState: AuthState = {
   accessToken: null,
   refreshToken: null,
   isOnboardingComplete: false,
+  role: null,
+  custom_permissions: null,
   loading: {
     login: false,
     register: false,
@@ -76,10 +90,16 @@ const authSlice = createSlice({
       state.isOnboardingComplete = action.payload;
     },
 
+    setCustomPermissions(state, action: PayloadAction<Record<string, boolean> | null>) {
+      state.custom_permissions = action.payload;
+    },
+
     logout(state) {
       state.accessToken = null;
       state.refreshToken = null;
       state.isOnboardingComplete = false;
+      state.role = null;
+      state.custom_permissions = null;
       state.error = null;
     },
 
@@ -100,6 +120,8 @@ const authSlice = createSlice({
         state.accessToken = payload.accessToken;
         state.refreshToken = payload.refreshToken;
         state.isOnboardingComplete = payload.isOnboardingComplete;
+        state.role = payload.user?.role ?? decodeJwtRole(payload.accessToken);
+        state.custom_permissions = payload.user?.custom_permissions ?? null;
       })
       .addCase(loginThunk.rejected, (state, { payload }) => {
         state.loading.login = false;
@@ -113,6 +135,7 @@ const authSlice = createSlice({
     builder
       .addCase(refreshSessionThunk.fulfilled, (state, { payload }) => {
         state.accessToken = payload;
+        state.role = decodeJwtRole(payload);
       })
       .addCase(refreshSessionThunk.rejected, (state) => {
         state.accessToken = null;
@@ -208,6 +231,7 @@ export const {
   login,
   updateToken,
   updateOnboardingStatus,
+  setCustomPermissions,
   logout,
   clearError,
 } = authSlice.actions;

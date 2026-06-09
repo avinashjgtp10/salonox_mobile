@@ -5,14 +5,15 @@ import { getMySalonThunk } from "../../middleware/salon/salon.thunk";
 import { updateOnboardingStatus } from "../../store/authSlice";
 
 const OnboardingGuard = () => {
-  const { accessToken, isOnboardingComplete } = useAppSelector(
+  const { accessToken, isOnboardingComplete, role } = useAppSelector(
     (state) => state.auth,
   );
   const dispatch = useAppDispatch();
-  const [checking, setChecking] = useState(!isOnboardingComplete && !!accessToken);
+  const isStaff = role === "staff";
+  const [checking, setChecking] = useState(!isOnboardingComplete && !isStaff && !!accessToken);
 
   useEffect(() => {
-    if (!isOnboardingComplete && accessToken) {
+    if (!isOnboardingComplete && !isStaff && accessToken) {
       dispatch(getMySalonThunk())
         .unwrap()
         .then((salon) => {
@@ -40,7 +41,7 @@ const OnboardingGuard = () => {
     return null; // Brief loading pause while verifying
   }
 
-  if (isOnboardingComplete) {
+  if (isOnboardingComplete || isStaff) {
     return <Navigate to="/dashboard" replace />;
   }
 

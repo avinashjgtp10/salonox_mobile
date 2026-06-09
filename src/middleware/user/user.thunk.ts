@@ -21,6 +21,7 @@ interface BackendUser {
   countryCode?: string | null;
   avatarUrl?: string | null;
   isOnboardingComplete?: boolean;
+  custom_permissions?: Record<string, boolean> | null;
 }
 
 interface ApiResponse<T> {
@@ -49,6 +50,7 @@ function toUser(raw: BackendUser): User {
     countryCode: raw.countryCode ?? undefined,
     avatarUrl: raw.avatarUrl ?? undefined,
     isOnboardingComplete: raw.isOnboardingComplete,
+    custom_permissions: raw.custom_permissions ?? null,
   };
 }
 
@@ -60,6 +62,10 @@ export const fetchMeThunk = createAsyncThunk<
 >("user/fetchMe", async (_, { rejectWithValue }) => {
   try {
     const res = await api.get<ApiResponse<BackendUser>>(USER.ME);
+    if (import.meta.env.DEV) {
+      console.log("[Auth] Raw /users/me response:", res.data.data);
+      console.log("[Auth] custom_permissions from /users/me:", res.data.data.custom_permissions ?? "NOT IN RESPONSE");
+    }
     return toUser(res.data.data);
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);

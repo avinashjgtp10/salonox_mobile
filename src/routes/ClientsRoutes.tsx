@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
 import { ClientWizardProvider } from "../features/clients/context/ClientWizardContext";
+import PermissionGuard from "../components/guards/PermissionGuard";
 
 const ClientsListPage = lazy(
   () => import("../features/clients/pages/ClientsListPage"),
@@ -32,28 +33,29 @@ import { PageLoader } from "../components/ui";
 export const ClientsRoutes = () => (
   <Suspense fallback={<PageLoader />}>
     <Routes>
+      {/* view_clients (outer) — read-only screens */}
       <Route index element={<ClientsListPage />} />
       <Route path="list" element={<ClientsListPage />} />
       <Route path="loyalty" element={<ClientLoyaltyPage />} />
-      <Route path="import" element={<ImportClientsPage />} />
-      <Route path="edit/:id" element={<EditClientPage />} />
 
-      <Route
-        path="*"
-        element={
-          <ClientWizardProvider>
-            <Routes>
-              <Route path="add" element={<AddClientPage />} />
-              <Route path="addresses" element={<ClientAddressesPage />} />
-              <Route
-                path="emergency"
-                element={<ClientEmergencyContactsPage />}
-              />
-              <Route path="settings" element={<ClientSettingsPage />} />
-            </Routes>
-          </ClientWizardProvider>
-        }
-      />
+      {/* edit_clients required for all write operations */}
+      <Route element={<PermissionGuard permKey="edit_clients" />}>
+        <Route path="import" element={<ImportClientsPage />} />
+        <Route path="edit/:id" element={<EditClientPage />} />
+        <Route
+          path="*"
+          element={
+            <ClientWizardProvider>
+              <Routes>
+                <Route path="add" element={<AddClientPage />} />
+                <Route path="addresses" element={<ClientAddressesPage />} />
+                <Route path="emergency" element={<ClientEmergencyContactsPage />} />
+                <Route path="settings" element={<ClientSettingsPage />} />
+              </Routes>
+            </ClientWizardProvider>
+          }
+        />
+      </Route>
     </Routes>
   </Suspense>
 );
