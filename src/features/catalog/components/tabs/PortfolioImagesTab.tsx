@@ -16,6 +16,36 @@ const PortfolioImagesTab: React.FC<Props> = ({ data, onChange }) => {
   const [errors, setErrors] = useState<string[]>([]);
   const [preview, setPreview] = useState<string | null>(null);
 
+  const createdUrlsRef = useRef<Set<string>>(new Set());
+
+  // Revoke any tracked blob URL that is no longer present in the images array
+  React.useEffect(() => {
+    const currentBlobUrls = new Set(
+      data.images.map((img) => img.url).filter((url) => url.startsWith("blob:"))
+    );
+
+    createdUrlsRef.current.forEach((url) => {
+      if (!currentBlobUrls.has(url)) {
+        URL.revokeObjectURL(url);
+        createdUrlsRef.current.delete(url);
+      }
+    });
+
+    currentBlobUrls.forEach((url) => {
+      createdUrlsRef.current.add(url);
+    });
+  }, [data.images]);
+
+  // Clean up all blob URLs when the component unmounts
+  React.useEffect(() => {
+    return () => {
+      createdUrlsRef.current.forEach((url) => {
+        URL.revokeObjectURL(url);
+      });
+      createdUrlsRef.current.clear();
+    };
+  }, []);
+
   const processFiles = useCallback(
     (files: File[]) => {
       const errs: string[] = [];
@@ -30,9 +60,11 @@ const PortfolioImagesTab: React.FC<Props> = ({ data, onChange }) => {
           errs.push(`"${file.name}" exceeds ${MAX_MB}MB.`);
           return;
         }
+        const url = URL.createObjectURL(file);
+        createdUrlsRef.current.add(url);
         valid.push({
           id: crypto.randomUUID(),
-          url: URL.createObjectURL(file),
+          url,
           file,
         });
       });
@@ -58,7 +90,10 @@ const PortfolioImagesTab: React.FC<Props> = ({ data, onChange }) => {
 
   const removeImage = (id: string) => {
     const img = data.images.find((i) => i.id === id);
-    if (img?.url.startsWith("blob:")) URL.revokeObjectURL(img.url);
+    if (img?.url && img.url.startsWith("blob:")) {
+      URL.revokeObjectURL(img.url);
+      createdUrlsRef.current.delete(img.url);
+    }
     onChange({ ...data, images: data.images.filter((i) => i.id !== id) });
   };
 

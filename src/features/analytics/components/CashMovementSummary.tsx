@@ -1,14 +1,12 @@
 import type { Sale } from "../../../types/sale.types";
 import { format } from "date-fns";
+import { formatCurrency } from "../../../utils/format";
 
 interface Props {
   sales: Sale[];
   isLoading: boolean;
   selectedDate: Date;
 }
-
-const fmt = (n: number) =>
-  "₹" + n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const METHOD_CONFIG: Record<string, { label: string; color: string }> = {
   cash:          { label: "Cash",                  color: "#16a34a" },
@@ -30,7 +28,7 @@ export default function CashMovementSummary({ sales, isLoading, selectedDate }: 
   for (const s of active) {
     const method = s.payment_method ?? "other";
     collected[method] = (collected[method] ?? 0) + parseFloat(s.total_amount || "0");
-    tips[method]      = (tips[method]      ?? 0) + parseFloat((s as any).tip_amount || "0");
+    tips[method]      = (tips[method]      ?? 0) + parseFloat(s.tip_amount || "0");
   }
 
   const refunds: Record<string, number> = {};
@@ -96,25 +94,25 @@ export default function CashMovementSummary({ sales, isLoading, selectedDate }: 
                   </span>
                 </td>
                 <td className={`r${row.collected > 0 ? " dsp-tbl__green" : " dsp-tbl__muted"}`}>
-                  {fmt(row.collected)}
+                  {formatCurrency(row.collected)}
                 </td>
                 <td className={`r${row.refunded > 0 ? " dsp-tbl__red" : " dsp-tbl__muted"}`}>
-                  {fmt(row.refunded)}
+                  {formatCurrency(row.refunded)}
                 </td>
               </tr>
             ))}
 
             <tr className="dsp-tbl__row-total">
               <td>Payments collected</td>
-              <td className="r">{fmt(totalCollected)}</td>
+              <td className="r">{formatCurrency(totalCollected)}</td>
               <td className={`r${totalRefunded > 0 ? " dsp-tbl__red" : ""}`}>
-                {fmt(totalRefunded)}
+                {formatCurrency(totalRefunded)}
               </td>
             </tr>
 
             <tr className="dsp-tbl__row-tips">
               <td>Of which tips</td>
-              <td className="r">{fmt(totalTips)}</td>
+              <td className="r">{formatCurrency(totalTips)}</td>
               <td className="r">—</td>
             </tr>
           </tbody>

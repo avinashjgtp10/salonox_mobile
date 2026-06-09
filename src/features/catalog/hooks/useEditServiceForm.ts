@@ -110,20 +110,6 @@ export const useEditServiceForm = (serviceId: string | number) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serviceId]);
 
-  // Re-run validation live once the user has attempted a submit, so inline
-  // errors clear as soon as the user fixes the problem.
-  useEffect(() => {
-    if (isSubmitted && formData) validate(formData);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData, isSubmitted]);
-
-  const updateField = <K extends keyof CatalogFormData>(
-    section: K,
-    value: CatalogFormData[K],
-  ) => {
-    setFormData((prev) => (prev ? { ...prev, [section]: value } : prev));
-  };
-
   const validate = (data: CatalogFormData) => {
     const errors: Record<string, string[]> = {};
     if (!data.basic.name.trim()) {
@@ -140,6 +126,20 @@ export const useEditServiceForm = (serviceId: string | number) => {
     }
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
+  };
+
+  // Re-run validation live once the user has attempted a submit, so inline
+  // errors clear as soon as the user fixes the problem.
+  useEffect(() => {
+    if (isSubmitted && formData) validate(formData);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData, isSubmitted]);
+
+  const updateField = <K extends keyof CatalogFormData>(
+    section: K,
+    value: CatalogFormData[K],
+  ) => {
+    setFormData((prev) => (prev ? { ...prev, [section]: value } : prev));
   };
 
   const handleSubmit = async () => {

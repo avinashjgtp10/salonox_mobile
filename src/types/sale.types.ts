@@ -12,8 +12,8 @@ export type SaleItemType =
 
 // ── Split payment breakdown ────────────────────────────────────────────────────
 export interface SplitPaymentLine {
-  method: PaymentMethod | string;
-  amount: string | number;
+  method: PaymentMethod;
+  amount: string;
   reference?: string | null;
 }
 

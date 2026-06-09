@@ -21,8 +21,6 @@
   align-items: flex-start;
   margin-bottom: 28px;
 
-  &__left {}
-
   &__title {
     font-size: 26px;
     font-weight: 800;
@@ -424,5 +422,7 @@
 }
 
 // Keep legacy classes working for any leftover markup
+/* stylelint-disable scss/at-extend-no-missing-placeholder */
 .sales-layout  { @extend .dsp-page; }
 .sales-container { @extend .dsp-container; }
+/* stylelint-enable scss/at-extend-no-missing-placeholder */

@@ -138,24 +138,45 @@ const ServicesListPage: React.FC = () => {
   }, []);
 
   // ── Download helpers — fetch ALL services then export client-side ────────────
-  const fetchAllServices = async () => {
-    const res = await api.get("/api/v1/services", { params: { page: 1, limit: 10000 } });
-    return res.data?.data?.data ?? res.data?.data ?? [];
+  const fetchAllServices = async (): Promise<Service[]> => {
+    let allItems: Service[] = [];
+    let page = 1;
+    let totalPages = 1;
+    const limit = 200;
+
+    while (page <= totalPages) {
+      const res = await api.get("/api/v1/services", { params: { page, limit } });
+      const responseData = res.data?.data;
+      if (Array.isArray(responseData)) {
+        allItems = [...allItems, ...responseData];
+        break;
+      } else if (responseData && Array.isArray(responseData.data)) {
+        allItems = [...allItems, ...responseData.data];
+        totalPages = responseData.pagination?.total_pages ?? 1;
+        page++;
+      } else {
+        break;
+      }
+    }
+    return allItems;
   };
 
   const handleDownloadPdf = useCallback(async () => {
     setShowOptMenu(false);
-    try { exportServicesPDF(await fetchAllServices()); } catch {}
+    try { exportServicesPDF(await fetchAllServices()); }
+    catch (err) { console.error("[ServicesListPage] PDF export failed:", err); }
   }, []);
 
   const handleDownloadExcel = useCallback(async () => {
     setShowOptMenu(false);
-    try { exportServicesExcel(await fetchAllServices()); } catch {}
+    try { exportServicesExcel(await fetchAllServices()); }
+    catch (err) { console.error("[ServicesListPage] Excel export failed:", err); }
   }, []);
 
   const handleDownloadCsv = useCallback(async () => {
     setShowOptMenu(false);
-    try { exportServicesCSV(await fetchAllServices()); } catch {}
+    try { exportServicesCSV(await fetchAllServices()); }
+    catch (err) { console.error("[ServicesListPage] CSV export failed:", err); }
   }, []);
 
   // ── Group services by category for display ───────────────────────────────────

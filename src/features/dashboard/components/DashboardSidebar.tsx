@@ -69,7 +69,8 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         <span className="nav-label">Calendar</span>
       </NavLink>
 
-      <div
+      <button
+        type="button"
         className={menuClass("sales")}
         onClick={() => {
           if (openMenu !== "sales") {
@@ -82,9 +83,10 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
       >
         <Tag size={26} />
         <span className="nav-label">Sales</span>
-      </div>
+      </button>
 
-      <div
+      <button
+        type="button"
         className={menuClass("clients")}
         onClick={() => {
           if (openMenu !== "clients") {
@@ -97,9 +99,10 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
       >
         <EmojiSmile size={26} />
         <span className="nav-label">Clients</span>
-      </div>
+      </button>
 
-      <div
+      <button
+        type="button"
         className={menuClass("catalog")}
         onClick={() => {
           if (openMenu !== "catalog") {
@@ -112,9 +115,10 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
       >
         <Book size={26} />
         <span className="nav-label">Catalog</span>
-      </div>
+      </button>
 
-      <div
+      <button
+        type="button"
         className={menuClass("onlineBooking")}
         onClick={() => {
           if (openMenu !== "onlineBooking") {
@@ -127,9 +131,10 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
       >
         <Person size={26} />
         <span className="nav-label">Online booking</span>
-      </div>
+      </button>
 
-      <div
+      <button
+        type="button"
         className={menuClass("marketing")}
         onClick={() => {
           if (openMenu !== "marketing") {
@@ -142,9 +147,10 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
       >
         <Megaphone size={26} />
         <span className="nav-label">Marketing</span>
-      </div>
+      </button>
 
-      <div
+      <button
+        type="button"
         className={menuClass("team")}
         onClick={() => {
           if (openMenu !== "team") {
@@ -157,7 +163,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
       >
         <People size={26} />
         <span className="nav-label">Team</span>
-      </div>
+      </button>
 
       <NavLink
         to="analytics"

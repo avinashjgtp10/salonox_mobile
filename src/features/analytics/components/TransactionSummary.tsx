@@ -1,14 +1,12 @@
 import type { Sale } from "../../../types/sale.types";
 import { format } from "date-fns";
+import { formatCurrency } from "../../../utils/format";
 
 interface Props {
   sales: Sale[];
   isLoading: boolean;
   selectedDate: Date;
 }
-
-const fmt = (n: number) =>
-  "₹" + n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function TransactionSummary({ sales, isLoading, selectedDate }: Props) {
   const completed = sales.filter((s) => s.status === "completed");
@@ -41,33 +39,33 @@ export default function TransactionSummary({ sales, isLoading, selectedDate }: P
       label: "Services",
       salesQty: completedQty,
       refundQty: refundedQty > 0 ? refundedQty : "—",
-      value: fmt(subtotal),
+      value: formatCurrency(subtotal),
     },
     {
       label: "Discounts",
       salesQty: "—",
       refundQty: "—",
-      value: discounts > 0 ? `−${fmt(discounts)}` : `−${fmt(0)}`,
+      value: discounts > 0 ? `−${formatCurrency(discounts)}` : `−${formatCurrency(0)}`,
       valueClass: "dsp-tbl__red",
     },
     {
       label: "Tips",
       salesQty: "—",
       refundQty: "—",
-      value: fmt(tips),
+      value: formatCurrency(tips),
       valueClass: tips > 0 ? "dsp-tbl__green" : undefined,
     },
     {
       label: "Taxes",
       salesQty: "—",
       refundQty: "—",
-      value: fmt(taxes),
+      value: formatCurrency(taxes),
     },
     {
       label: "Refund amount",
       salesQty: "—",
       refundQty: refundedQty > 0 ? refundedQty : "—",
-      value: refundTotal > 0 ? `−${fmt(refundTotal)}` : fmt(0),
+      value: refundTotal > 0 ? `−${formatCurrency(refundTotal)}` : formatCurrency(0),
       valueClass: refundTotal > 0 ? "dsp-tbl__red" : undefined,
     },
   ];
@@ -109,7 +107,7 @@ export default function TransactionSummary({ sales, isLoading, selectedDate }: P
               <td className="r">{completedQty}</td>
               <td className="r">{refundedQty > 0 ? refundedQty : "—"}</td>
               <td className={`r${netTotal < 0 ? " dsp-tbl__red" : " dsp-tbl__green"}`}>
-                {fmt(netTotal)}
+                {formatCurrency(netTotal)}
               </td>
             </tr>
           </tbody>

@@ -136,6 +136,9 @@ body {
   cursor: pointer;
   transition: 0.2s ease;
   background: transparent;
+  border: none;
+  outline: none;
+  padding: 0;
   position: relative;
   &:hover { background: $sidebar-hover; color: $sidebar-active; }
   &.route-active { background: $btn-primary; color: $white; }

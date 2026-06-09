@@ -26,9 +26,9 @@ import MiniCalendar from "../../bookings/components/shared/MiniCalendar";
 import { exportSalesThunk, fetchSalesThunk } from "../../../middleware/sale/sale.thunk";
 import type { AppDispatch, RootState } from "../../../store/store";
 import type { Sale } from "../../../types/sale.types";
-
-const fmtMoney = (n: number) =>
-  "₹" + n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+import type { ClientItem } from "../../../types/client.types";
+import { selectClientItems } from "../../../store/selectors/slices.selectors";
+import { formatCurrency } from "../../../utils/format";
 
 export default function DailySalesPage() {
   const navigate = useNavigate();
@@ -45,20 +45,16 @@ export default function DailySalesPage() {
   const isLoading = useSelector(
     (state: RootState) => (state.sale as any).loading?.fetchAll as boolean ?? false,
   );
-  const rawClientItems = useSelector((state: RootState) => (state.client as any).items);
+  const clientItems = useSelector(selectClientItems);
 
   const clientMap = useMemo<Record<string, string>>(() => {
-    const list: any[] = Array.isArray(rawClientItems) ? rawClientItems
-      : Array.isArray(rawClientItems?.items) ? rawClientItems.items
-        : Array.isArray(rawClientItems?.data) ? rawClientItems.data
-          : [];
     const m: Record<string, string> = {};
-    list.forEach((c: any) => {
+    clientItems.forEach((c: ClientItem) => {
       const name = (c.fullName || c.full_name || `${c.first_name || ""} ${c.last_name || ""}`.trim()) || "";
       if (c.id && name) m[String(c.id)] = name;
     });
     return m;
-  }, [rawClientItems]);
+  }, [clientItems]);
 
   // ── Date logic ────────────────────────────────────────────────────────────
   const urlDate = searchParams.get("report-date");
@@ -151,7 +147,7 @@ export default function DailySalesPage() {
     {
       key: "revenue",
       label: "Total Revenue",
-      value: fmtMoney(revenue),
+      value: formatCurrency(revenue),
       hint: "From completed sales",
       icon: <GraphUpArrow size={18} />,
       iconBg: "#f0fdf4",

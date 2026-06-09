@@ -104,6 +104,7 @@ const ManageOrderModal: React.FC<Props> = ({ services, onClose, onSave }) => {
                           onDragStart={() => setDragIndex(globalIdx)}
                           onDragOver={(e) => handleDragOver(e, globalIdx)}
                           onDrop={() => setDragIndex(null)}
+                          onDragEnd={() => setDragIndex(null)}
                         >
                           <GripVertical size={16} className="mom__grip" />
                           <span className="mom__svc-name">{svc.name}</span>

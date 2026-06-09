@@ -38,6 +38,8 @@ import { fetchClientsThunk } from "../../../middleware/client/client.thunk";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import { clearSaleError } from "../../../store/saleSlice";
 import type { Sale, SaleSummary, SplitPaymentLine } from "../../../types/sale.types";
+import type { ClientItem } from "../../../types/client.types";
+import { selectClientItems } from "../../../store/selectors/slices.selectors";
 import { useSale } from "../../analytics/context/SaleContext";
 import { format, subDays, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subMonths } from "date-fns";
 import { Button, Badge, Input, Modal, DownloadButton, Table, Pagination, Loader } from "../../../components/ui";
@@ -137,25 +139,18 @@ export default function SalesListPage() {
   const apiError = useSelector(
     (s: RootState) => (s.sale as any).error as string | null,
   );
-  const rawClientItems = useSelector((s: RootState) => (s.client as any).items);
+  const clientItems = useSelector(selectClientItems);
   const rawStaffItems  = useSelector((s: RootState) => (s.staff  as any).items);
 
   // Build id → full name lookup so the CLIENT column shows real names.
-  // state.client.items may be a plain array, { items: [], pagination } or { data: [] }
-  // depending on the API response — mirror the same defensive extraction used in
-  // QuickWhatsAppPage so all shapes are handled correctly.
   const clientMap = useMemo(() => {
-    const list: any[] = Array.isArray(rawClientItems) ? rawClientItems
-      : Array.isArray(rawClientItems?.items) ? rawClientItems.items
-        : Array.isArray(rawClientItems?.data) ? rawClientItems.data
-          : [];
     const m: Record<string, string> = {};
-    list.forEach((c: any) => {
+    clientItems.forEach((c: ClientItem) => {
       const name = (c.fullName || c.full_name || `${c.first_name || ""} ${c.last_name || ""}`.trim()) || "";
       if (c.id && name) m[String(c.id)] = name;
     });
     return m;
-  }, [rawClientItems]);
+  }, [clientItems]);
 
   const staffMap = useMemo(() => {
     const list: any[] = Array.isArray(rawStaffItems) ? rawStaffItems : [];
@@ -168,17 +163,13 @@ export default function SalesListPage() {
   }, [rawStaffItems]);
 
   const phoneMap = useMemo(() => {
-    const list: any[] = Array.isArray(rawClientItems) ? rawClientItems
-      : Array.isArray(rawClientItems?.items) ? rawClientItems.items
-        : Array.isArray(rawClientItems?.data) ? rawClientItems.data
-          : [];
     const m: Record<string, string> = {};
-    list.forEach((c: any) => {
+    clientItems.forEach((c: ClientItem) => {
       const phone = c.phone || c.phone_number || c.mobile || c.mobile_number || null;
       if (c.id && phone) m[String(c.id)] = String(phone);
     });
     return m;
-  }, [rawClientItems]);
+  }, [clientItems]);
 
   const getClientName = (clientId: string | null, clientName?: string | null): string | null => {
     if (!clientId) return null;
@@ -282,7 +273,7 @@ export default function SalesListPage() {
         if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
           const lines: SplitPaymentLine[] = Object.entries(parsed)
             .filter(([, amt]) => parseFloat(String(amt)) > 0)
-            .map(([method, amt]) => ({ method, amount: String(amt) }));
+            .map(([method, amt]) => ({ method: method as SplitPaymentLine["method"], amount: String(amt) }));
           if (lines.length > 0) {
             setSplitPayments(lines);
             return;
@@ -300,21 +291,24 @@ export default function SalesListPage() {
       return;
     }
 
-    // 3. Fallback — try dedicated payments endpoint
+    // 3. Fallback — try dedicated payments endpoint (guarded against stale updates)
+    let mounted = true;
     setIsLoadingSplit(true);
     api.get(SALE.PAYMENTS(selectedSale.id))
       .then((res) => {
+        if (!mounted) return;
         const raw = res.data?.data ?? res.data ?? [];
         const list: any[] = Array.isArray(raw) ? raw : (Array.isArray((raw as any).payments) ? (raw as any).payments : []);
         const normalized: SplitPaymentLine[] = list.map((p: any) => ({
-          method: p.method ?? p.payment_method ?? "cash",
-          amount: p.amount ?? "0",
+          method: (p.method ?? p.payment_method ?? "cash") as SplitPaymentLine["method"],
+          amount: String(p.amount ?? "0"),
           reference: p.reference ?? p.payment_reference ?? null,
         }));
         setSplitPayments(normalized);
       })
-      .catch(() => setSplitPayments([]))
-      .finally(() => setIsLoadingSplit(false));
+      .catch(() => { if (mounted) setSplitPayments([]); })
+      .finally(() => { if (mounted) setIsLoadingSplit(false); });
+    return () => { mounted = false; };
   }, [selectedSale?.id, selectedSale?.payment_method, selectedSale?.payment_reference]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Toast ────────────────────────────────────────────────────────────────────
@@ -379,12 +373,12 @@ export default function SalesListPage() {
   // Client-side search + status/payment filter + sort
   const displaySales = completedSales
     .filter((s) => {
-      const q = search.toLowerCase().replace(/\s/g, "");
-      const resolvedName = (s.client_name || clientMap[String(s.client_id ?? "")] || "").toLowerCase();
-      const phone = (getClientPhone(s) ?? "").replace(/\s/g, "");
+      const q = search.toLowerCase().replace(/\s+/g, "");
+      const resolvedName = (s.client_name || clientMap[String(s.client_id ?? "")] || "").toLowerCase().replace(/\s+/g, "");
+      const phone = (getClientPhone(s) ?? "").replace(/\s+/g, "");
       const matchSearch = !q
         || String(s.id).toLowerCase().includes(q)
-        || resolvedName.includes(search.toLowerCase())
+        || resolvedName.includes(q)
         || phone.includes(q);
       const matchStatus = statusFilter === "All" || s.status === statusFilter.toLowerCase();
       const matchPayment = paymentFilter === "All" || s.payment_method === paymentFilter.toLowerCase().replace(" ", "_");
@@ -401,13 +395,13 @@ export default function SalesListPage() {
     });
 
   const displayDrafts = drafts.filter((d) => {
-    const q = search.toLowerCase();
-    const resolvedName = (d.client_name || clientMap[String(d.client_id ?? "")] || "").toLowerCase();
-    const phone = (getClientPhone(d) ?? "").replace(/\s/g, "");
+    const q = search.toLowerCase().replace(/\s+/g, "");
+    const resolvedName = (d.client_name || clientMap[String(d.client_id ?? "")] || "").toLowerCase().replace(/\s+/g, "");
+    const phone = (getClientPhone(d) ?? "").replace(/\s+/g, "");
     return !q
       || String(d.id).toLowerCase().includes(q)
       || resolvedName.includes(q)
-      || phone.includes(q.replace(/\s/g, ""));
+      || phone.includes(q);
   });
 
   // Pagination
