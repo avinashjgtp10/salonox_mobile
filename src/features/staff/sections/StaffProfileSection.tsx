@@ -1,7 +1,7 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import type { FC } from "react";
 import { Country } from "country-state-city";
-import { Person, Pencil } from "react-bootstrap-icons";
+import { Person, Pencil, Eye, EyeSlash } from "react-bootstrap-icons";
 import "../styles/StaffProfileSection.scss";
 
 
@@ -44,11 +44,17 @@ interface StaffProfileProps {
   setMemberId?: (val: string) => void;
   notes?: string;
   setNotes?: (val: string) => void;
+  password?: string;
+  setPassword?: (val: string) => void;
+  confirmPassword?: string;
+  setConfirmPassword?: (val: string) => void;
   isFirstNameInvalid?: boolean;
   isEmailInvalid?: boolean;
   emailErrorMessage?: string;
   isPhoneInvalid?: boolean;
   isAdditionalPhoneInvalid?: boolean;
+  isPasswordInvalid?: boolean;
+  isConfirmPasswordInvalid?: boolean;
 }
 
 const CALENDAR_COLORS: { key: string; hex: string; label: string }[] = [
@@ -98,12 +104,18 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
   employmentType = "", setEmploymentType = () => { },
   memberId = "", setMemberId = () => { },
   notes = "", setNotes = () => { },
+  password = "", setPassword = () => { },
+  confirmPassword = "", setConfirmPassword = () => { },
   isFirstNameInvalid = false,
   isEmailInvalid = false,
   emailErrorMessage = "Email is required",
   isPhoneInvalid = false,
   isAdditionalPhoneInvalid = false,
+  isPasswordInvalid = false,
+  isConfirmPasswordInvalid = false,
 }) => {
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const selectedColor = CALENDAR_COLORS.find((c) => c.key === calendarColor);
   const selectedColorHex   = selectedColor?.hex   ?? "#3b82f6";
   const selectedColorLabel = selectedColor?.label ?? calendarColor;
@@ -195,6 +207,57 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
         <p className={`sp-hint ${isEmailInvalid ? "sp-hint--error" : ""}`}>
           {isEmailInvalid ? emailErrorMessage : "Email is required when permission level is greater than 'No Access'"}
         </p>
+      </div>
+
+      {/* Password */}
+      <div className="sp-field">
+        <label className="sp-label">Password</label>
+        <div className="sp-input-group">
+          <input
+            type={showPassword ? "text" : "password"}
+            className={`sp-input sp-input--flex ${isPasswordInvalid ? "sp-input--invalid" : ""}`}
+            placeholder="Min. 8 characters"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <button
+            type="button"
+            className="sp-input-eye-btn"
+            onClick={() => setShowPassword((v) => !v)}
+            tabIndex={-1}
+          >
+            {showPassword ? <EyeSlash size={16} /> : <Eye size={16} />}
+          </button>
+        </div>
+        {isPasswordInvalid && (
+          <p className="sp-error">Password must be at least 8 characters</p>
+        )}
+        <p className="sp-hint">Leave blank to keep no password, or enter at least 8 characters</p>
+      </div>
+
+      {/* Confirm Password */}
+      <div className="sp-field">
+        <label className="sp-label">Confirm password</label>
+        <div className="sp-input-group">
+          <input
+            type={showConfirmPassword ? "text" : "password"}
+            className={`sp-input sp-input--flex ${isConfirmPasswordInvalid ? "sp-input--invalid" : ""}`}
+            placeholder="Re-enter password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+          />
+          <button
+            type="button"
+            className="sp-input-eye-btn"
+            onClick={() => setShowConfirmPassword((v) => !v)}
+            tabIndex={-1}
+          >
+            {showConfirmPassword ? <EyeSlash size={16} /> : <Eye size={16} />}
+          </button>
+        </div>
+        {isConfirmPasswordInvalid && (
+          <p className="sp-error">Passwords do not match</p>
+        )}
       </div>
 
       {/* Phone */}
