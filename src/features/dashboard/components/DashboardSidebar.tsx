@@ -78,7 +78,8 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
       )}
 
       {can("view_sales") && (
-        <div
+        <button
+          type="button"
           className={menuClass("sales")}
           onClick={() => {
             onMenuChange("sales");
@@ -87,31 +88,34 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         >
           <Tag size={26} />
           <span className="nav-label">Sales</span>
-        </div>
+        </button>
       )}
 
       {can("view_clients") && (
-        <div
+        <button
+          type="button"
           className={menuClass("clients")}
           onClick={() => onMenuChange(openMenu === "clients" ? null : "clients")}
         >
           <EmojiSmile size={26} />
           <span className="nav-label">Clients</span>
-        </div>
+        </button>
       )}
 
       {can("view_catalog") && (
-        <div
+        <button
+          type="button"
           className={menuClass("catalog")}
           onClick={() => onMenuChange(openMenu === "catalog" ? null : "catalog")}
         >
           <Book size={26} />
           <span className="nav-label">Catalog</span>
-        </div>
+        </button>
       )}
 
       {can("view_appointments") && (
-        <div
+        <button
+          type="button"
           className={menuClass("onlineBooking")}
           onClick={() =>
             onMenuChange(openMenu === "onlineBooking" ? null : "onlineBooking")
@@ -119,11 +123,12 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         >
           <Person size={26} />
           <span className="nav-label">Online booking</span>
-        </div>
+        </button>
       )}
 
       {can("view_marketing") && (
-        <div
+        <button
+          type="button"
           className={menuClass("marketing")}
           onClick={() =>
             onMenuChange(openMenu === "marketing" ? null : "marketing")
@@ -131,17 +136,18 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         >
           <Megaphone size={26} />
           <span className="nav-label">Marketing</span>
-        </div>
+        </button>
       )}
 
       {can("view_team") && (
-        <div
+        <button
+          type="button"
           className={menuClass("team")}
           onClick={() => onMenuChange(openMenu === "team" ? null : "team")}
         >
           <People size={26} />
           <span className="nav-label">Team</span>
-        </div>
+        </button>
       )}
 
       {can("view_analytics") && (

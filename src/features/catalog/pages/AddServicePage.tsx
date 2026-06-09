@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { ChevronLeft } from "react-bootstrap-icons";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch } from "../../../store/store";
 import { fetchCategoriesThunk } from "../../../middleware/services/categories.thunk";
@@ -45,7 +46,7 @@ const generalTabs: TabItem[] = [
 const settingsTabs: TabItem[] = [
   { key: "online-booking", label: "Online booking" },
   { key: "portfolio", label: "Portfolio images" },
-  { key: "forms", label: "Forms", count: 1 },
+  { key: "forms", label: "Forms" },
   { key: "commission", label: "Commissions" },
   { key: "settings", label: "Settings" },
 ];
@@ -113,7 +114,17 @@ const AddServicePage: React.FC = () => {
   return (
     <div className="add-service-page">
       <header className="add-service-page__header">
-        <div className="header-actions-right ms-auto">
+        <button
+          className="btn-back"
+          onClick={() => navigate("/dashboard/catalog/services")}
+          title="Back to services"
+        >
+          <ChevronLeft size={18} />
+        </button>
+        <div className="header-center">
+          <span className="header-title">New service</span>
+        </div>
+        <div className="header-actions-right">
           <button
             className="btn-close-text"
             onClick={() => navigate("/dashboard/catalog/services")}
@@ -136,27 +147,13 @@ const AddServicePage: React.FC = () => {
 
       <main className="add-service-page__layout">
         <div className="layout-container">
-          <div className="layout-header">
-            <h1>New service</h1>
-          </div>
 
           {isSubmitted && Object.keys(validationErrors).length > 0 && (
-            <div
-              className="alert alert-danger border-0 rounded-4 d-flex align-items-center gap-3 p-4 mb-4"
-              style={{ backgroundColor: "#fff1f2", color: "#991b1b" }}
-            >
-              <div
-                className="error-icon rounded-circle d-flex align-items-center justify-content-center bg-white"
-                style={{ width: "32px", height: "32px" }}
-              >
-                <i className="bi bi-exclamation-triangle-fill fs-5" />
-              </div>
+            <div className="asp-error-banner">
+              <i className="bi bi-exclamation-triangle-fill" />
               <div>
-                <h6 className="fw-bold mb-1">Check the form for errors</h6>
-                <p className="small mb-0 opacity-75">
-                  Some required fields are missing or invalid. Please check the
-                  marked sections.
-                </p>
+                <strong>Check the form for errors</strong>
+                <p>Some required fields are missing or invalid. Please check the marked sections.</p>
               </div>
             </div>
           )}
@@ -175,7 +172,7 @@ const AddServicePage: React.FC = () => {
             </aside>
 
             <section className="add-service-page__content">
-              {error && <div className="alert alert-danger mb-4">{error}</div>}
+              {error && <div className="asp-error-banner"><i className="bi bi-exclamation-circle-fill" /><div><strong>{error}</strong></div></div>}
 
               {activeTab === "basic" && (
                 <BasicDetailsTab

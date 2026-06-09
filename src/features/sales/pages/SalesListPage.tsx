@@ -23,6 +23,7 @@ import {
   CreditCard2Front,
   ArrowRight,
   PencilFill,
+  PersonFill,
 } from "react-bootstrap-icons";
 import "../styles/SalesListPage.scss";
 import type { AppDispatch, RootState } from "../../../store/store";
@@ -34,8 +35,11 @@ import {
   deleteSaleThunk,
 } from "../../../middleware/sale/sale.thunk";
 import { fetchClientsThunk } from "../../../middleware/client/client.thunk";
+import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import { clearSaleError } from "../../../store/saleSlice";
-import type { Sale, SaleSummary } from "../../../types/sale.types";
+import type { Sale, SaleSummary, SplitPaymentLine } from "../../../types/sale.types";
+import type { ClientItem } from "../../../types/client.types";
+import { selectClientItems } from "../../../store/selectors/slices.selectors";
 import { useSale } from "../../analytics/context/SaleContext";
 import { format, subDays, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subMonths } from "date-fns";
 import { Button, Badge, Input, Modal, DownloadButton, Table, Pagination, Loader } from "../../../components/ui";
@@ -58,6 +62,11 @@ const STATUS_META: Record<string, { label: string; mod: string; Icon: any }> = {
 
 const PAYMENT_LABEL: Record<string, string> = {
   cash: "Cash", card: "Card", gift_card: "Gift Card", split: "Split", upi: "UPI",
+  bank_transfer: "Bank Transfer", wallet: "Wallet",
+};
+
+const PAYMENT_ICONS: Record<string, string> = {
+  cash: "💵", card: "💳", upi: "📱", bank_transfer: "🏦", wallet: "👛", gift_card: "🎁",
 };
 
 const SORT_OPTIONS = [
@@ -65,6 +74,8 @@ const SORT_OPTIONS = [
   { label: "Date (oldest first)", key: "date_asc" },
   { label: "Total (highest first)", key: "total_desc" },
   { label: "Total (lowest first)", key: "total_asc" },
+  { label: "Phone (A → Z)", key: "phone_asc" },
+  { label: "Phone (Z → A)", key: "phone_desc" },
 ];
 
 const STATUS_FILTER_OPTIONS = ["All", "Completed", "Draft", "Cancelled", "Refunded"];
@@ -128,24 +139,37 @@ export default function SalesListPage() {
   const apiError = useSelector(
     (s: RootState) => (s.sale as any).error as string | null,
   );
-  const rawClientItems = useSelector((s: RootState) => (s.client as any).items);
+  const clientItems = useSelector(selectClientItems);
+  const rawStaffItems  = useSelector((s: RootState) => (s.staff  as any).items);
 
   // Build id → full name lookup so the CLIENT column shows real names.
-  // state.client.items may be a plain array, { items: [], pagination } or { data: [] }
-  // depending on the API response — mirror the same defensive extraction used in
-  // QuickWhatsAppPage so all shapes are handled correctly.
   const clientMap = useMemo(() => {
-    const list: any[] = Array.isArray(rawClientItems) ? rawClientItems
-      : Array.isArray(rawClientItems?.items) ? rawClientItems.items
-        : Array.isArray(rawClientItems?.data) ? rawClientItems.data
-          : [];
     const m: Record<string, string> = {};
-    list.forEach((c: any) => {
+    clientItems.forEach((c: ClientItem) => {
       const name = (c.fullName || c.full_name || `${c.first_name || ""} ${c.last_name || ""}`.trim()) || "";
       if (c.id && name) m[String(c.id)] = name;
     });
     return m;
-  }, [rawClientItems]);
+  }, [clientItems]);
+
+  const staffMap = useMemo(() => {
+    const list: any[] = Array.isArray(rawStaffItems) ? rawStaffItems : [];
+    const m: Record<string, string> = {};
+    list.forEach((s: any) => {
+      const name = (s.fullName || s.full_name || `${s.first_name || ""} ${s.last_name || ""}`.trim()) || "";
+      if (s.id && name) m[String(s.id)] = name;
+    });
+    return m;
+  }, [rawStaffItems]);
+
+  const phoneMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    clientItems.forEach((c: ClientItem) => {
+      const phone = c.phone || c.phone_number || c.mobile || c.mobile_number || null;
+      if (c.id && phone) m[String(c.id)] = String(phone);
+    });
+    return m;
+  }, [clientItems]);
 
   const getClientName = (clientId: string | null, clientName?: string | null): string | null => {
     if (!clientId) return null;
@@ -160,6 +184,12 @@ export default function SalesListPage() {
     return parts.length >= 2
       ? (parts[0][0] + parts[1][0]).toUpperCase()
       : name.substring(0, 2).toUpperCase();
+  };
+
+  const getClientPhone = (sale: { client_id?: string | null; client_phone?: string | null; [k: string]: any }): string | null => {
+    if (sale.client_phone) return String(sale.client_phone);
+    if (!sale.client_id) return null;
+    return phoneMap[String(sale.client_id)] ?? null;
   };
 
   const { drafts, cancelDraft } = useSale();
@@ -190,6 +220,8 @@ export default function SalesListPage() {
   const [showSort, setShowSort] = useState(false);
   const [showDateMenu, setShowDateMenu] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [splitPayments, setSplitPayments] = useState<SplitPaymentLine[] | null>(null);
+  const [isLoadingSplit, setIsLoadingSplit] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [showBanner, setShowBanner] = useState(true);
 
@@ -203,6 +235,7 @@ export default function SalesListPage() {
     dispatch(fetchSalesThunk());
     dispatch(fetchSaleSummaryThunk());
     dispatch(fetchClientsThunk());
+    dispatch(fetchStaffThunk());
   }, [dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Show API errors as toast ─────────────────────────────────────────────────
@@ -224,6 +257,59 @@ export default function SalesListPage() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  // ── Build split payment breakdown when a split-payment sale is opened ─────────
+  // QuickSalePage stores split amounts as JSON in payment_reference: {"card":1000,"cash":685}
+  useEffect(() => {
+    if (!selectedSale || selectedSale.payment_method !== "split") {
+      setSplitPayments(null);
+      return;
+    }
+
+    // 1. Parse payment_reference JSON (primary source — set by QuickSalePage checkout)
+    if (selectedSale.payment_reference) {
+      try {
+        const parsed = JSON.parse(selectedSale.payment_reference);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          const lines: SplitPaymentLine[] = Object.entries(parsed)
+            .filter(([, amt]) => parseFloat(String(amt)) > 0)
+            .map(([method, amt]) => ({ method: method as SplitPaymentLine["method"], amount: String(amt) }));
+          if (lines.length > 0) {
+            setSplitPayments(lines);
+            return;
+          }
+        }
+      } catch {
+        // payment_reference is not JSON — fall through to other sources
+      }
+    }
+
+    // 2. Use embedded split_payments if backend returns them directly
+    const embedded = selectedSale.split_payments;
+    if (Array.isArray(embedded) && embedded.length > 0) {
+      setSplitPayments(embedded);
+      return;
+    }
+
+    // 3. Fallback — try dedicated payments endpoint (guarded against stale updates)
+    let mounted = true;
+    setIsLoadingSplit(true);
+    api.get(SALE.PAYMENTS(selectedSale.id))
+      .then((res) => {
+        if (!mounted) return;
+        const raw = res.data?.data ?? res.data ?? [];
+        const list: any[] = Array.isArray(raw) ? raw : (Array.isArray((raw as any).payments) ? (raw as any).payments : []);
+        const normalized: SplitPaymentLine[] = list.map((p: any) => ({
+          method: (p.method ?? p.payment_method ?? "cash") as SplitPaymentLine["method"],
+          amount: String(p.amount ?? "0"),
+          reference: p.reference ?? p.payment_reference ?? null,
+        }));
+        setSplitPayments(normalized);
+      })
+      .catch(() => { if (mounted) setSplitPayments([]); })
+      .finally(() => { if (mounted) setIsLoadingSplit(false); });
+    return () => { mounted = false; };
+  }, [selectedSale?.id, selectedSale?.payment_method, selectedSale?.payment_reference]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Toast ────────────────────────────────────────────────────────────────────
   const showToast = (msg: string) => {
@@ -287,9 +373,13 @@ export default function SalesListPage() {
   // Client-side search + status/payment filter + sort
   const displaySales = completedSales
     .filter((s) => {
-      const q = search.toLowerCase();
-      const resolvedName = (s.client_name || clientMap[String(s.client_id ?? "")] || "").toLowerCase();
-      const matchSearch = !q || String(s.id).toLowerCase().includes(q) || resolvedName.includes(q);
+      const q = search.toLowerCase().replace(/\s+/g, "");
+      const resolvedName = (s.client_name || clientMap[String(s.client_id ?? "")] || "").toLowerCase().replace(/\s+/g, "");
+      const phone = (getClientPhone(s) ?? "").replace(/\s+/g, "");
+      const matchSearch = !q
+        || String(s.id).toLowerCase().includes(q)
+        || resolvedName.includes(q)
+        || phone.includes(q);
       const matchStatus = statusFilter === "All" || s.status === statusFilter.toLowerCase();
       const matchPayment = paymentFilter === "All" || s.payment_method === paymentFilter.toLowerCase().replace(" ", "_");
       return matchSearch && matchStatus && matchPayment;
@@ -299,13 +389,19 @@ export default function SalesListPage() {
       if (sortKey === "date_asc") return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
       if (sortKey === "total_desc") return parseFloat(b.total_amount) - parseFloat(a.total_amount);
       if (sortKey === "total_asc") return parseFloat(a.total_amount) - parseFloat(b.total_amount);
+      if (sortKey === "phone_asc") return (getClientPhone(a) ?? "").localeCompare(getClientPhone(b) ?? "");
+      if (sortKey === "phone_desc") return (getClientPhone(b) ?? "").localeCompare(getClientPhone(a) ?? "");
       return 0;
     });
 
   const displayDrafts = drafts.filter((d) => {
-    const q = search.toLowerCase();
-    const resolvedName = (d.client_name || clientMap[String(d.client_id ?? "")] || "").toLowerCase();
-    return !q || String(d.id).toLowerCase().includes(q) || resolvedName.includes(q);
+    const q = search.toLowerCase().replace(/\s+/g, "");
+    const resolvedName = (d.client_name || clientMap[String(d.client_id ?? "")] || "").toLowerCase().replace(/\s+/g, "");
+    const phone = (getClientPhone(d) ?? "").replace(/\s+/g, "");
+    return !q
+      || String(d.id).toLowerCase().includes(q)
+      || resolvedName.includes(q)
+      || phone.includes(q);
   });
 
   // Pagination
@@ -316,11 +412,15 @@ export default function SalesListPage() {
     : displayDrafts.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const openDetail = useCallback((id: string | number) => {
+    setSplitPayments(null);
     dispatch(fetchSaleByIdThunk(id));
     setDetailOpen(true);
   }, [dispatch]);
 
-  const closeDetail = () => setDetailOpen(false);
+  const closeDetail = () => {
+    setDetailOpen(false);
+    setSplitPayments(null);
+  };
 
   const currentSortLabel = SORT_OPTIONS.find((o) => o.key === sortKey)?.label ?? "Sort";
 
@@ -621,7 +721,7 @@ export default function SalesListPage() {
             <Search size={14} className="sales-pg__search-icon" />
             <input
               type="text"
-              placeholder={activeTab === "sales" ? "Search by sale # or client" : "Search drafts"}
+              placeholder={activeTab === "sales" ? "Search by sale #, client or phone" : "Search drafts"}
               value={search}
               onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
               className="sales-pg__search-input"
@@ -812,6 +912,16 @@ export default function SalesListPage() {
                         </div>
                       </div>
                     );
+                  },
+                },
+                {
+                  header: "Phone",
+                  key: "phone",
+                  render: (item: any) => {
+                    const phone = getClientPhone(item);
+                    return phone
+                      ? <span className="sales-pg__phone">{phone}</span>
+                      : <span className="sales-pg__phone--na">N/A</span>;
                   },
                 },
                 {
@@ -1023,24 +1133,72 @@ export default function SalesListPage() {
                   </div>
                 </div>
 
+                {/* Payment Details — only for split payments */}
+                {selectedSale.payment_method === "split" && (
+                  <div className="sales-detail__section">
+                    <div className="sales-detail__section-title">Payment Details</div>
+                    {isLoadingSplit ? (
+                      <div className="sales-detail__split-skeleton">
+                        {[1, 2].map((i) => (
+                          <div key={i} className="sales-pg__skeleton-row" style={{ height: 18, borderRadius: 6 }} />
+                        ))}
+                      </div>
+                    ) : splitPayments && splitPayments.length > 0 ? (
+                      <>
+                        {splitPayments.map((p, i) => (
+                          <div key={i} className="sales-detail__payment-line">
+                            <span className="sales-detail__payment-icon">
+                              {PAYMENT_ICONS[p.method as string] ?? "💳"}
+                            </span>
+                            <span className="sales-detail__payment-method-label">
+                              {PAYMENT_LABEL[p.method as string] ?? String(p.method)} Payment
+                            </span>
+                            <span className="sales-detail__payment-amount">
+                              {fmtMoney(p.amount)}
+                            </span>
+                          </div>
+                        ))}
+                        <div className="sales-detail__payment-divider" />
+                        <div className="sales-detail__payment-total-row">
+                          <span>Total Paid</span>
+                          <span>{fmtMoney(selectedSale.total_amount)}</span>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="sales-detail__empty-items">No payment breakdown available.</p>
+                    )}
+                  </div>
+                )}
+
                 {/* Items */}
                 <div className="sales-detail__section">
-                  <div className="sales-detail__section-title">Items</div>
+                  <div className="sales-detail__section-title">Services Performed</div>
                   {selectedSale.items && selectedSale.items.length > 0 ? (
                     <div className="sales-detail__items">
-                      {selectedSale.items.map((item, idx) => (
-                        <div key={idx} className="sales-detail__item">
-                          <div>
-                            <div className="sales-detail__item-name">{item.name}</div>
-                            <div className="sales-detail__item-sub">
-                              Qty {item.quantity} × {fmtMoney(item.unit_price)}
+                      {selectedSale.items.map((item, idx) => {
+                        const staffName = item.staff_name
+                          || (item.staff_id ? staffMap[String(item.staff_id)] : null)
+                          || null;
+                        return (
+                          <div key={idx} className="sales-detail__item">
+                            <div>
+                              <div className="sales-detail__item-name">{item.name}</div>
+                              <div className="sales-detail__item-staff">
+                                <PersonFill size={11} />
+                                <span className="sales-detail__item-staff-name">
+                                  {staffName ?? "No Staff Assigned"}
+                                </span>
+                              </div>
+                              <div className="sales-detail__item-sub">
+                                Qty {item.quantity} × {fmtMoney(item.unit_price)}
+                              </div>
+                            </div>
+                            <div className="sales-detail__item-total">
+                              {fmtMoney(item.total_price)}
                             </div>
                           </div>
-                          <div className="sales-detail__item-total">
-                            {fmtMoney(item.total_price)}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <p className="sales-detail__empty-items">No item details available.</p>

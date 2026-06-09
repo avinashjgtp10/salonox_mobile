@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { ClientWizardProvider } from "../features/clients/context/ClientWizardContext";
 import PermissionGuard from "../components/guards/PermissionGuard";
 
@@ -34,7 +34,7 @@ export const ClientsRoutes = () => (
   <Suspense fallback={<PageLoader />}>
     <Routes>
       {/* view_clients (outer) — read-only screens */}
-      <Route index element={<ClientsListPage />} />
+      <Route index element={<Navigate to="list" replace />} />
       <Route path="list" element={<ClientsListPage />} />
       <Route path="loyalty" element={<ClientLoyaltyPage />} />
 

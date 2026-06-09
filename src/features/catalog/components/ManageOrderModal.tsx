@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { GripVertical, ChevronDown } from "react-bootstrap-icons";
+import { GripVertical, ChevronDown, X } from "react-bootstrap-icons";
 import type { Service } from "../types/catalog.types.ts";
 import "../styles/ManageOrderModal.scss";
 
@@ -38,104 +38,97 @@ const ManageOrderModal: React.FC<Props> = ({ services, onClose, onSave }) => {
   };
 
   return (
-    <div className="set-menu-order-page">
-      <header className="set-menu-order-page__header">
-        <div className="header-actions">
-          <button className="btn-close-text" onClick={onClose}>
-            Close
-          </button>
-          <button
-            className="btn-save-pill"
-            onClick={() => onSave(ordered.map((s) => String(s.id)))}
-          >
-            Save
+    <div className="mom-backdrop" onClick={onClose}>
+      <div className="mom" onClick={(e) => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="mom__header">
+          <div>
+            <h2 className="mom__title">Set menu order</h2>
+            <p className="mom__subtitle">Drag to reorder how services appear to clients when booking.</p>
+          </div>
+          <button className="mom__close" onClick={onClose} aria-label="Close">
+            <X size={20} />
           </button>
         </div>
-      </header>
 
-      <main className="set-menu-order-page__content">
-        <div className="content-intro">
-          <h1>Set menu order</h1>
-          <p>
-            Define the order that services will appear to clients when booking
-            online.
-          </p>
-        </div>
-
-        <div className="dropdown-selector mb-4">
-          <div className="custom-dropdown-container">
+        {/* View toggle */}
+        <div className="mom__toolbar">
+          <div className="mom__dropdown-wrap">
             <button
-              className="btn-dropdown"
-              onClick={() => setShowSelector(!showSelector)}
+              className="mom__dropdown-btn"
+              onClick={() => setShowSelector((v) => !v)}
             >
-              {viewMode === "both"
-                ? "Categories and services"
-                : "Categories only"}
+              {viewMode === "both" ? "Categories & services" : "Categories only"}
               <ChevronDown
-                size={14}
-                className={`ms-2 transition-icon ${showSelector ? "rotate-180" : ""}`}
+                size={13}
+                style={{ transform: showSelector ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}
               />
             </button>
-
             {showSelector && (
-              <div className="dropdown-options-menu">
-                <button
-                  className={`dropdown-opt-item ${viewMode === "both" ? "active" : ""}`}
-                  onClick={() => {
-                    setViewMode("both");
-                    setShowSelector(false);
-                  }}
-                >
-                  Categories and services
-                </button>
-                <button
-                  className={`dropdown-opt-item ${viewMode === "categories" ? "active" : ""}`}
-                  onClick={() => {
-                    setViewMode("categories");
-                    setShowSelector(false);
-                  }}
-                >
-                  Categories only
-                </button>
+              <div className="mom__dropdown-menu">
+                {(["both", "categories"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    className={`mom__dropdown-item${viewMode === mode ? " mom__dropdown-item--active" : ""}`}
+                    onClick={() => { setViewMode(mode); setShowSelector(false); }}
+                  >
+                    {mode === "both" ? "Categories & services" : "Categories only"}
+                  </button>
+                ))}
               </div>
             )}
           </div>
         </div>
 
-        <div className="order-list-container">
-          {servicesByCategory.map((group) => (
-            <div key={group.id} className="category-order-group">
-              <div className="category-order-header">
-                <GripVertical size={20} className="grip-icon" />
-                <span>{group.name}</span>
-              </div>
-
-              {viewMode === "both" && (
-                <div className="services-order-list">
-                  {group.services.map((svc) => {
-                    const globalIdx = ordered.findIndex((s) => s.id === svc.id);
-                    return (
-                      <div
-                        key={svc.id}
-                        className={`service-order-item ${dragIndex === globalIdx ? "dragging" : ""}`}
-                        draggable
-                        onDragStart={() => setDragIndex(globalIdx)}
-                        onDragOver={(e) => handleDragOver(e, globalIdx)}
-                        onDrop={() => setDragIndex(null)}
-                      >
-                        <div className="item-left">
-                          <GripVertical size={18} className="grip-icon" />
-                          <span className="name">{svc.name}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
+        {/* List */}
+        <div className="mom__body">
+          <div className="mom__list">
+            {servicesByCategory.map((group) => (
+              <div key={group.id} className="mom__group">
+                <div className="mom__group-row">
+                  <GripVertical size={18} className="mom__grip mom__grip--cat" />
+                  <span className="mom__group-name">{group.name}</span>
+                  <span className="mom__group-count">{group.services.length}</span>
                 </div>
-              )}
-            </div>
-          ))}
+
+                {viewMode === "both" && (
+                  <div className="mom__services">
+                    {group.services.map((svc) => {
+                      const globalIdx = ordered.findIndex((s) => s.id === svc.id);
+                      return (
+                        <div
+                          key={svc.id}
+                          className={`mom__svc-row${dragIndex === globalIdx ? " mom__svc-row--dragging" : ""}`}
+                          draggable
+                          onDragStart={() => setDragIndex(globalIdx)}
+                          onDragOver={(e) => handleDragOver(e, globalIdx)}
+                          onDrop={() => setDragIndex(null)}
+                          onDragEnd={() => setDragIndex(null)}
+                        >
+                          <GripVertical size={16} className="mom__grip" />
+                          <span className="mom__svc-name">{svc.name}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
-      </main>
+
+        {/* Footer */}
+        <div className="mom__footer">
+          <button className="mom__btn mom__btn--ghost" onClick={onClose}>Cancel</button>
+          <button
+            className="mom__btn mom__btn--save"
+            onClick={() => onSave(ordered.map((s) => String(s.id)))}
+          >
+            Save order
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

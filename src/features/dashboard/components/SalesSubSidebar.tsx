@@ -34,8 +34,7 @@ export default function SalesSubSidebar({ onClose }: Props) {
       </NavLink>
 
       <NavLink
-        to="/dashboard/sales"
-        end
+        to="/dashboard/sales/list"
         className={({ isActive }) =>
           isActive ? "sub-link active" : "sub-link"
         }

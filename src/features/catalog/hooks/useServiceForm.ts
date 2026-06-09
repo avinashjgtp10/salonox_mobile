@@ -132,10 +132,10 @@ export const useServiceForm = (_type: "single" | "bundle") => {
         description: formData.basic.description || undefined,
         category_id: formData.basic.categoryId || null,
         price: formData.basic.price,
-        discounted_price: formData.basic.discountedPrice || null,
+        discounted_price: formData.basic.discountedPrice ?? null,
         duration: formData.basic.duration,
-        padding_before: formData.basic.paddingBefore || undefined,
-        padding_after: formData.basic.paddingAfter || undefined,
+        padding_before: formData.basic.paddingBefore ?? 0,
+        padding_after: formData.basic.paddingAfter ?? 0,
         is_active: formData.basic.active,
         online_booking: formData.onlineBooking.enabled,
         resource_required: formData.resources.requireResource,
@@ -144,9 +144,9 @@ export const useServiceForm = (_type: "single" | "bundle") => {
         team_member_ids: formData.team.allMembers
           ? undefined
           : formData.team.selectedMemberIds,
-        treatment_type: formData.basic.treatmentType || null,
-        gender_preference: formData.basic.genderPreference || null,
-        image_url: formData.basic.imageUrl || null,
+        treatment_type: formData.basic.treatmentType ?? null,
+        gender_preference: formData.basic.genderPreference ?? null,
+        image_url: formData.basic.imageUrl ?? null,
       };
 
       const resultAction = await dispatch(createServiceThunk(payload));

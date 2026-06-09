@@ -1,4 +1,4 @@
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { logout, setCustomPermissions } from "../../../store/authSlice";
@@ -16,8 +16,19 @@ import ClientsSubSidebar from "./ClientsSubSidebar";
 import MarketingSubSidebar from "./MarketingSubSidebar";
 import TeamSubSidebar from "./TeamSubSidebar";
 
+function detectOpenMenu(pathname: string): string | null {
+  if (pathname.startsWith("/dashboard/sales") && !pathname.startsWith("/dashboard/sales/quick")) return "sales";
+  if (pathname.startsWith("/dashboard/clients")) return "clients";
+  if (pathname.startsWith("/dashboard/catalog")) return "catalog";
+  if (pathname.startsWith("/dashboard/online-booking")) return "onlineBooking";
+  if (pathname.startsWith("/dashboard/marketing")) return "marketing";
+  if (pathname.startsWith("/dashboard/team")) return "team";
+  return null;
+}
+
 export default function DashboardLayout() {
-  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const location = useLocation();
+  const [openMenu, setOpenMenu] = useState<string | null>(() => detectOpenMenu(location.pathname));
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const role = useAppSelector((s) => s.auth.role);
@@ -37,6 +48,10 @@ export default function DashboardLayout() {
       }
     });
   }, [dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    setOpenMenu(detectOpenMenu(location.pathname));
+  }, [location.pathname]);
 
   const handleLogout = () => {
     dispatch(logout());

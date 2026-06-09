@@ -132,6 +132,19 @@ export default function QuickSalePage() {
   const dotMenuRef    = useRef<HTMLDivElement>(null);
   const datePickerRef = useRef<HTMLDivElement>(null);
 
+  // ── Auto-dismiss error/success banners ────────────────────────────────────
+  useEffect(() => {
+    if (!errorMsg) return;
+    const t = setTimeout(() => setErrorMsg(""), 4000);
+    return () => clearTimeout(t);
+  }, [errorMsg]);
+
+  useEffect(() => {
+    if (!successMsg) return;
+    const t = setTimeout(() => setSuccessMsg(""), 4000);
+    return () => clearTimeout(t);
+  }, [successMsg]);
+
   // ── Hydrate from Redux cache ───────────────────────────────────────────────
   useEffect(() => {
     if (cachedInitData) {
@@ -731,8 +744,8 @@ export default function QuickSalePage() {
         <div className="qs-main">
 
           {initLoading && <div className="qs-alert qs-alert--info"><span>⏳</span> Loading catalog data…</div>}
-          {successMsg  && <div className="qs-alert qs-alert--success"><span>✓</span> {successMsg}</div>}
-          {errorMsg    && <div className="qs-alert qs-alert--error"><span>⚠</span> {errorMsg}</div>}
+          {successMsg  && <div className="qs-alert qs-alert--success"><span>✓</span> {successMsg}<button className="qs-alert__close" onClick={() => setSuccessMsg("")}>×</button></div>}
+          {errorMsg    && <div className="qs-alert qs-alert--error"><span>⚠</span> {errorMsg}<button className="qs-alert__close" onClick={() => setErrorMsg("")}>×</button></div>}
 
           {/* ═══ CLIENT ═══ */}
           <div className="qs-card">

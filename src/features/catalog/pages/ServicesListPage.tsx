@@ -4,10 +4,10 @@ import { useDispatch } from "react-redux";
 import type { AppDispatch } from "../../../store/store";
 import {
   deleteServiceThunk,
-  downloadServicesExcelThunk,
-  downloadServicesCsvThunk,
-  downloadServicesPdfThunk,
 } from "../../../middleware/services/services.thunk";
+import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
+import api from "../../../services/api/axios";
+import { exportServicesPDF, exportServicesExcel, exportServicesCSV } from "../utils/serviceExport";
 import type { Service } from "../types/catalog.types";
 import {
   Search,
@@ -77,7 +77,7 @@ const ServicesListPage: React.FC = () => {
   const rawStaff = useReduxSelector(selectAllStaff);
   const staffNames = (Array.isArray(rawStaff) ? rawStaff : []).map((s) => ({
     id: String(s.id),
-    name: s.fullName ?? "",
+    name: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim(),
   }));
 
   // ── UI state ────────────────────────────────────────────────────────────────
@@ -103,9 +103,7 @@ const ServicesListPage: React.FC = () => {
   const [deletingService, setDeletingService]   = useState<Service | null>(null);
   const [deleteLoading, setDeleteLoading]       = useState(false);
 
-  const addMenuRef = useRef<HTMLDivElement>(null);
   const optMenuRef = useRef<HTMLDivElement>(null);
-  const [showAddMenu, setShowAddMenu] = useState(false);
   const [showOptMenu, setShowOptMenu] = useState(false);
 
   // Reset to page 1 whenever filters / search / category change
@@ -126,11 +124,12 @@ const ServicesListPage: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, selectedCategory, searchQuery, filters, fetchServices]);
 
+  // Load staff for the Team member filter
+  useEffect(() => { dispatch(fetchStaffThunk()); }, [dispatch]);
+
   // Close dropdowns on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node))
-        setShowAddMenu(false);
       if (optMenuRef.current && !optMenuRef.current.contains(e.target as Node))
         setShowOptMenu(false);
     };
@@ -138,21 +137,47 @@ const ServicesListPage: React.FC = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // ── Download handlers ────────────────────────────────────────────────────────
-  const handleDownloadPdf = useCallback(() => {
-    dispatch(downloadServicesPdfThunk());
-    setShowOptMenu(false);
-  }, [dispatch]);
+  // ── Download helpers — fetch ALL services then export client-side ────────────
+  const fetchAllServices = async (): Promise<Service[]> => {
+    let allItems: Service[] = [];
+    let page = 1;
+    let totalPages = 1;
+    const limit = 200;
 
-  const handleDownloadExcel = useCallback(() => {
-    dispatch(downloadServicesExcelThunk());
-    setShowOptMenu(false);
-  }, [dispatch]);
+    while (page <= totalPages) {
+      const res = await api.get("/api/v1/services", { params: { page, limit } });
+      const responseData = res.data?.data;
+      if (Array.isArray(responseData)) {
+        allItems = [...allItems, ...responseData];
+        break;
+      } else if (responseData && Array.isArray(responseData.data)) {
+        allItems = [...allItems, ...responseData.data];
+        totalPages = responseData.pagination?.total_pages ?? 1;
+        page++;
+      } else {
+        break;
+      }
+    }
+    return allItems;
+  };
 
-  const handleDownloadCsv = useCallback(() => {
-    dispatch(downloadServicesCsvThunk());
+  const handleDownloadPdf = useCallback(async () => {
     setShowOptMenu(false);
-  }, [dispatch]);
+    try { exportServicesPDF(await fetchAllServices()); }
+    catch (err) { console.error("[ServicesListPage] PDF export failed:", err); }
+  }, []);
+
+  const handleDownloadExcel = useCallback(async () => {
+    setShowOptMenu(false);
+    try { exportServicesExcel(await fetchAllServices()); }
+    catch (err) { console.error("[ServicesListPage] Excel export failed:", err); }
+  }, []);
+
+  const handleDownloadCsv = useCallback(async () => {
+    setShowOptMenu(false);
+    try { exportServicesCSV(await fetchAllServices()); }
+    catch (err) { console.error("[ServicesListPage] CSV export failed:", err); }
+  }, []);
 
   // ── Group services by category for display ───────────────────────────────────
   const groupedServices = useMemo(() => {
@@ -211,7 +236,7 @@ const ServicesListPage: React.FC = () => {
           <div className="slp__dd-wrap" ref={optMenuRef}>
             <button
               className="slp__btn slp__btn--outline"
-              onClick={() => { setShowOptMenu((v) => !v); setShowAddMenu(false); }}
+              onClick={() => setShowOptMenu((v) => !v)}
             >
               Options <ChevronDown size={13} />
             </button>
@@ -250,35 +275,13 @@ const ServicesListPage: React.FC = () => {
             )}
           </div>
 
-          {/* Add dropdown */}
-          <div className="slp__dd-wrap" ref={addMenuRef}>
-            <button
-              className="slp__btn slp__btn--dark"
-              onClick={() => { setShowAddMenu((v) => !v); setShowOptMenu(false); }}
-            >
-              <PlusLg size={15} /> Add <ChevronDown size={13} />
-            </button>
-            {showAddMenu && (
-              <ul className="slp__dd-menu slp__dd-menu--right">
-                <li>
-                  <button
-                    className="slp__dd-item"
-                    onClick={() => { setShowAddMenu(false); navigate("/dashboard/catalog/services/add?type=single"); }}
-                  >
-                    Single Service
-                  </button>
-                </li>
-                <li>
-                  <button
-                    className="slp__dd-item"
-                    onClick={() => { setShowAddMenu(false); setShowAddCategory(true); }}
-                  >
-                    <TagFill size={13} /> Add Category
-                  </button>
-                </li>
-              </ul>
-            )}
-          </div>
+          {/* Add button */}
+          <button
+            className="slp__btn slp__btn--dark"
+            onClick={() => navigate("/dashboard/catalog/services/add?type=single")}
+          >
+            Add
+          </button>
         </div>
       </header>
 
@@ -303,6 +306,9 @@ const ServicesListPage: React.FC = () => {
           {filterActiveCount > 0 && (
             <span className="slp__filter-badge">{filterActiveCount}</span>
           )}
+        </button>
+        <button className="slp__ctrl-btn" onClick={() => setShowAddCategory(true)}>
+          <PlusLg size={13} /> Add category
         </button>
         <button
           className="slp__ctrl-btn slp__ctrl-btn--order"
@@ -362,9 +368,6 @@ const ServicesListPage: React.FC = () => {
               </li>
             ))}
           </ul>
-          <button className="slp__add-cat-link" onClick={() => setShowAddCategory(true)}>
-            + Add category
-          </button>
         </aside>
 
         {/* Main content */}

@@ -10,6 +10,21 @@ export interface Client {
   [key: string]: any; // allow extra fields from API
 }
 
+export interface ClientItem {
+  id: EntityId;
+  fullName?: string;
+  full_name?: string;
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  phone_number?: string;
+  mobile?: string;
+  mobile_number?: string;
+  email?: string;
+  isBlocked?: boolean;
+  [key: string]: any;
+}
+
 // ── Payloads ──────────────────────────────────────────────────────────────────
 export interface CreateClientPayload {
   fullName: string;

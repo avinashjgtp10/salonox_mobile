@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { PageLoader } from "../components/ui";
 import PermissionGuard from "../components/guards/PermissionGuard";
 
@@ -20,8 +20,8 @@ const StaffSalesPage        = lazy(() => import("../features/staff/pages/StaffSa
 export const TeamRoutes = () => (
   <Suspense fallback={<PageLoader />}>
     <Routes>
-      {/* view_team (outer) — overview and read-only screens */}
-      <Route index element={<StaffDashboardPage />} />
+      {/* Default → members list (view_team outer guard wraps entire route tree) */}
+      <Route index element={<Navigate to="members" replace />} />
       <Route path="dashboard"    element={<StaffDashboardPage />} />
       <Route path="members"      element={<StaffListPage />} />
       <Route path="appointments" element={<StaffAppointmentsPage />} />
