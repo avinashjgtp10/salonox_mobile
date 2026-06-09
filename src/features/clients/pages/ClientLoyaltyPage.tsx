@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import toast from "react-hot-toast";
 import {
   Star,
@@ -112,17 +112,30 @@ export default function ClientLoyaltyPage() {
   );
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ROWS_PER_PAGE));
-  const pageRows   = filtered.slice((currentPage - 1) * ROWS_PER_PAGE, currentPage * ROWS_PER_PAGE);
+  const clampedPage = Math.max(1, Math.min(currentPage, totalPages));
+  const pageRows   = filtered.slice((clampedPage - 1) * ROWS_PER_PAGE, clampedPage * ROWS_PER_PAGE);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.max(1, Math.min(prev, totalPages)));
+  }, [filtered.length, totalPages]);
 
   const totalIssued   = customers.reduce((s, c) => s + c.points, 0);
   const totalRedeemed = 1240;
   const activeMembers = customers.filter((c) => c.status === "Active").length;
 
   // ── Scroll panel into view ─────────────────────────────────────────────────
-  const focusPanel = (customerId?: string) => {
+  const focusPanel = (customerId?: string, newAction?: "add" | "redeem", newPoints?: string) => {
     if (customerId) setSelectedCustomer(customerId);
-    setPoints("");
-    setAction("add");
+    if (newPoints !== undefined) {
+      setPoints(newPoints);
+    } else {
+      setPoints("");
+    }
+    if (newAction !== undefined) {
+      setAction(newAction);
+    } else {
+      setAction("add");
+    }
     setTimeout(() => panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   };
 
@@ -392,7 +405,7 @@ export default function ClientLoyaltyPage() {
                               </button>
                               <button
                                 className="lp-action-menu__item"
-                                onClick={() => { setAction("redeem"); focusPanel(c.id); setActionMenuId(null); }}
+                                onClick={() => { focusPanel(c.id, "redeem"); setActionMenuId(null); }}
                               >
                                 <Gift size={13} /> Redeem Points
                               </button>
@@ -621,9 +634,7 @@ export default function ClientLoyaltyPage() {
                     className="lp-reward-item__redeem-btn"
                     style={{ color: r.color, borderColor: r.color }}
                     onClick={() => {
-                      setAction("redeem");
-                      setPoints(String(r.points));
-                      focusPanel();
+                      focusPanel(undefined, "redeem", String(r.points));
                       toast(`Select a customer to redeem "${r.title}"`, { icon: "🎁" });
                     }}
                   >
