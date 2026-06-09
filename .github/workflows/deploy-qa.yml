@@ -1,4 +1,4 @@
-name: Deploy Frontend - PROD
+name: Deploy Frontend - QA
 
 on:
   push:
