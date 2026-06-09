@@ -1,9 +1,10 @@
 import { Outlet, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { useAppDispatch } from "../../../hooks/useAppRedux";
-import { logout } from "../../../store/authSlice";
+import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import { logout, setCustomPermissions } from "../../../store/authSlice";
 import { getMySalonThunk } from "../../../middleware/salon/salon.thunk";
 import { fetchMeThunk } from "../../../middleware/user/user.thunk";
+import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
 import "../styles/DashboardPage.scss";
 
 import DashboardTopbar from "./DashboardTopbar";
@@ -19,11 +20,23 @@ export default function DashboardLayout() {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const role = useAppSelector((s) => s.auth.role);
 
   useEffect(() => {
     dispatch(getMySalonThunk());
-    dispatch(fetchMeThunk());
-  }, [dispatch]);
+    dispatch(fetchSettingsThunk());
+
+    // Fetch user profile; for staff, sync custom_permissions into auth state
+    dispatch(fetchMeThunk()).then((result) => {
+      if (fetchMeThunk.fulfilled.match(result) && role === "staff") {
+        const cp = result.payload.custom_permissions ?? null;
+        dispatch(setCustomPermissions(cp));
+        if (import.meta.env.DEV) {
+          console.log("[Auth] custom_permissions synced to auth state:", cp);
+        }
+      }
+    });
+  }, [dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLogout = () => {
     dispatch(logout());

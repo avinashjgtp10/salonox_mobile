@@ -6,10 +6,12 @@ import { updateOnboardingStatus, logout } from "../../store/authSlice";
 import { refreshSessionThunk } from "../../middleware/auth/authThunk";
 
 const AuthGuard = () => {
-  const { accessToken, refreshToken, isOnboardingComplete } = useAppSelector(
+  const { accessToken, refreshToken, isOnboardingComplete, role } = useAppSelector(
     (state) => state.auth,
   );
   const dispatch = useAppDispatch();
+
+  const isStaff = role === "staff";
 
   // ── Phase 1: silent session restore ────────────────────────────────────────
   // accessToken is no longer persisted to localStorage.
@@ -19,7 +21,8 @@ const AuthGuard = () => {
 
   // ── Phase 2: onboarding verification (same as before) ──────────────────────
   const [checking, setChecking] = useState(false);
-  const [verified, setVerified] = useState(isOnboardingComplete);
+  // Staff users skip onboarding entirely
+  const [verified, setVerified] = useState(isOnboardingComplete || isStaff);
 
   // Phase 1 effect — runs once on mount
   useEffect(() => {
@@ -41,6 +44,12 @@ const AuthGuard = () => {
   useEffect(() => {
     if (restoring) return; // wait until phase 1 finishes
     if (!accessToken) return; // will redirect to /login below
+
+    // Staff users never go through onboarding
+    if (isStaff) {
+      setVerified(true);
+      return;
+    }
 
     if (!isOnboardingComplete) {
       setChecking(true);

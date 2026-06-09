@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
 import { SaleProvider } from "../features/analytics/context/SaleContext";
+import PermissionGuard from "../components/guards/PermissionGuard";
 
 const SalesListPage = lazy(
   () => import("../features/sales/pages/SalesListPage"),
@@ -31,7 +32,10 @@ export const SalesRoutes = () => (
     <SaleProvider>
       <Routes>
         <Route index element={<SalesListPage />} />
-        <Route path="quick" element={<QuickSalePage />} />
+        {/* Quick sale requires create_sales on top of the outer view_sales guard */}
+        <Route element={<PermissionGuard permKey="create_sales" />}>
+          <Route path="quick" element={<QuickSalePage />} />
+        </Route>
         <Route path="daily" element={<DailySalesPage />} />
         <Route path="appointments" element={<AppointmentsPage />} />
         <Route path="payments" element={<PaymentsPage />} />
