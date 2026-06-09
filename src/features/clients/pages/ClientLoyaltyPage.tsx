@@ -1,499 +1,647 @@
-import { useState } from "react";
-
-import "bootstrap/dist/css/bootstrap.min.css";
+import { useState, useMemo, useRef, useEffect } from "react";
+import toast from "react-hot-toast";
+import {
+  Star,
+  Users,
+  Gift,
+  TrendingUp,
+  Search,
+  Plus,
+  RotateCcw,
+  CheckCircle2,
+  XCircle,
+  ChevronDown,
+  Award,
+  Zap,
+  Crown,
+  Shield,
+  MoreHorizontal,
+  Edit2,
+  Trash2,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+} from "lucide-react";
 import "../styles/ClientLoyaltyPage.scss";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-interface FormData {
-  cardName: string;
-  cardNumber: string;
-  expiry: string;
-  cvv: string;
-  accountType: string;
-  firstName: string;
-  lastName: string;
-  address: string;
-  vat: string;
+// ── Types ─────────────────────────────────────────────────────────────────────
+type Tier   = "Bronze" | "Silver" | "Gold" | "Platinum";
+type Status = "Active" | "Inactive";
+
+interface LoyaltyCustomer {
+  id: string;
+  name: string;
+  phone: string;
+  points: number;
+  tier: Tier;
+  status: Status;
+  joinDate: string;
+  initials: string;
 }
 
-interface FormErrors {
-  cardName?: string;
-  cardNumber?: string;
-  expiry?: string;
-  cvv?: string;
-  firstName?: string;
-  lastName?: string;
-  address?: string;
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function getTier(pts: number): Tier {
+  if (pts >= 400) return "Platinum";
+  if (pts >= 200) return "Gold";
+  if (pts >= 100) return "Silver";
+  return "Bronze";
 }
 
-// ─── Screen 1 – Loyalty Landing ───────────────────────────────────────────────
-function LoyaltyLanding({ onStartNow }: { onStartNow: () => void }) {
-  return (
-    <div className="loyalty-landing">
-      <div className="landing-content">
-        {/* Left */}
-        <div className="landing-left">
-          <div className="addon-badge mb-3">
-            <span className="diamond-icon">💎</span>
-            <span>Client Loyalty add-on</span>
-          </div>
+const INITIAL_CUSTOMERS: LoyaltyCustomer[] = [
+  { id: "1",  name: "Priya Sharma",  phone: "+91 98765 43210", points: 450, tier: "Platinum", status: "Active",   joinDate: "12 Jan 2024", initials: "PS" },
+  { id: "2",  name: "Ravi Kumar",    phone: "+91 87654 32109", points: 320, tier: "Gold",     status: "Active",   joinDate: "08 Mar 2024", initials: "RK" },
+  { id: "3",  name: "Anjali Singh",  phone: "+91 76543 21098", points: 210, tier: "Gold",     status: "Active",   joinDate: "22 Feb 2024", initials: "AS" },
+  { id: "4",  name: "Neha Patel",    phone: "+91 65432 10987", points: 180, tier: "Silver",   status: "Active",   joinDate: "05 Apr 2024", initials: "NP" },
+  { id: "5",  name: "Amit Verma",    phone: "+91 54321 09876", points: 95,  tier: "Bronze",   status: "Active",   joinDate: "18 May 2024", initials: "AV" },
+  { id: "6",  name: "Sunita Rao",    phone: "+91 43210 98765", points: 60,  tier: "Bronze",   status: "Inactive", joinDate: "30 Jun 2024", initials: "SR" },
+  { id: "7",  name: "Kiran Mehta",   phone: "+91 32109 87654", points: 280, tier: "Gold",     status: "Active",   joinDate: "14 Jul 2024", initials: "KM" },
+  { id: "8",  name: "Deepa Nair",    phone: "+91 21098 76543", points: 130, tier: "Silver",   status: "Active",   joinDate: "02 Aug 2024", initials: "DN" },
+  { id: "9",  name: "Raj Kapoor",    phone: "+91 91234 56789", points: 510, tier: "Platinum", status: "Active",   joinDate: "15 Sep 2024", initials: "RK" },
+  { id: "10", name: "Meena Iyer",    phone: "+91 80123 45678", points: 75,  tier: "Bronze",   status: "Active",   joinDate: "20 Oct 2024", initials: "MI" },
+];
 
-          <h1 className="landing-title">Turn all clients into regulars</h1>
+const TIER_CONFIG: Record<Tier, { color: string; bg: string; icon: React.ReactNode }> = {
+  Bronze:   { color: "#b45309", bg: "#fef3c7", icon: <Award   size={11} /> },
+  Silver:   { color: "#475569", bg: "#f1f5f9", icon: <Shield  size={11} /> },
+  Gold:     { color: "#d97706", bg: "#fffbeb", icon: <Crown   size={11} /> },
+  Platinum: { color: "#7c3aed", bg: "#f5f3ff", icon: <Zap     size={11} /> },
+};
 
-          <p className="landing-desc">
-            Watch your sales skyrocket with a custom loyalty program –
-            encouraging repeat visits and larger purchases.
-          </p>
+const REWARD_RULES = [
+  { icon: "💰", label: "Earn Rate",      value: "₹100 spent = 10 points" },
+  { icon: "🎯", label: "Redeem Rate",    value: "100 points = ₹10 discount" },
+  { icon: "🥇", label: "Gold Tier",      value: "200+ points earned" },
+  { icon: "💎", label: "Platinum Tier",  value: "400+ points earned" },
+  { icon: "⏳", label: "Points Expiry",  value: "After 12 months" },
+  { icon: "🔑", label: "Min Redemption", value: "50 points minimum" },
+];
 
-          <ul className="feature-list">
-            <li>
-              Offer the ultimate loyalty experience with points, tiers and
-              referrals
-            </li>
-            <li>
-              Reward your clients with exclusive offers, discounts and
-              incentives to celebrate their loyalty
-            </li>
-            <li>
-              Allow clients to easily track their progress and redeem rewards
-              online
-            </li>
-          </ul>
+const POPULAR_REWARDS = [
+  { id: "r1", title: "₹50 Discount",   points: 500,  icon: "🏷️", color: "#7c3aed", bg: "#f5f3ff", desc: "Get ₹50 off on your next visit" },
+  { id: "r2", title: "₹100 Discount",  points: 1000, icon: "💸", color: "#059669", bg: "#f0fdf4", desc: "Get ₹100 off on any service" },
+  { id: "r3", title: "Free Hair Wash", points: 200,  icon: "💆", color: "#0284c7", bg: "#f0f9ff", desc: "Complimentary hair wash service" },
+];
 
-          <div className="pricing-block mt-4 mb-4">
-            <span className="save-badge">Save 20%</span>
-            <div className="price-row mt-2">
-              <span className="price-old">₹5,000.00</span>
-              <span className="price-current">
-                ₹4,000.00 per location, per month
-              </span>
-            </div>
-            <p className="trial-text mt-1">Try it FREE for 7 days!</p>
-          </div>
+const ROWS_PER_PAGE = 6;
 
-          <div className="d-flex align-items-center gap-3">
-            <button
-              className="btn btn-landing-start rounded-pill"
-              onClick={onStartNow}
-            >
-              Start now
-            </button>
-            <button className="btn btn-link learn-link p-0">Learn more</button>
-          </div>
-        </div>
-
-        {/* Right – Animated Diamond */}
-        <div className="landing-right">
-          <div className="diamond-wrap">
-            <svg viewBox="0 0 220 240" width="220" height="240">
-              <defs>
-                <linearGradient
-                  id="hexGrad1"
-                  x1="0%"
-                  y1="0%"
-                  x2="100%"
-                  y2="100%"
-                >
-                  <stop offset="0%" stopColor="#f9a8d4" />
-                  <stop offset="50%" stopColor="#e879a0" />
-                  <stop offset="100%" stopColor="#c026d3" />
-                </linearGradient>
-                <linearGradient
-                  id="hexGrad2"
-                  x1="0%"
-                  y1="0%"
-                  x2="100%"
-                  y2="100%"
-                >
-                  <stop offset="0%" stopColor="#fbbf24" />
-                  <stop offset="100%" stopColor="#f97316" />
-                </linearGradient>
-              </defs>
-              <polygon
-                points="110,10 200,60 200,160 110,210 20,160 20,60"
-                fill="url(#hexGrad1)"
-                opacity="0.9"
-              />
-              <polygon
-                points="110,35 180,75 180,150 110,190 40,150 40,75"
-                fill="url(#hexGrad2)"
-                opacity="0.55"
-              />
-              <polygon
-                points="110,60 150,100 110,160 70,100"
-                fill="white"
-                opacity="0.92"
-              />
-              <polygon
-                points="110,60 150,100 110,90"
-                fill="white"
-                opacity="0.45"
-              />
-              <polygon
-                points="70,100 110,90 110,160"
-                fill="#e0e0e0"
-                opacity="0.65"
-              />
-            </svg>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Screen 2 – Enable Form ───────────────────────────────────────────────────
-function EnableForm({ onClose }: { onClose: () => void }) {
-  const [form, setForm] = useState<FormData>({
-    cardName: "",
-    cardNumber: "",
-    expiry: "",
-    cvv: "",
-    accountType: "Individual / Self-employed",
-    firstName: "",
-    lastName: "",
-    address: "",
-    vat: "",
-  });
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [toasts, setToasts] = useState<string[]>([]);
-  const [submitted, setSubmitted] = useState(false);
-
-  const set = (key: keyof FormData, val: string) => {
-    setForm((p) => ({ ...p, [key]: val }));
-    setErrors((p) => {
-      const n = { ...p };
-      delete n[key as keyof FormErrors];
-      return n;
-    });
-  };
-
-  const validate = (): boolean => {
-    const e: FormErrors = {};
-    if (!form.cardName.trim()) e.cardName = "This field is required";
-    if (!form.cardNumber.trim()) e.cardNumber = "This field is required";
-    if (!form.expiry.trim()) e.expiry = "This field is required";
-    if (!form.cvv.trim()) e.cvv = "This field is required";
-    if (!form.firstName.trim()) e.firstName = "This field is required";
-    if (!form.lastName.trim()) e.lastName = "This field is required";
-    if (!form.address.trim()) e.address = "This address is required";
-    setErrors(e);
-    if (Object.keys(e).length) {
-      setToasts([
-        "Please correct all form errors",
-        "Please correct all form errors",
-        "Please correct all form errors",
-      ]);
-      setTimeout(() => setToasts([]), 3500);
-      return false;
-    }
-    return true;
-  };
-
-  const handleEnable = () => {
-    if (validate()) setSubmitted(true);
-  };
-
-  // ── Success screen ──
-  if (submitted) {
-    return (
-      <div className="enable-page d-flex flex-column align-items-center justify-content-center">
-        <div className="success-circle mb-4">
-          <svg viewBox="0 0 60 60" width="72">
-            <circle
-              cx="30"
-              cy="30"
-              r="29"
-              fill="#dcfce7"
-              stroke="#86efac"
-              strokeWidth="2"
-            />
-            <path
-              d="M18 30l9 9 15-18"
-              stroke="#16a34a"
-              strokeWidth="3"
-              strokeLinecap="round"
-              fill="none"
-            />
-          </svg>
-        </div>
-        <h2 className="fw-bold mb-2">Client Loyalty Enabled!</h2>
-        <p className="text-muted mb-4">
-          Your 7-day free trial has started. Enjoy!
-        </p>
-        <button className="btn btn-dark rounded-pill px-4" onClick={onClose}>
-          Back to Loyalty
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="enable-page">
-      {/* ── Toast Stack ── */}
-      {toasts.length > 0 && (
-        <div className="toast-stack">
-          {toasts.map((t, i) => (
-            <div key={i} className="form-toast">
-              <span>{t}</span>
-              <button
-                onClick={() => setToasts((p) => p.filter((_, j) => j !== i))}
-              >
-                ×
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ── Top Bar ── */}
-      <div className="enable-topbar d-flex justify-content-between align-items-center px-4 py-3">
-        <h5 className="enable-topbar__title mb-0">
-          Enable Client Loyalty add-on
-        </h5>
-        <div className="d-flex gap-2">
-          <button
-            className="btn btn-outline-secondary btn-sm rounded-pill"
-            onClick={onClose}
-          >
-            Close
-          </button>
-          <button
-            className="btn btn-dark btn-sm rounded-pill"
-            onClick={handleEnable}
-          >
-            Enable
-          </button>
-        </div>
-      </div>
-
-      {/* ── Form Body ── */}
-      <div className="enable-body container">
-        <div className="row g-4 justify-content-center">
-          {/* Left column */}
-          <div className="col-lg-6">
-            {/* Card details */}
-            <div className="form-card mb-4">
-              <div className="mb-3">
-                <label className="form-label">Card holder full name</label>
-                <input
-                  type="text"
-                  className={`form-control ${errors.cardName ? "is-invalid" : ""}`}
-                  placeholder="Add card holder full name"
-                  value={form.cardName}
-                  onChange={(e) => set("cardName", e.target.value)}
-                />
-                {errors.cardName && (
-                  <div className="invalid-feedback">{errors.cardName}</div>
-                )}
-              </div>
-
-              <div className="mb-3">
-                <label className="form-label">Card number</label>
-                <div
-                  className={`card-input-wrap ${errors.cardNumber ? "card-input-wrap--error" : ""}`}
-                >
-                  <input
-                    type="text"
-                    className="form-control border-0 shadow-none"
-                    placeholder="Credit or debit card number"
-                    value={form.cardNumber}
-                    onChange={(e) => set("cardNumber", e.target.value)}
-                    maxLength={19}
-                  />
-                  <div className="card-badges">
-                    <span className="visa-badge">VISA</span>
-                    <span className="mc-badge" />
-                  </div>
-                </div>
-                {errors.cardNumber && (
-                  <p className="field-err">{errors.cardNumber}</p>
-                )}
-              </div>
-
-              <div className="row g-3">
-                <div className="col-6">
-                  <label className="form-label">Expiry date</label>
-                  <input
-                    type="text"
-                    className={`form-control ${errors.expiry ? "is-invalid" : ""}`}
-                    placeholder="MM/YY"
-                    value={form.expiry}
-                    onChange={(e) => set("expiry", e.target.value)}
-                    maxLength={5}
-                  />
-                  {errors.expiry && (
-                    <div className="invalid-feedback">{errors.expiry}</div>
-                  )}
-                </div>
-                <div className="col-6">
-                  <label className="form-label">CVV</label>
-                  <input
-                    type="text"
-                    className={`form-control ${errors.cvv ? "is-invalid" : ""}`}
-                    placeholder="3 digits"
-                    value={form.cvv}
-                    onChange={(e) => set("cvv", e.target.value)}
-                    maxLength={3}
-                  />
-                  {errors.cvv && (
-                    <div className="invalid-feedback">{errors.cvv}</div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Billing details */}
-            <div className="form-card">
-              <h6 className="billing-title">Billing details</h6>
-              <p className="billing-sub mb-3">
-                Provide the details that you would like to appear on your
-                invoice
-              </p>
-
-              <div className="mb-3">
-                <label className="form-label">Account Type</label>
-                <select
-                  className="form-select"
-                  value={form.accountType}
-                  onChange={(e) => set("accountType", e.target.value)}
-                >
-                  <option>Individual / Self-employed</option>
-                  <option>Business</option>
-                  <option>Partnership</option>
-                </select>
-              </div>
-
-              <div className="row g-3 mb-3">
-                <div className="col-6">
-                  <label className="form-label">First Name</label>
-                  <input
-                    type="text"
-                    className={`form-control ${errors.firstName ? "is-invalid" : ""}`}
-                    placeholder="Enter your first name"
-                    value={form.firstName}
-                    onChange={(e) => set("firstName", e.target.value)}
-                  />
-                  {errors.firstName && (
-                    <div className="invalid-feedback">{errors.firstName}</div>
-                  )}
-                </div>
-                <div className="col-6">
-                  <label className="form-label">Last Name</label>
-                  <input
-                    type="text"
-                    className={`form-control ${errors.lastName ? "is-invalid" : ""}`}
-                    placeholder="Enter your last name"
-                    value={form.lastName}
-                    onChange={(e) => set("lastName", e.target.value)}
-                  />
-                  {errors.lastName && (
-                    <div className="invalid-feedback">{errors.lastName}</div>
-                  )}
-                </div>
-              </div>
-
-              <div className="mb-3">
-                <label className="form-label">Address</label>
-                <div
-                  className={`address-wrap ${errors.address ? "address-wrap--error" : ""}`}
-                >
-                  <span className="address-pin">📍</span>
-                  <input
-                    type="text"
-                    className="form-control border-0 shadow-none"
-                    placeholder="Search address"
-                    value={form.address}
-                    onChange={(e) => set("address", e.target.value)}
-                  />
-                </div>
-                {errors.address && (
-                  <p className="field-err">{errors.address}</p>
-                )}
-              </div>
-
-              <div className="mb-2">
-                <label className="form-label d-flex justify-content-between">
-                  <span>
-                    VAT number{" "}
-                    <span className="text-muted fw-normal">(Optional)</span>
-                  </span>
-                  <span className="text-muted">{form.vat.length}/18</span>
-                </label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={form.vat}
-                  onChange={(e) => set("vat", e.target.value.slice(0, 18))}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Right column – Order Summary */}
-          <div className="col-lg-4">
-            <div className="order-summary">
-              <div className="d-flex align-items-center gap-2 mb-3">
-                <div className="summary-gem">💎</div>
-                <div>
-                  <div className="summary-name">Client Loyalty</div>
-                  <div className="summary-tagline">
-                    Turn all clients into regulars
-                  </div>
-                </div>
-              </div>
-
-              <div className="trial-banner mb-3">
-                7 days free trial, ending 14 Mar 2026
-              </div>
-
-              <div className="summary-row">
-                <div>
-                  <p className="summary-loc">1 x location</p>
-                  <p className="summary-loc-price">
-                    <span className="striked">₹5,000.00</span> ₹4,000.00 per
-                    location, monthly
-                  </p>
-                </div>
-                <div className="text-end">
-                  <p className="summary-amount">₹4,000.00</p>
-                  <p className="striked small">₹5,000.00</p>
-                </div>
-              </div>
-
-              <hr className="summary-hr" />
-
-              <div className="d-flex justify-content-between align-items-center mb-3">
-                <span className="total-label">Total monthly</span>
-                <span className="total-value">₹4,000.00</span>
-              </div>
-
-              <p className="summary-note">
-                Your first month will be billed pro-rata.
-              </p>
-              <p className="summary-note">
-                Price calculated monthly based on number of locations in your
-                workspace on the billing date, starting from 15 Mar 2026. Your
-                plan will automatically renew until canceled.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Root ─────────────────────────────────────────────────────────────────────
+// ── Component ─────────────────────────────────────────────────────────────────
 export default function ClientLoyaltyPage() {
-  const [screen, setScreen] = useState<"landing" | "form">("landing");
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  const [customers,        setCustomers]        = useState<LoyaltyCustomer[]>(INITIAL_CUSTOMERS);
+  const [search,           setSearch]           = useState("");
+  const [tierFilter,       setTierFilter]       = useState<Tier | "All">("All");
+  const [selectedCustomer, setSelectedCustomer] = useState("");
+  const [points,           setPoints]           = useState("");
+  const [action,           setAction]           = useState<"add" | "redeem">("add");
+  const [currentPage,      setCurrentPage]      = useState(1);
+  const [actionMenuId,     setActionMenuId]     = useState<string | null>(null);
+  const [isSyncing,        setIsSyncing]        = useState(false);
+  const [removeId,         setRemoveId]         = useState<string | null>(null);
+
+  const filtered = useMemo(() =>
+    customers.filter((c) => {
+      const q = search.toLowerCase();
+      return (
+        (c.name.toLowerCase().includes(q) || c.phone.includes(q)) &&
+        (tierFilter === "All" || c.tier === tierFilter)
+      );
+    }),
+    [customers, search, tierFilter]
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ROWS_PER_PAGE));
+  const clampedPage = Math.max(1, Math.min(currentPage, totalPages));
+  const pageRows   = filtered.slice((clampedPage - 1) * ROWS_PER_PAGE, clampedPage * ROWS_PER_PAGE);
+
+  useEffect(() => {
+    setCurrentPage((prev) => Math.max(1, Math.min(prev, totalPages)));
+  }, [filtered.length, totalPages]);
+
+  const totalIssued   = customers.reduce((s, c) => s + c.points, 0);
+  const totalRedeemed = 1240;
+  const activeMembers = customers.filter((c) => c.status === "Active").length;
+
+  // ── Scroll panel into view ─────────────────────────────────────────────────
+  const focusPanel = (customerId?: string, newAction?: "add" | "redeem", newPoints?: string) => {
+    if (customerId) setSelectedCustomer(customerId);
+    if (newPoints !== undefined) {
+      setPoints(newPoints);
+    }
+    if (newAction !== undefined) {
+      setAction(newAction);
+    }
+    setTimeout(() => panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  };
+
+  // ── Sync ──────────────────────────────────────────────────────────────────
+  const handleSync = async () => {
+    setIsSyncing(true);
+    await new Promise((r) => setTimeout(r, 1200));
+    setIsSyncing(false);
+    toast.success("Loyalty data synced successfully");
+  };
+
+  // ── Save Changes ──────────────────────────────────────────────────────────
+  const handleSave = () => {
+    const pts = parseInt(points, 10);
+    if (!selectedCustomer || !pts || pts <= 0) {
+      toast.error("Please select a customer and enter valid points");
+      return;
+    }
+    const customer = customers.find((c) => c.id === selectedCustomer);
+    if (!customer) return;
+
+    if (action === "redeem") {
+      if (pts < 50) {
+        toast.error("Minimum redemption is 50 points");
+        return;
+      }
+      if (pts > customer.points) {
+        toast.error(`${customer.name} only has ${customer.points} points`);
+        return;
+      }
+    }
+
+    setCustomers((prev) =>
+      prev.map((c) => {
+        if (c.id !== selectedCustomer) return c;
+        const newPts = action === "add" ? c.points + pts : c.points - pts;
+        return { ...c, points: newPts, tier: getTier(newPts) };
+      })
+    );
+
+    toast.success(
+      action === "add"
+        ? `+${pts} points added to ${customer.name}`
+        : `${pts} points redeemed for ${customer.name}`
+    );
+
+    setSelectedCustomer("");
+    setPoints("");
+  };
+
+  // ── Reset ─────────────────────────────────────────────────────────────────
+  const handleReset = () => {
+    setSelectedCustomer("");
+    setPoints("");
+    setAction("add");
+    toast("Form cleared", { icon: "🔄" });
+  };
+
+  // ── Remove customer ────────────────────────────────────────────────────────
+  const handleRemove = (id: string) => {
+    const customer = customers.find((c) => c.id === id);
+    setCustomers((prev) => prev.filter((c) => c.id !== id));
+    setRemoveId(null);
+    setActionMenuId(null);
+    toast.success(`${customer?.name} removed from loyalty program`);
+  };
+
+  // ── Toggle status ─────────────────────────────────────────────────────────
+  const handleToggleStatus = (id: string) => {
+    setCustomers((prev) =>
+      prev.map((c) => {
+        if (c.id !== id) return c;
+        const next = c.status === "Active" ? "Inactive" : "Active";
+        toast(`${c.name} marked as ${next}`, { icon: next === "Active" ? "✅" : "⏸️" });
+        return { ...c, status: next };
+      })
+    );
+    setActionMenuId(null);
+  };
+
+  const changeSearch = (v: string) => { setSearch(v); setCurrentPage(1); };
+  const changeTier   = (v: Tier | "All") => { setTierFilter(v); setCurrentPage(1); };
 
   return (
-    <div className="client-loyalty-page">
-      {screen === "landing" && (
-        <LoyaltyLanding onStartNow={() => setScreen("form")} />
-      )}
-      {screen === "form" && <EnableForm onClose={() => setScreen("landing")} />}
+    <div
+      className="lp-page"
+      onClick={() => { if (actionMenuId) setActionMenuId(null); if (removeId) setRemoveId(null); }}
+    >
+
+      {/* ── HEADER ── */}
+      <div className="lp-header">
+        <div>
+          <h2 className="lp-header__title">Loyalty Points</h2>
+          <p className="lp-header__sub">Manage customer loyalty points and rewards</p>
+        </div>
+        <div className="lp-header__actions">
+          <button
+            className="lp-btn lp-btn--outline"
+            onClick={handleSync}
+            disabled={isSyncing}
+          >
+            <RefreshCw size={13} className={isSyncing ? "lp-spin" : ""} />
+            {isSyncing ? "Syncing…" : "Sync"}
+          </button>
+          <button
+            className="lp-btn lp-btn--primary"
+            onClick={() => focusPanel(undefined, "add")}
+          >
+            <Plus size={13} /> Add Points
+          </button>
+        </div>
+      </div>
+
+      {/* ── STATS ── */}
+      <div className="lp-stats">
+        <div className="lp-stat lp-stat--purple">
+          <div className="lp-stat__icon"><Star size={20} /></div>
+          <div>
+            <p className="lp-stat__label">Total Points Issued</p>
+            <p className="lp-stat__value">{totalIssued.toLocaleString()}</p>
+            <p className="lp-stat__hint">+12% this month</p>
+          </div>
+        </div>
+        <div className="lp-stat lp-stat--green">
+          <div className="lp-stat__icon"><TrendingUp size={20} /></div>
+          <div>
+            <p className="lp-stat__label">Total Points Redeemed</p>
+            <p className="lp-stat__value">{totalRedeemed.toLocaleString()}</p>
+            <p className="lp-stat__hint">+8% this month</p>
+          </div>
+        </div>
+        <div className="lp-stat lp-stat--blue">
+          <div className="lp-stat__icon"><Users size={20} /></div>
+          <div>
+            <p className="lp-stat__label">Active Members</p>
+            <p className="lp-stat__value">{activeMembers}</p>
+            <p className="lp-stat__hint">of {customers.length} total</p>
+          </div>
+        </div>
+        <div className="lp-stat lp-stat--amber">
+          <div className="lp-stat__icon"><Gift size={20} /></div>
+          <div>
+            <p className="lp-stat__label">Available Rewards</p>
+            <p className="lp-stat__value">{POPULAR_REWARDS.length}</p>
+            <p className="lp-stat__hint">Active rewards</p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── MAIN ROW ── */}
+      <div className="lp-main-row">
+
+        {/* Customer Table */}
+        <div className="lp-table-section">
+          <div className="lp-table-topbar">
+            <div className="lp-search-wrap">
+              <Search size={13} className="lp-search-icon" />
+              <input
+                className="lp-search"
+                placeholder="Search by name or phone…"
+                value={search}
+                onChange={(e) => changeSearch(e.target.value)}
+              />
+            </div>
+            <div className="lp-filter-wrap">
+              <Filter size={12} />
+              <select
+                className="lp-filter-select"
+                value={tierFilter}
+                onChange={(e) => changeTier(e.target.value as Tier | "All")}
+              >
+                <option value="All">All Tiers</option>
+                <option>Bronze</option>
+                <option>Silver</option>
+                <option>Gold</option>
+                <option>Platinum</option>
+              </select>
+              <ChevronDown size={11} />
+            </div>
+          </div>
+
+          <div className="lp-table-wrap">
+            <table className="lp-table">
+              <thead>
+                <tr>
+                  <th>Customer</th>
+                  <th>Phone</th>
+                  <th>Points</th>
+                  <th>Tier</th>
+                  <th>Status</th>
+                  <th>Join Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="lp-table-empty">No customers found</td>
+                  </tr>
+                ) : pageRows.map((c) => {
+                  const tier = TIER_CONFIG[c.tier];
+                  return (
+                    <tr key={c.id} className="lp-table-row">
+                      <td>
+                        <div className="lp-customer-cell">
+                          <div className="lp-avatar">{c.initials}</div>
+                          <span className="lp-customer-name">{c.name}</span>
+                        </div>
+                      </td>
+                      <td className="lp-muted-cell">{c.phone}</td>
+                      <td>
+                        <div className="lp-points-cell">
+                          <Star size={12} className="lp-pts-star" />
+                          <span className="lp-pts-num">{c.points}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span
+                          className="lp-tier-badge"
+                          style={{ color: tier.color, background: tier.bg }}
+                        >
+                          {tier.icon} {c.tier}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          className={`lp-status-badge lp-status-badge--${c.status.toLowerCase()}`}
+                          style={{ cursor: "pointer" }}
+                          onClick={() => handleToggleStatus(c.id)}
+                          title="Click to toggle status"
+                        >
+                          {c.status === "Active" ? <CheckCircle2 size={11} /> : <XCircle size={11} />}
+                          {c.status}
+                        </span>
+                      </td>
+                      <td className="lp-muted-cell">{c.joinDate}</td>
+                      <td>
+                        <div
+                          className="lp-actions-cell"
+                          style={{ position: "relative" }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            className="lp-icon-btn"
+                            title="Add / Redeem points"
+                            onClick={() => focusPanel(c.id)}
+                          >
+                            <Edit2 size={13} />
+                          </button>
+                          <button
+                            className="lp-icon-btn"
+                            title="More options"
+                            onClick={() =>
+                              setActionMenuId(actionMenuId === c.id ? null : c.id)
+                            }
+                          >
+                            <MoreHorizontal size={13} />
+                          </button>
+
+                          {actionMenuId === c.id && (
+                            <div className="lp-action-menu">
+                              <button
+                                className="lp-action-menu__item"
+                                onClick={() => { focusPanel(c.id, "add"); setActionMenuId(null); }}
+                              >
+                                <Plus size={13} /> Add Points
+                              </button>
+                              <button
+                                className="lp-action-menu__item"
+                                onClick={() => { focusPanel(c.id, "redeem"); setActionMenuId(null); }}
+                              >
+                                <Gift size={13} /> Redeem Points
+                              </button>
+                              <button
+                                className="lp-action-menu__item lp-action-menu__item--divider"
+                                onClick={() => handleToggleStatus(c.id)}
+                              >
+                                {c.status === "Active" ? <XCircle size={13} /> : <CheckCircle2 size={13} />}
+                                Mark {c.status === "Active" ? "Inactive" : "Active"}
+                              </button>
+                              <button
+                                className="lp-action-menu__item lp-action-menu__item--danger"
+                                onClick={() => {
+                                  setRemoveId(c.id);
+                                  setActionMenuId(null);
+                                }}
+                              >
+                                <Trash2 size={13} /> Remove
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Inline confirm delete */}
+                          {removeId === c.id && (
+                            <div className="lp-confirm-box" onClick={(e) => e.stopPropagation()}>
+                              <p>Remove <strong>{c.name}</strong>?</p>
+                              <div className="lp-confirm-box__btns">
+                                <button
+                                  className="lp-confirm-box__yes"
+                                  onClick={() => handleRemove(c.id)}
+                                >
+                                  Remove
+                                </button>
+                                <button
+                                  className="lp-confirm-box__no"
+                                  onClick={() => setRemoveId(null)}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="lp-pagination">
+              <span className="lp-pagination__info">
+                {(currentPage - 1) * ROWS_PER_PAGE + 1}–
+                {Math.min(currentPage * ROWS_PER_PAGE, filtered.length)} of {filtered.length} customers
+              </span>
+              <div className="lp-pagination__btns">
+                <button
+                  className="lp-page-btn"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                >
+                  <ChevronLeft size={14} />
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => (
+                  <button
+                    key={i}
+                    className={`lp-page-btn${currentPage === i + 1 ? " lp-page-btn--active" : ""}`}
+                    onClick={() => setCurrentPage(i + 1)}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+                <button
+                  className="lp-page-btn"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                >
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Manage Points Panel */}
+        <div className="lp-panel" ref={panelRef}>
+          <div className="lp-panel__head">
+            <h3 className="lp-panel__title">
+              <Star size={15} className="lp-panel__title-icon" />
+              Manage Points
+            </h3>
+            <p className="lp-panel__sub">Add or redeem loyalty points</p>
+          </div>
+
+          <div className="lp-form-group">
+            <label className="lp-label">Customer</label>
+            <div className="lp-select-wrap">
+              <select
+                className="lp-select"
+                value={selectedCustomer}
+                onChange={(e) => setSelectedCustomer(e.target.value)}
+              >
+                <option value="">Select customer…</option>
+                {customers.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} — {c.points} pts
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={12} className="lp-select-caret" />
+            </div>
+          </div>
+
+          <div className="lp-form-group">
+            <label className="lp-label">Points Amount</label>
+            <input
+              type="number"
+              className="lp-input"
+              placeholder="Enter points"
+              value={points}
+              min={1}
+              onChange={(e) => setPoints(e.target.value)}
+            />
+          </div>
+
+          <div className="lp-form-group">
+            <label className="lp-label">Action</label>
+            <div className="lp-radio-group">
+              <label className={`lp-radio${action === "add" ? " lp-radio--active" : ""}`}>
+                <input type="radio" name="loyalty-action" checked={action === "add"} onChange={() => setAction("add")} />
+                <Plus size={13} /> Add Points
+              </label>
+              <label className={`lp-radio${action === "redeem" ? " lp-radio--active" : ""}`}>
+                <input type="radio" name="loyalty-action" checked={action === "redeem"} onChange={() => setAction("redeem")} />
+                <Gift size={13} /> Redeem
+              </label>
+            </div>
+          </div>
+
+          {selectedCustomer && points && parseInt(points) > 0 && (
+            <div className="lp-preview">
+              <p className="lp-preview__label">Preview</p>
+              <p className="lp-preview__text">
+                {action === "add" ? "➕ Adding" : "🎁 Redeeming"}{" "}
+                <strong>{points} pts</strong> {action === "add" ? "to" : "from"}{" "}
+                <strong>{customers.find((c) => c.id === selectedCustomer)?.name}</strong>
+              </p>
+              {action === "add" && (
+                <p className="lp-preview__after">
+                  New balance:{" "}
+                  <strong>
+                    {(customers.find((c) => c.id === selectedCustomer)?.points ?? 0) + parseInt(points)} pts
+                  </strong>
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className="lp-panel__actions">
+            <button
+              className="lp-btn lp-btn--primary lp-btn--full"
+              onClick={handleSave}
+              disabled={!selectedCustomer || !points || parseInt(points) <= 0}
+            >
+              Save Changes
+            </button>
+            <button className="lp-btn lp-btn--ghost lp-btn--full" onClick={handleReset}>
+              <RotateCcw size={13} /> Reset
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── BOTTOM ROW ── */}
+      <div className="lp-bottom-row">
+
+        {/* Reward Rules */}
+        <div className="lp-card">
+          <h3 className="lp-card__title">
+            <Shield size={15} className="lp-card__title-icon" />
+            Reward Rules
+          </h3>
+          <div className="lp-rules-grid">
+            {REWARD_RULES.map((r) => (
+              <div key={r.label} className="lp-rule-item">
+                <span className="lp-rule-item__emoji">{r.icon}</span>
+                <div>
+                  <p className="lp-rule-item__label">{r.label}</p>
+                  <p className="lp-rule-item__value">{r.value}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Popular Rewards */}
+        <div className="lp-card">
+          <h3 className="lp-card__title">
+            <Gift size={15} className="lp-card__title-icon" />
+            Popular Rewards
+          </h3>
+          <div className="lp-rewards-list">
+            {POPULAR_REWARDS.map((r) => (
+              <div
+                key={r.id}
+                className="lp-reward-item"
+                style={{ borderLeftColor: r.color }}
+              >
+                <div className="lp-reward-item__icon" style={{ background: r.bg }}>
+                  <span>{r.icon}</span>
+                </div>
+                <div className="lp-reward-item__info">
+                  <p className="lp-reward-item__title">{r.title}</p>
+                  <p className="lp-reward-item__desc">{r.desc}</p>
+                </div>
+                <div className="lp-reward-item__right">
+                  <span
+                    className="lp-reward-item__pts"
+                    style={{ color: r.color, background: r.bg }}
+                  >
+                    <Star size={10} /> {r.points} pts
+                  </span>
+                  <button
+                    className="lp-reward-item__redeem-btn"
+                    style={{ color: r.color, borderColor: r.color }}
+                    onClick={() => {
+                      focusPanel(undefined, "redeem", String(r.points));
+                      toast(`Select a customer to redeem "${r.title}"`, { icon: "🎁" });
+                    }}
+                  >
+                    Redeem
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
