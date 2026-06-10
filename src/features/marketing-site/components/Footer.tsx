@@ -28,9 +28,16 @@ export default function Footer() {
   return (
     <footer className="sx-footer">
       <div className="sx-section">
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 48, marginBottom: 48 }}>
-          <div>
-            <img src={logo} alt="SalonOx salon management software" width="116" height="28" style={{ height: 28, width: 'auto', marginBottom: 16, filter: 'var(--sx-logo-filter)', display: 'block' }} />
+        {/* className replaces inline gridTemplateColumns so media queries work */}
+        <div className="sx-footer-grid">
+          <div className="sx-footer-brand">
+            <img
+              src={logo}
+              alt="SalonOx salon management software"
+              width="116"
+              height="28"
+              style={{ height: 28, width: 'auto', marginBottom: 16, filter: 'var(--sx-logo-filter)', display: 'block' }}
+            />
             <p style={{ fontSize: 13.5, fontWeight: 300, color: 'var(--sx-text-muted)', lineHeight: 1.7, maxWidth: 260, marginBottom: 20 }}>
               The all-in-one platform for beauty, wellness &amp; fitness businesses. Powered by AI.
             </p>
@@ -42,7 +49,6 @@ export default function Footer() {
             </button>
           </div>
 
-          {/* Link columns */}
           {Object.entries(footerLinks).map(([heading, links]) => (
             <div key={heading}>
               <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: 'var(--sx-text-faint)', marginBottom: 16 }}>
@@ -65,7 +71,6 @@ export default function Footer() {
           ))}
         </div>
 
-        {/* Bottom bar */}
         <div className="sx-footer-bottom">
           <span style={{ fontSize: 12, color: 'var(--sx-text-faint)' }}>
             {`© ${new Date().getFullYear()} SalonOx. All rights reserved.`}
@@ -88,7 +93,6 @@ export default function Footer() {
             ))}
           </div>
         </div>
-
       </div>
     </footer>
   )

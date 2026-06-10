@@ -12,6 +12,14 @@ html {
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  // Prevent horizontal overflow on mobile — stops the page being wider than screen
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+body {
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 body {
@@ -159,20 +167,70 @@ ul, ol { list-style: none; }
   gap: 48px;
   margin-bottom: 48px;
 
+  // Tablet: 3 link columns (brand will span full width below)
   @media (max-width: 900px) {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 32px;
   }
 
-  @media (max-width: 560px) {
+  // Large mobile: 2 columns for link groups
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  // Small mobile: single column
+  @media (max-width: 480px) {
     grid-template-columns: 1fr;
-    gap: 28px;
+    gap: 24px;
   }
 }
 
 .sx-footer-brand {
+  // Brand always full-width — sits above the link columns
   @media (max-width: 900px) {
-    grid-column: 1 / -1; // brand spans full width on tablet before link cols wrap
+    grid-column: 1 / -1;
+  }
+
+  p {
+    @media (max-width: 640px) { max-width: 100%; }
+  }
+}
+
+.sx-footer-col-heading {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--sx-text-faint);
+  margin-bottom: 16px;
+}
+
+.sx-footer-col-links {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sx-footer-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 13.5px;
+  font-weight: 300;
+  color: var(--sx-text-muted);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  line-height: 1.5;
+
+  &:hover { color: var(--sx-text-primary); }
+
+  // Bottom bar legal links are smaller
+  .sx-footer-bottom & {
+    font-size: 12px;
+    color: var(--sx-text-faint);
+    &:hover { color: var(--sx-text-primary); }
   }
 }
 

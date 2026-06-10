@@ -193,14 +193,7 @@ export default function PricingPage() {
           </div>
 
           {/* Feature list */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: 24,
-            }}
-            className="pp-features-grid"
-          >
+          <div className="pp-features-grid">
             {allFeatures.map(cat => (
               <div
                 key={cat.category}

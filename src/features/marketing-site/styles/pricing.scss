@@ -5,6 +5,7 @@
   min-height: 100vh;
   background: var(--sx-bg-0);
   padding-top: 64px;
+  overflow-x: hidden;
 }
 
 // ── HERO ──────────────────────────────────────────────────────────────────
@@ -17,6 +18,7 @@
   border-bottom: 1px solid var(--sx-border);
 
   @media (max-width: 768px) { padding: 56px 0 40px; }
+  @media (max-width: 480px) { padding: 40px 0 32px; }
 }
 
 .pp-hero-grid {
@@ -33,7 +35,7 @@
 
 .pp-hero-h1 {
   font-family: $font-display;
-  font-size: clamp(32px, 5vw, 56px);
+  font-size: clamp(26px, 5vw, 56px);
   font-weight: 800;
   color: var(--sx-text-primary);
   line-height: 1.1;
@@ -44,7 +46,7 @@
 }
 
 .pp-hero-sub {
-  font-size: 15px;
+  font-size: clamp(13px, 1.8vw, 15px);
   font-weight: 300;
   color: var(--sx-text-muted);
   line-height: 1.75;
@@ -67,6 +69,10 @@
   border: 1px solid var(--sx-border);
   border-radius: 999px;
   padding: 4px;
+
+  @media (max-width: 400px) {
+    gap: 2px;
+  }
 }
 
 .pp-currency-btn {
@@ -80,6 +86,11 @@
   cursor: pointer;
   font-family: $font-body;
   transition: background 0.15s, color 0.15s;
+
+  @media (max-width: 400px) {
+    padding: 6px 14px;
+    font-size: 11.5px;
+  }
 
   &--active {
     background: var(--sx-accent);
@@ -126,6 +137,12 @@
   transition: all 0.2s;
   white-space: nowrap;
 
+  @media (max-width: 480px) {
+    height: 32px;
+    padding: 0 14px;
+    font-size: 12px;
+  }
+
   &--active {
     background: var(--sx-accent);
     color: var(--sx-accent-text);
@@ -152,6 +169,7 @@
   background: var(--sx-bg-0);
 
   @media (max-width: 768px) { padding: 48px 0; }
+  @media (max-width: 480px) { padding: 36px 0; }
 }
 
 .pp-plans-grid {
@@ -164,6 +182,17 @@
   @media (max-width: 560px)  { grid-template-columns: 1fr; }
 }
 
+// 2-cycle layout (quarterly/annual only)
+.pp-plans-grid--2col {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  max-width: 720px;
+  margin: 0 auto 64px;
+
+  @media (max-width: 560px) { grid-template-columns: 1fr; }
+}
+
 .pp-plan-card {
   @include m.card-base;
   padding: 28px 24px;
@@ -172,6 +201,8 @@
   gap: 6px;
   position: relative;
   background: var(--sx-bg-card);
+
+  @media (max-width: 480px) { padding: 20px 16px; }
 
   &--pop {
     border-color: var(--sx-accent);
@@ -222,7 +253,7 @@
 
 .pp-plan-amount {
   font-family: $font-display;
-  font-size: 38px;
+  font-size: clamp(28px, 6vw, 38px);
   font-weight: 800;
   color: var(--sx-text-primary);
   letter-spacing: -0.03em;
@@ -233,6 +264,13 @@
   font-size: 11px;
   color: var(--sx-text-faint);
   margin-bottom: 2px;
+}
+
+.pp-plan-monthly-equiv {
+  font-size: 11.5px;
+  color: var(--sx-text-muted);
+  font-weight: 300;
+  margin-bottom: 8px;
 }
 
 .pp-plan-savings {
@@ -301,10 +339,23 @@
   svg { width: 8px; height: 8px; stroke: var(--sx-green); }
 }
 
+// ── FEATURES GRID ─────────────────────────────────────────────────────────
+// Full declaration here — inline styles removed from TSX so breakpoints work
+.pp-features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+
+  @media (max-width: 900px) { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  @media (max-width: 560px) { grid-template-columns: 1fr; gap: 12px; }
+}
+
 // ── COMPARE TABLE ─────────────────────────────────────────────────────────
 .pp-compare {
   padding: 80px 0;
   background: var(--sx-bg-1);
+
+  @media (max-width: 768px) { padding: 48px 0; }
 }
 
 .pp-compare-h2 {
@@ -341,11 +392,7 @@
   position: relative;
 
   &--feature { text-align: left; }
-
-  &--pop {
-    color: var(--sx-accent);
-    background: var(--sx-accent-muted);
-  }
+  &--pop { color: var(--sx-accent); background: var(--sx-accent-muted); }
 }
 
 .pp-th-badge {
@@ -365,7 +412,6 @@
   border-top: none;
 
   &:last-child { border-radius: 0 0 14px 14px; }
-
   &--alt .pp-td { background: var(--sx-bg-1); }
 }
 
@@ -380,15 +426,8 @@
   align-items: center;
   justify-content: center;
 
-  &--label {
-    text-align: left;
-    justify-content: flex-start;
-    font-weight: 400;
-    color: var(--sx-text-primary);
-  }
-
-  &--pop { background: var(--sx-accent-muted); }
-
+  &--label { text-align: left; justify-content: flex-start; font-weight: 400; color: var(--sx-text-primary); }
+  &--pop   { background: var(--sx-accent-muted); }
   &:last-child { border-right: none; }
 }
 
@@ -400,12 +439,17 @@
 .pp-faq {
   padding: 80px 0;
   background: var(--sx-bg-0);
+
+  @media (max-width: 768px) { padding: 48px 0; }
+  @media (max-width: 480px) { padding: 36px 0; }
 }
 
 .pp-faq-h2 {
   @include m.heading-lg;
   text-align: center;
   margin-bottom: 40px;
+
+  @media (max-width: 480px) { font-size: clamp(20px, 5vw, 28px); margin-bottom: 24px; }
 }
 
 .pp-faq-list {
@@ -433,13 +477,15 @@
   padding: 18px 20px;
   background: none;
   border: none;
-  font-size: 14.5px;
+  font-size: clamp(13px, 2vw, 14.5px);
   font-weight: 500;
   color: var(--sx-text-primary);
   cursor: pointer;
   text-align: left;
   font-family: $font-body;
   gap: 16px;
+
+  @media (max-width: 480px) { padding: 14px 16px; }
 
   svg {
     width: 16px;
@@ -460,14 +506,16 @@
   overflow: hidden;
   transition: max-height 0.35s $ease-smooth;
 
-  &--open { max-height: 300px; }
+  &--open { max-height: 400px; }
 
   p {
     padding: 0 20px 18px;
-    font-size: 13.5px;
+    font-size: clamp(12px, 1.8vw, 13.5px);
     font-weight: 300;
     color: var(--sx-text-muted);
     line-height: 1.75;
+
+    @media (max-width: 480px) { padding: 0 16px 14px; }
   }
 }
 
@@ -476,6 +524,9 @@
   padding: 80px 0;
   background: var(--sx-bg-1);
   border-top: 1px solid var(--sx-border);
+
+  @media (max-width: 768px) { padding: 56px 0; }
+  @media (max-width: 480px) { padding: 40px 0; }
 }
 
 .pp-cta-inner { text-align: center; }
@@ -483,10 +534,11 @@
 .pp-cta-h2 {
   @include m.heading-lg;
   margin-bottom: 16px;
+  font-size: clamp(22px, 4vw, 36px);
 }
 
 .pp-cta-sub {
-  font-size: 15px;
+  font-size: clamp(13px, 1.8vw, 15px);
   font-weight: 300;
   color: var(--sx-text-muted);
   line-height: 1.75;
@@ -499,25 +551,17 @@
   gap: 12px;
   justify-content: center;
   flex-wrap: wrap;
-}
-.pp-plan-monthly-equiv {
-  font-size: 11.5px;
-  color: var(--sx-text-muted);
-  font-weight: 300;
-  margin-bottom: 8px;
-}
-.pp-plan-monthly-equiv {
-  font-size: 11.5px;
-  color: var(--sx-text-muted);
-  font-weight: 300;
-  margin-bottom: 8px;
+
+  @media (max-width: 480px) {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0 20px;
+
+    button { justify-content: center; }
+  }
 }
 
-.pp-features-grid {
-  @media (max-width: 900px) { grid-template-columns: repeat(2, 1fr); }
-  @media (max-width: 560px) { grid-template-columns: 1fr; }
-}
-
+// ── PRICING GRID (landing page preview override) ───────────────────────────
 .lp-pricing-grid {
   @media (max-width: 560px) { grid-template-columns: 1fr !important; }
 }
