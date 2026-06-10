@@ -64,18 +64,106 @@ export default function PricingPage() {
 
       <section className="pp-plans sx-reveal">
         <div className="sx-section">
-          <div className="pp-plans-grid">
-            {plans.map(plan => (
-              <div key={plan.id} className={`pp-plan-card${plan.highlighted ? ' pp-plan-card--pop' : ''}`}>
-                {plan.highlighted && <div className="pp-plan-badge">Most Popular</div>}
-                <div className="pp-plan-name">{plan.name}</div>
-                <div className="pp-plan-price-row"><span className="pp-plan-sym">{sym}</span><span className="pp-plan-amount">{plan.price[currency].toLocaleString()}</span></div>
-                <div className="pp-plan-period">{plan.period}</div>
-                <div className="pp-plan-trial">{plan.trial}</div>
-                <p className="pp-plan-desc">{plan.desc}</p>
-                <div className="pp-plan-divider" />
-                <ul className="pp-plan-features">
-                  {plan.features.map(f => <li key={f}><span className="pp-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg></span>{f}</li>)}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: 20,
+              maxWidth: 720,
+              margin: '0 auto 64px',
+            }}
+            className="lp-pricing-grid"
+          >
+            {cycles.map(cycle => {
+              // Use the Starter plan as the single-plan model (all features included in every plan)
+              const plan = plans.find(p => p.id === 'starter')!
+              const price = getPlanPrice(plan, currency, cycle)
+              const cycleLabel = getCycleLabel(cycle)
+              const monthlyEquiv = getMonthlyEquiv(plan, currency, cycle)
+              const isAnnual = cycle === 'annual'
+
+              return (
+                <div
+                  key={cycle}
+                  className={`pp-plan-card${isAnnual ? ' pp-plan-card--pop' : ''}`}
+                >
+                  {isAnnual && <div className="pp-plan-badge">Best Value</div>}
+                  <div className="pp-plan-name">
+                    {cycle.charAt(0).toUpperCase() + cycle.slice(1)}
+                  </div>
+                  <div className="pp-plan-price-row">
+                    <span className="pp-plan-sym">{sym}</span>
+                    <span className="pp-plan-amount">{formatPrice(price, currency)}</span>
+                  </div>
+                  <div className="pp-plan-period">{cycleLabel}</div>
+                  <div className="pp-plan-monthly-equiv">
+                    {sym}{formatPrice(monthlyEquiv, currency)} / month
+                    {isAnnual ? ' · billed annually · save 10%' : ' · billed every 3 months'}
+                  </div>
+                  <div className="pp-plan-trial">{plan.trial}</div>
+                  <div className="pp-plan-divider" />
+                  <p className="pp-plan-desc">All features included. No limits.</p>
+                  <button
+                    className={isAnnual ? 'sx-btn-primary' : 'sx-btn-outline'}
+                    style={{ width: '100%', justifyContent: 'center', marginTop: 'auto' }}
+                    onClick={() => navigate('/register')}
+                  >
+                    Start free trial →
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Everything included note */}
+          <div style={{ textAlign: 'center', marginBottom: 48 }}>
+            <p style={{ fontSize: 14, color: 'var(--sx-text-muted)', fontWeight: 300 }}>
+              Both plans include <strong style={{ color: 'var(--sx-text-primary)', fontWeight: 600 }}>every feature</strong> — no upsells, no locked tiers.
+            </p>
+          </div>
+
+          {/* Feature list */}
+          <div className="pp-features-grid">
+            {allFeatures.map(cat => (
+              <div
+                key={cat.category}
+                style={{
+                  background: 'var(--sx-bg-card)',
+                  border: '1px solid var(--sx-border)',
+                  borderRadius: 16,
+                  padding: '20px 22px',
+                }}
+              >
+                <div style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  textTransform: 'uppercase' as const,
+                  letterSpacing: '0.1em',
+                  color: 'var(--sx-accent)',
+                  marginBottom: 14,
+                }}>
+                  {cat.category}
+                </div>
+                <ul style={{ display: 'flex', flexDirection: 'column' as const, gap: 8 }}>
+                  {cat.items.map(item => (
+                    <li
+                      key={item}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 8,
+                        fontSize: 13,
+                        color: 'var(--sx-text-secondary)',
+                        fontWeight: 300,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--sx-green)" strokeWidth="2.5" style={{ flexShrink: 0, marginTop: 2 }}>
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      {item}
+                    </li>
+                  ))}
                 </ul>
                 <button className={plan.highlighted ? 'sx-btn-primary' : 'sx-btn-outline'} style={{ width: '100%', justifyContent: 'center', marginTop: 'auto' }} onClick={() => plan.id === 'elite' ? navigate('/contact-sales') : navigate('/register')}>
                   {plan.cta} →

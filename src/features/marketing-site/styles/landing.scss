@@ -5,6 +5,7 @@
   min-height: 100vh;
   background: var(--sx-bg-0);
   padding-top: 64px;
+  overflow-x: hidden; // prevent any child from causing horizontal scroll
 }
 
 // ── Section headings ───────────────────────────────────────────────────────
@@ -28,7 +29,9 @@
   min-height: calc(100vh - 64px);
   display: flex;
   align-items: center;
-  overflow: hidden;
+  overflow: hidden; // already here but critical — clips the bg image
+  width: 100%;
+  max-width: 100vw;
 }
 
 .lp-hero-bg {
@@ -135,6 +138,20 @@
   align-items: center;
   flex-wrap: wrap;
   margin-bottom: 16px;
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+    align-items: stretch;
+
+    button { justify-content: center; width: 100%; }
+
+    // Outline button needs a visible border over the hero background image
+    .sx-btn-outline {
+      border-color: var(--sx-accent);
+      color: var(--sx-accent);
+      background: color-mix(in srgb, var(--sx-bg-0) 85%, transparent);
+    }
+  }
 }
 
 .lp-hero-note {
@@ -497,10 +514,22 @@
     > * { direction: ltr; }
   }
 
-  @media (max-width: 900px) {
-    grid-template-columns: 1fr;
-    direction: ltr;
-    gap: 40px;
+  &--reverse {
+    // Use order instead of direction:rtl — rtl causes horizontal overflow on mobile
+    @media (min-width: 769px) {
+      .lp-deep-visual { order: -1; }
+    }
+    @media (max-width: 768px) { grid-template-columns: 1fr; }
+  }
+}
+
+.lp-deep-img {
+  width: 100%;
+  border-radius: 16px;
+  object-fit: cover;
+
+  @media (max-width: 768px) {
+    max-height: 260px;
   }
 }
 
@@ -853,36 +882,397 @@
   flex-wrap: wrap;
 }
 
+// ── CORE FEATURES GRID ────────────────────────────────────────────────────
+.lp-core {
+  @include m.section-pad;
+  background: var(--sx-bg-1);
+}
+
+.lp-core-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+
+  @media (max-width: 900px) { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 560px) { grid-template-columns: 1fr; }
+}
+
+.lp-core-card {
+  @include m.card-base;
+  padding: 24px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  h3 {
+    font-family: $font-display;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--sx-text-primary);
+    line-height: 1.3;
+  }
+
+  p {
+    font-size: 13px;
+    font-weight: 300;
+    color: var(--sx-text-muted);
+    line-height: 1.65;
+  }
+
+  &:hover {
+    border-color: var(--sx-accent-border);
+    box-shadow: var(--sx-shadow-md);
+    transform: translateY(-2px);
+  }
+}
+
+// ── FAQ GRID ──────────────────────────────────────────────────────────────
+.lp-faq {
+  @include m.section-pad;
+  background: var(--sx-bg-0);
+}
+
+.lp-faq-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+
+  @media (max-width: 640px) { grid-template-columns: 1fr; }
+}
+
+.lp-faq-card {
+  background: var(--sx-bg-card);
+  border: 1px solid var(--sx-border);
+  border-radius: 14px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  h3 {
+    font-family: $font-display;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--sx-text-primary);
+    line-height: 1.4;
+  }
+
+  p {
+    font-size: 13px;
+    font-weight: 300;
+    color: var(--sx-text-muted);
+    line-height: 1.7;
+  }
+}
+
+// ── MOBILE STICKY CTA ─────────────────────────────────────────────────────
 .lp-mobile-sticky {
   display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  // Stop before the WhatsApp bubble — don't use right:0, use a calculated width
+  // Bubble is 56px wide, sits 16px from right edge = 72px total
+  right: 80px;
+  z-index: 90;
+  padding: 10px 12px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  gap: 8px;
+  background: var(--sx-bg-0);
+  border-top: 1px solid var(--sx-border);
+  border-right: none;
 
-  @media (max-width: 720px) {
-    position: fixed;
-    z-index: 80;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
-    background: color-mix(in srgb, var(--sx-bg-0) 94%, transparent);
-    border-top: 1px solid var(--sx-border);
-    backdrop-filter: blur(14px);
+  @media (max-width: 640px) {
+    display: flex;
 
-    .sx-btn-primary,
-    .sx-btn-outline {
-      width: 100%;
+    button {
+      flex: 1;
       justify-content: center;
-      padding: 0 12px;
-      height: 42px;
-      white-space: nowrap;
+      white-space: nowrap;  // prevent text wrap inside buttons
+      font-size: 13px;
+      height: 44px;
+      padding: 0 10px;
     }
   }
 }
 
-@media (max-width: 720px) {
+// Push page content above the sticky bar so it's never hidden underneath
+@media (max-width: 640px) {
   .lp-root {
-    padding-bottom: 72px;
+    padding-bottom: 80px;
   }
+}
+
+// WhatsApp bubble — move above sticky bar on mobile so it doesn't overlap buttons
+@media (max-width: 640px) {
+  .wa-bubble,
+  .whatsapp-bubble,
+  [class*="whatsapp"],
+  [class*="WhatsApp"] {
+    bottom: 88px !important;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// RESPONSIVE — all breakpoints: 1280 → 1024 → 900 → 768 → 640 → 480 → 380
+// Strategy: clamp() for fluid type, media queries for layout shifts
+// ══════════════════════════════════════════════════════════════════════════
+
+// ── Fluid global type ──────────────────────────────────────────────────────
+.lp-section-h2  { font-size: clamp(20px, 4vw, 36px); }
+.lp-section-sub { font-size: clamp(13px, 1.8vw, 15px); max-width: 100%; }
+
+// ── HERO ──────────────────────────────────────────────────────────────────
+.lp-hero {
+  // Don't force 100vh on mobile — content should determine height
+  @media (max-width: 1024px) { min-height: auto; }
+}
+
+.lp-hero-inner {
+  @media (max-width: 768px)  { padding-top: 48px; padding-bottom: 48px; }
+  @media (max-width: 480px)  { padding-top: 32px; padding-bottom: 32px; gap: 24px; }
+}
+
+.lp-hero-badge {
+  @media (max-width: 640px)  { font-size: 10.5px; padding: 4px 12px; }
+  @media (max-width: 480px)  { font-size: 10px; margin-bottom: 16px; white-space: normal; text-align: center; }
+}
+
+.lp-hero-h1 {
+  font-size: clamp(22px, 4.5vw, 52px);
+  max-width: 100%;
+  @media (max-width: 480px) { margin-bottom: 14px; }
+}
+
+.lp-hero-sub {
+  font-size: clamp(13px, 2vw, 16px);
+  max-width: 100%;
+  @media (max-width: 480px) { margin-bottom: 20px; }
+}
+
+.lp-hero-note {
+  @media (max-width: 480px) { font-size: 10px; }
+}
+
+// ── PROOF BAR ─────────────────────────────────────────────────────────────
+.lp-proof {
+  @media (max-width: 640px) { padding: 20px 0; }
+}
+
+.lp-proof-inner {
+  // On tablet wrap into 2-column grid before collapsing to column
+  @media (max-width: 900px) and (min-width: 601px) {
+    display: grid;
+    grid-template-columns: repeat(3, auto);
+    justify-content: center;
+    gap: 16px 32px;
+
+    .lp-proof-div { display: none; }
+  }
+}
+
+.lp-proof-val { font-size: clamp(15px, 3.5vw, 22px); }
+.lp-proof-lbl { font-size: clamp(9px, 1.5vw, 10.5px); }
+
+// ── CORE FEATURES ─────────────────────────────────────────────────────────
+.lp-core {
+  @media (max-width: 768px) { padding: 48px 0; }
+  @media (max-width: 480px) { padding: 36px 0; }
+}
+
+.lp-core-grid {
+  @media (max-width: 480px) { gap: 10px; }
+}
+
+.lp-core-card {
+  @media (max-width: 768px) { padding: 20px; }
+  @media (max-width: 480px) {
+    padding: 16px;
+    h3 { font-size: 14px; }
+    p  { font-size: 12px; }
+  }
+}
+
+// ── FEATURES GRID ─────────────────────────────────────────────────────────
+.lp-features {
+  @media (max-width: 768px) { padding: 48px 0; }
+  @media (max-width: 480px) { padding: 36px 0; }
+}
+
+.lp-feat-grid {
+  @media (max-width: 768px) { border-radius: 14px; }
+  @media (max-width: 480px) { border-radius: 10px; }
+}
+
+.lp-feat-col {
+  @media (max-width: 900px) { padding: 18px 14px; }
+  @media (max-width: 480px) { padding: 14px 12px; }
+}
+
+.lp-feat-col-title {
+  @media (max-width: 480px) { font-size: 8px; margin-bottom: 10px; }
+}
+
+.lp-feat-item {
+  @media (max-width: 900px) { font-size: 12px; }
+  @media (max-width: 480px) { font-size: 11.5px; padding: 4px 4px; }
+}
+
+// ── BUSINESS TYPES ────────────────────────────────────────────────────────
+.lp-biz {
+  @media (max-width: 768px) { padding: 48px 0; }
+  @media (max-width: 480px) { padding: 36px 0; }
+}
+
+.lp-biz-cats {
+  @media (max-width: 480px) { gap: 24px; }
+}
+
+.lp-biz-pill {
+  @media (max-width: 480px) { font-size: 12px; padding: 6px 14px; }
+}
+
+// ── DEEP DIVE ─────────────────────────────────────────────────────────────
+.lp-deep-h2   { font-size: clamp(20px, 3.5vw, 36px); }
+.lp-deep-body { font-size: clamp(13px, 1.8vw, 15px); }
+
+.lp-deep-inner {
+  @media (max-width: 768px) { gap: 28px; }
+}
+
+.lp-deep-visual {
+  @media (max-width: 768px) {
+    // On mobile show image first, then text (undo rtl trick for reverse sections)
+    order: -1;
+  }
+}
+
+.lp-deep-img {
+  @media (max-width: 768px) { height: 240px; }
+  @media (max-width: 480px) { height: 190px; }
+  @media (max-width: 380px) { height: 160px; }
+}
+
+.lp-bullets {
+  @media (max-width: 480px) {
+    gap: 8px;
+    margin-bottom: 18px;
+    li { font-size: 12.5px; }
+  }
+}
+
+// ── MULTI-LOCATION ────────────────────────────────────────────────────────
+.lp-multiloc {
+  @media (max-width: 768px) { padding: 48px 0; }
+}
+
+.lp-multiloc-h2  { font-size: clamp(20px, 3.5vw, 36px); }
+.lp-multiloc-sub { font-size: clamp(13px, 1.8vw, 15px); }
+
+.lp-multiloc-stat {
+  @media (max-width: 480px) { padding: 16px; border-radius: 12px; }
+}
+
+.lp-multiloc-stat-val { font-size: clamp(20px, 4vw, 26px); }
+
+// ── PRICING PREVIEW ───────────────────────────────────────────────────────
+// Override the inline style grid for pricing preview on the landing page
+.lp-pricing-grid {
+  @media (max-width: 560px) {
+    grid-template-columns: 1fr !important;
+    max-width: 100% !important;
+  }
+}
+
+.lp-price-amt  { font-size: clamp(20px, 4.5vw, 28px); }
+.lp-price-name { font-size: clamp(9px, 1.5vw, 11px); }
+
+// ── TESTIMONIALS ──────────────────────────────────────────────────────────
+.lp-testi {
+  @media (max-width: 768px) { padding: 48px 0; }
+}
+
+.lp-testi-grid {
+  // 2-col on tablet before going 1-col
+  @media (max-width: 900px) and (min-width: 641px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.lp-testi-card {
+  @media (max-width: 480px) { padding: 20px; }
+}
+
+.lp-testi-text { font-size: clamp(12px, 1.8vw, 14px); }
+
+// ── FAQ ───────────────────────────────────────────────────────────────────
+.lp-faq {
+  @media (max-width: 768px) { padding: 48px 0; }
+  @media (max-width: 480px) { padding: 36px 0; }
+}
+
+.lp-faq-card {
+  @media (max-width: 480px) {
+    padding: 18px;
+    h3 { font-size: 13.5px; }
+    p  { font-size: 12px; }
+  }
+}
+
+// ── CTA ───────────────────────────────────────────────────────────────────
+.lp-cta {
+  @media (max-width: 900px) { padding: 80px 0; }
+  @media (max-width: 640px) { padding: 64px 0; }
+  @media (max-width: 480px) { padding: 48px 0; }
+}
+
+.lp-cta-h2  { font-size: clamp(24px, 4vw, 48px); }
+.lp-cta-sub { font-size: clamp(13px, 1.8vw, 15px); max-width: 100%; }
+
+.lp-cta-actions {
+  @media (max-width: 480px) {
+    flex-direction: column;
+    align-items: stretch;
+    button { justify-content: center; width: 100%; }
+  }
+}
+
+// ── GLOBAL BUTTON SCALING ─────────────────────────────────────────────────
+// Buttons shrink on small screens so they never overflow
+@media (max-width: 480px) {
+  .sx-btn-primary,
+  .sx-btn-outline {
+    font-size: 13px;
+    height: 42px;
+    padding: 0 20px;
+  }
+}
+
+// ── SMALL PHONE (≤380px — e.g. iPhone SE, Galaxy A series) ───────────────
+@media (max-width: 380px) {
+  .lp-hero-h1           { font-size: 19px; }
+  .lp-hero-sub          { font-size: 12.5px; }
+  .lp-section-h2        { font-size: 19px; }
+  .lp-deep-h2           { font-size: 19px; }
+  .lp-multiloc-h2       { font-size: 19px; }
+  .lp-proof-val         { font-size: 15px; }
+  .lp-multiloc-stat-val { font-size: 18px; }
+  .lp-cta-h2            { font-size: 22px; }
+
+  .sx-btn-primary,
+  .sx-btn-outline {
+    font-size: 12px;
+    height: 40px;
+    padding: 0 16px;
+  }
+
+  // Tighter section padding on tiny phones
+  .lp-core,
+  .lp-features,
+  .lp-biz,
+  .lp-faq,
+  .lp-testi  { padding: 32px 0; }
 }

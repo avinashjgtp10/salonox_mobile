@@ -30,9 +30,16 @@ export default function Footer() {
   return (
     <footer style={{ background: 'var(--sx-bg-0)', borderTop: '1px solid var(--sx-border)', padding: '64px 0 32px' }}>
       <div className="sx-section">
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 48, marginBottom: 48 }}>
-          <div>
-            <img src={logo} alt="SalonOx salon management software" width="116" height="28" style={{ height: 28, width: 'auto', marginBottom: 16, filter: 'var(--sx-logo-filter)', display: 'block' }} />
+        {/* className replaces inline gridTemplateColumns so media queries work */}
+        <div className="sx-footer-grid">
+          <div className="sx-footer-brand">
+            <img
+              src={logo}
+              alt="SalonOx salon management software"
+              width="116"
+              height="28"
+              style={{ height: 28, width: 'auto', marginBottom: 16, filter: 'var(--sx-logo-filter)', display: 'block' }}
+            />
             <p style={{ fontSize: 13.5, fontWeight: 300, color: 'var(--sx-text-muted)', lineHeight: 1.7, maxWidth: 260, marginBottom: 20 }}>
               The all-in-one platform for beauty, wellness &amp; fitness businesses. Powered by AI.
             </p>
@@ -40,6 +47,7 @@ export default function Footer() {
               Start free trial
             </button>
           </div>
+
           {Object.entries(footerLinks).map(([heading, links]) => (
             <div key={heading}>
               <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: 'var(--sx-text-faint)', marginBottom: 16 }}>{heading}</div>
@@ -55,11 +63,26 @@ export default function Footer() {
             </div>
           ))}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 24, borderTop: '1px solid var(--sx-border)', flexWrap: 'wrap' as const, gap: 12 }}>
-          <span style={{ fontSize: 12, color: 'var(--sx-text-faint)' }}>{`© ${new Date().getFullYear()} SalonOx. All rights reserved.`}</span>
-          <div style={{ display: 'flex', gap: 20 }}>
-            {['Privacy Policy', 'Terms of Service', 'Cookie Policy'].map(l => (
-              <button key={l} style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--sx-text-faint)', cursor: 'pointer', fontFamily: 'inherit' }}>{l}</button>
+
+        <div className="sx-footer-bottom">
+          <span style={{ fontSize: 12, color: 'var(--sx-text-faint)' }}>
+            {`© ${new Date().getFullYear()} SalonOx. All rights reserved.`}
+          </span>
+          <div className="sx-footer-legal">
+            {[
+              { label: 'Privacy Policy',   path: '/privacy' },
+              { label: 'Terms of Service', path: '/terms' },
+              { label: 'Cookie Policy',    path: '/cookie-policy' },
+            ].map(l => (
+              <button
+                key={l.label}
+                onClick={() => navigate(l.path)}
+                style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--sx-text-faint)', cursor: 'pointer', fontFamily: 'inherit' }}
+                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = 'var(--sx-text-primary)')}
+                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = 'var(--sx-text-faint)')}
+              >
+                {l.label}
+              </button>
             ))}
           </div>
         </div>
