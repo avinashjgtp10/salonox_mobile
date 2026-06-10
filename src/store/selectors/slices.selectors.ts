@@ -1,6 +1,7 @@
 import { createSelector } from "@reduxjs/toolkit";
 import type { RootState } from "../store";
 import { createCRUDSelectors } from "./utils.selectors";
+import type { ClientItem } from "../../types/client.types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Auth
@@ -235,3 +236,11 @@ export const selectSelectedApp = appBase.selectSelectedItem;
 export const selectAppLoading = appBase.selectLoading;
 export const selectAppError = appBase.selectError;
 export const selectAppCount = appBase.selectCount;
+
+export const selectClientItems = (state: RootState): ClientItem[] => {
+  const raw = state.client.items;
+  return Array.isArray(raw) ? raw
+    : Array.isArray((raw as any)?.items) ? (raw as any).items
+      : Array.isArray((raw as any)?.data) ? (raw as any).data
+        : [];
+};

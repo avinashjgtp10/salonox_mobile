@@ -146,7 +146,16 @@ const SchedulerContent: React.FC = () => {
     setEditingBooking(null);
     setApptDefaults({});
 
-    const action = await (dispatch(fetchBookingsThunk()) as any);
+    // Use the same wide date range as the initial load so the server's default
+    // "today-only" filter does not drop past appointments from the re-fetch.
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const startD = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+    const endD   = new Date(now.getFullYear(), now.getMonth() + 4, 0);
+    const startDate = `${startD.getFullYear()}-${pad(startD.getMonth() + 1)}-01`;
+    const endDate   = `${endD.getFullYear()}-${pad(endD.getMonth() + 1)}-${pad(endD.getDate())}`;
+
+    const action = await (dispatch(fetchBookingsThunk({ startDate, endDate })) as any);
     if (!fetchBookingsThunk.fulfilled.match(action)) return;
 
     const PAY_RANK: Record<string, number> = { Paid: 2, Partial: 1, Unpaid: 0 };
@@ -155,7 +164,8 @@ const SchedulerContent: React.FC = () => {
     // Do NOT call mapApiBooking here: it is designed for raw API data and would
     // apply the UTC→local timezone offset a second time, shifting appointment
     // times by the local UTC offset (e.g. 5:30 AM → 11:00 AM in IST).
-    const fresh: Booking[] = action.payload as unknown as Booking[];
+    const payload = action.payload as any;
+    const fresh: Booking[] = (Array.isArray(payload) ? payload : (payload?.data ?? [])) as Booking[];
     const freshIds = new Set(fresh.map((fb) => String(fb.id)));
 
     // Read current Redux state AFTER patchPaymentStatus was dispatched (avoids stale closure)

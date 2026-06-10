@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { PageLoader } from "../components/ui";
+import PermissionGuard from "../components/guards/PermissionGuard";
 
 const StaffListPage       = lazy(() => import("../features/staff/pages/StaffListPage"));
 const ImportStaffPage     = lazy(() => import("../features/staff/pages/ImportStaffPage"));
@@ -10,7 +11,6 @@ const PayRunBreakdownPage = lazy(() => import("../features/staff/pages/PayRunBre
 const RepeatingShiftsPage = lazy(() => import("../features/staff/pages/RepeatingShiftsPage"));
 const ScheduledShiftsPage = lazy(() => import("../features/dashboard/pages/ScheduledShiftsPage"));
 
-// New pages
 const StaffDashboardPage    = lazy(() => import("../features/staff/pages/StaffDashboardPage"));
 const StaffAppointmentsPage = lazy(() => import("../features/staff/pages/StaffAppointmentsPage"));
 const StaffCustomersPage    = lazy(() => import("../features/staff/pages/StaffCustomersPage"));
@@ -20,27 +20,33 @@ const StaffSalesPage        = lazy(() => import("../features/staff/pages/StaffSa
 export const TeamRoutes = () => (
   <Suspense fallback={<PageLoader />}>
     <Routes>
-      {/* Default → overview dashboard */}
-      <Route index element={<StaffDashboardPage />} />
+      {/* Default → members list (view_team outer guard wraps entire route tree) */}
+      <Route index element={<Navigate to="members" replace />} />
       <Route path="dashboard"    element={<StaffDashboardPage />} />
-
-      {/* Team management */}
       <Route path="members"      element={<StaffListPage />} />
-      <Route path="import"       element={<ImportStaffPage />} />
-      <Route path="add"          element={<AddStaffPage />} />
-      <Route path=":id"          element={<AddStaffPage />} />
-
-      {/* New feature pages */}
       <Route path="appointments" element={<StaffAppointmentsPage />} />
       <Route path="customers"    element={<StaffCustomersPage />} />
       <Route path="services"     element={<StaffServicesPage />} />
       <Route path="sales"        element={<StaffSalesPage />} />
 
-      {/* Existing pages */}
-      <Route path="shifts"                   element={<ScheduledShiftsPage />} />
-      <Route path="payruns"                  element={<PayRunsPage />} />
-      <Route path="payruns/:id"              element={<PayRunBreakdownPage />} />
-      <Route path="repeating-shifts/:id"     element={<RepeatingShiftsPage />} />
+      {/* manage_team required to add/edit/import staff */}
+      <Route element={<PermissionGuard permKey="manage_team" />}>
+        <Route path="import" element={<ImportStaffPage />} />
+        <Route path="add"    element={<AddStaffPage />} />
+        <Route path=":id"    element={<AddStaffPage />} />
+      </Route>
+
+      {/* manage_shifts required for schedule management */}
+      <Route element={<PermissionGuard permKey="manage_shifts" />}>
+        <Route path="shifts"                 element={<ScheduledShiftsPage />} />
+        <Route path="repeating-shifts/:id"   element={<RepeatingShiftsPage />} />
+      </Route>
+
+      {/* view_payroll required for pay run access */}
+      <Route element={<PermissionGuard permKey="view_payroll" />}>
+        <Route path="payruns"      element={<PayRunsPage />} />
+        <Route path="payruns/:id"  element={<PayRunBreakdownPage />} />
+      </Route>
     </Routes>
   </Suspense>
 );

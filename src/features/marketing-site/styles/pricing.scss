@@ -54,12 +54,9 @@
   margin: 0 auto 36px;
 }
 
-// ── CURRENCY + CYCLE TOGGLES ──────────────────────────────────────────────
 .pp-currency-wrap {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
+  justify-content: center;
 }
 
 .pp-currency-toggle {
@@ -364,11 +361,7 @@
   margin-bottom: 48px;
 }
 
-.pp-table-wrap {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  border-radius: 14px;
-}
+.pp-table-wrap { overflow-x: auto; }
 
 .pp-table { min-width: 700px; }
 

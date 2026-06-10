@@ -7,11 +7,27 @@ import { fetchClientsThunk } from "../../../middleware/client/client.thunk";
 import { ExcelUpload } from "../components";
 import { Button, Input, Select } from "../../../components/ui";
 import { useOnce } from "../../../hooks/useOnce";
+import api from "../../../services/api/axios";
 import "../styles/CreateCampaignPage.scss";
 
 const STEPS       = ["Name & Template", "Add Contacts", "Review & Launch"];
 const BATCH_SIZES = [20, 50, 100];
-type ContactSource = "salon" | "excel";
+type ContactSource = "salon" | "excel" | "filter";
+
+const MONTHS = [
+  { value: "1",  label: "January"   },
+  { value: "2",  label: "February"  },
+  { value: "3",  label: "March"     },
+  { value: "4",  label: "April"     },
+  { value: "5",  label: "May"       },
+  { value: "6",  label: "June"      },
+  { value: "7",  label: "July"      },
+  { value: "8",  label: "August"    },
+  { value: "9",  label: "September" },
+  { value: "10", label: "October"   },
+  { value: "11", label: "November"  },
+  { value: "12", label: "December"  },
+];
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -47,6 +63,20 @@ function timeOptions() {
 }
 const TIME_OPTIONS = timeOptions();
 
+interface SmartFilter {
+  birth_month:         string;
+  birth_day_month:     string;
+  genders:              string[];
+  service_category_id: string;
+}
+
+const EMPTY_FILTER: SmartFilter = {
+  birth_month:         "",
+  birth_day_month:     "",
+  genders:              [],
+  service_category_id: "",
+};
+
 export default function CreateCampaignPage() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -67,11 +97,26 @@ export default function CreateCampaignPage() {
   const [schedTime,   setSchedTime]   = useState(defaultTime());
   const [isScheduled, setIsScheduled] = useState(false);
 
+  const [smartFilter,     setSmartFilter]     = useState<SmartFilter>(EMPTY_FILTER);
+  const [categories,      setCategories]      = useState<{ id: string; name: string }[]>([]);
+  const [filterContacts,  setFilterContacts]  = useState<any[]>([]);
+  const [filterCount,     setFilterCount]     = useState<number | null>(null);
+  const [filterLoading,   setFilterLoading]   = useState(false);
+  const [filterPreviewed, setFilterPreviewed] = useState(false);
+
   const scheduledAt = isScheduled && schedDate ? buildIso(schedDate, schedTime) : "";
   const dailyLimit  = waConfig?.dailyLimit ?? (waConfig as any)?.daily_limit ?? 0;
 
   useEffect(() => { if (templates.length === 0) dispatch(fetchTemplatesThunk()); }, [dispatch, templates.length]);
   useEffect(() => { if (step === 1 && source === "salon") dispatch(fetchClientsThunk()); }, [step, source, dispatch]);
+  useEffect(() => {
+    if (step === 1 && source === "filter" && categories.length === 0) {
+      api.get("/api/v1/categories").then(res => {
+        const data = res.data?.data ?? res.data ?? [];
+        setCategories(Array.isArray(data) ? data : []);
+      }).catch(() => { toast.error("Failed to load service categories"); });
+    }
+  }, [step, source, categories.length]);
 
   const approved = templates.filter((t) => t.status === "APPROVED");
 
@@ -100,11 +145,74 @@ export default function CreateCampaignPage() {
 
   const up = (k: string, v: any) => { setForm(p => ({ ...p, [k]: v })); setErrors(p => ({ ...p, [k]: "" })); };
 
+  const upFilter = (k: keyof SmartFilter, v: string) => {
+    setSmartFilter(prev => ({ ...prev, [k]: v }));
+    setFilterPreviewed(false);
+    setFilterCount(null);
+    setFilterContacts([]);
+  };
+
   const cleanPhone = (phone: string): string => {
     let p = phone.replace(/[\s\-().]/g, "");
     if (p.startsWith("0")) p = "+91" + p.slice(1);
     if (!p.startsWith("+")) p = "+91" + p;
     return p;
+  };
+
+  const buildFilterParams = () => {
+    const params = new URLSearchParams();
+    if (smartFilter.birth_month)         params.set("birth_month",         smartFilter.birth_month);
+    if (smartFilter.birth_day_month)     params.set("birth_day_month",     smartFilter.birth_day_month);
+    if (smartFilter.genders.length > 0) params.set("gender", smartFilter.genders.join(','));
+    if (smartFilter.service_category_id) params.set("service_category_id", smartFilter.service_category_id);
+    return params;
+  };
+
+const hasAnyFilter =
+  smartFilter.birth_month !== "" ||
+  smartFilter.birth_day_month !== "" ||
+  smartFilter.genders.length > 0 ||
+  smartFilter.service_category_id !== "";
+  
+  const handlePreviewFilter = async () => {
+    if (!hasAnyFilter) { toast.error("Please set at least one filter"); return; }
+    setFilterLoading(true);
+    try {
+      const params = buildFilterParams();
+      params.set("preview", "true");
+      const res   = await api.get(`/api/v1/clients/filter?${params.toString()}`);
+      const total = res.data?.total ?? res.data?.data?.total ?? 0;
+      setFilterCount(total);
+      setFilterPreviewed(true);
+    } catch {
+      toast.error("Failed to preview filter");
+    } finally {
+      setFilterLoading(false);
+    }
+  };
+
+  const handleApplyFilter = async () => {
+    if (!hasAnyFilter) { toast.error("Please set at least one filter"); return; }
+    setFilterLoading(true);
+    try {
+      const params = buildFilterParams();
+      const res    = await api.get(`/api/v1/clients/filter?${params.toString()}`);
+      const list   = res.data?.clients ?? res.data?.data?.clients ?? [];
+      const mapped = list.map((c: any) => ({
+        phone:     cleanPhone(c.phone),
+        name:      c.full_name ?? c.fullName ?? "",
+        variables: {},
+      }));
+      setFilterContacts(mapped);
+      setFilterCount(mapped.length);
+      setFilterPreviewed(true);
+      if (mapped.length === 0) toast.error("No clients match these filters");
+      else toast.success(`${mapped.length} clients loaded`);
+    } catch {
+      toast.error("Failed to load filtered clients");
+    } finally {
+      setFilterLoading(false);
+    }
   };
 
   const buildContacts = () => {
@@ -113,6 +221,7 @@ export default function CreateCampaignPage() {
         .filter(c => selectedIds.has(String(c.id)))
         .map(c => ({ phone: cleanPhone(c.phone!), name: c.fullName ?? "", variables: {} }));
     }
+    if (source === "filter") return filterContacts;
     return contacts.map(c => ({ ...c, phone: cleanPhone(c.phone) }));
   };
 
@@ -160,7 +269,7 @@ export default function CreateCampaignPage() {
       template_id:  form.templateId,
       batch_size:   form.batchSize,
       scheduled_at: scheduledAt || null,
-      contacts:     contacts.map(c => ({ phone: c.phone, name: c.name, variables: c })),
+      contacts:     contacts.map(c => ({ phone: c.phone, name: c.name, variables: c.variables ?? {} })),
     }));
     if (createCampaignThunk.fulfilled.match(result)) {
       toast.success(scheduledAt ? "Campaign scheduled!" : "Campaign launched!");
@@ -259,7 +368,6 @@ export default function CreateCampaignPage() {
                     {BATCH_SIZES.map(b => <option key={b} value={b}>{b} messages / batch</option>)}
                   </Select>
 
-                  {/* ← ADD HERE */}
                   <div className="cc-batch-info">
                     <div className="cc-batch-info-title">What is batch size?</div>
                     <p className="cc-batch-info-desc">
@@ -284,7 +392,6 @@ export default function CreateCampaignPage() {
                       </div>
                     </div>
                   </div>
-
                 </div>
 
                 <div className="cc-field" style={{ marginTop: 20 }}>
@@ -357,20 +464,28 @@ export default function CreateCampaignPage() {
                 <div className="cc-source-toggle">
                   <button
                     className={`cc-source-btn ${source === "salon" ? "active" : ""}`}
-                    onClick={() => { setSource("salon"); setContacts([]); }}
+                    onClick={() => { setSource("salon"); setContacts([]); setFilterContacts([]); }}
                   >
-                    🏪 Select from Salon Clients
+                    🏪 Salon Clients
                     {source === "salon" && selectedIds.size > 0 && <span className="cc-source-count">{selectedIds.size}</span>}
                   </button>
                   <button
                     className={`cc-source-btn ${source === "excel" ? "active" : ""}`}
-                    onClick={() => { setSource("excel"); setSelectedIds(new Set()); }}
+                    onClick={() => { setSource("excel"); setSelectedIds(new Set()); setFilterContacts([]); }}
                   >
-                    📊 Upload Excel
+                    📊 Excel Upload
                     {source === "excel" && contacts.length > 0 && <span className="cc-source-count">{contacts.length}</span>}
+                  </button>
+                  <button
+                    className={`cc-source-btn ${source === "filter" ? "active" : ""}`}
+                    onClick={() => { setSource("filter"); setSelectedIds(new Set()); setContacts([]); }}
+                  >
+                    🎯 Smart Filter
+                    {source === "filter" && filterContacts.length > 0 && <span className="cc-source-count">{filterContacts.length}</span>}
                   </button>
                 </div>
 
+                {/* ── Salon client picker ── */}
                 {source === "salon" && (
                   <div className="cc-client-picker">
                     <div className="cc-client-toolbar">
@@ -438,6 +553,7 @@ export default function CreateCampaignPage() {
                   </div>
                 )}
 
+                {/* ── Excel upload ── */}
                 {source === "excel" && (
                   <>
                     <ExcelUpload onContactsLoaded={setContacts} />
@@ -449,7 +565,168 @@ export default function CreateCampaignPage() {
                   </>
                 )}
 
-                {errors.contacts && <span className="cc-error" style={{ marginTop: 8 }}>{errors.contacts}</span>}
+                {/* ── Smart Filter ── */}
+                {source === "filter" && (
+                  <div className="cc-smart-filter">
+
+                    <div className="cc-sf-header">
+                      <div>
+                        <div className="cc-sf-title">Smart Filter</div>
+                        <div className="cc-sf-sub">Filter your salon clients and load them as campaign contacts</div>
+                      </div>
+                      {hasAnyFilter && (
+                        <button className="cc-sf-reset" onClick={() => {
+                          setSmartFilter(EMPTY_FILTER);
+                          setFilterContacts([]);
+                          setFilterCount(null);
+                          setFilterPreviewed(false);
+                        }}>
+                          Reset all
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Birthday */}
+                    <div className="cc-sf-section">
+                      <div className="cc-sf-section-title">
+                        <i className="ti ti-cake" aria-hidden="true" />
+                        Birthday
+                      </div>
+                      <div className="cc-sf-row-2">
+                        <div className="cc-sf-field">
+                          <label className="cc-sf-label">Birth month</label>
+                          <select
+                            className="cc-sf-select"
+                            value={smartFilter.birth_month}
+                            onChange={e => upFilter("birth_month", e.target.value)}
+                          >
+                            <option value="">Any month</option>
+                            {MONTHS.map(m => (
+                              <option key={m.value} value={m.value}>{m.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="cc-sf-field">
+                          <label className="cc-sf-label">Exact date (MM-DD)</label>
+                          <input
+                            className="cc-sf-input"
+                            type="text"
+                            placeholder="e.g. 05-15"
+                            value={smartFilter.birth_day_month}
+                            maxLength={5}
+                            onChange={e => {
+                              let v = e.target.value.replace(/[^0-9-]/g, "");
+                              if (v.length === 2 && !v.includes("-")) v = v + "-";
+                              upFilter("birth_day_month", v);
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Client details */}
+<div className="cc-sf-section">
+  <div className="cc-sf-section-title">
+    <i className="ti ti-users" aria-hidden="true" />
+    Client details
+  </div>
+  <div className="cc-sf-row-2">
+    <div className="cc-sf-field">
+      <label className="cc-sf-label">Gender</label>
+      <div className="cc-sf-checkboxes">
+        {[
+          { value: "female", label: "Female" },
+          { value: "male",   label: "Male"   },
+          { value: "other",  label: "Other"  },
+        ].map(g => (
+          <label key={g.value} className="cc-sf-checkbox-label">
+            <input
+              type="checkbox"
+              className="cc-sf-checkbox"
+              checked={smartFilter.genders.includes(g.value)}
+              onChange={e => {
+                const next = e.target.checked
+                  ? [...smartFilter.genders, g.value]
+                  : smartFilter.genders.filter(v => v !== g.value);
+                setSmartFilter(prev => ({ ...prev, genders: next }));
+                setFilterPreviewed(false);
+                setFilterCount(null);
+                setFilterContacts([]);
+              }}
+            />
+            {g.label}
+          </label>
+        ))}
+      </div>
+    </div>
+    <div className="cc-sf-field">
+      <label className="cc-sf-label">Service category</label>
+      <select
+        className="cc-sf-select"
+        value={smartFilter.service_category_id}
+        onChange={e => upFilter("service_category_id", e.target.value)}
+      >
+        <option value="">Any category</option>
+        {categories.map(cat => (
+          <option key={cat.id} value={cat.id}>{cat.name}</option>
+        ))}
+      </select>
+    </div>
+  </div>
+</div>
+
+                    {/* Footer */}
+                    <div className="cc-sf-footer">
+                      <button
+                        className="cc-sf-preview-btn"
+                        disabled={!hasAnyFilter || filterLoading}
+                        onClick={handlePreviewFilter}
+                      >
+                        <i className="ti ti-eye" aria-hidden="true" />
+                        {filterLoading && filterContacts.length === 0 ? "Loading..." : "Preview count"}
+                      </button>
+                      <button
+                        className="cc-sf-apply-btn"
+                        disabled={!hasAnyFilter || filterLoading}
+                        onClick={handleApplyFilter}
+                      >
+                        <i className="ti ti-check" aria-hidden="true" />
+                        {filterLoading ? "Loading..." : "Load contacts"}
+                      </button>
+                      {filterPreviewed && filterCount !== null && (
+                        <span className="cc-sf-result">
+                          {filterCount === 0
+                            ? "No clients match"
+                            : filterContacts.length > 0
+                            ? <><strong>{filterContacts.length}</strong> contacts loaded</>
+                            : <><strong>{filterCount}</strong> clients match</>
+                          }
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Contacts preview */}
+                    {filterContacts.length > 0 && (
+                      <div className="cc-sf-contacts">
+                        <div className="cc-sf-contacts-title">Loaded contacts preview</div>
+                        {filterContacts.slice(0, 5).map((c, i) => (
+                          <div key={i} className="cc-sf-contact-row">
+                            <span>{c.name || "—"}</span>
+                            <span className="cc-sf-contact-phone">📱 {c.phone}</span>
+                          </div>
+                        ))}
+                        {filterContacts.length > 5 && (
+                          <div className="cc-sf-more">+{filterContacts.length - 5} more contacts</div>
+                        )}
+                      </div>
+                    )}
+
+                  </div>
+                )}
+
+                {errors.contacts && (
+                  <span className="cc-error" style={{ marginTop: 8 }}>{errors.contacts}</span>
+                )}
               </div>
             )}
 
@@ -467,7 +744,9 @@ export default function CreateCampaignPage() {
                   </div>
                   <div className="cc-review-row">
                     <span className="cc-review-label">Contact Source</span>
-                    <span className="cc-review-value">{source === "salon" ? "🏪 Salon Clients" : "📊 Excel Upload"}</span>
+                    <span className="cc-review-value">
+                      {source === "salon" ? "🏪 Salon Clients" : source === "filter" ? "🎯 Smart Filter" : "📊 Excel Upload"}
+                    </span>
                   </div>
                   <div className="cc-review-row">
                     <span className="cc-review-label">Total Contacts</span>
@@ -554,7 +833,6 @@ export default function CreateCampaignPage() {
                   )
                 )}
 
-                {/* Meta 2025: user saturation info */}
                 {!isOverLimit && (
                   <div className="cc-meta-info">
                     <span className="cc-meta-info-icon">💡</span>
@@ -600,62 +878,61 @@ export default function CreateCampaignPage() {
         </div>
 
         <div className="cc-right-col">
-  {/* What is a Blast Campaign */}
-  <div className="cc-what-is">
-    <div className="cc-what-is-title">📣 What is a Blast Campaign?</div>
-    <p className="cc-what-is-desc">
-      A Blast Campaign lets you send a WhatsApp message to hundreds of contacts
-      at once using a pre-approved template. Perfect for promotions, announcements,
-      appointment reminders and offers.
-    </p>
-    <div className="cc-what-is-stats">
-      <div className="cc-what-is-stat">
-        <span className="cc-what-is-stat-icon">⚡</span>
-        <span>Sends in batches so Meta doesn't flag your number</span>
-      </div>
-      <div className="cc-what-is-stat">
-        <span className="cc-what-is-stat-icon">⏸</span>
-        <span>Pause anytime from Campaign History</span>
-      </div>
-      <div className="cc-what-is-stat">
-        <span className="cc-what-is-stat-icon">📊</span>
-        <span>Track delivery, read rates per contact</span>
-      </div>
-      <div className="cc-what-is-stat">
-        <span className="cc-what-is-stat-icon">📅</span>
-        <span>Schedule for the perfect time</span>
-      </div>
-    </div>
-  </div>
+          <div className="cc-what-is">
+            <div className="cc-what-is-title">📣 What is a Blast Campaign?</div>
+            <p className="cc-what-is-desc">
+              A Blast Campaign lets you send a WhatsApp message to hundreds of contacts
+              at once using a pre-approved template. Perfect for promotions, announcements,
+              appointment reminders and offers.
+            </p>
+            <div className="cc-what-is-stats">
+              <div className="cc-what-is-stat">
+                <span className="cc-what-is-stat-icon">⚡</span>
+                <span>Sends in batches so Meta doesn't flag your number</span>
+              </div>
+              <div className="cc-what-is-stat">
+                <span className="cc-what-is-stat-icon">⏸</span>
+                <span>Pause anytime from Campaign History</span>
+              </div>
+              <div className="cc-what-is-stat">
+                <span className="cc-what-is-stat-icon">📊</span>
+                <span>Track delivery, read rates per contact</span>
+              </div>
+              <div className="cc-what-is-stat">
+                <span className="cc-what-is-stat-icon">📅</span>
+                <span>Schedule for the perfect time</span>
+              </div>
+            </div>
+          </div>
 
-  <div className="cc-guide">
-    <div className="cc-guide-title">🗺️ How to run a campaign</div>
-    <div className="cc-guide-steps">
-      {[
-        { title: "Create a Template",  desc: "Go to Templates → design your WhatsApp message and submit for Meta approval." },
-        { title: "Wait for Approval",  desc: "Meta reviews templates in minutes to hours. Sync status on the Templates page." },
-        { title: "Pick Contacts",      desc: "Select from your salon clients or upload an Excel file with phone numbers." },
-        { title: "Launch & Track",     desc: "Launch the campaign. Track delivery and read rates in Campaign History." },
-      ].map((s, i) => (
-        <div key={i} className="cc-guide-step">
-          <div className="cc-guide-num">{i + 1}</div>
-          <div>
-            <div className="cc-guide-step-title">{s.title}</div>
-            <div className="cc-guide-step-desc">{s.desc}</div>
+          <div className="cc-guide">
+            <div className="cc-guide-title">🗺️ How to run a campaign</div>
+            <div className="cc-guide-steps">
+              {[
+                { title: "Create a Template",  desc: "Go to Templates → design your WhatsApp message and submit for Meta approval." },
+                { title: "Wait for Approval",  desc: "Meta reviews templates in minutes to hours. Sync status on the Templates page." },
+                { title: "Pick Contacts",      desc: "Select from your salon clients, upload Excel, or use Smart Filter to target specific clients." },
+                { title: "Launch & Track",     desc: "Launch the campaign. Track delivery and read rates in Campaign History." },
+              ].map((s, i) => (
+                <div key={i} className="cc-guide-step">
+                  <div className="cc-guide-num">{i + 1}</div>
+                  <div>
+                    <div className="cc-guide-step-title">{s.title}</div>
+                    <div className="cc-guide-step-desc">{s.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {dailyLimit > 0 && (
+              <div className="cc-guide-limit">
+                📊 Your daily limit: <strong>{dailyLimit.toLocaleString()}</strong> messages
+              </div>
+            )}
+            <div className="cc-guide-tip">
+              💡 <strong>Tip:</strong> Use UTILITY templates — they get approved faster than MARKETING ones.
+            </div>
           </div>
         </div>
-      ))}
-    </div>
-    {dailyLimit > 0 && (
-      <div className="cc-guide-limit">
-        📊 Your daily limit: <strong>{dailyLimit.toLocaleString()}</strong> messages
-      </div>
-    )}
-    <div className="cc-guide-tip">
-      💡 <strong>Tip:</strong> Use UTILITY templates — they get approved faster than MARKETING ones.
-    </div>
-  </div>
-</div>
       </div>
     </div>
   );

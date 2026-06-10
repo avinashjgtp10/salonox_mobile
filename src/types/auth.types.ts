@@ -25,6 +25,15 @@ export interface LoginResponse {
     accessToken: string;
     refreshToken: string;
     isOnboardingComplete: boolean;
+    user?: {
+      id?: string;
+      email?: string;
+      role?: string;
+      first_name?: string;
+      last_name?: string;
+      salonId?: string | null;
+      custom_permissions?: Record<string, boolean> | null;
+    };
   };
 }
 

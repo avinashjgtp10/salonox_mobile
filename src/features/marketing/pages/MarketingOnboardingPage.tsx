@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { useAppSelector } from "../../../hooks/useAppRedux";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import {
   saveWaConfigThunk,
@@ -39,7 +38,7 @@ const CHECK_TO_FIELD_ERRORS: Record<string, Partial<Record<keyof FormState, stri
     accessToken: "Invalid or expired token — must be a permanent System User token",
   },
   "Phone Number ID": {
-    phoneNumberId: "Invalid Phone Number ID — check WhatsApp → API Setup",
+    phoneNumberId: "Invalid Phone Number ID or already registered to another account — each salon must have their own WhatsApp number",
   },
   "WhatsApp Business Account": {
     wabaId: "Invalid WABA ID — check WhatsApp → API Setup",
@@ -365,8 +364,7 @@ function SetupStage({ onBack }: { onBack: () => void }) {
   const step       = SETUP_STEPS[currentStep];
   const isLastStep = currentStep === SETUP_STEPS.length - 1;
   const progress   = Math.round(((currentStep + 1) / SETUP_STEPS.length) * 100);
-  const salonId = useAppSelector(s => (s as any).salon?.currentSalon?.id ?? '')
-  const webhookUrl = `${API_ORIGIN}/api/v1/webhooks/${salonId}/meta`
+const webhookUrl = `${API_ORIGIN}/api/v1/webhooks/whatsapp`
 
   const up = (key: keyof FormState, val: string) => {
     setForm(prev => ({ ...prev, [key]: val }));

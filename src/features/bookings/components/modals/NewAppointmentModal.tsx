@@ -27,7 +27,7 @@ import "../../styles/NewAppointmentModal.scss";
 import "../../styles/ClientFormUI.scss";
 import {
   Lightning, FileText, BellFill, CreditCard2Front, CreditCard,
-  LockFill, Cash, Phone, ExclamationTriangleFill, XCircleFill, PencilFill, StarFill,
+  LockFill, Cash, Phone, ExclamationTriangleFill, PencilFill, StarFill,
   Printer, Trash, ArrowRepeat, Scissors, Gift, CheckCircleFill, RecordCircle,
 } from "react-bootstrap-icons";
 
@@ -72,12 +72,194 @@ function getNextTier(rev: number): { name: string; remaining: number } | null {
   return null;
 }
 
-function printBill(booking: Booking, paidMethods: Record<string, number>, staffList: { id: string; name: string }[]) {
+function printBill(
+  booking: Booking,
+  paidMethods: Record<string, number>,
+  staffList: { id: string; name: string }[],
+  salon?: { business_name?: string; phone?: string; email?: string; address?: string; website_url?: string } | null,
+) {
+  const salonName = salon?.business_name || "SalonOx";
+  const salonPhone = salon?.phone || "";
+  const salonEmail = salon?.email || "";
+  const salonAddress = salon?.address || "";
+  const salonWebsite = salon?.website_url || "";
+
   const staffName = staffList.find((s) => s.id === booking.staffId)?.name || "—";
-  const methodStr = Object.entries(paidMethods).map(([m, a]) => `${m}: ₹${a.toFixed(2)}`).join(", ");
-  const svcRows = booking.services.map((s) => `<tr><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0">${s.service}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;color:#6b7280">${s.staff || staffName}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center">${s.qty}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600">₹${(s.total || 0).toFixed(2)}</td></tr>`).join("");
-  const pkgRows = (booking.packageItems || []).map((p) => `<tr><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0">${p.packageName} <span style="color:#f59e0b">[PKG]</span></td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;color:#6b7280">—</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:center">${p.qty}</td><td style="padding:7px 10px;border-bottom:1px solid #f0f0f0;text-align:right;font-weight:600">₹${(p.total || 0).toFixed(2)}</td></tr>`).join("");
-  const html = `<!DOCTYPE html><html><head><title>Receipt</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',sans-serif;padding:32px;color:#111;max-width:600px;margin:0 auto}</style></head><body><div style="text-align:center;margin-bottom:24px"><div style="font-size:26px;font-weight:800">SalonOx</div><div style="font-size:13px;color:#6b7280">Payment Receipt</div></div><table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px"><thead><tr style="background:#1f2937;color:#fff"><th style="padding:9px 10px;text-align:left">Item</th><th style="padding:9px 10px;text-align:left">Staff</th><th style="padding:9px 10px;text-align:center">Qty</th><th style="padding:9px 10px;text-align:right">Amount</th></tr></thead><tbody>${svcRows}${pkgRows}</tbody></table><div style="display:flex;justify-content:flex-end"><div style="width:260px"><div style="display:flex;justify-content:space-between;font-size:17px;font-weight:800;border-top:2px solid #1f2937;padding-top:10px">Grand Total<span>₹${(booking.grandTotal || 0).toFixed(2)}</span></div><div style="display:flex;justify-content:space-between;font-size:12px;color:#22c55e;margin-top:6px;font-weight:600">Payment<span>${methodStr}</span></div><div style="background:#22c55e;color:#fff;text-align:center;padding:6px;border-radius:6px;margin-top:10px;font-weight:700">✓ PAID</div></div></div><div style="text-align:center;margin-top:28px;font-size:11px;color:#9ca3af">Thank you for visiting SalonOx! 🌸</div></body></html>`;
+  const receiptNo = `#${String(booking.id).slice(-6).toUpperCase()}`;
+  const apptDate = booking.date
+    ? new Date(booking.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+    : "—";
+  const apptTime = booking.startTime || "—";
+  const isPaid = booking.paymentStatus === "Paid";
+
+  const svcRows = booking.services.map((s, i) => {
+    const bg = i % 2 === 0 ? "#ffffff" : "#f9fafb";
+    const disc = (s as any).discount ? `<div style="font-size:11px;color:#ef4444;margin-top:2px">Disc: -₹${(s as any).discount}</div>` : "";
+    return `<tr style="background:${bg}">
+      <td style="padding:10px 14px;vertical-align:top">
+        <div style="font-weight:600;font-size:13px;color:#111">${s.service}</div>
+        <div style="font-size:11px;color:#6b7280;margin-top:2px">by ${s.staff || staffName}</div>
+      </td>
+      <td style="padding:10px 14px;text-align:center;vertical-align:top;font-size:13px;color:#374151">${s.qty}</td>
+      <td style="padding:10px 14px;text-align:right;vertical-align:top">
+        <div style="font-size:13px;color:#6b7280">₹${(s.price || 0).toFixed(2)}</div>
+        ${disc}
+      </td>
+      <td style="padding:10px 14px;text-align:right;vertical-align:top;font-weight:700;font-size:13px;color:#111">₹${(s.total || 0).toFixed(2)}</td>
+    </tr>`;
+  }).join("");
+
+  const pkgRows = (booking.packageItems || []).map((p, i) => {
+    const bg = (booking.services.length + i) % 2 === 0 ? "#ffffff" : "#f9fafb";
+    return `<tr style="background:${bg}">
+      <td style="padding:10px 14px;vertical-align:top">
+        <div style="font-weight:600;font-size:13px;color:#111">${p.packageName}</div>
+        <div style="font-size:11px;color:#f59e0b;margin-top:2px">Package</div>
+      </td>
+      <td style="padding:10px 14px;text-align:center;vertical-align:top;font-size:13px;color:#374151">${p.qty}</td>
+      <td style="padding:10px 14px;text-align:right;vertical-align:top;font-size:13px;color:#6b7280">—</td>
+      <td style="padding:10px 14px;text-align:right;vertical-align:top;font-weight:700;font-size:13px;color:#111">₹${(p.total || 0).toFixed(2)}</td>
+    </tr>`;
+  }).join("");
+
+  const subtotal = [
+    ...booking.services.map((s) => s.total || 0),
+    ...(booking.packageItems || []).map((p) => p.total || 0),
+  ].reduce((a, b) => a + b, 0);
+  const grandTotal = booking.grandTotal || subtotal;
+  const totalDiscount = subtotal - grandTotal > 0 ? subtotal - grandTotal : 0;
+
+  const paymentRows = Object.entries(paidMethods)
+    .filter(([, amt]) => amt > 0)
+    .map(([method, amt]) => `
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#374151;border-bottom:1px dashed #e5e7eb">
+        <span style="display:flex;align-items:center;gap:6px">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#6366f1"></span>${method}
+        </span>
+        <span style="font-weight:600">₹${amt.toFixed(2)}</span>
+      </div>`).join("");
+
+  const metaInfo = [
+    salonAddress && `<span>${salonAddress}</span>`,
+    salonPhone && `<span>📞 ${salonPhone}</span>`,
+    salonEmail && `<span>✉ ${salonEmail}</span>`,
+  ].filter(Boolean).join('<span style="margin:0 8px;color:#9ca3af">|</span>');
+
+  const html = `<!DOCTYPE html>
+<html><head><title>Receipt – ${salonName}</title>
+<meta charset="utf-8"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#f3f4f6;color:#111;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  @media print{body{background:#fff}}
+  .page{max-width:680px;margin:24px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.10)}
+  @media print{.page{box-shadow:none;margin:0;border-radius:0}}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER BAND -->
+  <div style="background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);padding:32px 36px 24px;color:#fff;text-align:center">
+    <div style="font-size:30px;font-weight:900;letter-spacing:1px;margin-bottom:4px">${salonName}</div>
+    <div style="font-size:12px;color:#94a3b8;letter-spacing:2px;text-transform:uppercase;margin-bottom:16px">Payment Receipt</div>
+    ${metaInfo ? `<div style="font-size:11px;color:#cbd5e1;margin-top:8px;line-height:1.8">${metaInfo}</div>` : ""}
+  </div>
+
+  <!-- RECEIPT META -->
+  <div style="background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:14px 36px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <div>
+      <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Receipt No.</div>
+      <div style="font-size:14px;font-weight:700;color:#1e293b">${receiptNo}</div>
+    </div>
+    <div style="text-align:center">
+      <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Date</div>
+      <div style="font-size:13px;font-weight:600;color:#1e293b">${apptDate}</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Time</div>
+      <div style="font-size:13px;font-weight:600;color:#1e293b">${apptTime}</div>
+    </div>
+  </div>
+
+  <!-- CLIENT INFO -->
+  ${booking.clientName && booking.clientName !== "Walk-In" && booking.clientName !== "Walk-in" ? `
+  <div style="padding:16px 36px;border-bottom:1px solid #e2e8f0;background:#fff;display:flex;align-items:center;gap:16px">
+    <div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px;flex-shrink:0">${(booking.clientName || "?")[0].toUpperCase()}</div>
+    <div>
+      <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Billed To</div>
+      <div style="font-size:15px;font-weight:700;color:#1e293b">${booking.clientName}</div>
+      ${booking.clientPhone ? `<div style="font-size:12px;color:#6b7280;margin-top:2px">📞 ${booking.clientPhone}</div>` : ""}
+    </div>
+  </div>` : `
+  <div style="padding:14px 36px;border-bottom:1px solid #e2e8f0;background:#fff">
+    <span style="font-size:12px;color:#94a3b8;background:#f1f5f9;padding:4px 12px;border-radius:20px;border:1px solid #e2e8f0">Walk-In Customer</span>
+  </div>`}
+
+  <!-- SERVICES TABLE -->
+  <div style="padding:20px 36px 0">
+    <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:10px">Services & Items</div>
+  </div>
+  <table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead>
+      <tr style="background:#f1f5f9">
+        <th style="padding:10px 14px;text-align:left;font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Item / Staff</th>
+        <th style="padding:10px 14px;text-align:center;font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Qty</th>
+        <th style="padding:10px 14px;text-align:right;font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Rate</th>
+        <th style="padding:10px 14px;text-align:right;font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">Total</th>
+      </tr>
+    </thead>
+    <tbody>${svcRows}${pkgRows}</tbody>
+  </table>
+
+  <!-- TOTALS -->
+  <div style="padding:20px 36px;border-top:2px solid #e2e8f0;margin-top:4px">
+    <div style="display:flex;justify-content:flex-end">
+      <div style="width:280px">
+        ${subtotal !== grandTotal ? `
+        <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;color:#6b7280">
+          <span>Subtotal</span><span>₹${subtotal.toFixed(2)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;color:#ef4444">
+          <span>Discount</span><span>-₹${totalDiscount.toFixed(2)}</span>
+        </div>` : ""}
+        <div style="display:flex;justify-content:space-between;padding:10px 0 10px;font-size:17px;font-weight:800;color:#1e293b;border-top:2px solid #1e293b;margin-top:6px">
+          <span>Grand Total</span><span>₹${grandTotal.toFixed(2)}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAYMENT BREAKDOWN -->
+  ${Object.values(paidMethods).some((v) => v > 0) ? `
+  <div style="padding:0 36px 20px">
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px 18px">
+      <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:10px">Payment Breakdown</div>
+      ${paymentRows}
+    </div>
+  </div>` : ""}
+
+  <!-- PAID BADGE -->
+  <div style="padding:0 36px 28px;text-align:center">
+    ${isPaid
+      ? `<div style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;padding:10px 32px;border-radius:50px;font-size:15px;font-weight:800;letter-spacing:0.5px;box-shadow:0 4px 14px rgba(16,185,129,0.35)">
+           ✓ &nbsp;PAID IN FULL
+         </div>`
+      : `<div style="display:inline-flex;align-items:center;gap:8px;background:#fef3c7;color:#b45309;padding:10px 32px;border-radius:50px;font-size:14px;font-weight:700;border:1.5px solid #fcd34d">
+           ⏳ &nbsp;PAYMENT PENDING
+         </div>`}
+  </div>
+
+  <!-- FOOTER -->
+  <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:18px 36px;text-align:center">
+    <div style="font-size:14px;font-weight:700;color:#1e293b;margin-bottom:4px">Thank you for choosing ${salonName}! ✨</div>
+    <div style="font-size:11px;color:#9ca3af;margin-bottom:2px">We look forward to seeing you again.</div>
+    ${salonWebsite ? `<div style="font-size:11px;color:#6366f1;margin-top:6px">${salonWebsite}</div>` : ""}
+  </div>
+
+</div>
+</body></html>`;
+
   const win = window.open("", "_blank", "width=700,height=650");
   if (!win) { alert("Please allow popups."); return; }
   win.document.write(html); win.document.close(); win.focus(); setTimeout(() => win.print(), 500);
@@ -86,7 +268,10 @@ function printBill(booking: Booking, paidMethods: Record<string, number>, staffL
 function validateAll(svcRows: TempService[], pkgRows: TempPkg[], prodRows: TempProduct[], memRows: TempMembership[], clientName: string, isWalkin: boolean, selectedClientId: string | null, showAddClientForm: boolean, newClientName: string, newClientPhone: string) {
   const errors: string[] = [];
   if (!clientName.trim() && !isWalkin && !selectedClientId) errors.push("client");
-  if (showAddClientForm) {
+  // Only validate form fields when creating a brand-new client (no existing selectedClientId).
+  // When an existing client was selected via the search dropdown, the form opens for display
+  // only — the client is already resolved so field-level validation must not block saving.
+  if (showAddClientForm && !selectedClientId) {
     if (!newClientName.trim()) errors.push("new_client_name");
     if (!/^\d{10}$/.test(newClientPhone.trim())) errors.push("new_client_phone");
   }
@@ -150,10 +335,11 @@ const InlineDrop: React.FC<{
 // ─── Main Component ────────────────────────────────────────────────────────────
 const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, defaultTime, existingBooking }) => {
   const { addBooking, updateBooking, currentDate, clientStats, deductEWallet, processPaymentRewards,
-    staffList, clientsList, packagesList, membershipsList, productsList, blockedTimes, bookings } = useSchedulerContext();
+    staffList, clientsList, packagesList, membershipsList, productsList, blockedTimes } = useSchedulerContext();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const salonId = useAppSelector((s: any) => s.salon?.currentSalon?.id);
+  const currentSalon = useAppSelector((s: any) => s.salon?.currentSalon);
 
   // ✅ FIX — read from both snake_case (DB) and camelCase (local state)
   const paymentState = (
@@ -464,7 +650,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
       ...serviceRows.map((r) => r.service || (r as any).name).filter(Boolean),
       ...productRows.map((r) => r.productName || (r as any).name).filter(Boolean),
       ...packageRows.map((r) => r.packageName || (r as any).name).filter(Boolean),
-      ...membershipRows.map((r) => r.membershipName || (r as any).name).filter(Boolean),
+      ...membershipRows.map((r) => r.name).filter(Boolean),
     ].filter(Boolean).join(", ");
 
     return {
@@ -499,8 +685,8 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
       productItems: productRows.map((r) => ({ ...r, name: r.productName || (r as any).name })),
       products: productRows.map((r) => ({ ...r, name: r.productName || (r as any).name })),
       packages: packageRows.map((r) => ({ id: r.id || "pk_" + r.tempId, packageId: r.packageId, packageName: r.packageName, name: r.packageName, price: r.price, qty: r.qty, total: r.total })),
-      membershipItems: membershipRows.map((r) => ({ ...r, name: r.membershipName || (r as any).name })),
-      memberships: membershipRows.map((r) => ({ ...r, name: r.membershipName || (r as any).name })),
+      membershipItems: membershipRows.map((r) => ({ ...r })),
+      memberships: membershipRows.map((r) => ({ ...r })),
     } as any;
   }
 
@@ -546,24 +732,6 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
     );
   }
 
-  function checkBookingConflict(bookingDate: string, startTime: string, endTime: string, staffId: string): boolean {
-    const editingBookingId = existingBooking?.id;
-    return bookings.some((existing) => {
-      const isSameBooking = editingBookingId !== undefined && editingBookingId !== null && 
-        (existing.id === editingBookingId || String(existing.id) === String(editingBookingId));
-      const existStatus = (existing.status || "").toLowerCase();
-      const existEnd = existing.endTime || existing.startTime;
-      return (
-        existing.staffId === staffId &&
-        existing.date === bookingDate &&
-        !isSameBooking &&
-        existStatus !== "cancelled" &&
-        existStatus !== "canceled" &&
-        startTime < existEnd &&
-        endTime > existing.startTime
-      );
-    });
-  }
 
   async function handleSave() {
     const errors = runValidation();
@@ -901,7 +1069,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
     }
     setPaidMethodsSnap(methods);
     setSavedBookingRef(updated);
-    if (printAfterPayment) printBill(updated, methods, staffList);
+    if (printAfterPayment) printBill(updated, methods, staffList, currentSalon);
     if (payStatus !== "Paid") {
       toast.success("Partial payment recorded.");
     }
@@ -1010,7 +1178,9 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                   {!isEditing && apptStatus !== "CANCELLED" && (
                     <button className="dropdown-item d-flex align-items-center gap-2" onClick={() => { setIsEditing(true); setShowDotMenu(false); }}><PencilFill size={13} />Edit Appointment</button>
                   )}
-                  <button className="dropdown-item d-flex align-items-center gap-2" onClick={() => { printBill((savedBookingRef || existingBooking)!, paidMethodsSnap, staffList); setShowDotMenu(false); }}><Printer size={13} />Print Receipt</button>
+                  {apptStatus !== "CANCELLED" && (
+                    <button className="dropdown-item d-flex align-items-center gap-2" onClick={() => { printBill((savedBookingRef || existingBooking)!, paidMethodsSnap, staffList, currentSalon); setShowDotMenu(false); }}><Printer size={13} />Print Receipt</button>
+                  )}
                   <div className="dropdown-divider" style={{ margin: "4px 0" }}></div>
                   <button className="dropdown-item d-flex align-items-center gap-2" onClick={() => handleCancelAppointment()} disabled={isCancelLoading || apptStatus === "CANCELLED"}>
                     {isCancelLoading ? <><ArrowRepeat size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />Cancelling...</> : apptStatus === "CANCELLED" ? "✓ Already Cancelled" : "Cancel Appointment"}
@@ -1119,7 +1289,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                     }
                     setCountryCode(matchedCountryCode);
                     setNewClientPhone(phoneStr.replace(/\D/g, "").slice(-10));
-                    setNewClientGender((client.gender as any) || "");
+                    setNewClientGender((client as any).gender || "");
                     
                     // Open the form so the user sees the auto-filled data
                     setShowAddClientForm(true);
@@ -1134,13 +1304,12 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
               <button type="button" className={`client-action-btn ${isWalkin ? "active" : ""}`} onClick={handleWalkinClick} disabled={clientFrozen}>
                 Walk-In
               </button>
-              <button type="button" className="client-action-btn" disabled={clientFrozen} onClick={() => {
+              <button type="button" className="client-action-btn" onClick={() => {
                 const willClose = showAddClientForm;
                 setShowAddClientForm((v) => !v);
                 setIsClientSaved(false);
                 clearErr("new_client_name", "new_client_last_name", "new_client_phone", "new_client_gender");
                 if (willClose) {
-                  // Only clear form if no client is selected (so auto-filled data isn't wiped on re-open)
                   if (!selectedClientId) {
                     setNewClientName(""); setNewClientLastName(""); setNewClientPhone(""); setNewClientGender("");
                   }
@@ -1167,7 +1336,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
           </div>
 
           {/* ADD CLIENT FORM */}
-          {showAddClientForm && !clientFrozen && (
+          {showAddClientForm && (
             <div className="client-form-card">
               <div className="client-form-row">
 

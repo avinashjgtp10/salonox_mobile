@@ -1,7 +1,6 @@
-import Card from "../../../components/ui/Card";
-import Table from "../../../components/ui/Table";
 import type { Sale } from "../../../types/sale.types";
 import { format } from "date-fns";
+import { formatCurrency } from "../../../utils/format";
 
 interface Props {
   sales: Sale[];
@@ -9,108 +8,116 @@ interface Props {
   selectedDate: Date;
 }
 
-const fmt = (n: number) => `₹${n.toFixed(2)}`;
-
-const METHOD_LABEL: Record<string, string> = {
-  cash:      "Cash",
-  card:      "Card",
-  upi:       "UPI",
-  gift_card: "Gift card redemptions",
-  split:     "Split payment",
+const METHOD_CONFIG: Record<string, { label: string; color: string }> = {
+  cash:          { label: "Cash",                  color: "#16a34a" },
+  card:          { label: "Card",                  color: "#2563eb" },
+  upi:           { label: "UPI",                   color: "#7c3aed" },
+  gift_card:     { label: "Gift card redemptions", color: "#d97706" },
+  split:         { label: "Split payment",         color: "#0891b2" },
+  bank_transfer: { label: "Bank transfer",         color: "#0f766e" },
+  wallet:        { label: "Wallet",                color: "#db2777" },
 };
 
 export default function CashMovementSummary({ sales, isLoading, selectedDate }: Props) {
-  // ── Only count non-draft, non-cancelled sales for collected amounts ─────────
   const active   = sales.filter((s) => s.status === "completed");
   const refunded = sales.filter((s) => s.status === "refunded");
 
-  // ── Group collected amounts by payment method ─────────────────────────────
   const collected: Record<string, number> = {};
   const tips:      Record<string, number> = {};
 
   for (const s of active) {
     const method = s.payment_method ?? "other";
     collected[method] = (collected[method] ?? 0) + parseFloat(s.total_amount || "0");
-    tips[method]      = (tips[method]      ?? 0) + parseFloat((s as any).tip_amount || "0");
+    tips[method]      = (tips[method]      ?? 0) + parseFloat(s.tip_amount || "0");
   }
 
-  // ── Refunded amounts by method ─────────────────────────────────────────────
   const refunds: Record<string, number> = {};
   for (const s of refunded) {
     const method = s.payment_method ?? "other";
     refunds[method] = (refunds[method] ?? 0) + parseFloat(s.total_amount || "0");
   }
 
-  // ── Build rows for all known methods that appear in the data ──────────────
   const allMethods = Array.from(
     new Set([...Object.keys(collected), ...Object.keys(refunds)])
   );
 
-  const methodRows = allMethods.map((method, idx) => ({
-    id:        idx,
-    type:      METHOD_LABEL[method] ?? method,
-    collected: fmt(collected[method] ?? 0),
-    refunded:  fmt(refunds[method]   ?? 0),
+  const methodRows = allMethods.map((method) => ({
+    method,
+    label:     METHOD_CONFIG[method]?.label ?? method,
+    color:     METHOD_CONFIG[method]?.color ?? "#94a3b8",
+    collected: collected[method] ?? 0,
+    refunded:  refunds[method]   ?? 0,
   }));
 
-  // If no data yet, show placeholder rows
-  const placeholderRows = ["Cash", "Card", "UPI", "Gift card redemptions"].map((label, idx) => ({
-    id: idx,
-    type: label,
-    collected: "₹0.00",
-    refunded:  "₹0.00",
-  }));
+  const placeholderMethods = ["cash", "card", "upi", "gift_card"];
+  const displayRows = methodRows.length > 0
+    ? methodRows
+    : placeholderMethods.map((m) => ({
+        method: m,
+        label:  METHOD_CONFIG[m].label,
+        color:  METHOD_CONFIG[m].color,
+        collected: 0,
+        refunded:  0,
+      }));
 
   const totalCollected = Object.values(collected).reduce((a, b) => a + b, 0);
   const totalRefunded  = Object.values(refunds).reduce((a, b) => a + b, 0);
   const totalTips      = Object.values(tips).reduce((a, b) => a + b, 0);
 
-  const displayRows = methodRows.length > 0 ? methodRows : placeholderRows;
-
-  const data = [
-    ...displayRows,
-    {
-      id: "total",
-      type: "Payments collected",
-      collected: fmt(totalCollected),
-      refunded:  fmt(totalRefunded),
-      isTotal: true,
-    },
-    {
-      id: "tips",
-      type: "Of which tips",
-      collected: fmt(totalTips),
-      refunded:  "—",
-      isTips: true,
-    },
-  ];
-
-  const columns = [
-    { header: "Payment type",        key: "type"      },
-    { header: "Payments collected",  key: "collected"  },
-    { header: "Refunds paid",        key: "refunded", className: "text-end" },
-  ];
-
-  if (isLoading) {
-    return (
-      <Card title="Cash movement summary" noPadding className="mb-4">
-        <div className="d-flex align-items-center justify-content-center py-5">
-          <div className="spinner-border spinner-border-sm text-muted me-2" role="status" />
-          <span className="text-muted small">Loading…</span>
-        </div>
-      </Card>
-    );
-  }
-
   return (
-    <Card title={`Cash movement — ${format(selectedDate, "d MMM yyyy")}`} noPadding className="mb-4">
-      <Table
-        columns={columns}
-        data={data}
-        rowClassName={(item: any) =>
-          item.isTotal ? "fw-bold bg-light" : item.isTips ? "text-muted fst-italic" : ""
-        }
-      />
-    </Card>
+    <div className="dsp-card">
+      <div className="dsp-card__hd">
+        <h4 className="dsp-card__title">Cash movement</h4>
+        <span className="dsp-card__badge">{format(selectedDate, "d MMM yyyy")}</span>
+      </div>
+
+      {isLoading ? (
+        <div className="dsp-skeleton">
+          {[...Array(5)].map((_, i) => <div key={i} className="dsp-skeleton__row" />)}
+        </div>
+      ) : (
+        <table className="dsp-tbl">
+          <thead>
+            <tr>
+              <th>Payment type</th>
+              <th className="r">Payments collected</th>
+              <th className="r">Refunds paid</th>
+            </tr>
+          </thead>
+          <tbody>
+            {displayRows.map((row) => (
+              <tr key={row.method}>
+                <td>
+                  <span className="dsp-method">
+                    <span className="dsp-method__dot" style={{ background: row.color }} />
+                    {row.label}
+                  </span>
+                </td>
+                <td className={`r${row.collected > 0 ? " dsp-tbl__green" : " dsp-tbl__muted"}`}>
+                  {formatCurrency(row.collected)}
+                </td>
+                <td className={`r${row.refunded > 0 ? " dsp-tbl__red" : " dsp-tbl__muted"}`}>
+                  {formatCurrency(row.refunded)}
+                </td>
+              </tr>
+            ))}
+
+            <tr className="dsp-tbl__row-total">
+              <td>Payments collected</td>
+              <td className="r">{formatCurrency(totalCollected)}</td>
+              <td className={`r${totalRefunded > 0 ? " dsp-tbl__red" : ""}`}>
+                {formatCurrency(totalRefunded)}
+              </td>
+            </tr>
+
+            <tr className="dsp-tbl__row-tips">
+              <td>Of which tips</td>
+              <td className="r">{formatCurrency(totalTips)}</td>
+              <td className="r">—</td>
+            </tr>
+          </tbody>
+        </table>
+      )}
+    </div>
   );
 }

@@ -49,6 +49,9 @@ export default function QuickSalePage() {
 
   // In edit mode: Redux selectedItem holds the sale once fetchSaleByIdThunk resolves
   const editSaleFetched = useSelector((s: RootState) => isEditMode ? (s.sale as any).selectedItem : null);
+  // Determine if the sale being edited is still a draft (can be checked out) or already completed
+  const editSaleStatus  = isEditMode ? (editSaleFetched?.status ?? null) : null;
+  const isEditDraft     = !isEditMode || editSaleStatus === "draft" || editSaleStatus === null;
   const rawClientItems  = useSelector((s: RootState) => (s.client as any).items);
   const clientMap = useMemo(() => {
     const list: any[] = Array.isArray(rawClientItems) ? rawClientItems
@@ -128,6 +131,19 @@ export default function QuickSalePage() {
 
   const dotMenuRef    = useRef<HTMLDivElement>(null);
   const datePickerRef = useRef<HTMLDivElement>(null);
+
+  // ── Auto-dismiss error/success banners ────────────────────────────────────
+  useEffect(() => {
+    if (!errorMsg) return;
+    const t = setTimeout(() => setErrorMsg(""), 4000);
+    return () => clearTimeout(t);
+  }, [errorMsg]);
+
+  useEffect(() => {
+    if (!successMsg) return;
+    const t = setTimeout(() => setSuccessMsg(""), 4000);
+    return () => clearTimeout(t);
+  }, [successMsg]);
 
   // ── Hydrate from Redux cache ───────────────────────────────────────────────
   useEffect(() => {
@@ -586,6 +602,8 @@ export default function QuickSalePage() {
   async function handleCheckoutEditSale() {
     const saleId = currentSaleId ?? editId;
     if (!saleId) { setErrorMsg("Sale ID missing — cannot checkout."); return; }
+    // Completed sales cannot be re-checked out; fall back to update-only
+    if (!isEditDraft) { return handleUpdateSale(); }
     const itemsOk   = runValidation();
     const paymentOk = runPaymentValidation();
     if (!itemsOk || !paymentOk) return;
@@ -726,8 +744,8 @@ export default function QuickSalePage() {
         <div className="qs-main">
 
           {initLoading && <div className="qs-alert qs-alert--info"><span>⏳</span> Loading catalog data…</div>}
-          {successMsg  && <div className="qs-alert qs-alert--success"><span>✓</span> {successMsg}</div>}
-          {errorMsg    && <div className="qs-alert qs-alert--error"><span>⚠</span> {errorMsg}</div>}
+          {successMsg  && <div className="qs-alert qs-alert--success"><span>✓</span> {successMsg}<button className="qs-alert__close" onClick={() => setSuccessMsg("")}>×</button></div>}
+          {errorMsg    && <div className="qs-alert qs-alert--error"><span>⚠</span> {errorMsg}<button className="qs-alert__close" onClick={() => setErrorMsg("")}>×</button></div>}
 
           {/* ═══ CLIENT ═══ */}
           <div className="qs-card">
@@ -1145,19 +1163,25 @@ export default function QuickSalePage() {
           <div className="qs-sidebar__footer">
             {isEditMode ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <button
-                  className="qs-pay-btn"
-                  disabled={!hasItems || isBusy || selectedMethods.length === 0}
-                  onClick={handleCheckoutEditSale}
-                >
-                  {isBusy ? "Processing…" : `✓ Pay Now — ₹${grandTotal.toFixed(2)}`}
-                </button>
+                {isEditDraft ? (
+                  <button
+                    className="qs-pay-btn"
+                    disabled={!hasItems || isBusy || selectedMethods.length === 0}
+                    onClick={handleCheckoutEditSale}
+                  >
+                    {isBusy ? "Processing…" : `✓ Pay Now — ₹${grandTotal.toFixed(2)}`}
+                  </button>
+                ) : (
+                  <div style={{ fontSize: 12, color: "#059669", background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: 8, padding: "7px 10px", textAlign: "center", fontWeight: 500 }}>
+                    ✓ Payment complete — edit items below and click Save Changes
+                  </div>
+                )}
                 <button
                   className="qs-pay-btn qs-pay-btn--update"
                   disabled={!hasItems || isBusy}
                   onClick={handleUpdateSale}
                 >
-                  {isBusy ? "Saving…" : "Save Changes"}
+                  {isBusy ? "Saving…" : "💾 Save Changes"}
                 </button>
               </div>
             ) : (

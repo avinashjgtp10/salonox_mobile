@@ -145,13 +145,8 @@ const ServiceFilterDrawer: React.FC<Props> = ({
         </div>
 
         <footer className="service-filters-modal__footer">
-          {activeCount > 0 && (
-            <button className="btn-clear-rounded" onClick={handleClear}>
-              Clear all
-            </button>
-          )}
-          <button className="btn-cancel-rounded" onClick={onClose}>
-            Cancel
+          <button className="btn-clear-rounded" onClick={handleClear}>
+            Clear all
           </button>
           <button className="btn-apply-rounded" onClick={handleApply}>
             Apply

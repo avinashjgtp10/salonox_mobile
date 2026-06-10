@@ -48,7 +48,7 @@ const generalTabs: TabItem[] = [
 const settingsTabs: TabItem[] = [
   { key: "online-booking", label: "Online booking" },
   { key: "portfolio", label: "Portfolio images" },
-  { key: "forms", label: "Forms", count: 1 },
+  { key: "forms", label: "Forms" },
   { key: "commission", label: "Commissions" },
   { key: "settings", label: "Settings" },
 ];
@@ -58,6 +58,7 @@ const EditServicePage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const [activeTab, setActiveTab] = useState<TabKey>("basic");
+  const [showBanner, setShowBanner] = useState(false);
 
   const rawCategories = useSelector(selectAllCategories);
   const categories = (Array.isArray(rawCategories) ? rawCategories : []).map(
@@ -89,6 +90,17 @@ const EditServicePage: React.FC = () => {
     isSubmitted,
     serviceName,
   } = useEditServiceForm(id!);
+
+  // Show banner when new validation errors arrive, auto-dismiss after 4 s
+  useEffect(() => {
+    if (isSubmitted && Object.keys(validationErrors).length > 0) {
+      setShowBanner(true);
+      const t = setTimeout(() => setShowBanner(false), 4000);
+      return () => clearTimeout(t);
+    } else {
+      setShowBanner(false);
+    }
+  }, [validationErrors, isSubmitted]);
 
   const onSubmit = async () => {
     const success = await handleSubmit();
@@ -186,24 +198,25 @@ const EditServicePage: React.FC = () => {
             <h1>{serviceName || "Edit service"}</h1>
           </div>
 
-          {isSubmitted && Object.keys(validationErrors).length > 0 && (
+          {showBanner && (
             <div
-              className="alert alert-danger border-0 rounded-4 d-flex align-items-center gap-3 p-4 mb-4"
-              style={{ backgroundColor: "#fff1f2", color: "#991b1b" }}
+              className="asp-error-banner"
+              role="alert"
             >
-              <div
-                className="error-icon rounded-circle d-flex align-items-center justify-content-center bg-white"
-                style={{ width: "32px", height: "32px" }}
+              <div className="asp-error-banner__icon">
+                <i className="bi bi-exclamation-triangle-fill" />
+              </div>
+              <div className="asp-error-banner__body">
+                <strong>Check the form for errors</strong>
+                <p>Some required fields are missing or invalid. Please check the marked sections.</p>
+              </div>
+              <button
+                className="asp-error-banner__close"
+                onClick={() => setShowBanner(false)}
+                aria-label="Dismiss"
               >
-                <i className="bi bi-exclamation-triangle-fill fs-5" />
-              </div>
-              <div>
-                <h6 className="fw-bold mb-1">Check the form for errors</h6>
-                <p className="small mb-0 opacity-75">
-                  Some required fields are missing or invalid. Please check the
-                  marked sections.
-                </p>
-              </div>
+                ×
+              </button>
             </div>
           )}
 

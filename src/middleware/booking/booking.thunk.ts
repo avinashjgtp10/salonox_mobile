@@ -187,6 +187,7 @@ export interface BookingFetchFilters {
   startDate?: string;
   endDate?: string;
   allTime?: boolean;
+  search?: string;
 }
 
 export interface BookingPaginatedResult {
@@ -218,6 +219,11 @@ export const fetchBookingsThunk = createAsyncThunk<
     if (!filters?.allTime) {
       if (filters?.startDate) params.set("start_date", filters.startDate);
       if (filters?.endDate) params.set("end_date", filters.endDate);
+    }
+    if (filters?.search) {
+      // strip leading # so "#6EDA3359" and "6EDA3359" both work
+      const q = filters.search.startsWith("#") ? filters.search.slice(1) : filters.search;
+      if (q) params.set("search", q);
     }
     const res = await api.get(`${BOOKING.BASE}?${params.toString()}`);
     const raw = res.data.data as any;

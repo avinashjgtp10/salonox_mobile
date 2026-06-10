@@ -476,7 +476,7 @@ const StaffTab = ({
   staffData: typeof fallbackStaffData;
   radarStaff: Array<{ metric: string; [key: string]: string | number }>;
 }) => {
-  const radarNames = radarStaff.length > 0
+  const radarNames = radarStaff.length > 0 && radarStaff[0] != null
     ? Object.keys(radarStaff[0]).filter(k => k !== "metric").slice(0, 3)
     : [];
 
@@ -486,25 +486,33 @@ const StaffTab = ({
       <div className="rp-chart-card rp-chart-card-tall">
         <h4 className="rp-chart-title">Performance Radar</h4>
         <p className="rp-chart-sub">Top 3 staff multi-metric comparison</p>
-        <ResponsiveContainer width="100%" height={260}>
-          <RadarChart data={radarStaff}>
-            <PolarGrid stroke="#f3f4f6" />
-            <PolarAngleAxis dataKey="metric" tick={{ fontSize: 11, fill: "#6b7280" }} />
-            {radarNames.map((name, i) => (
-              <Radar key={name} name={name} dataKey={name}
-                stroke={RADAR_COLORS[i]} fill={RADAR_COLORS[i]}
-                fillOpacity={0.08} strokeWidth={2} />
-            ))}
-            <Tooltip />
-          </RadarChart>
-        </ResponsiveContainer>
-        <div className="rp-legend-row mt-2 justify-content-center">
-          {radarNames.map((name, i) => (
-            <span key={name} className="rp-leg-item">
-              <span className="rp-pie-dot" style={{ background: RADAR_COLORS[i] }} />{name}
-            </span>
-          ))}
-        </div>
+        {radarNames.length > 0 ? (
+          <>
+            <ResponsiveContainer width="100%" height={260}>
+              <RadarChart data={radarStaff} key={radarNames.join(",")}>
+                <PolarGrid stroke="#f3f4f6" />
+                <PolarAngleAxis dataKey="metric" tick={{ fontSize: 11, fill: "#6b7280" }} />
+                {radarNames.map((name, i) => (
+                  <Radar key={name} name={name} dataKey={name}
+                    stroke={RADAR_COLORS[i]} fill={RADAR_COLORS[i]}
+                    fillOpacity={0.08} strokeWidth={2} />
+                ))}
+                <Tooltip />
+              </RadarChart>
+            </ResponsiveContainer>
+            <div className="rp-legend-row mt-2 justify-content-center">
+              {radarNames.map((name, i) => (
+                <span key={name} className="rp-leg-item">
+                  <span className="rp-pie-dot" style={{ background: RADAR_COLORS[i] }} />{name}
+                </span>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div style={{ height: 260, display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af", fontSize: 14 }}>
+            No performance data available
+          </div>
+        )}
       </div>
       <div className="rp-chart-card rp-chart-card-tall">
         <h4 className="rp-chart-title">Utilization Rate</h4>
@@ -2423,31 +2431,99 @@ export default function ReportsPage() {
   }, [error, dispatch]);
 
   // ── Derive display data (API data > fallback when empty or null) ─────────────
-  const revenueTrend = (revenueData?.trend?.length ?? 0) > 0
-    ? revenueData!.trend
-    : (period === "7d" ? revenueBy7d : revenueByMonth);
-  const apptVolume   = (appointmentsData?.volume?.length ?? 0) > 0
-    ? appointmentsData!.volume
-    : appointmentsWeekly;
-  const clientGrowthData = (clientsData?.growth?.length ?? 0) > 0
-    ? clientsData!.growth
-    : clientGrowth;
-  const topClientsList   = (clientsData?.topClients?.length ?? 0) > 0
-    ? clientsData!.topClients.map(c => ({ ...c, id: String(c.id) }))
-    : fallbackTopClients;
-  const staffList    = (staffData?.performance?.length ?? 0) > 0
-    ? staffData!.performance.map((s, i) => ({
-        ...s,
-        color: fallbackStaffData[i % fallbackStaffData.length]?.color ?? "#111827",
-      }))
-    : fallbackStaffData;
-  const radarData    = (staffData?.radar?.length ?? 0) > 0 ? staffData!.radar : radarStaffFallback;
-  const serviceList  = (servicesData?.services?.length ?? 0) > 0
-    ? servicesData!.services.map((s, i) => ({
-        ...s,
-        color: s.color ?? fallbackServiceData[i % fallbackServiceData.length]?.color ?? "#111827",
-      }))
-    : fallbackServiceData;
+  // Every array is sanitized with .filter(Boolean) so a null entry from the API
+  // never reaches a Recharts component (which crashes with "cannot read 'map'").
+
+  const revenueTrend = (() => {
+    const raw = (revenueData?.trend ?? []).filter(Boolean);
+    if (!raw.length) return period === "7d" ? revenueBy7d : revenueByMonth;
+    return raw.map(p => ({
+      ...p,
+      label:   p.label   ?? "",
+      revenue: p.revenue ?? 0,
+      target:  p.target  ?? 0,
+      prev:    p.prev    ?? 0,
+    }));
+  })();
+
+  const apptVolume = (() => {
+    const raw = (appointmentsData?.volume ?? []).filter(Boolean);
+    if (!raw.length) return appointmentsWeekly;
+    return raw.map(p => ({
+      ...p,
+      label:     p.label     ?? "",
+      completed: p.completed ?? 0,
+      cancelled: p.cancelled ?? 0,
+      noShow:    p.noShow    ?? 0,
+    }));
+  })();
+
+  const clientGrowthData = (() => {
+    const raw = (clientsData?.growth ?? []).filter(Boolean);
+    if (!raw.length) return clientGrowth;
+    return raw.map(p => ({
+      ...p,
+      label:     p.label     ?? "",
+      new:       p.new       ?? 0,
+      returning: p.returning ?? 0,
+      churned:   p.churned   ?? 0,
+    }));
+  })();
+
+  const topClientsList = (() => {
+    const raw = (clientsData?.topClients ?? []).filter(Boolean);
+    if (!raw.length) return fallbackTopClients;
+    return raw.map(c => ({
+      ...c,
+      id:     String(c.id ?? ""),
+      name:   c.name   ?? "—",
+      visits: c.visits ?? 0,
+      spend:  c.spend  ?? 0,
+    }));
+  })();
+
+  const staffList = (() => {
+    const raw = (staffData?.performance ?? []).filter(Boolean);
+    if (!raw.length) return fallbackStaffData;
+    return raw.map((s, i) => ({
+      ...s,
+      bookings:    s.bookings    ?? 0,
+      revenue:     s.revenue     ?? 0,
+      rating:      s.rating      ?? 0,
+      utilization: s.utilization ?? 0,
+      avgTicket:   s.avgTicket   ?? 0,
+      color: fallbackStaffData[i % fallbackStaffData.length]?.color ?? "#111827",
+    }));
+  })();
+
+  const radarData = (() => {
+    const raw = (staffData?.radar ?? []).filter(Boolean);
+    if (!raw.length) return radarStaffFallback;
+    const mapped = raw.map(point => {
+      const out: { metric: string; [k: string]: string | number } = { metric: String(point.metric ?? "") };
+      Object.entries(point).forEach(([k, v]) => {
+        if (k !== "metric") out[k] = (v as number) ?? 0;
+      });
+      return out;
+    });
+    const hasStaffKeys = Object.keys(mapped[0] ?? {}).some(k => k !== "metric");
+    if (!hasStaffKeys) return radarStaffFallback;
+    return mapped;
+  })();
+
+  const serviceList = (() => {
+    const raw = (servicesData?.services ?? []).filter(Boolean);
+    if (!raw.length) return fallbackServiceData;
+    return raw.map((s, i) => ({
+      ...s,
+      name:      s.name      ?? "—",
+      bookings:  s.bookings  ?? 0,
+      revenue:   s.revenue   ?? 0,
+      avgTicket: s.avgTicket ?? 0,
+      growth:    s.growth    ?? 0,
+      color: s.color ?? fallbackServiceData[i % fallbackServiceData.length]?.color ?? "#111827",
+    }));
+  })();
 
   // ── Live KPI config built from API data (falls back to static kpiConfig) ─────
   const liveKpis = useMemo(() => {

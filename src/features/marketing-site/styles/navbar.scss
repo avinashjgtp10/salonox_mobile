@@ -21,7 +21,6 @@
   }
 
   @media (max-width: 1024px) { padding: 0 24px; }
-  @media (max-width: 400px) { padding: 0 16px; }
 }
 
 // ── Brand ──────────────────────────────────────────────────────────────────
@@ -44,7 +43,7 @@
   gap: 2px;
   margin: 0 auto;
 
-  @media (max-width: 900px) { display: none; } // was 1024px
+  @media (max-width: 1024px) { display: none; }
 }
 
 .sx-nav-item { position: relative; }
@@ -82,7 +81,7 @@
   gap: 8px;
   flex-shrink: 0;
 
-  @media (max-width: 900px) { display: none; } 
+  @media (max-width: 1024px) { display: none; }
 }
 
 .sx-btn-ghost {
@@ -156,7 +155,7 @@
     span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
   }
 
-  @media (max-width: 900px) { display: flex; }
+  @media (max-width: 1024px) { display: flex; }
 }
 
 // ── Mega Menu Base ─────────────────────────────────────────────────────────
@@ -168,7 +167,7 @@
   border-radius: 18px;
   box-shadow: var(--sx-shadow-lg);
   padding: 24px;
-  z-index: 1100; 
+  z-index: 999;
   animation: sx-fade-up 0.2s ease both;
 }
 
@@ -321,7 +320,7 @@
     overflow-y: auto;
   }
 
-  @media (min-width: 901px) { display: none; }
+  @media (min-width: 1025px) { display: none; }
 }
 
 .sx-mobile-link {
@@ -385,43 +384,6 @@
   transition: filter 0.3s;
 
   [data-theme="light"] & {
-    filter: var(--sx-logo-filter);
-  }
-}
-
-.sx-mega-features {
-  width: 900px;
-  left: 50%;
-  transform: translateX(-50%);
-
-  // Prevent overflow on smaller desktops/large tablets
-  @media (max-width: 1100px) {
-    width: calc(100vw - 48px);
-    left: 0;
-    transform: none;
-  }
-}
-
-.sx-mega-business {
-  width: 680px;
-  left: 50%;
-  transform: translateX(-50%);
-
-  @media (max-width: 800px) {
-    width: calc(100vw - 48px);
-    left: 0;
-    transform: none;
-  }
-}
-
-.sx-mega-support {
-  width: 420px;
-  right: 0;
-  left: auto;
-  transform: none;
-
-  @media (max-width: 560px) {
-    width: calc(100vw - 48px);
-    right: 0;
+    filter: invert(0);
   }
 }

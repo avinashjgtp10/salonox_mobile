@@ -28,7 +28,6 @@ export default function TeamSubSidebar({ onClose }: Props) {
           key={to}
           to={to}
           className={({ isActive }) => (isActive ? "sub-link active" : "sub-link")}
-          onClick={onClose}
         >
           {label}
         </NavLink>

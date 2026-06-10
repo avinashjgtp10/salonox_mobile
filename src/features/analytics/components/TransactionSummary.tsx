@@ -1,6 +1,6 @@
-import { Card, Table, Loader } from "../../../components/ui";
 import type { Sale } from "../../../types/sale.types";
 import { format } from "date-fns";
+import { formatCurrency } from "../../../utils/format";
 
 interface Props {
   sales: Sale[];
@@ -8,66 +8,111 @@ interface Props {
   selectedDate: Date;
 }
 
-const fmt = (n: number) => `₹${n.toFixed(2)}`;
-
 export default function TransactionSummary({ sales, isLoading, selectedDate }: Props) {
-  // ── Completed sales only (for positive amounts) ───────────────────────────
   const completed = sales.filter((s) => s.status === "completed");
   const refunded  = sales.filter((s) => s.status === "refunded");
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
   const sum = (arr: Sale[], key: keyof Sale) =>
     arr.reduce((acc, s) => acc + parseFloat((s[key] as string) || "0"), 0);
 
-  // Sale-level financial fields available in list response
-  const subtotal   = sum(completed, "subtotal");
-  const discounts  = sum(completed, "discount_amount");
-  const tips       = sum(completed, "tip_amount");
-  const taxes      = sum(completed, "tax_amount");
-  const grossTotal = sum(completed, "total_amount");
-  const refundTotal= sum(refunded,  "total_amount");
+  const subtotal    = sum(completed, "subtotal");
+  const discounts   = sum(completed, "discount_amount");
+  const tips        = sum(completed, "tip_amount");
+  const taxes       = sum(completed, "tax_amount");
+  const grossTotal  = sum(completed, "total_amount");
+  const refundTotal = sum(refunded,  "total_amount");
 
   const completedQty = completed.length;
   const refundedQty  = refunded.length;
 
-  const columns = [
-    { header: "Item type",   key: "type"      },
-    { header: "Sales qty",   key: "salesQty"  },
-    { header: "Refund qty",  key: "refundQty" },
-    { header: "Gross total", key: "total", className: "text-end" },
-  ];
+  type Row = {
+    label: string;
+    salesQty: number | string;
+    refundQty: number | string;
+    value: string;
+    valueClass?: string;
+    isTotal?: boolean;
+  };
 
-  const data = [
-    { id: 0,       type: "Services",               salesQty: completedQty, refundQty: refundedQty, total: fmt(subtotal)   },
-    { id: 1,       type: "Discounts",               salesQty: "-",          refundQty: "-",         total: `-${fmt(discounts)}` },
-    { id: 2,       type: "Tips",                    salesQty: "-",          refundQty: "-",         total: fmt(tips)       },
-    { id: 3,       type: "Taxes",                   salesQty: "-",          refundQty: "-",         total: fmt(taxes)      },
-    { id: 4,       type: "Refund amount",           salesQty: "-",          refundQty: refundedQty, total: fmt(refundTotal) },
+  const rows: Row[] = [
     {
-      id: "total",
-      type: "Total Sales",
+      label: "Services",
       salesQty: completedQty,
-      refundQty: refundedQty,
-      total: fmt(grossTotal - refundTotal),
-      isTotal: true,
+      refundQty: refundedQty > 0 ? refundedQty : "—",
+      value: formatCurrency(subtotal),
+    },
+    {
+      label: "Discounts",
+      salesQty: "—",
+      refundQty: "—",
+      value: discounts > 0 ? `−${formatCurrency(discounts)}` : `−${formatCurrency(0)}`,
+      valueClass: "dsp-tbl__red",
+    },
+    {
+      label: "Tips",
+      salesQty: "—",
+      refundQty: "—",
+      value: formatCurrency(tips),
+      valueClass: tips > 0 ? "dsp-tbl__green" : undefined,
+    },
+    {
+      label: "Taxes",
+      salesQty: "—",
+      refundQty: "—",
+      value: formatCurrency(taxes),
+    },
+    {
+      label: "Refund amount",
+      salesQty: "—",
+      refundQty: refundedQty > 0 ? refundedQty : "—",
+      value: refundTotal > 0 ? `−${formatCurrency(refundTotal)}` : formatCurrency(0),
+      valueClass: refundTotal > 0 ? "dsp-tbl__red" : undefined,
     },
   ];
 
-  if (isLoading) {
-    return (
-      <Card title="Transaction summary" noPadding className="mb-4">
-        <Loader />
-      </Card>
-    );
-  }
+  const netTotal = grossTotal - refundTotal;
 
   return (
-    <Card title={`Transaction summary — ${format(selectedDate, "d MMM yyyy")}`} noPadding className="mb-4">
-      <Table
-        columns={columns}
-        data={data}
-        rowClassName={(item: any) => (item.isTotal ? "fw-bold bg-light" : "")}
-      />
-    </Card>
+    <div className="dsp-card">
+      <div className="dsp-card__hd">
+        <h4 className="dsp-card__title">Transaction summary</h4>
+        <span className="dsp-card__badge">{format(selectedDate, "d MMM yyyy")}</span>
+      </div>
+
+      {isLoading ? (
+        <div className="dsp-skeleton">
+          {[...Array(5)].map((_, i) => <div key={i} className="dsp-skeleton__row" />)}
+        </div>
+      ) : (
+        <table className="dsp-tbl">
+          <thead>
+            <tr>
+              <th>Item type</th>
+              <th className="r">Sales qty</th>
+              <th className="r">Refund qty</th>
+              <th className="r">Gross total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.label}>
+                <td>{row.label}</td>
+                <td className="r dsp-tbl__muted">{row.salesQty}</td>
+                <td className="r dsp-tbl__muted">{row.refundQty}</td>
+                <td className={`r${row.valueClass ? ` ${row.valueClass}` : ""}`}>{row.value}</td>
+              </tr>
+            ))}
+            <tr className="dsp-tbl__row-total">
+              <td>Total Sales</td>
+              <td className="r">{completedQty}</td>
+              <td className="r">{refundedQty > 0 ? refundedQty : "—"}</td>
+              <td className={`r${netTotal < 0 ? " dsp-tbl__red" : " dsp-tbl__green"}`}>
+                {formatCurrency(netTotal)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      )}
+    </div>
   );
 }

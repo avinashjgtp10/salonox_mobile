@@ -388,29 +388,3 @@
 .bt-related-name  { font-size: 15px; font-weight: 600; color: var(--sx-text-primary); margin-bottom: 6px; }
 .bt-related-sub   { font-size: 12.5px; font-weight: 300; color: var(--sx-text-muted); line-height: 1.55; margin-bottom: 12px; }
 .bt-related-link  { font-size: 12px; font-weight: 500; transition: transform 0.2s; display: inline-block; }
-.bt-hero-inner {
-  @media (max-width: 768px) {
-    padding-top: 48px;
-    padding-bottom: 48px;
-  }
-}
-
-// Features grid on business type page
-.bt-features-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-
-  @media (max-width: 900px) { grid-template-columns: 1fr 1fr; }
-  @media (max-width: 480px) { grid-template-columns: 1fr; }
-}
-
-// Stats row
-.bt-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-
-  @media (max-width: 900px) { grid-template-columns: repeat(2, 1fr); }
-  @media (max-width: 480px) { grid-template-columns: 1fr 1fr; }
-}

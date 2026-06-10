@@ -242,6 +242,16 @@ export function useSchedulerInit() {
     dispatch(fetchServicesThunk({ isActive: true }));
   }, [dispatch, salonId]);
 
+  // ── Tracks which calendar months have already been fetched ─────────────────
+  const fetchedMonthsRef = useRef<Set<string>>(new Set());
+
+  // ── Helper: extract Booking[] from paginated or flat thunk payload ───────────
+  function extractBookings(payload: any): any[] {
+    if (Array.isArray(payload)) return payload;
+    if (payload && Array.isArray(payload.data)) return payload.data;
+    return [];
+  }
+
   // ── Initial fetch — runs once per salonId ───────────────────────────────────
   useEffect(() => {
     if (!salonId || initialized.current === salonId) return;
@@ -252,14 +262,56 @@ export function useSchedulerInit() {
     dispatch(fetchMembershipsThunk({}));
     dispatch(fetchProductsThunk());
 
-    (dispatch(fetchBookingsThunk()) as any)
+    // Pass an explicit 6-month window so the server's default "today-only" filter
+    // does not exclude past or future appointments visible in the calendar.
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const startD = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+    const endD   = new Date(now.getFullYear(), now.getMonth() + 4, 0); // last day of +3 months
+    const startDate = `${startD.getFullYear()}-${pad(startD.getMonth() + 1)}-01`;
+    const endDate   = `${endD.getFullYear()}-${pad(endD.getMonth() + 1)}-${pad(endD.getDate())}`;
+
+    // Mark all months in the initial window as already fetched
+    for (let d = new Date(startD); d <= endD; d.setMonth(d.getMonth() + 1)) {
+      fetchedMonthsRef.current.add(`${d.getFullYear()}-${pad(d.getMonth() + 1)}`);
+    }
+
+    (dispatch(fetchBookingsThunk({ startDate, endDate })) as any)
       .then((action: any) => {
         if (fetchBookingsThunk.fulfilled.match(action)) {
-          setRawApiBookings(action.payload as any[]);
+          setRawApiBookings(extractBookings(action.payload));
         }
       })
       .catch((err: any) => console.error("Failed to load bookings:", err));
-  }, [dispatch, salonId]);
+  }, [dispatch, salonId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Re-fetch when user navigates to a month outside the initial window ───────
+  useEffect(() => {
+    if (!salonId || !currentDate) return;
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const dt = new Date(currentDate + "T12:00:00");
+    const monthKey = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}`;
+    if (fetchedMonthsRef.current.has(monthKey)) return;
+    fetchedMonthsRef.current.add(monthKey);
+
+    const startDate = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-01`;
+    const lastDay = new Date(dt.getFullYear(), dt.getMonth() + 1, 0).getDate();
+    const endDate = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(lastDay)}`;
+
+    (dispatch(fetchBookingsThunk({ startDate, endDate })) as any)
+      .then((action: any) => {
+        if (fetchBookingsThunk.fulfilled.match(action)) {
+          const newItems = extractBookings(action.payload);
+          if (!newItems.length) return;
+          // Merge: replace any existing bookings with same IDs, append new ones
+          setRawApiBookings((prev) => {
+            const newIdSet = new Set(newItems.map((b: any) => String(b.id)));
+            return [...prev.filter((b: any) => !newIdSet.has(String(b.id))), ...newItems];
+          });
+        }
+      })
+      .catch(() => {/* non-critical: calendar still shows already-loaded bookings */});
+  }, [currentDate, salonId, dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Re-map bookings whenever raw data or services change ─────────────────────
   // This ensures service names appear correctly even if services load after bookings

@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
+import PermissionGuard from "../components/guards/PermissionGuard";
 
 const ServicesListPage = lazy(
   () => import("../features/catalog/pages/ServicesListPage"),
@@ -67,35 +68,52 @@ import { PageLoader } from "../components/ui";
 export const CatalogRoutes = () => (
   <Suspense fallback={<PageLoader />}>
     <Routes>
+      {/* Default: catalog index → service menu */}
+      <Route index element={<Navigate to="/dashboard/catalog/services" replace />} />
+      {/* Inventory parent → stocktakes */}
+      <Route path="inventory" element={<Navigate to="/dashboard/catalog/inventory/stocktakes" replace />} />
+
+      {/* view_catalog (outer) — read-only screens */}
       <Route path="services" element={<ServicesListPage />} />
-      <Route path="services/add" element={<AddServicePage />} />
-      <Route path="services/:id/edit" element={<EditServicePage />} />
-      <Route path="services/categories" element={<CategoriesPage />} />
       <Route path="memberships" element={<MembershipsLandingPage />} />
       <Route path="memberships/list" element={<MembershipsListPage />} />
-      <Route path="memberships/create" element={<CreateMembershipPage />} />
-      <Route path="memberships/edit/:id" element={<CreateMembershipPage />} />
       <Route path="packages" element={<PackageModule />} />
       <Route path="packages/legacy" element={<PackagesPage />} />
-      <Route path="packages/:id" element={<EditPackagePage />} />
       <Route path="products" element={<ProductsListPage />} />
       <Route path="products/landing" element={<ProductsLandingPage />} />
-      <Route path="products/create" element={<CreateProductPage />} />
-      <Route path="products/edit/:id" element={<EditProductPage />} />
-      <Route path="products/import" element={<ImportProductsPage />} />
-      <Route path="inventory/stocktakes" element={<StocktakesListPage />} />
-      <Route path="inventory/stocktakes/new" element={<AddStocktakePage />} />
-      <Route path="inventory/stocktakes/edit/:id" element={<AddStocktakePage />} />
-      <Route path="inventory/stock-orders" element={<StockOrdersListPage />} />
-      <Route
-        path="inventory/orders"
-        element={
-          <Navigate to="/dashboard/catalog/inventory/stock-orders" replace />
-        }
-      />
-      <Route path="inventory/suppliers" element={<SuppliersListPage />} />
-      <Route path="inventory/suppliers/new" element={<AddSupplierPage />} />
-      <Route path="inventory/suppliers/edit/:id" element={<AddSupplierPage />} />
+
+      {/* edit_catalog required for service/product/membership write operations */}
+      <Route element={<PermissionGuard permKey="edit_catalog" />}>
+        <Route path="services/add" element={<AddServicePage />} />
+        <Route path="services/:id/edit" element={<EditServicePage />} />
+        <Route path="services/categories" element={<CategoriesPage />} />
+        <Route path="memberships/create" element={<CreateMembershipPage />} />
+        <Route path="memberships/edit/:id" element={<CreateMembershipPage />} />
+        <Route path="packages/:id" element={<EditPackagePage />} />
+        <Route path="products/create" element={<CreateProductPage />} />
+        <Route path="products/edit/:id" element={<EditProductPage />} />
+        <Route path="products/import" element={<ImportProductsPage />} />
+      </Route>
+
+      {/* manage_inventory required for stock operations */}
+      <Route element={<PermissionGuard permKey="manage_inventory" />}>
+        <Route path="inventory/stocktakes" element={<StocktakesListPage />} />
+        <Route path="inventory/stocktakes/new" element={<AddStocktakePage />} />
+        <Route path="inventory/stocktakes/edit/:id" element={<AddStocktakePage />} />
+        <Route path="inventory/stock-orders" element={<StockOrdersListPage />} />
+        <Route
+          path="inventory/orders"
+          element={
+            <Navigate to="/dashboard/catalog/inventory/stock-orders" replace />
+          }
+        />
+        <Route path="inventory/suppliers" element={<SuppliersListPage />} />
+        <Route path="inventory/suppliers/new" element={<AddSupplierPage />} />
+        <Route path="inventory/suppliers/edit/:id" element={<AddSupplierPage />} />
+      </Route>
+
+      {/* Catch-all → service menu */}
+      <Route path="*" element={<Navigate to="/dashboard/catalog/services" replace />} />
     </Routes>
   </Suspense>
 );
