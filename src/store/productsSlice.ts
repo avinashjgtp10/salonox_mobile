@@ -14,7 +14,10 @@ import {
 
 interface ProductsState {
   items: any[];
-  total: number;
+  page: number;
+  pageSize: number;
+  totalRecords: number;
+  totalPages: number;
   brands: any[];
   categories: any[];
   loading: {
@@ -30,7 +33,10 @@ interface ProductsState {
 
 const initialState: ProductsState = {
   items: [],
-  total: 0,
+  page: 1,
+  pageSize: 20,
+  totalRecords: 0,
+  totalPages: 1,
   brands: [],
   categories: [],
   loading: { fetchAll: false, create: false, update: false, delete: false, brands: false, categories: false },
@@ -51,7 +57,10 @@ const productsSlice = createSlice({
       .addCase(fetchProductsThunk.fulfilled, (state, action) => {
         state.loading.fetchAll = false;
         state.items = action.payload.data;
-        state.total = action.payload.total;
+        state.page = action.payload.page;
+        state.pageSize = action.payload.pageSize;
+        state.totalRecords = action.payload.totalRecords;
+        state.totalPages = action.payload.totalPages;
       })
       .addCase(fetchProductsThunk.rejected, (state, action) => {
         state.loading.fetchAll = false;
@@ -65,7 +74,7 @@ const productsSlice = createSlice({
       .addCase(createProductThunk.fulfilled, (state, action) => {
         state.loading.create = false;
         state.items.unshift(action.payload);
-        state.total += 1;
+        state.totalRecords += 1;
       })
       .addCase(createProductThunk.rejected, (state, action) => {
         state.loading.create = false;
@@ -89,7 +98,7 @@ const productsSlice = createSlice({
     builder
       .addCase(deleteProductThunk.fulfilled, (state, action) => {
         state.items = state.items.filter((p) => p.id !== action.payload);
-        state.total -= 1;
+        state.totalRecords = Math.max(0, state.totalRecords - 1);
       });
 
     builder
