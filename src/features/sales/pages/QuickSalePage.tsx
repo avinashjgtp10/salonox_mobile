@@ -202,7 +202,7 @@ export default function QuickSalePage() {
     }
 
     // Date
-    if (editSaleFetched.created_at) setSaleDate(editSaleFetched.created_at.split("T")[0]);
+    if (editSaleFetched.created_at) setSaleDate(editSaleFetched.created_at.split(/[T ]/)[0]);
 
     // Notes
     if (editSaleFetched.notes) setNotes(editSaleFetched.notes);
@@ -527,7 +527,7 @@ export default function QuickSalePage() {
       if (resolvedSaleId) {
         const result = await dispatch(updateSaleThunk({
           id: resolvedSaleId,
-          data: { client_id: client?.id ?? null, items: buildItemsPayload(), discount_amount: cartDiscount > 0 ? cartDiscount.toFixed(2) : undefined, tip_amount: tipAmount > 0 ? tipAmount.toFixed(2) : undefined, notes: buildNotes() },
+          data: { client_id: client?.id ?? null, items: buildItemsPayload(), discount_amount: cartDiscount > 0 ? cartDiscount.toFixed(2) : undefined, tip_amount: tipAmount > 0 ? tipAmount.toFixed(2) : undefined, notes: buildNotes(), created_at: saleDate },
         }));
         if (updateSaleThunk.fulfilled.match(result)) setSuccessMsg("Draft updated successfully!");
         else setErrorMsg((result.payload as string) || "Failed to update draft.");
@@ -536,7 +536,7 @@ export default function QuickSalePage() {
           client_id: client?.id ?? null, status: "draft", items: buildItemsPayload(),
           discount_amount: cartDiscount > 0 ? cartDiscount.toFixed(2) : undefined,
           tip_amount: tipAmount > 0 ? tipAmount.toFixed(2) : undefined,
-          notes: buildNotes(),
+          notes: buildNotes(), created_at: saleDate,
         }));
         if (createSaleThunk.fulfilled.match(result)) {
           const saved = result.payload as { id: string | number };
@@ -563,7 +563,7 @@ export default function QuickSalePage() {
           client_id: client?.id ?? null, status: "draft", items: buildItemsPayload(),
           discount_amount: cartDiscount > 0 ? cartDiscount.toFixed(2) : undefined,
           tip_amount: tipAmount > 0 ? tipAmount.toFixed(2) : undefined,
-          notes: buildNotes(),
+          notes: buildNotes(), created_at: saleDate,
         }));
         if (createSaleThunk.rejected.match(createResult)) {
           setErrorMsg((createResult.payload as string) || "Failed to create sale."); return;
@@ -619,6 +619,7 @@ export default function QuickSalePage() {
           discount_amount: cartDiscount > 0 ? cartDiscount.toFixed(2) : "0",
           tip_amount:      tipAmount    > 0 ? tipAmount.toFixed(2)    : "0",
           notes:           buildNotes(),
+          created_at:      saleDate,
         },
       }));
       if (updateSaleThunk.rejected.match(updateResult)) {
@@ -670,6 +671,7 @@ export default function QuickSalePage() {
           discount_amount: cartDiscount > 0 ? cartDiscount.toFixed(2) : "0",
           tip_amount:      tipAmount    > 0 ? tipAmount.toFixed(2)    : "0",
           notes:           buildNotes(),
+          created_at:      saleDate,
         },
       }));
       if (updateSaleThunk.rejected.match(result)) {

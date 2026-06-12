@@ -74,6 +74,7 @@ export interface CreateSalePayload {
   tip_amount?: string;
   tax_amount?: string;
   notes?: string;
+  created_at?: string;
 }
 
 export interface UpdateSalePayload {
