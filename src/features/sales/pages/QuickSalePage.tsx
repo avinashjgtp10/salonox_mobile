@@ -202,7 +202,10 @@ export default function QuickSalePage() {
     }
 
     // Date
-    if (editSaleFetched.created_at) setSaleDate(editSaleFetched.created_at.split(/[T ]/)[0]);
+    if (editSaleFetched.created_at) {
+      const candidateDate = editSaleFetched.created_at.split(/[T ]/)[0];
+      setSaleDate(/^\d{4}-\d{2}-\d{2}$/.test(candidateDate) ? candidateDate : todayISO());
+    }
 
     // Notes
     if (editSaleFetched.notes) setNotes(editSaleFetched.notes);

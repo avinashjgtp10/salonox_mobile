@@ -23,7 +23,7 @@ const DayView: React.FC<DayViewProps> = ({
   onSlotClick, onEditBooking, onBlockTime, onEditBlockTime,
 }) => {
   const { currentDate, timeToPx, durationToPx, intervalMins, interval } = useScheduler();
-  const { blockedTimes, deleteBlockedTime, updateBooking, staffList, selectedStaffId, staffSchedules } = useSchedulerContext();
+  const { blockedTimes, deleteBlockedTime, updateBooking, staffList, selectedStaffId } = useSchedulerContext();
   const { getBookingsByDate } = useBookings();
 
   const visibleStaff = selectedStaffId

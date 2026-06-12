@@ -89,12 +89,7 @@ export default function ForgotPasswordPage() {
     }
   };
 
-  const handleBack = () => {
-    if (step === STEPS.OTP || step === STEPS.RESET) setStep(step - 1);
-    else navigate("/login");
-  };
-
-  const handleResend = async () => {
+const handleResend = async () => {
     if (timeLeft > 0) return;
     setIsResending(true);
     const result = await dispatch(forgotPasswordSendOtpThunk({ email }));
