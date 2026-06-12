@@ -1,6 +1,5 @@
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { FiArrowRight } from "react-icons/fi";
 import "../styles/BusinessNamePage.scss";
 import "../styles/onboarding-shared.scss";
 import { useOnboarding } from "../../../context/OnboardingContext";

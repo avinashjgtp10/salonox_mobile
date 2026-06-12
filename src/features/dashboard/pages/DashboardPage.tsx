@@ -55,12 +55,6 @@ const SVC_CHART_COLORS = [
   "#60a5fa", "#f472b6", "#eab308", "#ef4444",
 ];
 
-const quickActions = [
-  { label: "New Appointment", icon: <CalendarCheck size={22} />, path: "/dashboard/calendar",      color: "#111827" },
-  { label: "Add Client",      icon: <PersonPlus size={22} />,    path: "/dashboard/clients/add",   color: "#3b82f6" },
-  { label: "Quick Sale",      icon: <CartPlus size={22} />,      path: "/dashboard/sales",         color: "#10b981" },
-  { label: "Campaign",        icon: <Megaphone size={22} />,     path: "/dashboard/marketing",     color: "#8b5cf6" },
-];
 
 const PAGE_SIZE = 5;
 
@@ -906,7 +900,7 @@ export default function DashboardPage() {
       {/* ── HEADER ── */}
       <div className="db-header">
         <div>
-          <h1 className="db-title">Good morning, salonox! 👋</h1>
+          <h1 className="db-title">salonox!</h1>
           <p className="db-subtitle">{today} · Here's what's happening today</p>
         </div>
         <div className="db-header-actions">

@@ -12,7 +12,6 @@ import {
   FaDumbbell,
   FaUserTie,
 } from "react-icons/fa";
-import { FiArrowRight } from "react-icons/fi";
 import { GiLipstick, GiRazor } from "react-icons/gi";
 import { MdOutlineFaceRetouchingNatural } from "react-icons/md";
 import { useOnboarding } from "../../../context/OnboardingContext";

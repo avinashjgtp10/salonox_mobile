@@ -208,7 +208,7 @@ const SchedulerContent: React.FC = () => {
     <div style={{
       fontFamily: "'Segoe UI', system-ui, sans-serif",
       background: "#f8fafc",
-      height: "100vh",
+      height: "100%",
       display: "flex",
       flexDirection: "column",
       overflow: "hidden",

@@ -84,7 +84,7 @@ export default function DashboardLayout() {
           <TeamSubSidebar onClose={() => setOpenMenu(null)} />
         )}
 
-        <main className={`main ${openMenu ? "shifted" : ""}`}>
+        <main className={`main ${openMenu ? "shifted" : ""} ${location.pathname === "/dashboard/calendar" ? "main--calendar" : ""}`}>
           <Outlet />
         </main>
       </div>
