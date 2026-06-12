@@ -24,7 +24,7 @@ import {
   AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, RadarChart, Radar, PolarGrid,
-  PolarAngleAxis,
+  PolarAngleAxis, ReferenceLine,
 } from "recharts";
 import {
   ArrowUpRight, ArrowDownRight, Funnel,
@@ -34,119 +34,9 @@ import {
   FileEarmarkArrowDown,
 } from "react-bootstrap-icons";
 
-// ─── Fallback mock data (shown while API data loads or if API is unavailable) ──
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-const revenueByMonth = [
-  { label: "Jan", revenue: 42000, target: 45000, prev: 38000 },
-  { label: "Feb", revenue: 38500, target: 45000, prev: 35000 },
-  { label: "Mar", revenue: 55200, target: 50000, prev: 44000 },
-  { label: "Apr", revenue: 61800, target: 55000, prev: 52000 },
-  { label: "May", revenue: 48400, target: 55000, prev: 43000 },
-  { label: "Jun", revenue: 72600, target: 65000, prev: 61000 },
-  { label: "Jul", revenue: 68900, target: 65000, prev: 60000 },
-  { label: "Aug", revenue: 79300, target: 70000, prev: 68000 },
-  { label: "Sep", revenue: 83700, target: 75000, prev: 72000 },
-  { label: "Oct", revenue: 91200, target: 80000, prev: 80000 },
-  { label: "Nov", revenue: 87500, target: 80000, prev: 81000 },
-  { label: "Dec", revenue: 98400, target: 90000, prev: 88000 },
-];
-
-const revenueBy7d = [
-  { label: "Mon", revenue: 12400, target: 11000, prev: 10200 },
-  { label: "Tue", revenue: 15800, target: 13000, prev: 13400 },
-  { label: "Wed", revenue: 11200, target: 13000, prev: 10800 },
-  { label: "Thu", revenue: 18600, target: 15000, prev: 16200 },
-  { label: "Fri", revenue: 22400, target: 18000, prev: 19800 },
-  { label: "Sat", revenue: 31200, target: 25000, prev: 28400 },
-  { label: "Sun", revenue: 8900,  target: 10000, prev: 7600  },
-];
-
-const appointmentsWeekly = [
-  { label: "Mon", completed: 18, cancelled: 3, noShow: 1 },
-  { label: "Tue", completed: 24, cancelled: 2, noShow: 2 },
-  { label: "Wed", completed: 20, cancelled: 4, noShow: 1 },
-  { label: "Thu", completed: 30, cancelled: 1, noShow: 0 },
-  { label: "Fri", completed: 35, cancelled: 2, noShow: 2 },
-  { label: "Sat", completed: 42, cancelled: 3, noShow: 1 },
-  { label: "Sun", completed: 15, cancelled: 1, noShow: 0 },
-];
-
-const clientGrowth = [
-  { label: "Jan", new: 42, returning: 88, churned: 12 },
-  { label: "Feb", new: 38, returning: 91, churned: 9  },
-  { label: "Mar", new: 56, returning: 98, churned: 14 },
-  { label: "Apr", new: 61, returning: 105, churned: 11 },
-  { label: "May", new: 48, returning: 112, churned: 8  },
-  { label: "Jun", new: 73, returning: 118, churned: 15 },
-  { label: "Jul", new: 69, returning: 124, churned: 10 },
-  { label: "Aug", new: 80, returning: 130, churned: 13 },
-  { label: "Sep", new: 84, returning: 138, churned: 9  },
-  { label: "Oct", new: 92, returning: 145, churned: 11 },
-  { label: "Nov", new: 88, returning: 150, churned: 8  },
-  { label: "Dec", new: 99, returning: 160, churned: 12 },
-];
-
-const fallbackServiceData = [
-  { name: "Haircut",    bookings: 312, revenue: 187200, avgTicket: 600,  color: "#111827", growth: 8.2  },
-  { name: "Hair Color", bookings: 228, revenue: 364800, avgTicket: 1600, color: "#3b82f6", growth: 12.4 },
-  { name: "Facial",     bookings: 165, revenue: 247500, avgTicket: 1500, color: "#10b981", growth: 5.1  },
-  { name: "Massage",    bookings: 110, revenue: 198000, avgTicket: 1800, color: "#8b5cf6", growth: -2.3 },
-  { name: "Nails",      bookings: 92,  revenue: 82800,  avgTicket: 900,  color: "#f59e0b", growth: 18.6 },
-  { name: "Bridal Pkg", bookings: 28,  revenue: 238000, avgTicket: 8500, color: "#ef4444", growth: 22.1 },
-];
-
-const fallbackStaffData = [
-  { name: "Anita K.",  bookings: 128, revenue: 94200, rating: 4.9, utilization: 88, avgTicket: 736,  color: "#111827" },
-  { name: "Pooja M.",  bookings: 105, revenue: 72800, rating: 4.8, utilization: 82, avgTicket: 693,  color: "#3b82f6" },
-  { name: "Raj S.",    bookings: 98,  revenue: 41600, rating: 4.7, utilization: 76, avgTicket: 424,  color: "#10b981" },
-  { name: "Neha T.",   bookings: 87,  revenue: 65200, rating: 4.6, utilization: 71, avgTicket: 749,  color: "#8b5cf6" },
-  { name: "Vikram D.", bookings: 74,  revenue: 58900, rating: 4.5, utilization: 65, avgTicket: 796,  color: "#f59e0b" },
-];
-
-const radarStaffFallback = [
-  { metric: "Bookings",   "Anita K.": 95, "Pooja M.": 80, "Raj S.": 72 },
-  { metric: "Revenue",    "Anita K.": 90, "Pooja M.": 75, "Raj S.": 45 },
-  { metric: "Rating",     "Anita K.": 98, "Pooja M.": 96, "Raj S.": 94 },
-  { metric: "Retention",  "Anita K.": 88, "Pooja M.": 82, "Raj S.": 78 },
-  { metric: "Efficiency", "Anita K.": 92, "Pooja M.": 86, "Raj S.": 80 },
-];
-
-const sparklineData = [3,5,4,7,6,8,9,7,10,11,9,12];
-
-// ─── KPI config ───────────────────────────────────────────────────────────────
-
-const kpiConfig = {
-  revenue:      [
-    { label: "Total Revenue",    value: "₹8,26,700", change: "+14.2%", up: true,  icon: <CurrencyRupee size={16}/>, color: "#10b981" },
-    { label: "Avg Daily Revenue",value: "₹27,557",   change: "+9.8%",  up: true,  icon: <GraphUpArrow size={16}/>,  color: "#3b82f6" },
-    { label: "Best Day Revenue", value: "₹98,400",   change: "+5.3%",  up: true,  icon: <ArrowUpRight size={16}/>,  color: "#8b5cf6" },
-    { label: "Target Achieved",  value: "91.2%",     change: "+3.1%",  up: true,  icon: <StarFill size={16}/>,      color: "#f59e0b" },
-  ],
-  appointments: [
-    { label: "Total Bookings",   value: "1,085",  change: "+11.4%", up: true,  icon: <CalendarCheck size={16}/>, color: "#3b82f6" },
-    { label: "Completion Rate",  value: "94.2%",  change: "+1.8%",  up: true,  icon: <ArrowUpRight size={16}/>,  color: "#10b981" },
-    { label: "Cancellation Rate",value: "4.1%",   change: "-0.6%",  up: true,  icon: <ArrowDownRight size={16}/>,color: "#ef4444" },
-    { label: "Avg Duration",     value: "52 min", change: "-3 min", up: true,  icon: <Calendar3 size={16}/>,     color: "#8b5cf6" },
-  ],
-  clients: [
-    { label: "Total Clients",    value: "1,240",  change: "+8.4%",  up: true,  icon: <People size={16}/>,        color: "#3b82f6" },
-    { label: "New This Month",   value: "99",     change: "+13.2%", up: true,  icon: <ArrowUpRight size={16}/>,  color: "#10b981" },
-    { label: "Retention Rate",   value: "82.4%",  change: "+2.1%",  up: true,  icon: <ArrowRepeat size={16}/>,   color: "#8b5cf6" },
-    { label: "Avg Visits/Client",value: "4.2",    change: "+0.3",   up: true,  icon: <CalendarCheck size={16}/>, color: "#f59e0b" },
-  ],
-  staff: [
-    { label: "Active Staff",     value: "8",      change: "+1",     up: true,  icon: <People size={16}/>,        color: "#3b82f6" },
-    { label: "Avg Utilization",  value: "76.4%",  change: "+4.2%",  up: true,  icon: <GraphUpArrow size={16}/>,  color: "#10b981" },
-    { label: "Top Earner",       value: "₹94.2k", change: "+12.1%", up: true,  icon: <CurrencyRupee size={16}/>, color: "#8b5cf6" },
-    { label: "Avg Rating",       value: "4.74",   change: "+0.12",  up: true,  icon: <StarFill size={16}/>,      color: "#f59e0b" },
-  ],
-  services: [
-    { label: "Active Services",  value: "24",     change: "+2",     up: true,  icon: <Scissors size={16}/>,      color: "#3b82f6" },
-    { label: "Top Service Rev",  value: "₹3.65L", change: "+18.2%", up: true,  icon: <CurrencyRupee size={16}/>, color: "#10b981" },
-    { label: "Avg Ticket",       value: "₹1,320", change: "+4.8%",  up: true,  icon: <ArrowUpRight size={16}/>,  color: "#8b5cf6" },
-    { label: "New Services",     value: "3",      change: "+3",     up: true,  icon: <ArrowRepeat size={16}/>,   color: "#f59e0b" },
-  ],
-};
+const CHART_COLORS = ["#111827", "#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444"];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -170,33 +60,139 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-const Sparkline = ({ data, color }: { data: number[]; color: string }) => (
-  <ResponsiveContainer width="100%" height={40}>
-    <AreaChart data={data.map((v, i) => ({ v, i }))} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
-      <defs>
-        <linearGradient id={`sp-${color.replace("#","")}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity={0.2} />
-          <stop offset="100%" stopColor={color} stopOpacity={0} />
-        </linearGradient>
-      </defs>
-      <Area type="monotone" dataKey="v" stroke={color} strokeWidth={1.5}
-        fill={`url(#sp-${color.replace("#","")})`} dot={false} />
-    </AreaChart>
-  </ResponsiveContainer>
+const EmptyChart = ({ height = 280, message = "No data available for this period" }: { height?: number; message?: string }) => (
+  <div style={{ height, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#9ca3af", fontSize: 14, gap: 8 }}>
+    <FileEarmarkBarGraph size={32} style={{ opacity: 0.3 }} />
+    <span>{message}</span>
+  </div>
 );
 
 
 // ─── Tab content components ───────────────────────────────────────────────────
 
+interface RevenueTrendPoint { label: string; revenue: number; target: number; prev: number; }
+interface ServiceItem { name: string; bookings: number; revenue: number; avgTicket: number; growth: number; color?: string; }
+
+// ── Fill missing dates so the full period always shows (backend only returns rows with data) ──
+const _DAY   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const _MON   = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const _pad2  = (n: number) => String(n).padStart(2, "0");
+
+function buildRevenueSeries(period: string, existing: RevenueTrendPoint[]): RevenueTrendPoint[] {
+  const now = new Date();
+  const map = new Map(existing.map(d => [d.label.trim(), d]));
+  const pts: RevenueTrendPoint[] = [];
+
+  if (period === "7d") {
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now); d.setDate(d.getDate() - i);
+      const label = _DAY[d.getDay()];
+      pts.push(map.get(label) ?? { label, revenue: 0, target: 0, prev: 0 });
+    }
+  } else if (period === "30d") {
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now); d.setDate(d.getDate() - i);
+      const label = `${_pad2(d.getDate())} ${_MON[d.getMonth()]}`;
+      pts.push(map.get(label) ?? { label, revenue: 0, target: 0, prev: 0 });
+    }
+  } else if (period === "90d") {
+    for (let i = 12; i >= 0; i--) {
+      const d = new Date(now); d.setDate(d.getDate() - i * 7);
+      const label = `${_pad2(d.getDate())} ${_MON[d.getMonth()]}`;
+      pts.push(map.get(label) ?? { label, revenue: 0, target: 0, prev: 0 });
+    }
+  } else if (period === "12m") {
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now); d.setMonth(d.getMonth() - i);
+      const label = _MON[d.getMonth()];
+      pts.push(map.get(label) ?? { label, revenue: 0, target: 0, prev: 0 });
+    }
+  }
+
+  return pts.length > 1 ? pts : existing;
+}
+
+// Custom active dot — glowing rings on hover
+const GlowDot = (props: any) => {
+  const { cx, cy } = props;
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={12} fill="#6366f1" fillOpacity={0.08} />
+      <circle cx={cx} cy={cy} r={7}  fill="#6366f1" fillOpacity={0.18} />
+      <circle cx={cx} cy={cy} r={4}  fill="#6366f1" />
+      <circle cx={cx} cy={cy} r={2}  fill="#fff" />
+    </g>
+  );
+};
+
+// Smart tooltip — shows revenue, target %, progress bar
+const RevenueTrendTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  const revenue = payload.find((p: any) => p.dataKey === "revenue")?.value ?? 0;
+  const target  = payload.find((p: any) => p.dataKey === "target")?.value  ?? 0;
+  const prev    = payload.find((p: any) => p.dataKey === "prev")?.value    ?? 0;
+  const pct     = target > 0 ? Math.min((revenue / target) * 100, 200) : 0;
+  const isAbove = revenue >= target;
+  return (
+    <div className="rp-rev-tooltip">
+      <div className="rp-rev-tt-label">{label?.toUpperCase()}</div>
+      <div className="rp-rev-tt-row">
+        <span className="rp-rev-tt-dot" style={{ background: "#6366f1" }} />
+        <span>Revenue</span>
+        <span className="rp-rev-tt-val">₹{Number(revenue).toLocaleString()}</span>
+      </div>
+      {target > 0 && (
+        <div className="rp-rev-tt-row">
+          <span className="rp-rev-tt-dot" style={{ background: "#3b82f6" }} />
+          <span>Target</span>
+          <span className="rp-rev-tt-val">₹{Number(target).toLocaleString()}</span>
+        </div>
+      )}
+      {prev > 0 && (
+        <div className="rp-rev-tt-row">
+          <span className="rp-rev-tt-dot" style={{ background: "#d1d5db" }} />
+          <span>Previous</span>
+          <span className="rp-rev-tt-val">₹{Number(prev).toLocaleString()}</span>
+        </div>
+      )}
+      {target > 0 && (
+        <div className="rp-rev-tt-progress">
+          <div className="rp-rev-tt-prog-track">
+            <div className="rp-rev-tt-prog-fill" style={{
+              width: `${Math.min(pct, 100)}%`,
+              background: isAbove ? "linear-gradient(90deg,#10b981,#34d399)" : "linear-gradient(90deg,#f59e0b,#fcd34d)",
+            }} />
+          </div>
+          <span style={{ color: isAbove ? "#10b981" : "#f59e0b", fontWeight: 700, fontSize: 11 }}>
+            {pct.toFixed(0)}% of target
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const RevenueTab = ({
   trend,
   services,
+  period,
 }: {
-  trend: typeof revenueBy7d;
-  services: typeof fallbackServiceData;
+  trend: RevenueTrendPoint[];
+  services: ServiceItem[];
+  period: string;
 }) => {
   const [showTarget, setShowTarget] = useState(true);
   const [showPrev, setShowPrev]     = useState(true);
+
+  // X-axis: show fewer ticks for dense periods
+  const xInterval = period === "30d" ? 6 : period === "90d" ? 1 : 0;
+
+  // Week boundary reference lines — every 7 data points for 30d
+  const weekLines = period === "30d"
+    ? trend.filter((_, i) => i > 0 && i % 7 === 0)
+    : period === "7d"
+    ? trend.filter(d => d.label === "Sat" || d.label === "Sun")
+    : [];
 
   return (
     <div className="rp-tab-body">
@@ -206,95 +202,161 @@ const RevenueTab = ({
             <h4 className="rp-chart-title">Revenue Trend</h4>
             <p className="rp-chart-sub">Revenue vs Target vs Previous Period</p>
           </div>
-          <div className="rp-toggles">
-            <Button variant="ghost" className={`rp-toggle ${showTarget ? "active" : ""}`} onClick={() => setShowTarget(v => !v)}>
-              <span className="rp-tog-dot" style={{ background: "#3b82f6" }} /> Target
-            </Button>
-            <Button variant="ghost" className={`rp-toggle ${showPrev ? "active" : ""}`} onClick={() => setShowPrev(v => !v)}>
-              <span className="rp-tog-dot" style={{ background: "#d1d5db" }} /> Previous
-            </Button>
-          </div>
+          {trend.length > 0 && (
+            <div className="rp-toggles">
+              <Button variant="ghost" className={`rp-toggle ${showTarget ? "active" : ""}`} onClick={() => setShowTarget(v => !v)}>
+                <span className="rp-tog-dot" style={{ background: "#3b82f6" }} /> Target
+              </Button>
+              <Button variant="ghost" className={`rp-toggle ${showPrev ? "active" : ""}`} onClick={() => setShowPrev(v => !v)}>
+                <span className="rp-tog-dot" style={{ background: "#d1d5db" }} /> Previous
+              </Button>
+            </div>
+          )}
         </div>
-        <ResponsiveContainer width="100%" height={280}>
-          <AreaChart data={trend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id="gRev" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor="#111827" stopOpacity={0.14} />
-                <stop offset="95%" stopColor="#111827" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="gTgt" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.1} />
-                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-            <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false}
-              tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
-            <Tooltip content={<CustomTooltip />} />
-            {showPrev && (
-              <Area type="monotone" dataKey="prev" name="Previous" stroke="#d1d5db"
-                strokeWidth={1.5} strokeDasharray="4 4" fill="none" dot={false} />
-            )}
-            {showTarget && (
-              <Area type="monotone" dataKey="target" name="Target" stroke="#3b82f6"
-                strokeWidth={1.5} strokeDasharray="5 3" fill="url(#gTgt)" dot={false} />
-            )}
-            <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#111827"
-              strokeWidth={2.5} fill="url(#gRev)" dot={false}
-              activeDot={{ r: 5, fill: "#111827" }} />
-          </AreaChart>
-        </ResponsiveContainer>
+        {trend.length === 0 ? <EmptyChart height={280} /> : (() => {
+          const avgRev = trend.reduce((s, d) => s + d.revenue, 0) / trend.length;
+          return (
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={trend} margin={{ top: 14, right: 16, left: 0, bottom: 0 }}>
+                <defs>
+                  {/* Vertical gradient fill under revenue line */}
+                  <linearGradient id="gRev" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%"   stopColor="#6366f1" stopOpacity={0.22} />
+                    <stop offset="50%"  stopColor="#818cf8" stopOpacity={0.10} />
+                    <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                  </linearGradient>
+                  {/* Horizontal gradient for the revenue stroke */}
+                  <linearGradient id="revLineGrad" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%"   stopColor="#6366f1" />
+                    <stop offset="60%"  stopColor="#8b5cf6" />
+                    <stop offset="100%" stopColor="#10b981" />
+                  </linearGradient>
+                  <linearGradient id="gTgt" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%"   stopColor="#3b82f6" stopOpacity={0.08} />
+                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} interval={xInterval} />
+                <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false}
+                  tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} width={48} />
+                <Tooltip content={<RevenueTrendTooltip />} cursor={{ stroke: "#6366f1", strokeWidth: 1, strokeDasharray: "4 4" }} />
+                {/* Week boundary lines */}
+                {weekLines.map((d, wi) => (
+                  <ReferenceLine key={d.label} x={d.label} stroke="#e5e7eb" strokeWidth={1}
+                    label={{ value: period === "30d" ? `W${wi + 2}` : d.label, position: "insideTopLeft", fontSize: 9, fill: "#c4b5fd" }} />
+                ))}
+                {/* Average reference line */}
+                <ReferenceLine y={avgRev} stroke="#10b981" strokeDasharray="6 3" strokeWidth={1.5}
+                  label={{ value: "Avg", position: "insideTopRight", fontSize: 10, fill: "#10b981" }} />
+                {showPrev && (
+                  <Area type="monotone" dataKey="prev" name="Previous" stroke="#d1d5db"
+                    strokeWidth={1.5} strokeDasharray="4 4" fill="none" dot={false} />
+                )}
+                {showTarget && (
+                  <Area type="monotone" dataKey="target" name="Target" stroke="#3b82f6"
+                    strokeWidth={1.5} strokeDasharray="5 3" fill="url(#gTgt)" dot={false} />
+                )}
+                <Area type="monotone" dataKey="revenue" name="Revenue"
+                  stroke="url(#revLineGrad)" strokeWidth={3}
+                  fill="url(#gRev)" dot={false}
+                  activeDot={<GlowDot />} />
+              </AreaChart>
+            </ResponsiveContainer>
+          );
+        })()}
       </div>
 
       <div className="rp-two-col">
-        {/* Revenue by Service */}
-        <div className="rp-chart-card">
-          <h4 className="rp-chart-title">Revenue by Service</h4>
-          <p className="rp-chart-sub">Contribution per category</p>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={services} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }} barSize={10}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false}
-                tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
-              <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: "#374151" }} axisLine={false} tickLine={false} width={72} />
-              <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString()}`} />
-              <Bar dataKey="revenue" name="Revenue" radius={[0, 4, 4, 0]}>
-                {services.map((s) => <Cell key={s.name} fill={s.color} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        {(() => {
+          const sorted     = [...services].sort((a, b) => b.revenue - a.revenue);
+          const top3       = sorted.slice(0, 3);
+          const othersRev  = sorted.slice(3).reduce((s, x) => s + x.revenue, 0);
+          const totalRev   = services.reduce((s, x) => s + x.revenue, 0);
+          const pieData: ServiceItem[] = [
+            ...top3,
+            ...(othersRev > 0 ? [{ name: "Others", revenue: othersRev, bookings: 0, avgTicket: 0, growth: 0, color: "#e5e7eb" }] : []),
+          ];
 
-        {/* Daily Heatmap-style */}
-        <div className="rp-chart-card">
-          <h4 className="rp-chart-title">Revenue Distribution</h4>
-          <p className="rp-chart-sub">Service share of total revenue</p>
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie data={services} cx="50%" cy="50%" innerRadius={60} outerRadius={95}
-                paddingAngle={2} dataKey="revenue">
-                {services.map((s) => <Cell key={s.name} fill={s.color} />)}
-              </Pie>
-              <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString()}`} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="rp-pie-legend">
-            {services.map(s => (
-              <div key={s.name} className="rp-pie-row">
-                <span className="rp-pie-dot" style={{ background: s.color }} />
-                <span>{s.name}</span>
-                <span className="ms-auto text-muted" style={{ fontSize: 12 }}>₹{(s.revenue/1000).toFixed(0)}k</span>
+          const renderPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, value }: any) => {
+            if (totalRev === 0 || value === 0) return null;
+            const pct = ((value / totalRev) * 100);
+            if (pct < 5) return null;
+            const RADIAN = Math.PI / 180;
+            const r = innerRadius + (outerRadius - innerRadius) * 0.52;
+            const x = cx + r * Math.cos(-midAngle * RADIAN);
+            const y = cy + r * Math.sin(-midAngle * RADIAN);
+            return (
+              <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={700}>
+                {pct.toFixed(0)}%
+              </text>
+            );
+          };
+
+          return (
+            <>
+              <div className="rp-chart-card">
+                <h4 className="rp-chart-title">Revenue by Service</h4>
+                <p className="rp-chart-sub">Top 3 by contribution</p>
+                {top3.length === 0 ? <EmptyChart height={220} /> : (
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={top3} layout="vertical" margin={{ top: 0, right: 52, left: 0, bottom: 0 }} barSize={14}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false}
+                        tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: "#374151" }} axisLine={false} tickLine={false} width={80} />
+                      <Tooltip formatter={(v: any) => [`₹${Number(v).toLocaleString()}`, "Revenue"]} />
+                      <Bar dataKey="revenue" name="Revenue" radius={[0, 4, 4, 0]}
+                        label={{ position: "right", formatter: (v: any) => totalRev > 0 ? `${((v / totalRev) * 100).toFixed(0)}%` : "", fontSize: 11, fill: "#6b7280" }}>
+                        {top3.map((s, i) => <Cell key={s.name} fill={s.color ?? CHART_COLORS[i % CHART_COLORS.length]} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </div>
-            ))}
-          </div>
-        </div>
+
+              <div className="rp-chart-card">
+                <h4 className="rp-chart-title">Revenue Distribution</h4>
+                <p className="rp-chart-sub">Top 3 service share</p>
+                {pieData.length === 0 ? <EmptyChart height={220} /> : (
+                  <>
+                    <ResponsiveContainer width="100%" height={180}>
+                      <PieChart>
+                        <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={82}
+                          paddingAngle={2} dataKey="revenue" labelLine={false} label={renderPieLabel}>
+                          {pieData.map((s, i) => <Cell key={s.name} fill={s.color ?? CHART_COLORS[i % CHART_COLORS.length]} />)}
+                        </Pie>
+                        <Tooltip formatter={(v: any) => [`₹${Number(v).toLocaleString()}`, "Revenue"]} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="rp-pie-legend">
+                      {pieData.map((s, i) => {
+                        const pct = totalRev > 0 ? ((s.revenue / totalRev) * 100).toFixed(0) : "0";
+                        return (
+                          <div key={s.name} className="rp-pie-row">
+                            <span className="rp-pie-dot" style={{ background: s.color ?? CHART_COLORS[i % CHART_COLORS.length] }} />
+                            <span style={{ flex: 1 }}>{s.name}</span>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>{pct}%</span>
+                            <span style={{ fontSize: 11, color: "#9ca3af", marginLeft: 6 }}>₹{(s.revenue/1000).toFixed(1)}k</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
+          );
+        })()}
       </div>
     </div>
   );
 };
 
-const AppointmentsTab = ({ volume, peakHours }: { volume: typeof appointmentsWeekly; peakHours: { hour: string; count: number }[] }) => (
+interface ApptVolumePoint { label: string; completed: number; cancelled: number; noShow: number; }
+interface PeakHour { hour: string; count: number; }
+
+const AppointmentsTab = ({ volume, peakHours }: { volume: ApptVolumePoint[]; peakHours: PeakHour[] }) => (
   <div className="rp-tab-body">
     <div className="rp-main-chart-card">
       <div className="rp-chart-header">
@@ -308,34 +370,30 @@ const AppointmentsTab = ({ volume, peakHours }: { volume: typeof appointmentsWee
           ))}
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={280}>
-        <BarChart data={volume} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barSize={14} barGap={3}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-          <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-          <Tooltip content={<CustomTooltip />} />
-          <Bar dataKey="completed" name="Completed" fill="#111827" radius={[4,4,0,0]} stackId="a" />
-          <Bar dataKey="cancelled" name="Cancelled" fill="#d1d5db" radius={[0,0,0,0]} stackId="a" />
-          <Bar dataKey="noShow"    name="No-Show"   fill="#fecaca" radius={[4,4,0,0]} stackId="a" />
-        </BarChart>
-      </ResponsiveContainer>
+      {volume.length === 0 ? <EmptyChart height={280} /> : (
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={volume} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barSize={14} barGap={3}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+            <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+            <Tooltip content={<CustomTooltip />} />
+            <Bar dataKey="completed" name="Completed" fill="#111827" radius={[4,4,0,0]} stackId="a" />
+            <Bar dataKey="cancelled" name="Cancelled" fill="#d1d5db" radius={[0,0,0,0]} stackId="a" />
+            <Bar dataKey="noShow"    name="No-Show"   fill="#fecaca" radius={[4,4,0,0]} stackId="a" />
+          </BarChart>
+        </ResponsiveContainer>
+      )}
     </div>
 
     <div className="rp-two-col">
       <div className="rp-chart-card">
         <h4 className="rp-chart-title">Peak Hours</h4>
         <p className="rp-chart-sub">Busiest time slots</p>
-        {(() => {
-          const slots = peakHours.length > 0 ? peakHours : [
-            {hour:"9AM",count:8},{hour:"10AM",count:14},{hour:"11AM",count:18},
-            {hour:"12PM",count:16},{hour:"1PM",count:12},{hour:"2PM",count:20},
-            {hour:"3PM",count:24},{hour:"4PM",count:22},{hour:"5PM",count:28},
-            {hour:"6PM",count:19},{hour:"7PM",count:10},
-          ];
-          const max = Math.max(...slots.map(h => h.count), 1);
+        {peakHours.length === 0 ? <EmptyChart height={220} message="No peak hours data available" /> : (() => {
+          const max = Math.max(...peakHours.map(h => h.count), 1);
           return (
             <div className="rp-heatmap">
-              {slots.map(({ hour, count }) => {
+              {peakHours.map(({ hour, count }) => {
                 const pct = Math.round((count / max) * 100);
                 return (
                   <div key={hour} className="rp-heat-row">
@@ -354,46 +412,21 @@ const AppointmentsTab = ({ volume, peakHours }: { volume: typeof appointmentsWee
       <div className="rp-chart-card">
         <h4 className="rp-chart-title">Booking Source</h4>
         <p className="rp-chart-sub">Walk-in · Online · Phone</p>
-        <ResponsiveContainer width="100%" height={200}>
-          <PieChart>
-            <Pie data={[
-              { name: "Walk-In", value: 38, color: "#111827" },
-              { name: "Online",  value: 45, color: "#3b82f6" },
-              { name: "Phone",   value: 17, color: "#10b981" },
-            ]} cx="50%" cy="50%" outerRadius={80} paddingAngle={3} dataKey="value">
-              {[{color:"#111827"},{color:"#3b82f6"},{color:"#10b981"}].map((c,i) => <Cell key={i} fill={c.color} />)}
-            </Pie>
-            <Tooltip formatter={(v: any) => `${v}%`} />
-          </PieChart>
-        </ResponsiveContainer>
-        <div className="rp-pie-legend">
-          {[["#111827","Walk-In","38%"],["#3b82f6","Online","45%"],["#10b981","Phone","17%"]].map(([c,l,v]) => (
-            <div key={l} className="rp-pie-row">
-              <span className="rp-pie-dot" style={{ background: c }} />
-              <span>{l}</span>
-              <span className="ms-auto fw-semibold" style={{ fontSize: 12 }}>{v}</span>
-            </div>
-          ))}
-        </div>
+        <EmptyChart height={200} message="Booking source data coming soon" />
       </div>
     </div>
   </div>
 );
 
-const fallbackTopClients = [
-  { id: "1", name: "Priya Sharma",  visits: 28, spend: 42800 },
-  { id: "2", name: "Meera Joshi",   visits: 24, spend: 38200 },
-  { id: "3", name: "Sneha Patel",   visits: 21, spend: 31500 },
-  { id: "4", name: "Riya Kapoor",   visits: 19, spend: 28900 },
-  { id: "5", name: "Ananya Verma",  visits: 16, spend: 24600 },
-];
+interface ClientGrowthPoint { label: string; new: number; returning: number; churned: number; }
+interface TopClientItem { id: string | number; name: string; visits: number; spend: number; }
 
 const ClientsTab = ({
   growth,
   topClients,
 }: {
-  growth: typeof clientGrowth;
-  topClients: typeof fallbackTopClients;
+  growth: ClientGrowthPoint[];
+  topClients: TopClientItem[];
 }) => (
   <div className="rp-tab-body">
     <div className="rp-main-chart-card">
@@ -403,65 +436,55 @@ const ClientsTab = ({
           <p className="rp-chart-sub">New · Returning · Churned</p>
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={280}>
-        <AreaChart data={growth} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-          <defs>
-            {[["gNew","#10b981"],["gRet","#3b82f6"],["gChu","#ef4444"]].map(([id,c]) => (
-              <linearGradient key={id} id={id} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor={c} stopOpacity={0.15} />
-                <stop offset="95%" stopColor={c} stopOpacity={0} />
-              </linearGradient>
-            ))}
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-          <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-          <Tooltip content={<CustomTooltip />} />
-          <Area type="monotone" dataKey="churned"   name="Churned"   stroke="#ef4444" strokeWidth={2} fill="url(#gChu)" dot={false} />
-          <Area type="monotone" dataKey="new"       name="New"       stroke="#10b981" strokeWidth={2} fill="url(#gNew)" dot={false} />
-          <Area type="monotone" dataKey="returning" name="Returning" stroke="#3b82f6" strokeWidth={2} fill="url(#gRet)" dot={false} />
-        </AreaChart>
-      </ResponsiveContainer>
+      {growth.length === 0 ? <EmptyChart height={280} /> : (
+        <ResponsiveContainer width="100%" height={280}>
+          <AreaChart data={growth} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+            <defs>
+              {[["gNew","#10b981"],["gRet","#3b82f6"],["gChu","#ef4444"]].map(([id,c]) => (
+                <linearGradient key={id} id={id} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor={c} stopOpacity={0.15} />
+                  <stop offset="95%" stopColor={c} stopOpacity={0} />
+                </linearGradient>
+              ))}
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+            <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+            <Tooltip content={<CustomTooltip />} />
+            <Area type="monotone" dataKey="churned"   name="Churned"   stroke="#ef4444" strokeWidth={2} fill="url(#gChu)" dot={false} />
+            <Area type="monotone" dataKey="new"       name="New"       stroke="#10b981" strokeWidth={2} fill="url(#gNew)" dot={false} />
+            <Area type="monotone" dataKey="returning" name="Returning" stroke="#3b82f6" strokeWidth={2} fill="url(#gRet)" dot={false} />
+          </AreaChart>
+        </ResponsiveContainer>
+      )}
     </div>
     <div className="rp-two-col">
       <div className="rp-chart-card">
         <h4 className="rp-chart-title">Retention Funnel</h4>
         <p className="rp-chart-sub">Client visit frequency</p>
-        {[
-          { label: "1 visit",     count: 312, pct: 100 },
-          { label: "2–3 visits",  count: 248, pct: 80  },
-          { label: "4–6 visits",  count: 180, pct: 58  },
-          { label: "7–10 visits", count: 124, pct: 40  },
-          { label: "10+ visits",  count: 82,  pct: 26  },
-        ].map(row => (
-          <div key={row.label} className="rp-funnel-row">
-            <span className="rp-funnel-label">{row.label}</span>
-            <div className="rp-funnel-track">
-              <div className="rp-funnel-fill" style={{ width: `${row.pct}%` }} />
-            </div>
-            <span className="rp-funnel-count">{row.count}</span>
-          </div>
-        ))}
+        <EmptyChart height={220} message="Retention data coming soon" />
       </div>
       <div className="rp-chart-card">
         <h4 className="rp-chart-title">Top Clients</h4>
         <p className="rp-chart-sub">By total spend</p>
-        <div className="rp-rank-list">
-          {topClients.map((c, i) => {
-            const initials = c.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-            return (
-              <div key={c.id ?? c.name} className="rp-rank-row">
-                <span className="rp-rank-num">#{i + 1}</span>
-                <div className="rp-rank-av">{initials}</div>
-                <div className="rp-rank-info">
-                  <div className="rp-rank-name">{c.name}</div>
-                  <div className="rp-rank-sub">{c.visits} visits</div>
+        {topClients.length === 0 ? <EmptyChart height={220} message="No client data available" /> : (
+          <div className="rp-rank-list">
+            {topClients.map((c, i) => {
+              const initials = c.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+              return (
+                <div key={c.id ?? c.name} className="rp-rank-row">
+                  <span className="rp-rank-num">#{i + 1}</span>
+                  <div className="rp-rank-av">{initials}</div>
+                  <div className="rp-rank-info">
+                    <div className="rp-rank-name">{c.name}</div>
+                    <div className="rp-rank-sub">{c.visits} visits</div>
+                  </div>
+                  <span className="rp-rank-val">₹{c.spend.toLocaleString()}</span>
                 </div>
-                <span className="rp-rank-val">₹{c.spend.toLocaleString()}</span>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   </div>
@@ -469,11 +492,22 @@ const ClientsTab = ({
 
 const RADAR_COLORS = ["#111827", "#3b82f6", "#10b981"];
 
+interface StaffItem {
+  id?: string | number;
+  name: string;
+  bookings: number;
+  revenue: number;
+  rating: number;
+  utilization: number;
+  avgTicket: number;
+  color?: string;
+}
+
 const StaffTab = ({
   staffData,
   radarStaff,
 }: {
-  staffData: typeof fallbackStaffData;
+  staffData: StaffItem[];
   radarStaff: Array<{ metric: string; [key: string]: string | number }>;
 }) => {
   const radarNames = radarStaff.length > 0 && radarStaff[0] != null
@@ -509,61 +543,66 @@ const StaffTab = ({
             </div>
           </>
         ) : (
-          <div style={{ height: 260, display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af", fontSize: 14 }}>
-            No performance data available
-          </div>
+          <EmptyChart height={260} message="No performance data available" />
         )}
       </div>
       <div className="rp-chart-card rp-chart-card-tall">
         <h4 className="rp-chart-title">Utilization Rate</h4>
         <p className="rp-chart-sub">Hours booked vs available</p>
-        <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={staffData} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }} barSize={12}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
-            <XAxis type="number" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false}
-              tickFormatter={v => `${v}%`} domain={[0,100]} />
-            <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: "#374151" }} axisLine={false} tickLine={false} width={65} />
-            <Tooltip formatter={(v: any) => `${v}%`} />
-            <Bar dataKey="utilization" name="Utilization" radius={[0,4,4,0]}>
-              {staffData.map(s => <Cell key={s.name} fill={s.color} />)}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+        {staffData.length === 0 ? <EmptyChart height={260} /> : (
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={staffData} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }} barSize={12}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
+              <XAxis type="number" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false}
+                tickFormatter={v => `${v}%`} domain={[0,100]} />
+              <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: "#374151" }} axisLine={false} tickLine={false} width={65} />
+              <Tooltip formatter={(v: any) => `${v}%`} />
+              <Bar dataKey="utilization" name="Utilization" radius={[0,4,4,0]}>
+                {staffData.map((s, i) => <Cell key={s.name} fill={s.color ?? CHART_COLORS[i % CHART_COLORS.length]} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
     <div className="rp-staff-table-card">
       <h4 className="rp-chart-title mb-3">Staff Leaderboard</h4>
-      <div className="rp-table">
-        <div className="rp-table-head">
-          <span>#</span><span>Name</span><span>Bookings</span>
-          <span>Revenue</span><span>Avg Ticket</span><span>Rating</span><span>Utilization</span>
-        </div>
-        {staffData.map((s, i) => (
-          <div key={s.name} className="rp-table-row">
-            <span className="rp-table-rank">#{i+1}</span>
-            <span className="d-flex align-items-center gap-2">
-              <span className="rp-sm-av" style={{ background: s.color }}>{s.name.split(" ").map(w=>w[0]).join("")}</span>
-              {s.name}
-            </span>
-            <span>{s.bookings}</span>
-            <span className="fw-semibold">₹{s.revenue.toLocaleString()}</span>
-            <span>₹{s.avgTicket}</span>
-            <span className="rp-rating"><StarFill size={11} color="#f59e0b" /> {s.rating}</span>
-            <span>
-              <div className="rp-util-bar">
-                <div className="rp-util-fill" style={{ width: `${s.utilization}%`, background: s.color }} />
-              </div>
-              <small className="text-muted ms-2">{s.utilization}%</small>
-            </span>
+      {staffData.length === 0 ? <EmptyChart height={200} message="No staff data available" /> : (
+        <div className="rp-table">
+          <div className="rp-table-head">
+            <span>#</span><span>Name</span><span>Bookings</span>
+            <span>Revenue</span><span>Avg Ticket</span><span>Rating</span><span>Utilization</span>
           </div>
-        ))}
-      </div>
+          {staffData.map((s, i) => {
+            const color = s.color ?? CHART_COLORS[i % CHART_COLORS.length];
+            return (
+              <div key={s.name} className="rp-table-row">
+                <span className="rp-table-rank">#{i+1}</span>
+                <span className="d-flex align-items-center gap-2">
+                  <span className="rp-sm-av" style={{ background: color }}>{s.name.split(" ").map(w=>w[0]).join("")}</span>
+                  {s.name}
+                </span>
+                <span>{s.bookings}</span>
+                <span className="fw-semibold">₹{s.revenue.toLocaleString()}</span>
+                <span>₹{s.avgTicket}</span>
+                <span className="rp-rating"><StarFill size={11} color="#f59e0b" /> {s.rating}</span>
+                <span>
+                  <div className="rp-util-bar">
+                    <div className="rp-util-fill" style={{ width: `${s.utilization}%`, background: color }} />
+                  </div>
+                  <small className="text-muted ms-2">{s.utilization}%</small>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   </div>
   );
 };
 
-const ServicesTab = ({ services }: { services: typeof fallbackServiceData }) => {
+const ServicesTab = ({ services }: { services: ServiceItem[] }) => {
   const [sort, setSort] = useState<"revenue"|"bookings">("revenue");
   const sorted = useMemo(() =>
     [...services].sort((a,b) => b[sort] - a[sort]), [services, sort]);
@@ -576,45 +615,50 @@ const ServicesTab = ({ services }: { services: typeof fallbackServiceData }) => 
             <h4 className="rp-chart-title">Service Performance</h4>
             <p className="rp-chart-sub">Revenue and booking count per service</p>
           </div>
-          <div className="rp-toggles">
-            <Button variant="ghost" className={`rp-toggle ${sort==="revenue" ? "active":""}`} onClick={() => setSort("revenue")}>By Revenue</Button>
-            <Button variant="ghost" className={`rp-toggle ${sort==="bookings"? "active":""}`} onClick={() => setSort("bookings")}>By Bookings</Button>
-          </div>
+          {services.length > 0 && (
+            <div className="rp-toggles">
+              <Button variant="ghost" className={`rp-toggle ${sort==="revenue" ? "active":""}`} onClick={() => setSort("revenue")}>By Revenue</Button>
+              <Button variant="ghost" className={`rp-toggle ${sort==="bookings"? "active":""}`} onClick={() => setSort("bookings")}>By Bookings</Button>
+            </div>
+          )}
         </div>
-        <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={sorted} margin={{ top: 10, right: 10, left: 0, bottom: 0 }} barSize={28}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-            <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false}
-              tickFormatter={v => sort==="revenue" ? `₹${(v/1000).toFixed(0)}k` : `${v}`} />
-            <Tooltip formatter={(v: any, n?: string) =>
-              n==="Revenue" ? `₹${Number(v).toLocaleString()}` : v} />
-            <Bar dataKey={sort} name={sort==="revenue"?"Revenue":"Bookings"} radius={[6,6,0,0]}>
-              {sorted.map(s => <Cell key={s.name} fill={s.color ?? "#111827"} />)}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+        {services.length === 0 ? <EmptyChart height={260} /> : (
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={sorted} margin={{ top: 10, right: 10, left: 0, bottom: 0 }} barSize={28}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+              <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false}
+                tickFormatter={v => sort==="revenue" ? `₹${(v/1000).toFixed(0)}k` : `${v}`} />
+              <Tooltip formatter={(v: any, n?: string | number) =>
+                n==="Revenue" ? `₹${Number(v).toLocaleString()}` : v} />
+              <Bar dataKey={sort} name={sort==="revenue"?"Revenue":"Bookings"} radius={[6,6,0,0]}>
+                {sorted.map((s, i) => <Cell key={s.name} fill={s.color ?? CHART_COLORS[i % CHART_COLORS.length]} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
-      <div className="rp-services-grid">
-        {services.map(s => (
-          <div key={s.name} className="rp-svc-card">
-            <div className="rp-svc-top">
-              <span className="rp-svc-dot" style={{ background: s.color ?? "#111827" }} />
-              <span className="rp-svc-name">{s.name}</span>
-              <span className={`rp-svc-badge ${s.growth >= 0 ? "up" : "down"}`}>
-                {s.growth >= 0 ? <ArrowUpRight size={11}/> : <ArrowDownRight size={11}/>}
-                {Math.abs(s.growth)}%
-              </span>
+      {services.length > 0 && (
+        <div className="rp-services-grid">
+          {services.map((s, i) => (
+            <div key={s.name} className="rp-svc-card">
+              <div className="rp-svc-top">
+                <span className="rp-svc-dot" style={{ background: s.color ?? CHART_COLORS[i % CHART_COLORS.length] }} />
+                <span className="rp-svc-name">{s.name}</span>
+                <span className={`rp-svc-badge ${s.growth >= 0 ? "up" : "down"}`}>
+                  {s.growth >= 0 ? <ArrowUpRight size={11}/> : <ArrowDownRight size={11}/>}
+                  {Math.abs(s.growth)}%
+                </span>
+              </div>
+              <div className="rp-svc-rev">₹{(s.revenue/1000).toFixed(0)}k</div>
+              <div className="rp-svc-meta">
+                <span>{s.bookings} bookings</span>
+                <span>₹{s.avgTicket} avg</span>
+              </div>
             </div>
-            <div className="rp-svc-rev">₹{(s.revenue/1000).toFixed(0)}k</div>
-            <div className="rp-svc-meta">
-              <span>{s.bookings} bookings</span>
-              <span>₹{s.avgTicket} avg</span>
-            </div>
-            <Sparkline data={sparklineData} color={s.color ?? "#111827"} />
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -693,7 +737,6 @@ const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBac
       setShowDtDrop(false);
       setShowStatusDrop(false);
       setShowSourceDrop(false);
-      setShowExportDrop(false);
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
@@ -1080,7 +1123,7 @@ const FinanceReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    const close = () => { setShowMethodDrop(false); setShowExportDrop(false); };
+    const close = () => { setShowMethodDrop(false); };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
@@ -1203,16 +1246,17 @@ interface InventoryRow {
   status: "In Stock" | "Low Stock" | "Out of Stock";
 }
 
-const INV_CATEGORIES = ["All", "Hair Care", "Hair Color", "Nails", "Skin Care", "Body Care"];
 const INV_STATUSES   = ["All", "In Stock", "Low Stock", "Out of Stock"];
 
 const InventoryReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
-  const [category,       setCategory]       = useState("All");
-  const [stockStatus,    setStockStatus]    = useState("All");
-  const [showCatDrop,    setShowCatDrop]    = useState(false);
-  const [showStsDrop,    setShowStsDrop]    = useState(false);
-  const [rows,           setRows]           = useState<InventoryRow[]>([]);
-  const [loading,        setLoading]        = useState(false);
+  const [category,        setCategory]        = useState("All");
+  const [stockStatus,     setStockStatus]     = useState("All");
+  const [showCatDrop,     setShowCatDrop]     = useState(false);
+  const [showStsDrop,     setShowStsDrop]     = useState(false);
+  const [rows,            setRows]            = useState<InventoryRow[]>([]);
+  const [allRows,         setAllRows]         = useState<InventoryRow[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<string[]>(["All"]);
+  const [loading,         setLoading]         = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
   useEffect(() => { setCurrentPage(1); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1224,20 +1268,45 @@ const InventoryReportDetail = ({ report, onBack }: { report: ReportItem; onBack:
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ category, status: stockStatus });
-      const res = await api.get<{ data: InventoryRow[] }>(`/api/v1/reports/inventory/detail?${params}`, { signal: ctrl.signal });
-      if (res.data?.data) setRows(res.data.data);
+      const [prodRes, catRes] = await Promise.all([
+        api.get("/api/v1/products", { signal: ctrl.signal }),
+        api.get("/api/v1/categories", { signal: ctrl.signal }),
+      ]);
+      const products: any[] = prodRes.data?.data?.data ?? prodRes.data?.data ?? [];
+      const cats: any[] = catRes.data?.data ?? [];
+      const catMap: Record<string, string> = {};
+      cats.forEach((c: any) => { catMap[c.id] = c.name; });
+      setCategoryOptions(["All", ...cats.map((c: any) => c.name as string)]);
+      const mapped: InventoryRow[] = products.map((p: any) => {
+        const currentStock = parseFloat(p.amount) || 0;
+        const reorderLevel = Number(p.qty_alert) || 0;
+        const unitCost = parseFloat(p.supply_price) || parseFloat(p.retail_price) || 0;
+        const totalValue = Math.round(currentStock * unitCost * 100) / 100;
+        const catName = p.category_id ? (catMap[p.category_id] ?? "Uncategorized") : "Uncategorized";
+        let status: InventoryRow["status"] = "In Stock";
+        if (currentStock <= 0) status = "Out of Stock";
+        else if (reorderLevel > 0 && currentStock <= reorderLevel) status = "Low Stock";
+        return { product: p.name, category: catName, sku: p.barcode ?? "—", currentStock, reorderLevel, unitCost, totalValue, status };
+      });
+      setAllRows(mapped);
     } catch (e: any) {
-      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setRows([]);
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setAllRows([]);
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [category, stockStatus]);
+  }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    const close = () => { setShowCatDrop(false); setShowStsDrop(false); setShowExportDrop(false); };
+    let filtered = allRows;
+    if (category !== "All") filtered = filtered.filter(r => r.category === category);
+    if (stockStatus !== "All") filtered = filtered.filter(r => r.status === stockStatus);
+    setRows(filtered);
+  }, [allRows, category, stockStatus]);
+
+  useEffect(() => {
+    const close = () => { setShowCatDrop(false); setShowStsDrop(false); };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
@@ -1277,7 +1346,7 @@ const InventoryReportDetail = ({ report, onBack }: { report: ReportItem; onBack:
           </button>
           {showCatDrop && (
             <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
-              {INV_CATEGORIES.map(c => (
+              {categoryOptions.map(c => (
                 <div key={c} className={`rp-detail-dropdown-item ${c === category ? "active" : ""}`}
                   onClick={() => { setCategory(c); setShowCatDrop(false); }}>{c}</div>
               ))}
@@ -1407,7 +1476,7 @@ const PaymentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    const close = () => { setShowGwDrop(false); setShowPsDrop(false); setShowExportDrop(false); };
+    const close = () => { setShowGwDrop(false); setShowPsDrop(false); };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
@@ -1581,7 +1650,7 @@ const DailyReportDetail = ({ report, onBack, staffNames }: { report: ReportItem;
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    const close = () => { setShowSvcDrop(false); setShowStfDrop(false); setShowExportDrop(false); };
+    const close = () => { setShowSvcDrop(false); setShowStfDrop(false); };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
@@ -1720,7 +1789,7 @@ interface MarketingRow {
 
 const MKT_STATUSES = ["All", "Active", "Inactive", "Expired"];
 
-const MarketingReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+const ClientAcquisitionReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
   const today = new Date().toISOString().slice(0, 10);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [dateFrom,        setDateFrom]        = useState(monthStart);
@@ -1729,6 +1798,7 @@ const MarketingReportDetail = ({ report, onBack }: { report: ReportItem; onBack:
   const [mktStatus,       setMktStatus]       = useState("All");
   const [showStsDrop,     setShowStsDrop]     = useState(false);
   const [rows,            setRows]            = useState<MarketingRow[]>([]);
+  const [allRows,         setAllRows]         = useState<MarketingRow[]>([]);
   const [loading,         setLoading]         = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
@@ -1741,20 +1811,48 @@ const MarketingReportDetail = ({ report, onBack }: { report: ReportItem; onBack:
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ from: dateFrom, to: dateTo, status: mktStatus, search: clientSearch });
-      const res = await api.get<{ data: MarketingRow[] }>(`/api/v1/reports/marketing/detail?${params}`, { signal: ctrl.signal });
-      if (res.data?.data) setRows(res.data.data);
+      const res = await api.get("/api/v1/clients", { signal: ctrl.signal });
+      const clients: any[] = res.data?.data?.data ?? res.data?.data ?? [];
+      const mapped: MarketingRow[] = clients.map((c: any) => {
+        const name = [c.first_name, c.last_name].filter(Boolean).join(" ") || c.name || "—";
+        return {
+          clientName: name,
+          email:     c.email ?? "—",
+          phone:     c.mobile_number ?? c.phone ?? "—",
+          visits:    c.total_visits ?? c.visit_count ?? 0,
+          spend:     parseFloat(c.total_spend ?? c.lifetime_spend ?? "0") || 0,
+          lastVisit: (c.last_visit ?? c.last_visit_date ?? c.last_appointment_date ?? "").slice(0, 10) || "—",
+          status:    (c.status === "active" || c.is_active === true) ? "Active" : "Inactive",
+        };
+      });
+      setAllRows(mapped);
     } catch (e: any) {
-      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setRows([]);
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setAllRows([]);
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, mktStatus, clientSearch]);
+  }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    const close = () => { setShowStsDrop(false); setShowExportDrop(false); };
+    let filtered = allRows;
+    if (dateFrom) filtered = filtered.filter(r => r.lastVisit !== "—" && r.lastVisit >= dateFrom);
+    if (dateTo)   filtered = filtered.filter(r => r.lastVisit !== "—" && r.lastVisit <= dateTo);
+    if (mktStatus !== "All") filtered = filtered.filter(r => r.status === mktStatus);
+    if (clientSearch.trim()) {
+      const q = clientSearch.toLowerCase();
+      filtered = filtered.filter(r =>
+        r.clientName.toLowerCase().includes(q) ||
+        r.email.toLowerCase().includes(q) ||
+        r.phone.includes(clientSearch)
+      );
+    }
+    setRows(filtered);
+  }, [allRows, dateFrom, dateTo, mktStatus, clientSearch]);
+
+  useEffect(() => {
+    const close = () => { setShowStsDrop(false); };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
@@ -1877,6 +1975,581 @@ const MarketingReportDetail = ({ report, onBack }: { report: ReportItem; onBack:
   );
 };
 
+// ─── Campaign Performance Report Detail ──────────────────────────────────────
+
+interface CampaignPerfRow {
+  id: string;
+  name: string;
+  templateName: string;
+  status: string;
+  totalContacts: number;
+  sent: number;
+  delivered: number;
+  read: number;
+  failed: number;
+  blocked: number;
+  createdAt: string;
+}
+
+const CAMP_STATUSES = ["All", "COMPLETED", "RUNNING", "PAUSED", "SCHEDULED", "FAILED", "DRAFT"];
+
+const CampaignPerformanceReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const [rows,           setRows]           = useState<CampaignPerfRow[]>([]);
+  const [allRows,        setAllRows]        = useState<CampaignPerfRow[]>([]);
+  const [statusFilter,   setStatusFilter]   = useState("All");
+  const [search,         setSearch]         = useState("");
+  const [showStatusDrop, setShowStatusDrop] = useState(false);
+  const [loading,        setLoading]        = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize,    setPageSize]    = useState(10);
+  useEffect(() => { setCurrentPage(1); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
+  const abortRef = useRef<AbortController | null>(null);
+
+  const fetchData = useCallback(async () => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setLoading(true);
+    try {
+      const res = await api.get("/api/v1/campaigns", { signal: ctrl.signal });
+      const campaigns: any[] = res.data?.data?.data ?? res.data?.data ?? res.data?.campaigns ?? [];
+      const mapped: CampaignPerfRow[] = campaigns.map((c: any) => ({
+        id:            String(c.id ?? ""),
+        name:          c.name ?? "—",
+        templateName:  c.template_name ?? c.templateName ?? "—",
+        status:        c.status ?? "—",
+        totalContacts: c.total_contacts ?? c.totalContacts ?? 0,
+        sent:          c.sent_count ?? c.sent ?? 0,
+        delivered:     c.delivered_count ?? c.delivered ?? 0,
+        read:          c.read_count ?? c.read ?? 0,
+        failed:        c.failed_count ?? c.failed ?? 0,
+        blocked:       c.blocked_count ?? c.blocked ?? 0,
+        createdAt:     (c.created_at ?? c.createdAt ?? "").slice(0, 10),
+      }));
+      setAllRows(mapped);
+    } catch (e: any) {
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setAllRows([]);
+    } finally {
+      if (!ctrl.signal.aborted) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    let filtered = allRows;
+    if (statusFilter !== "All") filtered = filtered.filter(r => r.status === statusFilter);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      filtered = filtered.filter(r =>
+        r.name.toLowerCase().includes(q) || r.templateName.toLowerCase().includes(q)
+      );
+    }
+    setRows(filtered);
+  }, [allRows, statusFilter, search]);
+
+  useEffect(() => {
+    const close = () => setShowStatusDrop(false);
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+
+  const pct = (n: number, total: number) => total > 0 ? `${Math.round((n / total) * 100)}%` : "0%";
+  const campStatusColor = (s: string) =>
+    s === "COMPLETED" ? "#10b981" : s === "RUNNING" ? "#3b82f6" : s === "PAUSED" ? "#f59e0b" : s === "FAILED" ? "#ef4444" : "#9ca3af";
+
+  const totalSent      = rows.reduce((s, r) => s + r.sent, 0);
+  const totalDelivered = rows.reduce((s, r) => s + r.delivered, 0);
+
+  const CAMP_HEADERS = ["Campaign", "Template", "Status", "Contacts", "Sent", "Delivered", "Delivered%", "Read", "Read%", "Failed", "Blocked", "Date"];
+  const campExportRows = () => rows.map(r => [r.name, r.templateName, r.status, r.totalContacts, r.sent, r.delivered, pct(r.delivered, r.sent), r.read, pct(r.read, r.sent), r.failed, r.blocked, r.createdAt]);
+
+  return (
+    <div className="rp-detail-view">
+      <div className="rp-detail-header">
+        <div className="rp-detail-back-row">
+          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
+            <ChevronLeft size={15} /> {report.name}
+          </Button>
+          <div className="rp-detail-view-icons">
+            <button className="rp-detail-icon-btn" title="Column view"><Grid3x3Gap size={16} /></button>
+            <ReportExportButton title={report.name} headers={CAMP_HEADERS} rows={campExportRows} filename={report.name} />
+            <button className="rp-detail-icon-btn" title="Info"><InfoCircle size={16} /></button>
+          </div>
+        </div>
+        <div className="rp-detail-tab-bar"><span className="rp-detail-tab active">Default View</span></div>
+      </div>
+
+      <div className="rp-detail-filters">
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Search</label>
+          <div className="rp-detail-date-range">
+            <Search size={13} style={{ color: "#9ca3af", flexShrink: 0 }} />
+            <input type="text" placeholder="Search campaign..." value={search} onChange={e => setSearch(e.target.value)} className="rp-detail-date-input" />
+          </div>
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Status</label>
+          <button className="rp-detail-select" onClick={() => setShowStatusDrop(v => !v)}>
+            {statusFilter} <span className="rp-detail-caret">▼</span>
+          </button>
+          {showStatusDrop && (
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
+              {CAMP_STATUSES.map(s => (
+                <div key={s} className={`rp-detail-dropdown-item ${s === statusFilter ? "active" : ""}`}
+                  onClick={() => { setStatusFilter(s); setShowStatusDrop(false); }}>{s}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-actions">
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
+            <Refresh size={13} /> Refresh
+          </Button>
+          <Button variant="ghost" className="rp-detail-save-btn">Save View</Button>
+        </div>
+      </div>
+
+      <div className="rp-detail-drag-hint">
+        {rows.length} campaign{rows.length !== 1 ? "s" : ""}
+        {rows.length > 0 && (
+          <>&nbsp;·&nbsp;Total Sent: <strong>{totalSent.toLocaleString()}</strong>
+          &nbsp;·&nbsp;Avg Delivery: <strong>{pct(totalDelivered, totalSent)}</strong></>
+        )}
+      </div>
+
+      <div className="rp-detail-table-wrap">
+        <table className="rp-detail-table">
+          <thead>
+            <tr>
+              <th>Campaign <span className="rp-th-sort">↕</span></th>
+              <th>Template</th>
+              <th>Status</th>
+              <th>Contacts</th>
+              <th>Sent</th>
+              <th>Delivered</th>
+              <th>Read</th>
+              <th>Failed</th>
+              <th>Blocked</th>
+              <th>Date <span className="rp-th-sort">↕</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={10} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+            ) : rows.length === 0 ? (
+              <tr><td colSpan={10} className="rp-detail-empty-cell">No data available</td></tr>
+            ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
+              <tr key={i}>
+                <td className="fw-semibold">{r.name}</td>
+                <td><span className="rp-detail-link">{r.templateName}</span></td>
+                <td><span style={{ color: campStatusColor(r.status), fontWeight: 600, fontSize: 12 }}>{r.status}</span></td>
+                <td>{r.totalContacts}</td>
+                <td>{r.sent}</td>
+                <td>
+                  <span>{r.delivered}</span>
+                  <span style={{ fontSize: 11, color: "#9ca3af", marginLeft: 4 }}>({pct(r.delivered, r.sent)})</span>
+                </td>
+                <td>
+                  <span>{r.read}</span>
+                  <span style={{ fontSize: 11, color: "#9ca3af", marginLeft: 4 }}>({pct(r.read, r.sent)})</span>
+                </td>
+                <td style={{ color: r.failed > 0 ? "#ef4444" : undefined }}>{r.failed}</td>
+                <td style={{ color: r.blocked > 0 ? "#f59e0b" : undefined }}>{r.blocked}</td>
+                <td>{r.createdAt}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+    </div>
+  );
+};
+
+// ─── Template Performance Report Detail ──────────────────────────────────────
+
+interface TemplatePerfRow {
+  id: string;
+  name: string;
+  type: string;
+  language: string;
+  status: string;
+  timesUsed: number;
+  totalSent: number;
+  totalDelivered: number;
+  avgReadRate: number;
+}
+
+const TMPL_TYPES_FILTER  = ["All", "MARKETING", "UTILITY", "AUTHENTICATION"];
+const TMPL_STATUS_FILTER = ["All", "APPROVED", "PENDING", "REJECTED"];
+
+const TemplatePerformanceReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const [rows,         setRows]         = useState<TemplatePerfRow[]>([]);
+  const [allRows,      setAllRows]      = useState<TemplatePerfRow[]>([]);
+  const [typeFilter,   setTypeFilter]   = useState("All");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [showTypeDrop, setShowTypeDrop] = useState(false);
+  const [showStsDrop,  setShowStsDrop]  = useState(false);
+  const [loading,      setLoading]      = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize,    setPageSize]    = useState(10);
+  useEffect(() => { setCurrentPage(1); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
+  const abortRef = useRef<AbortController | null>(null);
+
+  const fetchData = useCallback(async () => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setLoading(true);
+    try {
+      const [tmplRes, statsRes] = await Promise.all([
+        api.get("/api/v1/templates", { signal: ctrl.signal }),
+        api.get("/api/v1/marketing/dashboard/stats", { signal: ctrl.signal }),
+      ]);
+      const templates: any[]    = tmplRes.data?.data?.data ?? tmplRes.data?.data ?? [];
+      const topTemplates: any[] = statsRes.data?.data?.topTemplates ?? statsRes.data?.topTemplates ?? [];
+      const perfMap: Record<string, any> = {};
+      topTemplates.forEach((t: any) => { perfMap[t.template_name ?? t.name ?? ""] = t; });
+      const mapped: TemplatePerfRow[] = templates.map((t: any) => {
+        const perf = perfMap[t.name] ?? {};
+        return {
+          id:            String(t.id ?? ""),
+          name:          t.name ?? "—",
+          type:          t.category ?? t.type ?? "—",
+          language:      t.language ?? "—",
+          status:        t.status ?? "—",
+          timesUsed:     perf.times_used ?? perf.timesUsed ?? 0,
+          totalSent:     perf.total_sent ?? perf.totalSent ?? 0,
+          totalDelivered:perf.total_delivered ?? perf.totalDelivered ?? 0,
+          avgReadRate:   parseFloat(perf.avg_read_rate ?? perf.avgReadRate ?? "0") || 0,
+        };
+      });
+      setAllRows(mapped);
+    } catch (e: any) {
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setAllRows([]);
+    } finally {
+      if (!ctrl.signal.aborted) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    let filtered = allRows;
+    if (typeFilter   !== "All") filtered = filtered.filter(r => r.type   === typeFilter);
+    if (statusFilter !== "All") filtered = filtered.filter(r => r.status === statusFilter);
+    setRows(filtered);
+  }, [allRows, typeFilter, statusFilter]);
+
+  useEffect(() => {
+    const close = () => { setShowTypeDrop(false); setShowStsDrop(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+
+  const tmplStatusColor = (s: string) =>
+    s === "APPROVED" ? "#10b981" : s === "PENDING" ? "#f59e0b" : "#ef4444";
+
+  const TMPL_HEADERS = ["Template Name", "Type", "Language", "Status", "Campaigns Used", "Total Sent", "Total Delivered", "Avg Read Rate"];
+  const tmplExportRows = () => rows.map(r => [r.name, r.type, r.language, r.status, r.timesUsed, r.totalSent, r.totalDelivered, `${r.avgReadRate}%`]);
+
+  return (
+    <div className="rp-detail-view">
+      <div className="rp-detail-header">
+        <div className="rp-detail-back-row">
+          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
+            <ChevronLeft size={15} /> {report.name}
+          </Button>
+          <div className="rp-detail-view-icons">
+            <button className="rp-detail-icon-btn" title="Column view"><Grid3x3Gap size={16} /></button>
+            <ReportExportButton title={report.name} headers={TMPL_HEADERS} rows={tmplExportRows} filename={report.name} />
+            <button className="rp-detail-icon-btn" title="Info"><InfoCircle size={16} /></button>
+          </div>
+        </div>
+        <div className="rp-detail-tab-bar"><span className="rp-detail-tab active">Default View</span></div>
+      </div>
+
+      <div className="rp-detail-filters">
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Type</label>
+          <button className="rp-detail-select" onClick={() => { setShowTypeDrop(v => !v); setShowStsDrop(false); }}>
+            {typeFilter} <span className="rp-detail-caret">▼</span>
+          </button>
+          {showTypeDrop && (
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
+              {TMPL_TYPES_FILTER.map(t => (
+                <div key={t} className={`rp-detail-dropdown-item ${t === typeFilter ? "active" : ""}`}
+                  onClick={() => { setTypeFilter(t); setShowTypeDrop(false); }}>{t}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Status</label>
+          <button className="rp-detail-select" onClick={() => { setShowStsDrop(v => !v); setShowTypeDrop(false); }}>
+            {statusFilter} <span className="rp-detail-caret">▼</span>
+          </button>
+          {showStsDrop && (
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
+              {TMPL_STATUS_FILTER.map(s => (
+                <div key={s} className={`rp-detail-dropdown-item ${s === statusFilter ? "active" : ""}`}
+                  onClick={() => { setStatusFilter(s); setShowStsDrop(false); }}>{s}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-actions">
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
+            <Refresh size={13} /> Refresh
+          </Button>
+          <Button variant="ghost" className="rp-detail-save-btn">Save View</Button>
+        </div>
+      </div>
+
+      <div className="rp-detail-drag-hint">
+        {rows.length} template{rows.length !== 1 ? "s" : ""}
+        {rows.length > 0 && <>&nbsp;·&nbsp;Total Sent: <strong>{rows.reduce((s, r) => s + r.totalSent, 0).toLocaleString()}</strong></>}
+      </div>
+
+      <div className="rp-detail-table-wrap">
+        <table className="rp-detail-table">
+          <thead>
+            <tr>
+              <th>Template Name</th>
+              <th>Type</th>
+              <th>Language</th>
+              <th>Status</th>
+              <th>Campaigns Used <span className="rp-th-sort">↕</span></th>
+              <th>Total Sent <span className="rp-th-sort">↕</span></th>
+              <th>Delivered <span className="rp-th-sort">↕</span></th>
+              <th>Avg Read Rate <span className="rp-th-sort">↕</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={8} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+            ) : rows.length === 0 ? (
+              <tr><td colSpan={8} className="rp-detail-empty-cell">No data available</td></tr>
+            ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
+              <tr key={i}>
+                <td className="fw-semibold">{r.name}</td>
+                <td><span className="rp-report-tag" style={{ fontSize: 11 }}>{r.type}</span></td>
+                <td>{r.language}</td>
+                <td><span style={{ color: tmplStatusColor(r.status), fontWeight: 600, fontSize: 12 }}>{r.status}</span></td>
+                <td>{r.timesUsed > 0 ? r.timesUsed : "—"}</td>
+                <td>{r.totalSent > 0 ? r.totalSent.toLocaleString() : "—"}</td>
+                <td>{r.totalDelivered > 0 ? r.totalDelivered.toLocaleString() : "—"}</td>
+                <td>{r.avgReadRate > 0 ? `${r.avgReadRate}%` : "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+    </div>
+  );
+};
+
+// ─── Message Spend Report Detail ─────────────────────────────────────────────
+
+interface SpendRow {
+  date: string;
+  marketing: number;
+  utility: number;
+  authentication: number;
+  service: number;
+  total: number;
+  estimatedCost: number;
+}
+
+const MSG_SPEND_PERIODS = [
+  { label: "7D",  days: 7  },
+  { label: "15D", days: 15 },
+  { label: "30D", days: 30 },
+  { label: "60D", days: 60 },
+  { label: "90D", days: 90 },
+];
+
+const MessageSpendReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const [rows,       setRows]       = useState<SpendRow[]>([]);
+  const [loading,    setLoading]    = useState(false);
+  const [periodDays, setPeriodDays] = useState(30);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize,    setPageSize]    = useState(10);
+  const [kpis, setKpis] = useState({ totalMessages: 0, totalCost: 0, marketing: 0, utility: 0 });
+  useEffect(() => { setCurrentPage(1); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
+  const abortRef = useRef<AbortController | null>(null);
+
+  const fetchData = useCallback(async () => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setLoading(true);
+    try {
+      const endDate   = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - periodDays);
+      const start = startDate.toISOString().slice(0, 10);
+      const end   = endDate.toISOString().slice(0, 10);
+      const res = await api.get(`/api/v1/marketing/analytics?start=${start}&end=${end}&granularity=DAILY`, { signal: ctrl.signal });
+      const data = res.data?.data ?? res.data ?? {};
+      const daily: any[] = data.daily ?? [];
+      const mapped: SpendRow[] = daily.map((d: any) => ({
+        date:           d.date ?? "",
+        marketing:      d.marketing ?? 0,
+        utility:        d.utility ?? 0,
+        authentication: d.authentication ?? 0,
+        service:        d.service ?? 0,
+        total:          d.totalMessages ?? d.total_messages ?? ((d.marketing ?? 0) + (d.utility ?? 0) + (d.authentication ?? 0) + (d.service ?? 0)),
+        estimatedCost:  parseFloat(d.estimatedCost ?? d.estimated_cost ?? "0") || 0,
+      }));
+      setRows(mapped);
+      setKpis({
+        totalMessages: data.totalMessages ?? data.total_messages ?? 0,
+        totalCost:     parseFloat(data.totalEstimatedCost ?? data.total_estimated_cost ?? "0") || 0,
+        marketing:     data.byCategory?.marketing ?? 0,
+        utility:       data.byCategory?.utility ?? 0,
+      });
+    } catch (e: any) {
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setRows([]);
+    } finally {
+      if (!ctrl.signal.aborted) setLoading(false);
+    }
+  }, [periodDays]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const SPEND_HEADERS = ["Date", "Marketing", "Utility", "Authentication", "Service (Free)", "Total", "Est. Cost (₹)"];
+  const spendExportRows = () => rows.map(r => [r.date, r.marketing, r.utility, r.authentication, r.service, r.total, r.estimatedCost.toFixed(2)]);
+
+  const spendKpiCards = [
+    { label: "Total Messages",  value: kpis.totalMessages.toLocaleString(), color: "#3b82f6" },
+    { label: "Estimated Spend", value: `₹${kpis.totalCost.toFixed(2)}`,     color: "#10b981" },
+    { label: "Marketing Msgs",  value: kpis.marketing.toLocaleString(),      color: "#8b5cf6" },
+    { label: "Utility Msgs",    value: kpis.utility.toLocaleString(),        color: "#f59e0b" },
+  ];
+
+  return (
+    <div className="rp-detail-view">
+      <div className="rp-detail-header">
+        <div className="rp-detail-back-row">
+          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
+            <ChevronLeft size={15} /> {report.name}
+          </Button>
+          <div className="rp-detail-view-icons">
+            <button className="rp-detail-icon-btn" title="Column view"><Grid3x3Gap size={16} /></button>
+            <ReportExportButton title={report.name} headers={SPEND_HEADERS} rows={spendExportRows} filename={report.name} />
+            <button className="rp-detail-icon-btn" title="Info"><InfoCircle size={16} /></button>
+          </div>
+        </div>
+        <div className="rp-detail-tab-bar"><span className="rp-detail-tab active">Default View</span></div>
+      </div>
+
+      <div className="rp-detail-filters">
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Period</label>
+          <div style={{ display: "flex", gap: 6 }}>
+            {MSG_SPEND_PERIODS.map(p => (
+              <button key={p.days} className={`rp-detail-select${periodDays === p.days ? " active" : ""}`}
+                style={{ minWidth: 44 }} onClick={() => setPeriodDays(p.days)}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="rp-detail-filter-actions">
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
+            <Refresh size={13} /> Refresh
+          </Button>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, margin: "16px 0" }}>
+        {spendKpiCards.map(k => (
+          <div key={k.label} style={{ background: "#fff", border: "1px solid #f3f4f6", borderRadius: 10, padding: "14px 16px" }}>
+            <div style={{ fontSize: 11, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em" }}>{k.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: k.color, marginTop: 4 }}>{k.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {rows.length > 0 && (
+        <div style={{ background: "#fff", border: "1px solid #f3f4f6", borderRadius: 10, padding: "16px", marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 12 }}>Daily Message Volume</div>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={rows} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barSize={16}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+              <Tooltip />
+              <Bar dataKey="marketing"      name="Marketing"      fill="#8b5cf6" stackId="a" />
+              <Bar dataKey="utility"        name="Utility"        fill="#3b82f6" stackId="a" />
+              <Bar dataKey="authentication" name="Authentication" fill="#10b981" stackId="a" />
+              <Bar dataKey="service"        name="Service (Free)" fill="#d1d5db" stackId="a" radius={[4,4,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+          <div style={{ display: "flex", gap: 16, marginTop: 8, flexWrap: "wrap" }}>
+            {([["#8b5cf6","Marketing"],["#3b82f6","Utility"],["#10b981","Authentication"],["#d1d5db","Service (Free)"]] as [string,string][]).map(([c,l]) => (
+              <span key={l} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#6b7280" }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: c, flexShrink: 0 }} />{l}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="rp-detail-drag-hint">
+        {rows.length} day{rows.length !== 1 ? "s" : ""}
+        {rows.length > 0 && <>&nbsp;·&nbsp;Total Cost: <strong>₹{rows.reduce((s, r) => s + r.estimatedCost, 0).toFixed(2)}</strong></>}
+      </div>
+
+      <div className="rp-detail-table-wrap">
+        <table className="rp-detail-table">
+          <thead>
+            <tr>
+              <th>Date <span className="rp-th-sort">↕</span></th>
+              <th>Marketing</th>
+              <th>Utility</th>
+              <th>Authentication</th>
+              <th>Service (Free)</th>
+              <th>Total <span className="rp-th-sort">↕</span></th>
+              <th>Est. Cost (₹) <span className="rp-th-sort">↕</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={7} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+            ) : rows.length === 0 ? (
+              <tr><td colSpan={7} className="rp-detail-empty-cell">No data available</td></tr>
+            ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
+              <tr key={i}>
+                <td>{r.date}</td>
+                <td>{r.marketing > 0 ? r.marketing : "—"}</td>
+                <td>{r.utility > 0 ? r.utility : "—"}</td>
+                <td>{r.authentication > 0 ? r.authentication : "—"}</td>
+                <td>{r.service > 0 ? r.service : "—"}</td>
+                <td className="fw-semibold">{r.total}</td>
+                <td>₹{r.estimatedCost.toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+    </div>
+  );
+};
+
 // ─── Employee Report Detail ───────────────────────────────────────────────────
 
 interface EmployeeRow {
@@ -1929,7 +2602,7 @@ const EmployeeReportDetail = ({ report, onBack }: { report: ReportItem; onBack: 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    const close = () => { setShowRoleDrop(false); setShowDeptDrop(false); setShowExportDrop(false); };
+    const close = () => { setShowRoleDrop(false); setShowDeptDrop(false); };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
@@ -2245,8 +2918,10 @@ const ALL_REPORTS: ReportItem[] = [
   // ── Daily Reports ─────────────────────────────────────────────────────────────
   { id: "daily_summary",        name: "Daily Summary",        tags: ["Daily Reports"],               description: "View a complete daily summary of appointments, collections, and staff performance for any given date.",                             category: "daily_reports" },
   // ── Marketing ─────────────────────────────────────────────────────────────────
-  { id: "campaign_performance", name: "Campaign Performance", tags: ["Marketing"],                   description: "Measure the effectiveness of marketing campaigns by tracking reach, conversions, and revenue generated.",                           category: "marketing" },
-  { id: "client_acquisition",   name: "Client Acquisition",   tags: ["Marketing"],                   description: "Analyse how new clients are acquired across different channels and referral sources over a period.",                                category: "marketing" },
+  { id: "campaign_performance",   name: "Campaign Performance",   tags: ["Marketing"], description: "Track WhatsApp campaign delivery rates, read rates, and engagement metrics across all campaigns.",                 category: "marketing" },
+  { id: "template_performance",  name: "Template Performance",  tags: ["Marketing"], description: "Analyse which WhatsApp message templates drive the highest engagement and delivery success.",                         category: "marketing" },
+  { id: "message_spend",         name: "Message Spend",         tags: ["Marketing"], description: "Monitor daily WhatsApp message volumes and estimated costs broken down by category (Marketing, Utility, Auth).",   category: "marketing" },
+  { id: "client_acquisition",    name: "Client Acquisition",    tags: ["Marketing"], description: "Analyse how new clients are acquired and track their visit history, spend, and engagement status over a period.",   category: "marketing" },
   // ── Employee ──────────────────────────────────────────────────────────────────
   { id: "attrition",                      name: "Attrition",                    tags: ["Team"],         description: "Track the number of center employees who have either joined or left the organization.",                 category: "employee" },
   { id: "block_out_time_details",         name: "Block Out Time Details",        tags: ["Time"],         description: "Show times when providers are on break or unavailable using Block Out Time Types.",                    category: "employee" },
@@ -2281,7 +2956,7 @@ const FALLBACK_CATEGORIES = [
   { key: "employee",     label: "Employee",      count: 21 },
   { key: "finance",      label: "Finance",       count: 2  },
   { key: "inventory",    label: "Inventory",     count: 2  },
-  { key: "marketing",    label: "Marketing",     count: 2  },
+  { key: "marketing",    label: "Marketing",     count: 4  },
   { key: "operational",  label: "Operational",   count: 2  },
   { key: "payments",     label: "Payments",      count: 2  },
 ];
@@ -2309,8 +2984,11 @@ export default function ReportsPage() {
   const [showFilter, setShowFilter]   = useState(false);
   const [filterFrom, setFilterFrom]   = useState("");
   const [filterTo, setFilterTo]       = useState("");
+  const [filterPayment, setFilterPayment]     = useState("");
   const [filterStaff, setFilterStaff]         = useState("");
   const [filterService, setFilterService]     = useState("");
+  const [filterDateError, setFilterDateError] = useState("");
+  const [isCustomRange, setIsCustomRange]     = useState(false);
   const [filterStaffList, setFilterStaffList]     = useState<string[]>([]);
   const [filterServiceList, setFilterServiceList] = useState<string[]>([]);
 
@@ -2389,6 +3067,12 @@ export default function ReportsPage() {
     }
   }, [dispatch, tab, period]); // filterFrom/filterTo removed — only applied on explicit click
 
+  // Clear fetch cache whenever period changes so switching back to a previous
+  // period always re-fetches fresh data (Redux only keeps one slot per tab).
+  useEffect(() => {
+    loadedRef.current = new Set();
+  }, [period]);
+
   useEffect(() => {
     fetchCurrentTab(); // called without from/to — uses period only
   }, [fetchCurrentTab]);
@@ -2436,19 +3120,20 @@ export default function ReportsPage() {
 
   const revenueTrend = (() => {
     const raw = (revenueData?.trend ?? []).filter(Boolean);
-    if (!raw.length) return period === "7d" ? revenueBy7d : revenueByMonth;
-    return raw.map(p => ({
+    const sanitized = raw.map(p => ({
       ...p,
       label:   p.label   ?? "",
       revenue: p.revenue ?? 0,
       target:  p.target  ?? 0,
       prev:    p.prev    ?? 0,
     }));
+    // Always build the full date series so empty days show as ₹0
+    return buildRevenueSeries(period, sanitized);
   })();
 
   const apptVolume = (() => {
     const raw = (appointmentsData?.volume ?? []).filter(Boolean);
-    if (!raw.length) return appointmentsWeekly;
+    if (!raw.length) return [];
     return raw.map(p => ({
       ...p,
       label:     p.label     ?? "",
@@ -2460,7 +3145,7 @@ export default function ReportsPage() {
 
   const clientGrowthData = (() => {
     const raw = (clientsData?.growth ?? []).filter(Boolean);
-    if (!raw.length) return clientGrowth;
+    if (!raw.length) return [];
     return raw.map(p => ({
       ...p,
       label:     p.label     ?? "",
@@ -2472,7 +3157,7 @@ export default function ReportsPage() {
 
   const topClientsList = (() => {
     const raw = (clientsData?.topClients ?? []).filter(Boolean);
-    if (!raw.length) return fallbackTopClients;
+    if (!raw.length) return [];
     return raw.map(c => ({
       ...c,
       id:     String(c.id ?? ""),
@@ -2484,7 +3169,7 @@ export default function ReportsPage() {
 
   const staffList = (() => {
     const raw = (staffData?.performance ?? []).filter(Boolean);
-    if (!raw.length) return fallbackStaffData;
+    if (!raw.length) return [];
     return raw.map((s, i) => ({
       ...s,
       bookings:    s.bookings    ?? 0,
@@ -2492,13 +3177,13 @@ export default function ReportsPage() {
       rating:      s.rating      ?? 0,
       utilization: s.utilization ?? 0,
       avgTicket:   s.avgTicket   ?? 0,
-      color: fallbackStaffData[i % fallbackStaffData.length]?.color ?? "#111827",
+      color: s.color ?? CHART_COLORS[i % CHART_COLORS.length],
     }));
   })();
 
   const radarData = (() => {
     const raw = (staffData?.radar ?? []).filter(Boolean);
-    if (!raw.length) return radarStaffFallback;
+    if (!raw.length) return [];
     const mapped = raw.map(point => {
       const out: { metric: string; [k: string]: string | number } = { metric: String(point.metric ?? "") };
       Object.entries(point).forEach(([k, v]) => {
@@ -2507,13 +3192,13 @@ export default function ReportsPage() {
       return out;
     });
     const hasStaffKeys = Object.keys(mapped[0] ?? {}).some(k => k !== "metric");
-    if (!hasStaffKeys) return radarStaffFallback;
+    if (!hasStaffKeys) return [];
     return mapped;
   })();
 
   const serviceList = (() => {
     const raw = (servicesData?.services ?? []).filter(Boolean);
-    if (!raw.length) return fallbackServiceData;
+    if (!raw.length) return [];
     return raw.map((s, i) => ({
       ...s,
       name:      s.name      ?? "—",
@@ -2521,9 +3206,13 @@ export default function ReportsPage() {
       revenue:   s.revenue   ?? 0,
       avgTicket: s.avgTicket ?? 0,
       growth:    s.growth    ?? 0,
-      color: s.color ?? fallbackServiceData[i % fallbackServiceData.length]?.color ?? "#111827",
+      color: s.color ?? CHART_COLORS[i % CHART_COLORS.length],
     }));
   })();
+
+  const peakHoursData = (appointmentsData?.peakHours ?? [])
+    .filter(Boolean)
+    .map(h => ({ hour: h.hour ?? "", count: h.count ?? 0 }));
 
   // ── Live KPI config built from API data (falls back to static kpiConfig) ─────
   const liveKpis = useMemo(() => {
@@ -2579,7 +3268,7 @@ export default function ReportsPage() {
         { label: "New Services",    value: k.newServices.toString(),         change: fmtPct(k.changes.newServices),      up: isUp(k.changes.newServices),       icon: <ArrowRepeat   size={16}/>, color: "#f59e0b" },
       ];
     }
-    return kpiConfig[tab];
+    return [];
   }, [tab, revenueData, appointmentsData, clientsData, staffData, servicesData]);
 
   // ── Tab / Period config ──────────────────────────────────────────────────────
@@ -2633,12 +3322,24 @@ export default function ReportsPage() {
         </div>
         <div className="rp-header-right">
           <div className="rp-period-pills">
+            {isCustomRange && (
+              <span className="rp-period-pill active" style={{ cursor: "default", fontSize: 12 }}>
+                Custom Range
+              </span>
+            )}
             {periods.map(p => (
               <Button
                 key={p.key}
                 variant="ghost"
-                className={`rp-period-pill ${period === p.key ? "active" : ""}`}
-                onClick={() => setPeriod(p.key)}
+                className={`rp-period-pill ${!isCustomRange && period === p.key ? "active" : ""}`}
+                style={isCustomRange ? { opacity: 0.45, pointerEvents: "none" } : undefined}
+                onClick={() => {
+                  setIsCustomRange(false);
+                  setFilterFrom("");
+                  setFilterTo("");
+                  setFilterDateError("");
+                  setPeriod(p.key);
+                }}
               >
                 {p.label}
               </Button>
@@ -2663,26 +3364,31 @@ export default function ReportsPage() {
       {showFilter && (
         <div className="rp-filter-bar">
           <div className="rp-filter-group">
-            <label>Date Range</label>
-            <div className="rp-filter-input-wrap">
+            <label>DATE RANGE</label>
+            <div className={`rp-filter-input-wrap${filterDateError ? " rp-filter-input-error" : ""}`}>
               <Calendar3 size={13} className="rp-filter-ic" />
               <input
                 type="date"
                 className="rp-filter-input"
                 value={filterFrom}
-                onChange={e => setFilterFrom(e.target.value)}
+                max={filterTo || undefined}
+                onChange={e => { setFilterFrom(e.target.value); setFilterDateError(""); }}
               />
-              <span className="rp-filter-sep">→</span>
+              <span className="rp-filter-sep">—</span>
               <input
                 type="date"
                 className="rp-filter-input"
                 value={filterTo}
-                onChange={e => setFilterTo(e.target.value)}
+                min={filterFrom || undefined}
+                onChange={e => { setFilterTo(e.target.value); setFilterDateError(""); }}
               />
             </div>
+            {filterDateError && (
+              <span className="rp-filter-date-err">{filterDateError}</span>
+            )}
           </div>
           <div className="rp-filter-group">
-            <label>Staff</label>
+            <label>STAFF</label>
             <select className="rp-filter-select" value={filterStaff} onChange={e => setFilterStaff(e.target.value)}>
               <option value="">All Staff</option>
               {filterStaffList.map(name => (
@@ -2691,7 +3397,7 @@ export default function ReportsPage() {
             </select>
           </div>
           <div className="rp-filter-group">
-            <label>Service</label>
+            <label>SERVICE</label>
             <select className="rp-filter-select" value={filterService} onChange={e => setFilterService(e.target.value)}>
               <option value="">All Services</option>
               {filterServiceList.map(name => (
@@ -2700,31 +3406,54 @@ export default function ReportsPage() {
             </select>
           </div>
           <div className="rp-filter-group">
-            <label>Payment</label>
-            <select className="rp-filter-select">
-              <option>All Methods</option>
-              <option>Cash</option>
-              <option>Card</option>
-              <option>UPI</option>
+            <label>PAYMENT</label>
+            <select className="rp-filter-select" value={filterPayment} onChange={e => setFilterPayment(e.target.value)}>
+              <option value="">All Methods</option>
+              <option value="cash">Cash</option>
+              <option value="card">Card</option>
+              <option value="upi">UPI</option>
+              <option value="wallet">Wallet</option>
             </select>
           </div>
           <Button
             variant="ghost"
             className="rp-apply-btn"
             onClick={() => {
+              if (filterFrom && !filterTo) {
+                setFilterDateError("Please select an end date");
+                return;
+              }
+              if (!filterFrom && filterTo) {
+                setFilterDateError("Please select a start date");
+                return;
+              }
+              if (filterFrom && filterTo && filterFrom > filterTo) {
+                setFilterDateError("Start date must be before end date");
+                return;
+              }
+              setFilterDateError("");
               if (filterFrom && filterTo) {
-                setPeriod("30d");
+                setIsCustomRange(true);
               }
               fetchCurrentTab(filterFrom || undefined, filterTo || undefined, true);
             }}
           >
             Apply
           </Button>
-          {(filterFrom || filterTo) && (
+          {(filterFrom || filterTo || filterStaff || filterService || filterPayment) && (
             <Button
               variant="ghost"
               className="rp-apply-btn"
-              onClick={() => { setFilterFrom(""); setFilterTo(""); fetchCurrentTab(undefined, undefined, true); }}
+              onClick={() => {
+                setFilterFrom("");
+                setFilterTo("");
+                setFilterStaff("");
+                setFilterService("");
+                setFilterPayment("");
+                setFilterDateError("");
+                setIsCustomRange(false);
+                fetchCurrentTab(undefined, undefined, true);
+              }}
             >
               Clear
             </Button>
@@ -2748,7 +3477,7 @@ export default function ReportsPage() {
 
       {/* ── KPI ROW ── */}
       <div className="rp-kpi-row">
-        {kpis.map((k, i) => (
+        {kpis.map((k) => (
           <div className="rp-kpi-card" key={k.label}>
             <div className="rp-kpi-top">
               <span className="rp-kpi-icon" style={{ color: k.color, background: k.color + "18" }}>
@@ -2760,7 +3489,6 @@ export default function ReportsPage() {
             </div>
             <div className="rp-kpi-value">{k.value}</div>
             <div className="rp-kpi-label">{k.label}</div>
-            <Sparkline data={sparklineData.map((v,j) => v + i*2 + j%3)} color={k.color} />
           </div>
         ))}
       </div>
@@ -2772,8 +3500,8 @@ export default function ReportsPage() {
             <PageLoader />
           </div>
         )}
-        {tab === "revenue"      && <RevenueTab trend={revenueTrend} services={serviceList} />}
-        {tab === "appointments" && <AppointmentsTab volume={apptVolume} peakHours={appointmentsData?.peakHours ?? []} />}
+        {tab === "revenue"      && <RevenueTab trend={revenueTrend} services={serviceList} period={period} />}
+        {tab === "appointments" && <AppointmentsTab volume={apptVolume} peakHours={peakHoursData} />}
         {tab === "clients"      && <ClientsTab growth={clientGrowthData} topClients={topClientsList} />}
         {tab === "staff"        && <StaffTab staffData={staffList} radarStaff={radarData} />}
         {tab === "services"     && <ServicesTab services={serviceList} />}
@@ -2792,7 +3520,10 @@ export default function ReportsPage() {
               : openReport.category === "inventory"     ? <InventoryReportDetail  report={openReport} onBack={() => setOpenReport(null)} />
               : openReport.category === "payments"      ? <PaymentReportDetail    report={openReport} onBack={() => setOpenReport(null)} />
               : openReport.category === "daily_reports" ? <DailyReportDetail      report={openReport} onBack={() => setOpenReport(null)} staffNames={filterStaffList} />
-              : openReport.category === "marketing"     ? <MarketingReportDetail  report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.id === "campaign_performance"  ? <CampaignPerformanceReportDetail  report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.id === "template_performance" ? <TemplatePerformanceReportDetail report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.id === "message_spend"        ? <MessageSpendReportDetail        report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.id === "client_acquisition"   ? <ClientAcquisitionReportDetail   report={openReport} onBack={() => setOpenReport(null)} />
               : openReport.category === "employee"      ? <EmployeeReportDetail   report={openReport} onBack={() => setOpenReport(null)} />
               : <AppointmentReportDetail report={openReport} onBack={() => setOpenReport(null)} />
             }
