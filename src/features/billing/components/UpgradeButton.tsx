@@ -29,10 +29,11 @@ export default function UpgradeButton({ plan }: Props) {
 
     setLoading(true);
     try {
+      const totalCountMap: Record<string, number> = { monthly: 12, yearly: 1, weekly: 52, daily: 365 };
       const res = await api.post<CreateSubResp>("/api/v1/subscriptions", {
         plan_id: plan.id,
         salon_id: currentSalon.id,
-        total_count: 12,
+        total_count: totalCountMap[plan.billing_cycle] ?? 12,
       });
 
       const { short_url } = res.data.data;
@@ -50,6 +51,7 @@ export default function UpgradeButton({ plan }: Props) {
 
     } catch (err: any) {
       toast.error(err?.message || "Failed to initiate payment");
+      throw err; // let Button's autoDisable reset the click-lock on failure
     } finally {
       setLoading(false);
     }
@@ -62,6 +64,7 @@ export default function UpgradeButton({ plan }: Props) {
       variant="primary"
       loading={loading}
       disabled={loading}
+      autoDisable
       onClick={handleUpgrade}
     >
       Upgrade

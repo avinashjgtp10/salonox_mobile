@@ -12,6 +12,7 @@ import { useAppSelector } from "./hooks/useAppRedux";
 
 function App() {
   const subscriptionExpired = useAppSelector((s) => s.billing.subscriptionExpired);
+  const accessToken = useAppSelector((s) => s.auth.accessToken);
   useSubscriptionPoller();
 
   return (
@@ -35,8 +36,8 @@ function App() {
       </Suspense>
       <SalonOxBot />
 
-      {/* Full-screen subscription wall — renders over everything when expired */}
-      {subscriptionExpired && <SubscriptionWall />}
+      {/* Full-screen subscription wall — renders over authenticated routes only */}
+      {accessToken && subscriptionExpired && <SubscriptionWall />}
     </ThemeProvider>
   );
 }

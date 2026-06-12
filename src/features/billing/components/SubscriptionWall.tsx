@@ -69,7 +69,9 @@ export default function SubscriptionWall() {
                   <p style={styles.planName}>{plan.name}</p>
                   <p style={styles.planPrice}>
                     ₹{plan.price.toLocaleString()}
-                    <span style={{ fontSize: 12, color: "#9ca3af" }}> /mo</span>
+                    <span style={{ fontSize: 12, color: "#9ca3af" }}>
+                      {" "}{({ monthly: "/mo", yearly: "/yr", weekly: "/wk", daily: "/day" } as Record<string, string>)[plan.billing_cycle] ?? "/mo"}
+                    </span>
                   </p>
                   {plan.features && (
                     <ul style={styles.featureList}>

@@ -14,11 +14,10 @@ export function useSubscriptionPoller() {
   const dispatch    = useAppDispatch();
   const accessToken = useAppSelector((s) => s.auth.accessToken);
   const salonId     = useAppSelector((s) => s.salon.currentSalon?.id);
-  const expired     = useAppSelector((s) => s.billing.subscriptionExpired);
   const timerRef    = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    if (!accessToken || !salonId || expired) return;
+    if (!accessToken || !salonId) return;
 
     const check = async () => {
       try {
@@ -26,15 +25,12 @@ export function useSubscriptionPoller() {
         const subs = res.data.data ?? [];
 
         const hasActive = subs.some((s) => {
-          if (s.status !== "active") return false;
+          if (!["active", "trialing"].includes(s.status)) return false;
           if (!s.current_period_end) return true;
           return new Date() < new Date(s.current_period_end);
         });
 
-        if (!hasActive) {
-          dispatch(setSubscriptionExpired(true));
-          if (timerRef.current) clearInterval(timerRef.current);
-        }
+        dispatch(setSubscriptionExpired(!hasActive));
       } catch {
         // Silently ignore — interceptor handles 403
       }
@@ -46,5 +42,5 @@ export function useSubscriptionPoller() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [accessToken, salonId, expired, dispatch]);
+  }, [accessToken, salonId, dispatch]);
 }

@@ -7,7 +7,4 @@ export const BILLING = {
   CANCEL_SUB:     (id: string) => `/api/v1/billing/subscription/${id}/cancel`,
   INVOICES:       "/api/v1/billing/invoices",
   INVOICE_BY_ID:  (id: string) => `/api/v1/billing/invoices/${id}`,
-  // Razorpay checkout
-  CREATE_ORDER:   "/api/v1/billing/create-order",
-  VERIFY_PAYMENT: "/api/v1/billing/verify-payment",
 } as const;

@@ -1,4 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
+import { logout } from "./authSlice";
 import {
   fetchBillingPlansThunk,
   fetchSubscriptionThunk,
@@ -67,6 +68,8 @@ const billingSlice = createSlice({
       .addCase(cancelSubscriptionThunk.pending,  (s) => { s.loading.cancel = true; })
       .addCase(cancelSubscriptionThunk.fulfilled, (s) => { s.loading.cancel = false; if (s.subscription) s.subscription.status = "cancelled"; })
       .addCase(cancelSubscriptionThunk.rejected,  (s, { payload }) => { s.loading.cancel = false; s.error = payload ?? null; });
+
+    builder.addCase(logout, (s) => { s.subscriptionExpired = false; });
   },
 });
 
