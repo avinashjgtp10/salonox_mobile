@@ -92,6 +92,7 @@ export default function ClientsListPage() {
       if (ps !== undefined) setPageSize(ps);
     } catch (error) {
       console.error("Error fetching clients", error);
+      toast.error("Failed to load clients");
     } finally {
       setLoading(false);
     }
@@ -628,7 +629,7 @@ export default function ClientsListPage() {
                 >
                   <div className="selected-count">
                     {selectedClients.length === clients.length
-                      ? "All selected"
+                      ? "All on page selected"
                       : `${selectedClients.length} selected`}
                     <span className="dot">•</span>
                     <button

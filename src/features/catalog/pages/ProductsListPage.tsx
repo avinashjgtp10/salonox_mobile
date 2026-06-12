@@ -72,14 +72,17 @@ const ProductsListPage: React.FC = () => {
 
   useEffect(() => {
     fetchProducts(buildParams(1, searchQuery, appliedFilters));
+    setSelectedProducts([]);
     fetchBrands();
     fetchCategories();
-    isMountedRef.current = true;
+    const t = setTimeout(() => { isMountedRef.current = true; }, 0);
+    return () => clearTimeout(t);
   }, []);
 
   // Re-fetch when applied filters change (skip initial mount)
   useEffect(() => {
     if (!isMountedRef.current) return;
+    setSelectedProducts([]);
     fetchProducts(buildParams(1, searchQuery, appliedFilters));
   }, [appliedFilters]);
 
@@ -88,6 +91,7 @@ const ProductsListPage: React.FC = () => {
     if (!isMountedRef.current) return;
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
+      setSelectedProducts([]);
       fetchProducts(buildParams(1, searchQuery, appliedFilters));
     }, 400);
     return () => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current); };
@@ -96,17 +100,20 @@ const ProductsListPage: React.FC = () => {
   // Re-fetch products whenever the page becomes visible (e.g. returning from Quick Sale)
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible")
+      if (document.visibilityState === "visible") {
+        setSelectedProducts([]);
         fetchProducts(buildParams(currentPage, searchQuery, appliedFilters));
+      }
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [fetchProducts, currentPage, searchQuery, appliedFilters]);
+  }, [fetchProducts, currentPage, searchQuery, appliedFilters, pageSize]);
 
   const hasActiveFilters =
     !!appliedFilters.category || !!appliedFilters.brand || !!appliedFilters.stock;
 
   const handlePageChange = (newPage: number) => {
+    setSelectedProducts([]);
     fetchProducts(buildParams(newPage, searchQuery, appliedFilters));
   };
 
