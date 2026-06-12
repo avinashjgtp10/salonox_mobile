@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
@@ -30,7 +30,8 @@ const DEFAULT_FILTERS: FilterState = { category: "", brand: "", stock: "" };
 const ProductsListPage: React.FC = () => {
   const navigate = useNavigate();
   const {
-    products, brands, categories, loading, error,
+    products, page: currentPage, pageSize, totalRecords,
+    brands, categories, loading, error,
     fetchProducts, fetchBrands, fetchCategories,
     createBrand, deleteBrand, deleteCategory,
     createCategory, deleteProduct,
@@ -38,14 +39,13 @@ const ProductsListPage: React.FC = () => {
   } = useProducts();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [drawerProduct, setDrawerProduct] = useState<any | null>(null);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
   // Pending filter state (inside modal, not yet applied)
   const [pendingFilters, setPendingFilters] = useState<FilterState>(DEFAULT_FILTERS);
-  // Applied filter state (used to actually filter the list)
+  // Applied filter state (triggers server fetch when changed)
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(DEFAULT_FILTERS);
 
   const [activeModal, setActiveModal] = useState<
@@ -53,78 +53,69 @@ const ProductsListPage: React.FC = () => {
   >("none");
   const [brandName, setBrandName] = useState("");
   const [categoryName, setCategoryName] = useState("");
-  const [pageSize, setPageSize] = useState(10);
+
+  // Build a lookup map from category_id -> category name
+  const categoryMap: Record<string, string> = {};
+  categories.forEach((c: any) => { categoryMap[c.id] = c.name; });
+
+  const buildParams = (page: number, search: string, filters: FilterState, ps?: number) => ({
+    page,
+    pageSize: ps ?? pageSize,
+    search: search || undefined,
+    category_id: filters.category && filters.category !== "none" ? filters.category : undefined,
+    brand_id: filters.brand && filters.brand !== "none" ? filters.brand : undefined,
+    stock: filters.stock === "low" ? "low" : filters.stock === "out" ? "out_of_stock" : undefined,
+  });
+
+  const isMountedRef = useRef(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    fetchProducts();
+    fetchProducts(buildParams(1, searchQuery, appliedFilters));
+    setSelectedProducts([]);
     fetchBrands();
     fetchCategories();
+    const t = setTimeout(() => { isMountedRef.current = true; }, 0);
+    return () => clearTimeout(t);
   }, []);
+
+  // Re-fetch when applied filters change (skip initial mount)
+  useEffect(() => {
+    if (!isMountedRef.current) return;
+    setSelectedProducts([]);
+    fetchProducts(buildParams(1, searchQuery, appliedFilters));
+  }, [appliedFilters]);
+
+  // Debounced re-fetch on search input change (skip initial mount)
+  useEffect(() => {
+    if (!isMountedRef.current) return;
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setSelectedProducts([]);
+      fetchProducts(buildParams(1, searchQuery, appliedFilters));
+    }, 400);
+    return () => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current); };
+  }, [searchQuery]);
 
   // Re-fetch products whenever the page becomes visible (e.g. returning from Quick Sale)
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") fetchProducts();
+      if (document.visibilityState === "visible") {
+        setSelectedProducts([]);
+        fetchProducts(buildParams(currentPage, searchQuery, appliedFilters));
+      }
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [fetchProducts]);
-
-  // Build a lookup map from category_id -> category name
-  const categoryMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    categories.forEach((c: any) => { map[c.id] = c.name; });
-    return map;
-  }, [categories]);
-
-  const filteredProducts = useMemo(() => {
-    return products.filter((p: any) => {
-      // Text search
-      const matchesSearch =
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (p.barcode ?? "").toLowerCase().includes(searchQuery.toLowerCase());
-
-      // Category filter
-      const matchesCategory =
-        !appliedFilters.category ||
-          appliedFilters.category === "none"
-          ? appliedFilters.category === "none"
-            ? !p.category_id
-            : true
-          : p.category_id === appliedFilters.category;
-
-      // Brand filter
-      const matchesBrand =
-        !appliedFilters.brand ||
-          appliedFilters.brand === "none"
-          ? appliedFilters.brand === "none"
-            ? !p.brand_id
-            : true
-          : p.brand_id === appliedFilters.brand;
-
-      // Stock filter
-      const rawAmt = parseFloat(p.amount);
-      const amount = isNaN(rawAmt) ? 0 : rawAmt;
-      let matchesStock = true;
-      
-    if (appliedFilters.stock === "low") {
-      matchesStock = amount > 0 && amount <= (p.qty_alert ?? 5);
-      
-    } else if (appliedFilters.stock === "out") {
-        matchesStock = amount <= 0;
-      }
-
-      return matchesSearch && matchesCategory && matchesBrand && matchesStock;
-    });
-  }, [products, searchQuery, appliedFilters]);
-
-  // Reset to page 1 whenever the filtered list changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [filteredProducts.length]);
+  }, [fetchProducts, currentPage, searchQuery, appliedFilters, pageSize]);
 
   const hasActiveFilters =
     !!appliedFilters.category || !!appliedFilters.brand || !!appliedFilters.stock;
+
+  const handlePageChange = (newPage: number) => {
+    setSelectedProducts([]);
+    fetchProducts(buildParams(newPage, searchQuery, appliedFilters));
+  };
 
   const handleOpenFilter = () => {
     setPendingFilters(appliedFilters);
@@ -144,7 +135,7 @@ const ProductsListPage: React.FC = () => {
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      setSelectedProducts(paginatedProducts.map((p: any) => p.id));
+      setSelectedProducts(products.map((p: any) => p.id));
     } else {
       setSelectedProducts([]);
     }
@@ -155,11 +146,6 @@ const ProductsListPage: React.FC = () => {
       prev.includes(id) ? prev.filter((pId) => pId !== id) : [...prev, id],
     );
   };
-
-  const paginatedProducts = filteredProducts.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize,
-  );
 
   return (
     <div className="products-list-page">
@@ -241,7 +227,7 @@ const ProductsListPage: React.FC = () => {
           <div className="bulk-actions d-flex align-items-center gap-3 ms-auto bg-light px-3 py-2 rounded-3 border">
             <div className="d-flex align-items-center gap-2 fw-medium text-dark">
               <span className="fs-6 d-flex align-items-center">
-                {selectedProducts.length === filteredProducts.length
+                {selectedProducts.length === products.length
                   ? "All products selected"
                   : `${selectedProducts.length} product${selectedProducts.length > 1 ? "s" : ""} selected`}
               </span>
@@ -294,8 +280,8 @@ const ProductsListPage: React.FC = () => {
                     type="checkbox"
                     className="form-check-input shadow-none"
                     checked={
-                      paginatedProducts.length > 0 &&
-                      paginatedProducts.every((p: any) => selectedProducts.includes(p.id))
+                      products.length > 0 &&
+                      products.every((p: any) => selectedProducts.includes(p.id))
                     }
                     onChange={handleSelectAll}
                   />
@@ -307,8 +293,8 @@ const ProductsListPage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {paginatedProducts.length > 0 ? (
-                paginatedProducts.map((p: any) => (
+              {products.length > 0 ? (
+                products.map((p: any) => (
                   <tr
                     key={p.id}
                     className={[
@@ -392,9 +378,11 @@ const ProductsListPage: React.FC = () => {
       <Pagination
         currentPage={currentPage}
         pageSize={pageSize}
-        totalItems={filteredProducts.length}
-        onPageChange={setCurrentPage}
-        onPageSizeChange={(sz) => { setPageSize(sz); setCurrentPage(1); }}
+        totalItems={totalRecords}
+        onPageChange={handlePageChange}
+        onPageSizeChange={(sz) => {
+          fetchProducts(buildParams(1, searchQuery, appliedFilters, sz));
+        }}
         className="mt-4"
       />
 

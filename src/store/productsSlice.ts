@@ -14,7 +14,10 @@ import {
 
 interface ProductsState {
   items: any[];
-  total: number;
+  page: number;
+  pageSize: number;
+  totalRecords: number;
+  totalPages: number;
   brands: any[];
   categories: any[];
   loading: {
@@ -26,15 +29,20 @@ interface ProductsState {
     categories: boolean;
   };
   error: string | null;
+  _activeFetchId: string | null;
 }
 
 const initialState: ProductsState = {
   items: [],
-  total: 0,
+  page: 1,
+  pageSize: 20,
+  totalRecords: 0,
+  totalPages: 1,
   brands: [],
   categories: [],
   loading: { fetchAll: false, create: false, update: false, delete: false, brands: false, categories: false },
   error: null,
+  _activeFetchId: null,
 };
 
 const productsSlice = createSlice({
@@ -45,16 +53,25 @@ const productsSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchProductsThunk.pending, (state) => {
-        state.loading.fetchAll = true; state.error = null;
+      .addCase(fetchProductsThunk.pending, (state, action) => {
+        state.loading.fetchAll = true;
+        state.error = null;
+        state._activeFetchId = action.meta.requestId;
       })
       .addCase(fetchProductsThunk.fulfilled, (state, action) => {
+        if (action.meta.requestId !== state._activeFetchId) return;
         state.loading.fetchAll = false;
+        state._activeFetchId = null;
         state.items = action.payload.data;
-        state.total = action.payload.total;
+        state.page = action.payload.page;
+        state.pageSize = action.payload.pageSize;
+        state.totalRecords = action.payload.totalRecords;
+        state.totalPages = action.payload.totalPages;
       })
       .addCase(fetchProductsThunk.rejected, (state, action) => {
+        if (action.meta.requestId !== state._activeFetchId) return;
         state.loading.fetchAll = false;
+        state._activeFetchId = null;
         state.error = action.payload ?? "Error fetching products";
       });
 
@@ -62,10 +79,8 @@ const productsSlice = createSlice({
       .addCase(createProductThunk.pending, (state) => {
         state.loading.create = true;
       })
-      .addCase(createProductThunk.fulfilled, (state, action) => {
+      .addCase(createProductThunk.fulfilled, (state) => {
         state.loading.create = false;
-        state.items.unshift(action.payload);
-        state.total += 1;
       })
       .addCase(createProductThunk.rejected, (state, action) => {
         state.loading.create = false;
@@ -89,7 +104,7 @@ const productsSlice = createSlice({
     builder
       .addCase(deleteProductThunk.fulfilled, (state, action) => {
         state.items = state.items.filter((p) => p.id !== action.payload);
-        state.total -= 1;
+        state.totalRecords = Math.max(0, state.totalRecords - 1);
       });
 
     builder

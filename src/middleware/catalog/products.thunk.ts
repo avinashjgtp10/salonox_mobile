@@ -14,13 +14,24 @@ const downloadFile = (blob: Blob, filename: string) => {
   window.URL.revokeObjectURL(url);
 };
 
+export type FetchProductsParams = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  category_id?: string;
+  brand_id?: string;
+  stock?: string;
+  sort_by?: string;
+  sort_order?: "ASC" | "DESC";
+};
+
 export const fetchProductsThunk = createAsyncThunk<
-  { data: any[]; total: number },
-  void,
+  { data: any[]; page: number; pageSize: number; totalRecords: number; totalPages: number },
+  FetchProductsParams | void,
   { rejectValue: string }
->("products/fetchAll", async (_, { rejectWithValue }) => {
+>("products/fetchAll", async (params, { rejectWithValue }) => {
   try {
-    const res = await api.get(PRODUCTS.LIST);
+    const res = await api.get(PRODUCTS.LIST, { params: params ?? {} });
     return res.data.data;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
