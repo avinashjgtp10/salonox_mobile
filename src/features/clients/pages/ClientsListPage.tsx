@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -46,20 +46,47 @@ export default function ClientsListPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [clients, setClients] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const ROWS_PER_PAGE = 10;
+  const ROWS_PER_PAGE = 20;
 
-  const fetchClients = useCallback(async () => {
+  const sortMap: Record<string, { sort_by: string; sort_order: string }> = {
+    "First name (A-Z)": { sort_by: "full_name", sort_order: "asc" },
+    "First name (Z-A)": { sort_by: "full_name", sort_order: "desc" },
+    "Created at (oldest first)": { sort_by: "created_at", sort_order: "asc" },
+    "Created at (newest first)": { sort_by: "created_at", sort_order: "desc" },
+    "Total sales (highest first)": { sort_by: "total_sales", sort_order: "desc" },
+    "Total sales (lowest first)": { sort_by: "total_sales", sort_order: "asc" },
+  };
+
+  const isMountedRef = useRef(false);
+
+  const fetchClients = useCallback(async (
+    page = 1,
+    sort = "Created at (newest first)",
+    gender: string | null = null,
+  ) => {
     setLoading(true);
     try {
-      const res = await api.get(CLIENT.BASE, { params: { inactive: true } });
-      const clientsData = res.data?.data?.items || [];
-      const mapped = Array.isArray(clientsData)
-        ? clientsData.map((c: any) => ({ ...c, is_blocked: !c.is_active }))
+      const { sort_by, sort_order } = sortMap[sort] ?? { sort_by: "created_at", sort_order: "desc" };
+      const params: Record<string, any> = {
+        page,
+        pageSize: ROWS_PER_PAGE,
+        inactive: true,
+        sort_by,
+        sort_order,
+      };
+      if (gender && gender !== "All") params.gender = gender.toLowerCase();
+      const res = await api.get(CLIENT.BASE, { params });
+      const payload = res.data?.data;
+      const items = payload?.items ?? [];
+      const mapped = Array.isArray(items)
+        ? items.map((c: any) => ({ ...c, is_blocked: !c.is_active }))
         : [];
       setClients(mapped);
-      setCurrentPage(1);
+      setTotal(payload?.totalRecords ?? payload?.total ?? 0);
+      setCurrentPage(page);
     } catch (error) {
       console.error("Error fetching clients", error);
     } finally {
@@ -69,6 +96,7 @@ export default function ClientsListPage() {
 
   useEffect(() => {
     fetchClients();
+    isMountedRef.current = true;
   }, [fetchClients]);
 
   useEffect(() => {
@@ -96,39 +124,13 @@ export default function ClientsListPage() {
   const sortOptions = [
     "First name (A-Z)",
     "First name (Z-A)",
-    "Last name (A-Z)",
-    "Last name (Z-A)",
-    "Gender (A-Z)",
-    "Gender (Z-A)",
     "Created at (oldest first)",
     "Created at (newest first)",
+    "Total sales (highest first)",
+    "Total sales (lowest first)",
   ];
 
   const [selectedSort, setSelectedSort] = useState("Created at (newest first)");
-
-  const sortedClients = useMemo(() => {
-    const arr = [...clients];
-    switch (selectedSort) {
-      case "First name (A-Z)":
-        return arr.sort((a, b) => (a.first_name || "").localeCompare(b.first_name || ""));
-      case "First name (Z-A)":
-        return arr.sort((a, b) => (b.first_name || "").localeCompare(a.first_name || ""));
-      case "Last name (A-Z)":
-        return arr.sort((a, b) => (a.last_name || "").localeCompare(b.last_name || ""));
-      case "Last name (Z-A)":
-        return arr.sort((a, b) => (b.last_name || "").localeCompare(a.last_name || ""));
-      case "Gender (A-Z)":
-        return arr.sort((a, b) => (a.gender || "").localeCompare(b.gender || ""));
-      case "Gender (Z-A)":
-        return arr.sort((a, b) => (b.gender || "").localeCompare(a.gender || ""));
-      case "Created at (oldest first)":
-        return arr.sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
-      case "Created at (newest first)":
-        return arr.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-      default:
-        return arr;
-    }
-  }, [clients, selectedSort]);
 
   /* ================= OPTIONS DROPDOWN ================= */
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -152,7 +154,7 @@ export default function ClientsListPage() {
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked)
-      setSelectedClients(sortedClients.map((c: any) => String(c.id)));
+      setSelectedClients(clients.map((c: any) => String(c.id)));
     else setSelectedClients([]);
   };
 
@@ -380,14 +382,21 @@ export default function ClientsListPage() {
             <div className="filter-footer">
               <button
                 className="clear-btn"
-                onClick={() => setSelectedGender(null)}
+                onClick={() => {
+                  setSelectedGender(null);
+                  setShowFilter(false);
+                  fetchClients(1, selectedSort, null);
+                }}
               >
                 Clear filters
               </button>
 
               <button
                 className="apply-btn"
-                onClick={() => setShowFilter(false)}
+                onClick={() => {
+                  setShowFilter(false);
+                  fetchClients(1, selectedSort, selectedGender);
+                }}
               >
                 Apply
               </button>
@@ -404,7 +413,7 @@ export default function ClientsListPage() {
               {t("clients.header.title", "Clients list")}
             </h2>
             <Badge variant="dark" pill className="ms-3">
-              {clients.length}
+              {total}
             </Badge>
           </div>
           <p className="page-subtitle text-muted mt-2">
@@ -583,6 +592,7 @@ export default function ClientsListPage() {
                     onClick={() => {
                       setSelectedSort(option);
                       setSortOpen(false);
+                      fetchClients(1, option, selectedGender);
                     }}
                   >
                     {option}
@@ -614,7 +624,7 @@ export default function ClientsListPage() {
                   style={{ gridColumn: "2 / -1" }}
                 >
                   <div className="selected-count">
-                    {selectedClients.length === sortedClients.length
+                    {selectedClients.length === clients.length
                       ? "All selected"
                       : `${selectedClients.length} selected`}
                     <span className="dot">•</span>
@@ -697,17 +707,13 @@ export default function ClientsListPage() {
               </div>
             )}
 
-            {sortedClients.length === 0 ? (
+            {clients.length === 0 ? (
               <div className="text-center p-5 text-muted">
                 No clients found.
               </div>
             ) : (
               (() => {
-                const paginatedClients = sortedClients.slice(
-                  (currentPage - 1) * ROWS_PER_PAGE,
-                  currentPage * ROWS_PER_PAGE,
-                );
-                return paginatedClients.map((client) => (
+                return clients.map((client) => (
                   <div
                     key={client.id}
                     className="table-row"
@@ -839,33 +845,33 @@ export default function ClientsListPage() {
       )}
 
       {/* ================= PAGINATION ================= */}
-      {sortedClients.length > 0 &&
+      {total > 0 &&
         (() => {
-          const totalPages = Math.ceil(sortedClients.length / ROWS_PER_PAGE);
+          const totalPages = Math.ceil(total / ROWS_PER_PAGE);
           const startItem = (currentPage - 1) * ROWS_PER_PAGE + 1;
-          const endItem = Math.min(currentPage * ROWS_PER_PAGE, sortedClients.length);
-          const pageNumbers = Array.from(
-            { length: totalPages },
-            (_, i) => i + 1,
-          );
+          const endItem = Math.min(currentPage * ROWS_PER_PAGE, total);
+          const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
           return (
             <div className="pagination-bar d-flex align-items-center justify-content-between mt-4">
               <div className="results-text">
-                Viewing {startItem}–{endItem} of {sortedClients.length} results
+                Viewing {startItem}–{endItem} of {total} results
               </div>
               <div className="pagination-controls d-flex align-items-center gap-1">
                 <button
                   className="pagination-btn"
                   disabled={currentPage === 1}
-                  onClick={() => setCurrentPage((p) => p - 1)}
+                  onClick={() => fetchClients(currentPage - 1, selectedSort, selectedGender)}
                 >
                   ← Prev
                 </button>
-                {pageNumbers.map((page) => (
+                {pageNumbers.slice(
+                  Math.max(0, currentPage - 3),
+                  Math.min(totalPages, currentPage + 2)
+                ).map((page) => (
                   <button
                     key={page}
                     className={`pagination-btn ${currentPage === page ? "active" : ""}`}
-                    onClick={() => setCurrentPage(page)}
+                    onClick={() => fetchClients(page, selectedSort, selectedGender)}
                   >
                     {page}
                   </button>
@@ -873,7 +879,7 @@ export default function ClientsListPage() {
                 <button
                   className="pagination-btn"
                   disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage((p) => p + 1)}
+                  onClick={() => fetchClients(currentPage + 1, selectedSort, selectedGender)}
                 >
                   Next →
                 </button>

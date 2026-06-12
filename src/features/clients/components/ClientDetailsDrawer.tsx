@@ -81,7 +81,7 @@ export default function ClientDetailsDrawer({
   const clientSource = client?.client_source || null;
   const preferredLanguage = client?.preferred_language || null;
   const additionalEmail = client?.additional_email || null;
-  const additionalPhone = client?.additional_phone || null;
+  const additionalPhone = client?.additional_phone_number || null;
 
   return (
     <div
