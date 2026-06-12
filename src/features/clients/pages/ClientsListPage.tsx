@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
-import { useNavigate, useLocation } from "react-router-dom";
+import Pagination from "../../../components/ui/Pagination";
+import { useNavigate } from "react-router-dom";
 import {
   Sliders,
   ChevronDown,
@@ -44,12 +45,11 @@ import "../styles/ClientsListPage.scss";
 export default function ClientsListPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const location = useLocation();
   const [clients, setClients] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const ROWS_PER_PAGE = 20;
+  const [pageSize, setPageSize] = useState(20);
 
   const sortMap: Record<string, { sort_by: string; sort_order: string }> = {
     "First name (A-Z)": { sort_by: "full_name", sort_order: "asc" },
@@ -66,13 +66,15 @@ export default function ClientsListPage() {
     page = 1,
     sort = "Created at (newest first)",
     gender: string | null = null,
+    ps?: number,
   ) => {
     setLoading(true);
     try {
       const { sort_by, sort_order } = sortMap[sort] ?? { sort_by: "created_at", sort_order: "desc" };
+      const resolvedPageSize = ps ?? 20;
       const params: Record<string, any> = {
         page,
-        pageSize: ROWS_PER_PAGE,
+        pageSize: resolvedPageSize,
         inactive: true,
         sort_by,
         sort_order,
@@ -87,6 +89,7 @@ export default function ClientsListPage() {
       setClients(mapped);
       setTotal(payload?.totalRecords ?? payload?.total ?? 0);
       setCurrentPage(page);
+      if (ps !== undefined) setPageSize(ps);
     } catch (error) {
       console.error("Error fetching clients", error);
     } finally {
@@ -845,48 +848,14 @@ export default function ClientsListPage() {
       )}
 
       {/* ================= PAGINATION ================= */}
-      {total > 0 &&
-        (() => {
-          const totalPages = Math.ceil(total / ROWS_PER_PAGE);
-          const startItem = (currentPage - 1) * ROWS_PER_PAGE + 1;
-          const endItem = Math.min(currentPage * ROWS_PER_PAGE, total);
-          const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
-          return (
-            <div className="pagination-bar d-flex align-items-center justify-content-between mt-4">
-              <div className="results-text">
-                Viewing {startItem}–{endItem} of {total} results
-              </div>
-              <div className="pagination-controls d-flex align-items-center gap-1">
-                <button
-                  className="pagination-btn"
-                  disabled={currentPage === 1}
-                  onClick={() => fetchClients(currentPage - 1, selectedSort, selectedGender)}
-                >
-                  ← Prev
-                </button>
-                {pageNumbers.slice(
-                  Math.max(0, currentPage - 3),
-                  Math.min(totalPages, currentPage + 2)
-                ).map((page) => (
-                  <button
-                    key={page}
-                    className={`pagination-btn ${currentPage === page ? "active" : ""}`}
-                    onClick={() => fetchClients(page, selectedSort, selectedGender)}
-                  >
-                    {page}
-                  </button>
-                ))}
-                <button
-                  className="pagination-btn"
-                  disabled={currentPage === totalPages}
-                  onClick={() => fetchClients(currentPage + 1, selectedSort, selectedGender)}
-                >
-                  Next →
-                </button>
-              </div>
-            </div>
-          );
-        })()}
+      <Pagination
+        currentPage={currentPage}
+        pageSize={pageSize}
+        totalItems={total}
+        onPageChange={(page) => fetchClients(page, selectedSort, selectedGender, pageSize)}
+        onPageSizeChange={(sz) => fetchClients(1, selectedSort, selectedGender, sz)}
+        className="mt-4"
+      />
 
       {/* ================= DELETE MODAL ================= */}
       <Modal
