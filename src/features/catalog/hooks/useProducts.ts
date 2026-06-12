@@ -14,16 +14,17 @@ import {
   fetchCategoriesThunk,
   createCategoryThunk,
   deleteCategoryThunk,
+  type FetchProductsParams,
 } from "../../../middleware/catalog/products.thunk";
 
 export const useProducts = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { items: products, total, brands, categories, loading, error } = useSelector(
+  const { items: products, page, pageSize, totalRecords, totalPages, brands, categories, loading, error } = useSelector(
     (state: RootState) => state.products
   );
 
-  const fetchProducts = useCallback(() => {
-    dispatch(fetchProductsThunk());
+  const fetchProducts = useCallback((params?: FetchProductsParams) => {
+    dispatch(fetchProductsThunk(params));
   }, [dispatch]);
 
   const fetchBrands = useCallback(() => {
@@ -71,7 +72,7 @@ export const useProducts = () => {
   }, [dispatch]);
 
   return {
-    products, total, brands, categories, loading, error,
+    products, page, pageSize, totalRecords, totalPages, brands, categories, loading, error,
     fetchProducts, fetchBrands, fetchCategories,
     createBrand, deleteBrand,
     createCategory, deleteCategory,
