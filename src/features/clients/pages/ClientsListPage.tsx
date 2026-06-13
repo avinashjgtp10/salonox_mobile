@@ -563,7 +563,7 @@ export default function ClientsListPage() {
         <div className="search-section d-flex align-items-center justify-content-between">
           <div className="search-left d-flex align-items-center gap-2 flex-grow-1 me-3">
             <ClientSearchInput
-              placeholder="Search by Name / Phone (min 2 chars)"
+              placeholder="Search by Name / Phone (min 3 chars)"
               highlight
               onSelect={(client) => {
                 setSelectedClientId(client.id);
@@ -572,6 +572,7 @@ export default function ClientsListPage() {
             />
 
             <Button
+              className="clients-filter-btn"
               variant="outline-dark"
               onClick={() => setShowFilter(true)}
               iconLeft={<Sliders size={14} />}
@@ -587,6 +588,7 @@ export default function ClientsListPage() {
 
           <div className="sort-dropdown position-relative">
             <Button
+              className="clients-sort-btn"
               variant="outline-dark"
               onClick={() => setSortOpen(!sortOpen)}
               iconRight={<ArrowDownUp size={14} />}
