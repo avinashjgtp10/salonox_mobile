@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { Search, Star, ChevronLeft, ArrowRepeat as Refresh, Grid3x3Gap, InfoCircle } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
+import { BOOKING, STAFF, SALE, REPORT, SERVICES, CLIENT, PRODUCTS, CATEGORIES } from "../../../services/api/endpoints";
+import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch, RootState } from "../../../store/store";
 import { clearReportError } from "../../../store/reportSlice";
 import {
@@ -682,22 +684,31 @@ interface AppointmentRow {
 
 
 const DATE_TYPE_OPTIONS  = ["Appointment Date", "Booking Date"];
-const APPT_STATUSES      = ["All", "Open", "Closed", "Cancelled", "No Show", "Checked-in", "Confirmed", "Deleted"];
-const APPT_SOURCES       = ["All", "Walk-In", "Online", "Phone", "App", "Staff", "Kiosk", "Third Party", "Other"];
+const APPT_STATUSES      = ["All", "booked", "confirmed", "in_progress", "completed", "cancelled", "no_show"];
+const fmtStatusLabel = (s: string) =>
+  s === "All" ? "All" : s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+
+const AppsNavButton = () => {
+  const navigate = useNavigate();
+  return (
+    <button className="rp-detail-icon-btn" title="Apps" onClick={() => navigate("/dashboard/apps")}>
+      <Grid3x3Gap size={16} />
+    </button>
+  );
+};
 
 const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
-  const today = new Date().toISOString().slice(0, 10);
+  const today     = new Date().toISOString().slice(0, 10);
+  const monthAgo  = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const navigate = useNavigate();
   const abortRef = useRef<AbortController | null>(null);
   const [dateType,          setDateType]          = useState(DATE_TYPE_OPTIONS[0]);
   const [showDtDrop,        setShowDtDrop]        = useState(false);
-  const [dateFrom,          setDateFrom]          = useState(today);
+  const [dateFrom,          setDateFrom]          = useState(monthAgo);
   const [dateTo,            setDateTo]            = useState(today);
   const [selectedStatuses,  setSelectedStatuses]  = useState<string[]>(APPT_STATUSES);
   const [statusSearch,      setStatusSearch]      = useState("");
   const [showStatusDrop,    setShowStatusDrop]    = useState(false);
-  const [selectedSources,   setSelectedSources]   = useState<string[]>(APPT_SOURCES);
-  const [showSourceDrop,    setShowSourceDrop]    = useState(false);
   const [rows,              setRows]              = useState<AppointmentRow[]>([]);
   const [loading,           setLoading]           = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -716,10 +727,9 @@ const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBac
         from: dateFrom,
         to: dateTo,
         statuses: selectedStatuses.filter(s => s !== "All").join(","),
-        sources:  selectedSources.filter(s => s !== "All").join(","),
       });
       const res = await api.get<{ data: AppointmentRow[] }>(
-        `/api/v1/reports/appointments/detail?${params}`,
+        REPORT.DETAIL("appointments", params.toString()),
         { signal: ctrl.signal },
       );
       if (res.data?.data) setRows(res.data.data);
@@ -728,7 +738,7 @@ const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBac
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateType, dateFrom, dateTo, selectedStatuses, selectedSources]);
+  }, [dateType, dateFrom, dateTo, selectedStatuses]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -736,7 +746,6 @@ const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBac
     const close = () => {
       setShowDtDrop(false);
       setShowStatusDrop(false);
-      setShowSourceDrop(false);
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
@@ -757,28 +766,13 @@ const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBac
     }
   };
 
-  const toggleSource = (s: string) => {
-    if (s === "All") {
-      setSelectedSources(selectedSources.length === APPT_SOURCES.length ? [] : [...APPT_SOURCES]);
-    } else {
-      setSelectedSources(prev =>
-        prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]
-      );
-    }
-  };
-
   const statusLabel = selectedStatuses.length === APPT_STATUSES.length
     ? `All selected (${APPT_STATUSES.length - 1})`
     : selectedStatuses.length === 0 ? "None selected"
     : `${selectedStatuses.filter(s => s !== "All").length} selected`;
 
-  const sourceLabel = selectedSources.length === APPT_SOURCES.length
-    ? `All selected (${APPT_SOURCES.length - 1})`
-    : selectedSources.length === 0 ? "None selected"
-    : `${selectedSources.filter(s => s !== "All").length} selected`;
-
   const filteredStatuses = APPT_STATUSES.filter(s =>
-    s.toLowerCase().includes(statusSearch.toLowerCase())
+    fmtStatusLabel(s).toLowerCase().includes(statusSearch.toLowerCase())
   );
 
   return (
@@ -811,7 +805,7 @@ const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBac
         {/* Date Type */}
         <div className="rp-detail-filter-group" style={{ position: "relative" }}>
           <label className="rp-detail-filter-label">Date Type</label>
-          <button className="rp-detail-select" onClick={() => { setShowDtDrop(v => !v); setShowStatusDrop(false); setShowSourceDrop(false); }}>
+          <button className="rp-detail-select" onClick={() => { setShowDtDrop(v => !v); setShowStatusDrop(false); }}>
             {dateType.length > 14 ? dateType.slice(0, 14) + "..." : dateType}
             <span className="rp-detail-caret">▼</span>
           </button>
@@ -840,7 +834,7 @@ const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBac
         {/* Appointment Status — multi-select with search */}
         <div className="rp-detail-filter-group" style={{ position: "relative" }}>
           <label className="rp-detail-filter-label">Appointment Status</label>
-          <button className="rp-detail-select" onClick={() => { setShowStatusDrop(v => !v); setShowDtDrop(false); setShowSourceDrop(false); }}>
+          <button className="rp-detail-select" onClick={() => { setShowStatusDrop(v => !v); setShowDtDrop(false); }}>
             {statusLabel} <span className="rp-detail-caret">▼</span>
           </button>
           {showStatusDrop && (
@@ -867,7 +861,7 @@ const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBac
                   <span className={`rp-detail-checkbox ${selectedStatuses.includes(opt) ? "checked" : ""}`}>
                     {selectedStatuses.includes(opt) && "✓"}
                   </span>
-                  {opt}
+                  {fmtStatusLabel(opt)}
                 </div>
               ))}
             </div>
@@ -883,32 +877,6 @@ const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBac
         </div>
       </div>
 
-      {/* ── Filters row 2 ── */}
-      <div className="rp-detail-filters rp-detail-filters-row2">
-        {/* Appointment Source — multi-select */}
-        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
-          <label className="rp-detail-filter-label">Appointment Source</label>
-          <button className="rp-detail-select" onClick={() => { setShowSourceDrop(v => !v); setShowDtDrop(false); setShowStatusDrop(false); }}>
-            {sourceLabel} <span className="rp-detail-caret">▼</span>
-          </button>
-          {showSourceDrop && (
-            <div className="rp-detail-dropdown rp-detail-dropdown-wide" onMouseDown={e => e.stopPropagation()}>
-              {APPT_SOURCES.map(opt => (
-                <div key={opt} className="rp-detail-checkbox-item" onClick={() => toggleSource(opt)}>
-                  <span className={`rp-detail-checkbox ${selectedSources.includes(opt) ? "checked" : ""}`}>
-                    {selectedSources.includes(opt) && "✓"}
-                  </span>
-                  {opt}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <Button variant="ghost" className="rp-detail-refresh-btn" onClick={handleRefresh} loading={loading}>
-          <Refresh size={13} /> Refresh
-        </Button>
-      </div>
 
 
       <div className="rp-detail-drag-hint">
@@ -1088,7 +1056,16 @@ interface FinanceRow {
   center: string;
 }
 
-const PAYMENT_METHODS = ["All", "Cash", "Card", "UPI", "Online", "Wallet"];
+const PAYMENT_METHODS = [
+  { label: "All",          value: "All"           },
+  { label: "Cash",         value: "cash"          },
+  { label: "Card",         value: "card"          },
+  { label: "UPI",          value: "upi"           },
+  { label: "Wallet",       value: "wallet"        },
+  { label: "Gift Card",    value: "gift_card"     },
+  { label: "Split",        value: "split"         },
+  { label: "Bank Transfer",value: "bank_transfer" },
+];
 
 const FinanceReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
   const today = new Date().toISOString().slice(0, 10);
@@ -1097,11 +1074,10 @@ const FinanceReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
   const [dateTo,          setDateTo]          = useState(today);
   const [paymentMethod,   setPaymentMethod]   = useState("All");
   const [showMethodDrop,  setShowMethodDrop]  = useState(false);
-  const [rows,            setRows]            = useState<FinanceRow[]>([]);
+  const [allRows,         setAllRows]         = useState<FinanceRow[]>([]);
   const [loading,         setLoading]         = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
-  useEffect(() => { setCurrentPage(1); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
   const abortRef = useRef<AbortController | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -1110,16 +1086,40 @@ const FinanceReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ from: dateFrom, to: dateTo, method: paymentMethod });
-      const res = await api.get<{ data: FinanceRow[] }>(`/api/v1/reports/finance/detail?${params}`, { signal: ctrl.signal });
-      if (res.data?.data) setRows(res.data.data);
+      const params = new URLSearchParams({ start_date: dateFrom, end_date: dateTo });
+      const res = await api.get(`${SALE.BASE}?${params}`, { signal: ctrl.signal });
+      const sales: any[] = res.data?.data ?? [];
+      const mapped: FinanceRow[] = sales.map((s: any) => ({
+        date: s.created_at
+          ? new Date(s.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+          : "—",
+        ticketNo: String(s.id ?? "—"),
+        clientName: s.client_name ?? "Walk-in",
+        service: Array.isArray(s.items) && s.items.length
+          ? s.items.map((i: any) => i.name).filter(Boolean).join(", ")
+          : "—",
+        amount: parseFloat(s.total_amount ?? "0") || 0,
+        paymentMethod: s.payment_method ?? "N/A",
+        staff: Array.isArray(s.items) && s.items.length
+          ? (s.items[0]?.staff_name ?? "—")
+          : "—",
+        center: "—",
+      }));
+      setAllRows(mapped);
     } catch (e: any) {
-      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setRows([]);
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setAllRows([]);
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, paymentMethod]);
+  }, [dateFrom, dateTo]);
 
+  // client-side filter by payment method
+  const rows = useMemo(() => {
+    if (paymentMethod === "All") return allRows;
+    return allRows.filter(r => (r.paymentMethod ?? "").toLowerCase() === paymentMethod.toLowerCase());
+  }, [allRows, paymentMethod]);
+
+  useEffect(() => { setCurrentPage(1); }, [rows]);
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
@@ -1164,13 +1164,13 @@ const FinanceReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
         <div className="rp-detail-filter-group" style={{ position: "relative" }}>
           <label className="rp-detail-filter-label">Payment Method</label>
           <button className="rp-detail-select" onClick={() => setShowMethodDrop(v => !v)}>
-            {paymentMethod} <span className="rp-detail-caret">▼</span>
+            {PAYMENT_METHODS.find(m => m.value === paymentMethod)?.label ?? "All"} <span className="rp-detail-caret">▼</span>
           </button>
           {showMethodDrop && (
             <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
               {PAYMENT_METHODS.map(m => (
-                <div key={m} className={`rp-detail-dropdown-item ${m === paymentMethod ? "active" : ""}`}
-                  onClick={() => { setPaymentMethod(m); setShowMethodDrop(false); }}>{m}</div>
+                <div key={m.value} className={`rp-detail-dropdown-item ${m.value === paymentMethod ? "active" : ""}`}
+                  onClick={() => { setPaymentMethod(m.value); setShowMethodDrop(false); }}>{m.label}</div>
               ))}
             </div>
           )}
@@ -1269,8 +1269,8 @@ const InventoryReportDetail = ({ report, onBack }: { report: ReportItem; onBack:
     setLoading(true);
     try {
       const [prodRes, catRes] = await Promise.all([
-        api.get("/api/v1/products", { signal: ctrl.signal }),
-        api.get("/api/v1/categories", { signal: ctrl.signal }),
+        api.get(PRODUCTS.LIST, { signal: ctrl.signal }),
+        api.get(CATEGORIES.BASE, { signal: ctrl.signal }),
       ]);
       const products: any[] = prodRes.data?.data?.data ?? prodRes.data?.data ?? [];
       const cats: any[] = catRes.data?.data ?? [];
@@ -1463,8 +1463,10 @@ const PaymentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ from: dateFrom, to: dateTo, gateway, status: payStatus });
-      const res = await api.get<{ data: PaymentRow[] }>(`/api/v1/reports/payments/detail?${params}`, { signal: ctrl.signal });
+      const params = new URLSearchParams({ from: dateFrom, to: dateTo });
+      if (gateway   !== "All") params.set("gateway", gateway);
+      if (payStatus !== "All") params.set("status", payStatus);
+      const res = await api.get<{ data: PaymentRow[] }>(REPORT.DETAIL("payments", params.toString()), { signal: ctrl.signal });
       if (res.data?.data) setRows(res.data.data);
     } catch (e: any) {
       if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setRows([]);
@@ -1615,12 +1617,11 @@ interface DailyRow {
   paymentMethod: string;
 }
 
-const DAILY_SERVICES = ["All", "Haircut", "Hair Color", "Facial", "Massage", "Nails", "Bridal Pkg"];
-
 const DailyReportDetail = ({ report, onBack, staffNames }: { report: ReportItem; onBack: () => void; staffNames: string[] }) => {
   const today = new Date().toISOString().slice(0, 10);
   const [date,            setDate]            = useState(today);
   const [serviceFilter,   setServiceFilter]   = useState("All");
+  const [serviceOptions,  setServiceOptions]  = useState<string[]>(["All"]);
   const [staffFilter,     setStaffFilter]     = useState("All");
   const [showSvcDrop,     setShowSvcDrop]     = useState(false);
   const [showStfDrop,     setShowStfDrop]     = useState(false);
@@ -1631,15 +1632,51 @@ const DailyReportDetail = ({ report, onBack, staffNames }: { report: ReportItem;
   useEffect(() => { setCurrentPage(1); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
   const abortRef = useRef<AbortController | null>(null);
 
+  useEffect(() => {
+    api.get(SERVICES.BASE).then(res => {
+      const list: any[] = res.data?.data?.data ?? res.data?.data ?? [];
+      const names = list.map((s: any) => s.name as string).filter(Boolean);
+      setServiceOptions(["All", ...names]);
+    }).catch(() => {});
+  }, []);
+
   const fetchData = useCallback(async () => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ date, service: serviceFilter, staff: staffFilter });
-      const res = await api.get<{ data: DailyRow[] }>(`/api/v1/reports/daily/detail?${params}`, { signal: ctrl.signal });
-      if (res.data?.data) setRows(res.data.data);
+      const params = new URLSearchParams({ date });
+      if (serviceFilter !== "All") params.set("service", serviceFilter);
+      if (staffFilter   !== "All") params.set("staff", staffFilter);
+      const res = await api.get(REPORT.DETAIL("daily", params.toString()), { signal: ctrl.signal });
+      const raw: any[] = res.data?.data?.data ?? res.data?.data ?? [];
+      const mapped: DailyRow[] = raw.map((r: any) => {
+        // time: prefer pre-formatted field, else parse created_at to local time
+        let time = r.time ?? r.startTime ?? r.start_time ?? "";
+        if (!time && (r.created_at ?? r.createdAt)) {
+          time = new Date(r.created_at ?? r.createdAt)
+            .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+        }
+        // service: join item names if present
+        const itemNames: string = Array.isArray(r.items) && r.items.length
+          ? r.items.map((i: any) => i.name ?? i.service_name ?? "").filter(Boolean).join(", ")
+          : (r.service ?? r.serviceName ?? r.service_name ?? "—");
+        // staff: first item's staff or top-level
+        const staffName: string = Array.isArray(r.items) && r.items.length
+          ? (r.items[0].staff_name ?? r.items[0].staffName ?? "")
+          : (r.staff ?? r.staffName ?? r.staff_name ?? "—");
+        return {
+          time,
+          ticketNo:      r.ticketNo      ?? r.ticket_no      ?? r.sale_number ?? String(r.id ?? "—"),
+          clientName:    r.clientName    ?? r.client_name    ?? r.client?.name ?? "Walk-in",
+          service:       itemNames,
+          staff:         staffName || "—",
+          amount:        parseFloat(r.amount ?? r.total_amount ?? r.totalAmount ?? "0") || 0,
+          paymentMethod: r.paymentMethod ?? r.payment_method ?? "N/A",
+        };
+      });
+      setRows(mapped);
     } catch (e: any) {
       if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setRows([]);
     } finally {
@@ -1698,7 +1735,7 @@ const DailyReportDetail = ({ report, onBack, staffNames }: { report: ReportItem;
           </button>
           {showSvcDrop && (
             <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
-              {DAILY_SERVICES.map(s => (
+              {serviceOptions.map(s => (
                 <div key={s} className={`rp-detail-dropdown-item ${s === serviceFilter ? "active" : ""}`}
                   onClick={() => { setServiceFilter(s); setShowSvcDrop(false); }}>{s}</div>
               ))}
@@ -1753,13 +1790,17 @@ const DailyReportDetail = ({ report, onBack, staffNames }: { report: ReportItem;
               <tr><td colSpan={7} className="rp-detail-empty-cell">No data available</td></tr>
             ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
               <tr key={i}>
-                <td>{r.time}</td>
-                <td><span className="rp-detail-link">{r.ticketNo}</span></td>
-                <td><span className="rp-detail-link">{r.clientName}</span></td>
+                <td>{r.time || "—"}</td>
+                <td>
+                  <span className="rp-detail-link" title={r.ticketNo}>
+                    {r.ticketNo.length > 12 ? r.ticketNo.slice(0, 8).toUpperCase() + "…" : r.ticketNo}
+                  </span>
+                </td>
+                <td><span className="rp-detail-link">{r.clientName || "Walk-in"}</span></td>
                 <td>{r.service}</td>
                 <td>{r.staff}</td>
-                <td className="fw-semibold">₹{r.amount.toLocaleString()}</td>
-                <td>{r.paymentMethod}</td>
+                <td className="fw-semibold">₹{r.amount.toLocaleString("en-IN")}</td>
+                <td style={{ textTransform: "capitalize" }}>{r.paymentMethod}</td>
               </tr>
             ))}
           </tbody>
@@ -1811,7 +1852,7 @@ const ClientAcquisitionReportDetail = ({ report, onBack }: { report: ReportItem;
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const res = await api.get("/api/v1/clients", { signal: ctrl.signal });
+      const res = await api.get(CLIENT.BASE, { signal: ctrl.signal });
       const clients: any[] = res.data?.data?.data ?? res.data?.data ?? [];
       const mapped: MarketingRow[] = clients.map((c: any) => {
         const name = [c.first_name, c.last_name].filter(Boolean).join(" ") || c.name || "—";
@@ -2564,23 +2605,41 @@ interface EmployeeRow {
   utilization: number;
 }
 
-const EMP_ROLES = ["All", "Senior Stylist", "Stylist", "Therapist", "Nail Technician", "Massage Therapist"];
-const EMP_DEPTS = ["All", "Hair", "Spa", "Nails", "Skin", "Makeup"];
+const EMP_TYPES = [
+  { label: "All",       value: "All"       },
+  { label: "Full-time", value: "full_time" },
+  { label: "Part-time", value: "part_time" },
+  { label: "Contract",  value: "contract"  },
+  { label: "Freelance", value: "freelance" },
+];
 
 const EmployeeReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const dispatch = useDispatch<AppDispatch>();
   const today = new Date().toISOString().slice(0, 10);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [dateFrom,        setDateFrom]        = useState(monthStart);
   const [dateTo,          setDateTo]          = useState(today);
-  const [role,            setRole]            = useState("All");
-  const [dept,            setDept]            = useState("All");
-  const [showRoleDrop,    setShowRoleDrop]    = useState(false);
+  const [employee,        setEmployee]        = useState("All");
+  const [employeeOptions, setEmployeeOptions] = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
+  const [empType,         setEmpType]         = useState("All");
+  const [activity,        setActivity]        = useState("all");
+  const [showEmpDrop,     setShowEmpDrop]     = useState(false);
   const [showDeptDrop,    setShowDeptDrop]    = useState(false);
-  const [rows,            setRows]            = useState<EmployeeRow[]>([]);
+  const [showActDrop,     setShowActDrop]     = useState(false);
+
+  useEffect(() => {
+    dispatch(fetchStaffThunk()).unwrap().then(staffList => {
+      const opts = staffList.map((s: any) => ({
+        label: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.fullName || s.name || "",
+        value: String(s.id ?? ""),
+      })).filter((o: any) => o.label && o.value);
+      setEmployeeOptions([{ label: "All", value: "All" }, ...opts]);
+    }).catch(() => {});
+  }, []);
+  const [allRows,         setAllRows]         = useState<EmployeeRow[]>([]);
   const [loading,         setLoading]         = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
-  useEffect(() => { setCurrentPage(1); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
   const abortRef = useRef<AbortController | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -2589,26 +2648,125 @@ const EmployeeReportDetail = ({ report, onBack }: { report: ReportItem; onBack: 
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ from: dateFrom, to: dateTo, role, department: dept });
-      const res = await api.get<{ data: EmployeeRow[] }>(`/api/v1/reports/employee/detail?${params}`, { signal: ctrl.signal });
-      if (res.data?.data) setRows(res.data.data);
+      // Fetch appointments + staff list in parallel
+      const apptParams = new URLSearchParams({ start_date: dateFrom, end_date: dateTo, limit: "500" });
+      const [apptRes, staffList] = await Promise.all([
+        api.get(`${BOOKING.BASE}?${apptParams}`, { signal: ctrl.signal }),
+        dispatch(fetchStaffThunk()).unwrap(),
+      ]);
+
+      // Build staff lookup: id → { name, role, department, employment_type }
+      // staffList is Staff[] from fetchStaffThunk
+      // Normalize employment_type to snake_case for consistent comparison
+      const normalizeEmpType = (v: string) => (v ?? "").toLowerCase().replace(/[-\s]+/g, "_");
+
+      const staffInfoMap = new Map<string, { name: string; role: string; department: string; empType: string }>();
+      staffList.forEach((s: any) => {
+        const name = `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.fullName || s.name || "—";
+        staffInfoMap.set(String(s.id), {
+          name,
+          role:       s.role ?? s.position ?? "Staff",
+          department: s.department ?? s.dept ?? "General",
+          empType:    normalizeEmpType(s.employment_type ?? s.employmentType ?? ""),
+        });
+      });
+
+      // Parse appointment list (paginated or plain array)
+      const rawAppt = apptRes.data?.data;
+      const appts: any[] = Array.isArray(rawAppt?.data) ? rawAppt.data : (Array.isArray(rawAppt) ? rawAppt : []);
+
+      // Aggregate by staff_id
+      const aggMap = new Map<string, { name: string; role: string; department: string; empType: string; bookings: number; revenue: number; services: number }>();
+      appts.forEach((appt: any) => {
+        const staffId = String(appt.staff_id ?? appt.staffId ?? "");
+        if (!staffId || staffId === "undefined") return;
+        // Compute revenue from service prices (same logic as mapBooking)
+        const computedTotal = [
+          ...(Array.isArray(appt.services)      ? appt.services      : []),
+          ...(Array.isArray(appt.product_items) ? appt.product_items : []),
+          ...(Array.isArray(appt.package_items) ? appt.package_items : []),
+        ].reduce((sum: number, item: any) => {
+          const price = parseFloat(String(item.price ?? 0)) || 0;
+          const qty   = Number(item.quantity ?? item.qty ?? 1) || 1;
+          return sum + price * qty;
+        }, 0);
+        const revenue = parseFloat(String(appt.grand_total ?? appt.total_amount ?? appt.grandTotal ?? 0)) || computedTotal;
+        const svcCount = Array.isArray(appt.services) ? appt.services.length : 1;
+        const info = staffInfoMap.get(staffId) ?? { name: staffId, role: "Staff", department: "General", empType: "" };
+        if (!aggMap.has(staffId)) {
+          aggMap.set(staffId, { ...info, bookings: 0, revenue: 0, services: 0 });
+        }
+        const e = aggMap.get(staffId)!;
+        e.bookings += 1;
+        e.revenue  += revenue;
+        e.services += svcCount;
+      });
+
+      // Fallback: include staff with 0 appointments so they still appear
+      staffList.forEach((s: any) => {
+        const sid = String(s.id);
+        if (!aggMap.has(sid)) {
+          const info = staffInfoMap.get(sid) ?? {
+            name: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.fullName || s.name || "—",
+            role: s.role ?? "Staff",
+            department: s.department ?? "General",
+            empType: normalizeEmpType(s.employment_type ?? s.employmentType ?? ""),
+          };
+          aggMap.set(sid, { ...info, bookings: 0, revenue: 0, services: 0 });
+        }
+      });
+
+      const normalizedFilter = normalizeEmpType(empType);
+      let mapped: EmployeeRow[] = Array.from(aggMap.values())
+        .filter(e => empType === "All" || normalizeEmpType(e.empType) === normalizedFilter)
+        .map(e => ({
+          name:             e.name,
+          role:             e.role,
+          department:       e.department,
+          servicesPerformed:e.services,
+          revenue:          e.revenue,
+          avgTicket:        e.bookings > 0 ? Math.round(e.revenue / e.bookings) : 0,
+          bookings:         e.bookings,
+          rating:           0,
+          utilization:      0,
+        }));
+
+      setAllRows(mapped);
     } catch (e: any) {
-      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setRows([]);
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setAllRows([]);
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, role, dept]);
+  }, [dateFrom, dateTo, empType]);
+
+  // client-side filter + sort
+  const rows = useMemo(() => {
+    let data = [...allRows];
+    // filter by selected employee name
+    if (employee !== "All") {
+      const empLabel = (employeeOptions.find(o => o.value === employee)?.label ?? "").toLowerCase().trim();
+      if (empLabel) data = data.filter(r => (r.name ?? "").toLowerCase().trim() === empLabel);
+    }
+    // activity filter
+    if (activity === "active")   data = data.filter(r => r.bookings > 0);
+    if (activity === "inactive") data = data.filter(r => r.bookings === 0);
+    data.sort((a, b) => b.revenue - a.revenue);
+    return data;
+  }, [allRows, employee, employeeOptions, activity]);
+
+  useEffect(() => { setCurrentPage(1); }, [rows]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    const close = () => { setShowRoleDrop(false); setShowDeptDrop(false); };
+    const close = () => { setShowEmpDrop(false); setShowDeptDrop(false); setShowActDrop(false); };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  const HEADERS = ["Name", "Role", "Department", "Services", "Revenue (₹)", "Avg Ticket (₹)", "Bookings", "Rating", "Utilization (%)"];
-  const exportRows = () => rows.map(r => [r.name, r.role, r.department, r.servicesPerformed, r.revenue, r.avgTicket, r.bookings, r.rating, r.utilization]);
+  const selectedEmpLabel = employeeOptions.find(o => o.value === employee)?.label ?? "All";
+  const HEADERS = ["Name", "Role", "Department", "Services", "Revenue (₹)", "Avg Ticket (₹)", "Bookings"];
+  const exportRows = () => rows.map(r => [r.name, r.role, r.department, r.servicesPerformed, r.revenue, r.avgTicket, r.bookings]);
 
   return (
     <div className="rp-detail-view">
@@ -2641,29 +2799,44 @@ const EmployeeReportDetail = ({ report, onBack }: { report: ReportItem; onBack: 
           </div>
         </div>
         <div className="rp-detail-filter-group" style={{ position: "relative" }}>
-          <label className="rp-detail-filter-label">Role</label>
-          <button className="rp-detail-select" onClick={() => { setShowRoleDrop(v => !v); setShowDeptDrop(false); }}>
-            {role.length > 16 ? role.slice(0, 16) + "…" : role} <span className="rp-detail-caret">▼</span>
+          <label className="rp-detail-filter-label">Employee</label>
+          <button className="rp-detail-select" onClick={() => { setShowEmpDrop((v: boolean) => !v); setShowDeptDrop(false); }}>
+            {selectedEmpLabel.length > 16 ? selectedEmpLabel.slice(0, 16) + "…" : selectedEmpLabel}
+            <span className="rp-detail-caret">▼</span>
           </button>
-          {showRoleDrop && (
+          {showEmpDrop && (
             <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
-              {EMP_ROLES.map(r => (
-                <div key={r} className={`rp-detail-dropdown-item ${r === role ? "active" : ""}`}
-                  onClick={() => { setRole(r); setShowRoleDrop(false); }}>{r}</div>
+              {employeeOptions.map(o => (
+                <div key={o.value} className={`rp-detail-dropdown-item ${o.value === employee ? "active" : ""}`}
+                  onClick={() => { setEmployee(o.value); setShowEmpDrop(false); }}>{o.label}</div>
               ))}
             </div>
           )}
         </div>
         <div className="rp-detail-filter-group" style={{ position: "relative" }}>
-          <label className="rp-detail-filter-label">Department</label>
-          <button className="rp-detail-select" onClick={() => { setShowDeptDrop(v => !v); setShowRoleDrop(false); }}>
-            {dept} <span className="rp-detail-caret">▼</span>
+          <label className="rp-detail-filter-label">Emp. Type</label>
+          <button className="rp-detail-select" onClick={() => { setShowDeptDrop((v: boolean) => !v); setShowEmpDrop(false); }}>
+            {EMP_TYPES.find(t => t.value === empType)?.label ?? "All"} <span className="rp-detail-caret">▼</span>
           </button>
           {showDeptDrop && (
             <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
-              {EMP_DEPTS.map(d => (
-                <div key={d} className={`rp-detail-dropdown-item ${d === dept ? "active" : ""}`}
-                  onClick={() => { setDept(d); setShowDeptDrop(false); }}>{d}</div>
+              {EMP_TYPES.map(t => (
+                <div key={t.value} className={`rp-detail-dropdown-item ${t.value === empType ? "active" : ""}`}
+                  onClick={() => { setEmpType(t.value); setShowDeptDrop(false); }}>{t.label}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Activity</label>
+          <button className="rp-detail-select" onClick={() => { setShowActDrop(v => !v); setShowEmpDrop(false); setShowDeptDrop(false); }}>
+            {{ all: "All", active: "Active", inactive: "No Activity" }[activity] ?? "All"} <span className="rp-detail-caret">▼</span>
+          </button>
+          {showActDrop && (
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
+              {[{ label: "All", value: "all" }, { label: "Active (has bookings)", value: "active" }, { label: "No Activity", value: "inactive" }].map(o => (
+                <div key={o.value} className={`rp-detail-dropdown-item ${o.value === activity ? "active" : ""}`}
+                  onClick={() => { setActivity(o.value); setShowActDrop(false); }}>{o.label}</div>
               ))}
             </div>
           )}
@@ -2693,15 +2866,14 @@ const EmployeeReportDetail = ({ report, onBack }: { report: ReportItem; onBack: 
               <th>Services <span className="rp-th-sort">↕</span></th>
               <th>Revenue (₹) <span className="rp-th-sort">↕</span></th>
               <th>Avg Ticket (₹) <span className="rp-th-sort">↕</span></th>
-              <th>Rating <span className="rp-th-sort">↕</span></th>
-              <th>Utilization</th>
+              <th>Bookings</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={9} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+              <tr><td colSpan={8} className="rp-detail-loading-cell"><PageLoader /></td></tr>
             ) : rows.length === 0 ? (
-              <tr><td colSpan={9} className="rp-detail-empty-cell">No data available</td></tr>
+              <tr><td colSpan={8} className="rp-detail-empty-cell">No data available</td></tr>
             ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
               <tr key={i}>
                 <td style={{ color: "#9ca3af", fontSize: 12 }}>#{i + 1}</td>
@@ -2710,16 +2882,8 @@ const EmployeeReportDetail = ({ report, onBack }: { report: ReportItem; onBack: 
                 <td>{r.department}</td>
                 <td>{r.servicesPerformed}</td>
                 <td className="fw-semibold">₹{r.revenue.toLocaleString()}</td>
-                <td>₹{r.avgTicket}</td>
-                <td style={{ color: "#f59e0b", fontWeight: 600 }}>{r.rating} ★</td>
-                <td>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ flex: 1, height: 6, background: "#f3f4f6", borderRadius: 3 }}>
-                      <div style={{ width: `${r.utilization}%`, height: "100%", background: "#111827", borderRadius: 3 }} />
-                    </div>
-                    <span style={{ fontSize: 11, color: "#6b7280", whiteSpace: "nowrap" }}>{r.utilization}%</span>
-                  </div>
-                </td>
+                <td>₹{r.avgTicket.toLocaleString()}</td>
+                <td>{r.bookings}</td>
               </tr>
             ))}
           </tbody>
@@ -2764,7 +2928,7 @@ const RevenueByServiceReportDetail = ({ report, onBack }: { report: ReportItem; 
     try {
       const params = new URLSearchParams({ period: "custom", from: dateFrom, to: dateTo });
       const res = await api.get<{ data: { services: RevenueByServiceRow[] } }>(
-        `/api/v1/reports/services?${params}`,
+        REPORT.DETAIL("services", params.toString()),
         { signal: ctrl.signal },
       );
       if (res.data?.data?.services?.length) setRows(res.data.data.services);
@@ -2890,6 +3054,968 @@ const RevenueByServiceReportDetail = ({ report, onBack }: { report: ReportItem; 
   );
 };
 
+// ─── VIP Clients Report Detail ────────────────────────────────────────────────
+const VIP_TIERS = [
+  { label: "All",    value: "all"    },
+  { label: "Gold",   value: "gold"   },
+  { label: "Silver", value: "silver" },
+  { label: "Bronze", value: "bronze" },
+];
+
+function getVipTier(visits: number): "gold" | "silver" | "bronze" {
+  if (visits >= 8) return "gold";
+  if (visits >= 4) return "silver";
+  return "bronze";
+}
+
+interface VipClientRow {
+  clientId:   string;
+  name:       string;
+  phone:      string;
+  email:      string;
+  visits:     number;
+  totalSpend: number;
+  avgTicket:  number;
+  lastVisit:  string;
+  tier:       "gold" | "silver" | "bronze";
+}
+
+const VipClientsReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const today      = new Date().toISOString().slice(0, 10);
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+
+  const [dateFrom,    setDateFrom]    = useState(monthStart);
+  const [dateTo,      setDateTo]      = useState(today);
+  const [allRows,     setAllRows]     = useState<VipClientRow[]>([]);
+  const [loading,     setLoading]     = useState(false);
+  const [tier,        setTier]        = useState("all");
+  const [showTierDrop,setShowTierDrop]= useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize,    setPageSize]    = useState(10);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const fetchData = useCallback(async () => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setLoading(true);
+    try {
+      const apptParams = new URLSearchParams({ start_date: dateFrom, end_date: dateTo, limit: "1000" });
+      const [clientRes, apptRes] = await Promise.all([
+        api.get(CLIENT.BASE, { signal: ctrl.signal }),
+        api.get(`${BOOKING.BASE}?${apptParams}`, { signal: ctrl.signal }),
+      ]);
+
+      // Build client map: id → { name, phone, email }
+      const clientRaw = clientRes.data?.data;
+      const clientList: any[] = Array.isArray(clientRaw?.items) ? clientRaw.items
+        : Array.isArray(clientRaw?.data) ? clientRaw.data
+        : Array.isArray(clientRaw) ? clientRaw : [];
+
+      const clientMap = new Map<string, { name: string; phone: string; email: string }>();
+      clientList.forEach((c: any) => {
+        const name = c.full_name ?? c.fullName ?? `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim() ?? "Unknown";
+        clientMap.set(String(c.id), { name, phone: c.phone ?? c.phone_number ?? "—", email: c.email ?? "—" });
+      });
+
+      // Aggregate per client from appointments
+      const aggMap = new Map<string, { visits: number; totalSpend: number; lastVisit: string; clientName: string; clientPhone: string }>();
+      const apptRaw = apptRes.data?.data?.data ?? apptRes.data?.data ?? apptRes.data ?? [];
+      const appts: any[] = Array.isArray(apptRaw) ? apptRaw : [];
+
+      appts.forEach((appt: any) => {
+        const cid = String(appt.client_id ?? appt.clientId ?? "");
+        if (!cid || cid === "null") return;
+        const items = [
+          ...(Array.isArray(appt.services)      ? appt.services      : []),
+          ...(Array.isArray(appt.product_items) ? appt.product_items : []),
+          ...(Array.isArray(appt.package_items) ? appt.package_items : []),
+        ];
+        const computed = items.reduce((s: number, i: any) =>
+          s + (parseFloat(String(i.price ?? 0)) || 0) * (Number(i.quantity ?? i.qty ?? 1) || 1), 0);
+        const spend = parseFloat(String(appt.grand_total ?? appt.total_amount ?? 0)) || computed;
+        const visitDate = appt.scheduled_at ?? appt.date ?? "";
+        const apptClientName  = appt.client_name ?? appt.clientName ?? appt.customer_name ?? "";
+        const apptClientPhone = appt.client_phone ?? appt.clientPhone ?? appt.phone ?? "";
+        const prev = aggMap.get(cid) ?? { visits: 0, totalSpend: 0, lastVisit: "", clientName: "", clientPhone: "" };
+        aggMap.set(cid, {
+          visits:      prev.visits + 1,
+          totalSpend:  prev.totalSpend + spend,
+          lastVisit:   visitDate > prev.lastVisit ? visitDate : prev.lastVisit,
+          clientName:  prev.clientName || apptClientName,
+          clientPhone: prev.clientPhone || apptClientPhone,
+        });
+      });
+
+      const rows: VipClientRow[] = Array.from(aggMap.entries()).map(([cid, agg]) => {
+        const info = clientMap.get(cid);
+        const resolvedName  = info?.name  || agg.clientName  || `Unknown (${cid.slice(0, 8)})`;
+        const resolvedPhone = info?.phone || agg.clientPhone || "—";
+        const resolvedEmail = info?.email || "—";
+        return {
+          clientId:   cid,
+          name:       resolvedName,
+          phone:      resolvedPhone,
+          email:      resolvedEmail,
+          visits:     agg.visits,
+          totalSpend: agg.totalSpend,
+          avgTicket:  agg.visits > 0 ? agg.totalSpend / agg.visits : 0,
+          lastVisit:  agg.lastVisit ? new Date(agg.lastVisit).toLocaleDateString("en-IN") : "—",
+          tier:       getVipTier(agg.visits),
+        };
+      });
+
+      rows.sort((a, b) => b.visits - a.visits || b.totalSpend - a.totalSpend);
+      setAllRows(rows);
+    } finally {
+      if (!abortRef.current?.signal.aborted) setLoading(false);
+    }
+  }, [dateFrom, dateTo]);
+
+  const rows = useMemo(() => {
+    let data = [...allRows];
+    if (tier !== "all") data = data.filter(r => r.tier === tier);
+    return data;
+  }, [allRows, tier]);
+
+  useEffect(() => { setCurrentPage(1); }, [rows]);
+  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    const close = () => setShowTierDrop(false);
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+
+  const HEADERS    = ["Name", "Phone", "Email", "Visits", "Total Spend (₹)", "Avg Ticket (₹)", "Last Visit", "VIP Tier"];
+  const exportRows = () => rows.map(r => [r.name, r.phone, r.email, r.visits, r.totalSpend.toFixed(2), r.avgTicket.toFixed(2), r.lastVisit, r.tier]);
+  const paged      = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const tierBadge = (t: string) => {
+    const styles: Record<string, React.CSSProperties> = {
+      gold:   { background: "#fef3c7", color: "#92400e", border: "1px solid #f59e0b" },
+      silver: { background: "#f1f5f9", color: "#475569", border: "1px solid #94a3b8" },
+      bronze: { background: "#fdf2f1", color: "#9a3412", border: "1px solid #fdba74" },
+    };
+    return (
+      <span style={{ ...styles[t], padding: "2px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600, textTransform: "capitalize" }}>
+        {t === "gold" ? "🥇 " : t === "silver" ? "🥈 " : "🥉 "}{t}
+      </span>
+    );
+  };
+
+  return (
+    <div className="rp-detail-root">
+      <div className="rp-detail-header">
+        <div className="rp-detail-back-row">
+          <Button variant="ghost" className="rp-detail-back-btn" onClick={onBack}>
+            <ChevronLeft size={15} /> {report.name}
+          </Button>
+          <div className="rp-detail-view-icons">
+            <AppsNavButton />
+            <ReportExportButton title={report.name} headers={HEADERS} rows={exportRows} filename={`${report.name}-${dateFrom}-${dateTo}`} />
+            <button className="rp-detail-icon-btn" title="Info"><InfoCircle size={16} /></button>
+          </div>
+        </div>
+        <div className="rp-detail-tab-bar"><span className="rp-detail-tab active">Default View</span></div>
+      </div>
+
+      <div className="rp-detail-filters">
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Date Range</label>
+          <div className="rp-detail-date-range">
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="rp-detail-date-input" />
+            <span className="rp-detail-date-sep">-</span>
+            <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   className="rp-detail-date-input" />
+          </div>
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">VIP Tier</label>
+          <button className="rp-detail-select" onClick={() => setShowTierDrop(v => !v)}>
+            {VIP_TIERS.find(t => t.value === tier)?.label ?? "All"} <span className="rp-detail-caret">▼</span>
+          </button>
+          {showTierDrop && (
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
+              {VIP_TIERS.map(t => (
+                <div key={t.value} className={`rp-detail-dropdown-item ${t.value === tier ? "active" : ""}`}
+                  onClick={() => { setTier(t.value); setShowTierDrop(false); }}>{t.label}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-actions">
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
+            <Refresh size={13} /> Refresh
+          </Button>
+          <Button variant="ghost" className="rp-detail-save-btn">Save View</Button>
+        </div>
+      </div>
+
+      <div className="rp-detail-drag-hint">
+        {rows.length} VIP client{rows.length !== 1 ? "s" : ""}
+        &nbsp;·&nbsp;Gold: <strong>{rows.filter(r=>r.tier==="gold").length}</strong>
+        &nbsp;·&nbsp;Silver: <strong>{rows.filter(r=>r.tier==="silver").length}</strong>
+        &nbsp;·&nbsp;Bronze: <strong>{rows.filter(r=>r.tier==="bronze").length}</strong>
+      </div>
+
+      <div className="rp-detail-table-wrap">
+        {loading ? (
+          <div className="rp-detail-loading">Loading VIP client data…</div>
+        ) : paged.length === 0 ? (
+          <div className="rp-detail-empty">No client visit data found for this period.</div>
+        ) : (
+          <table className="rp-detail-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Client Name</th>
+                <th>Phone</th>
+                <th>Visits</th>
+                <th>Total Spend (₹)</th>
+                <th>Avg Ticket (₹)</th>
+                <th>Last Visit</th>
+                <th>VIP Tier</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paged.map((r, i) => (
+                <tr key={r.clientId}>
+                  <td>#{(currentPage - 1) * pageSize + i + 1}</td>
+                  <td><strong>{r.name}</strong></td>
+                  <td>{r.phone}</td>
+                  <td style={{ fontWeight: 700, color: "#6c3ce1" }}>{r.visits}</td>
+                  <td>₹{r.totalSpend.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
+                  <td>₹{r.avgTicket.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
+                  <td>{r.lastVisit}</td>
+                  <td>{tierBadge(r.tier)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <Pagination
+        currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
+      />
+    </div>
+  );
+};
+
+// ─── Staff Schedule Report Detail ─────────────────────────────────────────────
+const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+interface StaffScheduleRow {
+  staffId:  number;
+  name:     string;
+  role:     string;
+  schedule: Record<number, { available: boolean; start: string; end: string }>;
+}
+
+const StaffScheduleReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const dispatch = useDispatch<AppDispatch>();
+
+  const [allRows,     setAllRows]     = useState<StaffScheduleRow[]>([]);
+  const [loading,     setLoading]     = useState(false);
+  const [employee,    setEmployee]    = useState("All");
+  const [employeeOptions, setEmployeeOptions] = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
+  const [showEmpDrop, setShowEmpDrop] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize,    setPageSize]    = useState(20);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const fetchData = useCallback(async () => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setLoading(true);
+    try {
+      const staffList = await dispatch(fetchStaffThunk()).unwrap();
+
+      setEmployeeOptions([
+        { label: "All", value: "All" },
+        ...staffList.map((s: any) => ({
+          label: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.name || "",
+          value: String(s.id),
+        })),
+      ]);
+
+      const schedResults = await Promise.allSettled(
+        staffList.map((s: any) =>
+          api.get(STAFF.SCHEDULES(s.id), { signal: ctrl.signal })
+            .then(r => ({ staff: s, schedules: r.data?.data ?? [] }))
+        )
+      );
+
+      const rows: StaffScheduleRow[] = schedResults.map((result, idx) => {
+        const staff = staffList[idx] as any;
+        const name  = `${staff.first_name ?? ""} ${staff.last_name ?? ""}`.trim() || staff.name || "Unknown";
+        const schedule: StaffScheduleRow["schedule"] = {};
+
+        if (result.status === "fulfilled") {
+          const scheds: any[] = Array.isArray(result.value.schedules?.items)
+            ? result.value.schedules.items
+            : Array.isArray(result.value.schedules) ? result.value.schedules : [];
+          scheds.forEach((s: any) => {
+            const dow = Number(s.day_of_week);
+            if (dow >= 0 && dow <= 6) {
+              schedule[dow] = {
+                available: s.is_available ?? true,
+                start:     s.start_time ?? "",
+                end:       s.end_time   ?? "",
+              };
+            }
+          });
+        }
+
+        return { staffId: Number(staff.id), name, role: staff.role ?? "Staff", schedule };
+      });
+
+      setAllRows(rows);
+    } finally {
+      if (!abortRef.current?.signal.aborted) setLoading(false);
+    }
+  }, [dispatch]);
+
+  const rows = useMemo(() => {
+    if (employee === "All") return allRows;
+    return allRows.filter(r => String(r.staffId) === employee);
+  }, [allRows, employee]);
+
+  useEffect(() => { setCurrentPage(1); }, [rows]);
+  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    const close = () => setShowEmpDrop(false);
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+
+  const fmt12 = (t: string) => {
+    if (!t) return "";
+    const [h, m] = t.split(":").map(Number);
+    if (isNaN(h)) return t;
+    const ampm = h >= 12 ? "PM" : "AM";
+    return `${h % 12 || 12}:${String(m ?? 0).padStart(2, "0")} ${ampm}`;
+  };
+
+  const paged = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  return (
+    <div className="rp-detail-root">
+      <div className="rp-detail-header">
+        <div className="rp-detail-back-row">
+          <Button variant="ghost" className="rp-detail-back-btn" onClick={onBack}>
+            <ChevronLeft size={15} /> {report.name}
+          </Button>
+          <div className="rp-detail-view-icons">
+            <AppsNavButton />
+            <button className="rp-detail-icon-btn" title="Info"><InfoCircle size={16} /></button>
+          </div>
+        </div>
+        <div className="rp-detail-tab-bar"><span className="rp-detail-tab active">Default View</span></div>
+      </div>
+
+      <div className="rp-detail-filters">
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Employee</label>
+          <button className="rp-detail-select" onClick={() => setShowEmpDrop(v => !v)}>
+            {(employeeOptions.find(o => o.value === employee)?.label ?? "All").slice(0, 18)}
+            <span className="rp-detail-caret">▼</span>
+          </button>
+          {showEmpDrop && (
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
+              {employeeOptions.map(o => (
+                <div key={o.value} className={`rp-detail-dropdown-item ${o.value === employee ? "active" : ""}`}
+                  onClick={() => { setEmployee(o.value); setShowEmpDrop(false); }}>{o.label}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-actions">
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
+            <Refresh size={13} /> Refresh
+          </Button>
+          <Button variant="ghost" className="rp-detail-save-btn">Save View</Button>
+        </div>
+      </div>
+
+      <div className="rp-detail-drag-hint">{rows.length} staff member{rows.length !== 1 ? "s" : ""}</div>
+
+      <div className="rp-detail-table-wrap" style={{ overflowX: "auto" }}>
+        {loading ? (
+          <div className="rp-detail-loading">Loading schedule data…</div>
+        ) : paged.length === 0 ? (
+          <div className="rp-detail-empty">No schedule data found.</div>
+        ) : (
+          <table className="rp-detail-table" style={{ minWidth: 900 }}>
+            <thead>
+              <tr>
+                <th style={{ minWidth: 140 }}>Name</th>
+                <th>Role</th>
+                {DAYS_SHORT.map(d => <th key={d} style={{ minWidth: 90, textAlign: "center" }}>{d}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {paged.map(r => (
+                <tr key={r.staffId}>
+                  <td><strong>{r.name}</strong></td>
+                  <td>{r.role}</td>
+                  {[0,1,2,3,4,5,6].map(dow => {
+                    const s = r.schedule[dow];
+                    if (!s || !s.available) {
+                      return (
+                        <td key={dow} style={{ textAlign: "center", color: "#d1d5db", fontSize: 12 }}>Off</td>
+                      );
+                    }
+                    return (
+                      <td key={dow} style={{ textAlign: "center", fontSize: 11 }}>
+                        <span style={{ color: "#16a34a", fontWeight: 600, display: "block" }}>On</span>
+                        {s.start && s.end && (
+                          <span style={{ color: "#6b7280" }}>{fmt12(s.start)}<br />{fmt12(s.end)}</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <Pagination
+        currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
+      />
+    </div>
+  );
+};
+
+// ─── Commissions Report Detail ────────────────────────────────────────────────
+interface CommissionRow {
+  staffId:          number;
+  staffName:        string;
+  role:             string;
+  commissionType:   "percentage" | "fixed_rate";
+  commissionRate:   number;
+  revenue:          number;
+  services:         number;
+  commissionEarned: number;
+}
+
+const CommissionsReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const dispatch   = useDispatch<AppDispatch>();
+  const today      = new Date().toISOString().slice(0, 10);
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+
+  const [dateFrom,        setDateFrom]        = useState(monthStart);
+  const [dateTo,          setDateTo]          = useState(today);
+  const [allRows,         setAllRows]         = useState<CommissionRow[]>([]);
+  const [loading,         setLoading]         = useState(false);
+  const [employee,        setEmployee]        = useState("All");
+  const [employeeOptions, setEmployeeOptions] = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
+  const [showEmpDrop,     setShowEmpDrop]     = useState(false);
+  const [currentPage,     setCurrentPage]     = useState(1);
+  const [pageSize,        setPageSize]        = useState(10);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    const ctrl = new AbortController();
+    try {
+      const apptParams = new URLSearchParams({ start_date: dateFrom, end_date: dateTo, limit: "500" });
+      const [staffList, apptRes] = await Promise.all([
+        dispatch(fetchStaffThunk()).unwrap(),
+        api.get(`${BOOKING.BASE}?${apptParams}`, { signal: ctrl.signal }),
+      ]);
+
+      setEmployeeOptions([
+        { label: "All", value: "All" },
+        ...staffList.map((s: any) => ({
+          label: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.name || "",
+          value: String(s.id),
+        })),
+      ]);
+
+      // Aggregate revenue + service count per staff from appointments
+      const revenueMap = new Map<number, { revenue: number; services: number }>();
+      const apptRaw = apptRes.data?.data?.data ?? apptRes.data?.data ?? apptRes.data ?? [];
+      const appts: any[] = Array.isArray(apptRaw) ? apptRaw : [];
+      appts.forEach((appt: any) => {
+        const sid = Number(appt.staff_id ?? appt.staffId);
+        if (!sid) return;
+        const items = [
+          ...(Array.isArray(appt.services)      ? appt.services      : []),
+          ...(Array.isArray(appt.product_items) ? appt.product_items : []),
+          ...(Array.isArray(appt.package_items) ? appt.package_items : []),
+        ];
+        const computedTotal = items.reduce((sum: number, item: any) => {
+          const price = parseFloat(String(item.price ?? 0)) || 0;
+          const qty   = Number(item.quantity ?? item.qty ?? 1) || 1;
+          return sum + price * qty;
+        }, 0);
+        const revenue = parseFloat(String(appt.grand_total ?? appt.total_amount ?? 0)) || computedTotal;
+        const prev    = revenueMap.get(sid) ?? { revenue: 0, services: 0 };
+        revenueMap.set(sid, { revenue: prev.revenue + revenue, services: prev.services + 1 });
+      });
+
+      // Fetch each staff member's commission rate
+      const commResults = await Promise.allSettled(
+        staffList.map((s: any) =>
+          api.get(STAFF.COMMISSIONS(s.id), { signal: ctrl.signal })
+            .then(r => ({ staffId: s.id, data: r.data?.data ?? r.data }))
+        )
+      );
+
+      const rows: CommissionRow[] = staffList.map((s: any) => {
+        const staffName = `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.name || "Unknown";
+        const perf      = revenueMap.get(Number(s.id)) ?? { revenue: 0, services: 0 };
+
+        // Find commission data for this staff
+        const commResult = commResults.find(r =>
+          r.status === "fulfilled" && r.value.staffId === s.id
+        );
+        const commData: any = commResult?.status === "fulfilled" ? commResult.value.data : null;
+
+        // API returns array of { category, is_enabled, commission_kind, default_rate, ... }
+        // commission_kind: "percentage" | "fixed_rate"
+        let commType: "percentage" | "fixed_rate" = "percentage";
+        let commRate = 0;
+        if (Array.isArray(commData) && commData.length > 0) {
+          // Prefer services category (most relevant for appointments), else first enabled
+          const svcComm = commData.find((c: any) => c.category === "services" && c.is_enabled)
+            ?? commData.find((c: any) => c.is_enabled)
+            ?? commData[0];
+          commType = svcComm?.commission_kind ?? "percentage";
+          commRate = parseFloat(String(svcComm?.default_rate ?? 0)) || 0;
+        }
+
+        const earned = commType === "percentage"
+          ? (perf.revenue * commRate) / 100
+          : commRate * perf.services;
+
+        return {
+          staffId:          Number(s.id),
+          staffName,
+          role:             s.role ?? s.designation ?? "Staff",
+          commissionType:   commType,
+          commissionRate:   commRate,
+          revenue:          perf.revenue,
+          services:         perf.services,
+          commissionEarned: earned,
+        };
+      });
+
+      setAllRows(rows);
+    } finally {
+      setLoading(false);
+    }
+  }, [dateFrom, dateTo]);
+
+  const rows = useMemo(() => {
+    let data = [...allRows].sort((a, b) => b.commissionEarned - a.commissionEarned);
+    if (employee !== "All") {
+      const empLabel = (employeeOptions.find(o => o.value === employee)?.label ?? "").toLowerCase().trim();
+      if (empLabel) data = data.filter(r => r.staffName.toLowerCase().trim() === empLabel);
+    }
+    return data;
+  }, [allRows, employee, employeeOptions]);
+
+  useEffect(() => { setCurrentPage(1); }, [rows]);
+  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    const close = () => setShowEmpDrop(false);
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+
+  const HEADERS    = ["Name", "Role", "Commission Type", "Rate", "Revenue (₹)", "Services", "Commission Earned (₹)"];
+  const exportRows = () => rows.map(r => [r.staffName, r.role, r.commissionType === "percentage" ? "Percentage" : "Fixed Rate", r.commissionRate, r.revenue, r.services, r.commissionEarned.toFixed(2)]);
+  const paged      = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const totalEarned = rows.reduce((s, r) => s + r.commissionEarned, 0);
+
+  return (
+    <div className="rp-detail-root">
+      <div className="rp-detail-header">
+        <div className="rp-detail-back-row">
+          <Button variant="ghost" className="rp-detail-back-btn" onClick={onBack}>
+            <ChevronLeft size={15} /> {report.name}
+          </Button>
+          <div className="rp-detail-view-icons">
+            <AppsNavButton />
+            <ReportExportButton
+              title={report.name}
+              headers={HEADERS}
+              rows={exportRows}
+              filename={`${report.name}-${dateFrom}-${dateTo}`}
+            />
+            <button className="rp-detail-icon-btn" title="Info"><InfoCircle size={16} /></button>
+          </div>
+        </div>
+        <div className="rp-detail-tab-bar"><span className="rp-detail-tab active">Default View</span></div>
+      </div>
+
+      <div className="rp-detail-filters">
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Date Range</label>
+          <div className="rp-detail-date-range">
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="rp-detail-date-input" />
+            <span className="rp-detail-date-sep">-</span>
+            <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   className="rp-detail-date-input" />
+          </div>
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Employee</label>
+          <button className="rp-detail-select" onClick={() => setShowEmpDrop(v => !v)}>
+            {(employeeOptions.find(o => o.value === employee)?.label ?? "All").slice(0, 16)}{(employeeOptions.find(o => o.value === employee)?.label ?? "All").length > 16 ? "…" : ""}
+            <span className="rp-detail-caret">▼</span>
+          </button>
+          {showEmpDrop && (
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
+              {employeeOptions.map(o => (
+                <div key={o.value} className={`rp-detail-dropdown-item ${o.value === employee ? "active" : ""}`}
+                  onClick={() => { setEmployee(o.value); setShowEmpDrop(false); }}>{o.label}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-actions">
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
+            <Refresh size={13} /> Refresh
+          </Button>
+          <Button variant="ghost" className="rp-detail-save-btn">Save View</Button>
+        </div>
+      </div>
+
+      <div className="rp-detail-drag-hint">
+        {rows.length} staff member{rows.length !== 1 ? "s" : ""}
+        {totalEarned > 0 && <>&nbsp;·&nbsp;Total Commission: <strong>₹{totalEarned.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</strong></>}
+      </div>
+
+      <div className="rp-detail-table-wrap">
+        {loading ? (
+          <div className="rp-detail-loading">Loading commission data…</div>
+        ) : paged.length === 0 ? (
+          <div className="rp-detail-empty">No commission data found for this period.</div>
+        ) : (
+          <table className="rp-detail-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Commission Type</th>
+                <th>Rate</th>
+                <th>Revenue (₹)</th>
+                <th>Services</th>
+                <th>Commission Earned (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paged.map((r, i) => (
+                <tr key={r.staffId}>
+                  <td>#{(currentPage - 1) * pageSize + i + 1}</td>
+                  <td><strong>{r.staffName}</strong></td>
+                  <td>{r.role}</td>
+                  <td>{r.commissionType === "percentage" ? "Percentage" : "Fixed Rate"}</td>
+                  <td>{r.commissionType === "percentage" ? `${r.commissionRate}%` : `₹${r.commissionRate}/service`}</td>
+                  <td>₹{r.revenue.toLocaleString("en-IN")}</td>
+                  <td>{r.services}</td>
+                  <td><strong style={{ color: r.commissionEarned > 0 ? "#16a34a" : undefined }}>
+                    ₹{r.commissionEarned.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                  </strong></td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ fontWeight: 700, borderTop: "2px solid #e5e7eb" }}>
+                <td colSpan={5}></td>
+                <td>₹{rows.reduce((s, r) => s + r.revenue, 0).toLocaleString("en-IN")}</td>
+                <td>{rows.reduce((s, r) => s + r.services, 0)}</td>
+                <td style={{ color: "#16a34a" }}>₹{totalEarned.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</td>
+              </tr>
+            </tfoot>
+          </table>
+        )}
+      </div>
+
+      <Pagination
+        currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
+      />
+    </div>
+  );
+};
+
+// ─── Leaves Report Detail ─────────────────────────────────────────────────────
+const LEAVE_TYPES = [
+  { value: "All",     label: "All Types"  },
+  { value: "timeoff", label: "Time Off"   },
+  { value: "dayoff",  label: "Day Off"    },
+  { value: "sick",    label: "Sick Leave" },
+  { value: "casual",  label: "Casual"     },
+  { value: "other",   label: "Other"      },
+];
+const LEAVE_STATUSES = [
+  { value: "All",      label: "All Status" },
+  { value: "approved", label: "Approved"   },
+  { value: "pending",  label: "Pending"    },
+  { value: "rejected", label: "Rejected"   },
+];
+
+interface LeaveRow {
+  staffId: number;
+  staffName: string;
+  leaveType: string;
+  startDate: string;
+  endDate: string;
+  days: number;
+  status: string;
+  reason: string;
+}
+
+const LeavesReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const dispatch   = useDispatch<AppDispatch>();
+  const today      = new Date().toISOString().slice(0, 10);
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+
+  const [dateFrom,        setDateFrom]        = useState(monthStart);
+  const [dateTo,          setDateTo]          = useState(today);
+  const [allRows,         setAllRows]         = useState<LeaveRow[]>([]);
+  const [loading,         setLoading]         = useState(false);
+  const [employee,        setEmployee]        = useState("All");
+  const [leaveType,       setLeaveType]       = useState("All");
+  const [leaveStatus,     setLeaveStatus]     = useState("All");
+  const [employeeOptions, setEmployeeOptions] = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
+  const [showEmpDrop,     setShowEmpDrop]     = useState(false);
+  const [showTypeDrop,    setShowTypeDrop]    = useState(false);
+  const [showStatDrop,    setShowStatDrop]    = useState(false);
+  const [currentPage,     setCurrentPage]     = useState(1);
+  const [pageSize,        setPageSize]        = useState(10);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    const ctrl = new AbortController();
+    try {
+      const staffList = await dispatch(fetchStaffThunk()).unwrap();
+
+      const opts = [{ label: "All", value: "All" }, ...staffList.map((s: any) => ({
+        label: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.name || "",
+        value: String(s.id),
+      }))];
+      setEmployeeOptions(opts);
+
+      const leaveResults = await Promise.allSettled(
+        staffList.map((s: any) =>
+          api.get(STAFF.LEAVES(s.id), { signal: ctrl.signal })
+            .then(r => ({ staff: s, leaves: r.data?.data ?? r.data ?? [] }))
+        )
+      );
+
+      const from = new Date(dateFrom);
+      const to   = new Date(dateTo);
+      to.setHours(23, 59, 59);
+
+      const rows: LeaveRow[] = [];
+      leaveResults.forEach(result => {
+        if (result.status !== "fulfilled") return;
+        const { staff, leaves } = result.value;
+        const leaveArr: any[] = Array.isArray(leaves?.items) ? leaves.items : (Array.isArray(leaves) ? leaves : []);
+        const staffName = `${staff.first_name ?? ""} ${staff.last_name ?? ""}`.trim() || staff.name || "Unknown";
+
+        leaveArr.forEach((lv: any) => {
+          const lvStart = lv.start_date ? new Date(lv.start_date) : null;
+          const lvEnd   = lv.end_date   ? new Date(lv.end_date)   : lvStart;
+          if (!lvStart) return;
+          // Include if leave overlaps with the selected date range
+          if (lvStart > to || (lvEnd && lvEnd < from)) return;
+
+          const diffMs   = lvEnd ? Math.abs(lvEnd.getTime() - lvStart.getTime()) : 0;
+          const diffDays = Math.round(diffMs / 86400000) + 1;
+
+          rows.push({
+            staffId:   staff.id,
+            staffName,
+            leaveType: lv.leave_type ?? lv.type ?? "other",
+            startDate: lv.start_date ? new Date(lv.start_date).toLocaleDateString("en-IN") : "—",
+            endDate:   lv.end_date   ? new Date(lv.end_date).toLocaleDateString("en-IN")   : "—",
+            days:      diffDays,
+            status:    lv.status ?? "pending",
+            reason:    lv.reason ?? "—",
+          });
+        });
+      });
+
+      rows.sort((a, b) => a.staffName.localeCompare(b.staffName));
+      setAllRows(rows);
+    } finally {
+      setLoading(false);
+    }
+  }, [dateFrom, dateTo]);
+
+  const rows = useMemo(() => {
+    let data = [...allRows];
+    if (employee !== "All") {
+      const empLabel = (employeeOptions.find(o => o.value === employee)?.label ?? "").toLowerCase().trim();
+      if (empLabel) data = data.filter(r => r.staffName.toLowerCase().trim() === empLabel);
+    }
+    if (leaveType   !== "All") data = data.filter(r => r.leaveType.toLowerCase() === leaveType.toLowerCase());
+    if (leaveStatus !== "All") data = data.filter(r => r.status.toLowerCase()    === leaveStatus.toLowerCase());
+    return data;
+  }, [allRows, employee, employeeOptions, leaveType, leaveStatus]);
+
+  useEffect(() => { setCurrentPage(1); }, [rows]);
+  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    const close = () => { setShowEmpDrop(false); setShowTypeDrop(false); setShowStatDrop(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+
+  const HEADERS    = ["Employee", "Leave Type", "Start Date", "End Date", "Days", "Status", "Reason"];
+  const exportRows = () => rows.map(r => [r.staffName, r.leaveType, r.startDate, r.endDate, r.days, r.status, r.reason]);
+  const paged      = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const statusBadge = (s: string) => {
+    const map: Record<string, string> = { approved: "#16a34a", pending: "#d97706", rejected: "#dc2626" };
+    const color = map[s.toLowerCase()] ?? "#6b7280";
+    return <span style={{ color, fontWeight: 600, textTransform: "capitalize" }}>{s}</span>;
+  };
+
+  return (
+    <div className="rp-detail-root">
+      <div className="rp-detail-header">
+        <div className="rp-detail-back-row">
+          <Button variant="ghost" className="rp-detail-back-btn" onClick={onBack}>
+            <ChevronLeft size={15} /> {report.name}
+          </Button>
+          <div className="rp-detail-view-icons">
+            <AppsNavButton />
+            <ReportExportButton
+              title={report.name}
+              headers={HEADERS}
+              rows={exportRows}
+              filename={`${report.name}-${dateFrom}-${dateTo}`}
+            />
+            <button className="rp-detail-icon-btn" title="Info"><InfoCircle size={16} /></button>
+          </div>
+        </div>
+        <div className="rp-detail-tab-bar"><span className="rp-detail-tab active">Default View</span></div>
+      </div>
+
+      <div className="rp-detail-filters">
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Date Range</label>
+          <div className="rp-detail-date-range">
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="rp-detail-date-input" />
+            <span className="rp-detail-date-sep">-</span>
+            <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   className="rp-detail-date-input" />
+          </div>
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Employee</label>
+          <button className="rp-detail-select" onClick={() => { setShowEmpDrop(v => !v); setShowTypeDrop(false); setShowStatDrop(false); }}>
+            {(employeeOptions.find(o => o.value === employee)?.label ?? "All").slice(0, 16)}{(employeeOptions.find(o => o.value === employee)?.label ?? "All").length > 16 ? "…" : ""}
+            <span className="rp-detail-caret">▼</span>
+          </button>
+          {showEmpDrop && (
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
+              {employeeOptions.map(o => (
+                <div key={o.value} className={`rp-detail-dropdown-item ${o.value === employee ? "active" : ""}`}
+                  onClick={() => { setEmployee(o.value); setShowEmpDrop(false); }}>{o.label}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Leave Type</label>
+          <button className="rp-detail-select" onClick={() => { setShowTypeDrop(v => !v); setShowEmpDrop(false); setShowStatDrop(false); }}>
+            {LEAVE_TYPES.find(t => t.value === leaveType)?.label ?? "All Types"} <span className="rp-detail-caret">▼</span>
+          </button>
+          {showTypeDrop && (
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
+              {LEAVE_TYPES.map(t => (
+                <div key={t.value} className={`rp-detail-dropdown-item ${t.value === leaveType ? "active" : ""}`}
+                  onClick={() => { setLeaveType(t.value); setShowTypeDrop(false); }}>{t.label}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Status</label>
+          <button className="rp-detail-select" onClick={() => { setShowStatDrop(v => !v); setShowEmpDrop(false); setShowTypeDrop(false); }}>
+            {LEAVE_STATUSES.find(t => t.value === leaveStatus)?.label ?? "All Status"} <span className="rp-detail-caret">▼</span>
+          </button>
+          {showStatDrop && (
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
+              {LEAVE_STATUSES.map(t => (
+                <div key={t.value} className={`rp-detail-dropdown-item ${t.value === leaveStatus ? "active" : ""}`}
+                  onClick={() => { setLeaveStatus(t.value); setShowStatDrop(false); }}>{t.label}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-actions">
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
+            <Refresh size={13} /> Refresh
+          </Button>
+          <Button variant="ghost" className="rp-detail-save-btn">Save View</Button>
+        </div>
+      </div>
+
+      <div className="rp-detail-drag-hint">
+        {rows.length} leave record{rows.length !== 1 ? "s" : ""}
+        {rows.length > 0 && <>&nbsp;·&nbsp;Total Days: <strong>{rows.reduce((s, r) => s + r.days, 0)}</strong></>}
+      </div>
+
+      <div className="rp-detail-table-wrap">
+        {loading ? (
+          <div className="rp-detail-loading">Loading leave data…</div>
+        ) : paged.length === 0 ? (
+          <div className="rp-detail-empty">No leave records found for this period.</div>
+        ) : (
+          <table className="rp-detail-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Employee</th>
+                <th>Leave Type</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Days</th>
+                <th>Status</th>
+                <th>Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paged.map((r, i) => (
+                <tr key={`${r.staffId}-${i}`}>
+                  <td>#{(currentPage - 1) * pageSize + i + 1}</td>
+                  <td><strong>{r.staffName}</strong></td>
+                  <td style={{ textTransform: "capitalize" }}>{r.leaveType.replace(/_/g, " ")}</td>
+                  <td>{r.startDate}</td>
+                  <td>{r.endDate}</td>
+                  <td>{r.days}</td>
+                  <td>{statusBadge(r.status)}</td>
+                  <td style={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.reason}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <Pagination
+        currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
+      />
+    </div>
+  );
+};
+
 // ─── Reports Dashboard data ────────────────────────────────────────────────────
 
 interface ReportItem {
@@ -2905,7 +4031,9 @@ interface ReportItem {
 const ALL_REPORTS: ReportItem[] = [
   // ── Operational ──────────────────────────────────────────────────────────────
   { id: "appointments",         name: "Appointments",         tags: ["Operational", "Appointments"], description: "Use this report to view the details of all the appointments (including no-shows and cancelled appointments) for a given period.", category: "operational", isNewVersion: true },
-  { id: "client_retention",     name: "Client Retention",     tags: ["Operational"],                 description: "Identify clients who haven't visited in the last 30, 60, or 90 days to drive re-engagement.",                                     category: "operational", isNewVersion: true },
+  // ── Clients ───────────────────────────────────────────────────────────────────
+  { id: "client_retention",     name: "Client Retention",     tags: ["Retention"],                   description: "Identify clients who haven't visited in the last 30, 60, or 90 days to drive re-engagement.",                                     category: "clients",     isNewVersion: true },
+  { id: "vip_clients",          name: "VIP Clients",          tags: ["VIP"],                         description: "Rank clients by visit frequency and total spend. Automatically assigns Gold, Silver, and Bronze VIP tiers.",                           category: "clients",     isNewVersion: true },
   // ── Finance ───────────────────────────────────────────────────────────────────
   { id: "collections",          name: "Collections",          tags: ["Finance", "Collections"],      description: "Use this report to view the payments received (including redemptions) on a day or during the given period.",                       category: "finance",     isNewVersion: true },
   { id: "revenue_by_service",   name: "Revenue by Service",   tags: ["Finance", "Operational"],      description: "Break down total revenue by individual services offered, with average ticket and booking counts.",                                  category: "finance" },
@@ -2917,14 +4045,15 @@ const ALL_REPORTS: ReportItem[] = [
   { id: "payment_summary",      name: "Payment Summary",      tags: ["Payments"],                    description: "View a consolidated summary of all payment methods collected across all centers for a given period.",                               category: "payments" },
   // ── Daily Reports ─────────────────────────────────────────────────────────────
   { id: "daily_summary",        name: "Daily Summary",        tags: ["Daily Reports"],               description: "View a complete daily summary of appointments, collections, and staff performance for any given date.",                             category: "daily_reports" },
+  { id: "client_acquisition",    name: "Client Acquisition",    tags: ["Acquisition"], description: "Analyse how new clients are acquired and track their visit history, spend, and engagement status over a period.",   category: "clients" },
   // ── Marketing ─────────────────────────────────────────────────────────────────
   { id: "campaign_performance",   name: "Campaign Performance",   tags: ["Marketing"], description: "Track WhatsApp campaign delivery rates, read rates, and engagement metrics across all campaigns.",                 category: "marketing" },
   { id: "template_performance",  name: "Template Performance",  tags: ["Marketing"], description: "Analyse which WhatsApp message templates drive the highest engagement and delivery success.",                         category: "marketing" },
   { id: "message_spend",         name: "Message Spend",         tags: ["Marketing"], description: "Monitor daily WhatsApp message volumes and estimated costs broken down by category (Marketing, Utility, Auth).",   category: "marketing" },
-  { id: "client_acquisition",    name: "Client Acquisition",    tags: ["Marketing"], description: "Analyse how new clients are acquired and track their visit history, spend, and engagement status over a period.",   category: "marketing" },
   // ── Employee ──────────────────────────────────────────────────────────────────
   { id: "attrition",                      name: "Attrition",                    tags: ["Team"],         description: "Track the number of center employees who have either joined or left the organization.",                 category: "employee" },
   { id: "block_out_time_details",         name: "Block Out Time Details",        tags: ["Time"],         description: "Show times when providers are on break or unavailable using Block Out Time Types.",                    category: "employee" },
+  { id: "staff_schedule",                 name: "Staff Schedule",                tags: ["Time", "Team"], description: "View the weekly working schedule for all staff members — working hours per day across the week.",              category: "employee", isNewVersion: true },
   { id: "booking_productivity",           name: "Booking Productivity",          tags: ["Sales"],        description: "Insight into the types of services requested by your guests by calling your center.",                  category: "employee" },
   { id: "commissions",                    name: "Commissions",                   tags: ["Commissions"],  description: "Calculate and review commission earned by each employee based on services and products sold.",          category: "employee" },
   { id: "commissions_graphical",          name: "Commissions - Graphical",       tags: ["Commissions"],  description: "Graphical breakdown of commission earned per employee.",                                                category: "employee" },
@@ -2948,16 +4077,18 @@ const ALL_REPORTS: ReportItem[] = [
 
 const SUB_CATEGORIES: Record<string, string[]> = {
   "employee": ["Sales", "Commissions", "Performance", "Team", "Time"],
+  "clients":  ["VIP", "Retention", "Acquisition"],
 };
 
 const FALLBACK_CATEGORIES = [
-  { key: "all",          label: "All",           count: 32 },
+  { key: "all",          label: "All",           count: 34 },
   { key: "daily_reports",label: "Daily Reports", count: 1  },
-  { key: "employee",     label: "Employee",      count: 21 },
+  { key: "employee",     label: "Employee",      count: 22 },
+  { key: "clients",      label: "Clients",       count: 3  },
   { key: "finance",      label: "Finance",       count: 2  },
   { key: "inventory",    label: "Inventory",     count: 2  },
-  { key: "marketing",    label: "Marketing",     count: 4  },
-  { key: "operational",  label: "Operational",   count: 2  },
+  { key: "marketing",    label: "Marketing",     count: 3  },
+  { key: "operational",  label: "Operational",   count: 1  },
   { key: "payments",     label: "Payments",      count: 2  },
 ];
 
@@ -3015,7 +4146,7 @@ export default function ReportsPage() {
     setActiveSubCategory(null);
   };
 
-  const activeReports = reportsDashboard?.reports ?? ALL_REPORTS;
+  const activeReports = ALL_REPORTS;
 
   const filteredReports = useMemo(() => {
     return activeReports.filter(r => {
@@ -3090,16 +4221,16 @@ export default function ReportsPage() {
     if (filterFetchedRef.current) return;
     filterFetchedRef.current = true;
 
-    api.get<{ data: { items: Array<{ first_name: string; last_name?: string | null }> } }>("/api/v1/staff?limit=200")
-      .then(res => {
-        const names = (res.data?.data?.items ?? []).map(s =>
+    dispatch(fetchStaffThunk()).unwrap()
+      .then(staffList => {
+        const names = staffList.map((s: any) =>
           [s.first_name, s.last_name].filter(Boolean).join(" ")
         ).filter(Boolean);
         if (names.length) setFilterStaffList(names);
       })
       .catch(() => {});
 
-    api.get<{ data: { data: Array<{ name: string }> } }>("/api/v1/services?limit=200&status=active")
+    api.get<{ data: { data: Array<{ name: string }> } }>(`${SERVICES.BASE}?limit=200&status=active`)
       .then(res => {
         const names = (res.data?.data?.data ?? []).map(s => s.name).filter(Boolean);
         if (names.length) setFilterServiceList(names);
@@ -3524,6 +4655,10 @@ export default function ReportsPage() {
               : openReport.id === "template_performance" ? <TemplatePerformanceReportDetail report={openReport} onBack={() => setOpenReport(null)} />
               : openReport.id === "message_spend"        ? <MessageSpendReportDetail        report={openReport} onBack={() => setOpenReport(null)} />
               : openReport.id === "client_acquisition"   ? <ClientAcquisitionReportDetail   report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.id === "vip_clients"                                             ? <VipClientsReportDetail    report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.id === "staff_schedule"                                          ? <StaffScheduleReportDetail report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.id === "commissions" || openReport.id === "commissions_graphical" ? <CommissionsReportDetail report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.id === "leaves"              ? <LeavesReportDetail      report={openReport} onBack={() => setOpenReport(null)} />
               : openReport.category === "employee"      ? <EmployeeReportDetail   report={openReport} onBack={() => setOpenReport(null)} />
               : <AppointmentReportDetail report={openReport} onBack={() => setOpenReport(null)} />
             }
@@ -3546,7 +4681,7 @@ export default function ReportsPage() {
 
             {/* Category tabs */}
             <div className="rp-cat-tabs">
-              {(reportsDashboard?.categories ?? FALLBACK_CATEGORIES).map(cat => (
+              {FALLBACK_CATEGORIES.map(cat => (
                 <Button
                   key={cat.key}
                   variant="ghost"
