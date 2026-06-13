@@ -9,9 +9,11 @@ function toApiStaffId(id?: string | null): string | undefined {
 }
 import toast from "react-hot-toast";
 import api from "../../../../services/api/axios";
-import { useAppDispatch } from "../../../../hooks/useAppRedux";
+import { useAppDispatch, useAppSelector } from "../../../../hooks/useAppRedux";
 import { createBookingThunk } from "../../../../middleware/booking/booking.thunk";
-import { useAppSelector } from "../../../../hooks/useAppRedux";
+import { fetchClientsThunk } from "../../../../middleware/client/client.thunk";
+import { fetchMembershipsThunk } from "../../../../middleware/membership/membership.thunk";
+import { fetchProductsThunk } from "../../../../middleware/catalog/products.thunk";
 import { computePointsEarned, computeEWalletCredit, EWALLET_REDEEM_MINIMUM, MEMBERSHIP_TIERS, replaceBookingId, updateBooking as updateBookingAction, deleteBooking as deleteBookingAction, patchPaymentStatus } from "../../../../store/schedulerSlice";
 import { addMinutes } from "../../utils/timeUtils";
 import MiniCalendar from "../shared/MiniCalendar.tsx";
@@ -340,6 +342,17 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
   const navigate = useNavigate();
   const salonId = useAppSelector((s: any) => s.salon?.currentSalon?.id);
   const currentSalon = useAppSelector((s: any) => s.salon?.currentSalon);
+  const clientsLoaded     = useAppSelector((s: any) => (s.client as any).items?.length > 0);
+  const productsLoaded    = useAppSelector((s: any) => (s.products as any).items?.length > 0);
+  const membershipsLoaded = useAppSelector((s: any) => (s.memberships as any).items?.length > 0);
+
+  // Lazy-load clients, products, memberships only when the modal opens.
+  // These are NOT fetched on calendar mount to keep initial load fast.
+  useEffect(() => {
+    if (!clientsLoaded)     dispatch(fetchClientsThunk());
+    if (!productsLoaded)    dispatch(fetchProductsThunk());
+    if (!membershipsLoaded) dispatch(fetchMembershipsThunk({}));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ✅ FIX — read from both snake_case (DB) and camelCase (local state)
   const paymentState = (
