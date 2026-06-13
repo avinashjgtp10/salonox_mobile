@@ -467,7 +467,7 @@ export default function PaymentsPage() {
         show={showFilters}
         onClose={() => setShowFilters(false)}
         title="Filters"
-        size="lg"
+        size="md"
         footer={
           <div className="d-flex justify-content-end gap-3 w-100">
             <Button
@@ -494,7 +494,7 @@ export default function PaymentsPage() {
                 onChange={(e) => setMethodFilter(e.target.value)}
                 style={{ appearance: "none", backgroundImage: "none" }}
               >
-                <option value="all">All methods</option>
+                <option value="all">All Methods</option>
                 <option value="cash">Cash</option>
                 <option value="card">Card</option>
                 <option value="upi">UPI</option>
@@ -517,7 +517,7 @@ export default function PaymentsPage() {
                 onChange={(e) => setStatusFilter(e.target.value)}
                 style={{ appearance: "none", backgroundImage: "none" }}
               >
-                <option value="all">All statuses</option>
+                <option value="all">All Status</option>
                 <option value="completed">Completed</option>
                 <option value="refunded">Refunded</option>
                 <option value="cancelled">Cancelled</option>
