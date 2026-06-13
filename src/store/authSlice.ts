@@ -3,7 +3,9 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 function decodeJwt(token: string): { role: string | null; salonId: string | null } {
   try {
     const payload = token.split(".")[1];
-    const decoded = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded  = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+    const decoded = JSON.parse(atob(padded));
     return {
       role:    decoded?.role     ?? null,
       salonId: decoded?.salonId  ?? decoded?.salon_id ?? null,
@@ -92,6 +94,9 @@ const authSlice = createSlice({
 
     updateToken(state, action: PayloadAction<string>) {
       state.accessToken = action.payload;
+      const jwt = decodeJwt(action.payload);
+      state.role    = jwt.role;
+      state.salonId = jwt.salonId;
     },
 
     updateOnboardingStatus(state, action: PayloadAction<boolean>) {

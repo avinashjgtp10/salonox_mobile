@@ -65,7 +65,13 @@ export const applyInterceptors = (instance: AxiosInstance) => {
         const salonId = state?.auth?.salonId ?? state?.salon?.currentSalon?.id;
         if (salonId) {
           const url = new URL(config.url ?? "", "http://x");
-          if (!url.searchParams.has("salon_id")) {
+          const inParams =
+            config.params instanceof URLSearchParams
+              ? config.params.has("salon_id")
+              : config.params != null && typeof config.params === "object"
+                ? "salon_id" in config.params
+                : false;
+          if (!url.searchParams.has("salon_id") && !inParams) {
             url.searchParams.set("salon_id", String(salonId));
             config.url = url.pathname + "?" + url.searchParams.toString();
           }
