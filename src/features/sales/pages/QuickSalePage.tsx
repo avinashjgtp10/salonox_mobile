@@ -556,7 +556,10 @@ export default function QuickSalePage() {
     if (!salonId) { setErrorMsg("Salon not loaded. Please refresh."); return; }
     const itemsOk   = runValidation();
     const paymentOk = runPaymentValidation();
-    if (!itemsOk || !paymentOk) return;
+     if (!itemsOk || !paymentOk) {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
 
     setIsSubmitting(true); setErrorMsg(""); setSuccessMsg("");
     try {
@@ -586,6 +589,7 @@ export default function QuickSalePage() {
               )
             ),
           }
+          
         : {
             id: saleId, payment_method: selectedMethods[0] as PaymentMethod,
             amount_paid: parseFloat(amountPaid || grandTotal.toString()),
@@ -594,6 +598,7 @@ export default function QuickSalePage() {
 
       const checkoutResult = await dispatch(checkoutSaleThunk(checkoutPayload));
       if (checkoutSaleThunk.fulfilled.match(checkoutResult)) {
+        window.scrollTo({ top: 0, behavior: "smooth" })
         setSuccessMsg("Sale completed successfully!"); resetForm();
       } else {
         setErrorMsg((checkoutResult.payload as string) || "Checkout failed.");
