@@ -44,7 +44,7 @@ const PAGE_SIZE = 10;
 
 const ScheduledShiftsPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { staffMembers, shifts, loading } = useSelector(
+  const { staffMembers, shifts } = useSelector(
     (s: RootState) => s.shift
   );
 

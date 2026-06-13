@@ -82,13 +82,33 @@ function fmtChange(n?: number) {
   return { label: `${n >= 0 ? "+" : ""}${abs}%`, up: n >= 0 };
 }
 
+// Backend returns pre-formatted UTC time strings like "01:30 AM".
+// Convert to browser local time so the dashboard matches the calendar.
+function utcTimeToLocal(raw: string): string {
+  if (!raw || raw === "—") return raw;
+  try {
+    const match = raw.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!match) return raw;
+    let h = parseInt(match[1], 10);
+    const m = parseInt(match[2], 10);
+    const period = match[3].toUpperCase();
+    if (period === "PM" && h !== 12) h += 12;
+    if (period === "AM" && h === 12) h = 0;
+    const todayUtc = new Date().toISOString().slice(0, 10);
+    const dt = new Date(`${todayUtc}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00Z`);
+    return dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+  } catch {
+    return raw;
+  }
+}
+
 function normalise(appt: TodayAppointment) {
   return {
     id:      appt.id,
     client:  appt.clientName  ?? appt.client  ?? "—",
     service: appt.serviceName ?? appt.service ?? "—",
     staff:   appt.staffName   ?? appt.staff   ?? "—",
-    time:    appt.startTime   ?? appt.time    ?? "—",
+    time:    utcTimeToLocal(appt.startTime ?? appt.time ?? "—"),
     status:  appt.status,
     amount:  appt.amount      ?? appt.price   ?? 0,
   };

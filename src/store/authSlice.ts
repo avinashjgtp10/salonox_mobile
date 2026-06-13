@@ -1,12 +1,17 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
-function decodeJwtRole(token: string): string | null {
+function decodeJwt(token: string): { role: string | null; salonId: string | null } {
   try {
     const payload = token.split(".")[1];
-    const decoded = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
-    return decoded?.role ?? null;
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded  = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+    const decoded = JSON.parse(atob(padded));
+    return {
+      role:    decoded?.role     ?? null,
+      salonId: decoded?.salonId  ?? decoded?.salon_id ?? null,
+    };
   } catch {
-    return null;
+    return { role: null, salonId: null };
   }
 }
 import {
@@ -39,6 +44,7 @@ export interface AuthState {
   refreshToken: string | null;
   isOnboardingComplete: boolean;
   role: string | null;
+  salonId: string | null;
   custom_permissions: Record<string, boolean> | null;
   loading: AuthLoadingState;
   error: string | null;
@@ -49,6 +55,7 @@ const initialState: AuthState = {
   refreshToken: null,
   isOnboardingComplete: false,
   role: null,
+  salonId: null,
   custom_permissions: null,
   loading: {
     login: false,
@@ -80,10 +87,16 @@ const authSlice = createSlice({
       state.accessToken = accessToken;
       state.refreshToken = refreshToken ?? null;
       state.isOnboardingComplete = isOnboardingComplete;
+      const jwt = decodeJwt(accessToken);
+      state.role    = jwt.role;
+      state.salonId = jwt.salonId;
     },
 
     updateToken(state, action: PayloadAction<string>) {
       state.accessToken = action.payload;
+      const jwt = decodeJwt(action.payload);
+      state.role    = jwt.role;
+      state.salonId = jwt.salonId;
     },
 
     updateOnboardingStatus(state, action: PayloadAction<boolean>) {
@@ -99,6 +112,7 @@ const authSlice = createSlice({
       state.refreshToken = null;
       state.isOnboardingComplete = false;
       state.role = null;
+      state.salonId = null;
       state.custom_permissions = null;
       state.error = null;
     },
@@ -120,7 +134,9 @@ const authSlice = createSlice({
         state.accessToken = payload.accessToken;
         state.refreshToken = payload.refreshToken;
         state.isOnboardingComplete = payload.isOnboardingComplete;
-        state.role = payload.user?.role ?? decodeJwtRole(payload.accessToken);
+        const jwt = decodeJwt(payload.accessToken);
+        state.role    = payload.user?.role    ?? jwt.role;
+        state.salonId = payload.user?.salonId ?? jwt.salonId;
         state.custom_permissions = payload.user?.custom_permissions ?? null;
       })
       .addCase(loginThunk.rejected, (state, { payload }) => {
@@ -135,7 +151,9 @@ const authSlice = createSlice({
     builder
       .addCase(refreshSessionThunk.fulfilled, (state, { payload }) => {
         state.accessToken = payload;
-        state.role = decodeJwtRole(payload);
+        const jwt = decodeJwt(payload);
+        state.role    = jwt.role;
+        state.salonId = jwt.salonId;
       })
       .addCase(refreshSessionThunk.rejected, (state) => {
         state.accessToken = null;

@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { Search, Star, ChevronLeft, ArrowRepeat as Refresh, Grid3x3Gap, InfoCircle } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
+import { BOOKING, STAFF, SALE, REPORT, SERVICES, CLIENT, PRODUCTS, CATEGORIES } from "../../../services/api/endpoints";
+import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch, RootState } from "../../../store/store";
 import { clearReportError } from "../../../store/reportSlice";
 import {
@@ -24,7 +26,7 @@ import {
   AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, RadarChart, Radar, PolarGrid,
-  PolarAngleAxis,
+  PolarAngleAxis, ReferenceLine,
 } from "recharts";
 import {
   ArrowUpRight, ArrowDownRight, Funnel,
@@ -34,119 +36,9 @@ import {
   FileEarmarkArrowDown,
 } from "react-bootstrap-icons";
 
-// ─── Fallback mock data (shown while API data loads or if API is unavailable) ──
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-const revenueByMonth = [
-  { label: "Jan", revenue: 42000, target: 45000, prev: 38000 },
-  { label: "Feb", revenue: 38500, target: 45000, prev: 35000 },
-  { label: "Mar", revenue: 55200, target: 50000, prev: 44000 },
-  { label: "Apr", revenue: 61800, target: 55000, prev: 52000 },
-  { label: "May", revenue: 48400, target: 55000, prev: 43000 },
-  { label: "Jun", revenue: 72600, target: 65000, prev: 61000 },
-  { label: "Jul", revenue: 68900, target: 65000, prev: 60000 },
-  { label: "Aug", revenue: 79300, target: 70000, prev: 68000 },
-  { label: "Sep", revenue: 83700, target: 75000, prev: 72000 },
-  { label: "Oct", revenue: 91200, target: 80000, prev: 80000 },
-  { label: "Nov", revenue: 87500, target: 80000, prev: 81000 },
-  { label: "Dec", revenue: 98400, target: 90000, prev: 88000 },
-];
-
-const revenueBy7d = [
-  { label: "Mon", revenue: 12400, target: 11000, prev: 10200 },
-  { label: "Tue", revenue: 15800, target: 13000, prev: 13400 },
-  { label: "Wed", revenue: 11200, target: 13000, prev: 10800 },
-  { label: "Thu", revenue: 18600, target: 15000, prev: 16200 },
-  { label: "Fri", revenue: 22400, target: 18000, prev: 19800 },
-  { label: "Sat", revenue: 31200, target: 25000, prev: 28400 },
-  { label: "Sun", revenue: 8900,  target: 10000, prev: 7600  },
-];
-
-const appointmentsWeekly = [
-  { label: "Mon", completed: 18, cancelled: 3, noShow: 1 },
-  { label: "Tue", completed: 24, cancelled: 2, noShow: 2 },
-  { label: "Wed", completed: 20, cancelled: 4, noShow: 1 },
-  { label: "Thu", completed: 30, cancelled: 1, noShow: 0 },
-  { label: "Fri", completed: 35, cancelled: 2, noShow: 2 },
-  { label: "Sat", completed: 42, cancelled: 3, noShow: 1 },
-  { label: "Sun", completed: 15, cancelled: 1, noShow: 0 },
-];
-
-const clientGrowth = [
-  { label: "Jan", new: 42, returning: 88, churned: 12 },
-  { label: "Feb", new: 38, returning: 91, churned: 9  },
-  { label: "Mar", new: 56, returning: 98, churned: 14 },
-  { label: "Apr", new: 61, returning: 105, churned: 11 },
-  { label: "May", new: 48, returning: 112, churned: 8  },
-  { label: "Jun", new: 73, returning: 118, churned: 15 },
-  { label: "Jul", new: 69, returning: 124, churned: 10 },
-  { label: "Aug", new: 80, returning: 130, churned: 13 },
-  { label: "Sep", new: 84, returning: 138, churned: 9  },
-  { label: "Oct", new: 92, returning: 145, churned: 11 },
-  { label: "Nov", new: 88, returning: 150, churned: 8  },
-  { label: "Dec", new: 99, returning: 160, churned: 12 },
-];
-
-const fallbackServiceData = [
-  { name: "Haircut",    bookings: 312, revenue: 187200, avgTicket: 600,  color: "#111827", growth: 8.2  },
-  { name: "Hair Color", bookings: 228, revenue: 364800, avgTicket: 1600, color: "#3b82f6", growth: 12.4 },
-  { name: "Facial",     bookings: 165, revenue: 247500, avgTicket: 1500, color: "#10b981", growth: 5.1  },
-  { name: "Massage",    bookings: 110, revenue: 198000, avgTicket: 1800, color: "#8b5cf6", growth: -2.3 },
-  { name: "Nails",      bookings: 92,  revenue: 82800,  avgTicket: 900,  color: "#f59e0b", growth: 18.6 },
-  { name: "Bridal Pkg", bookings: 28,  revenue: 238000, avgTicket: 8500, color: "#ef4444", growth: 22.1 },
-];
-
-const fallbackStaffData = [
-  { name: "Anita K.",  bookings: 128, revenue: 94200, rating: 4.9, utilization: 88, avgTicket: 736,  color: "#111827" },
-  { name: "Pooja M.",  bookings: 105, revenue: 72800, rating: 4.8, utilization: 82, avgTicket: 693,  color: "#3b82f6" },
-  { name: "Raj S.",    bookings: 98,  revenue: 41600, rating: 4.7, utilization: 76, avgTicket: 424,  color: "#10b981" },
-  { name: "Neha T.",   bookings: 87,  revenue: 65200, rating: 4.6, utilization: 71, avgTicket: 749,  color: "#8b5cf6" },
-  { name: "Vikram D.", bookings: 74,  revenue: 58900, rating: 4.5, utilization: 65, avgTicket: 796,  color: "#f59e0b" },
-];
-
-const radarStaffFallback = [
-  { metric: "Bookings",   "Anita K.": 95, "Pooja M.": 80, "Raj S.": 72 },
-  { metric: "Revenue",    "Anita K.": 90, "Pooja M.": 75, "Raj S.": 45 },
-  { metric: "Rating",     "Anita K.": 98, "Pooja M.": 96, "Raj S.": 94 },
-  { metric: "Retention",  "Anita K.": 88, "Pooja M.": 82, "Raj S.": 78 },
-  { metric: "Efficiency", "Anita K.": 92, "Pooja M.": 86, "Raj S.": 80 },
-];
-
-const sparklineData = [3,5,4,7,6,8,9,7,10,11,9,12];
-
-// ─── KPI config ───────────────────────────────────────────────────────────────
-
-const kpiConfig = {
-  revenue:      [
-    { label: "Total Revenue",    value: "₹8,26,700", change: "+14.2%", up: true,  icon: <CurrencyRupee size={16}/>, color: "#10b981" },
-    { label: "Avg Daily Revenue",value: "₹27,557",   change: "+9.8%",  up: true,  icon: <GraphUpArrow size={16}/>,  color: "#3b82f6" },
-    { label: "Best Day Revenue", value: "₹98,400",   change: "+5.3%",  up: true,  icon: <ArrowUpRight size={16}/>,  color: "#8b5cf6" },
-    { label: "Target Achieved",  value: "91.2%",     change: "+3.1%",  up: true,  icon: <StarFill size={16}/>,      color: "#f59e0b" },
-  ],
-  appointments: [
-    { label: "Total Bookings",   value: "1,085",  change: "+11.4%", up: true,  icon: <CalendarCheck size={16}/>, color: "#3b82f6" },
-    { label: "Completion Rate",  value: "94.2%",  change: "+1.8%",  up: true,  icon: <ArrowUpRight size={16}/>,  color: "#10b981" },
-    { label: "Cancellation Rate",value: "4.1%",   change: "-0.6%",  up: true,  icon: <ArrowDownRight size={16}/>,color: "#ef4444" },
-    { label: "Avg Duration",     value: "52 min", change: "-3 min", up: true,  icon: <Calendar3 size={16}/>,     color: "#8b5cf6" },
-  ],
-  clients: [
-    { label: "Total Clients",    value: "1,240",  change: "+8.4%",  up: true,  icon: <People size={16}/>,        color: "#3b82f6" },
-    { label: "New This Month",   value: "99",     change: "+13.2%", up: true,  icon: <ArrowUpRight size={16}/>,  color: "#10b981" },
-    { label: "Retention Rate",   value: "82.4%",  change: "+2.1%",  up: true,  icon: <ArrowRepeat size={16}/>,   color: "#8b5cf6" },
-    { label: "Avg Visits/Client",value: "4.2",    change: "+0.3",   up: true,  icon: <CalendarCheck size={16}/>, color: "#f59e0b" },
-  ],
-  staff: [
-    { label: "Active Staff",     value: "8",      change: "+1",     up: true,  icon: <People size={16}/>,        color: "#3b82f6" },
-    { label: "Avg Utilization",  value: "76.4%",  change: "+4.2%",  up: true,  icon: <GraphUpArrow size={16}/>,  color: "#10b981" },
-    { label: "Top Earner",       value: "₹94.2k", change: "+12.1%", up: true,  icon: <CurrencyRupee size={16}/>, color: "#8b5cf6" },
-    { label: "Avg Rating",       value: "4.74",   change: "+0.12",  up: true,  icon: <StarFill size={16}/>,      color: "#f59e0b" },
-  ],
-  services: [
-    { label: "Active Services",  value: "24",     change: "+2",     up: true,  icon: <Scissors size={16}/>,      color: "#3b82f6" },
-    { label: "Top Service Rev",  value: "₹3.65L", change: "+18.2%", up: true,  icon: <CurrencyRupee size={16}/>, color: "#10b981" },
-    { label: "Avg Ticket",       value: "₹1,320", change: "+4.8%",  up: true,  icon: <ArrowUpRight size={16}/>,  color: "#8b5cf6" },
-    { label: "New Services",     value: "3",      change: "+3",     up: true,  icon: <ArrowRepeat size={16}/>,   color: "#f59e0b" },
-  ],
-};
+const CHART_COLORS = ["#111827", "#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444"];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -170,33 +62,139 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-const Sparkline = ({ data, color }: { data: number[]; color: string }) => (
-  <ResponsiveContainer width="100%" height={40}>
-    <AreaChart data={data.map((v, i) => ({ v, i }))} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
-      <defs>
-        <linearGradient id={`sp-${color.replace("#","")}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity={0.2} />
-          <stop offset="100%" stopColor={color} stopOpacity={0} />
-        </linearGradient>
-      </defs>
-      <Area type="monotone" dataKey="v" stroke={color} strokeWidth={1.5}
-        fill={`url(#sp-${color.replace("#","")})`} dot={false} />
-    </AreaChart>
-  </ResponsiveContainer>
+const EmptyChart = ({ height = 280, message = "No data available for this period" }: { height?: number; message?: string }) => (
+  <div style={{ height, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#9ca3af", fontSize: 14, gap: 8 }}>
+    <FileEarmarkBarGraph size={32} style={{ opacity: 0.3 }} />
+    <span>{message}</span>
+  </div>
 );
 
 
 // ─── Tab content components ───────────────────────────────────────────────────
 
+interface RevenueTrendPoint { label: string; revenue: number; target: number; prev: number; }
+interface ServiceItem { name: string; bookings: number; revenue: number; avgTicket: number; growth: number; color?: string; }
+
+// ── Fill missing dates so the full period always shows (backend only returns rows with data) ──
+const _DAY   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const _MON   = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const _pad2  = (n: number) => String(n).padStart(2, "0");
+
+function buildRevenueSeries(period: string, existing: RevenueTrendPoint[]): RevenueTrendPoint[] {
+  const now = new Date();
+  const map = new Map(existing.map(d => [d.label.trim(), d]));
+  const pts: RevenueTrendPoint[] = [];
+
+  if (period === "7d") {
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now); d.setDate(d.getDate() - i);
+      const label = _DAY[d.getDay()];
+      pts.push(map.get(label) ?? { label, revenue: 0, target: 0, prev: 0 });
+    }
+  } else if (period === "30d") {
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now); d.setDate(d.getDate() - i);
+      const label = `${_pad2(d.getDate())} ${_MON[d.getMonth()]}`;
+      pts.push(map.get(label) ?? { label, revenue: 0, target: 0, prev: 0 });
+    }
+  } else if (period === "90d") {
+    for (let i = 12; i >= 0; i--) {
+      const d = new Date(now); d.setDate(d.getDate() - i * 7);
+      const label = `${_pad2(d.getDate())} ${_MON[d.getMonth()]}`;
+      pts.push(map.get(label) ?? { label, revenue: 0, target: 0, prev: 0 });
+    }
+  } else if (period === "12m") {
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now); d.setMonth(d.getMonth() - i);
+      const label = _MON[d.getMonth()];
+      pts.push(map.get(label) ?? { label, revenue: 0, target: 0, prev: 0 });
+    }
+  }
+
+  return pts.length > 1 ? pts : existing;
+}
+
+// Custom active dot — glowing rings on hover
+const GlowDot = (props: any) => {
+  const { cx, cy } = props;
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={12} fill="#6366f1" fillOpacity={0.08} />
+      <circle cx={cx} cy={cy} r={7}  fill="#6366f1" fillOpacity={0.18} />
+      <circle cx={cx} cy={cy} r={4}  fill="#6366f1" />
+      <circle cx={cx} cy={cy} r={2}  fill="#fff" />
+    </g>
+  );
+};
+
+// Smart tooltip — shows revenue, target %, progress bar
+const RevenueTrendTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  const revenue = payload.find((p: any) => p.dataKey === "revenue")?.value ?? 0;
+  const target  = payload.find((p: any) => p.dataKey === "target")?.value  ?? 0;
+  const prev    = payload.find((p: any) => p.dataKey === "prev")?.value    ?? 0;
+  const pct     = target > 0 ? Math.min((revenue / target) * 100, 200) : 0;
+  const isAbove = revenue >= target;
+  return (
+    <div className="rp-rev-tooltip">
+      <div className="rp-rev-tt-label">{label?.toUpperCase()}</div>
+      <div className="rp-rev-tt-row">
+        <span className="rp-rev-tt-dot" style={{ background: "#6366f1" }} />
+        <span>Revenue</span>
+        <span className="rp-rev-tt-val">₹{Number(revenue).toLocaleString()}</span>
+      </div>
+      {target > 0 && (
+        <div className="rp-rev-tt-row">
+          <span className="rp-rev-tt-dot" style={{ background: "#3b82f6" }} />
+          <span>Target</span>
+          <span className="rp-rev-tt-val">₹{Number(target).toLocaleString()}</span>
+        </div>
+      )}
+      {prev > 0 && (
+        <div className="rp-rev-tt-row">
+          <span className="rp-rev-tt-dot" style={{ background: "#d1d5db" }} />
+          <span>Previous</span>
+          <span className="rp-rev-tt-val">₹{Number(prev).toLocaleString()}</span>
+        </div>
+      )}
+      {target > 0 && (
+        <div className="rp-rev-tt-progress">
+          <div className="rp-rev-tt-prog-track">
+            <div className="rp-rev-tt-prog-fill" style={{
+              width: `${Math.min(pct, 100)}%`,
+              background: isAbove ? "linear-gradient(90deg,#10b981,#34d399)" : "linear-gradient(90deg,#f59e0b,#fcd34d)",
+            }} />
+          </div>
+          <span style={{ color: isAbove ? "#10b981" : "#f59e0b", fontWeight: 700, fontSize: 11 }}>
+            {pct.toFixed(0)}% of target
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const RevenueTab = ({
   trend,
   services,
+  period,
 }: {
-  trend: typeof revenueBy7d;
-  services: typeof fallbackServiceData;
+  trend: RevenueTrendPoint[];
+  services: ServiceItem[];
+  period: string;
 }) => {
   const [showTarget, setShowTarget] = useState(true);
   const [showPrev, setShowPrev]     = useState(true);
+
+  // X-axis: show fewer ticks for dense periods
+  const xInterval = period === "30d" ? 6 : period === "90d" ? 1 : 0;
+
+  // Week boundary reference lines — every 7 data points for 30d
+  const weekLines = period === "30d"
+    ? trend.filter((_, i) => i > 0 && i % 7 === 0)
+    : period === "7d"
+    ? trend.filter(d => d.label === "Sat" || d.label === "Sun")
+    : [];
 
   return (
     <div className="rp-tab-body">
@@ -206,95 +204,161 @@ const RevenueTab = ({
             <h4 className="rp-chart-title">Revenue Trend</h4>
             <p className="rp-chart-sub">Revenue vs Target vs Previous Period</p>
           </div>
-          <div className="rp-toggles">
-            <Button variant="ghost" className={`rp-toggle ${showTarget ? "active" : ""}`} onClick={() => setShowTarget(v => !v)}>
-              <span className="rp-tog-dot" style={{ background: "#3b82f6" }} /> Target
-            </Button>
-            <Button variant="ghost" className={`rp-toggle ${showPrev ? "active" : ""}`} onClick={() => setShowPrev(v => !v)}>
-              <span className="rp-tog-dot" style={{ background: "#d1d5db" }} /> Previous
-            </Button>
-          </div>
+          {trend.length > 0 && (
+            <div className="rp-toggles">
+              <Button variant="ghost" className={`rp-toggle ${showTarget ? "active" : ""}`} onClick={() => setShowTarget(v => !v)}>
+                <span className="rp-tog-dot" style={{ background: "#3b82f6" }} /> Target
+              </Button>
+              <Button variant="ghost" className={`rp-toggle ${showPrev ? "active" : ""}`} onClick={() => setShowPrev(v => !v)}>
+                <span className="rp-tog-dot" style={{ background: "#d1d5db" }} /> Previous
+              </Button>
+            </div>
+          )}
         </div>
-        <ResponsiveContainer width="100%" height={280}>
-          <AreaChart data={trend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id="gRev" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor="#111827" stopOpacity={0.14} />
-                <stop offset="95%" stopColor="#111827" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="gTgt" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.1} />
-                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-            <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false}
-              tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
-            <Tooltip content={<CustomTooltip />} />
-            {showPrev && (
-              <Area type="monotone" dataKey="prev" name="Previous" stroke="#d1d5db"
-                strokeWidth={1.5} strokeDasharray="4 4" fill="none" dot={false} />
-            )}
-            {showTarget && (
-              <Area type="monotone" dataKey="target" name="Target" stroke="#3b82f6"
-                strokeWidth={1.5} strokeDasharray="5 3" fill="url(#gTgt)" dot={false} />
-            )}
-            <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#111827"
-              strokeWidth={2.5} fill="url(#gRev)" dot={false}
-              activeDot={{ r: 5, fill: "#111827" }} />
-          </AreaChart>
-        </ResponsiveContainer>
+        {trend.length === 0 ? <EmptyChart height={280} /> : (() => {
+          const avgRev = trend.reduce((s, d) => s + d.revenue, 0) / trend.length;
+          return (
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={trend} margin={{ top: 14, right: 16, left: 0, bottom: 0 }}>
+                <defs>
+                  {/* Vertical gradient fill under revenue line */}
+                  <linearGradient id="gRev" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%"   stopColor="#6366f1" stopOpacity={0.22} />
+                    <stop offset="50%"  stopColor="#818cf8" stopOpacity={0.10} />
+                    <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                  </linearGradient>
+                  {/* Horizontal gradient for the revenue stroke */}
+                  <linearGradient id="revLineGrad" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%"   stopColor="#6366f1" />
+                    <stop offset="60%"  stopColor="#8b5cf6" />
+                    <stop offset="100%" stopColor="#10b981" />
+                  </linearGradient>
+                  <linearGradient id="gTgt" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%"   stopColor="#3b82f6" stopOpacity={0.08} />
+                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} interval={xInterval} />
+                <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false}
+                  tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} width={48} />
+                <Tooltip content={<RevenueTrendTooltip />} cursor={{ stroke: "#6366f1", strokeWidth: 1, strokeDasharray: "4 4" }} />
+                {/* Week boundary lines */}
+                {weekLines.map((d, wi) => (
+                  <ReferenceLine key={d.label} x={d.label} stroke="#e5e7eb" strokeWidth={1}
+                    label={{ value: period === "30d" ? `W${wi + 2}` : d.label, position: "insideTopLeft", fontSize: 9, fill: "#c4b5fd" }} />
+                ))}
+                {/* Average reference line */}
+                <ReferenceLine y={avgRev} stroke="#10b981" strokeDasharray="6 3" strokeWidth={1.5}
+                  label={{ value: "Avg", position: "insideTopRight", fontSize: 10, fill: "#10b981" }} />
+                {showPrev && (
+                  <Area type="monotone" dataKey="prev" name="Previous" stroke="#d1d5db"
+                    strokeWidth={1.5} strokeDasharray="4 4" fill="none" dot={false} />
+                )}
+                {showTarget && (
+                  <Area type="monotone" dataKey="target" name="Target" stroke="#3b82f6"
+                    strokeWidth={1.5} strokeDasharray="5 3" fill="url(#gTgt)" dot={false} />
+                )}
+                <Area type="monotone" dataKey="revenue" name="Revenue"
+                  stroke="url(#revLineGrad)" strokeWidth={3}
+                  fill="url(#gRev)" dot={false}
+                  activeDot={<GlowDot />} />
+              </AreaChart>
+            </ResponsiveContainer>
+          );
+        })()}
       </div>
 
       <div className="rp-two-col">
-        {/* Revenue by Service */}
-        <div className="rp-chart-card">
-          <h4 className="rp-chart-title">Revenue by Service</h4>
-          <p className="rp-chart-sub">Contribution per category</p>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={services} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }} barSize={10}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false}
-                tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
-              <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: "#374151" }} axisLine={false} tickLine={false} width={72} />
-              <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString()}`} />
-              <Bar dataKey="revenue" name="Revenue" radius={[0, 4, 4, 0]}>
-                {services.map((s) => <Cell key={s.name} fill={s.color} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        {(() => {
+          const sorted     = [...services].sort((a, b) => b.revenue - a.revenue);
+          const top3       = sorted.slice(0, 3);
+          const othersRev  = sorted.slice(3).reduce((s, x) => s + x.revenue, 0);
+          const totalRev   = services.reduce((s, x) => s + x.revenue, 0);
+          const pieData: ServiceItem[] = [
+            ...top3,
+            ...(othersRev > 0 ? [{ name: "Others", revenue: othersRev, bookings: 0, avgTicket: 0, growth: 0, color: "#e5e7eb" }] : []),
+          ];
 
-        {/* Daily Heatmap-style */}
-        <div className="rp-chart-card">
-          <h4 className="rp-chart-title">Revenue Distribution</h4>
-          <p className="rp-chart-sub">Service share of total revenue</p>
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie data={services} cx="50%" cy="50%" innerRadius={60} outerRadius={95}
-                paddingAngle={2} dataKey="revenue">
-                {services.map((s) => <Cell key={s.name} fill={s.color} />)}
-              </Pie>
-              <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString()}`} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="rp-pie-legend">
-            {services.map(s => (
-              <div key={s.name} className="rp-pie-row">
-                <span className="rp-pie-dot" style={{ background: s.color }} />
-                <span>{s.name}</span>
-                <span className="ms-auto text-muted" style={{ fontSize: 12 }}>₹{(s.revenue/1000).toFixed(0)}k</span>
+          const renderPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, value }: any) => {
+            if (totalRev === 0 || value === 0) return null;
+            const pct = ((value / totalRev) * 100);
+            if (pct < 5) return null;
+            const RADIAN = Math.PI / 180;
+            const r = innerRadius + (outerRadius - innerRadius) * 0.52;
+            const x = cx + r * Math.cos(-midAngle * RADIAN);
+            const y = cy + r * Math.sin(-midAngle * RADIAN);
+            return (
+              <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={700}>
+                {pct.toFixed(0)}%
+              </text>
+            );
+          };
+
+          return (
+            <>
+              <div className="rp-chart-card">
+                <h4 className="rp-chart-title">Revenue by Service</h4>
+                <p className="rp-chart-sub">Top 3 by contribution</p>
+                {top3.length === 0 ? <EmptyChart height={220} /> : (
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={top3} layout="vertical" margin={{ top: 0, right: 52, left: 0, bottom: 0 }} barSize={14}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false}
+                        tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
+                      <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: "#374151" }} axisLine={false} tickLine={false} width={80} />
+                      <Tooltip formatter={(v: any) => [`₹${Number(v).toLocaleString()}`, "Revenue"]} />
+                      <Bar dataKey="revenue" name="Revenue" radius={[0, 4, 4, 0]}
+                        label={{ position: "right", formatter: (v: any) => totalRev > 0 ? `${((v / totalRev) * 100).toFixed(0)}%` : "", fontSize: 11, fill: "#6b7280" }}>
+                        {top3.map((s, i) => <Cell key={s.name} fill={s.color ?? CHART_COLORS[i % CHART_COLORS.length]} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </div>
-            ))}
-          </div>
-        </div>
+
+              <div className="rp-chart-card">
+                <h4 className="rp-chart-title">Revenue Distribution</h4>
+                <p className="rp-chart-sub">Top 3 service share</p>
+                {pieData.length === 0 ? <EmptyChart height={220} /> : (
+                  <>
+                    <ResponsiveContainer width="100%" height={180}>
+                      <PieChart>
+                        <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={82}
+                          paddingAngle={2} dataKey="revenue" labelLine={false} label={renderPieLabel}>
+                          {pieData.map((s, i) => <Cell key={s.name} fill={s.color ?? CHART_COLORS[i % CHART_COLORS.length]} />)}
+                        </Pie>
+                        <Tooltip formatter={(v: any) => [`₹${Number(v).toLocaleString()}`, "Revenue"]} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="rp-pie-legend">
+                      {pieData.map((s, i) => {
+                        const pct = totalRev > 0 ? ((s.revenue / totalRev) * 100).toFixed(0) : "0";
+                        return (
+                          <div key={s.name} className="rp-pie-row">
+                            <span className="rp-pie-dot" style={{ background: s.color ?? CHART_COLORS[i % CHART_COLORS.length] }} />
+                            <span style={{ flex: 1 }}>{s.name}</span>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: "#374151" }}>{pct}%</span>
+                            <span style={{ fontSize: 11, color: "#9ca3af", marginLeft: 6 }}>₹{(s.revenue/1000).toFixed(1)}k</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
+          );
+        })()}
       </div>
     </div>
   );
 };
 
-const AppointmentsTab = ({ volume, peakHours }: { volume: typeof appointmentsWeekly; peakHours: { hour: string; count: number }[] }) => (
+interface ApptVolumePoint { label: string; completed: number; cancelled: number; noShow: number; }
+interface PeakHour { hour: string; count: number; }
+
+const AppointmentsTab = ({ volume, peakHours }: { volume: ApptVolumePoint[]; peakHours: PeakHour[] }) => (
   <div className="rp-tab-body">
     <div className="rp-main-chart-card">
       <div className="rp-chart-header">
@@ -308,34 +372,30 @@ const AppointmentsTab = ({ volume, peakHours }: { volume: typeof appointmentsWee
           ))}
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={280}>
-        <BarChart data={volume} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barSize={14} barGap={3}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-          <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-          <Tooltip content={<CustomTooltip />} />
-          <Bar dataKey="completed" name="Completed" fill="#111827" radius={[4,4,0,0]} stackId="a" />
-          <Bar dataKey="cancelled" name="Cancelled" fill="#d1d5db" radius={[0,0,0,0]} stackId="a" />
-          <Bar dataKey="noShow"    name="No-Show"   fill="#fecaca" radius={[4,4,0,0]} stackId="a" />
-        </BarChart>
-      </ResponsiveContainer>
+      {volume.length === 0 ? <EmptyChart height={280} /> : (
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={volume} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barSize={14} barGap={3}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+            <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+            <Tooltip content={<CustomTooltip />} />
+            <Bar dataKey="completed" name="Completed" fill="#111827" radius={[4,4,0,0]} stackId="a" />
+            <Bar dataKey="cancelled" name="Cancelled" fill="#d1d5db" radius={[0,0,0,0]} stackId="a" />
+            <Bar dataKey="noShow"    name="No-Show"   fill="#fecaca" radius={[4,4,0,0]} stackId="a" />
+          </BarChart>
+        </ResponsiveContainer>
+      )}
     </div>
 
     <div className="rp-two-col">
       <div className="rp-chart-card">
         <h4 className="rp-chart-title">Peak Hours</h4>
         <p className="rp-chart-sub">Busiest time slots</p>
-        {(() => {
-          const slots = peakHours.length > 0 ? peakHours : [
-            {hour:"9AM",count:8},{hour:"10AM",count:14},{hour:"11AM",count:18},
-            {hour:"12PM",count:16},{hour:"1PM",count:12},{hour:"2PM",count:20},
-            {hour:"3PM",count:24},{hour:"4PM",count:22},{hour:"5PM",count:28},
-            {hour:"6PM",count:19},{hour:"7PM",count:10},
-          ];
-          const max = Math.max(...slots.map(h => h.count), 1);
+        {peakHours.length === 0 ? <EmptyChart height={220} message="No peak hours data available" /> : (() => {
+          const max = Math.max(...peakHours.map(h => h.count), 1);
           return (
             <div className="rp-heatmap">
-              {slots.map(({ hour, count }) => {
+              {peakHours.map(({ hour, count }) => {
                 const pct = Math.round((count / max) * 100);
                 return (
                   <div key={hour} className="rp-heat-row">
@@ -354,46 +414,21 @@ const AppointmentsTab = ({ volume, peakHours }: { volume: typeof appointmentsWee
       <div className="rp-chart-card">
         <h4 className="rp-chart-title">Booking Source</h4>
         <p className="rp-chart-sub">Walk-in · Online · Phone</p>
-        <ResponsiveContainer width="100%" height={200}>
-          <PieChart>
-            <Pie data={[
-              { name: "Walk-In", value: 38, color: "#111827" },
-              { name: "Online",  value: 45, color: "#3b82f6" },
-              { name: "Phone",   value: 17, color: "#10b981" },
-            ]} cx="50%" cy="50%" outerRadius={80} paddingAngle={3} dataKey="value">
-              {[{color:"#111827"},{color:"#3b82f6"},{color:"#10b981"}].map((c,i) => <Cell key={i} fill={c.color} />)}
-            </Pie>
-            <Tooltip formatter={(v: any) => `${v}%`} />
-          </PieChart>
-        </ResponsiveContainer>
-        <div className="rp-pie-legend">
-          {[["#111827","Walk-In","38%"],["#3b82f6","Online","45%"],["#10b981","Phone","17%"]].map(([c,l,v]) => (
-            <div key={l} className="rp-pie-row">
-              <span className="rp-pie-dot" style={{ background: c }} />
-              <span>{l}</span>
-              <span className="ms-auto fw-semibold" style={{ fontSize: 12 }}>{v}</span>
-            </div>
-          ))}
-        </div>
+        <EmptyChart height={200} message="Booking source data coming soon" />
       </div>
     </div>
   </div>
 );
 
-const fallbackTopClients = [
-  { id: "1", name: "Priya Sharma",  visits: 28, spend: 42800 },
-  { id: "2", name: "Meera Joshi",   visits: 24, spend: 38200 },
-  { id: "3", name: "Sneha Patel",   visits: 21, spend: 31500 },
-  { id: "4", name: "Riya Kapoor",   visits: 19, spend: 28900 },
-  { id: "5", name: "Ananya Verma",  visits: 16, spend: 24600 },
-];
+interface ClientGrowthPoint { label: string; new: number; returning: number; churned: number; }
+interface TopClientItem { id: string | number; name: string; visits: number; spend: number; }
 
 const ClientsTab = ({
   growth,
   topClients,
 }: {
-  growth: typeof clientGrowth;
-  topClients: typeof fallbackTopClients;
+  growth: ClientGrowthPoint[];
+  topClients: TopClientItem[];
 }) => (
   <div className="rp-tab-body">
     <div className="rp-main-chart-card">
@@ -403,65 +438,55 @@ const ClientsTab = ({
           <p className="rp-chart-sub">New · Returning · Churned</p>
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={280}>
-        <AreaChart data={growth} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-          <defs>
-            {[["gNew","#10b981"],["gRet","#3b82f6"],["gChu","#ef4444"]].map(([id,c]) => (
-              <linearGradient key={id} id={id} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor={c} stopOpacity={0.15} />
-                <stop offset="95%" stopColor={c} stopOpacity={0} />
-              </linearGradient>
-            ))}
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-          <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-          <Tooltip content={<CustomTooltip />} />
-          <Area type="monotone" dataKey="churned"   name="Churned"   stroke="#ef4444" strokeWidth={2} fill="url(#gChu)" dot={false} />
-          <Area type="monotone" dataKey="new"       name="New"       stroke="#10b981" strokeWidth={2} fill="url(#gNew)" dot={false} />
-          <Area type="monotone" dataKey="returning" name="Returning" stroke="#3b82f6" strokeWidth={2} fill="url(#gRet)" dot={false} />
-        </AreaChart>
-      </ResponsiveContainer>
+      {growth.length === 0 ? <EmptyChart height={280} /> : (
+        <ResponsiveContainer width="100%" height={280}>
+          <AreaChart data={growth} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+            <defs>
+              {[["gNew","#10b981"],["gRet","#3b82f6"],["gChu","#ef4444"]].map(([id,c]) => (
+                <linearGradient key={id} id={id} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%"  stopColor={c} stopOpacity={0.15} />
+                  <stop offset="95%" stopColor={c} stopOpacity={0} />
+                </linearGradient>
+              ))}
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+            <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+            <Tooltip content={<CustomTooltip />} />
+            <Area type="monotone" dataKey="churned"   name="Churned"   stroke="#ef4444" strokeWidth={2} fill="url(#gChu)" dot={false} />
+            <Area type="monotone" dataKey="new"       name="New"       stroke="#10b981" strokeWidth={2} fill="url(#gNew)" dot={false} />
+            <Area type="monotone" dataKey="returning" name="Returning" stroke="#3b82f6" strokeWidth={2} fill="url(#gRet)" dot={false} />
+          </AreaChart>
+        </ResponsiveContainer>
+      )}
     </div>
     <div className="rp-two-col">
       <div className="rp-chart-card">
         <h4 className="rp-chart-title">Retention Funnel</h4>
         <p className="rp-chart-sub">Client visit frequency</p>
-        {[
-          { label: "1 visit",     count: 312, pct: 100 },
-          { label: "2–3 visits",  count: 248, pct: 80  },
-          { label: "4–6 visits",  count: 180, pct: 58  },
-          { label: "7–10 visits", count: 124, pct: 40  },
-          { label: "10+ visits",  count: 82,  pct: 26  },
-        ].map(row => (
-          <div key={row.label} className="rp-funnel-row">
-            <span className="rp-funnel-label">{row.label}</span>
-            <div className="rp-funnel-track">
-              <div className="rp-funnel-fill" style={{ width: `${row.pct}%` }} />
-            </div>
-            <span className="rp-funnel-count">{row.count}</span>
-          </div>
-        ))}
+        <EmptyChart height={220} message="Retention data coming soon" />
       </div>
       <div className="rp-chart-card">
         <h4 className="rp-chart-title">Top Clients</h4>
         <p className="rp-chart-sub">By total spend</p>
-        <div className="rp-rank-list">
-          {topClients.map((c, i) => {
-            const initials = c.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-            return (
-              <div key={c.id ?? c.name} className="rp-rank-row">
-                <span className="rp-rank-num">#{i + 1}</span>
-                <div className="rp-rank-av">{initials}</div>
-                <div className="rp-rank-info">
-                  <div className="rp-rank-name">{c.name}</div>
-                  <div className="rp-rank-sub">{c.visits} visits</div>
+        {topClients.length === 0 ? <EmptyChart height={220} message="No client data available" /> : (
+          <div className="rp-rank-list">
+            {topClients.map((c, i) => {
+              const initials = c.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+              return (
+                <div key={c.id ?? c.name} className="rp-rank-row">
+                  <span className="rp-rank-num">#{i + 1}</span>
+                  <div className="rp-rank-av">{initials}</div>
+                  <div className="rp-rank-info">
+                    <div className="rp-rank-name">{c.name}</div>
+                    <div className="rp-rank-sub">{c.visits} visits</div>
+                  </div>
+                  <span className="rp-rank-val">₹{c.spend.toLocaleString()}</span>
                 </div>
-                <span className="rp-rank-val">₹{c.spend.toLocaleString()}</span>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   </div>
@@ -469,11 +494,22 @@ const ClientsTab = ({
 
 const RADAR_COLORS = ["#111827", "#3b82f6", "#10b981"];
 
+interface StaffItem {
+  id?: string | number;
+  name: string;
+  bookings: number;
+  revenue: number;
+  rating: number;
+  utilization: number;
+  avgTicket: number;
+  color?: string;
+}
+
 const StaffTab = ({
   staffData,
   radarStaff,
 }: {
-  staffData: typeof fallbackStaffData;
+  staffData: StaffItem[];
   radarStaff: Array<{ metric: string; [key: string]: string | number }>;
 }) => {
   const radarNames = radarStaff.length > 0 && radarStaff[0] != null
@@ -509,61 +545,66 @@ const StaffTab = ({
             </div>
           </>
         ) : (
-          <div style={{ height: 260, display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af", fontSize: 14 }}>
-            No performance data available
-          </div>
+          <EmptyChart height={260} message="No performance data available" />
         )}
       </div>
       <div className="rp-chart-card rp-chart-card-tall">
         <h4 className="rp-chart-title">Utilization Rate</h4>
         <p className="rp-chart-sub">Hours booked vs available</p>
-        <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={staffData} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }} barSize={12}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
-            <XAxis type="number" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false}
-              tickFormatter={v => `${v}%`} domain={[0,100]} />
-            <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: "#374151" }} axisLine={false} tickLine={false} width={65} />
-            <Tooltip formatter={(v: any) => `${v}%`} />
-            <Bar dataKey="utilization" name="Utilization" radius={[0,4,4,0]}>
-              {staffData.map(s => <Cell key={s.name} fill={s.color} />)}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+        {staffData.length === 0 ? <EmptyChart height={260} /> : (
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={staffData} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }} barSize={12}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
+              <XAxis type="number" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false}
+                tickFormatter={v => `${v}%`} domain={[0,100]} />
+              <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: "#374151" }} axisLine={false} tickLine={false} width={65} />
+              <Tooltip formatter={(v: any) => `${v}%`} />
+              <Bar dataKey="utilization" name="Utilization" radius={[0,4,4,0]}>
+                {staffData.map((s, i) => <Cell key={s.name} fill={s.color ?? CHART_COLORS[i % CHART_COLORS.length]} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
     <div className="rp-staff-table-card">
       <h4 className="rp-chart-title mb-3">Staff Leaderboard</h4>
-      <div className="rp-table">
-        <div className="rp-table-head">
-          <span>#</span><span>Name</span><span>Bookings</span>
-          <span>Revenue</span><span>Avg Ticket</span><span>Rating</span><span>Utilization</span>
-        </div>
-        {staffData.map((s, i) => (
-          <div key={s.name} className="rp-table-row">
-            <span className="rp-table-rank">#{i+1}</span>
-            <span className="d-flex align-items-center gap-2">
-              <span className="rp-sm-av" style={{ background: s.color }}>{s.name.split(" ").map(w=>w[0]).join("")}</span>
-              {s.name}
-            </span>
-            <span>{s.bookings}</span>
-            <span className="fw-semibold">₹{s.revenue.toLocaleString()}</span>
-            <span>₹{s.avgTicket}</span>
-            <span className="rp-rating"><StarFill size={11} color="#f59e0b" /> {s.rating}</span>
-            <span>
-              <div className="rp-util-bar">
-                <div className="rp-util-fill" style={{ width: `${s.utilization}%`, background: s.color }} />
-              </div>
-              <small className="text-muted ms-2">{s.utilization}%</small>
-            </span>
+      {staffData.length === 0 ? <EmptyChart height={200} message="No staff data available" /> : (
+        <div className="rp-table">
+          <div className="rp-table-head">
+            <span>#</span><span>Name</span><span>Bookings</span>
+            <span>Revenue</span><span>Avg Ticket</span><span>Rating</span><span>Utilization</span>
           </div>
-        ))}
-      </div>
+          {staffData.map((s, i) => {
+            const color = s.color ?? CHART_COLORS[i % CHART_COLORS.length];
+            return (
+              <div key={s.name} className="rp-table-row">
+                <span className="rp-table-rank">#{i+1}</span>
+                <span className="d-flex align-items-center gap-2">
+                  <span className="rp-sm-av" style={{ background: color }}>{s.name.split(" ").map(w=>w[0]).join("")}</span>
+                  {s.name}
+                </span>
+                <span>{s.bookings}</span>
+                <span className="fw-semibold">₹{s.revenue.toLocaleString()}</span>
+                <span>₹{s.avgTicket}</span>
+                <span className="rp-rating"><StarFill size={11} color="#f59e0b" /> {s.rating}</span>
+                <span>
+                  <div className="rp-util-bar">
+                    <div className="rp-util-fill" style={{ width: `${s.utilization}%`, background: color }} />
+                  </div>
+                  <small className="text-muted ms-2">{s.utilization}%</small>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   </div>
   );
 };
 
-const ServicesTab = ({ services }: { services: typeof fallbackServiceData }) => {
+const ServicesTab = ({ services }: { services: ServiceItem[] }) => {
   const [sort, setSort] = useState<"revenue"|"bookings">("revenue");
   const sorted = useMemo(() =>
     [...services].sort((a,b) => b[sort] - a[sort]), [services, sort]);
@@ -576,45 +617,50 @@ const ServicesTab = ({ services }: { services: typeof fallbackServiceData }) => 
             <h4 className="rp-chart-title">Service Performance</h4>
             <p className="rp-chart-sub">Revenue and booking count per service</p>
           </div>
-          <div className="rp-toggles">
-            <Button variant="ghost" className={`rp-toggle ${sort==="revenue" ? "active":""}`} onClick={() => setSort("revenue")}>By Revenue</Button>
-            <Button variant="ghost" className={`rp-toggle ${sort==="bookings"? "active":""}`} onClick={() => setSort("bookings")}>By Bookings</Button>
-          </div>
+          {services.length > 0 && (
+            <div className="rp-toggles">
+              <Button variant="ghost" className={`rp-toggle ${sort==="revenue" ? "active":""}`} onClick={() => setSort("revenue")}>By Revenue</Button>
+              <Button variant="ghost" className={`rp-toggle ${sort==="bookings"? "active":""}`} onClick={() => setSort("bookings")}>By Bookings</Button>
+            </div>
+          )}
         </div>
-        <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={sorted} margin={{ top: 10, right: 10, left: 0, bottom: 0 }} barSize={28}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-            <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false}
-              tickFormatter={v => sort==="revenue" ? `₹${(v/1000).toFixed(0)}k` : `${v}`} />
-            <Tooltip formatter={(v: any, n?: string) =>
-              n==="Revenue" ? `₹${Number(v).toLocaleString()}` : v} />
-            <Bar dataKey={sort} name={sort==="revenue"?"Revenue":"Bookings"} radius={[6,6,0,0]}>
-              {sorted.map(s => <Cell key={s.name} fill={s.color ?? "#111827"} />)}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+        {services.length === 0 ? <EmptyChart height={260} /> : (
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={sorted} margin={{ top: 10, right: 10, left: 0, bottom: 0 }} barSize={28}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+              <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false}
+                tickFormatter={v => sort==="revenue" ? `₹${(v/1000).toFixed(0)}k` : `${v}`} />
+              <Tooltip formatter={(v: any, n?: string | number) =>
+                n==="Revenue" ? `₹${Number(v).toLocaleString()}` : v} />
+              <Bar dataKey={sort} name={sort==="revenue"?"Revenue":"Bookings"} radius={[6,6,0,0]}>
+                {sorted.map((s, i) => <Cell key={s.name} fill={s.color ?? CHART_COLORS[i % CHART_COLORS.length]} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
-      <div className="rp-services-grid">
-        {services.map(s => (
-          <div key={s.name} className="rp-svc-card">
-            <div className="rp-svc-top">
-              <span className="rp-svc-dot" style={{ background: s.color ?? "#111827" }} />
-              <span className="rp-svc-name">{s.name}</span>
-              <span className={`rp-svc-badge ${s.growth >= 0 ? "up" : "down"}`}>
-                {s.growth >= 0 ? <ArrowUpRight size={11}/> : <ArrowDownRight size={11}/>}
-                {Math.abs(s.growth)}%
-              </span>
+      {services.length > 0 && (
+        <div className="rp-services-grid">
+          {services.map((s, i) => (
+            <div key={s.name} className="rp-svc-card">
+              <div className="rp-svc-top">
+                <span className="rp-svc-dot" style={{ background: s.color ?? CHART_COLORS[i % CHART_COLORS.length] }} />
+                <span className="rp-svc-name">{s.name}</span>
+                <span className={`rp-svc-badge ${s.growth >= 0 ? "up" : "down"}`}>
+                  {s.growth >= 0 ? <ArrowUpRight size={11}/> : <ArrowDownRight size={11}/>}
+                  {Math.abs(s.growth)}%
+                </span>
+              </div>
+              <div className="rp-svc-rev">₹{(s.revenue/1000).toFixed(0)}k</div>
+              <div className="rp-svc-meta">
+                <span>{s.bookings} bookings</span>
+                <span>₹{s.avgTicket} avg</span>
+              </div>
             </div>
-            <div className="rp-svc-rev">₹{(s.revenue/1000).toFixed(0)}k</div>
-            <div className="rp-svc-meta">
-              <span>{s.bookings} bookings</span>
-              <span>₹{s.avgTicket} avg</span>
-            </div>
-            <Sparkline data={sparklineData} color={s.color ?? "#111827"} />
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -638,22 +684,31 @@ interface AppointmentRow {
 
 
 const DATE_TYPE_OPTIONS  = ["Appointment Date", "Booking Date"];
-const APPT_STATUSES      = ["All", "Open", "Closed", "Cancelled", "No Show", "Checked-in", "Confirmed", "Deleted"];
-const APPT_SOURCES       = ["All", "Walk-In", "Online", "Phone", "App", "Staff", "Kiosk", "Third Party", "Other"];
+const APPT_STATUSES      = ["All", "booked", "confirmed", "in_progress", "completed", "cancelled", "no_show"];
+const fmtStatusLabel = (s: string) =>
+  s === "All" ? "All" : s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+
+const AppsNavButton = () => {
+  const navigate = useNavigate();
+  return (
+    <button className="rp-detail-icon-btn" title="Apps" onClick={() => navigate("/dashboard/apps")}>
+      <Grid3x3Gap size={16} />
+    </button>
+  );
+};
 
 const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
-  const today = new Date().toISOString().slice(0, 10);
+  const today     = new Date().toISOString().slice(0, 10);
+  const monthAgo  = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const navigate = useNavigate();
   const abortRef = useRef<AbortController | null>(null);
   const [dateType,          setDateType]          = useState(DATE_TYPE_OPTIONS[0]);
   const [showDtDrop,        setShowDtDrop]        = useState(false);
-  const [dateFrom,          setDateFrom]          = useState(today);
+  const [dateFrom,          setDateFrom]          = useState(monthAgo);
   const [dateTo,            setDateTo]            = useState(today);
   const [selectedStatuses,  setSelectedStatuses]  = useState<string[]>(APPT_STATUSES);
   const [statusSearch,      setStatusSearch]      = useState("");
   const [showStatusDrop,    setShowStatusDrop]    = useState(false);
-  const [selectedSources,   setSelectedSources]   = useState<string[]>(APPT_SOURCES);
-  const [showSourceDrop,    setShowSourceDrop]    = useState(false);
   const [rows,              setRows]              = useState<AppointmentRow[]>([]);
   const [loading,           setLoading]           = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -672,10 +727,9 @@ const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBac
         from: dateFrom,
         to: dateTo,
         statuses: selectedStatuses.filter(s => s !== "All").join(","),
-        sources:  selectedSources.filter(s => s !== "All").join(","),
       });
       const res = await api.get<{ data: AppointmentRow[] }>(
-        `/api/v1/reports/appointments/detail?${params}`,
+        REPORT.DETAIL("appointments", params.toString()),
         { signal: ctrl.signal },
       );
       if (res.data?.data) setRows(res.data.data);
@@ -684,7 +738,7 @@ const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBac
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateType, dateFrom, dateTo, selectedStatuses, selectedSources]);
+  }, [dateType, dateFrom, dateTo, selectedStatuses]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -692,8 +746,6 @@ const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBac
     const close = () => {
       setShowDtDrop(false);
       setShowStatusDrop(false);
-      setShowSourceDrop(false);
-      setShowExportDrop(false);
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
@@ -714,28 +766,13 @@ const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBac
     }
   };
 
-  const toggleSource = (s: string) => {
-    if (s === "All") {
-      setSelectedSources(selectedSources.length === APPT_SOURCES.length ? [] : [...APPT_SOURCES]);
-    } else {
-      setSelectedSources(prev =>
-        prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]
-      );
-    }
-  };
-
   const statusLabel = selectedStatuses.length === APPT_STATUSES.length
     ? `All selected (${APPT_STATUSES.length - 1})`
     : selectedStatuses.length === 0 ? "None selected"
     : `${selectedStatuses.filter(s => s !== "All").length} selected`;
 
-  const sourceLabel = selectedSources.length === APPT_SOURCES.length
-    ? `All selected (${APPT_SOURCES.length - 1})`
-    : selectedSources.length === 0 ? "None selected"
-    : `${selectedSources.filter(s => s !== "All").length} selected`;
-
   const filteredStatuses = APPT_STATUSES.filter(s =>
-    s.toLowerCase().includes(statusSearch.toLowerCase())
+    fmtStatusLabel(s).toLowerCase().includes(statusSearch.toLowerCase())
   );
 
   return (
@@ -768,7 +805,7 @@ const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBac
         {/* Date Type */}
         <div className="rp-detail-filter-group" style={{ position: "relative" }}>
           <label className="rp-detail-filter-label">Date Type</label>
-          <button className="rp-detail-select" onClick={() => { setShowDtDrop(v => !v); setShowStatusDrop(false); setShowSourceDrop(false); }}>
+          <button className="rp-detail-select" onClick={() => { setShowDtDrop(v => !v); setShowStatusDrop(false); }}>
             {dateType.length > 14 ? dateType.slice(0, 14) + "..." : dateType}
             <span className="rp-detail-caret">▼</span>
           </button>
@@ -797,7 +834,7 @@ const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBac
         {/* Appointment Status — multi-select with search */}
         <div className="rp-detail-filter-group" style={{ position: "relative" }}>
           <label className="rp-detail-filter-label">Appointment Status</label>
-          <button className="rp-detail-select" onClick={() => { setShowStatusDrop(v => !v); setShowDtDrop(false); setShowSourceDrop(false); }}>
+          <button className="rp-detail-select" onClick={() => { setShowStatusDrop(v => !v); setShowDtDrop(false); }}>
             {statusLabel} <span className="rp-detail-caret">▼</span>
           </button>
           {showStatusDrop && (
@@ -824,7 +861,7 @@ const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBac
                   <span className={`rp-detail-checkbox ${selectedStatuses.includes(opt) ? "checked" : ""}`}>
                     {selectedStatuses.includes(opt) && "✓"}
                   </span>
-                  {opt}
+                  {fmtStatusLabel(opt)}
                 </div>
               ))}
             </div>
@@ -840,32 +877,6 @@ const AppointmentReportDetail = ({ report, onBack }: { report: ReportItem; onBac
         </div>
       </div>
 
-      {/* ── Filters row 2 ── */}
-      <div className="rp-detail-filters rp-detail-filters-row2">
-        {/* Appointment Source — multi-select */}
-        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
-          <label className="rp-detail-filter-label">Appointment Source</label>
-          <button className="rp-detail-select" onClick={() => { setShowSourceDrop(v => !v); setShowDtDrop(false); setShowStatusDrop(false); }}>
-            {sourceLabel} <span className="rp-detail-caret">▼</span>
-          </button>
-          {showSourceDrop && (
-            <div className="rp-detail-dropdown rp-detail-dropdown-wide" onMouseDown={e => e.stopPropagation()}>
-              {APPT_SOURCES.map(opt => (
-                <div key={opt} className="rp-detail-checkbox-item" onClick={() => toggleSource(opt)}>
-                  <span className={`rp-detail-checkbox ${selectedSources.includes(opt) ? "checked" : ""}`}>
-                    {selectedSources.includes(opt) && "✓"}
-                  </span>
-                  {opt}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <Button variant="ghost" className="rp-detail-refresh-btn" onClick={handleRefresh} loading={loading}>
-          <Refresh size={13} /> Refresh
-        </Button>
-      </div>
 
 
       <div className="rp-detail-drag-hint">
@@ -1045,7 +1056,16 @@ interface FinanceRow {
   center: string;
 }
 
-const PAYMENT_METHODS = ["All", "Cash", "Card", "UPI", "Online", "Wallet"];
+const PAYMENT_METHODS = [
+  { label: "All",          value: "All"           },
+  { label: "Cash",         value: "cash"          },
+  { label: "Card",         value: "card"          },
+  { label: "UPI",          value: "upi"           },
+  { label: "Wallet",       value: "wallet"        },
+  { label: "Gift Card",    value: "gift_card"     },
+  { label: "Split",        value: "split"         },
+  { label: "Bank Transfer",value: "bank_transfer" },
+];
 
 const FinanceReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
   const today = new Date().toISOString().slice(0, 10);
@@ -1054,11 +1074,10 @@ const FinanceReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
   const [dateTo,          setDateTo]          = useState(today);
   const [paymentMethod,   setPaymentMethod]   = useState("All");
   const [showMethodDrop,  setShowMethodDrop]  = useState(false);
-  const [rows,            setRows]            = useState<FinanceRow[]>([]);
+  const [allRows,         setAllRows]         = useState<FinanceRow[]>([]);
   const [loading,         setLoading]         = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
-  useEffect(() => { setCurrentPage(1); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
   const abortRef = useRef<AbortController | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -1067,20 +1086,44 @@ const FinanceReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ from: dateFrom, to: dateTo, method: paymentMethod });
-      const res = await api.get<{ data: FinanceRow[] }>(`/api/v1/reports/finance/detail?${params}`, { signal: ctrl.signal });
-      if (res.data?.data) setRows(res.data.data);
+      const params = new URLSearchParams({ start_date: dateFrom, end_date: dateTo });
+      const res = await api.get(`${SALE.BASE}?${params}`, { signal: ctrl.signal });
+      const sales: any[] = res.data?.data ?? [];
+      const mapped: FinanceRow[] = sales.map((s: any) => ({
+        date: s.created_at
+          ? new Date(s.created_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+          : "—",
+        ticketNo: String(s.id ?? "—"),
+        clientName: s.client_name ?? "Walk-in",
+        service: Array.isArray(s.items) && s.items.length
+          ? s.items.map((i: any) => i.name).filter(Boolean).join(", ")
+          : "—",
+        amount: parseFloat(s.total_amount ?? "0") || 0,
+        paymentMethod: s.payment_method ?? "N/A",
+        staff: Array.isArray(s.items) && s.items.length
+          ? (s.items[0]?.staff_name ?? "—")
+          : "—",
+        center: "—",
+      }));
+      setAllRows(mapped);
     } catch (e: any) {
-      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setRows([]);
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setAllRows([]);
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, paymentMethod]);
+  }, [dateFrom, dateTo]);
 
+  // client-side filter by payment method
+  const rows = useMemo(() => {
+    if (paymentMethod === "All") return allRows;
+    return allRows.filter(r => (r.paymentMethod ?? "").toLowerCase() === paymentMethod.toLowerCase());
+  }, [allRows, paymentMethod]);
+
+  useEffect(() => { setCurrentPage(1); }, [rows]);
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    const close = () => { setShowMethodDrop(false); setShowExportDrop(false); };
+    const close = () => { setShowMethodDrop(false); };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
@@ -1121,13 +1164,13 @@ const FinanceReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
         <div className="rp-detail-filter-group" style={{ position: "relative" }}>
           <label className="rp-detail-filter-label">Payment Method</label>
           <button className="rp-detail-select" onClick={() => setShowMethodDrop(v => !v)}>
-            {paymentMethod} <span className="rp-detail-caret">▼</span>
+            {PAYMENT_METHODS.find(m => m.value === paymentMethod)?.label ?? "All"} <span className="rp-detail-caret">▼</span>
           </button>
           {showMethodDrop && (
             <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
               {PAYMENT_METHODS.map(m => (
-                <div key={m} className={`rp-detail-dropdown-item ${m === paymentMethod ? "active" : ""}`}
-                  onClick={() => { setPaymentMethod(m); setShowMethodDrop(false); }}>{m}</div>
+                <div key={m.value} className={`rp-detail-dropdown-item ${m.value === paymentMethod ? "active" : ""}`}
+                  onClick={() => { setPaymentMethod(m.value); setShowMethodDrop(false); }}>{m.label}</div>
               ))}
             </div>
           )}
@@ -1203,16 +1246,17 @@ interface InventoryRow {
   status: "In Stock" | "Low Stock" | "Out of Stock";
 }
 
-const INV_CATEGORIES = ["All", "Hair Care", "Hair Color", "Nails", "Skin Care", "Body Care"];
 const INV_STATUSES   = ["All", "In Stock", "Low Stock", "Out of Stock"];
 
 const InventoryReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
-  const [category,       setCategory]       = useState("All");
-  const [stockStatus,    setStockStatus]    = useState("All");
-  const [showCatDrop,    setShowCatDrop]    = useState(false);
-  const [showStsDrop,    setShowStsDrop]    = useState(false);
-  const [rows,           setRows]           = useState<InventoryRow[]>([]);
-  const [loading,        setLoading]        = useState(false);
+  const [category,        setCategory]        = useState("All");
+  const [stockStatus,     setStockStatus]     = useState("All");
+  const [showCatDrop,     setShowCatDrop]     = useState(false);
+  const [showStsDrop,     setShowStsDrop]     = useState(false);
+  const [rows,            setRows]            = useState<InventoryRow[]>([]);
+  const [allRows,         setAllRows]         = useState<InventoryRow[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<string[]>(["All"]);
+  const [loading,         setLoading]         = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
   useEffect(() => { setCurrentPage(1); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1224,20 +1268,45 @@ const InventoryReportDetail = ({ report, onBack }: { report: ReportItem; onBack:
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ category, status: stockStatus });
-      const res = await api.get<{ data: InventoryRow[] }>(`/api/v1/reports/inventory/detail?${params}`, { signal: ctrl.signal });
-      if (res.data?.data) setRows(res.data.data);
+      const [prodRes, catRes] = await Promise.all([
+        api.get(PRODUCTS.LIST, { signal: ctrl.signal }),
+        api.get(CATEGORIES.BASE, { signal: ctrl.signal }),
+      ]);
+      const products: any[] = prodRes.data?.data?.data ?? prodRes.data?.data ?? [];
+      const cats: any[] = catRes.data?.data ?? [];
+      const catMap: Record<string, string> = {};
+      cats.forEach((c: any) => { catMap[c.id] = c.name; });
+      setCategoryOptions(["All", ...cats.map((c: any) => c.name as string)]);
+      const mapped: InventoryRow[] = products.map((p: any) => {
+        const currentStock = parseFloat(p.amount) || 0;
+        const reorderLevel = Number(p.qty_alert) || 0;
+        const unitCost = parseFloat(p.supply_price) || parseFloat(p.retail_price) || 0;
+        const totalValue = Math.round(currentStock * unitCost * 100) / 100;
+        const catName = p.category_id ? (catMap[p.category_id] ?? "Uncategorized") : "Uncategorized";
+        let status: InventoryRow["status"] = "In Stock";
+        if (currentStock <= 0) status = "Out of Stock";
+        else if (reorderLevel > 0 && currentStock <= reorderLevel) status = "Low Stock";
+        return { product: p.name, category: catName, sku: p.barcode ?? "—", currentStock, reorderLevel, unitCost, totalValue, status };
+      });
+      setAllRows(mapped);
     } catch (e: any) {
-      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setRows([]);
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setAllRows([]);
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [category, stockStatus]);
+  }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    const close = () => { setShowCatDrop(false); setShowStsDrop(false); setShowExportDrop(false); };
+    let filtered = allRows;
+    if (category !== "All") filtered = filtered.filter(r => r.category === category);
+    if (stockStatus !== "All") filtered = filtered.filter(r => r.status === stockStatus);
+    setRows(filtered);
+  }, [allRows, category, stockStatus]);
+
+  useEffect(() => {
+    const close = () => { setShowCatDrop(false); setShowStsDrop(false); };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
@@ -1277,7 +1346,7 @@ const InventoryReportDetail = ({ report, onBack }: { report: ReportItem; onBack:
           </button>
           {showCatDrop && (
             <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
-              {INV_CATEGORIES.map(c => (
+              {categoryOptions.map(c => (
                 <div key={c} className={`rp-detail-dropdown-item ${c === category ? "active" : ""}`}
                   onClick={() => { setCategory(c); setShowCatDrop(false); }}>{c}</div>
               ))}
@@ -1369,18 +1438,18 @@ interface PaymentRow {
   status: "Success" | "Pending" | "Failed" | "Refunded";
 }
 
-const PAY_GATEWAYS = ["All", "Razorpay", "Stripe", "Paytm", "PayU", "Cashfree"];
 const PAY_STATUSES = ["All", "Success", "Pending", "Failed", "Refunded"];
+const PAY_METHODS  = ["All", "Cash", "UPI", "Card"];
 
 const PaymentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
   const today = new Date().toISOString().slice(0, 10);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [dateFrom,        setDateFrom]        = useState(monthStart);
   const [dateTo,          setDateTo]          = useState(today);
-  const [gateway,         setGateway]         = useState("All");
   const [payStatus,       setPayStatus]       = useState("All");
-  const [showGwDrop,      setShowGwDrop]      = useState(false);
+  const [payMethod,       setPayMethod]       = useState("All");
   const [showPsDrop,      setShowPsDrop]      = useState(false);
+  const [showMtDrop,      setShowMtDrop]      = useState(false);
   const [rows,            setRows]            = useState<PaymentRow[]>([]);
   const [loading,         setLoading]         = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -1394,26 +1463,43 @@ const PaymentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ from: dateFrom, to: dateTo, gateway, status: payStatus });
-      const res = await api.get<{ data: PaymentRow[] }>(`/api/v1/reports/payments/detail?${params}`, { signal: ctrl.signal });
-      if (res.data?.data) setRows(res.data.data);
+      const params = new URLSearchParams({ from: dateFrom, to: dateTo });
+      if (payStatus !== "All") params.set("status", payStatus);
+      const res = await api.get(REPORT.DETAIL("payments", params.toString()), { signal: ctrl.signal });
+      const raw: any[] = res.data?.data ?? res.data ?? [];
+      const parsed: PaymentRow[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+        date:          r.date ?? r.created_at?.slice(0, 10) ?? "",
+        transactionId: r.transactionId ?? r.transaction_id ?? r.id ?? "",
+        clientName:    r.clientName ?? r.client_name ?? r.client?.name ?? "—",
+        amount:        parseFloat(String(r.amount ?? r.total_amount ?? 0)) || 0,
+        gateway:       r.gateway ?? r.payment_gateway ?? "—",
+        method:        r.method ?? r.payment_method ?? "—",
+        referenceNo:   r.referenceNo ?? r.reference_no ?? r.reference ?? r.transactionId ?? r.transaction_id ?? "",
+        status:        r.status ?? "—",
+      }));
+      setRows(parsed);
     } catch (e: any) {
       if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setRows([]);
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, gateway, payStatus]);
+  }, [dateFrom, dateTo, payStatus]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    const close = () => { setShowGwDrop(false); setShowPsDrop(false); setShowExportDrop(false); };
+    const close = () => { setShowPsDrop(false); setShowMtDrop(false); };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  const HEADERS = ["Date", "Transaction ID", "Client Name", "Amount (₹)", "Gateway", "Method", "Reference No", "Status"];
-  const exportRows = () => rows.map(r => [r.date, r.transactionId, r.clientName, r.amount, r.gateway, r.method, r.referenceNo, r.status]);
+  const displayRows = useMemo(() => {
+    if (payMethod === "All") return rows;
+    return rows.filter(r => r.method.toLowerCase() === payMethod.toLowerCase());
+  }, [rows, payMethod]);
+
+  const HEADERS = ["Date", "Transaction ID", "Client Name", "Amount (₹)", "Method", "Reference No", "Status"];
+  const exportRows = () => displayRows.map(r => [r.date, r.transactionId, r.clientName, r.amount.toFixed(2), r.method, r.referenceNo, r.status]);
 
   const statusColor = (s: string) =>
     s === "Success" ? "#10b981" : s === "Pending" ? "#f59e0b" : s === "Refunded" ? "#3b82f6" : "#ef4444";
@@ -1449,22 +1535,22 @@ const PaymentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
           </div>
         </div>
         <div className="rp-detail-filter-group" style={{ position: "relative" }}>
-          <label className="rp-detail-filter-label">Gateway</label>
-          <button className="rp-detail-select" onClick={() => { setShowGwDrop(v => !v); setShowPsDrop(false); }}>
-            {gateway} <span className="rp-detail-caret">▼</span>
+          <label className="rp-detail-filter-label">Method</label>
+          <button className="rp-detail-select" onClick={() => { setShowMtDrop(v => !v); setShowPsDrop(false); }}>
+            {payMethod} <span className="rp-detail-caret">▼</span>
           </button>
-          {showGwDrop && (
+          {showMtDrop && (
             <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
-              {PAY_GATEWAYS.map(g => (
-                <div key={g} className={`rp-detail-dropdown-item ${g === gateway ? "active" : ""}`}
-                  onClick={() => { setGateway(g); setShowGwDrop(false); }}>{g}</div>
+              {PAY_METHODS.map(m => (
+                <div key={m} className={`rp-detail-dropdown-item ${m === payMethod ? "active" : ""}`}
+                  onClick={() => { setPayMethod(m); setShowMtDrop(false); }}>{m}</div>
               ))}
             </div>
           )}
         </div>
         <div className="rp-detail-filter-group" style={{ position: "relative" }}>
           <label className="rp-detail-filter-label">Status</label>
-          <button className="rp-detail-select" onClick={() => { setShowPsDrop(v => !v); setShowGwDrop(false); }}>
+          <button className="rp-detail-select" onClick={() => { setShowPsDrop(v => !v); setShowMtDrop(false); }}>
             {payStatus} <span className="rp-detail-caret">▼</span>
           </button>
           {showPsDrop && (
@@ -1485,10 +1571,25 @@ const PaymentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
       </div>
 
 
-      <div className="rp-detail-drag-hint">
-        {rows.length} payment{rows.length !== 1 ? "s" : ""}
-        {rows.length > 0 && <>&nbsp;·&nbsp;Total: <strong>₹{rows.reduce((s, r) => s + r.amount, 0).toLocaleString()}</strong></>}
-      </div>
+      {/* Summary strip */}
+      {displayRows.length > 0 && (() => {
+        const total    = displayRows.reduce((s, r) => s + r.amount, 0);
+        const success  = displayRows.filter(r => r.status === "Success").reduce((s, r) => s + r.amount, 0);
+        const pending  = displayRows.filter(r => r.status === "Pending").reduce((s, r) => s + r.amount, 0);
+        const failed   = displayRows.filter(r => r.status === "Failed").reduce((s, r)  => s + r.amount, 0);
+        const refunded = displayRows.filter(r => r.status === "Refunded").reduce((s, r) => s + r.amount, 0);
+        const fmt = (n: number) => `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        return (
+          <div className="rp-detail-drag-hint" style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "center" }}>
+            <span>{displayRows.length} payment{displayRows.length !== 1 ? "s" : ""}</span>
+            <span>Total: <strong>{fmt(total)}</strong></span>
+            {success  > 0 && <span style={{ color: "#10b981" }}>Success: <strong>{fmt(success)}</strong></span>}
+            {pending  > 0 && <span style={{ color: "#f59e0b" }}>Pending: <strong>{fmt(pending)}</strong></span>}
+            {failed   > 0 && <span style={{ color: "#ef4444" }}>Failed: <strong>{fmt(failed)}</strong></span>}
+            {refunded > 0 && <span style={{ color: "#3b82f6" }}>Refunded: <strong>{fmt(refunded)}</strong></span>}
+          </div>
+        );
+      })()}
 
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
@@ -1498,7 +1599,6 @@ const PaymentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
               <th>Transaction ID</th>
               <th>Client Name</th>
               <th>Amount (₹) <span className="rp-th-sort">↕</span></th>
-              <th>Gateway</th>
               <th>Method</th>
               <th>Reference No</th>
               <th>Status</th>
@@ -1506,18 +1606,17 @@ const PaymentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8} className="rp-detail-loading-cell"><PageLoader /></td></tr>
-            ) : rows.length === 0 ? (
-              <tr><td colSpan={8} className="rp-detail-empty-cell">No data available</td></tr>
-            ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
+              <tr><td colSpan={7} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+            ) : displayRows.length === 0 ? (
+              <tr><td colSpan={7} className="rp-detail-empty-cell">No data available</td></tr>
+            ) : displayRows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
               <tr key={i}>
                 <td>{r.date}</td>
-                <td><span className="rp-detail-link">{r.transactionId}</span></td>
-                <td><span className="rp-detail-link">{r.clientName}</span></td>
-                <td className="fw-semibold">₹{r.amount.toLocaleString()}</td>
-                <td>{r.gateway}</td>
+                <td style={{ fontSize: 12, color: "#6366f1" }}>{r.transactionId}</td>
+                <td>{r.clientName}</td>
+                <td className="fw-semibold">₹{r.amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                 <td>{r.method}</td>
-                <td>{r.referenceNo}</td>
+                <td style={{ fontSize: 12 }}>{r.referenceNo}</td>
                 <td><span style={{ color: statusColor(r.status), fontWeight: 600, fontSize: 12 }}>{r.status}</span></td>
               </tr>
             ))}
@@ -1526,7 +1625,7 @@ const PaymentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
       </div>
 
       <Pagination
-        currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        currentPage={currentPage} pageSize={pageSize} totalItems={displayRows.length}
         onPageChange={setCurrentPage}
         onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
       />
@@ -1546,12 +1645,11 @@ interface DailyRow {
   paymentMethod: string;
 }
 
-const DAILY_SERVICES = ["All", "Haircut", "Hair Color", "Facial", "Massage", "Nails", "Bridal Pkg"];
-
 const DailyReportDetail = ({ report, onBack, staffNames }: { report: ReportItem; onBack: () => void; staffNames: string[] }) => {
   const today = new Date().toISOString().slice(0, 10);
   const [date,            setDate]            = useState(today);
   const [serviceFilter,   setServiceFilter]   = useState("All");
+  const [serviceOptions,  setServiceOptions]  = useState<string[]>(["All"]);
   const [staffFilter,     setStaffFilter]     = useState("All");
   const [showSvcDrop,     setShowSvcDrop]     = useState(false);
   const [showStfDrop,     setShowStfDrop]     = useState(false);
@@ -1562,15 +1660,51 @@ const DailyReportDetail = ({ report, onBack, staffNames }: { report: ReportItem;
   useEffect(() => { setCurrentPage(1); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
   const abortRef = useRef<AbortController | null>(null);
 
+  useEffect(() => {
+    api.get(SERVICES.BASE).then(res => {
+      const list: any[] = res.data?.data?.data ?? res.data?.data ?? [];
+      const names = list.map((s: any) => s.name as string).filter(Boolean);
+      setServiceOptions(["All", ...names]);
+    }).catch(() => {});
+  }, []);
+
   const fetchData = useCallback(async () => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ date, service: serviceFilter, staff: staffFilter });
-      const res = await api.get<{ data: DailyRow[] }>(`/api/v1/reports/daily/detail?${params}`, { signal: ctrl.signal });
-      if (res.data?.data) setRows(res.data.data);
+      const params = new URLSearchParams({ date });
+      if (serviceFilter !== "All") params.set("service", serviceFilter);
+      if (staffFilter   !== "All") params.set("staff", staffFilter);
+      const res = await api.get(REPORT.DETAIL("daily", params.toString()), { signal: ctrl.signal });
+      const raw: any[] = res.data?.data?.data ?? res.data?.data ?? [];
+      const mapped: DailyRow[] = raw.map((r: any) => {
+        // time: prefer pre-formatted field, else parse created_at to local time
+        let time = r.time ?? r.startTime ?? r.start_time ?? "";
+        if (!time && (r.created_at ?? r.createdAt)) {
+          time = new Date(r.created_at ?? r.createdAt)
+            .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+        }
+        // service: join item names if present
+        const itemNames: string = Array.isArray(r.items) && r.items.length
+          ? r.items.map((i: any) => i.name ?? i.service_name ?? "").filter(Boolean).join(", ")
+          : (r.service ?? r.serviceName ?? r.service_name ?? "—");
+        // staff: first item's staff or top-level
+        const staffName: string = Array.isArray(r.items) && r.items.length
+          ? (r.items[0].staff_name ?? r.items[0].staffName ?? "")
+          : (r.staff ?? r.staffName ?? r.staff_name ?? "—");
+        return {
+          time,
+          ticketNo:      r.ticketNo      ?? r.ticket_no      ?? r.sale_number ?? String(r.id ?? "—"),
+          clientName:    r.clientName    ?? r.client_name    ?? r.client?.name ?? "Walk-in",
+          service:       itemNames,
+          staff:         staffName || "—",
+          amount:        parseFloat(r.amount ?? r.total_amount ?? r.totalAmount ?? "0") || 0,
+          paymentMethod: r.paymentMethod ?? r.payment_method ?? "N/A",
+        };
+      });
+      setRows(mapped);
     } catch (e: any) {
       if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setRows([]);
     } finally {
@@ -1581,7 +1715,7 @@ const DailyReportDetail = ({ report, onBack, staffNames }: { report: ReportItem;
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    const close = () => { setShowSvcDrop(false); setShowStfDrop(false); setShowExportDrop(false); };
+    const close = () => { setShowSvcDrop(false); setShowStfDrop(false); };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
@@ -1629,7 +1763,7 @@ const DailyReportDetail = ({ report, onBack, staffNames }: { report: ReportItem;
           </button>
           {showSvcDrop && (
             <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
-              {DAILY_SERVICES.map(s => (
+              {serviceOptions.map(s => (
                 <div key={s} className={`rp-detail-dropdown-item ${s === serviceFilter ? "active" : ""}`}
                   onClick={() => { setServiceFilter(s); setShowSvcDrop(false); }}>{s}</div>
               ))}
@@ -1684,13 +1818,17 @@ const DailyReportDetail = ({ report, onBack, staffNames }: { report: ReportItem;
               <tr><td colSpan={7} className="rp-detail-empty-cell">No data available</td></tr>
             ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
               <tr key={i}>
-                <td>{r.time}</td>
-                <td><span className="rp-detail-link">{r.ticketNo}</span></td>
-                <td><span className="rp-detail-link">{r.clientName}</span></td>
+                <td>{r.time || "—"}</td>
+                <td>
+                  <span className="rp-detail-link" title={r.ticketNo}>
+                    {r.ticketNo.length > 12 ? r.ticketNo.slice(0, 8).toUpperCase() + "…" : r.ticketNo}
+                  </span>
+                </td>
+                <td><span className="rp-detail-link">{r.clientName || "Walk-in"}</span></td>
                 <td>{r.service}</td>
                 <td>{r.staff}</td>
-                <td className="fw-semibold">₹{r.amount.toLocaleString()}</td>
-                <td>{r.paymentMethod}</td>
+                <td className="fw-semibold">₹{r.amount.toLocaleString("en-IN")}</td>
+                <td style={{ textTransform: "capitalize" }}>{r.paymentMethod}</td>
               </tr>
             ))}
           </tbody>
@@ -1720,7 +1858,7 @@ interface MarketingRow {
 
 const MKT_STATUSES = ["All", "Active", "Inactive", "Expired"];
 
-const MarketingReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+const ClientAcquisitionReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
   const today = new Date().toISOString().slice(0, 10);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [dateFrom,        setDateFrom]        = useState(monthStart);
@@ -1729,6 +1867,7 @@ const MarketingReportDetail = ({ report, onBack }: { report: ReportItem; onBack:
   const [mktStatus,       setMktStatus]       = useState("All");
   const [showStsDrop,     setShowStsDrop]     = useState(false);
   const [rows,            setRows]            = useState<MarketingRow[]>([]);
+  const [allRows,         setAllRows]         = useState<MarketingRow[]>([]);
   const [loading,         setLoading]         = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
@@ -1741,20 +1880,48 @@ const MarketingReportDetail = ({ report, onBack }: { report: ReportItem; onBack:
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ from: dateFrom, to: dateTo, status: mktStatus, search: clientSearch });
-      const res = await api.get<{ data: MarketingRow[] }>(`/api/v1/reports/marketing/detail?${params}`, { signal: ctrl.signal });
-      if (res.data?.data) setRows(res.data.data);
+      const res = await api.get(CLIENT.BASE, { signal: ctrl.signal });
+      const clients: any[] = res.data?.data?.data ?? res.data?.data ?? [];
+      const mapped: MarketingRow[] = clients.map((c: any) => {
+        const name = [c.first_name, c.last_name].filter(Boolean).join(" ") || c.name || "—";
+        return {
+          clientName: name,
+          email:     c.email ?? "—",
+          phone:     c.mobile_number ?? c.phone ?? "—",
+          visits:    c.total_visits ?? c.visit_count ?? 0,
+          spend:     parseFloat(c.total_spend ?? c.lifetime_spend ?? "0") || 0,
+          lastVisit: (c.last_visit ?? c.last_visit_date ?? c.last_appointment_date ?? "").slice(0, 10) || "—",
+          status:    (c.status === "active" || c.is_active === true) ? "Active" : "Inactive",
+        };
+      });
+      setAllRows(mapped);
     } catch (e: any) {
-      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setRows([]);
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setAllRows([]);
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, mktStatus, clientSearch]);
+  }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    const close = () => { setShowStsDrop(false); setShowExportDrop(false); };
+    let filtered = allRows;
+    if (dateFrom) filtered = filtered.filter(r => r.lastVisit !== "—" && r.lastVisit >= dateFrom);
+    if (dateTo)   filtered = filtered.filter(r => r.lastVisit !== "—" && r.lastVisit <= dateTo);
+    if (mktStatus !== "All") filtered = filtered.filter(r => r.status === mktStatus);
+    if (clientSearch.trim()) {
+      const q = clientSearch.toLowerCase();
+      filtered = filtered.filter(r =>
+        r.clientName.toLowerCase().includes(q) ||
+        r.email.toLowerCase().includes(q) ||
+        r.phone.includes(clientSearch)
+      );
+    }
+    setRows(filtered);
+  }, [allRows, dateFrom, dateTo, mktStatus, clientSearch]);
+
+  useEffect(() => {
+    const close = () => { setShowStsDrop(false); };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
@@ -1877,6 +2044,581 @@ const MarketingReportDetail = ({ report, onBack }: { report: ReportItem; onBack:
   );
 };
 
+// ─── Campaign Performance Report Detail ──────────────────────────────────────
+
+interface CampaignPerfRow {
+  id: string;
+  name: string;
+  templateName: string;
+  status: string;
+  totalContacts: number;
+  sent: number;
+  delivered: number;
+  read: number;
+  failed: number;
+  blocked: number;
+  createdAt: string;
+}
+
+const CAMP_STATUSES = ["All", "COMPLETED", "RUNNING", "PAUSED", "SCHEDULED", "FAILED", "DRAFT"];
+
+const CampaignPerformanceReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const [rows,           setRows]           = useState<CampaignPerfRow[]>([]);
+  const [allRows,        setAllRows]        = useState<CampaignPerfRow[]>([]);
+  const [statusFilter,   setStatusFilter]   = useState("All");
+  const [search,         setSearch]         = useState("");
+  const [showStatusDrop, setShowStatusDrop] = useState(false);
+  const [loading,        setLoading]        = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize,    setPageSize]    = useState(10);
+  useEffect(() => { setCurrentPage(1); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
+  const abortRef = useRef<AbortController | null>(null);
+
+  const fetchData = useCallback(async () => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setLoading(true);
+    try {
+      const res = await api.get("/api/v1/campaigns", { signal: ctrl.signal });
+      const campaigns: any[] = res.data?.data?.data ?? res.data?.data ?? res.data?.campaigns ?? [];
+      const mapped: CampaignPerfRow[] = campaigns.map((c: any) => ({
+        id:            String(c.id ?? ""),
+        name:          c.name ?? "—",
+        templateName:  c.template_name ?? c.templateName ?? "—",
+        status:        c.status ?? "—",
+        totalContacts: c.total_contacts ?? c.totalContacts ?? 0,
+        sent:          c.sent_count ?? c.sent ?? 0,
+        delivered:     c.delivered_count ?? c.delivered ?? 0,
+        read:          c.read_count ?? c.read ?? 0,
+        failed:        c.failed_count ?? c.failed ?? 0,
+        blocked:       c.blocked_count ?? c.blocked ?? 0,
+        createdAt:     (c.created_at ?? c.createdAt ?? "").slice(0, 10),
+      }));
+      setAllRows(mapped);
+    } catch (e: any) {
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setAllRows([]);
+    } finally {
+      if (!ctrl.signal.aborted) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    let filtered = allRows;
+    if (statusFilter !== "All") filtered = filtered.filter(r => r.status === statusFilter);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      filtered = filtered.filter(r =>
+        r.name.toLowerCase().includes(q) || r.templateName.toLowerCase().includes(q)
+      );
+    }
+    setRows(filtered);
+  }, [allRows, statusFilter, search]);
+
+  useEffect(() => {
+    const close = () => setShowStatusDrop(false);
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+
+  const pct = (n: number, total: number) => total > 0 ? `${Math.round((n / total) * 100)}%` : "0%";
+  const campStatusColor = (s: string) =>
+    s === "COMPLETED" ? "#10b981" : s === "RUNNING" ? "#3b82f6" : s === "PAUSED" ? "#f59e0b" : s === "FAILED" ? "#ef4444" : "#9ca3af";
+
+  const totalSent      = rows.reduce((s, r) => s + r.sent, 0);
+  const totalDelivered = rows.reduce((s, r) => s + r.delivered, 0);
+
+  const CAMP_HEADERS = ["Campaign", "Template", "Status", "Contacts", "Sent", "Delivered", "Delivered%", "Read", "Read%", "Failed", "Blocked", "Date"];
+  const campExportRows = () => rows.map(r => [r.name, r.templateName, r.status, r.totalContacts, r.sent, r.delivered, pct(r.delivered, r.sent), r.read, pct(r.read, r.sent), r.failed, r.blocked, r.createdAt]);
+
+  return (
+    <div className="rp-detail-view">
+      <div className="rp-detail-header">
+        <div className="rp-detail-back-row">
+          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
+            <ChevronLeft size={15} /> {report.name}
+          </Button>
+          <div className="rp-detail-view-icons">
+            <button className="rp-detail-icon-btn" title="Column view"><Grid3x3Gap size={16} /></button>
+            <ReportExportButton title={report.name} headers={CAMP_HEADERS} rows={campExportRows} filename={report.name} />
+            <button className="rp-detail-icon-btn" title="Info"><InfoCircle size={16} /></button>
+          </div>
+        </div>
+        <div className="rp-detail-tab-bar"><span className="rp-detail-tab active">Default View</span></div>
+      </div>
+
+      <div className="rp-detail-filters">
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Search</label>
+          <div className="rp-detail-date-range">
+            <Search size={13} style={{ color: "#9ca3af", flexShrink: 0 }} />
+            <input type="text" placeholder="Search campaign..." value={search} onChange={e => setSearch(e.target.value)} className="rp-detail-date-input" />
+          </div>
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Status</label>
+          <button className="rp-detail-select" onClick={() => setShowStatusDrop(v => !v)}>
+            {statusFilter} <span className="rp-detail-caret">▼</span>
+          </button>
+          {showStatusDrop && (
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
+              {CAMP_STATUSES.map(s => (
+                <div key={s} className={`rp-detail-dropdown-item ${s === statusFilter ? "active" : ""}`}
+                  onClick={() => { setStatusFilter(s); setShowStatusDrop(false); }}>{s}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-actions">
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
+            <Refresh size={13} /> Refresh
+          </Button>
+          <Button variant="ghost" className="rp-detail-save-btn">Save View</Button>
+        </div>
+      </div>
+
+      <div className="rp-detail-drag-hint">
+        {rows.length} campaign{rows.length !== 1 ? "s" : ""}
+        {rows.length > 0 && (
+          <>&nbsp;·&nbsp;Total Sent: <strong>{totalSent.toLocaleString()}</strong>
+          &nbsp;·&nbsp;Avg Delivery: <strong>{pct(totalDelivered, totalSent)}</strong></>
+        )}
+      </div>
+
+      <div className="rp-detail-table-wrap">
+        <table className="rp-detail-table">
+          <thead>
+            <tr>
+              <th>Campaign <span className="rp-th-sort">↕</span></th>
+              <th>Template</th>
+              <th>Status</th>
+              <th>Contacts</th>
+              <th>Sent</th>
+              <th>Delivered</th>
+              <th>Read</th>
+              <th>Failed</th>
+              <th>Blocked</th>
+              <th>Date <span className="rp-th-sort">↕</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={10} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+            ) : rows.length === 0 ? (
+              <tr><td colSpan={10} className="rp-detail-empty-cell">No data available</td></tr>
+            ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
+              <tr key={i}>
+                <td className="fw-semibold">{r.name}</td>
+                <td><span className="rp-detail-link">{r.templateName}</span></td>
+                <td><span style={{ color: campStatusColor(r.status), fontWeight: 600, fontSize: 12 }}>{r.status}</span></td>
+                <td>{r.totalContacts}</td>
+                <td>{r.sent}</td>
+                <td>
+                  <span>{r.delivered}</span>
+                  <span style={{ fontSize: 11, color: "#9ca3af", marginLeft: 4 }}>({pct(r.delivered, r.sent)})</span>
+                </td>
+                <td>
+                  <span>{r.read}</span>
+                  <span style={{ fontSize: 11, color: "#9ca3af", marginLeft: 4 }}>({pct(r.read, r.sent)})</span>
+                </td>
+                <td style={{ color: r.failed > 0 ? "#ef4444" : undefined }}>{r.failed}</td>
+                <td style={{ color: r.blocked > 0 ? "#f59e0b" : undefined }}>{r.blocked}</td>
+                <td>{r.createdAt}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+    </div>
+  );
+};
+
+// ─── Template Performance Report Detail ──────────────────────────────────────
+
+interface TemplatePerfRow {
+  id: string;
+  name: string;
+  type: string;
+  language: string;
+  status: string;
+  timesUsed: number;
+  totalSent: number;
+  totalDelivered: number;
+  avgReadRate: number;
+}
+
+const TMPL_TYPES_FILTER  = ["All", "MARKETING", "UTILITY", "AUTHENTICATION"];
+const TMPL_STATUS_FILTER = ["All", "APPROVED", "PENDING", "REJECTED"];
+
+const TemplatePerformanceReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const [rows,         setRows]         = useState<TemplatePerfRow[]>([]);
+  const [allRows,      setAllRows]      = useState<TemplatePerfRow[]>([]);
+  const [typeFilter,   setTypeFilter]   = useState("All");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [showTypeDrop, setShowTypeDrop] = useState(false);
+  const [showStsDrop,  setShowStsDrop]  = useState(false);
+  const [loading,      setLoading]      = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize,    setPageSize]    = useState(10);
+  useEffect(() => { setCurrentPage(1); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
+  const abortRef = useRef<AbortController | null>(null);
+
+  const fetchData = useCallback(async () => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setLoading(true);
+    try {
+      const [tmplRes, statsRes] = await Promise.all([
+        api.get("/api/v1/templates", { signal: ctrl.signal }),
+        api.get("/api/v1/marketing/dashboard/stats", { signal: ctrl.signal }),
+      ]);
+      const templates: any[]    = tmplRes.data?.data?.data ?? tmplRes.data?.data ?? [];
+      const topTemplates: any[] = statsRes.data?.data?.topTemplates ?? statsRes.data?.topTemplates ?? [];
+      const perfMap: Record<string, any> = {};
+      topTemplates.forEach((t: any) => { perfMap[t.template_name ?? t.name ?? ""] = t; });
+      const mapped: TemplatePerfRow[] = templates.map((t: any) => {
+        const perf = perfMap[t.name] ?? {};
+        return {
+          id:            String(t.id ?? ""),
+          name:          t.name ?? "—",
+          type:          t.category ?? t.type ?? "—",
+          language:      t.language ?? "—",
+          status:        t.status ?? "—",
+          timesUsed:     perf.times_used ?? perf.timesUsed ?? 0,
+          totalSent:     perf.total_sent ?? perf.totalSent ?? 0,
+          totalDelivered:perf.total_delivered ?? perf.totalDelivered ?? 0,
+          avgReadRate:   parseFloat(perf.avg_read_rate ?? perf.avgReadRate ?? "0") || 0,
+        };
+      });
+      setAllRows(mapped);
+    } catch (e: any) {
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setAllRows([]);
+    } finally {
+      if (!ctrl.signal.aborted) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    let filtered = allRows;
+    if (typeFilter   !== "All") filtered = filtered.filter(r => r.type   === typeFilter);
+    if (statusFilter !== "All") filtered = filtered.filter(r => r.status === statusFilter);
+    setRows(filtered);
+  }, [allRows, typeFilter, statusFilter]);
+
+  useEffect(() => {
+    const close = () => { setShowTypeDrop(false); setShowStsDrop(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+
+  const tmplStatusColor = (s: string) =>
+    s === "APPROVED" ? "#10b981" : s === "PENDING" ? "#f59e0b" : "#ef4444";
+
+  const TMPL_HEADERS = ["Template Name", "Type", "Language", "Status", "Campaigns Used", "Total Sent", "Total Delivered", "Avg Read Rate"];
+  const tmplExportRows = () => rows.map(r => [r.name, r.type, r.language, r.status, r.timesUsed, r.totalSent, r.totalDelivered, `${r.avgReadRate}%`]);
+
+  return (
+    <div className="rp-detail-view">
+      <div className="rp-detail-header">
+        <div className="rp-detail-back-row">
+          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
+            <ChevronLeft size={15} /> {report.name}
+          </Button>
+          <div className="rp-detail-view-icons">
+            <button className="rp-detail-icon-btn" title="Column view"><Grid3x3Gap size={16} /></button>
+            <ReportExportButton title={report.name} headers={TMPL_HEADERS} rows={tmplExportRows} filename={report.name} />
+            <button className="rp-detail-icon-btn" title="Info"><InfoCircle size={16} /></button>
+          </div>
+        </div>
+        <div className="rp-detail-tab-bar"><span className="rp-detail-tab active">Default View</span></div>
+      </div>
+
+      <div className="rp-detail-filters">
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Type</label>
+          <button className="rp-detail-select" onClick={() => { setShowTypeDrop(v => !v); setShowStsDrop(false); }}>
+            {typeFilter} <span className="rp-detail-caret">▼</span>
+          </button>
+          {showTypeDrop && (
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
+              {TMPL_TYPES_FILTER.map(t => (
+                <div key={t} className={`rp-detail-dropdown-item ${t === typeFilter ? "active" : ""}`}
+                  onClick={() => { setTypeFilter(t); setShowTypeDrop(false); }}>{t}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Status</label>
+          <button className="rp-detail-select" onClick={() => { setShowStsDrop(v => !v); setShowTypeDrop(false); }}>
+            {statusFilter} <span className="rp-detail-caret">▼</span>
+          </button>
+          {showStsDrop && (
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
+              {TMPL_STATUS_FILTER.map(s => (
+                <div key={s} className={`rp-detail-dropdown-item ${s === statusFilter ? "active" : ""}`}
+                  onClick={() => { setStatusFilter(s); setShowStsDrop(false); }}>{s}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-actions">
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
+            <Refresh size={13} /> Refresh
+          </Button>
+          <Button variant="ghost" className="rp-detail-save-btn">Save View</Button>
+        </div>
+      </div>
+
+      <div className="rp-detail-drag-hint">
+        {rows.length} template{rows.length !== 1 ? "s" : ""}
+        {rows.length > 0 && <>&nbsp;·&nbsp;Total Sent: <strong>{rows.reduce((s, r) => s + r.totalSent, 0).toLocaleString()}</strong></>}
+      </div>
+
+      <div className="rp-detail-table-wrap">
+        <table className="rp-detail-table">
+          <thead>
+            <tr>
+              <th>Template Name</th>
+              <th>Type</th>
+              <th>Language</th>
+              <th>Status</th>
+              <th>Campaigns Used <span className="rp-th-sort">↕</span></th>
+              <th>Total Sent <span className="rp-th-sort">↕</span></th>
+              <th>Delivered <span className="rp-th-sort">↕</span></th>
+              <th>Avg Read Rate <span className="rp-th-sort">↕</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={8} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+            ) : rows.length === 0 ? (
+              <tr><td colSpan={8} className="rp-detail-empty-cell">No data available</td></tr>
+            ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
+              <tr key={i}>
+                <td className="fw-semibold">{r.name}</td>
+                <td><span className="rp-report-tag" style={{ fontSize: 11 }}>{r.type}</span></td>
+                <td>{r.language}</td>
+                <td><span style={{ color: tmplStatusColor(r.status), fontWeight: 600, fontSize: 12 }}>{r.status}</span></td>
+                <td>{r.timesUsed > 0 ? r.timesUsed : "—"}</td>
+                <td>{r.totalSent > 0 ? r.totalSent.toLocaleString() : "—"}</td>
+                <td>{r.totalDelivered > 0 ? r.totalDelivered.toLocaleString() : "—"}</td>
+                <td>{r.avgReadRate > 0 ? `${r.avgReadRate}%` : "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+    </div>
+  );
+};
+
+// ─── Message Spend Report Detail ─────────────────────────────────────────────
+
+interface SpendRow {
+  date: string;
+  marketing: number;
+  utility: number;
+  authentication: number;
+  service: number;
+  total: number;
+  estimatedCost: number;
+}
+
+const MSG_SPEND_PERIODS = [
+  { label: "7D",  days: 7  },
+  { label: "15D", days: 15 },
+  { label: "30D", days: 30 },
+  { label: "60D", days: 60 },
+  { label: "90D", days: 90 },
+];
+
+const MessageSpendReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const [rows,       setRows]       = useState<SpendRow[]>([]);
+  const [loading,    setLoading]    = useState(false);
+  const [periodDays, setPeriodDays] = useState(30);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize,    setPageSize]    = useState(10);
+  const [kpis, setKpis] = useState({ totalMessages: 0, totalCost: 0, marketing: 0, utility: 0 });
+  useEffect(() => { setCurrentPage(1); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
+  const abortRef = useRef<AbortController | null>(null);
+
+  const fetchData = useCallback(async () => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setLoading(true);
+    try {
+      const endDate   = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - periodDays);
+      const start = startDate.toISOString().slice(0, 10);
+      const end   = endDate.toISOString().slice(0, 10);
+      const res = await api.get(`/api/v1/marketing/analytics?start=${start}&end=${end}&granularity=DAILY`, { signal: ctrl.signal });
+      const data = res.data?.data ?? res.data ?? {};
+      const daily: any[] = data.daily ?? [];
+      const mapped: SpendRow[] = daily.map((d: any) => ({
+        date:           d.date ?? "",
+        marketing:      d.marketing ?? 0,
+        utility:        d.utility ?? 0,
+        authentication: d.authentication ?? 0,
+        service:        d.service ?? 0,
+        total:          d.totalMessages ?? d.total_messages ?? ((d.marketing ?? 0) + (d.utility ?? 0) + (d.authentication ?? 0) + (d.service ?? 0)),
+        estimatedCost:  parseFloat(d.estimatedCost ?? d.estimated_cost ?? "0") || 0,
+      }));
+      setRows(mapped);
+      setKpis({
+        totalMessages: data.totalMessages ?? data.total_messages ?? 0,
+        totalCost:     parseFloat(data.totalEstimatedCost ?? data.total_estimated_cost ?? "0") || 0,
+        marketing:     data.byCategory?.marketing ?? 0,
+        utility:       data.byCategory?.utility ?? 0,
+      });
+    } catch (e: any) {
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setRows([]);
+    } finally {
+      if (!ctrl.signal.aborted) setLoading(false);
+    }
+  }, [periodDays]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const SPEND_HEADERS = ["Date", "Marketing", "Utility", "Authentication", "Service (Free)", "Total", "Est. Cost (₹)"];
+  const spendExportRows = () => rows.map(r => [r.date, r.marketing, r.utility, r.authentication, r.service, r.total, r.estimatedCost.toFixed(2)]);
+
+  const spendKpiCards = [
+    { label: "Total Messages",  value: kpis.totalMessages.toLocaleString(), color: "#3b82f6" },
+    { label: "Estimated Spend", value: `₹${kpis.totalCost.toFixed(2)}`,     color: "#10b981" },
+    { label: "Marketing Msgs",  value: kpis.marketing.toLocaleString(),      color: "#8b5cf6" },
+    { label: "Utility Msgs",    value: kpis.utility.toLocaleString(),        color: "#f59e0b" },
+  ];
+
+  return (
+    <div className="rp-detail-view">
+      <div className="rp-detail-header">
+        <div className="rp-detail-back-row">
+          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
+            <ChevronLeft size={15} /> {report.name}
+          </Button>
+          <div className="rp-detail-view-icons">
+            <button className="rp-detail-icon-btn" title="Column view"><Grid3x3Gap size={16} /></button>
+            <ReportExportButton title={report.name} headers={SPEND_HEADERS} rows={spendExportRows} filename={report.name} />
+            <button className="rp-detail-icon-btn" title="Info"><InfoCircle size={16} /></button>
+          </div>
+        </div>
+        <div className="rp-detail-tab-bar"><span className="rp-detail-tab active">Default View</span></div>
+      </div>
+
+      <div className="rp-detail-filters">
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Period</label>
+          <div style={{ display: "flex", gap: 6 }}>
+            {MSG_SPEND_PERIODS.map(p => (
+              <button key={p.days} className={`rp-detail-select${periodDays === p.days ? " active" : ""}`}
+                style={{ minWidth: 44 }} onClick={() => setPeriodDays(p.days)}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="rp-detail-filter-actions">
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
+            <Refresh size={13} /> Refresh
+          </Button>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, margin: "16px 0" }}>
+        {spendKpiCards.map(k => (
+          <div key={k.label} style={{ background: "#fff", border: "1px solid #f3f4f6", borderRadius: 10, padding: "14px 16px" }}>
+            <div style={{ fontSize: 11, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em" }}>{k.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: k.color, marginTop: 4 }}>{k.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {rows.length > 0 && (
+        <div style={{ background: "#fff", border: "1px solid #f3f4f6", borderRadius: 10, padding: "16px", marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 12 }}>Daily Message Volume</div>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={rows} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barSize={16}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+              <Tooltip />
+              <Bar dataKey="marketing"      name="Marketing"      fill="#8b5cf6" stackId="a" />
+              <Bar dataKey="utility"        name="Utility"        fill="#3b82f6" stackId="a" />
+              <Bar dataKey="authentication" name="Authentication" fill="#10b981" stackId="a" />
+              <Bar dataKey="service"        name="Service (Free)" fill="#d1d5db" stackId="a" radius={[4,4,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+          <div style={{ display: "flex", gap: 16, marginTop: 8, flexWrap: "wrap" }}>
+            {([["#8b5cf6","Marketing"],["#3b82f6","Utility"],["#10b981","Authentication"],["#d1d5db","Service (Free)"]] as [string,string][]).map(([c,l]) => (
+              <span key={l} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#6b7280" }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: c, flexShrink: 0 }} />{l}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="rp-detail-drag-hint">
+        {rows.length} day{rows.length !== 1 ? "s" : ""}
+        {rows.length > 0 && <>&nbsp;·&nbsp;Total Cost: <strong>₹{rows.reduce((s, r) => s + r.estimatedCost, 0).toFixed(2)}</strong></>}
+      </div>
+
+      <div className="rp-detail-table-wrap">
+        <table className="rp-detail-table">
+          <thead>
+            <tr>
+              <th>Date <span className="rp-th-sort">↕</span></th>
+              <th>Marketing</th>
+              <th>Utility</th>
+              <th>Authentication</th>
+              <th>Service (Free)</th>
+              <th>Total <span className="rp-th-sort">↕</span></th>
+              <th>Est. Cost (₹) <span className="rp-th-sort">↕</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={7} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+            ) : rows.length === 0 ? (
+              <tr><td colSpan={7} className="rp-detail-empty-cell">No data available</td></tr>
+            ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
+              <tr key={i}>
+                <td>{r.date}</td>
+                <td>{r.marketing > 0 ? r.marketing : "—"}</td>
+                <td>{r.utility > 0 ? r.utility : "—"}</td>
+                <td>{r.authentication > 0 ? r.authentication : "—"}</td>
+                <td>{r.service > 0 ? r.service : "—"}</td>
+                <td className="fw-semibold">{r.total}</td>
+                <td>₹{r.estimatedCost.toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+    </div>
+  );
+};
+
 // ─── Employee Report Detail ───────────────────────────────────────────────────
 
 interface EmployeeRow {
@@ -1891,23 +2633,41 @@ interface EmployeeRow {
   utilization: number;
 }
 
-const EMP_ROLES = ["All", "Senior Stylist", "Stylist", "Therapist", "Nail Technician", "Massage Therapist"];
-const EMP_DEPTS = ["All", "Hair", "Spa", "Nails", "Skin", "Makeup"];
+const EMP_TYPES = [
+  { label: "All",       value: "All"       },
+  { label: "Full-time", value: "full_time" },
+  { label: "Part-time", value: "part_time" },
+  { label: "Contract",  value: "contract"  },
+  { label: "Freelance", value: "freelance" },
+];
 
 const EmployeeReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const dispatch = useDispatch<AppDispatch>();
   const today = new Date().toISOString().slice(0, 10);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [dateFrom,        setDateFrom]        = useState(monthStart);
   const [dateTo,          setDateTo]          = useState(today);
-  const [role,            setRole]            = useState("All");
-  const [dept,            setDept]            = useState("All");
-  const [showRoleDrop,    setShowRoleDrop]    = useState(false);
+  const [employee,        setEmployee]        = useState("All");
+  const [employeeOptions, setEmployeeOptions] = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
+  const [empType,         setEmpType]         = useState("All");
+  const [activity,        setActivity]        = useState("all");
+  const [showEmpDrop,     setShowEmpDrop]     = useState(false);
   const [showDeptDrop,    setShowDeptDrop]    = useState(false);
-  const [rows,            setRows]            = useState<EmployeeRow[]>([]);
+  const [showActDrop,     setShowActDrop]     = useState(false);
+
+  useEffect(() => {
+    dispatch(fetchStaffThunk()).unwrap().then(staffList => {
+      const opts = staffList.map((s: any) => ({
+        label: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.fullName || s.name || "",
+        value: String(s.id ?? ""),
+      })).filter((o: any) => o.label && o.value);
+      setEmployeeOptions([{ label: "All", value: "All" }, ...opts]);
+    }).catch(() => {});
+  }, []);
+  const [allRows,         setAllRows]         = useState<EmployeeRow[]>([]);
   const [loading,         setLoading]         = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
-  useEffect(() => { setCurrentPage(1); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
   const abortRef = useRef<AbortController | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -1916,26 +2676,125 @@ const EmployeeReportDetail = ({ report, onBack }: { report: ReportItem; onBack: 
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ from: dateFrom, to: dateTo, role, department: dept });
-      const res = await api.get<{ data: EmployeeRow[] }>(`/api/v1/reports/employee/detail?${params}`, { signal: ctrl.signal });
-      if (res.data?.data) setRows(res.data.data);
+      // Fetch appointments + staff list in parallel
+      const apptParams = new URLSearchParams({ start_date: dateFrom, end_date: dateTo, limit: "500" });
+      const [apptRes, staffList] = await Promise.all([
+        api.get(`${BOOKING.BASE}?${apptParams}`, { signal: ctrl.signal }),
+        dispatch(fetchStaffThunk()).unwrap(),
+      ]);
+
+      // Build staff lookup: id → { name, role, department, employment_type }
+      // staffList is Staff[] from fetchStaffThunk
+      // Normalize employment_type to snake_case for consistent comparison
+      const normalizeEmpType = (v: string) => (v ?? "").toLowerCase().replace(/[-\s]+/g, "_");
+
+      const staffInfoMap = new Map<string, { name: string; role: string; department: string; empType: string }>();
+      staffList.forEach((s: any) => {
+        const name = `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.fullName || s.name || "—";
+        staffInfoMap.set(String(s.id), {
+          name,
+          role:       s.role ?? s.position ?? "Staff",
+          department: s.department ?? s.dept ?? "General",
+          empType:    normalizeEmpType(s.employment_type ?? s.employmentType ?? ""),
+        });
+      });
+
+      // Parse appointment list (paginated or plain array)
+      const rawAppt = apptRes.data?.data;
+      const appts: any[] = Array.isArray(rawAppt?.data) ? rawAppt.data : (Array.isArray(rawAppt) ? rawAppt : []);
+
+      // Aggregate by staff_id
+      const aggMap = new Map<string, { name: string; role: string; department: string; empType: string; bookings: number; revenue: number; services: number }>();
+      appts.forEach((appt: any) => {
+        const staffId = String(appt.staff_id ?? appt.staffId ?? "");
+        if (!staffId || staffId === "undefined") return;
+        // Compute revenue from service prices (same logic as mapBooking)
+        const computedTotal = [
+          ...(Array.isArray(appt.services)      ? appt.services      : []),
+          ...(Array.isArray(appt.product_items) ? appt.product_items : []),
+          ...(Array.isArray(appt.package_items) ? appt.package_items : []),
+        ].reduce((sum: number, item: any) => {
+          const price = parseFloat(String(item.price ?? 0)) || 0;
+          const qty   = Number(item.quantity ?? item.qty ?? 1) || 1;
+          return sum + price * qty;
+        }, 0);
+        const revenue = parseFloat(String(appt.grand_total ?? appt.total_amount ?? appt.grandTotal ?? 0)) || computedTotal;
+        const svcCount = Array.isArray(appt.services) ? appt.services.length : 1;
+        const info = staffInfoMap.get(staffId) ?? { name: staffId, role: "Staff", department: "General", empType: "" };
+        if (!aggMap.has(staffId)) {
+          aggMap.set(staffId, { ...info, bookings: 0, revenue: 0, services: 0 });
+        }
+        const e = aggMap.get(staffId)!;
+        e.bookings += 1;
+        e.revenue  += revenue;
+        e.services += svcCount;
+      });
+
+      // Fallback: include staff with 0 appointments so they still appear
+      staffList.forEach((s: any) => {
+        const sid = String(s.id);
+        if (!aggMap.has(sid)) {
+          const info = staffInfoMap.get(sid) ?? {
+            name: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.fullName || s.name || "—",
+            role: s.role ?? "Staff",
+            department: s.department ?? "General",
+            empType: normalizeEmpType(s.employment_type ?? s.employmentType ?? ""),
+          };
+          aggMap.set(sid, { ...info, bookings: 0, revenue: 0, services: 0 });
+        }
+      });
+
+      const normalizedFilter = normalizeEmpType(empType);
+      let mapped: EmployeeRow[] = Array.from(aggMap.values())
+        .filter(e => empType === "All" || normalizeEmpType(e.empType) === normalizedFilter)
+        .map(e => ({
+          name:             e.name,
+          role:             e.role,
+          department:       e.department,
+          servicesPerformed:e.services,
+          revenue:          e.revenue,
+          avgTicket:        e.bookings > 0 ? Math.round(e.revenue / e.bookings) : 0,
+          bookings:         e.bookings,
+          rating:           0,
+          utilization:      0,
+        }));
+
+      setAllRows(mapped);
     } catch (e: any) {
-      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setRows([]);
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setAllRows([]);
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, role, dept]);
+  }, [dateFrom, dateTo, empType]);
+
+  // client-side filter + sort
+  const rows = useMemo(() => {
+    let data = [...allRows];
+    // filter by selected employee name
+    if (employee !== "All") {
+      const empLabel = (employeeOptions.find(o => o.value === employee)?.label ?? "").toLowerCase().trim();
+      if (empLabel) data = data.filter(r => (r.name ?? "").toLowerCase().trim() === empLabel);
+    }
+    // activity filter
+    if (activity === "active")   data = data.filter(r => r.bookings > 0);
+    if (activity === "inactive") data = data.filter(r => r.bookings === 0);
+    data.sort((a, b) => b.revenue - a.revenue);
+    return data;
+  }, [allRows, employee, employeeOptions, activity]);
+
+  useEffect(() => { setCurrentPage(1); }, [rows]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    const close = () => { setShowRoleDrop(false); setShowDeptDrop(false); setShowExportDrop(false); };
+    const close = () => { setShowEmpDrop(false); setShowDeptDrop(false); setShowActDrop(false); };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  const HEADERS = ["Name", "Role", "Department", "Services", "Revenue (₹)", "Avg Ticket (₹)", "Bookings", "Rating", "Utilization (%)"];
-  const exportRows = () => rows.map(r => [r.name, r.role, r.department, r.servicesPerformed, r.revenue, r.avgTicket, r.bookings, r.rating, r.utilization]);
+  const selectedEmpLabel = employeeOptions.find(o => o.value === employee)?.label ?? "All";
+  const HEADERS = ["Name", "Role", "Department", "Services", "Revenue (₹)", "Avg Ticket (₹)", "Bookings"];
+  const exportRows = () => rows.map(r => [r.name, r.role, r.department, r.servicesPerformed, r.revenue, r.avgTicket, r.bookings]);
 
   return (
     <div className="rp-detail-view">
@@ -1968,29 +2827,44 @@ const EmployeeReportDetail = ({ report, onBack }: { report: ReportItem; onBack: 
           </div>
         </div>
         <div className="rp-detail-filter-group" style={{ position: "relative" }}>
-          <label className="rp-detail-filter-label">Role</label>
-          <button className="rp-detail-select" onClick={() => { setShowRoleDrop(v => !v); setShowDeptDrop(false); }}>
-            {role.length > 16 ? role.slice(0, 16) + "…" : role} <span className="rp-detail-caret">▼</span>
+          <label className="rp-detail-filter-label">Employee</label>
+          <button className="rp-detail-select" onClick={() => { setShowEmpDrop((v: boolean) => !v); setShowDeptDrop(false); }}>
+            {selectedEmpLabel.length > 16 ? selectedEmpLabel.slice(0, 16) + "…" : selectedEmpLabel}
+            <span className="rp-detail-caret">▼</span>
           </button>
-          {showRoleDrop && (
+          {showEmpDrop && (
             <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
-              {EMP_ROLES.map(r => (
-                <div key={r} className={`rp-detail-dropdown-item ${r === role ? "active" : ""}`}
-                  onClick={() => { setRole(r); setShowRoleDrop(false); }}>{r}</div>
+              {employeeOptions.map(o => (
+                <div key={o.value} className={`rp-detail-dropdown-item ${o.value === employee ? "active" : ""}`}
+                  onClick={() => { setEmployee(o.value); setShowEmpDrop(false); }}>{o.label}</div>
               ))}
             </div>
           )}
         </div>
         <div className="rp-detail-filter-group" style={{ position: "relative" }}>
-          <label className="rp-detail-filter-label">Department</label>
-          <button className="rp-detail-select" onClick={() => { setShowDeptDrop(v => !v); setShowRoleDrop(false); }}>
-            {dept} <span className="rp-detail-caret">▼</span>
+          <label className="rp-detail-filter-label">Emp. Type</label>
+          <button className="rp-detail-select" onClick={() => { setShowDeptDrop((v: boolean) => !v); setShowEmpDrop(false); }}>
+            {EMP_TYPES.find(t => t.value === empType)?.label ?? "All"} <span className="rp-detail-caret">▼</span>
           </button>
           {showDeptDrop && (
             <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
-              {EMP_DEPTS.map(d => (
-                <div key={d} className={`rp-detail-dropdown-item ${d === dept ? "active" : ""}`}
-                  onClick={() => { setDept(d); setShowDeptDrop(false); }}>{d}</div>
+              {EMP_TYPES.map(t => (
+                <div key={t.value} className={`rp-detail-dropdown-item ${t.value === empType ? "active" : ""}`}
+                  onClick={() => { setEmpType(t.value); setShowDeptDrop(false); }}>{t.label}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Activity</label>
+          <button className="rp-detail-select" onClick={() => { setShowActDrop(v => !v); setShowEmpDrop(false); setShowDeptDrop(false); }}>
+            {{ all: "All", active: "Active", inactive: "No Activity" }[activity] ?? "All"} <span className="rp-detail-caret">▼</span>
+          </button>
+          {showActDrop && (
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
+              {[{ label: "All", value: "all" }, { label: "Active (has bookings)", value: "active" }, { label: "No Activity", value: "inactive" }].map(o => (
+                <div key={o.value} className={`rp-detail-dropdown-item ${o.value === activity ? "active" : ""}`}
+                  onClick={() => { setActivity(o.value); setShowActDrop(false); }}>{o.label}</div>
               ))}
             </div>
           )}
@@ -2020,15 +2894,14 @@ const EmployeeReportDetail = ({ report, onBack }: { report: ReportItem; onBack: 
               <th>Services <span className="rp-th-sort">↕</span></th>
               <th>Revenue (₹) <span className="rp-th-sort">↕</span></th>
               <th>Avg Ticket (₹) <span className="rp-th-sort">↕</span></th>
-              <th>Rating <span className="rp-th-sort">↕</span></th>
-              <th>Utilization</th>
+              <th>Bookings</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={9} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+              <tr><td colSpan={8} className="rp-detail-loading-cell"><PageLoader /></td></tr>
             ) : rows.length === 0 ? (
-              <tr><td colSpan={9} className="rp-detail-empty-cell">No data available</td></tr>
+              <tr><td colSpan={8} className="rp-detail-empty-cell">No data available</td></tr>
             ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
               <tr key={i}>
                 <td style={{ color: "#9ca3af", fontSize: 12 }}>#{i + 1}</td>
@@ -2037,16 +2910,8 @@ const EmployeeReportDetail = ({ report, onBack }: { report: ReportItem; onBack: 
                 <td>{r.department}</td>
                 <td>{r.servicesPerformed}</td>
                 <td className="fw-semibold">₹{r.revenue.toLocaleString()}</td>
-                <td>₹{r.avgTicket}</td>
-                <td style={{ color: "#f59e0b", fontWeight: 600 }}>{r.rating} ★</td>
-                <td>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ flex: 1, height: 6, background: "#f3f4f6", borderRadius: 3 }}>
-                      <div style={{ width: `${r.utilization}%`, height: "100%", background: "#111827", borderRadius: 3 }} />
-                    </div>
-                    <span style={{ fontSize: 11, color: "#6b7280", whiteSpace: "nowrap" }}>{r.utilization}%</span>
-                  </div>
-                </td>
+                <td>₹{r.avgTicket.toLocaleString()}</td>
+                <td>{r.bookings}</td>
               </tr>
             ))}
           </tbody>
@@ -2091,7 +2956,7 @@ const RevenueByServiceReportDetail = ({ report, onBack }: { report: ReportItem; 
     try {
       const params = new URLSearchParams({ period: "custom", from: dateFrom, to: dateTo });
       const res = await api.get<{ data: { services: RevenueByServiceRow[] } }>(
-        `/api/v1/reports/services?${params}`,
+        REPORT.DETAIL("services", params.toString()),
         { signal: ctrl.signal },
       );
       if (res.data?.data?.services?.length) setRows(res.data.data.services);
@@ -2217,6 +3082,968 @@ const RevenueByServiceReportDetail = ({ report, onBack }: { report: ReportItem; 
   );
 };
 
+// ─── VIP Clients Report Detail ────────────────────────────────────────────────
+const VIP_TIERS = [
+  { label: "All",    value: "all"    },
+  { label: "Gold",   value: "gold"   },
+  { label: "Silver", value: "silver" },
+  { label: "Bronze", value: "bronze" },
+];
+
+function getVipTier(visits: number): "gold" | "silver" | "bronze" {
+  if (visits >= 8) return "gold";
+  if (visits >= 4) return "silver";
+  return "bronze";
+}
+
+interface VipClientRow {
+  clientId:   string;
+  name:       string;
+  phone:      string;
+  email:      string;
+  visits:     number;
+  totalSpend: number;
+  avgTicket:  number;
+  lastVisit:  string;
+  tier:       "gold" | "silver" | "bronze";
+}
+
+const VipClientsReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const today      = new Date().toISOString().slice(0, 10);
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+
+  const [dateFrom,    setDateFrom]    = useState(monthStart);
+  const [dateTo,      setDateTo]      = useState(today);
+  const [allRows,     setAllRows]     = useState<VipClientRow[]>([]);
+  const [loading,     setLoading]     = useState(false);
+  const [tier,        setTier]        = useState("all");
+  const [showTierDrop,setShowTierDrop]= useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize,    setPageSize]    = useState(10);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const fetchData = useCallback(async () => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setLoading(true);
+    try {
+      const apptParams = new URLSearchParams({ start_date: dateFrom, end_date: dateTo, limit: "1000" });
+      const [clientRes, apptRes] = await Promise.all([
+        api.get(CLIENT.BASE, { signal: ctrl.signal }),
+        api.get(`${BOOKING.BASE}?${apptParams}`, { signal: ctrl.signal }),
+      ]);
+
+      // Build client map: id → { name, phone, email }
+      const clientRaw = clientRes.data?.data;
+      const clientList: any[] = Array.isArray(clientRaw?.items) ? clientRaw.items
+        : Array.isArray(clientRaw?.data) ? clientRaw.data
+        : Array.isArray(clientRaw) ? clientRaw : [];
+
+      const clientMap = new Map<string, { name: string; phone: string; email: string }>();
+      clientList.forEach((c: any) => {
+        const name = c.full_name ?? c.fullName ?? `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim() ?? "Unknown";
+        clientMap.set(String(c.id), { name, phone: c.phone ?? c.phone_number ?? "—", email: c.email ?? "—" });
+      });
+
+      // Aggregate per client from appointments
+      const aggMap = new Map<string, { visits: number; totalSpend: number; lastVisit: string; clientName: string; clientPhone: string }>();
+      const apptRaw = apptRes.data?.data?.data ?? apptRes.data?.data ?? apptRes.data ?? [];
+      const appts: any[] = Array.isArray(apptRaw) ? apptRaw : [];
+
+      appts.forEach((appt: any) => {
+        const cid = String(appt.client_id ?? appt.clientId ?? "");
+        if (!cid || cid === "null") return;
+        const items = [
+          ...(Array.isArray(appt.services)      ? appt.services      : []),
+          ...(Array.isArray(appt.product_items) ? appt.product_items : []),
+          ...(Array.isArray(appt.package_items) ? appt.package_items : []),
+        ];
+        const computed = items.reduce((s: number, i: any) =>
+          s + (parseFloat(String(i.price ?? 0)) || 0) * (Number(i.quantity ?? i.qty ?? 1) || 1), 0);
+        const spend = parseFloat(String(appt.grand_total ?? appt.total_amount ?? 0)) || computed;
+        const visitDate = appt.scheduled_at ?? appt.date ?? "";
+        const apptClientName  = appt.client_name ?? appt.clientName ?? appt.customer_name ?? "";
+        const apptClientPhone = appt.client_phone ?? appt.clientPhone ?? appt.phone ?? "";
+        const prev = aggMap.get(cid) ?? { visits: 0, totalSpend: 0, lastVisit: "", clientName: "", clientPhone: "" };
+        aggMap.set(cid, {
+          visits:      prev.visits + 1,
+          totalSpend:  prev.totalSpend + spend,
+          lastVisit:   visitDate > prev.lastVisit ? visitDate : prev.lastVisit,
+          clientName:  prev.clientName || apptClientName,
+          clientPhone: prev.clientPhone || apptClientPhone,
+        });
+      });
+
+      const rows: VipClientRow[] = Array.from(aggMap.entries()).map(([cid, agg]) => {
+        const info = clientMap.get(cid);
+        const resolvedName  = info?.name  || agg.clientName  || `Unknown (${cid.slice(0, 8)})`;
+        const resolvedPhone = info?.phone || agg.clientPhone || "—";
+        const resolvedEmail = info?.email || "—";
+        return {
+          clientId:   cid,
+          name:       resolvedName,
+          phone:      resolvedPhone,
+          email:      resolvedEmail,
+          visits:     agg.visits,
+          totalSpend: agg.totalSpend,
+          avgTicket:  agg.visits > 0 ? agg.totalSpend / agg.visits : 0,
+          lastVisit:  agg.lastVisit ? new Date(agg.lastVisit).toLocaleDateString("en-IN") : "—",
+          tier:       getVipTier(agg.visits),
+        };
+      });
+
+      rows.sort((a, b) => b.visits - a.visits || b.totalSpend - a.totalSpend);
+      setAllRows(rows);
+    } finally {
+      if (!abortRef.current?.signal.aborted) setLoading(false);
+    }
+  }, [dateFrom, dateTo]);
+
+  const rows = useMemo(() => {
+    let data = [...allRows];
+    if (tier !== "all") data = data.filter(r => r.tier === tier);
+    return data;
+  }, [allRows, tier]);
+
+  useEffect(() => { setCurrentPage(1); }, [rows]);
+  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    const close = () => setShowTierDrop(false);
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+
+  const HEADERS    = ["Name", "Phone", "Email", "Visits", "Total Spend (₹)", "Avg Ticket (₹)", "Last Visit", "VIP Tier"];
+  const exportRows = () => rows.map(r => [r.name, r.phone, r.email, r.visits, r.totalSpend.toFixed(2), r.avgTicket.toFixed(2), r.lastVisit, r.tier]);
+  const paged      = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const tierBadge = (t: string) => {
+    const styles: Record<string, React.CSSProperties> = {
+      gold:   { background: "#fef3c7", color: "#92400e", border: "1px solid #f59e0b" },
+      silver: { background: "#f1f5f9", color: "#475569", border: "1px solid #94a3b8" },
+      bronze: { background: "#fdf2f1", color: "#9a3412", border: "1px solid #fdba74" },
+    };
+    return (
+      <span style={{ ...styles[t], padding: "2px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600, textTransform: "capitalize" }}>
+        {t === "gold" ? "🥇 " : t === "silver" ? "🥈 " : "🥉 "}{t}
+      </span>
+    );
+  };
+
+  return (
+    <div className="rp-detail-root">
+      <div className="rp-detail-header">
+        <div className="rp-detail-back-row">
+          <Button variant="ghost" className="rp-detail-back-btn" onClick={onBack}>
+            <ChevronLeft size={15} /> {report.name}
+          </Button>
+          <div className="rp-detail-view-icons">
+            <AppsNavButton />
+            <ReportExportButton title={report.name} headers={HEADERS} rows={exportRows} filename={`${report.name}-${dateFrom}-${dateTo}`} />
+            <button className="rp-detail-icon-btn" title="Info"><InfoCircle size={16} /></button>
+          </div>
+        </div>
+        <div className="rp-detail-tab-bar"><span className="rp-detail-tab active">Default View</span></div>
+      </div>
+
+      <div className="rp-detail-filters">
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Date Range</label>
+          <div className="rp-detail-date-range">
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="rp-detail-date-input" />
+            <span className="rp-detail-date-sep">-</span>
+            <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   className="rp-detail-date-input" />
+          </div>
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">VIP Tier</label>
+          <button className="rp-detail-select" onClick={() => setShowTierDrop(v => !v)}>
+            {VIP_TIERS.find(t => t.value === tier)?.label ?? "All"} <span className="rp-detail-caret">▼</span>
+          </button>
+          {showTierDrop && (
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
+              {VIP_TIERS.map(t => (
+                <div key={t.value} className={`rp-detail-dropdown-item ${t.value === tier ? "active" : ""}`}
+                  onClick={() => { setTier(t.value); setShowTierDrop(false); }}>{t.label}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-actions">
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
+            <Refresh size={13} /> Refresh
+          </Button>
+          <Button variant="ghost" className="rp-detail-save-btn">Save View</Button>
+        </div>
+      </div>
+
+      <div className="rp-detail-drag-hint">
+        {rows.length} VIP client{rows.length !== 1 ? "s" : ""}
+        &nbsp;·&nbsp;Gold: <strong>{rows.filter(r=>r.tier==="gold").length}</strong>
+        &nbsp;·&nbsp;Silver: <strong>{rows.filter(r=>r.tier==="silver").length}</strong>
+        &nbsp;·&nbsp;Bronze: <strong>{rows.filter(r=>r.tier==="bronze").length}</strong>
+      </div>
+
+      <div className="rp-detail-table-wrap">
+        {loading ? (
+          <div className="rp-detail-loading">Loading VIP client data…</div>
+        ) : paged.length === 0 ? (
+          <div className="rp-detail-empty">No client visit data found for this period.</div>
+        ) : (
+          <table className="rp-detail-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Client Name</th>
+                <th>Phone</th>
+                <th>Visits</th>
+                <th>Total Spend (₹)</th>
+                <th>Avg Ticket (₹)</th>
+                <th>Last Visit</th>
+                <th>VIP Tier</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paged.map((r, i) => (
+                <tr key={r.clientId}>
+                  <td>#{(currentPage - 1) * pageSize + i + 1}</td>
+                  <td><strong>{r.name}</strong></td>
+                  <td>{r.phone}</td>
+                  <td style={{ fontWeight: 700, color: "#6c3ce1" }}>{r.visits}</td>
+                  <td>₹{r.totalSpend.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
+                  <td>₹{r.avgTicket.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</td>
+                  <td>{r.lastVisit}</td>
+                  <td>{tierBadge(r.tier)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <Pagination
+        currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
+      />
+    </div>
+  );
+};
+
+// ─── Staff Schedule Report Detail ─────────────────────────────────────────────
+const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+interface StaffScheduleRow {
+  staffId:  number;
+  name:     string;
+  role:     string;
+  schedule: Record<number, { available: boolean; start: string; end: string }>;
+}
+
+const StaffScheduleReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const dispatch = useDispatch<AppDispatch>();
+
+  const [allRows,     setAllRows]     = useState<StaffScheduleRow[]>([]);
+  const [loading,     setLoading]     = useState(false);
+  const [employee,    setEmployee]    = useState("All");
+  const [employeeOptions, setEmployeeOptions] = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
+  const [showEmpDrop, setShowEmpDrop] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize,    setPageSize]    = useState(20);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const fetchData = useCallback(async () => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setLoading(true);
+    try {
+      const staffList = await dispatch(fetchStaffThunk()).unwrap();
+
+      setEmployeeOptions([
+        { label: "All", value: "All" },
+        ...staffList.map((s: any) => ({
+          label: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.name || "",
+          value: String(s.id),
+        })),
+      ]);
+
+      const schedResults = await Promise.allSettled(
+        staffList.map((s: any) =>
+          api.get(STAFF.SCHEDULES(s.id), { signal: ctrl.signal })
+            .then(r => ({ staff: s, schedules: r.data?.data ?? [] }))
+        )
+      );
+
+      const rows: StaffScheduleRow[] = schedResults.map((result, idx) => {
+        const staff = staffList[idx] as any;
+        const name  = `${staff.first_name ?? ""} ${staff.last_name ?? ""}`.trim() || staff.name || "Unknown";
+        const schedule: StaffScheduleRow["schedule"] = {};
+
+        if (result.status === "fulfilled") {
+          const scheds: any[] = Array.isArray(result.value.schedules?.items)
+            ? result.value.schedules.items
+            : Array.isArray(result.value.schedules) ? result.value.schedules : [];
+          scheds.forEach((s: any) => {
+            const dow = Number(s.day_of_week);
+            if (dow >= 0 && dow <= 6) {
+              schedule[dow] = {
+                available: s.is_available ?? true,
+                start:     s.start_time ?? "",
+                end:       s.end_time   ?? "",
+              };
+            }
+          });
+        }
+
+        return { staffId: Number(staff.id), name, role: staff.role ?? "Staff", schedule };
+      });
+
+      setAllRows(rows);
+    } finally {
+      if (!abortRef.current?.signal.aborted) setLoading(false);
+    }
+  }, [dispatch]);
+
+  const rows = useMemo(() => {
+    if (employee === "All") return allRows;
+    return allRows.filter(r => String(r.staffId) === employee);
+  }, [allRows, employee]);
+
+  useEffect(() => { setCurrentPage(1); }, [rows]);
+  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    const close = () => setShowEmpDrop(false);
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+
+  const fmt12 = (t: string) => {
+    if (!t) return "";
+    const [h, m] = t.split(":").map(Number);
+    if (isNaN(h)) return t;
+    const ampm = h >= 12 ? "PM" : "AM";
+    return `${h % 12 || 12}:${String(m ?? 0).padStart(2, "0")} ${ampm}`;
+  };
+
+  const paged = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  return (
+    <div className="rp-detail-root">
+      <div className="rp-detail-header">
+        <div className="rp-detail-back-row">
+          <Button variant="ghost" className="rp-detail-back-btn" onClick={onBack}>
+            <ChevronLeft size={15} /> {report.name}
+          </Button>
+          <div className="rp-detail-view-icons">
+            <AppsNavButton />
+            <button className="rp-detail-icon-btn" title="Info"><InfoCircle size={16} /></button>
+          </div>
+        </div>
+        <div className="rp-detail-tab-bar"><span className="rp-detail-tab active">Default View</span></div>
+      </div>
+
+      <div className="rp-detail-filters">
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Employee</label>
+          <button className="rp-detail-select" onClick={() => setShowEmpDrop(v => !v)}>
+            {(employeeOptions.find(o => o.value === employee)?.label ?? "All").slice(0, 18)}
+            <span className="rp-detail-caret">▼</span>
+          </button>
+          {showEmpDrop && (
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
+              {employeeOptions.map(o => (
+                <div key={o.value} className={`rp-detail-dropdown-item ${o.value === employee ? "active" : ""}`}
+                  onClick={() => { setEmployee(o.value); setShowEmpDrop(false); }}>{o.label}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-actions">
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
+            <Refresh size={13} /> Refresh
+          </Button>
+          <Button variant="ghost" className="rp-detail-save-btn">Save View</Button>
+        </div>
+      </div>
+
+      <div className="rp-detail-drag-hint">{rows.length} staff member{rows.length !== 1 ? "s" : ""}</div>
+
+      <div className="rp-detail-table-wrap" style={{ overflowX: "auto" }}>
+        {loading ? (
+          <div className="rp-detail-loading">Loading schedule data…</div>
+        ) : paged.length === 0 ? (
+          <div className="rp-detail-empty">No schedule data found.</div>
+        ) : (
+          <table className="rp-detail-table" style={{ minWidth: 900 }}>
+            <thead>
+              <tr>
+                <th style={{ minWidth: 140 }}>Name</th>
+                <th>Role</th>
+                {DAYS_SHORT.map(d => <th key={d} style={{ minWidth: 90, textAlign: "center" }}>{d}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {paged.map(r => (
+                <tr key={r.staffId}>
+                  <td><strong>{r.name}</strong></td>
+                  <td>{r.role}</td>
+                  {[0,1,2,3,4,5,6].map(dow => {
+                    const s = r.schedule[dow];
+                    if (!s || !s.available) {
+                      return (
+                        <td key={dow} style={{ textAlign: "center", color: "#d1d5db", fontSize: 12 }}>Off</td>
+                      );
+                    }
+                    return (
+                      <td key={dow} style={{ textAlign: "center", fontSize: 11 }}>
+                        <span style={{ color: "#16a34a", fontWeight: 600, display: "block" }}>On</span>
+                        {s.start && s.end && (
+                          <span style={{ color: "#6b7280" }}>{fmt12(s.start)}<br />{fmt12(s.end)}</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <Pagination
+        currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
+      />
+    </div>
+  );
+};
+
+// ─── Commissions Report Detail ────────────────────────────────────────────────
+interface CommissionRow {
+  staffId:          number;
+  staffName:        string;
+  role:             string;
+  commissionType:   "percentage" | "fixed_rate";
+  commissionRate:   number;
+  revenue:          number;
+  services:         number;
+  commissionEarned: number;
+}
+
+const CommissionsReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const dispatch   = useDispatch<AppDispatch>();
+  const today      = new Date().toISOString().slice(0, 10);
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+
+  const [dateFrom,        setDateFrom]        = useState(monthStart);
+  const [dateTo,          setDateTo]          = useState(today);
+  const [allRows,         setAllRows]         = useState<CommissionRow[]>([]);
+  const [loading,         setLoading]         = useState(false);
+  const [employee,        setEmployee]        = useState("All");
+  const [employeeOptions, setEmployeeOptions] = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
+  const [showEmpDrop,     setShowEmpDrop]     = useState(false);
+  const [currentPage,     setCurrentPage]     = useState(1);
+  const [pageSize,        setPageSize]        = useState(10);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    const ctrl = new AbortController();
+    try {
+      const apptParams = new URLSearchParams({ start_date: dateFrom, end_date: dateTo, limit: "500" });
+      const [staffList, apptRes] = await Promise.all([
+        dispatch(fetchStaffThunk()).unwrap(),
+        api.get(`${BOOKING.BASE}?${apptParams}`, { signal: ctrl.signal }),
+      ]);
+
+      setEmployeeOptions([
+        { label: "All", value: "All" },
+        ...staffList.map((s: any) => ({
+          label: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.name || "",
+          value: String(s.id),
+        })),
+      ]);
+
+      // Aggregate revenue + service count per staff from appointments
+      const revenueMap = new Map<number, { revenue: number; services: number }>();
+      const apptRaw = apptRes.data?.data?.data ?? apptRes.data?.data ?? apptRes.data ?? [];
+      const appts: any[] = Array.isArray(apptRaw) ? apptRaw : [];
+      appts.forEach((appt: any) => {
+        const sid = Number(appt.staff_id ?? appt.staffId);
+        if (!sid) return;
+        const items = [
+          ...(Array.isArray(appt.services)      ? appt.services      : []),
+          ...(Array.isArray(appt.product_items) ? appt.product_items : []),
+          ...(Array.isArray(appt.package_items) ? appt.package_items : []),
+        ];
+        const computedTotal = items.reduce((sum: number, item: any) => {
+          const price = parseFloat(String(item.price ?? 0)) || 0;
+          const qty   = Number(item.quantity ?? item.qty ?? 1) || 1;
+          return sum + price * qty;
+        }, 0);
+        const revenue = parseFloat(String(appt.grand_total ?? appt.total_amount ?? 0)) || computedTotal;
+        const prev    = revenueMap.get(sid) ?? { revenue: 0, services: 0 };
+        revenueMap.set(sid, { revenue: prev.revenue + revenue, services: prev.services + 1 });
+      });
+
+      // Fetch each staff member's commission rate
+      const commResults = await Promise.allSettled(
+        staffList.map((s: any) =>
+          api.get(STAFF.COMMISSIONS(s.id), { signal: ctrl.signal })
+            .then(r => ({ staffId: s.id, data: r.data?.data ?? r.data }))
+        )
+      );
+
+      const rows: CommissionRow[] = staffList.map((s: any) => {
+        const staffName = `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.name || "Unknown";
+        const perf      = revenueMap.get(Number(s.id)) ?? { revenue: 0, services: 0 };
+
+        // Find commission data for this staff
+        const commResult = commResults.find(r =>
+          r.status === "fulfilled" && r.value.staffId === s.id
+        );
+        const commData: any = commResult?.status === "fulfilled" ? commResult.value.data : null;
+
+        // API returns array of { category, is_enabled, commission_kind, default_rate, ... }
+        // commission_kind: "percentage" | "fixed_rate"
+        let commType: "percentage" | "fixed_rate" = "percentage";
+        let commRate = 0;
+        if (Array.isArray(commData) && commData.length > 0) {
+          // Prefer services category (most relevant for appointments), else first enabled
+          const svcComm = commData.find((c: any) => c.category === "services" && c.is_enabled)
+            ?? commData.find((c: any) => c.is_enabled)
+            ?? commData[0];
+          commType = svcComm?.commission_kind ?? "percentage";
+          commRate = parseFloat(String(svcComm?.default_rate ?? 0)) || 0;
+        }
+
+        const earned = commType === "percentage"
+          ? (perf.revenue * commRate) / 100
+          : commRate * perf.services;
+
+        return {
+          staffId:          Number(s.id),
+          staffName,
+          role:             s.role ?? s.designation ?? "Staff",
+          commissionType:   commType,
+          commissionRate:   commRate,
+          revenue:          perf.revenue,
+          services:         perf.services,
+          commissionEarned: earned,
+        };
+      });
+
+      setAllRows(rows);
+    } finally {
+      setLoading(false);
+    }
+  }, [dateFrom, dateTo]);
+
+  const rows = useMemo(() => {
+    let data = [...allRows].sort((a, b) => b.commissionEarned - a.commissionEarned);
+    if (employee !== "All") {
+      const empLabel = (employeeOptions.find(o => o.value === employee)?.label ?? "").toLowerCase().trim();
+      if (empLabel) data = data.filter(r => r.staffName.toLowerCase().trim() === empLabel);
+    }
+    return data;
+  }, [allRows, employee, employeeOptions]);
+
+  useEffect(() => { setCurrentPage(1); }, [rows]);
+  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    const close = () => setShowEmpDrop(false);
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+
+  const HEADERS    = ["Name", "Role", "Commission Type", "Rate", "Revenue (₹)", "Services", "Commission Earned (₹)"];
+  const exportRows = () => rows.map(r => [r.staffName, r.role, r.commissionType === "percentage" ? "Percentage" : "Fixed Rate", r.commissionRate, r.revenue, r.services, r.commissionEarned.toFixed(2)]);
+  const paged      = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const totalEarned = rows.reduce((s, r) => s + r.commissionEarned, 0);
+
+  return (
+    <div className="rp-detail-root">
+      <div className="rp-detail-header">
+        <div className="rp-detail-back-row">
+          <Button variant="ghost" className="rp-detail-back-btn" onClick={onBack}>
+            <ChevronLeft size={15} /> {report.name}
+          </Button>
+          <div className="rp-detail-view-icons">
+            <AppsNavButton />
+            <ReportExportButton
+              title={report.name}
+              headers={HEADERS}
+              rows={exportRows}
+              filename={`${report.name}-${dateFrom}-${dateTo}`}
+            />
+            <button className="rp-detail-icon-btn" title="Info"><InfoCircle size={16} /></button>
+          </div>
+        </div>
+        <div className="rp-detail-tab-bar"><span className="rp-detail-tab active">Default View</span></div>
+      </div>
+
+      <div className="rp-detail-filters">
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Date Range</label>
+          <div className="rp-detail-date-range">
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="rp-detail-date-input" />
+            <span className="rp-detail-date-sep">-</span>
+            <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   className="rp-detail-date-input" />
+          </div>
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Employee</label>
+          <button className="rp-detail-select" onClick={() => setShowEmpDrop(v => !v)}>
+            {(employeeOptions.find(o => o.value === employee)?.label ?? "All").slice(0, 16)}{(employeeOptions.find(o => o.value === employee)?.label ?? "All").length > 16 ? "…" : ""}
+            <span className="rp-detail-caret">▼</span>
+          </button>
+          {showEmpDrop && (
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
+              {employeeOptions.map(o => (
+                <div key={o.value} className={`rp-detail-dropdown-item ${o.value === employee ? "active" : ""}`}
+                  onClick={() => { setEmployee(o.value); setShowEmpDrop(false); }}>{o.label}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-actions">
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
+            <Refresh size={13} /> Refresh
+          </Button>
+          <Button variant="ghost" className="rp-detail-save-btn">Save View</Button>
+        </div>
+      </div>
+
+      <div className="rp-detail-drag-hint">
+        {rows.length} staff member{rows.length !== 1 ? "s" : ""}
+        {totalEarned > 0 && <>&nbsp;·&nbsp;Total Commission: <strong>₹{totalEarned.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</strong></>}
+      </div>
+
+      <div className="rp-detail-table-wrap">
+        {loading ? (
+          <div className="rp-detail-loading">Loading commission data…</div>
+        ) : paged.length === 0 ? (
+          <div className="rp-detail-empty">No commission data found for this period.</div>
+        ) : (
+          <table className="rp-detail-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Commission Type</th>
+                <th>Rate</th>
+                <th>Revenue (₹)</th>
+                <th>Services</th>
+                <th>Commission Earned (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paged.map((r, i) => (
+                <tr key={r.staffId}>
+                  <td>#{(currentPage - 1) * pageSize + i + 1}</td>
+                  <td><strong>{r.staffName}</strong></td>
+                  <td>{r.role}</td>
+                  <td>{r.commissionType === "percentage" ? "Percentage" : "Fixed Rate"}</td>
+                  <td>{r.commissionType === "percentage" ? `${r.commissionRate}%` : `₹${r.commissionRate}/service`}</td>
+                  <td>₹{r.revenue.toLocaleString("en-IN")}</td>
+                  <td>{r.services}</td>
+                  <td><strong style={{ color: r.commissionEarned > 0 ? "#16a34a" : undefined }}>
+                    ₹{r.commissionEarned.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                  </strong></td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ fontWeight: 700, borderTop: "2px solid #e5e7eb" }}>
+                <td colSpan={5}></td>
+                <td>₹{rows.reduce((s, r) => s + r.revenue, 0).toLocaleString("en-IN")}</td>
+                <td>{rows.reduce((s, r) => s + r.services, 0)}</td>
+                <td style={{ color: "#16a34a" }}>₹{totalEarned.toLocaleString("en-IN", { maximumFractionDigits: 2 })}</td>
+              </tr>
+            </tfoot>
+          </table>
+        )}
+      </div>
+
+      <Pagination
+        currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
+      />
+    </div>
+  );
+};
+
+// ─── Leaves Report Detail ─────────────────────────────────────────────────────
+const LEAVE_TYPES = [
+  { value: "All",     label: "All Types"  },
+  { value: "timeoff", label: "Time Off"   },
+  { value: "dayoff",  label: "Day Off"    },
+  { value: "sick",    label: "Sick Leave" },
+  { value: "casual",  label: "Casual"     },
+  { value: "other",   label: "Other"      },
+];
+const LEAVE_STATUSES = [
+  { value: "All",      label: "All Status" },
+  { value: "approved", label: "Approved"   },
+  { value: "pending",  label: "Pending"    },
+  { value: "rejected", label: "Rejected"   },
+];
+
+interface LeaveRow {
+  staffId: number;
+  staffName: string;
+  leaveType: string;
+  startDate: string;
+  endDate: string;
+  days: number;
+  status: string;
+  reason: string;
+}
+
+const LeavesReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const dispatch   = useDispatch<AppDispatch>();
+  const today      = new Date().toISOString().slice(0, 10);
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+
+  const [dateFrom,        setDateFrom]        = useState(monthStart);
+  const [dateTo,          setDateTo]          = useState(today);
+  const [allRows,         setAllRows]         = useState<LeaveRow[]>([]);
+  const [loading,         setLoading]         = useState(false);
+  const [employee,        setEmployee]        = useState("All");
+  const [leaveType,       setLeaveType]       = useState("All");
+  const [leaveStatus,     setLeaveStatus]     = useState("All");
+  const [employeeOptions, setEmployeeOptions] = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
+  const [showEmpDrop,     setShowEmpDrop]     = useState(false);
+  const [showTypeDrop,    setShowTypeDrop]    = useState(false);
+  const [showStatDrop,    setShowStatDrop]    = useState(false);
+  const [currentPage,     setCurrentPage]     = useState(1);
+  const [pageSize,        setPageSize]        = useState(10);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    const ctrl = new AbortController();
+    try {
+      const staffList = await dispatch(fetchStaffThunk()).unwrap();
+
+      const opts = [{ label: "All", value: "All" }, ...staffList.map((s: any) => ({
+        label: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.name || "",
+        value: String(s.id),
+      }))];
+      setEmployeeOptions(opts);
+
+      const leaveResults = await Promise.allSettled(
+        staffList.map((s: any) =>
+          api.get(STAFF.LEAVES(s.id), { signal: ctrl.signal })
+            .then(r => ({ staff: s, leaves: r.data?.data ?? r.data ?? [] }))
+        )
+      );
+
+      const from = new Date(dateFrom);
+      const to   = new Date(dateTo);
+      to.setHours(23, 59, 59);
+
+      const rows: LeaveRow[] = [];
+      leaveResults.forEach(result => {
+        if (result.status !== "fulfilled") return;
+        const { staff, leaves } = result.value;
+        const leaveArr: any[] = Array.isArray(leaves?.items) ? leaves.items : (Array.isArray(leaves) ? leaves : []);
+        const staffName = `${staff.first_name ?? ""} ${staff.last_name ?? ""}`.trim() || staff.name || "Unknown";
+
+        leaveArr.forEach((lv: any) => {
+          const lvStart = lv.start_date ? new Date(lv.start_date) : null;
+          const lvEnd   = lv.end_date   ? new Date(lv.end_date)   : lvStart;
+          if (!lvStart) return;
+          // Include if leave overlaps with the selected date range
+          if (lvStart > to || (lvEnd && lvEnd < from)) return;
+
+          const diffMs   = lvEnd ? Math.abs(lvEnd.getTime() - lvStart.getTime()) : 0;
+          const diffDays = Math.round(diffMs / 86400000) + 1;
+
+          rows.push({
+            staffId:   staff.id,
+            staffName,
+            leaveType: lv.leave_type ?? lv.type ?? "other",
+            startDate: lv.start_date ? new Date(lv.start_date).toLocaleDateString("en-IN") : "—",
+            endDate:   lv.end_date   ? new Date(lv.end_date).toLocaleDateString("en-IN")   : "—",
+            days:      diffDays,
+            status:    lv.status ?? "pending",
+            reason:    lv.reason ?? "—",
+          });
+        });
+      });
+
+      rows.sort((a, b) => a.staffName.localeCompare(b.staffName));
+      setAllRows(rows);
+    } finally {
+      setLoading(false);
+    }
+  }, [dateFrom, dateTo]);
+
+  const rows = useMemo(() => {
+    let data = [...allRows];
+    if (employee !== "All") {
+      const empLabel = (employeeOptions.find(o => o.value === employee)?.label ?? "").toLowerCase().trim();
+      if (empLabel) data = data.filter(r => r.staffName.toLowerCase().trim() === empLabel);
+    }
+    if (leaveType   !== "All") data = data.filter(r => r.leaveType.toLowerCase() === leaveType.toLowerCase());
+    if (leaveStatus !== "All") data = data.filter(r => r.status.toLowerCase()    === leaveStatus.toLowerCase());
+    return data;
+  }, [allRows, employee, employeeOptions, leaveType, leaveStatus]);
+
+  useEffect(() => { setCurrentPage(1); }, [rows]);
+  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    const close = () => { setShowEmpDrop(false); setShowTypeDrop(false); setShowStatDrop(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+
+  const HEADERS    = ["Employee", "Leave Type", "Start Date", "End Date", "Days", "Status", "Reason"];
+  const exportRows = () => rows.map(r => [r.staffName, r.leaveType, r.startDate, r.endDate, r.days, r.status, r.reason]);
+  const paged      = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const statusBadge = (s: string) => {
+    const map: Record<string, string> = { approved: "#16a34a", pending: "#d97706", rejected: "#dc2626" };
+    const color = map[s.toLowerCase()] ?? "#6b7280";
+    return <span style={{ color, fontWeight: 600, textTransform: "capitalize" }}>{s}</span>;
+  };
+
+  return (
+    <div className="rp-detail-root">
+      <div className="rp-detail-header">
+        <div className="rp-detail-back-row">
+          <Button variant="ghost" className="rp-detail-back-btn" onClick={onBack}>
+            <ChevronLeft size={15} /> {report.name}
+          </Button>
+          <div className="rp-detail-view-icons">
+            <AppsNavButton />
+            <ReportExportButton
+              title={report.name}
+              headers={HEADERS}
+              rows={exportRows}
+              filename={`${report.name}-${dateFrom}-${dateTo}`}
+            />
+            <button className="rp-detail-icon-btn" title="Info"><InfoCircle size={16} /></button>
+          </div>
+        </div>
+        <div className="rp-detail-tab-bar"><span className="rp-detail-tab active">Default View</span></div>
+      </div>
+
+      <div className="rp-detail-filters">
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Date Range</label>
+          <div className="rp-detail-date-range">
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="rp-detail-date-input" />
+            <span className="rp-detail-date-sep">-</span>
+            <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   className="rp-detail-date-input" />
+          </div>
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Employee</label>
+          <button className="rp-detail-select" onClick={() => { setShowEmpDrop(v => !v); setShowTypeDrop(false); setShowStatDrop(false); }}>
+            {(employeeOptions.find(o => o.value === employee)?.label ?? "All").slice(0, 16)}{(employeeOptions.find(o => o.value === employee)?.label ?? "All").length > 16 ? "…" : ""}
+            <span className="rp-detail-caret">▼</span>
+          </button>
+          {showEmpDrop && (
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
+              {employeeOptions.map(o => (
+                <div key={o.value} className={`rp-detail-dropdown-item ${o.value === employee ? "active" : ""}`}
+                  onClick={() => { setEmployee(o.value); setShowEmpDrop(false); }}>{o.label}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Leave Type</label>
+          <button className="rp-detail-select" onClick={() => { setShowTypeDrop(v => !v); setShowEmpDrop(false); setShowStatDrop(false); }}>
+            {LEAVE_TYPES.find(t => t.value === leaveType)?.label ?? "All Types"} <span className="rp-detail-caret">▼</span>
+          </button>
+          {showTypeDrop && (
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
+              {LEAVE_TYPES.map(t => (
+                <div key={t.value} className={`rp-detail-dropdown-item ${t.value === leaveType ? "active" : ""}`}
+                  onClick={() => { setLeaveType(t.value); setShowTypeDrop(false); }}>{t.label}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Status</label>
+          <button className="rp-detail-select" onClick={() => { setShowStatDrop(v => !v); setShowEmpDrop(false); setShowTypeDrop(false); }}>
+            {LEAVE_STATUSES.find(t => t.value === leaveStatus)?.label ?? "All Status"} <span className="rp-detail-caret">▼</span>
+          </button>
+          {showStatDrop && (
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
+              {LEAVE_STATUSES.map(t => (
+                <div key={t.value} className={`rp-detail-dropdown-item ${t.value === leaveStatus ? "active" : ""}`}
+                  onClick={() => { setLeaveStatus(t.value); setShowStatDrop(false); }}>{t.label}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-actions">
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
+            <Refresh size={13} /> Refresh
+          </Button>
+          <Button variant="ghost" className="rp-detail-save-btn">Save View</Button>
+        </div>
+      </div>
+
+      <div className="rp-detail-drag-hint">
+        {rows.length} leave record{rows.length !== 1 ? "s" : ""}
+        {rows.length > 0 && <>&nbsp;·&nbsp;Total Days: <strong>{rows.reduce((s, r) => s + r.days, 0)}</strong></>}
+      </div>
+
+      <div className="rp-detail-table-wrap">
+        {loading ? (
+          <div className="rp-detail-loading">Loading leave data…</div>
+        ) : paged.length === 0 ? (
+          <div className="rp-detail-empty">No leave records found for this period.</div>
+        ) : (
+          <table className="rp-detail-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Employee</th>
+                <th>Leave Type</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Days</th>
+                <th>Status</th>
+                <th>Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paged.map((r, i) => (
+                <tr key={`${r.staffId}-${i}`}>
+                  <td>#{(currentPage - 1) * pageSize + i + 1}</td>
+                  <td><strong>{r.staffName}</strong></td>
+                  <td style={{ textTransform: "capitalize" }}>{r.leaveType.replace(/_/g, " ")}</td>
+                  <td>{r.startDate}</td>
+                  <td>{r.endDate}</td>
+                  <td>{r.days}</td>
+                  <td>{statusBadge(r.status)}</td>
+                  <td style={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.reason}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <Pagination
+        currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
+      />
+    </div>
+  );
+};
+
 // ─── Reports Dashboard data ────────────────────────────────────────────────────
 
 interface ReportItem {
@@ -2232,7 +4059,9 @@ interface ReportItem {
 const ALL_REPORTS: ReportItem[] = [
   // ── Operational ──────────────────────────────────────────────────────────────
   { id: "appointments",         name: "Appointments",         tags: ["Operational", "Appointments"], description: "Use this report to view the details of all the appointments (including no-shows and cancelled appointments) for a given period.", category: "operational", isNewVersion: true },
-  { id: "client_retention",     name: "Client Retention",     tags: ["Operational"],                 description: "Identify clients who haven't visited in the last 30, 60, or 90 days to drive re-engagement.",                                     category: "operational", isNewVersion: true },
+  // ── Clients ───────────────────────────────────────────────────────────────────
+  { id: "client_retention",     name: "Client Retention",     tags: ["Retention"],                   description: "Identify clients who haven't visited in the last 30, 60, or 90 days to drive re-engagement.",                                     category: "clients",     isNewVersion: true },
+  { id: "vip_clients",          name: "VIP Clients",          tags: ["VIP"],                         description: "Rank clients by visit frequency and total spend. Automatically assigns Gold, Silver, and Bronze VIP tiers.",                           category: "clients",     isNewVersion: true },
   // ── Finance ───────────────────────────────────────────────────────────────────
   { id: "collections",          name: "Collections",          tags: ["Finance", "Collections"],      description: "Use this report to view the payments received (including redemptions) on a day or during the given period.",                       category: "finance",     isNewVersion: true },
   { id: "revenue_by_service",   name: "Revenue by Service",   tags: ["Finance", "Operational"],      description: "Break down total revenue by individual services offered, with average ticket and booking counts.",                                  category: "finance" },
@@ -2244,12 +4073,15 @@ const ALL_REPORTS: ReportItem[] = [
   { id: "payment_summary",      name: "Payment Summary",      tags: ["Payments"],                    description: "View a consolidated summary of all payment methods collected across all centers for a given period.",                               category: "payments" },
   // ── Daily Reports ─────────────────────────────────────────────────────────────
   { id: "daily_summary",        name: "Daily Summary",        tags: ["Daily Reports"],               description: "View a complete daily summary of appointments, collections, and staff performance for any given date.",                             category: "daily_reports" },
+  { id: "client_acquisition",    name: "Client Acquisition",    tags: ["Acquisition"], description: "Analyse how new clients are acquired and track their visit history, spend, and engagement status over a period.",   category: "clients" },
   // ── Marketing ─────────────────────────────────────────────────────────────────
-  { id: "campaign_performance", name: "Campaign Performance", tags: ["Marketing"],                   description: "Measure the effectiveness of marketing campaigns by tracking reach, conversions, and revenue generated.",                           category: "marketing" },
-  { id: "client_acquisition",   name: "Client Acquisition",   tags: ["Marketing"],                   description: "Analyse how new clients are acquired across different channels and referral sources over a period.",                                category: "marketing" },
+  { id: "campaign_performance",   name: "Campaign Performance",   tags: ["Marketing"], description: "Track WhatsApp campaign delivery rates, read rates, and engagement metrics across all campaigns.",                 category: "marketing" },
+  { id: "template_performance",  name: "Template Performance",  tags: ["Marketing"], description: "Analyse which WhatsApp message templates drive the highest engagement and delivery success.",                         category: "marketing" },
+  { id: "message_spend",         name: "Message Spend",         tags: ["Marketing"], description: "Monitor daily WhatsApp message volumes and estimated costs broken down by category (Marketing, Utility, Auth).",   category: "marketing" },
   // ── Employee ──────────────────────────────────────────────────────────────────
   { id: "attrition",                      name: "Attrition",                    tags: ["Team"],         description: "Track the number of center employees who have either joined or left the organization.",                 category: "employee" },
   { id: "block_out_time_details",         name: "Block Out Time Details",        tags: ["Time"],         description: "Show times when providers are on break or unavailable using Block Out Time Types.",                    category: "employee" },
+  { id: "staff_schedule",                 name: "Staff Schedule",                tags: ["Time", "Team"], description: "View the weekly working schedule for all staff members — working hours per day across the week.",              category: "employee", isNewVersion: true },
   { id: "booking_productivity",           name: "Booking Productivity",          tags: ["Sales"],        description: "Insight into the types of services requested by your guests by calling your center.",                  category: "employee" },
   { id: "commissions",                    name: "Commissions",                   tags: ["Commissions"],  description: "Calculate and review commission earned by each employee based on services and products sold.",          category: "employee" },
   { id: "commissions_graphical",          name: "Commissions - Graphical",       tags: ["Commissions"],  description: "Graphical breakdown of commission earned per employee.",                                                category: "employee" },
@@ -2273,16 +4105,18 @@ const ALL_REPORTS: ReportItem[] = [
 
 const SUB_CATEGORIES: Record<string, string[]> = {
   "employee": ["Sales", "Commissions", "Performance", "Team", "Time"],
+  "clients":  ["VIP", "Retention", "Acquisition"],
 };
 
 const FALLBACK_CATEGORIES = [
-  { key: "all",          label: "All",           count: 32 },
+  { key: "all",          label: "All",           count: 34 },
   { key: "daily_reports",label: "Daily Reports", count: 1  },
-  { key: "employee",     label: "Employee",      count: 21 },
+  { key: "employee",     label: "Employee",      count: 22 },
+  { key: "clients",      label: "Clients",       count: 3  },
   { key: "finance",      label: "Finance",       count: 2  },
   { key: "inventory",    label: "Inventory",     count: 2  },
-  { key: "marketing",    label: "Marketing",     count: 2  },
-  { key: "operational",  label: "Operational",   count: 2  },
+  { key: "marketing",    label: "Marketing",     count: 3  },
+  { key: "operational",  label: "Operational",   count: 1  },
   { key: "payments",     label: "Payments",      count: 2  },
 ];
 
@@ -2309,8 +4143,11 @@ export default function ReportsPage() {
   const [showFilter, setShowFilter]   = useState(false);
   const [filterFrom, setFilterFrom]   = useState("");
   const [filterTo, setFilterTo]       = useState("");
+  const [filterPayment, setFilterPayment]     = useState("");
   const [filterStaff, setFilterStaff]         = useState("");
   const [filterService, setFilterService]     = useState("");
+  const [filterDateError, setFilterDateError] = useState("");
+  const [isCustomRange, setIsCustomRange]     = useState(false);
   const [filterStaffList, setFilterStaffList]     = useState<string[]>([]);
   const [filterServiceList, setFilterServiceList] = useState<string[]>([]);
 
@@ -2337,7 +4174,7 @@ export default function ReportsPage() {
     setActiveSubCategory(null);
   };
 
-  const activeReports = reportsDashboard?.reports ?? ALL_REPORTS;
+  const activeReports = ALL_REPORTS;
 
   const filteredReports = useMemo(() => {
     return activeReports.filter(r => {
@@ -2389,6 +4226,12 @@ export default function ReportsPage() {
     }
   }, [dispatch, tab, period]); // filterFrom/filterTo removed — only applied on explicit click
 
+  // Clear fetch cache whenever period changes so switching back to a previous
+  // period always re-fetches fresh data (Redux only keeps one slot per tab).
+  useEffect(() => {
+    loadedRef.current = new Set();
+  }, [period]);
+
   useEffect(() => {
     fetchCurrentTab(); // called without from/to — uses period only
   }, [fetchCurrentTab]);
@@ -2406,16 +4249,16 @@ export default function ReportsPage() {
     if (filterFetchedRef.current) return;
     filterFetchedRef.current = true;
 
-    api.get<{ data: { items: Array<{ first_name: string; last_name?: string | null }> } }>("/api/v1/staff?limit=200")
-      .then(res => {
-        const names = (res.data?.data?.items ?? []).map(s =>
+    dispatch(fetchStaffThunk()).unwrap()
+      .then(staffList => {
+        const names = staffList.map((s: any) =>
           [s.first_name, s.last_name].filter(Boolean).join(" ")
         ).filter(Boolean);
         if (names.length) setFilterStaffList(names);
       })
       .catch(() => {});
 
-    api.get<{ data: { data: Array<{ name: string }> } }>("/api/v1/services?limit=200&status=active")
+    api.get<{ data: { data: Array<{ name: string }> } }>(`${SERVICES.BASE}?limit=200&status=active`)
       .then(res => {
         const names = (res.data?.data?.data ?? []).map(s => s.name).filter(Boolean);
         if (names.length) setFilterServiceList(names);
@@ -2436,19 +4279,20 @@ export default function ReportsPage() {
 
   const revenueTrend = (() => {
     const raw = (revenueData?.trend ?? []).filter(Boolean);
-    if (!raw.length) return period === "7d" ? revenueBy7d : revenueByMonth;
-    return raw.map(p => ({
+    const sanitized = raw.map(p => ({
       ...p,
       label:   p.label   ?? "",
       revenue: p.revenue ?? 0,
       target:  p.target  ?? 0,
       prev:    p.prev    ?? 0,
     }));
+    // Always build the full date series so empty days show as ₹0
+    return buildRevenueSeries(period, sanitized);
   })();
 
   const apptVolume = (() => {
     const raw = (appointmentsData?.volume ?? []).filter(Boolean);
-    if (!raw.length) return appointmentsWeekly;
+    if (!raw.length) return [];
     return raw.map(p => ({
       ...p,
       label:     p.label     ?? "",
@@ -2460,7 +4304,7 @@ export default function ReportsPage() {
 
   const clientGrowthData = (() => {
     const raw = (clientsData?.growth ?? []).filter(Boolean);
-    if (!raw.length) return clientGrowth;
+    if (!raw.length) return [];
     return raw.map(p => ({
       ...p,
       label:     p.label     ?? "",
@@ -2472,7 +4316,7 @@ export default function ReportsPage() {
 
   const topClientsList = (() => {
     const raw = (clientsData?.topClients ?? []).filter(Boolean);
-    if (!raw.length) return fallbackTopClients;
+    if (!raw.length) return [];
     return raw.map(c => ({
       ...c,
       id:     String(c.id ?? ""),
@@ -2484,7 +4328,7 @@ export default function ReportsPage() {
 
   const staffList = (() => {
     const raw = (staffData?.performance ?? []).filter(Boolean);
-    if (!raw.length) return fallbackStaffData;
+    if (!raw.length) return [];
     return raw.map((s, i) => ({
       ...s,
       bookings:    s.bookings    ?? 0,
@@ -2492,13 +4336,13 @@ export default function ReportsPage() {
       rating:      s.rating      ?? 0,
       utilization: s.utilization ?? 0,
       avgTicket:   s.avgTicket   ?? 0,
-      color: fallbackStaffData[i % fallbackStaffData.length]?.color ?? "#111827",
+      color: s.color ?? CHART_COLORS[i % CHART_COLORS.length],
     }));
   })();
 
   const radarData = (() => {
     const raw = (staffData?.radar ?? []).filter(Boolean);
-    if (!raw.length) return radarStaffFallback;
+    if (!raw.length) return [];
     const mapped = raw.map(point => {
       const out: { metric: string; [k: string]: string | number } = { metric: String(point.metric ?? "") };
       Object.entries(point).forEach(([k, v]) => {
@@ -2507,13 +4351,13 @@ export default function ReportsPage() {
       return out;
     });
     const hasStaffKeys = Object.keys(mapped[0] ?? {}).some(k => k !== "metric");
-    if (!hasStaffKeys) return radarStaffFallback;
+    if (!hasStaffKeys) return [];
     return mapped;
   })();
 
   const serviceList = (() => {
     const raw = (servicesData?.services ?? []).filter(Boolean);
-    if (!raw.length) return fallbackServiceData;
+    if (!raw.length) return [];
     return raw.map((s, i) => ({
       ...s,
       name:      s.name      ?? "—",
@@ -2521,9 +4365,13 @@ export default function ReportsPage() {
       revenue:   s.revenue   ?? 0,
       avgTicket: s.avgTicket ?? 0,
       growth:    s.growth    ?? 0,
-      color: s.color ?? fallbackServiceData[i % fallbackServiceData.length]?.color ?? "#111827",
+      color: s.color ?? CHART_COLORS[i % CHART_COLORS.length],
     }));
   })();
+
+  const peakHoursData = (appointmentsData?.peakHours ?? [])
+    .filter(Boolean)
+    .map(h => ({ hour: h.hour ?? "", count: h.count ?? 0 }));
 
   // ── Live KPI config built from API data (falls back to static kpiConfig) ─────
   const liveKpis = useMemo(() => {
@@ -2579,7 +4427,7 @@ export default function ReportsPage() {
         { label: "New Services",    value: k.newServices.toString(),         change: fmtPct(k.changes.newServices),      up: isUp(k.changes.newServices),       icon: <ArrowRepeat   size={16}/>, color: "#f59e0b" },
       ];
     }
-    return kpiConfig[tab];
+    return [];
   }, [tab, revenueData, appointmentsData, clientsData, staffData, servicesData]);
 
   // ── Tab / Period config ──────────────────────────────────────────────────────
@@ -2633,12 +4481,24 @@ export default function ReportsPage() {
         </div>
         <div className="rp-header-right">
           <div className="rp-period-pills">
+            {isCustomRange && (
+              <span className="rp-period-pill active" style={{ cursor: "default", fontSize: 12 }}>
+                Custom Range
+              </span>
+            )}
             {periods.map(p => (
               <Button
                 key={p.key}
                 variant="ghost"
-                className={`rp-period-pill ${period === p.key ? "active" : ""}`}
-                onClick={() => setPeriod(p.key)}
+                className={`rp-period-pill ${!isCustomRange && period === p.key ? "active" : ""}`}
+                style={isCustomRange ? { opacity: 0.45, pointerEvents: "none" } : undefined}
+                onClick={() => {
+                  setIsCustomRange(false);
+                  setFilterFrom("");
+                  setFilterTo("");
+                  setFilterDateError("");
+                  setPeriod(p.key);
+                }}
               >
                 {p.label}
               </Button>
@@ -2663,26 +4523,31 @@ export default function ReportsPage() {
       {showFilter && (
         <div className="rp-filter-bar">
           <div className="rp-filter-group">
-            <label>Date Range</label>
-            <div className="rp-filter-input-wrap">
+            <label>DATE RANGE</label>
+            <div className={`rp-filter-input-wrap${filterDateError ? " rp-filter-input-error" : ""}`}>
               <Calendar3 size={13} className="rp-filter-ic" />
               <input
                 type="date"
                 className="rp-filter-input"
                 value={filterFrom}
-                onChange={e => setFilterFrom(e.target.value)}
+                max={filterTo || undefined}
+                onChange={e => { setFilterFrom(e.target.value); setFilterDateError(""); }}
               />
-              <span className="rp-filter-sep">→</span>
+              <span className="rp-filter-sep">—</span>
               <input
                 type="date"
                 className="rp-filter-input"
                 value={filterTo}
-                onChange={e => setFilterTo(e.target.value)}
+                min={filterFrom || undefined}
+                onChange={e => { setFilterTo(e.target.value); setFilterDateError(""); }}
               />
             </div>
+            {filterDateError && (
+              <span className="rp-filter-date-err">{filterDateError}</span>
+            )}
           </div>
           <div className="rp-filter-group">
-            <label>Staff</label>
+            <label>STAFF</label>
             <select className="rp-filter-select" value={filterStaff} onChange={e => setFilterStaff(e.target.value)}>
               <option value="">All Staff</option>
               {filterStaffList.map(name => (
@@ -2691,7 +4556,7 @@ export default function ReportsPage() {
             </select>
           </div>
           <div className="rp-filter-group">
-            <label>Service</label>
+            <label>SERVICE</label>
             <select className="rp-filter-select" value={filterService} onChange={e => setFilterService(e.target.value)}>
               <option value="">All Services</option>
               {filterServiceList.map(name => (
@@ -2700,31 +4565,54 @@ export default function ReportsPage() {
             </select>
           </div>
           <div className="rp-filter-group">
-            <label>Payment</label>
-            <select className="rp-filter-select">
-              <option>All Methods</option>
-              <option>Cash</option>
-              <option>Card</option>
-              <option>UPI</option>
+            <label>PAYMENT</label>
+            <select className="rp-filter-select" value={filterPayment} onChange={e => setFilterPayment(e.target.value)}>
+              <option value="">All Methods</option>
+              <option value="cash">Cash</option>
+              <option value="card">Card</option>
+              <option value="upi">UPI</option>
+              <option value="wallet">Wallet</option>
             </select>
           </div>
           <Button
             variant="ghost"
             className="rp-apply-btn"
             onClick={() => {
+              if (filterFrom && !filterTo) {
+                setFilterDateError("Please select an end date");
+                return;
+              }
+              if (!filterFrom && filterTo) {
+                setFilterDateError("Please select a start date");
+                return;
+              }
+              if (filterFrom && filterTo && filterFrom > filterTo) {
+                setFilterDateError("Start date must be before end date");
+                return;
+              }
+              setFilterDateError("");
               if (filterFrom && filterTo) {
-                setPeriod("30d");
+                setIsCustomRange(true);
               }
               fetchCurrentTab(filterFrom || undefined, filterTo || undefined, true);
             }}
           >
             Apply
           </Button>
-          {(filterFrom || filterTo) && (
+          {(filterFrom || filterTo || filterStaff || filterService || filterPayment) && (
             <Button
               variant="ghost"
               className="rp-apply-btn"
-              onClick={() => { setFilterFrom(""); setFilterTo(""); fetchCurrentTab(undefined, undefined, true); }}
+              onClick={() => {
+                setFilterFrom("");
+                setFilterTo("");
+                setFilterStaff("");
+                setFilterService("");
+                setFilterPayment("");
+                setFilterDateError("");
+                setIsCustomRange(false);
+                fetchCurrentTab(undefined, undefined, true);
+              }}
             >
               Clear
             </Button>
@@ -2748,7 +4636,7 @@ export default function ReportsPage() {
 
       {/* ── KPI ROW ── */}
       <div className="rp-kpi-row">
-        {kpis.map((k, i) => (
+        {kpis.map((k) => (
           <div className="rp-kpi-card" key={k.label}>
             <div className="rp-kpi-top">
               <span className="rp-kpi-icon" style={{ color: k.color, background: k.color + "18" }}>
@@ -2760,7 +4648,6 @@ export default function ReportsPage() {
             </div>
             <div className="rp-kpi-value">{k.value}</div>
             <div className="rp-kpi-label">{k.label}</div>
-            <Sparkline data={sparklineData.map((v,j) => v + i*2 + j%3)} color={k.color} />
           </div>
         ))}
       </div>
@@ -2772,8 +4659,8 @@ export default function ReportsPage() {
             <PageLoader />
           </div>
         )}
-        {tab === "revenue"      && <RevenueTab trend={revenueTrend} services={serviceList} />}
-        {tab === "appointments" && <AppointmentsTab volume={apptVolume} peakHours={appointmentsData?.peakHours ?? []} />}
+        {tab === "revenue"      && <RevenueTab trend={revenueTrend} services={serviceList} period={period} />}
+        {tab === "appointments" && <AppointmentsTab volume={apptVolume} peakHours={peakHoursData} />}
         {tab === "clients"      && <ClientsTab growth={clientGrowthData} topClients={topClientsList} />}
         {tab === "staff"        && <StaffTab staffData={staffList} radarStaff={radarData} />}
         {tab === "services"     && <ServicesTab services={serviceList} />}
@@ -2792,7 +4679,14 @@ export default function ReportsPage() {
               : openReport.category === "inventory"     ? <InventoryReportDetail  report={openReport} onBack={() => setOpenReport(null)} />
               : openReport.category === "payments"      ? <PaymentReportDetail    report={openReport} onBack={() => setOpenReport(null)} />
               : openReport.category === "daily_reports" ? <DailyReportDetail      report={openReport} onBack={() => setOpenReport(null)} staffNames={filterStaffList} />
-              : openReport.category === "marketing"     ? <MarketingReportDetail  report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.id === "campaign_performance"  ? <CampaignPerformanceReportDetail  report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.id === "template_performance" ? <TemplatePerformanceReportDetail report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.id === "message_spend"        ? <MessageSpendReportDetail        report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.id === "client_acquisition"   ? <ClientAcquisitionReportDetail   report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.id === "vip_clients"                                             ? <VipClientsReportDetail    report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.id === "staff_schedule"                                          ? <StaffScheduleReportDetail report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.id === "commissions" || openReport.id === "commissions_graphical" ? <CommissionsReportDetail report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.id === "leaves"              ? <LeavesReportDetail      report={openReport} onBack={() => setOpenReport(null)} />
               : openReport.category === "employee"      ? <EmployeeReportDetail   report={openReport} onBack={() => setOpenReport(null)} />
               : <AppointmentReportDetail report={openReport} onBack={() => setOpenReport(null)} />
             }
@@ -2815,7 +4709,7 @@ export default function ReportsPage() {
 
             {/* Category tabs */}
             <div className="rp-cat-tabs">
-              {(reportsDashboard?.categories ?? FALLBACK_CATEGORIES).map(cat => (
+              {FALLBACK_CATEGORIES.map(cat => (
                 <Button
                   key={cat.key}
                   variant="ghost"
