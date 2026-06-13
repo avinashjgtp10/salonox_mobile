@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Search,
@@ -31,6 +31,7 @@ import "../styles/PaymentsPage.scss";
 
 import type { AppDispatch, RootState } from "../../../store/store";
 import { fetchSalesThunk, exportSalesThunk } from "../../../middleware/sale/sale.thunk";
+import { fetchClientsThunk } from "../../../middleware/client/client.thunk";
 import type { Sale } from "../../../types/sale.types";
 
 const PAYMENT_LABEL: Record<string, string> = {
@@ -48,9 +49,10 @@ export default function PaymentsPage() {
   const dispatch = useDispatch<AppDispatch>();
 
   // ── Redux ─────────────────────────────────────────────────────────────────
-  const allSales = useSelector((s: RootState) => (s.sale as any).items as Sale[]);
-  const isLoading = useSelector((s: RootState) => (s.sale as any).loading?.fetchAll as boolean ?? false);
+  const allSales   = useSelector((s: RootState) => (s.sale as any).items as Sale[]);
+  const isLoading  = useSelector((s: RootState) => (s.sale as any).loading?.fetchAll as boolean ?? false);
   const isExporting = useSelector((s: RootState) => (s.sale as any).loading?.export as boolean ?? false);
+  const allClients = useSelector((s: RootState) => (s.client as any).items as any[]);
 
   // ── State ─────────────────────────────────────────────────────────────────
   const [showCalendar, setShowCalendar] = useState(false);
@@ -79,9 +81,26 @@ export default function PaymentsPage() {
   const calendarRef = useRef<HTMLDivElement>(null);
   const optionsRef = useRef<HTMLDivElement>(null);
 
+  // id → display name lookup (handles fullName, full_name, first+last variants)
+  const clientNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    (allClients ?? []).forEach((c: any) => {
+      if (!c.id) return;
+      const name =
+        c.fullName ??
+        c.full_name ??
+        (c.first_name || c.last_name ? `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim() : null) ??
+        c.name ??
+        null;
+      if (name) map.set(String(c.id), name);
+    });
+    return map;
+  }, [allClients]);
+
   // ── Fetch on mount ────────────────────────────────────────────────────────
   useEffect(() => {
     dispatch(fetchSalesThunk());
+    dispatch(fetchClientsThunk());
   }, [dispatch]);
 
   // ── Close overlays on outside click ──────────────────────────────────────
@@ -150,7 +169,10 @@ export default function PaymentsPage() {
 
     // Search
     const q = searchTerm.toLowerCase();
-    if (q && !String(sale.id).includes(q) && !(sale.client_id || "").toLowerCase().includes(q)) return false;
+    if (q) {
+      const clientName = (sale.client_name || (sale.client_id ? clientNameMap.get(String(sale.client_id)) : null) || "").toLowerCase();
+      if (!String(sale.id).includes(q) && !clientName.includes(q)) return false;
+    }
 
     // Method filter
     if (methodFilter !== "all" && sale.payment_method !== methodFilter) return false;
@@ -365,7 +387,14 @@ export default function PaymentsPage() {
               {
                 header: "Client",
                 key: "client_id",
-                render: (sale: any) => <div className="small">{sale.client_id ?? <span className="text-muted fst-italic">Walk-in</span>}</div>
+                render: (sale: any) => {
+                  const name = sale.client_name || (sale.client_id ? clientNameMap.get(String(sale.client_id)) : null);
+                  return (
+                    <div className="small">
+                      {name ?? <span className="text-muted fst-italic">Walk-in</span>}
+                    </div>
+                  );
+                }
               },
               {
                 header: "Method",
