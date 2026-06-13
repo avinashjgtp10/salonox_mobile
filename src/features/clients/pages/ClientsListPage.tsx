@@ -703,10 +703,10 @@ export default function ClientsListPage() {
                 <div className="col-name">
                   Client name <ArrowUp size={12} />
                 </div>
-                <div>Mobile number</div>
-                <div>Reviews</div>
-                <div>Sales</div>
-                <div>Created at</div>
+                <div className="col-mobile">Mobile number</div>
+                <div className="col-reviews">Reviews</div>
+                <div className="col-sales">Sales</div>
+                <div className="col-created">Created at</div>
                 <div></div>
               </div>
             )}
@@ -757,24 +757,31 @@ export default function ClientsListPage() {
                           </div>
                         )}
                       </div>
-                      <div className="ms-3">
-                        <div className="name">
+                      <div className="client-details ms-3">
+                        <div
+                          className="name"
+                          title={`${client.first_name || ""} ${client.last_name || ""}`.trim() || "-"}
+                        >
                           {`${client.first_name || ""} ${client.last_name || ""}`}
                         </div>
-                        <div className="email">{client.email || "-"}</div>
+                        <div className="email" title={client.email || "-"}>
+                          {client.email || "-"}
+                        </div>
                       </div>
                     </div>
 
-                    <div>{client.phone_number || "-"}</div>
-                    <div>
+                    <div className="col-mobile" title={client.phone_number || "-"}>
+                      {client.phone_number || "-"}
+                    </div>
+                    <div className="col-reviews">
                       {client.reviews_count > 0
                         ? `${parseFloat(client.reviews_avg || "0").toFixed(1)} ★ (${client.reviews_count})`
                         : "-"}
                     </div>
-                    <div>
+                    <div className="col-sales">
                       ₹{parseFloat(client.total_sales || "0").toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
-                    <div>
+                    <div className="col-created">
                       {client.created_at
                         ? new Date(client.created_at).toLocaleDateString()
                         : "-"}
