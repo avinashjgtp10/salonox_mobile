@@ -85,6 +85,125 @@
     }
   }
 
+  /* Calendar Popup */
+  .pay-calendar-popup {
+    min-width: 308px;
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
+
+    .pay-cal-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid #f3f4f6;
+
+      .pay-cal-title {
+        font-size: 11px;
+        font-weight: 700;
+        color: #9ca3af;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .pay-cal-range-text {
+        font-size: 14px;
+        font-weight: 700;
+        color: #111827;
+      }
+    }
+
+    .pay-cal-tabs {
+      display: flex;
+      gap: 4px;
+      padding: 10px 12px;
+      border-bottom: 1px solid #f3f4f6;
+
+      .pay-cal-tab {
+        flex: 1;
+        padding: 6px 8px;
+        border-radius: 8px;
+        border: none;
+        background: transparent;
+        font-size: 12px;
+        font-weight: 500;
+        color: #6b7280;
+        cursor: pointer;
+        transition: all 0.15s;
+
+        &:hover { background: #f3f4f6; color: #111827; }
+        &.active { background: #11141a; color: #fff; }
+      }
+    }
+
+    .pay-cal-footer {
+      padding: 10px 14px 12px;
+    }
+
+    /* Custom navigator */
+    .pay-cal-custom-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px 4px;
+
+      .pay-cal-nav-label {
+        font-size: 13px;
+        font-weight: 700;
+        color: #111827;
+      }
+
+      .pay-cal-nav-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 7px;
+        border: 1px solid #e5e7eb;
+        background: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: #374151;
+        transition: all 0.15s;
+        padding: 0;
+
+        &:hover { background: #f3f4f6; border-color: #d1d5db; }
+      }
+    }
+
+    /* react-date-range overrides */
+    .rdrCalendarWrapper {
+      font-family: 'Inter', -apple-system, sans-serif;
+      font-size: 13px;
+      background: transparent;
+      width: 100%;
+    }
+    .rdrMonth { width: 100%; padding: 0 12px 8px; }
+    .rdrMonthAndYearWrapper { display: none; }
+    .rdrMonthName { display: none; }
+    .rdrWeekDays { padding: 4px 0 2px; }
+    .rdrWeekDay {
+      color: #9ca3af;
+      font-weight: 600;
+      font-size: 11px;
+    }
+    .rdrDay { height: 34px; }
+    .rdrDayNumber span {
+      font-size: 12px;
+      font-weight: 500;
+      color: #111827 !important;
+    }
+    .rdrDayPassive .rdrDayNumber span { color: #d1d5db !important; }
+    .rdrDayStartEdge .rdrDayNumber span,
+    .rdrDayEndEdge .rdrDayNumber span { color: #fff !important; }
+    .rdrStartEdge, .rdrEndEdge { background: #11141a; }
+    .rdrInRange { background: #f3f4f6; }
+    .rdrDayInRange .rdrDayNumber span { color: #111827 !important; }
+    .rdrDayStartPreview, .rdrDayInPreview, .rdrDayEndPreview { border-color: #11141a; }
+    .rdrDayToday .rdrDayNumber span:after { background: #11141a; }
+    .rdrSelected { background: #11141a; }
+  }
+
   /* Calendar Overlay/Modal */
   .payment-calendar-overlay {
     position: fixed;
