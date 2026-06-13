@@ -1489,7 +1489,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                     onMouseLeave={e => (e.currentTarget.style.background = "#111827")}
                     onClick={() => {
                       onClose();
-                      navigate(`/dashboard/clients/edit/${selectedClientId}`);
+                      navigate(`/dashboard/clients/list`, { state: { openClientId: selectedClientId } });
                     }}
                   >
                     ↗ Click Here
