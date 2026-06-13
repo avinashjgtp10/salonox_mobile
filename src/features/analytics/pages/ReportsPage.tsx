@@ -1438,18 +1438,18 @@ interface PaymentRow {
   status: "Success" | "Pending" | "Failed" | "Refunded";
 }
 
-const PAY_GATEWAYS = ["All", "Razorpay", "Stripe", "Paytm", "PayU", "Cashfree"];
 const PAY_STATUSES = ["All", "Success", "Pending", "Failed", "Refunded"];
+const PAY_METHODS  = ["All", "Cash", "UPI", "Card"];
 
 const PaymentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
   const today = new Date().toISOString().slice(0, 10);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [dateFrom,        setDateFrom]        = useState(monthStart);
   const [dateTo,          setDateTo]          = useState(today);
-  const [gateway,         setGateway]         = useState("All");
   const [payStatus,       setPayStatus]       = useState("All");
-  const [showGwDrop,      setShowGwDrop]      = useState(false);
+  const [payMethod,       setPayMethod]       = useState("All");
   const [showPsDrop,      setShowPsDrop]      = useState(false);
+  const [showMtDrop,      setShowMtDrop]      = useState(false);
   const [rows,            setRows]            = useState<PaymentRow[]>([]);
   const [loading,         setLoading]         = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -1464,27 +1464,42 @@ const PaymentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
     setLoading(true);
     try {
       const params = new URLSearchParams({ from: dateFrom, to: dateTo });
-      if (gateway   !== "All") params.set("gateway", gateway);
       if (payStatus !== "All") params.set("status", payStatus);
-      const res = await api.get<{ data: PaymentRow[] }>(REPORT.DETAIL("payments", params.toString()), { signal: ctrl.signal });
-      if (res.data?.data) setRows(res.data.data);
+      const res = await api.get(REPORT.DETAIL("payments", params.toString()), { signal: ctrl.signal });
+      const raw: any[] = res.data?.data ?? res.data ?? [];
+      const parsed: PaymentRow[] = (Array.isArray(raw) ? raw : []).map((r: any) => ({
+        date:          r.date ?? r.created_at?.slice(0, 10) ?? "",
+        transactionId: r.transactionId ?? r.transaction_id ?? r.id ?? "",
+        clientName:    r.clientName ?? r.client_name ?? r.client?.name ?? "—",
+        amount:        parseFloat(String(r.amount ?? r.total_amount ?? 0)) || 0,
+        gateway:       r.gateway ?? r.payment_gateway ?? "—",
+        method:        r.method ?? r.payment_method ?? "—",
+        referenceNo:   r.referenceNo ?? r.reference_no ?? r.reference ?? r.transactionId ?? r.transaction_id ?? "",
+        status:        r.status ?? "—",
+      }));
+      setRows(parsed);
     } catch (e: any) {
       if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setRows([]);
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, gateway, payStatus]);
+  }, [dateFrom, dateTo, payStatus]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    const close = () => { setShowGwDrop(false); setShowPsDrop(false); };
+    const close = () => { setShowPsDrop(false); setShowMtDrop(false); };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  const HEADERS = ["Date", "Transaction ID", "Client Name", "Amount (₹)", "Gateway", "Method", "Reference No", "Status"];
-  const exportRows = () => rows.map(r => [r.date, r.transactionId, r.clientName, r.amount, r.gateway, r.method, r.referenceNo, r.status]);
+  const displayRows = useMemo(() => {
+    if (payMethod === "All") return rows;
+    return rows.filter(r => r.method.toLowerCase() === payMethod.toLowerCase());
+  }, [rows, payMethod]);
+
+  const HEADERS = ["Date", "Transaction ID", "Client Name", "Amount (₹)", "Method", "Reference No", "Status"];
+  const exportRows = () => displayRows.map(r => [r.date, r.transactionId, r.clientName, r.amount.toFixed(2), r.method, r.referenceNo, r.status]);
 
   const statusColor = (s: string) =>
     s === "Success" ? "#10b981" : s === "Pending" ? "#f59e0b" : s === "Refunded" ? "#3b82f6" : "#ef4444";
@@ -1520,22 +1535,22 @@ const PaymentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
           </div>
         </div>
         <div className="rp-detail-filter-group" style={{ position: "relative" }}>
-          <label className="rp-detail-filter-label">Gateway</label>
-          <button className="rp-detail-select" onClick={() => { setShowGwDrop(v => !v); setShowPsDrop(false); }}>
-            {gateway} <span className="rp-detail-caret">▼</span>
+          <label className="rp-detail-filter-label">Method</label>
+          <button className="rp-detail-select" onClick={() => { setShowMtDrop(v => !v); setShowPsDrop(false); }}>
+            {payMethod} <span className="rp-detail-caret">▼</span>
           </button>
-          {showGwDrop && (
+          {showMtDrop && (
             <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
-              {PAY_GATEWAYS.map(g => (
-                <div key={g} className={`rp-detail-dropdown-item ${g === gateway ? "active" : ""}`}
-                  onClick={() => { setGateway(g); setShowGwDrop(false); }}>{g}</div>
+              {PAY_METHODS.map(m => (
+                <div key={m} className={`rp-detail-dropdown-item ${m === payMethod ? "active" : ""}`}
+                  onClick={() => { setPayMethod(m); setShowMtDrop(false); }}>{m}</div>
               ))}
             </div>
           )}
         </div>
         <div className="rp-detail-filter-group" style={{ position: "relative" }}>
           <label className="rp-detail-filter-label">Status</label>
-          <button className="rp-detail-select" onClick={() => { setShowPsDrop(v => !v); setShowGwDrop(false); }}>
+          <button className="rp-detail-select" onClick={() => { setShowPsDrop(v => !v); setShowMtDrop(false); }}>
             {payStatus} <span className="rp-detail-caret">▼</span>
           </button>
           {showPsDrop && (
@@ -1556,10 +1571,25 @@ const PaymentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
       </div>
 
 
-      <div className="rp-detail-drag-hint">
-        {rows.length} payment{rows.length !== 1 ? "s" : ""}
-        {rows.length > 0 && <>&nbsp;·&nbsp;Total: <strong>₹{rows.reduce((s, r) => s + r.amount, 0).toLocaleString()}</strong></>}
-      </div>
+      {/* Summary strip */}
+      {displayRows.length > 0 && (() => {
+        const total    = displayRows.reduce((s, r) => s + r.amount, 0);
+        const success  = displayRows.filter(r => r.status === "Success").reduce((s, r) => s + r.amount, 0);
+        const pending  = displayRows.filter(r => r.status === "Pending").reduce((s, r) => s + r.amount, 0);
+        const failed   = displayRows.filter(r => r.status === "Failed").reduce((s, r)  => s + r.amount, 0);
+        const refunded = displayRows.filter(r => r.status === "Refunded").reduce((s, r) => s + r.amount, 0);
+        const fmt = (n: number) => `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        return (
+          <div className="rp-detail-drag-hint" style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "center" }}>
+            <span>{displayRows.length} payment{displayRows.length !== 1 ? "s" : ""}</span>
+            <span>Total: <strong>{fmt(total)}</strong></span>
+            {success  > 0 && <span style={{ color: "#10b981" }}>Success: <strong>{fmt(success)}</strong></span>}
+            {pending  > 0 && <span style={{ color: "#f59e0b" }}>Pending: <strong>{fmt(pending)}</strong></span>}
+            {failed   > 0 && <span style={{ color: "#ef4444" }}>Failed: <strong>{fmt(failed)}</strong></span>}
+            {refunded > 0 && <span style={{ color: "#3b82f6" }}>Refunded: <strong>{fmt(refunded)}</strong></span>}
+          </div>
+        );
+      })()}
 
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
@@ -1569,7 +1599,6 @@ const PaymentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
               <th>Transaction ID</th>
               <th>Client Name</th>
               <th>Amount (₹) <span className="rp-th-sort">↕</span></th>
-              <th>Gateway</th>
               <th>Method</th>
               <th>Reference No</th>
               <th>Status</th>
@@ -1577,18 +1606,17 @@ const PaymentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8} className="rp-detail-loading-cell"><PageLoader /></td></tr>
-            ) : rows.length === 0 ? (
-              <tr><td colSpan={8} className="rp-detail-empty-cell">No data available</td></tr>
-            ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
+              <tr><td colSpan={7} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+            ) : displayRows.length === 0 ? (
+              <tr><td colSpan={7} className="rp-detail-empty-cell">No data available</td></tr>
+            ) : displayRows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
               <tr key={i}>
                 <td>{r.date}</td>
-                <td><span className="rp-detail-link">{r.transactionId}</span></td>
-                <td><span className="rp-detail-link">{r.clientName}</span></td>
-                <td className="fw-semibold">₹{r.amount.toLocaleString()}</td>
-                <td>{r.gateway}</td>
+                <td style={{ fontSize: 12, color: "#6366f1" }}>{r.transactionId}</td>
+                <td>{r.clientName}</td>
+                <td className="fw-semibold">₹{r.amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                 <td>{r.method}</td>
-                <td>{r.referenceNo}</td>
+                <td style={{ fontSize: 12 }}>{r.referenceNo}</td>
                 <td><span style={{ color: statusColor(r.status), fontWeight: 600, fontSize: 12 }}>{r.status}</span></td>
               </tr>
             ))}
@@ -1597,7 +1625,7 @@ const PaymentReportDetail = ({ report, onBack }: { report: ReportItem; onBack: (
       </div>
 
       <Pagination
-        currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        currentPage={currentPage} pageSize={pageSize} totalItems={displayRows.length}
         onPageChange={setCurrentPage}
         onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
       />
