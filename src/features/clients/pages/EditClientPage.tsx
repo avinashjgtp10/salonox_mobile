@@ -341,16 +341,7 @@ export default function EditClientPage() {
               />
             </div>
 
-            <div className="col-md-6">
-              <label className="form-label">Year</label>
-              <input
-                type="number"
-                className="form-control"
-                placeholder="Year"
-                value={year}
-                onChange={(e) => setYear(e.target.value)}
-              />
-            </div>
+           
 
             <div className="col-md-6">
               <label className="form-label">Gender</label>
