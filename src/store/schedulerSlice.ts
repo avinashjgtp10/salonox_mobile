@@ -134,6 +134,7 @@ const schedulerSlice = createSlice({
     },
     bumpScheduleVersion(state) {
       state.scheduleVersion += 1;
+      state.staffSchedules = {}; // cleared so useSchedulerInit re-fetches fresh data
     },
     addBooking(state, { payload }: PayloadAction<Booking>) {
       state.bookings.push(payload);

@@ -2,12 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import api from "../../../services/api/axios";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
-import { fetchClientsThunk } from "../../../middleware/client/client.thunk";
 import { fetchServicesThunk } from "../../../middleware/services/services.thunk";
-import { fetchMembershipsThunk } from "../../../middleware/membership/membership.thunk";
-import { fetchProductsThunk } from "../../../middleware/catalog/products.thunk";
 import { fetchBookingsThunk } from "../../../middleware/booking/booking.thunk";
-import { fetchDailyShifts } from "../../../middleware/shift/shiftThunk";
 import { useListPackagesQuery } from "../../../services/api/endpoints/packages.endpoints";
 import {
   setBookings,
@@ -230,20 +226,22 @@ export function useSchedulerInit() {
   const apiServices = useAppSelector((s: any) => s.services.items);
   const apiMemberships = useAppSelector((s: any) => s.memberships.items);
   const apiProducts = useAppSelector((s: any) => s.products.items);
+  // staffSchedules is used to skip re-fetching when data already exists in Redux
+  const staffSchedules = useAppSelector((s: any) => s.scheduler?.staffSchedules ?? {});
 
   // Raw API booking objects stored so bookings can be re-mapped when services load later
   const [rawApiBookings, setRawApiBookings] = useState<any[]>([]);
 
   const { data: packagesData } = useListPackagesQuery({});
 
-  // ── Re-fetch active services every time the calendar mounts ─────────────────
+  // ── Fetch active services once — skip if already in store ───────────────────
   useEffect(() => {
-    if (!salonId) return;
+    if (!salonId || apiServices.length > 0) return;
     dispatch(fetchServicesThunk({ isActive: true }));
-  }, [dispatch, salonId]);
+  }, [dispatch, salonId, apiServices.length]);
 
-  // ── Tracks which calendar months have already been fetched ─────────────────
-  const fetchedMonthsRef = useRef<Set<string>>(new Set());
+  // ── Tracks which individual dates have already been fetched ──────────────────
+  const fetchedDatesRef = useRef<Set<string>>(new Set());
 
   // ── Helper: extract Booking[] from paginated or flat thunk payload ───────────
   function extractBookings(payload: any): any[] {
@@ -252,65 +250,45 @@ export function useSchedulerInit() {
     return [];
   }
 
-  // ── Initial fetch — runs once per salonId ───────────────────────────────────
+  // ── Helper: fetch appointments for a single date ──────────────────────────────
+  function fetchDateBookings(dateStr: string, isFirst: boolean) {
+    if (fetchedDatesRef.current.has(dateStr)) return;
+    fetchedDatesRef.current.add(dateStr);
+
+    (dispatch(fetchBookingsThunk({ startDate: dateStr, endDate: dateStr })) as any)
+      .then((action: any) => {
+        if (!fetchBookingsThunk.fulfilled.match(action)) return;
+        const items = extractBookings(action.payload);
+        if (isFirst) {
+          setRawApiBookings(items);
+        } else {
+          if (!items.length) return;
+          setRawApiBookings((prev) => {
+            const newIdSet = new Set(items.map((b: any) => String(b.id)));
+            return [...prev.filter((b: any) => !newIdSet.has(String(b.id))), ...items];
+          });
+        }
+      })
+      .catch((err: any) => { if (isFirst) console.error("Failed to load bookings:", err); });
+  }
+
+  // ── Initial fetch — runs once per salonId, fetches only today ────────────────
   useEffect(() => {
     if (!salonId || initialized.current === salonId) return;
     initialized.current = salonId;
 
     dispatch(fetchStaffThunk());
-    dispatch(fetchClientsThunk());
-    dispatch(fetchMembershipsThunk({}));
-    dispatch(fetchProductsThunk());
 
-    // Pass an explicit 6-month window so the server's default "today-only" filter
-    // does not exclude past or future appointments visible in the calendar.
     const now = new Date();
     const pad = (n: number) => String(n).padStart(2, "0");
-    const startD = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-    const endD   = new Date(now.getFullYear(), now.getMonth() + 4, 0); // last day of +3 months
-    const startDate = `${startD.getFullYear()}-${pad(startD.getMonth() + 1)}-01`;
-    const endDate   = `${endD.getFullYear()}-${pad(endD.getMonth() + 1)}-${pad(endD.getDate())}`;
-
-    // Mark all months in the initial window as already fetched
-    for (let d = new Date(startD); d <= endD; d.setMonth(d.getMonth() + 1)) {
-      fetchedMonthsRef.current.add(`${d.getFullYear()}-${pad(d.getMonth() + 1)}`);
-    }
-
-    (dispatch(fetchBookingsThunk({ startDate, endDate })) as any)
-      .then((action: any) => {
-        if (fetchBookingsThunk.fulfilled.match(action)) {
-          setRawApiBookings(extractBookings(action.payload));
-        }
-      })
-      .catch((err: any) => console.error("Failed to load bookings:", err));
+    const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    fetchDateBookings(todayStr, true);
   }, [dispatch, salonId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Re-fetch when user navigates to a month outside the initial window ───────
+  // ── Fetch appointments for the selected date when user navigates ──────────────
   useEffect(() => {
     if (!salonId || !currentDate) return;
-    const pad = (n: number) => String(n).padStart(2, "0");
-    const dt = new Date(currentDate + "T12:00:00");
-    const monthKey = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}`;
-    if (fetchedMonthsRef.current.has(monthKey)) return;
-    fetchedMonthsRef.current.add(monthKey);
-
-    const startDate = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-01`;
-    const lastDay = new Date(dt.getFullYear(), dt.getMonth() + 1, 0).getDate();
-    const endDate = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(lastDay)}`;
-
-    (dispatch(fetchBookingsThunk({ startDate, endDate })) as any)
-      .then((action: any) => {
-        if (fetchBookingsThunk.fulfilled.match(action)) {
-          const newItems = extractBookings(action.payload);
-          if (!newItems.length) return;
-          // Merge: replace any existing bookings with same IDs, append new ones
-          setRawApiBookings((prev) => {
-            const newIdSet = new Set(newItems.map((b: any) => String(b.id)));
-            return [...prev.filter((b: any) => !newIdSet.has(String(b.id))), ...newItems];
-          });
-        }
-      })
-      .catch(() => {/* non-critical: calendar still shows already-loaded bookings */});
+    fetchDateBookings(currentDate, false);
   }, [currentDate, salonId, dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Re-map bookings whenever raw data or services change ─────────────────────
@@ -390,11 +368,15 @@ export function useSchedulerInit() {
     ));
   }, [apiMemberships, dispatch]);
 
-  // ── Fetch staff working-hour schedules (weekly pattern) ──────────────────────
-  // Triggered whenever the staff list changes so the calendar always reflects
-  // the latest saved shifts without requiring a full page reload.
+  // ── Fetch staff weekly schedule patterns once per scheduleVersion ────────────
+  // staffSchedules in Redux persists across component remounts (navigate away & back).
+  // bumpScheduleVersion() clears staffSchedules in the reducer, which causes this
+  // effect to re-run and re-fetch fresh data from the API.
   useEffect(() => {
     if (!apiStaff.length) return;
+    // staffSchedules is already populated (either from this session or a prior mount)
+    if (Object.keys(staffSchedules).length > 0) return;
+
     Promise.all(
       apiStaff.map((s: any) =>
         api
@@ -411,9 +393,6 @@ export function useSchedulerInit() {
             data.forEach((sch: any) => {
               const dow = Number(sch.day_of_week);
               if (!isNaN(dow) && dow >= 0 && dow <= 6 && sch.is_available) {
-                // Only store records where the staff is actually working.
-                // is_available: false records are week-specific day-offs and must
-                // not pollute the recurring weekly calendar pattern.
                 schedules[staffId][dow] = {
                   startTime: sch.start_time || "",
                   endTime: sch.end_time || "",
@@ -426,18 +405,7 @@ export function useSchedulerInit() {
         dispatch(setStaffSchedules(schedules));
       })
       .catch(() => {/* non-critical — calendar still works without schedule data */});
-  }, [apiStaff, dispatch, scheduleVersion]);
-
-  // ── Fetch date-specific shifts for the current calendar week ─────────────────
-  // Keeps state.shift.shifts fresh so DayView can show working-hour blocks only
-  // for weeks that have been explicitly scheduled (not recurring forever).
-  useEffect(() => {
-    if (!currentDate || !salonId) return;
-    const d = new Date(currentDate + "T12:00:00");
-    d.setDate(d.getDate() - d.getDay()); // roll back to Sunday
-    const sundayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    dispatch(fetchDailyShifts(sundayKey));
-  }, [currentDate, salonId, dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [apiStaff, scheduleVersion, dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Map products ─────────────────────────────────────────────────────────────
   useEffect(() => {

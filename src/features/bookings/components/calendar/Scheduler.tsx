@@ -23,7 +23,7 @@ const SchedulerContent: React.FC = () => {
   const dispatch = useAppDispatch();
   const location = useLocation();
   const navigate = useNavigate();
-  const { viewMode, setViewMode, setCurrentDate } = useSchedulerContext();
+  const { viewMode, setViewMode, currentDate, setCurrentDate } = useSchedulerContext();
   const apiServices = useAppSelector((s: any) => s.services?.items ?? []);
   const apiStaff = useAppSelector((s: any) => s.staff?.items ?? []);
 
@@ -146,16 +146,9 @@ const SchedulerContent: React.FC = () => {
     setEditingBooking(null);
     setApptDefaults({});
 
-    // Use the same wide date range as the initial load so the server's default
-    // "today-only" filter does not drop past appointments from the re-fetch.
-    const now = new Date();
-    const pad = (n: number) => String(n).padStart(2, "0");
-    const startD = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-    const endD   = new Date(now.getFullYear(), now.getMonth() + 4, 0);
-    const startDate = `${startD.getFullYear()}-${pad(startD.getMonth() + 1)}-01`;
-    const endDate   = `${endD.getFullYear()}-${pad(endD.getMonth() + 1)}-${pad(endD.getDate())}`;
-
-    const action = await (dispatch(fetchBookingsThunk({ startDate, endDate })) as any);
+    // Fetch only the currently viewed date so the refresh is minimal.
+    const dateStr = currentDate || new Date().toISOString().slice(0, 10);
+    const action = await (dispatch(fetchBookingsThunk({ startDate: dateStr, endDate: dateStr })) as any);
     if (!fetchBookingsThunk.fulfilled.match(action)) return;
 
     const PAY_RANK: Record<string, number> = { Paid: 2, Partial: 1, Unpaid: 0 };
