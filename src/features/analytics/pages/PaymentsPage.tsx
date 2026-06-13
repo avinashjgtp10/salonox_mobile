@@ -438,7 +438,7 @@ export default function PaymentsPage() {
         show={showFilters}
         onClose={() => setShowFilters(false)}
         title="Filters"
-        size="sm"
+        size="md"
         footer={
           <div className="d-flex justify-content-end gap-3 w-100">
             <Button
