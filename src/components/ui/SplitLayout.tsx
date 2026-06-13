@@ -21,10 +21,10 @@ const SplitLayout: React.FC<SplitLayoutProps> = ({
   const vhClass = vh100 ? "vh-100" : "";
 
   return (
-    <div className={`${containerClass} ${vhClass} ${className} p-0`}>
-      <div className={`row g-0 ${vhClass}`}>
+    <div className={`${containerClass} ${vhClass} ${className} p-0 overflow-hidden`}>
+      <div className={`row g-0 ${vhClass} overflow-hidden`}>
         <div
-          className={`col-lg-${leftColSpan} col-md-6 col-12 d-flex align-items-center justify-content-center bg-white`}
+          className={`col-lg-${leftColSpan} col-md-6 col-12 d-flex align-items-start justify-content-center bg-white overflow-hidden`}
         >
           {leftContent}
         </div>

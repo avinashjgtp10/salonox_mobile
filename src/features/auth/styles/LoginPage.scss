@@ -70,13 +70,13 @@ $border:     #E8E4DE;
 .lp-wrap {
   position: relative;
   width: 100%;
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   background: $off-white;
   overflow: hidden;
-  padding: 48px 24px;
+  padding: 24px 24px;
 }
 
 // ── Ambient orbs ────────────────────────────────────
@@ -124,7 +124,7 @@ $border:     #E8E4DE;
 .lp-brand {
   display: flex;
   align-items: center;
-  margin-bottom: 44px;
+  margin-bottom: 24px;
   animation: lp-fade-in 0.5s 0.1s both;
 }
 
@@ -147,18 +147,18 @@ $border:     #E8E4DE;
 // ── Heading block ────────────────────────────────────
 
 .lp-heading-block {
-  margin-bottom: 36px;
+  margin-bottom: 20px;
   animation: lp-fade-up 0.6s 0.15s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .lp-heading {
   font-family: 'sans', serif;
-  font-size: clamp(36px, 5vw, 52px);
+  font-size: clamp(30px, 3.8vw, 42px);
   font-weight: 700;
   color: $charcoal;
   letter-spacing: -0.02em;
   line-height: 1.1;
-  margin: 0 0 12px;
+  margin: 0 0 10px;
 }
 
 .lp-sub {
@@ -178,7 +178,7 @@ $border:     #E8E4DE;
 // ── Fields ───────────────────────────────────────────
 
 .lp-field {
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 
   .form-label {
     font-size: 12px !important;
@@ -190,7 +190,7 @@ $border:     #E8E4DE;
   }
 
   .form-control {
-    height: 52px !important;
+    height: 46px !important;
     border-radius: 12px !important;
     border: 1.5px solid $border !important;
     background: #FFFFFF !important;
@@ -273,7 +273,7 @@ $border:     #E8E4DE;
 // ── Primary button ────────────────────────────────────
 
 .lp-btn-primary {
-  height: 52px !important;
+  height: 46px !important;
   border-radius: 100px !important;
   font-family: 'DM Sans', sans-serif !important;
   font-weight: 700 !important;
@@ -312,7 +312,7 @@ $border:     #E8E4DE;
 // ── Google button ─────────────────────────────────────
 
 .lp-btn-google {
-  height: 52px !important;
+  height: 46px !important;
   border-radius: 100px !important;
   font-family: 'DM Sans', sans-serif !important;
   font-weight: 600 !important;
@@ -342,12 +342,17 @@ $border:     #E8E4DE;
     letter-spacing: 0.08em;
     color: #B5B0AB !important;
   }
+  // Compact Divider margin so form fits without scrollbar
+  .d-flex.my-4 {
+    margin-top: 12px !important;
+    margin-bottom: 12px !important;
+  }
 }
 
 // ── Register link ─────────────────────────────────────
 
 .lp-register-link {
-  margin: 20px 0 0;
+  margin: 14px 0 0;
   font-size: 14px;
   color: $muted;
   text-align: center;
@@ -564,6 +569,6 @@ $border:     #E8E4DE;
 
 @media (max-width: 992px) {
   .lp-wrap {
-    padding: 40px 24px;
+    padding: 20px 24px;
   }
 }

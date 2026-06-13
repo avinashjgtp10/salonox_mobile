@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
 import { FiEye, FiEyeOff } from "react-icons/fi";
@@ -16,6 +16,11 @@ import SplitLayout from "../../../components/ui/SplitLayout";
 import "../styles/LoginPage.scss";
 
 export default function LoginPage() {
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<{ email?: string; password?: string; api?: string }>({});
@@ -134,7 +139,7 @@ export default function LoginPage() {
             }
           />
 
-          <div className="flex items-center justify-between w-full mb-5" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px", width: "100%" }}>
+          <div className="flex items-center justify-between w-full mb-5" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px", width: "100%" }}>
             <div className="flex items-center gap-2" style={{ display: "flex", alignItems: "center" }}>
               <input type="checkbox" id="rememberMe" className="w-4 h-4 cursor-pointer accent-black" style={{ width: "16px", height: "16px", cursor: "pointer", accentColor: "black", marginRight: "8px", margin: 0 }} />
               <label htmlFor="rememberMe" className="text-sm cursor-pointer text-gray-500 font-medium" style={{ fontSize: "13px", color: "#7A7672", cursor: "pointer", fontWeight: 500, margin: 0 }}>Remember me</label>
