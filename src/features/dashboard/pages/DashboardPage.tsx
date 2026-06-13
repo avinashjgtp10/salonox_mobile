@@ -82,6 +82,49 @@ function fmtChange(n?: number) {
   return { label: `${n >= 0 ? "+" : ""}${abs}%`, up: n >= 0 };
 }
 
+// Convert UTC hour labels from revenue chart (e.g. "07AM", "7 AM", "07:00") to local hour labels.
+function utcHourLabelToLocal(label: string): string {
+  if (!label) return label;
+  const s = label.trim();
+
+  // Matches: "07AM", "7AM", "07 AM", "7 AM"
+  const shortMatch = s.match(/^(\d{1,2})\s*(AM|PM)$/i);
+  // Matches: "07:00", "07:00 AM", "7:00PM"
+  const longMatch  = s.match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i);
+
+  let utcH: number | null = null;
+
+  if (shortMatch) {
+    let h = parseInt(shortMatch[1], 10);
+    const p = shortMatch[2].toUpperCase();
+    if (p === "PM" && h !== 12) h += 12;
+    if (p === "AM" && h === 12) h = 0;
+    utcH = h;
+  } else if (longMatch) {
+    let h = parseInt(longMatch[1], 10);
+    if (longMatch[3]) {
+      const p = longMatch[3].toUpperCase();
+      if (p === "PM" && h !== 12) h += 12;
+      if (p === "AM" && h === 12) h = 0;
+    }
+    utcH = h;
+  }
+
+  if (utcH === null) return label;
+
+  try {
+    const todayUtc = new Date().toISOString().slice(0, 10);
+    const dt = new Date(`${todayUtc}T${String(utcH).padStart(2, "0")}:00:00Z`);
+    const lh = dt.getHours();
+    if (lh === 0)  return "12AM";
+    if (lh < 12)   return `${lh}AM`;
+    if (lh === 12) return "12PM";
+    return `${lh - 12}PM`;
+  } catch {
+    return label;
+  }
+}
+
 // Backend returns pre-formatted UTC time strings like "01:30 AM".
 // Convert to browser local time so the dashboard matches the calendar.
 function utcTimeToLocal(raw: string): string {
@@ -301,6 +344,8 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
   onPeriodChange: (p: RevPeriod) => void;
   onRetry: () => void;
 }) {
+  const localRevenue = revenue;
+
   return (
     <div className="db-card db-card-lg">
       <div className="db-card-header">
@@ -332,7 +377,7 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
         <SectionError message={error} onRetry={onRetry} />
       ) : (
         <ResponsiveContainer width="100%" height={240}>
-          <AreaChart data={revenue} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+          <AreaChart data={localRevenue} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%"  stopColor="#111827" stopOpacity={0.12} />
@@ -840,6 +885,12 @@ export default function DashboardPage() {
     dispatch(fetchDashboardAll({ period: revPeriod, date: today }));
   }, [dispatch, revPeriod]);
 
+  const handleRefresh = useCallback(() => {
+    const today = new Date().toISOString().split("T")[0];
+    dispatch(fetchDashboardAll({ period: revPeriod, date: today }));
+    dispatch(fetchRevenueChart({ period: revPeriod }));
+  }, [dispatch, revPeriod]);
+
   const retryChart = useCallback(() => {
     dispatch(fetchRevenueChart({ period: revPeriod }));
   }, [dispatch, revPeriod]);
@@ -860,15 +911,79 @@ export default function DashboardPage() {
     [normAppts, apptPage]
   );
 
-  const apptChartData = useMemo<ApptChartEntry[]>(
-    () => [{
-      label:     "Today",
-      completed: normAppts.filter(a => a.status === "completed").length,
-      pending:   normAppts.filter(a => a.status === "upcoming" || a.status === "in-progress").length,
-      cancelled: normAppts.filter(a => a.status === "cancelled").length,
-    }],
-    [normAppts]
-  );
+  const apptChartData = useMemo<ApptChartEntry[]>(() => {
+    const parseHour = (timeStr: string): number | null => {
+      if (!timeStr || timeStr === "—") return null;
+      const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+      if (!match) return null;
+      let h = parseInt(match[1], 10);
+      const period = match[3].toUpperCase();
+      if (period === "PM" && h !== 12) h += 12;
+      if (period === "AM" && h === 12) h = 0;
+      return h;
+    };
+
+    if (normAppts.length === 0) {
+      return [{ label: "Today", completed: 0, pending: 0, cancelled: 0 }];
+    }
+
+    const hourSet = new Set<number>();
+    normAppts.forEach(a => { const h = parseHour(a.time); if (h !== null) hourSet.add(h); });
+
+    if (hourSet.size === 0) {
+      return [{
+        label: "Today",
+        completed: normAppts.filter(a => a.status === "completed").length,
+        pending:   normAppts.filter(a => a.status === "upcoming" || a.status === "in-progress").length,
+        cancelled: normAppts.filter(a => a.status === "cancelled").length,
+      }];
+    }
+
+    const minH = Math.min(...hourSet);
+    const maxH = Math.max(...hourSet);
+    return Array.from({ length: maxH - minH + 1 }, (_, i) => {
+      const h = minH + i;
+      const slot = normAppts.filter(a => parseHour(a.time) === h);
+      const label = h === 0 ? "12AM" : h < 12 ? `${h}AM` : h === 12 ? "12PM" : `${h - 12}PM`;
+      return {
+        label,
+        completed: slot.filter(a => a.status === "completed").length,
+        pending:   slot.filter(a => a.status === "upcoming" || a.status === "in-progress").length,
+        cancelled: slot.filter(a => a.status === "cancelled").length,
+      };
+    });
+  }, [normAppts]);
+
+  // Compute today's hourly revenue from actual appointments (local time, correct amounts).
+  // Used instead of the backend's UTC-based revenueChart when period is "today".
+  const todayHourlyRevenue = useMemo(() => {
+    const parseHour = (ts: string): number | null => {
+      if (!ts || ts === "—") return null;
+      const match = ts.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+      if (!match) return null;
+      let h = parseInt(match[1], 10);
+      const p = match[3].toUpperCase();
+      if (p === "PM" && h !== 12) h += 12;
+      if (p === "AM" && h === 12) h = 0;
+      return h;
+    };
+    if (!normAppts.length) return [] as Array<{ month: string; revenue: number; expenses: number }>;
+    const hourSet = new Set<number>();
+    normAppts.forEach(a => { const h = parseHour(a.time); if (h !== null) hourSet.add(h); });
+    if (!hourSet.size) return [] as Array<{ month: string; revenue: number; expenses: number }>;
+    const minH = Math.min(...hourSet);
+    const maxH = Math.max(...hourSet);
+    return Array.from({ length: maxH - minH + 1 }, (_, i) => {
+      const h = minH + i;
+      const label = h === 0 ? "12AM" : h < 12 ? `${h}AM` : h === 12 ? "12PM" : `${h - 12}PM`;
+      const slot = normAppts.filter(a => parseHour(a.time) === h);
+      return {
+        month:    label,
+        revenue:  slot.reduce((s, a) => s + (Number(a.amount) || 0), 0),
+        expenses: 0,
+      };
+    });
+  }, [normAppts]);
 
   const activeServices = useMemo(
     () => allServices.filter((s) => s.is_active).slice(0, 6),
@@ -902,7 +1017,7 @@ export default function DashboardPage() {
   // Navigate callbacks (stable references for memoized children)
   const goToCalendar  = useCallback(() => navigate("/dashboard/calendar"),        [navigate]);
   const goToClients   = useCallback(() => navigate("/dashboard/clients/add"),     [navigate]);
-  const goToSales     = useCallback(() => navigate("/dashboard/sales"),            [navigate]);
+  const goToSales     = useCallback(() => navigate("/dashboard/sales/quick"),      [navigate]);
   const goToMarketing = useCallback(() => navigate("/dashboard/marketing"),        [navigate]);
   const goToServices  = useCallback(() => navigate("/dashboard/catalog/services"), [navigate]);
   const goToStaff     = useCallback(() => navigate("/dashboard/team/staff"),       [navigate]);
@@ -937,6 +1052,16 @@ export default function DashboardPage() {
               <span>{qa.label}</span>
             </button>
           ))}
+          <button
+            className="db-quick-btn db-quick-btn--refresh"
+            onClick={handleRefresh}
+            disabled={dashLoading}
+          >
+            <span className="db-quick-icon" style={{ background: "#f59e0b15", color: "#f59e0b" }}>
+              <ArrowRepeat size={22} className={dashLoading ? "db-refresh-spin" : ""} />
+            </span>
+            <span>Refresh</span>
+          </button>
         </div>
       </div>
 
@@ -954,7 +1079,7 @@ export default function DashboardPage() {
 
         {/* Revenue chart — only re-renders when chart data or chartLoading changes */}
         <RevenueChartPanel
-          revenue={revenueChart}
+          revenue={revPeriod === "today" ? todayHourlyRevenue : revenueChart}
           chartLoading={dashLoading || chartLoading}
           error={chartError ?? dashError}
           revPeriod={revPeriod}

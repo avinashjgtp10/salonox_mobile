@@ -1489,6 +1489,40 @@ body {
   margin: 12px 0;
 }
 
+.db-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #6b7280;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+
+  &:hover:not(:disabled) {
+    background: #f3f4f6;
+    color: #111827;
+    border-color: #d1d5db;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+@keyframes db-spin {
+  to { transform: rotate(360deg); }
+}
+
+.db-refresh-spin {
+  animation: db-spin 0.8s linear infinite;
+}
+
 .db-retry-btn {
   display: inline-flex;
   align-items: center;

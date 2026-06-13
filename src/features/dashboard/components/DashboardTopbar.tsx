@@ -14,6 +14,7 @@ import {
   PersonPlus,
   StarFill,
   ChevronRight,
+  ArrowClockwise,
 } from "react-bootstrap-icons";
 import type { RootState } from "../../../store/store";
 import SearchOverlay from "./SearchOverlay";
