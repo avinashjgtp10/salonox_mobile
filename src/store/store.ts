@@ -37,7 +37,7 @@ import onlineBookingReducer from "./onlineBookingSlice";
 const authPersistConfig = {
   key: "auth",
   storage,
-  whitelist: ["refreshToken", "isOnboardingComplete", "custom_permissions"], // accessToken intentionally excluded — AuthGuard silently restores it via refreshToken on boot
+  whitelist: ["refreshToken", "isOnboardingComplete", "custom_permissions"],
 };
 
 const shiftPersistConfig = {
@@ -48,10 +48,7 @@ const shiftPersistConfig = {
 
 export const store = configureStore({
   reducer: {
-    auth: persistReducer(
-      authPersistConfig,
-      authReducer,
-    ) as unknown as Reducer<AuthState>,
+    auth: persistReducer(authPersistConfig, authReducer) as unknown as Reducer<AuthState>,
     salon: salonReducer,
     client: clientReducer,
     user: userReducer,

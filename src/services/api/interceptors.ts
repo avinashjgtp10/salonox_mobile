@@ -11,12 +11,14 @@ import { PUBLIC_ROUTES, AUTH } from "./endpoints";
 export class ApiError {
   status: number;
   message: string;
+  code?: string;
   errors?: any;
 
-  constructor(status: number, message: string, errors?: any) {
+  constructor(status: number, message: string, errors?: any, code?: string) {
     this.status = status;
     this.message = message;
     this.errors = errors;
+    this.code = code;
   }
 }
 
@@ -44,6 +46,9 @@ const processQueue = (error: unknown, token: string | null = null) => {
   );
   failedQueue = [];
 };
+
+// ─── Subscription error code sent by the backend ─────────────────────────────
+const SUBSCRIPTION_REQUIRED_CODE = "SUBSCRIPTION_REQUIRED";
 
 // ─── Apply Interceptors ───────────────────────────────────────────────────────
 export const applyInterceptors = (instance: AxiosInstance) => {
@@ -104,6 +109,13 @@ export const applyInterceptors = (instance: AxiosInstance) => {
       const status = error.response?.status;
       const data = error.response?.data as any;
       const errField = data?.error;
+
+      // error.code can be a string (e.g. "SUBSCRIPTION_REQUIRED") or an object with .code
+      const errorCode: string | undefined =
+        (typeof errField === "object" ? errField?.code : undefined) ??
+        data?.code ??
+        undefined;
+
       const message =
         (typeof errField === "string" ? errField : errField?.message ?? errField?.msg) ??
         data?.message ??
@@ -177,6 +189,17 @@ export const applyInterceptors = (instance: AxiosInstance) => {
         } finally {
           isRefreshing = false;
         }
+      }
+
+      // ── 403 SUBSCRIPTION_REQUIRED: show full-screen subscription wall ────
+      if (status === 403 && errorCode === SUBSCRIPTION_REQUIRED_CODE) {
+        if (storeRef) {
+          // Dynamically import to avoid circular dependency
+          import("../../store/billingSlice").then(({ setSubscriptionExpired }) => {
+            storeRef.dispatch(setSubscriptionExpired(true));
+          });
+        }
+        return Promise.reject(new ApiError(403, message, undefined, errorCode));
       }
 
       // ── No response (network error) ────────────────────────────────────────

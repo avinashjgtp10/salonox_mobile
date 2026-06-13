@@ -1,4 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
+import { logout } from "./authSlice";
 import {
   fetchBillingPlansThunk,
   fetchSubscriptionThunk,
@@ -20,6 +21,7 @@ interface BillingState {
     cancel: boolean;
   };
   error: string | null;
+  subscriptionExpired: boolean;
 }
 
 const initialState: BillingState = {
@@ -28,6 +30,7 @@ const initialState: BillingState = {
   invoices: [],
   loading: { plans: false, subscription: false, invoices: false, cancel: false },
   error: null,
+  subscriptionExpired: false,
 };
 
 const billingSlice = createSlice({
@@ -35,6 +38,9 @@ const billingSlice = createSlice({
   initialState,
   reducers: {
     clearBillingError(state) { state.error = null; },
+    setSubscriptionExpired(state, action: { payload: boolean }) {
+      state.subscriptionExpired = action.payload;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -44,7 +50,13 @@ const billingSlice = createSlice({
 
     builder
       .addCase(fetchSubscriptionThunk.pending,  (s) => { s.loading.subscription = true; })
-      .addCase(fetchSubscriptionThunk.fulfilled, (s, { payload }) => { s.loading.subscription = false; s.subscription = payload; })
+      .addCase(fetchSubscriptionThunk.fulfilled, (s, { payload }) => {
+        s.loading.subscription = false;
+        s.subscription = payload;
+        if (payload?.status === "active" || payload?.status === "trialing") {
+          s.subscriptionExpired = false;
+        }
+      })
       .addCase(fetchSubscriptionThunk.rejected,  (s, { payload }) => { s.loading.subscription = false; s.error = payload ?? null; });
 
     builder
@@ -56,8 +68,10 @@ const billingSlice = createSlice({
       .addCase(cancelSubscriptionThunk.pending,  (s) => { s.loading.cancel = true; })
       .addCase(cancelSubscriptionThunk.fulfilled, (s) => { s.loading.cancel = false; if (s.subscription) s.subscription.status = "cancelled"; })
       .addCase(cancelSubscriptionThunk.rejected,  (s, { payload }) => { s.loading.cancel = false; s.error = payload ?? null; });
+
+    builder.addCase(logout, (s) => { s.subscriptionExpired = false; });
   },
 });
 
-export const { clearBillingError } = billingSlice.actions;
+export const { clearBillingError, setSubscriptionExpired } = billingSlice.actions;
 export default billingSlice.reducer;
