@@ -5,13 +5,15 @@ import {
   Calendar3,
   Sliders,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   FileEarmarkText,
   CreditCard2Back,
 } from "react-bootstrap-icons";
 
 // UI Components
 import { Button, Input, Modal, Card, Table, Pagination, Loader } from "../../../components/ui";
-import { DateRangePicker } from "react-date-range";
+import { DateRange } from "react-date-range";
 import type { RangeKeyDict, Range } from "react-date-range";
 import {
   format,
@@ -20,7 +22,6 @@ import {
   endOfWeek,
   startOfMonth,
   endOfMonth,
-  subMonths,
   parseISO,
   isWithinInterval,
 } from "date-fns";
@@ -122,17 +123,14 @@ export default function PaymentsPage() {
   useEffect(() => { setCurrentPage(1); }, [searchTerm, appliedRange, methodFilter, statusFilter]);
 
   // ── Calendar preset logic ─────────────────────────────────────────────────
-  const handleSelectDropdown = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
+  const handleSelectPreset = (val: string) => {
     setDateRangeDropdown(val);
+    if (val === "Custom") return;
     const today = new Date();
     let start = today, end = today;
     switch (val) {
-      case "Yesterday": start = end = subDays(today, 1); break;
-      case "This week": start = startOfWeek(today, { weekStartsOn: 1 }); end = endOfWeek(today, { weekStartsOn: 1 }); break;
-      case "Last week": start = startOfWeek(subDays(today, 7), { weekStartsOn: 1 }); end = endOfWeek(subDays(today, 7), { weekStartsOn: 1 }); break;
-      case "This month": start = startOfMonth(today); end = endOfMonth(today); break;
-      case "Last month": start = startOfMonth(subMonths(today, 1)); end = endOfMonth(subMonths(today, 1)); break;
+      case "Week": start = startOfWeek(today, { weekStartsOn: 1 }); end = endOfWeek(today, { weekStartsOn: 1 }); break;
+      case "Month": start = startOfMonth(today); end = endOfMonth(today); break;
     }
     setTempRange([{ startDate: start, endDate: end, key: "selection" }]);
   };
@@ -301,42 +299,56 @@ export default function PaymentsPage() {
             </Button>
 
             {showCalendar && (
-              <div
-                className="shadow-lg border position-absolute start-0 mt-2 bg-white z-2 p-3 rounded-4"
-                style={{ minWidth: "360px" }}
-              >
-                <div className="mb-3">
-                  <label className="form-label small fw-bold">Select preset</label>
-                  <select
-                    className="form-select rounded-3 p-2"
-                    value={dateRangeDropdown}
-                    onChange={handleSelectDropdown}
-                    style={{ appearance: "none", backgroundImage: "none" }}
-                  >
-                    <option>Today</option>
-                    <option>Yesterday</option>
-                    <option>This week</option>
-                    <option>Last week</option>
-                    <option>This month</option>
-                    <option>Last month</option>
-                    <option>Custom</option>
-                  </select>
+              <div className="pay-calendar-popup shadow-lg position-absolute start-0 mt-2 bg-white z-2 rounded-4">
+                {/* Header */}
+                <div className="pay-cal-header">
+                  <span className="pay-cal-title">Date Range</span>
+                  <span className="pay-cal-range-text">
+                    {format(tempRange[0].startDate!, "dd MMM")} → {format(tempRange[0].endDate!, "dd MMM")}
+                  </span>
                 </div>
-                <div className="overflow-auto">
-                  <DateRangePicker
-                    onChange={handleDateChange}
-                    moveRangeOnFirstSelection={false}
-                    months={1}
-                    ranges={tempRange}
-                    direction="vertical"
-                    showMonthAndYearPickers={false}
-                    showDateDisplay={false}
-                    rangeColors={["#11141a"]}
-                    staticRanges={[]}
-                    inputRanges={[]}
-                  />
+
+                {/* Tab presets */}
+                <div className="pay-cal-tabs">
+                  {(["Today", "Week", "Month", "Custom"] as const).map((p) => {
+                    const isActive = ["Today", "Week", "Month"].includes(dateRangeDropdown) ? dateRangeDropdown === p : p === "Custom";
+                    return (
+                      <button
+                        key={p}
+                        className={`pay-cal-tab${isActive ? " active" : ""}`}
+                        onClick={() => handleSelectPreset(p)}
+                      >
+                        {p}
+                      </button>
+                    );
+                  })}
                 </div>
-                <div className="d-flex justify-content-end gap-2 mt-3 pt-2 border-top">
+
+                {/* Calendar */}
+                <DateRange
+                  onChange={handleDateChange}
+                  moveRangeOnFirstSelection={false}
+                  months={1}
+                  ranges={tempRange}
+                  direction="horizontal"
+                  showMonthAndYearPickers={false}
+                  showDateDisplay={false}
+                  rangeColors={["#11141a"]}
+                  navigatorRenderer={(curr, changeShownDate) => (
+                    <div className="pay-cal-custom-nav">
+                      <button className="pay-cal-nav-btn" onClick={() => changeShownDate(-1, "monthOffset")}>
+                        <ChevronLeft size={13} />
+                      </button>
+                      <span className="pay-cal-nav-label">{format(curr, "MMMM yyyy")}</span>
+                      <button className="pay-cal-nav-btn" onClick={() => changeShownDate(1, "monthOffset")}>
+                        <ChevronRight size={13} />
+                      </button>
+                    </div>
+                  )}
+                />
+
+                {/* Footer */}
+                <div className="pay-cal-footer d-flex justify-content-end gap-2 border-top">
                   <Button variant="ghost" pill size="sm" onClick={cancelDateRange}>Cancel</Button>
                   <Button variant="dark" pill size="sm" onClick={applyDateRange}>Apply</Button>
                 </div>

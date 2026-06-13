@@ -445,128 +445,75 @@ export default function SalesListPage() {
         </div>
       )}
 
-      {/* ── FILTER DRAWER ──────────────────────────────────────────────────── */}
-      {showFilter && (
-        <div className="sales-pg__filter-overlay" onClick={() => setShowFilter(false)}>
-          <div className="sales-pg__filter-drawer" onClick={(e) => e.stopPropagation()}>
-            <div className="sales-pg__filter-header">
-              <button
-                className="sales-pg__filter-close"
-                onClick={() => setShowFilter(false)}
+      {/* ── FILTER MODAL ──────────────────────────────────────────────────── */}
+      <Modal
+        show={showFilter}
+        onClose={() => setShowFilter(false)}
+        title="Filters"
+        size="md"
+        footer={
+          <div className="d-flex justify-content-end gap-3 w-100">
+            <Button
+              variant="outline-dark"
+              pill
+              className="px-4"
+              onClick={() => { setStatusFilter("All"); setPaymentFilter("All"); }}
+            >
+              Clear filters
+            </Button>
+            <Button
+              variant="dark"
+              pill
+              className="px-4"
+              onClick={() => { setShowFilter(false); setCurrentPage(1); }}
+            >
+              Apply
+            </Button>
+          </div>
+        }
+      >
+        <div className="payment-filters-modal-content">
+          <div className="mb-4">
+            <label className="form-label small fw-bold">Status</label>
+            <div className="position-relative">
+              <select
+                className="form-select rounded-3 p-2 pe-5"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                style={{ appearance: "none", backgroundImage: "none" }}
               >
-                <X size={16} />
-              </button>
-              <h4 className="sales-pg__filter-title">All filters</h4>
+                {STATUS_FILTER_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>{opt === "All" ? "All Status" : opt}</option>
+                ))}
+              </select>
+              <ChevronDown
+                className="position-absolute end-0 top-50 translate-middle-y me-3 text-muted pointer-events-none"
+                size={14}
+              />
             </div>
+          </div>
 
-            <div className="sales-pg__filter-body">
-              {/* Status filter */}
-              <div className="sales-pg__filter-item">
-                <div
-                  className="sales-pg__filter-section-title"
-                  onClick={() => setStatusFilterOpen((v) => !v)}
-                >
-                  <div className="sales-pg__filter-title-left">
-                    <CheckCircleFill size={14} />
-                    <span>Status</span>
-                    {statusFilter !== "All" && (
-                      <span className="sales-pg__filter-count">1</span>
-                    )}
-                  </div>
-                  <div className="sales-pg__filter-title-right">
-                    {statusFilter !== "All" && (
-                      <span
-                        className="sales-pg__filter-clear"
-                        onClick={(e) => { e.stopPropagation(); setStatusFilter("All"); }}
-                      >
-                        Clear
-                      </span>
-                    )}
-                    {statusFilterOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-                  </div>
-                </div>
-                {statusFilterOpen && (
-                  <div className="sales-pg__filter-options">
-                    {STATUS_FILTER_OPTIONS.map((opt) => (
-                      <div
-                        key={opt}
-                        className={`sales-pg__filter-option${statusFilter === opt ? " sales-pg__filter-option--active" : ""}`}
-                        onClick={() => {
-                          if (opt === "Draft") {
-                            setShowFilter(false);
-                            handleTabChange("drafts");
-                          } else {
-                            setStatusFilter(opt);
-                          }
-                        }}
-                      >
-                        <span>{opt}</span>
-                        {statusFilter === opt && <span className="sales-pg__filter-check">✓</span>}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Payment method filter */}
-              <div className="sales-pg__filter-item">
-                <div
-                  className="sales-pg__filter-section-title"
-                  onClick={() => setPaymentFilterOpen((v) => !v)}
-                >
-                  <div className="sales-pg__filter-title-left">
-                    <CreditCard2Front size={14} />
-                    <span>Payment method</span>
-                    {paymentFilter !== "All" && (
-                      <span className="sales-pg__filter-count">1</span>
-                    )}
-                  </div>
-                  <div className="sales-pg__filter-title-right">
-                    {paymentFilter !== "All" && (
-                      <span
-                        className="sales-pg__filter-clear"
-                        onClick={(e) => { e.stopPropagation(); setPaymentFilter("All"); }}
-                      >
-                        Clear
-                      </span>
-                    )}
-                    {paymentFilterOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-                  </div>
-                </div>
-                {paymentFilterOpen && (
-                  <div className="sales-pg__filter-options">
-                    {PAYMENT_FILTER_OPTIONS.map((opt) => (
-                      <div
-                        key={opt}
-                        className={`sales-pg__filter-option${paymentFilter === opt ? " sales-pg__filter-option--active" : ""}`}
-                        onClick={() => setPaymentFilter(opt)}
-                      >
-                        <span>{opt}</span>
-                        {paymentFilter === opt && <span className="sales-pg__filter-check">✓</span>}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="sales-pg__filter-footer">
-              <button
-                className="sales-pg__filter-btn-clear"
-                onClick={() => { setStatusFilter("All"); setPaymentFilter("All"); }}
+          <div className="mb-2">
+            <label className="form-label small fw-bold">Payment method</label>
+            <div className="position-relative">
+              <select
+                className="form-select rounded-3 p-2 pe-5"
+                value={paymentFilter}
+                onChange={(e) => setPaymentFilter(e.target.value)}
+                style={{ appearance: "none", backgroundImage: "none" }}
               >
-                Clear filters
-              </button>
-              <button
-                className="sales-pg__filter-btn-apply"
-                onClick={() => { setShowFilter(false); setCurrentPage(1); }}
-              >
-                Apply
-              </button>
+                {PAYMENT_FILTER_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>{opt === "All" ? "All Methods" : opt}</option>
+                ))}
+              </select>
+              <ChevronDown
+                className="position-absolute end-0 top-50 translate-middle-y me-3 text-muted pointer-events-none"
+                size={14}
+              />
             </div>
           </div>
         </div>
-      )}
+      </Modal>
 
       {/* ── HEADER ─────────────────────────────────────────────────────────── */}
       <div className="sales-pg__header">

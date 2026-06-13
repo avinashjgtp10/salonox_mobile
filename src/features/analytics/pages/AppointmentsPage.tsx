@@ -11,6 +11,7 @@ import {
   FiletypeXlsx,
   X,
   ChevronLeft,
+  ChevronRight,
   PencilFill,
   XCircleFill,
   PersonFill,
@@ -29,7 +30,7 @@ import {
   Pagination,
 } from "../../../components/ui";
 import { DateRange } from "react-date-range";
-import { subDays, format, parseISO, differenceInMinutes } from "date-fns";
+import { subDays, format, parseISO, differenceInMinutes, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import "react-date-range/dist/styles.css";
 import "react-date-range/dist/theme/default.css";
 import "../styles/AppointmentsPage.scss";
@@ -110,7 +111,6 @@ export default function AppointmentsPage() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [showPicker, setShowPicker] = useState(false);
-  const [showPresets, setShowPresets] = useState(false);
   const [selectedLabel, setSelectedLabel] = useState("All time");
   const [showExport, setShowExport] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
@@ -222,44 +222,23 @@ export default function AppointmentsPage() {
     fetchPage(1, size, appliedFilters, allTime, range, searchTerm || undefined);
   };
 
-  const handlePreset = (label: string) => {
-    setSelectedLabel(label);
-    setShowPresets(false);
-    const isAll = label === "All time";
-    setAllTime(isAll);
 
-    let newRange = range;
+  const handleTabPreset = (label: string) => {
+    setSelectedLabel(label);
+    if (label === "Custom") return;
+    const t = new Date();
+    let newRange: typeof range;
     switch (label) {
       case "Today":
-        newRange = [{ startDate: today, endDate: today, key: "selection" }];
-        break;
-      case "Yesterday": {
-        const yesterday = subDays(today, 1);
-        newRange = [{ startDate: yesterday, endDate: yesterday, key: "selection" }];
-        break;
-      }
-      case "Last 7 days":
-        newRange = [{ startDate: subDays(today, 6), endDate: today, key: "selection" }];
-        break;
-      case "Last 30 days":
-        newRange = [{ startDate: subDays(today, 29), endDate: today, key: "selection" }];
-        break;
-      case "Month to date":
-        newRange = [{
-          startDate: new Date(today.getFullYear(), today.getMonth(), 1),
-          endDate: today,
-          key: "selection",
-        }];
-        break;
-      case "All time":
-        newRange = [{ startDate: new Date("2000-01-01"), endDate: new Date("2099-12-31"), key: "selection" }];
-        break;
+        newRange = [{ startDate: t, endDate: t, key: "selection" }]; break;
+      case "Week":
+        newRange = [{ startDate: startOfWeek(t, { weekStartsOn: 1 }), endDate: endOfWeek(t, { weekStartsOn: 1 }), key: "selection" }]; break;
+      case "Month":
+        newRange = [{ startDate: startOfMonth(t), endDate: endOfMonth(t), key: "selection" }]; break;
+      default: return;
     }
+    setAllTime(false);
     setRange(newRange);
-    setCurrentPage(1);
-    fetchPage(1, pageSize, appliedFilters, isAll, newRange);
-    // Close picker immediately for presets (no manual Apply needed)
-    setShowPicker(false);
   };
 
   const handleApplyRange = () => {
@@ -603,100 +582,62 @@ export default function AppointmentsPage() {
           </Button>
 
           {showPicker && (
-            <div
-              className="salonox-calendar-popup shadow-lg border position-absolute start-0 mt-2 bg-white z-2 rounded-4"
-              style={{ width: "360px", padding: "16px" }}
-            >
-              <div className="preset-selector mb-3 position-relative">
-                <Button
-                  variant="outline-dark"
-                  fullWidth
-                  className="d-flex justify-content-between align-items-center"
-                  onClick={() => setShowPresets(!showPresets)}
-                  iconRight={
-                    <ChevronDown
-                      size={14}
-                      className={`transition-all ${showPresets ? "rotate-180" : ""}`}
-                    />
-                  }
-                >
-                  {selectedLabel}
-                </Button>
-
-                {showPresets && (
-                  <div className="custom-dropdown shadow border position-absolute start-0 w-100 mt-1 bg-white z-3 rounded-3 overflow-hidden">
-                    {[
-                      "All time",
-                      "Today",
-                      "Yesterday",
-                      "Last 7 days",
-                      "Last 30 days",
-                      "Month to date",
-                    ].map((p) => (
-                      <Button
-                        key={p}
-                        variant="ghost"
-                        fullWidth
-                        className="text-start p-2 rounded-0 border-bottom"
-                        onClick={() => handlePreset(p)}
-                      >
-                        {p}
-                      </Button>
-                    ))}
-                  </div>
-                )}
+            <div className="salonox-calendar-popup shadow-lg position-absolute start-0 mt-2 bg-white z-2 rounded-4">
+              {/* Header */}
+              <div className="cal-popup-header">
+                <span className="cal-popup-title">Date Range</span>
+                <span className="cal-popup-range-text">
+                  {allTime ? "All time" : `${format(range[0].startDate.getFullYear() < 2020 ? new Date() : range[0].startDate, "dd MMM")} → ${format(range[0].endDate.getFullYear() > 2050 ? new Date() : range[0].endDate, "dd MMM")}`}
+                </span>
               </div>
 
-              {allTime ? (
-                <div className="text-center py-3 px-2 text-muted small border rounded-3 bg-light mb-3">
-                  Showing all appointments across all dates
-                </div>
-              ) : (
-                <div className="calendar-content">
-                  <div className="d-flex gap-2 mb-2 align-items-center">
-                    <Input
-                      readOnly
-                      className="form-control-sm mb-0 text-center"
-                      value={format(range[0].startDate, "dd MMM yyyy")}
-                      containerClass="flex-grow-1"
-                    />
-                    <span className="text-muted small flex-shrink-0">→</span>
-                    <Input
-                      readOnly
-                      className="form-control-sm mb-0 text-center"
-                      value={format(range[0].endDate, "dd MMM yyyy")}
-                      containerClass="flex-grow-1"
-                    />
-                  </div>
-                  <div style={{ margin: "0 -4px" }}>
-                    <DateRange
-                      ranges={range}
-                      onChange={(item: any) => {
-                        setAllTime(false);
-                        setRange([item.selection]);
-                      }}
-                      months={1}
-                      direction="vertical"
-                      rangeColors={["#000"]}
-                      showDateDisplay={false}
-                      showMonthAndYearPickers
-                      shownDate={
-                        range[0].startDate.getFullYear() < 2020
-                          ? new Date()
-                          : range[0].startDate
-                      }
-                    />
-                  </div>
-                </div>
-              )}
+              {/* Tab presets */}
+              <div className="cal-popup-tabs">
+                {(["Today", "Week", "Month", "Custom"] as const).map((p) => {
+                  const isActive = ["Today", "Week", "Month"].includes(selectedLabel) ? selectedLabel === p : p === "Custom";
+                  return (
+                    <button
+                      key={p}
+                      className={`cal-popup-tab${isActive ? " active" : ""}`}
+                      onClick={() => handleTabPreset(p)}
+                    >
+                      {p}
+                    </button>
+                  );
+                })}
+              </div>
 
-              <div className="calendar-footer d-flex justify-content-end gap-2 mt-2 pt-2 border-top">
-                <Button variant="ghost" pill size="sm" onClick={() => setShowPicker(false)}>
-                  Cancel
-                </Button>
-                <Button variant="dark" pill size="sm" onClick={handleApplyRange}>
-                  Apply
-                </Button>
+              {/* Calendar */}
+              <DateRange
+                ranges={range}
+                onChange={(item: any) => {
+                  setSelectedLabel("Custom");
+                  setAllTime(false);
+                  setRange([item.selection]);
+                }}
+                months={1}
+                direction="horizontal"
+                rangeColors={["#111827"]}
+                showDateDisplay={false}
+                showMonthAndYearPickers={false}
+                shownDate={range[0].startDate.getFullYear() < 2020 ? new Date() : range[0].startDate}
+                navigatorRenderer={(curr, changeShownDate) => (
+                  <div className="cal-custom-nav">
+                    <button className="cal-nav-btn" onClick={() => changeShownDate(-1, "monthOffset")}>
+                      <ChevronLeft size={13} />
+                    </button>
+                    <span className="cal-nav-label">{format(curr, "MMMM yyyy")}</span>
+                    <button className="cal-nav-btn" onClick={() => changeShownDate(1, "monthOffset")}>
+                      <ChevronRight size={13} />
+                    </button>
+                  </div>
+                )}
+              />
+
+              {/* Footer */}
+              <div className="cal-popup-footer d-flex justify-content-end gap-2 border-top">
+                <Button variant="ghost" pill size="sm" onClick={() => setShowPicker(false)}>Cancel</Button>
+                <Button variant="dark" pill size="sm" onClick={handleApplyRange}>Apply</Button>
               </div>
             </div>
           )}
@@ -754,7 +695,7 @@ export default function AppointmentsPage() {
         show={showFiltersModal}
         onClose={() => setShowFiltersModal(false)}
         title="Filters"
-        size="lg"
+        size="md"
         footer={
           <div className="d-flex justify-content-end gap-3 w-100">
             <Button variant="outline-dark" pill className="px-4" onClick={clearFilters}>
@@ -796,7 +737,7 @@ export default function AppointmentsPage() {
                 onChange={(e) => setTempFilters({ ...tempFilters, status: e.target.value })}
                 style={{ appearance: "none", backgroundImage: "none" }}
               >
-                <option value="all">All statuses</option>
+                <option value="all">All Status</option>
                 <option value="booked">Booked</option>
                 <option value="confirmed">Confirmed</option>
                 <option value="in_progress">In progress</option>
