@@ -1290,10 +1290,10 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                     setCountryCode(matchedCountryCode);
                     setNewClientPhone(phoneStr.replace(/\D/g, "").slice(-10));
                     setNewClientGender((client as any).gender || "");
-                    
-                    // Open the form so the user sees the auto-filled data
-                    setShowAddClientForm(true);
-                    setIsClientSaved(true); // existing client — already in the system
+
+                    // Existing client selected — hide the registration form, show history only
+                    setShowAddClientForm(false);
+                    setIsClientSaved(true);
                   }}
                   disabled={clientFrozen}
                   hasError={hasErr("client")}
