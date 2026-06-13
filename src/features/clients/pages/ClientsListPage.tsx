@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
 import Pagination from "../../../components/ui/Pagination";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Sliders,
   ChevronDown,
@@ -45,6 +45,7 @@ import "../styles/ClientsListPage.scss";
 export default function ClientsListPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const [clients, setClients] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -154,6 +155,15 @@ export default function ClientsListPage() {
     string | number | null
   >(null);
   const [openRowMenuId, setOpenRowMenuId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const openClientId = (location.state as any)?.openClientId;
+    if (openClientId) {
+      setSelectedClientId(openClientId);
+      setIsDrawerOpen(true);
+      window.history.replaceState({}, "");
+    }
+  }, [location.state]);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
