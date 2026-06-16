@@ -1,9 +1,12 @@
 import { useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import * as XLSX from "xlsx";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/ImportStaffPage.scss";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
+
+const ACCEPTED_EXTS = [".csv", ".xlsx", ".xls"];
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -56,6 +59,10 @@ const CheckCircleIcon = () => (
 );
 
 // ─── Step 1 – Upload ──────────────────────────────────────────────────────────
+function fileExtLabel(f: File) {
+  return f.name.slice(f.name.lastIndexOf(".") + 1).toUpperCase() || "FILE";
+}
+
 function StepUpload({ file, onFileChange, error }: { file: File | null; onFileChange: (f: File | null) => void; error: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
@@ -93,7 +100,7 @@ function StepUpload({ file, onFileChange, error }: { file: File | null; onFileCh
 
         {file ? (
           <div className="isp-file-pill mt-3" onClick={(e) => e.stopPropagation()}>
-            <span className="isp-csv-badge">CSV</span>
+            <span className="isp-csv-badge">{fileExtLabel(file)}</span>
             <span className="isp-file-name">{file.name}</span>
             <button className="isp-remove-btn" onClick={(e) => { e.stopPropagation(); onFileChange(null); }}>×</button>
           </div>
@@ -233,7 +240,8 @@ function StepPreview({ previewRows, mapping }: { previewRows: Record<string, str
 }
 
 // ─── Step 4 – Result ──────────────────────────────────────────────────────────
-interface ImportResult { imported: number; updated: number; skipped: number; total_rows: number; errors: string[]; }
+interface ImportError { row: number; email?: string; code: string; message: string; }
+interface ImportResult { imported: number; updated: number; skipped: number; total_rows: number; errors: ImportError[]; }
 
 function StepResult({ result }: { result: ImportResult | null }) {
   const success = (result?.imported ?? 0) > 0 || (result?.updated ?? 0) > 0;
@@ -271,7 +279,11 @@ function StepResult({ result }: { result: ImportResult | null }) {
         <div className="isp-errors-wrap mt-3 text-start">
           <p className="isp-errors-title">Errors ({result.errors.length})</p>
           <ul className="isp-errors-list">
-            {result.errors.map((e, i) => <li key={i} className="isp-error-item">{e}</li>)}
+            {result.errors.map((e, i) => (
+                <li key={i} className="isp-error-item">
+                  {`Row ${e.row}${e.email ? ` (${e.email})` : ""}: ${e.message}`}
+                </li>
+              ))}
           </ul>
         </div>
       )}
@@ -296,14 +308,19 @@ export default function ImportStaffPage() {
   const progressPct = ((step - 1) / (TOTAL - 1)) * 100;
 
   const handleFileChange = (f: File | null) => {
-    setFile(f);
     setUploadError("");
-    if (!f) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const lines = text.split("\n").filter((l) => l.trim());
-      const headers = (lines[0] ?? "").split(",").map((h) => h.trim().replace(/^"|"$/g, ""));
+    if (!f) { setFile(null); return; }
+
+    const ext = f.name.slice(f.name.lastIndexOf(".")).toLowerCase();
+    if (!ACCEPTED_EXTS.includes(ext)) {
+      setFile(null);
+      setUploadError(`"${ext || f.name}" is not supported. Please upload a CSV or Excel (.xlsx, .xls) file.`);
+      return;
+    }
+
+    setFile(f);
+
+    const applyHeaders = (headers: string[], dataRows: string[][]) => {
       setCsvHeaders(headers);
 
       const auto: Record<string, string> = {};
@@ -316,18 +333,46 @@ export default function ImportStaffPage() {
       });
       setMapping(auto);
 
-      const dataRows = lines.slice(1, 6);
-      setPreviewRows(dataRows.map((line) => {
-        const vals = line.split(",").map((v) => v.trim().replace(/^"|"$/g, ""));
+      setPreviewRows(dataRows.slice(0, 5).map((vals) => {
         const row: Record<string, string> = {};
         STAFF_COLUMNS.forEach((col) => {
           const idx = headers.indexOf(auto[col.key] ?? "");
-          row[col.key] = idx >= 0 ? vals[idx] ?? "" : "";
+          row[col.key] = idx >= 0 ? (vals[idx] ?? "") : "";
         });
         return row;
       }));
     };
-    reader.readAsText(f);
+
+    if (ext === ".csv") {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result as string;
+        const lines = text.split("\n").filter((l) => l.trim());
+        const headers = (lines[0] ?? "").split(",").map((h) => h.trim().replace(/^"|"$/g, ""));
+        const dataRows = lines.slice(1).map((line) =>
+          line.split(",").map((v) => v.trim().replace(/^"|"$/g, ""))
+        );
+        applyHeaders(headers, dataRows);
+      };
+      reader.readAsText(f);
+    } else {
+      // Excel: use SheetJS
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: "array" });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, defval: "" }) as string[][];
+          const headers = (rows[0] ?? []).map((h) => String(h).trim());
+          applyHeaders(headers, rows.slice(1));
+        } catch {
+          setFile(null);
+          setUploadError("Could not read the Excel file. Please check the file and try again.");
+        }
+      };
+      reader.readAsArrayBuffer(f);
+    }
   };
 
   const handleMappingChange = (key: string, value: string) => {
@@ -359,7 +404,7 @@ export default function ImportStaffPage() {
         });
         setImportResult(res.data?.data ?? res.data);
       } catch (err: any) {
-        setImportResult({ imported: 0, updated: 0, skipped: 0, total_rows: 0, errors: [err?.message || "Import failed"] });
+        setImportResult({ imported: 0, updated: 0, skipped: 0, total_rows: 0, errors: [{ row: 0, code: "IMPORT_FAILED", message: err?.message || "Import failed" }] });
       } finally {
         setImporting(false);
       }
