@@ -16,7 +16,6 @@ const initialData: CatalogFormData = {
     paddingAfter: 0,
     description: "",
     active: true,
-    treatmentType: null,
     genderPreference: null,
     imageUrl: null,
   },
@@ -127,7 +126,7 @@ export const useServiceForm = (_type: "single" | "bundle") => {
 
     try {
       // Map formData to Backend Service shape
-      const payload: Partial<Service> = {
+      const payload: Record<string, unknown> = {
         name: formData.basic.name,
         description: formData.basic.description || undefined,
         category_id: formData.basic.categoryId || null,
@@ -144,12 +143,11 @@ export const useServiceForm = (_type: "single" | "bundle") => {
         team_member_ids: formData.team.allMembers
           ? undefined
           : formData.team.selectedMemberIds,
-        treatment_type: formData.basic.treatmentType ?? null,
         gender_preference: formData.basic.genderPreference ?? null,
         image_url: formData.basic.imageUrl ?? null,
       };
 
-      const resultAction = await dispatch(createServiceThunk(payload));
+      const resultAction = await dispatch(createServiceThunk(payload as Partial<Service>));
       if (createServiceThunk.fulfilled.match(resultAction)) {
         // Refresh the services list and categories in Redux state so the list
         // page shows up-to-date data immediately when the user navigates back.

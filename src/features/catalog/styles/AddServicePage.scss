@@ -200,7 +200,6 @@
 // ── Add Service Page ──────────────────────────────────────────────────────────
 .add-service-page {
   min-height: 100vh;
-  background: #f9fafb;
   display: flex;
   flex-direction: column;
   font-family: 'Inter', -apple-system, sans-serif;
@@ -248,10 +247,16 @@
     }
 
     .header-actions-right {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-shrink: 0;
+        position: fixed;
+        top: 16%;
+        right: 35px;
+
+        display: flex;
+        align-items: center;
+        gap: 10px;
+
+        z-index: 1000;
+
 
       .btn-close-text {
         background: #fff;
@@ -353,7 +358,7 @@
     width: 220px;
     flex-shrink: 0;
     position: sticky;
-    top: 72px;
+    top: 0px;
     height: fit-content;
     background: #fff;
     border: 1px solid #e5e7eb;
