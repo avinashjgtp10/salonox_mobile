@@ -6,6 +6,7 @@ import api from "../../../services/api/axios";
 import { BOOKING, STAFF, SALE, REPORT, SERVICES, CLIENT, PRODUCTS, CATEGORIES } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch, RootState } from "../../../store/store";
+import { selectCurrentSalon } from "../../../store/selectors/slices.selectors";
 import { clearReportError } from "../../../store/reportSlice";
 import {
   fetchRevenueReportThunk,
@@ -25,8 +26,7 @@ import "../styles/ReportsPage.scss";
 import {
   AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, RadarChart, Radar, PolarGrid,
-  PolarAngleAxis, ReferenceLine,
+  PieChart, Pie, Cell, ReferenceLine,
 } from "recharts";
 import {
   ArrowUpRight, ArrowDownRight, Funnel,
@@ -39,6 +39,7 @@ import {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const CHART_COLORS = ["#111827", "#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#ef4444"];
+const TOP3_AVATAR_COLORS = ["#111827", "#374151", "#6b7280"];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -492,112 +493,522 @@ const ClientsTab = ({
   </div>
 );
 
-const RADAR_COLORS = ["#111827", "#3b82f6", "#10b981"];
 
 interface StaffItem {
   id?: string | number;
   name: string;
   bookings: number;
   revenue: number;
-  rating: number;
-  utilization: number;
+  serviceRevenue: number;
+  productRevenue: number;
+  servicesSold: number;
+  productsSold: number;
+  customerCount: number;
   avgTicket: number;
   color?: string;
 }
 
+type StaffSortKey = "revenue" | "servicesSold" | "productsSold" | "bookings" | "avgTicket";
+
+// Helper: convert period key to start/end dates
+function periodToDates(period: ReportPeriod, filterFrom?: string, filterTo?: string): { from: string; to: string } {
+  if (filterFrom && filterTo) return { from: filterFrom, to: filterTo };
+  const to  = new Date().toISOString().slice(0, 10);
+  const days = period === "7d" ? 7 : period === "30d" ? 30 : period === "90d" ? 90 : 365;
+  const from = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+  return { from, to };
+}
+
 const StaffTab = ({
-  staffData,
-  radarStaff,
+  radarStaff: _radarStaff,
+  period,
+  filterFrom,
+  filterTo,
 }: {
-  staffData: StaffItem[];
   radarStaff: Array<{ metric: string; [key: string]: string | number }>;
+  period: ReportPeriod;
+  filterFrom?: string;
+  filterTo?: string;
 }) => {
-  const radarNames = radarStaff.length > 0 && radarStaff[0] != null
-    ? Object.keys(radarStaff[0]).filter(k => k !== "metric").slice(0, 3)
-    : [];
+  const dispatch = useDispatch<AppDispatch>();
+  const currentSalon = useSelector(selectCurrentSalon);
+  const salonId = currentSalon?.id;
+  const reduxStaff = useSelector((state: RootState) => (state.staff as any).items as any[]);
+  // Report endpoint already joins staff names server-side — use it for the Top 3 card and revenue chart
+  const reportPerformance = useSelector((state: RootState) => ((state as any).report?.staff?.performance ?? []) as any[]);
+
+  const [sortBy,      setSortBy]     = useState<StaffSortKey>("revenue");
+  const [staffData,   setStaffData]  = useState<StaffItem[]>([]);
+  const [loading,     setLoading]    = useState(false);
+  const [lbPage,      setLbPage]     = useState(1);
+  const [lbPageSize,  setLbPageSize] = useState(10);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // ── Fetch appointments + quick sales, aggregate by staff ──────────────────
+  const fetchData = useCallback(async () => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setLoading(true);
+    try {
+      const { from, to } = periodToDates(period, filterFrom, filterTo);
+      const apptParams = new URLSearchParams({ start_date: from, end_date: to, limit: "500" });
+      const saleParams = new URLSearchParams({ start_date: from, end_date: to, limit: "500" });
+
+      const staffParams = new URLSearchParams();
+      if (salonId) staffParams.set("salon_id", String(salonId));
+
+      const [apptRes, saleRes, staffRes] = await Promise.all([
+        api.get(`${BOOKING.BASE}?${apptParams}`, { signal: ctrl.signal }),
+        api.get(`${SALE.BASE}?${saleParams}`,    { signal: ctrl.signal }),
+        api.get(`${STAFF.BASE}?${staffParams}`,  { signal: ctrl.signal }),
+      ]);
+
+      // Merge direct API staff + Redux staff cache (two sources → more IDs covered)
+      const staffApiData = staffRes.data?.data;
+      const staffApiList: any[] = Array.isArray(staffApiData?.items) ? staffApiData.items
+        : Array.isArray(staffApiData) ? staffApiData : [];
+      const reduxStaffList: any[] = Array.isArray(reduxStaff) ? reduxStaff : [];
+      const staffByIdMap = new Map<string, any>();
+      [...reduxStaffList, ...staffApiList].forEach(s => staffByIdMap.set(String(s.id), s));
+      const staffList: any[] = Array.from(staffByIdMap.values());
+
+      // Build staff name map — key by EVERY id/uuid field the appointment may use.
+      // Also scan ALL string/number values on each staff object so we catch
+      // whichever field the backend uses as the auth UUID (user_id, uuid, auth_id, etc.)
+      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const staffNameMap = new Map<string, string>();
+      // canonical name → staff.id (used later to merge unknown entries)
+      const nameToId     = new Map<string, string>();
+
+      staffList.forEach((s: any) => {
+        const name = `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.fullName || s.name || "";
+        if (!name) return;
+        // Named explicit fields first
+        [s.id, s.user_id, s.uuid, s.staff_id, s.staff_uuid, s.userId, s.staffId, s.auth_id, s.auth_user_id, s.user?.id]
+          .filter(Boolean)
+          .forEach(uid => staffNameMap.set(String(uid), name));
+        // Then scan ALL values on the object — catches any field the API uses as auth UUID
+        Object.values(s).forEach(val => {
+          if (typeof val === "string" && (UUID_RE.test(val) || /^\d+$/.test(val))) {
+            staffNameMap.set(val, name);
+          } else if (typeof val === "number") {
+            staffNameMap.set(String(val), name);
+          }
+        });
+        nameToId.set(name.toLowerCase().trim(), String(s.id));
+      });
+
+      // Helper: resolve name from map → inline appt fields → "Unknown Staff"
+      const resolveName = (sid: string, appt?: any): string => {
+        if (staffNameMap.has(sid)) return staffNameMap.get(sid)!;
+        if (appt) {
+          const inline =
+            `${appt.staff_first_name ?? ""} ${appt.staff_last_name ?? ""}`.trim()
+            || appt.staff_name
+            || appt.staff?.name
+            || appt.staff?.full_name
+            || `${appt.staff?.first_name ?? ""} ${appt.staff?.last_name ?? ""}`.trim();
+          if (inline) {
+            staffNameMap.set(sid, inline); // cache so next appt for same sid resolves too
+            return inline;
+          }
+        }
+        return "Unknown Staff";
+      };
+
+      interface Agg {
+        name: string; bookings: number; revenue: number;
+        serviceRevenue: number; productRevenue: number;
+        servicesSold: number; productsSold: number; customerIds: Set<string>;
+        color?: string;
+      }
+      const agg = new Map<string, Agg>();
+
+      const getOrCreate = (sid: string, name: string): Agg => {
+        if (!agg.has(sid)) agg.set(sid, { name, bookings: 0, revenue: 0, serviceRevenue: 0, productRevenue: 0, servicesSold: 0, productsSold: 0, customerIds: new Set() });
+        // Update name if we now have a real name (not UUID / "Unknown Staff")
+        else if (agg.get(sid)!.name === "Unknown Staff" && name !== "Unknown Staff") {
+          agg.get(sid)!.name = name;
+        }
+        return agg.get(sid)!;
+      };
+
+      // ── Process appointments ──────────────────────────────────────────────
+      const rawAppt = apptRes.data?.data;
+      const appts: any[] =
+        Array.isArray(rawAppt?.items) ? rawAppt.items :
+        Array.isArray(rawAppt?.data)  ? rawAppt.data  :
+        Array.isArray(rawAppt)        ? rawAppt        : [];
+      appts.forEach((appt: any) => {
+        const sid = String(appt.staff_id ?? appt.staffId ?? "");
+        if (!sid || sid === "undefined" || sid === "null") return;
+        const name = resolveName(sid, appt);
+        const e = getOrCreate(sid, name);
+
+        const svcItems:  any[] = Array.isArray(appt.services)      ? appt.services      : [];
+        const prodItems: any[] = Array.isArray(appt.product_items) ? appt.product_items : [];
+        const pkgItems:  any[] = Array.isArray(appt.package_items) ? appt.package_items : [];
+
+        const svcRev  = svcItems.reduce( (s: number, it: any) => s + (parseFloat(String(it.price ?? 0)) || 0), 0);
+        const prodRev = prodItems.reduce((s: number, it: any) => s + (parseFloat(String(it.price ?? 0)) || 0) * (Number(it.quantity ?? it.qty ?? 1) || 1), 0);
+        const pkgRev  = pkgItems.reduce( (s: number, it: any) => s + (parseFloat(String(it.price ?? 0)) || 0), 0);
+        const computedTotal = svcRev + prodRev + pkgRev;
+        const total = parseFloat(String(appt.grand_total ?? appt.total_amount ?? appt.grandTotal ?? 0)) || computedTotal;
+
+        e.bookings       += 1;
+        e.revenue        += total;
+        e.serviceRevenue += svcRev + pkgRev;
+        e.productRevenue += prodRev;
+        e.servicesSold   += svcItems.length + pkgItems.length || 1;
+        e.productsSold   += prodItems.reduce((s: number, it: any) => s + (Number(it.quantity ?? it.qty ?? 1) || 1), 0);
+        const cid = String(appt.client_id ?? appt.customer_id ?? appt.clientId ?? "");
+        if (cid && cid !== "undefined" && cid !== "null") e.customerIds.add(cid);
+      });
+
+      // ── Process quick sales ───────────────────────────────────────────────
+      const rawSales = saleRes.data?.data;
+      const sales: any[] =
+        Array.isArray(rawSales?.items) ? rawSales.items :
+        Array.isArray(rawSales?.data)  ? rawSales.data  :
+        Array.isArray(rawSales)        ? rawSales        : [];
+      sales.forEach((sale: any) => {
+        const items: any[] = Array.isArray(sale.items) ? sale.items : [];
+        items.forEach((it: any) => {
+          const sid = String(it.staff_id ?? "");
+          if (!sid || sid === "undefined" || sid === "null") return;
+          const name = staffNameMap.get(sid) || it.staff_name || "Unknown Staff";
+          const e = getOrCreate(sid, name);
+
+          const qty   = Number(it.quantity ?? 1) || 1;
+          const price = parseFloat(String(it.total_price ?? it.unit_price ?? 0)) || 0;
+          const type  = String(it.item_type ?? "");
+
+          e.revenue += price;
+          if (type === "service") { e.serviceRevenue += price; e.servicesSold += qty; }
+          else if (type === "product") { e.productRevenue += price; e.productsSold += qty; }
+          else { e.serviceRevenue += price; e.servicesSold += qty; }
+
+          const cid = String(sale.client_id ?? "");
+          if (cid && cid !== "undefined" && cid !== "null") e.customerIds.add(cid);
+        });
+      });
+
+      // Ensure every staff member appears and names are resolved.
+      // Match existing agg entries by: any known ID field OR by name (for entries
+      // whose name was resolved from inline appointment fields).
+      staffList.forEach((s: any) => {
+        const name = `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.fullName || s.name || "—";
+        const knownKeys = [s.id, s.user_id, s.uuid, s.staff_id, s.staff_uuid, s.userId, s.auth_id, s.auth_user_id, s.user?.id]
+          .filter(Boolean).map(String);
+        // Also collect all UUID-like values on the staff object
+        Object.values(s).forEach(val => {
+          if (typeof val === "string" && (UUID_RE.test(val) || /^\d+$/.test(val))) knownKeys.push(val);
+          else if (typeof val === "number") knownKeys.push(String(val));
+        });
+
+        let existingKey = knownKeys.find(k => agg.has(k));
+
+        // Fallback: match by resolved name (covers inline-resolved "Unknown" entries)
+        if (!existingKey) {
+          for (const [k, v] of agg.entries()) {
+            if (v.name.toLowerCase().trim() === name.toLowerCase().trim()) {
+              existingKey = k;
+              break;
+            }
+          }
+        }
+
+        if (existingKey) {
+          const e = agg.get(existingKey)!;
+          if (e.name === "Unknown Staff" || !e.name) e.name = name;
+        } else {
+          agg.set(String(s.id), { name, bookings: 0, revenue: 0, serviceRevenue: 0, productRevenue: 0, servicesSold: 0, productsSold: 0, customerIds: new Set() });
+        }
+      });
+
+      // Remove any remaining "Unknown Staff" duplicates that were superseded by named entries
+      // (can happen when agg has both an auth-UUID key and an s.id key for same person)
+      const seenNames = new Set<string>();
+      for (const [k, v] of Array.from(agg.entries())) {
+        const nameLc = v.name.toLowerCase().trim();
+        if (nameLc === "unknown staff") continue;
+        if (seenNames.has(nameLc)) {
+          // Duplicate named entry — keep the one with more data (higher revenue)
+          const canonicalKey = nameToId.get(nameLc);
+          if (canonicalKey && k !== canonicalKey && agg.has(canonicalKey)) {
+            const canon = agg.get(canonicalKey)!;
+            const dup   = agg.get(k)!;
+            // Merge dup into canon if dup has more data
+            if (dup.revenue > canon.revenue) {
+              canon.bookings      += dup.bookings;
+              canon.revenue       += dup.revenue;
+              canon.serviceRevenue+= dup.serviceRevenue;
+              canon.productRevenue+= dup.productRevenue;
+              canon.servicesSold  += dup.servicesSold;
+              canon.productsSold  += dup.productsSold;
+              dup.customerIds.forEach(id => canon.customerIds.add(id));
+            }
+            agg.delete(k);
+          }
+        } else {
+          seenNames.add(nameLc);
+        }
+      }
+
+      // ── Last-resort: fetch individual staff by ID for any still-unknown entries ──
+      // Works when staff_id in appointments is the staff entity's primary-key ID.
+      const unknownSids = Array.from(agg.entries())
+        .filter(([, v]) => (v.name === "Unknown Staff" || !v.name) && (v.bookings > 0 || v.revenue > 0))
+        .map(([k]) => k)
+        .filter(sid => sid && sid !== "undefined" && sid !== "null")
+        .slice(0, 20); // safety cap
+
+      if (unknownSids.length > 0 && !ctrl.signal.aborted) {
+        const lookups = await Promise.allSettled(
+          unknownSids.map(sid =>
+            api.get(STAFF.BY_ID(sid), { signal: ctrl.signal })
+              .then((r: any) => ({ sid, staff: r.data?.data }))
+              .catch(() => ({ sid, staff: null }))
+          )
+        );
+        lookups.forEach(r => {
+          if (r.status === "fulfilled" && r.value.staff) {
+            const s = r.value.staff;
+            const name = `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim()
+              || s.fullName || s.full_name || s.name || "";
+            if (name) {
+              const e = agg.get(r.value.sid);
+              if (e) e.name = name;
+              staffNameMap.set(r.value.sid, name);
+            }
+          }
+        });
+      }
+
+      const result: StaffItem[] = Array.from(agg.values()).map((e, i) => ({
+        name:           e.name,
+        bookings:       e.bookings,
+        revenue:        Math.round(e.revenue),
+        serviceRevenue: Math.round(e.serviceRevenue),
+        productRevenue: Math.round(e.productRevenue),
+        servicesSold:   e.servicesSold,
+        productsSold:   e.productsSold,
+        customerCount:  e.customerIds.size,
+        avgTicket:      e.bookings > 0 ? Math.round(e.revenue / e.bookings) : 0,
+        color:          CHART_COLORS[i % CHART_COLORS.length],
+      }));
+
+      setStaffData(result);
+    } catch (err: any) {
+      if (err?.code !== "ERR_CANCELED" && err?.name !== "CanceledError") setStaffData([]);
+    } finally {
+      if (!ctrl.signal.aborted) setLoading(false);
+    }
+  }, [period, filterFrom, filterTo, salonId, reduxStaff, dispatch]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const sorted = useMemo(
+    () => [...staffData].sort((a, b) => (b[sortBy] ?? 0) - (a[sortBy] ?? 0)),
+    [staffData, sortBy],
+  );
+
+  // Reset to page 1 whenever sort or underlying data changes
+  useEffect(() => { setLbPage(1); }, [sortBy, staffData]);
+
+  const lbTotalPages = Math.ceil(sorted.length / lbPageSize);
+  const lbRows = sorted.slice((lbPage - 1) * lbPageSize, lbPage * lbPageSize);
+
+  const SORT_OPTIONS: { key: StaffSortKey; label: string }[] = [
+    { key: "revenue",      label: "Highest Revenue"    },
+    { key: "servicesSold", label: "Most Services Sold" },
+    { key: "productsSold", label: "Most Products Sold" },
+    { key: "bookings",     label: "Most Bookings"      },
+    { key: "avgTicket",    label: "Highest Avg Ticket" },
+  ];
+
+  // Use report endpoint data (server-joined names) for Top 3 card and revenue chart
+  const fmtReportName = (name: string): string => {
+    if (!name) return "—";
+    const parts = name.trim().split(/\s+/);
+    return parts.length >= 2 ? `${parts[0]} ${parts[parts.length - 1][0]}.` : parts[0];
+  };
+
+  const top3FromReport = useMemo(() =>
+    [...reportPerformance]
+      .filter((s: any) => (s.revenue ?? 0) > 0 || (s.bookings ?? 0) > 0)
+      .sort((a: any, b: any) => (b.revenue ?? 0) - (a.revenue ?? 0))
+      .slice(0, 3),
+  [reportPerformance]);
+
+  const revenueByStaffFromReport = useMemo(() =>
+    [...reportPerformance]
+      .filter((s: any) => (s.revenue ?? 0) > 0)
+      .sort((a: any, b: any) => (b.revenue ?? 0) - (a.revenue ?? 0))
+      .slice(0, 6)
+      .map((s: any) => ({ name: fmtReportName(s.name), revenue: s.revenue ?? 0 })),
+  [reportPerformance]);
+
+  const fmtRev = (v: number) =>
+    v >= 10000000 ? `₹${(v/10000000).toFixed(1)}Cr`
+    : v >= 100000  ? `₹${(v/100000).toFixed(1)}L`
+    : v >= 1000    ? `₹${(v/1000).toFixed(0)}k`
+    : `₹${v}`;
 
   return (
   <div className="rp-tab-body">
+
     <div className="rp-two-col">
-      <div className="rp-chart-card rp-chart-card-tall">
-        <h4 className="rp-chart-title">Performance Radar</h4>
-        <p className="rp-chart-sub">Top 3 staff multi-metric comparison</p>
-        {radarNames.length > 0 ? (
+      {/* ── Top 3 Staff Performers ── */}
+      <div className="rp-chart-card rp-top3-card">
+        <div className="rp-top3-header">
+          <div className="rp-top3-title-row">
+            <span className="rp-top3-trophy">🏆</span>
+            <h4 className="rp-chart-title mb-0">Top 3 Staff Performers</h4>
+          </div>
+        </div>
+        {top3FromReport.length === 0
+          ? <EmptyChart height={220} message={loading ? "Loading…" : "No data yet"} />
+          : (
           <>
-            <ResponsiveContainer width="100%" height={260}>
-              <RadarChart data={radarStaff} key={radarNames.join(",")}>
-                <PolarGrid stroke="#f3f4f6" />
-                <PolarAngleAxis dataKey="metric" tick={{ fontSize: 11, fill: "#6b7280" }} />
-                {radarNames.map((name, i) => (
-                  <Radar key={name} name={name} dataKey={name}
-                    stroke={RADAR_COLORS[i]} fill={RADAR_COLORS[i]}
-                    fillOpacity={0.08} strokeWidth={2} />
-                ))}
-                <Tooltip />
-              </RadarChart>
-            </ResponsiveContainer>
-            <div className="rp-legend-row mt-2 justify-content-center">
-              {radarNames.map((name, i) => (
-                <span key={name} className="rp-leg-item">
-                  <span className="rp-pie-dot" style={{ background: RADAR_COLORS[i] }} />{name}
-                </span>
-              ))}
+            {top3FromReport.map((s: any, i: number) => {
+              const initials = (s.name ?? "").trim().split(/\s+/).filter(Boolean)
+                .map((w: string) => w[0]).join("").toUpperCase().slice(0, 2) || String(i + 1);
+              return (
+                <div key={`top3-${i}`} className="rp-top3-row">
+                  <div className="rp-top3-avatar" style={{ background: TOP3_AVATAR_COLORS[i] }}>
+                    {initials}
+                  </div>
+                  <div className="rp-top3-info">
+                    <div className="rp-top3-name">{fmtReportName(s.name ?? "")}</div>
+                    <div className="rp-top3-stats">
+                      <div className="rp-top3-stat">
+                        <span className="rp-top3-stat-label">Revenue</span>
+                        <span className="rp-top3-stat-val rp-top3-stat-val--rev">{fmtRev(s.revenue ?? 0)}</span>
+                      </div>
+                      <div className="rp-top3-stat">
+                        <span className="rp-top3-stat-label">Bookings</span>
+                        <span className="rp-top3-stat-val">{s.bookings ?? 0}</span>
+                      </div>
+                      <div className="rp-top3-stat">
+                        <span className="rp-top3-stat-label">Avg Ticket</span>
+                        <span className="rp-top3-stat-val">{fmtRev(s.avgTicket ?? 0)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            <div className="rp-top3-footer">
+              <span className="rp-top3-footer-text">Showing top earners this period</span>
             </div>
           </>
-        ) : (
-          <EmptyChart height={260} message="No performance data available" />
         )}
       </div>
+
+      {/* ── Revenue by Staff (vertical bars, one color per staff) ── */}
       <div className="rp-chart-card rp-chart-card-tall">
-        <h4 className="rp-chart-title">Utilization Rate</h4>
-        <p className="rp-chart-sub">Hours booked vs available</p>
-        {staffData.length === 0 ? <EmptyChart height={260} /> : (
+        <div className="rp-chart-head-row">
+          <div>
+            <h4 className="rp-chart-title mb-0">Revenue by Staff</h4>
+            <p className="rp-chart-sub mb-0">Top earners this period</p>
+          </div>
+        </div>
+        {revenueByStaffFromReport.length === 0
+          ? <EmptyChart height={260} message={loading ? "Loading…" : "No revenue data yet"} />
+          : (
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={staffData} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }} barSize={12}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false}
-                tickFormatter={v => `${v}%`} domain={[0,100]} />
-              <YAxis type="category" dataKey="name" tick={{ fontSize: 12, fill: "#374151" }} axisLine={false} tickLine={false} width={65} />
-              <Tooltip formatter={(v: any) => `${v}%`} />
-              <Bar dataKey="utilization" name="Utilization" radius={[0,4,4,0]}>
-                {staffData.map((s, i) => <Cell key={s.name} fill={s.color ?? CHART_COLORS[i % CHART_COLORS.length]} />)}
-              </Bar>
+            <BarChart data={revenueByStaffFromReport} margin={{ top: 28, right: 8, left: 0, bottom: 0 }} barSize={36}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} width={48}
+                tickFormatter={v => v >= 100000 ? `₹${(v/100000).toFixed(0)}L` : v >= 1000 ? `₹${(v/1000).toFixed(0)}k` : v > 0 ? `₹${v}` : "₹0"} />
+              <Tooltip formatter={(v: any) => [`₹${Number(v).toLocaleString("en-IN")}`, "Revenue"]} />
+              <Bar dataKey="revenue" radius={[4, 4, 0, 0]} fill="#111827"
+                label={{ position: "top", formatter: (v: any) => `₹${Number(v).toLocaleString("en-IN")}`, fontSize: 10, fill: "#374151" }} />
             </BarChart>
           </ResponsiveContainer>
         )}
       </div>
     </div>
+
+    {/* ── Leaderboard ── */}
     <div className="rp-staff-table-card">
-      <h4 className="rp-chart-title mb-3">Staff Leaderboard</h4>
-      {staffData.length === 0 ? <EmptyChart height={200} message="No staff data available" /> : (
-        <div className="rp-table">
-          <div className="rp-table-head">
-            <span>#</span><span>Name</span><span>Bookings</span>
-            <span>Revenue</span><span>Avg Ticket</span><span>Rating</span><span>Utilization</span>
-          </div>
-          {staffData.map((s, i) => {
-            const color = s.color ?? CHART_COLORS[i % CHART_COLORS.length];
-            return (
-              <div key={s.name} className="rp-table-row">
-                <span className="rp-table-rank">#{i+1}</span>
-                <span className="d-flex align-items-center gap-2">
-                  <span className="rp-sm-av" style={{ background: color }}>{s.name.split(" ").map(w=>w[0]).join("")}</span>
-                  {s.name}
-                </span>
-                <span>{s.bookings}</span>
-                <span className="fw-semibold">₹{s.revenue.toLocaleString()}</span>
-                <span>₹{s.avgTicket}</span>
-                <span className="rp-rating"><StarFill size={11} color="#f59e0b" /> {s.rating}</span>
-                <span>
-                  <div className="rp-util-bar">
-                    <div className="rp-util-fill" style={{ width: `${s.utilization}%`, background: color }} />
-                  </div>
-                  <small className="text-muted ms-2">{s.utilization}%</small>
-                </span>
-              </div>
-            );
-          })}
+      <div className="rp-staff-leaderboard-header">
+        <div>
+          <h4 className="rp-chart-title mb-0">Staff Leaderboard</h4>
+          <p className="rp-chart-sub mb-0">{loading ? "Loading…" : `${sorted.length} staff member${sorted.length !== 1 ? "s" : ""}`}</p>
         </div>
+        <div className="rp-staff-sort-bar">
+          {SORT_OPTIONS.map(o => (
+            <button key={o.key}
+              className={`rp-sort-pill ${sortBy === o.key ? "active" : ""}`}
+              onClick={() => setSortBy(o.key)}
+            >{o.label}</button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? <div style={{ padding: "40px 0", textAlign: "center" }}><PageLoader /></div>
+       : sorted.length === 0 ? <EmptyChart height={200} message="No staff data available" />
+       : (
+        <>
+        <div className="rp-leaderboard-scroll">
+          <table className="rp-leaderboard-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Bookings</th>
+                <th>Services Sold</th>
+                <th>Products Sold</th>
+                <th>Service Revenue</th>
+                <th>Product Revenue</th>
+                <th>Total Revenue</th>
+                <th>Avg Ticket</th>
+                <th>Customers</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lbRows.map((s, i) => {
+                const globalIdx = (lbPage - 1) * lbPageSize + i;
+                const color = s.color ?? CHART_COLORS[globalIdx % CHART_COLORS.length];
+                const initials = s.name.split(/\s+/).filter(Boolean).map(w => w[0]).join("").toUpperCase().slice(0, 2);
+                return (
+                  <tr key={`${s.name}-${globalIdx}`} className={globalIdx === 0 ? "rp-lb-top" : ""}>
+                    <td className="rp-lb-rank">#{globalIdx + 1}</td>
+                    <td>
+                      <div className="rp-lb-name-cell">
+                        <span className="rp-sm-av" style={{ background: color }}>{initials}</span>
+                        <span className="rp-lb-name">{s.name}</span>
+                      </div>
+                    </td>
+                    <td>{s.bookings}</td>
+                    <td>{s.servicesSold ?? 0}</td>
+                    <td>{s.productsSold ?? 0}</td>
+                    <td>₹{(s.serviceRevenue ?? 0).toLocaleString("en-IN")}</td>
+                    <td>₹{(s.productRevenue ?? 0).toLocaleString("en-IN")}</td>
+                    <td className="rp-lb-total">₹{s.revenue.toLocaleString("en-IN")}</td>
+                    <td>₹{s.avgTicket.toLocaleString("en-IN")}</td>
+                    <td>{s.customerCount ?? s.bookings}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {lbTotalPages > 1 && (
+          <Pagination
+            currentPage={lbPage}
+            pageSize={lbPageSize}
+            totalItems={sorted.length}
+            onPageChange={setLbPage}
+            onPageSizeChange={(sz) => { setLbPageSize(sz); setLbPage(1); }}
+            pageSizeOptions={[10, 25, 50]}
+          />
+        )}
+        </>
       )}
     </div>
   </div>
@@ -2626,11 +3037,13 @@ interface EmployeeRow {
   role: string;
   department: string;
   servicesPerformed: number;
+  productsSold: number;
+  serviceRevenue: number;
+  productRevenue: number;
   revenue: number;
   avgTicket: number;
   bookings: number;
-  rating: number;
-  utilization: number;
+  customerCount: number;
 }
 
 const EMP_TYPES = [
@@ -2676,61 +3089,110 @@ const EmployeeReportDetail = ({ report, onBack }: { report: ReportItem; onBack: 
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      // Fetch appointments + staff list in parallel
       const apptParams = new URLSearchParams({ start_date: dateFrom, end_date: dateTo, limit: "500" });
-      const [apptRes, staffList] = await Promise.all([
+      const saleParams = new URLSearchParams({ start_date: dateFrom, end_date: dateTo, limit: "500" });
+      const [apptRes, saleRes, staffList] = await Promise.all([
         api.get(`${BOOKING.BASE}?${apptParams}`, { signal: ctrl.signal }),
+        api.get(`${SALE.BASE}?${saleParams}`,    { signal: ctrl.signal }),
         dispatch(fetchStaffThunk()).unwrap(),
       ]);
 
-      // Build staff lookup: id → { name, role, department, employment_type }
-      // staffList is Staff[] from fetchStaffThunk
-      // Normalize employment_type to snake_case for consistent comparison
       const normalizeEmpType = (v: string) => (v ?? "").toLowerCase().replace(/[-\s]+/g, "_");
 
       const staffInfoMap = new Map<string, { name: string; role: string; department: string; empType: string }>();
       staffList.forEach((s: any) => {
         const name = `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.fullName || s.name || "—";
-        staffInfoMap.set(String(s.id), {
+        const info = {
           name,
           role:       s.role ?? s.position ?? "Staff",
           department: s.department ?? s.dept ?? "General",
           empType:    normalizeEmpType(s.employment_type ?? s.employmentType ?? ""),
-        });
+        };
+        // Map by every ID field the appointment may use as staff_id
+        [s.id, s.user_id, s.uuid, s.staff_id, s.staff_uuid, s.userId, s.staffId]
+          .filter(Boolean)
+          .forEach(uid => staffInfoMap.set(String(uid), info));
       });
 
-      // Parse appointment list (paginated or plain array)
+      // Parse appointment list
       const rawAppt = apptRes.data?.data;
       const appts: any[] = Array.isArray(rawAppt?.data) ? rawAppt.data : (Array.isArray(rawAppt) ? rawAppt : []);
 
-      // Aggregate by staff_id
-      const aggMap = new Map<string, { name: string; role: string; department: string; empType: string; bookings: number; revenue: number; services: number }>();
+      const aggMap = new Map<string, {
+        name: string; role: string; department: string; empType: string;
+        bookings: number; revenue: number; services: number;
+        productsSold: number; serviceRevenue: number; productRevenue: number;
+        customerIds: Set<string>;
+      }>();
+
+      const ensureEntry = (staffId: string) => {
+        if (!aggMap.has(staffId)) {
+          const info = staffInfoMap.get(staffId) ?? { name: staffId, role: "Staff", department: "General", empType: "" };
+          aggMap.set(staffId, { ...info, bookings: 0, revenue: 0, services: 0, productsSold: 0, serviceRevenue: 0, productRevenue: 0, customerIds: new Set() });
+        }
+        return aggMap.get(staffId)!;
+      };
+
+      // ── Appointments ──────────────────────────────────────────────────────
       appts.forEach((appt: any) => {
         const staffId = String(appt.staff_id ?? appt.staffId ?? "");
-        if (!staffId || staffId === "undefined") return;
-        // Compute revenue from service prices (same logic as mapBooking)
-        const computedTotal = [
-          ...(Array.isArray(appt.services)      ? appt.services      : []),
-          ...(Array.isArray(appt.product_items) ? appt.product_items : []),
-          ...(Array.isArray(appt.package_items) ? appt.package_items : []),
-        ].reduce((sum: number, item: any) => {
-          const price = parseFloat(String(item.price ?? 0)) || 0;
-          const qty   = Number(item.quantity ?? item.qty ?? 1) || 1;
-          return sum + price * qty;
-        }, 0);
+        if (!staffId || staffId === "undefined" || staffId === "null") return;
+        const svcItems  = Array.isArray(appt.services)      ? appt.services      : [];
+        const prodItems = Array.isArray(appt.product_items) ? appt.product_items : [];
+        const pkgItems  = Array.isArray(appt.package_items) ? appt.package_items : [];
+        const svcRev  = svcItems.reduce((s: number, it: any)  => s + (parseFloat(String(it.price ?? 0)) || 0) * (Number(it.quantity ?? it.qty ?? 1) || 1), 0);
+        const prodRev = prodItems.reduce((s: number, it: any) => s + (parseFloat(String(it.price ?? 0)) || 0) * (Number(it.quantity ?? it.qty ?? 1) || 1), 0);
+        const pkgRev  = pkgItems.reduce((s: number, it: any)  => s + (parseFloat(String(it.price ?? 0)) || 0) * (Number(it.quantity ?? it.qty ?? 1) || 1), 0);
+        const computedTotal = svcRev + prodRev + pkgRev;
         const revenue = parseFloat(String(appt.grand_total ?? appt.total_amount ?? appt.grandTotal ?? 0)) || computedTotal;
-        const svcCount = Array.isArray(appt.services) ? appt.services.length : 1;
-        const info = staffInfoMap.get(staffId) ?? { name: staffId, role: "Staff", department: "General", empType: "" };
-        if (!aggMap.has(staffId)) {
-          aggMap.set(staffId, { ...info, bookings: 0, revenue: 0, services: 0 });
+        const svcCount  = svcItems.length || 1;
+        const prodCount = prodItems.reduce((s: number, it: any) => s + (Number(it.quantity ?? it.qty ?? 1) || 1), 0);
+        // Resolve name from inline appt fields when not in staffInfoMap
+        if (!staffInfoMap.has(staffId)) {
+          const inlineName =
+            `${appt.staff_first_name ?? ""} ${appt.staff_last_name ?? ""}`.trim()
+            || appt.staff_name
+            || appt.staff?.name
+            || `${appt.staff?.first_name ?? ""} ${appt.staff?.last_name ?? ""}`.trim()
+            || "Unknown Staff";
+          staffInfoMap.set(staffId, { name: inlineName, role: "Staff", department: "General", empType: "" });
         }
-        const e = aggMap.get(staffId)!;
-        e.bookings += 1;
-        e.revenue  += revenue;
-        e.services += svcCount;
+        const customerId = String(appt.client_id ?? appt.customer_id ?? appt.clientId ?? "");
+        const e = ensureEntry(staffId);
+        e.bookings       += 1;
+        e.revenue        += revenue;
+        e.services       += svcCount;
+        e.productsSold   += prodCount;
+        e.serviceRevenue += svcRev + pkgRev;
+        e.productRevenue += prodRev;
+        if (customerId && customerId !== "undefined" && customerId !== "null") e.customerIds.add(customerId);
       });
 
-      // Fallback: include staff with 0 appointments so they still appear
+      // ── Quick Sales ───────────────────────────────────────────────────────
+      const rawSales = saleRes.data?.data;
+      const sales: any[] = Array.isArray(rawSales?.data) ? rawSales.data : (Array.isArray(rawSales) ? rawSales : []);
+      sales.forEach((sale: any) => {
+        const items: any[] = Array.isArray(sale.items) ? sale.items : [];
+        items.forEach((it: any) => {
+          const staffId = String(it.staff_id ?? "");
+          if (!staffId || staffId === "undefined" || staffId === "null") return;
+          // Resolve inline name from sale item when not in staffInfoMap
+          if (!staffInfoMap.has(staffId) && it.staff_name) {
+            staffInfoMap.set(staffId, { name: it.staff_name, role: "Staff", department: "General", empType: "" });
+          }
+          const e = ensureEntry(staffId);
+          const qty   = Number(it.quantity ?? 1) || 1;
+          const price = parseFloat(String(it.total_price ?? it.unit_price ?? 0)) || 0;
+          const type  = String(it.item_type ?? "");
+          e.revenue += price;
+          if (type === "product") { e.productRevenue += price; e.productsSold += qty; }
+          else                    { e.serviceRevenue += price; e.services     += qty; }
+          const cid = String(sale.client_id ?? "");
+          if (cid && cid !== "undefined" && cid !== "null") e.customerIds.add(cid);
+        });
+      });
+
+      // Fallback: include staff with 0 activity so they still appear
       staffList.forEach((s: any) => {
         const sid = String(s.id);
         if (!aggMap.has(sid)) {
@@ -2740,7 +3202,7 @@ const EmployeeReportDetail = ({ report, onBack }: { report: ReportItem; onBack: 
             department: s.department ?? "General",
             empType: normalizeEmpType(s.employment_type ?? s.employmentType ?? ""),
           };
-          aggMap.set(sid, { ...info, bookings: 0, revenue: 0, services: 0 });
+          aggMap.set(sid, { ...info, bookings: 0, revenue: 0, services: 0, productsSold: 0, serviceRevenue: 0, productRevenue: 0, customerIds: new Set() });
         }
       });
 
@@ -2748,15 +3210,17 @@ const EmployeeReportDetail = ({ report, onBack }: { report: ReportItem; onBack: 
       let mapped: EmployeeRow[] = Array.from(aggMap.values())
         .filter(e => empType === "All" || normalizeEmpType(e.empType) === normalizedFilter)
         .map(e => ({
-          name:             e.name,
-          role:             e.role,
-          department:       e.department,
-          servicesPerformed:e.services,
-          revenue:          e.revenue,
-          avgTicket:        e.bookings > 0 ? Math.round(e.revenue / e.bookings) : 0,
-          bookings:         e.bookings,
-          rating:           0,
-          utilization:      0,
+          name:              e.name,
+          role:              e.role,
+          department:        e.department,
+          servicesPerformed: e.services,
+          productsSold:      e.productsSold,
+          serviceRevenue:    e.serviceRevenue,
+          productRevenue:    e.productRevenue,
+          revenue:           e.revenue,
+          avgTicket:         e.bookings > 0 ? Math.round(e.revenue / e.bookings) : 0,
+          bookings:          e.bookings,
+          customerCount:     e.customerIds.size,
         }));
 
       setAllRows(mapped);
@@ -2793,8 +3257,8 @@ const EmployeeReportDetail = ({ report, onBack }: { report: ReportItem; onBack: 
   }, []);
 
   const selectedEmpLabel = employeeOptions.find(o => o.value === employee)?.label ?? "All";
-  const HEADERS = ["Name", "Role", "Department", "Services", "Revenue (₹)", "Avg Ticket (₹)", "Bookings"];
-  const exportRows = () => rows.map(r => [r.name, r.role, r.department, r.servicesPerformed, r.revenue, r.avgTicket, r.bookings]);
+  const HEADERS = ["Name", "Role", "Department", "Bookings", "Services Sold", "Products Sold", "Service Revenue (₹)", "Product Revenue (₹)", "Total Revenue (₹)", "Avg Ticket (₹)", "Customers"];
+  const exportRows = () => rows.map(r => [r.name, r.role, r.department, r.bookings, r.servicesPerformed, r.productsSold, r.serviceRevenue, r.productRevenue, r.revenue, r.avgTicket, r.customerCount]);
 
   return (
     <div className="rp-detail-view">
@@ -2880,7 +3344,11 @@ const EmployeeReportDetail = ({ report, onBack }: { report: ReportItem; onBack: 
 
       <div className="rp-detail-drag-hint">
         {rows.length} staff member{rows.length !== 1 ? "s" : ""}
-        {rows.length > 0 && <>&nbsp;·&nbsp;Total Revenue: <strong>₹{rows.reduce((s, r) => s + r.revenue, 0).toLocaleString()}</strong></>}
+        {rows.length > 0 && (
+          <>&nbsp;·&nbsp;Total Revenue: <strong>₹{rows.reduce((s, r) => s + r.revenue, 0).toLocaleString()}</strong>
+          &nbsp;·&nbsp;Services Sold: <strong>{rows.reduce((s, r) => s + r.servicesPerformed, 0)}</strong>
+          &nbsp;·&nbsp;Products Sold: <strong>{rows.reduce((s, r) => s + r.productsSold, 0)}</strong></>
+        )}
       </div>
 
       <div className="rp-detail-table-wrap">
@@ -2891,27 +3359,35 @@ const EmployeeReportDetail = ({ report, onBack }: { report: ReportItem; onBack: 
               <th>Name</th>
               <th>Role</th>
               <th>Department</th>
-              <th>Services <span className="rp-th-sort">↕</span></th>
-              <th>Revenue (₹) <span className="rp-th-sort">↕</span></th>
-              <th>Avg Ticket (₹) <span className="rp-th-sort">↕</span></th>
               <th>Bookings</th>
+              <th>Services Sold <span className="rp-th-sort">↕</span></th>
+              <th>Products Sold</th>
+              <th>Service Rev (₹) <span className="rp-th-sort">↕</span></th>
+              <th>Product Rev (₹)</th>
+              <th>Total Rev (₹) <span className="rp-th-sort">↕</span></th>
+              <th>Avg Ticket (₹)</th>
+              <th>Customers</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+              <tr><td colSpan={12} className="rp-detail-loading-cell"><PageLoader /></td></tr>
             ) : rows.length === 0 ? (
-              <tr><td colSpan={8} className="rp-detail-empty-cell">No data available</td></tr>
+              <tr><td colSpan={12} className="rp-detail-empty-cell">No data available</td></tr>
             ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
               <tr key={i}>
                 <td style={{ color: "#9ca3af", fontSize: 12 }}>#{i + 1}</td>
                 <td className="fw-semibold">{r.name}</td>
                 <td>{r.role}</td>
                 <td>{r.department}</td>
+                <td>{r.bookings}</td>
                 <td>{r.servicesPerformed}</td>
+                <td>{r.productsSold}</td>
+                <td>₹{r.serviceRevenue.toLocaleString()}</td>
+                <td>₹{r.productRevenue.toLocaleString()}</td>
                 <td className="fw-semibold">₹{r.revenue.toLocaleString()}</td>
                 <td>₹{r.avgTicket.toLocaleString()}</td>
-                <td>{r.bookings}</td>
+                <td>{r.customerCount}</td>
               </tr>
             ))}
           </tbody>
@@ -4044,6 +4520,644 @@ const LeavesReportDetail = ({ report, onBack }: { report: ReportItem; onBack: ()
   );
 };
 
+// ─── Staff Revenue Analytics Detail ─────────────────────────────────────────
+
+type RevPeriodKey = "daily" | "weekly" | "monthly" | "yearly";
+
+const StaffRevenueAnalyticsDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const dispatch = useDispatch<AppDispatch>();
+  const today      = new Date().toISOString().slice(0, 10);
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+  const [dateFrom,       setDateFrom]       = useState(monthStart);
+  const [dateTo,         setDateTo]         = useState(today);
+  const [revPeriod,      setRevPeriod]      = useState<RevPeriodKey>("daily");
+  const [staffFilter,    setStaffFilter]    = useState("All");
+  const [staffOptions,   setStaffOptions]   = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
+  const [showStaffDrop,  setShowStaffDrop]  = useState(false);
+  const [loading,        setLoading]        = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+
+  interface RevRow { label: string; serviceRevenue: number; productRevenue: number; total: number }
+  const [rows, setRows] = useState<RevRow[]>([]);
+
+  useEffect(() => {
+    dispatch(fetchStaffThunk()).unwrap().then((list: any[]) => {
+      const opts = list.map((s: any) => ({
+        label: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.name || "",
+        value: String(s.id ?? ""),
+      })).filter((o: any) => o.label && o.value);
+      setStaffOptions([{ label: "All", value: "All" }, ...opts]);
+    }).catch(() => {});
+  }, []);
+
+  const fetchData = useCallback(async () => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ start_date: dateFrom, end_date: dateTo, limit: "500" });
+      const [apptRes, staffList] = await Promise.all([
+        api.get(`${BOOKING.BASE}?${params}`, { signal: ctrl.signal }),
+        dispatch(fetchStaffThunk()).unwrap(),
+      ]);
+      const staffInfoMap = new Map<string, string>();
+      staffList.forEach((s: any) => {
+        staffInfoMap.set(String(s.id), `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.name || "");
+      });
+      const rawAppt = apptRes.data?.data;
+      const appts: any[] = Array.isArray(rawAppt?.data) ? rawAppt.data : (Array.isArray(rawAppt) ? rawAppt : []);
+
+      const bucketMap = new Map<string, { serviceRevenue: number; productRevenue: number }>();
+      const fmt = (d: string) => {
+        const dt = new Date(d);
+        if (revPeriod === "daily")   return dt.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+        if (revPeriod === "weekly")  { const w = new Date(dt); w.setDate(dt.getDate() - dt.getDay()); return `W${w.toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`; }
+        if (revPeriod === "monthly") return dt.toLocaleDateString("en-IN", { month: "short", year: "2-digit" });
+        return dt.getFullYear().toString();
+      };
+
+      appts.forEach((appt: any) => {
+        const sid = String(appt.staff_id ?? appt.staffId ?? "");
+        if (staffFilter !== "All" && sid !== staffFilter) return;
+        const date = String(appt.date ?? appt.appointment_date ?? appt.created_at ?? "").slice(0, 10);
+        if (!date) return;
+        const label = fmt(date);
+        const svcRev  = (Array.isArray(appt.services)      ? appt.services      : []).reduce((s: number, it: any) => s + (parseFloat(String(it.price ?? 0)) || 0) * (Number(it.quantity ?? 1) || 1), 0);
+        const prodRev = (Array.isArray(appt.product_items) ? appt.product_items : []).reduce((s: number, it: any) => s + (parseFloat(String(it.price ?? 0)) || 0) * (Number(it.quantity ?? 1) || 1), 0);
+        if (!bucketMap.has(label)) bucketMap.set(label, { serviceRevenue: 0, productRevenue: 0 });
+        const b = bucketMap.get(label)!;
+        b.serviceRevenue += svcRev;
+        b.productRevenue += prodRev;
+      });
+
+      const result: RevRow[] = Array.from(bucketMap.entries())
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([label, v]) => ({ label, serviceRevenue: Math.round(v.serviceRevenue), productRevenue: Math.round(v.productRevenue), total: Math.round(v.serviceRevenue + v.productRevenue) }));
+      setRows(result);
+    } catch (e: any) {
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setRows([]);
+    } finally {
+      if (!ctrl.signal.aborted) setLoading(false);
+    }
+  }, [dateFrom, dateTo, revPeriod, staffFilter]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const totalSvc  = rows.reduce((s, r) => s + r.serviceRevenue, 0);
+  const totalProd = rows.reduce((s, r) => s + r.productRevenue, 0);
+  const totalRev  = rows.reduce((s, r) => s + r.total, 0);
+
+  const HEADERS = ["Period", "Service Revenue (₹)", "Product Revenue (₹)", "Total Revenue (₹)"];
+  const exportRows = () => rows.map(r => [r.label, r.serviceRevenue, r.productRevenue, r.total]);
+
+  const selectedStaffLabel = staffOptions.find(o => o.value === staffFilter)?.label ?? "All";
+
+  return (
+    <div className="rp-detail-view">
+      <div className="rp-detail-header">
+        <div className="rp-detail-back-row">
+          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
+            <ChevronLeft size={15} /> {report.name}
+          </Button>
+          <div className="rp-detail-view-icons">
+            <ReportExportButton title={report.name} headers={HEADERS} rows={exportRows} filename={`staff-revenue-${dateFrom}-${dateTo}`} />
+          </div>
+        </div>
+        <div className="rp-detail-tab-bar">
+          {(["daily", "weekly", "monthly", "yearly"] as RevPeriodKey[]).map(p => (
+            <span key={p} className={`rp-detail-tab ${revPeriod === p ? "active" : ""}`}
+              onClick={() => setRevPeriod(p)} style={{ cursor: "pointer" }}>
+              {p.charAt(0).toUpperCase() + p.slice(1)}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="rp-detail-filters">
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Date Range</label>
+          <div className="rp-detail-date-range">
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="rp-detail-date-input" />
+            <span className="rp-detail-date-sep">-</span>
+            <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   className="rp-detail-date-input" />
+          </div>
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Staff Member</label>
+          <button className="rp-detail-select" onClick={() => setShowStaffDrop(v => !v)}>
+            {selectedStaffLabel.length > 16 ? selectedStaffLabel.slice(0, 16) + "…" : selectedStaffLabel}
+            <span className="rp-detail-caret">▼</span>
+          </button>
+          {showStaffDrop && (
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
+              {staffOptions.map(o => (
+                <div key={o.value} className={`rp-detail-dropdown-item ${o.value === staffFilter ? "active" : ""}`}
+                  onClick={() => { setStaffFilter(o.value); setShowStaffDrop(false); }}>{o.label}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-actions">
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
+            <Refresh size={13} /> Refresh
+          </Button>
+        </div>
+      </div>
+
+      <div className="rp-sra-summary-row">
+        {[
+          { label: "Service Revenue", value: `₹${totalSvc.toLocaleString()}`, color: "#3b82f6" },
+          { label: "Product Revenue", value: `₹${totalProd.toLocaleString()}`, color: "#10b981" },
+          { label: "Total Revenue",   value: `₹${totalRev.toLocaleString()}`,  color: "#8b5cf6" },
+        ].map(c => (
+          <div key={c.label} className="rp-sra-summary-card">
+            <div className="rp-sra-summary-val" style={{ color: c.color }}>{c.value}</div>
+            <div className="rp-sra-summary-label">{c.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {loading ? <div className="rp-detail-loading-cell"><PageLoader /></div> : rows.length === 0 ? (
+        <div className="rp-detail-empty-cell">No revenue data found for selected range</div>
+      ) : (
+        <>
+          <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 12, padding: "16px 20px", marginBottom: 16 }}>
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={rows} margin={{ top: 0, right: 16, left: 0, bottom: 0 }} barSize={16}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
+                <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString()}`} />
+                <Bar dataKey="serviceRevenue" name="Service Revenue" fill="#3b82f6" radius={[4,4,0,0]} />
+                <Bar dataKey="productRevenue" name="Product Revenue" fill="#10b981" radius={[4,4,0,0]} />
+              </BarChart>
+            </ResponsiveContainer>
+            <div className="rp-legend-row mt-2">
+              <span className="rp-leg-item"><span className="rp-pie-dot" style={{ background: "#3b82f6" }} />Service Revenue</span>
+              <span className="rp-leg-item"><span className="rp-pie-dot" style={{ background: "#10b981" }} />Product Revenue</span>
+            </div>
+          </div>
+
+          <div className="rp-detail-table-wrap">
+            <table className="rp-detail-table">
+              <thead>
+                <tr>
+                  <th>Period</th>
+                  <th>Service Revenue (₹)</th>
+                  <th>Product Revenue (₹)</th>
+                  <th>Total Revenue (₹)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i}>
+                    <td>{r.label}</td>
+                    <td>₹{r.serviceRevenue.toLocaleString()}</td>
+                    <td>₹{r.productRevenue.toLocaleString()}</td>
+                    <td className="fw-semibold">₹{r.total.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// ─── Staff Product Sales Detail ───────────────────────────────────────────────
+
+interface StaffProductRow {
+  staffName: string;
+  productName: string;
+  quantity: number;
+  revenue: number;
+  date: string;
+}
+
+const StaffProductSalesDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const dispatch = useDispatch<AppDispatch>();
+  const today      = new Date().toISOString().slice(0, 10);
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+  const [dateFrom,      setDateFrom]      = useState(monthStart);
+  const [dateTo,        setDateTo]        = useState(today);
+  const [staffFilter,   setStaffFilter]   = useState("All");
+  const [staffOptions,  setStaffOptions]  = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
+  const [showStaffDrop, setShowStaffDrop] = useState(false);
+  const [loading,       setLoading]       = useState(false);
+  const [allRows,       setAllRows]       = useState<StaffProductRow[]>([]);
+  const [currentPage,   setCurrentPage]   = useState(1);
+  const [pageSize,      setPageSize]      = useState(10);
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    dispatch(fetchStaffThunk()).unwrap().then((list: any[]) => {
+      const opts = list.map((s: any) => ({
+        label: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.name || "",
+        value: String(s.id ?? ""),
+      })).filter((o: any) => o.label && o.value);
+      setStaffOptions([{ label: "All", value: "All" }, ...opts]);
+    }).catch(() => {});
+  }, []);
+
+  const fetchData = useCallback(async () => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ start_date: dateFrom, end_date: dateTo, limit: "500" });
+      const [apptRes, staffList] = await Promise.all([
+        api.get(`${BOOKING.BASE}?${params}`, { signal: ctrl.signal }),
+        dispatch(fetchStaffThunk()).unwrap(),
+      ]);
+      const UUID_RE_PS = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const staffNameMap = new Map<string, string>();
+      staffList.forEach((s: any) => {
+        const name = `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.name || "";
+        if (!name) return;
+        [s.id, s.user_id, s.uuid, s.staff_id, s.auth_id, s.auth_user_id]
+          .filter(Boolean)
+          .forEach((uid: any) => staffNameMap.set(String(uid), name));
+        Object.values(s).forEach((val: any) => {
+          if (typeof val === "string" && (UUID_RE_PS.test(val) || /^\d+$/.test(val))) staffNameMap.set(val, name);
+          else if (typeof val === "number") staffNameMap.set(String(val), name);
+        });
+      });
+      const rawAppt = apptRes.data?.data;
+      const appts: any[] =
+        Array.isArray(rawAppt?.items) ? rawAppt.items :
+        Array.isArray(rawAppt?.data)  ? rawAppt.data  :
+        Array.isArray(rawAppt)        ? rawAppt        : [];
+
+      const result: StaffProductRow[] = [];
+      appts.forEach((appt: any) => {
+        const sid = String(appt.staff_id ?? appt.staffId ?? "");
+        if (staffFilter !== "All" && sid !== staffFilter) return;
+        const inlineName = `${appt.staff_first_name ?? ""} ${appt.staff_last_name ?? ""}`.trim()
+          || appt.staff_name || appt.staff?.name || "";
+        const staffName = staffNameMap.get(sid) || inlineName || "Unknown";
+        const date = String(appt.date ?? appt.appointment_date ?? appt.created_at ?? "").slice(0, 10);
+        const prodItems: any[] = Array.isArray(appt.product_items) ? appt.product_items : [];
+        prodItems.forEach((it: any) => {
+          const qty = Number(it.quantity ?? it.qty ?? 1) || 1;
+          const price = parseFloat(String(it.price ?? 0)) || 0;
+          result.push({
+            staffName,
+            productName: String(it.name ?? it.product_name ?? "Product"),
+            quantity: qty,
+            revenue: Math.round(price * qty),
+            date,
+          });
+        });
+      });
+      result.sort((a, b) => b.revenue - a.revenue);
+      setAllRows(result);
+    } catch (e: any) {
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setAllRows([]);
+    } finally {
+      if (!ctrl.signal.aborted) setLoading(false);
+    }
+  }, [dateFrom, dateTo, staffFilter]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { setCurrentPage(1); }, [allRows]);
+
+  const rows = useMemo(() => {
+    if (staffFilter === "All") return allRows;
+    const label = (staffOptions.find(o => o.value === staffFilter)?.label ?? "").toLowerCase();
+    return allRows.filter(r => r.staffName.toLowerCase() === label);
+  }, [allRows, staffFilter, staffOptions]);
+
+  const totalQty = rows.reduce((s, r) => s + r.quantity, 0);
+  const totalRev = rows.reduce((s, r) => s + r.revenue, 0);
+
+  const topProducts = useMemo(() => {
+    const map = new Map<string, { qty: number; rev: number }>();
+    rows.forEach(r => {
+      const e = map.get(r.productName) ?? { qty: 0, rev: 0 };
+      e.qty += r.quantity; e.rev += r.revenue;
+      map.set(r.productName, e);
+    });
+    return [...map.entries()].sort((a, b) => b[1].qty - a[1].qty).slice(0, 3);
+  }, [rows]);
+
+  const HEADERS = ["Staff Name", "Product Name", "Quantity Sold", "Product Revenue (₹)", "Date"];
+  const exportRows = () => rows.map(r => [r.staffName, r.productName, r.quantity, r.revenue, r.date]);
+
+  const paged = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  return (
+    <div className="rp-detail-view">
+      <div className="rp-detail-header">
+        <div className="rp-detail-back-row">
+          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
+            <ChevronLeft size={15} /> {report.name}
+          </Button>
+          <div className="rp-detail-view-icons">
+            <ReportExportButton title={report.name} headers={HEADERS} rows={exportRows} filename={`staff-product-sales-${dateFrom}-${dateTo}`} />
+          </div>
+        </div>
+        <div className="rp-detail-tab-bar"><span className="rp-detail-tab active">Default View</span></div>
+      </div>
+
+      <div className="rp-detail-filters">
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Date Range</label>
+          <div className="rp-detail-date-range">
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="rp-detail-date-input" />
+            <span className="rp-detail-date-sep">-</span>
+            <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   className="rp-detail-date-input" />
+          </div>
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Staff Member</label>
+          <button className="rp-detail-select" onClick={() => setShowStaffDrop(v => !v)}>
+            {(staffOptions.find(o => o.value === staffFilter)?.label ?? "All").slice(0, 16)}
+            <span className="rp-detail-caret">▼</span>
+          </button>
+          {showStaffDrop && (
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
+              {staffOptions.map(o => (
+                <div key={o.value} className={`rp-detail-dropdown-item ${o.value === staffFilter ? "active" : ""}`}
+                  onClick={() => { setStaffFilter(o.value); setShowStaffDrop(false); }}>{o.label}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-actions">
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
+            <Refresh size={13} /> Refresh
+          </Button>
+        </div>
+      </div>
+
+      <div className="rp-sra-summary-row">
+        {[
+          { label: "Total Products Sold",    value: totalQty.toString(),                color: "#3b82f6" },
+          { label: "Product Revenue",        value: `₹${totalRev.toLocaleString()}`,    color: "#10b981" },
+          { label: "Top Selling Product",    value: topProducts[0]?.[0] ?? "—",         color: "#8b5cf6" },
+          { label: "Highest Product Seller", value: rows[0]?.staffName ?? "—",          color: "#f59e0b" },
+        ].map(c => (
+          <div key={c.label} className="rp-sra-summary-card">
+            <div className="rp-sra-summary-val" style={{ color: c.color, fontSize: c.label.includes("Top") || c.label.includes("Highest") ? 15 : undefined }}>{c.value}</div>
+            <div className="rp-sra-summary-label">{c.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="rp-detail-drag-hint">
+        {rows.length} line item{rows.length !== 1 ? "s" : ""}
+        {rows.length > 0 && <>&nbsp;·&nbsp;Total Qty: <strong>{totalQty}</strong>&nbsp;·&nbsp;Revenue: <strong>₹{totalRev.toLocaleString()}</strong></>}
+      </div>
+
+      <div className="rp-detail-table-wrap">
+        <table className="rp-detail-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Staff Name</th>
+              <th>Product Name</th>
+              <th>Quantity Sold</th>
+              <th>Product Revenue (₹)</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={6} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+            ) : paged.length === 0 ? (
+              <tr><td colSpan={6} className="rp-detail-empty-cell">No product sales data available</td></tr>
+            ) : paged.map((r, i) => (
+              <tr key={i}>
+                <td style={{ color: "#9ca3af", fontSize: 12 }}>#{(currentPage - 1) * pageSize + i + 1}</td>
+                <td className="fw-semibold">{r.staffName}</td>
+                <td>{r.productName}</td>
+                <td>{r.quantity}</td>
+                <td>₹{r.revenue.toLocaleString()}</td>
+                <td>{r.date}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+    </div>
+  );
+};
+
+// ─── Staff Service Sales Detail ───────────────────────────────────────────────
+
+interface StaffServiceRow {
+  staffName: string;
+  serviceName: string;
+  count: number;
+  revenue: number;
+  avgValue: number;
+}
+
+const StaffServiceSalesDetail = ({ report, onBack }: { report: ReportItem; onBack: () => void }) => {
+  const dispatch = useDispatch<AppDispatch>();
+  const today      = new Date().toISOString().slice(0, 10);
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+  const [dateFrom,      setDateFrom]      = useState(monthStart);
+  const [dateTo,        setDateTo]        = useState(today);
+  const [staffFilter,   setStaffFilter]   = useState("All");
+  const [staffOptions,  setStaffOptions]  = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
+  const [showStaffDrop, setShowStaffDrop] = useState(false);
+  const [loading,       setLoading]       = useState(false);
+  const [rows,          setRows]          = useState<StaffServiceRow[]>([]);
+  const [currentPage,   setCurrentPage]   = useState(1);
+  const [pageSize,      setPageSize]      = useState(10);
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    dispatch(fetchStaffThunk()).unwrap().then((list: any[]) => {
+      const opts = list.map((s: any) => ({
+        label: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.name || "",
+        value: String(s.id ?? ""),
+      })).filter((o: any) => o.label && o.value);
+      setStaffOptions([{ label: "All", value: "All" }, ...opts]);
+    }).catch(() => {});
+  }, []);
+
+  const fetchData = useCallback(async () => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ start_date: dateFrom, end_date: dateTo, limit: "500" });
+      const [apptRes, staffList] = await Promise.all([
+        api.get(`${BOOKING.BASE}?${params}`, { signal: ctrl.signal }),
+        dispatch(fetchStaffThunk()).unwrap(),
+      ]);
+      const UUID_RE_SS = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const staffNameMap = new Map<string, string>();
+      staffList.forEach((s: any) => {
+        const name = `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.name || "";
+        if (!name) return;
+        [s.id, s.user_id, s.uuid, s.staff_id, s.auth_id, s.auth_user_id]
+          .filter(Boolean)
+          .forEach((uid: any) => staffNameMap.set(String(uid), name));
+        Object.values(s).forEach((val: any) => {
+          if (typeof val === "string" && (UUID_RE_SS.test(val) || /^\d+$/.test(val))) staffNameMap.set(val, name);
+          else if (typeof val === "number") staffNameMap.set(String(val), name);
+        });
+      });
+      const rawAppt = apptRes.data?.data;
+      const appts: any[] =
+        Array.isArray(rawAppt?.items) ? rawAppt.items :
+        Array.isArray(rawAppt?.data)  ? rawAppt.data  :
+        Array.isArray(rawAppt)        ? rawAppt        : [];
+
+      const aggMap = new Map<string, { count: number; revenue: number }>();
+      appts.forEach((appt: any) => {
+        const sid = String(appt.staff_id ?? appt.staffId ?? "");
+        if (staffFilter !== "All" && sid !== staffFilter) return;
+        const inlineName = `${appt.staff_first_name ?? ""} ${appt.staff_last_name ?? ""}`.trim()
+          || appt.staff_name || appt.staff?.name || "";
+        const staffName = staffNameMap.get(sid) || inlineName || "Unknown";
+        const svcItems: any[] = Array.isArray(appt.services) ? appt.services : [];
+        svcItems.forEach((it: any) => {
+          const svcName = String(it.name ?? it.service_name ?? "Service");
+          const key = `${staffName}||${svcName}`;
+          const price = parseFloat(String(it.price ?? 0)) || 0;
+          const e = aggMap.get(key) ?? { count: 0, revenue: 0 };
+          e.count   += 1;
+          e.revenue += price;
+          aggMap.set(key, e);
+        });
+      });
+
+      const result: StaffServiceRow[] = Array.from(aggMap.entries()).map(([key, v]) => {
+        const [staffName, serviceName] = key.split("||");
+        return { staffName, serviceName, count: v.count, revenue: Math.round(v.revenue), avgValue: v.count > 0 ? Math.round(v.revenue / v.count) : 0 };
+      }).sort((a, b) => b.revenue - a.revenue);
+      setRows(result);
+    } catch (e: any) {
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setRows([]);
+    } finally {
+      if (!ctrl.signal.aborted) setLoading(false);
+    }
+  }, [dateFrom, dateTo, staffFilter]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { setCurrentPage(1); }, [rows]);
+
+  const totalCount = rows.reduce((s, r) => s + r.count, 0);
+  const totalRev   = rows.reduce((s, r) => s + r.revenue, 0);
+  const topService = rows[0]?.serviceName ?? "—";
+  const topStaff   = rows[0]?.staffName   ?? "—";
+
+  const HEADERS = ["Staff Name", "Service Name", "Services Completed", "Service Revenue (₹)", "Avg Service Value (₹)"];
+  const exportRows = () => rows.map(r => [r.staffName, r.serviceName, r.count, r.revenue, r.avgValue]);
+
+  const paged = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  return (
+    <div className="rp-detail-view">
+      <div className="rp-detail-header">
+        <div className="rp-detail-back-row">
+          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
+            <ChevronLeft size={15} /> {report.name}
+          </Button>
+          <div className="rp-detail-view-icons">
+            <ReportExportButton title={report.name} headers={HEADERS} rows={exportRows} filename={`staff-service-sales-${dateFrom}-${dateTo}`} />
+          </div>
+        </div>
+        <div className="rp-detail-tab-bar"><span className="rp-detail-tab active">Default View</span></div>
+      </div>
+
+      <div className="rp-detail-filters">
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Date Range</label>
+          <div className="rp-detail-date-range">
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="rp-detail-date-input" />
+            <span className="rp-detail-date-sep">-</span>
+            <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   className="rp-detail-date-input" />
+          </div>
+        </div>
+        <div className="rp-detail-filter-group" style={{ position: "relative" }}>
+          <label className="rp-detail-filter-label">Staff Member</label>
+          <button className="rp-detail-select" onClick={() => setShowStaffDrop(v => !v)}>
+            {(staffOptions.find(o => o.value === staffFilter)?.label ?? "All").slice(0, 16)}
+            <span className="rp-detail-caret">▼</span>
+          </button>
+          {showStaffDrop && (
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
+              {staffOptions.map(o => (
+                <div key={o.value} className={`rp-detail-dropdown-item ${o.value === staffFilter ? "active" : ""}`}
+                  onClick={() => { setStaffFilter(o.value); setShowStaffDrop(false); }}>{o.label}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-actions">
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
+            <Refresh size={13} /> Refresh
+          </Button>
+        </div>
+      </div>
+
+      <div className="rp-sra-summary-row">
+        {[
+          { label: "Most Popular Service",    value: topService,                       color: "#3b82f6" },
+          { label: "Highest Service Revenue", value: `₹${totalRev.toLocaleString()}`, color: "#10b981" },
+          { label: "Top Performing Staff",    value: topStaff,                         color: "#8b5cf6" },
+          { label: "Total Services Done",     value: totalCount.toString(),            color: "#f59e0b" },
+        ].map(c => (
+          <div key={c.label} className="rp-sra-summary-card">
+            <div className="rp-sra-summary-val" style={{ color: c.color, fontSize: 15 }}>{c.value}</div>
+            <div className="rp-sra-summary-label">{c.label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="rp-detail-drag-hint">
+        {rows.length} service-staff combination{rows.length !== 1 ? "s" : ""}
+        {rows.length > 0 && <>&nbsp;·&nbsp;Total Revenue: <strong>₹{totalRev.toLocaleString()}</strong></>}
+      </div>
+
+      <div className="rp-detail-table-wrap">
+        <table className="rp-detail-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Staff Name</th>
+              <th>Service Name</th>
+              <th>Services Completed</th>
+              <th>Service Revenue (₹)</th>
+              <th>Avg Service Value (₹)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={6} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+            ) : paged.length === 0 ? (
+              <tr><td colSpan={6} className="rp-detail-empty-cell">No service sales data available</td></tr>
+            ) : paged.map((r, i) => (
+              <tr key={i}>
+                <td style={{ color: "#9ca3af", fontSize: 12 }}>#{(currentPage - 1) * pageSize + i + 1}</td>
+                <td className="fw-semibold">{r.staffName}</td>
+                <td>{r.serviceName}</td>
+                <td>{r.count}</td>
+                <td className="fw-semibold">₹{r.revenue.toLocaleString()}</td>
+                <td>₹{r.avgValue.toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+    </div>
+  );
+};
+
 // ─── Reports Dashboard data ────────────────────────────────────────────────────
 
 interface ReportItem {
@@ -4100,7 +5214,11 @@ const ALL_REPORTS: ReportItem[] = [
   { id: "staffing",                       name: "Staffing",                      tags: ["Team"],         description: "Track the total number of employees currently working in a center, categorized by role.",              category: "employee" },
   { id: "tip_adjustments",               name: "Tip Adjustments",               tags: ["Sales"],        description: "View the trail of changes made to tips.",                                                             category: "employee" },
   { id: "utilization",                    name: "Utilization",                   tags: ["Performance"],  description: "Track how effectively employees' working hours are being utilized across services and appointments.",   category: "employee" },
-  { id: "employee_performance",           name: "Employee Performance",          tags: ["Performance"],  description: "Track individual employee revenue, bookings, and utilization rate across a selected time period.",      category: "employee" },
+  { id: "employee_performance",           name: "Employee Performance",          tags: ["Performance"],  description: "Track individual employee revenue, bookings, and utilization rate across a selected time period.",      category: "employee", isNewVersion: true },
+  { id: "staff_performance_report",       name: "Staff Performance Report",      tags: ["Performance"],  description: "Full breakdown of each staff member's bookings, services sold, products sold, service revenue, product revenue, total revenue, avg ticket, customers served.",  category: "employee", isNewVersion: true },
+  { id: "staff_revenue_analytics",        name: "Staff Revenue Analytics",       tags: ["Performance"],  description: "Daily, weekly, monthly, and yearly revenue charts by staff member with service vs product revenue breakdown and staff filters.",                               category: "employee", isNewVersion: true },
+  { id: "staff_product_sales",            name: "Staff Product Sales Report",    tags: ["Sales"],        description: "Track every product sold by each staff member with quantity, revenue, and date. Includes top-selling products and highest product seller summary.",             category: "employee", isNewVersion: true },
+  { id: "staff_service_sales",            name: "Staff Service Sales Report",    tags: ["Sales"],        description: "Track services performed by each staff member with completion count, service revenue, and average service value. Includes top-performer summary.",             category: "employee", isNewVersion: true },
 ];
 
 const SUB_CATEGORIES: Record<string, string[]> = {
@@ -4323,20 +5441,6 @@ export default function ReportsPage() {
       name:   c.name   ?? "—",
       visits: c.visits ?? 0,
       spend:  c.spend  ?? 0,
-    }));
-  })();
-
-  const staffList = (() => {
-    const raw = (staffData?.performance ?? []).filter(Boolean);
-    if (!raw.length) return [];
-    return raw.map((s, i) => ({
-      ...s,
-      bookings:    s.bookings    ?? 0,
-      revenue:     s.revenue     ?? 0,
-      rating:      s.rating      ?? 0,
-      utilization: s.utilization ?? 0,
-      avgTicket:   s.avgTicket   ?? 0,
-      color: s.color ?? CHART_COLORS[i % CHART_COLORS.length],
     }));
   })();
 
@@ -4662,7 +5766,7 @@ export default function ReportsPage() {
         {tab === "revenue"      && <RevenueTab trend={revenueTrend} services={serviceList} period={period} />}
         {tab === "appointments" && <AppointmentsTab volume={apptVolume} peakHours={peakHoursData} />}
         {tab === "clients"      && <ClientsTab growth={clientGrowthData} topClients={topClientsList} />}
-        {tab === "staff"        && <StaffTab staffData={staffList} radarStaff={radarData} />}
+        {tab === "staff"        && <StaffTab radarStaff={radarData} period={period} filterFrom={filterFrom || undefined} filterTo={filterTo || undefined} />}
         {tab === "services"     && <ServicesTab services={serviceList} />}
       </div>
 
@@ -4686,8 +5790,11 @@ export default function ReportsPage() {
               : openReport.id === "vip_clients"                                             ? <VipClientsReportDetail    report={openReport} onBack={() => setOpenReport(null)} />
               : openReport.id === "staff_schedule"                                          ? <StaffScheduleReportDetail report={openReport} onBack={() => setOpenReport(null)} />
               : openReport.id === "commissions" || openReport.id === "commissions_graphical" ? <CommissionsReportDetail report={openReport} onBack={() => setOpenReport(null)} />
-              : openReport.id === "leaves"              ? <LeavesReportDetail      report={openReport} onBack={() => setOpenReport(null)} />
-              : openReport.category === "employee"      ? <EmployeeReportDetail   report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.id === "leaves"                  ? <LeavesReportDetail              report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.id === "staff_revenue_analytics" ? <StaffRevenueAnalyticsDetail     report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.id === "staff_product_sales"     ? <StaffProductSalesDetail         report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.id === "staff_service_sales"     ? <StaffServiceSalesDetail         report={openReport} onBack={() => setOpenReport(null)} />
+              : openReport.category === "employee"          ? <EmployeeReportDetail            report={openReport} onBack={() => setOpenReport(null)} />
               : <AppointmentReportDetail report={openReport} onBack={() => setOpenReport(null)} />
             }
           </>

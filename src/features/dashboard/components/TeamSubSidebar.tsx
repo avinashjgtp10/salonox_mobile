@@ -8,6 +8,7 @@ interface Props {
 const NAV_ITEMS = [
   { to: "/dashboard/team/dashboard",    label: "Overview" },
   { to: "/dashboard/team/members",      label: "Team members" },
+  { to: "/dashboard/team/performance",  label: "Performance" },
 
   { to: "/dashboard/team/shifts",       label: "Scheduled shifts" },
   { to: "/dashboard/team/payruns",      label: "Pay runs" },

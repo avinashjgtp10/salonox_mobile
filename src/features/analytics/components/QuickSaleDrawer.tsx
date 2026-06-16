@@ -479,6 +479,7 @@ export default function QuickSaleDrawer({ isOpen, onClose }: Props) {
       checkoutSaleThunk({
         id: newSale.id,
         payment_method: paymentMethod,
+        amount_paid: checkout.payments.reduce((a, p) => a + p.amount, 0),
       }),
     );
 
@@ -1176,7 +1177,7 @@ export default function QuickSaleDrawer({ isOpen, onClose }: Props) {
                                   size="sm"
                                   className="p-1 text-muted"
                                   onClick={(e) => {
-                                    e.stopPropagation();
+                                    e?.stopPropagation();
                                     setEditingItem(item);
                                   }}
                                 >
