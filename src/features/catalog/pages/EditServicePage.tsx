@@ -194,9 +194,7 @@ const EditServicePage: React.FC = () => {
 
       <main className="add-service-page__layout">
         <div className="layout-container">
-          <div className="layout-header">
-            <h1>{serviceName || "Edit service"}</h1>
-          </div>
+        
 
           {showBanner && (
             <div

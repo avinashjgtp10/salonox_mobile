@@ -126,7 +126,7 @@ export const useServiceForm = (_type: "single" | "bundle") => {
 
     try {
       // Map formData to Backend Service shape
-      const payload: Record<string, unknown> = {
+      const payload: Partial<Service> = {
         name: formData.basic.name,
         description: formData.basic.description || undefined,
         category_id: formData.basic.categoryId || null,
@@ -147,7 +147,7 @@ export const useServiceForm = (_type: "single" | "bundle") => {
         image_url: formData.basic.imageUrl ?? null,
       };
 
-      const resultAction = await dispatch(createServiceThunk(payload as Partial<Service>));
+      const resultAction = await dispatch(createServiceThunk(payload));
       if (createServiceThunk.fulfilled.match(resultAction)) {
         // Refresh the services list and categories in Redux state so the list
         // page shows up-to-date data immediately when the user navigates back.

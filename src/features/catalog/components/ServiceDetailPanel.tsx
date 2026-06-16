@@ -27,8 +27,11 @@ const ServiceDetailPanel: React.FC<ServiceDetailPanelProps> = ({
   onDelete,
 }) => {
   const navigate = useNavigate();
-  const formatMoney = (value: string | number | null | undefined) =>
-    `₹${parseFloat(String(value ?? 0)).toFixed(2)}`;
+  const formatMoney = (value: string | number | null | undefined) => {
+    const parsed = parseFloat(String(value ?? 0));
+    const safeValue = Number.isFinite(parsed) ? parsed : 0;
+    return `₹${safeValue.toFixed(2)}`;
+  };
   const formatDate = (value?: string) =>
     value ? new Date(value).toLocaleString() : "";
 
@@ -99,7 +102,7 @@ const ServiceDetailPanel: React.FC<ServiceDetailPanelProps> = ({
                 <p className="sdp__metric-label">Price</p>
                 <p className="sdp__metric-value">
                   {formatMoney(service.price)}
-                  {service.discounted_price && (
+                  {service.discounted_price != null && (
                     <span className="sdp__discounted">{formatMoney(service.discounted_price)}</span>
                   )}
                 </p>

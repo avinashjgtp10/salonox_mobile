@@ -5,10 +5,18 @@ import type { Service } from "../types/catalog.types";
 
 const d = (v: unknown) => (v == null || v === "" ? "—" : String(v));
 const bool = (v: unknown) => (v ? "Yes" : "No");
-const formatExportDate = (value: Date | string | number) =>
-  new Date(value).toLocaleDateString("en-GB");
+const formatExportDate = (value: Date | string | number) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error("Invalid export date");
+  }
+  return date.toLocaleDateString("en-GB");
+};
 const formatGeneratedAt = (value: Date | string | number) => {
   const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error("Invalid generated-at date");
+  }
   const day = date.toLocaleDateString("en-GB");
   const time = date.toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -81,19 +89,23 @@ export const exportServicesPDF = (services: Service[]) => {
 export const exportServicesExcel = (services: Service[]) => {
   const headerRow = COLS.map((c) => c.header);
   const bodyRows = rows(services);
-  const generatedAt = formatGeneratedAt(new Date());
+  const generatedAt = new Date();
   const data = [
     ["Services & Bundles Catalogue"],
-    [`Generated: ${generatedAt}`],
+    ["Generated", generatedAt],
     [],
     headerRow,
     ...bodyRows,
   ];
-  const ws = XLSX.utils.aoa_to_sheet(data);
+  const ws = XLSX.utils.aoa_to_sheet(data, { cellDates: true });
   ws["!merges"] = [
     { s: { r: 0, c: 0 }, e: { r: 0, c: headerRow.length - 1 } },
-    { s: { r: 1, c: 0 }, e: { r: 1, c: headerRow.length - 1 } },
   ];
+  ws.B2 = {
+    t: "d",
+    v: generatedAt,
+    z: "dd/mm/yyyy h:mm:ss AM/PM",
+  };
   ws["!cols"] = headerRow.map((header, i) => {
     const maxDataWidth = Math.max(
       header.length,

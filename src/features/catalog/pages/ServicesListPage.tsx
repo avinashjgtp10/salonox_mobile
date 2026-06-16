@@ -2,9 +2,12 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import type { AppDispatch } from "../../../store/store";
+import api from "../../../services/api/axios";
+import { SERVICES } from "../../../services/api/endpoints/services.endpoints";
 import {
   deleteServiceThunk,
 } from "../../../middleware/services/services.thunk";
+import type { FetchServicesParams } from "../../../middleware/services/services.thunk";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import { exportServicesPDF, exportServicesExcel, exportServicesCSV } from "../utils/serviceExport";
 import type { Service } from "../types/catalog.types";
@@ -21,7 +24,7 @@ import {
   PencilSquare,
   X,
 } from "react-bootstrap-icons";
-import { useServices } from "../hooks/useServices.ts";
+import { useServices, type CategoryView } from "../hooks/useServices.ts";
 import { useCategories } from "../hooks/useCategories.ts";
 import { useServiceFilters } from "../hooks/useServiceFilters.ts";
 import { useSelector as useReduxSelector } from "react-redux";
@@ -56,8 +59,20 @@ const COLOR_OPTIONS = [
 ];
 
 // Maps UI filter strings → API boolean params
-const buildFilterParams = (f: ServiceFiltersState): Record<string, any> => {
-  const p: Record<string, any> = {};
+const buildFilterParams = (
+  f: ServiceFiltersState,
+): Partial<
+  Pick<
+    FetchServicesParams,
+    "isActive" | "onlineBooking" | "commissionEnabled" | "resourceRequired"
+  >
+> => {
+  const p: Partial<
+    Pick<
+      FetchServicesParams,
+      "isActive" | "onlineBooking" | "commissionEnabled" | "resourceRequired"
+    >
+  > = {};
   if (f.status === "Active")   p.isActive = true;
   if (f.status === "Inactive") p.isActive = false;
   if (f.onlineBooking === "Enabled")  p.onlineBooking = true;
@@ -126,8 +141,6 @@ const ServicesListPage: React.FC = () => {
       categoryId: selectedCategory !== "all" ? selectedCategory : undefined,
       ...buildFilterParams(filters),
     });
-  // fetchServices is stable (useCallback), filters is from Redux (stable ref when unchanged)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, selectedCategory, searchQuery, filters, fetchServices]);
 
   // Load staff for the Team member filter
@@ -145,32 +158,75 @@ const ServicesListPage: React.FC = () => {
 
   // ── Download helpers — fetch ALL services then export client-side ────────────
 
+  const fetchFilteredServicesForExport = useCallback(async (): Promise<Service[]> => {
+    interface ServicesListPayload {
+      data: Service[];
+      pagination?: {
+        total_pages?: number;
+      };
+    }
+
+    const queryParts: string[] = ["page=1", "limit=200"];
+    const filterParams = buildFilterParams(filters);
+
+    if (searchQuery) queryParts.push(`search=${encodeURIComponent(searchQuery)}`);
+    if (selectedCategory !== "all") queryParts.push(`category_id=${selectedCategory}`);
+    if (filterParams.isActive !== undefined) queryParts.push(`is_active=${filterParams.isActive}`);
+    if (filterParams.onlineBooking !== undefined) queryParts.push(`online_booking=${filterParams.onlineBooking}`);
+    if (filterParams.commissionEnabled !== undefined) queryParts.push(`commission_enabled=${filterParams.commissionEnabled}`);
+    if (filterParams.resourceRequired !== undefined) queryParts.push(`resource_required=${filterParams.resourceRequired}`);
+
+    const allServices: Service[] = [];
+    let page = 1;
+    let totalPages = 1;
+
+    while (page <= totalPages) {
+      const pageQueryParts = queryParts.map((part) =>
+        part.startsWith("page=") ? `page=${page}` : part,
+      );
+      const res = await api.get(SERVICES.LIST(pageQueryParts.join("&")));
+      const payload = (res.data as { data?: Service[] | ServicesListPayload })?.data;
+
+      if (Array.isArray(payload)) {
+        allServices.push(...payload);
+        break;
+      }
+
+      const pageData = Array.isArray(payload?.data) ? (payload.data as Service[]) : [];
+      allServices.push(...pageData);
+      totalPages = payload?.pagination?.total_pages ?? 1;
+      page += 1;
+    }
+
+    return allServices;
+  }, [filters, searchQuery, selectedCategory]);
+
   const handleDownloadPdf = useCallback(async () => {
     setShowOptMenu(false);
-    try { exportServicesPDF(services); }
+    try { exportServicesPDF(await fetchFilteredServicesForExport()); }
     catch (err) { console.error("[ServicesListPage] PDF export failed:", err); }
-  }, [services]);
+  }, [fetchFilteredServicesForExport]);
 
   const handleDownloadExcel = useCallback(async () => {
     setShowOptMenu(false);
-    try { exportServicesExcel(services); }
+    try { exportServicesExcel(await fetchFilteredServicesForExport()); }
     catch (err) { console.error("[ServicesListPage] Excel export failed:", err); }
-  }, [services]);
+  }, [fetchFilteredServicesForExport]);
 
   const handleDownloadCsv = useCallback(async () => {
     setShowOptMenu(false);
-    try { exportServicesCSV(services); }
+    try { exportServicesCSV(await fetchFilteredServicesForExport()); }
     catch (err) { console.error("[ServicesListPage] CSV export failed:", err); }
-  }, [services]);
+  }, [fetchFilteredServicesForExport]);
 
   // ── Group services by category for display ───────────────────────────────────
   const groupedServices = useMemo(() => {
     const groups: Record<
       string,
-      { id: string | number; name: string; color?: string; services: any[] }
+      { id: string | number; name: string; color?: string; services: Service[] }
     > = {};
 
-    categories.forEach((cat: any) => {
+    categories.forEach((cat: CategoryView) => {
       groups[String(cat.id)] = {
         id: cat.id,
         name: cat.name,
@@ -179,7 +235,7 @@ const ServicesListPage: React.FC = () => {
       };
     });
 
-    services.forEach((svc: any) => {
+    services.forEach((svc: Service) => {
       const key = String(svc.category_id);
       if (groups[key]) {
         groups[key].services.push(svc);
@@ -335,11 +391,18 @@ const ServicesListPage: React.FC = () => {
             <CategorySidebarSkeleton />
           ) : (
             <ul className="slp__cat-list">
-              {categories.map((cat: any) => (
+              {categories.map((cat: CategoryView) => (
                 <li
                   key={cat.id}
                   className={`slp__cat-item slp__cat-item--editable ${String(selectedCategory) === String(cat.id) ? "slp__cat-item--active" : ""}`}
                   onClick={() => setSelectedCategory(String(cat.id))}
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelectedCategory(String(cat.id));
+                    }
+                  }}
                 >
                   <span className="d-flex align-items-center gap-2 slp__cat-name">
                     {cat.color && (
@@ -481,7 +544,7 @@ const ServicesListPage: React.FC = () => {
                 </div>
 
                 <div className="slp__service-list">
-                  {group.services.map((svc: any) => (
+                  {group.services.map((svc: Service) => (
                     <ServiceCard
                       key={svc.id}
                       service={svc}
@@ -492,17 +555,17 @@ const ServicesListPage: React.FC = () => {
                       }
                       onDelete={(id) => {
                         const target = services.find(
-                          (s: any) => String(s.id) === String(id),
+                          (s: Service) => String(s.id) === String(id),
                         );
-                        if (target) setDeletingService(target as Service);
+                        if (target) setDeletingService(target);
                         setOpenCardMenu(null);
                         setSelectedService(null);
                       }}
                       onClick={(id) => {
                         const target = services.find(
-                          (s: any) => String(s.id) === String(id),
+                          (s: Service) => String(s.id) === String(id),
                         );
-                        if (target) setSelectedService(target as Service);
+                        if (target) setSelectedService(target);
                       }}
                     />
                   ))}
