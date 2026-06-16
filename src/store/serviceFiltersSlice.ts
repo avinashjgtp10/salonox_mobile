@@ -2,8 +2,6 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 export interface ServiceFiltersState {
   status: string;              // "Active" | "Inactive" | "All status"
-  type: string;                // "All types"
-  teamMember: string;          // "Any team member" | staff id
   onlineBooking: string;       // "All status" | "Enabled" | "Disabled"
   commissions: string;         // "All status" | "Enabled" | "Disabled"
   resourceRequirements: string; // "All status" | "Required" | "Not required"
@@ -13,8 +11,6 @@ export interface ServiceFiltersState {
 // status="Active" means "show active services" on page load (0 active filters shown in badge).
 export const INITIAL_SERVICE_FILTERS: ServiceFiltersState = {
   status: "Active",
-  type: "All types",
-  teamMember: "Any team member",
   onlineBooking: "All status",
   commissions: "All status",
   resourceRequirements: "All status",

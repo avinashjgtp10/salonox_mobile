@@ -27,6 +27,7 @@ const ServiceDetailPanel: React.FC<ServiceDetailPanelProps> = ({
   onDelete,
 }) => {
   const navigate = useNavigate();
+  const dialogTitleId = "service-detail-panel-title";
   const formatMoney = (value: string | number | null | undefined) => {
     const parsed = parseFloat(String(value ?? 0));
     const safeValue = Number.isFinite(parsed) ? parsed : 0;
@@ -37,12 +38,23 @@ const ServiceDetailPanel: React.FC<ServiceDetailPanelProps> = ({
 
   return (
     <div className="sdp-overlay" onClick={onClose}>
-      <aside className="sdp" onClick={(e) => e.stopPropagation()}>
+      <aside
+        className="sdp"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={dialogTitleId}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="sdp__header">
-          <button className="sdp__back-btn" onClick={onClose} title="Back">
+          <button
+            className="sdp__back-btn"
+            onClick={onClose}
+            title="Back"
+            aria-label="Back"
+          >
             <ChevronLeft size={16} />
           </button>
-          <h3 className="sdp__header-title">Service details</h3>
+          <h3 id={dialogTitleId} className="sdp__header-title">Service details</h3>
           <div className="sdp__header-actions">
             <button
               className="sdp__edit-btn"
@@ -51,7 +63,12 @@ const ServiceDetailPanel: React.FC<ServiceDetailPanelProps> = ({
               <PencilSquare size={13} />
               Edit
             </button>
-            <button className="sdp__close-btn" onClick={onClose} title="Close">
+            <button
+              className="sdp__close-btn"
+              onClick={onClose}
+              title="Close"
+              aria-label="Close"
+            >
               <X size={18} />
             </button>
           </div>

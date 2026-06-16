@@ -4,19 +4,12 @@ import { useServiceFilters } from "../hooks/useServiceFilters";
 import type { ServiceFiltersState } from "../../../store/serviceFiltersSlice";
 import "../styles/ServiceFilterDrawer.scss";
 
-interface StaffOption {
-  id: string;
-  name: string;
-}
-
 interface Props {
   onClose: () => void;
-  staffMembers?: StaffOption[];
 }
 
 const ServiceFilterDrawer: React.FC<Props> = ({
   onClose,
-  staffMembers = [],
 }) => {
   const { filters: reduxFilters, apply, reset, activeCount } = useServiceFilters();
 
@@ -118,26 +111,6 @@ const ServiceFilterDrawer: React.FC<Props> = ({
                 <option>All status</option>
                 <option>Required</option>
                 <option>Not required</option>
-              </select>
-              <ChevronDown className="select-chevron" size={14} />
-            </div>
-          </div>
-
-          {/* Team member */}
-          <div className="filter-group">
-            <label>Team member</label>
-            <div className="select-wrapper">
-              <select
-                className="form-select-custom"
-                value={draft.teamMember}
-                onChange={(e) => set("teamMember", e.target.value)}
-              >
-                <option value="Any team member">Any team member</option>
-                {staffMembers.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
               </select>
               <ChevronDown className="select-chevron" size={14} />
             </div>

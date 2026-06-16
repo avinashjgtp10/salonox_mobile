@@ -8,7 +8,6 @@ import {
   deleteServiceThunk,
 } from "../../../middleware/services/services.thunk";
 import type { FetchServicesParams } from "../../../middleware/services/services.thunk";
-import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import { exportServicesPDF, exportServicesExcel, exportServicesCSV } from "../utils/serviceExport";
 import type { Service } from "../types/catalog.types";
 import {
@@ -29,7 +28,6 @@ import { useCategories } from "../hooks/useCategories.ts";
 import { useServiceFilters } from "../hooks/useServiceFilters.ts";
 import { useSelector as useReduxSelector } from "react-redux";
 import {
-  selectAllStaff,
   selectCategoriesLoading,
 } from "../../../store/selectors/slices.selectors";
 import type { ServiceFiltersState } from "../../../store/serviceFiltersSlice";
@@ -93,13 +91,8 @@ const ServicesListPage: React.FC = () => {
     useCategories();
   const { filters, activeCount: filterActiveCount } = useServiceFilters();
 
-  const rawStaff = useReduxSelector(selectAllStaff);
   const categoryLoadingState = useReduxSelector(selectCategoriesLoading);
   const categoriesLoading = categoryLoadingState?.fetchAll ?? false;
-  const staffNames = (Array.isArray(rawStaff) ? rawStaff : []).map((s) => ({
-    id: String(s.id),
-    name: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim(),
-  }));
 
   // ── UI state ────────────────────────────────────────────────────────────────
   const [showFilterDrawer, setShowFilterDrawer]   = useState(false);
@@ -143,9 +136,6 @@ const ServicesListPage: React.FC = () => {
     });
   }, [currentPage, pageSize, selectedCategory, searchQuery, filters, fetchServices]);
 
-  // Load staff for the Team member filter
-  useEffect(() => { dispatch(fetchStaffThunk()); }, [dispatch]);
-
   // Close dropdowns on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -161,6 +151,13 @@ const ServicesListPage: React.FC = () => {
   const fetchFilteredServicesForExport = useCallback(async (): Promise<Service[]> => {
     interface ServicesListPayload {
       data: Service[];
+      pagination?: {
+        total_pages?: number;
+      };
+    }
+
+    interface ServicesListResponse {
+      data?: Service[] | ServicesListPayload;
       pagination?: {
         total_pages?: number;
       };
@@ -185,11 +182,14 @@ const ServicesListPage: React.FC = () => {
         part.startsWith("page=") ? `page=${page}` : part,
       );
       const res = await api.get(SERVICES.LIST(pageQueryParts.join("&")));
-      const payload = (res.data as { data?: Service[] | ServicesListPayload })?.data;
+      const responseData = res.data as ServicesListResponse;
+      const payload = responseData?.data;
 
       if (Array.isArray(payload)) {
         allServices.push(...payload);
-        break;
+        totalPages = responseData.pagination?.total_pages ?? totalPages;
+        page += 1;
+        continue;
       }
 
       const pageData = Array.isArray(payload?.data) ? (payload.data as Service[]) : [];
@@ -398,6 +398,7 @@ const ServicesListPage: React.FC = () => {
                   onClick={() => setSelectedCategory(String(cat.id))}
                   tabIndex={0}
                   onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return;
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
                       setSelectedCategory(String(cat.id));
@@ -607,7 +608,6 @@ const ServicesListPage: React.FC = () => {
       {showFilterDrawer && (
         <ServiceFilterDrawer
           onClose={() => setShowFilterDrawer(false)}
-          staffMembers={staffNames}
         />
       )}
       {showManageOrder && (

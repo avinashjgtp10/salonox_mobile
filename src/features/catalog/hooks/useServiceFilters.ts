@@ -17,7 +17,6 @@ export const countActiveFilters = (f: ServiceFiltersState): number =>
     f.onlineBooking !== INITIAL_SERVICE_FILTERS.onlineBooking,
     f.commissions !== INITIAL_SERVICE_FILTERS.commissions,
     f.resourceRequirements !== INITIAL_SERVICE_FILTERS.resourceRequirements,
-    f.teamMember !== INITIAL_SERVICE_FILTERS.teamMember,
   ].filter(Boolean).length;
 
 export const useServiceFilters = () => {
