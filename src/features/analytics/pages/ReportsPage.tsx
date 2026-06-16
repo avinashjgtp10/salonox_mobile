@@ -828,40 +828,6 @@ const StaffTab = ({
     { key: "avgTicket",    label: "Highest Avg Ticket" },
   ];
 
-  // helper: human-readable short label for a staff entry (works even if name unresolved)
-  const staffLabel = (s: StaffItem, rank: number): string => {
-    if (!s.name || s.name === "Unknown Staff" || s.name === "—") return `Staff #${rank}`;
-    const parts = s.name.trim().split(/\s+/);
-    return parts.length >= 2 ? `${parts[0]} ${parts[parts.length - 1][0]}.` : parts[0];
-  };
-
-
-  const derivedKpis = useMemo(() => {
-    const active = sorted.filter(s => s.bookings > 0 || s.revenue > 0);
-    const totalRevenue  = sorted.reduce((sum, s) => sum + s.revenue, 0);
-    const totalBookings = sorted.reduce((sum, s) => sum + s.bookings, 0);
-    const totalServices = sorted.reduce((sum, s) => sum + s.servicesSold, 0);
-    const totalProducts = sorted.reduce((sum, s) => sum + s.productsSold, 0);
-    const topStaff = [...sorted].sort((a, b) => b.revenue - a.revenue)[0];
-    return { totalRevenue, totalBookings, totalServices, totalProducts, activeCount: active.length, topStaff };
-  }, [sorted]);
-
-  const top3ByRevenue = useMemo(() =>
-    [...sorted]
-      .sort((a, b) => b.revenue - a.revenue)
-      .filter(s => s.revenue > 0 || s.bookings > 0)
-      .slice(0, 3),
-  [sorted]);
-
-  const revenueByStaffData = useMemo(() =>
-    [...sorted]
-      .sort((a, b) => b.revenue - a.revenue)
-      .filter(s => s.revenue > 0)
-      .slice(0, 6)
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      .map((s, i) => ({ name: staffLabel(s, i + 1), revenue: s.revenue })),
-  [sorted]);
-
   // Use report endpoint data (server-joined names) for Top 3 card and revenue chart
   const fmtReportName = (name: string): string => {
     if (!name) return "—";
@@ -5475,23 +5441,6 @@ export default function ReportsPage() {
       name:   c.name   ?? "—",
       visits: c.visits ?? 0,
       spend:  c.spend  ?? 0,
-    }));
-  })();
-
-  const staffList = (() => {
-    const raw = (staffData?.performance ?? []).filter(Boolean);
-    if (!raw.length) return [];
-    return raw.map((s: any, i) => ({
-      ...s,
-      bookings:       s.bookings       ?? 0,
-      revenue:        s.revenue        ?? 0,
-      serviceRevenue: s.serviceRevenue ?? s.revenue ?? 0,
-      productRevenue: s.productRevenue ?? 0,
-      servicesSold:   s.servicesSold   ?? s.servicesPerformed ?? 0,
-      productsSold:   s.productsSold   ?? 0,
-      customerCount:  s.customerCount  ?? s.bookings ?? 0,
-      avgTicket:      s.avgTicket      ?? 0,
-      color: s.color ?? CHART_COLORS[i % CHART_COLORS.length],
     }));
   })();
 
