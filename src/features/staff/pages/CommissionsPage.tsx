@@ -11,7 +11,7 @@ import {
   PersonCheck, PersonX, Tools, Bag, Tag, Gift,
   StarFill, Gear, CheckCircleFill, XCircleFill,
   Calculator, CreditCard2Front,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, ClockHistory, Download,
 } from "react-bootstrap-icons";
 import "../styles/CommissionsPage.scss";
 
@@ -275,12 +275,13 @@ const EMPTY_FORM: AddFormState = {
 };
 
 function AddRuleModal({
-  staffList, onClose, onSaved, editing,
+  staffList, onClose, onSaved, editing, salonId,
 }: {
   staffList: StaffMember[];
   onClose: () => void;
   onSaved: () => void;
   editing?: FlatRule | null;
+  salonId: string;
 }) {
   const [form, setForm] = useState<AddFormState>(
     editing
@@ -578,7 +579,7 @@ function AddRuleModal({
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
 
 function OverviewTab({
-  rules, staffList, onAddRule, commsFetching, earnSummary, earnedByStaff, summaryMonth, onMonthChange, markingPaidId, onMarkPaid,
+  rules, staffList, onToggleRule, togglingId, onAddRule, commsFetching, earnSummary, earnedByStaff, summaryMonth, onMonthChange, onOpenHistory,
 }: {
   rules: FlatRule[];
   staffList: StaffMember[];
@@ -590,8 +591,9 @@ function OverviewTab({
   earnedByStaff: EarnedByStaff[];
   summaryMonth: string;
   onMonthChange: (month: string) => void;
-  markingPaidId: string | null;
-  onMarkPaid: (staffId: string) => void;
+  markingPaidId?: string | null;
+  onMarkPaid?: (staffId: string) => void;
+  onOpenHistory: (staffId: string) => void;
 }): JSX.Element {
   const staffWithComm     = new Set(rules.map((r) => r.staff_id));
   const configuredStaff   = staffList.filter((s) => staffWithComm.has(s.id));
@@ -755,7 +757,7 @@ function OverviewTab({
                 const allPaid = e.pending_payout === 0 && e.total_earned > 0;
 
                 return (
-                  <div key={e.staff_id} className={`cm-earned-row ${allPaid ? "cm-earned-row--paid" : ""}`} onClick={() => setHistoryStaffId(e.staff_id)} style={{ cursor: "pointer" }}>
+                  <div key={e.staff_id} className={`cm-earned-row ${allPaid ? "cm-earned-row--paid" : ""}`} onClick={() => onOpenHistory(e.staff_id)} style={{ cursor: "pointer" }}>
                     <div className="cm-earned-av" style={{ background: av.bg }}>{av.initials}</div>
 
                     <div className="cm-earned-info">
@@ -1093,7 +1095,6 @@ export default function CommissionsPage() {
   const [earnSummary,      setEarnSummary]      = useState<EarningSummary | null>(null);
   const [earnedByStaff,    setEarnedByStaff]    = useState<EarnedByStaff[]>([]);
   const [summaryMonth,     setSummaryMonth]     = useState(() => new Date().toISOString().slice(0, 7)); // YYYY-MM
-  const [markingPaidId,    setMarkingPaidId]    = useState<string | null>(null);
   const [historyStaffId,   setHistoryStaffId]   = useState<string | null>(null);
   const [showModal,   setShowModal]   = useState(false);
   const [editingRule, setEditingRule] = useState<FlatRule | null>(null);
@@ -1273,8 +1274,7 @@ export default function CommissionsPage() {
           earnedByStaff={earnedByStaff}
           summaryMonth={summaryMonth}
           onMonthChange={(m) => { setSummaryMonth(m); }}
-          markingPaidId={markingPaidId}
-          onMarkPaid={() => {}}
+          onOpenHistory={(staffId) => setHistoryStaffId(staffId)}
         />
       ) : (
         <div className="cm-body">
@@ -1356,6 +1356,7 @@ export default function CommissionsPage() {
           onClose={() => { setShowModal(false); setEditingRule(null); }}
           onSaved={fetchAll}
           editing={editingRule}
+          salonId={salonId ?? ""}
         />
       )}
     </div>
