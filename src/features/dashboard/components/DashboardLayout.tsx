@@ -53,6 +53,14 @@ export default function DashboardLayout() {
     setOpenMenu(detectOpenMenu(location.pathname));
   }, [location.pathname]);
 
+  // Listen for child pages requesting the sub-sidebar to close
+  // (e.g. Client History page wanting full-width when a client is selected)
+  useEffect(() => {
+    const handler = () => setOpenMenu(null);
+    window.addEventListener("chp:closeSubSidebar", handler);
+    return () => window.removeEventListener("chp:closeSubSidebar", handler);
+  }, []);
+
   const handleLogout = () => {
     dispatch(logout());
     navigate("/login");

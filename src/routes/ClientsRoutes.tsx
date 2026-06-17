@@ -1,13 +1,18 @@
+// src/routes/ClientsRoutes.tsx
 import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { ClientWizardProvider } from "../features/clients/context/ClientWizardContext";
 import PermissionGuard from "../components/guards/PermissionGuard";
+import { PageLoader } from "../components/ui";
 
 const ClientsListPage = lazy(
   () => import("../features/clients/pages/ClientsListPage"),
 );
 const ClientLoyaltyPage = lazy(
   () => import("../features/clients/pages/ClientLoyaltyPage"),
+);
+const ClientHistoryPage = lazy(
+  () => import("../features/clients/pages/ClientHistoryPage"),
 );
 const AddClientPage = lazy(
   () => import("../features/clients/pages/AddClientPage"),
@@ -28,15 +33,14 @@ const EditClientPage = lazy(
   () => import("../features/clients/pages/EditClientPage"),
 );
 
-import { PageLoader } from "../components/ui";
-
 export const ClientsRoutes = () => (
   <Suspense fallback={<PageLoader />}>
     <Routes>
-      {/* view_clients (outer) — read-only screens */}
+      {/* view_clients — read-only screens */}
       <Route index element={<Navigate to="list" replace />} />
       <Route path="list" element={<ClientsListPage />} />
       <Route path="loyalty" element={<ClientLoyaltyPage />} />
+      <Route path="history" element={<ClientHistoryPage />} />
 
       {/* edit_clients required for all write operations */}
       <Route element={<PermissionGuard permKey="edit_clients" />}>
