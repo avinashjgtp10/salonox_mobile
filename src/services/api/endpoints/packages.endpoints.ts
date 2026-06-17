@@ -185,9 +185,9 @@ export interface ClientPackage {
 export interface CreateClientPackageDTO {
   clientId: string;
   packageName: string;
-  category: string;
-  branch: string;
-  expiryDate: string | null;
+  category?: string;
+  branch?: string;
+  expiryDate: string;
   basePrice: number;
   gstPercentage: number;
   discount: number;
