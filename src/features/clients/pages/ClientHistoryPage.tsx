@@ -1,5 +1,5 @@
 // src/features/clients/pages/ClientHistoryPage.tsx
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchServicesThunk } from "../../../middleware/services/services.thunk";
@@ -16,6 +16,7 @@ import {
   StarFill,
   PersonCircle,
   Funnel,
+  Printer,
 } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import "../styles/ClientHistoryPage.scss";
@@ -50,6 +51,8 @@ interface AppointmentRecord {
   amount_paid: number;
   services: Array<{ name?: string; service_name?: string; price?: number }>;
   product_items: Array<{ name: string }>;
+  staff_id?: string | null;
+  staff?: { id: string; full_name?: string } | null;
 }
 
 interface SaleItem {
@@ -127,7 +130,7 @@ type TabKey =
   | "payments";
 
 // Filter types
-type LastVisitFilter = "all" | "7" | "30" | "60" | "90plus" | "never";
+type LastVisitFilter = "all" | "7" | "30" | "90" | "90plus";
 
 interface Filters {
   lastVisit: LastVisitFilter;
@@ -200,11 +203,10 @@ const daysSince = (iso: string | null): number | null => {
 const matchesLastVisit = (lastVisitAt: string | null, filter: LastVisitFilter): boolean => {
   if (filter === "all") return true;
   const days = daysSince(lastVisitAt);
-  if (filter === "never") return days === null;
   if (days === null) return false;
   if (filter === "7") return days <= 7;
   if (filter === "30") return days <= 30;
-  if (filter === "60") return days > 30 && days <= 60;
+  if (filter === "90") return days <= 90;
   if (filter === "90plus") return days > 90;
   return true;
 };
@@ -222,6 +224,7 @@ export default function ClientHistoryPage() {
   // Filter dropdown data — read from Redux (same store the calendar uses)
   const reduxServices = useAppSelector((s: any) => s.services.items ?? []);
   const reduxStaff = useAppSelector((s: any) => s.staff.items ?? []);
+  const currentSalon = useAppSelector((s: any) => s.salon.currentSalon);
   const services: ServiceOption[] = reduxServices.map((s: any) => ({ id: s.id, name: s.name }));
   const staffList: StaffOption[] = reduxStaff.map((s: any) => ({
     id: s.id,
@@ -231,11 +234,24 @@ export default function ClientHistoryPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
 
+  // Mini calendar
+  const [calendarDate, setCalendarDate] = useState(() => {
+    const d = new Date(); d.setDate(1); return d;
+  });
+  const [selectedCalDay, setSelectedCalDay] = useState<string | null>(null);
+
   // Selected client history
   const [selectedClient, setSelectedClient] = useState<ClientListItem | null>(null);
   const [data, setData] = useState<HistoryData | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("history");
+
+  // Payments tab-bar filter (beside tab label)
+  const [showPaymentFilterPanel, setShowPaymentFilterPanel] = useState(false);
+  const [paymentDateFilter, setPaymentDateFilter] = useState("all");
+  const [paymentServiceFilter, setPaymentServiceFilter] = useState("all");
+  const [paymentStaffFilter, setPaymentStaffFilter] = useState("all");
+  const paymentFilterRef = useRef<HTMLDivElement>(null);
 
   // Ensure services + staff are in Redux (calendar may have already loaded them)
   useEffect(() => {
@@ -260,6 +276,10 @@ export default function ClientHistoryPage() {
     setData(null);
     setHistoryLoading(true);
     setActiveTab("history");
+    setPaymentDateFilter("all");
+    setPaymentServiceFilter("all");
+    setPaymentStaffFilter("all");
+    setShowPaymentFilterPanel(false);
     window.dispatchEvent(new CustomEvent("chp:closeSubSidebar"));
     try {
       const res = await api.get(`/api/v1/clients/${c.id}/history`);
@@ -292,9 +312,11 @@ export default function ClientHistoryPage() {
 
     // Gender
     if (filters.gender !== "all") {
-      list = list.filter((c) =>
-        (c.gender ?? "").toLowerCase() === filters.gender.toLowerCase()
-      );
+      list = list.filter((c) => {
+        const g = (c.gender ?? "").toLowerCase();
+        if (filters.gender === "other") return g !== "male" && g !== "female" && g !== "";
+        return g === filters.gender;
+      });
     }
 
     return list;
@@ -313,11 +335,30 @@ export default function ClientHistoryPage() {
   const sales = data?.sales ?? [];
   const packages = data?.packages ?? [];
 
+  const now = new Date();
+
   const completed = appointments.filter((a) => a.status === "completed");
-  const upcoming = appointments.filter((a) =>
-    ["booked", "confirmed"].includes(a.status)
-  );
-  const lastVisit = completed[0]?.scheduled_at;
+
+  // Sort upcoming ascending → first element is the nearest future appointment
+  const upcoming = [...appointments]
+    .filter((a) => ["booked", "confirmed"].includes(a.status) && new Date(a.scheduled_at) >= now)
+    .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+
+  // Last visit = most recent completed appointment OR most recent completed sale only
+  const lastCompletedDate = [...completed]
+    .sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime())[0]?.scheduled_at;
+  const lastCompletedSaleDate = [...sales]
+    .filter((s) => s.status === "completed")
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]?.created_at;
+
+  const lastVisit = !lastCompletedDate
+    ? lastCompletedSaleDate
+    : !lastCompletedSaleDate
+      ? lastCompletedDate
+      : new Date(lastCompletedDate) >= new Date(lastCompletedSaleDate)
+        ? lastCompletedDate
+        : lastCompletedSaleDate;
+
   const nextAppt = upcoming[0]?.scheduled_at;
 
   // Map appointment_id → sale so we can show the real billed amount per visit
@@ -366,6 +407,112 @@ export default function ClientHistoryPage() {
 
   const isGoldMember = stats ? stats.lifetime_spend > 5000 : false;
 
+  // appointment id → staff id (from the history API response)
+  const appointmentStaffMap = useMemo(() => {
+    const map = new Map<string, string>();
+    appointments.forEach((a) => {
+      const sid = a.staff_id ?? a.staff?.id;
+      if (sid) map.set(a.id, sid);
+    });
+    return map;
+  }, [appointments]);
+
+  // appointment id → service names array
+  const appointmentServicesMap = useMemo(() => {
+    const map = new Map<string, string[]>();
+    appointments.forEach((a) => {
+      const names = (a.services ?? [])
+        .map((s) => s.name || s.service_name || "")
+        .filter(Boolean);
+      if (names.length) map.set(a.id, names);
+    });
+    return map;
+  }, [appointments]);
+
+  // service names for the filter dropdown: from sale items + linked appointment services
+  const uniqueServiceNamesInSales = useMemo(() => {
+    const names = new Set<string>();
+    sales.forEach((s) => {
+      (s.items ?? [])
+        .filter((it) => it.item_type === "service")
+        .forEach((it) => names.add(it.name));
+      if (s.appointment_id) {
+        (appointmentServicesMap.get(s.appointment_id) ?? []).forEach((n) => names.add(n));
+      }
+    });
+    return [...names];
+  }, [sales, appointmentServicesMap]);
+
+  const filteredSales = useMemo(() => {
+    let list = sales;
+
+    // Date / last-visit filter
+    if (paymentDateFilter !== "all") {
+      const days = parseInt(paymentDateFilter);
+      const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+      list = list.filter((s) => new Date(s.created_at).getTime() >= cutoff);
+    }
+
+    // Service filter — check sale items AND linked appointment services
+    if (paymentServiceFilter !== "all") {
+      list = list.filter((s) => {
+        const inItems = (s.items ?? []).some(
+          (it) => it.item_type === "service" && it.name === paymentServiceFilter
+        );
+        if (inItems) return true;
+        if (!s.appointment_id) return false;
+        return (appointmentServicesMap.get(s.appointment_id) ?? []).includes(paymentServiceFilter);
+      });
+    }
+
+    // Staff filter — link sale → appointment → staff
+    if (paymentStaffFilter !== "all") {
+      list = list.filter((s) => {
+        if (!s.appointment_id) return false;
+        return appointmentStaffMap.get(s.appointment_id) === paymentStaffFilter;
+      });
+    }
+
+    return list;
+  }, [sales, paymentDateFilter, paymentServiceFilter, paymentStaffFilter, appointmentStaffMap, appointmentServicesMap]);
+
+  const paymentTabFilterCount =
+    (paymentDateFilter !== "all" ? 1 : 0) +
+    (paymentServiceFilter !== "all" ? 1 : 0) +
+    (paymentStaffFilter !== "all" ? 1 : 0);
+
+  // Calendar: map "YYYY-MM-DD" → status category
+  const calendarDotMap = useMemo(() => {
+    const map = new Map<string, "completed" | "booked">();
+    const toKey = (d: string) => d.slice(0, 10);
+    appointments.forEach((a) => {
+      const key = toKey(a.scheduled_at);
+      const existing = map.get(key);
+      if (a.status === "completed") {
+        map.set(key, "completed");
+      } else if (["booked", "confirmed"].includes(a.status) && existing !== "completed") {
+        map.set(key, "booked");
+      }
+    });
+    quickSales.forEach((s) => {
+      const key = toKey(s.created_at);
+      if (!map.has(key)) map.set(key, "completed");
+    });
+    return map;
+  }, [appointments, quickSales]);
+
+  // Close payment filter dropdown on outside click
+  useEffect(() => {
+    if (!showPaymentFilterPanel) return;
+    const handler = (e: MouseEvent) => {
+      if (paymentFilterRef.current && !paymentFilterRef.current.contains(e.target as Node)) {
+        setShowPaymentFilterPanel(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showPaymentFilterPanel]);
+
   const TABS: { key: TabKey; label: string }[] = [
     { key: "history", label: "History" },
     { key: "services", label: "Services" },
@@ -378,6 +525,136 @@ export default function ClientHistoryPage() {
   const handleBookAppointment = () => {
     if (!client) return;
     navigate("/dashboard/calendar", { state: { prefillClientId: client.id } });
+  };
+
+  const buildBillHtml = (
+    invoiceNum: string,
+    dateStr: string,
+    timeStr: string,
+    sections: { title: string; rows: { name: string; qty: number | string; price: string | number }[] }[],
+    paymentMethod: string,
+    rawStatus: string,
+    totalAmount: number
+  ) => {
+    const salonName = currentSalon?.business_name || "Salon";
+    const salonPhone = currentSalon?.phone || "";
+    const salonEmail = currentSalon?.email || "";
+    const salonAddress = currentSalon?.address || "";
+    const isPaid = rawStatus === "completed" || rawStatus === "paid";
+
+    const rowsHtml = (rows: { name: string; qty: number | string; price: string | number }[]) =>
+      rows.map(r => `<tr><td>${r.name}</td><td class="c">${r.qty}</td><td class="r">₹${Number(r.price).toLocaleString("en-IN")}</td></tr>`).join("");
+
+    const sectionHtml = sections
+      .filter(sec => sec.rows.length > 0)
+      .map(sec => `<p class="sec">${sec.title}</p>
+        <table><thead><tr><th>Item</th><th class="c">Qty</th><th class="r">Amount</th></tr></thead>
+        <tbody>${rowsHtml(sec.rows)}</tbody></table>`)
+      .join('<hr class="dash">');
+
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Bill</title><style>
+      *{margin:0;padding:0;box-sizing:border-box}
+      body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#111;padding:32px;max-width:480px;margin:auto}
+      .logo{text-align:center;margin-bottom:20px}
+      .salon{font-size:24px;font-weight:800;color:#6c5ce7}
+      .sub{font-size:11px;color:#9ca3af;margin-top:3px}
+      .inv{font-size:11px;color:#6b7280;margin-top:2px}
+      hr{border:none;margin:14px 0}
+      hr.solid{border-top:2px solid #111}
+      hr.dash{border-top:1px dashed #d1d5db}
+      .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+      .lbl{font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+      .val{font-size:12px;font-weight:500;color:#111}
+      .sec{font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin:12px 0 6px}
+      table{width:100%;border-collapse:collapse;margin-bottom:4px}
+      th{font-size:10px;font-weight:600;color:#9ca3af;padding:4px 0;border-bottom:1px solid #f0f0f0;text-align:left}
+      td{font-size:12px;color:#374151;padding:6px 0;border-bottom:1px solid #f9f9f9}
+      .c{text-align:center}.r{text-align:right;font-weight:600}
+      .totrow{display:flex;justify-content:space-between;font-size:12px;color:#6b7280;padding:4px 0}
+      .grand{font-size:18px;font-weight:800;color:#111;padding:10px 0}
+      .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+      .paid{background:#dcfce7;color:#16a34a}.unpaid{background:#fee2e2;color:#dc2626}.pending{background:#fef9c3;color:#a16207}
+      .footer{margin-top:24px;text-align:center}
+      .ty{font-size:15px;font-weight:700;color:#6c5ce7}
+      .fp{font-size:11px;color:#9ca3af;margin-top:3px}
+      @media print{body{padding:10px}@page{margin:8mm}}
+    </style></head><body>
+      <div class="logo">
+        <div class="salon">${salonName}</div>
+        ${salonAddress ? `<div class="sub">${salonAddress}</div>` : ""}
+        ${salonPhone || salonEmail ? `<div class="sub">${[salonPhone, salonEmail].filter(Boolean).join(" · ")}</div>` : ""}
+        <div class="inv">Receipt: ${invoiceNum}</div>
+      </div>
+      <hr class="solid">
+      <div class="grid">
+        <div><div class="lbl">Client</div><div class="val">${client?.full_name ?? "—"}</div></div>
+        <div><div class="lbl">Date</div><div class="val">${dateStr}</div></div>
+        <div><div class="lbl">Phone</div><div class="val">${[client?.phone_country_code, client?.phone_number].filter(Boolean).join(" ") || "—"}</div></div>
+        <div><div class="lbl">Time</div><div class="val">${timeStr}</div></div>
+      </div>
+      <hr class="dash">
+      ${sectionHtml}
+      <hr class="dash">
+      <div class="totrow"><span>Payment Method</span><span>${paymentMethod}</span></div>
+      <div class="totrow"><span>Status</span><span class="badge ${isPaid ? "paid" : rawStatus === "pending" ? "pending" : "unpaid"}">${rawStatus || "Unpaid"}</span></div>
+      <hr class="dash">
+      <div class="totrow grand"><span>Total</span><span>₹${totalAmount.toLocaleString("en-IN")}</span></div>
+      <div class="footer"><div class="ty">Thank you for visiting! 💜</div><p class="fp">We hope to see you again soon.</p></div>
+      <script>window.onload=function(){window.print()}</script>
+    </body></html>`;
+  };
+
+  const openPrintWindow = (html: string) => {
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank", "width=600,height=850");
+  };
+
+  const printAppointmentBill = (appt: AppointmentRecord, linkedSale: SaleRecord | undefined) => {
+    const d = new Date(appt.scheduled_at);
+    const saleItems = linkedSale?.items ?? [];
+    const serviceItems = saleItems.filter(it => it.item_type === "service");
+    const saleServiceNames = new Set(serviceItems.map(it => it.name));
+    const apptOnlyServices = (appt.services ?? [])
+      .map(s => ({ name: s.name || s.service_name || "", price: s.price ?? 0 }))
+      .filter(s => s.name && !saleServiceNames.has(s.name));
+
+    openPrintWindow(buildBillHtml(
+      linkedSale?.invoice_number ?? `APT-${appt.id.slice(-6).toUpperCase()}`,
+      d.toLocaleDateString("en-IN", { weekday: "long", day: "2-digit", month: "long", year: "numeric" }),
+      d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+      [
+        { title: "Services", rows: [
+          ...serviceItems.map(it => ({ name: it.name, qty: it.quantity, price: it.total_price })),
+          ...apptOnlyServices.map(it => ({ name: it.name, qty: 1, price: it.price || 0 })),
+        ]},
+        { title: "Products",    rows: saleItems.filter(it => it.item_type === "product").map(it => ({ name: it.name, qty: it.quantity, price: it.total_price })) },
+        { title: "Memberships", rows: saleItems.filter(it => it.item_type === "membership").map(it => ({ name: it.name, qty: it.quantity, price: it.total_price })) },
+        { title: "Packages",    rows: saleItems.filter(it => it.item_type === "package").map(it => ({ name: it.name, qty: it.quantity, price: it.total_price })) },
+      ],
+      linkedSale?.payment_method ?? "—",
+      linkedSale?.status ?? appt.payment_status ?? "",
+      linkedSale ? Number(linkedSale.total_amount) : appt.amount_paid
+    ));
+  };
+
+  const printSaleBill = (s: SaleRecord) => {
+    const d = new Date(s.created_at);
+    const items = s.items ?? [];
+    openPrintWindow(buildBillHtml(
+      s.invoice_number ?? `QS-${s.id.slice(-6).toUpperCase()}`,
+      d.toLocaleDateString("en-IN", { weekday: "long", day: "2-digit", month: "long", year: "numeric" }),
+      d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+      [
+        { title: "Services",    rows: items.filter(it => it.item_type === "service").map(it => ({ name: it.name, qty: it.quantity, price: it.total_price })) },
+        { title: "Products",    rows: items.filter(it => it.item_type === "product").map(it => ({ name: it.name, qty: it.quantity, price: it.total_price })) },
+        { title: "Memberships", rows: items.filter(it => it.item_type === "membership").map(it => ({ name: it.name, qty: it.quantity, price: it.total_price })) },
+        { title: "Packages",    rows: items.filter(it => it.item_type === "package").map(it => ({ name: it.name, qty: it.quantity, price: it.total_price })) },
+      ],
+      s.payment_method ?? "—",
+      s.status ?? "",
+      Number(s.total_amount)
+    ));
   };
 
   return (
@@ -423,9 +700,8 @@ export default function ClientHistoryPage() {
                   <option value="all">All clients</option>
                   <option value="7">Within 7 days</option>
                   <option value="30">Within 30 days</option>
-                  <option value="60">30 to 60 days ago</option>
+                  <option value="90">Within 90 days</option>
                   <option value="90plus">90+ days ago</option>
-                  <option value="never">Never visited</option>
                 </select>
               </div>
 
@@ -467,8 +743,7 @@ export default function ClientHistoryPage() {
                   <option value="all">All</option>
                   <option value="female">Female</option>
                   <option value="male">Male</option>
-                  <option value="non_binary">Non-binary</option>
-                  <option value="prefer_not_to_say">Prefer not to say</option>
+                  <option value="other">Other</option>
                 </select>
               </div>
 
@@ -497,7 +772,6 @@ export default function ClientHistoryPage() {
             filtered.map((c) => {
               const isSelected = selectedClient?.id === c.id;
               const isGold = parseFloat(c.total_sales) > 5000;
-              const days = daysSince(c.last_visit_at);
               return (
                 <div
                   key={c.id}
@@ -510,20 +784,13 @@ export default function ClientHistoryPage() {
                     <div className="chp-row-phone">
                       {c.phone_country_code} {c.phone_number}
                     </div>
-                    <div className="chp-row-meta">
-                      {isGold && (
+                    {isGold && (
+                      <div className="chp-row-meta">
                         <span className="chp-row-badge">
                           <StarFill size={8} /> Gold
                         </span>
-                      )}
-                      <span className="chp-row-last-visit">
-                        {days === null
-                          ? "Never visited"
-                          : days === 0
-                            ? "Today"
-                            : `${days}d ago`}
-                      </span>
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -631,7 +898,7 @@ export default function ClientHistoryPage() {
 
                 <div className="chp-stat-bar">
                   <div className="chp-stat-item">
-                    <div className="chp-stat-val">{stats.total_appointments}</div>
+                    <div className="chp-stat-val">{stats.completed_appointments + quickSales.length}</div>
                     <div className="chp-stat-lbl">Total Visits</div>
                   </div>
                   <div className="chp-stat-item">
@@ -655,16 +922,90 @@ export default function ClientHistoryPage() {
             </div>
 
             {/* ── Tab bar ── */}
-            <div className="chp-tab-bar">
-              {TABS.map((t) => (
+            <div className="chp-tab-bar-row">
+              <div className="chp-tab-bar">
+                {TABS.map((t) => (
+                  <button
+                    key={t.key}
+                    className={`chp-tab ${activeTab === t.key ? "active" : ""}`}
+                    onClick={() => setActiveTab(t.key)}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Filter — always visible, outside overflow container */}
+              <div className="chp-tab-filter-wrap" ref={paymentFilterRef}>
                 <button
-                  key={t.key}
-                  className={`chp-tab ${activeTab === t.key ? "active" : ""}`}
-                  onClick={() => setActiveTab(t.key)}
+                  className={`chp-tab chp-tab--filter ${showPaymentFilterPanel ? "filter-open" : ""} ${paymentTabFilterCount > 0 ? "filter-active" : ""}`}
+                  onClick={() => setShowPaymentFilterPanel((v) => !v)}
                 >
-                  {t.label}
+                  <Funnel size={11} />
+                  <span>Filter</span>
+                  {paymentTabFilterCount > 0 && (
+                    <span className="chp-tab-filter-badge">{paymentTabFilterCount}</span>
+                  )}
                 </button>
-              ))}
+
+                {showPaymentFilterPanel && (
+                  <div className="chp-tab-filter-dropdown">
+                    <div className="chp-filter-group">
+                      <label className="chp-filter-label">Last Visit</label>
+                      <select
+                        value={paymentDateFilter}
+                        onChange={(e) => setPaymentDateFilter(e.target.value)}
+                      >
+                        <option value="all">All time</option>
+                        <option value="7">Last 7 days</option>
+                        <option value="30">Last 30 days</option>
+                        <option value="90">Last 3 months</option>
+                        <option value="180">Last 6 months</option>
+                        <option value="365">Last year</option>
+                      </select>
+                    </div>
+
+                    <div className="chp-filter-group">
+                      <label className="chp-filter-label">Service</label>
+                      <select
+                        value={paymentServiceFilter}
+                        onChange={(e) => setPaymentServiceFilter(e.target.value)}
+                      >
+                        <option value="all">All services</option>
+                        {uniqueServiceNamesInSales.map((name) => (
+                          <option key={name} value={name}>{name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="chp-filter-group">
+                      <label className="chp-filter-label">Staff</label>
+                      <select
+                        value={paymentStaffFilter}
+                        onChange={(e) => setPaymentStaffFilter(e.target.value)}
+                      >
+                        <option value="all">All staff</option>
+                        {staffList.map((s) => (
+                          <option key={s.id} value={s.id}>{s.full_name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {paymentTabFilterCount > 0 && (
+                      <button
+                        className="chp-clear-filters"
+                        onClick={() => {
+                          setPaymentDateFilter("all");
+                          setPaymentServiceFilter("all");
+                          setPaymentStaffFilter("all");
+                        }}
+                      >
+                        Clear filters
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* ── Tab content ── */}
@@ -683,7 +1024,10 @@ export default function ClientHistoryPage() {
                       <div className="chp-no-data">No visits found</div>
                     ) : (
                       <div className="chp-visit-list">
-                        {appointments.slice(0, 10).map((appt) => {
+                        {(selectedCalDay
+                          ? appointments.filter((a) => a.scheduled_at.slice(0, 10) === selectedCalDay)
+                          : appointments.slice(0, 10)
+                        ).map((appt) => {
                           const d = fmtDate(appt.scheduled_at);
                           const linkedSale = saleByAppointmentId.get(appt.id);
                           const displayAmount = linkedSale
@@ -721,12 +1065,22 @@ export default function ClientHistoryPage() {
                                   {isPaid ? "Paid" : appt.payment_status || "Unpaid"}
                                 </div>
                               </div>
+                              <button
+                                className="chp-print-btn"
+                                title="Print bill"
+                                onClick={(e) => { e.stopPropagation(); printAppointmentBill(appt, linkedSale); }}
+                              >
+                                <Printer size={13} />
+                              </button>
                             </div>
                           );
                         })}
 
                         {/* Quick Sell entries (no linked appointment) */}
-                        {quickSales.slice(0, 5).map((s) => {
+                        {(selectedCalDay
+                          ? quickSales.filter((s) => s.created_at.slice(0, 10) === selectedCalDay)
+                          : quickSales.slice(0, 5)
+                        ).map((s) => {
                           const d = fmtDate(s.created_at);
                           const firstName = (s.items ?? []).find((it) => it.item_type === "service")?.name
                             || (s.items ?? [])[0]?.name
@@ -755,12 +1109,75 @@ export default function ClientHistoryPage() {
                                   {s.status === "completed" ? "Paid" : s.status}
                                 </div>
                               </div>
+                              <button
+                                className="chp-print-btn"
+                                title="Print bill"
+                                onClick={(e) => { e.stopPropagation(); printSaleBill(s); }}
+                              >
+                                <Printer size={13} />
+                              </button>
                             </div>
                           );
                         })}
                       </div>
                     )}
                   </div>
+
+                  {/* ── Mini Calendar (right column) ── */}
+                  {(() => {
+                    const year = calendarDate.getFullYear();
+                    const month = calendarDate.getMonth();
+                    const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+                    const firstDay = new Date(year, month, 1).getDay();
+                    const daysInMonth = new Date(year, month + 1, 0).getDate();
+                    const today = new Date();
+                    const todayKey = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+                    const cells: (number | null)[] = [...Array(firstDay).fill(null), ...Array.from({length: daysInMonth}, (_, i) => i + 1)];
+                    while (cells.length % 7 !== 0) cells.push(null);
+                    const prevMonth = () => setCalendarDate(new Date(year, month - 1, 1));
+                    const nextMonth = () => setCalendarDate(new Date(year, month + 1, 1));
+                    return (
+                      <div className="chp-mini-cal">
+                        <div className="chp-mini-cal-header">
+                          <button className="chp-mini-cal-nav" onClick={prevMonth}>&#8249;</button>
+                          <span className="chp-mini-cal-title">{monthNames[month]} {year}</span>
+                          <button className="chp-mini-cal-nav" onClick={nextMonth}>&#8250;</button>
+                        </div>
+                        <div className="chp-mini-cal-grid">
+                          {["Su","Mo","Tu","We","Th","Fr","Sa"].map((d) => (
+                            <div key={d} className="chp-mini-cal-dow">{d}</div>
+                          ))}
+                          {cells.map((day, i) => {
+                            if (!day) return <div key={i} className="chp-mini-cal-cell chp-mini-cal-cell--empty" />;
+                            const key = `${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+                            const dot = calendarDotMap.get(key);
+                            const isToday = key === todayKey;
+                            const isSelected = selectedCalDay === key;
+                            return (
+                              <div
+                                key={i}
+                                className={`chp-mini-cal-cell${isToday ? " chp-mini-cal-cell--today" : ""}${isSelected ? " chp-mini-cal-cell--selected" : ""}${dot ? " chp-mini-cal-cell--has-event" : ""}`}
+                                onClick={() => setSelectedCalDay(isSelected ? null : key)}
+                              >
+                                <span>{day}</span>
+                                {dot && <div className={`chp-mini-cal-dot chp-mini-cal-dot--${dot}`} />}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {selectedCalDay && (
+                          <div className="chp-mini-cal-legend">
+                            Showing: {selectedCalDay}
+                            <button className="chp-mini-cal-clear" onClick={() => setSelectedCalDay(null)}>✕ Clear</button>
+                          </div>
+                        )}
+                        <div className="chp-mini-cal-key">
+                          <span><span className="chp-mini-cal-dot chp-mini-cal-dot--completed" />Completed</span>
+                          <span><span className="chp-mini-cal-dot chp-mini-cal-dot--booked" />Upcoming</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                 </div>
               )}
@@ -837,12 +1254,15 @@ export default function ClientHistoryPage() {
                   {packages.length === 0 ? (
                     <div className="chp-no-data">No packages found</div>
                   ) : (
-                    packages.map((pkg) => (
+                    packages.map((pkg) => {
+                      const isExpired = pkg.expiry_date && new Date(pkg.expiry_date) < new Date();
+                      const displayStatus = isExpired ? "expired" : pkg.status;
+                      return (
                       <div key={pkg.id} className="chp-pkg-card">
                         <div className="chp-pkg-top">
                           <div className="chp-pkg-name">{pkg.package_name}</div>
-                          <span className={`chp-status-badge chp-status-badge--${pkg.status}`}>
-                            {pkg.status}
+                          <span className={`chp-status-badge chp-status-badge--${displayStatus}`}>
+                            {displayStatus}
                           </span>
                         </div>
                         <div className="chp-pkg-meta">
@@ -876,7 +1296,8 @@ export default function ClientHistoryPage() {
                           </span>
                         </div>
                       </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               )}
@@ -920,10 +1341,14 @@ export default function ClientHistoryPage() {
               {activeTab === "payments" && (
                 <div className="chp-card">
                   <div className="chp-card-header">
-                    <span className="chp-card-title">Payment history ({sales.length})</span>
+                    <span className="chp-card-title">
+                      Payment history ({filteredSales.length}{filteredSales.length !== sales.length ? ` of ${sales.length}` : ""})
+                    </span>
                   </div>
-                  {sales.length === 0 ? (
-                    <div className="chp-no-data">No payments found</div>
+                  {filteredSales.length === 0 ? (
+                    <div className="chp-no-data">
+                      {sales.length === 0 ? "No payments found" : "No payments match these filters"}
+                    </div>
                   ) : (
                     <table className="chp-table">
                       <thead>
@@ -937,7 +1362,7 @@ export default function ClientHistoryPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {sales.map((s) => (
+                        {filteredSales.map((s) => (
                           <tr key={s.id}>
                             <td className="chp-inv">
                               {s.invoice_number ?? `#${s.id.slice(-6).toUpperCase()}`}
