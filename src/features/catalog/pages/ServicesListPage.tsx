@@ -2,11 +2,12 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import type { AppDispatch } from "../../../store/store";
+import api from "../../../services/api/axios";
+import { SERVICES } from "../../../services/api/endpoints/services.endpoints";
 import {
   deleteServiceThunk,
 } from "../../../middleware/services/services.thunk";
-import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
-import api from "../../../services/api/axios";
+import type { FetchServicesParams } from "../../../middleware/services/services.thunk";
 import { exportServicesPDF, exportServicesExcel, exportServicesCSV } from "../utils/serviceExport";
 import type { Service } from "../types/catalog.types";
 import {
@@ -14,7 +15,6 @@ import {
   Sliders,
   ChevronDown,
   PlusLg,
-  ArrowDownUp,
   TagFill,
   FileEarmarkPdf,
   FileEarmarkExcel,
@@ -23,18 +23,23 @@ import {
   PencilSquare,
   X,
 } from "react-bootstrap-icons";
-import { useServices } from "../hooks/useServices.ts";
+import { useServices, type CategoryView } from "../hooks/useServices.ts";
 import { useCategories } from "../hooks/useCategories.ts";
 import { useServiceFilters } from "../hooks/useServiceFilters.ts";
 import { useSelector as useReduxSelector } from "react-redux";
-import { selectAllStaff } from "../../../store/selectors/slices.selectors";
+import {
+  selectCategoriesLoading,
+} from "../../../store/selectors/slices.selectors";
 import type { ServiceFiltersState } from "../../../store/serviceFiltersSlice";
 import ServiceFilterDrawer from "../components/ServiceFilterDrawer.tsx";
 import ManageOrderModal from "../components/ManageOrderModal.tsx";
 import ServiceImportModal from "../components/ServiceImportModal.tsx";
 import ServiceDetailPanel from "../components/ServiceDetailPanel.tsx";
 import ServiceCard from "../components/shared/ServiceCard.tsx";
-import { ServiceListSkeleton } from "../components/shared/LoadingSkeletons.tsx";
+import {
+  CategorySidebarSkeleton,
+  ServiceListSkeleton,
+} from "../components/shared/LoadingSkeletons.tsx";
 import EmptyState from "../components/shared/EmptyState.tsx";
 import ErrorState from "../components/shared/ErrorState.tsx";
 import Pagination from "../components/shared/Pagination.tsx";
@@ -52,8 +57,20 @@ const COLOR_OPTIONS = [
 ];
 
 // Maps UI filter strings → API boolean params
-const buildFilterParams = (f: ServiceFiltersState): Record<string, any> => {
-  const p: Record<string, any> = {};
+const buildFilterParams = (
+  f: ServiceFiltersState,
+): Partial<
+  Pick<
+    FetchServicesParams,
+    "isActive" | "onlineBooking" | "commissionEnabled" | "resourceRequired"
+  >
+> => {
+  const p: Partial<
+    Pick<
+      FetchServicesParams,
+      "isActive" | "onlineBooking" | "commissionEnabled" | "resourceRequired"
+    >
+  > = {};
   if (f.status === "Active")   p.isActive = true;
   if (f.status === "Inactive") p.isActive = false;
   if (f.onlineBooking === "Enabled")  p.onlineBooking = true;
@@ -74,11 +91,8 @@ const ServicesListPage: React.FC = () => {
     useCategories();
   const { filters, activeCount: filterActiveCount } = useServiceFilters();
 
-  const rawStaff = useReduxSelector(selectAllStaff);
-  const staffNames = (Array.isArray(rawStaff) ? rawStaff : []).map((s) => ({
-    id: String(s.id),
-    name: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim(),
-  }));
+  const categoryLoadingState = useReduxSelector(selectCategoriesLoading);
+  const categoriesLoading = categoryLoadingState?.fetchAll ?? false;
 
   // ── UI state ────────────────────────────────────────────────────────────────
   const [showFilterDrawer, setShowFilterDrawer]   = useState(false);
@@ -120,12 +134,7 @@ const ServicesListPage: React.FC = () => {
       categoryId: selectedCategory !== "all" ? selectedCategory : undefined,
       ...buildFilterParams(filters),
     });
-  // fetchServices is stable (useCallback), filters is from Redux (stable ref when unchanged)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, selectedCategory, searchQuery, filters, fetchServices]);
-
-  // Load staff for the Team member filter
-  useEffect(() => { dispatch(fetchStaffThunk()); }, [dispatch]);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -138,55 +147,86 @@ const ServicesListPage: React.FC = () => {
   }, []);
 
   // ── Download helpers — fetch ALL services then export client-side ────────────
-  const fetchAllServices = async (): Promise<Service[]> => {
-    let allItems: Service[] = [];
+
+  const fetchFilteredServicesForExport = useCallback(async (): Promise<Service[]> => {
+    interface ServicesListPayload {
+      data: Service[];
+      pagination?: {
+        total_pages?: number;
+      };
+    }
+
+    interface ServicesListResponse {
+      data?: Service[] | ServicesListPayload;
+      pagination?: {
+        total_pages?: number;
+      };
+    }
+
+    const queryParts: string[] = ["page=1", "limit=200"];
+    const filterParams = buildFilterParams(filters);
+
+    if (searchQuery) queryParts.push(`search=${encodeURIComponent(searchQuery)}`);
+    if (selectedCategory !== "all") queryParts.push(`category_id=${selectedCategory}`);
+    if (filterParams.isActive !== undefined) queryParts.push(`is_active=${filterParams.isActive}`);
+    if (filterParams.onlineBooking !== undefined) queryParts.push(`online_booking=${filterParams.onlineBooking}`);
+    if (filterParams.commissionEnabled !== undefined) queryParts.push(`commission_enabled=${filterParams.commissionEnabled}`);
+    if (filterParams.resourceRequired !== undefined) queryParts.push(`resource_required=${filterParams.resourceRequired}`);
+
+    const allServices: Service[] = [];
     let page = 1;
     let totalPages = 1;
-    const limit = 200;
 
     while (page <= totalPages) {
-      const res = await api.get("/api/v1/services", { params: { page, limit } });
-      const responseData = res.data?.data;
-      if (Array.isArray(responseData)) {
-        allItems = [...allItems, ...responseData];
-        break;
-      } else if (responseData && Array.isArray(responseData.data)) {
-        allItems = [...allItems, ...responseData.data];
-        totalPages = responseData.pagination?.total_pages ?? 1;
-        page++;
-      } else {
-        break;
+      const pageQueryParts = queryParts.map((part) =>
+        part.startsWith("page=") ? `page=${page}` : part,
+      );
+      const res = await api.get(SERVICES.LIST(pageQueryParts.join("&")));
+      const responseData = res.data as ServicesListResponse;
+      const payload = responseData?.data;
+
+      if (Array.isArray(payload)) {
+        allServices.push(...payload);
+        totalPages = responseData.pagination?.total_pages ?? totalPages;
+        page += 1;
+        continue;
       }
+
+      const pageData = Array.isArray(payload?.data) ? (payload.data as Service[]) : [];
+      allServices.push(...pageData);
+      totalPages = payload?.pagination?.total_pages ?? 1;
+      page += 1;
     }
-    return allItems;
-  };
+
+    return allServices;
+  }, [filters, searchQuery, selectedCategory]);
 
   const handleDownloadPdf = useCallback(async () => {
     setShowOptMenu(false);
-    try { exportServicesPDF(await fetchAllServices()); }
+    try { exportServicesPDF(await fetchFilteredServicesForExport()); }
     catch (err) { console.error("[ServicesListPage] PDF export failed:", err); }
-  }, []);
+  }, [fetchFilteredServicesForExport]);
 
   const handleDownloadExcel = useCallback(async () => {
     setShowOptMenu(false);
-    try { exportServicesExcel(await fetchAllServices()); }
+    try { exportServicesExcel(await fetchFilteredServicesForExport()); }
     catch (err) { console.error("[ServicesListPage] Excel export failed:", err); }
-  }, []);
+  }, [fetchFilteredServicesForExport]);
 
   const handleDownloadCsv = useCallback(async () => {
     setShowOptMenu(false);
-    try { exportServicesCSV(await fetchAllServices()); }
+    try { exportServicesCSV(await fetchFilteredServicesForExport()); }
     catch (err) { console.error("[ServicesListPage] CSV export failed:", err); }
-  }, []);
+  }, [fetchFilteredServicesForExport]);
 
   // ── Group services by category for display ───────────────────────────────────
   const groupedServices = useMemo(() => {
     const groups: Record<
       string,
-      { id: string | number; name: string; color?: string; services: any[] }
+      { id: string | number; name: string; color?: string; services: Service[] }
     > = {};
 
-    categories.forEach((cat: any) => {
+    categories.forEach((cat: CategoryView) => {
       groups[String(cat.id)] = {
         id: cat.id,
         name: cat.name,
@@ -195,7 +235,7 @@ const ServicesListPage: React.FC = () => {
       };
     });
 
-    services.forEach((svc: any) => {
+    services.forEach((svc: Service) => {
       const key = String(svc.category_id);
       if (groups[key]) {
         groups[key].services.push(svc);
@@ -242,14 +282,14 @@ const ServicesListPage: React.FC = () => {
             </button>
             {showOptMenu && (
               <ul className="slp__dd-menu slp__dd-menu--left">
-                <li>
+                {/* <li>
                   <button
                     className="slp__dd-item"
                     onClick={() => { setShowManageOrder(true); setShowOptMenu(false); }}
                   >
                     <ArrowDownUp size={15} /> Set menu order
                   </button>
-                </li>
+                </li> */}
                 <li>
                   <button className="slp__dd-item" onClick={() => { setShowImport(true); setShowOptMenu(false); }}>
                     <FiletypeCsv size={15} /> Import services
@@ -310,64 +350,92 @@ const ServicesListPage: React.FC = () => {
         <button className="slp__ctrl-btn" onClick={() => setShowAddCategory(true)}>
           <PlusLg size={13} /> Add category
         </button>
-        <button
+        {/* <button
           className="slp__ctrl-btn slp__ctrl-btn--order"
           onClick={() => setShowManageOrder(true)}
         >
           <ArrowDownUp size={15} /> Manage order
-        </button>
+        </button> */}
       </div>
 
       {/* ── BODY ───────────────────────────────────────────────────────────── */}
       <div className={`slp__body${selectedService ? " slp__body--panel-open" : ""}`}>
         {/* Sidebar */}
         <aside className="slp__sidebar">
-          <p className="slp__sidebar-heading">Categories</p>
-          <ul className="slp__cat-list">
-            <li
-              className={`slp__cat-item ${selectedCategory === "all" ? "slp__cat-item--active" : ""}`}
-              onClick={() => setSelectedCategory("all")}
-            >
-              <span>All categories</span>
-              <span className="slp__cat-badge">{services.length}</span>
-            </li>
-            {categories.map((cat: any) => (
-              <li
-                key={cat.id}
-                className={`slp__cat-item slp__cat-item--editable ${String(selectedCategory) === String(cat.id) ? "slp__cat-item--active" : ""}`}
-                onClick={() => setSelectedCategory(String(cat.id))}
-              >
-                <span className="d-flex align-items-center gap-2 slp__cat-name">
-                  {cat.color && (
-                    <span className="slp__cat-dot" style={{ background: cat.color }} />
-                  )}
-                  {cat.name}
-                </span>
-                <span className="slp__cat-badge">{cat.serviceCount || 0}</span>
+          <div
+            className={`slp__sidebar-top ${selectedCategory === "all" ? "slp__sidebar-top--active" : ""}`}
+            onClick={() => setSelectedCategory("all")}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setSelectedCategory("all");
+              }
+            }}
+          >
+            <div>
+              <div className="slp__sidebar-title-row">
+                <h3 className="slp__sidebar-title">All categories</h3>
+              </div>
+              <span className="slp__cat-summary">
+                {categories.length} saved categories
+              </span>
+            </div>
+            <div className="slp__sidebar-icon">
+              <TagFill size={14} />
+            </div>
+          </div>
 
-                <span className="slp__cat-actions" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    className="slp__cat-action-btn"
-                    title="Edit category"
-                    onClick={() => {
-                      setEditingCategory({ id: cat.id, name: cat.name });
-                      setEditCategoryName(cat.name);
-                      setEditCategoryDesc(cat.description ?? "");
-                    }}
-                  >
-                    <PencilSquare size={12} />
-                  </button>
-                  <button
-                    className="slp__cat-action-btn slp__cat-action-btn--danger"
-                    title="Delete category"
-                    onClick={() => setDeletingCategory({ id: cat.id, name: cat.name })}
-                  >
-                    <Trash3 size={12} />
-                  </button>
-                </span>
-              </li>
-            ))}
-          </ul>
+          {categoriesLoading && categories.length === 0 ? (
+            <CategorySidebarSkeleton />
+          ) : (
+            <ul className="slp__cat-list">
+              {categories.map((cat: CategoryView) => (
+                <li
+                  key={cat.id}
+                  className={`slp__cat-item slp__cat-item--editable ${String(selectedCategory) === String(cat.id) ? "slp__cat-item--active" : ""}`}
+                  onClick={() => setSelectedCategory(String(cat.id))}
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelectedCategory(String(cat.id));
+                    }
+                  }}
+                >
+                  <span className="d-flex align-items-center gap-2 slp__cat-name">
+                    {cat.color && (
+                      <span className="slp__cat-dot" style={{ background: cat.color }} />
+                    )}
+                    {cat.name}
+                  </span>
+
+                  <span className="slp__cat-actions" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      className="slp__cat-action-btn"
+                      title="Edit category"
+                      onClick={() => {
+                        setEditingCategory({ id: cat.id, name: cat.name });
+                        setEditCategoryName(cat.name);
+                        setEditCategoryDesc(cat.description ?? "");
+                      }}
+                    >
+                      <PencilSquare size={12} />
+                    </button>
+                    <button
+                      className="slp__cat-action-btn slp__cat-action-btn--danger"
+                      title="Delete category"
+                      onClick={() => setDeletingCategory({ id: cat.id, name: cat.name })}
+                    >
+                      <Trash3 size={12} />
+                    </button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </aside>
 
         {/* Main content */}
@@ -477,7 +545,7 @@ const ServicesListPage: React.FC = () => {
                 </div>
 
                 <div className="slp__service-list">
-                  {group.services.map((svc: any) => (
+                  {group.services.map((svc: Service) => (
                     <ServiceCard
                       key={svc.id}
                       service={svc}
@@ -488,17 +556,17 @@ const ServicesListPage: React.FC = () => {
                       }
                       onDelete={(id) => {
                         const target = services.find(
-                          (s: any) => String(s.id) === String(id),
+                          (s: Service) => String(s.id) === String(id),
                         );
-                        if (target) setDeletingService(target as Service);
+                        if (target) setDeletingService(target);
                         setOpenCardMenu(null);
                         setSelectedService(null);
                       }}
                       onClick={(id) => {
                         const target = services.find(
-                          (s: any) => String(s.id) === String(id),
+                          (s: Service) => String(s.id) === String(id),
                         );
-                        if (target) setSelectedService(target as Service);
+                        if (target) setSelectedService(target);
                       }}
                     />
                   ))}
@@ -540,7 +608,6 @@ const ServicesListPage: React.FC = () => {
       {showFilterDrawer && (
         <ServiceFilterDrawer
           onClose={() => setShowFilterDrawer(false)}
-          staffMembers={staffNames}
         />
       )}
       {showManageOrder && (

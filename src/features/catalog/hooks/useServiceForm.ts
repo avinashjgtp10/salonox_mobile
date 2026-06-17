@@ -16,7 +16,6 @@ const initialData: CatalogFormData = {
     paddingAfter: 0,
     description: "",
     active: true,
-    treatmentType: null,
     genderPreference: null,
     imageUrl: null,
   },
@@ -144,7 +143,6 @@ export const useServiceForm = (_type: "single" | "bundle") => {
         team_member_ids: formData.team.allMembers
           ? undefined
           : formData.team.selectedMemberIds,
-        treatment_type: formData.basic.treatmentType ?? null,
         gender_preference: formData.basic.genderPreference ?? null,
         image_url: formData.basic.imageUrl ?? null,
       };

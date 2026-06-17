@@ -89,63 +89,13 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
               </select>
               <ChevronDown className="select-icon" />
             </div>
-            <div className="text-muted extra-small mt-2">
-              The category displayed to you, and to clients online
-            </div>
+            
             {hasError("category") && (
               <div className="text-danger small mt-1">Category is required</div>
             )}
           </div>
 
-          <div className="col-md-6">
-            <label className="form-label">Treatment type</label>
-            <div className="custom-select-wrapper">
-              <select
-                className="form-select"
-                value={data.treatmentType ?? ""}
-                onChange={(e) => update("treatmentType" as any, e.target.value)}
-              >
-                <option value="">Select treatment type</option>
-                <optgroup label="Hair">
-                  <option value="haircut">Haircut</option>
-                  <option value="hair_color">Hair Color</option>
-                  <option value="hair_treatment">Hair Treatment</option>
-                  <option value="blowdry">Blow Dry &amp; Styling</option>
-                  <option value="hair_extensions">Hair Extensions</option>
-                </optgroup>
-                <optgroup label="Skin &amp; Face">
-                  <option value="facial">Facial</option>
-                  <option value="skin_treatment">Skin Treatment</option>
-                  <option value="microdermabrasion">Microdermabrasion</option>
-                  <option value="threading">Threading</option>
-                  <option value="waxing_face">Waxing – Face</option>
-                </optgroup>
-                <optgroup label="Body">
-                  <option value="massage">Massage</option>
-                  <option value="waxing_body">Waxing – Body</option>
-                  <option value="body_wrap">Body Wrap</option>
-                  <option value="scrub">Body Scrub</option>
-                </optgroup>
-                <optgroup label="Nails">
-                  <option value="manicure">Manicure</option>
-                  <option value="pedicure">Pedicure</option>
-                  <option value="nail_art">Nail Art</option>
-                  <option value="gel_nails">Gel Nails</option>
-                </optgroup>
-                <optgroup label="Other">
-                  <option value="makeup">Makeup</option>
-                  <option value="eyelash">Eyelash</option>
-                  <option value="eyebrow">Eyebrow</option>
-                  <option value="other">Other</option>
-                </optgroup>
-              </select>
-              <ChevronDown className="select-icon" />
-            </div>
-            <div className="text-muted extra-small mt-2">
-              Used to help clients find your service on the salonox marketplace
-            </div>
-          </div>
-
+    
           <div className="col-md-6">
             <label className="form-label">Gender preference (Optional)</label>
             <div className="custom-select-wrapper">
