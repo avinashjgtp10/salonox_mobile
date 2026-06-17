@@ -48,9 +48,9 @@ const DayView: React.FC<DayViewProps> = ({
     return () => window.removeEventListener("resize", measure);
   }, []);
 
-  const COL_WIDTH = containerWidth > 0
-    ? Math.max(160, Math.floor(containerWidth / visibleStaff.length))
-    : 160;
+  const COL_WIDTH = containerWidth > 0 && visibleStaff.length > 0
+  ? Math.max(160, Math.floor(containerWidth / visibleStaff.length))
+  : 160;
 
   const [nowTime, setNowTime] = useState(getCurrentTime());
   const [staffMenu, setStaffMenu] = useState<{ staffId: string; x: number; y: number } | null>(null);
