@@ -68,6 +68,15 @@ export default function SalesSubSidebar({ onClose }: Props) {
       >
         Memberships sold
       </NavLink>
+
+      <NavLink
+        to="/dashboard/sales/packages"
+        className={({ isActive }) =>
+          isActive ? "sub-link active" : "sub-link"
+        }
+      >
+        Packages sold
+      </NavLink>
     </div>
   );
 }

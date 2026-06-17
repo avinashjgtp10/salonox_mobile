@@ -97,8 +97,10 @@
     font-size: 12px;
     font-weight: 600;
 
-    &.badge-active   { background: #d1fae5; color: #065f46; }
-    &.badge-inactive { background: #f0f1f3; color: #6b717e; border: 1px solid #ecedf0; }
+    &.badge-active    { background: #d1fae5; color: #065f46; }
+    &.badge-inactive  { background: #f0f1f3; color: #6b717e; border: 1px solid #ecedf0; }
+    &.badge-completed { background: #dbeafe; color: #1d4ed8; }
+    &.badge-expired   { background: #fee2e2; color: #991b1b; }
   }
 
   .memberships-page-btn {
