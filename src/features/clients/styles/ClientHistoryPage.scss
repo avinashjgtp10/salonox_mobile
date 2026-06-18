@@ -158,6 +158,19 @@
     font-size: 11px;
     color: #9ca3af;
     font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .chp-count-loading {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border: 1.5px solid #d1d5db;
+    border-top-color: #6c5ce7;
+    border-radius: 50%;
+    animation: chp-spin 0.6s linear infinite;
   }
 
   .chp-client-list {
