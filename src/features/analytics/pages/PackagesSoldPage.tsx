@@ -408,6 +408,8 @@ export default function PackagesSoldPage() {
 
   const enterEdit = useCallback(() => {
     if (!selectedPkg) return;
+    const s = selectedPkg.status?.toLowerCase();
+    if (s === "expired" || s === "completed") return;
     setEdit(toEditState(selectedPkg));
     setPanelMode("edit");
     setSaveError(null);
@@ -645,9 +647,18 @@ export default function PackagesSoldPage() {
                   <button className="pkg-sold-panel__btn pkg-sold-panel__btn--delete" onClick={() => setConfirmDelete(true)}>
                     <Trash size={13} /> Delete
                   </button>
-                  <button className="pkg-sold-panel__btn pkg-sold-panel__btn--edit" onClick={enterEdit}>
-                    <PencilSquare size={13} /> Edit
-                  </button>
+                  {selectedPkg.status?.toLowerCase() === "expired" || selectedPkg.status?.toLowerCase() === "completed" ? (
+                    <span
+                      className="pkg-sold-panel__locked-badge"
+                      title={`Package is ${selectedPkg.status.toLowerCase()} — editing is disabled`}
+                    >
+                      🔒 {selectedPkg.status}
+                    </span>
+                  ) : (
+                    <button className="pkg-sold-panel__btn pkg-sold-panel__btn--edit" onClick={enterEdit}>
+                      <PencilSquare size={13} /> Edit
+                    </button>
+                  )}
                 </>
               ) : (
                 <>

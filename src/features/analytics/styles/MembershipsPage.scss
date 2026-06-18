@@ -207,6 +207,21 @@
     &--delete-confirm { background: #dc2626; color: #fff; &:hover:not(:disabled) { background: #b91c1c; } }
   }
 
+  &__locked-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 11px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    background: #f3f4f6;
+    color: #6b7280;
+    border: 1px solid #e5e7eb;
+    cursor: default;
+    user-select: none;
+  }
+
   &__confirm-overlay {
     position: absolute;
     inset: 0;
