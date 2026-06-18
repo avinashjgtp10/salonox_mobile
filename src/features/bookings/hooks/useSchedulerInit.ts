@@ -4,7 +4,7 @@ import api from "../../../services/api/axios";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import { fetchServicesThunk } from "../../../middleware/services/services.thunk";
 import { fetchBookingsThunk } from "../../../middleware/booking/booking.thunk";
-import { useListPackagesQuery } from "../../../services/api/endpoints/packages.endpoints";
+import { useListPackagesQuery, useListPackageTemplatesQuery } from "../../../services/api/endpoints/packages.endpoints";
 import {
   setBookings,
   setStaffList,
@@ -233,6 +233,7 @@ export function useSchedulerInit() {
   const [rawApiBookings, setRawApiBookings] = useState<any[]>([]);
 
   const { data: packagesData } = useListPackagesQuery({});
+  const { data: packageTemplates = [] } = useListPackageTemplatesQuery();
 
   // ── Fetch active services once — skip if already in store ───────────────────
   useEffect(() => {
@@ -344,18 +345,28 @@ export function useSchedulerInit() {
     ));
   }, [apiServices, dispatch]);
 
-  // ── Map packages (RTK Query) ─────────────────────────────────────────────────
+  // ── Map packages (RTK Query) — old catalog + new templates ───────────────────
   useEffect(() => {
-    if (!packagesData?.items?.length) return;
-    dispatch(setPackagesList(
-      packagesData.items.map((p) => ({
-        id: String(p.id || ""),
-        name: p.name || "",
-        price: p.basePrice || 0,
-        services: [],
-      }))
-    ));
-  }, [packagesData, dispatch]);
+    const fromCatalog = (packagesData?.items || []).map((p) => ({
+      id: String(p.id || ""),
+      name: p.name || "",
+      price: p.basePrice || 0,
+      services: [] as string[],
+    }));
+    const fromTemplates = packageTemplates.map((t) => ({
+      id: String(t.id || ""),
+      name: t.name || "",
+      price: t.basePrice || 0,
+      services: t.services.map((s) => s.serviceName),
+    }));
+    // Merge: templates take precedence; skip catalog entries whose name matches a template
+    const templateNames = new Set(fromTemplates.map((t) => t.name.toLowerCase()));
+    const merged = [
+      ...fromTemplates,
+      ...fromCatalog.filter((c) => !templateNames.has(c.name.toLowerCase())),
+    ];
+    if (merged.length > 0) dispatch(setPackagesList(merged));
+  }, [packagesData, packageTemplates, dispatch]);
 
   // ── Map memberships ──────────────────────────────────────────────────────────
   useEffect(() => {
