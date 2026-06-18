@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { User, Loader2, Search, Plus, X } from "lucide-react";
 import styles from "./packages.module.scss";
-import type { ClientPackage } from "../../services/api/endpoints/packages.endpoints";
+import type { ClientPackage, PackageTemplate } from "../../services/api/endpoints/packages.endpoints";
+import { useListPackageTemplatesQuery } from "../../services/api/endpoints/packages.endpoints";
 import type { ClientSearchResult } from "../../features/clients/components/ClientSearchInput";
 import ClientSelectorWithAdd from "./ClientSelectorWithAdd";
 import { useCreateClientPackage } from "../../hooks/packages/usePackages";
@@ -19,10 +20,11 @@ interface NewService {
 }
 
 interface Props {
-  selectedClient: ClientSearchResult | null;
-  onClientChange: (client: ClientSearchResult | null) => void;
-  onCancel: () => void;
-  onSaved: (pkg: ClientPackage) => void;
+  selectedClient:  ClientSearchResult | null;
+  onClientChange:  (client: ClientSearchResult | null) => void;
+  onCancel:        () => void;
+  onSaved:         (pkg: ClientPackage) => void;
+  templateToLoad?: PackageTemplate | null;
 }
 
 const GST_OPTIONS = [0, 5, 12, 18, 28];
@@ -43,8 +45,11 @@ function newServiceRow(): NewService {
 }
 
 const PackageCreateForm: React.FC<Props> = ({
-  selectedClient, onClientChange, onCancel, onSaved,
+  selectedClient, onClientChange, onCancel, onSaved, templateToLoad,
 }) => {
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const { data: templates = [] } = useListPackageTemplatesQuery();
+
   const [pkgName,           setPkgName]          = useState("");
   const [expiry,            setExpiry]           = useState("");
   const [neverExpires,      setNeverExpires]      = useState(false);
@@ -124,8 +129,114 @@ const PackageCreateForm: React.FC<Props> = ({
     }
   };
 
+  const loadTemplate = (t: PackageTemplate) => {
+    setPkgName(t.name);
+    setNeverExpires(t.neverExpires);
+    if (!t.neverExpires && t.expiryMonths != null && t.expiryMonths > 0) {
+      const d = new Date();
+      d.setMonth(d.getMonth() + t.expiryMonths);
+      // Use local date parts to avoid UTC timezone shift
+      const y  = d.getFullYear();
+      const mo = String(d.getMonth() + 1).padStart(2, "0");
+      const dy = String(d.getDate()).padStart(2, "0");
+      setExpiry(`${y}-${mo}-${dy}`);
+    } else {
+      setExpiry("");
+    }
+    const rows = t.services.map((s, i) => ({
+      id:         Date.now() + i,
+      name:       s.serviceName,
+      sessions:   s.totalSessions,
+      sessionsStr: String(s.totalSessions),
+      price:      s.price,
+      priceStr:   s.price > 0 ? String(s.price) : "",
+    }));
+    setServices(rows);
+    setPkgPrice(t.basePrice);
+    setPkgPriceStr(String(t.basePrice));
+    setPkgPriceManual(true);
+    setGstPct(t.gstPercentage);
+    setDiscount(t.discount);
+    setDiscountStr(t.discount > 0 ? String(t.discount) : "");
+    setSelectedMethods([t.paymentMethod]);
+    setShowTemplatePicker(false);
+    setApiError(null);
+  };
+
+  // Auto-load template when navigated from "Buy Existing Package" flow
+  useEffect(() => {
+    if (templateToLoad) loadTemplate(templateToLoad);
+  }, [templateToLoad]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <>
+      {/* Template picker modal */}
+      {showTemplatePicker && (
+        <>
+          <div
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.35)", zIndex: 1060 }}
+            onClick={() => setShowTemplatePicker(false)}
+          />
+          <div style={{
+            position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)",
+            background: "#fff", borderRadius: 16, width: "min(560px,90vw)", maxHeight: "80vh",
+            display: "flex", flexDirection: "column", zIndex: 1070,
+            boxShadow: "0 24px 48px rgba(0,0,0,.18)",
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid #ecedf0" }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#11141a" }}>Choose a Template</div>
+                <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>All form fields will be pre-filled from the selected template.</div>
+              </div>
+              <button
+                onClick={() => setShowTemplatePicker(false)}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, border: "none", background: "#f0f1f3", borderRadius: 8, cursor: "pointer" }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div style={{ overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+              {templates.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "32px 20px", color: "#6b7280", fontSize: 13 }}>
+                  No templates yet. Create templates from the <strong>Templates</strong> tab.
+                </div>
+              ) : templates.map(t => {
+                const total = t.basePrice - t.discount + (t.basePrice - t.discount) * t.gstPercentage / 100;
+                return (
+                  <div
+                    key={t.id}
+                    onClick={() => loadTemplate(t)}
+                    style={{
+                      padding: "12px 16px", border: "1px solid #e5e7eb", borderRadius: 12,
+                      cursor: "pointer", transition: "all .15s",
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = "#7c3aed"; (e.currentTarget as HTMLElement).style.background = "#faf5ff"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = "#e5e7eb"; (e.currentTarget as HTMLElement).style.background = "#fff"; }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: "#111827" }}>{t.name}</div>
+                        <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+                          {t.services.length} service{t.services.length !== 1 ? "s" : ""} · {t.neverExpires ? "Never expires" : `${t.expiryMonths} months`}
+                        </div>
+                      </div>
+                      <div style={{ fontWeight: 700, fontSize: 15, color: "#7c3aed" }}>₹{total.toFixed(2)}</div>
+                    </div>
+                    <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {t.services.map(s => (
+                        <span key={s.id} style={{ background: "#f5f3ff", color: "#5b21b6", borderRadius: 20, padding: "2px 8px", fontSize: 11, fontWeight: 500 }}>
+                          {s.serviceName} ×{s.totalSessions}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerLeft}>
@@ -136,6 +247,40 @@ const PackageCreateForm: React.FC<Props> = ({
           <button onClick={onCancel} className={styles.btnSecondary}>Cancel</button>
         </div>
       </div>
+
+      {/* ── Template Picker Banner ───────────────────────────────────────── */}
+      {templates.length > 0 && (
+        <div
+          style={{
+            background: "linear-gradient(135deg,#f5f3ff,#ede9fe)",
+            border: "1px solid #c4b5fd",
+            borderRadius: 10,
+            padding: "10px 16px",
+            marginBottom: 12,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+          }}
+        >
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#5b21b6" }}>Use a predefined template</div>
+            <div style={{ fontSize: 12, color: "#7c3aed", marginTop: 1 }}>
+              {templates.length} template{templates.length !== 1 ? "s" : ""} available — auto-fill services &amp; pricing
+            </div>
+          </div>
+          <button
+            onClick={() => setShowTemplatePicker(true)}
+            style={{
+              background: "#7c3aed", color: "#fff", border: "none", borderRadius: 8,
+              padding: "7px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer",
+              fontFamily: "Inter, sans-serif", whiteSpace: "nowrap",
+            }}
+          >
+            Choose Template
+          </button>
+        </div>
+      )}
 
       {/* ── Client ─────────────────────────────────────────────────────────── */}
       <div className={styles.card} style={{ marginBottom: 12 }}>
@@ -208,19 +353,21 @@ const PackageCreateForm: React.FC<Props> = ({
       <div className={styles.card} style={{ marginBottom: 12 }}>
         <div className={styles.cardHead}>
           <div className={styles.cardTitle}>Services included</div>
-          <button onClick={addService} className={styles.btnSecondary} style={{ padding: "3px 10px", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
-            <Plus size={12} /> Add service
-          </button>
+          {!templateToLoad && (
+            <button onClick={addService} className={styles.btnSecondary} style={{ padding: "3px 10px", fontSize: 12, display: "flex", alignItems: "center", gap: 4 }}>
+              <Plus size={12} /> Add service
+            </button>
+          )}
         </div>
         <div className={styles.cardBody}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 110px 32px", gap: 8, marginBottom: 6 }}>
-            {["Service name", "Sessions", "Price (₹)", ""].map(h => (
+          <div style={{ display: "grid", gridTemplateColumns: templateToLoad ? "1fr 80px 110px" : "1fr 80px 110px 32px", gap: 8, marginBottom: 6 }}>
+            {["Service name", "Sessions", "Price (₹)", ...(templateToLoad ? [] : [""])].map(h => (
               <div key={h} style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", textTransform: "uppercase" as const, letterSpacing: ".04em" }}>{h}</div>
             ))}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {services.map(svc => (
-              <div key={svc.id} style={{ display: "grid", gridTemplateColumns: "1fr 80px 110px 32px", gap: 8, alignItems: "center" }}>
+              <div key={svc.id} style={{ display: "grid", gridTemplateColumns: templateToLoad ? "1fr 80px 110px" : "1fr 80px 110px 32px", gap: 8, alignItems: "center" }}>
                 <ServiceSearchInput
                   value={svc.name}
                   options={apiServices}
@@ -259,13 +406,15 @@ const PackageCreateForm: React.FC<Props> = ({
                     className={styles.input}
                   />
                 </div>
-                <button
-                  onClick={() => removeService(svc.id)}
-                  disabled={services.length <= 1}
-                  className={styles.btnDanger}
-                >
-                  <X size={12} />
-                </button>
+                {!templateToLoad && (
+                  <button
+                    onClick={() => removeService(svc.id)}
+                    disabled={services.length <= 1}
+                    className={styles.btnDanger}
+                  >
+                    <X size={12} />
+                  </button>
+                )}
               </div>
             ))}
           </div>
