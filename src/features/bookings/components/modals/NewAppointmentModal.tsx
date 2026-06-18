@@ -788,6 +788,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
               const svcEndISO = new Date(svcDt.getTime() + (s.duration || 30) * 60000).toISOString();
               return {
                 service_id: s.id,
+                name: s.service,
                 staff_id: toApiStaffId(s.staffId),
                 start_time: svcStartISO,
                 end_time: svcEndISO,
@@ -907,6 +908,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
               const svcEndISO = new Date(svcDt.getTime() + (s.duration || 30) * 60000).toISOString();
               return {
                 service_id: s.id,
+                name: s.service,
                 staff_id: toApiStaffId(s.staffId),
                 start_time: svcStartISO,
                 end_time: svcEndISO,
