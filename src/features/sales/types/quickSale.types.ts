@@ -32,7 +32,7 @@ export interface SelectedClient {
   id: string; name: string; phone: string; initials: string; eWallet?: number;
 }
 
-export type ItemTab = "services" | "products" | "memberships";
+export type ItemTab = "services" | "products" | "memberships" | "packages";
 
 export const PAYMENT_METHODS: { id: PaymentMethod; label: string; icon: string }[] = [
   { id: "cash",      label: "Cash",      icon: "💵" },
