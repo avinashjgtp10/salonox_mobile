@@ -470,13 +470,20 @@
   }
 
   // ── Tab bar ───────────────────────────────────────
-  .chp-tab-bar {
+  .chp-tab-bar-row {
     display: flex;
     align-items: center;
     background: #fff;
-    padding: 0 20px;
     border-bottom: 1px solid #e8eaed;
     flex-shrink: 0;
+    padding-right: 12px;
+  }
+
+  .chp-tab-bar {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    padding: 0 20px;
     overflow-x: auto;
 
     &::-webkit-scrollbar { height: 0; }
@@ -621,6 +628,29 @@
     flex-shrink: 0;
 
     .chp-visit-amount { font-size: 13px; font-weight: 700; color: #111; }
+  }
+
+  .chp-print-btn {
+    flex-shrink: 0;
+    background: none;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #9ca3af;
+    cursor: pointer;
+    transition: all 0.12s;
+    margin-left: 4px;
+    align-self: center;
+
+    &:hover {
+      background: #f3f0ff;
+      border-color: #6c5ce7;
+      color: #6c5ce7;
+    }
   }
 
   .chp-visit-badge {
@@ -848,6 +878,84 @@
   }
 
   // ════════════════════════════════════════════════
+  // TAB-BAR FILTER (beside Payments tab)
+  // ════════════════════════════════════════════════
+  .chp-tab-filter-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  // Inherits .chp-tab base styles; only adds icon layout + active states
+  .chp-tab--filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+
+    &.filter-open {
+      color: #6c5ce7;
+    }
+
+    &.filter-active {
+      color: #6c5ce7;
+
+      &::after {
+        content: "";
+        position: absolute;
+        bottom: 0; left: 0; right: 0;
+        height: 2px;
+        background: #6c5ce7;
+        border-radius: 2px 2px 0 0;
+      }
+    }
+  }
+
+  .chp-tab-filter-badge {
+    background: #6c5ce7;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+
+  .chp-tab-filter-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 200;
+    background: #fff;
+    border: 1px solid #e8eaed;
+    border-radius: 10px;
+    padding: 14px;
+    width: 220px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.10);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    select {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #111;
+      background: #fff;
+      outline: none;
+      cursor: pointer;
+
+      &:focus { border-color: #6c5ce7; }
+    }
+  }
+
+  // ════════════════════════════════════════════════
   // PAYMENTS / SALES TABLE
   // ════════════════════════════════════════════════
   .chp-table {
@@ -892,5 +1000,151 @@
     font-size: 11px;
     padding: 2px 7px;
     border-radius: 8px;
+  }
+
+  // ════════════════════════════════════════════════
+  // MINI CALENDAR
+  // ════════════════════════════════════════════════
+  .chp-mini-cal {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 14px;
+    position: sticky;
+    top: 16px;
+
+    &-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    &-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #111;
+    }
+
+    &-nav {
+      background: none;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+      color: #6b7280;
+      line-height: 1;
+      transition: background 0.15s;
+      &:hover { background: #f3f4f6; color: #111; }
+    }
+
+    &-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+    }
+
+    &-dow {
+      font-size: 10px;
+      font-weight: 600;
+      color: #9ca3af;
+      text-align: center;
+      padding: 3px 0 5px;
+      text-transform: uppercase;
+    }
+
+    &-cell {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 3px 0 5px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.12s;
+      font-size: 12px;
+      color: #374151;
+
+      &:hover:not(&--empty) { background: #f3f4f6; }
+
+      &--empty { cursor: default; pointer-events: none; }
+
+      &--today > span {
+        background: #7c3aed;
+        color: #fff;
+        border-radius: 50%;
+        width: 22px;
+        height: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+      }
+
+      &--selected {
+        background: #ede9fe;
+        > span { color: #7c3aed; font-weight: 700; }
+      }
+
+      &--has-event > span { font-weight: 600; }
+    }
+
+    &-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      margin-top: 2px;
+
+      &--completed { background: #10b981; }
+      &--booked    { background: #3b82f6; }
+    }
+
+    &-legend {
+      margin-top: 10px;
+      padding: 7px 10px;
+      background: #f9fafb;
+      border-radius: 8px;
+      font-size: 11px;
+      color: #6b7280;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    &-clear {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 11px;
+      color: #7c3aed;
+      font-weight: 600;
+      padding: 0;
+      &:hover { text-decoration: underline; }
+    }
+
+    &-key {
+      display: flex;
+      gap: 12px;
+      margin-top: 10px;
+      font-size: 11px;
+      color: #6b7280;
+
+      span {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+
+        .chp-mini-cal-dot {
+          width: 7px;
+          height: 7px;
+          flex-shrink: 0;
+        }
+      }
+    }
   }
 }
