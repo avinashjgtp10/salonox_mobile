@@ -20,25 +20,28 @@ import type {
 export interface SaleInitData {
   staff: any[];
   services: any[];
+  _salonId?: string;
 }
 
 // ── Fetch init data (staff + services) ───────────────────────────────────────
-// condition: skip when already loaded OR a fetch is already in-flight
+// condition: skip when already loaded for the SAME salon, re-fetch when salon changes
 export const fetchSaleInitThunk = createAsyncThunk<
   SaleInitData,
   void,
   { state: any; rejectValue: string }
 >(
   "sale/init",
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, getState }) => {
     try {
+      const state = getState();
+      const currentSalonId = String(state?.auth?.salonId ?? state?.salon?.currentSalon?.id ?? "");
       const [initRes, staffRes] = await Promise.all([
         api.get<{ data: SaleInitData }>(SALE.INIT),
         api.get(STAFF.BASE + "?limit=200"),
       ]);
       const services = initRes.data?.data?.services ?? [];
       const staffRaw = staffRes.data?.data?.items ?? staffRes.data?.data ?? [];
-      return { services, staff: Array.isArray(staffRaw) ? staffRaw : [] };
+      return { services, staff: Array.isArray(staffRaw) ? staffRaw : [], _salonId: currentSalonId };
     } catch (err: any) {
       if (err instanceof ApiError) return rejectWithValue(err.message);
       return rejectWithValue("Failed to fetch sale init data");
@@ -46,9 +49,15 @@ export const fetchSaleInitThunk = createAsyncThunk<
   },
   {
     condition: (_, { getState }) => {
-      const sale = getState()?.sale;
-      // Skip if already loaded or a request is already in-flight
-      return !sale?.initLoaded && !sale?.loading?.init;
+      const state = getState();
+      const sale = state?.sale;
+      if (sale?.loading?.init) return false;
+      if (!sale?.initLoaded) return true;
+      // Re-fetch when the active salon has changed since last load
+      const currentSalonId = String(state?.auth?.salonId ?? state?.salon?.currentSalon?.id ?? "");
+      const loadedForSalon = String(sale?.initLoadedForSalon ?? "");
+      if (!currentSalonId) return false;
+      return currentSalonId !== loadedForSalon;
     },
   },
 );

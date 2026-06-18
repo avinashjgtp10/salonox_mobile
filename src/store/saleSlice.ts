@@ -37,15 +37,16 @@ const saleSlice = createCRUDSlice<Sale>({
   extraReducers: (builder) => {
 
     // ── Init data (staff + services) ─────────────────────────────────────────
-    // initLoaded = true after first successful fetch; prevents re-fetch on re-visit
+    // initLoaded = true after first successful fetch; re-fetch when salon changes
     builder
       .addCase(fetchSaleInitThunk.pending, (state) => {
         state.loading.init = true;
       })
       .addCase(fetchSaleInitThunk.fulfilled, (state, { payload }) => {
         state.loading.init = false;
-        (state as any).initData    = payload as SaleInitData;
-        (state as any).initLoaded  = true;
+        (state as any).initData           = payload as SaleInitData;
+        (state as any).initLoaded         = true;
+        (state as any).initLoadedForSalon = payload._salonId ?? "";
       })
       .addCase(fetchSaleInitThunk.rejected, (state) => {
         state.loading.init = false;

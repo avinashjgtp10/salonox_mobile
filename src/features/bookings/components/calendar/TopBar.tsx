@@ -9,12 +9,13 @@ interface TopBarProps {
   onNewAppointment: () => void;
   onBlockTime: () => void;
   onSettings: () => void;
+  onRefresh?: () => void;
 }
 
 const VIEW_OPTIONS: ViewMode[] = ["Day", "Week", "Month", "List Week"];
 const INTERVAL_OPTIONS: IntervalOption[] = ["15 Mins", "30 Mins", "60 Mins"];
 
-const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime }) => {
+const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefresh }) => {
   const {
     viewMode,
     setViewMode,
@@ -31,6 +32,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime }) => {
   const [showViewDrop, setShowViewDrop] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showStaffDrop, setShowStaffDrop] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // ── Portal position state ─────────────────────────────────────────────────
   const [viewDropPos, setViewDropPos] = useState({ top: 0, left: 0 });
@@ -287,6 +289,47 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime }) => {
           )}
           {selectedStaffName}
           <span style={{ fontSize: 9, opacity: 0.6 }}>▼</span>
+        </button>
+
+        {/* Refresh */}
+        <button
+          onClick={async () => {
+            if (!onRefresh || isRefreshing) return;
+            setIsRefreshing(true);
+            try { await onRefresh(); } finally { setIsRefreshing(false); }
+          }}
+          title="Refresh calendar"
+          style={{
+            flexShrink: 0,
+            border: "1px solid #d1d5db",
+            borderRadius: 6,
+            padding: "5px 8px",
+            background: "#fff",
+            cursor: onRefresh ? "pointer" : "default",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#374151",
+            opacity: isRefreshing ? 0.5 : 1,
+            transition: "opacity 0.15s",
+          }}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ display: "block", transition: "transform 0.4s", transform: isRefreshing ? "rotate(360deg)" : "none" }}
+          >
+            <polyline points="23 4 23 10 17 10" />
+            <polyline points="1 20 1 14 7 14" />
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+          </svg>
         </button>
 
         {/* Interval pills */}
