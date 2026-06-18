@@ -267,8 +267,8 @@ export default function ClientHistoryPage() {
       const d = res.data?.data;
       const newItems: ClientListItem[] = d?.items ?? [];
       setClients((prev) => replace ? newItems : [...prev, ...newItems]);
-      setClientsTotal(d?.total ?? 0);
-      setClientsHasMore(d?.hasMore ?? false);
+      setClientsTotal(d?.total ?? d?.count ?? d?.total_count ?? 0);
+      setClientsHasMore(d?.hasMore ?? d?.has_more ?? false);
       setClientsPage(page);
     } catch {
       if (replace) { setClients([]); setClientsTotal(0); setClientsHasMore(false); }
@@ -741,7 +741,9 @@ export default function ClientHistoryPage() {
           )}
 
           <div className="chp-result-count">
-            {clientsTotal.toLocaleString("en-IN")} {clientsTotal === 1 ? "client" : "clients"}
+            {(clientsTotal || clients.length).toLocaleString("en-IN")}{" "}
+            {(clientsTotal || clients.length) === 1 ? "client" : "clients"}
+            {clientsLoading && <span className="chp-count-loading" />}
           </div>
         </div>
 
