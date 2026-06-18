@@ -1526,4 +1526,119 @@ $transition: 0.18s ease;
   align-items: center;
 }
 
+// ─── Packages tab ─────────────────────────────────────────────────
+.qs-pkg-section {
+  padding: 4px 0;
+}
+
+.qs-pkg-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+
+  &__icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
+  &__title { font-size: 15px; font-weight: 700; color: $text; margin-bottom: 4px; }
+  &__hint  { font-size: 13px; color: $text-muted; }
+}
+
+.qs-pkg-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+// ── One row per package: [Name] [service ▼] [staff ▼] [✓ Done]
+.qs-pkg-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid $border;
+  border-radius: $radius;
+  background: $bg-card;
+  box-shadow: $shadow-sm;
+
+  &__name {
+    flex-shrink: 0;
+    min-width: 120px;
+    max-width: 180px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #4f46e5;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__sel {
+    flex: 1;
+    border: 1px solid $border;
+    border-radius: $radius-xs;
+    padding: 6px 8px;
+    font-size: 12px;
+    font-family: $font;
+    color: $text;
+    background: $bg-card;
+    cursor: pointer;
+    outline: none;
+    transition: border-color $transition;
+    min-width: 0;
+
+    &:focus { border-color: $border-focus; }
+  }
+
+  &__btn {
+    flex-shrink: 0;
+    padding: 6px 14px;
+    background: #4f46e5;
+    color: #fff;
+    border: none;
+    border-radius: $radius-xs;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background $transition, opacity $transition;
+
+    &:hover:not(:disabled) { background: #4338ca; }
+    &:disabled { opacity: 0.45; cursor: not-allowed; }
+  }
+
+  &__done-text {
+    flex: 1;
+    font-size: 12px;
+    color: #059669;
+    font-weight: 500;
+  }
+}
+
+// ── Sidebar info panel shown in packages mode
+.qs-pkg-sidebar-info {
+  padding: 28px 16px;
+  text-align: center;
+
+  &__icon  { font-size: 36px; margin-bottom: 10px; opacity: 0.6; }
+  &__title { font-size: 14px; font-weight: 700; color: $text; margin-bottom: 6px; }
+  &__desc  { font-size: 12px; color: $text-muted; line-height: 1.5; }
+}
+
+.qs-pkg-sidebar-hint {
+  padding: 10px 14px;
+  text-align: center;
+  font-size: 12px;
+  color: #5b21b6;
+  background: #f5f3ff;
+  border: 1px solid #ede9fe;
+  border-radius: $radius-xs;
+}
+
+// ─── Hide sidebar sections in packages mode ────────────────────────
+.qs-sidebar__payment--hidden,
+.qs-order-totals--hidden {
+  display: none !important;
+}
+
 

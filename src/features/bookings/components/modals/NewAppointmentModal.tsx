@@ -32,6 +32,11 @@ import {
   LockFill, Cash, Phone, ExclamationTriangleFill, PencilFill, StarFill,
   Printer, Trash, ArrowRepeat, Scissors, Gift, CheckCircleFill, RecordCircle,
 } from "react-bootstrap-icons";
+import {
+  useListClientPackagesQuery,
+  useCompleteClientPackageSessionMutation,
+} from "../../../../services/api/endpoints/packages.endpoints";
+import type { ClientPackage } from "../../../../services/api/endpoints/packages.endpoints";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 interface Props { onClose: () => void; defaultStaffId?: string; defaultTime?: string; existingBooking?: Booking }
@@ -267,7 +272,7 @@ function printBill(
   win.document.write(html); win.document.close(); win.focus(); setTimeout(() => win.print(), 500);
 }
 
-function validateAll(svcRows: TempService[], pkgRows: TempPkg[], prodRows: TempProduct[], memRows: TempMembership[], clientName: string, isWalkin: boolean, selectedClientId: string | null, showAddClientForm: boolean, newClientName: string, newClientPhone: string) {
+function validateAll(svcRows: TempService[], pkgRows: TempPkg[], prodRows: TempProduct[], memRows: TempMembership[], clientName: string, isWalkin: boolean, selectedClientId: string | null, showAddClientForm: boolean, newClientName: string, newClientPhone: string, hasActivePackages = false) {
   const errors: string[] = [];
   if (!clientName.trim() && !isWalkin && !selectedClientId) errors.push("client");
   // Only validate form fields when creating a brand-new client (no existing selectedClientId).
@@ -279,7 +284,7 @@ function validateAll(svcRows: TempService[], pkgRows: TempPkg[], prodRows: TempP
   }
   const activeSvcRows = svcRows.filter(r => r.service || (r as any).price > 0 || (r as any).staffId);
   const hasAnyItem = activeSvcRows.length > 0 || pkgRows.length > 0 || prodRows.length > 0 || memRows.length > 0;
-  if (!hasAnyItem) errors.push("no_rows");
+  if (!hasAnyItem && !hasActivePackages) errors.push("no_rows");
   svcRows.forEach((r, i) => {
     // If it's the only row, totally empty, and we have packages/products, ignore it
     if (!r.service && !r.staffId && !r.price && hasAnyItem && activeSvcRows.length === 0) return;
@@ -485,6 +490,41 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
   const [cancelDeleteError, setCancelDeleteError] = useState("");
 
   const paymentSectionRef = useRef<HTMLDivElement>(null);
+
+  // ── Package session completion ───────────────────────────────────────────────
+  const [pkgServiceMap,    setPkgServiceMap]    = useState<Record<string, string>>({});
+  const [pkgStaffMap,      setPkgStaffMap]      = useState<Record<string, string>>({});
+  const [pkgCompletingKey, setPkgCompletingKey] = useState<string | null>(null);
+  const [pkgError,         setPkgError]         = useState("");
+  const [pkgSuccess,       setPkgSuccess]       = useState("");
+
+  const { data: clientPkgsData, isLoading: pkgLoading } = useListClientPackagesQuery(
+    { clientId: selectedClientId || "", status: "Active", limit: 50 },
+    { skip: !selectedClientId },
+  );
+  const [completeSession] = useCompleteClientPackageSessionMutation();
+  const clientPackages: ClientPackage[] = clientPkgsData?.items ?? [];
+
+  async function handleCompleteSingleSession(packageId: string) {
+    const serviceId   = pkgServiceMap[packageId];
+    const staffId     = pkgStaffMap[packageId];
+    if (!serviceId || !staffId) { setPkgError("Please select a service and staff member."); return; }
+    const pkg         = clientPackages.find((p) => p.id === packageId);
+    const svc         = pkg?.services.find((s) => String(s.serviceId) === serviceId);
+    const serviceName = svc?.serviceName || serviceId;
+    setPkgCompletingKey(packageId); setPkgError(""); setPkgSuccess("");
+    try {
+      const staffName = staffList.find((s) => s.id === staffId)?.name || staffId;
+      await completeSession({ id: packageId, body: { serviceId, staffName } }).unwrap();
+      setPkgSuccess(`"${serviceName}" session marked as complete!`);
+      setPkgServiceMap((prev) => { const n = { ...prev }; delete n[packageId]; return n; });
+      setPkgStaffMap((prev)   => { const n = { ...prev }; delete n[packageId]; return n; });
+    } catch (err: any) {
+      setPkgError(err?.data?.message || err?.message || "Failed to complete session.");
+    } finally {
+      setPkgCompletingKey(null);
+    }
+  }
 
   // Fetch client details from API when a client is selected
   useEffect(() => {
@@ -704,7 +744,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
   }
 
   function runValidation() {
-    return validateAll(serviceRows, packageRows, productRows, membershipRows, resolvedName(), isWalkin, selectedClientId, showAddClientForm, newClientName, newClientPhone);
+    return validateAll(serviceRows, packageRows, productRows, membershipRows, resolvedName(), isWalkin, selectedClientId, showAddClientForm, newClientName, newClientPhone, clientPackages.length > 0);
   }
 
   async function resolveClientId(): Promise<string | undefined> {
@@ -1536,6 +1576,66 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
             </div>
           )}
 
+          {/* ── COMPLETE PACKAGE SESSIONS ── */}
+          {selectedClientId && (pkgLoading || clientPackages.length > 0) && (
+            <div className="appt-section appt-pkg-section" style={{ pointerEvents: "auto", userSelect: "auto" }}>
+              <div className="appt-section__title">📦 Complete Package Sessions</div>
+
+              {pkgError   && <div className="appt-pkg-msg appt-pkg-msg--error">{pkgError}</div>}
+              {pkgSuccess && <div className="appt-pkg-msg appt-pkg-msg--success">{pkgSuccess}</div>}
+
+              {pkgLoading ? (
+                <div className="appt-pkg-empty">Loading packages…</div>
+              ) : (
+                <div className="appt-pkg-list">
+                  {clientPackages.map((pkg) => {
+                    const availableServices = pkg.services.filter((s) => s.remainingSessions > 0);
+                    const isCompleting = pkgCompletingKey === pkg.id;
+                    return (
+                      <div key={pkg.id} className="appt-pkg-row">
+                        <span className="appt-pkg-row__name">{pkg.packageName}</span>
+                        {availableServices.length === 0 ? (
+                          <span className="appt-pkg-row__done-text">✓ All sessions completed</span>
+                        ) : (
+                          <>
+                            <select
+                              className="appt-pkg-row__sel"
+                              value={pkgServiceMap[pkg.id] || ""}
+                              onChange={(e) => { setPkgServiceMap((prev) => ({ ...prev, [pkg.id]: e.target.value })); setPkgError(""); }}
+                            >
+                              <option value="">Select service…</option>
+                              {availableServices.map((svc) => (
+                                <option key={svc.serviceId} value={String(svc.serviceId)}>
+                                  {svc.serviceName} ({svc.remainingSessions} left)
+                                </option>
+                              ))}
+                            </select>
+                            <select
+                              className="appt-pkg-row__sel"
+                              value={pkgStaffMap[pkg.id] || ""}
+                              onChange={(e) => { setPkgStaffMap((prev) => ({ ...prev, [pkg.id]: e.target.value })); setPkgError(""); }}
+                            >
+                              <option value="">Select staff…</option>
+                              {staffList.map((st) => <option key={st.id} value={st.id}>{st.name}</option>)}
+                            </select>
+                            <button
+                              type="button"
+                              className="appt-pkg-row__btn"
+                              disabled={!pkgServiceMap[pkg.id] || !pkgStaffMap[pkg.id] || isCompleting}
+                              onClick={() => handleCompleteSingleSession(pkg.id)}
+                            >
+                              {isCompleting ? "…" : "✓ Done"}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ── SERVICES & ITEMS ── */}
           <div className="appt-section">
             <div className="appt-section__title"><Scissors size={13} style={{ marginRight: 5, verticalAlign: "middle" }} />Services &amp; Items</div>
@@ -1893,6 +1993,71 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                 <div className="pay-print-check">
                   <input type="checkbox" id="printToggle" checked={printAfterPayment} onChange={(e) => setPrintAfterPayment(e.target.checked)} />
                   <label htmlFor="printToggle">Print receipt after payment</label>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── COMPLETE PACKAGE SESSIONS ── */}
+          {selectedClientId && (
+            <div className="appt-section appt-pkg-section">
+              <div className="appt-section__title">📦 Complete Package Sessions</div>
+
+              {pkgError   && <div className="appt-pkg-msg appt-pkg-msg--error">{pkgError}</div>}
+              {pkgSuccess && <div className="appt-pkg-msg appt-pkg-msg--success">{pkgSuccess}</div>}
+
+              {pkgLoading && <div className="appt-pkg-empty">Loading packages…</div>}
+
+              {!pkgLoading && clientPackages.length === 0 && (
+                <div className="appt-pkg-empty">No active packages for this client.</div>
+              )}
+
+              {!pkgLoading && clientPackages.length > 0 && (
+                <div className="appt-pkg-list">
+                  {clientPackages.map((pkg) => {
+                    const availableServices = pkg.services.filter((s) => s.remainingSessions > 0);
+                    const isCompleting = pkgCompletingKey === pkg.id;
+                    return (
+                      <div key={pkg.id} className="appt-pkg-row">
+                        <span className="appt-pkg-row__name">{pkg.packageName}</span>
+
+                        {availableServices.length === 0 ? (
+                          <span className="appt-pkg-row__done-text">✓ All sessions completed</span>
+                        ) : (
+                          <>
+                            <select
+                              className="appt-pkg-row__sel"
+                              value={pkgServiceMap[pkg.id] || ""}
+                              onChange={(e) => { setPkgServiceMap((prev) => ({ ...prev, [pkg.id]: e.target.value })); setPkgError(""); }}
+                            >
+                              <option value="">Select service…</option>
+                              {availableServices.map((svc) => (
+                                <option key={svc.serviceId} value={String(svc.serviceId)}>
+                                  {svc.serviceName} ({svc.remainingSessions} left)
+                                </option>
+                              ))}
+                            </select>
+                            <select
+                              className="appt-pkg-row__sel"
+                              value={pkgStaffMap[pkg.id] || ""}
+                              onChange={(e) => { setPkgStaffMap((prev) => ({ ...prev, [pkg.id]: e.target.value })); setPkgError(""); }}
+                            >
+                              <option value="">Select staff…</option>
+                              {staffList.map((st) => <option key={st.id} value={st.id}>{st.name}</option>)}
+                            </select>
+                            <button
+                              type="button"
+                              className="appt-pkg-row__btn"
+                              disabled={!pkgServiceMap[pkg.id] || !pkgStaffMap[pkg.id] || isCompleting}
+                              onClick={() => handleCompleteSingleSession(pkg.id)}
+                            >
+                              {isCompleting ? "…" : "✓ Done"}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

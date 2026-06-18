@@ -32,6 +32,11 @@ import {
 import { INDIA } from "../components/CountryDialPicker";
 import type { CountryOption } from "../components/CountryDialPicker";
 import { IconUser, IconTag, IconPercent, IconPayment, IconPlus, IconCal } from "../components/QuickSaleIcons";
+import {
+  useListClientPackagesQuery,
+  useCompleteClientPackageSessionMutation,
+} from "../../../services/api/endpoints/packages.endpoints";
+import type { ClientPackage } from "../../../services/api/endpoints/packages.endpoints";
 import ItemEmptyState from "../components/ItemEmptyState";
 import ServiceItemRow, { ServiceColHeaders } from "../components/ServiceItemRow";
 import ProductItemRow, { ProductColHeaders } from "../components/ProductItemRow";
@@ -125,6 +130,13 @@ export default function QuickSalePage() {
   const [isDeleting,        setIsDeleting]        = useState(false);
   const [successMsg,        setSuccessMsg]        = useState("");
   const [errorMsg,          setErrorMsg]          = useState("");
+
+  // ── Package session state ──────────────────────────────────────────────────
+  const [pkgServiceMap,    setPkgServiceMap]    = useState<Record<string, string>>({});
+  const [pkgStaffMap,      setPkgStaffMap]      = useState<Record<string, string>>({});
+  const [pkgCompletingKey, setPkgCompletingKey] = useState<string | null>(null);
+  const [pkgError,         setPkgError]         = useState("");
+  const [pkgSuccess,       setPkgSuccess]       = useState("");
   const [showDotMenu,       setShowDotMenu]       = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDatePicker,    setShowDatePicker]    = useState(false);
@@ -461,7 +473,9 @@ export default function QuickSalePage() {
     // 2. Items — compute all row errors synchronously outside state setters
     const hasAnyRows = serviceRows.length > 0 || productRows.length > 0 || membershipRows.length > 0;
 
-    if (!hasAnyRows) {
+    const isPackageOnlyBill = clientPackages.length > 0 && !hasAnyRows;
+
+    if (!hasAnyRows && !isPackageOnlyBill) {
       setErrorMsg("Add at least one service, product or membership.");
       ok = false;
     } else {
@@ -554,6 +568,14 @@ export default function QuickSalePage() {
   // ── Pay Now ────────────────────────────────────────────────────────────────
   async function handleConfirmAndPay() {
     if (!salonId) { setErrorMsg("Salon not loaded. Please refresh."); return; }
+
+    // Package-only bill: sessions already marked complete via ✓ Done buttons — just confirm and stay
+    const isPackageOnlyBill = clientPackages.length > 0 && !hasItems;
+    if (isPackageOnlyBill) {
+      setPkgSuccess("Package sessions confirmed successfully!");
+      return;
+    }
+
     const itemsOk   = runValidation();
     const paymentOk = runPaymentValidation();
      if (!itemsOk || !paymentOk) {
@@ -691,6 +713,35 @@ export default function QuickSalePage() {
   }
 
   const isBusy = isSubmitting || isCreating || isCheckingOut || isDeleting;
+
+  // ── Package hooks ──────────────────────────────────────────────────────────
+  const { data: clientPkgsData, isLoading: pkgLoading } = useListClientPackagesQuery(
+    { clientId: client?.id, status: "Active", limit: 50 },
+    { skip: !client?.id },
+  );
+  const [completeSession] = useCompleteClientPackageSessionMutation();
+  const clientPackages: ClientPackage[] = clientPkgsData?.items ?? [];
+
+  async function handleCompleteSingleSession(packageId: string) {
+    const serviceId  = pkgServiceMap[packageId];
+    const staffId    = pkgStaffMap[packageId];
+    if (!serviceId || !staffId) { setPkgError("Please select a service and staff member."); return; }
+    const pkg        = clientPackages.find((p) => p.id === packageId);
+    const svc        = pkg?.services.find((s) => String(s.serviceId) === serviceId);
+    const serviceName = svc?.serviceName || serviceId;
+    setPkgCompletingKey(packageId); setPkgError(""); setPkgSuccess("");
+    try {
+      const staffName = staffList.find((s) => s.id === staffId)?.name || staffId;
+      await completeSession({ id: packageId, body: { serviceId, staffName } }).unwrap();
+      setPkgSuccess(`"${serviceName}" session marked as complete!`);
+      setPkgServiceMap((prev) => { const n = { ...prev }; delete n[packageId]; return n; });
+      setPkgStaffMap((prev) => { const n = { ...prev }; delete n[packageId]; return n; });
+    } catch (err: any) {
+      setPkgError(err?.data?.message || err?.message || "Failed to complete session.");
+    } finally {
+      setPkgCompletingKey(null);
+    }
+  }
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -914,6 +965,9 @@ export default function QuickSalePage() {
                 {membershipRows.length > 0 && <span className="qs-type-tab__count">{membershipRows.length}</span>}
                 {membershipRows.some((r) => r.errors.length > 0) && <span className="qs-tab-error-dot" />}
               </button>
+              <button className={`qs-type-tab${activeTab === "packages" ? " qs-type-tab--active" : ""}`} onClick={() => { setActiveTab("packages"); setPkgError(""); setPkgSuccess(""); }}>
+                📦 Packages
+              </button>
             </div>
 
             {/* Services tab */}
@@ -956,6 +1010,90 @@ export default function QuickSalePage() {
                   : <button className="qs-add-row-btn" onClick={addMemRow}><IconPlus /> Add Membership</button>
                 }
               </>
+            )}
+
+            {/* Packages tab */}
+            {activeTab === "packages" && (
+              <div className="qs-pkg-section">
+                {pkgSuccess && (
+                  <div className="qs-alert qs-alert--success" style={{ marginBottom: 12 }}>
+                    <span>✓</span> {pkgSuccess}
+                    <button className="qs-alert__close" onClick={() => setPkgSuccess("")}>×</button>
+                  </div>
+                )}
+                {pkgError && (
+                  <div className="qs-alert qs-alert--error" style={{ marginBottom: 12 }}>
+                    <span>⚠</span> {pkgError}
+                    <button className="qs-alert__close" onClick={() => setPkgError("")}>×</button>
+                  </div>
+                )}
+
+                {!client ? (
+                  <div className="qs-pkg-empty">
+                    <div className="qs-pkg-empty__icon">📦</div>
+                    <div className="qs-pkg-empty__title">Select a client first</div>
+                    <div className="qs-pkg-empty__hint">Choose a client above to view their active packages</div>
+                  </div>
+                ) : pkgLoading ? (
+                  <div className="qs-pkg-empty">
+                    <div className="qs-pkg-empty__icon">⏳</div>
+                    <div className="qs-pkg-empty__title">Loading packages…</div>
+                  </div>
+                ) : clientPackages.length === 0 ? (
+                  <div className="qs-pkg-empty">
+                    <div className="qs-pkg-empty__icon">📦</div>
+                    <div className="qs-pkg-empty__title">No active packages</div>
+                    <div className="qs-pkg-empty__hint">{client.name} has no active packages</div>
+                  </div>
+                ) : (
+                  <div className="qs-pkg-list">
+                    {clientPackages.map((pkg) => {
+                      const availableServices = pkg.services.filter((s) => s.remainingSessions > 0);
+                      const isCompleting = pkgCompletingKey === pkg.id;
+                      return (
+                        <div key={pkg.id} className="qs-pkg-row">
+                          <span className="qs-pkg-row__name">{pkg.packageName}</span>
+
+                          {availableServices.length === 0 ? (
+                            <span className="qs-pkg-row__done-text">✓ All sessions completed</span>
+                          ) : (
+                            <>
+                              <select
+                                className="qs-pkg-row__sel"
+                                value={pkgServiceMap[pkg.id] || ""}
+                                onChange={(e) => { setPkgServiceMap((prev) => ({ ...prev, [pkg.id]: e.target.value })); setPkgError(""); }}
+                              >
+                                <option value="">Select service…</option>
+                                {availableServices.map((svc) => (
+                                  <option key={svc.serviceId} value={String(svc.serviceId)}>
+                                    {svc.serviceName} ({svc.remainingSessions} left)
+                                  </option>
+                                ))}
+                              </select>
+                              <select
+                                className="qs-pkg-row__sel"
+                                value={pkgStaffMap[pkg.id] || ""}
+                                onChange={(e) => { setPkgStaffMap((prev) => ({ ...prev, [pkg.id]: e.target.value })); setPkgError(""); }}
+                              >
+                                <option value="">Select staff…</option>
+                                {staffList.map((st) => <option key={st.id} value={st.id}>{st.name}</option>)}
+                              </select>
+                              <button
+                                type="button"
+                                className="qs-pkg-row__btn"
+                                disabled={!pkgServiceMap[pkg.id] || !pkgStaffMap[pkg.id] || isCompleting}
+                                onClick={() => handleCompleteSingleSession(pkg.id)}
+                              >
+                                {isCompleting ? "…" : "✓ Done"}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
@@ -1013,9 +1151,9 @@ export default function QuickSalePage() {
           <div className="qs-sidebar__order">
             <div className="qs-order-header">📋 Order Summary</div>
 
-            {/* Scrollable items list */}
+            {/* Scrollable items list — always visible */}
             <div className="qs-order-items">
-              {hasItems ? (
+              {(hasItems || clientPackages.length > 0) ? (
                 <div className="qs-confirm-list">
                   {serviceRows.filter((r) => r.service).map((r) => (
                     <div key={r.tempId} className="qs-confirm-item">
@@ -1044,6 +1182,15 @@ export default function QuickSalePage() {
                       <span className="qs-confirm-item__price">₹{r.total.toFixed(2)}</span>
                     </div>
                   ))}
+                  {clientPackages.map((pkg) => (
+                    <div key={pkg.id} className="qs-confirm-item">
+                      <div className="qs-confirm-item__info">
+                        <span className="qs-confirm-item__name">{pkg.packageName}</span>
+                        <span className="qs-confirm-item__meta">📦 Package · {pkg.services.filter(s => s.remainingSessions > 0).length} session{pkg.services.filter(s => s.remainingSessions > 0).length !== 1 ? "s" : ""} remaining</span>
+                      </div>
+                      <span className="qs-confirm-item__price" style={{ color: "#059669", fontSize: 11, fontWeight: 600 }}>Pre-paid</span>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div style={{ padding: "14px 0", textAlign: "center", color: "#9ca3af", fontSize: 13 }}>
@@ -1052,7 +1199,7 @@ export default function QuickSalePage() {
               )}
             </div>
 
-            {/* Fixed totals */}
+            {/* Fixed totals — always visible */}
             <div className="qs-order-totals">
               <div className="qs-summary-rows">
                 <div className="qs-summary-row">
@@ -1092,7 +1239,7 @@ export default function QuickSalePage() {
             </div>
           </div>
 
-          {/* Fixed payment section */}
+          {/* Fixed payment section — always visible */}
           <div className="qs-sidebar__payment">
             <div className="qs-sidebar-section__title"><IconPayment /> Payment Method</div>
 
@@ -1195,8 +1342,16 @@ export default function QuickSalePage() {
                 </button>
               </div>
             ) : (
-              <button className="qs-pay-btn" disabled={!hasItems || isBusy || (isSplit && splitRemaining < -0.001)} onClick={handleConfirmAndPay}>
-                {isBusy ? "Processing…" : <>✓ Confirm &amp; Pay — ₹{(isSplit ? splitTotal : parseFloat(amountPaid || grandTotal.toString())).toFixed(2)}</>}
+              <button
+                className="qs-pay-btn"
+                disabled={(!hasItems && clientPackages.length === 0) || isBusy || (isSplit && splitRemaining < -0.001)}
+                onClick={handleConfirmAndPay}
+              >
+                {isBusy
+                  ? "Processing…"
+                  : !hasItems && clientPackages.length > 0
+                    ? "✓ Confirm — ₹0.00 (Pre-paid)"
+                    : <>✓ Confirm &amp; Pay — ₹{(isSplit ? splitTotal : parseFloat(amountPaid || grandTotal.toString())).toFixed(2)}</>}
               </button>
             )}
           </div>
