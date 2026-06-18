@@ -217,6 +217,7 @@ export function mapApiBooking(item: any, rawServices: any[] = [], rawStaff: any[
 export function useSchedulerInit() {
   const dispatch = useAppDispatch();
   const initialized = useRef<string | null>(null);
+  const loadedServicesForSalon = useRef<string | null>(null);
 
   const salonId = useAppSelector((s: any) => s.salon?.currentSalon?.id);
   const scheduleVersion = useAppSelector((s: any) => s.scheduler?.scheduleVersion ?? 0);
@@ -235,11 +236,14 @@ export function useSchedulerInit() {
   const { data: packagesData } = useListPackagesQuery({});
   const { data: packageTemplates = [] } = useListPackageTemplatesQuery();
 
-  // ── Fetch active services once — skip if already in store ───────────────────
+  // ── Fetch active services — re-fetch when salon changes ─────────────────────
   useEffect(() => {
-    if (!salonId || apiServices.length > 0) return;
+    if (!salonId) return;
+    const sid = String(salonId);
+    if (apiServices.length > 0 && loadedServicesForSalon.current === sid) return;
+    loadedServicesForSalon.current = sid;
     dispatch(fetchServicesThunk({ isActive: true }));
-  }, [dispatch, salonId, apiServices.length]);
+  }, [dispatch, salonId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Tracks which individual dates have already been fetched ──────────────────
   const fetchedDatesRef = useRef<Set<string>>(new Set());

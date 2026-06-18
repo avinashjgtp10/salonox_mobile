@@ -171,7 +171,7 @@ export default function QuickSalePage() {
   useEffect(() => {
     dispatch(clearSaleError());
     dispatch(fetchSaleInitThunk());
-  }, [dispatch]);
+  }, [dispatch, salonId]);
 
   // In edit mode: fetch sale from backend and ensure clients are loaded for name resolution
   useEffect(() => {
@@ -314,7 +314,7 @@ export default function QuickSalePage() {
   // ── Row CRUD ───────────────────────────────────────────────────────────────
   function addSvcRow() {
     setActiveTab("services");
-    setServiceRows((r) => [...r, { tempId: makeTempId(), id: "", service: "", staffId: "", time: "10:00", price: 0, qty: 1, total: 0, duration: 30, search: "", showDrop: false, discountVal: 0, discountType: "percentage", errors: [] }]);
+    setServiceRows((r) => [...r, { tempId: makeTempId(), id: "", service: "", staffId: "", time: "10:00", price: 0, qty: 1, total: 0, duration: 30, search: "", showDrop: true, discountVal: 0, discountType: "percentage", errors: [] }]);
     setErrorMsg("");
   }
   function updateSvcRow(tid: string, p: Partial<SvcRow>) { setServiceRows((r) => r.map((x) => x.tempId === tid ? { ...x, ...p } : x)); }
@@ -323,7 +323,7 @@ export default function QuickSalePage() {
   async function addProdRow() {
     await ensureProductsLoaded();
     setActiveTab("products");
-    setProductRows((r) => [...r, { tempId: makeTempId(), id: "", productName: "", staffId: "", price: 0, qty: 1, total: 0, search: "", showDrop: false, stock: null, discountVal: 0, discountType: "percentage", errors: [] }]);
+    setProductRows((r) => [...r, { tempId: makeTempId(), id: "", productName: "", staffId: "", price: 0, qty: 1, total: 0, search: "", showDrop: true, stock: null, discountVal: 0, discountType: "percentage", errors: [] }]);
     setErrorMsg("");
   }
   function updateProdRow(tid: string, p: Partial<ProdRow>) { setProductRows((r) => r.map((x) => x.tempId === tid ? { ...x, ...p } : x)); }

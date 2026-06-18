@@ -1,3 +1,5 @@
+import { useState, useEffect, useRef } from "react";
+import api from "../../../services/api/axios";
 import { calcRowTotal } from "../utils/quickSale.utils";
 import type { InitStaff, LazyProduct, ProdRow } from "../types/quickSale.types";
 
@@ -11,10 +13,85 @@ interface Props {
   onRemove: (tid: string) => void;
 }
 
-export default function ProductItemRow({ row, staffList, productsList, onUpdate, onRemove }: Props) {
-  const filtered = productsList.filter((p) =>
-    (p.name ?? "").toLowerCase().includes(row.search.toLowerCase())
-  );
+export default function ProductItemRow({ row, staffList, onUpdate, onRemove }: Props) {
+  const [localSearch, setLocalSearch] = useState(row.search);
+  const [results, setResults]         = useState<LazyProduct[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const debounceRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef          = useRef<AbortController | null>(null);
+  const initialResultsRef = useRef<LazyProduct[]>([]);
+
+  // sync when a product is selected externally (row.search changes)
+  useEffect(() => {
+    setLocalSearch(row.search);
+  }, [row.search]);
+
+  // load initial list on mount when row is new (empty search)
+  useEffect(() => {
+    if (!row.search) loadInitialProducts();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function mapProducts(raw: any[]): LazyProduct[] {
+    return raw.map((p) => ({
+      id:    String(p.id),
+      name:  p.name,
+      price: p.retail_price !== null && p.retail_price !== undefined
+               ? parseFloat(p.retail_price)
+               : null,
+      stock: Number(p.amount ?? 0),
+    }));
+  }
+
+  async function loadInitialProducts() {
+    if (initialResultsRef.current.length > 0) {
+      setResults(initialResultsRef.current);
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const res = await api.get("/api/v1/products?limit=20");
+      const raw: any[] = res.data?.data?.data ?? res.data?.data ?? [];
+      const mapped = Array.isArray(raw) ? mapProducts(raw) : [];
+      initialResultsRef.current = mapped;
+      setResults(mapped);
+    } catch {
+      setResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }
+
+  function handleSearchChange(val: string) {
+    setLocalSearch(val);
+    onUpdate(row.tempId, { showDrop: true, errors: row.errors.filter((e) => e !== "product") });
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (!val.trim()) {
+      abortRef.current?.abort();
+      setIsSearching(false);
+      setResults(initialResultsRef.current);
+      return;
+    }
+
+    setIsSearching(true);
+    debounceRef.current = setTimeout(async () => {
+      abortRef.current?.abort();
+      abortRef.current = new AbortController();
+      try {
+        const res = await api.get(
+          `/api/v1/products?search=${encodeURIComponent(val.trim())}&limit=10`,
+          { signal: abortRef.current.signal }
+        );
+        const raw: any[] = res.data?.data?.data ?? res.data?.data ?? [];
+        setResults(Array.isArray(raw) ? mapProducts(raw) : []);
+      } catch (err: any) {
+        if (err?.name !== "CanceledError" && err?.code !== "ERR_CANCELED") setResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+  }
 
   return (
     <div className="qs-item-row" style={{ display: "grid", gridTemplateColumns: GRID, gap: "8px", alignItems: "center" }}>
@@ -23,19 +100,24 @@ export default function ProductItemRow({ row, staffList, productsList, onUpdate,
         <input
           className={`qs-inp${row.errors.includes("product") ? " qs-inp--error" : ""}`}
           placeholder="Search product…"
-          value={row.search}
+          value={localSearch}
           style={row.stock !== null && row.stock <= 0 ? { color: "#dc2626", fontWeight: 600 } : undefined}
-          onChange={(e) => onUpdate(row.tempId, { search: e.target.value, showDrop: true, errors: row.errors.filter((e) => e !== "product") })}
-          onFocus={() => onUpdate(row.tempId, { showDrop: true })}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          onFocus={() => { onUpdate(row.tempId, { showDrop: true }); if (!localSearch.trim()) loadInitialProducts(); }}
           onBlur={() => setTimeout(() => onUpdate(row.tempId, { showDrop: false }), 150)}
         />
         {row.errors.includes("product") && <div className="qs-field-error">Product is required</div>}
         {row.stock !== null && row.stock <= 0 && (
           <div className="qs-oos-badge">Out of stock</div>
         )}
-        {row.showDrop && filtered.length > 0 && (
+        {row.showDrop && isSearching && (
           <div className="qs-inline-drop">
-            {filtered.map((p, i) => (
+            <div style={{ padding: "8px 12px", color: "#9ca3af", fontSize: 13 }}>Searching…</div>
+          </div>
+        )}
+        {row.showDrop && !isSearching && results.length > 0 && (
+          <div className="qs-inline-drop">
+            {results.map((p, i) => (
               <div
                 key={p.id ?? i}
                 className="qs-inline-drop__item"
@@ -61,6 +143,11 @@ export default function ProductItemRow({ row, staffList, productsList, onUpdate,
                 </span>
               </div>
             ))}
+          </div>
+        )}
+        {row.showDrop && !isSearching && localSearch.trim() && results.length === 0 && (
+          <div className="qs-inline-drop">
+            <div style={{ padding: "8px 12px", color: "#9ca3af", fontSize: 13 }}>No products found</div>
           </div>
         )}
       </div>

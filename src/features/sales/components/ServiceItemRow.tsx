@@ -1,3 +1,5 @@
+import { useState, useEffect, useRef } from "react";
+import api from "../../../services/api/axios";
 import { calcRowTotal } from "../utils/quickSale.utils";
 import type { InitStaff, InitService, SvcRow } from "../types/quickSale.types";
 
@@ -11,10 +13,83 @@ interface Props {
   onRemove: (tid: string) => void;
 }
 
-export default function ServiceItemRow({ row, staffList, servicesList, onUpdate, onRemove }: Props) {
-  const filtered = servicesList.filter((s) =>
-    s.name.toLowerCase().includes(row.search.toLowerCase())
-  );
+export default function ServiceItemRow({ row, staffList, onUpdate, onRemove }: Props) {
+  const [localSearch, setLocalSearch]   = useState(row.search);
+  const [results, setResults]           = useState<InitService[]>([]);
+  const [isSearching, setIsSearching]   = useState(false);
+  const debounceRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef          = useRef<AbortController | null>(null);
+  const initialResultsRef = useRef<InitService[]>([]);
+
+  // sync when a service is selected externally (row.search changes)
+  useEffect(() => {
+    setLocalSearch(row.search);
+  }, [row.search]);
+
+  // load initial list on mount when row is new (empty search)
+  useEffect(() => {
+    if (!row.search) loadInitialServices();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function mapServices(raw: any[]): InitService[] {
+    return raw.map((s) => ({
+      id:       String(s.id),
+      name:     s.name,
+      price:    parseFloat(s.price ?? s.base_price ?? "0"),
+      duration: s.duration_minutes ?? s.duration ?? 30,
+    }));
+  }
+
+  async function loadInitialServices() {
+    if (initialResultsRef.current.length > 0) {
+      setResults(initialResultsRef.current);
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const res = await api.get("/api/v1/services?status=active&limit=20");
+      const raw: any[] = res.data?.data?.data ?? res.data?.data ?? [];
+      const mapped = Array.isArray(raw) ? mapServices(raw) : [];
+      initialResultsRef.current = mapped;
+      setResults(mapped);
+    } catch {
+      setResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }
+
+  function handleSearchChange(val: string) {
+    setLocalSearch(val);
+    onUpdate(row.tempId, { showDrop: true, errors: row.errors.filter((e) => e !== "service") });
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (!val.trim()) {
+      abortRef.current?.abort();
+      setIsSearching(false);
+      setResults(initialResultsRef.current);
+      return;
+    }
+
+    setIsSearching(true);
+    debounceRef.current = setTimeout(async () => {
+      abortRef.current?.abort();
+      abortRef.current = new AbortController();
+      try {
+        const res = await api.get(
+          `/api/v1/services?search=${encodeURIComponent(val.trim())}&status=active&limit=10`,
+          { signal: abortRef.current.signal }
+        );
+        const raw: any[] = res.data?.data?.data ?? res.data?.data ?? [];
+        setResults(Array.isArray(raw) ? mapServices(raw) : []);
+      } catch (err: any) {
+        if (err?.name !== "CanceledError" && err?.code !== "ERR_CANCELED") setResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+  }
 
   return (
     <div className="qs-item-row" style={{ display: "grid", gridTemplateColumns: GRID, gap: "8px", alignItems: "center" }}>
@@ -23,15 +98,20 @@ export default function ServiceItemRow({ row, staffList, servicesList, onUpdate,
         <input
           className={`qs-inp${row.errors.includes("service") ? " qs-inp--error" : ""}`}
           placeholder="Search service…"
-          value={row.search}
-          onChange={(e) => onUpdate(row.tempId, { search: e.target.value, showDrop: true, errors: row.errors.filter((e) => e !== "service") })}
-          onFocus={() => onUpdate(row.tempId, { showDrop: true })}
+          value={localSearch}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          onFocus={() => { onUpdate(row.tempId, { showDrop: true }); if (!localSearch.trim()) loadInitialServices(); }}
           onBlur={() => setTimeout(() => onUpdate(row.tempId, { showDrop: false }), 150)}
         />
         {row.errors.includes("service") && <div className="qs-field-error">Service is required</div>}
-        {row.showDrop && filtered.length > 0 && (
+        {row.showDrop && isSearching && (
           <div className="qs-inline-drop">
-            {filtered.map((s) => (
+            <div style={{ padding: "8px 12px", color: "#9ca3af", fontSize: 13 }}>Searching…</div>
+          </div>
+        )}
+        {row.showDrop && !isSearching && results.length > 0 && (
+          <div className="qs-inline-drop">
+            {results.map((s) => (
               <div
                 key={s.id}
                 className="qs-inline-drop__item"
@@ -51,6 +131,11 @@ export default function ServiceItemRow({ row, staffList, servicesList, onUpdate,
                 <span className="qs-inline-drop__item__price">₹{s.price}</span>
               </div>
             ))}
+          </div>
+        )}
+        {row.showDrop && !isSearching && localSearch.trim() && results.length === 0 && (
+          <div className="qs-inline-drop">
+            <div style={{ padding: "8px 12px", color: "#9ca3af", fontSize: 13 }}>No services found</div>
           </div>
         )}
       </div>

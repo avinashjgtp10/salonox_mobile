@@ -309,8 +309,8 @@ const InlineDrop: React.FC<{
   search: string; onSearchChange: (v: string) => void; showDrop: boolean; onFocus: () => void;
   items: InlineDropItem[]; onSelect: (item: InlineDropItem) => void;
   placeholder?: string; dropRef: React.RefObject<HTMLDivElement>; disabled?: boolean; hasError?: boolean;
-  inputStyle?: React.CSSProperties;
-}> = ({ search, onSearchChange, showDrop, onFocus, items, onSelect, placeholder = "Search…", dropRef, disabled, hasError, inputStyle }) => (
+  inputStyle?: React.CSSProperties; loading?: boolean;
+}> = ({ search, onSearchChange, showDrop, onFocus, items, onSelect, placeholder = "Search…", dropRef, disabled, hasError, inputStyle, loading }) => (
   <div ref={dropRef} className="position-relative flex-grow-1">
     <input
       disabled={disabled}
@@ -321,7 +321,12 @@ const InlineDrop: React.FC<{
       onChange={(e) => !disabled && onSearchChange(e.target.value)}
       onFocus={() => !disabled && onFocus()}
     />
-    {showDrop && !disabled && items.length > 0 && (
+    {showDrop && !disabled && loading && (
+      <div className="dropdown-menu show w-100 p-0" style={{ maxHeight: 200, overflowY: "auto", zIndex: 300 }}>
+        <div className="dropdown-item text-muted" style={{ fontSize: 12, pointerEvents: "none" }}>Searching…</div>
+      </div>
+    )}
+    {showDrop && !disabled && !loading && items.length > 0 && (
       <div className="dropdown-menu show w-100 p-0" style={{ maxHeight: 200, overflowY: "auto", zIndex: 300 }}>
         {items.map((item, i) => (
           <button key={i} className="dropdown-item d-flex justify-content-between py-1" style={{ fontSize: 12 }} onMouseDown={() => onSelect(item)}>
@@ -334,6 +339,11 @@ const InlineDrop: React.FC<{
             <span className="text-muted small">{item.priceLabel ? item.priceLabel : `₹${item.price}`}</span>
           </button>
         ))}
+      </div>
+    )}
+    {showDrop && !disabled && !loading && search.trim() && items.length === 0 && (
+      <div className="dropdown-menu show w-100 p-0" style={{ maxHeight: 200, overflowY: "auto", zIndex: 300 }}>
+        <div className="dropdown-item text-muted" style={{ fontSize: 12, pointerEvents: "none" }}>No products found</div>
       </div>
     )}
   </div>
@@ -432,6 +442,49 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
   const getPkgRef = (id: string) => { if (!pkgDropRefs.current.has(id)) pkgDropRefs.current.set(id, React.createRef()); return pkgDropRefs.current.get(id)!; };
   const getProdRef = (id: string) => { if (!prodDropRefs.current.has(id)) prodDropRefs.current.set(id, React.createRef()); return prodDropRefs.current.get(id)!; };
   const getMemRef = (id: string) => { if (!memDropRefs.current.has(id)) memDropRefs.current.set(id, React.createRef()); return memDropRefs.current.get(id)!; };
+
+  const prodDebounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const prodAbortRefs    = useRef<Record<string, AbortController>>({});
+  const [productSearchResults, setProductSearchResults] = useState<Record<string, any[]>>({});
+  const [productSearchLoading, setProductSearchLoading] = useState<Record<string, boolean>>({});
+
+  function handleProductSearch(tempId: string, val: string) {
+    setProductRows((r) => r.map((x) => x.tempId === tempId ? { ...x, search: val, showDrop: true } : x));
+    clearTimeout(prodDebounceRefs.current[tempId]);
+    if (!val.trim()) {
+      prodAbortRefs.current[tempId]?.abort();
+      setProductSearchResults((prev) => ({ ...prev, [tempId]: [] }));
+      setProductSearchLoading((prev) => ({ ...prev, [tempId]: false }));
+      return;
+    }
+    setProductSearchLoading((prev) => ({ ...prev, [tempId]: true }));
+    prodDebounceRefs.current[tempId] = setTimeout(async () => {
+      prodAbortRefs.current[tempId]?.abort();
+      prodAbortRefs.current[tempId] = new AbortController();
+      try {
+        const res = await api.get(
+          `/api/v1/products?search=${encodeURIComponent(val.trim())}&limit=10`,
+          { signal: prodAbortRefs.current[tempId].signal }
+        );
+        const raw: any[] = res.data?.data?.data ?? res.data?.data ?? [];
+        setProductSearchResults((prev) => ({
+          ...prev,
+          [tempId]: Array.isArray(raw) ? raw.map((p) => ({
+            id:    String(p.id),
+            name:  p.name,
+            price: p.retail_price !== null && p.retail_price !== undefined ? parseFloat(p.retail_price) : null,
+            stock: Number(p.amount ?? 0),
+          })) : [],
+        }));
+      } catch (err: any) {
+        if (err?.name !== "CanceledError" && err?.code !== "ERR_CANCELED") {
+          setProductSearchResults((prev) => ({ ...prev, [tempId]: [] }));
+        }
+      } finally {
+        setProductSearchLoading((prev) => ({ ...prev, [tempId]: false }));
+      }
+    }, 300);
+  }
   useEffect(() => {
     const h = (e: MouseEvent) => {
       const t = e.target as Node;
@@ -1679,7 +1732,8 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
             {productRows.length > 0 && (<>
               <div className="table-header table-header--products"><div>PRODUCT</div><div>PRICE</div><div>QTY</div><div>DISC (₹)</div><div>TOTAL</div><div /></div>
               {productRows.map((row, i) => {
-                const filtered = (productsList || []).filter((p: any) => p.name.toLowerCase().includes(row.search.toLowerCase()));
+                const prodResults = productSearchResults[row.tempId] || [];
+                const prodLoading = productSearchLoading[row.tempId] || false;
                 const hasRowErr = hasErr(`prod_${i}_name`);
                 return (
                   <div key={row.tempId} className="item-row-grid item-row-grid--prod border-bottom" style={{ position: "relative" }}>
@@ -1689,16 +1743,17 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                       </div>
                     )}
                     <InlineDrop dropRef={getProdRef(row.tempId)} search={row.search} showDrop={row.showDrop} placeholder="Search product…" disabled={priceFrozen} hasError={hasRowErr}
+                      loading={prodLoading}
                       inputStyle={row.stock !== undefined && row.stock <= 0 ? { color: "#dc2626", fontWeight: 600 } : undefined}
                       onFocus={() => setProductRows((r) => r.map((x) => ({ ...x, showDrop: x.tempId === row.tempId })))}
-                      onSearchChange={(v) => setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, search: v, showDrop: true } : x))}
-                      items={filtered.map((p: any) => ({
+                      onSearchChange={(v) => handleProductSearch(row.tempId, v)}
+                      items={prodResults.map((p: any) => ({
                         label: p.name,
                         price: p.price === null ? 0 : p.price,
                         stockIndicator: p.stock <= 0,
                         priceLabel: p.price === null ? <span style={{ fontSize: 10, color: "#6c757d", fontStyle: "italic" }}>Price not available</span> : undefined
                       }))}
-                      onSelect={(item) => { const prod = (productsList || []).find((p: any) => p.name === item.label) as any; if (!prod) return; setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, id: prod.id, productName: prod.name, price: prod.price, total: Math.max(0, prod.price * (x.qty || 1) - (x.discount || 0)), search: prod.name, showDrop: false, stock: prod.stock } : x)); clearErrPrefix(`prod_${i}_`); }} />
+                      onSelect={(item) => { const prod = prodResults.find((p: any) => p.name === item.label) as any; if (!prod) return; setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, id: prod.id, productName: prod.name, price: prod.price ?? 0, total: Math.max(0, (prod.price ?? 0) * (x.qty || 1) - (x.discount || 0)), search: prod.name, showDrop: false, stock: prod.stock } : x)); clearErrPrefix(`prod_${i}_`); }} />
                     <input readOnly value={`₹${row.price}`} className="form-control form-control-sm bg-white" />
                     <input type="text" inputMode="numeric" placeholder="1" value={row.qty} disabled={priceFrozen} className="form-control form-control-sm"
                       onChange={(e) => { const val = e.target.value.replace(/[^0-9.]/g, ""); const num = parseFloat(val); setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: val as any, total: (!isNaN(num) && num > 0) ? Math.max(0, x.price * num - (x.discount || 0)) : x.total } : x)); }}
