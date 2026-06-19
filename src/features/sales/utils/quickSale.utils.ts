@@ -31,10 +31,12 @@ export function formatDisplayDate(iso: string): string {
 }
 
 export function mapStaff(raw: any[]): InitStaff[] {
-  return raw.map((s) => ({
-    id: String(s.id),
-    name: s.full_name || `${s.first_name || ""} ${s.last_name || ""}`.trim() || s.fullName || "",
-  }));
+  return raw
+    .filter((s) => s.is_active !== false)
+    .map((s) => ({
+      id: String(s.id),
+      name: s.full_name || `${s.first_name || ""} ${s.last_name || ""}`.trim() || s.fullName || "",
+    }));
 }
 
 export function mapServices(raw: any[]): InitService[] {

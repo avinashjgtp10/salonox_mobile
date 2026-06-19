@@ -309,7 +309,8 @@ export function useSchedulerInit() {
       dispatch(setStaffList([]));
       return;
     }
-    const mapped: Staff[] = apiStaff.map((s: any, i: number) => {
+    const activeStaff = apiStaff.filter((s: any) => s.is_active !== false);
+    const mapped: Staff[] = activeStaff.map((s: any, i: number) => {
       const fromParts = `${s.first_name || ""} ${s.last_name || ""}`.trim();
       const rawFull = s.fullName || s.full_name || "";
       const spacedFull = rawFull.includes(" ") ? rawFull : rawFull.replace(/([a-z])([A-Z])/g, "$1 $2");
