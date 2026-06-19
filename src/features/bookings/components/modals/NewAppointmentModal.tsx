@@ -32,6 +32,11 @@ import {
   LockFill, Cash, Phone, ExclamationTriangleFill, PencilFill, StarFill,
   Printer, Trash, ArrowRepeat, Scissors, Gift, CheckCircleFill, RecordCircle,
 } from "react-bootstrap-icons";
+import {
+  useListClientPackagesQuery,
+  useCompleteClientPackageSessionMutation,
+} from "../../../../services/api/endpoints/packages.endpoints";
+import type { ClientPackage } from "../../../../services/api/endpoints/packages.endpoints";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 interface Props { onClose: () => void; defaultStaffId?: string; defaultTime?: string; existingBooking?: Booking }
@@ -267,7 +272,7 @@ function printBill(
   win.document.write(html); win.document.close(); win.focus(); setTimeout(() => win.print(), 500);
 }
 
-function validateAll(svcRows: TempService[], pkgRows: TempPkg[], prodRows: TempProduct[], memRows: TempMembership[], clientName: string, isWalkin: boolean, selectedClientId: string | null, showAddClientForm: boolean, newClientName: string, newClientPhone: string) {
+function validateAll(svcRows: TempService[], pkgRows: TempPkg[], prodRows: TempProduct[], memRows: TempMembership[], clientName: string, isWalkin: boolean, selectedClientId: string | null, showAddClientForm: boolean, newClientName: string, newClientPhone: string, hasActivePackages = false) {
   const errors: string[] = [];
   if (!clientName.trim() && !isWalkin && !selectedClientId) errors.push("client");
   // Only validate form fields when creating a brand-new client (no existing selectedClientId).
@@ -279,7 +284,7 @@ function validateAll(svcRows: TempService[], pkgRows: TempPkg[], prodRows: TempP
   }
   const activeSvcRows = svcRows.filter(r => r.service || (r as any).price > 0 || (r as any).staffId);
   const hasAnyItem = activeSvcRows.length > 0 || pkgRows.length > 0 || prodRows.length > 0 || memRows.length > 0;
-  if (!hasAnyItem) errors.push("no_rows");
+  if (!hasAnyItem && !hasActivePackages) errors.push("no_rows");
   svcRows.forEach((r, i) => {
     // If it's the only row, totally empty, and we have packages/products, ignore it
     if (!r.service && !r.staffId && !r.price && hasAnyItem && activeSvcRows.length === 0) return;
@@ -304,8 +309,8 @@ const InlineDrop: React.FC<{
   search: string; onSearchChange: (v: string) => void; showDrop: boolean; onFocus: () => void;
   items: InlineDropItem[]; onSelect: (item: InlineDropItem) => void;
   placeholder?: string; dropRef: React.RefObject<HTMLDivElement>; disabled?: boolean; hasError?: boolean;
-  inputStyle?: React.CSSProperties;
-}> = ({ search, onSearchChange, showDrop, onFocus, items, onSelect, placeholder = "Search…", dropRef, disabled, hasError, inputStyle }) => (
+  inputStyle?: React.CSSProperties; loading?: boolean;
+}> = ({ search, onSearchChange, showDrop, onFocus, items, onSelect, placeholder = "Search…", dropRef, disabled, hasError, inputStyle, loading }) => (
   <div ref={dropRef} className="position-relative flex-grow-1">
     <input
       disabled={disabled}
@@ -316,7 +321,12 @@ const InlineDrop: React.FC<{
       onChange={(e) => !disabled && onSearchChange(e.target.value)}
       onFocus={() => !disabled && onFocus()}
     />
-    {showDrop && !disabled && items.length > 0 && (
+    {showDrop && !disabled && loading && (
+      <div className="dropdown-menu show w-100 p-0" style={{ maxHeight: 200, overflowY: "auto", zIndex: 300 }}>
+        <div className="dropdown-item text-muted" style={{ fontSize: 12, pointerEvents: "none" }}>Searching…</div>
+      </div>
+    )}
+    {showDrop && !disabled && !loading && items.length > 0 && (
       <div className="dropdown-menu show w-100 p-0" style={{ maxHeight: 200, overflowY: "auto", zIndex: 300 }}>
         {items.map((item, i) => (
           <button key={i} className="dropdown-item d-flex justify-content-between py-1" style={{ fontSize: 12 }} onMouseDown={() => onSelect(item)}>
@@ -329,6 +339,11 @@ const InlineDrop: React.FC<{
             <span className="text-muted small">{item.priceLabel ? item.priceLabel : `₹${item.price}`}</span>
           </button>
         ))}
+      </div>
+    )}
+    {showDrop && !disabled && !loading && search.trim() && items.length === 0 && (
+      <div className="dropdown-menu show w-100 p-0" style={{ maxHeight: 200, overflowY: "auto", zIndex: 300 }}>
+        <div className="dropdown-item text-muted" style={{ fontSize: 12, pointerEvents: "none" }}>No products found</div>
       </div>
     )}
   </div>
@@ -427,6 +442,49 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
   const getPkgRef = (id: string) => { if (!pkgDropRefs.current.has(id)) pkgDropRefs.current.set(id, React.createRef()); return pkgDropRefs.current.get(id)!; };
   const getProdRef = (id: string) => { if (!prodDropRefs.current.has(id)) prodDropRefs.current.set(id, React.createRef()); return prodDropRefs.current.get(id)!; };
   const getMemRef = (id: string) => { if (!memDropRefs.current.has(id)) memDropRefs.current.set(id, React.createRef()); return memDropRefs.current.get(id)!; };
+
+  const prodDebounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const prodAbortRefs    = useRef<Record<string, AbortController>>({});
+  const [productSearchResults, setProductSearchResults] = useState<Record<string, any[]>>({});
+  const [productSearchLoading, setProductSearchLoading] = useState<Record<string, boolean>>({});
+
+  function handleProductSearch(tempId: string, val: string) {
+    setProductRows((r) => r.map((x) => x.tempId === tempId ? { ...x, search: val, showDrop: true } : x));
+    clearTimeout(prodDebounceRefs.current[tempId]);
+    if (!val.trim()) {
+      prodAbortRefs.current[tempId]?.abort();
+      setProductSearchResults((prev) => ({ ...prev, [tempId]: [] }));
+      setProductSearchLoading((prev) => ({ ...prev, [tempId]: false }));
+      return;
+    }
+    setProductSearchLoading((prev) => ({ ...prev, [tempId]: true }));
+    prodDebounceRefs.current[tempId] = setTimeout(async () => {
+      prodAbortRefs.current[tempId]?.abort();
+      prodAbortRefs.current[tempId] = new AbortController();
+      try {
+        const res = await api.get(
+          `/api/v1/products?search=${encodeURIComponent(val.trim())}&limit=10`,
+          { signal: prodAbortRefs.current[tempId].signal }
+        );
+        const raw: any[] = res.data?.data?.data ?? res.data?.data ?? [];
+        setProductSearchResults((prev) => ({
+          ...prev,
+          [tempId]: Array.isArray(raw) ? raw.map((p) => ({
+            id:    String(p.id),
+            name:  p.name,
+            price: p.retail_price !== null && p.retail_price !== undefined ? parseFloat(p.retail_price) : null,
+            stock: Number(p.amount ?? 0),
+          })) : [],
+        }));
+      } catch (err: any) {
+        if (err?.name !== "CanceledError" && err?.code !== "ERR_CANCELED") {
+          setProductSearchResults((prev) => ({ ...prev, [tempId]: [] }));
+        }
+      } finally {
+        setProductSearchLoading((prev) => ({ ...prev, [tempId]: false }));
+      }
+    }, 300);
+  }
   useEffect(() => {
     const h = (e: MouseEvent) => {
       const t = e.target as Node;
@@ -485,6 +543,41 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
   const [cancelDeleteError, setCancelDeleteError] = useState("");
 
   const paymentSectionRef = useRef<HTMLDivElement>(null);
+
+  // ── Package session completion ───────────────────────────────────────────────
+  const [pkgServiceMap,    setPkgServiceMap]    = useState<Record<string, string>>({});
+  const [pkgStaffMap,      setPkgStaffMap]      = useState<Record<string, string>>({});
+  const [pkgCompletingKey, setPkgCompletingKey] = useState<string | null>(null);
+  const [pkgError,         setPkgError]         = useState("");
+  const [pkgSuccess,       setPkgSuccess]       = useState("");
+
+  const { data: clientPkgsData, isLoading: pkgLoading } = useListClientPackagesQuery(
+    { clientId: selectedClientId || "", status: "Active", limit: 50 },
+    { skip: !selectedClientId },
+  );
+  const [completeSession] = useCompleteClientPackageSessionMutation();
+  const clientPackages: ClientPackage[] = clientPkgsData?.items ?? [];
+
+  async function handleCompleteSingleSession(packageId: string) {
+    const serviceId   = pkgServiceMap[packageId];
+    const staffId     = pkgStaffMap[packageId];
+    if (!serviceId || !staffId) { setPkgError("Please select a service and staff member."); return; }
+    const pkg         = clientPackages.find((p) => p.id === packageId);
+    const svc         = pkg?.services.find((s) => String(s.serviceId) === serviceId);
+    const serviceName = svc?.serviceName || serviceId;
+    setPkgCompletingKey(packageId); setPkgError(""); setPkgSuccess("");
+    try {
+      const staffName = staffList.find((s) => s.id === staffId)?.name || staffId;
+      await completeSession({ id: packageId, body: { serviceId, staffName } }).unwrap();
+      setPkgSuccess(`"${serviceName}" session marked as complete!`);
+      setPkgServiceMap((prev) => { const n = { ...prev }; delete n[packageId]; return n; });
+      setPkgStaffMap((prev)   => { const n = { ...prev }; delete n[packageId]; return n; });
+    } catch (err: any) {
+      setPkgError(err?.data?.message || err?.message || "Failed to complete session.");
+    } finally {
+      setPkgCompletingKey(null);
+    }
+  }
 
   // Fetch client details from API when a client is selected
   useEffect(() => {
@@ -704,7 +797,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
   }
 
   function runValidation() {
-    return validateAll(serviceRows, packageRows, productRows, membershipRows, resolvedName(), isWalkin, selectedClientId, showAddClientForm, newClientName, newClientPhone);
+    return validateAll(serviceRows, packageRows, productRows, membershipRows, resolvedName(), isWalkin, selectedClientId, showAddClientForm, newClientName, newClientPhone, clientPackages.length > 0);
   }
 
   async function resolveClientId(): Promise<string | undefined> {
@@ -788,6 +881,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
               const svcEndISO = new Date(svcDt.getTime() + (s.duration || 30) * 60000).toISOString();
               return {
                 service_id: s.id,
+                name: s.service,
                 staff_id: toApiStaffId(s.staffId),
                 start_time: svcStartISO,
                 end_time: svcEndISO,
@@ -796,14 +890,25 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                 total: s.total,
               };
             }),
-            package_items: b.packageItems,
+            package_items: (b.packageItems || []).map((p: any) => ({
+              package_id: p.packageId || p.id || undefined,
+              name: p.packageName || p.name || "",
+              price: p.price || 0,
+              quantity: p.qty || p.quantity || 1,
+            })),
             product_items: ((b as any).productItems || []).map((p: any) => ({
               product_id: p.id || p.product_id || undefined,
               name: p.productName || p.name || "",
               price: p.price || 0,
               quantity: p.qty || p.quantity || 1,
             })),
-            membership_items: (b as any).membershipItems,
+            membership_items: ((b as any).membershipItems || []).map((m: any) => ({
+              membership_id: m.membershipId || m.id || undefined,
+              name: m.name || "",
+              price: m.price || 0,
+              quantity: m.qty || m.quantity || 1,
+              duration: m.duration || undefined,
+            })),
             scheduled_at: new Date(`${calDate}T${startTime}:00`).toISOString(),
             duration_minutes: b.services[0]?.duration || 30,
             status: "booked",
@@ -896,6 +1001,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
               const svcEndISO = new Date(svcDt.getTime() + (s.duration || 30) * 60000).toISOString();
               return {
                 service_id: s.id,
+                name: s.service,
                 staff_id: toApiStaffId(s.staffId),
                 start_time: svcStartISO,
                 end_time: svcEndISO,
@@ -904,14 +1010,25 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                 total: s.total,
               };
             }),
-            package_items: b.packageItems,
+            package_items: (b.packageItems || []).map((p: any) => ({
+              package_id: p.packageId || p.id || undefined,
+              name: p.packageName || p.name || "",
+              price: p.price || 0,
+              quantity: p.qty || p.quantity || 1,
+            })),
             product_items: ((b as any).productItems || []).map((p: any) => ({
               product_id: p.id || p.product_id || undefined,
               name: p.productName || p.name || "",
               price: p.price || 0,
               quantity: p.qty || p.quantity || 1,
             })),
-            membership_items: (b as any).membershipItems,
+            membership_items: ((b as any).membershipItems || []).map((m: any) => ({
+              membership_id: m.membershipId || m.id || undefined,
+              name: m.name || "",
+              price: m.price || 0,
+              quantity: m.qty || m.quantity || 1,
+              duration: m.duration || undefined,
+            })),
             scheduled_at: new Date(`${calDate}T${startTime}:00`).toISOString(),
             duration_minutes: b.services[0]?.duration || 30,
             status: "booked",
@@ -1512,6 +1629,66 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
             </div>
           )}
 
+          {/* ── COMPLETE PACKAGE SESSIONS ── */}
+          {selectedClientId && (pkgLoading || clientPackages.length > 0) && (
+            <div className="appt-section appt-pkg-section" style={{ pointerEvents: "auto", userSelect: "auto" }}>
+              <div className="appt-section__title">📦 Complete Package Sessions</div>
+
+              {pkgError   && <div className="appt-pkg-msg appt-pkg-msg--error">{pkgError}</div>}
+              {pkgSuccess && <div className="appt-pkg-msg appt-pkg-msg--success">{pkgSuccess}</div>}
+
+              {pkgLoading ? (
+                <div className="appt-pkg-empty">Loading packages…</div>
+              ) : (
+                <div className="appt-pkg-list">
+                  {clientPackages.map((pkg) => {
+                    const availableServices = pkg.services.filter((s) => s.remainingSessions > 0);
+                    const isCompleting = pkgCompletingKey === pkg.id;
+                    return (
+                      <div key={pkg.id} className="appt-pkg-row">
+                        <span className="appt-pkg-row__name">{pkg.packageName}</span>
+                        {availableServices.length === 0 ? (
+                          <span className="appt-pkg-row__done-text">✓ All sessions completed</span>
+                        ) : (
+                          <>
+                            <select
+                              className="appt-pkg-row__sel"
+                              value={pkgServiceMap[pkg.id] || ""}
+                              onChange={(e) => { setPkgServiceMap((prev) => ({ ...prev, [pkg.id]: e.target.value })); setPkgError(""); }}
+                            >
+                              <option value="">Select service…</option>
+                              {availableServices.map((svc) => (
+                                <option key={svc.serviceId} value={String(svc.serviceId)}>
+                                  {svc.serviceName} ({svc.remainingSessions} left)
+                                </option>
+                              ))}
+                            </select>
+                            <select
+                              className="appt-pkg-row__sel"
+                              value={pkgStaffMap[pkg.id] || ""}
+                              onChange={(e) => { setPkgStaffMap((prev) => ({ ...prev, [pkg.id]: e.target.value })); setPkgError(""); }}
+                            >
+                              <option value="">Select staff…</option>
+                              {staffList.map((st) => <option key={st.id} value={st.id}>{st.name}</option>)}
+                            </select>
+                            <button
+                              type="button"
+                              className="appt-pkg-row__btn"
+                              disabled={!pkgServiceMap[pkg.id] || !pkgStaffMap[pkg.id] || isCompleting}
+                              onClick={() => handleCompleteSingleSession(pkg.id)}
+                            >
+                              {isCompleting ? "…" : "✓ Done"}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ── SERVICES & ITEMS ── */}
           <div className="appt-section">
             <div className="appt-section__title"><Scissors size={13} style={{ marginRight: 5, verticalAlign: "middle" }} />Services &amp; Items</div>
@@ -1555,7 +1732,8 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
             {productRows.length > 0 && (<>
               <div className="table-header table-header--products"><div>PRODUCT</div><div>PRICE</div><div>QTY</div><div>DISC (₹)</div><div>TOTAL</div><div /></div>
               {productRows.map((row, i) => {
-                const filtered = (productsList || []).filter((p: any) => p.name.toLowerCase().includes(row.search.toLowerCase()));
+                const prodResults = productSearchResults[row.tempId] || [];
+                const prodLoading = productSearchLoading[row.tempId] || false;
                 const hasRowErr = hasErr(`prod_${i}_name`);
                 return (
                   <div key={row.tempId} className="item-row-grid item-row-grid--prod border-bottom" style={{ position: "relative" }}>
@@ -1565,16 +1743,17 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                       </div>
                     )}
                     <InlineDrop dropRef={getProdRef(row.tempId)} search={row.search} showDrop={row.showDrop} placeholder="Search product…" disabled={priceFrozen} hasError={hasRowErr}
+                      loading={prodLoading}
                       inputStyle={row.stock !== undefined && row.stock <= 0 ? { color: "#dc2626", fontWeight: 600 } : undefined}
                       onFocus={() => setProductRows((r) => r.map((x) => ({ ...x, showDrop: x.tempId === row.tempId })))}
-                      onSearchChange={(v) => setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, search: v, showDrop: true } : x))}
-                      items={filtered.map((p: any) => ({
+                      onSearchChange={(v) => handleProductSearch(row.tempId, v)}
+                      items={prodResults.map((p: any) => ({
                         label: p.name,
                         price: p.price === null ? 0 : p.price,
                         stockIndicator: p.stock <= 0,
                         priceLabel: p.price === null ? <span style={{ fontSize: 10, color: "#6c757d", fontStyle: "italic" }}>Price not available</span> : undefined
                       }))}
-                      onSelect={(item) => { const prod = (productsList || []).find((p: any) => p.name === item.label) as any; if (!prod) return; setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, id: prod.id, productName: prod.name, price: prod.price, total: Math.max(0, prod.price * (x.qty || 1) - (x.discount || 0)), search: prod.name, showDrop: false, stock: prod.stock } : x)); clearErrPrefix(`prod_${i}_`); }} />
+                      onSelect={(item) => { const prod = prodResults.find((p: any) => p.name === item.label) as any; if (!prod) return; setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, id: prod.id, productName: prod.name, price: prod.price ?? 0, total: Math.max(0, (prod.price ?? 0) * (x.qty || 1) - (x.discount || 0)), search: prod.name, showDrop: false, stock: prod.stock } : x)); clearErrPrefix(`prod_${i}_`); }} />
                     <input readOnly value={`₹${row.price}`} className="form-control form-control-sm bg-white" />
                     <input type="text" inputMode="numeric" placeholder="1" value={row.qty} disabled={priceFrozen} className="form-control form-control-sm"
                       onChange={(e) => { const val = e.target.value.replace(/[^0-9.]/g, ""); const num = parseFloat(val); setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: val as any, total: (!isNaN(num) && num > 0) ? Math.max(0, x.price * num - (x.discount || 0)) : x.total } : x)); }}
@@ -1869,6 +2048,71 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                 <div className="pay-print-check">
                   <input type="checkbox" id="printToggle" checked={printAfterPayment} onChange={(e) => setPrintAfterPayment(e.target.checked)} />
                   <label htmlFor="printToggle">Print receipt after payment</label>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── COMPLETE PACKAGE SESSIONS ── */}
+          {selectedClientId && (
+            <div className="appt-section appt-pkg-section">
+              <div className="appt-section__title">📦 Complete Package Sessions</div>
+
+              {pkgError   && <div className="appt-pkg-msg appt-pkg-msg--error">{pkgError}</div>}
+              {pkgSuccess && <div className="appt-pkg-msg appt-pkg-msg--success">{pkgSuccess}</div>}
+
+              {pkgLoading && <div className="appt-pkg-empty">Loading packages…</div>}
+
+              {!pkgLoading && clientPackages.length === 0 && (
+                <div className="appt-pkg-empty">No active packages for this client.</div>
+              )}
+
+              {!pkgLoading && clientPackages.length > 0 && (
+                <div className="appt-pkg-list">
+                  {clientPackages.map((pkg) => {
+                    const availableServices = pkg.services.filter((s) => s.remainingSessions > 0);
+                    const isCompleting = pkgCompletingKey === pkg.id;
+                    return (
+                      <div key={pkg.id} className="appt-pkg-row">
+                        <span className="appt-pkg-row__name">{pkg.packageName}</span>
+
+                        {availableServices.length === 0 ? (
+                          <span className="appt-pkg-row__done-text">✓ All sessions completed</span>
+                        ) : (
+                          <>
+                            <select
+                              className="appt-pkg-row__sel"
+                              value={pkgServiceMap[pkg.id] || ""}
+                              onChange={(e) => { setPkgServiceMap((prev) => ({ ...prev, [pkg.id]: e.target.value })); setPkgError(""); }}
+                            >
+                              <option value="">Select service…</option>
+                              {availableServices.map((svc) => (
+                                <option key={svc.serviceId} value={String(svc.serviceId)}>
+                                  {svc.serviceName} ({svc.remainingSessions} left)
+                                </option>
+                              ))}
+                            </select>
+                            <select
+                              className="appt-pkg-row__sel"
+                              value={pkgStaffMap[pkg.id] || ""}
+                              onChange={(e) => { setPkgStaffMap((prev) => ({ ...prev, [pkg.id]: e.target.value })); setPkgError(""); }}
+                            >
+                              <option value="">Select staff…</option>
+                              {staffList.map((st) => <option key={st.id} value={st.id}>{st.name}</option>)}
+                            </select>
+                            <button
+                              type="button"
+                              className="appt-pkg-row__btn"
+                              disabled={!pkgServiceMap[pkg.id] || !pkgStaffMap[pkg.id] || isCompleting}
+                              onClick={() => handleCompleteSingleSession(pkg.id)}
+                            >
+                              {isCompleting ? "…" : "✓ Done"}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

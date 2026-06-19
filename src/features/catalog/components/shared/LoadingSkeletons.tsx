@@ -38,4 +38,20 @@ export const ServiceListSkeleton: React.FC<{ groups?: number }> = ({
   </div>
 );
 
+export const CategorySidebarSkeleton: React.FC<{ items?: number }> = ({
+  items = 6,
+}) => (
+  <div className="slp__cat-skeleton-list" aria-hidden="true">
+    {Array.from({ length: items }, (_, i) => (
+      <div className="slp__cat-skeleton-item" key={i}>
+        <div className="slp__cat-skeleton-main">
+          <div className="slp__skeleton slp__cat-skeleton-dot" />
+          <div className="slp__skeleton slp__cat-skeleton-name" />
+        </div>
+        <div className="slp__skeleton slp__cat-skeleton-action" />
+      </div>
+    ))}
+  </div>
+);
+
 export default ServiceListSkeleton;

@@ -1,8 +1,9 @@
 // src/components/packages/PackageDashboard.tsx
 import React, { useState, useMemo, useEffect } from "react";
-import { Package, CheckCircle2, Clock, Target, Search, CheckCheck, History, X, Loader2 } from "lucide-react";
+import { Package, CheckCircle2, Clock, Target, Search, CheckCheck, History, X, Loader2, Sparkles, PenLine, ChevronRight, Layers } from "lucide-react";
 import styles from "./packages.module.scss";
-import type { ClientPackage } from "../../services/api/endpoints/packages.endpoints";
+import type { ClientPackage, PackageTemplate } from "../../services/api/endpoints/packages.endpoints";
+import { useListPackageTemplatesQuery } from "../../services/api/endpoints/packages.endpoints";
 import type { ClientSearchResult } from "../../features/clients/components/ClientSearchInput";
 import ClientSelectorWithAdd from "./ClientSelectorWithAdd";
 import { useGetClientPackages, useCompleteSession } from "../../hooks/packages/usePackages";
@@ -15,6 +16,7 @@ interface Props {
   selectedClient: ClientSearchResult | null;
   onClientChange: (client: ClientSearchResult | null) => void;
   onCreateNew: () => void;
+  onCreateFromTemplate: (template: PackageTemplate) => void;
 }
 
 function initials(name: string) {
@@ -27,15 +29,19 @@ function daysUntil(dateStr: string | null) {
 }
 
 const PackageDashboard: React.FC<Props> = ({
-  selectedClient, onClientChange, onCreateNew,
+  selectedClient, onClientChange, onCreateNew, onCreateFromTemplate,
 }) => {
-  const [selService,   setSelService]   = useState("");
-  const [selStaff,     setSelStaff]     = useState("");
-  const [activeTab,    setActiveTab]    = useState("");
-  const [toast,        setToast]        = useState<{ msg: string; type: "success" | "error" } | null>(null);
-  const [search,       setSearch]       = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [sortBy,       setSortBy]       = useState("newest");
+  const [selService,      setSelService]      = useState("");
+  const [selStaff,        setSelStaff]        = useState("");
+  const [activeTab,       setActiveTab]       = useState("");
+  const [toast,           setToast]           = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const [search,          setSearch]          = useState("");
+  const [statusFilter,    setStatusFilter]    = useState("all");
+  const [sortBy,          setSortBy]          = useState("newest");
+  const [showChoice,      setShowChoice]      = useState(false);
+  const [showTmplPicker,  setShowTmplPicker]  = useState(false);
+
+  const { data: templates = [] } = useListPackageTemplatesQuery();
 
   const dispatch = useDispatch<AppDispatch>();
 
@@ -64,6 +70,7 @@ const PackageDashboard: React.FC<Props> = ({
   const { completeSession, isLoading: completing } = useCompleteSession();
 
   const clientPkgs = useMemo(() => {
+    if (!selectedClient) return [];
     let result = [...allClientPkgs];
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -83,9 +90,10 @@ const PackageDashboard: React.FC<Props> = ({
     return result;
   }, [allClientPkgs, search, statusFilter, sortBy]);
 
-  const activePkgs  = allClientPkgs.filter(p => daysUntil(p.expiryDate) >= 0).length;
-  const expiredPkgs = allClientPkgs.length - activePkgs;
-  const totalRem    = allClientPkgs.reduce((a, p) => a + p.services.reduce((s, sv) => s + sv.remainingSessions, 0), 0);
+  const pkgsForStats = selectedClient ? allClientPkgs : [];
+  const activePkgs  = pkgsForStats.filter(p => daysUntil(p.expiryDate) >= 0).length;
+  const expiredPkgs = pkgsForStats.length - activePkgs;
+  const totalRem    = pkgsForStats.reduce((a, p) => a + p.services.reduce((s, sv) => s + sv.remainingSessions, 0), 0);
 
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     setToast({ msg, type });
@@ -126,7 +134,7 @@ const PackageDashboard: React.FC<Props> = ({
   };
 
   const STAT_CARDS = [
-    { label: "Total Packages",     value: allClientPkgs.length, icon: <Package size={16} />,      variant: "purple"  as const },
+    { label: "Total Packages",     value: pkgsForStats.length,  icon: <Package size={16} />,      variant: "purple"  as const },
     { label: "Active Packages",    value: activePkgs,           icon: <CheckCircle2 size={16} />, variant: "emerald" as const },
     { label: "Expired Packages",   value: expiredPkgs,          icon: <Clock size={16} />,        variant: "rose"    as const },
     { label: "Sessions Remaining", value: totalRem,             icon: <Target size={16} />,       variant: "indigo"  as const },
@@ -150,7 +158,7 @@ const PackageDashboard: React.FC<Props> = ({
         </div>
         <div className={styles.headerActions}>
           <button
-            onClick={onCreateNew}
+            onClick={() => selectedClient && setShowChoice(true)}
             disabled={!selectedClient}
             className={styles.btnPrimary}
             title={!selectedClient ? "Select a client first" : ""}
@@ -283,7 +291,7 @@ const PackageDashboard: React.FC<Props> = ({
                     : "No packages found for this client."}
                 </div>
                 {!search && statusFilter === "all" && (
-                  <span onClick={onCreateNew} className={styles.emptyLink}>Create a package →</span>
+                  <span onClick={() => setShowChoice(true)} className={styles.emptyLink}>Create a package →</span>
                 )}
               </div>
             </div>
@@ -301,42 +309,69 @@ const PackageDashboard: React.FC<Props> = ({
               return (
                 <React.Fragment key={pkg.id}>
 
-                  {/* Mark session */}
-                  <div className={styles.card}>
-                    <div className={styles.cardHead}>
-                      <div className={styles.cardTitle}><CheckCheck size={14} /> Mark session as completed</div>
-                    </div>
-                    <div className={styles.markSession}>
-                      <div className={styles.formField}>
-                        <label className={styles.formLabel}>Service</label>
-                        <select value={selService} onChange={e => setSelService(e.target.value)} className={styles.select}>
-                          <option value="">Choose service…</option>
-                          {pkg.services.map(s => (
-                            <option key={s.serviceId} value={s.serviceId} disabled={s.remainingSessions <= 0}>
-                              {s.serviceName} ({s.remainingSessions} remaining)
-                            </option>
-                          ))}
-                        </select>
+                  {/* Mark session — hidden for expired packages */}
+                  {expired || pkg.status?.toLowerCase() === "expired" ? (
+                    <div className={styles.card}>
+                      <div style={{
+                        display: "flex", alignItems: "center", gap: 14,
+                        padding: "16px 20px",
+                        background: "linear-gradient(135deg,#fff7ed,#fef3c7)",
+                        borderRadius: 10,
+                        border: "1px solid #fde68a",
+                      }}>
+                        <div style={{
+                          width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+                          background: "#f59e0b", display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>
+                          <Clock size={20} color="#fff" />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: "#92400e" }}>
+                            Package Expired
+                          </div>
+                          <div style={{ fontSize: 13, color: "#b45309", marginTop: 2 }}>
+                            This package expired on <strong>{new Date(pkg.expiryDate!).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</strong>. Sessions can no longer be marked as completed.
+                          </div>
+                        </div>
                       </div>
-                      <div className={styles.formField}>
-                        <label className={styles.formLabel}>Staff</label>
-                        <select value={selStaff} onChange={e => setSelStaff(e.target.value)} className={styles.select}>
-                          <option value="">Select staff…</option>
-                          {staffList.length > 0
-                            ? staffList.map(name => <option key={name}>{name}</option>)
-                            : <option disabled>No staff loaded</option>
-                          }
-                        </select>
-                      </div>
-                      <button
-                        onClick={() => handleComplete(pkg.id)}
-                        className={styles.btnPrimary}
-                        disabled={completing}
-                      >
-                        {completing ? <><Loader2 size={13} className={styles.spin} /> Saving…</> : "Mark complete"}
-                      </button>
                     </div>
-                  </div>
+                  ) : (
+                    <div className={styles.card}>
+                      <div className={styles.cardHead}>
+                        <div className={styles.cardTitle}><CheckCheck size={14} /> Mark session as completed</div>
+                      </div>
+                      <div className={styles.markSession}>
+                        <div className={styles.formField}>
+                          <label className={styles.formLabel}>Service</label>
+                          <select value={selService} onChange={e => setSelService(e.target.value)} className={styles.select}>
+                            <option value="">Choose service…</option>
+                            {pkg.services.map(s => (
+                              <option key={s.serviceId} value={s.serviceId} disabled={s.remainingSessions <= 0}>
+                                {s.serviceName} ({s.remainingSessions} remaining)
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className={styles.formField}>
+                          <label className={styles.formLabel}>Staff</label>
+                          <select value={selStaff} onChange={e => setSelStaff(e.target.value)} className={styles.select}>
+                            <option value="">Select staff…</option>
+                            {staffList.length > 0
+                              ? staffList.map(name => <option key={name}>{name}</option>)
+                              : <option disabled>No staff loaded</option>
+                            }
+                          </select>
+                        </div>
+                        <button
+                          onClick={() => handleComplete(pkg.id)}
+                          className={styles.btnPrimary}
+                          disabled={completing}
+                        >
+                          {completing ? <><Loader2 size={13} className={styles.spin} /> Saving…</> : "Mark complete"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Package detail card */}
                   <div className={styles.card}>
@@ -476,6 +511,193 @@ const PackageDashboard: React.FC<Props> = ({
               );
             })
           )}
+        </>
+      )}
+
+      {/* ── Choice modal ─────────────────────────────────────────────────────── */}
+      {showChoice && (
+        <>
+          <div
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 1060 }}
+            onClick={() => setShowChoice(false)}
+          />
+          <div style={{
+            position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)",
+            background: "#fff", borderRadius: 20, width: "min(540px,92vw)",
+            zIndex: 1070, boxShadow: "0 24px 60px rgba(0,0,0,.2)",
+            overflow: "hidden",
+          }}>
+            {/* Modal header */}
+            <div style={{ padding: "22px 24px 18px", borderBottom: "1px solid #f0f1f3" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: "#111827", letterSpacing: "-.02em" }}>Create Package</div>
+                  <div style={{ fontSize: 13, color: "#6b7280", marginTop: 3 }}>
+                    Choose how you'd like to create this package for <strong style={{ color: "#111827" }}>
+                      {selectedClient ? `${selectedClient.first_name} ${selectedClient.last_name ?? ""}`.trim() : "client"}
+                    </strong>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowChoice(false)}
+                  style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#6b7280", flexShrink: 0 }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Two options */}
+            <div style={{ padding: "20px 24px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
+
+              {/* Option 1 — From Template */}
+              <button
+                onClick={() => { setShowChoice(false); setShowTmplPicker(true); }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 16,
+                  padding: "18px 20px", border: "2px solid #e5e7eb", borderRadius: 14,
+                  background: "#fff", cursor: "pointer", textAlign: "left",
+                  transition: "all .15s", fontFamily: "inherit", width: "100%",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#7c3aed"; (e.currentTarget as HTMLButtonElement).style.background = "#faf5ff"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#e5e7eb"; (e.currentTarget as HTMLButtonElement).style.background = "#fff"; }}
+              >
+                <div style={{ width: 52, height: 52, borderRadius: 14, background: "linear-gradient(135deg,#667eea,#764ba2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <Layers size={24} color="#fff" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginBottom: 4 }}>
+                    Buy Existing Package
+                    {templates.length > 0 && (
+                      <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 600, background: "#f5f3ff", color: "#7c3aed", borderRadius: 20, padding: "2px 8px" }}>
+                        {templates.length} template{templates.length !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 13, color: "#6b7280" }}>
+                    Choose from pre-built package templates — auto-fills all services, pricing & expiry
+                  </div>
+                </div>
+                <ChevronRight size={18} color="#9ca3af" style={{ flexShrink: 0 }} />
+              </button>
+
+              {/* Option 2 — Custom */}
+              <button
+                onClick={() => { setShowChoice(false); onCreateNew(); }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 16,
+                  padding: "18px 20px", border: "2px solid #e5e7eb", borderRadius: 14,
+                  background: "#fff", cursor: "pointer", textAlign: "left",
+                  transition: "all .15s", fontFamily: "inherit", width: "100%",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#111827"; (e.currentTarget as HTMLButtonElement).style.background = "#f9fafb"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#e5e7eb"; (e.currentTarget as HTMLButtonElement).style.background = "#fff"; }}
+              >
+                <div style={{ width: 52, height: 52, borderRadius: 14, background: "linear-gradient(135deg,#374151,#111827)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <PenLine size={22} color="#fff" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginBottom: 4 }}>Create Custom Package</div>
+                  <div style={{ fontSize: 13, color: "#6b7280" }}>
+                    Build a package from scratch — choose any services, set your own pricing and expiry
+                  </div>
+                </div>
+                <ChevronRight size={18} color="#9ca3af" style={{ flexShrink: 0 }} />
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── Template picker modal ─────────────────────────────────────────────── */}
+      {showTmplPicker && (
+        <>
+          <div
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 1060 }}
+            onClick={() => setShowTmplPicker(false)}
+          />
+          <div style={{
+            position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)",
+            background: "#fff", borderRadius: 20, width: "min(580px,92vw)", maxHeight: "80vh",
+            display: "flex", flexDirection: "column",
+            zIndex: 1070, boxShadow: "0 24px 60px rgba(0,0,0,.2)",
+          }}>
+            <div style={{ padding: "22px 24px 16px", borderBottom: "1px solid #f0f1f3", flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: "#111827", letterSpacing: "-.02em" }}>Choose a Template</div>
+                  <div style={{ fontSize: 13, color: "#6b7280", marginTop: 3 }}>All form fields will be pre-filled from the selected template</div>
+                </div>
+                <button
+                  onClick={() => setShowTmplPicker(false)}
+                  style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#6b7280" }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            <div style={{ overflowY: "auto", padding: "16px 20px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+              {templates.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "40px 20px", color: "#6b7280" }}>
+                  <Layers size={36} color="#d1d5db" style={{ marginBottom: 12 }} />
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#374151", marginBottom: 6 }}>No templates yet</div>
+                  <div style={{ fontSize: 13 }}>Go to the <strong>Templates</strong> tab to create reusable package templates.</div>
+                </div>
+              ) : templates.map((t, i) => {
+                const GRADIENTS = [
+                  "linear-gradient(135deg,#667eea,#764ba2)",
+                  "linear-gradient(135deg,#f093fb,#f5576c)",
+                  "linear-gradient(135deg,#4facfe,#00f2fe)",
+                  "linear-gradient(135deg,#43e97b,#38f9d7)",
+                  "linear-gradient(135deg,#fa709a,#fee140)",
+                  "linear-gradient(135deg,#a18cd1,#fbc2eb)",
+                ];
+                const grad = GRADIENTS[i % GRADIENTS.length];
+                const gstAmt = (t.basePrice - t.discount) * t.gstPercentage / 100;
+                const total  = t.basePrice - t.discount + gstAmt;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => { setShowTmplPicker(false); onCreateFromTemplate(t); }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 14,
+                      padding: "14px 16px", border: "2px solid #e5e7eb", borderRadius: 14,
+                      background: "#fff", cursor: "pointer", textAlign: "left",
+                      transition: "all .15s", fontFamily: "inherit", width: "100%",
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#7c3aed"; (e.currentTarget as HTMLButtonElement).style.background = "#faf5ff"; (e.currentTarget as HTMLButtonElement).style.transform = "translateX(3px)"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#e5e7eb"; (e.currentTarget as HTMLButtonElement).style.background = "#fff"; (e.currentTarget as HTMLButtonElement).style.transform = "translateX(0)"; }}
+                  >
+                    {/* Color badge */}
+                    <div style={{ width: 44, height: 44, borderRadius: 12, background: grad, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <Sparkles size={20} color="#fff" />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "#111827", marginBottom: 3 }}>{t.name}</div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        {t.services.slice(0, 3).map(s => (
+                          <span key={s.id} style={{ fontSize: 11, fontWeight: 500, background: "#f5f3ff", color: "#7c3aed", borderRadius: 20, padding: "2px 8px" }}>
+                            {s.serviceName} ×{s.totalSessions}
+                          </span>
+                        ))}
+                        {t.services.length > 3 && (
+                          <span style={{ fontSize: 11, color: "#9ca3af" }}>+{t.services.length - 3} more</span>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: "#7c3aed" }}>₹{total.toFixed(0)}</div>
+                      <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>
+                        {t.neverExpires ? "Never expires" : `${t.expiryMonths}mo`}
+                      </div>
+                    </div>
+                    <ChevronRight size={16} color="#9ca3af" style={{ flexShrink: 0 }} />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </>
       )}
     </>

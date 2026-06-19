@@ -5,9 +5,30 @@ import type { Service } from "../types/catalog.types";
 
 const d = (v: unknown) => (v == null || v === "" ? "—" : String(v));
 const bool = (v: unknown) => (v ? "Yes" : "No");
+const formatExportDate = (value: Date | string | number) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error("Invalid export date");
+  }
+  return date.toLocaleDateString("en-GB");
+};
+const formatGeneratedAt = (value: Date | string | number) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error("Invalid generated-at date");
+  }
+  const day = date.toLocaleDateString("en-GB");
+  const time = date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+  return `${day} ${time}`;
+};
 const fmt = (v: unknown) => {
   if (!v) return "—";
-  try { return new Date(String(v)).toLocaleDateString(); } catch { return String(v); }
+  try { return formatExportDate(String(v)); } catch { return String(v); }
 };
 
 const COLS: { header: string; fn: (s: Service) => string }[] = [
@@ -19,7 +40,6 @@ const COLS: { header: string; fn: (s: Service) => string }[] = [
   { header: "Price / Retail",   fn: (s) => d(s.price) },
   { header: "Discounted Price", fn: (s) => d(s.discounted_price) },
   { header: "Duration (min)",   fn: (s) => d(s.duration) },
-  { header: "Treatment Type",   fn: (s) => d(s.treatment_type) },
   { header: "Available For",    fn: (s) => d(s.gender_preference) },
   { header: "Online Booking",   fn: (s) => bool(s.online_booking) },
   { header: "Commission",       fn: (s) => bool(s.commission_enabled) },
@@ -40,7 +60,7 @@ export const exportServicesPDF = (services: Service[]) => {
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100);
-  doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 25);
+  doc.text(`Generated: ${formatGeneratedAt(new Date())}`, 14, 25);
 
   autoTable(doc, {
     head: [COLS.map((c) => c.header)],
@@ -67,20 +87,40 @@ export const exportServicesPDF = (services: Service[]) => {
 };
 
 export const exportServicesExcel = (services: Service[]) => {
-  const data = [COLS.map((c) => c.header), ...rows(services)];
-  const ws = XLSX.utils.aoa_to_sheet(data);
-
-  // Bold header row
-  const range = XLSX.utils.decode_range(ws["!ref"] ?? "A1");
-  for (let c = range.s.c; c <= range.e.c; c++) {
-    const cell = ws[XLSX.utils.encode_cell({ r: 0, c })];
-    if (cell) cell.s = { font: { bold: true } };
-  }
-
-  // Auto column widths
-  ws["!cols"] = COLS.map((col) => ({
-    wch: Math.max(col.header.length + 2, 14),
-  }));
+  const headerRow = COLS.map((c) => c.header);
+  const bodyRows = rows(services);
+  const generatedAt = new Date();
+  const data = [
+    ["Services & Bundles Catalogue"],
+    ["Generated", generatedAt],
+    [],
+    headerRow,
+    ...bodyRows,
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(data, { cellDates: true });
+  ws["!merges"] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: headerRow.length - 1 } },
+  ];
+  ws.B2 = {
+    t: "d",
+    v: generatedAt,
+    z: "dd/mm/yyyy h:mm:ss AM/PM",
+  };
+  ws["!cols"] = headerRow.map((header, i) => {
+    const maxDataWidth = Math.max(
+      header.length,
+      ...bodyRows.map((row) => String(row[i] ?? "").length),
+    );
+    return {
+      wch: Math.min(Math.max(maxDataWidth + 2, 14), 40),
+    };
+  });
+  ws["!autofilter"] = {
+    ref: XLSX.utils.encode_range({
+      s: { r: 3, c: 0 },
+      e: { r: 3 + bodyRows.length, c: headerRow.length - 1 },
+    }),
+  };
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Services");

@@ -24,6 +24,9 @@ const GiftCardsPage = lazy(
 const MembershipsPage = lazy(
   () => import("../features/analytics/pages/MembershipsPage"),
 );
+const PackagesSoldPage = lazy(
+  () => import("../features/analytics/pages/PackagesSoldPage"),
+);
 
 import { PageLoader } from "../components/ui";
 
@@ -42,6 +45,7 @@ export const SalesRoutes = () => (
         <Route path="payments" element={<PaymentsPage />} />
         <Route path="gift-cards" element={<GiftCardsPage />} />
         <Route path="memberships" element={<MembershipsPage />} />
+        <Route path="packages" element={<PackagesSoldPage />} />
         <Route path="*" element={<Navigate to="appointments" replace />} />
       </Routes>
     </SaleProvider>

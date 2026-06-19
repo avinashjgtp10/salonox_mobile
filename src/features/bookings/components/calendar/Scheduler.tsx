@@ -141,39 +141,25 @@ const SchedulerContent: React.FC = () => {
     setViewMode("Day");
   }
 
-  async function handleCloseAppt() {
-    setShowNewAppt(false);
-    setEditingBooking(null);
-    setApptDefaults({});
-
-    // Fetch only the currently viewed date so the refresh is minimal.
+  async function handleRefresh() {
     const dateStr = currentDate || new Date().toISOString().slice(0, 10);
     const action = await (dispatch(fetchBookingsThunk({ startDate: dateStr, endDate: dateStr })) as any);
     if (!fetchBookingsThunk.fulfilled.match(action)) return;
 
     const PAY_RANK: Record<string, number> = { Paid: 2, Partial: 1, Unpaid: 0 };
 
-    // action.payload is ALREADY a Booking[] — mapBooking ran inside the thunk.
-    // Do NOT call mapApiBooking here: it is designed for raw API data and would
-    // apply the UTC→local timezone offset a second time, shifting appointment
-    // times by the local UTC offset (e.g. 5:30 AM → 11:00 AM in IST).
     const payload = action.payload as any;
     const fresh: Booking[] = (Array.isArray(payload) ? payload : (payload?.data ?? [])) as Booking[];
     const freshIds = new Set(fresh.map((fb) => String(fb.id)));
 
-    // Read current Redux state AFTER patchPaymentStatus was dispatched (avoids stale closure)
     const latestBookings: Booking[] = store.getState().scheduler.bookings;
 
-    // Update bookings the API returned — preserve local payment and scheduling state.
-    // This avoids a payment-only update from accidentally shifting the appointment time
-    // or staff slot when the refreshed API payload is merged back into Redux.
     const updated = fresh.map((fb) => {
       const local = latestBookings.find((lb) => String(lb.id) === String(fb.id));
       if (!local) return fb;
 
       const merged: Booking = {
         ...fb,
-        // Preserve local scheduling fields; payment can still update below.
         date: local.date || fb.date,
         startTime: local.startTime || fb.startTime,
         endTime: local.endTime || fb.endTime,
@@ -190,11 +176,15 @@ const SchedulerContent: React.FC = () => {
       return merged;
     });
 
-    // Keep local bookings the API did NOT return — backend may exclude "completed"
-    // appointments from the default list. Preserve them so the calendar stays intact.
     const preserved = latestBookings.filter((lb) => !freshIds.has(String(lb.id)));
-
     dispatch(setBookings([...updated, ...preserved]));
+  }
+
+  async function handleCloseAppt() {
+    setShowNewAppt(false);
+    setEditingBooking(null);
+    setApptDefaults({});
+    await handleRefresh();
   }
 
   return (
@@ -212,6 +202,7 @@ const SchedulerContent: React.FC = () => {
           onNewAppointment={() => { setEditingBooking(null); setApptDefaults({}); setShowNewAppt(true); }}
           onBlockTime={() => handleBlockTime()}
           onSettings={() => setShowSettings(true)}
+          onRefresh={handleRefresh}
         />
       </div>
 

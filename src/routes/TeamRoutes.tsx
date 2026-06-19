@@ -11,11 +11,12 @@ const PayRunBreakdownPage = lazy(() => import("../features/staff/pages/PayRunBre
 const RepeatingShiftsPage = lazy(() => import("../features/staff/pages/RepeatingShiftsPage"));
 const ScheduledShiftsPage = lazy(() => import("../features/dashboard/pages/ScheduledShiftsPage"));
 
-const StaffDashboardPage    = lazy(() => import("../features/staff/pages/StaffDashboardPage"));
-const StaffAppointmentsPage = lazy(() => import("../features/staff/pages/StaffAppointmentsPage"));
-const StaffCustomersPage    = lazy(() => import("../features/staff/pages/StaffCustomersPage"));
-const StaffServicesPage     = lazy(() => import("../features/staff/pages/StaffServicesPage"));
-const StaffSalesPage        = lazy(() => import("../features/staff/pages/StaffSalesPage"));
+const StaffDashboardPage     = lazy(() => import("../features/staff/pages/StaffDashboardPage"));
+const StaffAppointmentsPage  = lazy(() => import("../features/staff/pages/StaffAppointmentsPage"));
+const StaffCustomersPage     = lazy(() => import("../features/staff/pages/StaffCustomersPage"));
+const StaffServicesPage      = lazy(() => import("../features/staff/pages/StaffServicesPage"));
+const StaffSalesPage         = lazy(() => import("../features/staff/pages/StaffSalesPage"));
+const StaffPerformancePage   = lazy(() => import("../features/staff/pages/StaffPerformancePage"));
 
 const CommissionsPage = lazy(() => import("../features/staff/pages/CommissionsPage"));
 const AttendancePage  = lazy(() => import("../features/staff/pages/AttendancePage"));
@@ -32,6 +33,7 @@ export const TeamRoutes = () => (
       <Route path="customers"    element={<StaffCustomersPage />} />
       <Route path="services"     element={<StaffServicesPage />} />
       <Route path="sales"        element={<StaffSalesPage />} />
+      <Route path="performance"  element={<StaffPerformancePage />} />
 
       {/* New pages */}
       <Route path="commissions" element={<CommissionsPage />} />

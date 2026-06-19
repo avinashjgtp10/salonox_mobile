@@ -10,6 +10,18 @@ import { fetchCategoriesThunk } from "../../../middleware/services/categories.th
 import { selectAllServices } from "../../../store/selectors/slices.selectors";
 import type { CatalogFormData, Service } from "../types/catalog.types.ts";
 
+const fromApiGenderPreference = (value?: string | null) => {
+  if (!value) return null;
+  const normalized = value.toLowerCase();
+  if (normalized === "male" || normalized === "female" || normalized === "any") {
+    return normalized;
+  }
+  return null;
+};
+
+const hasFullServiceDetails = (svc: Service) =>
+  Object.prototype.hasOwnProperty.call(svc, "gender_preference");
+
 const mapServiceToFormData = (svc: Service): CatalogFormData => ({
   basic: {
     name: svc.name ?? "",
@@ -21,8 +33,7 @@ const mapServiceToFormData = (svc: Service): CatalogFormData => ({
     paddingAfter: svc.padding_after ?? 0,
     description: svc.description ?? "",
     active: svc.is_active ?? true,
-    treatmentType: svc.treatment_type ?? null,
-    genderPreference: svc.gender_preference ?? null,
+    genderPreference: fromApiGenderPreference(svc.gender_preference),
     imageUrl: svc.image_url ?? null,
   },
   team: {
@@ -85,7 +96,7 @@ export const useEditServiceForm = (serviceId: string | number) => {
     const cached = cachedServices.find(
       (s) => String(s.id) === String(serviceId),
     );
-    if (cached) {
+    if (cached && hasFullServiceDetails(cached)) {
       setServiceName(cached.name);
       setFormData(mapServiceToFormData(cached));
       setFetchLoading(false);
@@ -163,7 +174,6 @@ export const useEditServiceForm = (serviceId: string | number) => {
         online_booking: formData.onlineBooking.enabled,
         resource_required: formData.resources.requireResource,
         commission_enabled: formData.commission.defaultValue > 0,
-        treatment_type: formData.basic.treatmentType ?? null,
         gender_preference: formData.basic.genderPreference ?? null,
         team_member_ids: formData.team.allMembers
           ? []

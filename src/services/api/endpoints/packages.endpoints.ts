@@ -185,9 +185,9 @@ export interface ClientPackage {
 export interface CreateClientPackageDTO {
   clientId: string;
   packageName: string;
-  category: string;
-  branch: string;
-  expiryDate: string | null;
+  category?: string;
+  branch?: string;
+  expiryDate: string;
   basePrice: number;
   gstPercentage: number;
   discount: number;
@@ -210,6 +210,21 @@ export interface ClientPackagesListQuery {
 export interface ClientPackagesListResponse {
   items: ClientPackage[];
   total: number;
+}
+
+export interface UpdateClientPackageDTO {
+  packageName?:    string;
+  expiryDate?:     string;
+  paymentMethod?:  string;
+  basePrice?:      number;
+  gstPercentage?:  number;
+  discount?:       number;
+  services?: Array<{
+    serviceId:      string;
+    serviceName?:   string;
+    totalSessions?: number;
+    price?:         number;
+  }>;
 }
 
 export interface CompleteSessionDTO {
@@ -256,6 +271,15 @@ export const clientPackagesApi = createApi({
       invalidatesTags: [{ type: "ClientPackage", id: "LIST" }],
     }),
 
+    updateClientPackage: builder.mutation<ClientPackage, { id: string; data: UpdateClientPackageDTO }>({
+      query: ({ id, data }) => ({ url: `/client-packages/${id}`, method: "PATCH", body: data }),
+      transformResponse: (res: ApiResponse<ClientPackage>) => res.data,
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: "ClientPackage", id },
+        { type: "ClientPackage", id: "LIST" },
+      ],
+    }),
+
     completeClientPackageSession: builder.mutation<
       ClientPackage,
       { id: string; body: CompleteSessionDTO }
@@ -272,6 +296,14 @@ export const clientPackagesApi = createApi({
       ],
     }),
 
+    deleteClientPackage: builder.mutation<void, string>({
+      query: (id) => ({ url: `/client-packages/${id}`, method: "DELETE" }),
+      invalidatesTags: (_result, _error, id) => [
+        { type: "ClientPackage", id },
+        { type: "ClientPackage", id: "LIST" },
+      ],
+    }),
+
   }),
 });
 
@@ -279,5 +311,104 @@ export const {
   useListClientPackagesQuery,
   useGetClientPackageByIdQuery,
   useCreateClientPackageMutation,
+  useUpdateClientPackageMutation,
   useCompleteClientPackageSessionMutation,
+  useDeleteClientPackageMutation,
 } = clientPackagesApi;
+
+// ─── Package Templates ────────────────────────────────────────────────────────
+
+export interface PackageTemplateService {
+  id:            string;
+  templateId:    string;
+  serviceName:   string;
+  totalSessions: number;
+  price:         number;
+}
+
+export interface PackageTemplate {
+  id:             string;
+  salonId:        string;
+  name:           string;
+  expiryMonths:   number | null;
+  neverExpires:   boolean;
+  basePrice:      number;
+  gstPercentage:  number;
+  discount:       number;
+  paymentMethod:  string;
+  createdAt:      string;
+  services:       PackageTemplateService[];
+}
+
+export interface CreatePackageTemplateDTO {
+  name:           string;
+  expiryMonths?:  number | null;
+  neverExpires?:  boolean;
+  basePrice:      number;
+  gstPercentage?: number;
+  discount?:      number;
+  paymentMethod?: string;
+  services: Array<{
+    serviceName:   string;
+    totalSessions: number;
+    price:         number;
+  }>;
+}
+
+export interface UpdatePackageTemplateDTO extends Partial<CreatePackageTemplateDTO> {}
+
+export const packageTemplatesApi = createApi({
+  reducerPath: "packageTemplatesApi",
+  baseQuery: fetchBaseQuery({
+    baseUrl: API_V1_BASE_URL,
+    prepareHeaders: (headers, { getState }) => {
+      const state = getState() as any;
+      const token = state?.auth?.accessToken;
+      if (token) headers.set("Authorization", `Bearer ${token}`);
+      return headers;
+    },
+  }),
+  tagTypes: ["PackageTemplate"],
+  endpoints: (builder) => ({
+
+    listPackageTemplates: builder.query<PackageTemplate[], void>({
+      query: () => "/package-templates",
+      transformResponse: (res: ApiResponse<PackageTemplate[]>) => res.data,
+      providesTags: (result) =>
+        result
+          ? [...result.map(({ id }) => ({ type: "PackageTemplate" as const, id })), { type: "PackageTemplate", id: "LIST" }]
+          : [{ type: "PackageTemplate", id: "LIST" }],
+    }),
+
+    createPackageTemplate: builder.mutation<PackageTemplate, CreatePackageTemplateDTO>({
+      query: (body) => ({ url: "/package-templates", method: "POST", body }),
+      transformResponse: (res: ApiResponse<PackageTemplate>) => res.data,
+      invalidatesTags: [{ type: "PackageTemplate", id: "LIST" }],
+    }),
+
+    updatePackageTemplate: builder.mutation<PackageTemplate, { id: string; data: UpdatePackageTemplateDTO }>({
+      query: ({ id, data }) => ({ url: `/package-templates/${id}`, method: "PATCH", body: data }),
+      transformResponse: (res: ApiResponse<PackageTemplate>) => res.data,
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: "PackageTemplate", id },
+        { type: "PackageTemplate", id: "LIST" },
+      ],
+    }),
+
+    deletePackageTemplate: builder.mutation<void, string>({
+      query: (id) => ({ url: `/package-templates/${id}`, method: "DELETE" }),
+      invalidatesTags: (_result, _error, id) => [
+        { type: "PackageTemplate", id },
+        { type: "PackageTemplate", id: "LIST" },
+      ],
+    }),
+
+  }),
+});
+
+export const {
+  useListPackageTemplatesQuery,
+  useCreatePackageTemplateMutation,
+  useUpdatePackageTemplateMutation,
+  useDeletePackageTemplateMutation,
+} = packageTemplatesApi;

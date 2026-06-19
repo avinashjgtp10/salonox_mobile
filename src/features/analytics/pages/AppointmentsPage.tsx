@@ -30,7 +30,7 @@ import {
   Pagination,
 } from "../../../components/ui";
 import { DateRange } from "react-date-range";
-import { subDays, format, parseISO, differenceInMinutes, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import { format, parseISO, differenceInMinutes, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import "react-date-range/dist/styles.css";
 import "react-date-range/dist/theme/default.css";
 import "../styles/AppointmentsPage.scss";
@@ -150,8 +150,6 @@ export default function AppointmentsPage() {
   // Sorting State
   const [sortConfig, setSortConfig] = useState("scheduled_newest");
   const [showSort, setShowSort] = useState(false);
-
-  const today = new Date();
 
   const [range, setRange] = useState([
     {

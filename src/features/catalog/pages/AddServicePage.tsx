@@ -114,17 +114,11 @@ const AddServicePage: React.FC = () => {
   return (
     <div className="add-service-page">
       <header className="add-service-page__header">
-        <button
-          className="btn-back"
-          onClick={() => navigate("/dashboard/catalog/services")}
-          title="Back to services"
-        >
-          <ChevronLeft size={18} />
-        </button>
+     
         <div className="header-center">
           <span className="header-title">New service</span>
         </div>
-        <div className="header-actions-right">
+        <div className="header-actions-right ">
           <button
             className="btn-close-text"
             onClick={() => navigate("/dashboard/catalog/services")}

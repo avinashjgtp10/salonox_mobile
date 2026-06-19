@@ -1,0 +1,440 @@
+$font: 'Inter', system-ui, sans-serif;
+$bg: #f8f9fb;
+$white: #ffffff;
+$border: #e5e7eb;
+$primary: #111827;
+$muted: #6b7280;
+$accent: #6366f1;
+$radius: 12px;
+$radius-sm: 8px;
+
+// ── Page shell ────────────────────────────────────────────────────────────────
+
+.spp {
+  padding: 28px 32px;
+  background: $bg;
+  min-height: 100%;
+  font-family: $font;
+
+  @media (max-width: 768px) { padding: 20px 16px; }
+}
+
+.spp__header {
+  margin-bottom: 24px;
+}
+
+.spp__title {
+  font-size: 22px;
+  font-weight: 700;
+  color: $primary;
+  margin: 0 0 4px;
+}
+
+.spp__subtitle {
+  font-size: 14px;
+  color: $muted;
+  margin: 0;
+}
+
+// ── Staff selector ────────────────────────────────────────────────────────────
+
+.spp__staff-row {
+  margin-bottom: 24px;
+}
+
+.spp__staff-select-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  max-width: 360px;
+  width: 100%;
+}
+
+.spp__staff-icon {
+  position: absolute;
+  left: 12px;
+  color: $muted;
+  pointer-events: none;
+}
+
+.spp__staff-select {
+  width: 100%;
+  height: 42px;
+  padding: 0 16px 0 36px;
+  border: 1.5px solid $border;
+  border-radius: $radius-sm;
+  background: $white;
+  font-family: $font;
+  font-size: 14px;
+  color: $primary;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  transition: border-color 0.15s;
+
+  &:focus { border-color: $accent; box-shadow: 0 0 0 3px rgba(99,102,241,.1); }
+}
+
+.spp__staff-skeleton {
+  width: 100%;
+  height: 42px;
+  border-radius: $radius-sm;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 37%, #f0f0f0 63%);
+  background-size: 800px 100%;
+  animation: spp-shimmer 1.4s ease infinite;
+}
+
+@keyframes spp-shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+// ── Body layout ───────────────────────────────────────────────────────────────
+
+.spp__body {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 20px;
+  align-items: start;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+// ── Calendar panel ────────────────────────────────────────────────────────────
+
+.spp__calendar-panel {
+  background: $white;
+  border: 1px solid $border;
+  border-radius: $radius;
+  padding: 20px;
+  position: sticky;
+  top: 16px;
+}
+
+.spp__cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.spp__cal-month-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: $primary;
+}
+
+.spp__cal-nav-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid $border;
+  background: $white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: $muted;
+  transition: all 0.15s;
+
+  &:hover { border-color: $accent; color: $accent; background: #eef2ff; }
+}
+
+.spp__cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.spp__cal-day-label {
+  padding: 6px 0;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: $muted;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.spp__cal-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 500;
+  color: $primary;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.12s;
+
+  &:hover:not(.spp__cal-cell--empty) {
+    background: #f3f4f6;
+  }
+
+  &--empty {
+    cursor: default;
+    pointer-events: none;
+  }
+
+  &--today {
+    color: $accent;
+    font-weight: 700;
+    background: #eef2ff;
+  }
+
+  &--selected {
+    background: $accent !important;
+    color: $white !important;
+    font-weight: 700;
+  }
+}
+
+// ── Detail panel ──────────────────────────────────────────────────────────────
+
+.spp__detail-panel {
+  background: $white;
+  border: 1px solid $border;
+  border-radius: $radius;
+  min-height: 400px;
+  overflow: hidden;
+}
+
+.spp__detail-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px 24px;
+  border-bottom: 1px solid $border;
+  background: #fafafa;
+}
+
+.spp__detail-header-icon {
+  color: $accent;
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.spp__detail-date {
+  font-size: 15px;
+  font-weight: 700;
+  color: $primary;
+  margin-bottom: 2px;
+}
+
+.spp__detail-staff {
+  font-size: 13px;
+  color: $muted;
+}
+
+.spp__detail-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 60px 24px;
+  color: $muted;
+  font-size: 14px;
+}
+
+.spp__spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e5e7eb;
+  border-top-color: $accent;
+  border-radius: 50%;
+  animation: spp-spin 0.7s linear infinite;
+}
+
+@keyframes spp-spin {
+  to { transform: rotate(360deg); }
+}
+
+// ── Summary cards ─────────────────────────────────────────────────────────────
+
+.spp__summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: $border;
+  border-bottom: 1px solid $border;
+
+  @media (max-width: 700px) { grid-template-columns: repeat(2, 1fr); }
+}
+
+.spp__summary-card {
+  padding: 18px 16px;
+  background: $white;
+  text-align: center;
+
+  &--blue   .spp__summary-icon { color: #3b82f6; }
+  &--purple .spp__summary-icon { color: $accent; }
+  &--orange .spp__summary-icon { color: #f59e0b; }
+  &--green  .spp__summary-icon { color: #10b981; }
+}
+
+.spp__summary-icon {
+  margin-bottom: 6px;
+}
+
+.spp__summary-val {
+  font-size: 22px;
+  font-weight: 700;
+  color: $primary;
+  letter-spacing: -0.02em;
+  margin-bottom: 2px;
+}
+
+.spp__summary-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: $muted;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+// ── Sections ──────────────────────────────────────────────────────────────────
+
+.spp__section {
+  padding: 20px 24px;
+
+  & + & {
+    border-top: 1px solid $border;
+  }
+}
+
+.spp__section-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 700;
+  color: $primary;
+  margin-bottom: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.spp__no-data {
+  font-size: 13px;
+  color: $muted;
+  padding: 12px 0;
+}
+
+// ── Tables ────────────────────────────────────────────────────────────────────
+
+.spp__table-wrap {
+  overflow-x: auto;
+  border: 1px solid $border;
+  border-radius: $radius-sm;
+}
+
+.spp__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th {
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    color: $muted;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: #f9fafb;
+    border-bottom: 1px solid $border;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 12px 14px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  tbody tr {
+    transition: background 0.1s;
+    &:hover { background: #fafafa; }
+    &:last-child td { border-bottom: none; }
+  }
+}
+
+.spp__cell-primary {
+  font-weight: 500;
+  color: $primary;
+}
+
+.spp__cell-muted {
+  color: $muted;
+}
+
+.spp__cell-amount {
+  font-weight: 700;
+  color: $primary;
+}
+
+.spp__time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: $muted;
+  white-space: nowrap;
+}
+
+// ── Badges ────────────────────────────────────────────────────────────────────
+
+.spp__badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 50px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+
+  &--blue   { background: #eff6ff; color: #2563eb; }
+  &--amber  { background: #fffbeb; color: #d97706; }
+  &--green  { background: #ecfdf5; color: #059669; }
+  &--red    { background: #fef2f2; color: #dc2626; }
+  &--gray   { background: #f3f4f6; color: $muted; }
+}
+
+.spp__type-pill {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+
+  &--service    { background: #eef2ff; color: $accent; }
+  &--product    { background: #ecfdf5; color: #059669; }
+  &--membership { background: #fff7ed; color: #c2410c; }
+  &--gift_card  { background: #fdf4ff; color: #9333ea; }
+  &--quick      { background: #f3f4f6; color: $muted; }
+}
+
+// ── Empty / no-selection state ────────────────────────────────────────────────
+
+.spp__empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
+  gap: 12px;
+}
+
+.spp__empty-icon {
+  color: #d1d5db;
+}
+
+.spp__empty-text {
+  font-size: 14px;
+  color: $muted;
+  margin: 0;
+  text-align: center;
+}
