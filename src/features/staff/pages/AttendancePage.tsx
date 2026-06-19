@@ -1,39 +1,26 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Search as SearchIcon,
-  ChevronLeft,
-  ChevronRight,
-  ClockHistory,
   CheckCircleFill,
   XCircleFill,
   DashCircleFill,
-  Download,
-  GearFill,
-  CalendarCheck,
-  PersonCheck,
   ExclamationCircleFill,
+  Plus,
+  ArrowRepeat,
+  ChevronLeft,
+  ChevronRight,
+  HddNetwork,
+  Trash3,
+  PencilSquare,
+  GearFill,
 } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
-import { ATTENDANCE } from "../../../services/api/endpoints";
+import { ATTENDANCE, DEVICES } from "../../../services/api/endpoints";
 import "../styles/AttendancePage.scss";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type AttendanceStatus = "present" | "absent" | "half_day" | "late" | "on_leave";
-
-interface AttendanceRecord {
-  id: string;
-  staff_id: string;
-  date: string;
-  status: AttendanceStatus;
-  check_in: string | null;
-  check_out: string | null;
-  hours_worked: number | null;
-  source: string;
-  note: string | null;
-  staff_name?: string;
-  staff_role?: string;
-}
 
 interface TodayStaffRecord {
   staff_id: string;
@@ -43,7 +30,9 @@ interface TodayStaffRecord {
   check_in: string | null;
   check_out: string | null;
   hours_worked: number | null;
+  scheduled_hours: number | null;
   attendance_id: string | null;
+  source?: string;
 }
 
 interface DailySummary {
@@ -56,28 +45,31 @@ interface DailySummary {
   total_staff: number;
 }
 
-interface AttendanceSettings {
-  shift_start: string;
-  shift_end: string;
-  grace_minutes: number;
-  min_full_day_hours: number;
-  min_half_day_hours: number;
-  attendance_bonus: number;
-  commission_threshold_days: number;
+type ModalState =
+  | { type: "check_in";  record: TodayStaffRecord }
+  | { type: "check_out"; record: TodayStaffRecord }
+  | { type: "edit";      record: TodayStaffRecord }
+  | null;
+
+interface Device {
+  id: string;
+  serial_no: string;
+  name: string;
+  location: string | null;
+  is_active: boolean;
+  last_seen: string | null;
+  last_ip: string | null;
 }
 
-interface StaffMember {
+interface StaffMapping {
   id: string;
-  full_name: string;
-  role: string;
+  staff_id: string;
+  pin: string;
+  staff_name?: string;
+  staff_role?: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const MONTH_NAMES = [
-  "January","February","March","April","May","June",
-  "July","August","September","October","November","December",
-];
 
 const AVATAR_GRADIENTS = [
   "linear-gradient(135deg,#6366f1,#8b5cf6)",
@@ -87,26 +79,39 @@ const AVATAR_GRADIENTS = [
   "linear-gradient(135deg,#ec4899,#f43f5e)",
 ];
 
-const STATUS_CONFIG: Record<string, { label: string; class: string }> = {
-  present:    { label: "P",  class: "at-cell--present" },
-  absent:     { label: "A",  class: "at-cell--absent" },
-  late:       { label: "L",  class: "at-cell--late" },
-  half_day:   { label: "½",  class: "at-cell--half" },
-  on_leave:   { label: "OL", class: "at-cell--leave" },
-  not_marked: { label: "—",  class: "at-cell--unmarked" },
-  holiday:    { label: "H",  class: "at-cell--holiday" },
+const STATUS_CFG = {
+  present:    { label: "Present",    badge: "ap-badge--present",  dot: "ap-dot--green"  },
+  absent:     { label: "Absent",     badge: "ap-badge--absent",   dot: "ap-dot--red"    },
+  late:       { label: "Late",       badge: "ap-badge--late",     dot: "ap-dot--amber"  },
+  half_day:   { label: "Half Day",   badge: "ap-badge--half",     dot: "ap-dot--blue"   },
+  on_leave:   { label: "On Leave",   badge: "ap-badge--leave",    dot: "ap-dot--purple" },
+  not_marked: { label: "Not Marked", badge: "ap-badge--unmarked", dot: "ap-dot--gray"   },
+} as const;
+
+const SOURCE_LABELS: Record<string, string> = {
+  manual: "Manual", biometric: "Biometric", qr: "QR", gps: "GPS", appointment: "Appointment",
 };
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getDaysInMonth(year: number, month: number) {
-  return new Date(year, month, 0).getDate(); // month is 1-based here
+function todayIST(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 }
 
-function pad(n: number) { return String(n).padStart(2, "0"); }
+function shiftDate(base: string, days: number): string {
+  const d = new Date(base + "T12:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toLocaleDateString("en-CA");
+}
+
+function fmtDateLabel(iso: string): string {
+  return new Date(iso + "T12:00:00").toLocaleDateString("en-IN", {
+    weekday: "short", day: "numeric", month: "short", year: "numeric",
+  });
+}
 
 function initials(name: string) {
-  return name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
+  return name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 }
 
 function avatarColor(name: string) {
@@ -120,62 +125,96 @@ function fmtTime(iso: string | null): string {
   });
 }
 
-function isWeekend(year: number, month: number, day: number): boolean {
-  const dow = new Date(year, month - 1, day).getDay();
-  return dow === 0 || dow === 6;
+function fmtHours(h: number | null): string {
+  if (h == null) return "—";
+  const hrs = Math.floor(h);
+  const mins = Math.round((h - hrs) * 60);
+  return `${hrs}h ${String(mins).padStart(2, "0")}m`;
 }
 
-// ─── Edit Cell Modal ──────────────────────────────────────────────────────────
+function fmtSource(source?: string): string {
+  return source ? (SOURCE_LABELS[source] ?? source) : "Manual";
+}
 
-function EditCellModal({
-  record, staffName, date, onClose, onSave,
-}: {
-  record: AttendanceRecord | null;
-  staffName: string;
+/** Current IST time as HH:MM for <input type="time"> */
+function nowIST(): string {
+  return new Date().toLocaleTimeString("en-GB", {
+    timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: false,
+  });
+}
+
+/** Extract HH:MM in IST from a stored UTC ISO string */
+function isoToTimeIST(iso: string | null): string {
+  if (!iso) return "";
+  return new Date(iso).toLocaleTimeString("en-GB", {
+    timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: false,
+  });
+}
+
+/** Build ISO timestamp from a date string + HH:MM in IST */
+function toISO(date: string, time: string): string {
+  return `${date}T${time}:00+05:30`;
+}
+
+/** Row action based on check-in/check-out state */
+function rowAction(s: TodayStaffRecord): { label: string; variant: string; modalType: "check_in" | "check_out" | "edit" } {
+  if (s.check_in && s.check_out) return { label: "Edit",      variant: "ap-row-btn",             modalType: "edit"      };
+  if (s.check_in)                return { label: "Check Out", variant: "ap-row-btn ap-row-btn--checkout", modalType: "check_out" };
+  return                                { label: "Check In",  variant: "ap-row-btn ap-row-btn--checkin",  modalType: "check_in"  };
+}
+
+// ─── Check-In Modal ───────────────────────────────────────────────────────────
+
+function CheckInModal({ record, date, isToday, onClose, onDone }: {
+  record: TodayStaffRecord;
   date: string;
+  isToday: boolean;
   onClose: () => void;
-  onSave: (patch: { status: AttendanceStatus; note?: string }) => void;
+  onDone: () => void;
 }) {
-  const [status, setStatus] = useState<AttendanceStatus>(record?.status ?? "present");
-  const [note, setNote]     = useState(record?.note ?? "");
+  const [time, setTime]   = useState(isToday ? nowIST() : "09:00");
+  const [note, setNote]   = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError]   = useState("");
+
+  async function save() {
+    if (!time) { setError("Please enter a check-in time."); return; }
+    setSaving(true); setError("");
+    try {
+      await api.post(ATTENDANCE.CHECK_IN, {
+        staff_id: record.staff_id,
+        check_in: toISO(date, time),
+        note: note.trim() || undefined,
+      });
+      onDone();
+    } catch (e: any) {
+      setError(e?.response?.data?.error?.message || "Failed to check in.");
+    } finally { setSaving(false); }
+  }
 
   return (
     <div className="at-modal-overlay" onClick={onClose}>
-      <div className="at-modal" onClick={e => e.stopPropagation()}>
+      <div className="at-modal" onClick={(e) => e.stopPropagation()}>
         <div className="at-modal-header">
-          <span className="at-modal-title">Edit Attendance</span>
+          <span className="at-modal-title">Check In</span>
           <button className="at-modal-close" onClick={onClose}>×</button>
         </div>
         <div className="at-modal-body">
-          <p className="at-modal-meta">{staffName} · {date}</p>
+          <p className="at-modal-meta">{record.staff_name} · {fmtDateLabel(date)}</p>
           <div className="at-modal-field">
-            <label>Status</label>
-            <select value={status} onChange={e => setStatus(e.target.value as AttendanceStatus)}>
-              <option value="present">Present</option>
-              <option value="absent">Absent</option>
-              <option value="late">Late</option>
-              <option value="half_day">Half Day</option>
-              <option value="on_leave">On Leave</option>
-            </select>
+            <label>Check-in Time</label>
+            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
           </div>
           <div className="at-modal-field">
-            <label>Note (optional)</label>
-            <input value={note} onChange={e => setNote(e.target.value)} placeholder="Add a note…" />
+            <label>Note <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optional)</span></label>
+            <input type="text" placeholder="e.g. Arrived from site" value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
+          {error && <p className="at-modal-error">{error}</p>}
         </div>
         <div className="at-modal-footer">
           <button className="at-btn at-btn--ghost" onClick={onClose}>Cancel</button>
-          <button
-            className="at-btn at-btn--primary"
-            disabled={saving}
-            onClick={async () => {
-              setSaving(true);
-              await onSave({ status, note: note || undefined });
-              setSaving(false);
-            }}
-          >
-            {saving ? "Saving…" : "Save"}
+          <button className="at-btn at-btn--primary" disabled={saving} onClick={save}>
+            {saving ? "Saving…" : "Check In"}
           </button>
         </div>
       </div>
@@ -183,54 +222,137 @@ function EditCellModal({
   );
 }
 
-// ─── Mark Modal (Today tab) ───────────────────────────────────────────────────
+// ─── Check-Out Modal ──────────────────────────────────────────────────────────
 
-function MarkModal({
-  staffId, staffName, existingStatus, attendanceId,
-  onClose, onDone,
-}: {
-  staffId: string; staffName: string;
-  existingStatus: AttendanceStatus | "not_marked";
-  attendanceId: string | null;
+function CheckOutModal({ record, date, isToday, onClose, onDone }: {
+  record: TodayStaffRecord;
+  date: string;
+  isToday: boolean;
   onClose: () => void;
   onDone: () => void;
 }) {
-  const [status, setStatus] = useState<AttendanceStatus>(
-    existingStatus === "not_marked" ? "present" : existingStatus
-  );
+  const [time, setTime]   = useState(isToday ? nowIST() : "18:00");
+  const [note, setNote]   = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState("");
 
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-
   async function save() {
+    if (!time) { setError("Please enter a check-out time."); return; }
     setSaving(true); setError("");
     try {
-      await api.post(ATTENDANCE.MARK, { staff_id: staffId, date: today, status });
+      await api.post(ATTENDANCE.CHECK_OUT, {
+        staff_id: record.staff_id,
+        check_out: toISO(date, time),
+        note: note.trim() || undefined,
+      });
       onDone();
     } catch (e: any) {
-      setError(e?.response?.data?.error?.message || "Failed to mark attendance");
+      setError(e?.response?.data?.error?.message || "Failed to check out.");
     } finally { setSaving(false); }
   }
 
   return (
     <div className="at-modal-overlay" onClick={onClose}>
-      <div className="at-modal" onClick={e => e.stopPropagation()}>
+      <div className="at-modal" onClick={(e) => e.stopPropagation()}>
         <div className="at-modal-header">
-          <span className="at-modal-title">Mark Attendance</span>
+          <span className="at-modal-title">Check Out</span>
           <button className="at-modal-close" onClick={onClose}>×</button>
         </div>
         <div className="at-modal-body">
-          <p className="at-modal-meta">{staffName} · Today</p>
+          <p className="at-modal-meta">{record.staff_name} · {fmtDateLabel(date)}</p>
+          <div className="at-modal-info-row">
+            <span className="at-modal-info-label">Checked in at</span>
+            <span className="at-modal-info-value">{fmtTime(record.check_in)}</span>
+          </div>
+          <div className="at-modal-field">
+            <label>Check-out Time</label>
+            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+          </div>
+          <div className="at-modal-field">
+            <label>Note <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optional)</span></label>
+            <input type="text" placeholder="e.g. Left early" value={note} onChange={(e) => setNote(e.target.value)} />
+          </div>
+          {error && <p className="at-modal-error">{error}</p>}
+        </div>
+        <div className="at-modal-footer">
+          <button className="at-btn at-btn--ghost" onClick={onClose}>Cancel</button>
+          <button className="at-btn at-btn--primary" disabled={saving} onClick={save}>
+            {saving ? "Saving…" : "Check Out"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Edit Modal ───────────────────────────────────────────────────────────────
+
+function EditModal({ record, date, onClose, onDone }: {
+  record: TodayStaffRecord;
+  date: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [status,   setStatus]   = useState<AttendanceStatus>(
+    record.status === "not_marked" ? "present" : record.status
+  );
+  const [checkIn,  setCheckIn]  = useState(isoToTimeIST(record.check_in));
+  const [checkOut, setCheckOut] = useState(isoToTimeIST(record.check_out));
+  const [note,     setNote]     = useState("");
+  const [saving,   setSaving]   = useState(false);
+  const [error,    setError]    = useState("");
+
+  async function save() {
+    setSaving(true); setError("");
+    try {
+      const patch: Record<string, any> = { status };
+      if (checkIn)  patch.check_in  = toISO(date, checkIn);
+      if (checkOut) patch.check_out = toISO(date, checkOut);
+      if (note.trim()) patch.note = note.trim();
+
+      if (record.attendance_id) {
+        await api.patch(ATTENDANCE.BY_ID(record.attendance_id), patch);
+      } else {
+        await api.post(ATTENDANCE.MARK, { staff_id: record.staff_id, date, status });
+      }
+      onDone();
+    } catch (e: any) {
+      setError(e?.response?.data?.error?.message || "Failed to save.");
+    } finally { setSaving(false); }
+  }
+
+  return (
+    <div className="at-modal-overlay" onClick={onClose}>
+      <div className="at-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="at-modal-header">
+          <span className="at-modal-title">Edit Attendance</span>
+          <button className="at-modal-close" onClick={onClose}>×</button>
+        </div>
+        <div className="at-modal-body">
+          <p className="at-modal-meta">{record.staff_name} · {fmtDateLabel(date)}</p>
           <div className="at-modal-field">
             <label>Status</label>
-            <select value={status} onChange={e => setStatus(e.target.value as AttendanceStatus)}>
+            <select value={status} onChange={(e) => setStatus(e.target.value as AttendanceStatus)}>
               <option value="present">Present</option>
               <option value="absent">Absent</option>
               <option value="late">Late</option>
               <option value="half_day">Half Day</option>
               <option value="on_leave">On Leave</option>
             </select>
+          </div>
+          <div className="at-modal-row">
+            <div className="at-modal-field">
+              <label>Check-in Time</label>
+              <input type="time" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} />
+            </div>
+            <div className="at-modal-field">
+              <label>Check-out Time</label>
+              <input type="time" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} />
+            </div>
+          </div>
+          <div className="at-modal-field">
+            <label>Note <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optional)</span></label>
+            <input type="text" placeholder="Add a note…" value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
           {error && <p className="at-modal-error">{error}</p>}
         </div>
@@ -245,424 +367,380 @@ function MarkModal({
   );
 }
 
-// ─── Today Tab ────────────────────────────────────────────────────────────────
+// ─── Quick Mark Modal (header button) ─────────────────────────────────────────
 
-function TodayTab() {
-  const [data, setData]         = useState<{ summary: DailySummary; staff: TodayStaffRecord[] } | null>(null);
-  const [loading, setLoading]   = useState(true);
-  const [search, setSearch]     = useState("");
-  const [markTarget, setMarkTarget] = useState<TodayStaffRecord | null>(null);
+function QuickMarkModal({ staff, date, onClose, onDone }: {
+  staff: TodayStaffRecord[];
+  date: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [staffId, setStaffId] = useState("");
+  const [status,  setStatus]  = useState<AttendanceStatus>("present");
+  const [saving,  setSaving]  = useState(false);
+  const [error,   setError]   = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await api.get(ATTENDANCE.TODAY);
-      setData(res.data.data);
-    } finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  if (loading) return <div className="at-loading">Loading today's attendance…</div>;
-  if (!data)   return <div className="at-loading">Failed to load data.</div>;
-
-  const { summary, staff } = data;
-  const filtered = staff.filter(s =>
-    s.staff_name.toLowerCase().includes(search.toLowerCase()) ||
-    s.staff_role.toLowerCase().includes(search.toLowerCase())
-  );
-
-  return (
-    <>
-      {/* Summary cards */}
-      <div className="at-summary-cards">
-        <div className="at-card at-card--present">
-          <CheckCircleFill size={22} />
-          <div>
-            <div className="at-card-num">{summary.present}</div>
-            <div className="at-card-label">Present</div>
-          </div>
-        </div>
-        <div className="at-card at-card--absent">
-          <XCircleFill size={22} />
-          <div>
-            <div className="at-card-num">{summary.absent}</div>
-            <div className="at-card-label">Absent</div>
-          </div>
-        </div>
-        <div className="at-card at-card--late">
-          <ExclamationCircleFill size={22} />
-          <div>
-            <div className="at-card-num">{summary.late}</div>
-            <div className="at-card-label">Late</div>
-          </div>
-        </div>
-        <div className="at-card at-card--leave">
-          <DashCircleFill size={22} />
-          <div>
-            <div className="at-card-num">{summary.on_leave}</div>
-            <div className="at-card-label">On Leave</div>
-          </div>
-        </div>
-        <div className="at-card at-card--total">
-          <PersonCheck size={22} />
-          <div>
-            <div className="at-card-num">{summary.total_staff}</div>
-            <div className="at-card-label">Total Staff</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Search */}
-      <div className="at-search-wrap" style={{ marginBottom: 16, maxWidth: 300 }}>
-        <SearchIcon size={14} className="at-search-icon" />
-        <input className="at-search" placeholder="Search staff…" value={search} onChange={e => setSearch(e.target.value)} />
-      </div>
-
-      {/* Staff list */}
-      <div className="at-today-list">
-        {filtered.map(s => {
-          const cfg = STATUS_CONFIG[s.status] ?? STATUS_CONFIG.not_marked;
-          return (
-            <div key={s.staff_id} className="at-today-row">
-              <div className="at-today-left">
-                <div className="at-avatar" style={{ background: avatarColor(s.staff_name) }}>
-                  {initials(s.staff_name)}
-                </div>
-                <div>
-                  <div className="at-name">{s.staff_name}</div>
-                  <div className="at-role">{s.staff_role}</div>
-                </div>
-              </div>
-              <div className="at-today-mid">
-                <span className={`at-status-badge ${cfg.class}`}>{s.status.replace("_", " ")}</span>
-                {s.check_in && (
-                  <span className="at-time-info">
-                    <ClockHistory size={11} /> {fmtTime(s.check_in)}
-                    {s.check_out && <> → {fmtTime(s.check_out)}</>}
-                    {s.hours_worked != null && <> · {s.hours_worked}h</>}
-                  </span>
-                )}
-              </div>
-              <button
-                className="at-btn at-btn--sm at-btn--ghost"
-                onClick={() => setMarkTarget(s)}
-              >
-                {s.status === "not_marked" ? "Mark" : "Edit"}
-              </button>
-            </div>
-          );
-        })}
-        {filtered.length === 0 && <div className="at-empty">No staff found.</div>}
-      </div>
-
-      {markTarget && (
-        <MarkModal
-          staffId={markTarget.staff_id}
-          staffName={markTarget.staff_name}
-          existingStatus={markTarget.status}
-          attendanceId={markTarget.attendance_id}
-          onClose={() => setMarkTarget(null)}
-          onDone={() => { setMarkTarget(null); load(); }}
-        />
-      )}
-    </>
-  );
-}
-
-// ─── Monthly Tab ──────────────────────────────────────────────────────────────
-
-function MonthlyTab() {
-  const today       = new Date();
-  const [year, setYear]   = useState(today.getFullYear());
-  const [month, setMonth] = useState(today.getMonth() + 1);
-  const [search, setSearch] = useState("");
-  const [staff, setStaff]   = useState<StaffMember[]>([]);
-  const [records, setRecords] = useState<AttendanceRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState<{ record: AttendanceRecord | null; staffId: string; staffName: string; date: string } | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await api.get(ATTENDANCE.MONTHLY, { params: { year, month } });
-      setStaff(res.data.data.staff);
-      setRecords(res.data.data.records);
-    } finally { setLoading(false); }
-  }, [year, month]);
-
-  useEffect(() => { load(); }, [load]);
-
-  const prevMonth = () => { if (month === 1) { setYear(y => y - 1); setMonth(12); } else setMonth(m => m - 1); };
-  const nextMonth = () => { if (month === 12) { setYear(y => y + 1); setMonth(1); } else setMonth(m => m + 1); };
-
-  const daysInMonth = getDaysInMonth(year, month);
-  const dayNumbers  = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-
-  const recordMap = new Map<string, AttendanceRecord>();
-  records.forEach(r => recordMap.set(`${r.staff_id}__${r.date}`, r));
-
-  const filtered = staff.filter(s =>
-    s.full_name.toLowerCase().includes(search.toLowerCase()) ||
-    s.role.toLowerCase().includes(search.toLowerCase())
-  );
-
-  async function saveEdit(patch: { status: AttendanceStatus; note?: string }) {
-    if (!editing) return;
-    if (editing.record) {
-      await api.patch(ATTENDANCE.BY_ID(editing.record.id), patch);
-    } else {
-      await api.post(ATTENDANCE.MARK, {
-        staff_id: editing.staffId,
-        date:     editing.date,
-        ...patch,
-      });
-    }
-    setEditing(null);
-    load();
-  }
-
-  return (
-    <>
-      {/* Toolbar */}
-      <div className="at-toolbar">
-        <div className="at-search-wrap">
-          <SearchIcon size={14} className="at-search-icon" />
-          <input className="at-search" placeholder="Search team members…" value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-        <div className="at-month-nav">
-          <button className="at-nav-btn" onClick={prevMonth}><ChevronLeft size={15} /></button>
-          <span className="at-month-label">{MONTH_NAMES[month - 1]} {year}</span>
-          <button className="at-nav-btn" onClick={nextMonth}><ChevronRight size={15} /></button>
-        </div>
-      </div>
-
-      {/* Legend */}
-      <div className="at-legend">
-        {Object.entries(STATUS_CONFIG).filter(([k]) => k !== "not_marked").map(([key, cfg]) => (
-          <span key={key} className={`at-legend-item ${cfg.class}`}>{cfg.label} — {key.replace("_", " ")}</span>
-        ))}
-      </div>
-
-      {loading ? <div className="at-loading">Loading…</div> : (
-        <div className="at-table-wrap">
-          <div className="at-table-header">
-            <div className="at-col-info-header">Team member</div>
-            <div className="at-day-headers">
-              {dayNumbers.map(d => {
-                const weekend = isWeekend(year, month, d);
-                const isTod   = year === today.getFullYear() && month === today.getMonth() + 1 && d === today.getDate();
-                return (
-                  <div key={d} className={`at-day-label ${weekend ? "at-day-label--weekend" : ""} ${isTod ? "at-day-label--today" : ""}`}>
-                    {d}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="at-rows">
-            {filtered.map(s => {
-              const staffRecords = dayNumbers.map(d => {
-                const dateStr = `${year}-${pad(month)}-${pad(d)}`;
-                return recordMap.get(`${s.id}__${dateStr}`) ?? null;
-              });
-              const counts = staffRecords.reduce((acc, r) => {
-                if (r) acc[r.status] = (acc[r.status] || 0) + 1;
-                return acc;
-              }, {} as Record<string, number>);
-              const totalHours = staffRecords.reduce((sum, r) => sum + (r?.hours_worked ?? 0), 0);
-
-              return (
-                <div key={s.id} className="at-row">
-                  <div className="at-row-info">
-                    <div className="at-avatar" style={{ background: avatarColor(s.full_name) }}>
-                      {initials(s.full_name)}
-                    </div>
-                    <div>
-                      <div className="at-name">{s.full_name}</div>
-                      <div className="at-role">{s.role}</div>
-                      <div className="at-summary">
-                        <span className="at-sum-item at-sum-item--present"><CheckCircleFill size={11} /> {counts.present || 0}P</span>
-                        <span className="at-sum-item at-sum-item--absent"><XCircleFill size={11} /> {counts.absent || 0}A</span>
-                        {counts.late > 0 && <span className="at-sum-item at-sum-item--late"><ExclamationCircleFill size={11} /> {counts.late}L</span>}
-                        <span className="at-sum-item at-sum-item--hours"><ClockHistory size={11} /> {totalHours.toFixed(1)}h</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="at-cells">
-                    {dayNumbers.map((d, i) => {
-                      const rec     = staffRecords[i];
-                      const weekend = isWeekend(year, month, d);
-                      const isTod   = year === today.getFullYear() && month === today.getMonth() + 1 && d === today.getDate();
-                      const key     = weekend ? "holiday" : (rec?.status ?? "not_marked");
-                      const cfg     = STATUS_CONFIG[key] ?? STATUS_CONFIG.not_marked;
-                      const dateStr = `${year}-${pad(month)}-${pad(d)}`;
-
-                      return (
-                        <button
-                          key={d}
-                          className={`at-cell ${cfg.class} ${isTod ? "at-cell--today" : ""}`}
-                          title={`${d} — ${key}${rec?.hours_worked ? ` · ${rec.hours_worked}h` : ""}`}
-                          onClick={() => {
-                            if (weekend) return;
-                            setEditing({ record: rec, staffId: s.id, staffName: s.full_name, date: dateStr });
-                          }}
-                        >
-                          {cfg.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-            {filtered.length === 0 && <div className="at-empty" style={{ padding: 24 }}>No staff found.</div>}
-          </div>
-        </div>
-      )}
-
-      {editing && (
-        <EditCellModal
-          record={editing.record}
-          staffName={editing.staffName}
-          date={editing.date}
-          onClose={() => setEditing(null)}
-          onSave={saveEdit}
-        />
-      )}
-    </>
-  );
-}
-
-// ─── Settings Tab ─────────────────────────────────────────────────────────────
-
-function SettingsTab() {
-  const [form, setForm]       = useState<AttendanceSettings>({
-    shift_start: "09:00", shift_end: "18:00", grace_minutes: 15,
-    min_full_day_hours: 7, min_half_day_hours: 3.5,
-    attendance_bonus: 0, commission_threshold_days: 0,
-  });
-  const [loading, setSaving]  = useState(false);
-  const [fetching, setFetch]  = useState(true);
-  const [saved, setSaved]     = useState(false);
-  const [error, setError]     = useState("");
-
-  useEffect(() => {
-    api.get(ATTENDANCE.SETTINGS)
-      .then(r => setForm(r.data.data))
-      .catch(() => {})
-      .finally(() => setFetch(false));
-  }, []);
+  const selected = staff.find((s) => s.staff_id === staffId) ?? null;
 
   async function save() {
-    setSaving(true); setError(""); setSaved(false);
+    if (!staffId) { setError("Please select a staff member."); return; }
+    setSaving(true); setError("");
     try {
-      await api.put(ATTENDANCE.SETTINGS, form);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+      if (selected?.attendance_id) {
+        await api.patch(ATTENDANCE.BY_ID(selected.attendance_id), { status });
+      } else {
+        await api.post(ATTENDANCE.MARK, { staff_id: staffId, date, status });
+      }
+      onDone();
     } catch (e: any) {
-      setError(e?.response?.data?.error?.message || "Failed to save settings");
+      setError(e?.response?.data?.error?.message || "Failed to mark attendance.");
     } finally { setSaving(false); }
   }
 
-  const field = (key: keyof AttendanceSettings, label: string, type: "time" | "number", step?: string) => (
-    <div className="at-settings-field">
-      <label>{label}</label>
-      <input
-        type={type}
-        step={step}
-        value={String(form[key])}
-        onChange={e => setForm(f => ({ ...f, [key]: type === "number" ? parseFloat(e.target.value) || 0 : e.target.value }))}
-      />
-    </div>
-  );
-
-  if (fetching) return <div className="at-loading">Loading settings…</div>;
-
   return (
-    <div className="at-settings-form">
-      <div className="at-settings-section">
-        <h3 className="at-settings-section-title">Shift Hours</h3>
-        <div className="at-settings-row">
-          {field("shift_start",          "Shift Start",           "time")}
-          {field("shift_end",            "Shift End",             "time")}
-          {field("grace_minutes",        "Grace Period (min)",    "number", "1")}
+    <div className="at-modal-overlay" onClick={onClose}>
+      <div className="at-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="at-modal-header">
+          <span className="at-modal-title">Mark Attendance</span>
+          <button className="at-modal-close" onClick={onClose}>×</button>
         </div>
-      </div>
-
-      <div className="at-settings-section">
-        <h3 className="at-settings-section-title">Status Thresholds</h3>
-        <div className="at-settings-row">
-          {field("min_full_day_hours",   "Min Full Day Hours",    "number", "0.5")}
-          {field("min_half_day_hours",   "Min Half Day Hours",    "number", "0.5")}
+        <div className="at-modal-body">
+          <p className="at-modal-meta">{fmtDateLabel(date)}</p>
+          <div className="at-modal-field">
+            <label>Staff Member</label>
+            <select value={staffId} onChange={(e) => setStaffId(e.target.value)}>
+              <option value="">Select staff…</option>
+              {staff.map((s) => (
+                <option key={s.staff_id} value={s.staff_id}>
+                  {s.staff_name}{s.staff_role ? ` — ${s.staff_role}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="at-modal-field">
+            <label>Status</label>
+            <select value={status} onChange={(e) => setStatus(e.target.value as AttendanceStatus)}>
+              <option value="present">Present</option>
+              <option value="absent">Absent</option>
+              <option value="late">Late</option>
+              <option value="half_day">Half Day</option>
+              <option value="on_leave">On Leave</option>
+            </select>
+          </div>
+          {selected && selected.status !== "not_marked" && (
+            <p className="at-modal-meta" style={{ marginTop: 0 }}>
+              Currently: <strong>{STATUS_CFG[selected.status]?.label}</strong>
+              {selected.check_in  ? ` · In ${fmtTime(selected.check_in)}`  : ""}
+              {selected.check_out ? ` · Out ${fmtTime(selected.check_out)}` : ""}
+            </p>
+          )}
+          {error && <p className="at-modal-error">{error}</p>}
         </div>
-      </div>
-
-      <div className="at-settings-section">
-        <h3 className="at-settings-section-title">Bonus & Commission</h3>
-        <div className="at-settings-row">
-          {field("attendance_bonus",          "Attendance Bonus (₹)",      "number", "1")}
-          {field("commission_threshold_days", "Commission Min Days Present","number", "1")}
+        <div className="at-modal-footer">
+          <button className="at-btn at-btn--ghost" onClick={onClose}>Cancel</button>
+          <button className="at-btn at-btn--primary" disabled={saving || !staffId} onClick={save}>
+            {saving ? "Saving…" : "Save"}
+          </button>
         </div>
-      </div>
-
-      {error && <p className="at-settings-error">{error}</p>}
-      {saved && <p className="at-settings-success">Settings saved successfully.</p>}
-
-      <div className="at-settings-actions">
-        <button className="at-btn at-btn--primary" disabled={loading} onClick={save}>
-          {loading ? "Saving…" : "Save Settings"}
-        </button>
       </div>
     </div>
   );
 }
 
-// ─── Reports Tab ──────────────────────────────────────────────────────────────
+// ─── Add Device Modal ─────────────────────────────────────────────────────────
 
-function ReportsTab() {
-  const today       = new Date();
-  const [year, setYear]   = useState(today.getFullYear());
-  const [month, setMonth] = useState(today.getMonth() + 1);
-  const [loading, setLoading] = useState(false);
+function AddDeviceModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const [serialNo,  setSerialNo]  = useState("");
+  const [name,      setName]      = useState("");
+  const [location,  setLocation]  = useState("");
+  const [saving,    setSaving]    = useState(false);
+  const [error,     setError]     = useState("");
 
-  const prevMonth = () => { if (month === 1) { setYear(y => y - 1); setMonth(12); } else setMonth(m => m - 1); };
-  const nextMonth = () => { if (month === 12) { setYear(y => y + 1); setMonth(1); } else setMonth(m => m + 1); };
-
-  async function exportCSV() {
-    setLoading(true);
+  async function save() {
+    if (!serialNo.trim()) { setError("Serial number is required."); return; }
+    if (!name.trim())     { setError("Device name is required.");   return; }
+    setSaving(true); setError("");
     try {
-      const res = await api.get(ATTENDANCE.EXPORT, {
-        params: { year, month },
-        responseType: "blob",
+      await api.post(DEVICES.ADD, {
+        serial_no: serialNo.trim().toUpperCase(),
+        name: name.trim(),
+        location: location.trim() || undefined,
       });
-      const url  = URL.createObjectURL(res.data);
-      const link = document.createElement("a");
-      link.href     = url;
-      link.download = `attendance_${year}_${pad(month)}.csv`;
-      link.click();
-      URL.revokeObjectURL(url);
-    } finally { setLoading(false); }
+      onDone();
+    } catch (e: any) {
+      setError(e?.response?.data?.error?.message || "Failed to add device.");
+    } finally { setSaving(false); }
   }
 
   return (
-    <div className="at-reports">
-      <div className="at-reports-header">
-        <div className="at-month-nav">
-          <button className="at-nav-btn" onClick={prevMonth}><ChevronLeft size={15} /></button>
-          <span className="at-month-label">{MONTH_NAMES[month - 1]} {year}</span>
-          <button className="at-nav-btn" onClick={nextMonth}><ChevronRight size={15} /></button>
+    <div className="at-modal-overlay" onClick={onClose}>
+      <div className="at-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="at-modal-header">
+          <span className="at-modal-title">Add Device</span>
+          <button className="at-modal-close" onClick={onClose}>×</button>
         </div>
-        <button className="at-btn at-btn--primary" disabled={loading} onClick={exportCSV}>
-          <Download size={14} /> {loading ? "Exporting…" : "Export CSV"}
-        </button>
+        <div className="at-modal-body">
+          <p className="at-modal-meta">Enter the details printed on your biometric device.</p>
+          <div className="at-modal-field">
+            <label>Serial Number</label>
+            <input
+              type="text"
+              placeholder="e.g. ABRV1234567"
+              value={serialNo}
+              onChange={(e) => setSerialNo(e.target.value)}
+              style={{ textTransform: "uppercase" }}
+            />
+          </div>
+          <div className="at-modal-field">
+            <label>Device Name</label>
+            <input type="text" placeholder="e.g. Main Entrance" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="at-modal-field">
+            <label>Location <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optional)</span></label>
+            <input type="text" placeholder="e.g. Reception" value={location} onChange={(e) => setLocation(e.target.value)} />
+          </div>
+          {error && <p className="at-modal-error">{error}</p>}
+        </div>
+        <div className="at-modal-footer">
+          <button className="at-btn at-btn--ghost" onClick={onClose}>Cancel</button>
+          <button className="at-btn at-btn--primary" disabled={saving} onClick={save}>
+            {saving ? "Saving…" : "Add Device"}
+          </button>
+        </div>
       </div>
-      <div className="at-reports-info">
-        <CalendarCheck size={40} className="at-reports-icon" />
-        <p>Select a month and click <strong>Export CSV</strong> to download the full attendance report for all staff.</p>
-        <p className="at-reports-hint">The CSV includes: Date, Staff Name, Role, Status, Check-In, Check-Out, Hours Worked, Source, Note.</p>
+    </div>
+  );
+}
+
+// ─── Connect Discovered Device Modal ─────────────────────────────────────────
+
+type PendingDevice = { sn: string; ip: string; firstSeen: string; lastSeen: string };
+
+function ConnectDeviceModal({ pending, onClose, onDone }: {
+  pending: PendingDevice;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [name,     setName]     = useState("");
+  const [location, setLocation] = useState("");
+  const [saving,   setSaving]   = useState(false);
+  const [error,    setError]    = useState("");
+
+  async function connect() {
+    if (!name.trim()) { setError("Give this device a name."); return; }
+    setSaving(true); setError("");
+    try {
+      await api.post(DEVICES.CONNECT_PENDING(pending.sn), {
+        name: name.trim(),
+        location: location.trim() || undefined,
+      });
+      onDone();
+    } catch (e: any) {
+      setError(e?.response?.data?.error?.message || "Failed to connect device.");
+    } finally { setSaving(false); }
+  }
+
+  return (
+    <div className="at-modal-overlay" onClick={onClose}>
+      <div className="at-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="at-modal-header">
+          <span className="at-modal-title">Connect Device</span>
+          <button className="at-modal-close" onClick={onClose}>×</button>
+        </div>
+        <div className="at-modal-body">
+          <p className="at-modal-meta">
+            Device <strong>{pending.sn}</strong> connected from <strong>{pending.ip}</strong>. Give it a name to register it.
+          </p>
+          <div className="at-modal-field">
+            <label>Device Name</label>
+            <input type="text" placeholder="e.g. Main Entrance" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+          </div>
+          <div className="at-modal-field">
+            <label>Location <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optional)</span></label>
+            <input type="text" placeholder="e.g. Reception" value={location} onChange={(e) => setLocation(e.target.value)} />
+          </div>
+          {error && <p className="at-modal-error">{error}</p>}
+        </div>
+        <div className="at-modal-footer">
+          <button className="at-btn at-btn--ghost" onClick={onClose}>Cancel</button>
+          <button className="at-btn at-btn--primary" disabled={saving} onClick={connect}>
+            {saving ? "Connecting…" : "Connect Device"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Edit Device Modal ────────────────────────────────────────────────────────
+
+function EditDeviceModal({ device, onClose, onDone }: {
+  device: Device;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [name,     setName]     = useState(device.name);
+  const [location, setLocation] = useState(device.location ?? "");
+  const [saving,   setSaving]   = useState(false);
+  const [error,    setError]    = useState("");
+
+  async function save() {
+    if (!name.trim()) { setError("Device name is required."); return; }
+    setSaving(true); setError("");
+    try {
+      await api.patch(DEVICES.BY_ID(device.id), {
+        name: name.trim(),
+        location: location.trim() || null,
+      });
+      onDone();
+    } catch (e: any) {
+      setError(e?.response?.data?.error?.message || "Failed to update device.");
+    } finally { setSaving(false); }
+  }
+
+  return (
+    <div className="at-modal-overlay" onClick={onClose}>
+      <div className="at-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="at-modal-header">
+          <span className="at-modal-title">Edit Device</span>
+          <button className="at-modal-close" onClick={onClose}>×</button>
+        </div>
+        <div className="at-modal-body">
+          <p className="at-modal-meta">SN: {device.serial_no}</p>
+          <div className="at-modal-field">
+            <label>Device Name</label>
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="at-modal-field">
+            <label>Location <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optional)</span></label>
+            <input type="text" placeholder="e.g. Reception" value={location} onChange={(e) => setLocation(e.target.value)} />
+          </div>
+          {error && <p className="at-modal-error">{error}</p>}
+        </div>
+        <div className="at-modal-footer">
+          <button className="at-btn at-btn--ghost" onClick={onClose}>Cancel</button>
+          <button className="at-btn at-btn--primary" disabled={saving} onClick={save}>
+            {saving ? "Saving…" : "Save Changes"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Manage Staff PINs Modal ──────────────────────────────────────────────────
+
+function ManagePinsModal({
+  device,
+  allStaff,
+  onClose,
+}: {
+  device: Device;
+  allStaff: TodayStaffRecord[];
+  onClose: () => void;
+}) {
+  const [mappings,  setMappings]  = useState<StaffMapping[]>([]);
+  const [loadingM,  setLoadingM]  = useState(true);
+  const [staffId,   setStaffId]   = useState("");
+  const [pin,       setPin]       = useState("");
+  const [saving,    setSaving]    = useState(false);
+  const [error,     setError]     = useState("");
+
+  async function loadMappings() {
+    setLoadingM(true);
+    try {
+      const res = await api.get(DEVICES.MAPPINGS(device.id));
+      setMappings(res.data.data);
+    } finally { setLoadingM(false); }
+  }
+
+  useEffect(() => { loadMappings(); }, [device.id]);
+
+  async function addMapping() {
+    if (!staffId) { setError("Select a staff member."); return; }
+    const trimmedPin = pin.trim();
+    if (!trimmedPin) { setError("Enter the PIN from the device."); return; }
+    if (!/^\d+$/.test(trimmedPin)) { setError("PIN must be a number (e.g. 3 or 12345)."); return; }
+    if (parseInt(trimmedPin, 10) < 1) { setError("PIN must be a positive number."); return; }
+    setSaving(true); setError("");
+    try {
+      await api.post(DEVICES.MAPPINGS(device.id), { staff_id: staffId, pin: trimmedPin });
+      setStaffId(""); setPin("");
+      loadMappings();
+    } catch (e: any) {
+      setError(e?.response?.data?.error?.message || "Failed to add mapping.");
+    } finally { setSaving(false); }
+  }
+
+  async function removeMapping(mappingId: string) {
+    try {
+      await api.delete(DEVICES.MAPPING(device.id, mappingId));
+      loadMappings();
+    } catch { /* silent */ }
+  }
+
+  const unmapped = allStaff.filter((s) => !mappings.some((m) => m.staff_id === s.staff_id));
+
+  return (
+    <div className="at-modal-overlay" onClick={onClose}>
+      <div className="at-modal at-modal--wide" onClick={(e) => e.stopPropagation()}>
+        <div className="at-modal-header">
+          <span className="at-modal-title">Staff PINs — {device.name}</span>
+          <button className="at-modal-close" onClick={onClose}>×</button>
+        </div>
+        <div className="at-modal-body">
+          <p className="at-modal-meta">
+            Map each staff member's enrollment number (PIN) from the device to their profile.
+          </p>
+
+          {/* Existing mappings */}
+          {loadingM ? (
+            <p className="at-modal-meta">Loading…</p>
+          ) : mappings.length === 0 ? (
+            <p className="at-modal-meta">No staff mapped yet.</p>
+          ) : (
+            <div className="ap-pin-table">
+              {mappings.map((m) => (
+                <div key={m.id} className="ap-pin-row">
+                  <span className="ap-pin-badge">PIN {m.pin}</span>
+                  <span className="ap-pin-name">{m.staff_name}</span>
+                  <span className="ap-pin-role">{m.staff_role}</span>
+                  <button className="ap-pin-remove" onClick={() => removeMapping(m.id)} title="Remove">
+                    <Trash3 size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add new mapping */}
+          {unmapped.length > 0 && (
+            <div className="ap-pin-add">
+              <div className="at-modal-row">
+                <div className="at-modal-field" style={{ margin: 0 }}>
+                  <label>Staff Member</label>
+                  <select value={staffId} onChange={(e) => setStaffId(e.target.value)}>
+                    <option value="">Select staff…</option>
+                    {unmapped.map((s) => (
+                      <option key={s.staff_id} value={s.staff_id}>{s.staff_name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="at-modal-field" style={{ margin: 0 }}>
+                  <label>Device PIN</label>
+                  <input type="text" placeholder="e.g. 3" value={pin} onChange={(e) => setPin(e.target.value)} />
+                </div>
+              </div>
+              {error && <p className="at-modal-error">{error}</p>}
+              <button className="at-btn at-btn--primary" style={{ marginTop: 10 }} disabled={saving} onClick={addMapping}>
+                {saving ? "Adding…" : "Add Mapping"}
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="at-modal-footer">
+          <button className="at-btn at-btn--primary" onClick={onClose}>Done</button>
+        </div>
       </div>
     </div>
   );
@@ -670,41 +748,399 @@ function ReportsTab() {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-type Tab = "today" | "monthly" | "settings" | "reports";
-
 export default function AttendancePage() {
-  const [tab, setTab] = useState<Tab>("today");
+  const [selectedDate, setSelectedDate] = useState(todayIST);
+  const [data, setData]         = useState<{ summary: DailySummary; staff: TodayStaffRecord[] } | null>(null);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const [search, setSearch]     = useState("");
+  const [modal, setModal]       = useState<ModalState>(null);
+  const [quickMark, setQuickMark] = useState(false);
+
+  // ── Devices ──
+  const [devices,       setDevices]       = useState<Device[]>([]);
+  const [pending,       setPending]       = useState<PendingDevice[]>([]);
+  const [addDevice,     setAddDevice]     = useState(false);
+  const [pinDevice,     setPinDevice]     = useState<Device | null>(null);
+  const [editDevice,    setEditDevice]    = useState<Device | null>(null);
+  const [connectTarget, setConnectTarget] = useState<PendingDevice | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
+  async function deleteDevice(id: string) {
+    try {
+      await api.delete(DEVICES.BY_ID(id));
+      setDeleteConfirm(null);
+      loadDevices();
+    } catch { /* silent */ }
+  }
+
+  const isToday = selectedDate === todayIST();
+
+  const loadDevices = useCallback(async () => {
+    try {
+      const [devRes, pendRes] = await Promise.all([
+        api.get(DEVICES.LIST),
+        api.get(DEVICES.PENDING),
+      ]);
+      setDevices(devRes.data.data);
+      setPending(pendRes.data.data);
+    } catch { /* silent — devices section just stays empty */ }
+  }, []);
+
+  useEffect(() => {
+    loadDevices();
+    const interval = setInterval(loadDevices, 30_000);
+    return () => clearInterval(interval);
+  }, [loadDevices]);
+
+  const load = useCallback(async (date: string, silent = false) => {
+    if (silent) setRefreshing(true);
+    else setLoading(true);
+    setError("");
+    try {
+      const res = await api.get(ATTENDANCE.TODAY, { params: { date } });
+      setData(res.data.data);
+    } catch (e: any) {
+      setError(e?.response?.data?.error?.message || "Failed to load attendance data.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => { load(selectedDate); }, [selectedDate, load]);
+
+  const summary  = data?.summary;
+  const staff    = data?.staff ?? [];
+  const filtered = staff.filter(
+    (s) =>
+      s.staff_name.toLowerCase().includes(search.toLowerCase()) ||
+      s.staff_role.toLowerCase().includes(search.toLowerCase())
+  );
+
+  function closeModal() { setModal(null); }
+  function doneModal()  { setModal(null); load(selectedDate, true); }
 
   return (
     <div className="attendance-page">
-      <div className="at-header">
+
+      {/* ── Header ── */}
+      <div className="ap-header">
         <div>
-          <h2 className="at-title">Attendance</h2>
-          <p className="at-subtitle">Track daily attendance for your team.</p>
+          <h2 className="ap-title">Attendance</h2>
+          <p className="ap-subtitle">Track staff attendance for any date.</p>
+        </div>
+        <div className="ap-header-actions">
+          <button
+            className="ap-btn ap-btn--outline ap-btn--icon"
+            onClick={() => load(selectedDate, true)}
+            disabled={refreshing}
+            title="Refresh"
+          >
+            <ArrowRepeat size={15} className={refreshing ? "ap-spin" : ""} />
+          </button>
+          <button
+            className="ap-btn ap-btn--primary"
+            onClick={() => setQuickMark(true)}
+            disabled={loading || staff.length === 0}
+          >
+            <Plus size={15} />
+            Mark Attendance
+          </button>
         </div>
       </div>
 
-      <div className="at-tabs">
-        <button className={`at-tab ${tab === "today"    ? "at-tab--active" : ""}`} onClick={() => setTab("today")}>
-          Today
-        </button>
-        <button className={`at-tab ${tab === "monthly"  ? "at-tab--active" : ""}`} onClick={() => setTab("monthly")}>
-          Monthly
-        </button>
-        <button className={`at-tab ${tab === "settings" ? "at-tab--active" : ""}`} onClick={() => setTab("settings")}>
-          <GearFill size={13} /> Settings
-        </button>
-        <button className={`at-tab ${tab === "reports"  ? "at-tab--active" : ""}`} onClick={() => setTab("reports")}>
-          <Download size={13} /> Reports
-        </button>
+      {/* ── Summary Cards ── */}
+      <div className="ap-summary-grid">
+        <div className="ap-stat-card">
+          <div className="ap-stat-icon ap-stat-icon--green"><CheckCircleFill size={18} /></div>
+          <div>
+            <div className="ap-stat-num ap-stat-num--green">{loading ? "—" : summary?.present ?? 0}</div>
+            <div className="ap-stat-label">Present</div>
+          </div>
+        </div>
+        <div className="ap-stat-card">
+          <div className="ap-stat-icon ap-stat-icon--amber"><ExclamationCircleFill size={18} /></div>
+          <div>
+            <div className="ap-stat-num ap-stat-num--amber">{loading ? "—" : summary?.late ?? 0}</div>
+            <div className="ap-stat-label">Late</div>
+          </div>
+        </div>
+        <div className="ap-stat-card">
+          <div className="ap-stat-icon ap-stat-icon--red"><XCircleFill size={18} /></div>
+          <div>
+            <div className="ap-stat-num ap-stat-num--red">{loading ? "—" : summary?.absent ?? 0}</div>
+            <div className="ap-stat-label">Absent</div>
+          </div>
+        </div>
+        <div className="ap-stat-card">
+          <div className="ap-stat-icon ap-stat-icon--purple"><DashCircleFill size={18} /></div>
+          <div>
+            <div className="ap-stat-num ap-stat-num--purple">{loading ? "—" : summary?.on_leave ?? 0}</div>
+            <div className="ap-stat-label">On Leave</div>
+          </div>
+        </div>
       </div>
 
-      <div className="at-tab-content">
-        {tab === "today"    && <TodayTab />}
-        {tab === "monthly"  && <MonthlyTab />}
-        {tab === "settings" && <SettingsTab />}
-        {tab === "reports"  && <ReportsTab />}
+      {/* ── Staff Attendance Table ── */}
+      <div className="ap-card">
+        <div className="ap-card-header">
+          <div>
+            <h3 className="ap-card-title">Staff Attendance</h3>
+          </div>
+
+          {/* ── Date Navigation ── */}
+          <div className="ap-date-nav">
+            <button className="ap-date-nav__arrow" onClick={() => setSelectedDate((d) => shiftDate(d, -1))} title="Previous day">
+              <ChevronLeft size={14} />
+            </button>
+            <input
+              type="date"
+              className="ap-date-nav__input"
+              value={selectedDate}
+              onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
+            />
+            <button
+              className="ap-date-nav__arrow"
+              onClick={() => setSelectedDate((d) => shiftDate(d, 1))}
+              disabled={isToday}
+              title="Next day"
+            >
+              <ChevronRight size={14} />
+            </button>
+            {!isToday && (
+              <button className="ap-date-nav__today" onClick={() => setSelectedDate(todayIST())}>
+                Today
+              </button>
+            )}
+          </div>
+
+          <div className="ap-search-wrap">
+            <SearchIcon size={13} className="ap-search-icon" />
+            <input
+              className="ap-search"
+              placeholder="Search staff…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="ap-loading">Loading attendance…</div>
+        ) : error ? (
+          <div className="ap-error">
+            <p>{error}</p>
+            <button className="at-btn at-btn--ghost" style={{ marginTop: 12 }} onClick={() => load(selectedDate)}>
+              Retry
+            </button>
+          </div>
+        ) : (
+          <div className="ap-table-wrap">
+            <table className="ap-table">
+              <thead>
+                <tr>
+                  <th>Staff Name</th>
+                  <th>Check In</th>
+                  <th>Check Out</th>
+                  <th>Working Hours</th>
+                  <th>Source</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="ap-table-empty">
+                      {search ? "No staff match your search." : `No records for ${fmtDateLabel(selectedDate)}.`}
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map((s) => {
+                    const cfg    = STATUS_CFG[s.status] ?? STATUS_CFG.not_marked;
+                    const action = rowAction(s);
+                    return (
+                      <tr key={s.staff_id}>
+                        <td>
+                          <div className="ap-member">
+                            <div className="ap-avatar" style={{ background: avatarColor(s.staff_name) }}>
+                              {initials(s.staff_name)}
+                            </div>
+                            <div>
+                              <div className="ap-member-name">{s.staff_name}</div>
+                              <div className="ap-member-role">{s.staff_role}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="ap-td-mono">{fmtTime(s.check_in)}</td>
+                        <td className="ap-td-mono">{fmtTime(s.check_out)}</td>
+                        <td className="ap-td-mono">
+                          {s.hours_worked != null ? (
+                            fmtHours(s.hours_worked)
+                          ) : s.scheduled_hours != null ? (
+                            <span className="ap-scheduled-hours">
+                              {fmtHours(s.scheduled_hours)}
+                              <span className="ap-scheduled-label">scheduled</span>
+                            </span>
+                          ) : "—"}
+                        </td>
+                        <td>
+                          <span className="ap-source-chip">{fmtSource(s.source)}</span>
+                        </td>
+                        <td>
+                          <span className={`ap-badge ${cfg.badge}`}>
+                            <span className={`ap-dot ${cfg.dot}`} />
+                            {cfg.label}
+                          </span>
+                        </td>
+                        <td>
+                          <button
+                            className={action.variant}
+                            onClick={() => setModal({ type: action.modalType, record: s })}
+                          >
+                            {action.label}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
+
+      {/* ── Connected Devices ── */}
+      <div className="ap-card">
+        <div className="ap-card-header">
+          <div>
+            <h3 className="ap-card-title">Connected Devices</h3>
+            <p className="ap-card-subtitle">Biometric / QR / card machines pushing attendance to this system.</p>
+          </div>
+          <button className="ap-btn ap-btn--primary" onClick={() => setAddDevice(true)}>
+            <Plus size={15} /> Add Device
+          </button>
+        </div>
+
+        {/* ── Discovered (unregistered) devices ── */}
+        {pending.length > 0 && (
+          <div className="ap-discovered-banner">
+            <HddNetwork size={16} className="ap-discovered-banner__icon" />
+            <span className="ap-discovered-banner__label">
+              {pending.length} device{pending.length > 1 ? "s" : ""} discovered on your network
+            </span>
+            <div className="ap-discovered-list">
+              {pending.map((pd) => (
+                <div key={pd.sn} className="ap-discovered-row">
+                  <span className="ap-discovered-sn">SN: {pd.sn}</span>
+                  <span className="ap-discovered-ip">{pd.ip}</span>
+                  <button className="ap-device-edit-btn" onClick={() => setConnectTarget(pd)}>
+                    Connect
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {devices.length === 0 ? (
+          <div className="ap-devices-empty">
+            <HddNetwork size={32} className="ap-devices-empty__icon" />
+            <p>No devices connected yet.</p>
+            <span>Add a device and point it to this server — it will push attendance automatically.</span>
+          </div>
+        ) : (
+          <div className="ap-devices-grid">
+            {devices.map((d) => {
+              const lastSeenMs = d.last_seen ? Date.now() - new Date(d.last_seen).getTime() : null;
+              const online = lastSeenMs !== null && lastSeenMs < 2 * 60 * 1000;
+              return (
+                <div key={d.id} className="ap-device-card">
+                  <div className="ap-device-card__header">
+                    <div className={`ap-device-status ${online ? "ap-device-status--online" : "ap-device-status--offline"}`}>
+                      <span className="ap-device-status__dot" />
+                      {online ? "Online" : "Offline"}
+                    </div>
+                    <div className="ap-device-card__actions">
+                      <button className="ap-device-edit-btn" onClick={() => setPinDevice(d)} title="Staff PINs">
+                        <PencilSquare size={13} /> Staff PINs
+                      </button>
+                      <button className="ap-device-edit-btn" onClick={() => setEditDevice(d)} title="Edit device">
+                        <GearFill size={12} />
+                      </button>
+                      {deleteConfirm === d.id ? (
+                        <span className="ap-device-delete-confirm">
+                          <button className="ap-device-delete-btn ap-device-delete-btn--yes" onClick={() => deleteDevice(d.id)}>Yes</button>
+                          <button className="ap-device-delete-btn" onClick={() => setDeleteConfirm(null)}>No</button>
+                        </span>
+                      ) : (
+                        <button className="ap-device-edit-btn ap-device-edit-btn--danger" onClick={() => setDeleteConfirm(d.id)} title="Remove device">
+                          <Trash3 size={13} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="ap-device-card__name">{d.name}</div>
+                  <div className="ap-device-card__serial">SN: {d.serial_no}</div>
+                  {d.location && <div className="ap-device-card__loc">{d.location}</div>}
+                  <div className="ap-device-card__lastseen">
+                    {d.last_seen
+                      ? `Last seen ${new Date(d.last_seen).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: true })}`
+                      : "Never connected"}
+                  </div>
+                  {d.last_ip && <div className="ap-device-card__ip">IP: {d.last_ip}</div>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Attendance Modals ── */}
+      {modal?.type === "check_in"  && <CheckInModal  record={modal.record} date={selectedDate} isToday={isToday} onClose={closeModal} onDone={doneModal} />}
+      {modal?.type === "check_out" && <CheckOutModal record={modal.record} date={selectedDate} isToday={isToday} onClose={closeModal} onDone={doneModal} />}
+      {modal?.type === "edit"      && <EditModal     record={modal.record} date={selectedDate} onClose={closeModal} onDone={doneModal} />}
+
+      {quickMark && (
+        <QuickMarkModal
+          staff={staff}
+          date={selectedDate}
+          onClose={() => setQuickMark(false)}
+          onDone={() => { setQuickMark(false); load(selectedDate, true); }}
+        />
+      )}
+
+      {/* ── Device Modals ── */}
+      {connectTarget && (
+        <ConnectDeviceModal
+          pending={connectTarget}
+          onClose={() => setConnectTarget(null)}
+          onDone={() => { setConnectTarget(null); loadDevices(); }}
+        />
+      )}
+      {addDevice && (
+        <AddDeviceModal
+          onClose={() => setAddDevice(false)}
+          onDone={() => { setAddDevice(false); loadDevices(); }}
+        />
+      )}
+      {editDevice && (
+        <EditDeviceModal
+          device={editDevice}
+          onClose={() => setEditDevice(null)}
+          onDone={() => { setEditDevice(null); loadDevices(); }}
+        />
+      )}
+      {pinDevice && (
+        <ManagePinsModal
+          device={pinDevice}
+          allStaff={staff}
+          onClose={() => setPinDevice(null)}
+        />
+      )}
     </div>
   );
 }

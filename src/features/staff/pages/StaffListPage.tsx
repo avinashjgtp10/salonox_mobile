@@ -2,8 +2,8 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch } from "../../../store/store";
-import { selectCurrentSalon, selectAllStaff, selectStaffLoading } from "../../../store/selectors/slices.selectors";
-import { fetchStaffThunk, deleteStaffThunk } from "../../../middleware/staff/staff.thunk";
+import {  selectAllStaff, selectStaffLoading } from "../../../store/selectors/slices.selectors";
+import { fetchStaffThunk, deleteStaffThunk, activateStaffThunk, deactivateStaffThunk } from "../../../middleware/staff/staff.thunk";
 import {
   Search as SearchIcon,
   Sliders,
@@ -133,8 +133,6 @@ export default function StaffListPage() {
     setTimeout(() => setToast(null), 3500);
   }, []);
 
-  const currentSalon = useSelector(selectCurrentSalon);
-  const salonId = currentSalon?.id;
 
   const fetchStaff = useCallback(async () => {
     try {
@@ -211,28 +209,15 @@ export default function StaffListPage() {
     }
   };
 
-  const handleResendInvite = async (id: string) => {
-    try {
-      const params = new URLSearchParams();
-      if (salonId) params.set("salon_id", String(salonId));
-      await api.post(`${STAFF.BY_ID(id)}/resend-invite?${params.toString()}`);
-      showToast("Invitation resent successfully");
-    } catch {
-      showToast("Failed to resend invitation", "error");
-    } finally {
-      setActionMenuId(null);
-    }
-  };
-
   const handleToggleStatus = async (member: StaffMember) => {
-    const isActive = (member.status || "Active").toLowerCase() === "active";
+    const isActive = member.is_active ?? true;
     try {
-      const params = new URLSearchParams();
-      if (salonId) params.set("salon_id", String(salonId));
-      const url = isActive ? STAFF.DEACTIVATE(member.id) : STAFF.ACTIVATE(member.id);
-      await api.patch(`${url}?${params.toString()}`);
+      if (isActive) {
+        await dispatch(deactivateStaffThunk(member.id)).unwrap();
+      } else {
+        await dispatch(activateStaffThunk(member.id)).unwrap();
+      }
       showToast(`${member.first_name} ${isActive ? "deactivated" : "activated"} successfully`);
-      fetchStaff();
     } catch {
       showToast("Failed to update status", "error");
     }
@@ -619,9 +604,6 @@ export default function StaffListPage() {
           {pagedSorted.map((member) => {
             const isChecked = selectedIds.includes(member.id);
             const isActive = member.is_active ?? true;
-            const rawStatus = (member.status || member.invitation_status || "").toUpperCase();
-            const isPending = rawStatus === "PENDING";
-            const isAccepted = rawStatus === "ACCEPTED";
             const initials = `${(member.first_name?.[0] || "").toUpperCase()}${(member.last_name?.[0] || "").toUpperCase()}` || "??";
             const fullName = `${member.first_name || ""} ${member.last_name || ""}`.trim();
 
@@ -687,9 +669,9 @@ export default function StaffListPage() {
                 </div>
 
                 <div className="slp-col-status">
-                  <span className={`slp-status-badge ${isPending ? 'slp-status-badge--pending' : isAccepted ? 'slp-status-badge--accepted' : isActive ? 'slp-status-badge--active' : 'slp-status-badge--inactive'}`}>
+                  <span className={`slp-status-badge ${isActive ? 'slp-status-badge--active' : 'slp-status-badge--inactive'}`}>
                     <span className="slp-status-dot" />
-                    {isPending ? 'Pending Acceptance' : isAccepted ? 'Accepted' : isActive ? 'Active' : 'Inactive'}
+                    {isActive ? 'Active' : 'Inactive'}
                   </span>
                 </div>
 
@@ -714,14 +696,6 @@ export default function StaffListPage() {
                     </button>
                     {actionMenuId === member.id && (
                       <div className="slp-action-menu">
-                        {isPending && (
-                          <button
-                            className="slp-action-item"
-                            onClick={() => { member.id && handleResendInvite(member.id); }}
-                          >
-                            <EnvelopeFill size={13} /> Resend invite
-                          </button>
-                        )}
                         <button
                           className="slp-action-item"
                           onClick={() => { member.id && navigate(`/dashboard/team/${member.id}`); setActionMenuId(null); }}

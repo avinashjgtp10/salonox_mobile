@@ -55,10 +55,13 @@ interface CommissionTier {
   commission_value: number;
 }
 
+type CommissionPeriod = "daily" | "monthly";
+
 interface AddFormState {
   staff_ids: string[];
   category: CommissionCategory;
   is_enabled: boolean;
+  period: CommissionPeriod;
   pass_cancellation_fee_late: boolean;
   pass_cancellation_fee_noshow: boolean;
   min_monthly_revenue: number;
@@ -268,6 +271,7 @@ const EMPTY_FORM: AddFormState = {
   staff_ids: [],
   category: "services",
   is_enabled: true,
+  period: "monthly",
   pass_cancellation_fee_late: false,
   pass_cancellation_fee_noshow: false,
   min_monthly_revenue: 0,
@@ -275,7 +279,7 @@ const EMPTY_FORM: AddFormState = {
 };
 
 function AddRuleModal({
-  staffList, onClose, onSaved, editing, salonId,
+  staffList, onClose, onSaved, editing,
 }: {
   staffList: StaffMember[];
   onClose: () => void;
@@ -289,6 +293,7 @@ function AddRuleModal({
           staff_ids: [editing.staff_id],
           category: editing.category,
           is_enabled: editing.is_enabled,
+          period: ((editing as any).period ?? "monthly") as CommissionPeriod,
           pass_cancellation_fee_late: Boolean(editing.pass_cancellation_fee_late),
           pass_cancellation_fee_noshow: Boolean(editing.pass_cancellation_fee_noshow),
           min_monthly_revenue: Number((editing as any).min_monthly_revenue ?? 0),
@@ -312,19 +317,27 @@ function AddRuleModal({
     setForm((p) => ({ ...p, tiers: p.tiers.filter((t) => t.id !== id) }));
 
   const handleSave = async () => {
-    // If no staff selected, apply rule to ALL staff
     const targetIds = form.staff_ids.length > 0 ? form.staff_ids : staffList.map((s) => s.id);
     if (form.tiers.length === 0) { toast.error("Add at least one commission slab"); return; }
 
-    const invalidTier = form.tiers.find((t) => t.revenue_target <= 0 || t.commission_value <= 0);
-    if (invalidTier) { toast.error("All slabs must have revenue target and commission value greater than 0"); return; }
+    const invalidTier = form.tiers.find((t) => t.commission_value <= 0);
+    if (invalidTier) { toast.error("All slabs must have a commission value greater than 0"); return; }
 
     setSaving(true);
     try {
-      // 1. Save base commission settings (enabled flag, category, pass-through options)
-      const basePayload = {
+      const slabs = form.tiers
+        .filter((t) => t.commission_value > 0)
+        .map((t) => ({
+          revenue_target:   t.revenue_target,
+          commission_kind:  t.commission_kind,
+          commission_value: t.commission_value,
+        }));
+
+      const payload = {
+        staff_ids:                    targetIds,
         category:                     form.category,
         is_enabled:                   form.is_enabled,
+        period:                       form.period,
         commission_kind:              form.tiers[0]?.commission_kind ?? "fixed_rate",
         default_rate:                 form.tiers[0]?.commission_value ?? 0,
         revenue_target:               form.tiers[0]?.revenue_target ?? 0,
@@ -332,45 +345,16 @@ function AddRuleModal({
         use_default_calculation:      false,
         pass_cancellation_fee_late:   form.pass_cancellation_fee_late,
         pass_cancellation_fee_noshow: form.pass_cancellation_fee_noshow,
+        slabs,
       };
 
-      // 2. Save all slabs to commission_slabs table
-      const slabsPayload = {
-        category:             form.category,
-        salon_id:             salonId,
-        min_monthly_revenue:  form.min_monthly_revenue,
-        slabs: form.tiers
-          .filter((t) => t.revenue_target > 0 && t.commission_value > 0)
-          .map((t) => ({
-            revenue_target:   t.revenue_target,
-            commission_kind:  t.commission_kind,
-            commission_value: t.commission_value,
-          })),
-      };
-
-      // Batch saves — 5 at a time to avoid connection pool exhaustion
-      const SAVE_BATCH = 5;
-      const failed: string[] = [];
-      for (let i = 0; i < targetIds.length; i += SAVE_BATCH) {
-        const batch = targetIds.slice(i, i + SAVE_BATCH);
-        const results = await Promise.allSettled(
-          batch.flatMap((staffId) => [
-            api.put(STAFF.COMMISSIONS(staffId), basePayload),
-            slabsPayload.slabs.length > 0
-              ? api.put(`${STAFF.BY_ID(staffId)}/commissions/slabs`, slabsPayload)
-              : Promise.resolve(),
-          ])
-        );
-        results.forEach((r: PromiseSettledResult<any>, idx: number) => {
-          if (r.status === "rejected") failed.push(batch[Math.floor(idx / 2)]);
-        });
-      }
+      const res = await api.post(STAFF.COMMISSIONS_BULK, payload);
+      const { saved, failed } = res.data?.data ?? { saved: targetIds, failed: [] };
 
       if (failed.length > 0) {
-        toast.error(`Saved ${targetIds.length - failed.length} of ${targetIds.length} — ${failed.length} failed`);
+        toast.error(`${failed.length} staff could not be configured`);
       }
-      const savedCount = targetIds.length - failed.length;
-      toast.success(editing ? "Commission rule updated" : `Commission rule added for ${savedCount} staff member${savedCount !== 1 ? 's' : ''}`);
+      toast.success(editing ? "Commission rule updated" : `Commission rule added for ${saved.length} staff member${saved.length !== 1 ? "s" : ""}`);
       onSaved();
       onClose();
     } catch (err: any) {
@@ -450,7 +434,7 @@ function AddRuleModal({
                     <input
                       type="number"
                       className="cm-slab-input"
-                      placeholder="e.g. 5000"
+                      placeholder="0 = always apply"
                       min={0}
                       value={tier.revenue_target || ""}
                       onChange={(e) => updateTier(tier.id, "revenue_target", Number(e.target.value))}
@@ -502,15 +486,18 @@ function AddRuleModal({
                   )}
 
                   {/* Preview sentence */}
-                  {tier.revenue_target > 0 && tier.commission_value > 0 && (
+                  {tier.commission_value > 0 && (
                     <div className="cm-slab-preview">
-                      If{" "}<strong>{selCat.label.toLowerCase()}</strong>{" "}revenue reaches{" "}
-                      <strong>{fmt(tier.revenue_target)}</strong>, staff gets{" "}
+                      {tier.revenue_target > 0
+                        ? <>If <strong>{selCat.label.toLowerCase()}</strong> revenue reaches <strong>{fmt(tier.revenue_target)}</strong>, staff gets </>
+                        : <>Staff always gets </>
+                      }
                       <strong>
                         {tier.commission_kind === "percentage"
                           ? `${tier.commission_value}%`
                           : fmt(tier.commission_value)}
                       </strong>
+                      {tier.revenue_target === 0 && <> from {selCat.label.toLowerCase()}</>}
                     </div>
                   )}
                 </div>
@@ -555,6 +542,29 @@ function AddRuleModal({
             </div>
           )}
 
+          {/* Period — daily vs monthly */}
+          <div className="cm-field">
+            <label className="cm-label">Commission Period</label>
+            <div className="cm-period-toggle">
+              <button
+                type="button"
+                className={`cm-period-btn ${form.period === "daily" ? "cm-period-btn--active" : ""}`}
+                onClick={() => setField("period", "daily")}
+              >
+                Daily
+                <span className="cm-period-hint">Revenue measured per day</span>
+              </button>
+              <button
+                type="button"
+                className={`cm-period-btn ${form.period === "monthly" ? "cm-period-btn--active" : ""}`}
+                onClick={() => setField("period", "monthly")}
+              >
+                Monthly
+                <span className="cm-period-hint">Revenue measured per month</span>
+              </button>
+            </div>
+          </div>
+
           {/* Enable toggle */}
           <div className="cm-field">
             <label className="cm-check-row">
@@ -579,20 +589,18 @@ function AddRuleModal({
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
 
 function OverviewTab({
-  rules, staffList, onToggleRule, togglingId, onAddRule, commsFetching, earnSummary, earnedByStaff, summaryMonth, onMonthChange, onOpenHistory,
+  rules, staffList, onAddRule, commsFetching, earnSummary, earnedByStaff, summaryMonth, onMonthChange, onSettle, settlingId, onOpenHistory,
 }: {
   rules: FlatRule[];
   staffList: StaffMember[];
-  onToggleRule: (rule: FlatRule) => void;
-  togglingId: string | null;
   onAddRule: (staff?: StaffMember) => void;
   commsFetching: boolean;
   earnSummary: EarningSummary | null;
   earnedByStaff: EarnedByStaff[];
   summaryMonth: string;
   onMonthChange: (month: string) => void;
-  markingPaidId?: string | null;
-  onMarkPaid?: (staffId: string) => void;
+  onSettle: (staffId: string, name: string, amount: number) => void;
+  settlingId: string | null;
   onOpenHistory: (staffId: string) => void;
 }): JSX.Element {
   const staffWithComm     = new Set(rules.map((r) => r.staff_id));
@@ -787,11 +795,26 @@ function OverviewTab({
                       )}
                     </div>
 
-                    {e.pending_payout > 0 && (
-                      <span className="cm-pending-badge">
-                        <ClockHistory size={10} /> {fmt(e.pending_payout)} pending
-                      </span>
-                    )}
+                    <div className="cm-earned-row-end" onClick={(ev) => ev.stopPropagation()}>
+                      {e.pending_payout > 0 && (
+                        <>
+                          <span className="cm-pending-badge">
+                            <ClockHistory size={10} /> {fmt(e.pending_payout)} pending
+                          </span>
+                          <button
+                            className="cm-settle-btn"
+                            disabled={settlingId === e.staff_id}
+                            onClick={() => onSettle(
+                              e.staff_id,
+                              `${e.staff_first_name} ${e.staff_last_name ?? ""}`.trim(),
+                              e.pending_payout
+                            )}
+                          >
+                            {settlingId === e.staff_id ? "Settling…" : "Settle"}
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -1099,6 +1122,7 @@ export default function CommissionsPage() {
   const [showModal,   setShowModal]   = useState(false);
   const [editingRule, setEditingRule] = useState<FlatRule | null>(null);
   const [togglingId,  setTogglingId]  = useState<string | null>(null);
+  const [settlingId,  setSettlingId]  = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
     if (!salonId) return;
@@ -1120,11 +1144,13 @@ export default function CommissionsPage() {
         setEarnedByStaff(earnedRes.data?.data ?? []);
       }).catch(() => {});
 
-      const staff: StaffMember[] = staffRes.data?.data?.items ?? [];
+      const allStaff: StaffMember[] = staffRes.data?.data?.items ?? [];
+      const staff = allStaff.filter((s) => s.is_active !== false);
       setStaffList(staff);
 
-      // Build staff lookup map for O(1) join
-      const staffMap = new Map(staff.map((s) => [s.id, s]));
+      // Build staff lookup map for O(1) join — uses the unfiltered list so
+      // existing commission rules for now-deactivated staff still resolve names
+      const staffMap = new Map(allStaff.map((s) => [s.id, s]));
 
       const rawCommissions = commissionsRes.data?.data ?? [];
       const flat: FlatRule[] = rawCommissions
@@ -1206,6 +1232,24 @@ export default function CommissionsPage() {
     }
   };
 
+  const handleSettle = async (staffId: string, name: string, amount: number) => {
+    setSettlingId(staffId);
+    try {
+      await api.post(STAFF.SETTLE_COMMISSION(staffId));
+      toast.success(`₹${amount.toLocaleString("en-IN")} settled for ${name}`);
+      const [summaryRes, earnedRes] = await Promise.all([
+        api.get(`${STAFF.BASE}/commissions/summary?salon_id=${salonId}&month=${summaryMonth}`),
+        api.get(`${STAFF.BASE}/commissions/earned?salon_id=${salonId}&month=${summaryMonth}`),
+      ]);
+      setEarnSummary(summaryRes.data?.data ?? null);
+      setEarnedByStaff(earnedRes.data?.data ?? []);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? "Failed to settle commission");
+    } finally {
+      setSettlingId(null);
+    }
+  };
+
   const filtered  = rules.filter((r) => catFilter === "all" || r.category === catFilter);
   const catCounts = CATEGORIES.reduce((acc, c) => {
     acc[c.key] = rules.filter((r) => r.category === c.key && Number(r.default_rate) > 0).length;
@@ -1266,14 +1310,14 @@ export default function CommissionsPage() {
         <OverviewTab
           rules={rules}
           staffList={staffList}
-          onToggleRule={handleToggle}
-          togglingId={togglingId}
           onAddRule={() => { setEditingRule(null); setShowModal(true); }}
           commsFetching={commsFetching}
           earnSummary={earnSummary}
           earnedByStaff={earnedByStaff}
           summaryMonth={summaryMonth}
           onMonthChange={(m) => { setSummaryMonth(m); }}
+          onSettle={handleSettle}
+          settlingId={settlingId}
           onOpenHistory={(staffId) => setHistoryStaffId(staffId)}
         />
       ) : (

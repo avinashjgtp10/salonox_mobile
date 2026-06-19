@@ -31,7 +31,9 @@ export const STAFF = {
   WAGES: (staffId: string | number) => `/api/v1/staff/${staffId}/wages`,
 
   // ── Commissions ────────────────────────────────────────────────────────────
-  COMMISSIONS: (staffId: string | number) => `/api/v1/staff/${staffId}/commissions`,
+  COMMISSIONS:             (staffId: string | number) => `/api/v1/staff/${staffId}/commissions`,
+  COMMISSIONS_BULK:        "/api/v1/staff/commissions/bulk-configure",
+  SETTLE_COMMISSION:       (staffId: string | number) => `/api/v1/staff/commissions/${staffId}/mark-paid`,
 
   // ── Pay Runs ───────────────────────────────────────────────────────────────
   PAY_RUNS: (staffId: string | number) => `/api/v1/staff/${staffId}/pay-runs`,

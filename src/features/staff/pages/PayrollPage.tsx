@@ -34,26 +34,12 @@ interface StaffPayroll {
   payment_method: "bank_transfer" | "pay_manually";
 }
 
-const AVATAR_GRADIENTS = [
-  "linear-gradient(135deg,#6366f1,#8b5cf6)",
-  "linear-gradient(135deg,#f59e0b,#ef4444)",
-  "linear-gradient(135deg,#10b981,#059669)",
-  "linear-gradient(135deg,#3b82f6,#06b6d4)",
-  "linear-gradient(135deg,#ec4899,#f43f5e)",
-];
 
 const MONTH_NAMES = [
   "January","February","March","April","May","June",
   "July","August","September","October","November","December",
 ];
 
-const MOCK_PAYROLL: StaffPayroll[] = [
-  { id:"1", name:"Priya Sharma",   role:"Hair Stylist",   avatar:"PS", color:AVATAR_GRADIENTS[0], hours_worked:160, hourly_rate:0,  base_salary:28000, commission:4200, deductions:800,  bonus:1000, net_pay:32400, status:"pending",    payment_method:"bank_transfer", bank_account:"****4521" },
-  { id:"2", name:"Rohan Mehta",    role:"Makeup Artist",  avatar:"RM", color:AVATAR_GRADIENTS[1], hours_worked:140, hourly_rate:200, base_salary:0,     commission:3800, deductions:500,  bonus:500,  net_pay:31800, status:"paid",       payment_method:"bank_transfer", bank_account:"****8813" },
-  { id:"3", name:"Anita Kulkarni", role:"Nail Tech",      avatar:"AK", color:AVATAR_GRADIENTS[2], hours_worked:175, hourly_rate:150, base_salary:0,     commission:2100, deductions:300,  bonus:0,    net_pay:28050, status:"processing", payment_method:"bank_transfer", bank_account:"****3307" },
-  { id:"4", name:"Vikram Singh",   role:"Barber",         avatar:"VS", color:AVATAR_GRADIENTS[3], hours_worked:155, hourly_rate:0,  base_salary:22000, commission:5500, deductions:600,  bonus:1500, net_pay:28400, status:"pending",    payment_method:"pay_manually" },
-  { id:"5", name:"Deepa Nair",     role:"Skin Therapist", avatar:"DN", color:AVATAR_GRADIENTS[4], hours_worked:168, hourly_rate:0,  base_salary:25000, commission:3200, deductions:700,  bonus:800,  net_pay:28300, status:"paid",       payment_method:"bank_transfer", bank_account:"****6641" },
-];
 
 const STATUS_CONFIG: Record<PayStatus, { label: string; class: string }> = {
   pending:    { label: "Pending",    class: "pr-badge--pending" },
@@ -220,7 +206,7 @@ export default function PayrollPage() {
   const [viewYear, setYear]       = useState(today.getFullYear());
   const [viewMonth, setMonth]     = useState(today.getMonth());
   const [statusFilter, setStatus] = useState<"all" | PayStatus>("all");
-  const [data, setData]           = useState<StaffPayroll[]>(MOCK_PAYROLL);
+  const [data, setData]           = useState<StaffPayroll[]>([]);
 
   const prevMonth = () => {
     if (viewMonth === 0) { setYear((y) => y - 1); setMonth(11); }
@@ -319,9 +305,17 @@ export default function PayrollPage() {
         </div>
 
         <div className="pr-table-body">
-          {filtered.map((m) => (
-            <PayrollRow key={m.id} member={m} onMarkPaid={handleMarkPaid} />
-          ))}
+          {filtered.length === 0 ? (
+            <div className="pr-empty">
+              <CurrencyRupee size={32} className="pr-empty__icon" />
+              <p>No payroll records for this month.</p>
+              <span>Settle commissions from the Commissions page to generate payroll entries.</span>
+            </div>
+          ) : (
+            filtered.map((m) => (
+              <PayrollRow key={m.id} member={m} onMarkPaid={handleMarkPaid} />
+            ))
+          )}
         </div>
       </div>
     </div>

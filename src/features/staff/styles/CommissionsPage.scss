@@ -723,12 +723,66 @@ $radius:  12px;
   font-size: 11px; color: #9ca3af; display: block; margin-top: 4px;
 }
 
-// ── Pending badge (replaces Pay button) ──────────────────────────────────────
+// ── Pending badge + settle button group ──────────────────────────────────────
+.cm-earned-row-end {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+  flex-shrink: 0; align-self: center;
+}
+
 .cm-pending-badge {
   display: inline-flex; align-items: center; gap: 4px;
   font-size: 11px; font-weight: 600; color: #d97706;
   background: #fef3c7; padding: 4px 10px; border-radius: 99px;
-  white-space: nowrap; flex-shrink: 0; align-self: center;
+  white-space: nowrap;
+}
+
+.cm-settle-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; font-family: 'Inter', sans-serif;
+  color: #fff; background: #6c3ce1;
+  border: none; border-radius: 7px; padding: 5px 14px;
+  cursor: pointer; white-space: nowrap; transition: background 0.15s;
+
+  &:hover:not(:disabled) { background: #5b2ec7; }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
+
+// ── Period toggle (daily / monthly) ──────────────────────────────────────────
+.cm-period-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.cm-period-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 14px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  font-family: 'Inter', sans-serif;
+  transition: border-color 0.15s, background 0.15s;
+
+  &--active {
+    border-color: #6c3ce1;
+    background: #f5f3ff;
+    color: #6c3ce1;
+  }
+
+  &:hover:not(.cm-period-btn--active) { border-color: #c4b5fd; background: #faf9ff; }
+}
+
+.cm-period-hint {
+  font-size: 11px;
+  font-weight: 400;
+  color: #9ca3af;
 }
 
 // ── Export button ─────────────────────────────────────────────────────────────

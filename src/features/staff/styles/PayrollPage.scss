@@ -231,6 +231,32 @@ $radius: 12px;
   flex-direction: column;
 }
 
+.pr-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 56px 24px;
+  gap: 8px;
+  text-align: center;
+
+  &__icon { color: #d1d5db; margin-bottom: 4px; }
+
+  p {
+    font-size: 15px;
+    font-weight: 600;
+    color: #6b7280;
+    margin: 0;
+  }
+
+  span {
+    font-size: 13px;
+    color: #9ca3af;
+    max-width: 340px;
+    line-height: 1.5;
+  }
+}
+
 // ── Row ──
 .pr-row {
   display: flex;

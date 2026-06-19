@@ -1,3 +1,4 @@
+@use 'sass:color';
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 $font:    'Inter', sans-serif;
@@ -10,6 +11,8 @@ $purple:  #6c3ce1;
 $muted:   #6b7280;
 $radius:  12px;
 
+// ── Page wrapper ──────────────────────────────────────────────────────────────
+
 .attendance-page {
   padding: 28px 32px;
   background: $bg;
@@ -17,390 +20,884 @@ $radius:  12px;
   font-family: $font;
 }
 
-.at-header { margin-bottom: 20px; }
-.at-title   { font-size: 22px; font-weight: 700; color: $primary; margin: 0 0 4px; }
-.at-subtitle{ font-size: 13px; color: $muted; margin: 0; }
+// ── Header ────────────────────────────────────────────────────────────────────
 
-// ── Tabs ──────────────────────────────────────────────────────────────────────
-.at-tabs {
+.ap-header {
   display: flex;
-  gap: 4px;
-  border-bottom: 2px solid $border;
+  align-items: flex-start;
+  justify-content: space-between;
   margin-bottom: 24px;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-.at-tab {
+.ap-title    { font-size: 22px; font-weight: 700; color: $primary; margin: 0 0 4px; }
+.ap-subtitle { font-size: 13px; color: $muted; margin: 0; }
+
+.ap-header-actions {
   display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+// ── Buttons ───────────────────────────────────────────────────────────────────
+
+.ap-btn {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 9px 18px;
+  border-radius: 8px;
   font-size: 13px;
   font-weight: 600;
   font-family: $font;
-  color: $muted;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -2px;
   cursor: pointer;
-  transition: color 0.15s;
+  border: none;
+  transition: all 0.15s;
+  white-space: nowrap;
 
-  &:hover { color: $primary; }
-  &--active { color: $purple; border-bottom-color: $purple; }
+  &--primary {
+    background: $purple;
+    color: $white;
+    &:hover { background: color.adjust($purple, $lightness: -8%); }
+  }
+  &--outline {
+    background: $white;
+    border: 1px solid $border;
+    color: $primary;
+    &:hover { background: #f9fafb; }
+  }
+  &--icon {
+    padding: 9px 10px;
+  }
 }
 
-.at-tab-content { }
+// ── Summary Cards ─────────────────────────────────────────────────────────────
 
-// ── Loading / empty ───────────────────────────────────────────────────────────
-.at-loading { padding: 40px; text-align: center; color: $muted; font-size: 14px; }
-.at-empty   { padding: 20px; text-align: center; color: $muted; font-size: 13px; }
-
-// ── Summary cards (Today tab) ─────────────────────────────────────────────────
-.at-summary-cards {
-  display: flex;
+.ap-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: 14px;
-  flex-wrap: wrap;
   margin-bottom: 24px;
+
+  @media (max-width: 900px) { grid-template-columns: repeat(2, 1fr); }
 }
 
-.at-card {
+.ap-stat-card {
+  background: $white;
+  border: 1px solid $border;
+  border-radius: $radius;
+  padding: 18px 20px;
   display: flex;
   align-items: center;
   gap: 14px;
-  background: $white;
-  border: 1px solid $border;
-  border-radius: $radius;
-  padding: 16px 20px;
-  min-width: 130px;
-  flex: 1;
-
-  .at-card-num   { font-size: 26px; font-weight: 700; line-height: 1; }
-  .at-card-label { font-size: 12px; color: $muted; margin-top: 3px; }
-
-  &--present svg { color: #16a34a; }
-  &--absent  svg { color: #dc2626; }
-  &--late    svg { color: #d97706; }
-  &--leave   svg { color: #7c3aed; }
-  &--total   svg { color: #2563eb; }
-
-  &--present .at-card-num { color: #16a34a; }
-  &--absent  .at-card-num { color: #dc2626; }
-  &--late    .at-card-num { color: #d97706; }
-  &--leave   .at-card-num { color: #7c3aed; }
-  &--total   .at-card-num { color: #2563eb; }
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
-// ── Today staff list ──────────────────────────────────────────────────────────
-.at-today-list {
+.ap-stat-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  &--green  { background: #dcfce7; color: #16a34a; }
+  &--amber  { background: #fef3c7; color: #d97706; }
+  &--red    { background: #fee2e2; color: #dc2626; }
+  &--purple { background: #ede9fe; color: #7c3aed; }
+}
+
+.ap-stat-num {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+
+  &--green  { color: #16a34a; }
+  &--amber  { color: #d97706; }
+  &--red    { color: #dc2626; }
+  &--purple { color: #7c3aed; }
+}
+
+.ap-stat-label { font-size: 12px; color: $muted; margin-top: 4px; }
+
+// ── Staff Table Card ──────────────────────────────────────────────────────────
+
+.ap-card {
   background: $white;
   border: 1px solid $border;
   border-radius: $radius;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
   overflow: hidden;
 }
 
-.at-today-row {
+.ap-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 18px;
-  border-bottom: 1px solid #f3f4f6;
-  gap: 12px;
-
-  &:last-child { border-bottom: none; }
-}
-
-.at-today-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 200px;
-}
-
-.at-today-mid {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
-}
-
-.at-status-badge {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 3px 10px;
-  border-radius: 99px;
-  text-transform: capitalize;
-  white-space: nowrap;
-}
-
-.at-time-info {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  color: $muted;
-}
-
-// ── Toolbar ───────────────────────────────────────────────────────────────────
-.at-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid $border;
+  gap: 16px;
   flex-wrap: wrap;
 }
 
-.at-search-wrap {
-  position: relative;
-  flex: 1;
-  max-width: 300px;
+.ap-card-title    { font-size: 15px; font-weight: 700; color: $primary; margin: 0 0 2px; }
+.ap-card-subtitle { font-size: 12px; color: $muted; margin: 0; }
+
+// ── Date Navigation ───────────────────────────────────────────────────────────
+
+.ap-date-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #f8f9fb;
+  border: 1px solid $border;
+  border-radius: 8px;
+  padding: 3px;
+
+  &__arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    color: $muted;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+
+    &:hover:not(:disabled) { background: $white; color: $primary; }
+    &:disabled { opacity: 0.35; cursor: default; }
+  }
+
+  &__input {
+    border: none;
+    background: $white;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: $primary;
+    font-family: $font;
+    cursor: pointer;
+    outline: none;
+
+    &::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.6; }
+  }
+
+  &__today {
+    border: none;
+    background: $purple;
+    color: $white;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: $font;
+    cursor: pointer;
+    transition: background 0.15s;
+
+    &:hover { background: color.adjust($purple, $lightness: -8%); }
+  }
 }
-.at-search-icon {
+
+// ── Search ────────────────────────────────────────────────────────────────────
+
+.ap-search-wrap { position: relative; }
+
+.ap-search-icon {
   position: absolute;
-  left: 11px;
+  left: 10px;
   top: 50%;
   transform: translateY(-50%);
   color: $muted;
+  pointer-events: none;
 }
-.at-search {
-  width: 100%;
-  padding: 9px 12px 9px 32px;
+
+.ap-search {
+  width: 220px;
+  padding: 8px 12px 8px 30px;
   border: 1px solid $border;
   border-radius: 8px;
   font-size: 13px;
   font-family: $font;
   outline: none;
   background: $white;
+  transition: border-color 0.15s;
+
   &:focus { border-color: $accent; }
 }
 
-.at-month-nav {
+// ── Spin animation (refresh icon) ────────────────────────────────────────────
+
+@keyframes ap-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.ap-spin { animation: ap-spin 0.7s linear infinite; }
+
+// ── Loading / Error ───────────────────────────────────────────────────────────
+
+.ap-loading {
+  padding: 40px;
+  text-align: center;
+  color: $muted;
+  font-size: 13px;
+}
+
+.ap-error {
+  padding: 32px;
+  text-align: center;
+  color: #dc2626;
+  font-size: 13px;
+
+  p { margin: 0; }
+}
+
+// ── Table ─────────────────────────────────────────────────────────────────────
+
+.ap-table-wrap { overflow-x: auto; }
+
+.ap-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th {
+    padding: 10px 16px;
+    font-size: 11px;
+    font-weight: 700;
+    color: $muted;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: #f9fafb;
+    text-align: left;
+    white-space: nowrap;
+    border-bottom: 1px solid $border;
+  }
+
+  td {
+    padding: 13px 16px;
+    font-size: 13px;
+    color: $primary;
+    border-bottom: 1px solid #f3f4f6;
+    vertical-align: middle;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #fafafa; }
+}
+
+.ap-table-empty {
+  text-align: center;
+  color: $muted;
+  padding: 32px 16px !important;
+  font-size: 13px;
+}
+
+// ── Member cell ───────────────────────────────────────────────────────────────
+
+.ap-member { display: flex; align-items: center; gap: 10px; }
+
+.ap-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
 }
-.at-nav-btn {
-  width: 32px; height: 32px;
-  border: 1px solid $border;
-  background: $white;
-  border-radius: 7px;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
+
+.ap-member-name { font-size: 13px; font-weight: 600; color: $primary; }
+.ap-member-role { font-size: 11px; color: $muted; margin-top: 1px; }
+
+// ── Time cells ────────────────────────────────────────────────────────────────
+
+.ap-td-mono {
+  font-size: 13px;
   color: $primary;
-  &:hover { background: #f3f4f6; }
-}
-.at-month-label {
-  font-size: 14px; font-weight: 700; color: $primary;
-  min-width: 140px; text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
-// ── Legend ────────────────────────────────────────────────────────────────────
-.at-legend {
-  display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px;
-}
-.at-legend-item {
-  font-size: 11px; font-weight: 600; padding: 3px 10px;
-  border-radius: 99px; text-transform: capitalize;
+.ap-scheduled-hours {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: $muted;
 }
 
-// ── Monthly table ─────────────────────────────────────────────────────────────
-.at-table-wrap {
-  background: $white; border: 1px solid $border;
-  border-radius: $radius; overflow: auto;
+.ap-scheduled-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: $muted;
+  background: #f3f4f6;
+  border-radius: 4px;
+  padding: 1px 5px;
 }
 
-.at-table-header {
-  display: flex; align-items: center; border-bottom: 1px solid $border;
-  position: sticky; top: 0; background: #f9fafb; z-index: 2;
+// ── Source chip ───────────────────────────────────────────────────────────────
+
+.ap-source-chip {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 99px;
+  background: #f3f4f6;
+  color: $muted;
 }
 
-.at-col-info-header {
-  min-width: 240px; padding: 12px 16px; font-size: 12px;
-  font-weight: 700; color: $muted; text-transform: uppercase;
-  letter-spacing: 0.04em; flex-shrink: 0;
-}
+// ── Status badge + dot ────────────────────────────────────────────────────────
 
-.at-day-headers { display: flex; }
-
-.at-day-label {
-  width: 36px; min-width: 36px; text-align: center;
-  padding: 12px 0; font-size: 11px; font-weight: 600; color: $muted;
-
-  &--weekend { color: #d1d5db; }
-  &--today   { color: $purple; font-weight: 700; }
-}
-
-.at-rows { display: flex; flex-direction: column; }
-
-.at-row {
-  display: flex; align-items: flex-start;
-  border-bottom: 1px solid #f3f4f6;
-  &:last-child { border-bottom: none; }
-}
-
-.at-row-info {
-  min-width: 240px; display: flex; align-items: flex-start;
-  gap: 10px; padding: 14px 16px; flex-shrink: 0;
-  position: sticky; left: 0; background: $white; z-index: 1;
-  border-right: 1px solid #f3f4f6;
-}
-
-.at-avatar {
-  width: 36px; height: 36px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0;
-}
-
-.at-name { font-size: 13px; font-weight: 600; color: $primary; }
-.at-role { font-size: 11px; color: $muted; margin-top: 1px; }
-
-.at-summary {
-  display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px;
-}
-
-.at-sum-item {
-  display: flex; align-items: center; gap: 3px;
-  font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 99px;
-}
-
-.at-cells {
-  display: flex; align-items: center; padding: 14px 0; flex-wrap: nowrap;
-}
-
-// ── Status Cells ──────────────────────────────────────────────────────────────
-.at-cell {
-  width: 36px; min-width: 36px; height: 28px;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 5px; font-size: 10px; font-weight: 700;
-  cursor: pointer; border: none; margin: 0 1px;
-  transition: transform 0.1s, opacity 0.1s;
-
-  &:hover:not(.at-cell--holiday) { transform: scale(1.1); opacity: 0.85; }
-  &--today { outline: 2px solid $purple; outline-offset: 1px; }
+.ap-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 99px;
+  white-space: nowrap;
 
   &--present  { background: #dcfce7; color: #166534; }
   &--absent   { background: #fee2e2; color: #991b1b; }
   &--late     { background: #fef3c7; color: #92400e; }
   &--half     { background: #dbeafe; color: #1e40af; }
   &--leave    { background: #ede9fe; color: #5b21b6; }
-  &--holiday  { background: #f3f4f6; color: #9ca3af; cursor: default; }
-  &--unmarked { background: #f9fafb; color: #d1d5db; }
+  &--unmarked { background: #f3f4f6; color: $muted; }
 }
 
-// ── Legend cell reuse ─────────────────────────────────────────────────────────
-.at-legend-item {
-  &.at-cell--present  { background: #dcfce7; color: #166534; }
-  &.at-cell--absent   { background: #fee2e2; color: #991b1b; }
-  &.at-cell--late     { background: #fef3c7; color: #92400e; }
-  &.at-cell--half     { background: #dbeafe; color: #1e40af; }
-  &.at-cell--leave    { background: #ede9fe; color: #5b21b6; }
-  &.at-cell--holiday  { background: #f3f4f6; color: #9ca3af; }
+.ap-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+
+  &--green  { background: #16a34a; }
+  &--red    { background: #dc2626; }
+  &--amber  { background: #d97706; }
+  &--blue   { background: #2563eb; }
+  &--purple { background: #7c3aed; }
+  &--gray   { background: #9ca3af; }
 }
 
-// ── Summary badges ────────────────────────────────────────────────────────────
-.at-sum-item--present { background: #dcfce7; color: #166534; }
-.at-sum-item--absent  { background: #fee2e2; color: #991b1b; }
-.at-sum-item--late    { background: #fef3c7; color: #92400e; }
-.at-sum-item--hours   { background: #ede9fe; color: #6c3ce1; }
+// ── Row action button ─────────────────────────────────────────────────────────
 
-.at-status-badge {
-  &.at-cell--present  { background: #dcfce7; color: #166534; }
-  &.at-cell--absent   { background: #fee2e2; color: #991b1b; }
-  &.at-cell--late     { background: #fef3c7; color: #92400e; }
-  &.at-cell--half     { background: #dbeafe; color: #1e40af; }
-  &.at-cell--leave    { background: #ede9fe; color: #5b21b6; }
-  &.at-cell--unmarked { background: #f3f4f6; color: #9ca3af; }
+.ap-row-btn {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 11px;
+  border-radius: 6px;
+  border: 1px solid $border;
+  color: $primary;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  white-space: nowrap;
+
+  &:hover { background: #f3f4f6; }
+
+  &--checkin {
+    background: $purple;
+    color: #fff;
+    border-color: $purple;
+    &:hover { background: color.adjust($purple, $lightness: -8%); border-color: color.adjust($purple, $lightness: -8%); }
+  }
+
+  &--checkout {
+    background: #fff7ed;
+    color: #c2410c;
+    border-color: #fed7aa;
+    &:hover { background: #ffedd5; }
+  }
 }
 
-// ── Buttons ───────────────────────────────────────────────────────────────────
-.at-btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 16px; border-radius: 8px; font-size: 13px;
-  font-weight: 600; font-family: $font; cursor: pointer;
-  border: none; transition: background 0.15s, opacity 0.15s;
+// ── Connected Devices ─────────────────────────────────────────────────────────
 
-  &--primary  { background: $purple; color: #fff; &:hover { background: darken($purple, 8%); } }
-  &--ghost    { background: transparent; color: $primary; border: 1px solid $border; &:hover { background: #f3f4f6; } }
-  &--sm       { padding: 5px 12px; font-size: 12px; }
-  &:disabled  { opacity: 0.6; cursor: not-allowed; }
+.ap-discovered-banner {
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  &__icon { color: #d97706; flex-shrink: 0; }
+
+  &__label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #92400e;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
 }
 
-// ── Modal ─────────────────────────────────────────────────────────────────────
+.ap-discovered-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ap-discovered-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid #fde68a;
+  border-radius: 7px;
+  padding: 7px 12px;
+}
+
+.ap-discovered-sn {
+  font-size: 12px;
+  font-weight: 700;
+  color: #374151;
+  flex: 1;
+}
+
+.ap-discovered-ip {
+  font-size: 11px;
+  color: #6b7280;
+  font-family: monospace;
+}
+
+.ap-devices-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  color: $muted;
+
+  &__icon { margin-bottom: 12px; opacity: 0.35; }
+  p    { font-size: 14px; font-weight: 600; color: $primary; margin: 0 0 4px; }
+  span { font-size: 13px; color: $muted; max-width: 380px; }
+}
+
+.ap-devices-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+  padding: 20px;
+}
+
+.ap-device-card {
+  border: 1px solid $border;
+  border-radius: 10px;
+  padding: 16px;
+  background: $white;
+  transition: box-shadow 0.15s;
+
+  &:hover { box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  &__name    { font-size: 14px; font-weight: 700; color: $primary; margin-bottom: 3px; }
+  &__serial  { font-size: 11px; color: $muted; font-family: monospace; margin-bottom: 2px; }
+  &__loc     { font-size: 11px; color: $muted; margin-bottom: 2px; }
+  &__lastseen{ font-size: 11px; color: $muted; margin-top: 8px; }
+  &__ip      { font-size: 10px; color: #9ca3af; font-family: monospace; margin-top: 2px; }
+}
+
+.ap-device-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 20px;
+
+  &__dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  &--online  { background: #dcfce7; color: #15803d; .ap-device-status__dot { background: #22c55e; } }
+  &--offline { background: #f3f4f6; color: #6b7280; .ap-device-status__dot { background: #9ca3af; } }
+}
+
+.ap-device-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ap-device-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: $purple;
+  background: transparent;
+  border: 1px solid rgba($purple, .25);
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover { background: rgba($purple, .06); }
+
+  &--danger {
+    color: #dc2626;
+    border-color: rgba(#dc2626, .25);
+    &:hover { background: rgba(#dc2626, .06); }
+  }
+}
+
+.ap-device-delete-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ap-device-delete-btn {
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+  border: 1px solid #e5e7eb;
+  background: transparent;
+  color: #374151;
+  transition: background 0.15s;
+
+  &:hover { background: #f3f4f6; }
+
+  &--yes {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: #fff;
+    &:hover { background: #b91c1c; }
+  }
+}
+
+// ── Staff PIN mapping table (inside ManagePinsModal) ─────────────────────────
+
+.ap-pin-table {
+  border: 1px solid $border;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.ap-pin-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid $border;
+  font-size: 13px;
+
+  &:last-child { border-bottom: none; }
+}
+
+.ap-pin-badge {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: monospace;
+  background: #f3f4f6;
+  border: 1px solid $border;
+  border-radius: 5px;
+  padding: 2px 7px;
+  color: $primary;
+  white-space: nowrap;
+}
+
+.ap-pin-name { font-weight: 600; color: $primary; flex: 1; }
+.ap-pin-role { font-size: 11px; color: $muted; }
+
+.ap-pin-remove {
+  display: flex;
+  align-items: center;
+  border: none;
+  background: transparent;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+
+  &:hover { opacity: 1; }
+}
+
+.ap-pin-add {
+  border-top: 1px solid $border;
+  padding-top: 14px;
+  margin-top: 4px;
+}
+
+.at-modal--wide { width: 520px; max-width: 95vw; }
+
+// ── Bottom section ────────────────────────────────────────────────────────────
+
+.ap-bottom {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+
+  @media (max-width: 900px) { flex-direction: column; }
+}
+
+.ap-devices-section { flex: 1; min-width: 0; }
+
+.ap-section-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: $primary;
+  margin: 0 0 14px;
+}
+
+// ── Device cards grid ─────────────────────────────────────────────────────────
+
+.ap-devices-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+
+  @media (max-width: 780px) { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 480px) { grid-template-columns: 1fr; }
+}
+
+.ap-device-card {
+  background: $white;
+  border: 1px solid $border;
+  border-radius: $radius;
+  padding: 16px 18px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.ap-device-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.ap-device-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: $white;
+  flex-shrink: 0;
+}
+
+.ap-device-status-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ap-device-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  &--green { background: #16a34a; }
+  &--red   { background: #dc2626; }
+}
+
+.ap-device-status--connected { font-size: 11px; font-weight: 600; color: #16a34a; }
+.ap-device-status--offline   { font-size: 11px; font-weight: 600; color: #dc2626; }
+
+.ap-device-name   { font-size: 14px; font-weight: 700; color: $primary; margin-bottom: 2px; }
+.ap-device-branch { font-size: 11px; color: $muted; margin-bottom: 14px; }
+
+.ap-device-stats { display: flex; flex-direction: column; gap: 7px; }
+
+.ap-device-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ap-device-stat-label { font-size: 11px; color: $muted; }
+.ap-device-stat-val   { font-size: 12px; font-weight: 600; color: $primary; }
+
+// ── Device Activity card ──────────────────────────────────────────────────────
+
+.ap-activity-card {
+  width: 230px;
+  flex-shrink: 0;
+  background: $white;
+  border: 1px solid $border;
+  border-radius: $radius;
+  padding: 18px 20px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  align-self: flex-start;
+
+  @media (max-width: 900px) { width: 100%; }
+}
+
+.ap-activity-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: $primary;
+  margin: 0 0 14px;
+}
+
+.ap-activity-rows { display: flex; flex-direction: column; }
+
+.ap-activity-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 1px solid #f3f4f6;
+
+  &:last-child { border-bottom: none; }
+}
+
+.ap-activity-label { font-size: 12px; color: $muted; }
+
+.ap-activity-val {
+  font-size: 14px;
+  font-weight: 700;
+  color: $primary;
+
+  &--big   { font-size: 20px; }
+  &--green { color: #16a34a; }
+  &--red   { color: #dc2626; }
+}
+
+.ap-activity-divider {
+  height: 1px;
+  background: $border;
+  margin: 2px 0;
+}
+
+// ── Modal (reused by MarkModal) ───────────────────────────────────────────────
+
 .at-modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.4);
-  display: flex; align-items: center; justify-content: center; z-index: 1000;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
 }
 
 .at-modal {
-  background: $white; border-radius: $radius; width: 380px; max-width: 95vw;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+  background: $white;
+  border-radius: $radius;
+  width: 380px;
+  max-width: 95vw;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
 }
 
 .at-modal-header {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 18px 20px 0;
 }
-.at-modal-title  { font-size: 15px; font-weight: 700; color: $primary; }
-.at-modal-close  { background: none; border: none; font-size: 20px; color: $muted; cursor: pointer; line-height: 1; }
-.at-modal-body   { padding: 16px 20px; }
-.at-modal-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 0 20px 18px; }
-.at-modal-meta   { font-size: 12px; color: $muted; margin: 0 0 14px; }
-.at-modal-error  { color: #dc2626; font-size: 12px; margin: 8px 0 0; }
+
+.at-modal-title { font-size: 15px; font-weight: 700; color: $primary; }
+.at-modal-close { background: none; border: none; font-size: 20px; color: $muted; cursor: pointer; line-height: 1; }
+.at-modal-body  { padding: 16px 20px; }
+.at-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 20px 18px;
+}
+.at-modal-meta  { font-size: 12px; color: $muted; margin: 0 0 14px; }
+.at-modal-error { color: #dc2626; font-size: 12px; margin: 8px 0 0; }
+
+.at-modal-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8f9fb;
+  border: 1px solid $border;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 14px;
+}
+.at-modal-info-label { font-size: 12px; color: $muted; font-weight: 500; }
+.at-modal-info-value { font-size: 13px; color: $primary; font-weight: 600; }
+
+.at-modal-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
 
 .at-modal-field {
   margin-bottom: 14px;
-  label { display: block; font-size: 12px; font-weight: 600; color: $primary; margin-bottom: 5px; }
-  input, select {
-    width: 100%; padding: 8px 10px; border: 1px solid $border;
-    border-radius: 8px; font-size: 13px; font-family: $font; outline: none;
+
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: $primary;
+    margin-bottom: 5px;
+  }
+
+  input,
+  select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid $border;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: $font;
+    outline: none;
+    box-sizing: border-box;
+
     &:focus { border-color: $accent; }
   }
 }
 
-// ── Settings form ─────────────────────────────────────────────────────────────
-.at-settings-form {
-  background: $white; border: 1px solid $border;
-  border-radius: $radius; padding: 24px; max-width: 640px;
+// ── Shared button styles (used inside modals) ─────────────────────────────────
+
+.at-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: $font;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s, opacity 0.15s;
+
+  &--primary { background: $purple; color: #fff; &:hover { background: color.adjust($purple, $lightness: -8%); } }
+  &--ghost   { background: transparent; color: $primary; border: 1px solid $border; &:hover { background: #f3f4f6; } }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
 }
-
-.at-settings-section { margin-bottom: 28px; }
-
-.at-settings-section-title {
-  font-size: 14px; font-weight: 700; color: $primary;
-  margin: 0 0 16px; padding-bottom: 10px; border-bottom: 1px solid $border;
-}
-
-.at-settings-row { display: flex; gap: 16px; flex-wrap: wrap; }
-
-.at-settings-field {
-  flex: 1; min-width: 160px;
-  label { display: block; font-size: 12px; font-weight: 600; color: $primary; margin-bottom: 6px; }
-  input {
-    width: 100%; padding: 8px 10px; border: 1px solid $border;
-    border-radius: 8px; font-size: 13px; font-family: $font; outline: none; box-sizing: border-box;
-    &:focus { border-color: $accent; }
-  }
-}
-
-.at-settings-error   { color: #dc2626; font-size: 13px; margin: 0 0 12px; }
-.at-settings-success { color: #16a34a; font-size: 13px; margin: 0 0 12px; }
-.at-settings-actions { display: flex; justify-content: flex-end; }
-
-// ── Reports ───────────────────────────────────────────────────────────────────
-.at-reports {
-  background: $white; border: 1px solid $border;
-  border-radius: $radius; padding: 28px; max-width: 500px;
-}
-
-.at-reports-header {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 28px; gap: 16px; flex-wrap: wrap;
-}
-
-.at-reports-info {
-  text-align: center; padding: 20px 0;
-  p { font-size: 14px; color: $muted; margin: 8px 0; }
-  .at-reports-hint { font-size: 12px; }
-}
-
-.at-reports-icon { color: #d1d5db; margin-bottom: 12px; }
