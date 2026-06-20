@@ -33,6 +33,8 @@ import dashboardReducer from "./dashboardSlice";
 import billingReducer from "./billingSlice";
 import marketplaceReducer from "./marketplaceSlice";
 import onlineBookingReducer from "./onlineBookingSlice";
+import superAdminReducer from "./superAdminSlice";
+import supportReducer from "./supportSlice";
 
 const authPersistConfig = {
   key: "auth",
@@ -79,6 +81,8 @@ export const store = configureStore({
     billing: billingReducer,
     marketplace: marketplaceReducer,
     onlineBooking: onlineBookingReducer,
+    superAdmin: superAdminReducer,
+    support: supportReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
