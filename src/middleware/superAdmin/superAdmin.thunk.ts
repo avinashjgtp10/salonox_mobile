@@ -108,6 +108,17 @@ export const impersonateSalonThunk = createAsyncThunk<{ token: string }, string,
   }
 );
 
+export const deleteSalonThunk = createAsyncThunk<void, string, { rejectValue: string }>(
+  "superAdmin/deleteSalon",
+  async (id, { rejectWithValue }) => {
+    try {
+      await api.delete(SUPER_ADMIN.SALON_DELETE(id));
+    } catch (err: any) {
+      return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Failed to delete salon");
+    }
+  }
+);
+
 // ── PAYMENTS ──────────────────────────────────────────────────────────────────
 
 export const fetchSuperAdminPaymentsThunk = createAsyncThunk<SuperAdminPayment[], string | undefined, { rejectValue: string }>(

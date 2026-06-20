@@ -11,6 +11,7 @@ export const SUPER_ADMIN = {
   SALON_STATUS:  (id: string) => `/api/v1/super-admin/salons/${id}/status`,
   SALON_ONBOARD: (id: string) => `/api/v1/super-admin/salons/${id}/onboarding`,
   SALON_IMPERSONATE: (id: string) => `/api/v1/super-admin/salons/${id}/impersonate`,
+  SALON_DELETE:      (id: string) => `/api/v1/super-admin/salons/${id}`,
   PAYMENTS:      "/api/v1/super-admin/payments",
   USERS:         "/api/v1/super-admin/users",
   USER_STATUS:   (id: string) => `/api/v1/super-admin/users/${id}/status`,

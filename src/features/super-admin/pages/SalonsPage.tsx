@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { fetchSuperAdminSalonsThunk, setSalonStatusThunk, forceOnboardingThunk, impersonateSalonThunk } from "../../../middleware/superAdmin/superAdmin.thunk";
+import { fetchSuperAdminSalonsThunk, setSalonStatusThunk, forceOnboardingThunk, impersonateSalonThunk, deleteSalonThunk } from "../../../middleware/superAdmin/superAdmin.thunk";
 
 function Badge({ status }: { status: string }) {
   const map: Record<string, { bg: string; text: string }> = {
@@ -30,12 +30,47 @@ function Toast({ msg, ok }: { msg: string; ok: boolean }) {
   );
 }
 
+function ConfirmDeleteModal({ salonName, onConfirm, onCancel, loading }: { salonName: string; onConfirm: () => void; onCancel: () => void; loading: boolean }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9998, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: "#fff", borderRadius: 14, padding: "28px 32px", maxWidth: 420, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.18)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+          <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#fef2f2", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>Delete Salon</div>
+            <div style={{ color: "#64748b", fontSize: 12.5, marginTop: 2 }}>This action cannot be undone</div>
+          </div>
+        </div>
+        <p style={{ margin: "0 0 24px", color: "#374151", fontSize: 13.5, lineHeight: 1.6 }}>
+          Are you sure you want to delete <strong style={{ color: "#0f172a" }}>{salonName}</strong>? All associated data will be permanently removed.
+        </p>
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button onClick={onCancel} disabled={loading}
+            style={{ padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600, border: "1.5px solid #e2e8f0", background: "#fff", color: "#374151", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1 }}>
+            Cancel
+          </button>
+          <button onClick={onConfirm} disabled={loading}
+            style={{ padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600, border: "none", background: "#dc2626", color: "#fff", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}>
+            {loading ? "Deleting…" : "Delete Salon"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SalonsPage() {
   const dispatch = useAppDispatch();
   const { salons, loading } = useAppSelector((s) => s.superAdmin);
   const [search, setSearch]   = useState("");
   const [actionId, setActionId] = useState<string | null>(null);
   const [toast, setToast]       = useState<{ msg: string; ok: boolean } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const load = useCallback((q?: string) => { dispatch(fetchSuperAdminSalonsThunk(q)); }, [dispatch]);
   useEffect(() => { load(); }, [load]);
@@ -66,11 +101,33 @@ export default function SalonsPage() {
     setActionId(null);
   }
 
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    const r = await dispatch(deleteSalonThunk(deleteTarget.id));
+    if (deleteSalonThunk.fulfilled.match(r)) {
+      showToast(`"${deleteTarget.name}" deleted successfully.`);
+      load(search || undefined);
+    } else {
+      showToast((r.payload as string) || "Failed to delete salon.", false);
+    }
+    setDeleteLoading(false);
+    setDeleteTarget(null);
+  }
+
   const fmt = (n: any) => n != null ? `₹${Number(n).toLocaleString("en-IN")}` : "—";
 
   return (
     <div style={{ padding: "28px 28px 40px", fontFamily: "'Inter','Segoe UI',system-ui,sans-serif" }}>
       {toast && <Toast {...toast} />}
+      {deleteTarget && (
+        <ConfirmDeleteModal
+          salonName={deleteTarget.name}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+          loading={deleteLoading}
+        />
+      )}
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
@@ -145,6 +202,7 @@ export default function SalonsPage() {
                         <ActionBtn label="Force Complete" color="#d97706" bg="#fffbeb" onClick={() => handleOnboarding(s.id)} disabled={actionId === s.id} />
                       )}
                       <ActionBtn label="Impersonate" color="#6366f1" bg="#eef2ff" onClick={() => handleImpersonate(s.id)} disabled={actionId === s.id} />
+                      <ActionBtn label="Delete" color="#dc2626" bg="#fef2f2" onClick={() => setDeleteTarget({ id: s.id, name: s.name })} disabled={actionId === s.id} />
                     </div>
                   </td>
                 </tr>
