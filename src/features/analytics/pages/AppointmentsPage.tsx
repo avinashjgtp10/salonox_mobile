@@ -762,18 +762,45 @@ export default function AppointmentsPage() {
                 {
                   header: "Ref #",
                   key: "id",
-                  width: "90px",
-                  render: (item: any) => (
-                    <span className="text-primary fw-bold">
-                      #{String(item.id).substring(0, 8).toUpperCase()}
-                    </span>
-                  ),
+                  width: "100px",
+                  render: (item: any) => {
+                    const ref = `#${String(item.id).substring(0, 8).toUpperCase()}`;
+
+                    return (
+                      <span
+                        className="d-block fw-bold"
+                        title={ref}
+                        style={{
+                          color: "#a445ed",
+                          fontSize: "13px",
+                          fontFamily: "monospace",
+                          letterSpacing: "0.02em",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {ref}
+                      </span>
+                    );
+                  },
                 },
                 {
                   header: "Client",
                   key: "clientName",
+                  width: "180px",
                   render: (item: any) => (
-                    <span className="fw-bold text-dark text-nowrap">{item.clientName}</span>
+                    <span
+                      className="d-block fw-bold text-dark"
+                      title={item.clientName || "—"}
+                      style={{
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {item.clientName || "—"}
+                    </span>
                   ),
                 },
                 {
@@ -784,17 +811,30 @@ export default function AppointmentsPage() {
                   render: (item: any) => {
                     const s = (item.status || "booked").toLowerCase();
                     return (
-                      <span style={{
-                        display: "inline-block",
-                        padding: "4px 12px",
-                        borderRadius: "100px",
-                        fontSize: "12px",
-                        fontWeight: 600,
-                        color: "#fff",
-                        whiteSpace: "nowrap",
-                        background: STATUS_COLOR[s] || "#6b7280",
-                      }}>
-                        {STATUS_LABEL[s] || s.replace(/_/g, " ")}
+                      <span
+                        className="d-block"
+                        title={STATUS_LABEL[s] || s.replace(/_/g, " ")}
+                        style={{
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        <span style={{
+                          display: "inline-block",
+                          maxWidth: "100%",
+                          padding: "4px 12px",
+                          borderRadius: "100px",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          color: "#fff",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          background: STATUS_COLOR[s] || "#6b7280",
+                        }}>
+                          {STATUS_LABEL[s] || s.replace(/_/g, " ")}
+                        </span>
                       </span>
                     );
                   },
@@ -828,23 +868,44 @@ export default function AppointmentsPage() {
                   width: "160px",
                   render: (item: any) => {
                     try {
-                      const formattedDate = format(
-                        parseISO(item.date + "T" + item.startTime),
-                        "dd MMM yyyy, h:mma"
-                      ).toLowerCase();
+                      const scheduledAt = parseISO(item.date + "T" + item.startTime);
+                      const formattedDate = format(scheduledAt, "dd MMM yyyy");
+                      const formattedTime = format(scheduledAt, "h:mma").toLowerCase();
 
                       return (
-                        <span
-                          className="text-muted d-block"
-                          title={formattedDate}
+                        <div
+                          className="d-flex flex-column align-items-center"
+                          title={`${formattedDate}, ${formattedTime}`}
                           style={{
-                            whiteSpace: "nowrap",
                             overflow: "hidden",
-                            textOverflow: "ellipsis",
                           }}
                         >
-                          {formattedDate}
-                        </span>
+                          <span
+                            className="text-dark d-block"
+                            style={{
+                              maxWidth: "100%",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {formattedDate}
+                          </span>
+                          <span
+                            className="text-muted d-block"
+                            style={{
+                              maxWidth: "100%",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              fontSize: "12px",
+                              lineHeight: 1.2,
+                            }}
+                          >
+                            {formattedTime}
+                          </span>
+                        </div>
                       );
                     } catch {
                       return <span className="text-muted">—</span>;
@@ -855,14 +916,26 @@ export default function AppointmentsPage() {
                   header: "Duration",
                   key: "duration",
                   align: "center",
+                  width: "110px",
                   render: (item: any) => {
                     try {
                       const start = parseISO(item.date + "T" + item.startTime);
                       const end = parseISO(item.date + "T" + item.endTime);
                       const durMins = Math.floor((end.getTime() - start.getTime()) / 60000);
                       if (isNaN(durMins) || durMins <= 0) return <span className="text-muted">—</span>;
+                      const duration = fmtDuration(durMins);
                       return (
-                        <span className="text-muted">{fmtDuration(durMins)}</span>
+                        <span
+                          className="text-muted d-block"
+                          title={duration}
+                          style={{
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {duration}
+                        </span>
                       );
                     } catch {
                       return <span className="text-muted">—</span>;
@@ -872,6 +945,7 @@ export default function AppointmentsPage() {
                 {
                   header: "Team member",
                   key: "staff",
+                  width: "170px",
                   render: (item: any) => {
                     const staffId =
                       item.services?.find((s: any) => s.staffId)?.staffId ||
@@ -879,7 +953,19 @@ export default function AppointmentsPage() {
                       item.staff_id;
                     const staff = staffId ? staffById[staffId] : null;
                     const name = staff ? `${staff.first_name || ""} ${staff.last_name || ""}`.trim() : null;
-                    return <span className="text-muted">{name || "—"}</span>;
+                    return (
+                      <span
+                        className="text-muted d-block"
+                        title={name || "—"}
+                        style={{
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {name || "—"}
+                      </span>
+                    );
                   },
                 },
                 {
@@ -887,9 +973,23 @@ export default function AppointmentsPage() {
                   key: "grandTotal",
                   align: "right",
                   width: "100px",
-                  render: (item: any) => (
-                    <span className="text-dark fw-medium">₹{Number(item.grandTotal || 0).toFixed(2)}</span>
-                  ),
+                  render: (item: any) => {
+                    const price = `₹${Number(item.grandTotal || 0).toFixed(2)}`;
+
+                    return (
+                      <span
+                        className="text-dark fw-medium d-block"
+                        title={price}
+                        style={{
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {price}
+                      </span>
+                    );
+                  },
                 },
               ]}
               data={displayedAppointments}
