@@ -182,13 +182,16 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
       {/* Job Title / Role */}
       <div className="sp-field">
         <label className="sp-label">Job title / Role</label>
-        <input
-          type="text"
-          className="sp-input"
-          placeholder="e.g. Stylist, Therapist, Manager"
+        <select
+          className="sp-select"
           value={jobTitle}
           onChange={(e) => setJobTitle(e.target.value)}
-        />
+        >
+          <option value="">Select a role</option>
+          <option value="admin">Admin</option>
+          <option value="staff">Staff</option>
+          <option value="manager">Manager</option>
+        </select>
         <p className="sp-hint">Visible to clients online and shown in the team member list</p>
       </div>
 
@@ -211,7 +214,7 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
 
       {/* Password */}
       <div className="sp-field">
-        <label className="sp-label">Password</label>
+        <label className="sp-label">Password <span className="sp-required">*</span></label>
         <div className="sp-input-group">
           <input
             type={showPassword ? "text" : "password"}
@@ -230,9 +233,11 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
           </button>
         </div>
         {isPasswordInvalid && (
-          <p className="sp-error">Password must be at least 8 characters</p>
+          <p className="sp-error">
+            {password.trim() === "" ? "Password is required" : "Password must be at least 8 characters"}
+          </p>
         )}
-        <p className="sp-hint">Leave blank to keep no password, or enter at least 8 characters</p>
+        <p className="sp-hint">Required. Minimum 8 characters</p>
       </div>
 
       {/* Confirm Password */}
