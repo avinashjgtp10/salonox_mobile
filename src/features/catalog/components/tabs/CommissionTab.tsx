@@ -76,7 +76,7 @@ const CommissionTab: React.FC<Props> = ({ data, onChange }) => {
                 }
               >
                 <option value="percentage">Percentage (%)</option>
-                <option value="flat">Flat ($)</option>
+                <option value="flat">Flat </option>
               </select>
               <ChevronDown className="select-icon" />
             </div>
