@@ -802,22 +802,48 @@ export default function AppointmentsPage() {
                 {
                   header: "Service",
                   key: "services",
-                  render: (item: any) => (
-                    <span className="text-dark">
-                      {item.services.map((s: any) => s.service).join(", ")}
-                    </span>
-                  ),
+                  width: "200px",
+                  render: (item: any) => {
+                    const serviceNames = item.services.map((s: any) => s.service).join(", ");
+
+                    return (
+                      <span
+                        className="text-dark d-block"
+                        title={serviceNames}
+                        style={{
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {serviceNames}
+                      </span>
+                    );
+                  },
                 },
                 {
                   header: "Scheduled Date",
                   key: "date",
                   align: "center",
-                  width: "15%",
+                  width: "160px",
                   render: (item: any) => {
                     try {
+                      const formattedDate = format(
+                        parseISO(item.date + "T" + item.startTime),
+                        "dd MMM yyyy, h:mma"
+                      ).toLowerCase();
+
                       return (
-                        <span className="text-muted text-nowrap">
-                          {format(parseISO(item.date + "T" + item.startTime), "dd MMM yyyy, h:mma").toLowerCase()}
+                        <span
+                          className="text-muted d-block"
+                          title={formattedDate}
+                          style={{
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {formattedDate}
                         </span>
                       );
                     } catch {
