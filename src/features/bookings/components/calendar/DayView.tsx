@@ -4,7 +4,6 @@ import { useSelector } from "react-redux";
 import type { RootState } from "../../../../store/store";
 import type { Booking, BlockedTime } from "../../types/scheduler-types";
 import { useScheduler, SLOT_HEIGHT } from "../../hooks/useScheduler";
-import { useBookings } from "../../hooks/useBookings";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import { formatTime12, getCurrentTime, addMinutes, generateTimeSlots } from "../../utils/timeUtils";
 import Avatar from "../shared/Avatar";
@@ -22,8 +21,7 @@ const DayView: React.FC<DayViewProps> = ({
   onSlotClick, onEditBooking, onBlockTime, onEditBlockTime,
 }) => {
   const { currentDate, timeToPx, durationToPx, intervalMins, interval } = useScheduler();
-  const { blockedTimes, deleteBlockedTime, updateBooking, staffList, selectedStaffId } = useSchedulerContext();
-  const { getBookingsByDate } = useBookings();
+  const { blockedTimes, deleteBlockedTime, updateBooking, staffList, selectedStaffId, bookings } = useSchedulerContext();
 
   const visibleStaff = selectedStaffId
     ? staffList.filter((s) => s.id === selectedStaffId)
@@ -45,11 +43,12 @@ const DayView: React.FC<DayViewProps> = ({
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
-  }, []);
+  }, [visibleStaff.length]); // re-measure when staff count changes (e.g. after data loads)
 
+  // Use Math.ceil so columns always fill the full container — Math.floor left a blank gap
   const COL_WIDTH = containerWidth > 0 && visibleStaff.length > 0
-  ? Math.max(160, Math.floor(containerWidth / visibleStaff.length))
-  : 160;
+    ? Math.max(160, Math.ceil(containerWidth / visibleStaff.length))
+    : 160;
 
   const [nowTime, setNowTime] = useState(getCurrentTime());
   const [staffMenu, setStaffMenu] = useState<{ staffId: string; x: number; y: number } | null>(null);
@@ -153,10 +152,9 @@ const DayView: React.FC<DayViewProps> = ({
   }, [staffMenu]);
 
   useEffect(() => {
+    if (!isToday) return;
     function scrollToNow() {
       if (!scrollBodyRef.current) return;
-      // clientHeight is 0 when the element is hidden (e.g., background tab).
-      // Wait for layout to be computed before scrolling.
       if (scrollBodyRef.current.clientHeight === 0) {
         requestAnimationFrame(scrollToNow);
         return;
@@ -167,7 +165,7 @@ const DayView: React.FC<DayViewProps> = ({
     }
     const t = setTimeout(() => requestAnimationFrame(scrollToNow), 150);
     return () => clearTimeout(t);
-  }, [intervalMins]);
+  }, [intervalMins, currentDate]); // re-run when navigating back to today
 
   function onBodyScroll() {
     if (syncing.current) return;
@@ -352,39 +350,41 @@ const DayView: React.FC<DayViewProps> = ({
     return () => { window.removeEventListener("mousemove", onMouseMove); window.removeEventListener("mouseup", onMouseUp); };
   }, [resizing, intervalMins, updateBooking]);
 
-  const rawDayBookings = getBookingsByDate(currentDate);
-  const dayBookings = useMemo(() => rawDayBookings.map((b) => {
-    if (!b.services || b.services.length === 0) return { ...b, _originalBooking: b };
-
+  const dayBookings = useMemo(() => {
     const toMins = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
-    let minStartMins = Infinity;
-    let maxEndMins = -Infinity;
+    return bookings
+      .filter((b) => b.date === currentDate)
+      .map((b) => {
+        if (!b.services || b.services.length === 0) return { ...b, _originalBooking: b };
 
-    b.services.forEach(svc => {
-      const start = svc.time || b.startTime;
-      const end = (svc as any).endTime || (svc as any).end_time || addMinutes(start, (svc as any).duration || 30);
-      minStartMins = Math.min(minStartMins, toMins(start));
-      maxEndMins = Math.max(maxEndMins, toMins(end));
-    });
+        let minStartMins = Infinity;
+        let maxEndMins = -Infinity;
 
-    const hStart = Math.floor(minStartMins / 60);
-    const mStart = Math.round(minStartMins % 60);
-    const overallStartTime = `${hStart.toString().padStart(2, "0")}:${mStart.toString().padStart(2, "0")}`;
+        b.services.forEach(svc => {
+          const start = svc.time || b.startTime;
+          const end = (svc as any).endTime || (svc as any).end_time || addMinutes(start, (svc as any).duration || 30);
+          minStartMins = Math.min(minStartMins, toMins(start));
+          maxEndMins = Math.max(maxEndMins, toMins(end));
+        });
 
-    const hEnd = Math.floor(maxEndMins / 60);
-    const mEnd = Math.round(maxEndMins % 60);
-    const overallEndTime = `${hEnd.toString().padStart(2, "0")}:${mEnd.toString().padStart(2, "0")}`;
+        const hStart = Math.floor(minStartMins / 60);
+        const mStart = Math.round(minStartMins % 60);
+        const overallStartTime = `${hStart.toString().padStart(2, "0")}:${mStart.toString().padStart(2, "0")}`;
 
-    return {
-      ...b,
-      _originalBooking: b,
-      startTime: overallStartTime,
-      endTime: overallEndTime,
-      staffId: b.staffId || b.services[0]?.staffId,
-    };
-  }).sort((a, b) => (a.startTime || "").localeCompare(b.startTime || "")),
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  [rawDayBookings]);
+        const hEnd = Math.floor(maxEndMins / 60);
+        const mEnd = Math.round(maxEndMins % 60);
+        const overallEndTime = `${hEnd.toString().padStart(2, "0")}:${mEnd.toString().padStart(2, "0")}`;
+
+        return {
+          ...b,
+          _originalBooking: b,
+          startTime: overallStartTime,
+          endTime: overallEndTime,
+          staffId: b.staffId || b.services[0]?.staffId,
+        };
+      })
+      .sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
+  }, [bookings, currentDate]);
 
 
   const slots = generateTimeSlots(interval as any);
@@ -434,6 +434,24 @@ const DayView: React.FC<DayViewProps> = ({
   function handleRemoveBlockTime(staffId: string) {
     dayBlocked.filter((b) => b.staffId === staffId).forEach((b) => deleteBlockedTime(b.id));
     setStaffMenu(null);
+  }
+
+  if (staffList.length === 0) {
+    return (
+      <div style={{
+        flex: 1, display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center", gap: 12,
+        background: "#f8fafc", color: "#9ca3af",
+      }}>
+        <div style={{
+          width: 36, height: 36, border: "3px solid #e5e7eb",
+          borderTopColor: "#6366f1", borderRadius: "50%",
+          animation: "dv-spin 0.7s linear infinite",
+        }} />
+        <span style={{ fontSize: 13, fontWeight: 500 }}>Loading calendar…</span>
+        <style>{`@keyframes dv-spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
   }
 
   return (
