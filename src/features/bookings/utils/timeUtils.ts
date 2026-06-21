@@ -22,13 +22,6 @@ export function formatTime12(time: string): string {
   return `${hh}:${m.toString().padStart(2, "0")} ${ampm}`;
 }
 
-export function formatTime24(time: string): string {
-  const [timePart, ampm] = time.split(" ");
-  let [h, m] = timePart.split(":").map(Number);
-  if (ampm === "PM" && h !== 12) h += 12;
-  if (ampm === "AM" && h === 12) h = 0;
-  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
-}
 
 export function getTimePosition(
   time: string,

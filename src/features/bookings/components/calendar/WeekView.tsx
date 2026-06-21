@@ -4,6 +4,7 @@ import { useScheduler, SLOT_HEIGHT } from "../../hooks/useScheduler";
 import { useBookings } from "../../hooks/useBookings";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import { getWeekDays, DAYS_SHORT, formatTime12, getCurrentTime } from "../../utils/timeUtils";
+import BookingTooltipCard from "../shared/BookingTooltipCard";
 import "../../styles/WeekView.scss";
 
 interface WeekViewProps {
@@ -22,6 +23,21 @@ const WeekView: React.FC<WeekViewProps> = ({ onSlotClick, onViewBill }) => {
   const gutterRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const syncing = useRef(false);
+
+  // ── Hover tooltip state ───────────────────────────────────────────────────
+  const [hovered, setHovered] = useState<{ booking: Booking; el: HTMLElement } | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  function openTip(booking: Booking, el: HTMLElement) {
+    clearTimeout(closeTimerRef.current);
+    setHovered({ booking, el });
+  }
+  function closeTip() {
+    closeTimerRef.current = setTimeout(() => setHovered(null), 150);
+  }
+  function keepTip() {
+    clearTimeout(closeTimerRef.current);
+  }
 
   useEffect(() => {
     const t = setInterval(() => setNowTime(getCurrentTime()), 60000);
@@ -80,6 +96,7 @@ const WeekView: React.FC<WeekViewProps> = ({ onSlotClick, onViewBill }) => {
   const nowPx = timeToPx(nowTime);
 
   return (
+    <>
     <div className="wv-root">
       {/* ── Time gutter ── */}
       <div className="wv-gutter">
@@ -177,15 +194,33 @@ const WeekView: React.FC<WeekViewProps> = ({ onSlotClick, onViewBill }) => {
                     const isConfirmed = bs === "confirmed" || bs === "completed";
                     const isCancelled = bs === "cancelled";
                     const statusClass = isCancelled ? "cancelled" : isPaid ? "confirmed" : isPartial ? "partial" : isConfirmed ? "confirmed" : "pending";
+                    const chipH = Math.max(durationToPx(b.startTime, b.endTime), 28);
+                    const primaryStaffName = staffList.find((s) => s.id === b.staffId)?.name ?? "";
                     return (
                       <div
                         key={b.id}
                         className={`wv-chip wv-chip--${statusClass}`}
-                        style={{ top: timeToPx(b.startTime), height: Math.max(durationToPx(b.startTime, b.endTime), 28) }}
+                        style={{ top: timeToPx(b.startTime), height: chipH, overflow: "hidden" }}
+                        onMouseEnter={(e) => openTip(b, e.currentTarget)}
+                        onMouseLeave={closeTip}
                         onClick={(e) => { e.stopPropagation(); onViewBill(b); }}
                       >
-                        {formatTime12(b.startTime)}<br />
-                        {b.services[0]?.service?.slice(0, 12)}
+                        <div style={{ fontSize: 10, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {formatTime12(b.startTime)}
+                        </div>
+                        <div style={{ fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", opacity: 0.95 }}>
+                          {b.clientName}
+                        </div>
+                        {chipH > 44 && primaryStaffName && (
+                          <div style={{ fontSize: 9, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", opacity: 0.8 }}>
+                            {primaryStaffName}
+                          </div>
+                        )}
+                        {chipH > 58 && (
+                          <div style={{ fontSize: 9, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", opacity: 0.75 }}>
+                            {b.services[0]?.service}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -198,6 +233,17 @@ const WeekView: React.FC<WeekViewProps> = ({ onSlotClick, onViewBill }) => {
         </div>
       </div>
     </div>
+
+    {hovered && (
+      <BookingTooltipCard
+        booking={hovered.booking}
+        staffList={staffList}
+        anchorEl={hovered.el}
+        onMouseEnter={keepTip}
+        onMouseLeave={closeTip}
+      />
+    )}
+    </>
   );
 };
 
