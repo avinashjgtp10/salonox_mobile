@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
 import toast from "react-hot-toast";
 import { useSelector } from "react-redux";
 import type { RootState } from "../../../../store/store";
@@ -8,13 +8,12 @@ import { useBookings } from "../../hooks/useBookings";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import { formatTime12, getCurrentTime, addMinutes, generateTimeSlots } from "../../utils/timeUtils";
 import Avatar from "../shared/Avatar";
+import BookingTooltipCard from "../shared/BookingTooltipCard";
 import "../../styles/DayView.scss";
 
 interface DayViewProps {
   onSlotClick: (staffId: string, time: string) => void;
-  onViewBill: (booking: Booking) => void;
   onEditBooking: (booking: Booking) => void;
-  onPaymentBooking: (booking: Booking) => void;
   onBlockTime: (staffId: string) => void;
   onEditBlockTime: (block: BlockedTime) => void;
 }
@@ -54,6 +53,16 @@ const DayView: React.FC<DayViewProps> = ({
 
   const [nowTime, setNowTime] = useState(getCurrentTime());
   const [staffMenu, setStaffMenu] = useState<{ staffId: string; x: number; y: number } | null>(null);
+
+  // ── Hover tooltip ─────────────────────────────────────────────────────────
+  const [hovered, setHovered] = useState<{ booking: Booking; el: HTMLElement } | null>(null);
+  const tipTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  function openTip(booking: Booking, el: HTMLElement) {
+    clearTimeout(tipTimerRef.current);
+    setHovered({ booking, el });
+  }
+  function closeTip() { tipTimerRef.current = setTimeout(() => setHovered(null), 150); }
+  function keepTip()  { clearTimeout(tipTimerRef.current); }
 
   const [dragging, setDragging] = useState<{
     booking: Booking; startX: number; startY: number;
@@ -144,13 +153,20 @@ const DayView: React.FC<DayViewProps> = ({
   }, [staffMenu]);
 
   useEffect(() => {
-    setTimeout(() => {
-      if (scrollBodyRef.current) {
-        const now = new Date();
-        const px = ((now.getHours() * 60 + now.getMinutes()) / intervalMins) * SLOT_HEIGHT;
-        scrollBodyRef.current.scrollTop = Math.max(0, px - 150);
+    function scrollToNow() {
+      if (!scrollBodyRef.current) return;
+      // clientHeight is 0 when the element is hidden (e.g., background tab).
+      // Wait for layout to be computed before scrolling.
+      if (scrollBodyRef.current.clientHeight === 0) {
+        requestAnimationFrame(scrollToNow);
+        return;
       }
-    }, 150);
+      const now = new Date();
+      const px = ((now.getHours() * 60 + now.getMinutes()) / intervalMins) * SLOT_HEIGHT;
+      scrollBodyRef.current.scrollTop = Math.max(0, px - 150);
+    }
+    const t = setTimeout(() => requestAnimationFrame(scrollToNow), 150);
+    return () => clearTimeout(t);
   }, [intervalMins]);
 
   function onBodyScroll() {
@@ -231,11 +247,6 @@ const DayView: React.FC<DayViewProps> = ({
         const orig = (dragging.booking as any)._originalBooking || dragging.booking;
         
         if (isTimeRangeUnavailable(dragging.currentStaffId, newStart, newEnd)) {
-          console.warn("[DEBUG Drag & Drop] Drop target is unavailable:", {
-            staffId: dragging.currentStaffId,
-            start: newStart,
-            end: newEnd
-          });
           setDragging(null);
           return;
         }
@@ -245,24 +256,23 @@ const DayView: React.FC<DayViewProps> = ({
         const newStartMins = toMins(newStart);
         const deltaMins = newStartMins - oldStartMins;
 
-        // ✅ Multi-service shifting logic: update matching service staff and time, preserve remaining
+        // Shift ALL services by the time delta — only reassign staffId for services that
+        // belonged to the dragged staff column (services on other staff stay on that staff).
         const updatedServices = orig.services?.map((s: any) => {
-          const matchesDraggedStaff = s.staffId 
+          const matchesDraggedStaff = s.staffId
             ? String(s.staffId) === String(dragging.originalStaffId)
             : String(orig.staffId) === String(dragging.originalStaffId);
 
-          if (matchesDraggedStaff) {
-            const sMins = toMins(s.time || dragging.originalStart) + deltaMins;
-            const sh = Math.floor(sMins / 60);
-            const sm = Math.round(sMins % 60);
-            const shiftedTime = `${sh.toString().padStart(2, "0")}:${sm.toString().padStart(2, "0")}`;
-            return {
-              ...s,
-              time: shiftedTime,
-              staffId: dragging.currentStaffId,
-            };
-          }
-          return s; // Preserve untouched service mappings
+          const sMins = toMins(s.time || dragging.originalStart) + deltaMins;
+          const sh = Math.floor(sMins / 60);
+          const sm = Math.round(sMins % 60);
+          const shiftedTime = `${sh.toString().padStart(2, "0")}:${sm.toString().padStart(2, "0")}`;
+
+          return {
+            ...s,
+            time: shiftedTime,
+            staffId: matchesDraggedStaff ? dragging.currentStaffId : s.staffId,
+          };
         }) || [];
 
         // Use newStart/newEnd directly — they preserve the original booking duration
@@ -282,7 +292,6 @@ const DayView: React.FC<DayViewProps> = ({
         };
 
         updateBooking(updatedPayload).catch((err: any) => {
-          console.error("[DEBUG Drag & Drop] Failed to reschedule booking:", err);
           toast.error(err?.message || "Unable to reschedule appointment");
         });
         setDragging(null);
@@ -344,7 +353,7 @@ const DayView: React.FC<DayViewProps> = ({
   }, [resizing, intervalMins, updateBooking]);
 
   const rawDayBookings = getBookingsByDate(currentDate);
-  const dayBookings = rawDayBookings.map((b) => {
+  const dayBookings = useMemo(() => rawDayBookings.map((b) => {
     if (!b.services || b.services.length === 0) return { ...b, _originalBooking: b };
 
     const toMins = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
@@ -371,40 +380,12 @@ const DayView: React.FC<DayViewProps> = ({
       _originalBooking: b,
       startTime: overallStartTime,
       endTime: overallEndTime,
-      // ✅ staffId: prefer booking-level, then first service's staffId
       staffId: b.staffId || b.services[0]?.staffId,
     };
-  // ✅ Always sort by startTime so card order is stable and independent of Redux insertion order
-  }).sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
+  }).sort((a, b) => (a.startTime || "").localeCompare(b.startTime || "")),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [rawDayBookings]);
 
-  // ── Smart visible hour range ─────────────────────────────────────────────
-  // Default: 9 AM – 7 PM when no bookings exist.
-  // With bookings: 1 hour before earliest start, 1 hour after latest end,
-  // always at least a 4-hour window, clamped to 0–24.
-  const DEFAULT_START = 9;
-  const DEFAULT_END = 19;
-  const MIN_WINDOW = 4; // minimum hours to show
-
-  const allEvents = [
-    ...dayBookings.map((b) => ({ start: b.startTime, end: b.endTime })),
-    ...dayBlocked.map((b) => ({ start: b.startTime, end: b.endTime })),
-  ];
-
-  let startHour: number;
-  let endHour: number;
-
-  if (allEvents.length === 0) {
-    startHour = DEFAULT_START;
-    endHour = DEFAULT_END;
-  } else {
-    const toMins = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
-    const earliestMins = Math.min(...allEvents.map((e) => toMins(e.start)));
-    const latestMins = Math.max(...allEvents.map((e) => toMins(e.end)));
-    startHour = Math.max(0, Math.floor(earliestMins / 60) - 1);
-    endHour = Math.min(24, Math.ceil(latestMins / 60) + 1);
-    // Enforce minimum window
-    if (endHour - startHour < MIN_WINDOW) endHour = Math.min(24, startHour + MIN_WINDOW);
-  }
 
   const slots = generateTimeSlots(interval as any);
   const nowPx = timeToPx(nowTime);
@@ -412,53 +393,43 @@ const DayView: React.FC<DayViewProps> = ({
   const totalWidth = visibleStaff.length * COL_WIDTH;
   const totalGridHeight = slots.length * SLOT_HEIGHT;
 
-  function isSlotBlocked(staffId: string, time: string) {
+  const isSlotBlocked = useCallback((staffId: string, time: string) => {
     return dayBlocked.some((b) => b.staffId === staffId && b.startTime <= time && time < b.endTime);
-  }
+  }, [dayBlocked]);
 
-  function isSlotBooked(staffId: string, slotTime: string) {
+  const isSlotBooked = useCallback((staffId: string, slotTime: string) => {
     const toMins = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
     const slotMins = toMins(slotTime);
     return dayBookings.some((b) => {
       if ((b.status as string) === "Cancelled") return false;
-
-      // Find services explicitly assigned to this staff member
       const staffServices = (b.services || []).filter((s: any) => s.staffId === staffId);
-
       if (staffServices.length > 0) {
-        // Block only during the windows this staff member is actually performing a service,
-        // not for the entire booking span that may include other staff members' services.
         return staffServices.some((s: any) => {
           const svcStart = s.time || b.startTime;
           const svcEnd = (s as any).endTime || (s as any).end_time || addMinutes(svcStart, (s as any).duration || 30);
           return slotMins >= toMins(svcStart) && slotMins < toMins(svcEnd);
         });
       }
-
-      // No service-level match — fall back to booking-level staffId with overall time range
-      // (covers single-service bookings where services don't carry individual staffIds)
       if (b.staffId === staffId) {
         return slotMins >= toMins(b.startTime) && slotMins < toMins(b.endTime);
       }
-
       return false;
     });
-  }
-  // ── Working-hours helpers (per staff, per day) ─────────────────────────────
-  function isSlotOffHours(staffId: string, slotTime: string): boolean {
+  }, [dayBookings]);
+
+  const isSlotOffHours = useCallback((staffId: string, slotTime: string): boolean => {
     const hours = getStaffWorkHours(staffId);
-    if (!hours) return false;                        // no schedule → treat as available
-    if (!hours.isAvailable) return true;             // day off → entire column blocked
+    if (!hours) return false;
+    if (!hours.isAvailable) return true;
     if (!hours.startTime || !hours.endTime) return false;
     const toMins = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
     const slot = toMins(slotTime);
     const start = toMins(hours.startTime);
     const end = toMins(hours.endTime);
-    if (start <= end) {
-      return slot < start || slot >= end;            // normal shift
-    }
-    return slot >= end && slot < start;              // overnight shift (e.g. 22:00 – 06:00)
-  }
+    if (start <= end) return slot < start || slot >= end;
+    return slot >= end && slot < start;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateShifts, currentDate, dayBlocked]);
 
   function handleRemoveBlockTime(staffId: string) {
     dayBlocked.filter((b) => b.staffId === staffId).forEach((b) => deleteBlockedTime(b.id));
@@ -549,8 +520,12 @@ const DayView: React.FC<DayViewProps> = ({
                     return (
                       <div
                         key={t}
-                        onClick={() => !unavailable && !isInteracting && onSlotClick(staff.id, t)}
-                        className={`dv-slot${m === 0 ? " dv-slot--hour" : ""}${blocked ? " dv-slot--blocked" : ""}${booked ? " dv-slot--booked" : ""}${offHours ? " dv-slot--off-hours" : ""}`}
+                        onClick={() => {
+                          if (unavailable || isInteracting) return;
+                          onSlotClick(staff.id, t);
+                        }}
+                        className={`dv-slot${m === 0 ? " dv-slot--hour" : ""}${blocked ? " dv-slot--blocked" : ""}${booked ? " dv-slot--booked" : ""}${offHours ? " dv-slot--off-hours" : ""}${isInteracting ? " dv-slot--interacting" : ""}`}
+                        style={isInteracting ? { cursor: "grabbing" } : undefined}
                         onMouseEnter={(e) => { if (!unavailable && !isInteracting) (e.currentTarget as HTMLElement).classList.add("dv-slot--hover"); }}
                         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).classList.remove("dv-slot--hover"); }}
                       />
@@ -733,12 +708,15 @@ const DayView: React.FC<DayViewProps> = ({
                           key={`${b.id}-${staff.id}`}
                           className={`dv-chip dv-chip--${statusClass}${isDraggingThis ? " dv-chip--dragging" : ""}${isResizingThis ? " dv-chip--resizing" : ""}`}
                           style={{ top: chipTop, height: chipHeight, cursor: isReadOnly ? "pointer" : undefined }}
+                          onMouseEnter={(e) => { if (!isInteracting) openTip((b as any)._originalBooking || b, e.currentTarget); }}
+                          onMouseLeave={closeTip}
                           onMouseDown={(e) => {
                             if (isReadOnly) return;
                             if ((e.target as HTMLElement).closest(".dv-chip__resize-handle")) return;
                             const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
                             const fromBottom = rect.bottom - e.clientY;
                             if (fromBottom > 14) {
+                              setHovered(null);
                               const origIndex = visibleStaff.findIndex((s) => s.id === staff.id);
                               setDragCandidate({
                                 booking: b,
@@ -797,6 +775,16 @@ const DayView: React.FC<DayViewProps> = ({
       </div>
 
       {/* Staff context menu */}
+      {hovered && (
+        <BookingTooltipCard
+          booking={hovered.booking}
+          staffList={staffList}
+          anchorEl={hovered.el}
+          onMouseEnter={keepTip}
+          onMouseLeave={closeTip}
+        />
+      )}
+
       {staffMenu && (
         <div ref={staffMenuRef} className="dv-staff-menu" style={{ top: staffMenu.y, left: staffMenu.x }}>
           <button

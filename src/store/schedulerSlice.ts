@@ -140,14 +140,8 @@ const schedulerSlice = createSlice({
       state.bookings.push(payload);
     },
     updateBooking(state, { payload }: PayloadAction<Booking>) {
-      console.log("[DEBUG Drag & Drop Reducer] updateBooking reducer called with payload:", payload);
       const idx = state.bookings.findIndex((b) => b.id === payload.id);
-      if (idx !== -1) {
-        state.bookings[idx] = payload;
-        console.log("[DEBUG Drag & Drop Reducer] Updated booking inside state:", state.bookings[idx]);
-      } else {
-        console.warn("[DEBUG Drag & Drop Reducer] Booking ID not found in state:", payload.id);
-      }
+      if (idx !== -1) state.bookings[idx] = payload;
     },
     // ✅ Patch ONLY payment-related fields — does NOT touch startTime/endTime/staffId
     patchPaymentStatus(
@@ -158,6 +152,7 @@ const schedulerSlice = createSlice({
         payingNow?: number;
         dueAmount?: number;
         grandTotal?: number;
+        paymentMode?: string;
       }>
     ) {
       const booking = state.bookings.find((b) => String(b.id) === String(payload.id));
@@ -167,6 +162,7 @@ const schedulerSlice = createSlice({
         if (payload.payingNow !== undefined) (booking as any).payingNow = payload.payingNow;
         if (payload.dueAmount !== undefined) (booking as any).dueAmount = payload.dueAmount;
         if (payload.grandTotal !== undefined) (booking as any).grandTotal = payload.grandTotal;
+        if (payload.paymentMode !== undefined) (booking as any).paymentMode = payload.paymentMode;
       }
     },
     replaceBookingId(state, { payload }: PayloadAction<{ localId: string; realId: string }>) {

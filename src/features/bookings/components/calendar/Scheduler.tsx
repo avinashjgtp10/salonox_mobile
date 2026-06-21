@@ -16,7 +16,6 @@ import NewAppointmentModal from "../modals/NewAppointmentModal";
 import ViewBillModal from "../modals/ViewBillModal";
 import PaymentModal from "../modals/PaymentModal";
 import BlockTimeModal from "../modals/BlockTimeModal";
-import SettingsModal from "../modals/SettingsModal";
 
 const SchedulerContent: React.FC = () => {
   useSchedulerInit();
@@ -26,10 +25,10 @@ const SchedulerContent: React.FC = () => {
   const { viewMode, setViewMode, currentDate, setCurrentDate } = useSchedulerContext();
   const apiServices = useAppSelector((s: any) => s.services?.items ?? []);
   const apiStaff = useAppSelector((s: any) => s.staff?.items ?? []);
+  const apiClients = useAppSelector((s: any) => s.client?.items ?? []);
 
   const [showNewAppt, setShowNewAppt] = useState(false);
   const [showBlockTime, setShowBlockTime] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [viewingBooking, setViewingBooking] = useState<Booking | null>(null);
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const [paymentBooking, setPaymentBooking] = useState<Booking | null>(null);
@@ -48,7 +47,7 @@ const SchedulerContent: React.FC = () => {
       try {
         const action = await (dispatch(fetchBookingByIdThunk(appointmentId)) as any);
         if (fetchBookingByIdThunk.fulfilled.match(action)) {
-          const enriched = mapApiBooking(action.payload, apiServices, apiStaff);
+          const enriched = mapApiBooking(action.payload, apiServices, apiStaff, apiClients);
           setEditingBooking(enriched);
           setShowNewAppt(true);
         }
@@ -73,22 +72,30 @@ const SchedulerContent: React.FC = () => {
       try {
         const action = await (dispatch(fetchBookingByIdThunk(booking.id)) as any);
         if (fetchBookingByIdThunk.fulfilled.match(action)) {
-          const enriched = mapApiBooking(action.payload, apiServices, apiStaff);
+          const enriched = mapApiBooking(action.payload, apiServices, apiStaff, apiClients);
 
-          // Build a price map from the local Redux booking (has prices from creation)
+          // Build a map from the local Redux booking (has post-drag staff + prices)
           const localPriceMap = new Map(
             (booking.services || []).map((s: any) => [String(s.id), s])
           );
 
-          // Merge services: prefer enriched metadata (name/staff) but fill prices from local
+          // Merge services: API has fresh name/time metadata; local has current staff+prices.
+          // Drag-and-drop updates staffId locally but doesn't re-send services to the API,
+          // so the API's service staffId is stale after a drag — always prefer local staffId.
           const mergedServices = enriched.services.length
             ? enriched.services.map((svc: any) => {
                 const local = localPriceMap.get(String(svc.id));
+                const resolvedStaffId = local?.staffId || svc.staffId;
+                const resolvedStaff = resolvedStaffId
+                  ? (apiStaff.find((s: any) => String(s.id) === String(resolvedStaffId)) as any)?.name || svc.staff
+                  : svc.staff;
                 return {
                   ...svc,
                   price: (svc.price || 0) > 0 ? svc.price : (local?.price || 0),
                   total: (svc.total || 0) > 0 ? svc.total : (local?.total || local?.price || 0),
                   qty: svc.qty || local?.qty || 1,
+                  staffId: resolvedStaffId,
+                  staff: resolvedStaff,
                 };
               })
             : booking.services;
@@ -112,10 +119,6 @@ const SchedulerContent: React.FC = () => {
     }
     setEditingBooking(booking);
     setShowNewAppt(true);
-  }
-
-  function handlePaymentBooking(booking: Booking) {
-    setPaymentBooking(booking);
   }
 
   function handleCollectDue(booking: Booking) {
@@ -158,20 +161,16 @@ const SchedulerContent: React.FC = () => {
       const local = latestBookings.find((lb) => String(lb.id) === String(fb.id));
       if (!local) return fb;
 
-      const merged: Booking = {
-        ...fb,
-        date: local.date || fb.date,
-        startTime: local.startTime || fb.startTime,
-        endTime: local.endTime || fb.endTime,
-        staffId: local.staffId || fb.staffId,
-        duration: (local as any).duration ?? (fb as any).duration,
-        services: local.services || fb.services,
-      } as Booking;
+      // Trust server for position (date/time/staff) — this corrects any stale drag position.
+      // Only keep local payment state when it's ahead of what the server knows
+      // (e.g., payment was just processed but server refresh hasn't caught up yet).
+      const merged: Booking = { ...fb } as Booking;
 
       if ((PAY_RANK[local.paymentStatus] ?? 0) > (PAY_RANK[fb.paymentStatus] ?? 0)) {
         merged.paymentStatus = local.paymentStatus;
         merged.dueAmount = local.dueAmount;
         merged.payingNow = local.payingNow;
+        (merged as any).paymentMode = (local as any).paymentMode || (fb as any).paymentMode;
       }
       return merged;
     });
@@ -201,7 +200,6 @@ const SchedulerContent: React.FC = () => {
         <TopBar
           onNewAppointment={() => { setEditingBooking(null); setApptDefaults({}); setShowNewAppt(true); }}
           onBlockTime={() => handleBlockTime()}
-          onSettings={() => setShowSettings(true)}
           onRefresh={handleRefresh}
         />
       </div>
@@ -214,9 +212,7 @@ const SchedulerContent: React.FC = () => {
         {viewMode === "Day" && (
           <DayView
             onSlotClick={handleSlotClick}
-            onViewBill={setViewingBooking}
             onEditBooking={handleEditBooking}
-            onPaymentBooking={handlePaymentBooking}
             onBlockTime={(staffId: string) => handleBlockTime(staffId)}
             onEditBlockTime={handleEditBlockTime}
           />
@@ -262,7 +258,6 @@ const SchedulerContent: React.FC = () => {
           onClose={() => { setPaymentBooking(null); setCollectDueMode(false); }}
         />
       )}
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </div>
   );
 };

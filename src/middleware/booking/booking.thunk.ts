@@ -63,15 +63,33 @@ function mapBooking(appt: any, servicesList?: any[]): Booking {
   const services = (appt.services || []).map((s: any) => {
     const svcLookup = servicesList?.find((rs: any) => String(rs.id) === String(s.service_id ?? s.id));
     const sName = s.name || (typeof s.service === "object" ? s.service?.name || s.service?.service : s.service) || s.service_name || svcLookup?.name || "";
+    const mappedTime = s.time || (s.start_time ? svcTimeToLocal(s.start_time) : startTime);
+    const mappedEndTime: string | undefined = s.endTime || (s.end_time ? svcTimeToLocal(s.end_time) : undefined);
+    const duration = Number(s.duration || s.duration_minutes || svcLookup?.duration || 30) || 30;
     return {
       ...s,
       name: sName,
       service: sName,
       staffId: s.staffId || s.staff_id || appt.staffId || appt.staff_id || undefined,
-      // s.time: custom field (local if returned by backend); s.start_time may be UTC HH:MM from DB
-      time: s.time || (s.start_time ? svcTimeToLocal(s.start_time) : startTime),
+      time: mappedTime,
+      endTime: mappedEndTime,
+      duration,
     };
   });
+
+  // Auto-cascade when all services share the same start time (stale / unset DB data)
+  // so the calendar shows sequential per-staff chips instead of all overlapping at midnight
+  if (services.length > 1 && services.every((s: any) => s.time === services[0].time)) {
+    const [h0, m0] = (services[0].time || "00:00").split(":").map(Number);
+    let runMins = (isNaN(h0) ? 0 : h0) * 60 + (isNaN(m0) ? 0 : m0);
+    services.forEach((s: any) => {
+      const dur = s.duration || 30;
+      s.time = `${String(Math.floor(runMins / 60) % 24).padStart(2, "0")}:${String(runMins % 60).padStart(2, "0")}`;
+      const endMins = runMins + dur;
+      s.endTime = `${String(Math.floor(endMins / 60) % 24).padStart(2, "0")}:${String(endMins % 60).padStart(2, "0")}`;
+      runMins = endMins;
+    });
+  }
 
   // Map products, packages, memberships to camelCase
   const productItems = (appt.product_items || appt.productItems || appt.products || []).map((p: any) => ({
@@ -112,7 +130,10 @@ function mapBooking(appt: any, servicesList?: any[]): Booking {
     ...(appt.package_items || []),
     ...(appt.membership_items || []),
   ].reduce((sum: number, item: any) => {
-    const price = parseFloat(String(item.price ?? 0)) || 0;
+    // prefer item.total (already price * qty); fall back to price * qty
+    const itemTotal = parseFloat(String(item.total ?? 0)) || 0;
+    if (itemTotal > 0) return sum + itemTotal;
+    const price = parseFloat(String(item.price ?? item.unit_price ?? 0)) || 0;
     const qty = Number(item.quantity ?? item.qty ?? 1) || 1;
     return sum + price * qty;
   }, 0);
@@ -158,6 +179,18 @@ function mapBooking(appt: any, servicesList?: any[]): Booking {
     // ✅ Map snake_case → camelCase so calendar staffId filter works
     paymentStatus: appt.paymentStatus || appt.payment_status || "Unpaid",
     staffId: appt.staffId || appt.staff_id || undefined,
+    clientName: (() => {
+      if (appt.clientName) return appt.clientName;
+      if (appt.client_name) return appt.client_name;
+      const c = appt.client;
+      if (!c) return "";
+      if (c.fullName) return c.fullName;
+      if (c.full_name) return c.full_name;
+      if (c.name) return c.name;
+      if (c.first_name) return `${c.first_name} ${c.last_name ?? ""}`.trim();
+      if (c.firstName) return `${c.firstName} ${c.lastName ?? ""}`.trim();
+      return "";
+    })(),
     // ✅ FIX — derive date from scheduled_at if date field is missing (prevents undefined dates that break calendar filters)
     date: appt.date 
       ? toLocalDateStr(appt.date) 

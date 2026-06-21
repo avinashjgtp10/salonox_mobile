@@ -1,5 +1,3 @@
-import type { ReactNode } from "react";
-
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function toApiStaffId(id?: string | null): string | undefined {
   return id && UUID_RE.test(id) ? id : undefined;
@@ -46,40 +44,31 @@ import type {
   IntervalOption,
 } from "../types/scheduler-types";
 
-export function SchedulerProvider({ children }: { children: ReactNode }) {
-  return <>{children}</>;
-}
-
 export function useSchedulerContext() {
   const dispatch = useAppDispatch();
-  const {
-    bookings,
-    blockedTimes,
-    viewMode,
-    currentDate,
-    interval,
-    clientStats,
-    staffList,
-    selectedStaffId,
-    clientsList,
-    servicesList,
-    packagesList,
-    membershipsList,
-    productsList,
-    staffSchedules,
-  } = useAppSelector((s) => s.scheduler);
+  const bookings = useAppSelector((s) => s.scheduler.bookings);
+  const blockedTimes = useAppSelector((s) => s.scheduler.blockedTimes);
+  const viewMode = useAppSelector((s) => s.scheduler.viewMode);
+  const currentDate = useAppSelector((s) => s.scheduler.currentDate);
+  const interval = useAppSelector((s) => s.scheduler.interval);
+  const clientStats = useAppSelector((s) => s.scheduler.clientStats);
+  const staffList = useAppSelector((s) => s.scheduler.staffList);
+  const selectedStaffId = useAppSelector((s) => s.scheduler.selectedStaffId);
+  const clientsList = useAppSelector((s) => s.scheduler.clientsList);
+  const servicesList = useAppSelector((s) => s.scheduler.servicesList);
+  const packagesList = useAppSelector((s) => s.scheduler.packagesList);
+  const membershipsList = useAppSelector((s) => s.scheduler.membershipsList);
+  const productsList = useAppSelector((s) => s.scheduler.productsList);
+  const staffSchedules = useAppSelector((s) => s.scheduler.staffSchedules);
   const salonId = useAppSelector((s: any) => s.salon?.currentSalon?.id);
 
   return {
     bookings,
     addBooking: (b: Booking) => dispatch(addBooking(b)),
     updateBooking: (b: Booking) => {
-      console.log("[DEBUG Drag & Drop Context] updateBooking called with payload:", b);
       const previousBooking = bookings.find((existing) => String(existing.id) === String(b.id));
       dispatch(updateBookingAction(b));
-      const rawStatus = ((b as any)._rawStatus || "").toLowerCase();
-      const isLocked = rawStatus === "completed" || rawStatus === "no_show";
-      if (!String(b.id).startsWith("b_") && !isLocked) {
+      if (!String(b.id).startsWith("b_")) {
         const [sh, sm] = b.startTime.split(":").map(Number);
         const [eh, em] = b.endTime.split(":").map(Number);
         const duration = Math.max(5, (eh * 60 + em) - (sh * 60 + sm));
@@ -105,11 +94,9 @@ export function useSchedulerContext() {
             membership_items: (b as any).membershipItems ?? [],
           },
         };
-        console.log("[DEBUG Drag & Drop Context] Dispatching updateBookingThunk with payload:", apiPayload);
         return (dispatch(updateBookingThunk(apiPayload)) as any)
           .then((action: any) => {
             if (updateBookingThunk.rejected.match(action)) {
-              console.error("[DEBUG Drag & Drop Context] updateBookingThunk rejected:", action.payload);
               if (previousBooking) dispatch(updateBookingAction(previousBooking));
               throw new Error(action.payload as string || "Staff member already has an appointment at this time");
             }
@@ -119,7 +106,6 @@ export function useSchedulerContext() {
             return action;
           })
           .catch((err: any) => {
-            console.error("[DEBUG Drag & Drop Context] updateBooking catch error:", err);
             if (previousBooking) dispatch(updateBookingAction(previousBooking));
             throw err;
           });

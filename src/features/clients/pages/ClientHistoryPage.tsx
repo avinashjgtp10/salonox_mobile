@@ -1,6 +1,6 @@
 // src/features/clients/pages/ClientHistoryPage.tsx
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchServicesThunk } from "../../../middleware/services/services.thunk";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
@@ -51,6 +51,7 @@ interface AppointmentRecord {
   amount_paid: number;
   services: Array<{ name?: string; service_name?: string; price?: number }>;
   product_items: Array<{ name: string }>;
+  package_items?: Array<{ name?: string; package_name?: string; price?: number; total?: number }>;
   staff_id?: string | null;
   staff?: { id: string; full_name?: string } | null;
 }
@@ -195,7 +196,9 @@ const openWhatsApp = (country_code: string | null, phone: string | null) => {
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function ClientHistoryPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
+  const autoOpenHandled = useRef(false);
 
   // Client list
   const [clients, setClients] = useState<ClientListItem[]>([]);
@@ -303,6 +306,27 @@ export default function ClientHistoryPage() {
   }, []);
 
 
+  // Auto-open a specific client when navigated from the appointment modal
+  useEffect(() => {
+    const openClientId = (location.state as any)?.openClientId;
+    if (!openClientId || autoOpenHandled.current) return;
+    autoOpenHandled.current = true;
+    const existing = clients.find((c) => String(c.id) === String(openClientId));
+    if (existing) {
+      loadHistory(existing);
+      window.history.replaceState({}, "");
+      return;
+    }
+    api
+      .get(`/api/v1/clients/${openClientId}`)
+      .then((res) => {
+        const c = res.data?.data || res.data || null;
+        if (c?.id) loadHistory(c);
+        window.history.replaceState({}, "");
+      })
+      .catch(console.error);
+  }, [location.state, clients, loadHistory]);
+
   const activeFilterCount =
     (filters.lastVisit !== "all" ? 1 : 0) +
     (filters.serviceId !== "all" ? 1 : 0) +
@@ -354,12 +378,37 @@ export default function ClientHistoryPage() {
       .map((it) => ({ ...it, sale_date: s.created_at, sale_id: s.id }))
   );
 
-  // Services from appointments (not captured in sales items)
+  // Packages from sale line items
+  const packagesFromSales = sales.flatMap((s) =>
+    (s.items ?? []).filter((it) => it.item_type === "package")
+      .map((it) => ({ ...it, sale_date: s.created_at, sale_id: s.id }))
+  );
+  const salePackageNames = new Set(packagesFromSales.map((it) => it.name));
+
+  // Packages booked directly inside appointments (package_items field)
+  const packagesFromAppointments = appointments.flatMap((a) =>
+    (a.package_items ?? [])
+      .map((p) => ({ resolvedName: p.name || p.package_name || "", price: p.total ?? p.price ?? 0, appt: a }))
+      .filter((p) => p.resolvedName && !salePackageNames.has(p.resolvedName))
+      .map((p) => ({
+        name: p.resolvedName,
+        item_type: "package",
+        quantity: 1,
+        unit_price: String(p.price),
+        total_price: String(p.price),
+        sale_date: p.appt.scheduled_at,
+        sale_id: p.appt.id,
+      }))
+  );
+  const allPackageItems = [...packagesFromSales, ...packagesFromAppointments];
+  const apptPackageNames = new Set(packagesFromAppointments.map((p) => p.name));
+
+  // Services from appointments (not captured in sales items; exclude items that are actually packages)
   const saleServiceNames = new Set(servicesFromSales.map((it) => it.name));
   const servicesFromAppointments = appointments.flatMap((a) =>
     (a.services ?? [])
       .map((s) => ({ ...s, resolvedName: s.name || s.service_name || "" }))
-      .filter((s) => s.resolvedName && !saleServiceNames.has(s.resolvedName))
+      .filter((s) => s.resolvedName && !saleServiceNames.has(s.resolvedName) && !apptPackageNames.has(s.resolvedName))
       .map((s) => ({
         name: s.resolvedName,
         item_type: "service",
@@ -429,7 +478,7 @@ export default function ClientHistoryPage() {
   // Apply global filters across all tab data at once
   const {
     visibleAppointments, visibleQuickSales, filteredAllServices,
-    filteredProductsFromSales, filteredMembershipsFromSales, filteredPackages, filteredSales,
+    filteredProductsFromSales, filteredMembershipsFromSales, filteredPackages, filteredPackageItems, filteredSales,
   } = useMemo(() => {
     const matchDate = (dateStr: string): boolean => {
       if (globalCalDay) return dateStr.slice(0, 10) === globalCalDay;
@@ -455,6 +504,7 @@ export default function ClientHistoryPage() {
       filteredProductsFromSales: productsFromSales.filter((it) => matchDate(it.sale_date)),
       filteredMembershipsFromSales: membershipsFromSales.filter((it) => matchDate(it.sale_date)),
       filteredPackages: packages.filter((pkg) => matchDate(pkg.created_date)),
+      filteredPackageItems: allPackageItems.filter((it) => matchDate(it.sale_date)),
       filteredSales: sales.filter((s) => {
         if (!matchDate(s.created_at)) return false;
         if (globalServiceFilter !== "all") {
@@ -1139,9 +1189,29 @@ export default function ClientHistoryPage() {
               {/* PACKAGES tab */}
               {activeTab === "packages" && (
                 <div className="chp-pkg-grid">
-                  {filteredPackages.length === 0 ? (
-                    <div className="chp-no-data">{packages.length === 0 ? "No packages found" : "No packages match the current filter"}</div>
-                  ) : (
+                  {/* One-time package bookings from appointments */}
+                  {filteredPackageItems.length > 0 && (
+                    <div className="chp-card" style={{ gridColumn: "1 / -1" }}>
+                      <div className="chp-card-header">
+                        <span className="chp-card-title">Package bookings ({filteredPackageItems.length})</span>
+                      </div>
+                      <table className="chp-table">
+                        <thead><tr><th>Package</th><th>Date</th><th>Amount</th></tr></thead>
+                        <tbody>
+                          {filteredPackageItems.map((it, i) => (
+                            <tr key={i}>
+                              <td>{it.name}</td>
+                              <td>{fmtDateShort(it.sale_date)}</td>
+                              <td>₹{Number(it.total_price || 0).toLocaleString("en-IN")}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {filteredPackages.length === 0 && filteredPackageItems.length === 0 ? (
+                    <div className="chp-no-data">No packages found</div>
+                  ) : filteredPackages.length === 0 ? null : (
                     filteredPackages.map((pkg) => {
                       const isExpired = pkg.expiry_date && new Date(pkg.expiry_date) < new Date();
                       const displayStatus = isExpired ? "expired" : pkg.status;
