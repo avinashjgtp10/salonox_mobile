@@ -20,6 +20,8 @@ const DashboardPage = lazy(() =>
   import("../features/dashboard/pages/DashboardPage")
 );
 
+const HelpPage = lazy(() => import("../features/help/pages/HelpPage"));
+
 const Scheduler = lazy(() =>
   import("../features/bookings/components/calendar/Scheduler")
 );
@@ -95,6 +97,9 @@ export const DashboardRoutes = (
       {/* Apps and Profile — no permission guard needed */}
       <Route path="apps/*" element={<AppsRoutes />} />
       <Route path="profile" element={<ProfilePage />} />
+
+      {/* Help & Support — accessible to all authenticated users */}
+      <Route path="help" element={<HelpPage />} />
     </Route>
   </Route>
 );

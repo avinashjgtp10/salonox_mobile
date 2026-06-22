@@ -77,7 +77,9 @@ export default function LoginPage() {
     const result = await dispatch(loginThunk({ email, password }));
     if (loginThunk.fulfilled.match(result)) {
       const { isOnboardingComplete, user } = result.payload;
-      if (user?.role === "staff" || isOnboardingComplete) {
+      if (user?.role === "super_admin") {
+        navigate("/super-admin");
+      } else if (user?.role === "staff" || isOnboardingComplete) {
         navigate("/dashboard");
       } else {
         navigate("/business-name");
