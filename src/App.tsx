@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
 import { PageLoader } from "./components/ui";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AuthRoutes, OnboardingRoutes, DashboardRoutes } from "./routes";
