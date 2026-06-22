@@ -5,7 +5,6 @@ import { PageLoader } from "./components/ui";
 import { AuthRoutes, OnboardingRoutes, DashboardRoutes } from "./routes";
 import { LandingRoutes } from "./routes/LandingRoutes";
 import SalonOxBot from './features/bot/SalonOxBot';
-import { ThemeProvider } from './features/marketing-site/context/ThemeContext';
 // import SubscriptionWall from "./features/billing/components/SubscriptionWall";
 // import { useSubscriptionPoller } from "./hooks/useSubscriptionPoller";
 // import { useAppSelector } from "./hooks/useAppRedux";
@@ -16,7 +15,7 @@ function App() {
   // useSubscriptionPoller();
 
   return (
-    <ThemeProvider>
+    <>
       <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
       <Suspense fallback={<PageLoader fullHeight />}>
         <Routes>
@@ -34,7 +33,7 @@ function App() {
       <SalonOxBot />
       {/* Full-screen subscription wall — renders over authenticated routes only */}
       {/* {accessToken && subscriptionExpired && <SubscriptionWall />} */}
-    </ThemeProvider>
+    </>
   );
 }
 
