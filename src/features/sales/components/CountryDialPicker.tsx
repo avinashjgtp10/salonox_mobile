@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
+import { COUNTRIES } from "../../../components/ui/countryData";
 
 export interface CountryOption {
   name: string;
@@ -13,47 +14,30 @@ interface Props {
   onChange: (country: CountryOption) => void;
 }
 
-export const INDIA: CountryOption = {
-  name: "India",
-  dialCode: "+91",
-  cca2: "IN",
-  flagUrl: "https://flagcdn.com/w20/in.png",
-};
-
 function toFlagUrl(cca2: string): string {
   return `https://flagcdn.com/w20/${cca2.toLowerCase()}.png`;
 }
 
+export const INDIA: CountryOption = {
+  name: "India",
+  dialCode: "+91",
+  cca2: "IN",
+  flagUrl: toFlagUrl("IN"),
+};
+
 export default function CountryDialPicker({ value, onChange }: Props) {
-  const [countries, setCountries]   = useState<CountryOption[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [fetchError, setFetchError] = useState(false);
-  const [open, setOpen]             = useState(false);
-  const [search, setSearch]         = useState("");
-  const [dropPos, setDropPos]       = useState({ top: 0, left: 0 });
+  const [open, setOpen]   = useState(false);
+  const [search, setSearch] = useState("");
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0 });
 
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dropRef    = useRef<HTMLDivElement>(null);
   const searchRef  = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    fetch("https://restcountries.com/v3.1/all?fields=name,idd,cca2")
-      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
-      .then((data: any[]) => {
-        const parsed: CountryOption[] = data
-          .filter((c) => c.idd?.root && c.idd?.suffixes?.length > 0)
-          .map((c) => ({
-            name:     c.name.common,
-            dialCode: c.idd.root + c.idd.suffixes[0],
-            cca2:     c.cca2,
-            flagUrl:  toFlagUrl(c.cca2),
-          }))
-          .sort((a, b) => a.name.localeCompare(b.name));
-        setCountries(parsed);
-        setLoading(false);
-      })
-      .catch(() => { setFetchError(true); setLoading(false); });
-  }, []);
+  const countries = useMemo<CountryOption[]>(
+    () => COUNTRIES.map((c) => ({ name: c.name, dialCode: c.dialCode, cca2: c.cca2, flagUrl: toFlagUrl(c.cca2) })),
+    [],
+  );
 
   function openDropdown() {
     if (!triggerRef.current) return;
@@ -96,7 +80,6 @@ export default function CountryDialPicker({ value, onChange }: Props) {
       <button
         ref={triggerRef}
         type="button"
-        disabled={loading}
         onClick={openDropdown}
         style={{
           display: "inline-flex",
@@ -109,40 +92,33 @@ export default function CountryDialPicker({ value, onChange }: Props) {
           background: "#f9fafb",
           border: "none",
           borderRight: "1px solid #e5e7eb",
-          cursor: loading ? "not-allowed" : "pointer",
-          opacity: loading ? 0.6 : 1,
+          cursor: "pointer",
           whiteSpace: "nowrap",
           fontFamily: "inherit",
           flexShrink: 0,
           boxSizing: "border-box",
         }}
       >
-        {loading ? (
-          <span style={{ fontSize: 12, color: "#9ca3af" }}>…</span>
-        ) : (
-          <>
-            <img
-              src={value.flagUrl}
-              alt={value.name}
-              width={20}
-              height={14}
-              style={{ display: "block", borderRadius: 2, flexShrink: 0, objectFit: "cover" }}
-            />
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#374151", lineHeight: 1 }}>
-              {value.dialCode}
-            </span>
-            <svg width={10} height={10} viewBox="0 0 24 24" fill="none"
-              stroke="#9ca3af" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"
-              style={{ display: "block", flexShrink: 0 }}
-            >
-              <path d="M6 9l6 6 6-6" />
-            </svg>
-          </>
-        )}
+        <img
+          src={value.flagUrl}
+          alt={value.name}
+          width={20}
+          height={14}
+          style={{ display: "block", borderRadius: 2, flexShrink: 0, objectFit: "cover" }}
+        />
+        <span style={{ fontSize: 12, fontWeight: 600, color: "#374151", lineHeight: 1 }}>
+          {value.dialCode}
+        </span>
+        <svg width={10} height={10} viewBox="0 0 24 24" fill="none"
+          stroke="#9ca3af" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"
+          style={{ display: "block", flexShrink: 0 }}
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
       </button>
 
       {/* ── Dropdown via Portal (bypasses all overflow:hidden ancestors) ── */}
-      {open && !loading && createPortal(
+      {open && createPortal(
         <div
           ref={dropRef}
           style={{
@@ -180,13 +156,6 @@ export default function CountryDialPicker({ value, onChange }: Props) {
               }}
             />
           </div>
-
-          {/* Error */}
-          {fetchError && (
-            <div style={{ padding: "10px 16px", fontSize: 12, color: "#ef4444", textAlign: "center", background: "#fee2e2" }}>
-              Failed to load countries
-            </div>
-          )}
 
           {/* List */}
           <ul style={{ listStyle: "none", margin: 0, padding: 0, maxHeight: 240, overflowY: "auto" }}>

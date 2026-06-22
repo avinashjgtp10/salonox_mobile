@@ -583,6 +583,28 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
       .reduce((sum, b) => sum + (Number(b.dueAmount) || 0), 0);
   }, [selectedClientId, calendarBookings]);
 
+  // Fetch booking detail to get accurate financial data (list API omits pricing)
+  const [bookingDetailDue, setBookingDetailDue] = useState<number | null>(null);
+  useEffect(() => {
+    const bid = existingBooking?.id;
+    if (!bid || String(bid).startsWith("b_")) { setBookingDetailDue(null); return; }
+    let cancelled = false;
+    api.get(`/api/v1/appointments/${bid}`)
+      .then((r) => r.data?.data || r.data || null)
+      .then((detail) => {
+        if (!detail || cancelled) return;
+        const dueAmt = detail.due_amount != null ? Math.max(0, Number(detail.due_amount)) : null;
+        const paidAmt = Number(detail.paid_amount) || 0;
+        const grandTotal = Number(detail.grand_total ?? detail.total_amount) || 0;
+        const computed = dueAmt != null ? dueAmt : Math.max(0, grandTotal - paidAmt);
+        setBookingDetailDue(computed);
+        // NOTE: do NOT dispatch updateBookingAction here — it updates calendarBookings in Redux
+        // which re-renders this modal, causing a cascade. Local state is sufficient for display.
+      })
+      .catch(() => { /* best-effort — ignore failures */ });
+    return () => { cancelled = true; };
+  }, [existingBooking?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Fetch client details — Phase 1: show profile immediately, Phase 2: enrich with history
   useEffect(() => {
     if (!selectedClientId) { setSelectedClientDetails(null); return; }
@@ -599,7 +621,8 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
           reward_points:   client.reward_points ?? client.rewardPoints ?? "None",
           membership_tier: client.membership_tier ?? client.membership ?? "NA",
           last_visit_date: client.last_visit_date ?? reduxClientLastVisit,
-          unpaid_amount:   client.unpaid_amount ?? reduxClientUnpaid,
+          // Prefer API value only if > 0; fallback to Redux-derived sum (API often sends 0 even for partial bookings)
+          unpaid_amount:   client.unpaid_amount > 0 ? client.unpaid_amount : reduxClientUnpaid,
         });
 
         // Phase 2 — history stats (may be slow, enriches once it arrives)
@@ -607,13 +630,17 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
           .then((r) => r.data?.data?.stats || r.data?.stats || null)
           .then((stats) => {
             if (!stats || cancelled) return;
+            const statsUnpaid = stats.unpaid_amount > 0 ? stats.unpaid_amount
+              : stats.pending_amount > 0 ? stats.pending_amount
+              : stats.due_amount > 0 ? stats.due_amount
+              : null;
             setSelectedClientDetails((prev: any) => prev ? {
               ...prev,
               total_visits:    stats.total_appointments ?? stats.total_visits    ?? prev.total_visits    ?? 0,
               cancelled_count: stats.cancellations      ?? stats.cancelled_count ?? prev.cancelled_count ?? 0,
               total_revenue:   stats.lifetime_spend     ?? stats.total_revenue   ?? prev.total_revenue   ?? 0,
               last_visit_date: stats.last_visit ?? stats.last_visit_date ?? stats.last_appointment_date ?? prev.last_visit_date,
-              unpaid_amount:   stats.unpaid_amount ?? stats.pending_amount ?? stats.due_amount ?? prev.unpaid_amount,
+              unpaid_amount:   statsUnpaid ?? prev.unpaid_amount,
             } : prev);
           })
           .catch(() => { /* history is best-effort, ignore errors */ });
@@ -622,6 +649,16 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
 
     return () => { cancelled = true; };
   }, [selectedClientId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When booking detail arrives with accurate due amount, patch the client card unpaid display
+  useEffect(() => {
+    if (bookingDetailDue == null || bookingDetailDue <= 0) return;
+    setSelectedClientDetails((prev: any) => {
+      if (!prev) return prev;
+      const current = prev.unpaid_amount ?? 0;
+      return current >= bookingDetailDue ? prev : { ...prev, unpaid_amount: bookingDetailDue };
+    });
+  }, [bookingDetailDue]);
 
   // Derived totals
   const safeClientFromDetails = selectedClientDetails ? {
@@ -672,11 +709,15 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
   const nextTier = getNextTier(currentRevenue);
 
   // Split
-  // Fallback: if service prices weren't loaded (API gap), use the stored dueAmount directly
+  // Priority: bookingDetailDue (fetched on open) > storedDueAmount (from Redux) > calculated from totals
   const serviceHasPrices = serviceRows.some(r => (r.price || 0) > 0 || (r.total || 0) > 0);
   const storedDueAmount = Number((existingBooking as any)?.dueAmount ?? 0);
-  const remainingDue = isActuallyPartial && !isEditing && !serviceHasPrices && storedDueAmount > 0
-    ? storedDueAmount
+  const remainingDue = isActuallyPartial && !isEditing
+    ? (bookingDetailDue != null && bookingDetailDue > 0
+        ? bookingDetailDue
+        : (!serviceHasPrices && storedDueAmount > 0
+            ? storedDueAmount
+            : Math.max(0, effectiveTotal - alreadyPaidAmount)))
     : Math.max(0, effectiveTotal - alreadyPaidAmount);
   const splitTotal = splitEntries.reduce((a, e) => a + (parseFloat(e.amount) || 0), 0);
   const splitValid = paymentMode === "single" || Math.abs(splitTotal - remainingDue) <= 0.01;
@@ -2303,11 +2344,44 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
           </div>
         )}
 
+        {/* Outstanding due banner — lives OUTSIDE the flex footer so it's always full-width */}
+        {apptStatus === "UNPAID" && !isPaid && isActuallyPartial && !showPaymentSection && (
+          <div style={{
+            margin: "0 22px 0 22px",
+            background: "linear-gradient(135deg, #fffbeb, #fef3c7)",
+            border: "1.5px solid #f59e0b",
+            borderRadius: "10px",
+            padding: "10px 14px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 8,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#92400e", letterSpacing: "0.01em" }}>Outstanding Due</div>
+                <div style={{ fontSize: 11, color: "#b45309", marginTop: 1 }}>
+                  Paid: ₹{alreadyPaidAmount.toFixed(2)}&nbsp;&nbsp;•&nbsp;&nbsp;Balance: ₹{remainingDue.toFixed(2)}
+                </div>
+              </div>
+            </div>
+            <span style={{ fontSize: 17, fontWeight: 800, color: "#d97706", letterSpacing: "-0.02em" }}>
+              ₹{remainingDue.toFixed(2)}
+            </span>
+          </div>
+        )}
+
         {apptStatus === "UNPAID" && !isPaid && (
           <div className="appt-drawer-footer" style={{ marginTop: "8px" }}>
             {cancelDeleteError && (
               <div className="alert alert-danger small py-2 w-100 mb-2" style={{ borderRadius: "6px" }}>{cancelDeleteError}</div>
             )}
+
             {!showPaymentSection ? (
               <>
                 {isEditing ? (
@@ -2315,9 +2389,29 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                 ) : (
                   <Button variant="outline-secondary" fullWidth onClick={() => { setIsEditing(true); setShowDotMenu(false); }}><PencilFill size={13} style={{ marginRight: 6, verticalAlign: "middle" }} />Update Appointment</Button>
                 )}
-                <Button fullWidth onClick={handleContinueToPayment} disabled={isSaving} style={{ background: "linear-gradient(135deg,#10b981,#059669)", color: "#fff", border: "none", fontWeight: 700, boxShadow: "0 4px 14px rgba(16,185,129,0.3)" }}>
-                  <CreditCard2Front size={14} style={{ marginRight: 6, verticalAlign: "middle" }} />{isSaving ? "Please wait…" : "Continue to Payment"}
-                </Button>
+                {isActuallyPartial ? (
+                  <Button
+                    fullWidth
+                    onClick={handleContinueToPayment}
+                    disabled={isSaving}
+                    style={{
+                      background: "linear-gradient(135deg, #f59e0b, #d97706)",
+                      color: "#fff",
+                      border: "none",
+                      fontWeight: 700,
+                      fontSize: 14,
+                      boxShadow: "0 4px 16px rgba(245,158,11,0.4)",
+                      letterSpacing: "0.01em",
+                    }}
+                  >
+                    <RecordCircle size={15} style={{ marginRight: 7, verticalAlign: "middle" }} />
+                    {isSaving ? "Please wait…" : `Collect Due — ₹${remainingDue.toFixed(2)}`}
+                  </Button>
+                ) : (
+                  <Button fullWidth onClick={handleContinueToPayment} disabled={isSaving} style={{ background: "linear-gradient(135deg,#10b981,#059669)", color: "#fff", border: "none", fontWeight: 700, boxShadow: "0 4px 14px rgba(16,185,129,0.3)" }}>
+                    <CreditCard2Front size={14} style={{ marginRight: 6, verticalAlign: "middle" }} />{isSaving ? "Please wait…" : "Continue to Payment"}
+                  </Button>
+                )}
               </>
             ) : (
               <>
@@ -2335,7 +2429,9 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                       ? <><ArrowRepeat size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />Creating Booking...</>
                       : paymentMode === "split" && splitTotal > 0 && splitTotal < remainingDue
                         ? <><RecordCircle size={13} style={{ marginRight: 4, verticalAlign: "middle", color: "#7c3aed" }} />Confirm Partial — ₹{splitTotal.toFixed(2)} (₹{(remainingDue - splitTotal).toFixed(2)} due)</>
-                        : <><CheckCircleFill size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />Confirm &amp; Pay — ₹{remainingDue.toFixed(2)}</>
+                        : isActuallyPartial
+                          ? <><CheckCircleFill size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />Confirm Collect Due — ₹{remainingDue.toFixed(2)}</>
+                          : <><CheckCircleFill size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />Confirm &amp; Pay — ₹{remainingDue.toFixed(2)}</>
                   }
                   onClick={handleCompletePayment}
                 />
