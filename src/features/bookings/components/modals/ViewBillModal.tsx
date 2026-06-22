@@ -237,7 +237,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                 <div className="vbm-breakdown-card">
                   <div className="vbm-breakdown-card__title">Payment Breakdown</div>
                   {[
-                    booking.discount ? ["Discount", `−₹${((booking.subtotal || 0) - (booking.taxableAmount || 0)).toFixed(2)}`, "#ef4444"] : null,
+                    booking.discount ? ["Discount", `−₹${Math.max(0, (booking.subtotal || 0) - (booking.taxableAmount || 0) - (booking.couponDiscount || 0)).toFixed(2)}`, "#ef4444"] : null,
                     booking.couponDiscount ? [`Coupon (${booking.couponCode})`, `−₹${(booking.couponDiscount || 0).toFixed(2)}`, "#22c55e"] : null,
                     booking.exCharges ? ["Extra Charges", `₹${(booking.exCharges || 0).toFixed(2)}`, "#374151"] : null,
                   ].filter(Boolean).map((row, i) => (

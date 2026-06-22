@@ -13,7 +13,17 @@ export default defineConfig(({ mode }) => {
       '@': path.resolve(__dirname, './src'),
     },
   },
+  css: {
+    preprocessorOptions: {
+      scss: {
+        // Optional: add global SCSS variables here if needed
+        // additionalData: `@import "@/styles/variables.scss";`,
+      },
+    },
+  },
   server: {
+    port: 3000,
+    open: true,
     proxy: {
       '/api': {
         target: proxyTarget,

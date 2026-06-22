@@ -89,7 +89,11 @@ function Table<T extends { id?: string | number }>({
                   <td
                     key={j}
                     className={`py-3 px-3 border-bottom-0 ${col.className || ""}`}
-                    style={{ textAlign: col.align || "left" }}
+                    style={{
+                      textAlign: col.align || "left",
+                      width: col.width,
+                      maxWidth: col.width,
+                    }}
                   >
                     {col.render
                       ? col.render(item)

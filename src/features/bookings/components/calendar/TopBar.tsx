@@ -8,7 +8,6 @@ import MiniCalendar from "../shared/MiniCalendar.tsx";
 interface TopBarProps {
   onNewAppointment: () => void;
   onBlockTime: () => void;
-  onSettings: () => void;
   onRefresh?: () => void;
 }
 

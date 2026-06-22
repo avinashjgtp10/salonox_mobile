@@ -20,6 +20,12 @@ const TimeSelect: React.FC<TimeSelectProps> = ({
   disabled
 }) => {
   const slots = generateTimeSlots(interval);
+  // If the current value falls between slot boundaries (e.g. cascade produced "09:30"
+  // but interval is "60 Mins"), inject it so the select doesn't silently fall back to
+  // the first option and display "12:00 AM".
+  const allSlots = value && !slots.includes(value)
+    ? [...slots, value].sort()
+    : slots;
   return (
     <select
       value={value}
@@ -28,7 +34,7 @@ const TimeSelect: React.FC<TimeSelectProps> = ({
       disabled={disabled}
     >
       {placeholder && <option value="">{placeholder}</option>}
-      {slots.map((t) => (
+      {allSlots.map((t) => (
         <option key={t} value={t}>
           {formatTime12(t)}
         </option>

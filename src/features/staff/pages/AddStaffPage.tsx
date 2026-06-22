@@ -11,9 +11,6 @@ import StaffAddressesSection from "../sections/StaffAddressesSection";
 import StaffEmergencyContactsSection from "../sections/StaffEmergencyContactsSection";
 import StaffServicesSection from "../sections/StaffServicesSection";
 import StaffSettingsSection from "../sections/StaffSettingsSection";
-import StaffWagesSection from "../sections/StaffWagesSection";
-import StaffCommissionsSection from "../sections/StaffCommissionsSection";
-import StaffPayRunsSection from "../sections/StaffPayRunsSection";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
 
@@ -22,10 +19,7 @@ type SectionKey =
   | "addresses"
   | "emergency"
   | "services"
-  | "settings"
-  | "wages"
-  | "commissions"
-  | "payruns";
+  | "settings";
 
 const sectionComponents: Record<SectionKey, React.FC<any>> = {
   profile: StaffProfileSection,
@@ -33,9 +27,6 @@ const sectionComponents: Record<SectionKey, React.FC<any>> = {
   emergency: StaffEmergencyContactsSection,
   services: StaffServicesSection,
   settings: StaffSettingsSection,
-  wages: StaffWagesSection,
-  commissions: StaffCommissionsSection,
-  payruns: StaffPayRunsSection,
 };
 
 const AddStaffPage: React.FC = () => {
@@ -90,33 +81,6 @@ const AddStaffPage: React.FC = () => {
   // Synchronous guard — prevents double-submission before React re-renders the disabled button
   const isSubmittingRef = useRef(false);
 
-  const [wages, setWages] = useState({
-    wages_enabled: false,
-    compensation_type: "none",
-    hourly_rate: null as number | null,
-    salary_amount: null as number | null,
-    location_restriction: "workspace_default",
-    auto_clock_in: "workspace_default",
-    auto_clock_out: "workspace_default",
-    automated_breaks: "workspace_default",
-  });
-
-  const [payRuns, setPayRuns] = useState({
-    pay_runs_enabled: true,
-    payment_method: "pay_manually",
-    calculation_type: "automatic",
-    deduct_payment_processing_fees: false,
-    deduct_new_client_fees: false,
-    record_cash_advances: false,
-  });
-
-  const [commissions, setCommissions] = useState<Record<string, any>>({
-    services: { category: "services", is_enabled: true, commission_kind: "percentage", default_rate: 0, use_default_calculation: true, pass_cancellation_fee_late: false, pass_cancellation_fee_noshow: false },
-    products: { category: "products", is_enabled: false, commission_kind: "percentage", default_rate: 0, use_default_calculation: true, pass_cancellation_fee_late: false, pass_cancellation_fee_noshow: false },
-    memberships: { category: "memberships", is_enabled: false, commission_kind: "percentage", default_rate: 0, use_default_calculation: true, pass_cancellation_fee_late: false, pass_cancellation_fee_noshow: false },
-    gift_cards: { category: "gift_cards", is_enabled: true, commission_kind: "percentage", default_rate: 0, use_default_calculation: true, pass_cancellation_fee_late: false, pass_cancellation_fee_noshow: false },
-    cancellation: { category: "cancellation", is_enabled: true, commission_kind: "percentage", default_rate: 0, use_default_calculation: true, pass_cancellation_fee_late: false, pass_cancellation_fee_noshow: false },
-  });
 
   useEffect(() => {
     if (!id || id === "undefined" || id === "add") return;
@@ -175,28 +139,7 @@ const AddStaffPage: React.FC = () => {
         return;
       }
 
-      try {
-        const [wagesRes, commissionsRes, payRunsRes] = await Promise.all([
-          api.get(STAFF.WAGES(id), { headers }),
-          api.get(STAFF.COMMISSIONS(id), { headers }),
-          api.get(STAFF.PAY_RUNS(id), { headers }),
-        ]);
-
-        if (wagesRes.data.data) setWages(wagesRes.data.data);
-        if (commissionsRes.data.data) {
-          const fetchedCommissions = commissionsRes.data.data;
-          const newCommissions = { ...commissions };
-          fetchedCommissions.forEach((c: any) => {
-            newCommissions[c.category] = c;
-          });
-          setCommissions(newCommissions);
-        }
-        if (payRunsRes.data.data) setPayRuns(payRunsRes.data.data);
-      } catch (error) {
-        console.error("Error fetching sub-settings:", error);
-      } finally {
-        setUi((prev) => ({ ...prev, isLoading: false }));
-      }
+      setUi((prev) => ({ ...prev, isLoading: false }));
     };
 
     fetchStaff();
@@ -218,12 +161,10 @@ const AddStaffPage: React.FC = () => {
 
   const isPasswordInvalid =
     ui.attemptedSubmit &&
-    formData.password.trim() !== "" &&
     formData.password.trim().length < 8;
 
   const isConfirmPasswordInvalid =
     ui.attemptedSubmit &&
-    formData.password.trim() !== "" &&
     formData.confirmPassword !== formData.password;
 
   const hasErrors = isFirstNameInvalid || isEmailInvalid || isPhoneInvalid || isAdditionalPhoneInvalid || isPasswordInvalid || isConfirmPasswordInvalid;
@@ -243,11 +184,21 @@ const AddStaffPage: React.FC = () => {
 
     try {
       setUi((prev) => ({ ...prev, isLoading: true }));
+      const permissionLevelMap: Record<string, string> = {
+        "No access": "no_access",
+        "Basic": "basic",
+        "Low": "low",
+        "Medium": "medium",
+        "High": "high",
+        "Manager": "manager",
+      };
+
       const payload: Record<string, any> = {
         first_name: formData.firstName,
         email: formData.email,
         calendar_color: formData.calendarColor,
         allow_calendar_bookings: settings.allowCalendarBookings,
+        permission_level: permissionLevelMap[settings.permissionLevel] || "low",
       };
 
       if (lists.addresses.length > 0) payload.addresses = lists.addresses;
@@ -256,15 +207,17 @@ const AddStaffPage: React.FC = () => {
       if (formData.lastName) payload.last_name = formData.lastName;
       if (formData.phone) payload.phone = formData.phone;
       if (formData.phoneCountryCode) payload.phone_country_code = formData.phoneCountryCode;
-      if (formData.additionalPhone) payload.additional_phone = formData.additionalPhone;
-      if (formData.additionalPhoneCountryCode)
-        payload.additional_phone_country_code = formData.additionalPhoneCountryCode;
+      if (formData.additionalPhone) {
+        payload.additional_phone = formData.additionalPhone;
+        if (formData.additionalPhoneCountryCode)
+          payload.additional_phone_country_code = formData.additionalPhoneCountryCode;
+      }
       if (formData.country) payload.country = formData.country;
       if (formData.jobTitle) payload.job_title = formData.jobTitle;
       if (formData.memberId) payload.staff_member_id = formData.memberId;
       if (formData.notes) payload.notes = formData.notes;
       if (formData.employmentType) payload.employment_type = formData.employmentType;
-      if (formData.specialization) payload.specialization = formData.specialization;
+      if (formData.specialization && formData.specialization.length > 0) payload.specialization = formData.specialization;
       if (formData.birthdayDayMonth) payload.birthday = formData.birthdayDayMonth;
       if (formData.birthdayYear) payload.birth_year = formData.birthdayYear;
       if (formData.startDateDayMonth) payload.start_date = formData.startDateDayMonth;
@@ -273,7 +226,7 @@ const AddStaffPage: React.FC = () => {
       if (formData.endDateDayMonth) payload.end_date = formData.endDateDayMonth;
       if (formData.endDateDayMonth && formData.endDateYear)
         payload.end_year = formData.endDateYear;
-      if (formData.password.trim()) payload.password = formData.password.trim();
+      payload.password = formData.password.trim();
       if (id && id !== "undefined") {
         await api.patch(STAFF.BY_ID(id), payload);
         toast.success("Staff updated successfully");
@@ -284,24 +237,6 @@ const AddStaffPage: React.FC = () => {
 
         if (!newStaffId) {
           throw new Error("Failed to retrieve new staff ID from server");
-        }
-
-        // After creation, save sub-settings if they have been configured
-        try {
-          // Save Wages
-          await api.put(STAFF.WAGES(newStaffId), wages, config);
-
-          // Save Commissions (sequentially to avoid race conditions)
-          for (const c of Object.values(commissions)) {
-            await api.put(STAFF.COMMISSIONS(newStaffId), c, config);
-          }
-
-          // Save Pay Runs
-          await api.put(STAFF.PAY_RUNS(newStaffId), payRuns, config);
-        } catch (subError) {
-          console.error("Error saving initial sub-settings:", subError);
-          // Don't block navigation, just warn
-          toast.error("Staff created, but some settings failed to save.");
         }
 
         toast.success("Invitation sent successfully");
@@ -418,15 +353,6 @@ const AddStaffPage: React.FC = () => {
     componentProps.setSpecialization = (val: string[]) => {
       setFormData((prev: any) => ({ ...prev, specialization: val }));
     };
-  } else if (activeSection === "wages") {
-    componentProps.wages = wages;
-    componentProps.setWages = setWages;
-  } else if (activeSection === "commissions") {
-    componentProps.commissions = commissions;
-    componentProps.setCommissions = setCommissions;
-  } else if (activeSection === "payruns") {
-    componentProps.payRuns = payRuns;
-    componentProps.setPayRuns = setPayRuns;
   }
 
   return (
@@ -602,16 +528,6 @@ const AddStaffPage: React.FC = () => {
                 </ul>
               </div>
 
-              <hr className="add-staff__nav-divider" />
-
-              <div className="add-staff__nav-group">
-                <p className="add-staff__nav-group-title">Pay</p>
-                <ul className="add-staff__nav-list">
-                  {navItem("wages", "Wages and timesheets")}
-                  {navItem("commissions", "Commissions")}
-                  {navItem("payruns", "Pay runs")}
-                </ul>
-              </div>
             </nav>
           </aside>
 

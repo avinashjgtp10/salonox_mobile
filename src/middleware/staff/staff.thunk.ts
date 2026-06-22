@@ -80,7 +80,7 @@ export const deleteStaffThunk = createAsyncThunk<
   string | number, // returns the deleted id so reducer can remove it
   string | number,
   { rejectValue: string }
->("staff/delete", async (id, { rejectWithValue, getState }) => {
+>("staff/delete", async (id, { rejectWithValue }) => {
   try {
     await api.delete(STAFF.BY_ID(id));
     return id;
@@ -102,6 +102,36 @@ export const exportStaffThunk = createAsyncThunk<
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to export staff");
+  }
+});
+
+// ── Activate staff member ──────────────────────────────────────────────────────
+export const activateStaffThunk = createAsyncThunk<
+  Staff,
+  string | number,
+  { rejectValue: string }
+>("staff/activate", async (id, { rejectWithValue }) => {
+  try {
+    await api.patch(STAFF.ACTIVATE(id));
+    return { id, is_active: true } as unknown as Staff;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to activate team member");
+  }
+});
+
+// ── Deactivate staff member ────────────────────────────────────────────────────
+export const deactivateStaffThunk = createAsyncThunk<
+  Staff,
+  string | number,
+  { rejectValue: string }
+>("staff/deactivate", async (id, { rejectWithValue }) => {
+  try {
+    await api.patch(STAFF.DEACTIVATE(id));
+    return { id, is_active: false } as unknown as Staff;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to deactivate team member");
   }
 });
 

@@ -1,4 +1,4 @@
-﻿export const DEVICES = {
+export const DEVICES = {
   LIST:            "/api/v1/devices",
   ADD:             "/api/v1/devices",
   PENDING:         "/api/v1/devices/pending",
