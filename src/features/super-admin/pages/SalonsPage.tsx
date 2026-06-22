@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchSuperAdminSalonsThunk, setSalonStatusThunk, forceOnboardingThunk, impersonateSalonThunk, deleteSalonThunk } from "../../../middleware/superAdmin/superAdmin.thunk";
+import Pagination from "../components/Pagination";
 
 function Badge({ status }: { status: string }) {
   const map: Record<string, { bg: string; text: string }> = {
@@ -71,6 +72,8 @@ export default function SalonsPage() {
   const [toast, setToast]       = useState<{ msg: string; ok: boolean } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [page, setPage]       = useState(1);
+  const [perPage, setPerPage] = useState(20);
 
   const load = useCallback((q?: string) => { dispatch(fetchSuperAdminSalonsThunk(q)); }, [dispatch]);
   useEffect(() => { load(); }, [load]);
@@ -170,7 +173,7 @@ export default function SalonsPage() {
             ) : salons.length === 0 ? (
               <tr><td colSpan={9} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>No salons found</td></tr>
             ) : (
-              salons.map((s: any) => (
+              salons.slice((page - 1) * perPage, page * perPage).map((s: any) => (
                 <tr key={s.id} style={{ borderTop: "1px solid #f1f5f9", transition: "background 0.1s" }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}>
@@ -210,6 +213,11 @@ export default function SalonsPage() {
             )}
           </tbody>
         </table>
+        <Pagination
+          total={salons.length} page={page} perPage={perPage}
+          onPageChange={setPage} onPerPageChange={setPerPage}
+          itemLabel="salons"
+        />
       </div>
       <style>{`@keyframes sa-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
     </div>

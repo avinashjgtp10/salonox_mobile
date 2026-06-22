@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchSuperAdminPaymentsThunk } from "../../../middleware/superAdmin/superAdmin.thunk";
+import Pagination from "../components/Pagination";
 
 const STATUS_COLOR: Record<string, { bg: string; text: string }> = {
   completed: { bg: "#f0fdf4", text: "#16a34a" },
@@ -15,11 +16,15 @@ export default function PaymentsPage() {
   const dispatch = useAppDispatch();
   const { payments, loading } = useAppSelector((s) => s.superAdmin);
   const [statusFilter, setStatusFilter] = useState("");
+  const [page, setPage]       = useState(1);
+  const [perPage, setPerPage] = useState(20);
 
   useEffect(() => {
     dispatch(fetchSuperAdminPaymentsThunk(statusFilter || undefined));
+    setPage(1);
   }, [dispatch, statusFilter]);
 
+  const pagedPayments = payments.slice((page - 1) * perPage, page * perPage);
   const total = payments.reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
   const fmt   = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
@@ -80,7 +85,7 @@ export default function PaymentsPage() {
             ) : payments.length === 0 ? (
               <tr><td colSpan={5} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>No payments found</td></tr>
             ) : (
-              payments.map((p: any) => {
+              pagedPayments.map((p: any) => {
                 const c = STATUS_COLOR[p.status] ?? { bg: "#f8fafc", text: "#64748b" };
                 return (
                   <tr key={p.id} style={{ borderTop: "1px solid #f1f5f9", transition: "background 0.1s" }}
@@ -101,6 +106,11 @@ export default function PaymentsPage() {
             )}
           </tbody>
         </table>
+        <Pagination
+          total={payments.length} page={page} perPage={perPage}
+          onPageChange={setPage} onPerPageChange={setPerPage}
+          itemLabel="transactions"
+        />
       </div>
       <style>{`@keyframes sa-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
     </div>

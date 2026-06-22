@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import Pagination from "../components/Pagination";
 import {
   fetchSuperAdminUsersThunk,
   setUserStatusThunk,
@@ -54,6 +55,8 @@ export default function UsersPage() {
   const [search, setSearch]         = useState("");
   const [roleFilter, setRole]       = useState("");
   const [loginFilter, setLoginFilter] = useState<number | "">("");
+  const [page, setPage]       = useState(1);
+  const [perPage, setPerPage] = useState(20);
   const [actionId, setActionId]     = useState<string | null>(null);
   const [toast, setToast]       = useState<{ msg: string; ok: boolean } | null>(null);
 
@@ -78,6 +81,7 @@ export default function UsersPage() {
       role:       roleFilter || undefined,
       min_logins: loginFilter !== "" ? loginFilter : undefined,
     }));
+    setPage(1);
   }, [dispatch, search, roleFilter, loginFilter]);
 
   useEffect(() => { load(); }, [load]);
@@ -496,7 +500,7 @@ export default function UsersPage() {
             ) : users.length === 0 ? (
               <tr><td colSpan={8} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>No users found</td></tr>
             ) : (
-              users.map((u: any) => (
+              users.slice((page - 1) * perPage, page * perPage).map((u: any) => (
                 <tr key={u.id} style={{ borderTop: "1px solid #f1f5f9", transition: "background 0.1s" }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}>
@@ -581,6 +585,11 @@ export default function UsersPage() {
             )}
           </tbody>
         </table>
+        <Pagination
+          total={users.length} page={page} perPage={perPage}
+          onPageChange={setPage} onPerPageChange={setPerPage}
+          itemLabel="users"
+        />
       </div>
       <style>{`@keyframes sa-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
     </div>
