@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { store } from "../../../store/store";
 import api from "../../../services/api/axios";
@@ -151,6 +151,8 @@ export function mapApiBooking(item: any, rawServices: any[] = [], rawStaff: any[
   const grandTotal = parseFloat(String(item.grand_total ?? item.total_amount ?? 0)) || computedLineTotal;
   const payStatusStr = (item.payment_status ?? item.paymentStatus ?? "").toLowerCase();
   const paidAmount = Number(item.paid_amount) || 0;
+  // Use due_amount directly from API if present — avoids wrong calculation when paid_amount is missing
+  const apiDueAmount = item.due_amount != null ? Math.max(0, Number(item.due_amount)) : null;
   let finalPayStatus: "Paid" | "Partial" | "Unpaid" = "Unpaid";
   if (paidAmount > 0) {
     finalPayStatus = paidAmount >= grandTotal ? "Paid" : "Partial";
@@ -246,7 +248,9 @@ export function mapApiBooking(item: any, rawServices: any[] = [], rawStaff: any[
     taxableAmount: grandTotal,
     grandTotal,
     payingNow: paidAmount > 0 ? paidAmount : (finalPayStatus === "Paid" ? grandTotal : 0),
-    dueAmount: grandTotal - (paidAmount > 0 ? paidAmount : (finalPayStatus === "Paid" ? grandTotal : 0)),
+    dueAmount: apiDueAmount != null
+      ? apiDueAmount
+      : Math.max(0, grandTotal - (paidAmount > 0 ? paidAmount : (finalPayStatus === "Paid" ? grandTotal : 0))),
     notes: item.notes ?? "",
     staffAlert: item.staff_alert || item.staffAlert || "",
   };
@@ -272,7 +276,8 @@ export function useSchedulerInit() {
   const [rawApiBookings, setRawApiBookings] = useState<any[]>([]);
 
   const { data: packagesData } = useListPackagesQuery({});
-  const { data: packageTemplates = [] } = useListPackageTemplatesQuery();
+  const { data: packageTemplatesRaw } = useListPackageTemplatesQuery();
+  const packageTemplates = useMemo(() => packageTemplatesRaw ?? [], [packageTemplatesRaw]);
 
   // ── Fetch active services — re-fetch when salon changes ─────────────────────
   useEffect(() => {
