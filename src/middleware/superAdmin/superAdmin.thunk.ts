@@ -137,13 +137,14 @@ export const fetchSuperAdminPaymentsThunk = createAsyncThunk<SuperAdminPayment[]
 
 // ── USERS ─────────────────────────────────────────────────────────────────────
 
-export const fetchSuperAdminUsersThunk = createAsyncThunk<SuperAdminUser[], { search?: string; role?: string } | undefined, { rejectValue: string }>(
+export const fetchSuperAdminUsersThunk = createAsyncThunk<SuperAdminUser[], { search?: string; role?: string; min_logins?: number } | undefined, { rejectValue: string }>(
   "superAdmin/fetchUsers",
   async (filters, { rejectWithValue }) => {
     try {
       const params: Record<string, string> = {};
-      if (filters?.search) params.search = filters.search;
-      if (filters?.role)   params.role   = filters.role;
+      if (filters?.search)     params.search     = filters.search;
+      if (filters?.role)       params.role       = filters.role;
+      if (filters?.min_logins) params.min_logins = String(filters.min_logins);
       const res = await api.get(SUPER_ADMIN.USERS, { params });
       const data = res.data?.data ?? res.data;
       return Array.isArray(data) ? data : [];
@@ -186,13 +187,15 @@ export const resetUserPasswordThunk = createAsyncThunk<void, { id: string; passw
   }
 );
 
-export const deleteUserThunk = createAsyncThunk<void, string, { rejectValue: string }>(
+export const deleteUserThunk = createAsyncThunk<void, { id: string; force?: boolean }, { rejectValue: { message: string; code?: string } }>(
   "superAdmin/deleteUser",
-  async (id, { rejectWithValue }) => {
+  async ({ id, force }, { rejectWithValue }) => {
     try {
-      await api.delete(SUPER_ADMIN.USER_DELETE(id));
+      await api.delete(SUPER_ADMIN.USER_DELETE(id), { params: force ? { force: true } : undefined });
     } catch (err: any) {
-      return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Failed to delete user");
+      const code = err?.response?.data?.error?.code;
+      const message = err?.response?.data?.error?.message ?? err?.message ?? "Failed to delete user";
+      return rejectWithValue({ message, code });
     }
   }
 );
@@ -248,7 +251,7 @@ export const fetchSalonPermissionsByIdThunk = createAsyncThunk<any, string, { re
   }
 );
 
-export const updateSalonPermissionsThunk = createAsyncThunk<any, { salonId: string; permissions: Record<string, { owner: boolean; staff: boolean }> }, { rejectValue: string }>(
+export const updateSalonPermissionsThunk = createAsyncThunk<any, { salonId: string; permissions: Record<string, { owner: boolean; staff: boolean; manager: boolean }> }, { rejectValue: string }>(
   "superAdmin/updateSalonPermissions",
   async ({ salonId, permissions }, { rejectWithValue }) => {
     try {

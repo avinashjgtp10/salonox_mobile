@@ -3,68 +3,96 @@ export interface Permission {
   label: string;
   desc: string;
   category: string;
+  group?: string;
   owner: boolean;
   staff: boolean;
+  manager: boolean;
 }
 
 export const defaultPermissions: Permission[] = [
-  // Dashboard
-  { key: "view_dashboard",  label: "View Dashboard",  desc: "Access the main dashboard",        category: "Dashboard",    owner: true, staff: true  },
-  { key: "view_analytics",  label: "View Analytics",  desc: "Access reports and analytics",     category: "Dashboard",    owner: true, staff: false },
+  // ── Dashboard ─────────────────────────────────────────────────────────────
+  { key: "view_dashboard",      label: "View Dashboard",      desc: "Access the main dashboard",            category: "Dashboard",      owner: true,  staff: false, manager: true },
+  { key: "view_analytics",      label: "View Analytics",      desc: "Access reports and analytics",         category: "Dashboard",      owner: true,  staff: true,  manager: true },
 
-  // Appointments
-  { key: "view_appointments",   label: "View Appointments",   desc: "See all appointments",        category: "Appointments", owner: true, staff: true  },
-  { key: "create_appointments", label: "Create Appointments", desc: "Book new appointments",        category: "Appointments", owner: true, staff: true  },
-  { key: "edit_appointments",   label: "Edit Appointments",   desc: "Modify existing bookings",     category: "Appointments", owner: true, staff: false },
-  { key: "cancel_appointments", label: "Cancel Appointments", desc: "Cancel client bookings",       category: "Appointments", owner: true, staff: false },
+  // ── Quick Sale ────────────────────────────────────────────────────────────
+  { key: "view_quick_sale",     label: "View Quick Sale",     desc: "Access the quick sale screen",         category: "Quick Sale",     owner: true,  staff: true,  manager: true },
+  { key: "create_quick_sale",   label: "Create Quick Sale",   desc: "Process quick sales",                  category: "Quick Sale",     owner: true,  staff: true,  manager: true },
+  { key: "edit_quick_sale",     label: "Edit Quick Sale",     desc: "Edit pending quick sales",             category: "Quick Sale",     owner: true,  staff: false, manager: true },
+  { key: "delete_quick_sale",   label: "Delete Quick Sale",   desc: "Delete quick sale records",            category: "Quick Sale",     owner: true,  staff: false, manager: true },
 
-  // Clients
-  { key: "view_clients",   label: "View Clients",   desc: "Access client profiles",          category: "Clients",      owner: true, staff: true  },
-  { key: "edit_clients",   label: "Edit Clients",   desc: "Update client information",       category: "Clients",      owner: true, staff: false },
-  { key: "delete_clients", label: "Delete Clients", desc: "Remove client records",           category: "Clients",      owner: true, staff: false },
+  // ── Calendar ──────────────────────────────────────────────────────────────
+  { key: "view_calendar",       label: "View Calendar",       desc: "See all appointments on calendar",     category: "Calendar",       owner: true,  staff: true,  manager: true },
+  { key: "manage_calendar",     label: "Manage Calendar",     desc: "Create, edit and cancel bookings",     category: "Calendar",       owner: true,  staff: false, manager: true },
 
-  // Sales
-  { key: "view_sales",      label: "View Sales",      desc: "See sales transactions",          category: "Sales",        owner: true, staff: true  },
-  { key: "create_sales",    label: "Create Sales",    desc: "Process sales and payments",      category: "Sales",        owner: true, staff: true  },
-  { key: "apply_discounts", label: "Apply Discounts", desc: "Give discounts to clients",       category: "Sales",        owner: true, staff: false },
-  { key: "void_sales",      label: "Void / Refund",   desc: "Cancel or refund transactions",   category: "Sales",        owner: true, staff: false },
+  // ── Clients ───────────────────────────────────────────────────────────────
+  { key: "view_clients",        label: "View Clients",        desc: "Access client profiles",               category: "Clients",        owner: true,  staff: true,  manager: true },
+  { key: "create_clients",      label: "Create Clients",      desc: "Add new client records",               category: "Clients",        owner: true,  staff: true,  manager: true },
+  { key: "edit_clients",        label: "Edit Clients",        desc: "Update client information",            category: "Clients",        owner: true,  staff: true,  manager: true },
+  { key: "delete_clients",      label: "Delete Clients",      desc: "Remove client records",                category: "Clients",        owner: true,  staff: false, manager: true },
 
-  // Catalog
-  { key: "view_catalog",    label: "View Catalog",    desc: "See services and products",       category: "Catalog",      owner: true, staff: true  },
-  { key: "edit_catalog",    label: "Edit Catalog",    desc: "Manage services and pricing",     category: "Catalog",      owner: true, staff: false },
-  { key: "manage_inventory",label: "Manage Inventory",desc: "Update product stock",            category: "Catalog",      owner: true, staff: false },
+  // ── Sales ─────────────────────────────────────────────────────────────────
+  { key: "view_sales",          label: "View Sales",          desc: "See sales transactions",               category: "Sales",          owner: true,  staff: true,  manager: true },
+  { key: "create_sales",        label: "Create Sales",        desc: "Process sales and payments",           category: "Sales",          owner: true,  staff: true,  manager: true },
+  { key: "edit_sales",          label: "Edit Sales",          desc: "Modify existing transactions",         category: "Sales",          owner: true,  staff: false, manager: true },
+  { key: "refund_sales",        label: "Refund Sales",        desc: "Cancel or refund transactions",        category: "Sales",          owner: true,  staff: false, manager: true },
 
-  // Team
-  { key: "view_team",    label: "View Team",    desc: "See team members",                 category: "Team",         owner: true, staff: false },
-  { key: "manage_team",  label: "Manage Team",  desc: "Add, edit, or remove staff",       category: "Team",         owner: true, staff: false },
-  { key: "manage_shifts",label: "Manage Shifts",desc: "Control schedules and shifts",     category: "Team",         owner: true, staff: false },
-  { key: "view_payroll", label: "View Payroll", desc: "Access pay runs and wages",        category: "Team",         owner: true, staff: false },
+  // ── Catalog › Services ────────────────────────────────────────────────────
+  { key: "view_services",       label: "View Services",       desc: "See all salon services",               category: "Catalog", group: "Services",    owner: true, staff: true,  manager: true },
+  { key: "create_services",     label: "Create Services",     desc: "Add new services",                     category: "Catalog", group: "Services",    owner: true, staff: false, manager: true },
+  { key: "edit_services",       label: "Edit Services",       desc: "Modify service details and pricing",   category: "Catalog", group: "Services",    owner: true, staff: false, manager: true },
 
-  // Marketing
-  { key: "view_marketing",   label: "View Marketing",   desc: "See campaigns and templates", category: "Marketing",    owner: true, staff: false },
-  { key: "manage_marketing", label: "Manage Marketing", desc: "Create and send campaigns",   category: "Marketing",    owner: true, staff: false },
+  // ── Catalog › Memberships ─────────────────────────────────────────────────
+  { key: "view_memberships",    label: "View Memberships",    desc: "See membership plans",                 category: "Catalog", group: "Memberships", owner: true, staff: true,  manager: true },
+  { key: "create_memberships",  label: "Create Memberships",  desc: "Add and manage membership plans",      category: "Catalog", group: "Memberships", owner: true, staff: false, manager: true },
 
-  // Settings
-  { key: "view_settings",   label: "View Settings",   desc: "Access settings pages",          category: "Settings",     owner: true, staff: false },
-  { key: "manage_settings", label: "Manage Settings", desc: "Change business settings",       category: "Settings",     owner: true, staff: false },
-  { key: "manage_billing",  label: "Manage Billing",  desc: "Control subscriptions and billing",category: "Settings",  owner: true, staff: false },
+  // ── Catalog › Products ────────────────────────────────────────────────────
+  { key: "view_products",       label: "View Products",       desc: "See products available for sale",      category: "Catalog", group: "Products",    owner: true, staff: true,  manager: true },
+  { key: "create_products",     label: "Create Products",     desc: "Add new products to the catalog",      category: "Catalog", group: "Products",    owner: true, staff: false, manager: true },
+
+  // ── Catalog › Packages ────────────────────────────────────────────────────
+  { key: "view_packages",       label: "View Packages",       desc: "See service packages and bundles",     category: "Catalog", group: "Packages",    owner: true, staff: true,  manager: true },
+  { key: "create_packages",     label: "Create Packages",     desc: "Create and edit service packages",     category: "Catalog", group: "Packages",    owner: true, staff: false, manager: true },
+
+  // ── Catalog › Inventory ───────────────────────────────────────────────────
+  { key: "view_inventory",      label: "View Inventory",      desc: "See current stock levels",             category: "Catalog", group: "Inventory",   owner: true, staff: true,  manager: true },
+  { key: "manage_inventory",    label: "Manage Inventory",    desc: "Adjust stock and reorder products",    category: "Catalog", group: "Inventory",   owner: true, staff: false, manager: true },
+  { key: "stock_adjustment",    label: "Stock Adjustment",    desc: "Manually adjust stock quantities",     category: "Catalog", group: "Inventory",   owner: true, staff: false, manager: true },
+
+  // ── Online Booking ────────────────────────────────────────────────────────
+  { key: "view_booking",        label: "View Booking",        desc: "See online booking settings",          category: "Online Booking", owner: true, staff: true,  manager: true },
+  { key: "manage_booking",      label: "Manage Booking",      desc: "Configure online booking options",     category: "Online Booking", owner: true, staff: false, manager: true },
+
+  // ── Marketing ─────────────────────────────────────────────────────────────
+  { key: "view_campaigns",      label: "View Campaigns",      desc: "See marketing campaigns",              category: "Marketing",      owner: true, staff: false, manager: true },
+  { key: "create_campaigns",    label: "Create Campaigns",    desc: "Create and send campaigns",            category: "Marketing",      owner: true, staff: false, manager: true },
+
+  // ── Team ──────────────────────────────────────────────────────────────────
+  { key: "view_team",           label: "View Team",           desc: "See team members and schedules",       category: "Team",           owner: true, staff: true,  manager: true },
+  { key: "add_team_member",     label: "Add Team Member",     desc: "Invite and add new staff",             category: "Team",           owner: true, staff: false, manager: true },
+  { key: "edit_team_member",    label: "Edit Team Member",    desc: "Update team member details",           category: "Team",           owner: true, staff: false, manager: true },
+
+  // ── Reports ───────────────────────────────────────────────────────────────
+  { key: "view_reports",        label: "View Reports",        desc: "Access business reports",              category: "Reports",        owner: true, staff: false, manager: true },
+  { key: "export_reports",      label: "Export Reports",      desc: "Download and export report data",      category: "Reports",        owner: true, staff: false, manager: true },
+
+  // ── Settings ──────────────────────────────────────────────────────────────
+  { key: "general_settings",    label: "General Settings",    desc: "Access and update business settings",  category: "Settings",       owner: true, staff: false, manager: true },
+  { key: "permission_settings", label: "Permission Settings", desc: "Manage staff roles and permissions",   category: "Settings",       owner: true, staff: false, manager: true },
+
+  // ── Help ──────────────────────────────────────────────────────────────────
+  { key: "access_help_center",  label: "Access Help Center",  desc: "Use the help center and support",      category: "Help",           owner: true, staff: true,  manager: true },
 ];
 
-export const PERM_CATEGORIES = [...new Set(defaultPermissions.map((p) => p.category))];
+export const PERM_CATEGORIES = [...new Set(defaultPermissions.map(p => p.category))];
 
-/** Convert a Permission[] to a flat Record<key, boolean> for the staff column. */
 export function permsToRecord(perms: Permission[]): Record<string, boolean> {
-  return Object.fromEntries(perms.map((p) => [p.key, p.staff]));
+  return Object.fromEntries(perms.map(p => [p.key, p.staff]));
 }
 
-/** Build a Permission[] seeded from custom overrides (or global defaults). */
 export function buildPermissions(
   globalPerms: Permission[],
   customPerms: Record<string, boolean> | null | undefined
 ): Permission[] {
-  if (!customPerms) return globalPerms.map((p) => ({ ...p }));
-  return globalPerms.map((p) => ({
-    ...p,
-    staff: customPerms[p.key] ?? p.staff,
-  }));
+  if (!customPerms) return globalPerms.map(p => ({ ...p }));
+  return globalPerms.map(p => ({ ...p, staff: customPerms[p.key] ?? p.staff }));
 }

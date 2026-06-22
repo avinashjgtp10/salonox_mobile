@@ -49,6 +49,7 @@ export interface SuperAdminUser {
   status: string;
   is_active: boolean;
   last_login?: string;
+  login_count?: number;
 }
 
 export interface RecentLogin {

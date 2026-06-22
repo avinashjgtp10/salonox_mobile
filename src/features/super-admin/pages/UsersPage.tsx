@@ -51,14 +51,16 @@ function Toast({ msg, ok }: { msg: string; ok: boolean }) {
 export default function UsersPage() {
   const dispatch = useAppDispatch();
   const { users, loading } = useAppSelector((s) => s.superAdmin);
-  const [search, setSearch]     = useState("");
-  const [roleFilter, setRole]   = useState("");
-  const [actionId, setActionId] = useState<string | null>(null);
+  const [search, setSearch]         = useState("");
+  const [roleFilter, setRole]       = useState("");
+  const [loginFilter, setLoginFilter] = useState<number | "">("");
+  const [actionId, setActionId]     = useState<string | null>(null);
   const [toast, setToast]       = useState<{ msg: string; ok: boolean } | null>(null);
 
   const [roleModal, setRoleModal] = useState<{ id: string; current: string } | null>(null);
   const [pwModal, setPwModal]     = useState<{ id: string; name: string } | null>(null);
   const [deleteModal, setDeleteModal] = useState<{ id: string; name: string; email: string } | null>(null);
+  const [deleteOwnssalon, setDeleteOwnsalon] = useState(false);
   const [newRole, setNewRole]     = useState("");
   const [newPw, setNewPw]         = useState("");
 
@@ -71,8 +73,12 @@ export default function UsersPage() {
   const [showFormPw, setShowFormPw] = useState(false);
 
   const load = useCallback(() => {
-    dispatch(fetchSuperAdminUsersThunk({ search: search || undefined, role: roleFilter || undefined }));
-  }, [dispatch, search, roleFilter]);
+    dispatch(fetchSuperAdminUsersThunk({
+      search:     search     || undefined,
+      role:       roleFilter || undefined,
+      min_logins: loginFilter !== "" ? loginFilter : undefined,
+    }));
+  }, [dispatch, search, roleFilter, loginFilter]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -101,16 +107,22 @@ export default function UsersPage() {
     setPwModal(null); setNewPw(""); setActionId(null);
   }
 
-  async function handleDeleteUser() {
+  async function handleDeleteUser(force = false) {
     if (!deleteModal) return;
     setActionId(deleteModal.id);
-    const r = await dispatch(deleteUserThunk(deleteModal.id));
+    const r = await dispatch(deleteUserThunk({ id: deleteModal.id, force }));
     if (deleteUserThunk.fulfilled.match(r)) {
-      showToast("User deleted.");
+      showToast(force ? "User and all salon data deleted successfully." : "User deleted successfully.");
       setDeleteModal(null);
+      setDeleteOwnsalon(false);
       load();
     } else {
-      showToast((r.payload as string) || "Failed to delete user.", false);
+      const payload = r.payload as { message: string; code?: string };
+      if (payload?.code === "USER_OWNS_SALON") {
+        setDeleteOwnsalon(true);
+      } else {
+        showToast(payload?.message || "Failed to delete user.", false);
+      }
     }
     setActionId(null);
   }
@@ -376,26 +388,48 @@ export default function UsersPage() {
 
       {/* Delete user modal */}
       {deleteModal && (
-        <Modal title="Delete User" onClose={() => setDeleteModal(null)}>
-          <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "14px 16px", marginBottom: 16 }}>
-            <div style={{ color: "#991b1b", fontWeight: 700, fontSize: 13, marginBottom: 6 }}>This action cannot be undone.</div>
-            <div style={{ color: "#7f1d1d", fontSize: 12.5, lineHeight: 1.5 }}>
-              You are about to permanently delete <strong>{deleteModal.name || deleteModal.email}</strong>.
-            </div>
-          </div>
-          <div style={{ color: "#64748b", fontSize: 13, marginBottom: 20 }}>
-            {deleteModal.email}
-          </div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <button style={btnSecondary} onClick={() => setDeleteModal(null)}>Cancel</button>
-            <button
-              style={{ ...btnPrimary, background: "#dc2626", opacity: actionId === deleteModal.id ? 0.7 : 1 }}
-              onClick={handleDeleteUser}
-              disabled={actionId === deleteModal.id}
-            >
-              {actionId === deleteModal.id ? "Deleting..." : "Delete User"}
-            </button>
-          </div>
+        <Modal title="Delete User" onClose={() => { setDeleteModal(null); setDeleteOwnsalon(false); }}>
+          {deleteOwnssalon ? (
+            <>
+              <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 10, padding: "14px 16px", marginBottom: 16 }}>
+                <div style={{ color: "#9a3412", fontWeight: 700, fontSize: 13, marginBottom: 6 }}>This user owns a salon.</div>
+                <div style={{ color: "#7c2d12", fontSize: 12.5, lineHeight: 1.5 }}>
+                  Force deleting will permanently remove <strong>{deleteModal.name || deleteModal.email}</strong> and all their salon data — including appointments, clients, staff, billing, and settings. This cannot be undone.
+                </div>
+              </div>
+              <div style={{ color: "#64748b", fontSize: 13, marginBottom: 20 }}>{deleteModal.email}</div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button style={btnSecondary} onClick={() => { setDeleteModal(null); setDeleteOwnsalon(false); }}>Cancel</button>
+                <button
+                  style={{ ...btnPrimary, background: "#dc2626", opacity: actionId === deleteModal.id ? 0.7 : 1 }}
+                  onClick={() => handleDeleteUser(true)}
+                  disabled={actionId === deleteModal.id}
+                >
+                  {actionId === deleteModal.id ? "Deleting..." : "Force Delete Everything"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "14px 16px", marginBottom: 16 }}>
+                <div style={{ color: "#991b1b", fontWeight: 700, fontSize: 13, marginBottom: 6 }}>This action cannot be undone.</div>
+                <div style={{ color: "#7f1d1d", fontSize: 12.5, lineHeight: 1.5 }}>
+                  You are about to permanently delete <strong>{deleteModal.name || deleteModal.email}</strong>.
+                </div>
+              </div>
+              <div style={{ color: "#64748b", fontSize: 13, marginBottom: 20 }}>{deleteModal.email}</div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button style={btnSecondary} onClick={() => setDeleteModal(null)}>Cancel</button>
+                <button
+                  style={{ ...btnPrimary, background: "#dc2626", opacity: actionId === deleteModal.id ? 0.7 : 1 }}
+                  onClick={() => handleDeleteUser(false)}
+                  disabled={actionId === deleteModal.id}
+                >
+                  {actionId === deleteModal.id ? "Deleting..." : "Delete User"}
+                </button>
+              </div>
+            </>
+          )}
         </Modal>
       )}
 
@@ -429,6 +463,13 @@ export default function UsersPage() {
               <option key={r} value={r}>{r.replace("_", " ")}</option>
             ))}
           </select>
+          <select value={loginFilter} onChange={(e) => setLoginFilter(e.target.value === "" ? "" : Number(e.target.value))}
+            style={{ padding: "9px 14px", borderRadius: 9, border: "1.5px solid #e2e8f0", background: "#fff", color: "#64748b", fontSize: 13, outline: "none", appearance: "none", cursor: "pointer" }}>
+            <option value="">All Activity</option>
+            <option value={5}>Frequent (5+ logins)</option>
+            <option value={20}>Very Frequent (20+ logins)</option>
+            <option value={50}>Power Users (50+ logins)</option>
+          </select>
         </div>
       </div>
 
@@ -436,7 +477,7 @@ export default function UsersPage() {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 860 }}>
           <thead>
             <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-              {["User", "Contact", "Role", "Salon", "Status", "Last Active", "Actions"].map(h => (
+              {["User", "Contact", "Role", "Salon", "Status", "Login Count", "Last Active", "Actions"].map(h => (
                 <th key={h} style={{ padding: "11px 16px", textAlign: "left", color: "#64748b", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
               ))}
             </tr>
@@ -445,7 +486,7 @@ export default function UsersPage() {
             {loading.users ? (
               [...Array(6)].map((_, i) => (
                 <tr key={i} style={{ borderTop: "1px solid #f1f5f9" }}>
-                  {[...Array(7)].map((_, j) => (
+                  {[...Array(8)].map((_, j) => (
                     <td key={j} style={{ padding: "14px 16px" }}>
                       <div style={{ height: 13, borderRadius: 4, background: "linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)", backgroundSize: "200% 100%", animation: "sa-shimmer 1.4s infinite" }} />
                     </td>
@@ -453,7 +494,7 @@ export default function UsersPage() {
                 </tr>
               ))
             ) : users.length === 0 ? (
-              <tr><td colSpan={7} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>No users found</td></tr>
+              <tr><td colSpan={8} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>No users found</td></tr>
             ) : (
               users.map((u: any) => (
                 <tr key={u.id} style={{ borderTop: "1px solid #f1f5f9", transition: "background 0.1s" }}
@@ -480,6 +521,21 @@ export default function UsersPage() {
                     <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11.5, fontWeight: 600, background: u.is_active ? "#f0fdf4" : "#fef2f2", color: u.is_active ? "#16a34a" : "#dc2626" }}>
                       {u.is_active ? "Active" : "Inactive"}
                     </span>
+                  </td>
+                  <td style={{ padding: "13px 16px", textAlign: "center" }}>
+                    {(u.login_count ?? 0) > 0 ? (
+                      <span style={{
+                        display: "inline-flex", alignItems: "center", gap: 4,
+                        padding: "3px 10px", borderRadius: 20, fontSize: 11.5, fontWeight: 700,
+                        background: (u.login_count ?? 0) >= 50 ? "#fef3c7" : (u.login_count ?? 0) >= 20 ? "#ede9fe" : "#eff6ff",
+                        color:      (u.login_count ?? 0) >= 50 ? "#d97706" : (u.login_count ?? 0) >= 20 ? "#7c3aed"  : "#3b82f6",
+                      }}>
+                        {(u.login_count ?? 0) >= 50 ? "🔥" : (u.login_count ?? 0) >= 20 ? "⚡" : ""}
+                        {u.login_count ?? 0}
+                      </span>
+                    ) : (
+                      <span style={{ color: "#cbd5e1", fontSize: 12 }}>—</span>
+                    )}
                   </td>
                   <td style={{ padding: "13px 16px", color: "#94a3b8", fontSize: 12 }}>
                     {u.last_login ? new Date(u.last_login).toLocaleDateString("en-IN") : "Never"}
