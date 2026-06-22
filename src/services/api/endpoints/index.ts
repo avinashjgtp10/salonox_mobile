@@ -24,4 +24,6 @@ export * from "./gallery.endpoints";
 export * from "./marketplace.endpoints";
 export * from "./onlineBooking.endpoints";
 export * from "./packages.endpoints";
+export * from "./attendance.endpoints";
+export * from "./device.endpoints";
 export * from "./superAdmin.endpoints";
