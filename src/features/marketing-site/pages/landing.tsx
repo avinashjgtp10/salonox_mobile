@@ -137,26 +137,41 @@ const Icon = {
       <path d="m3 6 8.5 7a1 1 0 0 0 1 0L21 6" />
     </svg>
   ),
+  Building: () => (
+    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 21h18M3 7l9-4 9 4M4 21V7M20 21V7" />
+      <path d="M9 21v-4h6v4M9 11h1m4 0h1M9 15h1m4 0h1" />
+    </svg>
+  ),
+  Cloud: () => (
+    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+    </svg>
+  ),
+  Receipt: () => (
+    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" />
+      <path d="M8 10h8M8 14h5" />
+    </svg>
+  ),
+  MessageCircle: () => (
+    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  ),
+  TrendingUp: () => (
+    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 7 13.5 15.5 8.5 10.5 2 17" />
+      <path d="M16 7h6v6" />
+    </svg>
+  ),
 };
 
 /* ---------------------------------- Static content ---------------------------------- */
 
-type MegaLink = { icon: keyof typeof Icon; title: string; desc: string };
 type Feature = { icon: keyof typeof Icon; title: string; desc: string };
 type Branch = { name: string; bookings: string; revenue: string };
 type DemoForm = { name: string; email: string; salon: string; locations: string };
-
-const MEGA_COLUMN_A: MegaLink[] = [
-  { icon: 'Calendar', title: 'Smart Scheduling', desc: 'Drag-and-drop calendar with conflict-free bookings.' },
-  { icon: 'Users', title: 'Client Management', desc: 'Full client profiles, history, and preferences.' },
-  { icon: 'Card', title: 'Payments & POS', desc: 'Accept cards, wallets, and split payments in person.' },
-];
-
-const MEGA_COLUMN_B: MegaLink[] = [
-  { icon: 'Megaphone', title: 'Marketing Suite', desc: 'Automated campaigns, SMS, and loyalty rewards.' },
-  { icon: 'Bar', title: 'Reports & Analytics', desc: 'Real-time revenue and staff performance insights.' },
-  { icon: 'Globe', title: 'Online Booking', desc: 'A branded booking page that works on any device.' },
-];
 
 const FEATURES: Feature[] = [
   { icon: 'Calendar', title: 'Effortless scheduling', desc: 'Manage every chair, room, and stylist from one drag-and-drop calendar built for busy floors.' },
@@ -167,6 +182,15 @@ const FEATURES: Feature[] = [
   { icon: 'Shield', title: 'Enterprise-grade security', desc: 'Bank-level encryption and role-based access keep every record safe.' },
 ];
 
+const WHY_SALONOX: { icon: keyof typeof Icon; title: string; desc: string; tag?: string }[] = [
+  { icon: 'Building', title: 'Multi-Branch Ready', desc: 'Manage unlimited branches from a single dashboard. Each branch gets its own staff, schedule, and reports — all under one roof.', tag: 'Enterprise' },
+  { icon: 'Cloud', title: 'Cloud Based', desc: 'Access your salon data from anywhere, on any device. No installations, no downtime — always up-to-date and always available.', tag: 'SaaS' },
+  { icon: 'Receipt', title: 'GST Billing', desc: 'Generate GST-compliant invoices automatically. Handle taxes, discounts, and split payments with zero manual effort.', tag: 'India Ready' },
+  { icon: 'MessageCircle', title: 'WhatsApp Marketing', desc: 'Send appointment reminders, promotional offers, and feedback requests directly on WhatsApp for maximum open rates.', tag: 'Marketing' },
+  { icon: 'TrendingUp', title: 'Real-Time Analytics', desc: 'Track revenue, bookings, staff performance, and client retention live. Make data-driven decisions with instant insights.', tag: 'Analytics' },
+  { icon: 'Shield', title: 'Secure & Scalable', desc: 'Bank-grade encryption, role-based access controls, and automatic backups keep your business data safe as you grow.', tag: 'Security' },
+];
+
 const MULTI_BRANCH_FEATURES: Feature[] = [
   { icon: 'Layers', title: 'Centralized Management', desc: 'Control schedules, services, and pricing for every branch from one unified dashboard — no more juggling logins.' },
   { icon: 'Bar', title: 'Branch Analytics', desc: 'Compare revenue, bookings, and utilization across locations with real-time, side-by-side reporting.' },
@@ -174,12 +198,6 @@ const MULTI_BRANCH_FEATURES: Feature[] = [
   { icon: 'Sync', title: 'Inventory Sync', desc: 'Keep retail stock and product levels synced across every branch, with automatic low-stock alerts.' },
   { icon: 'Report', title: 'Consolidated Reporting', desc: 'Generate branch-level or company-wide reports in one click, ready to export and share.' },
   { icon: 'Shield', title: 'Role-Based Access', desc: 'Granular permissions ensure managers, staff, and admins only see and touch what they need to.' },
-];
-
-const STEPS = [
-  { num: '01', title: 'Set up your salon', desc: 'Import your services, staff, and price list in minutes with guided onboarding.' },
-  { num: '02', title: 'Open online booking', desc: 'Share your branded booking page and start filling your calendar immediately.' },
-  { num: '03', title: 'Grow with insight', desc: 'Track revenue, retention, and staff performance from a single dashboard.' },
 ];
 
 const SHOWCASE = [
@@ -296,12 +314,9 @@ const Reveal: React.FC<{ children: React.ReactNode; delay?: 0 | 1 | 2 | 3 | 4; c
 
 const LandingPage: React.FC = () => {
   const [scrolled, setScrolled] = useState(false);
-  const [megaOpen, setMegaOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeBranch, setActiveBranch] = useState(0);
   const [branches, setBranches] = useState<Branch[]>(INITIAL_BRANCHES);
-  const navItemRef = useRef<HTMLLIElement | null>(null);
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -316,20 +331,6 @@ const LandingPage: React.FC = () => {
       document.body.style.overflow = '';
     };
   }, [mobileOpen]);
-
-  const openMega = useCallback(() => {
-    if (closeTimer.current) clearTimeout(closeTimer.current);
-    setMegaOpen(true);
-  }, []);
-
-  const scheduleCloseMega = useCallback(() => {
-    closeTimer.current = setTimeout(() => setMegaOpen(false), 140);
-  }, []);
-
-  const renderMegaIcon = (key: keyof typeof Icon) => {
-    const Cmp = Icon[key];
-    return <Cmp />;
-  };
 
   const handleAddBranch = useCallback(() => {
     setBranches((prev) => {
@@ -352,7 +353,6 @@ const LandingPage: React.FC = () => {
       e.preventDefault();
 
       setMobileOpen(false);
-      setMegaOpen(false);
       document.body.style.overflow = '';
 
       window.requestAnimationFrame(() => {
@@ -443,62 +443,8 @@ const LandingPage: React.FC = () => {
           </a>
 
           <ul className="nav-links">
-            <li
-              ref={navItemRef}
-              className={`nav-item-mega ${megaOpen ? 'is-open' : ''}`}
-              onMouseEnter={openMega}
-              onMouseLeave={scheduleCloseMega}
-            >
-              <button
-                className="nav-link"
-                aria-expanded={megaOpen}
-                onClick={() => setMegaOpen((v) => !v)}
-              >
-                Features <Icon.Chevron />
-              </button>
-
-              <div className={`mega-menu ${megaOpen ? 'mega-open' : ''}`} onMouseEnter={openMega} onMouseLeave={scheduleCloseMega}>
-                <div className="mega-grid">
-                  <div className="mega-cols">
-                    <div>
-                      <div className="mega-col-title">Run your floor</div>
-                      {MEGA_COLUMN_A.map((item) => (
-                        <a href="#features" className="mega-link" key={item.title} onClick={scrollToSection('features')}>
-                          <span className="mega-link-icon">{renderMegaIcon(item.icon)}</span>
-                          <span>
-                            <span className="mega-link-title">{item.title}</span>
-                            <span className="mega-link-desc">{item.desc}</span>
-                          </span>
-                        </a>
-                      ))}
-                    </div>
-                    <div>
-                      <div className="mega-col-title">Grow your business</div>
-                      {MEGA_COLUMN_B.map((item) => (
-                        <a href="#features" className="mega-link" key={item.title} onClick={scrollToSection('features')}>
-                          <span className="mega-link-icon">{renderMegaIcon(item.icon)}</span>
-                          <span>
-                            <span className="mega-link-title">{item.title}</span>
-                            <span className="mega-link-desc">{item.desc}</span>
-                          </span>
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="mega-promo">
-                    <div>
-                      <div className="mega-promo-tag">New</div>
-                      <h4>AI Booking Assistant</h4>
-                      <p>Let clients book by chat, around the clock, with zero double-bookings.</p>
-                    </div>
-                    <a href="#features" className="mega-promo-link" onClick={scrollToSection('features')}>
-                      Explore the feature <Icon.Arrow />
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </li>
+            <li><a className="nav-link" href="#why-salonox" onClick={scrollToSection('why-salonox')}>Why SalonOX</a></li>
+            <li><a className="nav-link" href="#features" onClick={scrollToSection('features')}>Features</a></li>
             <li><a className="nav-link" href="#multi-branch" onClick={scrollToSection('multi-branch')}>Multi-Branch</a></li>
             <li><a className="nav-link nav-link-btn" href="#how" onClick={scrollToSection('how')}>How it works</a></li>
             <li><a className="nav-link" href="#pricing" onClick={scrollToSection('pricing')}>Pricing</a></li>
@@ -524,15 +470,8 @@ const LandingPage: React.FC = () => {
       {/* ============================== MOBILE DRAWER ============================== */}
       <div className={`mobile-drawer ${mobileOpen ? 'is-open' : ''}`} onClick={() => setMobileOpen(false)}>
         <div className="mobile-drawer-panel" onClick={(e) => e.stopPropagation()}>
+          <a href="#why-salonox" className="mobile-link" onClick={scrollToSection('why-salonox')}>Why SalonOX</a>
           <a href="#features" className="mobile-link" onClick={scrollToSection('features')}>Features</a>
-          <div className="mobile-sub-title">Run your floor</div>
-          {MEGA_COLUMN_A.map((item) => (
-            <a href="#features" key={item.title} className="mobile-sub-link" onClick={scrollToSection('features')}>{item.title}</a>
-          ))}
-          <div className="mobile-sub-title">Grow your business</div>
-          {MEGA_COLUMN_B.map((item) => (
-            <a href="#features" key={item.title} className="mobile-sub-link" onClick={scrollToSection('features')}>{item.title}</a>
-          ))}
           <a href="#multi-branch" className="mobile-link" onClick={scrollToSection('multi-branch')}>Multi-Branch</a>
           <a href="#how" className="mobile-link mobile-link-btn" onClick={scrollToSection('how')}>How it works</a>
           <a href="#pricing" className="mobile-link" onClick={scrollToSection('pricing')}>Pricing</a>
@@ -553,11 +492,10 @@ const LandingPage: React.FC = () => {
           <div className="hero-copy">
             <span className="eyebrow"><span className="dot" /> Trusted by 4,000+ salons worldwide</span>
             <h1>
-              Run your salon like a <span className="grad">five-star experience</span>
+              The Complete <span className="grad">Operating System</span> for Modern Salons
             </h1>
             <p className="hero-sub">
-              SalonOX brings scheduling, payments, client records, and marketing into one beautiful
-              platform, so your team spends less time on admin and more time behind the chair.
+              Manage appointments, customers, staff, billing, memberships, inventory, marketing, and multiple branches from one powerful platform.
             </p>
             <div className="hero-cta-row">
               <a href="#book-demo" className="btn btn-primary" onClick={scrollToSection('book-demo')}>
@@ -679,6 +617,38 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
+      {/* ============================== WHY SALONOX ============================== */}
+      <section id="why-salonox" className="why-section">
+        <div className="container">
+          <Reveal>
+            <div className="section-head">
+              <span className="eyebrow"><span className="dot" /> Why SalonOX</span>
+              <h2>Built for the way modern salons operate</h2>
+              <p>Every feature is designed around real salon workflows — so your team is productive from day one, not after weeks of training.</p>
+            </div>
+          </Reveal>
+
+          <div className="why-grid">
+            {WHY_SALONOX.map((item, i) => {
+              const Cmp = Icon[item.icon];
+              return (
+                <Reveal key={item.title} delay={(i % 3) as 0 | 1 | 2}>
+                  <div className="why-card">
+                    <div className="why-card-top">
+                      <span className="why-icon"><Cmp /></span>
+                      {item.tag && <span className="why-tag">{item.tag}</span>}
+                    </div>
+                    <h3>{item.title}</h3>
+                    <p>{item.desc}</p>
+                    <span className="why-arrow">→</span>
+                  </div>
+                </Reveal>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
       {/* ============================== FEATURES ============================== */}
       <section id="features" className="features">
         <div className="container">
@@ -796,7 +766,7 @@ const LandingPage: React.FC = () => {
           </Reveal>
 
           <div className="showcase-grid">
-            {SHOWCASE.map((item, i) => {
+            {SHOWCASE.map((item, _i) => {
               const Cmp = Icon[item.icon];
               return (
                 <Reveal key={item.title} delay={0}>
