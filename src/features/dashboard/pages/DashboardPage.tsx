@@ -1,4 +1,4 @@
-import React, {
+import {
   useEffect,
   useState,
   useMemo,
@@ -207,7 +207,7 @@ const RevenueTooltip = memo(function RevenueTooltip({ active, payload, label }: 
     <div className="db-tooltip">
       <p className="db-tooltip-label">{label}</p>
       {rev && (
-        <p style={{ margin: "4px 0 0", fontSize: 13, fontWeight: 600, color: "#111827" }}>
+        <p className="db-tooltip-value">
           ₹{rev.value?.toLocaleString("en-IN")}
         </p>
       )}
@@ -221,7 +221,7 @@ const ApptTooltip = memo(function ApptTooltip({ active, payload, label }: any) {
     <div className="db-tooltip">
       <p className="db-tooltip-label">{label}</p>
       {payload.map((p: any) => (
-        <p key={p.name} style={{ color: p.color, margin: "2px 0", fontSize: 13 }}>
+        <p key={p.name} className={`db-tooltip-series db-tooltip-series--${p.dataKey ?? "default"}`}>
           {p.name}: {p.value}
         </p>
       ))}
@@ -258,40 +258,36 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
 }) {
   const cards = [
     {
+      theme:  "revenue",
       label:  "Total Revenue",
       value:  fmt(summary?.totalRevenue),
       change: fmtChange(summary?.revenueChange ?? undefined),
       sub:    "vs last month",
       icon:   <CurrencyRupee size={20} />,
-      color:  "#10b981",
-      bg:     "#f0fdf4",
     },
     {
+      theme:  "appointments",
       label:  "Appointments",
       value:  summary?.totalAppointments?.toLocaleString("en-IN") ?? "—",
       change: fmtChange(summary?.appointmentsChange ?? undefined),
       sub:    "this month",
       icon:   <CalendarCheck size={20} />,
-      color:  "#3b82f6",
-      bg:     "#eff6ff",
     },
     {
+      theme:  "clients",
       label:  "Active Clients",
       value:  summary?.totalClients?.toLocaleString("en-IN") ?? "—",
       change: fmtChange(summary?.clientsChange ?? undefined),
       sub:    "total clients",
       icon:   <People size={20} />,
-      color:  "#8b5cf6",
-      bg:     "#f5f3ff",
     },
     {
+      theme:  "today-revenue",
       label:  "Today's Revenue",
       value:  fmt(summary?.todayRevenue),
       change: fmtChange(summary?.todayRevenueChange ?? undefined),
       sub:    `from ${summary?.todayAppointmentsCount ?? normApptCount} appointments`,
       icon:   <CurrencyRupee size={20} />,
-      color:  "#f59e0b",
-      bg:     "#fffbeb",
     },
   ];
 
@@ -306,7 +302,7 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
           ) : (
             <>
               <div className="db-kpi-top">
-                <span className="db-kpi-icon" style={{ background: card.bg, color: card.color }}>
+                <span className={`db-kpi-icon db-kpi-icon--${card.theme}`}>
                   {card.icon}
                 </span>
                 {card.change && (
@@ -576,7 +572,7 @@ const AppointmentsTable = memo(function AppointmentsTable({
                       className={`db-pg-btn${apptPage === page ? " active" : ""}`}
                       onClick={() => onPageChange(page as number)}
                       aria-label={`Page ${page}`}
-                      aria-current={apptPage === page ? "page" : undefined}
+                      aria-current={apptPage === page ? 'page' : undefined}
                     >
                       {page}
                     </button>
@@ -640,7 +636,9 @@ const ServicesCard = memo(function ServicesCard({
           </p>
         </div>
         <div className="db-svc-header-actions">
-          <button className="db-svc-more-btn"><ThreeDots size={16} /></button>
+          <button type="button" className="db-svc-more-btn" aria-label="More service options">
+            <ThreeDots size={16} />
+          </button>
           <button className="db-svc-view-all-btn" onClick={onNavigate}>
             View all <ArrowUpRight size={13} />
           </button>
@@ -695,7 +693,7 @@ const ServicesCard = memo(function ServicesCard({
                 : `${dur}m`;
               return (
                 <div className="db-svc-donut-row" key={i}>
-                  <span className="db-svc-donut-dot" style={{ background: svc.color }} />
+                  <span className={`db-svc-donut-dot db-svc-donut-dot--${i % SVC_CHART_COLORS.length}`} />
                   <div className="db-svc-donut-info">
                     <span className="db-svc-donut-name">{svc.name}</span>
                     <span className="db-svc-donut-meta">
@@ -1023,10 +1021,10 @@ export default function DashboardPage() {
   const goToStaff     = useCallback(() => navigate("/dashboard/team/staff"),       [navigate]);
 
   const quickActionsWithHandlers = useMemo(() => [
-    { label: "New Appointment", icon: <CalendarCheck size={22} />, onClick: goToCalendar,  color: "#111827" },
-    { label: "Add Client",      icon: <PersonPlus size={22} />,    onClick: goToClients,   color: "#3b82f6" },
-    { label: "Quick Sale",      icon: <CartPlus size={22} />,      onClick: goToSales,     color: "#10b981" },
-    { label: "Campaign",        icon: <Megaphone size={22} />,     onClick: goToMarketing, color: "#8b5cf6" },
+    { label: "New Appointment", icon: <CalendarCheck size={22} />, onClick: goToCalendar,  tone: "neutral" },
+    { label: "Add Client",      icon: <PersonPlus size={22} />,    onClick: goToClients,   tone: "info" },
+    { label: "Quick Sale",      icon: <CartPlus size={22} />,      onClick: goToSales,     tone: "success" },
+    { label: "Campaign",        icon: <Megaphone size={22} />,     onClick: goToMarketing, tone: "accent" },
   ], [goToCalendar, goToClients, goToSales, goToMarketing]);
 
   return (
@@ -1042,11 +1040,10 @@ export default function DashboardPage() {
           {quickActionsWithHandlers.map((qa) => (
             <button
               key={qa.label}
-              className="db-quick-btn"
+              className={`db-quick-btn db-quick-btn--${qa.tone}`}
               onClick={qa.onClick}
-              style={{ "--qa-color": qa.color } as React.CSSProperties}
             >
-              <span className="db-quick-icon" style={{ background: qa.color + "15", color: qa.color }}>
+              <span className="db-quick-icon">
                 {qa.icon}
               </span>
               <span>{qa.label}</span>
@@ -1057,7 +1054,7 @@ export default function DashboardPage() {
             onClick={handleRefresh}
             disabled={dashLoading}
           >
-            <span className="db-quick-icon" style={{ background: "#f59e0b15", color: "#f59e0b" }}>
+            <span className="db-quick-icon">
               <ArrowRepeat size={22} className={dashLoading ? "db-refresh-spin" : ""} />
             </span>
             <span>Refresh</span>

@@ -46,7 +46,7 @@ export default function OnboardingTopBar() {
             <div
               key={section.key}
               className={`ob-topbar__step ob-topbar__step--${status}`}
-              aria-current={status === "active" ? "step" : undefined}
+              aria-current={status === 'active' ? 'step' : undefined}
             >
               <span className="ob-topbar__step-dot">
                 {status === "completed" ? <CheckIcon /> : idx + 1}
