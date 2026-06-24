@@ -88,15 +88,17 @@ const ShiftDrawer: React.FC<ShiftDrawerProps> = ({
 
           {/* Availability toggle */}
           <div className="shift-drawer__availability">
-            <span className="shift-drawer__availability-label">Staff is Available</span>
-            <button
-              role="switch"
-              aria-checked={isAvailable}
-              onClick={() => setIsAvailable((p) => !p)}
-              className={`shift-drawer__toggle${isAvailable ? " shift-drawer__toggle--on" : ""}`}
-            >
+            <span className="shift-drawer__availability-label" id="shift-drawer-availability-label">Staff is Available</span>
+            <label className={`shift-drawer__toggle${isAvailable ? " shift-drawer__toggle--on" : ""}`}>
+              <input
+                type="checkbox"
+                className="shift-drawer__toggle-input"
+                aria-labelledby="shift-drawer-availability-label"
+                checked={isAvailable}
+                onChange={(e) => setIsAvailable(e.target.checked)}
+              />
               <span className={`shift-drawer__toggle-thumb${isAvailable ? " shift-drawer__toggle-thumb--on" : ""}`} />
-            </button>
+            </label>
           </div>
 
           {/* Time selectors + breaks (only when available) */}
@@ -106,8 +108,9 @@ const ShiftDrawer: React.FC<ShiftDrawerProps> = ({
               {/* Start / End time */}
               <div className="shift-drawer__times">
                 <div className="shift-drawer__time-field">
-                  <label className="shift-drawer__field-label">Start Time</label>
+                  <label className="shift-drawer__field-label" htmlFor="shift-drawer-start-time">Start Time</label>
                   <select
+                    id="shift-drawer-start-time"
                     className="shift-drawer__select"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
@@ -116,8 +119,9 @@ const ShiftDrawer: React.FC<ShiftDrawerProps> = ({
                   </select>
                 </div>
                 <div className="shift-drawer__time-field">
-                  <label className="shift-drawer__field-label">End Time</label>
+                  <label className="shift-drawer__field-label" htmlFor="shift-drawer-end-time">End Time</label>
                   <select
+                    id="shift-drawer-end-time"
                     className="shift-drawer__select"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
@@ -139,6 +143,7 @@ const ShiftDrawer: React.FC<ShiftDrawerProps> = ({
                     <span className="shift-drawer__break-index">#{idx + 1}</span>
                     <select
                       className="shift-drawer__break-select"
+                      aria-label={`Break ${idx + 1} start time`}
                       value={brk.start}
                       onChange={(e) => updateBreak(brk.id, "start", e.target.value)}
                     >
@@ -147,6 +152,7 @@ const ShiftDrawer: React.FC<ShiftDrawerProps> = ({
                     <span className="shift-drawer__break-sep">to</span>
                     <select
                       className="shift-drawer__break-select"
+                      aria-label={`Break ${idx + 1} end time`}
                       value={brk.end}
                       onChange={(e) => updateBreak(brk.id, "end", e.target.value)}
                     >

@@ -322,9 +322,11 @@ body {
   transition: all 0.18s ease;
   white-space: nowrap;
   box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  --db-quick-accent: #111827;
+  --db-quick-accent-soft: rgba(17, 24, 39, 0.08);
 
   &:hover {
-    border-color: var(--qa-color);
+    border-color: var(--db-quick-accent);
     box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     transform: translateY(-1px);
 
@@ -332,6 +334,31 @@ body {
       transform: scale(1.1);
     }
   }
+}
+
+.db-quick-btn--neutral {
+  --db-quick-accent: #111827;
+  --db-quick-accent-soft: rgba(17, 24, 39, 0.08);
+}
+
+.db-quick-btn--info {
+  --db-quick-accent: #3b82f6;
+  --db-quick-accent-soft: rgba(59, 130, 246, 0.08);
+}
+
+.db-quick-btn--success {
+  --db-quick-accent: #10b981;
+  --db-quick-accent-soft: rgba(16, 185, 129, 0.08);
+}
+
+.db-quick-btn--accent {
+  --db-quick-accent: #8b5cf6;
+  --db-quick-accent-soft: rgba(139, 92, 246, 0.08);
+}
+
+.db-quick-btn--refresh {
+  --db-quick-accent: #f59e0b;
+  --db-quick-accent-soft: rgba(245, 158, 11, 0.08);
 }
 
 .db-quick-icon {
@@ -342,6 +369,8 @@ body {
   align-items: center;
   justify-content: center;
   transition: transform 0.18s ease;
+  background: var(--db-quick-accent-soft);
+  color: var(--db-quick-accent);
 }
 
 /* ── KPI CARDS ── */
@@ -383,6 +412,26 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.db-kpi-icon--revenue {
+  background: #f0fdf4;
+  color: #10b981;
+}
+
+.db-kpi-icon--appointments {
+  background: #eff6ff;
+  color: #3b82f6;
+}
+
+.db-kpi-icon--clients {
+  background: #f5f3ff;
+  color: #8b5cf6;
+}
+
+.db-kpi-icon--today-revenue {
+  background: #fffbeb;
+  color: #f59e0b;
 }
 
 .db-kpi-change {
@@ -514,6 +563,30 @@ body {
   font-weight: 600;
   color: $dashboard-primary;
   margin: 0 0 6px;
+}
+
+.db-tooltip-value {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.db-tooltip-series {
+  margin: 2px 0;
+  font-size: 13px;
+}
+
+.db-tooltip-series--completed {
+  color: #111827;
+}
+
+.db-tooltip-series--pending {
+  color: #60a5fa;
+}
+
+.db-tooltip-series--cancelled {
+  color: #fecaca;
 }
 
 /* ── BAR LEGEND ── */
@@ -1335,6 +1408,15 @@ body {
 
   &:hover { background: $dashboard-bg; color: $dashboard-primary; }
 }
+
+.db-svc-donut-dot--0 { background: #7c6cf2; }
+.db-svc-donut-dot--1 { background: #4f46e5; }
+.db-svc-donut-dot--2 { background: #10b981; }
+.db-svc-donut-dot--3 { background: #f97316; }
+.db-svc-donut-dot--4 { background: #60a5fa; }
+.db-svc-donut-dot--5 { background: #f472b6; }
+.db-svc-donut-dot--6 { background: #eab308; }
+.db-svc-donut-dot--7 { background: #ef4444; }
 
 .db-svc-view-all-btn {
   display: inline-flex;
