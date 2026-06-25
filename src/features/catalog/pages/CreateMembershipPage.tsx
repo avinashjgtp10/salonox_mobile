@@ -1,499 +1,594 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import React, { useState, useEffect, useMemo } from "react";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { XLg, Search, Check2, CreditCard2Front } from "react-bootstrap-icons";
-
+import { Check2, ChevronDown, CheckCircleFill, PersonFill } from "react-bootstrap-icons";
 import type { AppDispatch } from "../../../store/store";
 import { createMembershipThunk, updateMembershipThunk } from "../../../middleware/membership/membership.thunk";
-import api from "../../../services/api/axios";
-import {
-  selectMembershipsSubmitting,
-  selectMembershipsError,
-} from "../../../store/selectors/membership.selectors";
+import { selectMembershipsSubmitting, selectMembershipsError } from "../../../store/selectors/membership.selectors";
 import { clearMembershipError } from "../../../store/membershipSlice";
-import type { IncludedService } from "../../../services/api/endpoints/memberships.endpoints";
-import { useServices } from "../hooks/useServices";
+import { purchaseClientMembershipThunk } from "../../../middleware/clientMembership/clientMembership.thunk";
+import type { ClientSearchResult } from "../../clients/components/ClientSearchInput";
+import ClientSelectorWithAdd from "../../../components/packages/ClientSelectorWithAdd";
+import api from "../../../services/api/axios";
 import "../styles/CreateMembershipPage.scss";
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+const VALIDITY_OPTIONS = [
+  { label: "1 Month",   value: "1 month"  },
+  { label: "3 Months",  value: "3 months" },
+  { label: "6 Months",  value: "6 months" },
+  { label: "12 Months", value: "1 year"   },
+  { label: "Lifetime",  value: "lifetime" },
+];
 
-const COLOURS           = ["#4A90D9", "#1a1a2e", "#16a34a", "#f59e0b", "#8b5cf6"];
-const VALID_FOR_OPTIONS = ["1 month", "2 months", "3 months", "6 months", "1 year"];
-const SESSION_OPTIONS   = ["Limited", "Unlimited"];
-const TAX_OPTIONS       = ["No tax", "5", "12", "18", "28"];   // plain numbers, no %
+const PRIVILEGES = [
+  { key: "priorityBooking",  label: "Priority Booking"       },
+  { key: "birthdayOffer",    label: "Birthday Special Offer"  },
+  { key: "exclusiveDeals",   label: "Exclusive Member Deals"  },
+  { key: "freeConsultation", label: "Free Consultation"       },
+  { key: "vipTag",           label: "VIP Customer Tag"        },
+  { key: "earlyAccess",      label: "Early Access Offers"     },
+];
 
-// ── Component ─────────────────────────────────────────────────────────────────
+const TIER_COLORS = ["#1a1a2e", "#b8860b", "#4a90d9", "#16a34a", "#8b5cf6"];
+const TIER_LABELS = ["Standard", "Gold", "Diamond", "Emerald", "Platinum"];
 
 const CreateMembershipPage: React.FC = () => {
-  const { id } = useParams();
+  const { id }     = useParams();
   const navigate   = useNavigate();
+  const location   = useLocation();
   const dispatch   = useDispatch<AppDispatch>();
+
+  // client passed from Memberships list page
+  const locationClient                     = (location.state as any)?.client as ClientSearchResult | undefined;
+  const [pageClient,   setPageClient]      = useState<ClientSearchResult | null>(locationClient ?? null);
+
   const submitting = useSelector(selectMembershipsSubmitting);
   const apiError   = useSelector(selectMembershipsError);
+  const salonId    = useSelector((s: any) => s.salon?.currentSalon?.id);
 
-  // Real services from catalog
-  const { services: catalogServices, fetchServices } = useServices();
-
-  // Fetch services on mount
-  useEffect(() => { fetchServices(); }, [fetchServices]);
-
-  // Basic info
-  const [membershipName, setMembershipName] = useState("");
-  const [description, setDescription]       = useState("");
-
-  // Services & sessions
-  const [showServicesModal, setShowServicesModal]   = useState(false);
-  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
-  const [pendingIds, setPendingIds]                 = useState<string[]>([]);
-  const [serviceSearch, setServiceSearch]           = useState("");
-  const [sessions, setSessions]                     = useState("Limited");
-  const [numSessions, setNumSessions]               = useState(5);
-
-  // Pricing
-  const [validFor, setValidFor] = useState("1 month");
-  const [price, setPrice]       = useState("");
-  const [taxRate, setTaxRate]   = useState("No tax");
-
-  // Colour / online / T&C
-  const [selectedColour, setSelectedColour]     = useState(COLOURS[0]);
-  const [onlineSales, setOnlineSales]           = useState(false);
-  const [onlineRedemption, setOnlineRedemption] = useState(true);
-  const [terms, setTerms]                       = useState("");
-
-  // Clear API errors on unmount
   useEffect(() => () => { dispatch(clearMembershipError()); }, [dispatch]);
 
-  // Fetch membership if editing
+  const [name,         setName]         = useState("");
+  const [price,        setPrice]        = useState("");
+  const [validity,     setValidity]     = useState("1 year");
+  const [status,       setStatus]       = useState<"active" | "inactive">("active");
+  const [bonusCredit,  setBonusCredit]  = useState("");
+  const [serviceDisc,  setServiceDisc]  = useState("");
+  const [productDisc,  setProductDisc]  = useState("");
+  const [rpMultiplier, setRpMultiplier] = useState("0");
+  const [tierColor,    setTierColor]    = useState(TIER_COLORS[0]);
+  const [privileges,   setPrivileges]   = useState<Record<string, boolean>>(
+    Object.fromEntries(PRIVILEGES.map(p => [p.key, true]))
+  );
+  const [description,  setDescription]  = useState("");
+  const [errors,       setErrors]       = useState<Record<string, string>>({});
+
+  // sell-to-client state (edit mode only)
+  const [sellClient,   setSellClient]   = useState<ClientSearchResult | null>(locationClient ?? null);
+  const [selling,      setSelling]      = useState(false);
+  const [sellSuccess,  setSellSuccess]  = useState(false);
+  const [sellError,    setSellError]    = useState<string | null>(null);
+
+  // keep sellClient in sync when pageClient changes (e.g. "Change Client")
+  useEffect(() => { setSellClient(pageClient); setSellSuccess(false); setSellError(null); }, [pageClient]);
+
+  const priceNum       = parseFloat(price)       || 0;
+  const bonusCreditNum = parseFloat(bonusCredit) || 0;
+  const walletValue    = useMemo(() => priceNum + bonusCreditNum, [priceNum, bonusCreditNum]);
+  const validityLabel  = VALIDITY_OPTIONS.find(o => o.value === validity)?.label ?? validity;
+  const tierLabel      = TIER_LABELS[TIER_COLORS.indexOf(tierColor)] ?? "Premium";
+
+  const validTillDate = useMemo(() => {
+    const d = new Date();
+    if      (validity === "1 month")  d.setMonth(d.getMonth() + 1);
+    else if (validity === "3 months") d.setMonth(d.getMonth() + 3);
+    else if (validity === "6 months") d.setMonth(d.getMonth() + 6);
+    else if (validity === "1 year")   d.setFullYear(d.getFullYear() + 1);
+    else if (validity === "lifetime") d.setFullYear(d.getFullYear() + 50);
+    return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  }, [validity]);
+
   useEffect(() => {
-    if (id) {
-      const fetchMembership = async () => {
-        try {
-          const res = await api.get(`/api/v1/memberships/${id}`);
-          const data = res.data?.data || res.data;
-          if (data) {
-            setMembershipName(data.name || "");
-            setDescription(data.description || "");
-            setSelectedServiceIds(data.includedServices?.map((s: any) => String(s.serviceId)) || []);
-            setSessions(data.sessionType === "unlimited" ? "Unlimited" : "Limited");
-            setNumSessions(data.numberOfSessions || 5);
-            setValidFor(data.validFor || "1 month");
-            setPrice(String(data.price || ""));
-            setTaxRate(data.taxRate ? String(data.taxRate) : "No tax");
-            setSelectedColour(data.colour || COLOURS[0]);
-            setOnlineSales(data.enableOnlineSales || false);
-            setOnlineRedemption(data.enableOnlineRedemption ?? true);
-            setTerms(data.termsAndConditions || "");
-          }
-        } catch (err) {
-          console.error("Error fetching membership:", err);
-        }
-      };
-      fetchMembership();
-    }
+    if (!id) return;
+    api.get(`/api/v1/memberships/${id}`).then(res => {
+      const d = res.data?.data ?? res.data;
+      if (!d) return;
+      setName(d.name ?? "");
+      setPrice(String(d.price ?? ""));
+      setValidity(d.validFor ?? "1 year");
+      setDescription(d.description ?? "");
+      const matchedColor = TIER_COLORS.includes(d.colour) ? d.colour : TIER_COLORS[1];
+      setTierColor(matchedColor);
+      try {
+        const meta = JSON.parse(d.description ?? "{}");
+        if (meta.bonusCredit)  setBonusCredit(String(meta.bonusCredit));
+        if (meta.serviceDisc)  setServiceDisc(String(meta.serviceDisc));
+        if (meta.productDisc)  setProductDisc(String(meta.productDisc));
+        if (meta.rpMultiplier) setRpMultiplier(String(meta.rpMultiplier));
+        if (meta.privileges)   setPrivileges(meta.privileges);
+        if (meta.description)  setDescription(meta.description);
+      } catch { /* plain text */ }
+    }).catch(() => {});
   }, [id]);
 
-  // ── Modal helpers ────────────────────────────────────────────────────────────
-
-  const openModal = () => {
-    setPendingIds([...selectedServiceIds]);
-    setServiceSearch("");
-    setShowServicesModal(true);
+  const validate = () => {
+    const e: Record<string, string> = {};
+    if (!name.trim())              e.name  = "Membership name is required";
+    if (!priceNum || priceNum <= 0) e.price = "Price must be greater than 0";
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
-  const toggleAll = () =>
-    setPendingIds(
-      pendingIds.length === catalogServices.length
-        ? []
-        : catalogServices.map((s) => String(s.id))
-    );
-
-  const toggleService = (id: string) =>
-    setPendingIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-
-  const confirmSelection = () => {
-    setSelectedServiceIds(pendingIds);
-    setShowServicesModal(false);
+  const handleSell = async () => {
+    if (!sellClient || !id || selling) return;
+    setSelling(true);
+    setSellError(null);
+    setSellSuccess(false);
+    const result = await dispatch(purchaseClientMembershipThunk({
+      clientId:       String(sellClient.id),
+      membershipId:   id,
+      membershipName: name,
+      colour:         tierColor,
+      totalSessions:  0,
+      pricePaid:      walletValue,  // wallet = paid + bonusCredit; this is the spendable balance
+    }));
+    setSelling(false);
+    if (purchaseClientMembershipThunk.fulfilled.match(result)) {
+      setSellSuccess(true);
+      setSellClient(null);
+    } else {
+      setSellError((result.payload as string) ?? "Failed to sell membership");
+    }
   };
 
-  const filteredServices = catalogServices.filter((s) =>
-    s.name.toLowerCase().includes(serviceSearch.toLowerCase())
-  );
-
-  // ── Submit ───────────────────────────────────────────────────────────────────
-
-  const handleSubmit = async () => {
-    const includedServices: IncludedService[] = selectedServiceIds.map((id) => {
-      const svc = catalogServices.find((s) => String(s.id) === id)!;
-      return { serviceId: String(svc.id), serviceName: svc.name };
+  const handleSave = async () => {
+    if (!validate()) return;
+    const metaDescription = JSON.stringify({
+      description,
+      bonusCredit: bonusCreditNum,
+      serviceDisc: parseFloat(serviceDisc) || 0,
+      productDisc: parseFloat(productDisc) || 0,
+      rpMultiplier: parseFloat(rpMultiplier) || 1,
+      privileges,
     });
-
-    // Parse tax rate: "No tax" → undefined, "18" → 18
-    const taxRateNum: number | undefined =
-      taxRate === "No tax" ? undefined : parseFloat(taxRate);
-
     const payload = {
-      name:                   membershipName.trim(),
-      description:            description.trim() || undefined,
-      includedServices,
-      sessionType:            sessions.toLowerCase(),
-      numberOfSessions:       sessions === "Limited" ? numSessions : undefined,
-      validFor,
-      price:                  parseFloat(price),
-      taxRate:                taxRateNum,
-      colour:                 selectedColour,
-      enableOnlineSales:      onlineSales,
-      enableOnlineRedemption: onlineRedemption,
-      termsAndConditions:     terms.trim() || undefined,
+      name: name.trim(),
+      description: metaDescription,
+      includedServices: [],
+      sessionType: "unlimited",
+      validFor: validity,
+      price: priceNum,
+      taxRate: undefined,
+      colour: tierColor,
+      enableOnlineSales: true,
+      enableOnlineRedemption: true,
+      termsAndConditions: undefined,
+      // Persist client association so the drawer can display who this was created for
+      ...(pageClient ? {
+        clientId:    String(pageClient.id),
+        clientName:  `${pageClient.first_name} ${pageClient.last_name ?? ""}`.trim(),
+        clientPhone: pageClient.phone_number || undefined,
+      } : {}),
     };
-
     const result = id
       ? await dispatch(updateMembershipThunk({ id, data: payload }))
       : await dispatch(createMembershipThunk(payload));
 
-    if (createMembershipThunk.fulfilled.match(result)) {
-      navigate("/dashboard/catalog/memberships/list");
+    if (createMembershipThunk.fulfilled.match(result) || updateMembershipThunk.fulfilled.match(result)) {
+      const savedMembership = (result as any).payload;
+      const membershipId = savedMembership?.id || id;
+
+      if (membershipId && pageClient) {
+        // 1. Save to localStorage so the drawer can display the client immediately
+        localStorage.setItem(`mem_client_${membershipId}`, JSON.stringify({
+          id:    String(pageClient.id),
+          name:  `${pageClient.first_name} ${pageClient.last_name ?? ""}`.trim(),
+          phone: pageClient.phone_number || "",
+        }));
+
+        // 2. Create the actual ClientMembership record in the database so the
+        //    New Appointment modal and client history can find it via the API.
+        //    Only do this on CREATE (not on update, to avoid duplicate records).
+        if (!id) {
+          await dispatch(purchaseClientMembershipThunk({
+            clientId:       String(pageClient.id),
+            membershipId:   String(membershipId),
+            membershipName: name.trim(),
+            colour:         tierColor,
+            totalSessions:  0,        // 0 = unlimited (wallet-based)
+            pricePaid:      walletValue,
+          }));
+
+          // Also write a mem2:P: localStorage record so the calendar shows this
+          // membership even when the API has other existing records for this client.
+          // The calendar merges localStorage purchases when apiItems.length > 0.
+          try {
+            const cid = String(pageClient.id);
+            const ref = String(membershipId);
+            const sid = salonId || "g";
+            const purchaseKey = `mem2:P:${sid}:${cid}:${ref}`;
+            const indexKey    = `mem2:I:${sid}:${cid}`;
+            localStorage.setItem(purchaseKey, JSON.stringify({
+              membershipName: name.trim(),
+              pricePaid:      walletValue,
+              colour:         tierColor,
+              membershipId:   ref,
+              purchasedAt:    new Date().toISOString(),
+              clientName:     `${pageClient.first_name} ${pageClient.last_name ?? ""}`.trim(),
+              mobile:         pageClient.phone_number || "",
+              clientId:       cid,
+            }));
+            const idx: string[] = JSON.parse(localStorage.getItem(indexKey) || "[]");
+            if (!idx.includes(ref)) { idx.push(ref); localStorage.setItem(indexKey, JSON.stringify(idx)); }
+          } catch { /* ignore storage errors */ }
+        }
+      }
+
+      navigate("/dashboard/catalog/memberships");
     }
   };
 
-  // ─────────────────────────────────────────────────────────────────────────────
-
   return (
     <div className="cmp">
-      {/* Top bar */}
-      <div className="cmp__topbar d-flex align-items-center justify-content-between px-4 shadow-sm">
-        <button className="cmp__close-btn" onClick={() => navigate(-1)}>
-          <XLg size={20} />
-        </button>
-        <h5 className="cmp__topbar-title mb-0 fw-bold">
-          {id ? "Edit membership" : "Create a membership"}
-        </h5>
-        <button
-          className="btn cmp__submit-btn"
-          onClick={handleSubmit}
-          disabled={!membershipName.trim() || submitting}
-        >
-          {submitting ? (id ? "Saving…" : "Creating…") : (id ? "Save changes" : "Create membership")}
-        </button>
+
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <div className="cmp__header">
+        <div>
+          <h1 className="cmp__title">{id ? "Edit Membership" : "Create Membership"}</h1>
+          <p className="cmp__subtitle">
+            {id ? "Update the details of this membership plan" : "Set up a new membership plan for your clients"}
+          </p>
+        </div>
+        <div className="cmp__header-actions">
+          <button className="cmp__btn cmp__btn--outline" onClick={() => navigate(-1)}>
+            Cancel
+          </button>
+          <button className="cmp__btn cmp__btn--dark" onClick={handleSave} disabled={submitting}>
+            {submitting ? "Saving…" : id ? "Save Changes" : "Create Membership"}
+          </button>
+        </div>
       </div>
 
-      {/* API error banner */}
-      {apiError && (
-        <div className="alert alert-danger mx-4 mt-3 mb-0">{apiError}</div>
-      )}
+      {apiError && <div className="cmp__error-banner">{apiError}</div>}
 
-      {/* Scrollable body */}
-      <div className="cmp__body">
-        <div className="container-narrow">
-
-          {/* 1. Basic info */}
-          <div className="cmp__section">
-            <h6 className="cmp__section-title">Basic info</h6>
-            <div className="mb-4">
-              <label className="cmp__label">Membership name</label>
-              <input
-                type="text"
-                className="cmp__input form-control"
-                placeholder="Add membership name"
-                value={membershipName}
-                onChange={(e) => setMembershipName(e.target.value)}
-              />
+      {/* ── Client card (when navigated from membership list) ─────────── */}
+      {pageClient && (
+        <div className="cmp__client-card">
+          <div className="cmp__client-card-head">
+            <div className="cmp__client-card-label">
+              <PersonFill size={13} /> Client
             </div>
-            <div className="mb-1">
-              <label className="cmp__label d-flex justify-content-between">
-                <span>Description</span>
-                <span className="cmp__char-count">{description.length}/360</span>
-              </label>
-              <textarea
-                className="cmp__textarea form-control"
-                placeholder="Add membership description"
-                rows={4}
-                maxLength={360}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-            </div>
+            <button
+              className="cmp__btn cmp__btn--outline cmp__btn--sm"
+              onClick={() => { setPageClient(null); navigate("/dashboard/catalog/memberships"); }}
+            >
+              Change Client
+            </button>
           </div>
-
-          {/* 2. Services & sessions */}
-          <div className="cmp__section">
-            <h6 className="cmp__section-title">Services and sessions</h6>
-            <p className="cmp__section-sub">
-              Add the services and sessions included in the membership.
-            </p>
-            <label className="cmp__label">Included services</label>
-            <div className="cmp__services-row d-flex align-items-center justify-content-between mb-3 p-3 rounded-3 border">
-              <span className="cmp__services-count fw-medium">
-                {selectedServiceIds.length} service
-                {selectedServiceIds.length !== 1 ? "s" : ""}
-              </span>
-              <button className="cmp__edit-link" onClick={openModal}>
-                Edit
-              </button>
+          <div className="cmp__client-info">
+            <div className="cmp__client-avatar">
+              {`${pageClient.first_name[0]}${pageClient.last_name?.[0] ?? ""}`.toUpperCase()}
             </div>
-            <div className="row g-3">
-              <div className="col-6">
-                <label className="cmp__label">Sessions</label>
-                <select
-                  className="cmp__select form-select"
-                  value={sessions}
-                  onChange={(e) => setSessions(e.target.value)}
-                >
-                  {SESSION_OPTIONS.map((o) => <option key={o}>{o}</option>)}
-                </select>
-              </div>
-              {sessions === "Limited" && (
-                <div className="col-6">
-                  <label className="cmp__label">Number of sessions</label>
-                  <input
-                    type="number"
-                    className="cmp__input form-control"
-                    min={1}
-                    value={numSessions}
-                    onChange={(e) => setNumSessions(Number(e.target.value))}
-                  />
-                </div>
+            <div>
+              <span className="cmp__client-name">
+                {`${pageClient.first_name} ${pageClient.last_name ?? ""}`.trim()}
+              </span>
+              {pageClient.phone_number && (
+                <span className="cmp__client-phone">{pageClient.phone_number}</span>
               )}
             </div>
           </div>
+        </div>
+      )}
 
-          {/* 3. Pricing and payment */}
-          <div className="cmp__section">
-            <h6 className="cmp__section-title">Pricing and payment</h6>
-            <p className="cmp__section-sub">
-              Choose how you'd like your clients to pay.
-            </p>
-            <div className="row g-3">
-              <div className="col-6">
-                <label className="cmp__label">Valid for</label>
-                <select
-                  className="cmp__select form-select"
-                  value={validFor}
-                  onChange={(e) => setValidFor(e.target.value)}
-                >
-                  {VALID_FOR_OPTIONS.map((o) => <option key={o}>{o}</option>)}
-                </select>
+      {/* ── Body ────────────────────────────────────────────────────────── */}
+      <div className="cmp__body">
+        <div className="cmp__layout">
+
+          {/* ── LEFT ────────────────────────────────────────────────────── */}
+          <div className="cmp__form">
+
+            {/* Membership Details */}
+            <div className="cmp__card">
+              <div className="cmp__card-head">
+                <h3 className="cmp__card-title">Membership Details</h3>
               </div>
-              <div className="col-6">
-                <label className="cmp__label">Price</label>
-                <div className="cmp__price-wrap position-relative">
-                  <span className="cmp__currency">₹</span>
-                  <input
-                    type="number"
-                    className="cmp__input cmp__input--price form-control ps-4"
-                    placeholder="0.00"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+              <div className="cmp__card-body">
+                <div className="cmp__grid2">
 
-          {/* 4. Tax rate */}
-          <div className="cmp__section">
-            <h6 className="cmp__section-title">Tax rate</h6>
-            <div className="col-6 col-md-4">
-              <label className="cmp__label">Tax rate</label>
-              <select
-                className="cmp__select form-select"
-                value={taxRate}
-                onChange={(e) => setTaxRate(e.target.value)}
-              >
-                {TAX_OPTIONS.map((o) => (
-                  <option key={o} value={o}>
-                    {o === "No tax" ? "No tax" : `${o}%`}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* 5. Colour */}
-          <div className="cmp__section">
-            <h6 className="cmp__section-title">Colour customisation</h6>
-            <p className="cmp__section-sub">
-              Select a colour that matches your business.
-            </p>
-            <div className="d-flex gap-2">
-              {COLOURS.map((c) => (
-                <button
-                  key={c}
-                  className={`cmp__colour-swatch ${selectedColour === c ? "cmp__colour-swatch--active" : ""}`}
-                  style={{ background: c }}
-                  onClick={() => setSelectedColour(c)}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* 6. Online sales */}
-          <div className="cmp__section">
-            <h6 className="cmp__section-title">Online sales and redemption</h6>
-            <div className="cmp__toggle-row mb-4">
-              <div className="d-flex align-items-center gap-3">
-                <div
-                  className={`cmp__toggle ${onlineSales ? "cmp__toggle--on" : ""}`}
-                  onClick={() => setOnlineSales(!onlineSales)}
-                />
-                <div>
-                  <div className={`small fw-bold ${!onlineSales ? "text-muted" : ""}`}>
-                    Enable online sales
+                  <div className="cmp__field">
+                    <label className="cmp__label">Membership Name <span className="cmp__req">*</span></label>
+                    <input
+                      className={`cmp__input${errors.name ? " cmp__input--err" : ""}`}
+                      placeholder="e.g. Gold Membership"
+                      value={name}
+                      onChange={e => { setName(e.target.value); setErrors(p => ({ ...p, name: "" })); }}
+                    />
+                    {errors.name && <p className="cmp__err">{errors.name}</p>}
                   </div>
-                  <div className="cmp__toggle-sub">
-                    Clients can purchase this membership online
+
+                  <div className="cmp__field">
+                    <label className="cmp__label">Membership Price <span className="cmp__req">*</span></label>
+                    <div className="cmp__pfx-wrap">
+                      <span className="cmp__pfx">₹</span>
+                      <input
+                        type="number" min={0} step={1}
+                        className={`cmp__input cmp__input--pfx${errors.price ? " cmp__input--err" : ""}`}
+                        placeholder="0"
+                        value={price}
+                        onChange={e => { setPrice(e.target.value); setErrors(p => ({ ...p, price: "" })); }}
+                      />
+                    </div>
+                    {errors.price && <p className="cmp__err">{errors.price}</p>}
+                  </div>
+
+                  <div className="cmp__field">
+                    <label className="cmp__label">Validity</label>
+                    <div className="cmp__sel-wrap">
+                      <select className="cmp__select" value={validity} onChange={e => setValidity(e.target.value)}>
+                        {VALIDITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                      <ChevronDown size={13} className="cmp__sel-icon" />
+                    </div>
+                  </div>
+
+                  <div className="cmp__field">
+                    <label className="cmp__label">Status</label>
+                    <div className="cmp__pills">
+                      {(["active", "inactive"] as const).map(s => (
+                        <label key={s} className={`cmp__pill${status === s ? " cmp__pill--on" : ""}`}>
+                          <input type="radio" hidden checked={status === s} onChange={() => setStatus(s)} />
+                          <span className="cmp__pill-dot" />
+                          {s === "active" ? "Active" : "Inactive"}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                </div>
+
+                <div className="cmp__field cmp__field--mt">
+                  <label className="cmp__label">Membership Tier</label>
+                  <div className="cmp__tiers">
+                    {TIER_COLORS.map((c, i) => (
+                      <button
+                        key={c} type="button"
+                        className={`cmp__tier${tierColor === c ? " cmp__tier--on" : ""}`}
+                        style={{ "--tc": c } as React.CSSProperties}
+                        onClick={() => setTierColor(c)}
+                      >
+                        <span className="cmp__tier-dot" style={{ background: c }} />
+                        {TIER_LABELS[i]}
+                        {tierColor === c && <Check2 size={11} />}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
             </div>
-            <div className="cmp__toggle-row mb-4">
-              <div className="d-flex align-items-center gap-3">
-                <div
-                  className={`cmp__toggle ${onlineRedemption ? "cmp__toggle--on" : ""}`}
-                  onClick={() => setOnlineRedemption(!onlineRedemption)}
-                />
-                <div>
-                  <div className="small fw-bold">Enable online redemption</div>
-                  <div className="cmp__toggle-sub">
-                    Clients can use this membership to book services online
+
+            {/* Membership Benefits */}
+            <div className="cmp__card">
+              <div className="cmp__card-head">
+                <h3 className="cmp__card-title">Membership Benefits</h3>
+              </div>
+              <div className="cmp__card-body">
+                <div className="cmp__grid2">
+
+                  <div className="cmp__field">
+                    <label className="cmp__label">Bonus Credit</label>
+                    <div className="cmp__pfx-wrap">
+                      <span className="cmp__pfx">₹</span>
+                      <input
+                        type="number" min={0} step={100}
+                        className="cmp__input cmp__input--pfx"
+                        placeholder="0"
+                        value={bonusCredit}
+                        onChange={e => setBonusCredit(e.target.value)}
+                      />
+                    </div>
+                    <p className="cmp__hint">Extra wallet credit on purchase</p>
                   </div>
+
+                  <div className="cmp__field">
+                    <label className="cmp__label">Total Wallet Value</label>
+                    <div className="cmp__computed">
+                      <span className="cmp__computed-pfx">₹</span>
+                      <span className="cmp__computed-val">{walletValue.toLocaleString("en-IN")}</span>
+                      <span className="cmp__computed-tag">Auto</span>
+                    </div>
+                  </div>
+
+                  <div className="cmp__field">
+                    <label className="cmp__label">Service Discount</label>
+                    <div className="cmp__sfx-wrap">
+                      <input
+                        type="number" min={0} max={100} step={1}
+                        className="cmp__input cmp__input--sfx"
+                        placeholder="0"
+                        value={serviceDisc}
+                        onChange={e => setServiceDisc(e.target.value)}
+                      />
+                      <span className="cmp__sfx">%</span>
+                    </div>
+                  </div>
+
+                  <div className="cmp__field">
+                    <label className="cmp__label">Product Discount</label>
+                    <div className="cmp__sfx-wrap">
+                      <input
+                        type="number" min={0} max={100} step={1}
+                        className="cmp__input cmp__input--sfx"
+                        placeholder="0"
+                        value={productDisc}
+                        onChange={e => setProductDisc(e.target.value)}
+                      />
+                      <span className="cmp__sfx">%</span>
+                    </div>
+                  </div>
+
+                  <div className="cmp__field">
+                    <label className="cmp__label">Reward Points Multiplier</label>
+                    <div className="cmp__sfx-wrap">
+                      <input
+                        type="number" min={1} max={10} step={0.5}
+                        className="cmp__input cmp__input--sfx"
+                        placeholder="1"
+                        value={rpMultiplier}
+                        onChange={e => setRpMultiplier(e.target.value)}
+                      />
+                      <span className="cmp__sfx">x</span>
+                    </div>
+                  </div>
+
                 </div>
               </div>
             </div>
-            <div className="cmp__info-banner d-flex align-items-center justify-content-between p-3 rounded-4">
-              <p className="mb-0 small fw-medium">
-                Online membership sales are coming soon to India with payments in salonox
-              </p>
-              <CreditCard2Front size={28} className="text-primary opacity-50 ms-3" />
+
+            {/* Member Privileges */}
+            <div className="cmp__card">
+              <div className="cmp__card-head">
+                <h3 className="cmp__card-title">Member Privileges</h3>
+              </div>
+              <div className="cmp__card-body">
+                <div className="cmp__privileges">
+                  {PRIVILEGES.map(p => (
+                    <label
+                      key={p.key}
+                      className={`cmp__priv${privileges[p.key] ? " cmp__priv--on" : ""}`}
+                      onClick={() => setPrivileges(prev => ({ ...prev, [p.key]: !prev[p.key] }))}
+                    >
+                      <span className={`cmp__priv-box${privileges[p.key] ? " cmp__priv-box--on" : ""}`}>
+                        {privileges[p.key] && <Check2 size={11} />}
+                      </span>
+                      {p.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
             </div>
+
           </div>
 
-          {/* 7. T&C */}
-          <div className="cmp__section border-0">
-            <h6 className="cmp__section-title">Terms &amp; Conditions</h6>
-            <p className="cmp__section-sub">
-              If there are any rules attached to your membership, mention them here.
-            </p>
-            <div className="mb-1">
-              <label className="cmp__label d-flex justify-content-between">
-                <span>
-                  Terms &amp; Conditions{" "}
-                  <span className="text-muted fw-normal">(Optional)</span>
-                </span>
-                <span className="cmp__char-count">{terms.length}/3000</span>
-              </label>
-              <textarea
-                className="cmp__textarea form-control"
-                placeholder="Add Terms & Conditions"
-                rows={4}
-                maxLength={3000}
-                value={terms}
-                onChange={(e) => setTerms(e.target.value)}
-              />
+          {/* ── RIGHT: Preview ───────────────────────────────────────────── */}
+          <div className="cmp__sidebar">
+            <div className="cmp__sticky">
+
+              {/* Sell to Client (edit mode only) */}
+              {id && (
+                <div className="cmp__sell-card">
+                  <h4 className="cmp__sell-title">Sell to Client</h4>
+
+                  {sellSuccess && (
+                    <div className="cmp__sell-success">
+                      <CheckCircleFill size={14} /> Membership sold successfully!
+                    </div>
+                  )}
+                  {sellError && (
+                    <div className="cmp__sell-error">{sellError}</div>
+                  )}
+
+                  {/* Only show selector when no client was passed from the list page */}
+                  {!pageClient && (
+                    <ClientSelectorWithAdd
+                      formAtTop
+                      onSelect={client => {
+                        setSellClient(client);
+                        setSellSuccess(false);
+                        setSellError(null);
+                      }}
+                      placeholder="Search client by name or mobile number..."
+                    />
+                  )}
+
+                  {sellClient && (
+                    <button
+                      className="cmp__sell-btn"
+                      onClick={handleSell}
+                      disabled={selling}
+                    >
+                      {selling
+                        ? "Selling…"
+                        : `Sell ₹${priceNum.toLocaleString("en-IN")} to ${sellClient.first_name} ${sellClient.last_name ?? ""}`.trim()}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Summary */}
+              <div className="cmp__preview-card">
+                <h4 className="cmp__preview-title">Preview</h4>
+                <div className="cmp__preview-rows">
+                  <div className="cmp__preview-row">
+                    <span>Customer Pays</span>
+                    <strong>₹{priceNum.toLocaleString("en-IN")}</strong>
+                  </div>
+                  <div className="cmp__preview-row">
+                    <span>Bonus Credit</span>
+                    <strong className="cmp__green">+₹{bonusCreditNum.toLocaleString("en-IN")}</strong>
+                  </div>
+                  <div className="cmp__preview-row cmp__preview-row--total">
+                    <span>Total Value</span>
+                    <strong>₹{walletValue.toLocaleString("en-IN")}</strong>
+                  </div>
+                  <div className="cmp__preview-divider" />
+                  {parseFloat(serviceDisc) > 0 && (
+                    <div className="cmp__preview-row">
+                      <span>Service Discount</span>
+                      <strong>{serviceDisc}%</strong>
+                    </div>
+                  )}
+                  {parseFloat(productDisc) > 0 && (
+                    <div className="cmp__preview-row">
+                      <span>Product Discount</span>
+                      <strong>{productDisc}%</strong>
+                    </div>
+                  )}
+                  <div className="cmp__preview-row">
+                    <span>Validity</span>
+                    <strong>{validityLabel}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Membership card */}
+              <div className="cmp__mc" style={{ "--mc": tierColor } as React.CSSProperties}>
+                <div className="cmp__mc-header">
+                  <span className="cmp__mc-tier">{tierLabel} Membership</span>
+                  <span className="cmp__mc-badge">{status === "active" ? "Active" : "Inactive"}</span>
+                </div>
+                <p className="cmp__mc-name">{name || "Membership Name"}</p>
+                <div className="cmp__mc-rows">
+                  <div className="cmp__mc-row">
+                    <span>Paid Amount</span>  <span>₹{priceNum.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="cmp__mc-row">
+                    <span>Wallet Value</span> <span>₹{walletValue.toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="cmp__mc-row">
+                    <span>Used Amount</span>  <span>₹0</span>
+                  </div>
+                  <div className="cmp__mc-row cmp__mc-row--hi">
+                    <span>Balance</span>      <span>₹{walletValue.toLocaleString("en-IN")}</span>
+                  </div>
+                  {parseFloat(serviceDisc) > 0 && (
+                    <div className="cmp__mc-row">
+                      <span>Discount</span>   <span>{serviceDisc}%</span>
+                    </div>
+                  )}
+                  <div className="cmp__mc-row">
+                    <span>Valid Till</span>   <span>{validTillDate}</span>
+                  </div>
+                </div>
+                <button className="cmp__mc-renew">Renew Membership</button>
+              </div>
+
             </div>
           </div>
 
         </div>
       </div>
 
-      {/* Select Services Modal */}
-      {showServicesModal && (
-        <div
-          className="cmp__modal-overlay"
-          onClick={() => setShowServicesModal(false)}
-        >
-          <div className="cmp__modal" onClick={(e) => e.stopPropagation()}>
-            <div className="cmp__modal-header d-flex align-items-center justify-content-between mb-4">
-              <h6 className="mb-0 fw-bold fs-5">Select services</h6>
-              <button
-                className="cmp__modal-close"
-                onClick={() => setShowServicesModal(false)}
-              >
-                <XLg size={20} />
-              </button>
-            </div>
-            <div className="cmp__modal-search position-relative mb-4">
-              <Search className="cmp__modal-search-icon" />
-              <input
-                type="text"
-                className="form-control cmp__modal-search-input"
-                placeholder="Search services"
-                value={serviceSearch}
-                onChange={(e) => setServiceSearch(e.target.value)}
-              />
-            </div>
-            <div
-              className="cmp__modal-row cmp__modal-row--all d-flex align-items-center gap-3 mb-2"
-              onClick={toggleAll}
-            >
-              <div
-                className={`cmp__checkbox ${
-                  pendingIds.length === catalogServices.length
-                    ? "cmp__checkbox--checked"
-                    : ""
-                }`}
-              >
-                {pendingIds.length === catalogServices.length && (
-                  <Check2 size={12} className="text-white" />
-                )}
-              </div>
-              <span className="small fw-bold">All services</span>
-              <span className="cmp__badge ms-1">{catalogServices.length}</span>
-            </div>
-            <hr className="cmp__modal-divider my-3" />
-            <div className="cmp__modal-category d-flex align-items-center gap-2 mb-3 px-1">
-              <span className="small fw-bold">All services</span>
-              <span className="cmp__badge">{filteredServices.length}</span>
-            </div>
-            <div className="cmp__modal-list">
-              {filteredServices.map((svc) => (
-                <div
-                  key={svc.id}
-                  className="cmp__modal-row d-flex align-items-center justify-content-between mb-1"
-                  onClick={() => toggleService(String(svc.id))}
-                >
-                  <div className="d-flex align-items-center gap-3">
-                    <div
-                      className={`cmp__checkbox ${
-                        pendingIds.includes(String(svc.id))
-                          ? "cmp__checkbox--checked"
-                          : ""
-                      }`}
-                    >
-                      {pendingIds.includes(String(svc.id)) && (
-                        <Check2 size={12} className="text-white" />
-                      )}
-                    </div>
-                    <div>
-                      <div className="small fw-bold">{svc.name}</div>
-                      <div className="cmp__modal-duration text-muted extra-small">
-                        {svc.duration ? `${svc.duration} min` : ""}
-                      </div>
-                    </div>
-                  </div>
-                  <span className="small fw-bold">₹{svc.price}</span>
-                </div>
-              ))}
-            </div>
-            <div className="cmp__modal-footer d-flex align-items-center justify-content-end gap-3 mt-4 pt-4 border-top">
-              <button
-                className="btn btn-outline-dark rounded-pill px-4 fw-bold"
-                onClick={() => setShowServicesModal(false)}
-              >
-                Close
-              </button>
-              <button
-                className="btn btn-dark rounded-pill px-4 fw-bold"
-                onClick={confirmSelection}
-              >
-                Select {pendingIds.length} service
-                {pendingIds.length !== 1 ? "s" : ""}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

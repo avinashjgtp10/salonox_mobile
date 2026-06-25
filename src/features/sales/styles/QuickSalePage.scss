@@ -479,16 +479,17 @@ $transition: 0.18s ease;
 // ─── Add Client form ──────────────────────────────────────────────
 .qs-add-client-form {
   margin-top: 14px;
-  padding: 16px;
-  background: $bg-subtle;
+  padding: 18px 20px 16px;
+  background: $bg-card;
   border: 1px solid $border;
-  border-radius: $radius;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   animation: qs-fade-in 0.18s ease;
 
   &__grid {
     display: grid;
-    grid-template-columns: 1fr 1fr 1.4fr 1fr auto;
-    gap: 10px;
+    grid-template-columns: 1fr 1fr 1.4fr 1fr;
+    gap: 12px;
     align-items: start;
 
     @media (max-width: 800px) {
@@ -503,6 +504,38 @@ $transition: 0.18s ease;
     display: flex;
     flex-direction: column;
     gap: 5px;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid $border;
+  }
+
+  &__cancel-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 16px;
+    border-radius: $radius-sm;
+    border: 1px solid $border;
+    background: $bg-card;
+    color: $text-muted;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: $font;
+    transition: all $transition;
+
+    &:hover {
+      background: $bg-subtle;
+      border-color: #d1d5db;
+      color: $text;
+    }
   }
 }
 
@@ -843,6 +876,11 @@ $transition: 0.18s ease;
   &:focus-within {
     border-color: $border-focus;
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  }
+
+  &--error {
+    border-color: $danger !important;
+    background: #fff5f5;
   }
 }
 

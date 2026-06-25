@@ -38,10 +38,14 @@ export default function MembershipItemRow({ row, staffList, membershipsList, onU
                 onMouseDown={() => {
                   const q = Number(row.qty) || 1;
                   onUpdate(row.tempId, {
+                    membershipId: m.id,
                     name: m.name, search: m.name, price: m.price,
                     qty: q as any,
                     total: calcRowTotal(m.price, q, row.discountVal, row.discountType),
                     showDrop: false,
+                    sessions: m.sessions ?? 0,
+                    validFor: m.validFor ?? "",
+                    colour: m.colour ?? "",
                     errors: row.errors.filter((e) => e !== "membership"),
                   });
                 }}

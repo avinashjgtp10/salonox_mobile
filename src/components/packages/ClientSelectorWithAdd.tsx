@@ -9,10 +9,16 @@ import "../../features/sales/styles/QuickSalePage.scss";
 
 interface Props {
   onSelect: (client: ClientSearchResult) => void;
+  onClear?: () => void;
   placeholder?: string;
+  hideAddButton?: boolean;
+  /** When true, add-client form is pinned at the TOP and the toggle button is hidden */
+  formAtTop?: boolean;
+  /** Pre-fill with an already-selected client (e.g. restored from sessionStorage) */
+  defaultClient?: ClientSearchResult | null;
 }
 
-// ── helpers (mirrors quickSale.utils) ────────────────────────────────────────
+// ── helpers ──────────────────────────────────────────────────────────────────
 function extractLocalPhone(phone: string): string {
   const digits = phone.replace(/\D/g, "");
   return digits.length >= 10 ? digits.slice(-10) : digits;
@@ -29,25 +35,30 @@ const phoneValid = (p: string) => /^\d{10}$/.test(p.trim());
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-const ClientSelectorWithAdd: React.FC<Props> = ({ onSelect, placeholder }) => {
-  const [query,             setQuery]             = useState("");
-  const [showForm,          setShowForm]          = useState(false);
-  const [savedClient,       setSavedClient]       = useState<ClientSearchResult | null>(null);
+const ClientSelectorWithAdd: React.FC<Props> = ({
+  onSelect, onClear, placeholder, hideAddButton = false, formAtTop = false, defaultClient = null,
+}) => {
+  const [query,          setQuery]          = useState(() =>
+    defaultClient ? `${defaultClient.first_name} ${defaultClient.last_name ?? ""}`.trim() : ""
+  );
+  // formAtTop: form is always open; default: toggled
+  const [showForm,       setShowForm]       = useState(formAtTop);
+  const [savedClient,    setSavedClient]    = useState<ClientSearchResult | null>(defaultClient);
 
   // add-client form fields
-  const [firstName,         setFirstName]         = useState("");
-  const [lastName,          setLastName]          = useState("");
-  const [phone,             setPhone]             = useState("");
-  const [gender,            setGender]            = useState<"" | "Female" | "Male" | "Other">("");
-  const [country,           setCountry]           = useState<CountryOption>(INDIA);
-  const [formErrors,        setFormErrors]        = useState<string[]>([]);
-  const [phoneDuplicate,    setPhoneDuplicate]    = useState(false);
-  const [phoneChecking,     setPhoneChecking]     = useState(false);
-  const [saving,            setSaving]            = useState(false);
-  const [savedOk,           setSavedOk]           = useState(false);
-  const [saveError,         setSaveError]         = useState("");
+  const [firstName,      setFirstName]      = useState("");
+  const [lastName,       setLastName]       = useState("");
+  const [phone,          setPhone]          = useState("");
+  const [gender,         setGender]         = useState<"" | "Female" | "Male" | "Other">("");
+  const [country,        setCountry]        = useState<CountryOption>(INDIA);
+  const [formErrors,     setFormErrors]     = useState<string[]>([]);
+  const [phoneDuplicate, setPhoneDuplicate] = useState(false);
+  const [phoneChecking,  setPhoneChecking]  = useState(false);
+  const [saving,         setSaving]         = useState(false);
+  const [savedOk,        setSavedOk]        = useState(false);
+  const [saveError,      setSaveError]      = useState("");
 
-  // ── phone duplicate check (same as QuickSale) ────────────────────────────
+  // ── phone duplicate check ────────────────────────────────────────────────
   async function checkPhoneExists(p: string) {
     const digits = p.replace(/\D/g, "");
     if (digits.length !== 10) return;
@@ -59,7 +70,7 @@ const ClientSelectorWithAdd: React.FC<Props> = ({ onSelect, placeholder }) => {
     } catch { /* silent */ } finally { setPhoneChecking(false); }
   }
 
-  // ── save new client (same as QuickSale's handleSaveNewClient) ────────────
+  // ── save new client ──────────────────────────────────────────────────────
   async function handleSave() {
     if (phoneDuplicate || phoneChecking || saving) return;
     const errs: string[] = [];
@@ -75,8 +86,8 @@ const ClientSelectorWithAdd: React.FC<Props> = ({ onSelect, placeholder }) => {
     setSaving(true);
     setSaveError("");
     try {
-      const cleaned    = phone.trim().replace(/\D/g, "");
-      const dialDigits = country.dialCode.replace(/\D/g, "");
+      const cleaned     = phone.trim().replace(/\D/g, "");
+      const dialDigits  = country.dialCode.replace(/\D/g, "");
       const phoneDigits = cleaned.startsWith(dialDigits) ? cleaned : `${dialDigits}${cleaned}`;
       const fullPhone   = `+${phoneDigits}`;
 
@@ -98,7 +109,7 @@ const ClientSelectorWithAdd: React.FC<Props> = ({ onSelect, placeholder }) => {
 
       setSavedOk(true);
       setSavedClient(newClient);
-      setShowForm(false);
+      if (!formAtTop) setShowForm(false);
       setQuery(`${firstTrim} ${lastTrim}`.trim());
       onSelect(newClient);
 
@@ -122,20 +133,94 @@ const ClientSelectorWithAdd: React.FC<Props> = ({ onSelect, placeholder }) => {
   }
 
   function closeForm() {
-    setShowForm(false);
-    setFirstName(""); setLastName(""); setPhone(""); setGender("");
-    setFormErrors([]); setPhoneDuplicate(false); setSaveError("");
+    if (formAtTop) {
+      // in formAtTop mode, "cancel" just clears the fields
+      setFirstName(""); setLastName(""); setPhone(""); setGender("");
+      setFormErrors([]); setPhoneDuplicate(false); setSaveError("");
+    } else {
+      setShowForm(false);
+      setFirstName(""); setLastName(""); setPhone(""); setGender("");
+      setFormErrors([]); setPhoneDuplicate(false); setSaveError("");
+    }
   }
 
   function clearClient() {
     setSavedClient(null);
     setQuery("");
     setSavedOk(false);
+    onClear?.();
   }
+
+  const formNode = (
+    <>
+      {saveError && (
+        <div style={{
+          marginTop: 10, padding: "8px 14px", background: "#fff1f2",
+          border: "1px solid #fecdd3", borderRadius: 8,
+          fontSize: 13, color: "#dc2626", fontWeight: 500,
+        }}>
+          {saveError}
+        </div>
+      )}
+      <AddClientForm
+        newClientFirstName={firstName}
+        newClientLastName={lastName}
+        newClientPhone={phone}
+        newClientGender={gender}
+        selectedCountry={country}
+        isClientSaved={savedOk}
+        phoneDuplicate={phoneDuplicate}
+        phoneCheckLoading={phoneChecking}
+        isSavingClient={saving}
+        formErrors={formErrors}
+        onFirstNameChange={v => {
+          setFirstName(v.replace(/[^a-zA-Z\s]/g, ""));
+          setFormErrors(prev => prev.filter(x => x !== "first_name_required" && x !== "first_name_length"));
+        }}
+        onLastNameChange={v => {
+          setLastName(v.replace(/[^a-zA-Z\s]/g, ""));
+          setFormErrors(prev => prev.filter(x => x !== "last_name_length"));
+        }}
+        onPhoneChange={v => {
+          const digits = v.replace(/\D/g, "").slice(0, 10);
+          setPhone(digits);
+          if (phoneDuplicate) setPhoneDuplicate(false);
+          setFormErrors(prev => prev.filter(x => x !== "phone"));
+          if (phoneValid(digits)) checkPhoneExists(digits);
+        }}
+        onGenderChange={v => {
+          setGender(v);
+          setFormErrors(prev => prev.filter(x => x !== "gender"));
+        }}
+        onCountryChange={setCountry}
+        onPhoneBlur={() => { if (phoneValid(phone)) checkPhoneExists(phone); }}
+        onSave={handleSave}
+        onCancel={closeForm}
+      />
+    </>
+  );
 
   // ── render ───────────────────────────────────────────────────────────────
   return (
     <div>
+      {/* Form at top (formAtTop mode) */}
+      {formAtTop && formNode}
+
+      {/* Divider between form and search when formAtTop */}
+      {formAtTop && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10,
+          margin: "14px 0 10px",
+        }}>
+          <div style={{ flex: 1, height: 1, background: "#e5e7eb" }} />
+          <span style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            or search existing client
+          </span>
+          <div style={{ flex: 1, height: 1, background: "#e5e7eb" }} />
+        </div>
+      )}
+
+      {/* Search row */}
       <div className="qs-client-row">
         <div style={{ flex: 1 }}>
           <ClientSearchInput
@@ -143,9 +228,8 @@ const ClientSelectorWithAdd: React.FC<Props> = ({ onSelect, placeholder }) => {
             onChange={val => {
               setQuery(val);
               if (!val) setSavedClient(null);
-              if (showForm) closeForm();
+              if (!formAtTop && showForm) closeForm();
 
-              // same as QuickSale: pre-fill phone when typing a number
               if (isPhoneSearch(val)) {
                 const local = extractLocalPhone(val);
                 if (local.length === 10) {
@@ -153,7 +237,7 @@ const ClientSelectorWithAdd: React.FC<Props> = ({ onSelect, placeholder }) => {
                   setPhoneDuplicate(false);
                   setFormErrors(prev => prev.filter(x => x !== "phone"));
                 }
-              } else {
+              } else if (!formAtTop) {
                 setFirstName("");
                 setLastName("");
               }
@@ -162,14 +246,13 @@ const ClientSelectorWithAdd: React.FC<Props> = ({ onSelect, placeholder }) => {
               const name = `${client.first_name} ${client.last_name ?? ""}`.trim();
               setQuery(name);
               setSavedClient(client);
-              setShowForm(false);
+              if (!formAtTop) setShowForm(false);
               setFormErrors([]);
               onSelect(client);
             }}
             onNoResults={term => {
-              // same as QuickSale: auto-open form when a phone number yields no results
               const digits = term.replace(/\D/g, "");
-              if (digits.length > 0 && digits === term.trim()) {
+              if (!formAtTop && digits.length > 0 && digits === term.trim()) {
                 const local = extractLocalPhone(term);
                 setPhone(local);
                 setPhoneDuplicate(false);
@@ -183,19 +266,22 @@ const ClientSelectorWithAdd: React.FC<Props> = ({ onSelect, placeholder }) => {
           />
         </div>
 
-        <button
-          onClick={() => (showForm ? closeForm() : openForm())}
-          className={`qs-pill-btn${!showForm ? " qs-pill-btn--primary" : ""}`}
-          type="button"
-        >
-          {showForm
-            ? <><X size={13} /> Cancel</>
-            : <><UserPlus size={13} /> Add Client</>
-          }
-        </button>
+        {/* Toggle button (hidden in formAtTop mode or when hideAddButton) */}
+        {!formAtTop && !hideAddButton && (
+          <button
+            onClick={() => (showForm ? closeForm() : openForm())}
+            className={`qs-pill-btn${!showForm ? " qs-pill-btn--primary" : ""}`}
+            type="button"
+          >
+            {showForm
+              ? <><X size={13} /> Cancel</>
+              : <><UserPlus size={13} /> Add Client</>
+            }
+          </button>
+        )}
       </div>
 
-      {/* selected client chip — same as QuickSale's client display */}
+      {/* Selected client chip */}
       {savedClient && (
         <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8 }}>
           <div className="qs-client-display">
@@ -215,50 +301,8 @@ const ClientSelectorWithAdd: React.FC<Props> = ({ onSelect, placeholder }) => {
         </div>
       )}
 
-      {/* add client form */}
-      {showForm && (
-        <>
-          {saveError && (
-            <div className="qs-form-error" style={{ marginTop: 10, fontWeight: 500 }}>
-              {saveError}
-            </div>
-          )}
-          <AddClientForm
-            newClientFirstName={firstName}
-            newClientLastName={lastName}
-            newClientPhone={phone}
-            newClientGender={gender}
-            selectedCountry={country}
-            isClientSaved={savedOk}
-            phoneDuplicate={phoneDuplicate}
-            phoneCheckLoading={phoneChecking}
-            isSavingClient={saving}
-            formErrors={formErrors}
-            onFirstNameChange={v => {
-              setFirstName(v.replace(/[^a-zA-Z\s]/g, ""));
-              setFormErrors(prev => prev.filter(x => x !== "first_name_required" && x !== "first_name_length"));
-            }}
-            onLastNameChange={v => {
-              setLastName(v.replace(/[^a-zA-Z\s]/g, ""));
-              setFormErrors(prev => prev.filter(x => x !== "last_name_length"));
-            }}
-            onPhoneChange={v => {
-              const digits = v.replace(/\D/g, "").slice(0, 10);
-              setPhone(digits);
-              if (phoneDuplicate) setPhoneDuplicate(false);
-              setFormErrors(prev => prev.filter(x => x !== "phone"));
-              if (phoneValid(digits)) checkPhoneExists(digits);
-            }}
-            onGenderChange={v => {
-              setGender(v);
-              setFormErrors(prev => prev.filter(x => x !== "gender"));
-            }}
-            onCountryChange={setCountry}
-            onPhoneBlur={() => { if (phoneValid(phone)) checkPhoneExists(phone); }}
-            onSave={handleSave}
-          />
-        </>
-      )}
+      {/* Form at bottom (default / toggle mode) */}
+      {!formAtTop && showForm && formNode}
     </div>
   );
 };
