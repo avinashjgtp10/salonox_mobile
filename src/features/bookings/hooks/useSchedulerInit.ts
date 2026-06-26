@@ -442,8 +442,12 @@ export function useSchedulerInit() {
     if (!apiMemberships.length) return;
     dispatch(setMembershipsList(
       apiMemberships.map((m: any) => ({
-        name: m.name,
-        price: m.price || 0,
+        id:       String(m.id || ""),
+        name:     m.name || "",
+        price:    m.price || 0,
+        sessions: m.numberOfSessions ?? m.number_of_sessions ?? 0,
+        validFor: m.validFor || m.valid_for || "",
+        colour:   m.colour || "",
       }))
     ));
   }, [apiMemberships, dispatch]);

@@ -23,6 +23,11 @@ export interface Membership {
   termsAndConditions?: string;
   createdAt: Date;
   updatedAt: Date;
+  // Optional client association (if backend supports it)
+  clientId?: string;
+  clientName?: string;
+  clientPhone?: string;
+  client?: { id?: string; name?: string; first_name?: string; last_name?: string; phone_number?: string; phone?: string; };
 }
 
 export interface CreateMembershipDTO {
@@ -38,6 +43,9 @@ export interface CreateMembershipDTO {
   enableOnlineSales: boolean;
   enableOnlineRedemption: boolean;
   termsAndConditions?: string;
+  clientId?: string;
+  clientName?: string;
+  clientPhone?: string;
 }
 
 export interface UpdateMembershipDTO extends Partial<CreateMembershipDTO> {}
