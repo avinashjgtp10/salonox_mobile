@@ -1,68 +1,22 @@
 import { useState, useEffect, useRef } from "react";
+import { COUNTRIES } from "./countryData";
 
-export interface CountryOption {
-  name: string;
-  dialCode: string;
-  cca2: string;
-  flag: string;
-}
+export type { CountryOption } from "./countryData";
+
+const DEFAULT_INDIA = COUNTRIES.find((c) => c.cca2 === "IN")!;
 
 interface Props {
   value: string;
-  onChange: (country: CountryOption) => void;
+  onChange: (country: import("./countryData").CountryOption) => void;
 }
-
-function toFlagEmoji(cca2: string): string {
-  return [...cca2.toUpperCase()]
-    .map((c) => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65))
-    .join("");
-}
-
-const DEFAULT_INDIA: CountryOption = {
-  name: "India",
-  dialCode: "+91",
-  cca2: "IN",
-  flag: "🇮🇳",
-};
 
 export default function CountryPhoneSelect({ value, onChange }: Props) {
-  const [countries, setCountries] = useState<CountryOption[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState<string | null>(null);
-  const [open, setOpen]           = useState(false);
-  const [search, setSearch]       = useState("");
+  const [open, setOpen]     = useState(false);
+  const [search, setSearch] = useState("");
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const searchRef  = useRef<HTMLInputElement>(null);
   const listRef    = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const res  = await fetch("https://restcountries.com/v3.1/all?fields=name,idd,cca2,flags");
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        const raw: any[] = await res.json();
-        const mapped: CountryOption[] = raw
-          .filter((c) => c.idd?.root && Array.isArray(c.idd.suffixes) && c.idd.suffixes.length)
-          .map((c) => ({
-            name:     c.name.common as string,
-            dialCode: c.idd.root + (c.idd.suffixes.length === 1 ? c.idd.suffixes[0] : ""),
-            cca2:     c.cca2 as string,
-            flag:     toFlagEmoji(c.cca2 as string),
-          }))
-          .filter((c) => c.dialCode.length >= 2)
-          .sort((a, b) => a.name.localeCompare(b.name));
-        if (!cancelled) setCountries(mapped);
-      } catch {
-        if (!cancelled) setError("Failed to load countries.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    load();
-    return () => { cancelled = true; };
-  }, []);
 
   useEffect(() => {
     function onOutside(e: MouseEvent) {
@@ -83,22 +37,21 @@ export default function CountryPhoneSelect({ value, onChange }: Props) {
     }
   }, [open]);
 
-  const selected = countries.find((c) => c.dialCode === value) ?? DEFAULT_INDIA;
+  const selected = COUNTRIES.find((c) => c.dialCode === value) ?? DEFAULT_INDIA;
   const filtered = search.trim()
-    ? countries.filter(
+    ? COUNTRIES.filter(
         (c) =>
           c.name.toLowerCase().includes(search.toLowerCase()) ||
           c.dialCode.includes(search) ||
           c.cca2.toLowerCase().includes(search.toLowerCase()),
       )
-    : countries;
+    : COUNTRIES;
 
   return (
     <div ref={wrapperRef} style={{ position: "relative" }}>
       {/* Trigger button */}
       <button
         type="button"
-        disabled={loading}
         onClick={() => setOpen((v) => !v)}
         style={{
           display: "inline-flex",
@@ -108,8 +61,7 @@ export default function CountryPhoneSelect({ value, onChange }: Props) {
           padding: "0 8px 0 12px",
           border: "none",
           background: "transparent",
-          cursor: loading ? "not-allowed" : "pointer",
-          opacity: loading ? 0.5 : 1,
+          cursor: "pointer",
           minWidth: 82,
           fontSize: 13,
           fontWeight: 500,
@@ -117,25 +69,19 @@ export default function CountryPhoneSelect({ value, onChange }: Props) {
           whiteSpace: "nowrap",
         }}
       >
-        {loading ? (
-          <span style={{ fontSize: 11, color: "#9ca3af" }}>Loading…</span>
-        ) : (
-          <>
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", color: "#4b5563" }}>
-              {selected.cca2}
-            </span>
-            <span style={{ fontSize: 12, fontWeight: 600, fontFamily: "monospace", color: "#374151" }}>
-              {selected.dialCode}
-            </span>
-            <svg
-              width="10" height="10"
-              viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5"
-              style={{ flexShrink: 0, transition: "transform 0.15s", transform: open ? "rotate(180deg)" : "none" }}
-            >
-              <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </>
-        )}
+        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", color: "#4b5563" }}>
+          {selected.cca2}
+        </span>
+        <span style={{ fontSize: 12, fontWeight: 600, fontFamily: "monospace", color: "#374151" }}>
+          {selected.dialCode}
+        </span>
+        <svg
+          width="10" height="10"
+          viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5"
+          style={{ flexShrink: 0, transition: "transform 0.15s", transform: open ? "rotate(180deg)" : "none" }}
+        >
+          <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </button>
 
       {/* Dropdown panel */}
@@ -197,22 +143,13 @@ export default function CountryPhoneSelect({ value, onChange }: Props) {
 
           {/* Country list */}
           <div ref={listRef} style={{ maxHeight: 240, overflowY: "auto" }}>
-            {error && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", fontSize: 13, color: "#dc2626", background: "#fef2f2" }}>
-                <svg width="15" height="15" fill="#dc2626" viewBox="0 0 20 20" style={{ flexShrink: 0 }}>
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" />
-                </svg>
-                {error}
-              </div>
-            )}
-
-            {!error && filtered.length === 0 && (
+            {filtered.length === 0 && (
               <div style={{ padding: "12px 16px", fontSize: 13, color: "#9ca3af", textAlign: "center" }}>
                 No countries found for "{search}"
               </div>
             )}
 
-            {!error && filtered.map((c) => {
+            {filtered.map((c) => {
               const isSel = c.dialCode === value && c.cca2 === selected.cca2;
               return (
                 <button
@@ -256,11 +193,9 @@ export default function CountryPhoneSelect({ value, onChange }: Props) {
           </div>
 
           {/* Footer */}
-          {!error && countries.length > 0 && (
-            <div style={{ padding: "5px 12px", borderTop: "1px solid #f3f4f6", background: "#f9fafb", fontSize: 11, color: "#9ca3af", textAlign: "right" }}>
-              {filtered.length} of {countries.length} countries
-            </div>
-          )}
+          <div style={{ padding: "5px 12px", borderTop: "1px solid #f3f4f6", background: "#f9fafb", fontSize: 11, color: "#9ca3af", textAlign: "right" }}>
+            {filtered.length} of {COUNTRIES.length} countries
+          </div>
         </div>
       )}
     </div>

@@ -4,12 +4,19 @@ import { Modal } from "../../../components/ui";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
 
+interface ImportError {
+  row: number;
+  email?: string;
+  code: string;
+  message: string;
+}
+
 interface ImportResult {
   total_rows: number;
   imported: number;
   updated: number;
   skipped: number;
-  errors: string[];
+  errors: ImportError[];
 }
 
 interface Props {
@@ -225,7 +232,9 @@ export default function StaffImportModal({ show, onClose, onSuccess }: Props) {
                 <p className="sim-errors-title">Errors ({result.errors.length})</p>
                 <ul className="sim-errors-list">
                   {result.errors.map((e, i) => (
-                    <li key={i} className="sim-error-item">{e}</li>
+                    <li key={i} className="sim-error-item">
+                      Row {e.row}{e.email ? ` (${e.email})` : ""}: {e.message}
+                    </li>
                   ))}
                 </ul>
               </div>

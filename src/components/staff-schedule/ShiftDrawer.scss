@@ -116,6 +116,14 @@
     }
   }
 
+  &__toggle-input {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
   &__toggle-thumb {
     position: absolute;
     top: 4px;

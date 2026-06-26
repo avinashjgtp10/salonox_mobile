@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+﻿import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Booking, ServiceItem, PackageItem, PaymentMode, DiscountType } from "../../types/scheduler-types";
 import { useSchedulerContext } from "../../store/SchedulerContext";
@@ -10,8 +10,8 @@ function toApiStaffId(id?: string | null): string | undefined {
 import toast from "react-hot-toast";
 import api from "../../../../services/api/axios";
 import { useAppDispatch, useAppSelector } from "../../../../hooks/useAppRedux";
-import { createBookingThunk } from "../../../../middleware/booking/booking.thunk";
-import { fetchClientsThunk } from "../../../../middleware/client/client.thunk";
+import { createBookingThunk, updateBookingThunk } from "../../../../middleware/booking/booking.thunk";
+import { fetchClientsThunk, createClientThunk } from "../../../../middleware/client/client.thunk";
 import { fetchMembershipsThunk } from "../../../../middleware/membership/membership.thunk";
 import { purchaseClientMembershipThunk, consumeSessionThunk, fetchClientMembershipsThunk } from "../../../../middleware/clientMembership/clientMembership.thunk";
 import { fetchProductsThunk } from "../../../../middleware/catalog/products.thunk";
@@ -57,10 +57,10 @@ function durationToExpiresAt(validFor: string): string | undefined {
   const now = new Date();
   const lower = validFor.toLowerCase().trim();
   const num = parseInt(lower) || 1;
-  if (lower.includes("year"))       now.setFullYear(now.getFullYear() + num);
+  if (lower.includes("year")) now.setFullYear(now.getFullYear() + num);
   else if (lower.includes("month")) now.setMonth(now.getMonth() + num);
-  else if (lower.includes("week"))  now.setDate(now.getDate() + num * 7);
-  else if (lower.includes("day"))   now.setDate(now.getDate() + num);
+  else if (lower.includes("week")) now.setDate(now.getDate() + num * 7);
+  else if (lower.includes("day")) now.setDate(now.getDate() + num);
   else return undefined;
   return now.toISOString();
 }
@@ -405,12 +405,14 @@ const InlineDrop: React.FC<{
 //   USAGE:     mem2:U:<sid>:<cid>:<ref>  → MemUsageEntry[]    (written on each paid visit)
 // salonId is optional — falls back to "g" so keys are stable even when Redux not yet loaded.
 const MEM_VER = "mem2";
-type MemUsageEntry    = { notes: string; appointmentId?: string; createdAt?: string; serviceName?: string };
-type MemPurchaseRecord = { membershipName: string; pricePaid: number; colour?: string;
-                           membershipId?: string; purchasedAt: string; appointmentId?: string };
+type MemUsageEntry = { notes: string; appointmentId?: string; createdAt?: string; serviceName?: string };
+type MemPurchaseRecord = {
+  membershipName: string; pricePaid: number; colour?: string;
+  membershipId?: string; purchasedAt: string; appointmentId?: string
+};
 
 function _sid(salonId?: string | null) { return salonId || "g"; }
-function _usageKey(sid: string, cid: string, ref: string)    { return `${MEM_VER}:U:${sid}:${cid}:${ref}`; }
+function _usageKey(sid: string, cid: string, ref: string) { return `${MEM_VER}:U:${sid}:${cid}:${ref}`; }
 function _purchaseKey(sid: string, cid: string, ref: string) { return `${MEM_VER}:P:${sid}:${cid}:${ref}`; }
 // Index key: lists all memRefs for a client so we can enumerate purchases
 function _indexKey(sid: string, cid: string) { return `${MEM_VER}:I:${sid}:${cid}`; }
@@ -429,7 +431,7 @@ function addMemUsageEntry(salonId: string | undefined, cid: string, ref: string,
   const sid = _sid(salonId);
   const existing = loadMemUsage(sid, cid, ref);
   if (entry.appointmentId && existing.some((e) => e.appointmentId === entry.appointmentId)) return;
-  try { localStorage.setItem(_usageKey(sid, cid, ref), JSON.stringify([...existing, entry])); } catch {}
+  try { localStorage.setItem(_usageKey(sid, cid, ref), JSON.stringify([...existing, entry])); } catch { }
 }
 
 function saveMembershipPurchase(salonId: string | undefined, cid: string, ref: string, rec: MemPurchaseRecord) {
@@ -440,47 +442,55 @@ function saveMembershipPurchase(salonId: string | undefined, cid: string, ref: s
     // Update index
     const idx = _tryParse<string[]>(localStorage.getItem(_indexKey(sid, cid)), []);
     if (!idx.includes(ref)) { idx.push(ref); localStorage.setItem(_indexKey(sid, cid), JSON.stringify(idx)); }
-  } catch {}
+  } catch { }
 }
 function loadAllMembershipPurchases(salonId: string | undefined, cid: string): Array<MemPurchaseRecord & { ref: string }> {
   if (!cid) return [];
   const sid = _sid(salonId);
   const idx = _tryParse<string[]>(localStorage.getItem(_indexKey(sid, cid)), []);
-  return idx.flatMap((ref) => {
-    const rec = _tryParse<MemPurchaseRecord | null>(localStorage.getItem(_purchaseKey(sid, cid, ref)), null);
+  // Also check the "g" (global/fallback) key in case the purchase was written before
+  // salonId was available in Redux (e.g. page rendered before salon fetch completed).
+  const fallbackIdx = sid !== "g" ? _tryParse<string[]>(localStorage.getItem(_indexKey("g", cid)), []) : [];
+  const allRefs = [...new Set([...idx, ...fallbackIdx])];
+  return allRefs.flatMap((ref) => {
+    const raw = localStorage.getItem(_purchaseKey(sid, cid, ref))
+      ?? (sid !== "g" ? localStorage.getItem(_purchaseKey("g", cid, ref)) : null);
+    const rec = _tryParse<MemPurchaseRecord | null>(raw, null);
     return rec ? [{ ...rec, ref }] : [];
   });
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, defaultTime, existingBooking }) => {
-  const { addBooking, updateBooking, currentDate, clientStats, deductEWallet, processPaymentRewards,
-    staffList, clientsList, packagesList, membershipsList, blockedTimes, bookings } = useSchedulerContext();
+  const { addBooking, currentDate, clientStats, deductEWallet, processPaymentRewards,
+    staffList, clientsList, packagesList, membershipsList, productsList, blockedTimes, bookings } = useSchedulerContext();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const salonId = useAppSelector((s: any) => s.salon?.currentSalon?.id);
   const currentSalon = useAppSelector((s: any) => s.salon?.currentSalon);
-  const clientsLoaded     = useAppSelector((s: any) => (s.client as any).items?.length > 0);
-  const productsLoaded    = useAppSelector((s: any) => (s.products as any).items?.length > 0);
+  const clientsLoaded = useAppSelector((s: any) => (s.client as any).items?.length > 0);
+  const productsLoaded = useAppSelector((s: any) => (s.products as any).items?.length > 0);
   const membershipsLoaded = useAppSelector((s: any) => (s.memberships as any).items?.length > 0);
 
   // Lazy-load clients, products, memberships only when the modal opens.
   // These are NOT fetched on calendar mount to keep initial load fast.
   useEffect(() => {
-    if (!clientsLoaded)     dispatch(fetchClientsThunk());
-    if (!productsLoaded)    dispatch(fetchProductsThunk());
+    if (!clientsLoaded) dispatch(fetchClientsThunk());
+    if (!productsLoaded) dispatch(fetchProductsThunk());
     if (!membershipsLoaded) dispatch(fetchMembershipsThunk({}));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ✅ FIX — read from both snake_case (DB) and camelCase (local state)
+  // Prefer camelCase paymentStatus (Redux-updated) over snake_case payment_status (raw API)
+  // so that local payment updates (patchPaymentStatus) are reflected immediately on reopen.
   const paymentState = (
-    existingBooking?.payment_status ||
     existingBooking?.paymentStatus ||
+    existingBooking?.payment_status ||
     ""
   ).toLowerCase();
   const isActuallyPaid = paymentState === "paid";
   const isActuallyPartial = paymentState === "partial";
   const isCancelledBooking = (existingBooking?.status || "").toLowerCase() === "cancelled";
+  const isCompleted = ((existingBooking as any)?._rawStatus || "").toLowerCase() === "completed";
   const apptStatus: ApptStatus = !existingBooking ? "NEW"
     : isCancelledBooking ? "CANCELLED"
       : isActuallyPaid ? "PAID"
@@ -508,14 +518,15 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
 
   // Client
   const _isWalkinInit = !existingBooking?.clientId && !!existingBooking;
-  const [clientSearch, setClientSearch] = useState(_isWalkinInit ? "Walk-in" : (existingBooking?.clientId ? existingBooking?.clientName || "" : ""));
+  const _safeClientName = (s: string | null | undefined) => (!s || s === "null" || s === "undefined" ? "" : s);
+  const [clientSearch, setClientSearch] = useState(_isWalkinInit ? "Walk-in" : (existingBooking?.clientId ? _safeClientName(existingBooking?.clientName) : ""));
   const [selectedClientId, setSelectedClientId] = useState<string | null>(existingBooking?.clientId || null);
 
   // Active memberships for selected client — must come after selectedClientId is declared
   const [clientActiveMemberships, setClientActiveMemberships] = useState<any[]>([]);
   const [clientActiveMembershipsLoaded, setClientActiveMembershipsLoaded] = useState(false);
   // Membership consumption state (existing active memberships)
-  const [membershipCoverageId,  setMembershipCoverageId]  = useState<string | null>(null);
+  const [membershipCoverageId, setMembershipCoverageId] = useState<string | null>(null);
   const [membershipCoverageAmt, setMembershipCoverageAmt] = useState<number>(0);
 
 
@@ -532,9 +543,128 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
     setMembershipCoverageId(null);
     setMembershipCoverageAmt(0);
 
-    // Try the real endpoint first; if it returns empty, synthesize from appointment history
-    // (backend POST /api/v1/client-memberships may have failed, so we fall back to reading
-    //  the paid appointments for this client directly)
+    // Synthesize memberships from (1) Redux bookings, (2) API appointments,
+    // (3) localStorage purchase records. Called when the API returns empty OR fails.
+    const synthesize = async () => {
+      try {
+        const catRes = await api.get("/api/v1/memberships?limit=200").catch(() => ({ data: {} }));
+        const catalog: any[] = catRes.data?.data?.items ?? [];
+        const synth: any[] = [];
+        const seen = new Set<string>();
+
+        const mergeUsage = (purchaseEntry: MemUsageEntry[], memRef: string): MemUsageEntry[] => {
+          const stored = loadMemUsage(salonId, selectedClientId!, memRef);
+          const all = [...purchaseEntry];
+          for (const e of stored) {
+            if (!e.appointmentId || !all.some((x) => x.appointmentId === e.appointmentId)) all.push(e);
+          }
+          return all;
+        };
+
+        const resolveMid = (mi: any, name: string) => {
+          let mid = String(mi.membershipId || mi.membership_id || mi.id || "").trim();
+          if (!mid || mid === "undefined" || mid === "null") {
+            const f = catalog.find((c: any) => c.name?.toLowerCase() === name.toLowerCase());
+            mid = f?.id ? String(f.id) : "";
+          }
+          return mid;
+        };
+
+        const processAppts = (appts: any[]) => {
+          for (const appt of appts) {
+            if ((appt.clientId || appt.client_id || "") !== selectedClientId) continue;
+            const ps = (appt.paymentStatus || appt.payment_status || appt.status || "").toLowerCase();
+            if (!ps.includes("paid") && !ps.includes("partial") && ps !== "completed") continue;
+            const memItems: any[] = appt.membershipItems || appt.membership_items || appt.memberships || [];
+            for (const mi of memItems) {
+              const name: string = mi.name || mi.membershipName || mi.membership_name || "";
+              if (!name) continue;
+              const mid = resolveMid(mi, name);
+              const keyById = `${selectedClientId}__${mid || name}`;
+              const keyByName = `${selectedClientId}__${name}`;
+              if (seen.has(keyById) || seen.has(keyByName)) continue;
+              seen.add(keyById);
+              seen.add(keyByName);
+              const catMem = catalog.find((c: any) => String(c.id) === mid);
+              const pricePaid = Number(mi.total || mi.price || 0) || catMem?.price || 0;
+              const sessions = Number(catMem?.numberOfSessions ?? catMem?.number_of_sessions ?? 0);
+              const purchasedAt = appt.createdAt || appt.created_at || new Date().toISOString();
+              const svcUsed = (appt.services || []).reduce((s: number, sv: any) => s + Number(sv.total || sv.price || 0), 0);
+              const pkgUsed = (appt.packageItems || appt.package_items || []).reduce((s: number, p: any) => s + Number(p.total || 0), 0);
+              const prodUsed = (appt.productItems || appt.product_items || []).reduce((s: number, p: any) => s + Number(p.total || 0), 0);
+              const initialUsed = Math.min(svcUsed + pkgUsed + prodUsed, pricePaid);
+              const purchaseEntry: MemUsageEntry[] = initialUsed > 0
+                ? [{ notes: `covered:${initialUsed.toFixed(2)}`, appointmentId: String(appt.id), createdAt: purchasedAt }]
+                : [];
+              const memRef = mid || name;
+              const usageById = mergeUsage(purchaseEntry, memRef);
+              const usageByName = mid && mid !== name ? loadMemUsage(salonId, selectedClientId!, name) : [];
+              const allUsage = [...usageById];
+              for (const e of usageByName) {
+                if (!e.appointmentId || !allUsage.some((x) => x.appointmentId === e.appointmentId)) allUsage.push(e);
+              }
+              synth.push({
+                id: `synth-${appt.id}-${memRef}`,
+                clientId: selectedClientId,
+                membershipId: mid || "",
+                membershipName: name,
+                colour: catMem?.colour || "#b8860b",
+                totalSessions: sessions, usedSessions: 0, remainingSessions: sessions,
+                status: "active", pricePaid,
+                usageLog: allUsage,
+                purchasedAt,
+              });
+            }
+          }
+        };
+
+        processAppts(bookings as any[]);
+
+        const apptRes = await api.get("/api/v1/appointments?limit=200&page=1").catch(() => ({ data: {} }));
+        const rawData = apptRes.data?.data;
+        const apiAppts: any[] = Array.isArray(rawData) ? rawData : Array.isArray(rawData?.items) ? rawData.items : [];
+        processAppts(apiAppts);
+
+        const localPurchases = loadAllMembershipPurchases(salonId, selectedClientId!);
+        for (const rec of localPurchases) {
+          const keyByRef = `${selectedClientId}__${rec.ref}`;
+          const keyByName = `${selectedClientId}__${rec.membershipName}`;
+          const keyById = rec.membershipId ? `${selectedClientId}__${rec.membershipId}` : null;
+          if (seen.has(keyByRef) || seen.has(keyByName) || (keyById && seen.has(keyById))) continue;
+          seen.add(keyByRef);
+          seen.add(keyByName);
+          if (keyById) seen.add(keyById);
+          const catMem = catalog.find((c: any) => String(c.id) === rec.ref || String(c.id) === rec.membershipId);
+          const sessions = Number(catMem?.numberOfSessions ?? catMem?.number_of_sessions ?? 0);
+          const usageByRef = mergeUsage([], rec.ref);
+          const usageById = rec.membershipId && rec.membershipId !== rec.ref
+            ? loadMemUsage(salonId, selectedClientId!, rec.membershipId) : [];
+          const allUsage = [...usageByRef];
+          for (const e of usageById) {
+            if (!e.appointmentId || !allUsage.some((x) => x.appointmentId === e.appointmentId)) allUsage.push(e);
+          }
+          synth.push({
+            id: `ls-${selectedClientId}-${rec.ref}`,
+            clientId: selectedClientId,
+            membershipId: rec.membershipId || rec.ref,
+            membershipName: rec.membershipName,
+            colour: rec.colour || catMem?.colour || "#b8860b",
+            totalSessions: sessions, usedSessions: 0, remainingSessions: sessions,
+            status: "active",
+            pricePaid: rec.pricePaid,
+            usageLog: allUsage,
+            purchasedAt: rec.purchasedAt,
+          });
+        }
+
+        setClientActiveMemberships(synth);
+      } catch {
+        setClientActiveMemberships([]);
+      }
+      setClientActiveMembershipsLoaded(true);
+    };
+
+    // Try the real endpoint first; fall back to synthesis if it returns empty or fails.
     api.get(`/api/v1/client-memberships?clientId=${selectedClientId}&status=active&limit=20`)
       .then(async (res) => {
         const apiItems: any[] = res.data?.data?.items ?? [];
@@ -542,7 +672,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
           // Merge localStorage usage into each API item so deductions from past visits
           // are reflected even when the backend's usageLog is stale (server 500 on consume).
           const withLocalUsage = apiItems.map((item: any) => {
-            const memRef  = String(item.membershipId || item.membership_id || item.id || "").trim();
+            const memRef = String(item.membershipId || item.membership_id || item.id || "").trim();
             const memName = String(item.membershipName || item.membership_name || item.name || "").trim();
 
             // Fallback pricePaid from localStorage purchase record if the server returned null/0
@@ -558,7 +688,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
               if (lsRec?.pricePaid) pricePaid = lsRec.pricePaid;
             }
 
-            const localById   = memRef ? loadMemUsage(salonId, selectedClientId!, memRef) : [];
+            const localById = memRef ? loadMemUsage(salonId, selectedClientId!, memRef) : [];
             const localByName = (memName && memName !== memRef)
               ? loadMemUsage(salonId, selectedClientId!, memName) : [];
             const serverLog = item.usageLog ?? item.usage_log ?? [];
@@ -582,14 +712,14 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
           const localPurchases = loadAllMembershipPurchases(salonId, selectedClientId!);
           for (const rec of localPurchases) {
             const alreadyInApi = withLocalUsage.some((item: any) => {
-              const mid   = String(item.membershipId || item.membership_id || "").trim();
+              const mid = String(item.membershipId || item.membership_id || "").trim();
               const mname = String(item.membershipName || item.membership_name || item.name || "").trim().toLowerCase();
               return (mid && (mid === rec.ref || mid === rec.membershipId)) ||
-                     mname === rec.membershipName.trim().toLowerCase();
+                mname === rec.membershipName.trim().toLowerCase();
             });
             if (alreadyInApi) continue;
             const usageByRef = loadMemUsage(salonId, selectedClientId!, rec.ref);
-            const usageById  = rec.membershipId && rec.membershipId !== rec.ref
+            const usageById = rec.membershipId && rec.membershipId !== rec.ref
               ? loadMemUsage(salonId, selectedClientId!, rec.membershipId) : [];
             const allUsage = [...usageByRef];
             for (const e of usageById) {
@@ -615,145 +745,10 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
           return;
         }
 
-        // Fallback: synthesize from (1) Redux bookings, (2) API appointments,
-        // (3) localStorage purchase records — so balance works across any calendar view.
-        try {
-          const catRes = await api.get("/api/v1/memberships?limit=200").catch(() => ({ data: {} }));
-          const catalog: any[] = catRes.data?.data?.items ?? [];
-          const synth: any[] = [];
-          const seen = new Set<string>();
-
-          // Merge stored usage (subsequent visits) into a purchase-appointment usageLog
-          const mergeUsage = (purchaseEntry: MemUsageEntry[], memRef: string): MemUsageEntry[] => {
-            const stored = loadMemUsage(salonId, selectedClientId!, memRef);
-            const all = [...purchaseEntry];
-            for (const e of stored) {
-              if (!e.appointmentId || !all.some((x) => x.appointmentId === e.appointmentId)) all.push(e);
-            }
-            return all;
-          };
-
-          const resolveMid = (mi: any, name: string) => {
-            let mid = String(mi.membershipId || mi.membership_id || mi.id || "").trim();
-            if (!mid || mid === "undefined" || mid === "null") {
-              const f = catalog.find((c: any) => c.name?.toLowerCase() === name.toLowerCase());
-              mid = f?.id ? String(f.id) : "";
-            }
-            return mid;
-          };
-
-          const processAppts = (appts: any[]) => {
-            for (const appt of appts) {
-              if ((appt.clientId || appt.client_id || "") !== selectedClientId) continue;
-              const ps = (appt.paymentStatus || appt.payment_status || appt.status || "").toLowerCase();
-              if (!ps.includes("paid") && !ps.includes("partial") && ps !== "completed") continue;
-              const memItems: any[] = appt.membershipItems || appt.membership_items || appt.memberships || [];
-              for (const mi of memItems) {
-                const name: string = mi.name || mi.membershipName || mi.membership_name || "";
-                if (!name) continue;
-                const mid = resolveMid(mi, name);
-                const keyById   = `${selectedClientId}__${mid || name}`;
-                const keyByName = `${selectedClientId}__${name}`;
-                if (seen.has(keyById) || seen.has(keyByName)) continue;
-                // Mark both key forms so Source 3 cannot add a duplicate card for the same membership
-                seen.add(keyById);
-                seen.add(keyByName);
-                const catMem = catalog.find((c: any) => String(c.id) === mid);
-                const pricePaid = Number(mi.total || mi.price || 0) || catMem?.price || 0;
-                const sessions  = Number(catMem?.numberOfSessions ?? catMem?.number_of_sessions ?? 0);
-                const purchasedAt = appt.createdAt || appt.created_at || new Date().toISOString();
-                const svcUsed = (appt.services || []).reduce((s: number, sv: any) => s + Number(sv.total || sv.price || 0), 0);
-                const pkgUsed = (appt.packageItems || appt.package_items || []).reduce((s: number, p: any) => s + Number(p.total || 0), 0);
-                const prodUsed = (appt.productItems || appt.product_items || []).reduce((s: number, p: any) => s + Number(p.total || 0), 0);
-                const initialUsed = Math.min(svcUsed + pkgUsed + prodUsed, pricePaid);
-                const purchaseEntry: MemUsageEntry[] = initialUsed > 0
-                  ? [{ notes: `covered:${initialUsed.toFixed(2)}`, appointmentId: String(appt.id), createdAt: purchasedAt }]
-                  : [];
-                const memRef = mid || name;
-                // Read usage from BOTH possible keys (ID-based and name-based) so we never miss
-                // entries that were saved under either form, then deduplicate by appointmentId.
-                const usageById   = mergeUsage(purchaseEntry, memRef);
-                const usageByName = mid && mid !== name
-                  ? loadMemUsage(salonId, selectedClientId!, name)
-                  : [];
-                const allUsage = [...usageById];
-                for (const e of usageByName) {
-                  if (!e.appointmentId || !allUsage.some((x) => x.appointmentId === e.appointmentId))
-                    allUsage.push(e);
-                }
-                synth.push({
-                  id: `synth-${appt.id}-${memRef}`,
-                  clientId: selectedClientId,
-                  membershipId: mid || "",
-                  membershipName: name,
-                  colour: catMem?.colour || "#b8860b",
-                  totalSessions: sessions, usedSessions: 0, remainingSessions: sessions,
-                  status: "active", pricePaid,
-                  usageLog: allUsage,
-                  purchasedAt,
-                });
-              }
-            }
-          };
-
-          // Source 1: Redux bookings (calendar view — has full membershipItems)
-          processAppts(bookings as any[]);
-
-          // Source 2: API appointments (broader history)
-          const apptRes = await api.get("/api/v1/appointments?limit=200&page=1").catch(() => ({ data: {} }));
-          const rawData = apptRes.data?.data;
-          const apiAppts: any[] = Array.isArray(rawData) ? rawData
-            : Array.isArray(rawData?.items) ? rawData.items : [];
-          processAppts(apiAppts);
-
-          // Source 3: localStorage purchase records — covers memberships purchased on a different
-          // calendar day (not in Redux) or where API didn't return membershipItems
-          const localPurchases = loadAllMembershipPurchases(salonId, selectedClientId!);
-          for (const rec of localPurchases) {
-            // Check all key forms to avoid duplicating a membership already found via appointment data
-            const keyByRef  = `${selectedClientId}__${rec.ref}`;
-            const keyByName = `${selectedClientId}__${rec.membershipName}`;
-            const keyById   = rec.membershipId ? `${selectedClientId}__${rec.membershipId}` : null;
-            if (seen.has(keyByRef) || seen.has(keyByName) || (keyById && seen.has(keyById))) continue;
-            seen.add(keyByRef);
-            seen.add(keyByName);
-            if (keyById) seen.add(keyById);
-            const catMem = catalog.find((c: any) => String(c.id) === rec.ref || String(c.id) === rec.membershipId);
-            const sessions = Number(catMem?.numberOfSessions ?? catMem?.number_of_sessions ?? 0);
-            // Read usage from both possible keys and merge
-            const usageByRef  = mergeUsage([], rec.ref);
-            const usageById   = rec.membershipId && rec.membershipId !== rec.ref
-              ? loadMemUsage(salonId, selectedClientId!, rec.membershipId)
-              : [];
-            const allUsage = [...usageByRef];
-            for (const e of usageById) {
-              if (!e.appointmentId || !allUsage.some((x) => x.appointmentId === e.appointmentId))
-                allUsage.push(e);
-            }
-            synth.push({
-              id: `ls-${selectedClientId}-${rec.ref}`,
-              clientId: selectedClientId,
-              membershipId: rec.membershipId || rec.ref,
-              membershipName: rec.membershipName,
-              colour: rec.colour || catMem?.colour || "#b8860b",
-              totalSessions: sessions, usedSessions: 0, remainingSessions: sessions,
-              status: "active",
-              pricePaid: rec.pricePaid,
-              usageLog: allUsage,
-              purchasedAt: rec.purchasedAt,
-            });
-          }
-
-          setClientActiveMemberships(synth);
-        } catch {
-          setClientActiveMemberships([]);
-        }
-        setClientActiveMembershipsLoaded(true);
+        // API returned empty — synthesize from appointment history + localStorage
+        await synthesize();
       })
-      .catch(() => {
-        setClientActiveMemberships([]);
-        setClientActiveMembershipsLoaded(true);
-      });
+      .catch(() => synthesize()); // API failed — still attempt synthesis so localStorage records show
   }, [selectedClientId]);
 
   // Auto-apply the highest-credit membership when client memberships load (new appointments only)
@@ -767,7 +762,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
       setMembershipCoverageId(best.cm.id);
       setMembershipCoverageAmt(best.credit);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientActiveMembershipsLoaded]);
 
   // Restore membership coverage for existing appointments (view / edit).
@@ -792,7 +787,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
         }
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientActiveMembershipsLoaded]);
 
   const [isWalkin, setIsWalkin] = useState(_isWalkinInit);
@@ -812,16 +807,33 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
   const [showCal, setShowCal] = useState(false);
 
   // Rows
-  const [serviceRows, setServiceRows] = useState<TempService[]>(
-    (existingBooking?.services || []).length > 0 ? existingBooking!.services.map((s: any) => ({
-      ...s,
-      tempId: "sr_" + (s.id || "") + "_" + Math.random().toString(36).substring(2, 9),
-      staffId: s.staffId || existingBooking?.staffId || defaultStaffId || "",
-      staff: s.staff || (existingBooking as any)?.staffName || "",
-    })) : [
-      { tempId: "sr_" + Date.now(), id: "", service: "", staff: "", staffId: defaultStaffId || "", time: defaultTime || "10:00", price: 0, qty: 0, total: 0 },
-    ],
-  );
+  const [serviceRows, setServiceRows] = useState<TempService[]>(() => {
+    if ((existingBooking?.services || []).length > 0) {
+      const rows = existingBooking!.services.map((s: any) => ({
+        ...s,
+        tempId: "sr_" + (s.id || "") + "_" + Math.random().toString(36).substring(2, 9),
+        staffId: s.staffId || existingBooking?.staffId || defaultStaffId || "",
+        staff: s.staff || (existingBooking as any)?.staffName || "",
+      }));
+      // Auto-cascade if all services share the same start time (stale/unset DB data)
+      const allSameTime = rows.length > 1 && rows.every((r: any) => r.time === rows[0].time);
+      if (allSameTime) {
+        const [h0, m0] = (rows[0].time || "00:00").split(":").map(Number);
+        let runMins = h0 * 60 + m0;
+        return rows.map((r: any) => {
+          const hh = String(Math.floor(runMins / 60) % 24).padStart(2, "0");
+          const mm = String(runMins % 60).padStart(2, "0");
+          const cascaded = { ...r, time: `${hh}:${mm}` };
+          runMins += r.duration || 30;
+          return cascaded;
+        });
+      }
+      return rows;
+    }
+    return [
+      { tempId: "sr_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), id: "", service: "", staff: "", staffId: defaultStaffId || "", time: defaultTime || "10:00", price: 0, qty: 0, total: 0 },
+    ];
+  });
   const [packageRows, setPackageRows] = useState<TempPkg[]>((existingBooking?.packageItems || []).map((p: any) => ({ ...p, tempId: "pk_" + p.id, search: p.packageName, showDrop: false })));
   const [productRows, setProductRows] = useState<TempProduct[]>(((existingBooking as any)?.productItems || []).map((p: any) => ({ ...p, tempId: p.tempId || "pr_" + Date.now(), search: p.productName || "", showDrop: false })));
   const [membershipRows, setMembershipRows] = useState<TempMembership[]>(((existingBooking as any)?.membershipItems || []).map((m: any) => ({ ...m, tempId: m.tempId || "sub_" + Date.now(), membershipId: m.membershipId || "", qty: m.qty || 1, total: m.total || m.price || 0, search: m.name || "", showDrop: false, sessions: m.sessions || 0, colour: m.colour || "", validFor: m.validFor || m.duration || "" })));
@@ -857,13 +869,13 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
 
       const validFor = found.validFor || m.duration || "";
       const dto = {
-        clientId:      selectedClientId,
-        membershipId:  String(found.id),
+        clientId: selectedClientId,
+        membershipId: String(found.id),
         membershipName: m.name,
-        colour:        found.colour || undefined,
+        colour: found.colour || undefined,
         totalSessions: found.sessions || 0,
-        expiresAt:     durationToExpiresAt(validFor),
-        pricePaid:     m.price,
+        expiresAt: durationToExpiresAt(validFor),
+        pricePaid: m.price,
       };
 
       api.post("/api/v1/client-memberships", dto)
@@ -894,48 +906,6 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
   const getProdRef = (id: string) => { if (!prodDropRefs.current.has(id)) prodDropRefs.current.set(id, React.createRef()); return prodDropRefs.current.get(id)!; };
   const getMemRef = (id: string) => { if (!memDropRefs.current.has(id)) memDropRefs.current.set(id, React.createRef()); return memDropRefs.current.get(id)!; };
 
-  const prodDebounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  const prodAbortRefs    = useRef<Record<string, AbortController>>({});
-  const [productSearchResults, setProductSearchResults] = useState<Record<string, any[]>>({});
-  const [productSearchLoading, setProductSearchLoading] = useState<Record<string, boolean>>({});
-
-  function handleProductSearch(tempId: string, val: string) {
-    setProductRows((r) => r.map((x) => x.tempId === tempId ? { ...x, search: val, showDrop: true } : x));
-    clearTimeout(prodDebounceRefs.current[tempId]);
-    if (!val.trim()) {
-      prodAbortRefs.current[tempId]?.abort();
-      setProductSearchResults((prev) => ({ ...prev, [tempId]: [] }));
-      setProductSearchLoading((prev) => ({ ...prev, [tempId]: false }));
-      return;
-    }
-    setProductSearchLoading((prev) => ({ ...prev, [tempId]: true }));
-    prodDebounceRefs.current[tempId] = setTimeout(async () => {
-      prodAbortRefs.current[tempId]?.abort();
-      prodAbortRefs.current[tempId] = new AbortController();
-      try {
-        const res = await api.get(
-          `/api/v1/products?search=${encodeURIComponent(val.trim())}&limit=10`,
-          { signal: prodAbortRefs.current[tempId].signal }
-        );
-        const raw: any[] = res.data?.data?.data ?? res.data?.data ?? [];
-        setProductSearchResults((prev) => ({
-          ...prev,
-          [tempId]: Array.isArray(raw) ? raw.map((p) => ({
-            id:    String(p.id),
-            name:  p.name,
-            price: p.retail_price !== null && p.retail_price !== undefined ? parseFloat(p.retail_price) : null,
-            stock: Number(p.amount ?? 0),
-          })) : [],
-        }));
-      } catch (err: any) {
-        if (err?.name !== "CanceledError" && err?.code !== "ERR_CANCELED") {
-          setProductSearchResults((prev) => ({ ...prev, [tempId]: [] }));
-        }
-      } finally {
-        setProductSearchLoading((prev) => ({ ...prev, [tempId]: false }));
-      }
-    }, 300);
-  }
   useEffect(() => {
     const h = (e: MouseEvent) => {
       const t = e.target as Node;
@@ -978,7 +948,13 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
   const [eWalletAmt, setEWalletAmt] = useState(0);
   const isPaid = apptStatus === "PAID";
   // ✅ Feature 2 — the amount already paid on this appointment (don't re-charge it)
-  const alreadyPaidAmount = (isPaid || isActuallyPartial) ? (existingBooking?.payingNow ?? existingBooking?.grandTotal ?? 0) : 0;
+  // Prefer payingNow; fall back to (grandTotal - dueAmount) so partial payments with missing
+  // payingNow don't incorrectly show ₹0 remaining.
+  const alreadyPaidAmount = (isPaid || isActuallyPartial)
+    ? (existingBooking?.payingNow != null
+      ? existingBooking.payingNow
+      : Math.max(0, (existingBooking?.grandTotal ?? 0) - (existingBooking?.dueAmount ?? 0)))
+    : 0;
   const isPaymentFrozen = (isPaid || apptStatus === "CANCELLED") && !isEditing;
   const priceFrozen = formFrozen;
   const [_earnedPoints, setEarnedPoints] = useState(0);
@@ -988,6 +964,8 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
 
   // Save / Cancel / Delete
   const [isSaving, setIsSaving] = useState(false);
+  // Track temp booking IDs that are in-flight so we can roll them back if modal closes early
+  const pendingTempIdRef = useRef<string | null>(null);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [isCancelLoading, setIsCancelLoading] = useState(false);
   const [isDeleteLoading, setIsDeleteLoading] = useState(false);
@@ -996,11 +974,11 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
   const paymentSectionRef = useRef<HTMLDivElement>(null);
 
   // ── Package session completion ───────────────────────────────────────────────
-  const [pkgServiceMap,    setPkgServiceMap]    = useState<Record<string, string>>({});
-  const [pkgStaffMap,      setPkgStaffMap]      = useState<Record<string, string>>({});
+  const [pkgServiceMap, setPkgServiceMap] = useState<Record<string, string>>({});
+  const [pkgStaffMap, setPkgStaffMap] = useState<Record<string, string>>({});
   const [pkgCompletingKey, setPkgCompletingKey] = useState<string | null>(null);
-  const [pkgError,         setPkgError]         = useState("");
-  const [pkgSuccess,       setPkgSuccess]       = useState("");
+  const [pkgError, setPkgError] = useState("");
+  const [pkgSuccess, setPkgSuccess] = useState("");
 
   const { data: clientPkgsData, isLoading: pkgLoading } = useListClientPackagesQuery(
     { clientId: selectedClientId || "", status: "Active", limit: 50 },
@@ -1010,11 +988,11 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
   const clientPackages: ClientPackage[] = clientPkgsData?.items ?? [];
 
   async function handleCompleteSingleSession(packageId: string) {
-    const serviceId   = pkgServiceMap[packageId];
-    const staffId     = pkgStaffMap[packageId];
+    const serviceId = pkgServiceMap[packageId];
+    const staffId = pkgStaffMap[packageId];
     if (!serviceId || !staffId) { setPkgError("Please select a service and staff member."); return; }
-    const pkg         = clientPackages.find((p) => p.id === packageId);
-    const svc         = pkg?.services.find((s) => String(s.serviceId) === serviceId);
+    const pkg = clientPackages.find((p) => p.id === packageId);
+    const svc = pkg?.services.find((s) => String(s.serviceId) === serviceId);
     const serviceName = svc?.serviceName || serviceId;
     setPkgCompletingKey(packageId); setPkgError(""); setPkgSuccess("");
     try {
@@ -1022,7 +1000,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
       await completeSession({ id: packageId, body: { serviceId, staffName } }).unwrap();
       setPkgSuccess(`"${serviceName}" session marked as complete!`);
       setPkgServiceMap((prev) => { const n = { ...prev }; delete n[packageId]; return n; });
-      setPkgStaffMap((prev)   => { const n = { ...prev }; delete n[packageId]; return n; });
+      setPkgStaffMap((prev) => { const n = { ...prev }; delete n[packageId]; return n; });
     } catch (err: any) {
       setPkgError(err?.data?.message || err?.message || "Failed to complete session.");
     } finally {
@@ -1030,13 +1008,100 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
     }
   }
 
-  // Fetch client details from API when a client is selected
+  // Instant fallbacks computed from bookings already in Redux (no API call needed)
+  const reduxClientLastVisit = useMemo(() => {
+    if (!selectedClientId) return null;
+    const dates = (bookings as any[])
+      .filter((b) => String(b.clientId) === String(selectedClientId) && b.date)
+      .map((b) => b.date as string)
+      .sort()
+      .reverse();
+    return dates[0] ?? null;
+  }, [selectedClientId, bookings]);
+
+  const reduxClientUnpaid = useMemo(() => {
+    if (!selectedClientId) return 0;
+    return (bookings as any[])
+      .filter((b) => String(b.clientId) === String(selectedClientId))
+      .reduce((sum, b) => sum + (Number(b.dueAmount) || 0), 0);
+  }, [selectedClientId, bookings]);
+
+  // Fetch booking detail to get accurate financial data (list API omits pricing)
+  const [bookingDetailDue, setBookingDetailDue] = useState<number | null>(null);
+  useEffect(() => {
+    const bid = existingBooking?.id;
+    if (!bid || String(bid).startsWith("b_")) { setBookingDetailDue(null); return; }
+    let cancelled = false;
+    api.get(`/api/v1/appointments/${bid}`)
+      .then((r) => r.data?.data || r.data || null)
+      .then((detail) => {
+        if (!detail || cancelled) return;
+        const dueAmt = detail.due_amount != null ? Math.max(0, Number(detail.due_amount)) : null;
+        const paidAmt = Number(detail.paid_amount) || 0;
+        const grandTotal = Number(detail.grand_total ?? detail.total_amount) || 0;
+        const computed = dueAmt != null ? dueAmt : Math.max(0, grandTotal - paidAmt);
+        setBookingDetailDue(computed);
+        // NOTE: do NOT dispatch updateBookingAction here — it updates bookings in Redux
+        // which re-renders this modal, causing a cascade. Local state is sufficient for display.
+      })
+      .catch(() => { /* best-effort — ignore failures */ });
+    return () => { cancelled = true; };
+  }, [existingBooking?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch client details — Phase 1: show profile immediately, Phase 2: enrich with history
   useEffect(() => {
     if (!selectedClientId) { setSelectedClientDetails(null); return; }
+    let cancelled = false;
+
+    // Phase 1 — client profile (fast, show immediately)
     api.get(`/api/v1/clients/${selectedClientId}`)
-      .then((res) => setSelectedClientDetails(res.data?.data || null))
-      .catch((err) => console.error("Failed to fetch client details:", err));
-  }, [selectedClientId]);
+      .then((r) => r.data?.data || r.data || null)
+      .then((client) => {
+        if (!client || cancelled) return;
+        setSelectedClientDetails({
+          ...client,
+          wallet_balance: client.wallet_balance ?? client.ewallet_balance ?? 0,
+          reward_points: client.reward_points ?? client.rewardPoints ?? "None",
+          membership_tier: client.membership_tier ?? client.membership ?? "NA",
+          last_visit_date: client.last_visit_date ?? reduxClientLastVisit,
+          // Prefer API value only if > 0; fallback to Redux-derived sum (API often sends 0 even for partial bookings)
+          unpaid_amount: client.unpaid_amount > 0 ? client.unpaid_amount : reduxClientUnpaid,
+        });
+
+        // Phase 2 — history stats (may be slow, enriches once it arrives)
+        api.get(`/api/v1/clients/${selectedClientId}/history`)
+          .then((r) => r.data?.data?.stats || r.data?.stats || null)
+          .then((stats) => {
+            if (!stats || cancelled) return;
+            const statsUnpaid = stats.unpaid_amount > 0 ? stats.unpaid_amount
+              : stats.pending_amount > 0 ? stats.pending_amount
+                : stats.due_amount > 0 ? stats.due_amount
+                  : null;
+            setSelectedClientDetails((prev: any) => prev ? {
+              ...prev,
+              total_visits: stats.total_appointments ?? stats.total_visits ?? prev.total_visits ?? 0,
+              cancelled_count: stats.cancellations ?? stats.cancelled_count ?? prev.cancelled_count ?? 0,
+              total_revenue: stats.lifetime_spend ?? stats.total_revenue ?? prev.total_revenue ?? 0,
+              last_visit_date: stats.last_visit ?? stats.last_visit_date ?? stats.last_appointment_date ?? prev.last_visit_date,
+              unpaid_amount: statsUnpaid ?? prev.unpaid_amount,
+            } : prev);
+          })
+          .catch(() => { /* history is best-effort, ignore errors */ });
+      })
+      .catch(() => setSelectedClientDetails(null));
+
+    return () => { cancelled = true; };
+  }, [selectedClientId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When booking detail arrives with accurate due amount, patch the client card unpaid display
+  useEffect(() => {
+    if (bookingDetailDue == null || bookingDetailDue <= 0) return;
+    setSelectedClientDetails((prev: any) => {
+      if (!prev) return prev;
+      const current = prev.unpaid_amount ?? 0;
+      return current >= bookingDetailDue ? prev : { ...prev, unpaid_amount: bookingDetailDue };
+    });
+  }, [bookingDetailDue]);
 
   // Derived totals
   const safeClientFromDetails = selectedClientDetails ? {
@@ -1111,11 +1176,15 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
   const nextTier = getNextTier(currentRevenue);
 
   // Split
-  // Fallback: if service prices weren't loaded (API gap), use the stored dueAmount directly
+  // Priority: bookingDetailDue (fetched on open) > storedDueAmount (from Redux) > calculated from totals
   const serviceHasPrices = serviceRows.some(r => (r.price || 0) > 0 || (r.total || 0) > 0);
   const storedDueAmount = Number((existingBooking as any)?.dueAmount ?? 0);
-  const remainingDue = isActuallyPartial && !isEditing && !serviceHasPrices && storedDueAmount > 0
-    ? storedDueAmount
+  const remainingDue = isActuallyPartial && !isEditing
+    ? (bookingDetailDue != null && bookingDetailDue > 0
+      ? bookingDetailDue
+      : (!serviceHasPrices && storedDueAmount > 0
+        ? storedDueAmount
+        : Math.max(0, effectiveTotal - alreadyPaidAmount)))
     : Math.max(0, effectiveTotal - alreadyPaidAmount);
   const splitTotal = splitEntries.reduce((a, e) => a + (parseFloat(e.amount) || 0), 0);
   const splitValid = paymentMode === "single" || Math.abs(splitTotal - remainingDue) <= 0.01;
@@ -1151,13 +1220,19 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
     setIsClientSaved(true);
 
     try {
-      const res = await api.post("/api/v1/clients", {
+      const action: any = await dispatch(createClientThunk({
+        fullName: `${newClientName.trim()} ${newClientLastName.trim()}`.trim(),
         first_name: newClientName.trim(),
         last_name: newClientLastName.trim(),
         phone_number: countryCode + newClientPhone.trim(),
         gender: newClientGender,
-      });
-      const createdId = res.data?.data?.id || res.data?.id || null;
+      }));
+      if (createClientThunk.rejected.match(action)) {
+        console.error("Failed to create client:", action.payload);
+        setIsClientSaved(false);
+        return;
+      }
+      const createdId = action.payload?.id ?? action.payload?.data?.id ?? null;
       setSelectedClientId(createdId ? String(createdId) : null);
     } catch (err: any) {
       console.error("Failed to create client:", err);
@@ -1177,9 +1252,20 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
 
   function updateServiceRow(id: string, field: string, value: string | number | boolean) {
     setServiceRows((rows) => {
-      const updated = rows.map((r) => r.tempId !== id ? r : { ...r, [field]: value });
-      if (field === "duration" || field === "time") {
-        for (let i = 1; i < updated.length; i++) {
+      const updated = rows.map((r) => {
+        if (r.tempId !== id) return r;
+        const patch: any = { [field]: value };
+        // Mark as manually timed when user explicitly sets the time field
+        if (field === "time") patch._manualTime = true;
+        // Clearing a service resets the manual-time flag
+        if (field === "service" && !value) patch._manualTime = false;
+        return { ...r, ...patch };
+      });
+      if (field === "duration") {
+        // Cascade times from the edited row forward, but skip rows the user has manually timed.
+        const editedIndex = updated.findIndex((r) => r.tempId === id);
+        for (let i = editedIndex + 1; i < updated.length; i++) {
+          if ((updated[i] as any)._manualTime) continue; // preserve manual time
           const prev = updated[i - 1];
           updated[i] = { ...updated[i], time: addMinutes(prev.time, (prev as any).duration || 30) };
         }
@@ -1223,8 +1309,12 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
   function buildPayload(paying: number, payStatus: "Paid" | "Partial" | "Unpaid"): Booking {
     const firstRow = serviceRows[0];
     const startTime = firstRow?.time || existingBooking?.startTime || defaultTime || "10:00";
-    const serviceDuration = (firstRow as any)?.duration || 30;
-    const endTime = addMinutes(startTime, serviceDuration);
+    // Compute endTime as the end of the last service (time + duration), so the
+    // optimistic Redux state matches what the API will return.
+    const lastRow = serviceRows[serviceRows.length - 1] ?? firstRow;
+    const endTime = lastRow
+      ? addMinutes(lastRow.time || startTime, (lastRow as any).duration || 30)
+      : addMinutes(startTime, 30);
 
     // ── Build combined title from all booking item types ──────────────────
     const appointmentTitle = [
@@ -1255,7 +1345,9 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
       status: payStatus === "Paid" ? "Confirmed" : "Pending",
       paymentStatus: payStatus,
       payment_status: payStatus.toLowerCase() as any,
-      paymentMode: (singleMethod || "Cash") as PaymentMode,
+      paymentMode: (paymentMode === "split"
+        ? splitEntries.filter((e) => parseFloat(e.amount) > 0).map((e) => e.method).join("+")
+        : (singleMethod || "Cash")) as PaymentMode,
       rewardPoints, exCharges, discount, discountType, gst,
       couponCode: couponApplied, couponDiscount, subtotal,
       taxableAmount: taxable, grandTotal: effectiveTotal,
@@ -1279,14 +1371,15 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
     if (selectedClientId) return selectedClientId;
     if (showAddClientForm && newClientName.trim() && newClientLastName.trim() && /^\d{10}$/.test(newClientPhone.trim()) && newClientGender) {
       try {
-        const res = await api.post("/api/v1/clients", {
+        const action: any = await dispatch(createClientThunk({
+          fullName: `${newClientName.trim()} ${newClientLastName.trim()}`.trim(),
           first_name: newClientName.trim(),
           last_name: newClientLastName.trim(),
           phone_number: countryCode + newClientPhone.trim(),
           gender: newClientGender,
-        });
-        const createdId = res.data?.data?.id || res.data?.id || null;
-        if (createdId) {
+        }));
+        const createdId = action.payload?.id ?? action.payload?.data?.id ?? null;
+        if (createdId && !createClientThunk.rejected.match(action)) {
           const id = String(createdId);
           setSelectedClientId(id);
           setClientSearch(`${newClientName.trim()} ${newClientLastName.trim()}`.trim());
@@ -1338,28 +1431,39 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
       const clientId = await resolveClientId();
       const b = buildPayload(0, "Unpaid");
       if (existingBooking) {
-        updateBooking(b);
-      } else {
-        addBooking(b);
-        const localId = String(b.id);
+        // Apply optimistic update to Redux immediately so the calendar reflects
+        // the change before the API responds.
+        dispatch(updateBookingAction(b as any));
+        const prevBooking = existingBooking;
         const firstRow = b.services[0];
         const startTime = firstRow?.time || defaultTime || "10:00";
-        const action: any = await dispatch(createBookingThunk({
+        const bookingStartMs = new Date(`${calDate}T${startTime}:00`).getTime();
+        const [stH0u, stM0u] = startTime.split(":").map(Number);
+        const bookingStartMinsU = stH0u * 60 + stM0u;
+        const [eh, em] = (b.endTime || "10:30").split(":").map(Number);
+        const [sh2, sm2] = startTime.split(":").map(Number);
+        const durationMins = Math.max(5, (eh * 60 + em) - (sh2 * 60 + sm2));
+        const editAction: any = await dispatch(updateBookingThunk({
+          id: b.id,
+          data: {
             salon_id: salonId || undefined,
             client_id: clientId || undefined,
-            staff_id: toApiStaffId(firstRow?.staffId) ?? toApiStaffId(staffList[0]?.id),
+            staff_id: toApiStaffId(firstRow?.staffId ?? b.staffId) ?? toApiStaffId(staffList[0]?.id),
             service_id: toApiStaffId(firstRow?.id) || undefined,
+            scheduled_at: new Date(bookingStartMs).toISOString(),
+            ends_at: new Date(bookingStartMs + durationMins * 60000).toISOString(),
+            duration_minutes: durationMins,
             services: b.services.map((s: any) => {
               const svcLocal = s.time || startTime;
-              const svcDt = new Date(`${calDate}T${svcLocal}:00`);
-              const svcStartISO = svcDt.toISOString();
-              const svcEndISO = new Date(svcDt.getTime() + (s.duration || 30) * 60000).toISOString();
+              const [svH, svM] = svcLocal.split(":").map(Number);
+              const svcOffsetMs = ((svH * 60 + svM) - bookingStartMinsU) * 60000;
+              const svcStartMs = bookingStartMs + svcOffsetMs;
               return {
                 service_id: s.id,
                 name: s.service,
                 staff_id: toApiStaffId(s.staffId),
-                start_time: svcStartISO,
-                end_time: svcEndISO,
+                start_time: new Date(svcStartMs).toISOString(),
+                end_time: new Date(svcStartMs + (s.duration || 30) * 60000).toISOString(),
                 price: s.price,
                 qty: s.qty || 1,
                 total: s.total,
@@ -1384,62 +1488,129 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
               quantity: m.qty || m.quantity || 1,
               duration: m.duration || undefined,
             })),
-            scheduled_at: new Date(`${calDate}T${startTime}:00`).toISOString(),
-            duration_minutes: b.services[0]?.duration || 30,
-            status: "booked",
             notes: notes || undefined,
             staff_alert: staffAlert || undefined,
-          }));
+            title: b.title,
+          },
+        }));
+        if (updateBookingThunk.rejected.match(editAction)) {
+          dispatch(updateBookingAction(prevBooking as any)); // rollback
+          setBlockTimeError(editAction.payload as string || "Failed to update appointment");
+          return;
+        }
+      } else {
+        addBooking(b);
+        const localId = String(b.id);
+        pendingTempIdRef.current = localId;
+        const firstRow = b.services[0];
+        const startTime = firstRow?.time || defaultTime || "10:00";
+        // Anchor all service times to the booking's UTC start to avoid per-service
+        // timezone re-parsing (which drifts by the TZ offset for times near midnight).
+        const bookingStartMs = new Date(`${calDate}T${startTime}:00`).getTime();
+        const [stH0, stM0] = startTime.split(":").map(Number);
+        const bookingStartMins = stH0 * 60 + stM0;
+        const action: any = await dispatch(createBookingThunk({
+          salon_id: salonId || undefined,
+          client_id: clientId || undefined,
+          staff_id: toApiStaffId(firstRow?.staffId) ?? toApiStaffId(staffList[0]?.id),
+          service_id: toApiStaffId(firstRow?.id) || undefined,
+          services: b.services.map((s: any) => {
+            const svcLocal = s.time || startTime;
+            const [svH, svM] = svcLocal.split(":").map(Number);
+            const svcOffsetMs = ((svH * 60 + svM) - bookingStartMins) * 60000;
+            const svcStartMs = bookingStartMs + svcOffsetMs;
+            const svcStartISO = new Date(svcStartMs).toISOString();
+            const svcEndISO = new Date(svcStartMs + (s.duration || 30) * 60000).toISOString();
+            return {
+              service_id: s.id,
+              name: s.service,
+              staff_id: toApiStaffId(s.staffId),
+              start_time: svcStartISO,
+              end_time: svcEndISO,
+              price: s.price,
+              qty: s.qty || 1,
+              total: s.total,
+            };
+          }),
+          package_items: (b.packageItems || []).map((p: any) => ({
+            package_id: p.packageId || p.id || undefined,
+            name: p.packageName || p.name || "",
+            price: p.price || 0,
+            quantity: p.qty || p.quantity || 1,
+          })),
+          product_items: ((b as any).productItems || []).map((p: any) => ({
+            product_id: p.id || p.product_id || undefined,
+            name: p.productName || p.name || "",
+            price: p.price || 0,
+            quantity: p.qty || p.quantity || 1,
+          })),
+          membership_items: ((b as any).membershipItems || []).map((m: any) => ({
+            membership_id: m.membershipId || m.id || undefined,
+            name: m.name || "",
+            price: m.price || 0,
+            quantity: m.qty || m.quantity || 1,
+            duration: m.duration || undefined,
+          })),
+          scheduled_at: new Date(`${calDate}T${startTime}:00`).toISOString(),
+          duration_minutes: (() => {
+            const [eh2, em2] = b.endTime.split(":").map(Number);
+            return Math.max(5, (eh2 * 60 + em2) - bookingStartMins);
+          })(),
+          status: "booked",
+          notes: notes || undefined,
+          staff_alert: staffAlert || undefined,
+        }));
 
-          if (createBookingThunk.rejected.match(action)) {
-            dispatch(deleteBookingAction(b.id)); // Rollback optimistic add
-            setBlockTimeError(action.payload as string || "Staff member already has an appointment at this time");
-            return; // Keep modal open
-          }
+        if (createBookingThunk.rejected.match(action)) {
+          dispatch(deleteBookingAction(b.id)); // Rollback optimistic add
+          setBlockTimeError(action.payload as string || "Staff member already has an appointment at this time");
+          return; // Keep modal open
+        }
 
-          // ✅ FIX — merge server response into the optimistic booking so the calendar
-          // renders the correct date/time/staffId/color immediately, without waiting for
-          // the full re-fetch that handleCloseAppt triggers after the modal closes.
-          const apiBooking = action.payload as any;
-          const realId = String(apiBooking?.id || "");
-          if (realId) {
-            dispatch(replaceBookingId({ localId, realId }));
-            // Patch the now-id-corrected booking with any server-canonical fields
-            dispatch(updateBookingAction({
-              ...b,
-              id: realId,
-              // Prefer server date (already toLocalDateStr'd by mapBooking in the thunk)
-              date: apiBooking?.date || b.date,
-              startTime: apiBooking?.startTime || b.startTime,
-              endTime: apiBooking?.endTime || b.endTime,
-              staffId: apiBooking?.staffId || b.staffId,
-              status: apiBooking?.status || b.status,
-              paymentStatus: apiBooking?.paymentStatus || b.paymentStatus,
-            } as any));
+        // ✅ FIX — merge server response into the optimistic booking so the calendar
+        // renders the correct date/time/staffId/color immediately, without waiting for
+        // the full re-fetch that handleCloseAppt triggers after the modal closes.
+        const apiBooking = action.payload as any;
+        const realId = String(apiBooking?.id || "");
+        if (realId) {
+          pendingTempIdRef.current = null; // API succeeded — no rollback needed
+          dispatch(replaceBookingId({ localId, realId }));
+          // Patch the now-id-corrected booking with any server-canonical fields
+          dispatch(updateBookingAction({
+            ...b,
+            id: realId,
+            // Prefer server date (already toLocalDateStr'd by mapBooking in the thunk)
+            date: apiBooking?.date || b.date,
+            startTime: apiBooking?.startTime || b.startTime,
+            endTime: apiBooking?.endTime || b.endTime,
+            staffId: apiBooking?.staffId || b.staffId,
+            status: apiBooking?.status || b.status,
+            paymentStatus: apiBooking?.paymentStatus || b.paymentStatus,
+          } as any));
 
-            // Save membership deduction on appointment save so the next visit
-            // always shows the correct reduced balance, even before payment is made.
-            // addMemUsageEntry deduplicates by appointmentId so the later
-            // handleCompletePayment call will NOT double-count.
-            if (membershipCoverageId && membershipCoverageApplied > 0 && clientId) {
-              const appliedCm = clientActiveMemberships.find((cm: any) => cm.id === membershipCoverageId);
-              const memId   = (appliedCm?.membershipId || "").trim();
-              const memName = (appliedCm?.membershipName || "").trim();
-              const memRef  = memId || memName;
-              if (memRef) {
-                const svcNames = serviceRows.filter((r) => r.service).map((r) => r.service).join(", ");
-                const saveEntry: MemUsageEntry = {
-                  notes: `covered:${membershipCoverageApplied.toFixed(2)}`,
-                  appointmentId: realId,
-                  createdAt: new Date().toISOString(),
-                  serviceName: svcNames || "Service",
-                };
-                addMemUsageEntry(salonId, String(clientId), memRef, saveEntry);
-                const altRef = memId && memId !== memName ? memName : "";
-                if (altRef) addMemUsageEntry(salonId, String(clientId), altRef, saveEntry);
-              }
+          // Save membership deduction on appointment save so the next visit
+          // always shows the correct reduced balance, even before payment is made.
+          // addMemUsageEntry deduplicates by appointmentId so the later
+          // handleCompletePayment call will NOT double-count.
+          if (membershipCoverageId && membershipCoverageApplied > 0 && clientId) {
+            const appliedCm = clientActiveMemberships.find((cm: any) => cm.id === membershipCoverageId);
+            const memId = (appliedCm?.membershipId || "").trim();
+            const memName = (appliedCm?.membershipName || "").trim();
+            const memRef = memId || memName;
+            if (memRef) {
+              const svcNames = serviceRows.filter((r) => r.service).map((r) => r.service).join(", ");
+              const saveEntry: MemUsageEntry = {
+                notes: `covered:${membershipCoverageApplied.toFixed(2)}`,
+                appointmentId: realId,
+                createdAt: new Date().toISOString(),
+                serviceName: svcNames || "Service",
+              };
+              addMemUsageEntry(salonId, String(clientId), memRef, saveEntry);
+              const altRef = memId && memId !== memName ? memName : "";
+              if (altRef) addMemUsageEntry(salonId, String(clientId), altRef, saveEntry);
             }
           }
+        }
       }
       onClose();
     } catch (err: any) {
@@ -1451,13 +1622,15 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
   }
 
   async function handleContinueToPayment() {
+    if (isSaving) return;
+    setIsSaving(true);
     try {
       const errors = runValidation();
       console.log("📋 Validation errors:", errors);
-      if (errors.length) { 
+      if (errors.length) {
         console.warn("❌ Validation failed:", errors);
-        setValidationErrors(errors); 
-        return; 
+        setValidationErrors(errors);
+        return;
       }
       setValidationErrors([]);
       setBlockTimeError(null);
@@ -1485,54 +1658,65 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
       if (!existingBooking) {
         addBooking(b);
         const localId = String(b.id);
+        pendingTempIdRef.current = localId;
         const firstRow = b.services[0];
         const startTime = firstRow?.time || defaultTime || "10:00";
+        // Anchor all service times to the booking's UTC start to avoid per-service
+        // timezone re-parsing (which drifts by the TZ offset for times near midnight).
+        const bookingStartMs = new Date(`${calDate}T${startTime}:00`).getTime();
+        const [stH0, stM0] = startTime.split(":").map(Number);
+        const bookingStartMins = stH0 * 60 + stM0;
         const action: any = await dispatch(createBookingThunk({
-            salon_id: salonId || undefined,
-            client_id: clientId || undefined,
-            staff_id: toApiStaffId(firstRow?.staffId) ?? toApiStaffId(staffList[0]?.id),
-            service_id: toApiStaffId(firstRow?.id) || undefined,
-            services: b.services.map((s: any) => {
-              const svcLocal = s.time || startTime;
-              const svcDt = new Date(`${calDate}T${svcLocal}:00`);
-              const svcStartISO = svcDt.toISOString();
-              const svcEndISO = new Date(svcDt.getTime() + (s.duration || 30) * 60000).toISOString();
-              return {
-                service_id: s.id,
-                name: s.service,
-                staff_id: toApiStaffId(s.staffId),
-                start_time: svcStartISO,
-                end_time: svcEndISO,
-                price: s.price,
-                qty: s.qty || 1,
-                total: s.total,
-              };
-            }),
-            package_items: (b.packageItems || []).map((p: any) => ({
-              package_id: p.packageId || p.id || undefined,
-              name: p.packageName || p.name || "",
-              price: p.price || 0,
-              quantity: p.qty || p.quantity || 1,
-            })),
-            product_items: ((b as any).productItems || []).map((p: any) => ({
-              product_id: p.id || p.product_id || undefined,
-              name: p.productName || p.name || "",
-              price: p.price || 0,
-              quantity: p.qty || p.quantity || 1,
-            })),
-            membership_items: ((b as any).membershipItems || []).map((m: any) => ({
-              membership_id: m.membershipId || m.id || undefined,
-              name: m.name || "",
-              price: m.price || 0,
-              quantity: m.qty || m.quantity || 1,
-              duration: m.duration || undefined,
-            })),
-            scheduled_at: new Date(`${calDate}T${startTime}:00`).toISOString(),
-            duration_minutes: b.services[0]?.duration || 30,
-            status: "booked",
-            notes: notes || undefined,
-            staff_alert: staffAlert || undefined,
-          }));
+          salon_id: salonId || undefined,
+          client_id: clientId || undefined,
+          staff_id: toApiStaffId(firstRow?.staffId) ?? toApiStaffId(staffList[0]?.id),
+          service_id: toApiStaffId(firstRow?.id) || undefined,
+          services: b.services.map((s: any) => {
+            const svcLocal = s.time || startTime;
+            const [svH, svM] = svcLocal.split(":").map(Number);
+            const svcOffsetMs = ((svH * 60 + svM) - bookingStartMins) * 60000;
+            const svcStartMs = bookingStartMs + svcOffsetMs;
+            const svcStartISO = new Date(svcStartMs).toISOString();
+            const svcEndISO = new Date(svcStartMs + (s.duration || 30) * 60000).toISOString();
+            return {
+              service_id: s.id,
+              name: s.service,
+              staff_id: toApiStaffId(s.staffId),
+              start_time: svcStartISO,
+              end_time: svcEndISO,
+              price: s.price,
+              qty: s.qty || 1,
+              total: s.total,
+            };
+          }),
+          package_items: (b.packageItems || []).map((p: any) => ({
+            package_id: p.packageId || p.id || undefined,
+            name: p.packageName || p.name || "",
+            price: p.price || 0,
+            quantity: p.qty || p.quantity || 1,
+          })),
+          product_items: ((b as any).productItems || []).map((p: any) => ({
+            product_id: p.id || p.product_id || undefined,
+            name: p.productName || p.name || "",
+            price: p.price || 0,
+            quantity: p.qty || p.quantity || 1,
+          })),
+          membership_items: ((b as any).membershipItems || []).map((m: any) => ({
+            membership_id: m.membershipId || m.id || undefined,
+            name: m.name || "",
+            price: m.price || 0,
+            quantity: m.qty || m.quantity || 1,
+            duration: m.duration || undefined,
+          })),
+          scheduled_at: new Date(`${calDate}T${startTime}:00`).toISOString(),
+          duration_minutes: (() => {
+            const [eh2, em2] = b.endTime.split(":").map(Number);
+            return Math.max(5, (eh2 * 60 + em2) - bookingStartMins);
+          })(),
+          status: "booked",
+          notes: notes || undefined,
+          staff_alert: staffAlert || undefined,
+        }));
 
         if (createBookingThunk.rejected.match(action)) {
           dispatch(deleteBookingAction(b.id)); // Rollback optimistic add
@@ -1544,6 +1728,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
         const apiBooking = action.payload as any;
         const realId = String(apiBooking?.id || "");
         if (realId) {
+          pendingTempIdRef.current = null; // API succeeded — no rollback needed
           dispatch(replaceBookingId({ localId, realId }));
           dispatch(updateBookingAction({
             ...b,
@@ -1564,6 +1749,8 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
     } catch (err: any) {
       console.error("Failed to continue to payment:", err);
       toast.error("Unable to continue to payment. Please try again.");
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -1693,15 +1880,15 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
             sessionsToConsume: 1,
             notes: `covered:${membershipCoverageApplied.toFixed(2)}`,
           },
-        })).catch(() => {});
+        })).catch(() => { });
         // Always persist to localStorage — works even when backend is 500.
         // Save to BOTH the ID key and name key so synthesis finds it regardless
         // of which key form was used when the purchase was originally saved.
         if (clientId) {
           const appliedCm = clientActiveMemberships.find((cm: any) => cm.id === membershipCoverageId);
-          const memId   = (appliedCm?.membershipId || "").trim();
+          const memId = (appliedCm?.membershipId || "").trim();
           const memName = (appliedCm?.membershipName || "").trim();
-          const memRef  = memId || memName;
+          const memRef = memId || memName;
           if (memRef) {
             const apptIdForSave = String(apptId || apiAppointmentId || `b_${Date.now()}`);
             const svcNames = serviceRows.filter((r) => r.service).map((r) => r.service).join(", ");
@@ -1723,10 +1910,10 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
         // Services in the same appointment as a membership purchase are covered by it.
         // Save this initial usage to localStorage so future synthesis (Source 3 path)
         // picks it up even when the purchase appointment is no longer in the calendar view.
-        const purchaseSvcTotal  = serviceRows.reduce((s, r) => s + (r.total || 0), 0);
-        const purchasePkgTotal  = packageRows.reduce((s, r) => s + (r.total || 0), 0);
+        const purchaseSvcTotal = serviceRows.reduce((s, r) => s + (r.total || 0), 0);
+        const purchasePkgTotal = packageRows.reduce((s, r) => s + (r.total || 0), 0);
         const purchaseProdTotal = productRows.reduce((s, r) => s + (r.total || 0), 0);
-        const purchaseApptId    = String(apptId || apiAppointmentId || `b_${Date.now()}`);
+        const purchaseApptId = String(apptId || apiAppointmentId || `b_${Date.now()}`);
 
         for (const m of membershipRows.filter((r) => r.name)) {
           const membershipId = m.membershipId ||
@@ -1794,7 +1981,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
             totalSessions: m.sessions || 0,
             expiresAt: durationToExpiresAt(validFor),
             pricePaid: walletValue,  // wallet = paid + bonusCredit
-          })).catch(() => {});
+          })).catch(() => { });
         }
       }
 
@@ -1804,9 +1991,12 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
         dispatch(patchPaymentStatus({
           id: String(targetId),
           paymentStatus: payStatus,
-          payingNow: totalPaid,
+          payingNow: alreadyPaidAmount + chargeAmount,
           dueAmount: newDue,
           grandTotal: effectiveTotal,
+          paymentMode: paymentMode === "split"
+            ? Object.keys(methods).filter((k) => k !== "eWallet").join("+")
+            : (singleMethod || "Cash"),
         }));
       }
     }
@@ -1858,23 +2048,18 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
   async function handleCancelAppointment() {
     if (!existingBooking) return;
     const id = apiAppointmentId || (UUID_RE.test(String(existingBooking.id)) ? String(existingBooking.id) : null);
-    if (!id) {
-      alert("Appointment ID not found");
-      return;
-    }
+    if (!id) { alert("Appointment ID not found"); return; }
     setIsCancelLoading(true);
     setCancelDeleteError("");
     try {
-      // Backend route: POST /api/v1/appointments/:id/cancel
       await api.post(`/api/v1/appointments/${id}/cancel`);
-      // Update Redux state optimistically (no second API call)
       dispatch(updateBookingAction({ ...existingBooking, status: "Cancelled" } as any));
       setShowDotMenu(false);
       setTimeout(() => onClose(), 300);
     } catch (err: any) {
       const errorMsg = err?.response?.data?.error?.message || "Failed to cancel appointment";
       setCancelDeleteError(errorMsg);
-      console.error("Failed to cancel appointment:", err);
+      toast.error(errorMsg);
     } finally {
       setIsCancelLoading(false);
     }
@@ -1911,20 +2096,38 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
     }
   }
 
+  function handleClose() {
+    // Roll back any optimistic booking that was never confirmed by the API
+    if (pendingTempIdRef.current) {
+      dispatch(deleteBookingAction(pendingTempIdRef.current));
+      pendingTempIdRef.current = null;
+    }
+    onClose();
+  }
+
   // ─── RENDER ──────────────────────────────────────────────────────────────────
   return (
-    <div className="appt-drawer-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="appt-drawer-overlay" onClick={(e) => e.target === e.currentTarget && handleClose()}>
       <div className="appt-drawer-content">
 
         {/* HEADER */}
         <div className="appt-drawer-header" style={{ minWidth: 0 }}>
-          <button className="btn-close-drawer btn btn-sm btn-link text-dark text-decoration-none fs-5 p-0" onClick={onClose}>✕</button>
+          <button className="btn-close-drawer btn btn-sm btn-link text-dark text-decoration-none fs-5 p-0" onClick={handleClose}>✕</button>
           <h5 className="mb-0 fw-bold flex-grow-1" style={{ minWidth: 0 }}>
             {apptStatus === "NEW" ? "New Appointment" : !isEditing ? "View Appointment" : "Edit Appointment"}
           </h5>
 
           {isPaid && (
             <span className="appt-header-status-badge appt-header-status-badge--paid">✓ Paid</span>
+          )}
+          {existingBooking && !isEditing && apptStatus !== "CANCELLED" && (
+            <button
+              className="btn btn-sm btn-outline-primary"
+              style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, padding: "3px 10px", flexShrink: 0 }}
+              onClick={() => setIsEditing(true)}
+            >
+              <PencilFill size={11} /> Edit
+            </button>
           )}
           {existingBooking && (
             <div ref={dotMenuRef} className="position-relative flex-shrink-0">
@@ -1940,9 +2143,11 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                     <button className="dropdown-item d-flex align-items-center gap-2" onClick={() => { const creditAmt = printCreditAmt || membershipCoverageApplied; const creditName = printCreditName || clientActiveMemberships.find((cm: any) => cm.id === membershipCoverageId)?.membershipName || ""; const baseBk = savedBookingRef || existingBooking!; const receiptGT = Math.max(0, rawGrandTotal - creditAmt); const printBk = { ...baseBk, grandTotal: receiptGT }; printBill(printBk, paidMethodsSnap, staffList, currentSalon, creditAmt, creditName); setShowDotMenu(false); }}><Printer size={13} />Print Receipt</button>
                   )}
                   <div className="dropdown-divider" style={{ margin: "4px 0" }}></div>
-                  <button className="dropdown-item d-flex align-items-center gap-2" onClick={() => handleCancelAppointment()} disabled={isCancelLoading || apptStatus === "CANCELLED"}>
-                    {isCancelLoading ? <><ArrowRepeat size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />Cancelling...</> : apptStatus === "CANCELLED" ? "✓ Already Cancelled" : "Cancel Appointment"}
-                  </button>
+                  {!isCompleted && (
+                    <button className="dropdown-item d-flex align-items-center gap-2" onClick={() => handleCancelAppointment()} disabled={isCancelLoading || apptStatus === "CANCELLED"}>
+                      {isCancelLoading ? <><ArrowRepeat size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />Cancelling...</> : apptStatus === "CANCELLED" ? "✓ Already Cancelled" : "Cancel Appointment"}
+                    </button>
+                  )}
                   <button className="dropdown-item d-flex align-items-center gap-2" onClick={() => { setShowDeleteConfirmation(true); setShowDotMenu(false); }} disabled={isDeleteLoading}>
                     {isDeleteLoading ? <><ArrowRepeat size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />Deleting...</> : <><Trash size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />Delete Appointment</>}
                   </button>
@@ -2034,7 +2239,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                     // Auto-fill Add Client form with selected client's details
                     setNewClientName(client.first_name || "");
                     setNewClientLastName(client.last_name || "");
-                    
+
                     let phoneStr = client.phone_number || "";
                     let matchedCountryCode = "+91";
                     const possibleCodes = COUNTRY_CODES.map(c => c.code).sort((a, b) => b.length - a.length);
@@ -2256,9 +2461,11 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                     }}
                     onMouseEnter={e => (e.currentTarget.style.background = "#374151")}
                     onMouseLeave={e => (e.currentTarget.style.background = "#111827")}
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const id = selectedClientId;
                       onClose();
-                      navigate(`/dashboard/clients/list`, { state: { openClientId: selectedClientId } });
+                      setTimeout(() => navigate(`/dashboard/clients/history`, { state: { openClientId: id } }), 0);
                     }}
                   >
                     ↗ Click Here
@@ -2273,7 +2480,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
             <div className="appt-section appt-pkg-section" style={{ pointerEvents: "auto", userSelect: "auto" }}>
               <div className="appt-section__title">📦 Complete Package Sessions</div>
 
-              {pkgError   && <div className="appt-pkg-msg appt-pkg-msg--error">{pkgError}</div>}
+              {pkgError && <div className="appt-pkg-msg appt-pkg-msg--error">{pkgError}</div>}
               {pkgSuccess && <div className="appt-pkg-msg appt-pkg-msg--success">{pkgSuccess}</div>}
 
               {pkgLoading ? (
@@ -2372,8 +2579,9 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
             {productRows.length > 0 && (<>
               <div className="table-header table-header--products"><div>PRODUCT</div><div>PRICE</div><div>QTY</div><div>DISC (₹)</div><div>TOTAL</div><div /></div>
               {productRows.map((row, i) => {
-                const prodResults = productSearchResults[row.tempId] || [];
-                const prodLoading = productSearchLoading[row.tempId] || false;
+                const prodFiltered = (productsList || []).filter((p: any) =>
+                  !row.search.trim() || p.name.toLowerCase().includes(row.search.toLowerCase())
+                );
                 const hasRowErr = hasErr(`prod_${i}_name`);
                 return (
                   <div key={row.tempId} className="item-row-grid item-row-grid--prod border-bottom" style={{ position: "relative" }}>
@@ -2383,17 +2591,16 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                       </div>
                     )}
                     <InlineDrop dropRef={getProdRef(row.tempId)} search={row.search} showDrop={row.showDrop} placeholder="Search product…" disabled={priceFrozen} hasError={hasRowErr}
-                      loading={prodLoading}
                       inputStyle={row.stock !== undefined && row.stock <= 0 ? { color: "#dc2626", fontWeight: 600 } : undefined}
                       onFocus={() => setProductRows((r) => r.map((x) => ({ ...x, showDrop: x.tempId === row.tempId })))}
-                      onSearchChange={(v) => handleProductSearch(row.tempId, v)}
-                      items={prodResults.map((p: any) => ({
+                      onSearchChange={(v) => setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, search: v, showDrop: true } : x))}
+                      items={prodFiltered.map((p: any) => ({
                         label: p.name,
-                        price: p.price === null ? 0 : p.price,
-                        stockIndicator: p.stock <= 0,
+                        price: p.price ?? 0,
+                        stockIndicator: p.stock !== undefined && p.stock <= 0,
                         priceLabel: p.price === null ? <span style={{ fontSize: 10, color: "#6c757d", fontStyle: "italic" }}>Price not available</span> : undefined
                       }))}
-                      onSelect={(item) => { const prod = prodResults.find((p: any) => p.name === item.label) as any; if (!prod) return; setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, id: prod.id, productName: prod.name, price: prod.price ?? 0, total: Math.max(0, (prod.price ?? 0) * (x.qty || 1) - (x.discount || 0)), search: prod.name, showDrop: false, stock: prod.stock } : x)); clearErrPrefix(`prod_${i}_`); }} />
+                      onSelect={(item) => { const prod = (productsList || []).find((p: any) => p.name === item.label) as any; if (!prod) return; setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, id: prod.id, productName: prod.name, price: prod.price ?? 0, total: Math.max(0, (prod.price ?? 0) * (x.qty || 1) - (x.discount || 0)), search: prod.name, showDrop: false, stock: prod.stock } : x)); clearErrPrefix(`prod_${i}_`); }} />
                     <input readOnly value={`₹${row.price}`} className="form-control form-control-sm bg-white" />
                     <input type="text" inputMode="numeric" placeholder="1" value={row.qty} disabled={priceFrozen} className="form-control form-control-sm"
                       onChange={(e) => { const val = e.target.value.replace(/[^0-9.]/g, ""); const num = parseFloat(val); setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: val as any, total: (!isNaN(num) && num > 0) ? Math.max(0, x.price * num - (x.discount || 0)) : x.total } : x)); }}
@@ -2415,21 +2622,21 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                   Client Memberships
                 </div>
                 {clientActiveMemberships.map((cm: any) => {
-                  const total     = Number(cm.pricePaid) || 0;
-                  const used      = (cm.usageLog ?? []).reduce((s: number, log: any) => {
+                  const total = Number(cm.pricePaid) || 0;
+                  const used = (cm.usageLog ?? []).reduce((s: number, log: any) => {
                     const m = String(log.notes ?? "").match(/covered:([\d.]+)/);
                     return s + (m ? parseFloat(m[1]) : 0);
                   }, 0);
-                  const remaining   = Math.max(0, total - used);
-                  const isApplied   = membershipCoverageId === cm.id;
-                  const maxCover    = Math.min(remaining, rawGrandTotal);
-                  const isActive    = (cm.status || "active").toLowerCase() === "active";
+                  const remaining = Math.max(0, total - used);
+                  const isApplied = membershipCoverageId === cm.id;
+                  const maxCover = Math.min(remaining, rawGrandTotal);
+                  const isActive = (cm.status || "active").toLowerCase() === "active";
                   const isExhausted = isActive && remaining <= 0;
-                  const deductAmt   = isApplied ? Math.min(membershipCoverageAmt, rawGrandTotal) : maxCover;
-                  const afterVisit  = Math.max(0, remaining - deductAmt);
-                  const barPct      = total > 0 ? Math.min(100, (remaining / total) * 100) : 0;
-                  const barColor    = remaining > total * 0.5 ? "#22c55e" : remaining > total * 0.2 ? "#f59e0b" : "#ef4444";
-                  const shortfall   = rawGrandTotal > remaining ? rawGrandTotal - remaining : 0;
+                  const deductAmt = isApplied ? Math.min(membershipCoverageAmt, rawGrandTotal) : maxCover;
+                  const afterVisit = Math.max(0, remaining - deductAmt);
+                  const barPct = total > 0 ? Math.min(100, (remaining / total) * 100) : 0;
+                  const barColor = remaining > total * 0.5 ? "#22c55e" : remaining > total * 0.2 ? "#f59e0b" : "#ef4444";
+                  const shortfall = rawGrandTotal > remaining ? rawGrandTotal - remaining : 0;
 
                   // Build running-balance history (most recent first).
                   // Entries from localStorage use createdAt; server entries use usedAt.
@@ -2454,9 +2661,11 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                         {cm.expiresAt && (
                           <span style={{ fontSize: 9, color: "#94a3b8" }}>Exp {new Date(cm.expiresAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
                         )}
-                        <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 8px", borderRadius: 20,
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, padding: "1px 8px", borderRadius: 20,
                           background: isExhausted ? "#fef3c7" : isActive ? "#dcfce7" : "#fee2e2",
-                          color:      isExhausted ? "#92400e"  : isActive ? "#15803d" : "#b91c1c" }}>
+                          color: isExhausted ? "#92400e" : isActive ? "#15803d" : "#b91c1c"
+                        }}>
                           {isExhausted ? "Exhausted" : isActive ? "Active" : "Expired"}
                         </span>
                       </div>
@@ -2632,7 +2841,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                 <Button variant="dark" size="sm" onClick={() => setServiceRows((r) => {
                   const last = r[r.length - 1];
                   const nextTime = last ? addMinutes(last.time, (last as any).duration || 30) : (defaultTime || "10:00");
-                  return [...r, { tempId: "sr_" + Date.now(), id: "", service: "", staff: "", staffId: last?.staffId || defaultStaffId || "", time: nextTime, price: 0, qty: 0, total: 0 }];
+                  return [...r, { tempId: "sr_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), id: "", service: "", staff: "", staffId: last?.staffId || defaultStaffId || "", time: nextTime, price: 0, qty: 0, total: 0 }];
                 })}>+ Service</Button>
                 <Button variant="dark" size="sm" onClick={() => setPackageRows((r) => [...r, { tempId: "pk_" + Date.now(), id: "", packageId: "", packageName: "", price: 0, qty: 1, total: 0, search: "", showDrop: true }])}>+ Package</Button>
                 <Button variant="dark" size="sm" onClick={() => setProductRows((r) => [...r, { tempId: "pr_" + Date.now(), id: "", productName: "", price: 0, qty: 1, total: 0, search: "", showDrop: true }])}>+ Product</Button>
@@ -2893,7 +3102,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
             <div className="appt-section appt-pkg-section">
               <div className="appt-section__title">📦 Complete Package Sessions</div>
 
-              {pkgError   && <div className="appt-pkg-msg appt-pkg-msg--error">{pkgError}</div>}
+              {pkgError && <div className="appt-pkg-msg appt-pkg-msg--error">{pkgError}</div>}
               {pkgSuccess && <div className="appt-pkg-msg appt-pkg-msg--success">{pkgSuccess}</div>}
 
               {pkgLoading && <div className="appt-pkg-empty">Loading packages…</div>}
@@ -2964,26 +3173,79 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
           </div>
         )}
 
+        {/* Outstanding due banner — lives OUTSIDE the flex footer so it's always full-width */}
+        {apptStatus === "UNPAID" && !isPaid && isActuallyPartial && !showPaymentSection && (
+          <div style={{
+            margin: "0 22px 0 22px",
+            background: "linear-gradient(135deg, #fffbeb, #fef3c7)",
+            border: "1.5px solid #f59e0b",
+            borderRadius: "10px",
+            padding: "10px 14px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 8,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#92400e", letterSpacing: "0.01em" }}>Outstanding Due</div>
+                <div style={{ fontSize: 11, color: "#b45309", marginTop: 1 }}>
+                  Paid: ₹{alreadyPaidAmount.toFixed(2)}&nbsp;&nbsp;•&nbsp;&nbsp;Balance: ₹{remainingDue.toFixed(2)}
+                </div>
+              </div>
+            </div>
+            <span style={{ fontSize: 17, fontWeight: 800, color: "#d97706", letterSpacing: "-0.02em" }}>
+              ₹{remainingDue.toFixed(2)}
+            </span>
+          </div>
+        )}
+
         {apptStatus === "UNPAID" && !isPaid && (
           <div className="appt-drawer-footer" style={{ marginTop: "8px" }}>
             {cancelDeleteError && (
               <div className="alert alert-danger small py-2 w-100 mb-2" style={{ borderRadius: "6px" }}>{cancelDeleteError}</div>
             )}
+
             {!showPaymentSection ? (
               <>
                 {isEditing ? (
-                  <Button variant="dark" fullWidth onClick={handleSave}>Update Appointment</Button>
+                  <Button variant="dark" fullWidth onClick={handleSave} disabled={isSaving}>{isSaving ? "Saving…" : "Update Appointment"}</Button>
                 ) : (
                   <Button variant="outline-secondary" fullWidth onClick={() => { setIsEditing(true); setShowDotMenu(false); }}><PencilFill size={13} style={{ marginRight: 6, verticalAlign: "middle" }} />Update Appointment</Button>
                 )}
-                <Button fullWidth onClick={handleContinueToPayment} style={{ background: "linear-gradient(135deg,#10b981,#059669)", color: "#fff", border: "none", fontWeight: 700, boxShadow: "0 4px 14px rgba(16,185,129,0.3)" }}>
-                  <CreditCard2Front size={14} style={{ marginRight: 6, verticalAlign: "middle" }} />Continue to Payment
-                </Button>
+                {isActuallyPartial ? (
+                  <Button
+                    fullWidth
+                    onClick={handleContinueToPayment}
+                    disabled={isSaving}
+                    style={{
+                      background: "linear-gradient(135deg, #f59e0b, #d97706)",
+                      color: "#fff",
+                      border: "none",
+                      fontWeight: 700,
+                      fontSize: 14,
+                      boxShadow: "0 4px 16px rgba(245,158,11,0.4)",
+                      letterSpacing: "0.01em",
+                    }}
+                  >
+                    <RecordCircle size={15} style={{ marginRight: 7, verticalAlign: "middle" }} />
+                    {isSaving ? "Please wait…" : `Collect Due — ₹${remainingDue.toFixed(2)}`}
+                  </Button>
+                ) : (
+                  <Button fullWidth onClick={handleContinueToPayment} disabled={isSaving} style={{ background: "linear-gradient(135deg,#10b981,#059669)", color: "#fff", border: "none", fontWeight: 700, boxShadow: "0 4px 14px rgba(16,185,129,0.3)" }}>
+                    <CreditCard2Front size={14} style={{ marginRight: 6, verticalAlign: "middle" }} />{isSaving ? "Please wait…" : "Continue to Payment"}
+                  </Button>
+                )}
               </>
             ) : (
               <>
                 {isEditing ? (
-                  <Button variant="dark" fullWidth onClick={handleSave}>Update Appointment</Button>
+                  <Button variant="dark" fullWidth onClick={handleSave} disabled={isSaving}>{isSaving ? "Saving…" : "Update Appointment"}</Button>
                 ) : (
                   <Button variant="outline-secondary" fullWidth onClick={() => { setIsEditing(true); setShowDotMenu(false); }}><PencilFill size={13} style={{ marginRight: 6, verticalAlign: "middle" }} />Update Appointment</Button>
                 )}
@@ -2996,7 +3258,9 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                       ? <><ArrowRepeat size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />Creating Booking...</>
                       : paymentMode === "split" && splitTotal > 0 && splitTotal < remainingDue
                         ? <><RecordCircle size={13} style={{ marginRight: 4, verticalAlign: "middle", color: "#7c3aed" }} />Confirm Partial — ₹{splitTotal.toFixed(2)} (₹{(remainingDue - splitTotal).toFixed(2)} due)</>
-                        : <><CheckCircleFill size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />Confirm &amp; Pay — ₹{remainingDue.toFixed(2)}</>
+                        : isActuallyPartial
+                          ? <><CheckCircleFill size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />Confirm Collect Due — ₹{remainingDue.toFixed(2)}</>
+                          : <><CheckCircleFill size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />Confirm &amp; Pay — ₹{remainingDue.toFixed(2)}</>
                   }
                   onClick={handleCompletePayment}
                 />

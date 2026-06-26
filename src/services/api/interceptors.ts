@@ -67,7 +67,10 @@ export const applyInterceptors = (instance: AxiosInstance) => {
           config.headers["Authorization"] = `Bearer ${accessToken}`;
         }
 
-        const salonId = state?.auth?.salonId ?? state?.salon?.currentSalon?.id;
+        const role = state?.auth?.role;
+        const salonId = role !== "super_admin"
+          ? (state?.auth?.salonId ?? state?.salon?.currentSalon?.id)
+          : null;
         if (salonId) {
           const url = new URL(config.url ?? "", "http://x");
           const inParams =

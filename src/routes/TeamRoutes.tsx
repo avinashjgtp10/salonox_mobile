@@ -18,10 +18,14 @@ const StaffServicesPage      = lazy(() => import("../features/staff/pages/StaffS
 const StaffSalesPage         = lazy(() => import("../features/staff/pages/StaffSalesPage"));
 const StaffPerformancePage   = lazy(() => import("../features/staff/pages/StaffPerformancePage"));
 
+const CommissionsPage = lazy(() => import("../features/staff/pages/CommissionsPage"));
+const AttendancePage  = lazy(() => import("../features/staff/pages/AttendancePage"));
+const PayrollPage     = lazy(() => import("../features/staff/pages/PayrollPage"));
+
 export const TeamRoutes = () => (
   <Suspense fallback={<PageLoader />}>
     <Routes>
-      {/* Default → members list (view_team outer guard wraps entire route tree) */}
+      {/* Default → members list */}
       <Route index element={<Navigate to="members" replace />} />
       <Route path="dashboard"    element={<StaffDashboardPage />} />
       <Route path="members"      element={<StaffListPage />} />
@@ -30,6 +34,11 @@ export const TeamRoutes = () => (
       <Route path="services"     element={<StaffServicesPage />} />
       <Route path="sales"        element={<StaffSalesPage />} />
       <Route path="performance"  element={<StaffPerformancePage />} />
+
+      {/* New pages */}
+      <Route path="commissions" element={<CommissionsPage />} />
+      <Route path="attendance"  element={<AttendancePage />} />
+      <Route path="payroll"     element={<PayrollPage />} />
 
       {/* manage_team required to add/edit/import staff */}
       <Route element={<PermissionGuard permKey="manage_team" />}>
@@ -40,14 +49,14 @@ export const TeamRoutes = () => (
 
       {/* manage_shifts required for schedule management */}
       <Route element={<PermissionGuard permKey="manage_shifts" />}>
-        <Route path="shifts"                 element={<ScheduledShiftsPage />} />
-        <Route path="repeating-shifts/:id"   element={<RepeatingShiftsPage />} />
+        <Route path="shifts"               element={<ScheduledShiftsPage />} />
+        <Route path="repeating-shifts/:id" element={<RepeatingShiftsPage />} />
       </Route>
 
       {/* view_payroll required for pay run access */}
       <Route element={<PermissionGuard permKey="view_payroll" />}>
-        <Route path="payruns"      element={<PayRunsPage />} />
-        <Route path="payruns/:id"  element={<PayRunBreakdownPage />} />
+        <Route path="payruns"     element={<PayRunsPage />} />
+        <Route path="payruns/:id" element={<PayRunBreakdownPage />} />
       </Route>
     </Routes>
   </Suspense>

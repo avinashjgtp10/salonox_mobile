@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import { store } from "../../../store/store";
 import api from "../../../services/api/axios";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import { fetchServicesThunk } from "../../../middleware/services/services.thunk";
 import { fetchBookingsThunk } from "../../../middleware/booking/booking.thunk";
+import { fetchClientsThunk } from "../../../middleware/client/client.thunk";
 import { useListPackagesQuery, useListPackageTemplatesQuery } from "../../../services/api/endpoints/packages.endpoints";
 import {
   setBookings,
@@ -54,7 +56,7 @@ function mapBackendStatus(s: string): "Confirmed" | "Pending" | "Cancelled" {
  * Exported so Scheduler.tsx can enrich individual bookings fetched by ID.
  * rawServices: the raw API services array (s.services.items from Redux)
  */
-export function mapApiBooking(item: any, rawServices: any[] = [], rawStaff: any[] = []): Booking {
+export function mapApiBooking(item: any, rawServices: any[] = [], rawStaff: any[] = [], rawClients: any[] = []): Booking {
   // ── Time extraction ──────────────────────────────────────────────────────────
   const { date, hh, mm } = isoToLocalParts(item.scheduled_at);
   let endHH = hh;
@@ -133,9 +135,24 @@ export function mapApiBooking(item: any, rawServices: any[] = [], rawStaff: any[
   }
 
   // ── Financials ───────────────────────────────────────────────────────────────
-  const grandTotal = parseFloat(String(item.grand_total ?? item.total_amount ?? 0)) || 0;
+  // Compute total from line items when grand_total isn't stored by the backend
+  const computedLineTotal = [
+    ...(item.services || []),
+    ...(item.product_items || []),
+    ...(item.package_items || []),
+    ...(item.membership_items || []),
+  ].reduce((sum: number, it: any) => {
+    const lineTotal = parseFloat(String(it.total ?? 0)) || 0;
+    if (lineTotal > 0) return sum + lineTotal;
+    const price = parseFloat(String(it.price ?? it.unit_price ?? 0)) || 0;
+    const qty = Number(it.quantity ?? it.qty ?? 1) || 1;
+    return sum + price * qty;
+  }, 0);
+  const grandTotal = parseFloat(String(item.grand_total ?? item.total_amount ?? 0)) || computedLineTotal;
   const payStatusStr = (item.payment_status ?? item.paymentStatus ?? "").toLowerCase();
   const paidAmount = Number(item.paid_amount) || 0;
+  // Use due_amount directly from API if present — avoids wrong calculation when paid_amount is missing
+  const apiDueAmount = item.due_amount != null ? Math.max(0, Number(item.due_amount)) : null;
   let finalPayStatus: "Paid" | "Partial" | "Unpaid" = "Unpaid";
   if (paidAmount > 0) {
     finalPayStatus = paidAmount >= grandTotal ? "Paid" : "Partial";
@@ -187,7 +204,30 @@ export function mapApiBooking(item: any, rawServices: any[] = [], rawStaff: any[
     id: String(item.id),
     title,
     clientId: item.client_id ? String(item.client_id) : undefined,
-    clientName: item.client?.fullName ?? item.client?.full_name ?? item.client_name ?? "",
+    clientName: (() => {
+      // Try every known API field name variant directly on the booking
+      if (item.clientName) return item.clientName;
+      if (item.client_name) return item.client_name;
+      // Try nested client object
+      const c = item.client;
+      if (c) {
+        if (c.fullName) return c.fullName;
+        if (c.full_name) return c.full_name;
+        if (c.name) return c.name;
+        if (c.first_name) return `${c.first_name} ${c.last_name ?? ""}`.trim();
+        if (c.firstName) return `${c.firstName} ${c.lastName ?? ""}`.trim();
+      }
+      // Fall back to rawClients lookup (available once modal opens or clients page is visited)
+      const cid = item.client_id ?? item.clientId;
+      if (!cid || !rawClients.length) return "";
+      const found = rawClients.find((rc: any) => String(rc.id) === String(cid));
+      if (!found) return "";
+      if (found.fullName) return found.fullName;
+      if (found.full_name) return found.full_name;
+      if (found.name) return found.name;
+      if (found.first_name) return `${found.first_name} ${found.last_name ?? ""}`.trim();
+      return "";
+    })(),
     clientPhone: item.client?.phone ?? item.client_phone ?? "",
     staffId: item.staff_id ? String(item.staff_id) : "",
     date,
@@ -208,7 +248,9 @@ export function mapApiBooking(item: any, rawServices: any[] = [], rawStaff: any[
     taxableAmount: grandTotal,
     grandTotal,
     payingNow: paidAmount > 0 ? paidAmount : (finalPayStatus === "Paid" ? grandTotal : 0),
-    dueAmount: grandTotal - (paidAmount > 0 ? paidAmount : (finalPayStatus === "Paid" ? grandTotal : 0)),
+    dueAmount: apiDueAmount != null
+      ? apiDueAmount
+      : Math.max(0, grandTotal - (paidAmount > 0 ? paidAmount : (finalPayStatus === "Paid" ? grandTotal : 0))),
     notes: item.notes ?? "",
     staffAlert: item.staff_alert || item.staffAlert || "",
   };
@@ -234,7 +276,8 @@ export function useSchedulerInit() {
   const [rawApiBookings, setRawApiBookings] = useState<any[]>([]);
 
   const { data: packagesData } = useListPackagesQuery({});
-  const { data: packageTemplates = [] } = useListPackageTemplatesQuery();
+  const { data: packageTemplatesRaw } = useListPackageTemplatesQuery();
+  const packageTemplates = useMemo(() => packageTemplatesRaw ?? [], [packageTemplatesRaw]);
 
   // ── Fetch active services — re-fetch when salon changes ─────────────────────
   useEffect(() => {
@@ -245,8 +288,16 @@ export function useSchedulerInit() {
     dispatch(fetchServicesThunk({ isActive: true }));
   }, [dispatch, salonId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Fetch clients in background so booking tooltips can show client names ────
+  useEffect(() => {
+    if (apiClients.length > 0) return;
+    dispatch(fetchClientsThunk());
+  }, [dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Tracks which individual dates have already been fetched ──────────────────
   const fetchedDatesRef = useRef<Set<string>>(new Set());
+  // Tracks in-flight fetches so a quick navigate-away/back doesn't skip the re-fetch
+  const pendingDatesRef = useRef<Set<string>>(new Set());
 
   // ── Helper: extract Booking[] from paginated or flat thunk payload ───────────
   function extractBookings(payload: any): any[] {
@@ -257,12 +308,22 @@ export function useSchedulerInit() {
 
   // ── Helper: fetch appointments for a single date ──────────────────────────────
   function fetchDateBookings(dateStr: string, isFirst: boolean) {
-    if (fetchedDatesRef.current.has(dateStr)) return;
-    fetchedDatesRef.current.add(dateStr);
+    // Skip if already successfully loaded OR currently in-flight
+    if (fetchedDatesRef.current.has(dateStr) || pendingDatesRef.current.has(dateStr)) return;
+    pendingDatesRef.current.add(dateStr);
 
-    (dispatch(fetchBookingsThunk({ startDate: dateStr, endDate: dateStr })) as any)
+    // For timezones ahead of UTC (e.g. IST = UTC+5:30), local midnight falls on
+    // the previous UTC calendar date. Extend startDate back one UTC day so the
+    // backend also returns bookings made in the early-morning hours that are
+    // stored on the prior UTC date but belong to this local date.
+    const localMidnightUtcDate = new Date(`${dateStr}T00:00:00`).toISOString().slice(0, 10);
+    const startDate = localMidnightUtcDate < dateStr ? localMidnightUtcDate : dateStr;
+
+    (dispatch(fetchBookingsThunk({ startDate, endDate: dateStr })) as any)
       .then((action: any) => {
+        pendingDatesRef.current.delete(dateStr);
         if (!fetchBookingsThunk.fulfilled.match(action)) return;
+        fetchedDatesRef.current.add(dateStr); // Mark complete only after success
         const items = extractBookings(action.payload);
         if (isFirst) {
           setRawApiBookings(items);
@@ -274,7 +335,10 @@ export function useSchedulerInit() {
           });
         }
       })
-      .catch((err: any) => { if (isFirst) console.error("Failed to load bookings:", err); });
+      .catch((err: any) => {
+        pendingDatesRef.current.delete(dateStr); // Allow retry on failure
+        if (isFirst) console.error("Failed to load bookings:", err);
+      });
   }
 
   // ── Initial fetch — runs once per salonId, fetches only today ────────────────
@@ -299,9 +363,9 @@ export function useSchedulerInit() {
   // ── Re-map bookings whenever raw data or services change ─────────────────────
   // This ensures service names appear correctly even if services load after bookings
   useEffect(() => {
-    if (!rawApiBookings.length) return;
-    dispatch(setBookings(rawApiBookings.map((item) => mapApiBooking(item, apiServices, apiStaff))));
-  }, [rawApiBookings, apiServices, apiStaff, dispatch]);
+    if (!rawApiBookings.length || !apiStaff.length) return;
+    dispatch(setBookings(rawApiBookings.map((item) => mapApiBooking(item, apiServices, apiStaff, apiClients))));
+  }, [rawApiBookings, apiServices, apiStaff, apiClients, dispatch]);
 
   // ── Map staff ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -309,7 +373,8 @@ export function useSchedulerInit() {
       dispatch(setStaffList([]));
       return;
     }
-    const mapped: Staff[] = apiStaff.map((s: any, i: number) => {
+    const activeStaff = apiStaff.filter((s: any) => s.is_active !== false);
+    const mapped: Staff[] = activeStaff.map((s: any, i: number) => {
       const fromParts = `${s.first_name || ""} ${s.last_name || ""}`.trim();
       const rawFull = s.fullName || s.full_name || "";
       const spacedFull = rawFull.includes(" ") ? rawFull : rawFull.replace(/([a-z])([A-Z])/g, "$1 $2");
@@ -400,13 +465,17 @@ export function useSchedulerInit() {
       apiStaff.map((s: any) =>
         api
           .get(`/api/v1/staff/${s.id}/scheduled`)
-          .then((res: any) => ({ staffId: String(s.id), data: res.data?.data || res.data || [] }))
-          .catch(() => ({ staffId: String(s.id), data: [] }))
+          .then((res: any) => ({ staffId: String(s.id), data: res.data?.data || res.data || [], failed: false }))
+          .catch(() => ({ staffId: String(s.id), data: [], failed: true }))
       )
     )
       .then((results) => {
-        const schedules: Record<string, Record<number, StaffDaySchedule>> = {};
-        results.forEach(({ staffId, data }) => {
+        // Get existing schedules so we can merge rather than replace — this prevents
+        // a single API failure from clearing a previously cached good schedule.
+        const existing = (store.getState() as any).scheduler?.staffSchedules ?? {};
+        const schedules: Record<string, Record<number, StaffDaySchedule>> = { ...existing };
+        results.forEach(({ staffId, data, failed }) => {
+          if (failed) return; // Keep the existing cached schedule for this staff
           schedules[staffId] = {};
           if (Array.isArray(data)) {
             data.forEach((sch: any) => {

@@ -610,13 +610,13 @@ const ProductsListPage: React.FC = () => {
         >
           <div
             className="bg-white rounded-4 shadow-lg d-flex flex-column"
-            style={{ width: "480px", maxWidth: "90vw", minHeight: "320px" }}
+            style={{ width: "480px", maxWidth: "90vw", minHeight: "320px", maxHeight: "80vh" }}
           >
             <div className="d-flex justify-content-between align-items-center p-4 pb-0">
               <h5 className="mb-0 fw-bold fs-5 text-dark">My categories</h5>
               <button className="btn-close shadow-none" onClick={() => setActiveModal("none")} />
             </div>
-            <div className="p-4 d-flex flex-column flex-grow-1">
+            <div className="p-4 d-flex flex-column flex-grow-1 overflow-y-auto">
               {loading.categories ? (
                 <div className="text-center py-4">
                   <div className="spinner-border spinner-border-sm text-dark" />
