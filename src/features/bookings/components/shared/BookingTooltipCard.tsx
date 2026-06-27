@@ -19,9 +19,9 @@ interface BookingTooltipCardProps {
   onMouseLeave: () => void;
 }
 
-const PAY_LABEL: Record<string, string> = { Paid: "Paid", Partial: "Due", Unpaid: "Unpaid" };
-const PAY_COLOR: Record<string, string> = { Paid: "#16a34a", Partial: "#6d28d9", Unpaid: "#d97706" };
-const PAY_BG:    Record<string, string> = { Paid: "#dcfce7", Partial: "#ede9fe", Unpaid: "#fef3c7" };
+const PAY_LABEL: Record<string, string> = { Paid: "Paid", Partial: "Due", Unpaid: "Unpaid", Cancelled: "Cancelled" };
+const PAY_COLOR: Record<string, string> = { Paid: "#16a34a", Partial: "#6d28d9", Unpaid: "#d97706", Cancelled: "#ef4444" };
+const PAY_BG:    Record<string, string> = { Paid: "#dcfce7", Partial: "#ede9fe", Unpaid: "#fef3c7", Cancelled: "#fee2e2" };
 
 const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
   booking,
@@ -68,7 +68,8 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
   const packageItems  = (booking as any).packageItems  || (booking as any).packages  || [];
 
   const total = booking.grandTotal || 0;
-  const rawPs = (booking.paymentStatus ?? "Unpaid");
+  const isCancelled = (booking.status || "").toLowerCase() === "cancelled";
+  const rawPs = isCancelled ? "Cancelled" : (booking.paymentStatus ?? "Unpaid");
   const ps    = rawPs.charAt(0).toUpperCase() + rawPs.slice(1).toLowerCase();
   const payColor = PAY_COLOR[ps] ?? "#d97706";
   const payBg    = PAY_BG[ps]    ?? "#fef3c7";

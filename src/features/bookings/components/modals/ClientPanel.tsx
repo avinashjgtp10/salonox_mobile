@@ -59,12 +59,13 @@ interface Props {
   historyUrlBase?: string;
   error?: string;
   defaultPhone?: string;
+  openAddForm?: boolean;
 }
 
 export const ClientPanel: React.FC<Props> = ({
   salonId, calDate, onDateChange, selectedClientId,
   fallbackUnpaidAmt,
-  onSelectClient, onClearClient, onStatsLoaded, error, defaultPhone,
+  onSelectClient, onClearClient, onStatsLoaded, error, defaultPhone, openAddForm,
 }) => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -85,6 +86,8 @@ export const ClientPanel: React.FC<Props> = ({
   const skipNextClear = useRef(false);
   // Prevents the initial search effect from clearing the defaultPhone pre-fill on mount
   const skipInitialClear = useRef(!!defaultPhone);
+
+  useEffect(() => { if (openAddForm) setShowAddForm(true); }, [openAddForm]);
 
   const { details, stats, loading: statsLoading } = useClientDetails(selectedClientId);
   const allBookings = useAppSelector(selectBookings);
