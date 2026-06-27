@@ -1,7 +1,4 @@
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-function toApiStaffId(id?: string | null): string | undefined {
-  return id && UUID_RE.test(id) ? id : undefined;
-}
+import { toApiStaffId } from "../utils/paymentUtils";
 function toLocalDateStr(iso: string): string {
   const d = new Date(iso);
   return [
@@ -29,6 +26,8 @@ import {
   deductEWallet,
   processPaymentRewards,
   setSelectedStaffId,
+  setDragPatch,
+  clearDragPatch,
 } from "../../../store/schedulerSlice";
 import { updateBookingThunk, deleteBookingThunk } from "../../../middleware/booking/booking.thunk";
 import {
@@ -68,10 +67,27 @@ export function useSchedulerContext() {
     updateBooking: (b: Booking) => {
       const previousBooking = bookings.find((existing) => String(existing.id) === String(b.id));
       dispatch(updateBookingAction(b));
+      // Store the drag position so setBookings re-runs (from background fetches or
+      // navigation remounts) don't revert to stale rawApiBookings data.
+      dispatch(setDragPatch({ id: String(b.id), startTime: b.startTime, endTime: b.endTime, staffId: b.staffId || undefined }));
       if (!String(b.id).startsWith("b_")) {
         const [sh, sm] = b.startTime.split(":").map(Number);
         const [eh, em] = b.endTime.split(":").map(Number);
         const duration = Math.max(5, (eh * 60 + em) - (sh * 60 + sm));
+        // Send updated service staff_ids so the backend persists the new staff
+        // assignment. Without this, a refresh after dragging to a different staff
+        // causes the server to return the old staff_id on services, reverting the drag.
+        const serviceItems = (b.services || []).map((s: any) => ({
+          ...(s.id ? { id: s.id } : {}),
+          service_id: s.service_id || s.id,
+          staff_id: toApiStaffId(s.staffId),
+          start_time: new Date(`${b.date}T${s.time || b.startTime}:00`).toISOString(),
+          price: s.price,
+          qty: s.qty ?? 1,
+          total: s.total,
+          duration: s.duration,
+        }));
+
         const apiPayload = {
           id: b.id,
           data: {
@@ -85,10 +101,7 @@ export function useSchedulerContext() {
               : b.status === "Pending" ? "booked"
                 : "confirmed",
             title: (b as any).title,
-            // Do NOT send services when rescheduling — the API runs a per-service
-            // availability check that conflicts with the booking being moved itself.
-            // Services remain associated with the booking; only the booking-level
-            // time fields need to change for a drag-and-drop reschedule.
+            services: serviceItems,
             package_items: b.packageItems ?? [],
             product_items: (b as any).productItems ?? [],
             membership_items: (b as any).membershipItems ?? [],
@@ -98,6 +111,7 @@ export function useSchedulerContext() {
           .then((action: any) => {
             if (updateBookingThunk.rejected.match(action)) {
               if (previousBooking) dispatch(updateBookingAction(previousBooking));
+              dispatch(clearDragPatch(String(b.id)));
               throw new Error(action.payload as string || "Staff member already has an appointment at this time");
             }
             // Keep the optimistic Redux update (already applied via dispatch(updateBookingAction(b))
@@ -107,6 +121,7 @@ export function useSchedulerContext() {
           })
           .catch((err: any) => {
             if (previousBooking) dispatch(updateBookingAction(previousBooking));
+            dispatch(clearDragPatch(String(b.id)));
             throw err;
           });
       }

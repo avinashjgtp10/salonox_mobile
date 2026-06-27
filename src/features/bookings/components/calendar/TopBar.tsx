@@ -1,9 +1,15 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import ReactDOM from "react-dom";
+import { useNavigate } from "react-router-dom";
 import type { ViewMode, IntervalOption } from "../../types/scheduler-types";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import { formatDateLabel } from "../../utils/timeUtils";
 import MiniCalendar from "../shared/MiniCalendar.tsx";
+import { useAppSelector } from "../../../../hooks/useAppRedux";
+import api from "../../../../services/api/axios";
+
+const AVATAR_COLORS = ["#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981","#3b82f6","#ef4444","#14b8a6"];
+function avatarColor(name: string) { return AVATAR_COLORS[(name?.charCodeAt(0) || 65) % AVATAR_COLORS.length]; }
 
 interface TopBarProps {
   onNewAppointment: () => void;
@@ -16,17 +22,54 @@ const INTERVAL_OPTIONS: IntervalOption[] = ["15 Mins", "30 Mins", "60 Mins"];
 
 const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefresh }) => {
   const {
-    viewMode,
-    setViewMode,
-    currentDate,
-    setCurrentDate,
-    navigate,
-    interval,
-    setInterval,
-    staffList,
-    selectedStaffId,
-    setSelectedStaffId,
+    viewMode, setViewMode, currentDate, setCurrentDate,
+    navigate, interval, setInterval, staffList, selectedStaffId, setSelectedStaffId,
   } = useSchedulerContext();
+  const navTo   = useNavigate();
+  const salonId = useAppSelector((s: any) => s.salon?.currentSalon?.id ?? s.auth?.user?.salon_id ?? "");
+
+  // ── Client search ──────────────────────────────────────────────────────────
+  const [clientQuery, setClientQuery]       = useState("");
+  const [clientResults, setClientResults]   = useState<{ id: string; name: string; phone: string }[]>([]);
+  const [showClientDrop, setShowClientDrop] = useState(false);
+  const [clientSearching, setClientSearching] = useState(false);
+  const searchRef   = useRef<HTMLDivElement>(null);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    function handleOutside(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node))
+        setShowClientDrop(false);
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, []);
+
+  const handleClientSearch = useCallback((q: string) => {
+    setClientQuery(q);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (q.trim().length < 2) { setClientResults([]); setShowClientDrop(false); return; }
+    searchTimer.current = setTimeout(async () => {
+      setClientSearching(true);
+      try {
+        const res = await api.get(`/api/v1/clients/search?q=${encodeURIComponent(q)}&salon_id=${salonId}`);
+        const raw: any[] = res.data?.data ?? res.data ?? [];
+        const list = (Array.isArray(raw) ? raw : (raw as any).data ?? []).map((c: any) => ({
+          id: String(c.id),
+          name: c.full_name || `${c.first_name || ""} ${c.last_name || ""}`.trim() || "—",
+          phone: c.phone_number || c.phone || "",
+        }));
+        setClientResults(list);
+        setShowClientDrop(list.length > 0);
+      } catch { setClientResults([]); }
+      finally { setClientSearching(false); }
+    }, 280);
+  }, [salonId]);
+
+  function selectClient(c: { id: string; name: string }) {
+    setClientQuery(""); setClientResults([]); setShowClientDrop(false);
+    navTo("/dashboard/clients/history", { state: { openClientId: c.id } });
+  }
 
   const [showViewDrop, setShowViewDrop] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -264,7 +307,85 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
           Today
         </button>
 
-        {/* Spacer */}
+        {/* ── Client search ── */}
+        <div ref={searchRef} style={{ width: 240, flexShrink: 0, position: "relative" }}>
+          <div style={{
+            display: "flex", alignItems: "center", gap: 6,
+            background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: 20,
+            padding: "5px 10px", transition: "all 0.15s",
+          }}>
+            <span style={{ fontSize: 12, opacity: 0.45, flexShrink: 0 }}>🔍</span>
+            <input
+              value={clientQuery}
+              onChange={(e) => handleClientSearch(e.target.value)}
+              onFocus={() => { if (clientResults.length) setShowClientDrop(true); }}
+              placeholder="Search client…"
+              style={{
+                flex: 1, minWidth: 0, border: "none", background: "transparent",
+                fontSize: 12, fontFamily: "inherit", color: "#111827", outline: "none",
+              }}
+            />
+            {clientSearching && (
+              <span style={{
+                width: 11, height: 11, borderRadius: "50%", flexShrink: 0,
+                border: "2px solid #d1d5db", borderTopColor: "#6366f1",
+                animation: "topbar-spin 0.7s linear infinite", display: "inline-block",
+              }} />
+            )}
+          </div>
+
+          {showClientDrop && clientResults.length > 0 && ReactDOM.createPortal(
+            <div
+              style={{
+                position: "fixed",
+                top: (searchRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
+                left: searchRef.current?.getBoundingClientRect().left ?? 0,
+                width: searchRef.current?.getBoundingClientRect().width ?? 260,
+                zIndex: 99999,
+                background: "#fff",
+                border: "1px solid #e5e7eb",
+                borderRadius: 10,
+                boxShadow: "0 8px 24px rgba(0,0,0,.12)",
+                overflow: "hidden",
+                maxHeight: 300,
+                overflowY: "auto",
+              }}
+            >
+              {clientResults.map((c) => (
+                <button
+                  key={c.id}
+                  onMouseDown={(e) => { e.preventDefault(); selectClient(c); }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    width: "100%", padding: "9px 12px",
+                    border: "none", background: "#fff",
+                    cursor: "pointer", textAlign: "left",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f5f3ff")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
+                >
+                  <span style={{
+                    width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+                    background: avatarColor(c.name), color: "#fff",
+                    fontSize: 12, fontWeight: 700,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    {c.name.charAt(0).toUpperCase()}
+                  </span>
+                  <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {c.name}
+                    </span>
+                    {c.phone && <span style={{ fontSize: 11, color: "#6b7280" }}>{c.phone}</span>}
+                  </span>
+                </button>
+              ))}
+            </div>,
+            document.body,
+          )}
+        </div>
+
+        {/* Spacer — keeps right-side controls right-aligned */}
         <div style={{ flex: 1, minWidth: 0 }} />
 
         {/* Staff filter */}
@@ -474,6 +595,9 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
           </div>,
           document.body,
         )}
+
+      {/* Spinner keyframe */}
+      <style>{`@keyframes topbar-spin { to { transform: rotate(360deg); } }`}</style>
 
       {/* ── Staff filter PORTAL ── */}
       {showStaffDrop &&

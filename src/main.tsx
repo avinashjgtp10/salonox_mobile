@@ -9,6 +9,7 @@ import * as authActions from "./store/authSlice";
 import { injectStore } from "./services/api/interceptors";
 
 import "bootstrap/dist/css/bootstrap.min.css";
+import "./index.css";
 import "./i18n"; // Inject translation engine
 
 // Inject store into interceptors before app boots to avoid circular dependencies
