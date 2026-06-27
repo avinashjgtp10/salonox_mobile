@@ -1,13 +1,14 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import type { ServiceItem } from "../../types/scheduler-types";
+import { currencySymbol } from "../../../../utils/currency";
+import { useSchedulerContext } from "../../store/SchedulerContext";
+import TimeSelect from "../shared/TimeSelect";
 import { Trash } from "react-bootstrap-icons";
 import api from "../../../../services/api/axios";
 import { SERVICES } from "../../../../services/api/endpoints/services.endpoints";
-import { useSchedulerContext } from "../../store/SchedulerContext";
-import type { ServiceItem } from "../../types/scheduler-types";
-import TimeSelect from "../shared/TimeSelect";
+import "../../styles/AppointmentModal.scss";
 
 const DEBOUNCE_MS = 350;
-const MIN_SEARCH_LENGTH = 3;
 
 interface StaffDto {
   id: string | number;
@@ -34,7 +35,7 @@ interface ServiceRowProps {
   onRemove: (id: string) => void;
   onClearError?: (tempId: string, field: string) => void;
   hasError?: boolean;
-  errorFields?: { service?: boolean; staff?: boolean; price?: boolean; qty?: boolean };
+  errorFields?: { service?: boolean; staff?: boolean; time?: boolean; price?: boolean; qty?: boolean };
   disabled?: boolean;
 }
 
@@ -277,7 +278,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
                     onMouseDown={() => selectService(service)}
                   >
                     <span className="svc-dropdown__name">{service.name}</span>
-                    <span className="svc-dropdown__price">₹{service.price}</span>
+                    <span className="svc-dropdown__price">{currencySymbol}{service.price}</span>
                   </button>
                 ))
               ) : (
@@ -334,8 +335,9 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
           value={row.time}
           onChange={(value) => onChange(row.tempId, "time", value)}
           interval={interval || "30 Mins"}
-          className="svc-field__input svc-field__select"
+          className={`svc-field__input svc-field__select${errorFields.time ? " svc-field__input--error" : ""}`}
         />
+        {errorFields.time && <span className="svc-field__err">Select time</span>}
       </div>
 
       <div className="svc-field">
@@ -369,7 +371,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
       </div>
 
       <div className="svc-field">
-        <span className="svc-field__label">Disc (₹)</span>
+        <span className="svc-field__label">Disc ({currencySymbol})</span>
         <input
           type="text"
           disabled={disabled}

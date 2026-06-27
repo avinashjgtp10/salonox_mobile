@@ -135,6 +135,7 @@ export const packagesApi = createApi({
 
 export const {
   useListPackagesQuery,
+  useLazyListPackagesQuery,
   useGetPackageByIdQuery,
   useCreatePackageMutation,
   useUpdatePackageMutation,
@@ -408,6 +409,7 @@ export const packageTemplatesApi = createApi({
 
 export const {
   useListPackageTemplatesQuery,
+  useLazyListPackageTemplatesQuery,
   useCreatePackageTemplateMutation,
   useUpdatePackageTemplateMutation,
   useDeletePackageTemplateMutation,

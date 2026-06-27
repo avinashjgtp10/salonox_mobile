@@ -1,5 +1,9 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { FaWhatsapp } from 'react-icons/fa';
+// TypeScript may not have declarations for .scss imports in this repo setup.
+// Suppress the error for this side-effect stylesheet import.
+// @ts-ignore
 import '../styles/landing.scss';
 
 
@@ -119,6 +123,9 @@ const Icon = {
       <path d="M14 9h3V5h-3a4 4 0 0 0-4 4v2H7v4h3v7h4v-7h3l1-4h-4V9a1 1 0 0 1 1-1Z" />
     </svg>
   ),
+  WhatsApp: () => (
+    <FaWhatsapp className="icon-whatsapp" aria-hidden="true" focusable="false" />
+  ),
   Sync: () => (
     <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 12a9 9 0 0 1-15.5 6.5L3 16M3 12a9 9 0 0 1 15.5-6.5L21 8" />
@@ -137,26 +144,49 @@ const Icon = {
       <path d="m3 6 8.5 7a1 1 0 0 0 1 0L21 6" />
     </svg>
   ),
+  Building: () => (
+    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 21h18M3 7l9-4 9 4M4 21V7M20 21V7" />
+      <path d="M9 21v-4h6v4M9 11h1m4 0h1M9 15h1m4 0h1" />
+    </svg>
+  ),
+  Cloud: () => (
+    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+    </svg>
+  ),
+  Receipt: () => (
+    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" />
+      <path d="M8 10h8M8 14h5" />
+    </svg>
+  ),
+  MessageCircle: () => (
+    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  ),
+  TrendingUp: () => (
+    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 7 13.5 15.5 8.5 10.5 2 17" />
+      <path d="M16 7h6v6" />
+    </svg>
+  ),
 };
 
 /* ---------------------------------- Static content ---------------------------------- */
 
-type MegaLink = { icon: keyof typeof Icon; title: string; desc: string };
 type Feature = { icon: keyof typeof Icon; title: string; desc: string };
+type WhyFeature = Feature & {
+  tag?: string;
+  modalTitle: string;
+  modalDesc: string;
+  benefits: string[];
+  metric: string;
+  metricLabel: string;
+};
 type Branch = { name: string; bookings: string; revenue: string };
-type DemoForm = { name: string; email: string; salon: string; locations: string };
-
-const MEGA_COLUMN_A: MegaLink[] = [
-  { icon: 'Calendar', title: 'Smart Scheduling', desc: 'Drag-and-drop calendar with conflict-free bookings.' },
-  { icon: 'Users', title: 'Client Management', desc: 'Full client profiles, history, and preferences.' },
-  { icon: 'Card', title: 'Payments & POS', desc: 'Accept cards, wallets, and split payments in person.' },
-];
-
-const MEGA_COLUMN_B: MegaLink[] = [
-  { icon: 'Megaphone', title: 'Marketing Suite', desc: 'Automated campaigns, SMS, and loyalty rewards.' },
-  { icon: 'Bar', title: 'Reports & Analytics', desc: 'Real-time revenue and staff performance insights.' },
-  { icon: 'Globe', title: 'Online Booking', desc: 'A branded booking page that works on any device.' },
-];
+type DemoForm = { name: string; email: string; salon: string; locations: string; agreed: boolean };
 
 const FEATURES: Feature[] = [
   { icon: 'Calendar', title: 'Effortless scheduling', desc: 'Manage every chair, room, and stylist from one drag-and-drop calendar built for busy floors.' },
@@ -167,6 +197,122 @@ const FEATURES: Feature[] = [
   { icon: 'Shield', title: 'Enterprise-grade security', desc: 'Bank-level encryption and role-based access keep every record safe.' },
 ];
 
+const WHY_SALONOX: { icon: keyof typeof Icon; title: string; desc: string; tag?: string }[] = [
+  { icon: 'Building', title: 'Multi-Branch Ready', desc: 'Manage unlimited branches from a single dashboard. Each branch gets its own staff, schedule, and reports — all under one roof.', tag: 'Enterprise' },
+  { icon: 'Cloud', title: 'Cloud Based', desc: 'Access your salon data from anywhere, on any device. No installations, no downtime — always up-to-date and always available.', tag: 'SaaS' },
+  { icon: 'Receipt', title: 'GST Billing', desc: 'Generate GST-compliant invoices automatically. Handle taxes, discounts, and split payments with zero manual effort.', tag: 'India Ready' },
+  { icon: 'MessageCircle', title: 'WhatsApp Marketing', desc: 'Send appointment reminders, promotional offers, and feedback requests directly on WhatsApp for maximum open rates.', tag: 'Marketing' },
+  { icon: 'TrendingUp', title: 'Real-Time Analytics', desc: 'Track revenue, bookings, staff performance, and client retention live. Make data-driven decisions with instant insights.', tag: 'Analytics' },
+  { icon: 'Shield', title: 'Secure & Scalable', desc: 'Bank-grade encryption, role-based access controls, and automatic backups keep your business data safe as you grow.', tag: 'Security' },
+];
+
+void WHY_SALONOX;
+
+const WHY_FEATURE_DETAILS: WhyFeature[] = [
+  {
+    icon: 'Building',
+    title: 'Multi-Branch Ready',
+    desc: 'Manage unlimited branches from a single dashboard. Each branch gets its own staff, schedule, and reports under one roof.',
+    tag: 'Enterprise',
+    modalTitle: 'Run every branch without switching systems',
+    modalDesc: 'SalonOX gives owners and area managers one command center for all locations while keeping branch operations cleanly separated.',
+    metric: '12+',
+    metricLabel: 'branches managed from one login',
+    benefits: [
+      'Separate calendars, staff, services, and pricing per branch',
+      'Company-wide reporting with branch-level drilldowns',
+      'Centralized roles for owners, managers, and front desk teams',
+      'Fast branch switching without logging out',
+      'Consistent client experience across every location',
+    ],
+  },
+  {
+    icon: 'Cloud',
+    title: 'Cloud Based',
+    desc: 'Access your salon data from anywhere, on any device. No installations, no downtime, always up-to-date and available.',
+    tag: 'SaaS',
+    modalTitle: 'Your salon data, live on every device',
+    modalDesc: 'Work from reception, home, or between branches with a secure cloud workspace that stays synced automatically.',
+    metric: '24/7',
+    metricLabel: 'access from browser, tablet, or phone',
+    benefits: [
+      'No local installs or manual updates',
+      'Real-time syncing across all team devices',
+      'Secure access from anywhere with an internet connection',
+      'Automatic backups reduce operational risk',
+      'Built for fast onboarding and low maintenance',
+    ],
+  },
+  {
+    icon: 'Receipt',
+    title: 'GST Billing',
+    desc: 'Generate GST-compliant invoices automatically. Handle taxes, discounts, and split payments with zero manual effort.',
+    tag: 'India Ready',
+    modalTitle: 'GST-ready billing built for salon checkout',
+    modalDesc: 'Create compliant invoices, apply taxes and discounts, and complete checkout without spreadsheets or manual calculations.',
+    metric: '0',
+    metricLabel: 'manual tax calculations at checkout',
+    benefits: [
+      'GST-compliant invoice generation',
+      'Discounts, taxes, tips, and split payments in one flow',
+      'Printable and shareable receipts for clients',
+      'Daily sales visibility for owners and accountants',
+      'Cleaner checkout experience for walk-ins and appointments',
+    ],
+  },
+  {
+    icon: 'MessageCircle',
+    title: 'WhatsApp Marketing',
+    desc: 'Send appointment reminders, promotional offers, and feedback requests directly on WhatsApp for maximum open rates.',
+    tag: 'Marketing',
+    modalTitle: 'Turn WhatsApp into a salon growth channel',
+    modalDesc: 'Reach clients where they already respond with reminders, offers, win-back campaigns, and feedback requests.',
+    metric: '3x',
+    metricLabel: 'higher engagement than generic email blasts',
+    benefits: [
+      'Automated appointment reminders and confirmations',
+      'Promotional campaigns for slow days and seasonal offers',
+      'Client feedback requests after visits',
+      'Win-back messages for inactive clients',
+      'Campaign history tied to client profiles',
+    ],
+  },
+  {
+    icon: 'TrendingUp',
+    title: 'Real-Time Analytics',
+    desc: 'Track revenue, bookings, staff performance, and client retention live. Make data-driven decisions with instant insights.',
+    tag: 'Analytics',
+    modalTitle: 'Know what is happening before the day ends',
+    modalDesc: 'SalonOX analytics surface live revenue, appointments, utilization, and retention insights so owners can act quickly.',
+    metric: 'Live',
+    metricLabel: 'revenue, bookings, and staff performance',
+    benefits: [
+      'Live dashboards for daily revenue and bookings',
+      'Staff performance and utilization tracking',
+      'Client retention and repeat-visit insights',
+      'Branch comparisons for growing salon groups',
+      'Export-ready reports for weekly reviews',
+    ],
+  },
+  {
+    icon: 'Shield',
+    title: 'Secure & Scalable',
+    desc: 'Bank-grade encryption, role-based access controls, and automatic backups keep your business data safe as you grow.',
+    tag: 'Security',
+    modalTitle: 'Security that scales with your salon brand',
+    modalDesc: 'Protect client records, staff access, payments, and business reporting with controls designed for growing teams.',
+    metric: 'RBAC',
+    metricLabel: 'role-based controls for every team member',
+    benefits: [
+      'Role-based permissions for owners, managers, and staff',
+      'Encrypted data handling for sensitive client records',
+      'Automatic backups and recovery-minded operations',
+      'Scales from single location to salon groups',
+      'Access controls that keep teams focused and accountable',
+    ],
+  },
+];
+
 const MULTI_BRANCH_FEATURES: Feature[] = [
   { icon: 'Layers', title: 'Centralized Management', desc: 'Control schedules, services, and pricing for every branch from one unified dashboard — no more juggling logins.' },
   { icon: 'Bar', title: 'Branch Analytics', desc: 'Compare revenue, bookings, and utilization across locations with real-time, side-by-side reporting.' },
@@ -174,12 +320,6 @@ const MULTI_BRANCH_FEATURES: Feature[] = [
   { icon: 'Sync', title: 'Inventory Sync', desc: 'Keep retail stock and product levels synced across every branch, with automatic low-stock alerts.' },
   { icon: 'Report', title: 'Consolidated Reporting', desc: 'Generate branch-level or company-wide reports in one click, ready to export and share.' },
   { icon: 'Shield', title: 'Role-Based Access', desc: 'Granular permissions ensure managers, staff, and admins only see and touch what they need to.' },
-];
-
-const STEPS = [
-  { num: '01', title: 'Set up your salon', desc: 'Import your services, staff, and price list in minutes with guided onboarding.' },
-  { num: '02', title: 'Open online booking', desc: 'Share your branded booking page and start filling your calendar immediately.' },
-  { num: '03', title: 'Grow with insight', desc: 'Track revenue, retention, and staff performance from a single dashboard.' },
 ];
 
 const SHOWCASE = [
@@ -210,9 +350,11 @@ const SHOWCASE = [
 ];
 
 const TESTIMONIALS = [
-  { name: 'Amara Chen', role: 'Owner, The Glow Room', quote: 'Bookings have never been smoother. Our no-show rate dropped by half within the first month.', initials: 'AC' },
-  { name: 'Daniel Reyes', role: 'Director, Bloom Spa Co.', quote: 'The reporting alone paid for the subscription. We finally know which services actually drive revenue.', initials: 'DR' },
-  { name: 'Priya Nair', role: 'Founder, Studio Lux', quote: 'Clients love the booking page and our front desk loves how little they have to manage manually.', initials: 'PN' },
+  { name: 'Shubham Bagal', role: 'Owner, Elite Salon', quote: 'Bookings have never been smoother. Our no-show rate dropped by half within the first month.', initials: 'SB' },
+  { name: 'Nishant Zanzane', role: 'Director, Premium Spa Co.', quote: 'The reporting alone paid for the subscription. We finally know which services actually drive revenue.', initials: 'NZ' },
+  { name: 'Rutuja Pagale', role: 'Founder, Studio Beauty', quote: 'Clients love the booking page and our front desk loves how little they have to manage manually.', initials: 'RP' },
+  { name: 'Shivani Dhumal', role: 'Manager, Glow Wellness', quote: 'The multi-branch dashboard is a game-changer. Managing three locations has become incredibly easy.', initials: 'SD' },
+  { name: 'Avinash Jagtap', role: 'Owner, Lakme Salon', quote: 'Customer retention improved significantly thanks to the marketing automation features.', initials: 'AJ' },
 ];
 
 const INITIAL_BRANCHES: Branch[] = [
@@ -225,6 +367,7 @@ const INITIAL_BRANCHES: Branch[] = [
 const NEW_BRANCH_NAMES = ['Harbor View', 'Garden District', 'North Park', 'Eastside', 'Old Town', 'West End'];
 const DEMO_EMAIL = 'support@salonox.com';
 const DEMO_SUBMIT_URL = `https://formsubmit.co/ajax/${DEMO_EMAIL}`;
+const WHATSAPP_DEMO_URL = 'https://wa.me/919503302647?text=Hi%20SalonOX%20Team,%20I%20am%20interested%20in%20SalonOX.%20Please%20share%20more%20details%20and%20schedule%20a%20demo.';
 
 const PLANS = [
   {
@@ -285,9 +428,178 @@ const Reveal: React.FC<{ children: React.ReactNode; delay?: 0 | 1 | 2 | 3 | 4; c
 }) => {
   const { ref, visible } = useReveal<HTMLDivElement>();
   const delayClass = delay > 0 ? `reveal-delay-${delay}` : '';
+
   return (
     <div ref={ref} className={`reveal ${delayClass} ${visible ? 'is-visible' : ''} ${className}`}>
       {children}
+    </div>
+  );
+};
+
+const FeatureProductPreview: React.FC<{ feature: WhyFeature }> = ({ feature }) => {
+  if (feature.title === 'GST Billing') {
+    return (
+      <div className="product-preview product-preview--billing">
+        <div className="preview-window-top">
+          <span><i /><i /><i /></span>
+          <strong>SalonOX Billing</strong>
+          <em>GST ready</em>
+        </div>
+        <div className="invoice-preview">
+          <div className="invoice-head">
+            <div>
+              <span>Invoice</span>
+              <strong>#SOX-2048</strong>
+            </div>
+            <b>Paid</b>
+          </div>
+          <div className="invoice-client">
+            <span>Client</span>
+            <strong>Aarohi Mehta</strong>
+          </div>
+          <div className="invoice-lines">
+            <p><span>Hair spa + styling</span><strong>₹2,400</strong></p>
+            <p><span>Keratin serum</span><strong>₹650</strong></p>
+            <p><span>Member discount</span><strong>-₹250</strong></p>
+          </div>
+          <div className="tax-grid">
+            <span>CGST 9% <strong>₹252</strong></span>
+            <span>SGST 9% <strong>₹252</strong></span>
+          </div>
+          <div className="invoice-total">
+            <span>Total payable</span>
+            <strong>₹3,304</strong>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (feature.title === 'Multi-Branch Ready') {
+    return (
+      <div className="product-preview product-preview--branch">
+        <div className="preview-window-top">
+          <span><i /><i /><i /></span>
+          <strong>Branch Command</strong>
+          <em>Live</em>
+        </div>
+        <div className="branch-preview-layout">
+          <aside>
+            {['Downtown', 'Mall Plaza', 'Studio Lux'].map((branch, index) => (
+              <span className={index === 0 ? 'is-active' : ''} key={branch}>{branch}</span>
+            ))}
+          </aside>
+          <main>
+            <div className="preview-metric-row">
+              <div><span>Bookings</span><strong>384</strong></div>
+              <div><span>Revenue</span><strong>₹8.7L</strong></div>
+            </div>
+            <div className="preview-chart">
+              <i /><i /><i /><i /><i /><i />
+            </div>
+            <div className="branch-mini-table">
+              <p><span>Top branch</span><strong>Downtown</strong></p>
+              <p><span>Utilization</span><strong>86%</strong></p>
+              <p><span>Staff active</span><strong>42</strong></p>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  if (feature.title === 'Cloud Based') {
+    return (
+      <div className="product-preview product-preview--cloud">
+        <div className="cloud-device cloud-device--desktop">
+          <div className="preview-window-top">
+            <span><i /><i /><i /></span>
+            <strong>SalonOX Cloud</strong>
+          </div>
+          <div className="cloud-dashboard">
+            <div className="cloud-sidebar" />
+            <div className="cloud-content">
+              <span />
+              <div><i /><i /><i /></div>
+              <p />
+              <p />
+            </div>
+          </div>
+        </div>
+        <div className="cloud-device cloud-device--tablet">
+          <span>Today</span>
+          <strong>32</strong>
+          <em>synced bookings</em>
+        </div>
+        <div className="cloud-device cloud-device--phone">
+          <span />
+          <i />
+          <i />
+          <strong>Live</strong>
+        </div>
+      </div>
+    );
+  }
+
+  if (feature.title === 'WhatsApp Marketing') {
+    return (
+      <div className="product-preview product-preview--whatsapp">
+        <div className="campaign-panel">
+          <div className="preview-window-top">
+            <span><i /><i /><i /></span>
+            <strong>Campaigns</strong>
+            <em>WhatsApp</em>
+          </div>
+          <div className="campaign-card">
+            <span>Reminder sequence</span>
+            <strong>Tomorrow appointments</strong>
+            <div className="campaign-progress"><i /></div>
+            <p>1,248 clients reached</p>
+          </div>
+        </div>
+        <div className="whatsapp-phone">
+          <div className="phone-top">SalonOX</div>
+          <p className="message message-in">Hi Riya, your spa booking is tomorrow at 4:30 PM.</p>
+          <p className="message message-out">Confirm</p>
+          <p className="message message-in">Thank you. See you at Glow Room.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (feature.title === 'Real-Time Analytics') {
+    return (
+      <div className="product-preview product-preview--analytics">
+        <div className="preview-window-top">
+          <span><i /><i /><i /></span>
+          <strong>Analytics</strong>
+          <em>Live data</em>
+        </div>
+        <div className="analytics-grid">
+          <div><span>Revenue</span><strong>₹4.8L</strong></div>
+          <div><span>Retention</span><strong>74%</strong></div>
+          <div className="analytics-chart"><i /><i /><i /><i /><i /></div>
+          <div className="analytics-list">
+            <p><span>Color services</span><strong>+18%</strong></p>
+            <p><span>Memberships</span><strong>+11%</strong></p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="product-preview product-preview--security">
+      <div className="security-panel">
+        <span className="security-shield"><Icon.Shield /></span>
+        <strong>Secure workspace</strong>
+        <p>Owner, manager, front desk, and stylist permissions stay separated.</p>
+        <div className="security-roles">
+          <span>Owner</span>
+          <span>Manager</span>
+          <span>Stylist</span>
+        </div>
+      </div>
     </div>
   );
 };
@@ -296,12 +608,10 @@ const Reveal: React.FC<{ children: React.ReactNode; delay?: 0 | 1 | 2 | 3 | 4; c
 
 const LandingPage: React.FC = () => {
   const [scrolled, setScrolled] = useState(false);
-  const [megaOpen, setMegaOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeBranch, setActiveBranch] = useState(0);
   const [branches, setBranches] = useState<Branch[]>(INITIAL_BRANCHES);
-  const navItemRef = useRef<HTMLLIElement | null>(null);
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [selectedWhyFeature, setSelectedWhyFeature] = useState<WhyFeature | null>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -311,25 +621,24 @@ const LandingPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    document.body.style.overflow = mobileOpen ? 'hidden' : '';
+    document.body.style.overflow = mobileOpen || selectedWhyFeature ? 'hidden' : '';
     return () => {
       document.body.style.overflow = '';
     };
-  }, [mobileOpen]);
+  }, [mobileOpen, selectedWhyFeature]);
 
-  const openMega = useCallback(() => {
-    if (closeTimer.current) clearTimeout(closeTimer.current);
-    setMegaOpen(true);
-  }, []);
+  useEffect(() => {
+    if (!selectedWhyFeature) return;
 
-  const scheduleCloseMega = useCallback(() => {
-    closeTimer.current = setTimeout(() => setMegaOpen(false), 140);
-  }, []);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setSelectedWhyFeature(null);
+      }
+    };
 
-  const renderMegaIcon = (key: keyof typeof Icon) => {
-    const Cmp = Icon[key];
-    return <Cmp />;
-  };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedWhyFeature]);
 
   const handleAddBranch = useCallback(() => {
     setBranches((prev) => {
@@ -352,7 +661,7 @@ const LandingPage: React.FC = () => {
       e.preventDefault();
 
       setMobileOpen(false);
-      setMegaOpen(false);
+      setSelectedWhyFeature(null);
       document.body.style.overflow = '';
 
       window.requestAnimationFrame(() => {
@@ -374,14 +683,45 @@ const LandingPage: React.FC = () => {
     []
   );
 
-  const [demoForm, setDemoForm] = useState<DemoForm>({ name: '', email: '', salon: '', locations: '' });
+  const jumpToSection = useCallback((id: string) => {
+    setSelectedWhyFeature(null);
+    setMobileOpen(false);
+
+    window.requestAnimationFrame(() => {
+      const el = document.getElementById(id);
+      if (!el) return;
+
+      const nav = document.querySelector<HTMLElement>('.nav');
+      const navOffset = nav ? nav.offsetHeight + 16 : 88;
+      const targetTop = el.getBoundingClientRect().top + window.scrollY - navOffset;
+
+      window.scrollTo({
+        top: Math.max(targetTop, 0),
+        behavior: 'smooth',
+      });
+
+      window.history.replaceState(null, '', `#${id}`);
+    });
+  }, []);
+
+  const [demoForm, setDemoForm] = useState<DemoForm>({
+    name: '',
+    email: '',
+    salon: '',
+    locations: '',
+    agreed: false,
+  });
   const [demoSubmitted, setDemoSubmitted] = useState(false);
   const [demoSubmitting, setDemoSubmitting] = useState(false);
   const [demoError, setDemoError] = useState('');
 
   const handleDemoChange = useCallback(
     (field: keyof DemoForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-      setDemoForm((prev) => ({ ...prev, [field]: e.target.value }));
+      const value = e.target instanceof HTMLInputElement && e.target.type === 'checkbox'
+        ? e.target.checked
+        : e.target.value;
+
+      setDemoForm((prev) => ({ ...prev, [field]: value }));
       setDemoError('');
     },
     []
@@ -443,62 +783,8 @@ const LandingPage: React.FC = () => {
           </a>
 
           <ul className="nav-links">
-            <li
-              ref={navItemRef}
-              className={`nav-item-mega ${megaOpen ? 'is-open' : ''}`}
-              onMouseEnter={openMega}
-              onMouseLeave={scheduleCloseMega}
-            >
-              <button
-                className="nav-link"
-                aria-expanded={megaOpen}
-                onClick={() => setMegaOpen((v) => !v)}
-              >
-                Features <Icon.Chevron />
-              </button>
-
-              <div className={`mega-menu ${megaOpen ? 'mega-open' : ''}`} onMouseEnter={openMega} onMouseLeave={scheduleCloseMega}>
-                <div className="mega-grid">
-                  <div className="mega-cols">
-                    <div>
-                      <div className="mega-col-title">Run your floor</div>
-                      {MEGA_COLUMN_A.map((item) => (
-                        <a href="#features" className="mega-link" key={item.title} onClick={scrollToSection('features')}>
-                          <span className="mega-link-icon">{renderMegaIcon(item.icon)}</span>
-                          <span>
-                            <span className="mega-link-title">{item.title}</span>
-                            <span className="mega-link-desc">{item.desc}</span>
-                          </span>
-                        </a>
-                      ))}
-                    </div>
-                    <div>
-                      <div className="mega-col-title">Grow your business</div>
-                      {MEGA_COLUMN_B.map((item) => (
-                        <a href="#features" className="mega-link" key={item.title} onClick={scrollToSection('features')}>
-                          <span className="mega-link-icon">{renderMegaIcon(item.icon)}</span>
-                          <span>
-                            <span className="mega-link-title">{item.title}</span>
-                            <span className="mega-link-desc">{item.desc}</span>
-                          </span>
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="mega-promo">
-                    <div>
-                      <div className="mega-promo-tag">New</div>
-                      <h4>AI Booking Assistant</h4>
-                      <p>Let clients book by chat, around the clock, with zero double-bookings.</p>
-                    </div>
-                    <a href="#features" className="mega-promo-link" onClick={scrollToSection('features')}>
-                      Explore the feature <Icon.Arrow />
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </li>
+            <li><a className="nav-link" href="#why-salonox" onClick={scrollToSection('why-salonox')}>Why SalonOX</a></li>
+            <li><a className="nav-link" href="#features" onClick={scrollToSection('features')}>Features</a></li>
             <li><a className="nav-link" href="#multi-branch" onClick={scrollToSection('multi-branch')}>Multi-Branch</a></li>
             <li><a className="nav-link nav-link-btn" href="#how" onClick={scrollToSection('how')}>How it works</a></li>
             <li><a className="nav-link" href="#pricing" onClick={scrollToSection('pricing')}>Pricing</a></li>
@@ -506,11 +792,12 @@ const LandingPage: React.FC = () => {
           </ul>
 
           <div className="nav-actions">
-            <Link to="/login" className="btn btn-ghost btn-sm">Log in</Link>
-            <a href="#book-demo" className="btn btn-primary btn-sm" onClick={scrollToSection('book-demo')}>Book Demo</a>
+            <Link to="/login" className="btn btn-ghost btn-sm nav-desktop-cta">Log in</Link>
+            <a href="#book-demo" className="btn btn-primary btn-sm nav-desktop-cta" onClick={scrollToSection('book-demo')}>Book Demo</a>
             <button
               className={`nav-burger ${mobileOpen ? 'is-open' : ''}`}
               aria-label="Toggle menu"
+              aria-expanded={mobileOpen}
               onClick={() => setMobileOpen((v) => !v)}
             >
               <span />
@@ -524,15 +811,24 @@ const LandingPage: React.FC = () => {
       {/* ============================== MOBILE DRAWER ============================== */}
       <div className={`mobile-drawer ${mobileOpen ? 'is-open' : ''}`} onClick={() => setMobileOpen(false)}>
         <div className="mobile-drawer-panel" onClick={(e) => e.stopPropagation()}>
+          <div className="mobile-drawer-header">
+            <a href="#top" className="nav-logo" onClick={scrollToSection('top')}>
+              <span className="logo-mark">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2c2 3 6 4 6 9a6 6 0 0 1-12 0c0-5 4-6 6-9Z" />
+                </svg>
+              </span>
+              <span className="logo-text">
+                Salon<span className="accent">OX</span>
+              </span>
+            </a>
+            <button type="button" className="mobile-close" aria-label="Close menu" onClick={() => setMobileOpen(false)}>
+              <span />
+              <span />
+            </button>
+          </div>
+          <a href="#why-salonox" className="mobile-link" onClick={scrollToSection('why-salonox')}>Why SalonOX</a>
           <a href="#features" className="mobile-link" onClick={scrollToSection('features')}>Features</a>
-          <div className="mobile-sub-title">Run your floor</div>
-          {MEGA_COLUMN_A.map((item) => (
-            <a href="#features" key={item.title} className="mobile-sub-link" onClick={scrollToSection('features')}>{item.title}</a>
-          ))}
-          <div className="mobile-sub-title">Grow your business</div>
-          {MEGA_COLUMN_B.map((item) => (
-            <a href="#features" key={item.title} className="mobile-sub-link" onClick={scrollToSection('features')}>{item.title}</a>
-          ))}
           <a href="#multi-branch" className="mobile-link" onClick={scrollToSection('multi-branch')}>Multi-Branch</a>
           <a href="#how" className="mobile-link mobile-link-btn" onClick={scrollToSection('how')}>How it works</a>
           <a href="#pricing" className="mobile-link" onClick={scrollToSection('pricing')}>Pricing</a>
@@ -553,11 +849,10 @@ const LandingPage: React.FC = () => {
           <div className="hero-copy">
             <span className="eyebrow"><span className="dot" /> Trusted by 4,000+ salons worldwide</span>
             <h1>
-              Run your salon like a <span className="grad">five-star experience</span>
+              The Complete <span className="grad">Operating System</span> for Modern Salons
             </h1>
             <p className="hero-sub">
-              SalonOX brings scheduling, payments, client records, and marketing into one beautiful
-              platform, so your team spends less time on admin and more time behind the chair.
+              Manage appointments, customers, staff, billing, memberships, inventory, marketing, and multiple branches from one powerful platform.
             </p>
             <div className="hero-cta-row">
               <a href="#book-demo" className="btn btn-primary" onClick={scrollToSection('book-demo')}>
@@ -599,13 +894,13 @@ const LandingPage: React.FC = () => {
                     <span className="mock-chip">+18.4%</span>
                   </div>
                   <div className="mock-bars">
-                    <i style={{ height: '38%', animationDelay: '0.05s' }} />
-                    <i style={{ height: '62%', animationDelay: '0.1s' }} />
-                    <i style={{ height: '48%', animationDelay: '0.15s' }} />
-                    <i style={{ height: '80%', animationDelay: '0.2s' }} />
-                    <i style={{ height: '57%', animationDelay: '0.25s' }} />
-                    <i style={{ height: '93%', animationDelay: '0.3s' }} />
-                    <i style={{ height: '70%', animationDelay: '0.35s' }} />
+                    <i className="mock-bar mock-bar--1" />
+                    <i className="mock-bar mock-bar--2" />
+                    <i className="mock-bar mock-bar--3" />
+                    <i className="mock-bar mock-bar--4" />
+                    <i className="mock-bar mock-bar--5" />
+                    <i className="mock-bar mock-bar--6" />
+                    <i className="mock-bar mock-bar--7" />
                   </div>
                   <div className="mock-list">
                     <div className="mock-list-item">
@@ -679,6 +974,44 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
+      {/* ============================== WHY SALONOX ============================== */}
+      <section id="why-salonox" className="why-section">
+        <div className="container">
+          <Reveal>
+            <div className="section-head">
+              <span className="eyebrow"><span className="dot" /> Why SalonOX</span>
+              <h2>Built for the way modern salons operate</h2>
+              <p>Every feature is designed around real salon workflows — so your team is productive from day one, not after weeks of training.</p>
+            </div>
+          </Reveal>
+
+          <div className="why-grid">
+            {WHY_FEATURE_DETAILS.map((item, i) => {
+              const Cmp = Icon[item.icon];
+              return (
+                <Reveal key={item.title} delay={(i % 3) as 0 | 1 | 2}>
+                  <button
+                    type="button"
+                    className="why-card"
+                    aria-haspopup="dialog"
+                    aria-label={`Open ${item.title} feature details`}
+                    onClick={() => setSelectedWhyFeature(item)}
+                  >
+                    <div className="why-card-top">
+                      <span className="why-icon"><Cmp /></span>
+                      {item.tag && <span className="why-tag">{item.tag}</span>}
+                    </div>
+                    <h3>{item.title}</h3>
+                    <p>{item.desc}</p>
+                    <span className="why-arrow">→</span>
+                  </button>
+                </Reveal>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
       {/* ============================== FEATURES ============================== */}
       <section id="features" className="features">
         <div className="container">
@@ -720,13 +1053,11 @@ const LandingPage: React.FC = () => {
               </div>
 
               <div className="spotlight-panel">
-                <div className="branch-pills" role="tablist" aria-label="Branches">
+                <div className="branch-pills" aria-label="Branches">
                   {branches.map((branch, i) => (
                     <button
                       key={branch.name}
                       type="button"
-                      role="tab"
-                      aria-selected={activeBranch === i}
                       className={`branch-pill ${activeBranch === i ? 'is-active' : ''}`}
                       onClick={() => setActiveBranch(i)}
                     >
@@ -796,7 +1127,7 @@ const LandingPage: React.FC = () => {
           </Reveal>
 
           <div className="showcase-grid">
-            {SHOWCASE.map((item, i) => {
+            {SHOWCASE.map((item, _i) => {
               const Cmp = Icon[item.icon];
               return (
                 <Reveal key={item.title} delay={0}>
@@ -968,9 +1299,15 @@ const LandingPage: React.FC = () => {
                     <button type="submit" className="btn btn-primary btn-block" disabled={demoSubmitting}>
                       {demoSubmitting ? 'Sending...' : 'Schedule Demo'}
                     </button>
-                    <p className="demo-disclaimer">
-                      By clicking, you agree to receive follow-up emails regarding SalonOX product demos.
-                    </p>
+                    <label className="demo-consent">
+                      <input
+                        type="checkbox"
+                        required
+                        checked={demoForm.agreed}
+                        onChange={handleDemoChange('agreed')}
+                      />
+                      <span>By checking, you agree to receive follow-up emails regarding SalonOX product demos.</span>
+                    </label>
                   </form>
                 </>
               )}
@@ -995,7 +1332,15 @@ const LandingPage: React.FC = () => {
               <p>The all-in-one platform for salons and spas to book, manage, and grow with confidence.</p>
               <div className="footer-social">
                 <a href="#" aria-label="Twitter"><Icon.Twitter /></a>
-                <a href="#" aria-label="Instagram"><Icon.Instagram /></a>
+                <a href="https://www.instagram.com/salonox_crm?igsh=eG40bHd4dG9mNnJn" aria-label="Instagram" target="_blank" rel="noopener noreferrer"><Icon.Instagram /></a>
+                <a
+                  href={WHATSAPP_DEMO_URL}
+                  aria-label="WhatsApp"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Icon.WhatsApp />
+                </a>
                 <a href="#" aria-label="LinkedIn"><Icon.Linkedin /></a>
                 <a href="#" aria-label="Facebook"><Icon.Facebook /></a>
               </div>
@@ -1052,6 +1397,70 @@ const LandingPage: React.FC = () => {
           </div>
         </div>
       </footer>
+
+      {selectedWhyFeature && (
+        <div className="feature-modal-backdrop" onClick={() => setSelectedWhyFeature(null)}>
+          <div
+            className="feature-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="why-feature-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="feature-modal-close"
+              aria-label="Close feature details"
+              onClick={() => setSelectedWhyFeature(null)}
+            >
+              <span />
+              <span />
+            </button>
+
+            <div className="feature-modal-visual" aria-hidden="true">
+              <div className="feature-modal-visual-card">
+                <FeatureProductPreview feature={selectedWhyFeature} />
+              </div>
+            </div>
+
+            <div className="feature-modal-copy">
+              <span className="feature-modal-kicker">{selectedWhyFeature.tag}</span>
+              <h3 id="why-feature-modal-title">{selectedWhyFeature.modalTitle}</h3>
+              <p>{selectedWhyFeature.modalDesc}</p>
+
+              <ul className="feature-modal-benefits">
+                {selectedWhyFeature.benefits.map((benefit) => (
+                  <li key={benefit}>
+                    <span><Icon.Check /></span>
+                    {benefit}
+                  </li>
+                ))}
+              </ul>
+
+              <div className="feature-modal-actions">
+                <button type="button" className="btn btn-ghost" onClick={() => jumpToSection('how')}>
+                  <Icon.Play /> Watch Demo
+                </button>
+                <button type="button" className="btn btn-primary" onClick={() => jumpToSection('book-demo')}>
+                  Book Demo
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <a
+        href={WHATSAPP_DEMO_URL}
+        className="floating-whatsapp-cta"
+        aria-label="Chat with SalonOX on WhatsApp"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        <span className="floating-whatsapp-cta__icon" aria-hidden="true">
+          <Icon.WhatsApp />
+        </span>
+      </a>
     </div>
   );
 };

@@ -1,23 +1,91 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import ReactDOM from "react-dom";
-import type { ViewMode, IntervalOption } from "../../types/scheduler-types";
+import { useNavigate } from "react-router-dom";
+import type { ViewMode, IntervalOption } from "../../types/booking.types.ts";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import { formatDateLabel } from "../../utils/timeUtils";
 import MiniCalendar from "../shared/MiniCalendar.tsx";
+import { useAppSelector } from "../../../../hooks/useAppRedux";
+import api from "../../../../services/api/axios";
 import "../../styles/TopBar.scss";
 
 interface TopBarProps {
   onNewAppointment: () => void;
   onBlockTime: () => void;
-  onSettings: () => void;
+  onSettings?: () => void;
+}
+
+interface ClientSuggestion {
+  id: string;
+  name: string;
+  phone: string;
+}
+
+const AVATAR_COLORS = [
+  "#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981",
+  "#3b82f6","#ef4444","#14b8a6","#f97316","#84cc16",
+];
+function avatarColor(name: string) {
+  return AVATAR_COLORS[(name?.charCodeAt(0) || 65) % AVATAR_COLORS.length];
 }
 
 const VIEW_OPTIONS: ViewMode[] = ["Day", "Week", "Month", "List Week"];
 const INTERVAL_OPTIONS: IntervalOption[] = ["15 Mins", "30 Mins", "60 Mins"];
 
-const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime }) => {
+const TopBarComponent: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime }) => {
   const { viewMode, setViewMode, currentDate, setCurrentDate, navigate, interval, setInterval } = useSchedulerContext();
+  const navTo   = useNavigate();
+  const salonId = useAppSelector((s: any) => s.salon?.currentSalon?.id ?? s.auth?.user?.salon_id ?? "");
 
+  // ── Client search ──────────────────────────────────────────────────────────
+  const [clientQuery, setClientQuery]       = useState("");
+  const [clientResults, setClientResults]   = useState<ClientSuggestion[]>([]);
+  const [showClientDrop, setShowClientDrop] = useState(false);
+  const [clientSearching, setClientSearching] = useState(false);
+  const searchRef   = useRef<HTMLDivElement>(null);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowClientDrop(false);
+        setClientQuery("");
+        setClientResults([]);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const handleClientSearch = useCallback((q: string) => {
+    setClientQuery(q);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (q.trim().length < 2) { setClientResults([]); setShowClientDrop(false); return; }
+    searchTimer.current = setTimeout(async () => {
+      setClientSearching(true);
+      try {
+        const res = await api.get(`/api/v1/clients/search?q=${encodeURIComponent(q)}&salon_id=${salonId}`);
+        const raw = res.data?.data ?? res.data ?? [];
+        const list = (Array.isArray(raw) ? raw : raw.data ?? []).map((c: any) => ({
+          id:    String(c.id),
+          name:  c.full_name || `${c.first_name || ""} ${c.last_name || ""}`.trim() || "—",
+          phone: c.phone_number || c.phone || "",
+        }));
+        setClientResults(list);
+        setShowClientDrop(true);
+      } catch { setClientResults([]); }
+      finally { setClientSearching(false); }
+    }, 280);
+  }, [salonId]);
+
+  function selectClient(c: ClientSuggestion) {
+    setClientQuery("");
+    setClientResults([]);
+    setShowClientDrop(false);
+    navTo("/dashboard/clients/history", { state: { openClientId: c.id } });
+  }
+
+  // ── View / date pickers ───────────────────────────────────────────────────
   const [showViewDrop, setShowViewDrop] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [viewDropPos, setViewDropPos] = useState({ top: 0, left: 0 });
@@ -59,12 +127,12 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime }) => {
     return () => { window.removeEventListener("scroll", reposition, true); window.removeEventListener("resize", reposition); };
   }, [showViewDrop, showDatePicker]);
 
-  function getShortDateLabel() {
+  const shortDateLabel = useMemo(() => {
     if (viewMode === "Day") {
       return new Date(currentDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
     }
     return formatDateLabel(currentDate, viewMode);
-  }
+  }, [currentDate, viewMode]);
 
   function openViewDrop() {
     if (viewDropBtnRef.current) {
@@ -77,7 +145,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime }) => {
   function openDatePicker() {
     if (dateBtnRef.current) {
       const r = dateBtnRef.current.getBoundingClientRect();
-      setDatePickerPos({ top: r.bottom + 6, left: r.left + r.width / 2 });
+      setDatePickerPos({ top: r.bottom + 6, left: r.left });
     }
     setShowDatePicker((v) => !v);
   }
@@ -96,7 +164,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime }) => {
           className={`topbar__date-btn${showDatePicker ? " topbar__date-btn--active" : ""}`}
           onMouseDown={(e) => { e.stopPropagation(); openDatePicker(); }}
         >
-          {getShortDateLabel()} <span className="topbar__arrow topbar__arrow--faint">▼</span>
+          {shortDateLabel} <span className="topbar__arrow topbar__arrow--faint">▼</span>
         </button>
 
         <button className="topbar__nav-btn" onClick={() => navigate(1)}>›</button>
@@ -108,7 +176,50 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime }) => {
           Today
         </button>
 
-        <div className="topbar__spacer" />
+        {/* ── Client search ── */}
+        <div className="topbar__client-search" ref={searchRef}>
+          <div className="topbar__client-search-input-wrap">
+            <span className="topbar__client-search-icon">🔍</span>
+            <input
+              className="topbar__client-search-input"
+              placeholder="Search client…"
+              value={clientQuery}
+              onChange={(e) => handleClientSearch(e.target.value)}
+              onFocus={() => { if (clientResults.length) setShowClientDrop(true); }}
+            />
+            {clientSearching && <span className="topbar__client-search-spinner" />}
+          </div>
+
+          {showClientDrop && clientResults.length > 0 && ReactDOM.createPortal(
+            <div
+              className="topbar__client-drop"
+              style={(() => {
+                const r = searchRef.current?.getBoundingClientRect();
+                return r ? { top: r.bottom + 4, left: r.left, width: r.width } : {};
+              })()}
+            >
+              {clientResults.map((c) => (
+                <button
+                  key={c.id}
+                  className="topbar__client-drop-item"
+                  onMouseDown={(e) => { e.preventDefault(); selectClient(c); }}
+                >
+                  <span
+                    className="topbar__client-avatar"
+                    style={{ background: avatarColor(c.name) }}
+                  >
+                    {c.name.charAt(0).toUpperCase()}
+                  </span>
+                  <span className="topbar__client-info">
+                    <span className="topbar__client-name">{c.name}</span>
+                    {c.phone && <span className="topbar__client-phone">{c.phone}</span>}
+                  </span>
+                </button>
+              ))}
+            </div>,
+            document.body,
+          )}
+        </div>
 
         <div className="topbar__interval-group">
           {INTERVAL_OPTIONS.map((opt) => (
@@ -158,4 +269,5 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime }) => {
   );
 };
 
+const TopBar = React.memo(TopBarComponent);
 export default TopBar;

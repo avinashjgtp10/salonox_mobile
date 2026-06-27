@@ -66,7 +66,27 @@ export function mapProducts(raw: any[]): LazyProduct[] {
 }
 
 export function mapMemberships(raw: any[]): LazyMembership[] {
-  return raw.map((m) => ({ name: m.name || "", price: m.price || 0 }));
+  return raw.map((m) => ({
+    id:       String(m.id || ""),
+    name:     m.name || "",
+    price:    m.price || 0,
+    sessions: m.numberOfSessions ?? m.number_of_sessions ?? 0,
+    validFor: m.validFor || m.valid_for || "",
+    colour:   m.colour || "",
+  }));
+}
+
+export function durationToExpiresAt(validFor: string): string | undefined {
+  if (!validFor) return undefined;
+  const now = new Date();
+  const lower = validFor.toLowerCase().trim();
+  const num = parseInt(lower) || 1;
+  if (lower.includes("year"))       now.setFullYear(now.getFullYear() + num);
+  else if (lower.includes("month")) now.setMonth(now.getMonth() + num);
+  else if (lower.includes("week"))  now.setDate(now.getDate() + num * 7);
+  else if (lower.includes("day"))   now.setDate(now.getDate() + num);
+  else return undefined;
+  return now.toISOString();
 }
 
 export function extractLocalPhone(phone: string): string {

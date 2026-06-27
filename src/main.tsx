@@ -9,6 +9,7 @@ import * as authActions from "./store/authSlice";
 import { injectStore } from "./services/api/interceptors";
 
 import "bootstrap/dist/css/bootstrap.min.css";
+import "./index.css";
 import "./i18n"; // Inject translation engine
 
 // Inject store into interceptors before app boots to avoid circular dependencies
@@ -17,7 +18,7 @@ injectStore(store, authActions);
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <Provider store={store}>
     <PersistGate loading={null} persistor={persistor}>
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <App />
       </BrowserRouter>
     </PersistGate>

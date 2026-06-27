@@ -1,32 +1,88 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import ReactDOM from "react-dom";
+import { useNavigate } from "react-router-dom";
 import type { ViewMode, IntervalOption } from "../../types/scheduler-types";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import { formatDateLabel } from "../../utils/timeUtils";
 import MiniCalendar from "../shared/MiniCalendar.tsx";
+import { useAppSelector } from "../../../../hooks/useAppRedux";
+import api from "../../../../services/api/axios";
+
+const AVATAR_COLORS = ["#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981","#3b82f6","#ef4444","#14b8a6"];
+function avatarColor(name: string) { return AVATAR_COLORS[(name?.charCodeAt(0) || 65) % AVATAR_COLORS.length]; }
 
 interface TopBarProps {
   onNewAppointment: () => void;
   onBlockTime: () => void;
   onRefresh?: () => void;
+  onNewAppointmentForClient?: (client: { id: string; name: string; phone: string }) => void;
 }
 
 const VIEW_OPTIONS: ViewMode[] = ["Day", "Week", "Month", "List Week"];
 const INTERVAL_OPTIONS: IntervalOption[] = ["15 Mins", "30 Mins", "60 Mins"];
 
-const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefresh }) => {
+const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefresh, onNewAppointmentForClient }) => {
   const {
-    viewMode,
-    setViewMode,
-    currentDate,
-    setCurrentDate,
-    navigate,
-    interval,
-    setInterval,
-    staffList,
-    selectedStaffId,
-    setSelectedStaffId,
+    viewMode, setViewMode, currentDate, setCurrentDate,
+    navigate, interval, setInterval, staffList, selectedStaffId, setSelectedStaffId,
   } = useSchedulerContext();
+  const navTo   = useNavigate();
+  const salonId = useAppSelector((s: any) => s.salon?.currentSalon?.id ?? s.auth?.user?.salon_id ?? "");
+
+  // ── Client search ──────────────────────────────────────────────────────────
+  const [clientQuery, setClientQuery]         = useState("");
+  const [clientResults, setClientResults]     = useState<{ id: string; name: string; phone: string }[]>([]);
+  const [showClientDrop, setShowClientDrop]   = useState(false);
+  const [clientSearching, setClientSearching] = useState(false);
+  const [searchDone, setSearchDone]           = useState(false);
+  const searchRef   = useRef<HTMLDivElement>(null);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    function handleOutside(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowClientDrop(false);
+        setClientQuery("");
+        setClientResults([]);
+      }
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, []);
+
+  const handleClientSearch = useCallback((q: string) => {
+    setClientQuery(q);
+    setSearchDone(false);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (q.trim().length < 3) {
+      setClientResults([]); setShowClientDrop(false); return;
+    }
+    setShowClientDrop(true);
+    searchTimer.current = setTimeout(async () => {
+      setClientSearching(true);
+      try {
+        const res = await api.get(`/api/v1/clients/search?q=${encodeURIComponent(q)}&salon_id=${salonId}`);
+        const raw: any = res.data?.data ?? res.data ?? [];
+        const items: any[] = Array.isArray(raw) ? raw : (raw.items ?? raw.data ?? []);
+        const list = items.map((c: any) => ({
+          id: String(c.id),
+          name: c.full_name || `${c.first_name || ""} ${c.last_name || ""}`.trim() || "—",
+          phone: c.phone_number || c.phone || "",
+        }));
+        setClientResults(list);
+        setSearchDone(true);
+      } catch {
+        setClientResults([]);
+        setSearchDone(true);
+      } finally {
+        setClientSearching(false);
+      }
+    }, 300);
+  }, [salonId]);
+
+  function closeSearch() {
+    setClientQuery(""); setClientResults([]); setShowClientDrop(false); setSearchDone(false);
+  }
 
   const [showViewDrop, setShowViewDrop] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -124,7 +180,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
   function openDatePicker() {
     if (dateBtnRef.current) {
       const r = dateBtnRef.current.getBoundingClientRect();
-      setDatePickerPos({ top: r.bottom + 6, left: r.left + r.width / 2 });
+      setDatePickerPos({ top: r.bottom + 6, left: r.left });
     }
     setShowDatePicker((v) => !v);
   }
@@ -178,6 +234,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
             fontFamily: "inherit",
             whiteSpace: "nowrap",
             flexShrink: 0,
+            color: "#374151",
           }}
         >
           {viewMode} <span style={{ fontSize: 9, opacity: 0.6 }}>▼</span>
@@ -195,6 +252,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
             fontSize: 16,
             cursor: "pointer",
             lineHeight: 1,
+            color: "#374151",
           }}
         >
           ‹
@@ -238,6 +296,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
             fontSize: 16,
             cursor: "pointer",
             lineHeight: 1,
+            color: "#374151",
           }}
         >
           ›
@@ -264,7 +323,172 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
           Today
         </button>
 
-        {/* Spacer */}
+        {/* ── Client search ── */}
+        <div ref={searchRef} style={{ width: 240, flexShrink: 0, position: "relative" }}>
+          <div style={{
+            display: "flex", alignItems: "center", gap: 6,
+            background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: 20,
+            padding: "5px 10px", transition: "all 0.15s",
+          }}>
+            <span style={{ fontSize: 12, opacity: 0.45, flexShrink: 0 }}>🔍</span>
+            <input
+              value={clientQuery}
+              onChange={(e) => handleClientSearch(e.target.value)}
+              onFocus={() => { if (clientQuery.length >= 3) setShowClientDrop(true); }}
+              placeholder="Search client…"
+              style={{
+                flex: 1, minWidth: 0, border: "none", background: "transparent",
+                fontSize: 12, fontFamily: "inherit", color: "#111827", outline: "none",
+              }}
+            />
+            {clientSearching && (
+              <span style={{
+                width: 11, height: 11, borderRadius: "50%", flexShrink: 0,
+                border: "2px solid #d1d5db", borderTopColor: "#6366f1",
+                animation: "topbar-spin 0.7s linear infinite", display: "inline-block",
+              }} />
+            )}
+            {clientQuery && !clientSearching && (
+              <button
+                onMouseDown={(e) => { e.preventDefault(); closeSearch(); }}
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: "#9ca3af", fontSize: 14, flexShrink: 0 }}
+              >×</button>
+            )}
+          </div>
+
+          {showClientDrop && ReactDOM.createPortal(
+            <div
+              style={{
+                position: "fixed",
+                top: (searchRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
+                left: searchRef.current?.getBoundingClientRect().left ?? 0,
+                width: 340,
+                zIndex: 99999,
+                background: "#fff",
+                border: "1px solid #e5e7eb",
+                borderRadius: 12,
+                boxShadow: "0 8px 28px rgba(0,0,0,.14)",
+                overflow: "hidden",
+                maxHeight: 360,
+                overflowY: "auto",
+              }}
+            >
+              {/* Loading */}
+              {clientSearching && (
+                <div style={{ padding: "16px 14px", display: "flex", alignItems: "center", gap: 8, color: "#6b7280", fontSize: 13 }}>
+                  <span style={{
+                    width: 14, height: 14, borderRadius: "50%",
+                    border: "2px solid #d1d5db", borderTopColor: "#6366f1",
+                    animation: "topbar-spin 0.7s linear infinite", display: "inline-block", flexShrink: 0,
+                  }} />
+                  Searching…
+                </div>
+              )}
+
+              {/* Results */}
+              {!clientSearching && searchDone && clientResults.length > 0 && clientResults.map((c) => (
+                <div key={c.id} style={{ padding: "10px 12px", borderBottom: "1px solid #f3f4f6" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                    <span style={{
+                      width: 34, height: 34, borderRadius: "50%", flexShrink: 0,
+                      background: avatarColor(c.name), color: "#fff",
+                      fontSize: 13, fontWeight: 700,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      {c.name.charAt(0).toUpperCase()}
+                    </span>
+                    <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {c.name}
+                      </span>
+                      {c.phone && <span style={{ fontSize: 11, color: "#6b7280" }}>{c.phone}</span>}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        closeSearch();
+                        onNewAppointmentForClient?.(c);
+                      }}
+                      style={{
+                        flex: 1, padding: "6px 0", fontSize: 11, fontWeight: 600,
+                        border: "none", borderRadius: 6, cursor: "pointer",
+                        background: "#1f2937", color: "#fff", fontFamily: "inherit",
+                      }}
+                    >
+                      + Add Appointment
+                    </button>
+                    <button
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        closeSearch();
+                        navTo("/dashboard/clients/history", { state: { openClientId: c.id } });
+                      }}
+                      style={{
+                        flex: 1, padding: "6px 0", fontSize: 11, fontWeight: 600,
+                        border: "1px solid #d1d5db", borderRadius: 6, cursor: "pointer",
+                        background: "#fff", color: "#374151", fontFamily: "inherit",
+                      }}
+                    >
+                      Visit History
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {/* No results */}
+              {!clientSearching && searchDone && clientResults.length === 0 && (
+                <div style={{ padding: "16px", textAlign: "center" }}>
+                  <div style={{ fontSize: 13, color: "#ef4444", fontWeight: 600, marginBottom: 3 }}>
+                    No client found
+                  </div>
+                  <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 12 }}>
+                    "{clientQuery}" didn't match any client.
+                  </div>
+                  <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                    <button
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        const phone = clientQuery.trim();
+                        closeSearch();
+                        onNewAppointmentForClient?.({ id: "", name: "", phone });
+                      }}
+                      style={{
+                        flex: 1, padding: "7px 0", fontSize: 11, fontWeight: 600,
+                        border: "none", borderRadius: 7, cursor: "pointer",
+                        background: "#1f2937", color: "#fff", fontFamily: "inherit",
+                      }}
+                    >
+                      + Add Appointment
+                    </button>
+                    <button
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        const q = clientQuery.trim();
+                        const isPhone = /^\d{7,}$/.test(q.replace(/[^\d]/g, ""));
+                        closeSearch();
+                        navTo("/dashboard/clients/add", {
+                          state: isPhone ? { prefillPhone: q } : { prefillName: q },
+                        });
+                      }}
+                      style={{
+                        flex: 1, padding: "7px 0", fontSize: 11, fontWeight: 600,
+                        border: "1px solid #6366f1", borderRadius: 7, cursor: "pointer",
+                        background: "#eff0ff", color: "#4f46e5", fontFamily: "inherit",
+                      }}
+                    >
+                      + Add Client
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>,
+            document.body,
+          )}
+        </div>
+
+        {/* Spacer — keeps right-side controls right-aligned */}
         <div style={{ flex: 1, minWidth: 0 }} />
 
         {/* Staff filter */}
@@ -459,7 +683,6 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
               position: "fixed",
               top: datePickerPos.top,
               left: datePickerPos.left,
-              transform: "translateX(-50%)",
               zIndex: 99999,
             }}
           >
@@ -474,6 +697,9 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
           </div>,
           document.body,
         )}
+
+      {/* Spinner keyframe */}
+      <style>{`@keyframes topbar-spin { to { transform: rotate(360deg); } }`}</style>
 
       {/* ── Staff filter PORTAL ── */}
       {showStaffDrop &&

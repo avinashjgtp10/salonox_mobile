@@ -23,6 +23,7 @@ import servicesReducer from "./servicesSlice";
 import categoriesReducer from "./categoriesSlice";
 import serviceFiltersReducer from "./serviceFiltersSlice";
 import membershipReducer from "./membershipSlice";
+import clientMembershipReducer from "./clientMembershipSlice";
 import inventoryReducer from "./inventorySlice";
 import { membershipsApi } from "../services/api/endpoints/memberships.endpoints";
 import { packagesApi, clientPackagesApi, packageTemplatesApi } from "../services/api/endpoints/packages.endpoints";
@@ -33,6 +34,8 @@ import dashboardReducer from "./dashboardSlice";
 import billingReducer from "./billingSlice";
 import marketplaceReducer from "./marketplaceSlice";
 import onlineBookingReducer from "./onlineBookingSlice";
+import superAdminReducer from "./superAdminSlice";
+import supportReducer from "./supportSlice";
 
 const authPersistConfig = {
   key: "auth",
@@ -67,6 +70,7 @@ export const store = configureStore({
     categories: categoriesReducer,
     serviceFilters: serviceFiltersReducer,
     memberships: membershipReducer,
+    clientMemberships: clientMembershipReducer,
     inventory: inventoryReducer,
     [membershipsApi.reducerPath]: membershipsApi.reducer,
     [packagesApi.reducerPath]: packagesApi.reducer,
@@ -79,6 +83,8 @@ export const store = configureStore({
     billing: billingReducer,
     marketplace: marketplaceReducer,
     onlineBooking: onlineBookingReducer,
+    superAdmin: superAdminReducer,
+    support: supportReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
