@@ -74,8 +74,10 @@ export const ClientPanel: React.FC<Props> = ({
   const [addFirst, setAddFirst]       = useState("");
   const [addLast, setAddLast]         = useState("");
   const [addPhone, setAddPhone]       = useState("");
-  const [addGender, setAddGender]     = useState("Female");
+  const [addGender, setAddGender]     = useState("");
   const [addSaving, setAddSaving]     = useState(false);
+  const [addErrors, setAddErrors]     = useState<{ first?: string; phone?: string; gender?: string }>({});
+  const [noResults, setNoResults]     = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
 
   const { details, stats, loading: statsLoading } = useClientDetails(selectedClientId);
@@ -113,12 +115,18 @@ export const ClientPanel: React.FC<Props> = ({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  function clearPrefill() {
+    setAddFirst(""); setAddPhone(""); setAddLast(""); setAddGender(""); setAddErrors({});
+  }
+
   useEffect(() => {
-    if (search.length < 3) { setSuggestions([]); return; }
+    if (search.length < 3) { setSuggestions([]); setNoResults(false); clearPrefill(); return; }
     if (search === "Walk In") return;
+    let cancelled = false;
     const t = setTimeout(async () => {
       try {
         const res = await api.get(`/api/v1/clients/search?q=${encodeURIComponent(search)}&salon_id=${salonId || ""}`);
+        if (cancelled) return;
         const raw = res.data?.data ?? res.data ?? [];
         const items: any[] = Array.isArray(raw) ? raw : (raw.items ?? raw.data ?? []);
         setTotalFound(raw.total ?? items.length);
@@ -128,13 +136,23 @@ export const ClientPanel: React.FC<Props> = ({
           phone: (c.phone || c.phone_number || "").replace(/[^\d+]/g, ""),
           eWallet: c.wallet_balance || 0,
         })));
+        if (items.length === 0) {
+          setNoResults(true);
+          const isPhone = /^\d+$/.test(search);
+          setAddPhone(isPhone ? search : "");
+          setAddFirst(!isPhone ? search : "");
+          setAddLast("");
+          setAddGender("");
+          setAddErrors({});
+        } else {
+          setNoResults(false);
+        }
         setShowDrop(true);
       } catch {
-        setSuggestions([]);
-        setTotalFound(0);
+        if (!cancelled) { setSuggestions([]); setTotalFound(0); setNoResults(false); }
       }
     }, 250);
-    return () => clearTimeout(t);
+    return () => { clearTimeout(t); cancelled = true; };
   }, [search, salonId]);
 
   function selectClient(c: Client) {
@@ -152,7 +170,30 @@ export const ClientPanel: React.FC<Props> = ({
   }
 
   async function handleCreateClient() {
-    if (!addFirst && !addPhone) return;
+    const errors: { first?: string; phone?: string; gender?: string } = {};
+    if (!addFirst.trim()) errors.first = "First name is required";
+    if (!addPhone.trim()) errors.phone = "Phone is required";
+    if (!addGender) errors.gender = "Gender is required";
+    if (Object.keys(errors).length) { setAddErrors(errors); return; }
+
+    // Check if phone already exists before creating
+    if (addPhone) {
+      try {
+        const checkRes = await api.get(`/api/v1/clients/search?q=${encodeURIComponent(addPhone)}&salon_id=${salonId || ""}`);
+        const raw = checkRes.data?.data ?? checkRes.data ?? [];
+        const items: any[] = Array.isArray(raw) ? raw : (raw.items ?? raw.data ?? []);
+        const duplicate = items.find((c: any) => {
+          const phone = (c.phone || c.phone_number || "").replace(/\D/g, "");
+          return phone === addPhone || phone.endsWith(addPhone);
+        });
+        if (duplicate) {
+          setAddErrors((prev) => ({ ...prev, phone: "Mobile number already exists" }));
+          return;
+        }
+      } catch { /* proceed to create */ }
+    }
+
+    setAddErrors({});
     setAddSaving(true);
     try {
       const res = await api.post("/api/v1/clients", {
@@ -171,8 +212,13 @@ export const ClientPanel: React.FC<Props> = ({
       };
       selectClient(newClient);
       setShowAddForm(false);
-      setAddFirst(""); setAddLast(""); setAddPhone(""); setAddGender("Female");
-    } catch { /* ignore */ } finally {
+      setAddFirst(""); setAddLast(""); setAddPhone(""); setAddGender(""); setAddErrors({});
+    } catch (err: any) {
+      const msg: string = err?.response?.data?.message || err?.response?.data?.error || "";
+      if (err?.response?.status === 409 || /phone|mobile|already/i.test(msg)) {
+        setAddErrors((prev) => ({ ...prev, phone: "Mobile number already exists" }));
+      }
+    } finally {
       setAddSaving(false);
     }
   }
@@ -191,7 +237,12 @@ export const ClientPanel: React.FC<Props> = ({
               className={`client-search-input${error ? " client-search-input--error" : ""}`}
               placeholder="Search client by name or mobile number…"
               value={search}
-              onChange={(e) => { setSearch(e.target.value); if (!e.target.value) { onClearClient(); setTotalFound(0); } }}
+              onChange={(e) => {
+                const val = e.target.value;
+                const sanitized = /^\d*$/.test(val) ? val.slice(0, 10) : val;
+                setSearch(sanitized);
+                if (!sanitized) { onClearClient(); setTotalFound(0); setNoResults(false); clearPrefill(); }
+              }}
               onFocus={() => suggestions.length > 0 && setShowDrop(true)}
             />
             {search && (
@@ -199,7 +250,7 @@ export const ClientPanel: React.FC<Props> = ({
                 className="client-search-clear"
                 type="button"
                 tabIndex={-1}
-                onMouseDown={(e) => { e.preventDefault(); setSearch(""); onClearClient(); setSuggestions([]); setTotalFound(0); setShowDrop(false); }}
+                onMouseDown={(e) => { e.preventDefault(); setSearch(""); onClearClient(); setSuggestions([]); setTotalFound(0); setShowDrop(false); setNoResults(false); clearPrefill(); }}
               >×</button>
             )}
           </div>
@@ -241,7 +292,10 @@ export const ClientPanel: React.FC<Props> = ({
           <button
             className="client-action-btn client-action-btn--primary"
             type="button"
-            onClick={() => setShowAddForm((v) => !v)}
+            onClick={() => {
+              setNoResults(false);
+              setShowAddForm(true);
+            }}
           >
             + Add Client
           </button>
@@ -254,21 +308,73 @@ export const ClientPanel: React.FC<Props> = ({
         </div>
       </div>
 
+      {/* ── Client not found message (outside toolbar so buttons stay in same row) ── */}
+      {noResults && (
+        <div className="client-not-found-msg">
+          Client not found. Please create a new client.
+        </div>
+      )}
+
       {/* ── Add client form ── */}
       {showAddForm && (
         <div className="add-client-form">
-          <input className="acf-input" placeholder="First name *" value={addFirst} onChange={(e) => setAddFirst(e.target.value)} />
-          <input className="acf-input" placeholder="Last name" value={addLast} onChange={(e) => setAddLast(e.target.value)} />
-          <input className="acf-input" placeholder="Phone *" value={addPhone} onChange={(e) => setAddPhone(e.target.value)} />
-          <select className="acf-input" value={addGender} onChange={(e) => setAddGender(e.target.value)}>
-            <option>Female</option>
-            <option>Male</option>
-            <option>Other</option>
-          </select>
+          <div className="acf-required-wrapper">
+            {!addFirst && <span className="acf-label-overlay">First name<span className="acf-req-star">*</span></span>}
+            <input
+              className={`acf-input${addErrors.first ? " acf-input--error" : ""}`}
+              placeholder=""
+              value={addFirst}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^a-zA-Z]/g, "");
+                setAddFirst(val);
+                if (val.trim()) setAddErrors((prev) => ({ ...prev, first: undefined }));
+              }}
+            />
+            {addErrors.first && <span className="acf-error">{addErrors.first}</span>}
+          </div>
+          <input
+            className="acf-input"
+            placeholder="Last name"
+            value={addLast}
+            onChange={(e) => setAddLast(e.target.value.replace(/[^a-zA-Z]/g, ""))}
+          />
+          <div className="acf-required-wrapper">
+            {!addPhone && <span className="acf-label-overlay">Phone<span className="acf-req-star">*</span></span>}
+            <input
+              className={`acf-input${addErrors.phone ? " acf-input--error" : ""}`}
+              placeholder=""
+              value={addPhone}
+              inputMode="numeric"
+              maxLength={10}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                setAddPhone(val);
+                if (val.trim()) setAddErrors((prev) => ({ ...prev, phone: undefined }));
+              }}
+            />
+            {addErrors.phone && <span className="acf-error">{addErrors.phone}</span>}
+          </div>
+          <div className="acf-required-wrapper">
+            {!addGender && <span className="acf-label-overlay">Gender<span className="acf-req-star">*</span></span>}
+            <select
+              className={`acf-input${addErrors.gender ? " acf-input--error" : ""}`}
+              value={addGender}
+              onChange={(e) => {
+                setAddGender(e.target.value);
+                if (e.target.value) setAddErrors((prev) => ({ ...prev, gender: undefined }));
+              }}
+            >
+              <option value="" disabled hidden> </option>
+              <option>Female</option>
+              <option>Male</option>
+              <option>Other</option>
+            </select>
+            {addErrors.gender && <span className="acf-error">{addErrors.gender}</span>}
+          </div>
           <button className="acf-btn acf-btn--primary" onClick={handleCreateClient} disabled={addSaving}>
-            {addSaving ? "Saving…" : "Create"}
+            {addSaving ? "Saving…" : "Save"}
           </button>
-          <button className="acf-btn" onClick={() => setShowAddForm(false)}>Cancel</button>
+          <button className="acf-btn" onClick={() => { setShowAddForm(false); setAddErrors({}); }}>Cancel</button>
         </div>
       )}
 
@@ -276,7 +382,7 @@ export const ClientPanel: React.FC<Props> = ({
       {selectedClientId && selectedClientId !== "walk-in" && details && stats && (
         <ClientStatCard
           name={details.full_name || `${details.first_name || ""} ${details.last_name || ""}`.trim() || search}
-          phone={details.phone_number || ""}
+          phone={details.phone_number || details.phone || ""}
           stats={{ ...stats, unpaidAmt }}
           onViewHistory={onViewHistory}
         />

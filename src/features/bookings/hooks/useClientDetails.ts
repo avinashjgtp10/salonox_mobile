@@ -53,6 +53,7 @@ export function useClientDetails(clientId: string | null | undefined) {
       const lastVisit = client.last_visit_date ?? client.last_visit_at ?? null;
       const enriched: ClientDetails = {
         ...client,
+        phone_number: client.phone_number || client.phone || "",
         last_visit_date: lastVisit,
         unpaid_amount: (client.unpaid_amount ?? 0) > 0 ? client.unpaid_amount : 0,
       };

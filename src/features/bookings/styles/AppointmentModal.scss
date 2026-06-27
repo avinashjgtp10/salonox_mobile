@@ -259,6 +259,14 @@ $success:    #22c55e;
   padding-left: 2px;
 }
 
+.client-not-found-msg {
+  font-size: 12px;
+  color: #ef4444;
+  margin-top: 6px;
+  padding-left: 2px;
+  line-height: 1.4;
+}
+
 .client-action-btn {
   height: 38px;
   padding: 0 14px;
@@ -301,9 +309,33 @@ $success:    #22c55e;
   display: grid;
   grid-template-columns: 1fr 1fr 1fr 1fr auto auto;
   gap: 8px;
-  align-items: center;
+  align-items: start;
   padding: 10px 0;
   border-top: 1px dashed $border;
+
+
+  .acf-required-wrapper {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+
+    .acf-label-overlay {
+      position: absolute;
+      top: 9px;
+      left: 11px;
+      font-size: 12.5px;
+      color: #9ca3af;
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 1;
+      line-height: 1;
+    }
+
+    .acf-req-star {
+      color: #ef4444;
+      font-weight: 600;
+    }
+  }
 
   .acf-input {
     height: 34px;
@@ -314,7 +346,16 @@ $success:    #22c55e;
     font-family: inherit;
     color: $primary;
     outline: none;
+    width: 100%;
+    box-sizing: border-box;
     &:focus { border-color: $info; }
+    &--error { border-color: #ef4444; }
+  }
+
+  .acf-error {
+    font-size: 11px;
+    color: #ef4444;
+    margin-top: 2px;
   }
 
   .acf-btn {
