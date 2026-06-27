@@ -2,7 +2,7 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../services/api/axios";
 import { BLOCKED_TIME } from "../../services/api/endpoints";
 import { ApiError } from "../../services/api/interceptors";
-import type { BlockedTime } from "../../features/bookings/types/scheduler-types";
+import type { BlockedTime } from "../../features/bookings/types/booking.types";
 
 export interface CreateBlockedTimePayload {
   salon_id: string;

@@ -1,19 +1,14 @@
 import React, { useState, useRef, useEffect } from "react";
 import type { ServiceItem } from "../../types/scheduler-types";
+import { currencySymbol } from "../../../../utils/currency";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import TimeSelect from "../shared/TimeSelect";
 import { Trash } from "react-bootstrap-icons";
 import api from "../../../../services/api/axios";
 import { SERVICES } from "../../../../services/api/endpoints/services.endpoints";
+import "../../styles/AppointmentModal.scss";
 
 const DEBOUNCE_MS = 350;
-
-interface ServiceDto {
-  id?: string | number;
-  name?: string;
-  price?: string | number;
-  duration?: number;
-}
 
 interface StaffDto {
   id: string | number;
@@ -40,12 +35,8 @@ interface ServiceRowProps {
   onRemove: (id: string) => void;
   onClearError?: (tempId: string, field: string) => void;
   hasError?: boolean;
-  errorFields?: { service?: boolean; staff?: boolean; price?: boolean; qty?: boolean };
+  errorFields?: { service?: boolean; staff?: boolean; time?: boolean; price?: boolean; qty?: boolean };
   disabled?: boolean;
-}
-
-function hasDataArray(v: unknown): v is { data: unknown[] } {
-  return v !== null && typeof v === "object" && Array.isArray((v as Record<string, unknown>).data);
 }
 
 function fmtName(n: string) { return n.includes(" ") ? n : n.replace(/([a-z])([A-Z])/g, "$1 $2"); }
@@ -233,7 +224,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ row, onChange, onRemove, onClea
                     onMouseDown={() => selectService(s)}
                   >
                     <span className="svc-dropdown__name">{s.name}</span>
-                    <span className="svc-dropdown__price">₹{s.price}</span>
+                    <span className="svc-dropdown__price">{currencySymbol}{s.price}</span>
                   </button>
                 ))
               )}
@@ -258,7 +249,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ row, onChange, onRemove, onClea
             value={row.staffId}
             onChange={(e) => handleStaffChange(e.target.value)}
             className="svc-staff-pill__select"
-            style={{ color: row.staffId ? "#fff" : "#9ca3af" }}
+            style={{ color: row.staffId ? "#111827" : "#9ca3af" }}
           >
             <option value="" disabled style={{ color: "#000", background: "#fff" }}>Select Staff</option>
             {(staffList || []).map((s: { id: string; name: string }) => (
@@ -277,10 +268,11 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ row, onChange, onRemove, onClea
         <TimeSelect
           disabled={disabled}
           value={row.time}
-          onChange={(val) => onChange(row.tempId, "time", val)}
+          onChange={(val) => { onChange(row.tempId, "time", val); onClearError?.(row.tempId, "time"); }}
           interval={interval || "30 Mins"}
-          className="svc-field__input svc-field__select"
+          className={`svc-field__input svc-field__select${errorFields.time ? " svc-field__input--error" : ""}`}
         />
+        {errorFields.time && <span className="svc-field__err">Select time</span>}
       </div>
 
       {/* ── PRICE ── */}
@@ -316,7 +308,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ row, onChange, onRemove, onClea
 
       {/* ── DISCOUNT ── */}
       <div className="svc-field">
-        <span className="svc-field__label">Disc (₹)</span>
+        <span className="svc-field__label">Disc ({currencySymbol})</span>
         <input
           type="text"
           disabled={disabled}

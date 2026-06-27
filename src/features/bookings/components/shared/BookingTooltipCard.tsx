@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { currencySymbol } from "../../../../utils/currency";
 import {
   useFloating,
   flip,
@@ -18,8 +19,8 @@ interface BookingTooltipCardProps {
   onMouseLeave: () => void;
 }
 
-const PAY_LABEL: Record<string, string> = { Paid: "Paid", Partial: "Partial", Unpaid: "Due" };
-const PAY_COLOR: Record<string, string> = { Paid: "#16a34a", Partial: "#7c3aed", Unpaid: "#d97706" };
+const PAY_LABEL: Record<string, string> = { Paid: "Paid", Partial: "Due", Unpaid: "Unpaid" };
+const PAY_COLOR: Record<string, string> = { Paid: "#16a34a", Partial: "#6d28d9", Unpaid: "#d97706" };
 const PAY_BG:    Record<string, string> = { Paid: "#dcfce7", Partial: "#ede9fe", Unpaid: "#fef3c7" };
 
 const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
@@ -67,18 +68,19 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
   const packageItems  = (booking as any).packageItems  || (booking as any).packages  || [];
 
   const total = booking.grandTotal || 0;
-  const ps    = booking.paymentStatus ?? "Unpaid";
+  const rawPs = (booking.paymentStatus ?? "Unpaid");
+  const ps    = rawPs.charAt(0).toUpperCase() + rawPs.slice(1).toLowerCase();
   const payColor = PAY_COLOR[ps] ?? "#d97706";
   const payBg    = PAY_BG[ps]    ?? "#fef3c7";
   const payLabel = PAY_LABEL[ps] ?? ps;
 
   // Client avatar uses initials
-  const clientInitials = (booking.clientName ?? "?")
+  const clientInitials = (booking.clientName || "Walk-In")
     .split(" ")
     .map((w) => w[0] ?? "")
     .join("")
     .toUpperCase()
-    .slice(0, 2) || "?";
+    .slice(0, 2) || "W";
 
   const avatarColor = primaryStaff?.color ?? "#6b7280";
 
@@ -147,7 +149,7 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
                   fontSize: 13,
                 }}
               >
-                {booking.clientName || "Unknown Client"}
+                {booking.clientName || "Walk-In"}
               </div>
               <div style={{ fontSize: 11, color: "#6b7280", marginTop: 1 }}>
                 {formatTime12(booking.startTime)} – {formatTime12(booking.endTime)}
@@ -228,7 +230,7 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
                     )}
                   </div>
                   <div style={{ color: "#374151", fontWeight: 600, fontSize: 12, flexShrink: 0 }}>
-                    ₹{Number(svcTotal).toFixed(0)}
+                    {currencySymbol}{Number(svcTotal).toFixed(0)}
                   </div>
                 </div>
               );
@@ -248,7 +250,7 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
                   {p.name || p.productName}
                 </div>
                 <div style={{ color: "#374151", fontWeight: 600, fontSize: 12, flexShrink: 0 }}>
-                  ₹{Number(p.total || p.price || 0).toFixed(0)}
+                  {currencySymbol}{Number(p.total || p.price || 0).toFixed(0)}
                 </div>
               </div>
             ))}
@@ -267,26 +269,30 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
                   {p.name || p.packageName}
                 </div>
                 <div style={{ color: "#374151", fontWeight: 600, fontSize: 12, flexShrink: 0 }}>
-                  ₹{Number(p.total || p.price || 0).toFixed(0)}
+                  {currencySymbol}{Number(p.total || p.price || 0).toFixed(0)}
                 </div>
               </div>
             ))}
           </div>
 
-          {/* ── Total ── */}
-          <div
-            style={{
-              padding: "8px 13px",
-              borderTop: "1px solid #f3f4f6",
-              display: "flex",
-              justifyContent: "space-between",
-              fontWeight: 700,
-              color: "#111827",
-              fontSize: 13,
-            }}
-          >
-            <span>Total</span>
-            <span>₹{Number(total).toFixed(0)}</span>
+          {/* ── Total / Paid / Due ── */}
+          <div style={{ borderTop: "1px solid #f3f4f6" }}>
+            <div style={{ padding: "8px 13px 4px", display: "flex", justifyContent: "space-between", fontWeight: 700, color: "#111827", fontSize: 13 }}>
+              <span>Total</span>
+              <span>{currencySymbol}{Number(total).toFixed(0)}</span>
+            </div>
+            {booking.payingNow != null && Number(booking.payingNow) > 0 && (
+              <div style={{ padding: "2px 13px", display: "flex", justifyContent: "space-between", fontSize: 12, color: "#16a34a", fontWeight: 600 }}>
+                <span>Paid</span>
+                <span>{currencySymbol}{Number(booking.payingNow).toFixed(0)}</span>
+              </div>
+            )}
+            {Number(booking.dueAmount) > 0 && (
+              <div style={{ padding: "2px 13px 8px", display: "flex", justifyContent: "space-between", fontSize: 12, color: "#dc2626", fontWeight: 600 }}>
+                <span>Due</span>
+                <span>{currencySymbol}{Number(booking.dueAmount).toFixed(0)}</span>
+              </div>
+            )}
           </div>
 
           {/* ── Notes (only if non-empty) ── */}

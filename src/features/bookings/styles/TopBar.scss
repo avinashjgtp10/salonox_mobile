@@ -168,6 +168,118 @@
   }
 }
 
+/* ── Client search ── */
+.topbar__client-search {
+  flex: 1;
+  min-width: 0;
+  max-width: 280px;
+  position: relative;
+
+  &-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 20px;
+    padding: 5px 10px;
+    transition: border-color 0.15s, background 0.15s;
+
+    &:focus-within {
+      background: $white;
+      border-color: #6366f1;
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.12);
+    }
+  }
+
+  &-icon { font-size: 12px; flex-shrink: 0; opacity: 0.5; }
+
+  &-input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    font-size: 12px;
+    font-family: inherit;
+    color: #111827;
+    outline: none;
+
+    &::placeholder { color: #9ca3af; }
+  }
+
+  &-spinner {
+    width: 12px;
+    height: 12px;
+    border: 2px solid #d1d5db;
+    border-top-color: #6366f1;
+    border-radius: 50%;
+    animation: topbar-spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+}
+
+@keyframes topbar-spin { to { transform: rotate(360deg); } }
+
+.topbar__client-drop {
+  position: fixed;
+  z-index: 99999;
+  background: $white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  max-height: 320px;
+  overflow-y: auto;
+
+  &-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 12px;
+    border: none;
+    background: $white;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.12s;
+
+    &:hover { background: #f5f3ff; }
+  }
+}
+
+.topbar__client-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: $white;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.topbar__client-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.topbar__client-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar__client-phone {
+  font-size: 11px;
+  color: #6b7280;
+}
+
 /* ── View dropdown portal ── */
 .topbar-drop {
   position: fixed;
