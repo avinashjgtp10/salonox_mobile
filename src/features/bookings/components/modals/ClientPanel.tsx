@@ -203,7 +203,7 @@ export const ClientPanel: React.FC<Props> = ({
         salon_id: salonId,
         first_name: addFirst,
         last_name: addLast,
-        phone: addPhone,
+        phone_number: addPhone,
         gender: addGender,
       });
       const c = res.data?.data ?? res.data;
