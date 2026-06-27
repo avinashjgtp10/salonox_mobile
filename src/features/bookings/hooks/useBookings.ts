@@ -25,7 +25,7 @@ function getViewRange(viewMode: string, date: string): { startDate: string; endD
   return { startDate: date, endDate: date };
 }
 
-export function useBookings() {
+export function useBookings(skip = false) {
   const dispatch     = useAppDispatch();
   const currentDate  = useAppSelector(selectCurrentDate);
   const viewMode     = useAppSelector(selectViewMode);
@@ -79,9 +79,10 @@ export function useBookings() {
   }, [dispatch]);
 
   useEffect(() => {
+    if (skip) return;
     const { startDate, endDate } = getViewRange(viewMode, currentDate);
     fetchRange(startDate, endDate);
-  }, [currentDate, viewMode, fetchRange]);
+  }, [currentDate, viewMode, fetchRange, skip]);
 
   const refresh = useCallback(async () => {
     const { startDate, endDate } = getViewRange(viewMode, currentDate);

@@ -7,10 +7,9 @@ import { fetchBookingByIdThunk, fetchBookingsThunk, cancelBookingThunk, deleteBo
 import { setBookings, clearDragPatch } from "../../../../store/schedulerSlice";
 import { store } from "../../../../store/store";
 import { useSchedulerContext } from "../../store/SchedulerContext";
-// ── NEW: 3 focused hooks replace useSchedulerInit ─────────────────────────────
+// ── NEW: 2 focused hooks replace useSchedulerInit ─────────────────────────────
 import { useBookings }      from "../../hooks/useBookings";
 import { useStaffSchedule } from "../../hooks/useStaffSchedule";
-import { useServices }      from "../../hooks/useServices";
 // ── NEW: mapApiBooking now lives in utils ─────────────────────────────────────
 import { mapApiBooking } from "../../utils/bookingMapper";
 import TopBar        from "./TopBar";
@@ -38,10 +37,10 @@ const SchedulerContent: React.FC = () => {
   const apiStaff    = useAppSelector((s: any) => s.staff?.items   ?? EMPTY_ARR);
   const apiClients  = useAppSelector((s: any) => s.client?.items  ?? EMPTY_ARR);
 
-  // ── Data hooks (each fetches one concern independently) ───────────────────
-  useBookings();
-  useStaffSchedule(salonId);
-  useServices(salonId);
+  // ── Data hooks ───────────────────────────────────────────────────────────
+  const { staffReady, hasStaff } = useStaffSchedule(salonId);
+  // Skip appointment fetch until staff is confirmed available
+  useBookings(!hasStaff);
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [showNewAppt, setShowNewAppt]         = useState(false);
@@ -51,6 +50,7 @@ const SchedulerContent: React.FC = () => {
   const [paymentBooking, setPaymentBooking]   = useState<Booking | null>(null);
   const [collectDueMode, setCollectDueMode]   = useState(false);
   const [apptDefaults, setApptDefaults]       = useState<{ staffId?: string; defaultTime?: string }>({});
+  const [defaultClient, setDefaultClient]     = useState<{ id: string; name: string; phone: string } | null>(null);
   const [blockStaffId, setBlockStaffId]       = useState<string | undefined>(undefined);
   const [editingBlockTime, setEditingBlockTime] = useState<BlockedTime | undefined>(undefined);
 
@@ -201,6 +201,7 @@ const SchedulerContent: React.FC = () => {
   function handleCloseAppt() {
     setShowNewAppt(false);
     setEditingBooking(null);
+    setDefaultClient(null);
     setApptDefaults({});
   }
 
@@ -216,7 +217,15 @@ const SchedulerContent: React.FC = () => {
 
   const handleNewAppointment = useSingleClick(() => {
     setEditingBooking(null);
+    setDefaultClient(null);
     setApptDefaults({});
+    setShowNewAppt(true);
+  });
+
+  const handleNewAppointmentForClient = useSingleClick((client: { id: string; name: string; phone: string }) => {
+    setEditingBooking(null);
+    setApptDefaults({});
+    setDefaultClient(client);
     setShowNewAppt(true);
   });
 
@@ -230,36 +239,68 @@ const SchedulerContent: React.FC = () => {
       overflow: "hidden",
       position: "relative",
     }}>
-      <div style={{ flexShrink: 0, width: "100%", overflow: "hidden", position: "relative", zIndex: 30 }}>
-        <TopBar
-          onNewAppointment={handleNewAppointment}
-          onBlockTime={() => handleBlockTime()}
-        />
-      </div>
+      {(!staffReady || hasStaff) && (
+        <div style={{ flexShrink: 0, width: "100%", overflow: "hidden", position: "relative", zIndex: 30 }}>
+          <TopBar
+            onNewAppointment={handleNewAppointment}
+            onBlockTime={() => handleBlockTime()}
+            onNewAppointmentForClient={handleNewAppointmentForClient}
+          />
+        </div>
+      )}
 
       <div style={{
         flex: 1, display: "flex", flexDirection: "column", minHeight: 0,
         overflowY: viewMode === "Month" || viewMode === "List Week" ? "auto" : "hidden",
         overflowX: "hidden",
       }}>
-        {viewMode === "Day" && (
-          <DayView
-            onSlotClick={handleSlotClick}
-            onEditBooking={handleEditBooking}
-            onCancelBooking={handleCancelBooking}
-            onDeleteBooking={handleDeleteBooking}
-            onBlockTime={(staffId: string) => handleBlockTime(staffId)}
-            onEditBlockTime={handleEditBlockTime}
-          />
-        )}
-        {viewMode === "Week" && (
-          <WeekView onSlotClick={handleSlotClick} onViewBill={setViewingBooking} />
-        )}
-        {viewMode === "Month" && (
-          <MonthView onDayClick={handleDayClick} onViewBill={setViewingBooking} />
-        )}
-        {viewMode === "List Week" && (
-          <ListWeekView onViewBill={setViewingBooking} />
+        {/* ── No-staff empty state ── */}
+        {staffReady && !hasStaff ? (
+          <div style={{
+            flex: 1, display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center", gap: 12,
+            color: "#64748b", textAlign: "center", padding: "40px 24px",
+          }}>
+            <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            <p style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "#334155" }}>No staff available</p>
+            <p style={{ margin: 0, fontSize: 13, color: "#94a3b8" }}>Add team members to start scheduling appointments.</p>
+            <a
+              href="/dashboard/team"
+              style={{
+                marginTop: 8, padding: "8px 20px", borderRadius: 8,
+                background: "#6366f1", color: "#fff", fontWeight: 600,
+                fontSize: 13, textDecoration: "none", display: "inline-block",
+              }}
+            >
+              + Add Staff
+            </a>
+          </div>
+        ) : (
+          <>
+            {viewMode === "Day" && (
+              <DayView
+                onSlotClick={handleSlotClick}
+                onEditBooking={handleEditBooking}
+                onCancelBooking={handleCancelBooking}
+                onDeleteBooking={handleDeleteBooking}
+                onBlockTime={(staffId: string) => handleBlockTime(staffId)}
+                onEditBlockTime={handleEditBlockTime}
+              />
+            )}
+            {viewMode === "Week" && (
+              <WeekView onSlotClick={handleSlotClick} onViewBill={setViewingBooking} />
+            )}
+            {viewMode === "Month" && (
+              <MonthView onDayClick={handleDayClick} onViewBill={setViewingBooking} />
+            )}
+            {viewMode === "List Week" && (
+              <ListWeekView onViewBill={setViewingBooking} />
+            )}
+          </>
         )}
       </div>
 
@@ -274,6 +315,9 @@ const SchedulerContent: React.FC = () => {
           defaultTime={apptDefaults.defaultTime}
           defaultDate={editingBooking?.date || undefined}
           existingBooking={editingBooking || undefined}
+          defaultClientId={defaultClient?.id}
+          defaultClientName={defaultClient?.name}
+          defaultClientPhone={defaultClient?.phone}
           onCancelBooking={handleCancelBooking}
           onDeleteBooking={handleDeleteBooking}
         />

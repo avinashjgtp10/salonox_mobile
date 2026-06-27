@@ -15,12 +15,13 @@ interface TopBarProps {
   onNewAppointment: () => void;
   onBlockTime: () => void;
   onRefresh?: () => void;
+  onNewAppointmentForClient?: (client: { id: string; name: string; phone: string }) => void;
 }
 
 const VIEW_OPTIONS: ViewMode[] = ["Day", "Week", "Month", "List Week"];
 const INTERVAL_OPTIONS: IntervalOption[] = ["15 Mins", "30 Mins", "60 Mins"];
 
-const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefresh }) => {
+const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefresh, onNewAppointmentForClient }) => {
   const {
     viewMode, setViewMode, currentDate, setCurrentDate,
     navigate, interval, setInterval, staffList, selectedStaffId, setSelectedStaffId,
@@ -29,10 +30,11 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
   const salonId = useAppSelector((s: any) => s.salon?.currentSalon?.id ?? s.auth?.user?.salon_id ?? "");
 
   // ── Client search ──────────────────────────────────────────────────────────
-  const [clientQuery, setClientQuery]       = useState("");
-  const [clientResults, setClientResults]   = useState<{ id: string; name: string; phone: string }[]>([]);
-  const [showClientDrop, setShowClientDrop] = useState(false);
+  const [clientQuery, setClientQuery]         = useState("");
+  const [clientResults, setClientResults]     = useState<{ id: string; name: string; phone: string }[]>([]);
+  const [showClientDrop, setShowClientDrop]   = useState(false);
   const [clientSearching, setClientSearching] = useState(false);
+  const [searchDone, setSearchDone]           = useState(false);
   const searchRef   = useRef<HTMLDivElement>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -50,28 +52,36 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
 
   const handleClientSearch = useCallback((q: string) => {
     setClientQuery(q);
+    setSearchDone(false);
     if (searchTimer.current) clearTimeout(searchTimer.current);
-    if (q.trim().length < 2) { setClientResults([]); setShowClientDrop(false); return; }
+    if (q.trim().length < 3) {
+      setClientResults([]); setShowClientDrop(false); return;
+    }
+    setShowClientDrop(true);
     searchTimer.current = setTimeout(async () => {
       setClientSearching(true);
       try {
         const res = await api.get(`/api/v1/clients/search?q=${encodeURIComponent(q)}&salon_id=${salonId}`);
-        const raw: any[] = res.data?.data ?? res.data ?? [];
-        const list = (Array.isArray(raw) ? raw : (raw as any).data ?? []).map((c: any) => ({
+        const raw: any = res.data?.data ?? res.data ?? [];
+        const items: any[] = Array.isArray(raw) ? raw : (raw.items ?? raw.data ?? []);
+        const list = items.map((c: any) => ({
           id: String(c.id),
           name: c.full_name || `${c.first_name || ""} ${c.last_name || ""}`.trim() || "—",
           phone: c.phone_number || c.phone || "",
         }));
         setClientResults(list);
-        setShowClientDrop(list.length > 0);
-      } catch { setClientResults([]); }
-      finally { setClientSearching(false); }
-    }, 280);
+        setSearchDone(true);
+      } catch {
+        setClientResults([]);
+        setSearchDone(true);
+      } finally {
+        setClientSearching(false);
+      }
+    }, 300);
   }, [salonId]);
 
-  function selectClient(c: { id: string; name: string }) {
-    setClientQuery(""); setClientResults([]); setShowClientDrop(false);
-    navTo("/dashboard/clients/history", { state: { openClientId: c.id } });
+  function closeSearch() {
+    setClientQuery(""); setClientResults([]); setShowClientDrop(false); setSearchDone(false);
   }
 
   const [showViewDrop, setShowViewDrop] = useState(false);
@@ -324,7 +334,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
             <input
               value={clientQuery}
               onChange={(e) => handleClientSearch(e.target.value)}
-              onFocus={() => { if (clientResults.length) setShowClientDrop(true); }}
+              onFocus={() => { if (clientQuery.length >= 3) setShowClientDrop(true); }}
               placeholder="Search client…"
               style={{
                 flex: 1, minWidth: 0, border: "none", background: "transparent",
@@ -338,54 +348,120 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
                 animation: "topbar-spin 0.7s linear infinite", display: "inline-block",
               }} />
             )}
+            {clientQuery && !clientSearching && (
+              <button
+                onMouseDown={(e) => { e.preventDefault(); closeSearch(); }}
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: "#9ca3af", fontSize: 14, flexShrink: 0 }}
+              >×</button>
+            )}
           </div>
 
-          {showClientDrop && clientResults.length > 0 && ReactDOM.createPortal(
+          {showClientDrop && ReactDOM.createPortal(
             <div
               style={{
                 position: "fixed",
                 top: (searchRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
                 left: searchRef.current?.getBoundingClientRect().left ?? 0,
-                width: searchRef.current?.getBoundingClientRect().width ?? 260,
+                width: 340,
                 zIndex: 99999,
                 background: "#fff",
                 border: "1px solid #e5e7eb",
-                borderRadius: 10,
-                boxShadow: "0 8px 24px rgba(0,0,0,.12)",
+                borderRadius: 12,
+                boxShadow: "0 8px 28px rgba(0,0,0,.14)",
                 overflow: "hidden",
-                maxHeight: 300,
+                maxHeight: 360,
                 overflowY: "auto",
               }}
             >
-              {clientResults.map((c) => (
-                <button
-                  key={c.id}
-                  onMouseDown={(e) => { e.preventDefault(); selectClient(c); }}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 10,
-                    width: "100%", padding: "9px 12px",
-                    border: "none", background: "#fff",
-                    cursor: "pointer", textAlign: "left",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f5f3ff")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
-                >
+              {/* Loading */}
+              {clientSearching && (
+                <div style={{ padding: "16px 14px", display: "flex", alignItems: "center", gap: 8, color: "#6b7280", fontSize: 13 }}>
                   <span style={{
-                    width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
-                    background: avatarColor(c.name), color: "#fff",
-                    fontSize: 12, fontWeight: 700,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                  }}>
-                    {c.name.charAt(0).toUpperCase()}
-                  </span>
-                  <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {c.name}
+                    width: 14, height: 14, borderRadius: "50%",
+                    border: "2px solid #d1d5db", borderTopColor: "#6366f1",
+                    animation: "topbar-spin 0.7s linear infinite", display: "inline-block", flexShrink: 0,
+                  }} />
+                  Searching…
+                </div>
+              )}
+
+              {/* Results */}
+              {!clientSearching && searchDone && clientResults.length > 0 && clientResults.map((c) => (
+                <div key={c.id} style={{ padding: "10px 12px", borderBottom: "1px solid #f3f4f6" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                    <span style={{
+                      width: 34, height: 34, borderRadius: "50%", flexShrink: 0,
+                      background: avatarColor(c.name), color: "#fff",
+                      fontSize: 13, fontWeight: 700,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      {c.name.charAt(0).toUpperCase()}
                     </span>
-                    {c.phone && <span style={{ fontSize: 11, color: "#6b7280" }}>{c.phone}</span>}
-                  </span>
-                </button>
+                    <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {c.name}
+                      </span>
+                      {c.phone && <span style={{ fontSize: 11, color: "#6b7280" }}>{c.phone}</span>}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        closeSearch();
+                        onNewAppointmentForClient?.(c);
+                      }}
+                      style={{
+                        flex: 1, padding: "6px 0", fontSize: 11, fontWeight: 600,
+                        border: "none", borderRadius: 6, cursor: "pointer",
+                        background: "#1f2937", color: "#fff", fontFamily: "inherit",
+                      }}
+                    >
+                      + Add Appointment
+                    </button>
+                    <button
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        closeSearch();
+                        navTo("/dashboard/clients/history", { state: { openClientId: c.id } });
+                      }}
+                      style={{
+                        flex: 1, padding: "6px 0", fontSize: 11, fontWeight: 600,
+                        border: "1px solid #d1d5db", borderRadius: 6, cursor: "pointer",
+                        background: "#fff", color: "#374151", fontFamily: "inherit",
+                      }}
+                    >
+                      Visit History
+                    </button>
+                  </div>
+                </div>
               ))}
+
+              {/* No results */}
+              {!clientSearching && searchDone && clientResults.length === 0 && (
+                <div style={{ padding: "20px 16px", textAlign: "center" }}>
+                  <div style={{ fontSize: 13, color: "#ef4444", fontWeight: 600, marginBottom: 4 }}>
+                    No client found
+                  </div>
+                  <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 12 }}>
+                    "{clientQuery}" didn't match any client.
+                  </div>
+                  <button
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      closeSearch();
+                      navTo("/dashboard/clients");
+                    }}
+                    style={{
+                      padding: "7px 16px", fontSize: 12, fontWeight: 600,
+                      border: "1px solid #6366f1", borderRadius: 7, cursor: "pointer",
+                      background: "#eff0ff", color: "#4f46e5", fontFamily: "inherit",
+                    }}
+                  >
+                    + Add Client
+                  </button>
+                </div>
+              )}
             </div>,
             document.body,
           )}

@@ -25,11 +25,13 @@ export interface StaffDaySchedule {
  * and fetches each staff member's weekly schedule pattern.
  */
 export function useStaffSchedule(salonId?: string | null) {
-  const dispatch       = useAppDispatch();
-  const initialized    = useRef<string | null>(null);
-  const apiStaff       = useAppSelector((s: any) => s.staff?.staff ?? s.staff?.items ?? []);
-  const staffSchedules = useAppSelector((s: any) => s.scheduler?.staffSchedules ?? {});
+  const dispatch        = useAppDispatch();
+  const initialized     = useRef<string | null>(null);
+  const apiStaff        = useAppSelector((s: any) => s.staff?.staff ?? s.staff?.items ?? []);
+  const staffSchedules  = useAppSelector((s: any) => s.scheduler?.staffSchedules ?? {});
   const scheduleVersion = useAppSelector((s: any) => s.scheduler?.scheduleVersion ?? 0);
+  const staffFetching   = useAppSelector((s: any) => s.staff?.loading?.fetchAll ?? false);
+  const staffList       = useAppSelector((s: any) => s.scheduler?.staffList ?? []);
 
   // ── Fetch staff list once per salonId ─────────────────────────────────────
   useEffect(() => {
@@ -104,4 +106,8 @@ export function useStaffSchedule(salonId?: string | null) {
       dispatch(setStaffSchedules(schedules));
     }).catch(() => { /* non-critical */ });
   }, [apiStaff, scheduleVersion, dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // staffReady = fetch was dispatched for this salon AND is no longer loading
+  const staffReady = initialized.current === salonId && !staffFetching;
+  return { staffReady, hasStaff: staffList.length > 0 };
 }
