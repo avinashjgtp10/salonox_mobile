@@ -571,10 +571,13 @@ $transition: 0.18s ease;
 
   &--active {
     background: $text;
-    color: #fff;
+    color: #fff !important;
     border-color: $text;
 
-    &:hover { background: #1f2937; }
+    &:hover {
+      background: #1f2937;
+      color: #fff !important;
+    }
   }
 
   &__count {
@@ -816,6 +819,7 @@ $transition: 0.18s ease;
 
   &[type="number"] {
     -moz-appearance: textfield;
+    appearance: textfield;
     &::-webkit-outer-spin-button,
     &::-webkit-inner-spin-button {
       -webkit-appearance: none;
@@ -1062,6 +1066,7 @@ $transition: 0.18s ease;
     padding: 8px 0 !important;
     min-width: 0;
     -moz-appearance: textfield;
+    appearance: textfield;
     &::-webkit-outer-spin-button,
     &::-webkit-inner-spin-button {
       -webkit-appearance: none;
@@ -1323,6 +1328,7 @@ $transition: 0.18s ease;
     font-family: $font;
     font-weight: 600;
     -moz-appearance: textfield;
+    appearance: textfield;
     &::-webkit-outer-spin-button,
     &::-webkit-inner-spin-button {
       -webkit-appearance: none;
