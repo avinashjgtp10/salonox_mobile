@@ -5,6 +5,7 @@ export interface ClientDetails {
   last_name?: string;
   full_name?: string;
   phone_number?: string;
+  phone?: string;
 
   // eWallet
   wallet_balance?: number;
