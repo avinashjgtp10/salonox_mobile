@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { setStaffList, setStaffSchedules } from "../../../store/schedulerSlice";
+import { setStaffList, setStaffSchedules, setBlockedTimes } from "../../../store/schedulerSlice";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
+import { fetchBlockedTimesThunk } from "../../../middleware/blockedTime/blockedTime.thunk";
 import api from "../../../services/api/axios";
 import type { Staff } from "../types";
 
@@ -33,11 +34,17 @@ export function useStaffSchedule(salonId?: string | null) {
   const staffFetching   = useAppSelector((s: any) => s.staff?.loading?.fetchAll ?? false);
   const staffList       = useAppSelector((s: any) => s.scheduler?.staffList ?? []);
 
-  // ── Fetch staff list once per salonId ─────────────────────────────────────
+  // ── Fetch staff list + blocked times once per salonId ────────────────────
   useEffect(() => {
     if (!salonId || initialized.current === salonId) return;
     initialized.current = salonId;
     dispatch(fetchStaffThunk());
+    // Fetch all blocked times for this salon so they show on any device/session
+    (dispatch(fetchBlockedTimesThunk()) as any).then((action: any) => {
+      if (fetchBlockedTimesThunk.fulfilled.match(action)) {
+        dispatch(setBlockedTimes(action.payload));
+      }
+    }).catch(() => { /* non-critical */ });
   }, [dispatch, salonId]);
 
   // ── Map raw API staff → typed Staff[] ────────────────────────────────────
