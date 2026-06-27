@@ -59,7 +59,6 @@ export default function ClientSearchInput({
   const [loading, setLoading]   = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError]       = useState<string | null>(null);
-  const [touched, setTouched]   = useState(false);
   const [open, setOpen]         = useState(false);
 
   const userTypedRef    = useRef(value ?? "");
@@ -229,18 +228,15 @@ export default function ClientSearchInput({
           hasError  ? "has-error" : "",
           disabled  ? "disabled"  : "",
         ].filter(Boolean).join(" ")}
-        style={{ padding: 0 }}
       >
         <Search
           size={15}
           className="search-icon"
-          style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }}
         />
         <input
           ref={inputRef}
           type="text"
           className="client-search-input"
-          style={{ padding: "10px 14px 10px 36px", height: "100%", width: "100%", borderRadius: 10 }}
           placeholder={placeholder}
           value={query}
           disabled={disabled}
@@ -253,7 +249,6 @@ export default function ClientSearchInput({
             if (isPhoneInput && val.length > 10) return;
             userTypedRef.current = val;
             setQuery(val);
-            setTouched(true);
             onChange?.(val);
             setOpen(val.length >= 3);
             if (val.length >= 3) setError(null);
@@ -287,7 +282,7 @@ export default function ClientSearchInput({
 
       {/* ── Dropdown ── */}
       {showDropdown && (
-        <div className="client-search-dropdown" role="listbox" aria-label="Client search results">
+        <div className="client-search-dropdown" aria-label="Client search results">
 
           {/* Loading spinner */}
           {loading && (
@@ -306,11 +301,10 @@ export default function ClientSearchInput({
               {results.map((client) => {
                 const fullName = `${client.first_name} ${client.last_name ?? ""}`.trim();
                 return (
-                  <div
+                  <button
                     key={client.id}
+                    type="button"
                     className="search-result-item"
-                    role="option"
-                    aria-selected="false"
                     onMouseDown={(e) => { e.preventDefault(); handleSelect(client); }}
                   >
                     <div className="result-avatar">
@@ -335,7 +329,7 @@ export default function ClientSearchInput({
                         )}
                       </div>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -348,7 +342,7 @@ export default function ClientSearchInput({
               <span>
                 No clients found for{" "}
                 <strong
-                  style={{ cursor: "pointer", textDecoration: "underline" }}
+                  className="search-empty-query"
                   title="Click to use this number"
                   onMouseDown={(e) => {
                     e.preventDefault();

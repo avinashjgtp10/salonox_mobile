@@ -23,6 +23,7 @@ import servicesReducer from "./servicesSlice";
 import categoriesReducer from "./categoriesSlice";
 import serviceFiltersReducer from "./serviceFiltersSlice";
 import membershipReducer from "./membershipSlice";
+import clientMembershipReducer from "./clientMembershipSlice";
 import inventoryReducer from "./inventorySlice";
 import { membershipsApi } from "../services/api/endpoints/memberships.endpoints";
 import { packagesApi, clientPackagesApi, packageTemplatesApi } from "../services/api/endpoints/packages.endpoints";
@@ -69,6 +70,7 @@ export const store = configureStore({
     categories: categoriesReducer,
     serviceFilters: serviceFiltersReducer,
     memberships: membershipReducer,
+    clientMemberships: clientMembershipReducer,
     inventory: inventoryReducer,
     [membershipsApi.reducerPath]: membershipsApi.reducer,
     [packagesApi.reducerPath]: packagesApi.reducer,

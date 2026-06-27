@@ -238,4 +238,112 @@
       }
     }
   }
+
+  &__section--sell {
+    border-color: #e0e7ff;
+    background: #fafbff;
+  }
+
+  &__sell-success {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #16a34a;
+    font-size: 0.875rem;
+    font-weight: 600;
+    padding: 10px 14px;
+    border-radius: 10px;
+    margin-bottom: 14px;
+  }
+
+  &__sell-error {
+    background: #fff1f2;
+    border: 1px solid #fecdd3;
+    color: #dc2626;
+    font-size: 0.875rem;
+    padding: 10px 14px;
+    border-radius: 10px;
+    margin-bottom: 14px;
+  }
+
+  &__sell-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #e0e7ff;
+    color: #4f46e5;
+    font-size: 0.875rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  &__sell-name {
+    display: block;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  &__sell-phone {
+    display: block;
+    font-size: 0.8125rem;
+    color: #64748b;
+  }
+
+  &__sell-client {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  &__sell-change {
+    margin-left: auto;
+    background: none;
+    border: 1px solid #e2e8f0;
+    color: #475569;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    &:hover {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+    }
+  }
+
+  &__sell-search {
+    .qs-client-row {
+      margin-bottom: 0;
+    }
+  }
+
+  &__sell-btn {
+    margin-top: 14px;
+    width: 100%;
+    padding: 11px 20px;
+    background: #0f172a;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+
+    &:hover:not(:disabled) {
+      background: #1e293b;
+    }
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
 }

@@ -1,3 +1,4 @@
+import { X } from "react-bootstrap-icons";
 import CountryDialPicker, { type CountryOption } from "./CountryDialPicker";
 
 interface Props {
@@ -18,6 +19,7 @@ interface Props {
   onCountryChange: (c: CountryOption) => void;
   onPhoneBlur: () => void;
   onSave: () => void;
+  onCancel?: () => void;
 }
 
 export default function AddClientForm({
@@ -25,11 +27,12 @@ export default function AddClientForm({
   selectedCountry, isClientSaved, phoneDuplicate, phoneCheckLoading,
   isSavingClient, formErrors,
   onFirstNameChange, onLastNameChange, onPhoneChange, onGenderChange,
-  onCountryChange, onPhoneBlur, onSave,
+  onCountryChange, onPhoneBlur, onSave, onCancel,
 }: Props) {
   return (
     <div className="qs-add-client-form">
       <div className="qs-add-client-form__grid">
+
         {/* First Name */}
         <div className="qs-add-client-form__field">
           <label className="qs-label">First Name <span style={{ color: "#ef4444" }}>*</span></label>
@@ -40,7 +43,7 @@ export default function AddClientForm({
             onChange={(e) => onFirstNameChange(e.target.value.replace(/[^a-zA-Z\s]/g, ""))}
           />
           {formErrors.includes("first_name_required") && <span className="qs-form-error">First name is required</span>}
-          {formErrors.includes("first_name_length") && <span className="qs-form-error">First name must be at least 3 characters long</span>}
+          {formErrors.includes("first_name_length") && <span className="qs-form-error">Min. 3 characters</span>}
         </div>
 
         {/* Last Name */}
@@ -52,29 +55,32 @@ export default function AddClientForm({
             value={newClientLastName}
             onChange={(e) => onLastNameChange(e.target.value.replace(/[^a-zA-Z\s]/g, ""))}
           />
-          {formErrors.includes("last_name_length") && <span className="qs-form-error">Last name must be at least 3 characters long</span>}
+          {formErrors.includes("last_name_length") && <span className="qs-form-error">Min. 3 characters</span>}
         </div>
 
         {/* Mobile */}
         <div className="qs-add-client-form__field">
           <label className="qs-label">Mobile <span style={{ color: "#ef4444" }}>*</span></label>
-          <div className="qs-phone-group">
+          <div className={`qs-phone-group${formErrors.includes("phone") || (!formErrors.includes("phone") && phoneDuplicate) ? " qs-phone-group--error" : ""}`}>
             <CountryDialPicker value={selectedCountry} onChange={onCountryChange} />
             <input
-              className={`qs-inp qs-inp--phone-right${formErrors.includes("phone") ? " qs-inp--error" : ""}`}
+              className="qs-inp qs-inp--phone-right"
               placeholder="10-digit number"
               value={newClientPhone}
               maxLength={10}
+              inputMode="numeric"
               onChange={(e) => onPhoneChange(e.target.value.replace(/\D/g, "").slice(0, 10))}
               onBlur={onPhoneBlur}
             />
           </div>
           {formErrors.includes("phone") && (
             <span className="qs-form-error">
-              {newClientPhone.length === 0 ? "Mobile number is required" : "Enter a valid 10-digit mobile number"}
+              {newClientPhone.length === 0 ? "Mobile number is required" : "Enter a valid 10-digit number"}
             </span>
           )}
-          {!formErrors.includes("phone") && phoneDuplicate && <span className="qs-form-error">Mobile number already exists</span>}
+          {!formErrors.includes("phone") && phoneDuplicate && (
+            <span className="qs-form-error">Mobile number already exists</span>
+          )}
           {!formErrors.includes("phone") && !phoneDuplicate && phoneCheckLoading && (
             <span style={{ fontSize: 11, color: "#6b7280" }}>Checking…</span>
           )}
@@ -96,17 +102,27 @@ export default function AddClientForm({
           {formErrors.includes("gender") && <span className="qs-form-error">Please select a gender</span>}
         </div>
 
-        {/* Save button */}
-        <div className="qs-add-client-form__field" style={{ justifyContent: "flex-start" }}>
+      </div>
+
+      {/* Action buttons */}
+      <div className="qs-add-client-form__actions">
+        {onCancel && (
           <button
-            className="qs-save-client-btn"
-            style={{ marginTop: 17 }}
-            disabled={isClientSaved || phoneDuplicate || phoneCheckLoading || isSavingClient}
-            onClick={onSave}
+            type="button"
+            className="qs-add-client-form__cancel-btn"
+            onClick={onCancel}
           >
-            {isSavingClient ? "Saving…" : isClientSaved ? "✓ Saved" : "Save Client"}
+            <X size={14} /> Cancel
           </button>
-        </div>
+        )}
+        <button
+          type="button"
+          className="qs-save-client-btn"
+          disabled={isClientSaved || phoneDuplicate || phoneCheckLoading || isSavingClient}
+          onClick={onSave}
+        >
+          {isSavingClient ? "Saving…" : isClientSaved ? "✓ Saved" : "Save Client"}
+        </button>
       </div>
     </div>
   );

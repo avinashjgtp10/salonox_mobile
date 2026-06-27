@@ -47,7 +47,7 @@ export interface ClientStat {
 export interface SchedulerService { id: string; name: string; price: number; duration: number }
 export interface SchedulerPackage { id: string; name: string; price: number; services: string[] }
 export interface SchedulerProduct { id: string; name: string; price: number | null; stock: number }
-export interface SchedulerMembership { id: string; name: string; price: number }
+export interface SchedulerMembership { id: string; name: string; price: number; sessions: number; validFor: string; colour: string }
 
 // ── Staff schedule shape ──────────────────────────────────────────────────────
 export interface StaffDaySchedule {

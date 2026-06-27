@@ -11,9 +11,6 @@ const AddServicePage = lazy(
 const CategoriesPage = lazy(
   () => import("../features/catalog/pages/CategoriesPage"),
 );
-const MembershipsLandingPage = lazy(
-  () => import("../features/catalog/pages/MembershipsLandingPage"),
-);
 const MembershipsListPage = lazy(
   () => import("../features/catalog/pages/MembershipsListPage"),
 );
@@ -62,6 +59,9 @@ const PackageModule = lazy(
 const EditServicePage = lazy(
   () => import("../features/catalog/pages/EditServicePage"),
 );
+const SoldMembershipsPage = lazy(
+  () => import("../features/catalog/pages/SoldMembershipsPage"),
+);
 
 import { PageLoader } from "../components/ui";
 
@@ -75,8 +75,9 @@ export const CatalogRoutes = () => (
 
       {/* view_catalog (outer) — read-only screens */}
       <Route path="services" element={<ServicesListPage />} />
-      <Route path="memberships" element={<MembershipsLandingPage />} />
+      <Route path="memberships" element={<MembershipsListPage />} />
       <Route path="memberships/list" element={<MembershipsListPage />} />
+      <Route path="memberships/sold" element={<SoldMembershipsPage />} />
       <Route path="packages" element={<PackageModule />} />
       <Route path="packages/legacy" element={<PackagesPage />} />
       <Route path="products" element={<ProductsListPage />} />

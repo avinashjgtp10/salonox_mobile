@@ -26,15 +26,6 @@ export default function CatalogSubSidebar({ onClose }: Props) {
       </NavLink>
 
       <NavLink
-        to="/dashboard/catalog/memberships"
-        className={({ isActive }) =>
-          isActive ? "sub-link active" : "sub-link"
-        }
-      >
-        Memberships
-      </NavLink>
-
-      <NavLink
         to="/dashboard/catalog/products"
         className={({ isActive }) =>
           isActive ? "sub-link active" : "sub-link"
@@ -50,6 +41,15 @@ export default function CatalogSubSidebar({ onClose }: Props) {
         }
       >
         Packages
+      </NavLink>
+
+      <NavLink
+        to="/dashboard/catalog/memberships"
+        className={({ isActive }) =>
+          isActive ? "sub-link active" : "sub-link"
+        }
+      >
+        Memberships
       </NavLink>
       <hr className="sub-divider" />
 
