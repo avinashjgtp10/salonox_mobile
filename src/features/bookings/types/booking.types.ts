@@ -38,6 +38,7 @@ export interface PackageItem {
   packageName: string;
   price: number;
   qty: number;
+  discount?: number;
   total: number;
 }
 
@@ -47,6 +48,7 @@ export interface ProductItem {
   productName: string;
   price: number;
   qty: number;
+  discount?: number;
   total: number;
 }
 

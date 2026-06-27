@@ -8,6 +8,7 @@ import api from "../../../../services/api/axios";
 import { SERVICES } from "../../../../services/api/endpoints/services.endpoints";
 import "../../styles/AppointmentModal.scss";
 
+const MIN_SEARCH_LENGTH = 3;
 const DEBOUNCE_MS = 350;
 
 interface StaffDto {
@@ -309,7 +310,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
             value={row.staffId}
             onChange={(e) => handleStaffChange(e.target.value)}
             className="svc-staff-pill__select"
-            style={{ color: row.staffId ? "#fff" : "#e5e7eb" }}
+            style={{ color: row.staffId ? "#111827" : "#6b7280" }}
           >
             <option value="" disabled style={{ color: "#000", background: "#fff" }}>
               Select Staff

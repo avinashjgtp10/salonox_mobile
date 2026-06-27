@@ -152,6 +152,11 @@ $success:    #22c55e;
   &--package    { background: #fef9c3; color: #92400e; }
   &--product    { background: #dbeafe; color: #1e3a8a; }
   &--membership { background: #dcfce7; color: #14532d; }
+
+  &--package,
+  &--product {
+    grid-template-columns: 2.5fr 0.85fr 0.65fr 0.85fr 0.85fr 34px;
+  }
 }
 
 // ── Item rows (package / product / membership) ────────────────────────────────
@@ -163,6 +168,18 @@ $success:    #22c55e;
   border-bottom: 1px solid #f3f4f6;
   background: #fff;
   align-items: center;
+
+  &--package,
+  &--product {
+    grid-template-columns: 2.5fr 0.85fr 0.65fr 0.85fr 0.85fr 34px;
+    align-items: start;
+  }
+
+  &--package .svc-del-btn,
+  &--product .svc-del-btn {
+    align-self: start;
+    margin-top: 2px;
+  }
 }
 
 // ── Pay amount header ─────────────────────────────────────────────────────────
@@ -1442,6 +1459,13 @@ $success:    #22c55e;
     font-size: 10px;
     color: #ef4444;
     margin-top: 2px;
+  }
+
+  &__hint {
+    font-size: 10px;
+    color: #6b7280;
+    margin-top: 2px;
+    line-height: 1.35;
   }
 
   &--del { justify-content: flex-end; }
