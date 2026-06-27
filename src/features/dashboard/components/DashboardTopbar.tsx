@@ -14,46 +14,65 @@ import {
   PersonPlus,
   StarFill,
   ChevronRight,
-  ArrowClockwise,
+  ChatDots,
+  X,
 } from "react-bootstrap-icons";
 import type { RootState } from "../../../store/store";
 import SearchOverlay from "./SearchOverlay";
+import api from "../../../services/api/axios";
+import { NOTIFICATIONS } from "../../../services/api/endpoints";
+import { connectSocket, disconnectSocket } from "../../../services/socket/socket";
 
-// ── Mock notification data ─────────────────────────────────────────────────────
+// ── Types ──────────────────────────────────────────────────────────────────────
+
 interface Notification {
-  id: number;
-  type: "appointment" | "payment" | "client" | "review";
+  id: string;
+  type: "appointment" | "payment" | "client" | "review" | "whatsapp" | "info";
   title: string;
-  body: string;
-  time: string;
-  read: boolean;
+  body: string | null;
+  is_read: boolean;
+  created_at: string;
 }
 
-const INITIAL_NOTIFS: Notification[] = [
-  { id: 1, type: "appointment", title: "New Appointment",  body: "Priya Sharma booked a Hair Color at 2:00 PM today.", time: "2 min ago",   read: false },
-  { id: 2, type: "payment",     title: "Payment Received", body: "₹2,800 collected for Ticket #SVB5001.",             time: "18 min ago",  read: false },
-  { id: 3, type: "client",      title: "New Client",       body: "Riya Kapoor registered as a new client.",            time: "1 hr ago",    read: false },
-  { id: 4, type: "review",      title: "New Review ⭐⭐⭐⭐⭐", body: "Anita K. received a 5-star review.",              time: "3 hr ago",    read: true  },
-  { id: 5, type: "appointment", title: "Cancellation",     body: "Meera Joshi cancelled her 4:30 PM appointment.",     time: "5 hr ago",    read: true  },
-];
+interface Toast extends Notification {
+  toastId: string;
+  exiting: boolean;
+}
 
-const NOTIF_ICONS: Record<Notification["type"], React.ReactNode> = {
+// ── Icon / colour maps ─────────────────────────────────────────────────────────
+
+const NOTIF_ICONS: Record<string, React.ReactNode> = {
   appointment: <CalendarCheck size={16} />,
   payment:     <CurrencyRupee size={16} />,
   client:      <PersonPlus   size={16} />,
   review:      <StarFill     size={14} />,
+  whatsapp:    <ChatDots     size={16} />,
+  info:        <Bell         size={15} />,
 };
 
-const NOTIF_COLORS: Record<Notification["type"], string> = {
+const NOTIF_COLORS: Record<string, string> = {
   appointment: "#3b82f6",
   payment:     "#10b981",
   client:      "#8b5cf6",
   review:      "#f59e0b",
+  whatsapp:    "#25d366",
+  info:        "#6b7280",
 };
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+const TOAST_DURATION = 5000; // ms before auto-dismiss
 
-/** Get initials from full name */
+// ── Time helper ────────────────────────────────────────────────────────────────
+
+function timeAgo(isoDate: string): string {
+  const diff = Date.now() - new Date(isoDate).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1)  return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24)  return `${hrs} hr ago`;
+  return `${Math.floor(hrs / 24)} day ago`;
+}
+
 const getInitials = (name?: string) => {
   if (!name) return "U";
   const parts = name.trim().split(/\s+/);
@@ -70,25 +89,107 @@ interface Props {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function DashboardTopbar({ onLogout }: Props) {
-  const navigate  = useNavigate();
+  const navigate    = useNavigate();
   const userProfile = useSelector((s: RootState) => s.user.profile);
+  const salonId     = useSelector((s: RootState) => s.auth.salonId);
 
-  // ── UI state ────────────────────────────────────────────────────────────────
-  const [showSearch,   setShowSearch]   = useState(false);
-  const [showNotif,    setShowNotif]    = useState(false);
-  const [showProfile,  setShowProfile]  = useState(false);
-  const [notifs,       setNotifs]       = useState<Notification[]>(INITIAL_NOTIFS);
-  const [planLoading,  setPlanLoading]  = useState(false);
+  const [showSearch,  setShowSearch]  = useState(false);
+  const [showNotif,   setShowNotif]   = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [planLoading, setPlanLoading] = useState(false);
+  const [notifs,      setNotifs]      = useState<Notification[]>([]);
+  const [loading,     setLoading]     = useState(false);
+  const [toasts,      setToasts]      = useState<Toast[]>([]);
 
   const notifRef   = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+  // tracks setTimeout IDs so we can clear them
+  const toastTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
-  const unreadCount = notifs.filter(n => !n.read).length;
+  const unreadCount = notifs.filter(n => !n.is_read).length;
   const initials    = getInitials(userProfile?.fullName);
   const displayName = userProfile?.fullName ?? "Salon Owner";
-  const email       = userProfile?.email     ?? "";
+  const email       = userProfile?.email    ?? "";
+
+  // ── Toast helpers ─────────────────────────────────────────────────────────────
+
+  const dismissToast = useCallback((toastId: string) => {
+    // Start exit animation
+    setToasts(prev => prev.map(t => t.toastId === toastId ? { ...t, exiting: true } : t));
+    // Remove after animation completes
+    const removeTimer = setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.toastId !== toastId));
+    }, 280);
+    toastTimers.current.set(`remove_${toastId}`, removeTimer);
+  }, []);
+
+  const showToast = useCallback((notification: Notification) => {
+    const toastId = `${notification.id}_${Date.now()}`;
+    const toast: Toast = { ...notification, toastId, exiting: false };
+
+    setToasts(prev => [toast, ...prev].slice(0, 4)); // max 4 toasts at once
+
+    // Auto-dismiss after TOAST_DURATION
+    const timer = setTimeout(() => dismissToast(toastId), TOAST_DURATION);
+    toastTimers.current.set(toastId, timer);
+  }, [dismissToast]);
+
+  // Clear all toast timers on unmount
+  useEffect(() => {
+    return () => {
+      toastTimers.current.forEach(id => clearTimeout(id));
+    };
+  }, []);
+
+  // ── Initial load of existing notifications ───────────────────────────────────
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await api.get(NOTIFICATIONS.LIST);
+      setNotifs(res.data?.data ?? []);
+    } catch {
+      // non-critical
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
+
+  // ── WebSocket: real-time notifications ───────────────────────────────────────
+
+  useEffect(() => {
+    if (!salonId) return;
+
+    const socket = connectSocket(salonId);
+
+    const handleNotification = (notification: Notification) => {
+      // Add to bell list (deduplicated)
+      setNotifs(prev => {
+        if (prev.some(n => n.id === notification.id)) return prev;
+        return [notification, ...prev];
+      });
+      // Show toast popup
+      showToast(notification);
+    };
+
+    socket.on("notification", handleNotification);
+
+    return () => {
+      socket.off("notification", handleNotification);
+    };
+  }, [salonId, showToast]);
+
+  // Disconnect on unmount
+  useEffect(() => {
+    return () => { disconnectSocket(); };
+  }, []);
 
   // ── Close dropdowns on outside click ────────────────────────────────────────
+
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (notifRef.current   && !notifRef.current.contains(e.target as Node))   setShowNotif(false);
@@ -98,7 +199,8 @@ export default function DashboardTopbar({ onLogout }: Props) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  // ── Keyboard shortcut: Ctrl+K → open search ─────────────────────────────────
+  // ── Ctrl+K → search ──────────────────────────────────────────────────────────
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
@@ -114,34 +216,72 @@ export default function DashboardTopbar({ onLogout }: Props) {
 
   const handleActivatePlan = useCallback(() => {
     setPlanLoading(true);
-    setTimeout(() => {
-      setPlanLoading(false);
-      navigate("/dashboard/settings/billing");
-    }, 400);
+    setTimeout(() => { setPlanLoading(false); navigate("/dashboard/settings/billing"); }, 400);
   }, [navigate]);
 
-  const handleMarkAllRead = useCallback(() => {
-    setNotifs(prev => prev.map(n => ({ ...n, read: true })));
+  const handleMarkAllRead = useCallback(async () => {
+    try {
+      await api.patch(NOTIFICATIONS.MARK_ALL);
+      setNotifs(prev => prev.map(n => ({ ...n, is_read: true })));
+    } catch { /* ignore */ }
   }, []);
 
-  const handleMarkRead = useCallback((id: number) => {
-    setNotifs(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  const handleMarkRead = useCallback(async (id: string) => {
+    try {
+      await api.patch(NOTIFICATIONS.MARK_ONE(id));
+      setNotifs(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+    } catch { /* ignore */ }
   }, []);
 
   const handleLogoutClick = useCallback(() => {
     setShowProfile(false);
+    disconnectSocket();
     onLogout();
   }, [onLogout]);
 
+  // ── Render ────────────────────────────────────────────────────────────────────
+
   return (
     <>
+      {/* ── TOAST CONTAINER ── */}
+      <div className="notif-toast-container" aria-live="polite" aria-atomic="false">
+        {toasts.map(toast => {
+          const color = NOTIF_COLORS[toast.type] ?? NOTIF_COLORS.info;
+          const icon  = NOTIF_ICONS[toast.type]  ?? NOTIF_ICONS.info;
+          return (
+            <div
+              key={toast.toastId}
+              className={`notif-toast${toast.exiting ? " notif-toast--exit" : ""}`}
+              style={{ "--toast-color": color, "--toast-bg": color + "18", position: "relative" } as React.CSSProperties}
+              onClick={() => {
+                handleMarkRead(toast.id);
+                dismissToast(toast.toastId);
+                setShowNotif(true);
+              }}
+            >
+              <span className="notif-toast-icon">{icon}</span>
+              <div className="notif-toast-body">
+                <p className="notif-toast-title">{toast.title}</p>
+                {toast.body && <p className="notif-toast-text">{toast.body}</p>}
+                <span className="notif-toast-time">just now</span>
+              </div>
+              <button
+                className="notif-toast-close"
+                onClick={e => { e.stopPropagation(); dismissToast(toast.toastId); }}
+                aria-label="Dismiss"
+              >
+                <X size={14} />
+              </button>
+              <div className="notif-toast-progress" />
+            </div>
+          );
+        })}
+      </div>
+
       {/* ── TOPBAR ── */}
       <div className="topbar">
-
-        {/* Brand */}
         <h2 className="brand">salonox</h2>
 
-        {/* Right side actions */}
         <div className="topbar-right">
 
           {/* Activate Plan */}
@@ -150,34 +290,20 @@ export default function DashboardTopbar({ onLogout }: Props) {
             onClick={handleActivatePlan}
             disabled={planLoading}
           >
-            {planLoading ? (
-              <span className="activate-btn-spinner" />
-            ) : (
-              "Activate Plan"
-            )}
+            {planLoading ? <span className="activate-btn-spinner" /> : "Activate Plan"}
           </button>
 
           {/* Search */}
-          <button
-            className="topbar-icon-btn"
-            title="Search (Ctrl+K)"
-            onClick={() => setShowSearch(true)}
-            aria-label="Open search"
-          >
+          <button className="topbar-icon-btn" title="Search (Ctrl+K)" onClick={() => setShowSearch(true)} aria-label="Open search">
             <Search size={19} />
           </button>
 
           {/* Analytics */}
-          <button
-            className="topbar-icon-btn"
-            title="Analytics"
-            onClick={() => navigate("/dashboard/analytics")}
-            aria-label="Analytics"
-          >
+          <button className="topbar-icon-btn" title="Analytics" onClick={() => navigate("/dashboard/analytics")} aria-label="Analytics">
             <BarChart size={19} />
           </button>
 
-          {/* Notifications */}
+          {/* Notifications bell */}
           <div className="topbar-notif-wrap" ref={notifRef}>
             <button
               className={`topbar-icon-btn topbar-notif-btn ${showNotif ? "topbar-icon-btn--active" : ""}`}
@@ -206,37 +332,40 @@ export default function DashboardTopbar({ onLogout }: Props) {
                 </div>
 
                 <div className="topbar-notif-list">
-                  {notifs.length === 0 ? (
+                  {loading && notifs.length === 0 ? (
+                    <div className="topbar-notif-empty">Loading…</div>
+                  ) : notifs.length === 0 ? (
                     <div className="topbar-notif-empty">No notifications</div>
                   ) : (
-                    notifs.map(n => (
-                      <div
-                        key={n.id}
-                        className={`topbar-notif-item ${n.read ? "" : "topbar-notif-item--unread"}`}
-                        onClick={() => handleMarkRead(n.id)}
-                        role="menuitem"
-                      >
-                        <span
-                          className="topbar-notif-icon"
-                          style={{ background: NOTIF_COLORS[n.type] + "18", color: NOTIF_COLORS[n.type] }}
+                    notifs.map(n => {
+                      const color = NOTIF_COLORS[n.type] ?? NOTIF_COLORS.info;
+                      const icon  = NOTIF_ICONS[n.type]  ?? NOTIF_ICONS.info;
+                      return (
+                        <div
+                          key={n.id}
+                          className={`topbar-notif-item ${n.is_read ? "" : "topbar-notif-item--unread"}`}
+                          onClick={() => !n.is_read && handleMarkRead(n.id)}
+                          role="menuitem"
                         >
-                          {NOTIF_ICONS[n.type]}
-                        </span>
-                        <div className="topbar-notif-content">
-                          <p className="topbar-notif-item-title">{n.title}</p>
-                          <p className="topbar-notif-item-body">{n.body}</p>
-                          <span className="topbar-notif-time">{n.time}</span>
+                          <span className="topbar-notif-icon" style={{ background: color + "18", color }}>
+                            {icon}
+                          </span>
+                          <div className="topbar-notif-content">
+                            <p className="topbar-notif-item-title">{n.title}</p>
+                            {n.body && <p className="topbar-notif-item-body">{n.body}</p>}
+                            <span className="topbar-notif-time">{timeAgo(n.created_at)}</span>
+                          </div>
+                          {!n.is_read && <span className="topbar-notif-dot" />}
                         </div>
-                        {!n.read && <span className="topbar-notif-dot" />}
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
 
                 <div className="topbar-notif-footer">
                   <button
                     className="topbar-notif-view-all"
-                    onClick={() => { setShowNotif(false); navigate("/dashboard/settings"); }}
+                    onClick={() => { setShowNotif(false); navigate("/dashboard/notifications"); }}
                   >
                     View all notifications <ChevronRight size={12} />
                   </button>
@@ -262,7 +391,6 @@ export default function DashboardTopbar({ onLogout }: Props) {
 
             {showProfile && (
               <div className="topbar-profile-dropdown" role="menu">
-                {/* User info section */}
                 <div className="topbar-profile-info">
                   <div className="topbar-profile-info-av">
                     {userProfile?.avatarUrl ? (
@@ -279,31 +407,17 @@ export default function DashboardTopbar({ onLogout }: Props) {
 
                 <div className="topbar-profile-divider" />
 
-                {/* Menu items */}
-                <button
-                  className="topbar-profile-item"
-                  onClick={() => { setShowProfile(false); navigate("/dashboard/profile"); }}
-                >
-                  <PersonCircle size={15} />
-                  My Profile
+                <button className="topbar-profile-item" onClick={() => { setShowProfile(false); navigate("/dashboard/profile"); }}>
+                  <PersonCircle size={15} /> My Profile
                 </button>
-                <button
-                  className="topbar-profile-item"
-                  onClick={() => { setShowProfile(false); navigate("/dashboard/settings"); }}
-                >
-                  <Gear size={15} />
-                  Settings
+                <button className="topbar-profile-item" onClick={() => { setShowProfile(false); navigate("/dashboard/settings"); }}>
+                  <Gear size={15} /> Settings
                 </button>
 
                 <div className="topbar-profile-divider" />
 
-                {/* Logout */}
-                <button
-                  className="topbar-profile-item topbar-profile-item--danger"
-                  onClick={handleLogoutClick}
-                >
-                  <BoxArrowRight size={15} />
-                  Logout
+                <button className="topbar-profile-item topbar-profile-item--danger" onClick={handleLogoutClick}>
+                  <BoxArrowRight size={15} /> Logout
                 </button>
               </div>
             )}
@@ -312,7 +426,6 @@ export default function DashboardTopbar({ onLogout }: Props) {
         </div>
       </div>
 
-      {/* Search Overlay */}
       {showSearch && <SearchOverlay onClose={() => setShowSearch(false)} />}
     </>
   );
