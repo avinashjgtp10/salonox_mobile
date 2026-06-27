@@ -450,7 +450,7 @@ export const AppointmentModal: React.FC<Props> = ({
                       return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
                     })()
                   : rows[0]?.time;
-                return [...rows, emptyService(last?.staffId || rows[0]?.staffId, nextTime)];
+                return [...rows, emptyService("", nextTime)];
               })}
               packageRows={packageRows}
               onUpdatePackage={(i, r) => setPackageRows((rows) => rows.map((x, idx) => idx === i ? r : x))}
@@ -461,7 +461,7 @@ export const AppointmentModal: React.FC<Props> = ({
                   triggerPackages({});
                   triggerTemplates();
                 }
-                setPackageRows((rows) => [...rows, { id: "", packageId: "", packageName: "", price: 0, qty: 1, total: 0 }]);
+                setPackageRows((rows) => [...rows, { id: "", packageId: "", packageName: "", price: 0, qty: 1, discount: 0, total: 0 }]);
               }}
               productRows={productRows}
               onUpdateProduct={(i, r) => setProductRows((rows) => rows.map((x, idx) => idx === i ? r : x))}
@@ -471,7 +471,7 @@ export const AppointmentModal: React.FC<Props> = ({
                   prodRequested.current = true;
                   dispatch(fetchProductsThunk());
                 }
-                setProductRows((rows) => [...rows, { id: "", productId: "", productName: "", price: 0, qty: 1, total: 0 }]);
+                setProductRows((rows) => [...rows, { id: "", productId: "", productName: "", price: 0, qty: 1, discount: 0, total: 0 }]);
               }}
               membershipRows={membershipRows}
               onUpdateMembership={(i, r) => setMembershipRows((rows) => rows.map((x, idx) => idx === i ? r : x))}
