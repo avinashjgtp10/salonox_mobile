@@ -58,28 +58,31 @@ interface Props {
   onStatsLoaded?: (stats: ClientStats) => void;
   historyUrlBase?: string;
   error?: string;
+  defaultPhone?: string;
 }
 
 export const ClientPanel: React.FC<Props> = ({
   salonId, calDate, onDateChange, selectedClientId,
   fallbackUnpaidAmt,
-  onSelectClient, onClearClient, onStatsLoaded, error,
+  onSelectClient, onClearClient, onStatsLoaded, error, defaultPhone,
 }) => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [suggestions, setSuggestions] = useState<Client[]>([]);
   const [totalFound, setTotalFound] = useState(0);
   const [showDrop, setShowDrop] = useState(false);
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(!!defaultPhone);
   const [addFirst, setAddFirst] = useState("");
   const [addLast, setAddLast] = useState("");
-  const [addPhone, setAddPhone] = useState("");
+  const [addPhone, setAddPhone] = useState(defaultPhone ?? "");
   const [addGender, setAddGender] = useState("");
   const [addSaving, setAddSaving] = useState(false);
   const [addErrors, setAddErrors] = useState<{ first?: string; phone?: string; gender?: string }>({});
   const [noResults, setNoResults] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
   const skipNextSearch = useRef(false);
+  // Prevents the initial search effect from clearing the defaultPhone pre-fill on mount
+  const skipInitialClear = useRef(!!defaultPhone);
 
   const { details, stats, loading: statsLoading } = useClientDetails(selectedClientId);
   const allBookings = useAppSelector(selectBookings);
@@ -115,7 +118,11 @@ export const ClientPanel: React.FC<Props> = ({
   }
 
   useEffect(() => {
-    if (search.length < 3) { setSuggestions([]); setNoResults(false); clearPrefill(); return; }
+    if (search.length < 3) {
+      setSuggestions([]); setNoResults(false);
+      if (skipInitialClear.current) { skipInitialClear.current = false; } else { clearPrefill(); }
+      return;
+    }
     if (search === "Walk In") return;
     let cancelled = false;
     if (skipNextSearch.current) { skipNextSearch.current = false; return; }

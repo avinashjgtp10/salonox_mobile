@@ -244,6 +244,7 @@ const SchedulerContent: React.FC = () => {
           <TopBar
             onNewAppointment={handleNewAppointment}
             onBlockTime={() => handleBlockTime()}
+            onRefresh={handleRefresh}
             onNewAppointmentForClient={handleNewAppointmentForClient}
           />
         </div>

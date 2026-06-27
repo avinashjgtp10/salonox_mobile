@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useRef, useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/AddClientPage.scss";
@@ -21,13 +21,16 @@ const PHONE_CODES = Country.getAllCountries()
 export default function AddClientPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const { resetWizard } = useClientWizard();
 
+  const prefill = (location.state as any) ?? {};
+
   // Individual states for form inputs
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
+  const [firstName, setFirstName] = useState(prefill.prefillName?.split(" ")[0] ?? "");
+  const [lastName, setLastName] = useState(prefill.prefillName?.split(" ").slice(1).join(" ") ?? "");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(prefill.prefillPhone ?? "");
   const [birthday, setBirthday] = useState("");
   const [year, setYear] = useState("");
   const [gender, setGender] = useState("");
