@@ -971,6 +971,12 @@
     white-space: nowrap;
   }
 
+  &__hint {
+    font-size: 10px;
+    color: #6b7280;
+    line-height: 1.3;
+  }
+
   &--del {
     align-items: center;
   }

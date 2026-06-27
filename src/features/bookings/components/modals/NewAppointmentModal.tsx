@@ -309,8 +309,16 @@ const InlineDrop: React.FC<{
   search: string; onSearchChange: (v: string) => void; showDrop: boolean; onFocus: () => void;
   items: InlineDropItem[]; onSelect: (item: InlineDropItem) => void;
   placeholder?: string; dropRef: React.RefObject<HTMLDivElement>; disabled?: boolean; hasError?: boolean;
-  inputStyle?: React.CSSProperties; loading?: boolean;
-}> = ({ search, onSearchChange, showDrop, onFocus, items, onSelect, placeholder = "Search…", dropRef, disabled, hasError, inputStyle, loading }) => (
+  inputStyle?: React.CSSProperties; loading?: boolean; emptyText?: string;
+  helperText?: string; minSearchLength?: number;
+}> = ({
+  search, onSearchChange, showDrop, onFocus, items, onSelect, placeholder = "Search…", dropRef, disabled,
+  hasError, inputStyle, loading, emptyText = "No products found", helperText, minSearchLength = 0,
+}) => {
+  const trimmedSearch = search.trim();
+  const meetsMinSearchLength = trimmedSearch.length >= minSearchLength;
+
+  return (
   <div ref={dropRef} className="position-relative flex-grow-1">
     <input
       disabled={disabled}
@@ -321,12 +329,17 @@ const InlineDrop: React.FC<{
       onChange={(e) => !disabled && onSearchChange(e.target.value)}
       onFocus={() => !disabled && onFocus()}
     />
-    {showDrop && !disabled && loading && (
+    {helperText && !disabled && trimmedSearch.length < minSearchLength && (
+      <div className="text-muted mt-1" style={{ fontSize: 10, lineHeight: 1.3 }}>
+        {helperText}
+      </div>
+    )}
+    {showDrop && !disabled && loading && meetsMinSearchLength && (
       <div className="dropdown-menu show w-100 p-0" style={{ maxHeight: 200, overflowY: "auto", zIndex: 300 }}>
         <div className="dropdown-item text-muted" style={{ fontSize: 12, pointerEvents: "none" }}>Searching…</div>
       </div>
     )}
-    {showDrop && !disabled && !loading && items.length > 0 && (
+    {showDrop && !disabled && !loading && meetsMinSearchLength && items.length > 0 && (
       <div className="dropdown-menu show w-100 p-0" style={{ maxHeight: 200, overflowY: "auto", zIndex: 300 }}>
         {items.map((item, i) => (
           <button key={i} className="dropdown-item d-flex justify-content-between py-1" style={{ fontSize: 12 }} onMouseDown={() => onSelect(item)}>
@@ -341,13 +354,13 @@ const InlineDrop: React.FC<{
         ))}
       </div>
     )}
-    {showDrop && !disabled && !loading && search.trim() && items.length === 0 && (
+    {showDrop && !disabled && !loading && meetsMinSearchLength && trimmedSearch && items.length === 0 && (
       <div className="dropdown-menu show w-100 p-0" style={{ maxHeight: 200, overflowY: "auto", zIndex: 300 }}>
-        <div className="dropdown-item text-muted" style={{ fontSize: 12, pointerEvents: "none" }}>No products found</div>
+        <div className="dropdown-item text-muted" style={{ fontSize: 12, pointerEvents: "none" }}>{emptyText}</div>
       </div>
     )}
   </div>
-);
+)};
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, defaultTime, existingBooking }) => {
@@ -449,7 +462,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
       return rows;
     }
     return [
-      { tempId: "sr_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), id: "", service: "", staff: "", staffId: defaultStaffId || "", time: defaultTime || "10:00", price: 0, qty: 0, total: 0 },
+      { tempId: "sr_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), id: "", service: "", staff: "", staffId: defaultStaffId || "", time: defaultTime || "10:00", price: 0, qty: 1, total: 0 },
     ];
   });
   const [packageRows, setPackageRows] = useState<TempPkg[]>((existingBooking?.packageItems || []).map((p: any) => ({ ...p, tempId: "pk_" + p.id, search: p.packageName, showDrop: false })));
@@ -1879,21 +1892,59 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
             {packageRows.length > 0 && (<>
               <div className="table-header table-header--packages"><div>PACKAGE</div><div>PRICE</div><div>QTY</div><div>DISC (₹)</div><div>TOTAL</div><div /></div>
               {packageRows.map((row, i) => {
-                const filtered = (packagesList || []).filter((p: any) => p.name.toLowerCase().includes(row.search.toLowerCase()));
+                const packageSearch = row.search.trim().toLowerCase();
+                const filtered = packageSearch.length >= 3
+                  ? (packagesList || []).filter((p: any) => p.name.toLowerCase().includes(packageSearch))
+                  : [];
                 const hasRowErr = hasErr(`pkg_${i}_name`);
                 return (
                   <div key={row.tempId} className="item-row-grid item-row-grid--pkg border-bottom">
                     <InlineDrop dropRef={getPkgRef(row.tempId)} search={row.search} showDrop={row.showDrop} placeholder="Search package…" disabled={priceFrozen} hasError={hasRowErr}
                       onFocus={() => setPackageRows((r) => r.map((x) => ({ ...x, showDrop: x.tempId === row.tempId })))}
                       onSearchChange={(v) => setPackageRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, search: v, showDrop: true } : x))}
+                      helperText="Type at least 3 characters to search packages."
+                      minSearchLength={3}
+                      emptyText="No packages found."
                       items={filtered.map((p: any) => ({ label: p.name, sub: Array.isArray(p.services) ? p.services.join(", ") : "", price: p.price }))}
                       onSelect={(item) => { const pkg = (packagesList || []).find((p: any) => p.name === item.label) as any; if (!pkg) return; setPackageRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, packageId: pkg.id, packageName: pkg.name, price: pkg.price, qty: x.qty || 1, total: Math.max(0, pkg.price * (x.qty || 1) - (x.discount || 0)), search: pkg.name, showDrop: false } : x)); clearErrPrefix(`pkg_${i}_`); }} />
                     <input readOnly value={`₹${row.price}`} className="form-control form-control-sm bg-white" />
-                    <input type="text" inputMode="numeric" placeholder="1" value={row.qty} disabled={priceFrozen} className="form-control form-control-sm"
-                      onChange={(e) => { const val = e.target.value.replace(/[^0-9.]/g, ""); const num = parseFloat(val); setPackageRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: val as any, total: (!isNaN(num) && num > 0) ? Math.max(0, x.price * num - (x.discount || 0)) : x.total } : x)); }}
-                      onBlur={() => { const num = parseFloat(String(row.qty)); const clamped = !isNaN(num) && num >= 1 ? num : 1; setPackageRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: clamped, total: Math.max(0, x.price * clamped - (x.discount || 0)) } : x)); }} />
-                    <input type="text" inputMode="numeric" placeholder="0" value={row.discount || ""} disabled={priceFrozen} className="form-control form-control-sm"
-                      onChange={(e) => { const disc = Math.max(0, parseFloat(e.target.value.replace(/[^0-9.]/g, "")) || 0); setPackageRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, discount: disc, total: Math.max(0, x.price * (x.qty || 1) - disc) } : x)); }} />
+                    <input type="text" inputMode="numeric" maxLength={2} placeholder="1" value={row.qty} disabled={priceFrozen} className="form-control form-control-sm"
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "").slice(0, 2);
+                        const num = parseInt(val, 10);
+                        setPackageRows((r) => r.map((x) => x.tempId === row.tempId ? {
+                          ...x,
+                          qty: val as any,
+                          total: Number.isInteger(num) && num > 0 ? Math.max(0, x.price * num - (x.discount || 0)) : x.total,
+                        } : x));
+                      }}
+                      onBlur={() => {
+                        const num = parseInt(String(row.qty), 10);
+                        const clamped = Number.isInteger(num) && num > 0 ? Math.min(num, 99) : 1;
+                        setPackageRows((r) => r.map((x) => x.tempId === row.tempId ? {
+                          ...x,
+                          qty: clamped,
+                          total: Math.max(0, x.price * clamped - (x.discount || 0)),
+                        } : x));
+                      }} />
+                    <input type="text" inputMode="numeric" maxLength={5} placeholder="0" value={row.discount || ""} disabled={priceFrozen} className="form-control form-control-sm"
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "").slice(0, 5);
+                        const disc = parseInt(val, 10) || 0;
+                        setPackageRows((r) => r.map((x) => x.tempId === row.tempId ? {
+                          ...x,
+                          discount: disc,
+                          total: Math.max(0, x.price * ((x.qty as number) || 1) - disc),
+                        } : x));
+                      }}
+                      onBlur={() => {
+                        const disc = Math.min(99999, Math.max(0, parseInt(String(row.discount ?? ""), 10) || 0));
+                        setPackageRows((r) => r.map((x) => x.tempId === row.tempId ? {
+                          ...x,
+                          discount: disc,
+                          total: Math.max(0, x.price * ((x.qty as number) || 1) - disc),
+                        } : x));
+                      }} />
                     <input readOnly value={row.total ? row.total.toFixed(2) : "0.00"} className="form-control form-control-sm bg-light fw-semibold text-secondary" />
                     {!priceFrozen && <button onClick={() => { setPackageRows((r) => r.filter((x) => x.tempId !== row.tempId)); clearErrPrefix(`pkg_${i}_`); }} className="btn btn-sm btn-link text-danger p-0"><Trash size={14} /></button>}
                     {hasRowErr && <div className="text-danger col-span-all" style={{ fontSize: 10 }}>Please select a package</div>}
@@ -1906,9 +1957,10 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
             {productRows.length > 0 && (<>
               <div className="table-header table-header--products"><div>PRODUCT</div><div>PRICE</div><div>QTY</div><div>DISC (₹)</div><div>TOTAL</div><div /></div>
               {productRows.map((row, i) => {
-                const prodFiltered = (productsList || []).filter((p: any) =>
-                  !row.search.trim() || p.name.toLowerCase().includes(row.search.toLowerCase())
-                );
+                const productSearch = row.search.trim().toLowerCase();
+                const prodFiltered = productSearch.length >= 3
+                  ? (productsList || []).filter((p: any) => p.name.toLowerCase().includes(productSearch))
+                  : [];
                 const hasRowErr = hasErr(`prod_${i}_name`);
                 return (
                   <div key={row.tempId} className="item-row-grid item-row-grid--prod border-bottom" style={{ position: "relative" }}>
@@ -1921,6 +1973,9 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                       inputStyle={row.stock !== undefined && row.stock <= 0 ? { color: "#dc2626", fontWeight: 600 } : undefined}
                       onFocus={() => setProductRows((r) => r.map((x) => ({ ...x, showDrop: x.tempId === row.tempId })))}
                       onSearchChange={(v) => setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, search: v, showDrop: true } : x))}
+                      helperText="Type at least 3 characters to search products."
+                      minSearchLength={3}
+                      emptyText="No products found."
                       items={prodFiltered.map((p: any) => ({
                         label: p.name,
                         price: p.price ?? 0,
@@ -1929,11 +1984,43 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                       }))}
                       onSelect={(item) => { const prod = (productsList || []).find((p: any) => p.name === item.label) as any; if (!prod) return; setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, id: prod.id, productName: prod.name, price: prod.price ?? 0, total: Math.max(0, (prod.price ?? 0) * (x.qty || 1) - (x.discount || 0)), search: prod.name, showDrop: false, stock: prod.stock } : x)); clearErrPrefix(`prod_${i}_`); }} />
                     <input readOnly value={`₹${row.price}`} className="form-control form-control-sm bg-white" />
-                    <input type="text" inputMode="numeric" placeholder="1" value={row.qty} disabled={priceFrozen} className="form-control form-control-sm"
-                      onChange={(e) => { const val = e.target.value.replace(/[^0-9.]/g, ""); const num = parseFloat(val); setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: val as any, total: (!isNaN(num) && num > 0) ? Math.max(0, x.price * num - (x.discount || 0)) : x.total } : x)); }}
-                      onBlur={() => { const num = parseFloat(String(row.qty)); const clamped = !isNaN(num) && num >= 1 ? num : 1; setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, qty: clamped, total: Math.max(0, x.price * clamped - (x.discount || 0)) } : x)); }} />
-                    <input type="text" inputMode="numeric" placeholder="0" value={row.discount || ""} disabled={priceFrozen} className="form-control form-control-sm"
-                      onChange={(e) => { const disc = Math.max(0, parseFloat(e.target.value.replace(/[^0-9.]/g, "")) || 0); setProductRows((r) => r.map((x) => x.tempId === row.tempId ? { ...x, discount: disc, total: Math.max(0, x.price * (x.qty || 1) - disc) } : x)); }} />
+                    <input type="text" inputMode="numeric" maxLength={2} placeholder="1" value={row.qty} disabled={priceFrozen} className="form-control form-control-sm"
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "").slice(0, 2);
+                        const num = parseInt(val, 10);
+                        setProductRows((r) => r.map((x) => x.tempId === row.tempId ? {
+                          ...x,
+                          qty: val as any,
+                          total: Number.isInteger(num) && num > 0 ? Math.max(0, x.price * num - (x.discount || 0)) : x.total,
+                        } : x));
+                      }}
+                      onBlur={() => {
+                        const num = parseInt(String(row.qty), 10);
+                        const clamped = Number.isInteger(num) && num > 0 ? Math.min(num, 99) : 1;
+                        setProductRows((r) => r.map((x) => x.tempId === row.tempId ? {
+                          ...x,
+                          qty: clamped,
+                          total: Math.max(0, x.price * clamped - (x.discount || 0)),
+                        } : x));
+                      }} />
+                    <input type="text" inputMode="numeric" maxLength={5} placeholder="0" value={row.discount || ""} disabled={priceFrozen} className="form-control form-control-sm"
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "").slice(0, 5);
+                        const disc = parseInt(val, 10) || 0;
+                        setProductRows((r) => r.map((x) => x.tempId === row.tempId ? {
+                          ...x,
+                          discount: disc,
+                          total: Math.max(0, x.price * ((x.qty as number) || 1) - disc),
+                        } : x));
+                      }}
+                      onBlur={() => {
+                        const disc = Math.min(99999, Math.max(0, parseInt(String(row.discount ?? ""), 10) || 0));
+                        setProductRows((r) => r.map((x) => x.tempId === row.tempId ? {
+                          ...x,
+                          discount: disc,
+                          total: Math.max(0, x.price * ((x.qty as number) || 1) - disc),
+                        } : x));
+                      }} />
                     <input readOnly value={row.total ? row.total.toFixed(2) : "0.00"} className="form-control form-control-sm bg-light fw-semibold text-secondary" />
                     {!priceFrozen && <button onClick={() => { setProductRows((r) => r.filter((x) => x.tempId !== row.tempId)); clearErrPrefix(`prod_${i}_`); }} className="btn btn-sm btn-link text-danger p-0"><Trash size={14} /></button>}
                     {hasRowErr && <div className="text-danger col-span-all" style={{ fontSize: 10 }}>Please select a product</div>}
@@ -1979,7 +2066,7 @@ const NewAppointmentModal: React.FC<Props> = ({ onClose, defaultStaffId, default
                 <Button variant="dark" size="sm" onClick={() => setServiceRows((r) => {
                   const last = r[r.length - 1];
                   const nextTime = last ? addMinutes(last.time, (last as any).duration || 30) : (defaultTime || "10:00");
-                  return [...r, { tempId: "sr_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), id: "", service: "", staff: "", staffId: last?.staffId || defaultStaffId || "", time: nextTime, price: 0, qty: 0, total: 0 }];
+                  return [...r, { tempId: "sr_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), id: "", service: "", staff: "", staffId: "", time: nextTime, price: 0, qty: 1, total: 0 }];
                 })}>+ Service</Button>
                 <Button variant="dark" size="sm" onClick={() => setPackageRows((r) => [...r, { tempId: "pk_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), id: "", packageId: "", packageName: "", price: 0, qty: 1, total: 0, search: "", showDrop: true }])}>+ Package</Button>
                 <Button variant="dark" size="sm" onClick={() => setProductRows((r) => [...r, { tempId: "pr_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7), id: "", productName: "", price: 0, qty: 1, total: 0, search: "", showDrop: true }])}>+ Product</Button>
