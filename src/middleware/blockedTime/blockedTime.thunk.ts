@@ -5,7 +5,6 @@ import { ApiError } from "../../services/api/interceptors";
 import type { BlockedTime } from "../../features/bookings/types/booking.types";
 
 export interface CreateBlockedTimePayload {
-  salon_id: string;
   staff_id: string;
   date: string;
   start_time: string;
@@ -15,7 +14,8 @@ export interface CreateBlockedTimePayload {
 
 export interface UpdateBlockedTimePayload {
   id: string;
-  data: Partial<Omit<CreateBlockedTimePayload, "salon_id">>;
+  staffId: string;
+  data: Partial<Omit<CreateBlockedTimePayload, "staff_id">>;
 }
 
 function mapApiBlockedTime(item: any): BlockedTime {
@@ -29,32 +29,13 @@ function mapApiBlockedTime(item: any): BlockedTime {
   };
 }
 
-export const fetchBlockedTimesThunk = createAsyncThunk<
-  BlockedTime[],
-  { date?: string; staffId?: string } | void,
-  { rejectValue: string }
->("blockedTime/fetchAll", async (filters, { rejectWithValue, getState }) => {
-  try {
-    const state = getState() as any;
-    const salonId = state.salon?.currentSalon?.id;
-    const res = await api.get(
-      BLOCKED_TIME.QUERY({ date: filters?.date, staffId: filters?.staffId, salonId })
-    );
-    const items: any[] = res.data.data ?? res.data ?? [];
-    return Array.isArray(items) ? items.map(mapApiBlockedTime) : [];
-  } catch (err: any) {
-    if (err instanceof ApiError) return rejectWithValue(err.message);
-    return rejectWithValue("Failed to fetch blocked times");
-  }
-});
-
 export const createBlockedTimeThunk = createAsyncThunk<
   BlockedTime,
   CreateBlockedTimePayload,
   { rejectValue: string }
 >("blockedTime/create", async (payload, { rejectWithValue }) => {
   try {
-    const res = await api.post(BLOCKED_TIME.BASE, payload);
+    const res = await api.post(BLOCKED_TIME.FOR_STAFF(payload.staff_id), payload);
     return mapApiBlockedTime(res.data.data ?? res.data);
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
@@ -66,9 +47,9 @@ export const updateBlockedTimeThunk = createAsyncThunk<
   BlockedTime,
   UpdateBlockedTimePayload,
   { rejectValue: string }
->("blockedTime/update", async ({ id, data }, { rejectWithValue }) => {
+>("blockedTime/update", async ({ id, staffId, data }, { rejectWithValue }) => {
   try {
-    const res = await api.patch(BLOCKED_TIME.BY_ID(id), data);
+    const res = await api.patch(BLOCKED_TIME.FOR_STAFF_BY_ID(staffId, id), data);
     return mapApiBlockedTime(res.data.data ?? res.data);
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
@@ -78,11 +59,11 @@ export const updateBlockedTimeThunk = createAsyncThunk<
 
 export const deleteBlockedTimeThunk = createAsyncThunk<
   string,
-  string,
+  { id: string; staffId: string },
   { rejectValue: string }
->("blockedTime/delete", async (id, { rejectWithValue }) => {
+>("blockedTime/delete", async ({ id, staffId }, { rejectWithValue }) => {
   try {
-    await api.delete(BLOCKED_TIME.BY_ID(id));
+    await api.delete(BLOCKED_TIME.FOR_STAFF_BY_ID(staffId, id));
     return id;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);

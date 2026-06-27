@@ -30,9 +30,8 @@ import {
   clearDragPatch,
 } from "../../../store/schedulerSlice";
 import { updateBookingThunk, deleteBookingThunk } from "../../../middleware/booking/booking.thunk";
+import { updateStaffThunk } from "../../../middleware/staff/staff.thunk";
 import {
-  fetchBlockedTimesThunk,
-  createBlockedTimeThunk,
   updateBlockedTimeThunk,
   deleteBlockedTimeThunk,
 } from "../../../middleware/blockedTime/blockedTime.thunk";
@@ -143,18 +142,24 @@ export function useSchedulerContext() {
 
     addBlockedTime: (bt: BlockedTime) => {
       dispatch(addBlockedTimeAction(bt));
-      if (salonId) {
-        (dispatch(createBlockedTimeThunk({
-          salon_id: salonId,
-          staff_id: bt.staffId,
-          date: bt.date,
-          start_time: bt.startTime,
-          end_time: bt.endTime,
-          reason: bt.reason,
+      if (bt.staffId) {
+        // PATCH /api/v1/staff/:staffId — embed blocked_times in the staff update body
+        (dispatch(updateStaffThunk({
+          id: bt.staffId,
+          data: {
+            blocked_times: [{
+              date: bt.date,
+              start_time: bt.startTime,
+              end_time: bt.endTime,
+              reason: bt.reason,
+            }],
+          } as any,
         })) as any)
           .then((action: any) => {
-            if (createBlockedTimeThunk.fulfilled.match(action)) {
-              const realId = String(action.payload?.id || "");
+            if (updateStaffThunk.fulfilled.match(action)) {
+              const createdBts: any[] = action.payload?.blocked_times ?? [];
+              const realBt = createdBts[0];
+              const realId = realBt ? String(realBt.id) : "";
               if (realId && realId !== bt.id) {
                 dispatch(replaceBlockedTimeId({ localId: bt.id, realId }));
               }
@@ -169,8 +174,8 @@ export function useSchedulerContext() {
       if (!String(bt.id).startsWith("bt_")) {
         (dispatch(updateBlockedTimeThunk({
           id: bt.id,
+          staffId: bt.staffId,
           data: {
-            staff_id: bt.staffId,
             date: bt.date,
             start_time: bt.startTime,
             end_time: bt.endTime,
@@ -191,22 +196,14 @@ export function useSchedulerContext() {
     },
 
     deleteBlockedTime: (id: string) => {
+      const bt = blockedTimes.find((b) => b.id === id);
       dispatch(deleteBlockedTimeAction(id));
-      if (!String(id).startsWith("bt_")) {
-        (dispatch(deleteBlockedTimeThunk(id)) as any).catch((err: any) =>
+      if (!String(id).startsWith("bt_") && bt?.staffId) {
+        (dispatch(deleteBlockedTimeThunk({ id, staffId: bt.staffId })) as any).catch((err: any) =>
           console.error("Failed to delete blocked time from API:", err)
         );
       }
     },
-
-    fetchBlockedTimes: (date?: string, staffId?: string) =>
-      (dispatch(fetchBlockedTimesThunk({ date, staffId })) as any)
-        .then((action: any) => {
-          if (fetchBlockedTimesThunk.fulfilled.match(action)) {
-            dispatch(setBlockedTimes(action.payload));
-          }
-        })
-        .catch((err: any) => console.error("Failed to fetch blocked times:", err)),
 
     // ── Calendar navigation ──────────────────────────────────────────────────
     viewMode,
