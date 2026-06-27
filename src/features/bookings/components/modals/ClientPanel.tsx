@@ -79,8 +79,10 @@ export const ClientPanel: React.FC<Props> = ({
   const [addSaving, setAddSaving] = useState(false);
   const [addErrors, setAddErrors] = useState<{ first?: string; phone?: string; gender?: string }>({});
   const [noResults, setNoResults] = useState(false);
+  const [searching, setSearching] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
   const skipNextSearch = useRef(false);
+  const skipNextClear = useRef(false);
   // Prevents the initial search effect from clearing the defaultPhone pre-fill on mount
   const skipInitialClear = useRef(!!defaultPhone);
 
@@ -119,13 +121,21 @@ export const ClientPanel: React.FC<Props> = ({
 
   useEffect(() => {
     if (search.length < 3) {
-      setSuggestions([]); setNoResults(false);
-      if (skipInitialClear.current) { skipInitialClear.current = false; } else { clearPrefill(); }
+      setSuggestions([]); setNoResults(false); setSearching(false);
+      if (skipInitialClear.current) {
+        skipInitialClear.current = false;
+      } else if (skipNextClear.current) {
+        skipNextClear.current = false;
+      } else {
+        clearPrefill();
+      }
       return;
     }
     if (search === "Walk In") return;
     let cancelled = false;
     if (skipNextSearch.current) { skipNextSearch.current = false; return; }
+    setSearching(true);
+    setShowDrop(true);
     const t = setTimeout(async () => {
       try {
         const res = await api.get(`/api/v1/clients/search?q=${encodeURIComponent(search)}&salon_id=${salonId || ""}`);
@@ -149,13 +159,14 @@ export const ClientPanel: React.FC<Props> = ({
           setAddErrors({});
         } else {
           setNoResults(false);
+          setShowAddForm(false);
         }
-        setShowDrop(true);
+        setSearching(false);
       } catch {
-        if (!cancelled) { setSuggestions([]); setTotalFound(0); setNoResults(false); }
+        if (!cancelled) { setSuggestions([]); setTotalFound(0); setNoResults(false); setSearching(false); }
       }
     }, 250);
-    return () => { clearTimeout(t); cancelled = true; };
+    return () => { clearTimeout(t); cancelled = true; setSearching(false); };
   }, [search, salonId]);
 
   function selectClient(c: Client) {
@@ -170,6 +181,9 @@ export const ClientPanel: React.FC<Props> = ({
     onSelectClient(walkIn);
     setSearch("Walk In");
     setShowDrop(false);
+    setShowAddForm(false);
+    setNoResults(false);
+    clearPrefill();
   }
 
   async function handleCreateClient() {
@@ -248,17 +262,55 @@ export const ClientPanel: React.FC<Props> = ({
               }}
               onFocus={() => suggestions.length > 0 && setShowDrop(true)}
             />
-            {(search || selectedClientId) && (
-              <button
-                className="client-search-clear"
-                type="button"
-                tabIndex={-1}
-                onMouseDown={(e) => { e.preventDefault(); setSearch(""); onClearClient(); setSuggestions([]); setTotalFound(0); setShowDrop(false); setNoResults(false); clearPrefill(); }}
-              >×</button>
-            )}
+            {searching
+              ? <span className="client-search-spinner" />
+              : (search || selectedClientId) && (
+                  <button
+                    className="client-search-clear"
+                    type="button"
+                    tabIndex={-1}
+                    onMouseDown={(e) => { e.preventDefault(); setSearch(""); onClearClient(); setSuggestions([]); setTotalFound(0); setShowDrop(false); setNoResults(false); clearPrefill(); }}
+                  >×</button>
+                )
+            }
           </div>
           {error && <div className="client-field-error">{error}</div>}
-          {showDrop && suggestions.length > 0 && (
+          {showDrop && searching && (
+            <div className="client-dropdown">
+              <div className="client-dropdown__searching">
+                <span className="client-dropdown__searching-dot" />
+                Searching…
+              </div>
+            </div>
+          )}
+          {showDrop && !searching && noResults && (
+            <div className="client-dropdown">
+              <div
+                className="client-dropdown__no-results"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  skipNextClear.current = true;
+                  setSearch("");
+                  setShowDrop(false);
+                  setNoResults(false);
+                  setShowAddForm(true);
+                }}
+              >
+                <svg className="client-dropdown__no-results-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+                </svg>
+                <span>
+                  No clients found for{" "}
+                  <span className="client-dropdown__no-results-keyword">
+                    <span className="client-dropdown__no-results-keyword-text">"{search}"</span>
+                    <span className="client-dropdown__no-results-keyword-line" />
+                  </span>
+                </span>
+              </div>
+            </div>
+          )}
+          {showDrop && !searching && suggestions.length > 0 && (
             <div className="client-dropdown">
               <div className="client-dropdown__count">
                 {totalFound} CLIENT{totalFound !== 1 ? "S" : ""} FOUND
@@ -312,11 +364,6 @@ export const ClientPanel: React.FC<Props> = ({
       </div>
 
       {/* ── Client not found message (outside toolbar so buttons stay in same row) ── */}
-      {noResults && (
-        <div className="client-not-found-msg">
-          Client not found. Please create a new client.
-        </div>
-      )}
 
       {/* ── Add client form ── */}
       {showAddForm && (

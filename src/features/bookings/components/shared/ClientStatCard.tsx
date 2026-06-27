@@ -19,6 +19,7 @@ const STAT_ROWS: Array<{
   format?: (v: any) => string;
   danger?: (v: any) => boolean;
   info?: boolean;
+  hideWhen?: (v: any) => boolean;
 }> = [
   { label: "Reward Points", key: "rewardPoints" },
   { label: "Ewallet Amt",   key: "ewalletAmt",   format: (v) => `${currencySymbol}${v}` },
@@ -27,9 +28,9 @@ const STAT_ROWS: Array<{
   { label: "Disc. Validity", key: "discountValidity" },
   { label: "Membership",    key: "membership" },
   { label: "Cancelled",     key: "cancelled",     danger: (v) => v > 0 },
-  { label: "Total Visits",  key: "totalVisit" },
-  { label: "Last Visit",    key: "lastVisit" },
-  { label: "Total Revenue", key: "totalRevenue",  format: (v) => `${currencySymbol}${Number(v).toLocaleString("en-IN")}`, info: true },
+  { label: "Total Visits",  key: "totalVisit",    hideWhen: (v) => !v || Number(v) === 0 },
+  { label: "Last Visit",    key: "lastVisit",     hideWhen: (v) => !v || v === "N/A" },
+  { label: "Total Revenue", key: "totalRevenue",  format: (v) => `${currencySymbol}${Number(v).toLocaleString("en-IN")}`, info: true, hideWhen: (v) => !v || Number(v) === 0 },
 ];
 
 export const ClientStatCard: React.FC<Props> = ({
@@ -55,8 +56,9 @@ export const ClientStatCard: React.FC<Props> = ({
 
       {/* Stats grid */}
       <div className="client-stats-panel__grid">
-        {STAT_ROWS.map(({ label, key, format, danger, info }) => {
+        {STAT_ROWS.map(({ label, key, format, danger, info, hideWhen }) => {
           const raw = stats[key];
+          if (hideWhen && hideWhen(raw)) return null;
           const display = format ? format(raw) : String(raw ?? "N/A");
           const isDanger = danger ? danger(raw) : false;
           return (
@@ -68,18 +70,19 @@ export const ClientStatCard: React.FC<Props> = ({
         })}
 
         {/* Visit History */}
-        <div className="info-cell">
-          <span className="info-cell__label">Visit History</span>
-          {onViewHistory ? (
-            <button type="button" onClick={onViewHistory} className="btn-view-history">
-              View →
-            </button>
-          ) : historyUrl ? (
-            <a href={historyUrl} rel="noreferrer" className="btn-view-history">
-              View →
-            </a>
-          ) : null}
-        </div>
+        {(onViewHistory || historyUrl) && (
+          <div className="info-cell info-cell--history-btn">
+            {onViewHistory ? (
+              <button type="button" onClick={onViewHistory} className="btn-view-history">
+                View History
+              </button>
+            ) : (
+              <a href={historyUrl} rel="noreferrer" className="btn-view-history">
+                View History
+              </a>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
