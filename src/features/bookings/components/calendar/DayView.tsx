@@ -697,8 +697,11 @@ const DayView: React.FC<DayViewProps> = ({
                   {dayBookings
                     .filter((b) => {
                       if (dragging?.booking.id === b.id) return dragging.currentStaffId === staff.id;
-                      if (b.staffId) return b.staffId === staff.id;
-                      return (b.services || []).some((s: any) => s.staffId === staff.id);
+                      // Per-service staff: show chip under each service's staff column
+                      if ((b.services || []).some((s: any) => String(s.staffId) === String(staff.id))) return true;
+                      // Backward compat: if no service has a staffId, fall back to appointment-level staffId
+                      if (b.staffId === staff.id && !(b.services || []).some((s: any) => s.staffId)) return true;
+                      return false;
                     })
                     .map((b) => {
                       const isDraggingThis = dragging?.booking.id === b.id;

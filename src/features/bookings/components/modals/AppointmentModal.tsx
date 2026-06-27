@@ -155,6 +155,11 @@ export const AppointmentModal: React.FC<Props> = ({
   const [showPaymentSection, setShowPaymentSection] = useState(false);
   const paymentSectionRef = useRef<HTMLDivElement>(null);
 
+  // ── Walk-in → Add Client gate ─────────────────────────────────────────────
+  const [triggerAddForm, setTriggerAddForm]   = useState(false);
+  const [walkInPayError, setWalkInPayError]   = useState("");
+  const clientSectionRef = useRef<HTMLDivElement>(null);
+
   // ── Hooks ────────────────────────────────────────────────────────────────
   const { save, isSaving, error: saveError, apiAppointmentId } = useAppointment();
   const { completePayment, isProcessing, payError }            = usePayment();
@@ -192,7 +197,13 @@ export const AppointmentModal: React.FC<Props> = ({
   const [prodErrors,   setProdErrors]   = useState<boolean[]>([]);
   const [memErrors,    setMemErrors]    = useState<boolean[]>([]);
 
-  useEffect(() => { if (selectedClient) setClientError(""); }, [selectedClient]);
+  useEffect(() => {
+    if (selectedClient && selectedClient.id !== "walk-in") {
+      setClientError("");
+      setWalkInPayError("");
+      setTriggerAddForm(false);
+    }
+  }, [selectedClient]);
 
   // Auto-open payment section for partial-paid appointments so user can pay the remaining due
   useEffect(() => {
@@ -421,7 +432,7 @@ export const AppointmentModal: React.FC<Props> = ({
         <div className="appt-drawer-body" style={isCancelledBooking ? { pointerEvents: "none", opacity: 0.55, userSelect: "none" } : undefined}>
 
           {/* 1. Client */}
-          <div className="appt-section">
+          <div className="appt-section" ref={clientSectionRef}>
             <div className="appt-section__title"><PersonFill size={15} /> Client</div>
             <ClientPanel
               salonId={salonId}
@@ -434,8 +445,9 @@ export const AppointmentModal: React.FC<Props> = ({
               onClearClient={() => { setSelectedClient(null); setClientStats(null); }}
               onStatsLoaded={setClientStats}
               historyUrlBase="/dashboard/clients"
-              error={clientError}
+              error={clientError || walkInPayError}
               defaultPhone={!existingBooking && !selectedClient ? defaultClientPhone : undefined}
+              openAddForm={triggerAddForm}
             />
           </div>
 
@@ -650,13 +662,22 @@ export const AppointmentModal: React.FC<Props> = ({
                     {isSaving ? "Saving…" : "Update Appointment"}
                   </button>
                   {!isPaymentFrozen && (
-                    <button className="btn btn-dark" onClick={() => {
+                    <button className="btn btn-dark" disabled={isSaving} onClick={async () => {
+                      const isWalkIn = !selectedClient || selectedClient.id === "walk-in";
+                      if (isWalkIn) {
+                        setWalkInPayError("Add client details before proceeding to payment.");
+                        setTriggerAddForm(true);
+                        clientSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        return;
+                      }
+                      const id = await save(buildSavePayload());
+                      if (!id) return;
                       setShowPaymentSection(true);
                       setTimeout(() => {
                         paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
                       }, 50);
                     }}>
-                      Continue to Payment
+                      {isSaving ? "Saving…" : "Continue to Payment"}
                     </button>
                   )}
                 </>
