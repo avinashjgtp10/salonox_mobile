@@ -73,13 +73,19 @@ export function useClientDetails(clientId: string | null | undefined) {
           const histData = r.data?.data ?? r.data ?? null;
           const s = histData?.stats ?? null;
 
-          // Compute unpaid from appointment records — try every known field name
           const appts: any[] = histData?.appointments ?? [];
+
+          const isPaid = (a: any) => {
+            const ps = (a.payment_status ?? a.status ?? "").toLowerCase();
+            return ps === "paid" || ps === "completed";
+          };
+
+          const paidAppts = appts.filter(isPaid);
+
+          // Unpaid amount from unpaid appointments only
           const unpaidFromHistory = appts
-            .filter((a: any) => {
-              const ps = (a.payment_status ?? a.status ?? "").toLowerCase();
-              return ps !== "paid" && ps !== "completed" && ps !== "cancelled";
-            })
+            .filter((a: any) => !isPaid(a) && (a.payment_status ?? a.status ?? "") !== "" &&
+              (a.payment_status ?? a.status ?? "").toLowerCase() !== "cancelled")
             .reduce((sum: number, a: any) => {
               const total = Number(
                 a.grand_total ?? a.total_amount ?? a.total ?? a.amount ??
@@ -90,13 +96,13 @@ export function useClientDetails(clientId: string | null | undefined) {
               return sum + Math.max(0, total - paid);
             }, 0);
 
-          // Most recent appointment date (any status) — backend now also returns this in s.last_visit_at
-          const lastApptAt = appts[0]?.scheduled_at ?? null;
+          // Most recent PAID appointment date
+          const lastPaidAt = paidAppts[0]?.scheduled_at ?? null;
 
-          // Total billed across all appointments (sum of service totals) — used when lifetime_spend is 0
-          const totalBilled = appts.reduce((sum: number, a: any) => {
+          // Total billed from PAID appointments only
+          const totalBilled = paidAppts.reduce((sum: number, a: any) => {
             const svcs: any[] = Array.isArray(a.services) ? a.services : [];
-            return sum + svcs.reduce((s: number, svc: any) => s + Number(svc.total ?? svc.price ?? 0), 0);
+            return sum + svcs.reduce((acc: number, svc: any) => acc + Number(svc.total ?? svc.price ?? 0), 0);
           }, 0);
 
           setDetails((prev) => {
@@ -104,11 +110,14 @@ export function useClientDetails(clientId: string | null | undefined) {
             const updated: ClientDetails = {
               ...prev,
               ...(s ? {
-                total_visits:    s.total_appointments  ?? s.total_visits    ?? prev.total_visits    ?? 0,
+                total_visits:    paidAppts.length,
                 cancelled_count: s.cancellations       ?? s.cancelled_count ?? prev.cancelled_count ?? 0,
-                total_revenue:   (s.lifetime_spend > 0 ? s.lifetime_spend : totalBilled) || s.total_revenue || prev.total_revenue || 0,
-              } : {}),
-              last_visit_date: s?.last_visit_at ?? lastApptAt ?? prev.last_visit_date ?? null,
+                total_revenue:   totalBilled > 0 ? totalBilled : (s.lifetime_spend ?? 0),
+              } : {
+                total_visits: paidAppts.length,
+                total_revenue: totalBilled,
+              }),
+              last_visit_date: lastPaidAt ?? prev.last_visit_date ?? null,
               unpaid_amount: unpaidFromHistory > 0 ? unpaidFromHistory : (prev.unpaid_amount ?? 0),
             };
             setStats(buildStats(updated));
