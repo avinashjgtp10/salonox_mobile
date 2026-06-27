@@ -425,6 +425,7 @@ export const AppointmentModal: React.FC<Props> = ({
               onStatsLoaded={setClientStats}
               historyUrlBase="/dashboard/clients"
               error={clientError}
+              defaultPhone={!existingBooking && !selectedClient ? defaultClientPhone : undefined}
             />
           </div>
 

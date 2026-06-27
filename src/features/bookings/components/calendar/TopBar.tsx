@@ -439,27 +439,48 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
 
               {/* No results */}
               {!clientSearching && searchDone && clientResults.length === 0 && (
-                <div style={{ padding: "20px 16px", textAlign: "center" }}>
-                  <div style={{ fontSize: 13, color: "#ef4444", fontWeight: 600, marginBottom: 4 }}>
+                <div style={{ padding: "16px", textAlign: "center" }}>
+                  <div style={{ fontSize: 13, color: "#ef4444", fontWeight: 600, marginBottom: 3 }}>
                     No client found
                   </div>
                   <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 12 }}>
                     "{clientQuery}" didn't match any client.
                   </div>
-                  <button
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      closeSearch();
-                      navTo("/dashboard/clients");
-                    }}
-                    style={{
-                      padding: "7px 16px", fontSize: 12, fontWeight: 600,
-                      border: "1px solid #6366f1", borderRadius: 7, cursor: "pointer",
-                      background: "#eff0ff", color: "#4f46e5", fontFamily: "inherit",
-                    }}
-                  >
-                    + Add Client
-                  </button>
+                  <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                    <button
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        const phone = clientQuery.trim();
+                        closeSearch();
+                        onNewAppointmentForClient?.({ id: "", name: "", phone });
+                      }}
+                      style={{
+                        flex: 1, padding: "7px 0", fontSize: 11, fontWeight: 600,
+                        border: "none", borderRadius: 7, cursor: "pointer",
+                        background: "#1f2937", color: "#fff", fontFamily: "inherit",
+                      }}
+                    >
+                      + Add Appointment
+                    </button>
+                    <button
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        const q = clientQuery.trim();
+                        const isPhone = /^\d{7,}$/.test(q.replace(/[^\d]/g, ""));
+                        closeSearch();
+                        navTo("/dashboard/clients/add", {
+                          state: isPhone ? { prefillPhone: q } : { prefillName: q },
+                        });
+                      }}
+                      style={{
+                        flex: 1, padding: "7px 0", fontSize: 11, fontWeight: 600,
+                        border: "1px solid #6366f1", borderRadius: 7, cursor: "pointer",
+                        background: "#eff0ff", color: "#4f46e5", fontFamily: "inherit",
+                      }}
+                    >
+                      + Add Client
+                    </button>
+                  </div>
                 </div>
               )}
             </div>,
