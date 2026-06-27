@@ -56,6 +56,7 @@ export function useServices(salonId?: string | null) {
       name: p.name,
       price: parseFloat(String(p.retail_price ?? p.selling_price ?? p.sellingPrice ?? p.price)) || 0,
       stock: Number(p.amount ?? p.stock_quantity ?? p.current_stock ?? 0),
+      barcode: p.barcode ?? p.BarcodeID ?? p.bar_code ?? p.sku ?? null,
     }))));
   }, [apiProducts, dispatch]);
 }

@@ -12,6 +12,7 @@ import { useBookings }      from "../../hooks/useBookings";
 import { useStaffSchedule } from "../../hooks/useStaffSchedule";
 // ── NEW: mapApiBooking now lives in utils ─────────────────────────────────────
 import { mapApiBooking } from "../../utils/bookingMapper";
+import { getCurrentTime } from "../../utils/timeUtils";
 import TopBar        from "./TopBar";
 import DayView       from "./DayView";
 import WeekView      from "./WeekView";
@@ -31,7 +32,7 @@ const SchedulerContent: React.FC = () => {
   const location    = useLocation();
   const navigate    = useNavigate();
   const salonId     = useAppSelector((s: any) => s.salon?.currentSalon?.id ?? s.auth?.user?.salon_id ?? "");
-  const { viewMode, setViewMode, currentDate, setCurrentDate } = useSchedulerContext();
+  const { viewMode, setViewMode, currentDate, setCurrentDate, interval } = useSchedulerContext();
 
   const apiServices = useAppSelector((s: any) => s.services?.items ?? EMPTY_ARR);
   const apiStaff    = useAppSelector((s: any) => s.staff?.items   ?? EMPTY_ARR);
@@ -53,6 +54,10 @@ const SchedulerContent: React.FC = () => {
   const [defaultClient, setDefaultClient]     = useState<{ id: string; name: string; phone: string } | null>(null);
   const [blockStaffId, setBlockStaffId]       = useState<string | undefined>(undefined);
   const [editingBlockTime, setEditingBlockTime] = useState<BlockedTime | undefined>(undefined);
+
+  function getGlobalSearchDefaultTime() {
+    return getCurrentTime();
+  }
 
   // ── Auto-open appointment when navigated from Reports page ────────────────
   useEffect(() => {
@@ -224,7 +229,7 @@ const SchedulerContent: React.FC = () => {
 
   const handleNewAppointmentForClient = useSingleClick((client: { id: string; name: string; phone: string }) => {
     setEditingBooking(null);
-    setApptDefaults({});
+    setApptDefaults({ defaultTime: getGlobalSearchDefaultTime() });
     setDefaultClient(client);
     setShowNewAppt(true);
   });

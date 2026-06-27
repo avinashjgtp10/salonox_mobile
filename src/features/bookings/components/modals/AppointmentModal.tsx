@@ -294,6 +294,7 @@ export const AppointmentModal: React.FC<Props> = ({
       onRefresh, onClose]);
 
   const handleUpdate = useCallback(async () => {
+    if (!validate()) return;
     const id = await save(buildSavePayload());
     if (id) { onRefresh?.(); onClose(); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
