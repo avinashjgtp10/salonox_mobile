@@ -40,6 +40,9 @@ interface Props {
   defaultDate?: string;
   defaultTime?: string;
   defaultStaffId?: string;
+  defaultClientId?: string;
+  defaultClientName?: string;
+  defaultClientPhone?: string;
   onRefresh?: () => void;
   onCancelBooking?: (b: Booking) => void;
   onDeleteBooking?: (b: Booking) => void;
@@ -51,8 +54,9 @@ function emptyService(staffId?: string, time?: string): ServiceItem {
 
 export const AppointmentModal: React.FC<Props> = ({
   isOpen, onClose, salonId,
-  existingBooking, defaultDate, defaultTime, defaultStaffId, onRefresh,
-  onCancelBooking, onDeleteBooking,
+  existingBooking, defaultDate, defaultTime, defaultStaffId,
+  defaultClientId, defaultClientName, defaultClientPhone,
+  onRefresh, onCancelBooking, onDeleteBooking,
 }) => {
   const dispatch = useAppDispatch();
 
@@ -106,7 +110,9 @@ export const AppointmentModal: React.FC<Props> = ({
   const [selectedClient, setSelectedClient] = useState<Client | null>(
     existingBooking?.clientId
       ? { id: String(existingBooking.clientId), name: existingBooking.clientName || "", phone: existingBooking.clientPhone || "", eWallet: 0 }
-      : null
+      : defaultClientId
+        ? { id: defaultClientId, name: defaultClientName || "", phone: defaultClientPhone || "", eWallet: 0 }
+        : null
   );
   const [clientStats, setClientStats]       = useState<ClientStats | null>(null);
 

@@ -50,6 +50,7 @@ const SchedulerContent: React.FC = () => {
   const [paymentBooking, setPaymentBooking]   = useState<Booking | null>(null);
   const [collectDueMode, setCollectDueMode]   = useState(false);
   const [apptDefaults, setApptDefaults]       = useState<{ staffId?: string; defaultTime?: string }>({});
+  const [defaultClient, setDefaultClient]     = useState<{ id: string; name: string; phone: string } | null>(null);
   const [blockStaffId, setBlockStaffId]       = useState<string | undefined>(undefined);
   const [editingBlockTime, setEditingBlockTime] = useState<BlockedTime | undefined>(undefined);
 
@@ -200,6 +201,7 @@ const SchedulerContent: React.FC = () => {
   function handleCloseAppt() {
     setShowNewAppt(false);
     setEditingBooking(null);
+    setDefaultClient(null);
     setApptDefaults({});
   }
 
@@ -215,7 +217,15 @@ const SchedulerContent: React.FC = () => {
 
   const handleNewAppointment = useSingleClick(() => {
     setEditingBooking(null);
+    setDefaultClient(null);
     setApptDefaults({});
+    setShowNewAppt(true);
+  });
+
+  const handleNewAppointmentForClient = useSingleClick((client: { id: string; name: string; phone: string }) => {
+    setEditingBooking(null);
+    setApptDefaults({});
+    setDefaultClient(client);
     setShowNewAppt(true);
   });
 
@@ -234,6 +244,7 @@ const SchedulerContent: React.FC = () => {
           <TopBar
             onNewAppointment={handleNewAppointment}
             onBlockTime={() => handleBlockTime()}
+            onNewAppointmentForClient={handleNewAppointmentForClient}
           />
         </div>
       )}
@@ -304,6 +315,9 @@ const SchedulerContent: React.FC = () => {
           defaultTime={apptDefaults.defaultTime}
           defaultDate={editingBooking?.date || undefined}
           existingBooking={editingBooking || undefined}
+          defaultClientId={defaultClient?.id}
+          defaultClientName={defaultClient?.name}
+          defaultClientPhone={defaultClient?.phone}
           onCancelBooking={handleCancelBooking}
           onDeleteBooking={handleDeleteBooking}
         />
