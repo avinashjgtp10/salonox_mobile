@@ -1,13 +1,8 @@
-const BASE = "/api/v1/blocked-times";
+const STAFF_BASE = "/api/v1/staff";
 
 export const BLOCKED_TIME = {
-  BASE,
-  BY_ID: (id: string | number) => `${BASE}/${id}`,
-  QUERY: (params: { date?: string; staffId?: string; salonId?: string }) => {
-    const p = new URLSearchParams();
-    if (params.date) p.set("date", params.date);
-    if (params.staffId) p.set("staff_id", params.staffId);
-    if (params.salonId) p.set("salon_id", params.salonId);
-    return `${BASE}?${p.toString()}`;
-  },
+  // Staff-scoped routes — all create/update/delete go through staff
+  FOR_STAFF: (staffId: string | number) => `${STAFF_BASE}/${staffId}/blocked-times`,
+  FOR_STAFF_BY_ID: (staffId: string | number, id: string | number) =>
+    `${STAFF_BASE}/${staffId}/blocked-times/${id}`,
 };
