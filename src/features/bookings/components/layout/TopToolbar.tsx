@@ -47,8 +47,11 @@ const TopBarComponent: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime 
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node))
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
         setShowClientDrop(false);
+        setClientQuery("");
+        setClientResults([]);
+      }
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -142,7 +145,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime 
   function openDatePicker() {
     if (dateBtnRef.current) {
       const r = dateBtnRef.current.getBoundingClientRect();
-      setDatePickerPos({ top: r.bottom + 6, left: r.left + r.width / 2 });
+      setDatePickerPos({ top: r.bottom + 6, left: r.left });
     }
     setShowDatePicker((v) => !v);
   }

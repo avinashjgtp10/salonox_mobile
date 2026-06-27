@@ -66,7 +66,7 @@ export const ClientPanel: React.FC<Props> = ({
   onSelectClient, onClearClient, onStatsLoaded, error,
 }) => {
   const navigate = useNavigate();
-  const [search, setSearch]           = useState(initialName || "");
+  const [search, setSearch]           = useState("");
   const [suggestions, setSuggestions] = useState<Client[]>([]);
   const [totalFound, setTotalFound]   = useState(0);
   const [showDrop, setShowDrop]       = useState(false);
@@ -77,6 +77,7 @@ export const ClientPanel: React.FC<Props> = ({
   const [addGender, setAddGender]     = useState("Female");
   const [addSaving, setAddSaving]     = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
+  const skipNextSearch = useRef(false);
 
   const { details, stats, loading: statsLoading } = useClientDetails(selectedClientId);
   const allBookings = useAppSelector(selectBookings);
@@ -98,12 +99,6 @@ export const ClientPanel: React.FC<Props> = ({
     if (stats) onStatsLoaded?.({ ...stats, unpaidAmt });
   }, [stats, unpaidAmt, onStatsLoaded]);
 
-  // When details load for an existing client, update the search box with the canonical name
-  useEffect(() => {
-    if (!details || !selectedClientId || selectedClientId === "walk-in") return;
-    const name = details.full_name || `${details.first_name || ""} ${details.last_name || ""}`.trim();
-    if (name) setSearch(name);
-  }, [details, selectedClientId]);
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -116,6 +111,7 @@ export const ClientPanel: React.FC<Props> = ({
   useEffect(() => {
     if (search.length < 3) { setSuggestions([]); return; }
     if (search === "Walk In") return;
+    if (skipNextSearch.current) { skipNextSearch.current = false; return; }
     const t = setTimeout(async () => {
       try {
         const res = await api.get(`/api/v1/clients/search?q=${encodeURIComponent(search)}&salon_id=${salonId || ""}`);
@@ -139,7 +135,7 @@ export const ClientPanel: React.FC<Props> = ({
 
   function selectClient(c: Client) {
     onSelectClient(c);
-    setSearch(c.name);
+    setSearch("");
     setShowDrop(false);
     setSuggestions([]);
   }
@@ -194,7 +190,7 @@ export const ClientPanel: React.FC<Props> = ({
               onChange={(e) => { setSearch(e.target.value); if (!e.target.value) { onClearClient(); setTotalFound(0); } }}
               onFocus={() => suggestions.length > 0 && setShowDrop(true)}
             />
-            {search && (
+            {(search || selectedClientId) && (
               <button
                 className="client-search-clear"
                 type="button"
