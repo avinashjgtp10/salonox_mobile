@@ -134,8 +134,8 @@ export function useAppointment() {
       };
 
       if (existingBooking) {
-        // Optimistic update
-        dispatch(updateBookingAction({ ...existingBooking, ...booking } as any));
+        // Optimistic update — include serviceRows so per-service staffIds survive the refresh
+        dispatch(updateBookingAction({ ...existingBooking, ...booking, services: serviceRows } as any));
         const prev = existingBooking;
         const action: any = await dispatch(updateBookingThunk({ id: existingBooking.id, data: baseData }));
         if (updateBookingThunk.rejected.match(action)) {
@@ -146,9 +146,9 @@ export function useAppointment() {
         }
         return String(existingBooking.id);
       } else {
-        // Optimistic add with temp id
+        // Optimistic add with temp id — include serviceRows so per-service staffIds survive the refresh
         const tempId = `temp-${Date.now()}`;
-        const optimistic = { ...booking, id: tempId, date: calDate, startTime, endTime } as Booking;
+        const optimistic = { ...booking, id: tempId, date: calDate, startTime, endTime, services: serviceRows } as Booking;
         dispatch(addBooking(optimistic));
         pendingTempIdRef.current = tempId;
 

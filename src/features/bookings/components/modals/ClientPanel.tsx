@@ -68,7 +68,7 @@ export const ClientPanel: React.FC<Props> = ({
   onSelectClient, onClearClient, onStatsLoaded, error, defaultPhone, openAddForm,
 }) => {
   const navigate = useNavigate();
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(selectedClientId === "walk-in" ? "Walk In" : "");
   const [suggestions, setSuggestions] = useState<Client[]>([]);
   const [totalFound, setTotalFound] = useState(0);
   const [showDrop, setShowDrop] = useState(false);
