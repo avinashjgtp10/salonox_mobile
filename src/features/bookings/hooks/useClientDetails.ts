@@ -51,9 +51,14 @@ export function useClientDetails(clientId: string | null | undefined) {
       if (cancelled) return;
 
       const lastVisit = client.last_visit_date ?? client.last_visit_at ?? null;
+      const resolvedPhone = (
+        client.phone_number || client.phone ||
+        client.mobile || client.mobile_number || client.phone_no || ""
+      ).replace(/[^\d+]/g, "");
+
       const enriched: ClientDetails = {
         ...client,
-        phone_number: client.phone_number || client.phone || "",
+        phone_number: resolvedPhone,
         last_visit_date: lastVisit,
         unpaid_amount: (client.unpaid_amount ?? 0) > 0 ? client.unpaid_amount : 0,
       };
