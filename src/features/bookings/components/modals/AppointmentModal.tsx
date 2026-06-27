@@ -194,6 +194,15 @@ export const AppointmentModal: React.FC<Props> = ({
 
   useEffect(() => { if (selectedClient) setClientError(""); }, [selectedClient]);
 
+  // Auto-open payment section for partial-paid appointments so user can pay the remaining due
+  useEffect(() => {
+    if (isOpen && existingBooking?.paymentStatus === "Partial") {
+      setShowPaymentSection(true);
+    } else if (!isOpen) {
+      setShowPaymentSection(false);
+    }
+  }, [isOpen, existingBooking?.id, existingBooking?.paymentStatus]);
+
   useEffect(() => {
     if (!noItemsError) return;
     const hasAny =
@@ -318,6 +327,7 @@ export const AppointmentModal: React.FC<Props> = ({
   if (!isOpen) return null;
 
   const isCancelledBooking = existingBooking?.status?.toLowerCase() === "cancelled";
+  const isPartialBooking   = existingBooking?.paymentStatus === "Partial";
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const isPaymentFrozen = existingBooking?.paymentStatus === "Paid"
     || (alreadyPaidAmount > 0 && alreadyPaidAmount >= totals.effectiveTotal);
@@ -360,8 +370,8 @@ export const AppointmentModal: React.FC<Props> = ({
               </span>
             )
           )}
-          {/* Three-dot menu — only for existing appointments */}
-          {existingBooking && (
+          {/* Three-dot menu — hidden for partial-payment appointments */}
+          {existingBooking && !isPartialBooking && (
             <div style={{ position: "relative", marginLeft: "auto" }}>
               <button
                 onClick={() => setHeaderMenuOpen((v) => !v)}
@@ -384,7 +394,7 @@ export const AppointmentModal: React.FC<Props> = ({
                     borderRadius: 8, boxShadow: "0 4px 20px rgba(0,0,0,0.13)",
                     zIndex: 9999, minWidth: 190, padding: "4px 0",
                   }}>
-                    {!isCancelledBooking && onCancelBooking && (
+                    {!isCancelledBooking && existingBooking?.paymentStatus !== "Partial" && onCancelBooking && (
                       <button
                         style={apptMenuItemStyle}
                         onClick={() => { setHeaderMenuOpen(false); onCancelBooking(existingBooking); onClose(); }}
@@ -430,7 +440,7 @@ export const AppointmentModal: React.FC<Props> = ({
           </div>
 
           {/* 2. Services & Items */}
-          <div className="appt-section">
+          <div className="appt-section" style={isPartialBooking ? { pointerEvents: "none", opacity: 0.7 } : undefined}>
             <div className="appt-section__title"><Scissors size={15} /> Services &amp; Items</div>
             {noItemsError && (
               <div className="services-no-items-error">
@@ -658,9 +668,11 @@ export const AppointmentModal: React.FC<Props> = ({
             </>
           ) : (
             <>
-              <button className="btn btn-outline-secondary" onClick={() => setShowPaymentSection(false)}>
-                <PencilFill size={13} /> Update Appointment
-              </button>
+              {!isPartialBooking && (
+                <button className="btn btn-outline-secondary" onClick={() => setShowPaymentSection(false)}>
+                  <PencilFill size={13} /> Update Appointment
+                </button>
+              )}
               <PaymentButton
                 amount={isPartialEntry ? parsedPartial : (includeClearDue ? remainingDue + priorDueAmt : remainingDue)}
                 isPartial={isPartialEntry}
