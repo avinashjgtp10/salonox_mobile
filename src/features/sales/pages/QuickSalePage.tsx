@@ -15,7 +15,7 @@ import {
   fetchSaleByIdThunk,
 } from "../../../middleware/sale/sale.thunk";
 import { clearSaleError } from "../../../store/saleSlice";
-import { fetchClientsThunk } from "../../../middleware/client/client.thunk";
+import { fetchClientsThunk, createClientThunk } from "../../../middleware/client/client.thunk";
 import { purchaseClientMembershipThunk } from "../../../middleware/clientMembership/clientMembership.thunk";
 import { durationToExpiresAt } from "../utils/quickSale.utils";
 import type { AppDispatch, RootState } from "../../../store/store";
@@ -43,7 +43,7 @@ import ItemEmptyState from "../components/ItemEmptyState";
 import ServiceItemRow, { ServiceColHeaders } from "../components/ServiceItemRow";
 import ProductItemRow, { ProductColHeaders } from "../components/ProductItemRow";
 import MembershipItemRow, { MembershipColHeaders } from "../components/MembershipItemRow";
-import AddClientForm from "../components/AddClientForm";
+import AddClientForm, { type ExtraClientInfo } from "../components/AddClientForm";
 import "../styles/QuickSalePage.scss";
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -170,17 +170,7 @@ export default function QuickSalePage() {
   useEffect(() => { if (cachedProducts)    setProductsList(mapProducts(cachedProducts)); },       [cachedProducts]);
   useEffect(() => { if (cachedMemberships) setMembershipsList(mapMemberships(cachedMemberships)); }, [cachedMemberships]);
 
-  // Active memberships for selected client (Issue 2)
-  const [clientActiveMemberships, setClientActiveMemberships] = useState<any[]>([]);
-  useEffect(() => {
-    if (client?.id) {
-      api.get(`/api/v1/client-memberships?clientId=${client.id}&status=active&limit=20`)
-        .then((res) => setClientActiveMemberships(res.data?.data?.items ?? []))
-        .catch(() => setClientActiveMemberships([]));
-    } else {
-      setClientActiveMemberships([]);
-    }
-  }, [client?.id]);
+  const [clientActiveMemberships] = useState<any[]>([]);
 
   useEffect(() => {
     dispatch(clearSaleError());
@@ -379,7 +369,7 @@ export default function QuickSalePage() {
     } catch { /* silent */ } finally { setPhoneCheckLoading(false); }
   }
 
-  async function handleSaveNewClient() {
+  async function handleSaveNewClient(extraInfo?: ExtraClientInfo) {
     if (phoneDuplicate || phoneCheckLoading || isSavingClient) return;
     const errs: string[] = [];
     const firstNameTrim = newClientFirstName.trim();
@@ -393,27 +383,58 @@ export default function QuickSalePage() {
 
     setIsSavingClient(true);
     try {
-      const cleaned   = newClientPhone.trim().replace(/\D/g, "");
-      const dialDigits = selectedCountry.dialCode.replace(/\D/g, "");
+      const cleaned     = newClientPhone.trim().replace(/\D/g, "");
+      const dialDigits  = selectedCountry.dialCode.replace(/\D/g, "");
       const phoneDigits = cleaned.startsWith(dialDigits) ? cleaned : `${dialDigits}${cleaned}`;
       const phoneNumberWithPlus = `+${phoneDigits}`;
 
-      const res = await api.post("/api/v1/clients", {
+      const fullName = `${newClientFirstName.trim()} ${newClientLastName.trim()}`.trim();
+      const payload: Record<string, any> & { fullName: string } = {
+        fullName,
         first_name:   newClientFirstName.trim(),
         last_name:    newClientLastName.trim(),
         phone_number: phoneNumberWithPlus,
         gender:       newClientGender,
-      });
-      const saved = res.data?.data || res.data;
-      const name  = `${newClientFirstName.trim()} ${newClientLastName.trim()}`.trim();
-      setClient({ id: String(saved?.id || ""), name, phone: phoneNumberWithPlus, initials: toInitials(name) });
+      };
+      if (extraInfo?.email) payload.email = extraInfo.email;
+
+      const result = await dispatch(createClientThunk(payload));
+      if (createClientThunk.rejected.match(result)) {
+        setErrorMsg((result.payload as string) || "Failed to save client.");
+        return;
+      }
+      const saved = result.payload as any;
+      const savedId = saved?.id;
+
+      // PATCH extra fields using correct backend field names
+      if (savedId && extraInfo) {
+        const patch: Record<string, any> = {};
+        if (extraInfo.title)            patch.title              = extraInfo.title;
+        if (extraInfo.email)            patch.email              = extraInfo.email;
+        if (extraInfo.dob) {
+          const [yyyy, mm, dd] = extraInfo.dob.split("-");
+          if (dd && mm) patch.birthday_day_month = `${dd}-${mm}`;
+          if (yyyy)     patch.birthday_year      = Number(yyyy);
+        }
+        if (extraInfo.anniversary_date) patch.anniversary_date   = extraInfo.anniversary_date;
+        if (extraInfo.gst_number)       patch.gst_number         = extraInfo.gst_number;
+        if (extraInfo.source)           patch.client_source      = extraInfo.source;
+        if (extraInfo.profession)       patch.occupation         = extraInfo.profession;
+        if (extraInfo.staff_preference) patch.staff_id           = extraInfo.staff_preference;
+        if (Object.keys(patch).length > 0) {
+          try { await api.patch(`/api/v1/clients/${savedId}`, patch); } catch { /* extra fields are optional */ }
+        }
+      }
+
+      const name = fullName;
+      setClient({ id: String(savedId || ""), name, phone: phoneNumberWithPlus, initials: toInitials(name) });
       setClientSearch(name); setIsWalkin(false); setIsClientSaved(true);
       setShowAddClientForm(false);
       setNewClientFirstName(""); setNewClientLastName(""); setNewClientPhone(""); setNewClientGender("");
       setFormErrors([]);
       setClientError("");
     } catch (err: any) {
-      setErrorMsg(err?.response?.data?.message || "Failed to save client.");
+      setErrorMsg(err?.message || "Failed to save client.");
     } finally { setIsSavingClient(false); }
   }
 
@@ -966,6 +987,7 @@ export default function QuickSalePage() {
                   phoneCheckLoading={phoneCheckLoading}
                   isSavingClient={isSavingClient}
                   formErrors={formErrors}
+                  staffList={staffList}
                   onFirstNameChange={(v) => { setNewClientFirstName(v); setFormErrors((p) => p.filter((x) => x !== "first_name_required" && x !== "first_name_length")); }}
                   onLastNameChange={(v) => { setNewClientLastName(v); setFormErrors((p) => p.filter((x) => x !== "last_name_length")); }}
                   onPhoneChange={(v) => {
@@ -976,7 +998,7 @@ export default function QuickSalePage() {
                   onGenderChange={(v) => { setNewClientGender(v); setFormErrors((p) => p.filter((x) => x !== "gender")); }}
                   onCountryChange={setSelectedCountry}
                   onPhoneBlur={() => { if (phoneValid(newClientPhone)) checkPhoneExists(newClientPhone); }}
-                  onSave={handleSaveNewClient}
+                  onSave={(extra) => handleSaveNewClient(extra)}
                 />
               )}
             </div>

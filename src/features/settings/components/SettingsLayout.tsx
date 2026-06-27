@@ -9,6 +9,7 @@ import {
   CreditCard,
   Database,
   Settings,
+  SlidersHorizontal,
 } from "lucide-react";
 import "../styles/SettingsPage.scss";
 
@@ -44,6 +45,12 @@ const navGroups: NavGroup[] = [
     items: [
       { label: "Integrations", path: "integrations", icon: <Puzzle size={15} /> },
       { label: "Billing & Plans", path: "billing", icon: <CreditCard size={15} /> },
+    ],
+  },
+  {
+    groupLabel: "Configuration",
+    items: [
+      { label: "Tax Mapping", path: "tax-mapping", icon: <SlidersHorizontal size={15} /> },
     ],
   },
   {
