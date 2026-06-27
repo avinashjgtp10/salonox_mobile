@@ -1,10 +1,15 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { currencySymbol } from "../../../../utils/currency";
-import { useAppSelector } from "../../../../hooks/useAppRedux";
+import { useAppSelector, useAppDispatch } from "../../../../hooks/useAppRedux";
 import { useAppointment }    from "../../hooks/useAppointment";
 import { usePayment }        from "../../hooks/usePayment";
 import { useCoupon }         from "../../hooks/useCoupon";
 import { usePackageSessions } from "../../hooks/usePackageSessions";
+import { useServices }       from "../../hooks/useServices";
+import { useLazyListPackagesQuery, useLazyListPackageTemplatesQuery } from "../../../../services/api/endpoints/packages.endpoints";
+import { fetchProductsThunk } from "../../../../middleware/catalog/products.thunk";
+import { fetchMembershipsThunk } from "../../../../middleware/membership/membership.thunk";
+import { setPackagesList } from "../../../../store/schedulerSlice";
 import { computeTotals }     from "../../utils/totalsUtils";
 import { computePointsEarned, computeEWalletCredit, EWALLET_REDEEM_MINIMUM } from "../../utils/paymentUtils";
 import {
@@ -49,6 +54,50 @@ export const AppointmentModal: React.FC<Props> = ({
   existingBooking, defaultDate, defaultTime, defaultStaffId, onRefresh,
   onCancelBooking, onDeleteBooking,
 }) => {
+  const dispatch = useAppDispatch();
+
+  // Always fetch services + clients when modal opens
+  useServices(salonId);
+
+  // ── Lazy on-demand fetching ───────────────────────────────────────────────
+  const [triggerPackages, { data: packagesData }]       = useLazyListPackagesQuery();
+  const [triggerTemplates, { data: packageTemplatesRaw }] = useLazyListPackageTemplatesQuery();
+  const pkgRequested  = useRef(false);
+  const prodRequested = useRef(false);
+  const memRequested  = useRef(false);
+
+  // In edit mode, pre-fetch data for item types that already exist on the booking
+  useEffect(() => {
+    if (existingBooking?.packageItems?.length && !pkgRequested.current) {
+      pkgRequested.current = true;
+      triggerPackages({});
+      triggerTemplates();
+    }
+    if ((existingBooking as any)?.productItems?.length && !prodRequested.current) {
+      prodRequested.current = true;
+      dispatch(fetchProductsThunk());
+    }
+    if ((existingBooking as any)?.membershipItems?.length && !memRequested.current) {
+      memRequested.current = true;
+      dispatch(fetchMembershipsThunk());
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Map package API data → scheduler packagesList when it arrives
+  useEffect(() => {
+    const templates = packageTemplatesRaw ?? [];
+    const fromCatalog = (packagesData?.items || []).map((p: any) => ({
+      id: String(p.id || ""), name: p.name || "", price: p.basePrice || 0, services: [] as string[],
+    }));
+    const fromTemplates = templates.map((t: any) => ({
+      id: String(t.id || ""), name: t.name || "", price: t.basePrice || 0,
+      services: (t.services || []).map((s: any) => s.serviceName),
+    }));
+    const templateNames = new Set(fromTemplates.map((t: any) => t.name.toLowerCase()));
+    const merged = [...fromTemplates, ...fromCatalog.filter((c: any) => !templateNames.has(c.name.toLowerCase()))];
+    if (merged.length > 0) dispatch(setPackagesList(merged));
+  }, [packagesData, packageTemplatesRaw, dispatch]);
+
   const availablePackages    = useAppSelector(selectPackagesList);
   const availableProducts    = useAppSelector(selectProductsList);
   const availableMemberships = useAppSelector(selectMembershipsList);
@@ -399,15 +448,34 @@ export const AppointmentModal: React.FC<Props> = ({
               packageRows={packageRows}
               onUpdatePackage={(i, r) => setPackageRows((rows) => rows.map((x, idx) => idx === i ? r : x))}
               onRemovePackage={(i) => setPackageRows((rows) => rows.filter((_, idx) => idx !== i))}
-              onAddPackage={() => setPackageRows((rows) => [...rows, { id: "", packageId: "", packageName: "", price: 0, qty: 1, total: 0 }])}
+              onAddPackage={() => {
+                if (!pkgRequested.current) {
+                  pkgRequested.current = true;
+                  triggerPackages({});
+                  triggerTemplates();
+                }
+                setPackageRows((rows) => [...rows, { id: "", packageId: "", packageName: "", price: 0, qty: 1, total: 0 }]);
+              }}
               productRows={productRows}
               onUpdateProduct={(i, r) => setProductRows((rows) => rows.map((x, idx) => idx === i ? r : x))}
               onRemoveProduct={(i) => setProductRows((rows) => rows.filter((_, idx) => idx !== i))}
-              onAddProduct={() => setProductRows((rows) => [...rows, { id: "", productId: "", productName: "", price: 0, qty: 1, total: 0 }])}
+              onAddProduct={() => {
+                if (!prodRequested.current) {
+                  prodRequested.current = true;
+                  dispatch(fetchProductsThunk());
+                }
+                setProductRows((rows) => [...rows, { id: "", productId: "", productName: "", price: 0, qty: 1, total: 0 }]);
+              }}
               membershipRows={membershipRows}
               onUpdateMembership={(i, r) => setMembershipRows((rows) => rows.map((x, idx) => idx === i ? r : x))}
               onRemoveMembership={(i) => setMembershipRows((rows) => rows.filter((_, idx) => idx !== i))}
-              onAddMembership={() => setMembershipRows((rows) => [...rows, { id: "", membershipId: "", membershipName: "", price: 0, qty: 1, total: 0 }])}
+              onAddMembership={() => {
+                if (!memRequested.current) {
+                  memRequested.current = true;
+                  dispatch(fetchMembershipsThunk());
+                }
+                setMembershipRows((rows) => [...rows, { id: "", membershipId: "", membershipName: "", price: 0, qty: 1, total: 0 }]);
+              }}
               availablePackages={availablePackages}
               availableProducts={availableProducts}
               availableMemberships={availableMemberships}
