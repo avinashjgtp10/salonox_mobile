@@ -46,7 +46,7 @@ export interface ClientStat {
 // ── Scheduler lookup data ─────────────────────────────────────────────────────
 export interface SchedulerService { id: string; name: string; price: number; duration: number }
 export interface SchedulerPackage { id: string; name: string; price: number; services: string[] }
-export interface SchedulerProduct { id: string; name: string; price: number | null; stock: number }
+export interface SchedulerProduct { id: string; name: string; price: number | null; stock: number; barcode?: string | null }
 export interface SchedulerMembership { id: string; name: string; price: number; sessions: number; validFor: string; colour: string }
 
 // ── Staff schedule shape ──────────────────────────────────────────────────────

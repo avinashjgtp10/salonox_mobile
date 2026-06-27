@@ -300,7 +300,11 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
           <button
             type="button"
             disabled={disabled}
-            onClick={() => !disabled && onChange(row.tempId, "staffId", "")}
+            onClick={() => {
+              if (disabled) return;
+              onChange(row.tempId, "staffId", "");
+              onChange(row.tempId, "staff", "");
+            }}
             className="svc-staff-pill__clear"
           >
             ×

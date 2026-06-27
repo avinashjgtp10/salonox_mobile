@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { currencySymbol } from "../../../../utils/currency";
 import ServiceRow from "./ServiceRow";
 import { Trash } from "react-bootstrap-icons";
+import api from "../../../../services/api/axios";
 import type { ServiceItem, PackageItem, ProductItem, MembershipItem } from "../../types";
 
 const MIN_SEARCH_LENGTH = 3;
@@ -12,6 +13,9 @@ interface SearchableCatalogItem {
   name: string;
   price?: number | null;
   stock?: number;
+  barcode?: string | null;
+  barcodeSearchValues?: Array<string | null | undefined>;
+  priceSearchValues?: Array<number | string | null | undefined>;
 }
 
 interface Props {
@@ -62,6 +66,7 @@ type SearchableItemRowProps =
     }
   | {
       row: ProductItem;
+      productRows: ProductItem[];
       frozen?: boolean;
       error?: boolean;
       kind: "product";
@@ -70,6 +75,11 @@ type SearchableItemRowProps =
       helperText: string;
       emptyText: string;
       onUpdate: (row: ProductItem) => void;
+      onUpdateProductRow: (index: number, row: ProductItem) => void;
+      onAddProductRow: () => void;
+      requestNextProductFocus: (index: number) => void;
+      autoFocusSearch?: boolean;
+      onAutoFocusHandled?: () => void;
       onRemove: () => void;
     };
 
@@ -85,34 +95,105 @@ function calcTotal(price: number, qty: number, discount: number) {
   return Math.max(0, price * qty - discount);
 }
 
-function SearchableItemRow({
-  row,
-  frozen,
-  error,
-  kind,
-  items,
-  placeholder,
-  helperText,
-  emptyText,
-  onUpdate,
-  onRemove,
-}: SearchableItemRowProps) {
+function formatPriceForSearch(value: number) {
+  const fixed = value.toFixed(2);
+  return fixed.endsWith(".00") ? String(Math.trunc(value)) : fixed.replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function matchesProductPriceSearch(item: SearchableCatalogItem, searchValue: string) {
+  const candidates = item.priceSearchValues?.length ? item.priceSearchValues : [item.price];
+
+  return candidates.some((candidate) => {
+    const numericValue = Number(candidate);
+    if (!Number.isFinite(numericValue)) return false;
+
+    return numericValue === Number(searchValue) || formatPriceForSearch(numericValue).includes(searchValue);
+  });
+}
+
+function normalizeBarcode(value: string | null | undefined) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function matchesProductBarcode(item: SearchableCatalogItem, searchValue: string) {
+  const normalizedSearch = normalizeBarcode(searchValue);
+  if (!normalizedSearch) return false;
+
+  const candidates = item.barcodeSearchValues?.length
+    ? item.barcodeSearchValues
+    : [item.barcode];
+
+  return candidates.some((candidate) => normalizeBarcode(candidate) === normalizedSearch);
+}
+
+function mapProductSearchItem(item: any): SearchableCatalogItem {
+  return {
+    id: item.id,
+    name: item.name,
+    price: parseFloat(String(item.retail_price ?? item.selling_price ?? item.sellingPrice ?? item.price)) || 0,
+    stock: Number(item.amount ?? item.stock_quantity ?? item.current_stock ?? item.stock ?? 0),
+    barcode: item.barcode ?? item.BarcodeID ?? item.bar_code ?? item.sku ?? null,
+    barcodeSearchValues: [
+      item.barcode,
+      item.BarcodeID,
+      item.bar_code,
+      item.sku,
+    ],
+    priceSearchValues: [
+      item.retail_price,
+      item.selling_price,
+      item.sellingPrice,
+      item.price,
+    ],
+  };
+}
+
+function SearchableItemRow(props: SearchableItemRowProps) {
+  const {
+    row,
+    frozen,
+    error,
+    kind,
+    items,
+    placeholder,
+    helperText,
+    emptyText,
+    onUpdate,
+    onRemove,
+  } = props;
+  const productRows = kind === "product" ? props.productRows : [];
+  const onUpdateProductRow = kind === "product" ? props.onUpdateProductRow : undefined;
+  const onAddProductRow = kind === "product" ? props.onAddProductRow : undefined;
+  const requestNextProductFocus = kind === "product" ? props.requestNextProductFocus : undefined;
+  const autoFocusSearch = kind === "product" ? props.autoFocusSearch : undefined;
+  const onAutoFocusHandled = kind === "product" ? props.onAutoFocusHandled : undefined;
   const selectedName = kind === "package" ? row.packageName : row.productName;
   const [search, setSearch] = useState(selectedName);
   const [showDrop, setShowDrop] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<SearchableCatalogItem[]>([]);
+  const [scanMessage, setScanMessage] = useState("");
   const [qtyInput, setQtyInput] = useState(String(getSafeQty(row.qty)));
   const [discountInput, setDiscountInput] = useState(getDiscountValue(row.discount));
   const dropRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const trimmedSearch = search.trim();
+  const isNumericPriceSearch = kind === "product" && /^\d+(\.\d+)?$/.test(trimmedSearch);
   const meetsMinSearchLength = trimmedSearch.length >= MIN_SEARCH_LENGTH;
-  const showSearchHelper = !frozen && trimmedSearch.length < MIN_SEARCH_LENGTH;
+  const showSearchHelper = !frozen && !meetsMinSearchLength;
 
   useEffect(() => {
     setSearch(selectedName);
   }, [selectedName]);
+
+  useEffect(() => {
+    if (!autoFocusSearch || !inputRef.current) return;
+
+    inputRef.current.focus();
+    inputRef.current.select();
+    onAutoFocusHandled?.();
+  }, [autoFocusSearch, onAutoFocusHandled]);
 
   useEffect(() => {
     setQtyInput(String(getSafeQty(row.qty)));
@@ -177,9 +258,50 @@ function SearchableItemRow({
 
     setIsSearching(true);
     debounceRef.current = setTimeout(() => {
+      if (kind === "product") {
+        api.get(`/api/v1/products?search=${encodeURIComponent(trimmedSearch)}&limit=20`)
+          .then((res) => {
+            const raw = res.data?.data?.data ?? res.data?.data ?? [];
+            const mapped = Array.isArray(raw) ? raw.map(mapProductSearchItem) : [];
+            const numericPriceSearch = isNumericPriceSearch ? Number(trimmedSearch) : null;
+            const normalizedSearch = trimmedSearch.toLowerCase();
+
+            setResults(
+              mapped.filter((item) => {
+                const matchesName = String(item.name || "").toLowerCase().includes(normalizedSearch);
+                const matchesBarcode = (item.barcodeSearchValues?.length ? item.barcodeSearchValues : [item.barcode])
+                  .some((candidate) => normalizeBarcode(candidate).includes(normalizeBarcode(trimmedSearch)));
+
+                if (matchesBarcode) return true;
+                if (!isNumericPriceSearch) return matchesName;
+
+                const matchesPrice =
+                  numericPriceSearch !== null && matchesProductPriceSearch(item, trimmedSearch);
+                return matchesName || matchesPrice;
+              })
+            );
+          })
+          .catch(() => {
+            setResults([]);
+          })
+          .finally(() => {
+            setIsSearching(false);
+            setShowDrop(true);
+          });
+        return;
+      }
+
       const normalizedSearch = trimmedSearch.toLowerCase();
+      const numericPriceSearch = isNumericPriceSearch ? Number(trimmedSearch) : null;
       setResults(
-        items.filter((item) => String(item.name || "").toLowerCase().includes(normalizedSearch))
+        items.filter((item) => {
+          const matchesName = String(item.name || "").toLowerCase().includes(normalizedSearch);
+          if (!isNumericPriceSearch) return matchesName;
+
+          const matchesPrice =
+            numericPriceSearch !== null && matchesProductPriceSearch(item, trimmedSearch);
+          return matchesName || matchesPrice;
+        })
       );
       setIsSearching(false);
       setShowDrop(true);
@@ -188,12 +310,13 @@ function SearchableItemRow({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [frozen, items, meetsMinSearchLength, trimmedSearch]);
+  }, [frozen, isNumericPriceSearch, items, meetsMinSearchLength, trimmedSearch]);
 
   function handleSearchChange(value: string) {
     const qty = getSafeQty(row.qty);
     const discount = parseInt(discountInput, 10) || 0;
 
+    setScanMessage("");
     setSearch(value);
     updateRow({
       selectedId: "",
@@ -208,6 +331,7 @@ function SearchableItemRow({
     const discount = parseInt(discountInput, 10) || 0;
     const price = Number(item.price ?? 0) || 0;
 
+    setScanMessage("");
     setSearch(item.name);
     updateRow({
       selectedId: String(item.id),
@@ -246,6 +370,102 @@ function SearchableItemRow({
     });
   }
 
+  function resetBlankProductRow() {
+    if (kind !== "product") return;
+
+    setSearch("");
+    updateRow({
+      selectedId: "",
+      selectedName: "",
+      price: 0,
+      qty: 1,
+      total: 0,
+    });
+  }
+
+  function focusSearchField() {
+    window.setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }, 0);
+  }
+
+  async function handleBarcodeSubmit() {
+    if (kind !== "product" || !trimmedSearch) return;
+
+    let matchedItem = results.find((item) => matchesProductBarcode(item, trimmedSearch))
+      ?? items.find((item) => matchesProductBarcode(item, trimmedSearch));
+
+    if (!matchedItem) {
+      try {
+        const res = await api.get(`/api/v1/products?search=${encodeURIComponent(trimmedSearch)}&limit=20`);
+        const raw = res.data?.data?.data ?? res.data?.data ?? [];
+        const mapped = Array.isArray(raw) ? raw.map(mapProductSearchItem) : [];
+        matchedItem = mapped.find((item) => matchesProductBarcode(item, trimmedSearch));
+        if (mapped.length > 0) {
+          setResults(mapped);
+        }
+      } catch {
+        matchedItem = undefined;
+      }
+    }
+
+    if (!matchedItem) {
+      if (/^[A-Za-z0-9\-_]+$/.test(trimmedSearch)) {
+        setScanMessage("Product not found.");
+      }
+      return;
+    }
+
+    const matchedProductId = String(matchedItem.id);
+    const existingIndex = productRows.findIndex((productRow) => String(productRow.productId || "") === matchedProductId);
+    const matchedPrice = Number(matchedItem.price ?? 0) || 0;
+
+    if (existingIndex >= 0) {
+      const existingRow = productRows[existingIndex];
+      const nextQty = getSafeQty(existingRow.qty) + 1;
+      const existingDiscount = existingRow.discount || 0;
+      const basePrice = Number(existingRow.price ?? matchedPrice) || matchedPrice;
+
+      onUpdateProductRow?.(existingIndex, {
+        ...existingRow,
+        productId: matchedProductId,
+        productName: existingRow.productName || matchedItem.name,
+        price: basePrice,
+        qty: nextQty,
+        total: calcTotal(basePrice, nextQty, existingDiscount),
+      });
+
+      if (!row.productId || row.productId !== matchedProductId) {
+        resetBlankProductRow();
+      }
+
+      setResults([]);
+      setShowDrop(false);
+      setIsSearching(false);
+      setScanMessage("");
+      focusSearchField();
+      return;
+    }
+
+    const nextDiscount = row.discount || 0;
+    setScanMessage("");
+    setSearch(matchedItem.name);
+    updateRow({
+      selectedId: matchedProductId,
+      selectedName: matchedItem.name,
+      price: matchedPrice,
+      qty: 1,
+      total: calcTotal(matchedPrice, 1, nextDiscount),
+    });
+    setResults([]);
+    setShowDrop(false);
+    setIsSearching(false);
+
+    requestNextProductFocus?.(productRows.length);
+    onAddProductRow?.();
+  }
+
   function handleDiscountChange(value: string) {
     const normalizedValue = value.slice(0, 5);
     setDiscountInput(normalizedValue);
@@ -274,12 +494,19 @@ function SearchableItemRow({
       <div className="svc-field" ref={dropRef}>
         <div className="svc-field__input-wrap">
           <input
+            ref={inputRef}
             className={`svc-field__input${error ? " svc-field__input--error" : ""}`}
             placeholder={placeholder}
             value={search}
             disabled={frozen}
             onChange={(e) => handleSearchChange(e.target.value)}
             onFocus={() => setShowDrop(meetsMinSearchLength && (isSearching || results.length > 0))}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter" || kind !== "product") return;
+
+              e.preventDefault();
+              handleBarcodeSubmit();
+            }}
           />
           {showDrop && meetsMinSearchLength && (
             <div className="svc-dropdown">
@@ -310,7 +537,11 @@ function SearchableItemRow({
             </div>
           )}
         </div>
-        {showSearchHelper && <span className="svc-field__hint">{helperText}</span>}
+        {scanMessage ? (
+          <span className="svc-field__err">{scanMessage}</span>
+        ) : showSearchHelper ? (
+          <span className="svc-field__hint">{helperText}</span>
+        ) : null}
         {error && <span className="svc-field__err">Please select a {kind}</span>}
       </div>
 
@@ -365,7 +596,10 @@ export const ServicesPanel: React.FC<Props> = ({
   availablePackages, availableProducts, availableMemberships,
   frozen,
   svcErrors, pkgErrors, prodErrors, memErrors, onClearSvcError,
-}) => (
+}) => {
+  const [pendingProductFocusIndex, setPendingProductFocusIndex] = useState<number | null>(null);
+
+  return (
   <div className="services-panel">
     {serviceRows.map((row, i) => (
       <ServiceRow
@@ -417,6 +651,7 @@ export const ServicesPanel: React.FC<Props> = ({
           <SearchableItemRow
             key={`prod-${i}`}
             row={row}
+            productRows={productRows}
             frozen={frozen}
             error={prodErrors?.[i]}
             kind="product"
@@ -425,11 +660,24 @@ export const ServicesPanel: React.FC<Props> = ({
               name: item.name,
               price: item.price,
               stock: item.stock,
+              barcode: item.barcode,
+              barcodeSearchValues: [item.barcode],
+              priceSearchValues: [
+                item.price,
+                item.retail_price,
+                item.selling_price,
+                item.sellingPrice,
+              ],
             }))}
             placeholder="Search product..."
-            helperText="Type at least 3 characters to search products."
+            helperText="Type at least 3 characters to search products or barcodes."
             emptyText="No products found."
             onUpdate={(nextRow) => onUpdateProduct(i, nextRow)}
+            onUpdateProductRow={onUpdateProduct}
+            onAddProductRow={onAddProduct}
+            requestNextProductFocus={setPendingProductFocusIndex}
+            autoFocusSearch={pendingProductFocusIndex === i}
+            onAutoFocusHandled={() => setPendingProductFocusIndex((prev) => prev === i ? null : prev)}
             onRemove={() => onRemoveProduct(i)}
           />
         ))}
@@ -484,6 +732,7 @@ export const ServicesPanel: React.FC<Props> = ({
       </div>
     )}
   </div>
-);
+  );
+};
 
 export default ServicesPanel;
