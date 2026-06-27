@@ -10,8 +10,8 @@ import api from "../../../../services/api/axios";
 import "../../styles/AppointmentModal.scss";
 
 const AVATAR_COLORS = [
-  "#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981",
-  "#3b82f6","#ef4444","#14b8a6","#f97316","#84cc16",
+  "#6366f1", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981",
+  "#3b82f6", "#ef4444", "#14b8a6", "#f97316", "#84cc16",
 ];
 
 function avatarColor(name: string): string {
@@ -62,23 +62,24 @@ interface Props {
 
 export const ClientPanel: React.FC<Props> = ({
   salonId, calDate, onDateChange, selectedClientId,
-  initialName, fallbackUnpaidAmt,
+  fallbackUnpaidAmt,
   onSelectClient, onClearClient, onStatsLoaded, error,
 }) => {
   const navigate = useNavigate();
-  const [search, setSearch]           = useState(initialName || "");
+  const [search, setSearch] = useState("");
   const [suggestions, setSuggestions] = useState<Client[]>([]);
-  const [totalFound, setTotalFound]   = useState(0);
-  const [showDrop, setShowDrop]       = useState(false);
+  const [totalFound, setTotalFound] = useState(0);
+  const [showDrop, setShowDrop] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [addFirst, setAddFirst]       = useState("");
-  const [addLast, setAddLast]         = useState("");
-  const [addPhone, setAddPhone]       = useState("");
-  const [addGender, setAddGender]     = useState("");
-  const [addSaving, setAddSaving]     = useState(false);
-  const [addErrors, setAddErrors]     = useState<{ first?: string; phone?: string; gender?: string }>({});
-  const [noResults, setNoResults]     = useState(false);
+  const [addFirst, setAddFirst] = useState("");
+  const [addLast, setAddLast] = useState("");
+  const [addPhone, setAddPhone] = useState("");
+  const [addGender, setAddGender] = useState("");
+  const [addSaving, setAddSaving] = useState(false);
+  const [addErrors, setAddErrors] = useState<{ first?: string; phone?: string; gender?: string }>({});
+  const [noResults, setNoResults] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
+  const skipNextSearch = useRef(false);
 
   const { details, stats, loading: statsLoading } = useClientDetails(selectedClientId);
   const allBookings = useAppSelector(selectBookings);
@@ -100,12 +101,6 @@ export const ClientPanel: React.FC<Props> = ({
     if (stats) onStatsLoaded?.({ ...stats, unpaidAmt });
   }, [stats, unpaidAmt, onStatsLoaded]);
 
-  // When details load for an existing client, update the search box with the canonical name
-  useEffect(() => {
-    if (!details || !selectedClientId || selectedClientId === "walk-in") return;
-    const name = details.full_name || `${details.first_name || ""} ${details.last_name || ""}`.trim();
-    if (name) setSearch(name);
-  }, [details, selectedClientId]);
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -123,6 +118,7 @@ export const ClientPanel: React.FC<Props> = ({
     if (search.length < 3) { setSuggestions([]); setNoResults(false); clearPrefill(); return; }
     if (search === "Walk In") return;
     let cancelled = false;
+    if (skipNextSearch.current) { skipNextSearch.current = false; return; }
     const t = setTimeout(async () => {
       try {
         const res = await api.get(`/api/v1/clients/search?q=${encodeURIComponent(search)}&salon_id=${salonId || ""}`);
@@ -157,7 +153,7 @@ export const ClientPanel: React.FC<Props> = ({
 
   function selectClient(c: Client) {
     onSelectClient(c);
-    setSearch(c.name);
+    setSearch("");
     setShowDrop(false);
     setSuggestions([]);
   }
@@ -197,17 +193,17 @@ export const ClientPanel: React.FC<Props> = ({
     setAddSaving(true);
     try {
       const res = await api.post("/api/v1/clients", {
-        salon_id:   salonId,
+        salon_id: salonId,
         first_name: addFirst,
-        last_name:  addLast,
-        phone:      addPhone,
-        gender:     addGender,
+        last_name: addLast,
+        phone: addPhone,
+        gender: addGender,
       });
       const c = res.data?.data ?? res.data;
       const newClient: Client = {
-        id:      String(c?.id ?? ""),
-        name:    `${addFirst} ${addLast}`.trim(),
-        phone:   addPhone,
+        id: String(c?.id ?? ""),
+        name: `${addFirst} ${addLast}`.trim(),
+        phone: addPhone,
         eWallet: 0,
       };
       selectClient(newClient);
@@ -245,7 +241,7 @@ export const ClientPanel: React.FC<Props> = ({
               }}
               onFocus={() => suggestions.length > 0 && setShowDrop(true)}
             />
-            {search && (
+            {(search || selectedClientId) && (
               <button
                 className="client-search-clear"
                 type="button"
@@ -276,7 +272,7 @@ export const ClientPanel: React.FC<Props> = ({
                     <span className="client-dropdown__name">{highlight(c.name.toUpperCase(), search.toUpperCase())}</span>
                     <span className="client-dropdown__phone">
                       <svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11">
-                        <path d="M3.654 1.328a.678.678 0 0 0-1.015-.063L1.605 2.3c-.483.484-.661 1.169-.45 1.77a17.568 17.568 0 0 0 4.168 6.608 17.569 17.569 0 0 0 6.608 4.168c.601.211 1.286.033 1.77-.45l1.034-1.034a.678.678 0 0 0-.063-1.015l-2.307-1.794a.678.678 0 0 0-.58-.122l-2.19.547a1.745 1.745 0 0 1-1.657-.459L5.482 8.062a1.745 1.745 0 0 1-.46-1.657l.548-2.19a.678.678 0 0 0-.122-.58L3.654 1.328z"/>
+                        <path d="M3.654 1.328a.678.678 0 0 0-1.015-.063L1.605 2.3c-.483.484-.661 1.169-.45 1.77a17.568 17.568 0 0 0 4.168 6.608 17.569 17.569 0 0 0 6.608 4.168c.601.211 1.286.033 1.77-.45l1.034-1.034a.678.678 0 0 0-.063-1.015l-2.307-1.794a.678.678 0 0 0-.58-.122l-2.19.547a1.745 1.745 0 0 1-1.657-.459L5.482 8.062a1.745 1.745 0 0 1-.46-1.657l.548-2.19a.678.678 0 0 0-.122-.58L3.654 1.328z" />
                       </svg>
                       {highlightPhone(c.phone, search)}
                     </span>

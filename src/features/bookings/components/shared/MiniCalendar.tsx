@@ -56,22 +56,23 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({ value, onChange, onClose })
         width: 260,
         zIndex: 999,
         fontFamily: "'Segoe UI', system-ui, sans-serif",
+        color: "#111827",
       }}
     >
       {/* Nav row */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
         <button
           onClick={prevMonth}
-          style={{ background: "none", border: "1px solid #e5e7eb", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 16, lineHeight: 1 }}
+          style={{ background: "none", border: "1px solid #e5e7eb", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 16, lineHeight: 1, color: "#374151" }}
         >
           ‹
         </button>
 
-        <span style={{ display: "flex", gap: 6, fontWeight: 600, fontSize: 13 }}>
+        <span style={{ display: "flex", gap: 6, fontWeight: 600, fontSize: 13, color: "#111827" }}>
           <select
             value={month}
             onChange={(e) => setViewDate(buildIso(year, +e.target.value))}
-            style={{ border: "none", fontWeight: 600, fontSize: 13, background: "transparent", cursor: "pointer" }}
+            style={{ border: "none", fontWeight: 600, fontSize: 13, background: "transparent", cursor: "pointer", color: "#111827" }}
           >
             {MONTHS.map((m, i) => (
               <option key={m} value={i}>{m}</option>
@@ -80,7 +81,7 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({ value, onChange, onClose })
           <select
             value={year}
             onChange={(e) => setViewDate(buildIso(+e.target.value, month))}
-            style={{ border: "none", fontWeight: 600, fontSize: 13, background: "transparent", cursor: "pointer" }}
+            style={{ border: "none", fontWeight: 600, fontSize: 13, background: "transparent", cursor: "pointer", color: "#111827" }}
           >
             {Array.from({ length: 12 }, (_, i) => 2023 + i).map((y) => (
               <option key={y} value={y}>{y}</option>
@@ -90,7 +91,7 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({ value, onChange, onClose })
 
         <button
           onClick={nextMonth}
-          style={{ background: "none", border: "1px solid #e5e7eb", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 16, lineHeight: 1 }}
+          style={{ background: "none", border: "1px solid #e5e7eb", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 16, lineHeight: 1, color: "#374151" }}
         >
           ›
         </button>
@@ -117,6 +118,8 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({ value, onChange, onClose })
               style={{
                 width: "100%",
                 aspectRatio: "1",
+                padding: 0,
+                boxSizing: "border-box",
                 border: "none",
                 borderRadius: 6,
                 fontSize: 12,

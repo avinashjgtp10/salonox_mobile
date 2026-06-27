@@ -38,8 +38,11 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
 
   useEffect(() => {
     function handleOutside(e: MouseEvent) {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node))
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
         setShowClientDrop(false);
+        setClientQuery("");
+        setClientResults([]);
+      }
     }
     document.addEventListener("mousedown", handleOutside);
     return () => document.removeEventListener("mousedown", handleOutside);
@@ -167,7 +170,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
   function openDatePicker() {
     if (dateBtnRef.current) {
       const r = dateBtnRef.current.getBoundingClientRect();
-      setDatePickerPos({ top: r.bottom + 6, left: r.left + r.width / 2 });
+      setDatePickerPos({ top: r.bottom + 6, left: r.left });
     }
     setShowDatePicker((v) => !v);
   }
@@ -221,6 +224,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
             fontFamily: "inherit",
             whiteSpace: "nowrap",
             flexShrink: 0,
+            color: "#374151",
           }}
         >
           {viewMode} <span style={{ fontSize: 9, opacity: 0.6 }}>▼</span>
@@ -238,6 +242,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
             fontSize: 16,
             cursor: "pointer",
             lineHeight: 1,
+            color: "#374151",
           }}
         >
           ‹
@@ -281,6 +286,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
             fontSize: 16,
             cursor: "pointer",
             lineHeight: 1,
+            color: "#374151",
           }}
         >
           ›
@@ -580,7 +586,6 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
               position: "fixed",
               top: datePickerPos.top,
               left: datePickerPos.left,
-              transform: "translateX(-50%)",
               zIndex: 99999,
             }}
           >
