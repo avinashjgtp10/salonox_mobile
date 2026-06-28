@@ -28,6 +28,7 @@ interface RawServiceItem {
   name?: string;
   price?: string | number;
   duration?: string | number;
+  duration_minutes?: string | number;
 }
 
 interface ServiceRowProps {
@@ -48,6 +49,70 @@ function getSafeQty(qty?: number) {
   return Number.isInteger(qty) && (qty ?? 0) > 0 ? Number(qty) : 1;
 }
 
+function formatPriceForSearch(value: number) {
+  const fixed = value.toFixed(2);
+  return fixed.endsWith(".00") ? String(Math.trunc(value)) : fixed.replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function mapServiceSearchResult(service: RawServiceItem): SearchServiceResult {
+  return {
+    id: String(service.id ?? ""),
+    name: service.name ?? "",
+    price: parseFloat(String(service.price ?? 0)) || 0,
+    duration: Number(service.duration ?? service.duration_minutes) || 30,
+  };
+}
+
+function matchesServicePrice(service: SearchServiceResult, searchValue: string) {
+  const numericValue = Number(service.price);
+  if (!Number.isFinite(numericValue)) return false;
+
+  return numericValue === Number(searchValue) || formatPriceForSearch(numericValue).includes(searchValue);
+}
+
+function matchesServiceSearch(service: SearchServiceResult, searchValue: string, isNumericSearch: boolean) {
+  if (isNumericSearch) return matchesServicePrice(service, searchValue);
+  return service.name.toLowerCase().includes(searchValue.toLowerCase());
+}
+
+function extractServiceResults(response: any): RawServiceItem[] {
+  const payload = response?.data?.data ?? response?.data ?? {};
+
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload)) return payload;
+  return [];
+}
+
+function extractServiceTotalPages(response: any) {
+  const payload = response?.data?.data ?? response?.data ?? {};
+  const totalPages = Number(
+    payload?.totalPages ??
+    payload?.total_pages ??
+    payload?.pagination?.totalPages ??
+    payload?.pagination?.total_pages ??
+    response?.data?.pagination?.totalPages ??
+    response?.data?.pagination?.total_pages ??
+    1
+  );
+
+  return Number.isFinite(totalPages) && totalPages > 0 ? totalPages : 1;
+}
+
+function mergeServiceResults(
+  base: SearchServiceResult[],
+  incoming: SearchServiceResult[],
+) {
+  const merged = [...base];
+
+  incoming.forEach((service) => {
+    if (!merged.some((existing) => String(existing.id || existing.name) === String(service.id || service.name))) {
+      merged.push(service);
+    }
+  });
+
+  return merged;
+}
+
 const ServiceRow: React.FC<ServiceRowProps> = ({
   row,
   onChange,
@@ -59,6 +124,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   const schedulerContext = useSchedulerContext();
   const interval = schedulerContext.interval;
   const staffList = schedulerContext.staffList as StaffDto[] | undefined;
+  const servicesList = schedulerContext.servicesList as RawServiceItem[] | undefined;
   const [serviceSearch, setServiceSearch] = useState(row.service || "");
   const [showDrop, setShowDrop] = useState(false);
   const [qtyInput, setQtyInput] = useState(String(getSafeQty(row.qty)));
@@ -102,33 +168,46 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     if (abortRef.current) abortRef.current.abort();
 
     const controller = new AbortController();
-    const normalizedTerm = term.trim().toLowerCase();
+    const normalizedTerm = term.trim();
+    const isNumericSearch = /^\d+(\.\d+)?$/.test(normalizedTerm);
+    const localMatches = (servicesList || [])
+      .map(mapServiceSearchResult)
+      .filter((service) => matchesServiceSearch(service, normalizedTerm, isNumericSearch));
     abortRef.current = controller;
 
     try {
-      const params = `search=${encodeURIComponent(term)}&is_active=true&limit=20`;
-      const res = await api.get(SERVICES.LIST(params), { signal: controller.signal });
-      const payload = (res.data as { data: unknown })?.data;
-      const items: RawServiceItem[] = Array.isArray(payload)
-        ? (payload as RawServiceItem[])
-        : Array.isArray((payload as { data?: unknown })?.data)
-          ? (payload as { data: RawServiceItem[] }).data
-          : [];
+      let apiMatches: SearchServiceResult[] = [];
+
+      if (isNumericSearch) {
+        let page = 1;
+        let totalPages = 1;
+
+        do {
+          const params = `page=${page}&limit=100&pageSize=100&is_active=true`;
+          const res = await api.get(SERVICES.LIST(params), { signal: controller.signal });
+          const mapped = extractServiceResults(res)
+            .map(mapServiceSearchResult)
+            .filter((service) => matchesServiceSearch(service, normalizedTerm, true));
+
+          apiMatches = mergeServiceResults(apiMatches, mapped);
+          totalPages = extractServiceTotalPages(res);
+          page += 1;
+        } while (page <= totalPages);
+      } else {
+        const params = `search=${encodeURIComponent(term)}&is_active=true&limit=20`;
+        const res = await api.get(SERVICES.LIST(params), { signal: controller.signal });
+        apiMatches = extractServiceResults(res)
+          .map(mapServiceSearchResult)
+          .filter((service) => matchesServiceSearch(service, normalizedTerm, false));
+      }
 
       if (abortRef.current === controller) {
-        setApiResults(
-          items
-            .map((service: RawServiceItem) => ({
-              id: String(service.id ?? ""),
-              name: service.name ?? "",
-              price: parseFloat(String(service.price ?? 0)) || 0,
-              duration: Number(service.duration) || 30,
-            }))
-            .filter((service) => service.name.toLowerCase().includes(normalizedTerm))
-        );
+        setApiResults(mergeServiceResults(localMatches, apiMatches));
       }
     } catch {
-      // Ignore aborted requests and keep the latest stable dropdown state.
+      if (abortRef.current === controller) {
+        setApiResults(localMatches);
+      }
     } finally {
       if (abortRef.current === controller) {
         abortRef.current = null;

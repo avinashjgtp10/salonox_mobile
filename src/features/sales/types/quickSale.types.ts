@@ -2,7 +2,14 @@ import type { PaymentMethod } from "../../../types/sale.types";
 
 export interface InitStaff { id: string; name: string; }
 export interface InitService { id: string; name: string; price: number; duration: number; }
-export interface LazyProduct { id: string; name: string; price: number | null; stock: number; }
+export interface LazyProduct {
+  id: string;
+  name: string;
+  price: number | null;
+  stock: number;
+  barcode?: string | null;
+  barcodeSearchValues?: Array<string | null | undefined>;
+}
 export interface LazyMembership {
   id: string;
   name: string;
