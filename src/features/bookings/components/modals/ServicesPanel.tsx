@@ -612,6 +612,7 @@ export const ServicesPanel: React.FC<Props> = ({
           onUpdateService(i, field, value);
         }}
         onRemove={() => onRemoveService(i)}
+        onMembershipAction={onAddMembership}
       />
     ))}
 
