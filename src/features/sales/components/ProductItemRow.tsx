@@ -5,6 +5,50 @@ import type { InitStaff, LazyProduct, ProdRow } from "../types/quickSale.types";
 
 const GRID = "2fr 1.5fr 1fr 0.6fr 1.1fr 1fr 30px";
 
+function normalizeBarcode(value: string | null | undefined) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function matchesProductBarcodePartial(item: LazyProduct, searchValue: string) {
+  const normalizedSearch = normalizeBarcode(searchValue);
+  if (!normalizedSearch) return false;
+
+  const candidates = item.barcodeSearchValues?.length
+    ? item.barcodeSearchValues
+    : [item.barcode];
+
+  return candidates.some((candidate) => normalizeBarcode(candidate).includes(normalizedSearch));
+}
+
+function formatPriceForSearch(value: number) {
+  const fixed = value.toFixed(2);
+  return fixed.endsWith(".00") ? String(Math.trunc(value)) : fixed.replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function matchesProductPriceSearch(item: LazyProduct, searchValue: string) {
+  if (item.price === null) return false;
+  const numericValue = Number(item.price);
+  if (!Number.isFinite(numericValue)) return false;
+
+  return numericValue === Number(searchValue) || formatPriceForSearch(numericValue).includes(searchValue);
+}
+
+function productMatchesSearch(
+  item: LazyProduct,
+  normalizedSearch: string,
+  rawSearch: string,
+  isNumericSearch: boolean,
+) {
+  const matchesBarcode = matchesProductBarcodePartial(item, rawSearch);
+  if (matchesBarcode) return true;
+
+  if (isNumericSearch) {
+    return matchesProductPriceSearch(item, rawSearch);
+  }
+
+  return String(item.name || "").toLowerCase().includes(normalizedSearch);
+}
+
 interface Props {
   row: ProdRow;
   staffList: InitStaff[];
@@ -39,6 +83,13 @@ export default function ProductItemRow({ row, staffList, onUpdate, onRemove }: P
                ? parseFloat(p.retail_price)
                : null,
       stock: Number(p.amount ?? 0),
+      barcode: p.barcode ?? p.BarcodeID ?? p.bar_code ?? p.sku ?? null,
+      barcodeSearchValues: [
+        p.barcode,
+        p.BarcodeID,
+        p.bar_code,
+        p.sku,
+      ],
     }));
   }
 
@@ -74,17 +125,55 @@ export default function ProductItemRow({ row, staffList, onUpdate, onRemove }: P
       return;
     }
 
+    const trimmed = val.trim();
+    const isNumericSearch = /^\d+(\.\d+)?$/.test(trimmed);
+
+    if (isNumericSearch && trimmed.length < 3) {
+      abortRef.current?.abort();
+      setIsSearching(false);
+      setResults([]);
+      return;
+    }
+
     setIsSearching(true);
     debounceRef.current = setTimeout(async () => {
       abortRef.current?.abort();
       abortRef.current = new AbortController();
       try {
+        const collected: LazyProduct[] = [];
+
+        // 1. Always run backend search (handles barcode search & text name search)
         const res = await api.get(
-          `/api/v1/products?search=${encodeURIComponent(val.trim())}&limit=10`,
+          `/api/v1/products?search=${encodeURIComponent(trimmed)}&limit=100`,
           { signal: abortRef.current.signal }
         );
         const raw: any[] = res.data?.data?.data ?? res.data?.data ?? [];
-        setResults(Array.isArray(raw) ? mapProducts(raw) : []);
+        const backendMapped = Array.isArray(raw) ? mapProducts(raw) : [];
+        backendMapped.forEach((item) => {
+          if (!collected.some((existing) => existing.id === item.id)) {
+            collected.push(item);
+          }
+        });
+
+        // 2. If numeric, also fetch all products to match selling price client-side
+        if (isNumericSearch) {
+          const allRes = await api.get(`/api/v1/products?limit=500`, { signal: abortRef.current.signal });
+          const allRaw: any[] = allRes.data?.data?.data ?? allRes.data?.data ?? [];
+          const allMapped = Array.isArray(allRaw) ? mapProducts(allRaw) : [];
+          allMapped.forEach((item) => {
+            if (!collected.some((existing) => existing.id === item.id)) {
+              collected.push(item);
+            }
+          });
+        }
+
+        // 3. Filter using productMatchesSearch (incorporates barcode, price, and name matching rules)
+        const normalizedSearch = trimmed.toLowerCase();
+        const filtered = collected.filter((item) =>
+          productMatchesSearch(item, normalizedSearch, trimmed, isNumericSearch)
+        );
+
+        setResults(filtered);
       } catch (err: any) {
         if (err?.name !== "CanceledError" && err?.code !== "ERR_CANCELED") setResults([]);
       } finally {

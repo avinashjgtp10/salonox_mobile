@@ -18,6 +18,24 @@ interface SearchableCatalogItem {
   priceSearchValues?: Array<number | string | null | undefined>;
 }
 
+function getProductDisplayPrice(item: any) {
+  return parseFloat(String(
+    item.retail_price ??
+    item.selling_price ??
+    item.sellingPrice ??
+    item.retailPrice ??
+    item.sellingPriceRaw ??
+    item.price
+  )) || 0;
+}
+
+function getProductPriceSearchValues(item: any) {
+  return [
+    item.retail_price,
+    item.retailPrice,
+  ];
+}
+
 interface Props {
   serviceRows: ServiceItem[];
   onUpdateService: (index: number, field: string, value: any) => void;
@@ -101,7 +119,7 @@ function formatPriceForSearch(value: number) {
 }
 
 function matchesProductPriceSearch(item: SearchableCatalogItem, searchValue: string) {
-  const candidates = item.priceSearchValues?.length ? item.priceSearchValues : [item.price];
+  const candidates = item.priceSearchValues ?? [];
 
   return candidates.some((candidate) => {
     const numericValue = Number(candidate);
@@ -126,11 +144,23 @@ function matchesProductBarcode(item: SearchableCatalogItem, searchValue: string)
   return candidates.some((candidate) => normalizeBarcode(candidate) === normalizedSearch);
 }
 
+function productMatchesSearch(
+  item: SearchableCatalogItem,
+  normalizedSearch: string,
+  rawSearch: string,
+  isNumericPriceSearch: boolean,
+) {
+  if (isNumericPriceSearch) return matchesProductPriceSearch(item, rawSearch);
+
+  // Text input -> search only Product Name.
+  return String(item.name || "").toLowerCase().includes(normalizedSearch);
+}
+
 function mapProductSearchItem(item: any): SearchableCatalogItem {
   return {
     id: item.id,
     name: item.name,
-    price: parseFloat(String(item.retail_price ?? item.selling_price ?? item.sellingPrice ?? item.price)) || 0,
+    price: getProductDisplayPrice(item),
     stock: Number(item.amount ?? item.stock_quantity ?? item.current_stock ?? item.stock ?? 0),
     barcode: item.barcode ?? item.BarcodeID ?? item.bar_code ?? item.sku ?? null,
     barcodeSearchValues: [
@@ -139,13 +169,89 @@ function mapProductSearchItem(item: any): SearchableCatalogItem {
       item.bar_code,
       item.sku,
     ],
-    priceSearchValues: [
-      item.retail_price,
-      item.selling_price,
-      item.sellingPrice,
-      item.price,
-    ],
+    priceSearchValues: getProductPriceSearchValues(item),
   };
+}
+
+function extractProductSearchResults(response: any): any[] {
+  const payload = response?.data?.data ?? response?.data ?? {};
+
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload)) return payload;
+  return [];
+}
+
+function extractProductSearchTotalPages(response: any) {
+  const payload = response?.data?.data ?? response?.data ?? {};
+  const totalPages = Number(
+    payload?.totalPages ??
+    payload?.total_pages ??
+    payload?.pagination?.totalPages ??
+    payload?.pagination?.total_pages ??
+    response?.data?.pagination?.totalPages ??
+    response?.data?.pagination?.total_pages ??
+    1
+  );
+
+  return Number.isFinite(totalPages) && totalPages > 0 ? totalPages : 1;
+}
+
+async function fetchProductSearchItems(searchValue: string, isNumericPriceSearch: boolean) {
+  const collected: SearchableCatalogItem[] = [];
+
+  if (!isNumericPriceSearch) {
+    const response = await api.get("/api/v1/products", {
+      params: { search: searchValue, limit: 100 },
+    }).catch(() => null);
+
+    extractProductSearchResults(response)
+      .map(mapProductSearchItem)
+      .forEach((item) => {
+        if (!collected.some((existing) => String(existing.id) === String(item.id))) {
+          collected.push(item);
+        }
+      });
+
+    return collected;
+  }
+
+  let page = 1;
+  let totalPages = 1;
+
+  do {
+    const response = await api.get("/api/v1/products", {
+      params: { page, limit: 100, pageSize: 100 },
+    }).catch(() => null);
+
+    if (!response) break;
+
+    extractProductSearchResults(response)
+      .map(mapProductSearchItem)
+      .forEach((item) => {
+        if (!collected.some((existing) => String(existing.id) === String(item.id))) {
+          collected.push(item);
+        }
+      });
+
+    totalPages = extractProductSearchTotalPages(response);
+    page += 1;
+  } while (page <= totalPages);
+
+  if (collected.length === 0) {
+    const response = await api.get("/api/v1/products", {
+      params: { limit: 100, pageSize: 100 },
+    }).catch(() => null);
+
+    extractProductSearchResults(response)
+      .map(mapProductSearchItem)
+      .forEach((item) => {
+        if (!collected.some((existing) => String(existing.id) === String(item.id))) {
+          collected.push(item);
+        }
+      });
+  }
+
+  return collected;
 }
 
 function SearchableItemRow(props: SearchableItemRowProps) {
@@ -248,6 +354,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    let isCancelled = false;
 
     if (frozen || !meetsMinSearchLength) {
       setResults([]);
@@ -259,32 +366,33 @@ function SearchableItemRow(props: SearchableItemRowProps) {
     setIsSearching(true);
     debounceRef.current = setTimeout(() => {
       if (kind === "product") {
-        api.get(`/api/v1/products?search=${encodeURIComponent(trimmedSearch)}&limit=20`)
-          .then((res) => {
-            const raw = res.data?.data?.data ?? res.data?.data ?? [];
-            const mapped = Array.isArray(raw) ? raw.map(mapProductSearchItem) : [];
-            const numericPriceSearch = isNumericPriceSearch ? Number(trimmedSearch) : null;
-            const normalizedSearch = trimmedSearch.toLowerCase();
+        const normalizedSearch = trimmedSearch.toLowerCase();
+        const localMatches = items.filter((item) =>
+          productMatchesSearch(item, normalizedSearch, trimmedSearch, isNumericPriceSearch)
+        );
+        fetchProductSearchItems(trimmedSearch, isNumericPriceSearch)
+          .then((apiItems) => {
+            if (isCancelled) return;
 
-            setResults(
-              mapped.filter((item) => {
-                const matchesName = String(item.name || "").toLowerCase().includes(normalizedSearch);
-                const matchesBarcode = (item.barcodeSearchValues?.length ? item.barcodeSearchValues : [item.barcode])
-                  .some((candidate) => normalizeBarcode(candidate).includes(normalizeBarcode(trimmedSearch)));
-
-                if (matchesBarcode) return true;
-                if (!isNumericPriceSearch) return matchesName;
-
-                const matchesPrice =
-                  numericPriceSearch !== null && matchesProductPriceSearch(item, trimmedSearch);
-                return matchesName || matchesPrice;
-              })
+            const mapped = apiItems.filter((item) =>
+              productMatchesSearch(item, normalizedSearch, trimmedSearch, isNumericPriceSearch)
             );
+            const merged = [...localMatches];
+
+            mapped.forEach((item) => {
+              if (!merged.some((existing) => String(existing.id) === String(item.id))) {
+                merged.push(item);
+              }
+            });
+
+            setResults(merged);
           })
           .catch(() => {
-            setResults([]);
+            if (isCancelled) return;
+            setResults(localMatches);
           })
           .finally(() => {
+            if (isCancelled) return;
             setIsSearching(false);
             setShowDrop(true);
           });
@@ -292,15 +400,12 @@ function SearchableItemRow(props: SearchableItemRowProps) {
       }
 
       const normalizedSearch = trimmedSearch.toLowerCase();
-      const numericPriceSearch = isNumericPriceSearch ? Number(trimmedSearch) : null;
       setResults(
         items.filter((item) => {
-          const matchesName = String(item.name || "").toLowerCase().includes(normalizedSearch);
-          if (!isNumericPriceSearch) return matchesName;
-
-          const matchesPrice =
-            numericPriceSearch !== null && matchesProductPriceSearch(item, trimmedSearch);
-          return matchesName || matchesPrice;
+          if (!isNumericPriceSearch) {
+            return String(item.name || "").toLowerCase().includes(normalizedSearch);
+          }
+          return matchesProductPriceSearch(item, trimmedSearch);
         })
       );
       setIsSearching(false);
@@ -308,6 +413,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
     }, DEBOUNCE_MS);
 
     return () => {
+      isCancelled = true;
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [frozen, isNumericPriceSearch, items, meetsMinSearchLength, trimmedSearch]);
@@ -662,15 +768,10 @@ export const ServicesPanel: React.FC<Props> = ({
               stock: item.stock,
               barcode: item.barcode,
               barcodeSearchValues: [item.barcode],
-              priceSearchValues: [
-                item.price,
-                item.retail_price,
-                item.selling_price,
-                item.sellingPrice,
-              ],
+              priceSearchValues: getProductPriceSearchValues(item),
             }))}
             placeholder="Search product..."
-            helperText="Type at least 3 characters to search products or barcodes."
+            helperText="Type at least 3 characters to search products, barcodes, or prices."
             emptyText="No products found."
             onUpdate={(nextRow) => onUpdateProduct(i, nextRow)}
             onUpdateProductRow={onUpdateProduct}
