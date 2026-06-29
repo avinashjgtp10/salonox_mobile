@@ -52,6 +52,12 @@ function emptyService(staffId?: string, time?: string): ServiceItem {
   return { id: "", service: "", staff: "", staffId: staffId || "", time: time || "09:00", price: 0, qty: 1, total: 0, duration: 30 };
 }
 
+function timeToMins(t: string): number {
+  if (!t) return 0;
+  const [h, m] = t.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
 export const AppointmentModal: React.FC<Props> = ({
   isOpen, onClose, salonId,
   existingBooking, defaultDate, defaultTime, defaultStaffId,
@@ -105,6 +111,8 @@ export const AppointmentModal: React.FC<Props> = ({
   const availablePackages    = useAppSelector(selectPackagesList);
   const availableProducts    = useAppSelector(selectProductsList);
   const availableMemberships = useAppSelector(selectMembershipsList);
+  const blockedTimes  = useAppSelector((s: any) => s.scheduler?.blockedTimes ?? []);
+  const schedulerStaff = useAppSelector((s: any) => s.scheduler?.staffList ?? []);
 
   // ── Client ───────────────────────────────────────────────────────────────
   const [selectedClient, setSelectedClient] = useState<Client | null>(
@@ -195,12 +203,13 @@ export const AppointmentModal: React.FC<Props> = ({
   }, [useEWallet, clientStats, totals.grandTotal]);
 
   // ── Inline validation errors ──────────────────────────────────────────────
-  const [clientError,  setClientError]  = useState("");
-  const [noItemsError, setNoItemsError] = useState(false);
-  const [svcErrors,    setSvcErrors]    = useState<Array<{ service?: boolean; staff?: boolean; time?: boolean }>>([]);
-  const [pkgErrors,    setPkgErrors]    = useState<boolean[]>([]);
-  const [prodErrors,   setProdErrors]   = useState<boolean[]>([]);
-  const [memErrors,    setMemErrors]    = useState<boolean[]>([]);
+  const [clientError,    setClientError]    = useState("");
+  const [noItemsError,   setNoItemsError]   = useState(false);
+  const [blockTimeError, setBlockTimeError] = useState("");
+  const [svcErrors,      setSvcErrors]      = useState<Array<{ service?: boolean; staff?: boolean; time?: boolean }>>([]);
+  const [pkgErrors,      setPkgErrors]      = useState<boolean[]>([]);
+  const [prodErrors,     setProdErrors]     = useState<boolean[]>([]);
+  const [memErrors,      setMemErrors]      = useState<boolean[]>([]);
 
   useEffect(() => {
     if (selectedClient && selectedClient.id !== "walk-in") {
@@ -228,6 +237,11 @@ export const AppointmentModal: React.FC<Props> = ({
       membershipRows.some((r) => (r as any).membershipId);
     if (hasAny) setNoItemsError(false);
   }, [serviceRows, packageRows, productRows, membershipRows, noItemsError]);
+
+  useEffect(() => {
+    if (blockTimeError) setBlockTimeError("");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serviceRows, calDate]);
 
   function validate(): boolean {
     let ok = true;
@@ -266,6 +280,32 @@ export const AppointmentModal: React.FC<Props> = ({
     const me = membershipRows.map((r) => !(r as any).membershipId);
     setMemErrors(me);
     if (me.some(Boolean)) ok = false;
+
+    // ── Block time conflict check ─────────────────────────────────────────
+    setBlockTimeError("");
+    const rowsToCheck = serviceRows.filter((r) => r.service.trim() && r.staffId && r.time);
+    for (const row of rowsToCheck) {
+      const svcStart = timeToMins(row.time);
+      const svcEnd   = svcStart + (row.duration || 30);
+      const conflict = (blockedTimes as any[]).find((bt) => {
+        if (String(bt.staffId) !== String(row.staffId)) return false;
+        if (bt.date !== calDate) return false;
+        const btStart = timeToMins(bt.startTime);
+        const btEnd   = timeToMins(bt.endTime);
+        return svcStart < btEnd && svcEnd > btStart;
+      });
+      if (conflict) {
+        const staffName =
+          (schedulerStaff as any[]).find((s) => String(s.id) === String(row.staffId))?.name ||
+          "This staff member";
+        const reasonPart = conflict.reason ? ` (${conflict.reason})` : "";
+        setBlockTimeError(
+          `${staffName} is blocked from ${conflict.startTime} to ${conflict.endTime} on this date${reasonPart}. Please choose a different time or staff.`
+        );
+        ok = false;
+        break;
+      }
+    }
 
     return ok;
   }
@@ -649,6 +689,17 @@ export const AppointmentModal: React.FC<Props> = ({
             </div>
           )}
 
+          {blockTimeError && (
+            <div style={{
+              margin: "8px 0", padding: "10px 14px",
+              background: "#fef2f2", border: "1px solid #fca5a5",
+              borderRadius: 8, color: "#dc2626", fontSize: 13,
+              display: "flex", alignItems: "flex-start", gap: 8,
+            }}>
+              <span style={{ flexShrink: 0 }}>⛔</span>
+              <span>{blockTimeError}</span>
+            </div>
+          )}
           {(saveError || payError) && (
             <div className="err-text" style={{ marginTop: 8 }}>{saveError || payError}</div>
           )}
