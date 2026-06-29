@@ -6,10 +6,7 @@ import {
   PencilSquare, Trash3, FileEarmarkPdf,
   FileEarmarkExcel, FiletypeCsv, CardList,
   Award, CurrencyRupee, CheckCircleFill,
-  PersonFill, ExclamationCircle,
 } from "react-bootstrap-icons";
-import ClientSelectorWithAdd from "../../../components/packages/ClientSelectorWithAdd";
-import type { ClientSearchResult } from "../../clients/components/ClientSearchInput";
 import type { AppDispatch } from "../../../store/store";
 import {
   fetchMembershipsThunk,
@@ -76,21 +73,6 @@ const MembershipsListPage: React.FC = () => {
 
   const [drawerId,   setDrawerId]   = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-
-  // ── client selection (persisted across navigation) ───────────────────────
-  const [selectedClient, setSelectedClient] = useState<ClientSearchResult | null>(() => {
-    try {
-      const saved = sessionStorage.getItem("msp_selected_client");
-      return saved ? JSON.parse(saved) : null;
-    } catch { return null; }
-  });
-  useEffect(() => {
-    if (selectedClient) {
-      sessionStorage.setItem("msp_selected_client", JSON.stringify(selectedClient));
-    } else {
-      sessionStorage.removeItem("msp_selected_client");
-    }
-  }, [selectedClient]);
 
   // ── plans list ────────────────────────────────────────────────────────────
   const buildQuery = useCallback(() => ({
@@ -175,15 +157,10 @@ const MembershipsListPage: React.FC = () => {
           <div className="msp__add-wrap">
             <button
               className="msp__btn msp__btn--dark"
-              disabled={!selectedClient}
-              onClick={() => selectedClient && navigate("/dashboard/catalog/memberships/create", { state: { client: selectedClient } })}
-              title={!selectedClient ? "Search or create a client to continue." : undefined}
+              onClick={() => navigate("/dashboard/catalog/memberships/create")}
             >
               <PlusLg size={15} /> Add membership
             </button>
-            {!selectedClient && (
-              <p className="msp__add-hint">Search or create a client to continue.</p>
-            )}
           </div>
         </div>
       </div>
@@ -213,24 +190,6 @@ const MembershipsListPage: React.FC = () => {
           <span className="msp__stat-label">Avg. price</span>
           <strong className="msp__stat-val">₹{stats.avg.toLocaleString("en-IN")}</strong>
         </div>
-      </div>
-
-      {/* ── Select Client (inline) ──────────────────────────────────────── */}
-      <div className="msp__select-client-card">
-        <div className="msp__sc-label">
-          <PersonFill size={14} /> Select Client
-        </div>
-        <ClientSelectorWithAdd
-          defaultClient={selectedClient}
-          onSelect={client => setSelectedClient(client)}
-          onClear={() => { setSelectedClient(null); }}
-          placeholder="Search client by name or mobile number..."
-        />
-        {!selectedClient && (
-          <p className="msp__sc-hint">
-            <ExclamationCircle size={13} /> Search or create a client to continue.
-          </p>
-        )}
       </div>
 
       {/* ── Controls ────────────────────────────────────────────────────── */}
