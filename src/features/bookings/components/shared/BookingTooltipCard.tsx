@@ -67,7 +67,12 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
   const productItems  = (booking as any).productItems  || (booking as any).products  || [];
   const packageItems  = (booking as any).packageItems  || (booking as any).packages  || [];
 
-  const total = booking.grandTotal || 0;
+  // Fall back to summing services/products/packages if grandTotal wasn't returned by the list API
+  const computedTotal =
+    services.reduce((s: number, x: any) => s + (Number(x.total) || Number(x.price) || 0), 0) +
+    productItems.reduce((s: number, x: any) => s + (Number(x.total) || Number(x.price) || 0), 0) +
+    packageItems.reduce((s: number, x: any) => s + (Number(x.total) || Number(x.price) || 0), 0);
+  const total = booking.grandTotal || computedTotal || 0;
   const isCancelled = (booking.status || "").toLowerCase() === "cancelled";
   const rawPs = isCancelled ? "Cancelled" : (booking.paymentStatus ?? "Unpaid");
   const ps    = rawPs.charAt(0).toUpperCase() + rawPs.slice(1).toLowerCase();

@@ -108,8 +108,10 @@ export const AppointmentModal: React.FC<Props> = ({
 
   // ── Client ───────────────────────────────────────────────────────────────
   const [selectedClient, setSelectedClient] = useState<Client | null>(
-    existingBooking?.clientId
-      ? { id: String(existingBooking.clientId), name: existingBooking.clientName || "", phone: existingBooking.clientPhone || "", eWallet: 0 }
+    existingBooking
+      ? (existingBooking.clientId
+          ? { id: String(existingBooking.clientId), name: existingBooking.clientName || "", phone: existingBooking.clientPhone || "", eWallet: 0 }
+          : { id: "walk-in", name: "Walk-In", phone: "", eWallet: 0 })
       : defaultClientId
         ? { id: defaultClientId, name: defaultClientName || "", phone: defaultClientPhone || "", eWallet: 0 }
         : null
@@ -175,7 +177,10 @@ export const AppointmentModal: React.FC<Props> = ({
   });
 
   const alreadyPaidAmount   = existingBooking?.payingNow ?? 0;
-  const remainingDue        = Math.max(0, totals.effectiveTotal - alreadyPaidAmount);
+  // For partial bookings, trust the API's dueAmount directly — payingNow can be unreliable
+  const remainingDue = (existingBooking?.paymentStatus === "Partial" && (existingBooking?.dueAmount ?? 0) > 0)
+    ? existingBooking.dueAmount
+    : Math.max(0, totals.effectiveTotal - alreadyPaidAmount);
   // Exclude current appointment's due so "Clear Pending Due" only shows OTHER unpaid appointments
   const priorDueAmt         = Math.max(0, (clientStats?.unpaidAmt ?? 0) - remainingDue);
   const previewPoints       = computePointsEarned(totals.effectiveTotal);
@@ -275,7 +280,8 @@ export const AppointmentModal: React.FC<Props> = ({
         staffId:       serviceRows[0]?.staffId || defaultStaffId || "",
         date:          calDate,
         startTime:     serviceRows[0]?.time || defaultTime || "10:00",
-        paymentStatus: "Unpaid",
+        paymentStatus: (existingBooking?.paymentStatus || "Unpaid") as any,
+        grandTotal:    totals.grandTotal,
       } as Partial<Booking>,
       serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId,
@@ -342,7 +348,9 @@ export const AppointmentModal: React.FC<Props> = ({
   const isPartialBooking   = existingBooking?.paymentStatus === "Partial";
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const isPaymentFrozen = existingBooking?.paymentStatus === "Paid"
-    || (alreadyPaidAmount > 0 && alreadyPaidAmount >= totals.effectiveTotal);
+    || (existingBooking?.paymentStatus !== "Partial"
+        && alreadyPaidAmount > 0
+        && alreadyPaidAmount >= totals.effectiveTotal);
   const parsedPartial   = parseFloat(partialAmtInput);
   const isPartialEntry  = !isNaN(parsedPartial) && parsedPartial > 0 && parsedPartial < remainingDue;
 

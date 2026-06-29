@@ -96,10 +96,14 @@ const SchedulerContent: React.FC = () => {
           const localPriceMap = new Map(
             (booking.services || []).map((s: any) => [String(s.id), s])
           );
+          const localServices = booking.services || [];
           const mergedServices = enriched.services.length
-            ? enriched.services.map((svc: any) => {
-                const local = localPriceMap.get(String(svc.id));
-                const resolvedStaffId = local?.staffId || svc.staffId;
+            ? enriched.services.map((svc: any, idx: number) => {
+                // Match by ID first; fall back to position for newly created services
+                const local = localPriceMap.get(String(svc.id)) ?? localServices[idx];
+                // Prefer detail-API staffId — it has per-service staff_id from DB.
+                // local comes from the list endpoint which collapses all services to appointment-level staffId.
+                const resolvedStaffId = svc.staffId || local?.staffId;
                 const resolvedStaff = resolvedStaffId
                   ? (apiStaff.find((s: any) => String(s.id) === String(resolvedStaffId)) as any)?.name || svc.staff
                   : svc.staff;
@@ -140,7 +144,20 @@ const SchedulerContent: React.FC = () => {
         const action = await (dispatch(fetchBookingByIdThunk(booking.id)) as any);
         if (fetchBookingByIdThunk.fulfilled.match(action)) {
           const enriched = mapApiBooking(action.payload, apiServices, apiStaff, apiClients);
-          setEditingBooking({ ...booking, ...enriched, paymentStatus: booking.paymentStatus });
+          // Preserve per-service staffIds from local Redux booking — same logic as handleEditBooking
+          const localPriceMap = new Map((booking.services || []).map((s: any) => [String(s.id), s]));
+          const localServices = booking.services || [];
+          const mergedServices = enriched.services.length
+            ? enriched.services.map((svc: any, idx: number) => {
+                const local = localPriceMap.get(String(svc.id)) ?? localServices[idx];
+                const resolvedStaffId = svc.staffId || local?.staffId;
+                const resolvedStaff = resolvedStaffId
+                  ? (apiStaff.find((s: any) => String(s.id) === String(resolvedStaffId)) as any)?.name || svc.staff
+                  : svc.staff;
+                return { ...svc, staffId: resolvedStaffId, staff: resolvedStaff };
+              })
+            : booking.services;
+          setEditingBooking({ ...booking, ...enriched, services: mergedServices, paymentStatus: booking.paymentStatus });
           setShowNewAppt(true);
           return;
         }
@@ -186,13 +203,36 @@ const SchedulerContent: React.FC = () => {
 
     const updated = fresh.map((fb) => {
       const merged: Booking = { ...fb } as Booking;
+      const local = latestBookings.find((lb) => String(lb.id) === String(fb.id));
+
+      // Preserve per-service staffIds saved locally when the API list endpoint
+      // doesn't return staff_id per service (all services fall back to appt-level staffId).
+      if (local?.services?.length) {
+        if (!merged.services?.length) {
+          // API returned no services at all — keep the locally cached services so
+          // multi-staff chips survive the refresh without losing their assignments.
+          (merged as any).services = local.services;
+        } else {
+          const allSameAsAppt = merged.services.every(
+            (s: any) => !s.staffId || String(s.staffId) === String(merged.staffId)
+          );
+          if (allSameAsAppt) {
+            const localById = new Map(local.services.map((s: any) => [String(s.id), s]));
+            merged.services = merged.services.map((svc: any, idx: number) => {
+              // Match by ID first; fall back to position for newly created services
+              const localSvc = localById.get(String(svc.id)) ?? (local as any).services[idx];
+              return localSvc?.staffId ? { ...svc, staffId: localSvc.staffId, staff: localSvc.staff } : svc;
+            });
+          }
+        }
+      }
+
       const pay = payCache[String(fb.id)];
       if (pay) {
         merged.paymentStatus = pay.paymentStatus;
         merged.dueAmount = pay.paymentStatus === "Paid" ? 0 : pay.dueAmount;
         merged.payingNow = pay.payingNow;
         if (pay.grandTotal !== undefined) (merged as any).grandTotal = pay.grandTotal;
-        const local = latestBookings.find((lb) => String(lb.id) === String(fb.id));
         if (local) (merged as any).paymentMode = (local as any).paymentMode || (fb as any).paymentMode;
       }
       return merged;
