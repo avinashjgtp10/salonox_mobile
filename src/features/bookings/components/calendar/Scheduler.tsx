@@ -4,7 +4,7 @@ import { useSingleClick } from "../../../../utils/singleClick";
 import type { Booking, BlockedTime } from "../../types/booking.types";
 import { useAppDispatch, useAppSelector } from "../../../../hooks/useAppRedux";
 import { fetchBookingByIdThunk, fetchBookingsThunk, cancelBookingThunk, deleteBookingThunk } from "../../../../middleware/booking/booking.thunk";
-import { setBookings, clearDragPatch } from "../../../../store/schedulerSlice";
+import { setBookings, clearDragPatch, deleteBooking } from "../../../../store/schedulerSlice";
 import { store } from "../../../../store/store";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 // ── NEW: 2 focused hooks replace useSchedulerInit ─────────────────────────────
@@ -257,7 +257,7 @@ const SchedulerContent: React.FC = () => {
 
   const handleDeleteBooking = useSingleClick(async (booking: Booking) => {
     const result = await (dispatch(deleteBookingThunk(booking.id)) as any);
-    if (deleteBookingThunk.fulfilled.match(result)) handleRefresh();
+    if (deleteBookingThunk.fulfilled.match(result)) dispatch(deleteBooking(String(booking.id)));
   });
 
   const handleNewAppointment = useSingleClick(() => {

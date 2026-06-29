@@ -399,53 +399,35 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
 
               {/* Results */}
               {!clientSearching && searchDone && clientResults.length > 0 && clientResults.map((c) => (
-                <div key={c.id} style={{ padding: "10px 12px", borderBottom: "1px solid #f3f4f6" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                    <span style={{
-                      width: 34, height: 34, borderRadius: "50%", flexShrink: 0,
-                      background: avatarColor(c.name), color: "#fff",
-                      fontSize: 13, fontWeight: 700,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}>
-                      {c.name.charAt(0).toUpperCase()}
+                <div
+                  key={c.id}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    closeSearch();
+                    onNewAppointmentForClient?.(c);
+                  }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "10px 12px", borderBottom: "1px solid #f3f4f6",
+                    cursor: "pointer",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "")}
+                >
+                  <span style={{
+                    width: 34, height: 34, borderRadius: "50%", flexShrink: 0,
+                    background: avatarColor(c.name), color: "#fff",
+                    fontSize: 13, fontWeight: 700,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    {c.name.charAt(0).toUpperCase()}
+                  </span>
+                  <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {c.name}
                     </span>
-                    <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {c.name}
-                      </span>
-                      {c.phone && <span style={{ fontSize: 11, color: "#6b7280" }}>{c.phone}</span>}
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        closeSearch();
-                        onNewAppointmentForClient?.(c);
-                      }}
-                      style={{
-                        flex: 1, padding: "6px 0", fontSize: 11, fontWeight: 600,
-                        border: "none", borderRadius: 6, cursor: "pointer",
-                        background: "#1f2937", color: "#fff", fontFamily: "inherit",
-                      }}
-                    >
-                      + Add Appointment
-                    </button>
-                    <button
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        closeSearch();
-                        navTo("/dashboard/clients/history", { state: { openClientId: c.id } });
-                      }}
-                      style={{
-                        flex: 1, padding: "6px 0", fontSize: 11, fontWeight: 600,
-                        border: "1px solid #d1d5db", borderRadius: 6, cursor: "pointer",
-                        background: "#fff", color: "#374151", fontFamily: "inherit",
-                      }}
-                    >
-                      Visit History
-                    </button>
-                  </div>
+                    {c.phone && <span style={{ fontSize: 11, color: "#6b7280" }}>{c.phone}</span>}
+                  </span>
                 </div>
               ))}
 
