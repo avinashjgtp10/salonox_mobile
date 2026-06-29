@@ -54,7 +54,13 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
     setClientQuery(q);
     setSearchDone(false);
     if (searchTimer.current) clearTimeout(searchTimer.current);
-    if (q.trim().length < 3) {
+    const trimmed = q.trim();
+    if (trimmed.length < 3) {
+      setClientResults([]); setShowClientDrop(false); return;
+    }
+    // For all-digit queries (phone), require exactly 10 digits before searching
+    const isNumeric = /^\d+$/.test(trimmed);
+    if (isNumeric && trimmed.length !== 10) {
       setClientResults([]); setShowClientDrop(false); return;
     }
     setShowClientDrop(true);
@@ -333,7 +339,13 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
             <span style={{ fontSize: 12, opacity: 0.45, flexShrink: 0 }}>🔍</span>
             <input
               value={clientQuery}
-              onChange={(e) => handleClientSearch(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                const isNumeric = /^\d+$/.test(val);
+                if (isNumeric && val.length > 10) return;
+                if (!isNumeric && val.length > 15) return;
+                handleClientSearch(val);
+              }}
               onFocus={() => { if (clientQuery.length >= 3) setShowClientDrop(true); }}
               placeholder="Search client…"
               style={{
