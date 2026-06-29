@@ -154,11 +154,14 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   const [showComplimentaryModal, setShowComplimentaryModal] = useState(false);
   const [complimentaryReason, setComplimentaryReason] = useState("");
   const [complimentaryError, setComplimentaryError] = useState("");
+  const [savedComplimentaryRemark, setSavedComplimentaryRemark] = useState("");
+  const [compApplied, setCompApplied] = useState(false);
 
   // ── Consumable items modal state ──────────────────────────────────────────────
   const [showConsumableModal, setShowConsumableModal] = useState(false);
   const [consumableItems, setConsumableItems] = useState<ConsumableItem[]>([]);
   const [consumableError, setConsumableError] = useState("");
+  const [savedConsumableCount, setSavedConsumableCount] = useState(0);
   const consumableDebounceRefs = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const dropRef = useRef<HTMLDivElement>(null);
@@ -377,14 +380,13 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
 
   // ── Complimentary handlers ────────────────────────────────────────────────────
   function openComplimentaryModal() {
-    setComplimentaryReason("");
+    setComplimentaryReason(savedComplimentaryRemark);
     setComplimentaryError("");
     setShowComplimentaryModal(true);
   }
 
   function closeComplimentaryModal() {
     setShowComplimentaryModal(false);
-    setComplimentaryReason("");
     setComplimentaryError("");
   }
 
@@ -393,10 +395,13 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
       setComplimentaryError("Please enter remark");
       return;
     }
+    setSavedComplimentaryRemark(complimentaryReason.trim());
     onChange(row.tempId, "price", 0);
     onChange(row.tempId, "discount", 0);
     onChange(row.tempId, "total", 0);
-    closeComplimentaryModal();
+    setCompApplied(true);
+    setShowComplimentaryModal(false);
+    setComplimentaryError("");
   }
 
   // ── Consumable handlers ───────────────────────────────────────────────────────
@@ -415,7 +420,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   function addConsumableItem() {
     setConsumableItems((prev) => [
       ...prev,
-      { tempId: makeCId(), productId: "", name: "", qty: "0", unit: "", showDrop: false, results: [], isSearching: false },
+      { tempId: makeCId(), productId: "", name: "", qty: "1", unit: "", showDrop: false, results: [], isSearching: false },
     ]);
   }
 
@@ -481,6 +486,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
       return;
     }
     setConsumableError("");
+    setSavedConsumableCount(consumableItems.filter((c) => c.name.trim()).length);
     closeConsumableModal();
   }
 
@@ -678,19 +684,33 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
                 </button>
                 <button
                   type="button"
-                  className="svc-quick-btn svc-quick-btn--comp"
-                  title="Complimentary"
+                  className={`svc-quick-btn svc-quick-btn--comp${compApplied ? " svc-quick-btn--comp-applied" : ""}`}
+                  title={compApplied ? savedComplimentaryRemark : "Complimentary"}
                   onClick={openComplimentaryModal}
                 >
-                  <IconBox />
+                  {compApplied ? (
+                    <>
+                      <span className="svc-quick-btn__day-val">{savedComplimentaryRemark.slice(0, 5)}</span>
+                      <span className="svc-quick-btn__day-lbl">₹0</span>
+                    </>
+                  ) : (
+                    <IconBox />
+                  )}
                 </button>
                 <button
                   type="button"
-                  className="svc-quick-btn svc-quick-btn--consumable"
+                  className={`svc-quick-btn svc-quick-btn--consumable${savedConsumableCount > 0 ? " svc-quick-btn--itm" : ""}`}
                   title="Update Consumable Items"
                   onClick={openConsumableModal}
                 >
-                  <IconTag />
+                  {savedConsumableCount > 0 ? (
+                    <>
+                      <span className="svc-quick-btn__day-val">{savedConsumableCount}</span>
+                      <span className="svc-quick-btn__day-lbl">Itm</span>
+                    </>
+                  ) : (
+                    <IconTag />
+                  )}
                 </button>
               </>
             )}
@@ -787,12 +807,22 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
                     }}
                   />
 
-                  <input
-                    className="svc-consumable-row__input svc-consumable-row__input--sm"
-                    placeholder="unit"
+                  <select
+                    className="svc-consumable-row__input svc-consumable-row__input--sm svc-consumable-row__unit-select"
                     value={item.unit}
                     onChange={(e) => updateConsumableItem(item.tempId, { unit: e.target.value })}
-                  />
+                  >
+                    <option value="">Unit</option>
+                    <option value="ml">ml</option>
+                    <option value="L">L</option>
+                    <option value="g">g</option>
+                    <option value="kg">kg</option>
+                    <option value="oz">oz</option>
+                    <option value="pcs">pcs</option>
+                    <option value="strips">strips</option>
+                    <option value="sheets">sheets</option>
+                    <option value="drops">drops</option>
+                  </select>
 
                   <button
                     type="button"

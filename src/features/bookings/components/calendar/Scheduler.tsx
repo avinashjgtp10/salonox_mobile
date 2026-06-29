@@ -76,6 +76,15 @@ const SchedulerContent: React.FC = () => {
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Auto-open New Appointment drawer when navigated from Quick Sale ────────
+  useEffect(() => {
+    if (!(location.state as any)?.openNewAppt) return;
+    navigate(location.pathname, { replace: true, state: {} });
+    setEditingBooking(null);
+    setApptDefaults({});
+    setShowNewAppt(true);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleSlotClick = useSingleClick((staffId: string, time: string) => {
     setApptDefaults({ staffId, defaultTime: time });
     setEditingBooking(null);

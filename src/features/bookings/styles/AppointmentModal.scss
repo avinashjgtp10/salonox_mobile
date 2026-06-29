@@ -1674,6 +1674,28 @@ $success:    #22c55e;
     background: #eef2ff;
   }
 
+  &--comp-applied {
+    flex-direction: column;
+    gap: 1px;
+    width: 28px;
+    height: 28px;
+    padding: 2px 3px;
+    border-color: #f59e0b;
+    color: #d97706;
+    background: #fef3c7;
+  }
+
+  &--itm {
+    flex-direction: column;
+    gap: 1px;
+    width: 28px;
+    height: 28px;
+    padding: 2px 3px;
+    border-color: #10b981;
+    color: #059669;
+    background: #d1fae5;
+  }
+
   &__day-val {
     font-size: 11px;
     font-weight: 700;
@@ -1827,6 +1849,19 @@ $success:    #22c55e;
       &::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
       -moz-appearance: textfield;
     }
+  }
+
+  &__unit-select {
+    padding: 0 4px;
+    text-align: center;
+    text-align-last: center;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 4px center;
+    padding-right: 18px;
   }
 
   &__del {
