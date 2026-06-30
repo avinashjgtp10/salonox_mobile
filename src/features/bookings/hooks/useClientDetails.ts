@@ -81,15 +81,18 @@ export function useClientDetails(clientId: string | null | undefined) {
           const isPartial   = (a: any) => statusOf(a) === "partial";
           const isCancelled = (a: any) => statusOf(a) === "cancelled";
 
-          // Sum all item types on an appointment (services + products + packages + memberships)
+          // Sum all item types on an appointment (services + products + packages + memberships),
+          // plus extra charges. Discount is intentionally excluded (item totals are pre-discount)
+          // and tip is intentionally excluded (shown only on the booking tooltip hover).
           const apptTotal = (a: any): number => {
             const svcs  = Array.isArray(a.services)          ? a.services          : [];
             const prods = Array.isArray(a.product_items    ?? a.productItems)    ? (a.product_items    ?? a.productItems    ?? []) : [];
             const pkgs  = Array.isArray(a.package_items    ?? a.packageItems)    ? (a.package_items    ?? a.packageItems    ?? []) : [];
             const mems  = Array.isArray(a.membership_items ?? a.membershipItems) ? (a.membership_items ?? a.membershipItems ?? []) : [];
             const allItems = [...svcs, ...prods, ...pkgs, ...mems];
+            const exCharges = Number(a.ex_charges ?? a.exCharges ?? 0);
             if (allItems.length > 0) {
-              return allItems.reduce((t: number, item: any) => t + Number(item.total ?? item.price ?? 0), 0);
+              return allItems.reduce((t: number, item: any) => t + Number(item.total ?? item.price ?? 0), 0) + exCharges;
             }
             return Number(a.grand_total ?? a.total_amount ?? a.total ?? a.amount ?? 0);
           };
@@ -111,9 +114,12 @@ export function useClientDetails(clientId: string | null | undefined) {
             sum + Number(a.amount_paid ?? a.paid_amount ?? 0), 0);
           const totalBilled = paidRevenue + partialRevenue;
 
-          // Unpaid amount = due portion of non-paid, non-cancelled appointments (includes partial due)
+          // Unpaid amount = due portion of PARTIALLY-paid appointments only. A booked/
+          // confirmed appointment that simply hasn't happened/been paid yet is not "unpaid
+          // debt" — it shouldn't count here until the client has actually made a partial
+          // payment against it.
           const unpaidFromHistory = sortedAppts
-            .filter((a: any) => !isPaid(a) && !isCancelled(a) && statusOf(a) !== "")
+            .filter((a: any) => isPartial(a))
             .reduce((sum: number, a: any) => {
               const total = apptTotal(a);
               const paid  = Number(a.amount_paid ?? a.paid_amount ?? 0);

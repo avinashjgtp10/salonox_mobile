@@ -26,29 +26,68 @@
   }
 }
 
-/* ── Time gutter ── */
+/* ── Single scrollable container ──
+   Header row and gutter are position:sticky children of this element (see below),
+   so the browser keeps them pixel-perfect in sync with the grid on both axes natively
+   — no JS scrollTop/translateX mirroring, which used to lag a frame behind during
+   fast/inertial scrolling and was the cause of the time-label/gridline drift. */
+.dv-scroll-body {
+  flex: 1;
+  width: 100%;
+  overflow: auto;
+  position: relative;
+}
+
+.dv-scroll-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 100%;
+}
+
+/* ── Sticky header row (corner cell + staff column headers) ── */
+.dv-header-row {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  flex-shrink: 0;
+}
+
+.dv-gutter__header {
+  position: sticky;
+  left: 0;
+  z-index: 16;
+  width: 72px;
+  height: 56px;
+  flex-shrink: 0;
+  border-bottom: 1px solid $dashboard-border;
+  border-right: 1px solid $dashboard-border;
+  background: #f8fafc;
+}
+
+.dv-staff-header {
+  display: flex;
+  height: 56px;
+  flex-shrink: 0;
+  border-bottom: 1px solid $dashboard-border;
+  background: #f8fafc;
+}
+
+/* ── Body row: sticky-left time gutter + grid columns ── */
+.dv-body-row {
+  display: flex;
+}
+
 .dv-gutter {
+  position: sticky;
+  left: 0;
+  z-index: 10;
   width: 72px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   border-right: 1px solid $dashboard-border;
   background: #f8fafc;
-  z-index: 10;
-  overflow: hidden;
-
-  &__header {
-    height: 56px;
-    flex-shrink: 0;
-    border-bottom: 1px solid $dashboard-border;
-    background: #f8fafc;
-  }
-
-  &__body {
-    flex: 1;
-    overflow-y: hidden;
-    overflow-x: hidden;
-  }
 
   /* Each time slot row in the gutter — MUST match SLOT_HEIGHT = 48 */
   &__slot {
@@ -77,31 +116,6 @@
       color: $dashboard-secondary;
       font-weight: 600;
     }
-  }
-}
-
-/* ── Staff columns container ── */
-.dv-columns {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-width: 0;
-}
-
-/* ── Staff header ── */
-.dv-staff-header {
-  flex-shrink: 0;
-  height: 56px;
-  overflow-x: hidden;
-  overflow-y: hidden;
-  border-bottom: 1px solid $dashboard-border;
-  background: #f8fafc;
-  z-index: 5;
-
-  &__inner {
-    display: flex;
-    height: 100%;
   }
 }
 
@@ -138,14 +152,6 @@
   white-space: nowrap;
   flex: 1;
   min-width: 0;
-}
-
-/* ── Scrollable body ── */
-.dv-scroll-body {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: auto;
-  position: relative;
 }
 
 /* ── Loading state (shown while staff list is empty on first load) ── */

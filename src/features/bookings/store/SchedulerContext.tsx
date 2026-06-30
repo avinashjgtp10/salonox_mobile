@@ -76,17 +76,36 @@ export function useSchedulerContext() {
         // Send updated service staff_ids so the backend persists the new staff
         // assignment. Without this, a refresh after dragging to a different staff
         // causes the server to return the old staff_id on services, reverting the drag.
-        const serviceItems = (b.services || []).map((s: any) => ({
-          ...(s.id ? { id: s.id } : {}),
-          service_id: s.service_id || s.id,
-          staff_id: toApiStaffId(s.staffId),
-          start_time: new Date(`${b.date}T${s.time || b.startTime}:00`).toISOString(),
-          price: s.price,
-          qty: s.qty ?? 1,
-          total: s.total,
-          duration: s.duration,
-        }));
+        // Mirrors buildServiceApiItems() in useAppointment.ts (the proven-working save
+        // path) field-for-field: the backend appears to replace each service row with
+        // exactly what's sent, so any field omitted here (e.g. name) gets nulled out —
+        // that's what was blanking the displayed service name after a drag.
+        const serviceItems = (b.services || []).map((s: any) => {
+          const hasDbServiceId = !!s.service_id;
+          const svcTypeId = s.service_id || s.id || undefined;
+          const svcRowId  = hasDbServiceId ? (s.id || undefined) : undefined;
+          return {
+            ...(svcRowId ? { id: svcRowId } : {}),
+            service_id: svcTypeId,
+            name: s.service || s.name,
+            staff_id: toApiStaffId(s.staffId),
+            start_time: new Date(`${b.date}T${s.time || b.startTime}:00`).toISOString(),
+            price: s.price,
+            qty: s.qty ?? 1,
+            discount: s.discount,
+            total: s.total,
+            duration: s.duration,
+          };
+        });
 
+        // NOTE: package_items / product_items / membership_items are intentionally
+        // OMITTED here. This function only ever runs for drag/resize reschedules and
+        // payment-status updates (never item edits — see useAppointment.ts for that).
+        // `b` here is sourced from the calendar's lightweight list-range fetch, which
+        // does not return nested product/package/membership data, so those fields would
+        // be empty even for bookings that have them. Sending them as `[]` previously
+        // wiped real data server-side on every drag. Omitting the keys keeps this a true
+        // partial update — staff/time (and per-service time/staff) only.
         const apiPayload = {
           id: b.id,
           data: {
@@ -101,9 +120,6 @@ export function useSchedulerContext() {
                 : "confirmed",
             title: (b as any).title,
             services: serviceItems,
-            package_items: b.packageItems ?? [],
-            product_items: (b as any).productItems ?? [],
-            membership_items: (b as any).membershipItems ?? [],
           },
         };
         return (dispatch(updateBookingThunk(apiPayload)) as any)

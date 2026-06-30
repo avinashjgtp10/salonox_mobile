@@ -58,6 +58,7 @@ interface Props {
   onStatsLoaded?: (stats: ClientStats) => void;
   historyUrlBase?: string;
   error?: string;
+  defaultName?: string;
   defaultPhone?: string;
   openAddForm?: boolean;
 }
@@ -65,15 +66,15 @@ interface Props {
 export const ClientPanel: React.FC<Props> = ({
   salonId, calDate, onDateChange, selectedClientId,
   fallbackUnpaidAmt,
-  onSelectClient, onClearClient, onStatsLoaded, error, defaultPhone, openAddForm,
+  onSelectClient, onClearClient, onStatsLoaded, error, defaultName, defaultPhone, openAddForm,
 }) => {
   const navigate = useNavigate();
   const [search, setSearch] = useState(selectedClientId === "walk-in" ? "Walk In" : "");
   const [suggestions, setSuggestions] = useState<Client[]>([]);
   const [totalFound, setTotalFound] = useState(0);
   const [showDrop, setShowDrop] = useState(false);
-  const [showAddForm, setShowAddForm] = useState(!!defaultPhone);
-  const [addFirst, setAddFirst] = useState("");
+  const [showAddForm, setShowAddForm] = useState(!!defaultName || !!defaultPhone);
+  const [addFirst, setAddFirst] = useState(defaultName ?? "");
   const [addLast, setAddLast] = useState("");
   const [addPhone, setAddPhone] = useState(defaultPhone ?? "");
   const [addGender, setAddGender] = useState("");
@@ -84,8 +85,8 @@ export const ClientPanel: React.FC<Props> = ({
   const dropRef = useRef<HTMLDivElement>(null);
   const skipNextSearch = useRef(false);
   const skipNextClear = useRef(false);
-  // Prevents the initial search effect from clearing the defaultPhone pre-fill on mount
-  const skipInitialClear = useRef(!!defaultPhone);
+  // Prevents the initial search effect from clearing the defaultName/defaultPhone pre-fill on mount
+  const skipInitialClear = useRef(!!defaultName || !!defaultPhone);
 
   useEffect(() => { if (openAddForm) setShowAddForm(true); }, [openAddForm]);
 
