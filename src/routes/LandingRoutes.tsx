@@ -6,5 +6,6 @@ const LandingPage = lazy(() => import("../features/marketing-site/pages/landing"
 export const LandingRoutes = (
   <>
     <Route path="/" element={<LandingPage />} />
+    <Route path="/terms" element={<LandingPage />} />
   </>
 );
