@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FaWhatsapp } from 'react-icons/fa';
 // TypeScript may not have declarations for .scss imports in this repo setup.
 // Suppress the error for this side-effect stylesheet import.
@@ -369,6 +369,112 @@ const DEMO_EMAIL = 'support@salonox.com';
 const DEMO_SUBMIT_URL = `https://formsubmit.co/ajax/${DEMO_EMAIL}`;
 const WHATSAPP_DEMO_URL = 'https://wa.me/919503302647?text=Hi%20SalonOX%20Team,%20I%20am%20interested%20in%20SalonOX.%20Please%20share%20more%20details%20and%20schedule%20a%20demo.';
 
+type TermsSection = {
+  title: string;
+  body: string;
+  bullets?: string[];
+  email?: string;
+};
+
+const TERMS_SECTIONS: TermsSection[] = [
+  {
+    title: 'Acceptance of Terms',
+    body: 'By creating an account, accessing, or using SalonOX, you agree to these Terms & Conditions. These terms apply to the SalonOX web application, related features, support services, and connected tools made available as part of the SalonOX platform. If you use SalonOX on behalf of a salon, spa, clinic, or other business, you confirm that you have authority to accept these terms for that business.',
+  },
+  {
+    title: 'Definitions',
+    body: '"SalonOX" means the cloud-based salon and spa management software, including modules for appointments, clients, staff, services, inventory, marketing, billing, reporting, and integrations. "Customer" means the business or person subscribing to SalonOX. "User" means any owner, manager, employee, contractor, or invited person who accesses the Customer account. "Customer Data" means information entered, uploaded, imported, generated, or stored in SalonOX by or for the Customer.',
+  },
+  {
+    title: 'Eligibility',
+    body: 'SalonOX is intended for lawful commercial use by salons, spas, wellness providers, and similar service businesses. You must be legally able to enter into a binding agreement and must provide accurate registration and billing information. SalonOX may refuse access where required to comply with law, security requirements, payment controls, or platform integrity standards.',
+  },
+  {
+    title: 'User Accounts',
+    body: 'Customers are responsible for all activity under their SalonOX account and for assigning appropriate access permissions to their Users. Account credentials must be kept confidential and may not be shared outside the authorized team. You agree to promptly update account information and notify SalonOX if you suspect unauthorized access, credential misuse, or a security incident involving your account.',
+  },
+  {
+    title: 'Subscription & Payments',
+    body: 'SalonOX is offered on a subscription basis unless otherwise stated in a written order, invoice, or commercial agreement. Fees, billing cycles, plan limits, taxes, and included features are presented during purchase or renewal. You authorize SalonOX and its payment processors to charge applicable fees using the payment method provided. Late, failed, disputed, or incomplete payments may result in reminders, access limits, suspension, or termination.',
+  },
+  {
+    title: 'Free Trial (if applicable)',
+    body: 'SalonOX may offer a free trial or promotional access at its discretion. Trial availability, duration, included features, and conversion terms may vary by campaign, plan, or region. At the end of a trial, continued use may require an active paid subscription. SalonOX may modify, withdraw, or decline trial access where necessary to prevent misuse or ensure fair use of the platform.',
+  },
+  {
+    title: 'License to Use the Software',
+    body: 'Subject to these terms and payment of applicable fees, SalonOX grants the Customer a limited, non-exclusive, non-transferable, revocable license to access and use the software for internal salon or spa business operations. This license does not permit resale, sublicensing, copying, reverse engineering, source-code extraction, automated scraping, or use of SalonOX to build a competing product.',
+  },
+  {
+    title: 'Acceptable Use Policy',
+    body: 'You agree not to use SalonOX in a way that harms SalonOX, other customers, end clients, third-party providers, or the reliability and security of the platform.',
+    bullets: [
+      'Do not violate applicable laws, regulations, privacy obligations, or third-party rights.',
+      'Do not send unlawful, misleading, abusive, unsolicited, or non-compliant communications.',
+      'Do not upload malicious code, interfere with service operation, or test vulnerabilities without written permission.',
+      'Do not bypass plan limits, payment requirements, authentication, or access controls.',
+      'Do not store content that is illegal, discriminatory, defamatory, exploitative, or unrelated to legitimate business use.',
+    ],
+  },
+  {
+    title: 'User Responsibilities',
+    body: 'Customers are responsible for configuring SalonOX accurately, including business details, services, pricing, taxes, staff schedules, cancellation rules, customer records, messages, and payment settings. Customers must obtain any consents required to collect client information, send reminders or marketing messages, process payments, and use third-party integrations. Users must verify business records, appointment details, bills, and reports before relying on them for operational, tax, accounting, or compliance purposes.',
+  },
+  {
+    title: 'Data & Privacy',
+    body: 'Customer Data remains the responsibility of the Customer. SalonOX uses Customer Data to provide, secure, support, maintain, and improve the software, process transactions, operate integrations, and comply with lawful obligations. SalonOX will handle personal information in accordance with reasonable security measures and applicable privacy requirements. Customers are responsible for the accuracy, legality, consent basis, retention needs, and permitted use of client and staff data entered into SalonOX.',
+  },
+  {
+    title: 'Intellectual Property',
+    body: 'SalonOX and its software, interface, design, workflows, code, databases, documentation, trademarks, logos, content, analytics models, and related materials are owned by SalonOX or its licensors. These terms do not transfer any ownership rights to Customers or Users. Customer Data remains owned by the Customer or its lawful owners, subject to the rights granted to SalonOX to operate and support the platform.',
+  },
+  {
+    title: 'Third-Party Services',
+    body: 'SalonOX may connect with third-party services such as WhatsApp, SMS providers, payment gateways, email providers, maps, analytics tools, cloud infrastructure, and other business applications. Third-party services are governed by their own terms, policies, fees, message limits, delivery rules, and availability. SalonOX is not responsible for failures, delays, data handling, policy enforcement, pricing changes, account restrictions, or service interruptions caused by third-party providers.',
+  },
+  {
+    title: 'Service Availability',
+    body: 'SalonOX aims to provide a reliable cloud service, but availability may be affected by maintenance, updates, internet connectivity, hosting providers, third-party systems, security events, force majeure events, or factors outside SalonOX control. SalonOX may perform scheduled or emergency maintenance and may temporarily limit features to protect security, performance, legal compliance, or platform stability.',
+  },
+  {
+    title: 'Updates & Changes',
+    body: 'SalonOX may improve, modify, add, or remove features, interfaces, workflows, plan inclusions, integrations, and technical requirements from time to time. Updates may be released automatically because SalonOX is a cloud-based SaaS product. SalonOX will try to avoid unnecessary disruption, but changes may be required for security, compliance, product quality, scalability, or business reasons.',
+  },
+  {
+    title: 'Cancellation & Termination',
+    body: 'Customers may cancel their subscription according to the cancellation options available in SalonOX or by contacting support. Cancellation may stop future renewals but does not automatically refund fees already charged. SalonOX may suspend or terminate access for non-payment, security risk, unlawful use, material breach of these terms, misuse of the platform, or activity that may harm SalonOX, other customers, end clients, or third-party providers.',
+  },
+  {
+    title: 'Refund Policy',
+    body: 'Unless required by applicable law or expressly stated in a written agreement, subscription fees, setup fees, usage charges, communication credits, payment processing charges, and renewal fees are non-refundable. If SalonOX approves a refund as a courtesy or exception, that approval does not create an obligation to provide similar refunds in the future. Any approved refund may exclude taxes, third-party charges, gateway fees, or consumed usage.',
+  },
+  {
+    title: 'Limitation of Liability',
+    body: 'To the maximum extent permitted by law, SalonOX will not be liable for indirect, incidental, special, consequential, exemplary, or punitive damages, including loss of profits, revenue, goodwill, data, business opportunity, or customer relationships. SalonOX total liability for claims relating to the software or these terms will be limited to the subscription fees paid by the Customer for SalonOX during the three months immediately before the event giving rise to the claim.',
+  },
+  {
+    title: 'Disclaimer of Warranties',
+    body: 'SalonOX is provided on an "as is" and "as available" basis. SalonOX does not warrant that the software will be uninterrupted, error-free, fully secure, compatible with every device or browser, or suitable for every business requirement. SalonOX does not provide legal, tax, accounting, medical, employment, financial, or regulatory advice. Customers should independently review outputs, reports, automated reminders, invoices, and compliance decisions before acting on them.',
+  },
+  {
+    title: 'Indemnification',
+    body: 'You agree to defend, indemnify, and hold SalonOX, its officers, employees, contractors, affiliates, and service providers harmless from claims, losses, liabilities, damages, costs, and expenses arising from your use of SalonOX, Customer Data, breach of these terms, violation of law, misuse of third-party services, infringement of third-party rights, or communications sent through your account.',
+  },
+  {
+    title: 'Governing Law (India)',
+    body: 'These terms are governed by the laws of India, without regard to conflict-of-law principles. The parties agree to first attempt to resolve disputes in good faith through written communication. Subject to applicable law and any mandatory jurisdiction requirements, disputes relating to these terms or SalonOX may be brought before competent courts or forums in India.',
+  },
+  {
+    title: 'Changes to these Terms',
+    body: 'SalonOX may update these Terms & Conditions from time to time. When changes are material, SalonOX may provide notice through the platform, email, invoice notes, or another reasonable method. Continued access to or use of SalonOX after updated terms become effective means you accept the revised terms. If you do not agree to the revised terms, you should stop using SalonOX and cancel your subscription where applicable.',
+  },
+  {
+    title: 'Contact Us',
+    body: 'For questions about these Terms & Conditions or your SalonOX subscription, contact the SalonOX support team at',
+    email: 'support@salonox@gmail.com',
+  },
+];
+
 const PLANS = [
   {
     name: 'Starter', price: '29', desc: 'For independent stylists getting organized.',
@@ -604,6 +710,66 @@ const FeatureProductPreview: React.FC<{ feature: WhyFeature }> = ({ feature }) =
   );
 };
 
+const TermsContent: React.FC = () => (
+  <main className="terms-page" id="top">
+    <section className="terms-hero">
+      <div className="container terms-hero-grid">
+        <div className="terms-hero-copy">
+          <span className="eyebrow"><span className="dot" /> Legal</span>
+          <h1>Terms & Conditions</h1>
+          <p>
+            Commercial terms for salons, spas, and teams using SalonOX cloud management software.
+          </p>
+        </div>
+        <div className="terms-effective">
+          <span>Effective Date</span>
+          <strong>01 June 2026</strong>
+        </div>
+      </div>
+    </section>
+
+    <section className="terms-content">
+      <div className="container">
+        <div className="terms-layout">
+          <aside className="terms-summary" aria-label="Terms summary">
+            <span>SalonOX SaaS Agreement</span>
+            <p>
+              These terms cover account access, subscriptions, data handling, third-party services,
+              acceptable use, cancellations, and support.
+            </p>
+            <a href={`mailto:${DEMO_EMAIL}`}>{DEMO_EMAIL}</a>
+          </aside>
+
+          <div className="terms-sections">
+            {TERMS_SECTIONS.map((section, index) => (
+              <article className="terms-section" key={section.title}>
+                <span className="terms-section-number">{String(index + 1).padStart(2, '0')}</span>
+                <h2>{section.title}</h2>
+                <p>
+                  {section.body}
+                  {section.email && (
+                    <>
+                      {' '}
+                      <a href={`mailto:${section.email}`}>{section.email}</a>.
+                    </>
+                  )}
+                </p>
+                {section.bullets && (
+                  <ul>
+                    {section.bullets.map((bullet) => (
+                      <li key={bullet}>{bullet}</li>
+                    ))}
+                  </ul>
+                )}
+              </article>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+);
+
 /* ---------------------------------- Component ---------------------------------- */
 
 const LandingPage: React.FC = () => {
@@ -612,6 +778,25 @@ const LandingPage: React.FC = () => {
   const [activeBranch, setActiveBranch] = useState(0);
   const [branches, setBranches] = useState<Branch[]>(INITIAL_BRANCHES);
   const [selectedWhyFeature, setSelectedWhyFeature] = useState<WhyFeature | null>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isTermsPage = location.pathname === '/terms';
+
+  useEffect(() => {
+    const root = document.getElementById('root');
+    const pageNodes = [document.documentElement, document.body, root].filter(
+      (node): node is HTMLElement => Boolean(node)
+    );
+
+    pageNodes.forEach((node) => node.classList.add('landing-page-active'));
+
+    return () => {
+      pageNodes.forEach((node) => {
+        node.classList.remove('landing-page-active');
+        node.style.removeProperty('overflow');
+      });
+    };
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -621,9 +806,35 @@ const LandingPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    document.body.style.overflow = mobileOpen || selectedWhyFeature ? 'hidden' : '';
+    if (isTermsPage || !location.hash) return;
+
+    window.requestAnimationFrame(() => {
+      const id = location.hash.replace('#', '');
+      const el = document.getElementById(id);
+      if (!el) return;
+
+      const nav = document.querySelector<HTMLElement>('.salonox-landing .nav');
+      const navOffset = nav ? nav.offsetHeight + 16 : 88;
+      const targetTop = el.getBoundingClientRect().top + window.scrollY - navOffset;
+
+      window.scrollTo({
+        top: Math.max(targetTop, 0),
+        behavior: 'smooth',
+      });
+    });
+  }, [isTermsPage, location.hash]);
+
+  useEffect(() => {
+    const root = document.getElementById('root');
+    const pageNodes = [document.documentElement, document.body, root].filter(
+      (node): node is HTMLElement => Boolean(node)
+    );
+    const overflow = mobileOpen || selectedWhyFeature ? 'hidden' : 'auto';
+
+    pageNodes.forEach((node) => node.style.setProperty('overflow', overflow, 'important'));
+
     return () => {
-      document.body.style.overflow = '';
+      pageNodes.forEach((node) => node.style.removeProperty('overflow'));
     };
   }, [mobileOpen, selectedWhyFeature]);
 
@@ -664,6 +875,11 @@ const LandingPage: React.FC = () => {
       setSelectedWhyFeature(null);
       document.body.style.overflow = '';
 
+      if (isTermsPage) {
+        navigate(`/#${id}`);
+        return;
+      }
+
       window.requestAnimationFrame(() => {
         const el = document.getElementById(id);
         if (!el) return;
@@ -680,12 +896,17 @@ const LandingPage: React.FC = () => {
         window.history.replaceState(null, '', `#${id}`);
       });
     },
-    []
+    [isTermsPage, navigate]
   );
 
   const jumpToSection = useCallback((id: string) => {
     setSelectedWhyFeature(null);
     setMobileOpen(false);
+
+    if (isTermsPage) {
+      navigate(`/#${id}`);
+      return;
+    }
 
     window.requestAnimationFrame(() => {
       const el = document.getElementById(id);
@@ -701,6 +922,18 @@ const LandingPage: React.FC = () => {
       });
 
       window.history.replaceState(null, '', `#${id}`);
+    });
+  }, [isTermsPage, navigate]);
+
+  const handleTermsClick = useCallback(() => {
+    setMobileOpen(false);
+    setSelectedWhyFeature(null);
+
+    window.requestAnimationFrame(() => {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth',
+      });
     });
   }, []);
 
@@ -840,6 +1073,10 @@ const LandingPage: React.FC = () => {
         </div>
       </div>
 
+      {isTermsPage ? (
+        <TermsContent />
+      ) : (
+        <>
       {/* ============================== HERO ============================== */}
       <header id="top" className="hero">
         <span className="hero-blob hero-blob-1" />
@@ -1315,6 +1552,8 @@ const LandingPage: React.FC = () => {
           </Reveal>
         </div>
       </section>
+        </>
+      )}
 
       {/* ============================== FOOTER ============================== */}
       <footer className="footer">
@@ -1379,21 +1618,13 @@ const LandingPage: React.FC = () => {
             <div className="footer-col">
               <h5>Legal</h5>
               <ul>
-                <li><a href="#">Privacy</a></li>
-                <li><a href="#">Terms</a></li>
-                <li><a href="#">Security</a></li>
-                <li><a href="#">Status</a></li>
+                <li><Link to="/terms" onClick={handleTermsClick}>Terms & Conditions</Link></li>
               </ul>
             </div>
           </div>
 
           <div className="footer-bottom">
             <p>&copy; {new Date().getFullYear()} SalonOX. All rights reserved.</p>
-            <div className="footer-legal">
-              <a href="#">Privacy Policy</a>
-              <a href="#">Terms of Service</a>
-              <a href="#">Cookies</a>
-            </div>
           </div>
         </div>
       </footer>
