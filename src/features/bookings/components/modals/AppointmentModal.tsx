@@ -354,6 +354,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [save, selectedClient, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
+      discountType, discountValue, exCharges, tip, gstPercent, totals,
       onRefresh, onClose]);
 
   const handleUpdate = useCallback(async () => {
@@ -363,6 +364,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [save, selectedClient, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
+      discountType, discountValue, exCharges, tip, gstPercent, totals,
       onRefresh, onClose]);
 
   // ── Pay ──────────────────────────────────────────────────────────────────
