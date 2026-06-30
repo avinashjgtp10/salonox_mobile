@@ -1,7 +1,7 @@
 import React from "react";
 import type { Booking } from "../../types/booking.types";
 import { formatTime12 } from "../../utils/timeUtils";
-import { currencySymbol } from "../../../../utils/currency";
+import { currencySymbol } from "../../utils/currency";
 
 interface BookingCardProps {
   booking: Booking;

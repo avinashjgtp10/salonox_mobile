@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { currencySymbol } from "../../../../utils/currency";
+import { currencySymbol } from "../../utils/currency";
 import {
   useFloating,
   flip,

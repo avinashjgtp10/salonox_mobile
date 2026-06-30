@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import { currencySymbol } from "../../../../utils/currency";
+import { currencySymbol } from "../../utils/currency";
 import { useAppSelector, useAppDispatch } from "../../../../hooks/useAppRedux";
 import { useAppointment }    from "../../hooks/useAppointment";
 import { usePayment }        from "../../hooks/usePayment";
@@ -639,7 +639,7 @@ export const AppointmentModal: React.FC<Props> = ({
                   <select className="fg-input" value={discountType}
                     onChange={(e) => setDiscountType(e.target.value as DiscountType)}>
                     <option value="Percentage (%)">Percentage (%)</option>
-                    <option value="Flat (₹)">Flat ({currencySymbol})</option>
+                    <option value="Flat (₹)">Flat</option>
                   </select>
                 </div>
               </div>

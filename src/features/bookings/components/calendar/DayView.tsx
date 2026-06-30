@@ -293,14 +293,21 @@ const DayView: React.FC<DayViewProps> = ({
           // other staff's services in the same multi-staff booking must stay put.
           if (!matchesDraggedStaff) return s;
 
-          const sMins = toMins(s.time || dragging.originalStart) + deltaMins;
-          const sh = Math.floor(sMins / 60);
-          const sm = Math.round(sMins % 60);
-          const shiftedTime = `${sh.toString().padStart(2, "0")}:${sm.toString().padStart(2, "0")}`;
+          const shiftMins = (t: string) => {
+            const mins = toMins(t) + deltaMins;
+            const h = Math.floor(mins / 60);
+            const m = Math.round(mins % 60);
+            return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+          };
+
+          const shiftedTime = shiftMins(s.time || dragging.originalStart);
+          const existingEnd = s.endTime || s.end_time;
+          const shiftedEnd = existingEnd ? shiftMins(existingEnd) : undefined;
 
           return {
             ...s,
             time: shiftedTime,
+            ...(shiftedEnd ? { endTime: shiftedEnd, end_time: shiftedEnd } : {}),
             staffId: dragging.currentStaffId,
           };
         }) || [];

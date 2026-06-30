@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { currencySymbol } from "../../../../utils/currency";
+import { currencySymbol } from "../../utils/currency";
 import ServiceRow from "./ServiceRow";
 import { Trash } from "react-bootstrap-icons";
 import api from "../../../../services/api/axios";
@@ -828,7 +828,7 @@ export const ServicesPanel: React.FC<Props> = ({
     {packageRows.length > 0 && (
       <>
         <div className="item-section-header item-section-header--package">
-          <span>Package</span><span>Staff</span><span>Time</span><span>Price</span><span>Qty</span><span>Disc ({currencySymbol})</span><span>Total</span><span />
+          <span>Package</span><span>Staff</span><span>Time</span><span>Price</span><span>Qty</span><span>Disc</span><span>Total</span><span />
         </div>
         {packageRows.map((row, i) => (
           <SearchableItemRow
@@ -853,7 +853,7 @@ export const ServicesPanel: React.FC<Props> = ({
     {productRows.length > 0 && (
       <>
         <div className="item-section-header item-section-header--product">
-          <span>Product</span><span>Staff</span><span>Time</span><span>Price</span><span>Qty</span><span>Disc ({currencySymbol})</span><span>Total</span><span />
+          <span>Product</span><span>Staff</span><span>Time</span><span>Price</span><span>Qty</span><span>Disc</span><span>Total</span><span />
         </div>
         {productRows.map((row, i) => (
           <SearchableItemRow

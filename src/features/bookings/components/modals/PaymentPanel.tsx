@@ -2,7 +2,7 @@ import React from "react";
 import type { SingleMethod, SplitEntry } from "../../types";
 import "../../styles/AppointmentModal.scss";
 import { SINGLE_METHODS } from "../../types";
-import { currencySymbol } from "../../../../utils/currency";
+import { currencySymbol } from "../../utils/currency";
 
 interface Props {
   // Totals
