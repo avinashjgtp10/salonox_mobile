@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { currencySymbol } from "../../../../utils/currency";
+import { currencySymbol } from "../../utils/currency";
 import type { Booking, PaymentStatus } from "../../types/scheduler-types";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import { useAppSelector } from "../../../../hooks/useAppRedux";

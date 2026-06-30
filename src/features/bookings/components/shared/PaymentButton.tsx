@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import { CheckCircleFill, RecordCircle } from "react-bootstrap-icons";
-import { currencySymbol } from "../../../../utils/currency";
+import { currencySymbol } from "../../utils/currency";
 import "../../styles/PaymentButton.scss";
 
 interface PaymentButtonProps {

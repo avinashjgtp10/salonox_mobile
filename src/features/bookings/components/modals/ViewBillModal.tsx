@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { currencySymbol } from "../../../../utils/currency";
+import { currencySymbol } from "../../utils/currency";
 import type { Booking, BookingStatus } from "../../types/scheduler-types";
 import type { Salon } from "../../../../types/salon.types";
 import { useSchedulerContext } from "../../store/SchedulerContext";

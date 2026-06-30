@@ -1,5 +1,5 @@
 import React from "react";
-import { currencySymbol } from "../../../../utils/currency";
+import { currencySymbol } from "../../utils/currency";
 import type { ClientStats } from "../../types";
 
 interface Props {

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import type { ServiceItem } from "../../types/scheduler-types";
-import { currencySymbol } from "../../../../utils/currency";
+import { currencySymbol } from "../../utils/currency";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import TimeSelect from "../shared/TimeSelect";
 import { Trash } from "react-bootstrap-icons";
@@ -653,7 +653,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
         </div>
 
         <div className="svc-field">
-          <span className="svc-field__label">Disc ({currencySymbol})</span>
+          <span className="svc-field__label">Disc</span>
           <input
             type="text"
             disabled={disabled}
@@ -705,7 +705,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
                   {compApplied ? (
                     <>
                       <span className="svc-quick-btn__day-val">{savedComplimentaryRemark.slice(0, 5)}</span>
-                      <span className="svc-quick-btn__day-lbl">₹0</span>
+                      <span className="svc-quick-btn__day-lbl">0</span>
                     </>
                   ) : (
                     <IconBox />

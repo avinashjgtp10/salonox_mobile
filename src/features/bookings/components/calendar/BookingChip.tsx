@@ -1,7 +1,7 @@
 import React from "react";
 import type { Booking } from "../../types";
 import type { DragCandidate, ResizeState } from "../../hooks/useDragDrop";
-import { currencySymbol } from "../../../../utils/currency";
+import { currencySymbol } from "../../utils/currency";
 import { formatTime12, addMinutes } from "../../utils/timeUtils";
 
 function buildTitle(b: Booking): string {
