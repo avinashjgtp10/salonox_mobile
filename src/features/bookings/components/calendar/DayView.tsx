@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
 import { useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
 import type { RootState } from "../../../../store/store";
 import type { Booking, BlockedTime } from "../../types/booking.types";
 import { useScheduler, SLOT_HEIGHT } from "../../hooks/useScheduler";
@@ -39,8 +38,6 @@ const DayView: React.FC<DayViewProps> = ({
 }) => {
   const { currentDate, slots, timeToPx, durationToPx, intervalMins } = useScheduler();
   const { blockedTimes, deleteBlockedTime, updateBooking, staffList, selectedStaffId, bookings } = useSchedulerContext();
-  const navigate = useNavigate();
-  const staffLoading = useSelector((s: RootState) => (s as any).staff?.loading?.fetchAll ?? false);
 
   const visibleStaff = useMemo(
     () => selectedStaffId ? staffList.filter((s) => s.id === selectedStaffId) : staffList,
@@ -173,6 +170,7 @@ const DayView: React.FC<DayViewProps> = ({
   }
 
   const gutterBodyRef = useRef<HTMLDivElement>(null);
+  const gutterSpacerRef = useRef<HTMLDivElement>(null);
   const scrollBodyRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const staffMenuRef = useRef<HTMLDivElement>(null);
@@ -204,13 +202,32 @@ const DayView: React.FC<DayViewProps> = ({
     return () => { cancelled = true; };
   }, [isToday, intervalMins, currentDate]);
 
+  // When dv-scroll-body has a horizontal scrollbar its clientHeight shrinks (by ~15px on
+  // Windows), so its max scrollTop exceeds the gutter body's max scrollTop by that amount.
+  // Scrolling to the bottom clamps the gutter short, causing visible label misalignment.
+  // A spacer at the bottom of the gutter body extends its scroll range to match exactly.
+  useEffect(() => {
+    const scrollEl = scrollBodyRef.current;
+    const spacerEl = gutterSpacerRef.current;
+    if (!scrollEl || !spacerEl) return;
+    function syncSpacer() {
+      if (!scrollEl || !spacerEl) return;
+      const hScrollbarH = scrollEl.offsetHeight - scrollEl.clientHeight;
+      spacerEl.style.height = hScrollbarH > 0 ? `${hScrollbarH}px` : "0px";
+    }
+    syncSpacer();
+    const obs = new ResizeObserver(syncSpacer);
+    obs.observe(scrollEl);
+    return () => obs.disconnect();
+  }, []);
+
   function onBodyScroll() {
     if (syncing.current) return;
     syncing.current = true;
     if (gutterBodyRef.current && scrollBodyRef.current)
       gutterBodyRef.current.scrollTop = scrollBodyRef.current.scrollTop;
     if (headerRef.current && scrollBodyRef.current)
-      headerRef.current.scrollLeft = scrollBodyRef.current.scrollLeft;
+      headerRef.current.style.transform = `translateX(-${scrollBodyRef.current.scrollLeft}px)`;
     syncing.current = false;
   }
 
@@ -466,44 +483,13 @@ const DayView: React.FC<DayViewProps> = ({
   }
 
   if (staffList.length === 0) {
-    if (staffLoading) {
-      return (
-        <div style={{
-          flex: 1, display: "flex", flexDirection: "column",
-          alignItems: "center", justifyContent: "center", gap: 12,
-          background: "#f8fafc", color: "#9ca3af",
-        }}>
-          <div style={{
-            width: 36, height: 36, border: "3px solid #e5e7eb",
-            borderTopColor: "#6366f1", borderRadius: "50%",
-            animation: "dv-spin 0.7s linear infinite",
-          }} />
-          <span style={{ fontSize: 13, fontWeight: 500 }}>Loading calendar…</span>
-          <style>{`@keyframes dv-spin { to { transform: rotate(360deg); } }`}</style>
-        </div>
-      );
-    }
+    // Scheduler.tsx already handles the confirmed "no staff" case (staffReady && !hasStaff).
+    // When DayView is rendered but staffList is empty we are still in the loading phase,
+    // so always show the loader — never show "Add Staff" here.
     return (
-      <div style={{
-        flex: 1, display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center", gap: 16,
-        background: "#f8fafc",
-      }}>
-        <div style={{ fontSize: 48 }}>👥</div>
-        <div style={{ fontSize: 18, fontWeight: 700, color: "#111827" }}>No staff added yet</div>
-        <div style={{ fontSize: 13, color: "#6b7280", textAlign: "center", maxWidth: 280 }}>
-          Add at least one staff member to start scheduling appointments on the calendar.
-        </div>
-        <button
-          onClick={() => navigate("/dashboard/team/staff")}
-          style={{
-            marginTop: 4, padding: "10px 24px", background: "#6366f1",
-            color: "#fff", border: "none", borderRadius: 8, fontSize: 14,
-            fontWeight: 600, cursor: "pointer",
-          }}
-        >
-          Add Staff →
-        </button>
+      <div className="dv-loading">
+        <div className="dv-loading__spinner" />
+        <span className="dv-loading__text">Loading calendar…</span>
       </div>
     );
   }
@@ -527,13 +513,14 @@ const DayView: React.FC<DayViewProps> = ({
               </div>
             );
           })}
+          <div ref={gutterSpacerRef} aria-hidden="true" />
         </div>
       </div>
 
       {/* ── Staff columns ── */}
       <div ref={containerRef} className="dv-columns">
-        <div ref={headerRef} className="dv-staff-header">
-          <div className="dv-staff-header__inner" style={{ width: totalWidth }}>
+        <div className="dv-staff-header">
+          <div ref={headerRef} className="dv-staff-header__inner" style={{ width: totalWidth }}>
             {visibleStaff.map((staff) => {
               const isDragTarget = dragging?.currentStaffId === staff.id && dragging.booking.staffId !== staff.id;
               return (
@@ -579,7 +566,7 @@ const DayView: React.FC<DayViewProps> = ({
                   style={{ width: COL_WIDTH }}
                 >
                   {/* Grid Lines Layer (z-index 2) */}
-                  <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 2 }}>
+                  <div className="dv-grid-lines">
                     {slots.map((t) => {
                       const [, m] = t.split(":").map(Number);
                       return <div key={`grid-${t}`} className={`calendar-grid-line${m === 0 ? " calendar-grid-line--hour" : ""}`} />;
@@ -720,7 +707,7 @@ const DayView: React.FC<DayViewProps> = ({
                         : b.endTime;
                       if (isTimeRangeUnavailable(staff.id, staffStart, staffEnd)) return null;
                       const chipTop    = isDraggingThis ? dragging!.currentTop : timeToPx(staffStart);
-                      const chipHeight = isResizingThis ? resizing!.currentHeight : Math.max(durationToPx(staffStart, staffEnd), SLOT_HEIGHT);
+                      const chipHeight = isResizingThis ? resizing!.currentHeight : durationToPx(staffStart, staffEnd);
                       return (
                         <BookingChip
                           key={`${b.id}-${staff.id}`}

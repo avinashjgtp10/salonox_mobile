@@ -40,6 +40,8 @@ export interface PackageItem {
   qty: number;
   discount?: number;
   total: number;
+  staffId?: string;
+  time?: string;
 }
 
 export interface ProductItem {
@@ -50,6 +52,8 @@ export interface ProductItem {
   qty: number;
   discount?: number;
   total: number;
+  staffId?: string;
+  time?: string;
 }
 
 export interface MembershipItem {
@@ -59,6 +63,8 @@ export interface MembershipItem {
   price: number;
   qty: number;
   total: number;
+  staffId?: string;
+  time?: string;
 }
 
 export interface GroupItem {

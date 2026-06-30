@@ -185,21 +185,21 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({ onSlotClick, onViewBill })
                     const isConfirmed = bs === "confirmed" || bs === "completed";
                     const isCancelled = bs === "cancelled";
                     const statusClass = isCancelled ? "cancelled" : isPaid ? "confirmed" : isPartial ? "partial" : isConfirmed ? "confirmed" : "pending";
-                    const chipH = Math.max(durationToPx(b.startTime, b.endTime), 28);
+                    const chipH = durationToPx(b.startTime, b.endTime);
                     const primaryStaffName = staffById.get(b.staffId)?.name ?? "";
                     return (
                       <div
                         key={b.id}
                         className={`wv-chip wv-chip--${statusClass}`}
-                        style={{ top: timeToPx(b.startTime), height: chipH, overflow: "hidden" }}
+                        style={{ top: timeToPx(b.startTime), height: chipH }}
                         onMouseEnter={(e) => openTip(b, e.currentTarget)}
                         onMouseLeave={closeTip}
                         onClick={(e) => { e.stopPropagation(); onViewBill(b); }}
                       >
-                        <div style={{ fontSize: 10, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{formatTime12(b.startTime)}</div>
-                        <div style={{ fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", opacity: 0.95 }}>{b.clientName}</div>
-                        {chipH > 44 && primaryStaffName && <div style={{ fontSize: 9, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", opacity: 0.8 }}>{primaryStaffName}</div>}
-                        {chipH > 58 && <div style={{ fontSize: 9, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", opacity: 0.75 }}>{b.title || b.services[0]?.service || "Appointment"}</div>}
+                        <div className="wv-chip__time">{formatTime12(b.startTime)}</div>
+                        <div className="wv-chip__client">{b.clientName}</div>
+                        {chipH > 44 && primaryStaffName && <div className="wv-chip__staff">{primaryStaffName}</div>}
+                        {chipH > 58 && <div className="wv-chip__service">{b.title || b.services[0]?.service || "Appointment"}</div>}
                       </div>
                     );
                   })}

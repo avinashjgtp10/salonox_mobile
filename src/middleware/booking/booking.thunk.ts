@@ -52,7 +52,8 @@ function mapBooking(appt: any, servicesList?: any[]): Booking {
     const mappedTime = s.time || (s.start_time ? svcTimeToLocal(s.start_time) : startTime);
     const mappedEndTime: string | undefined = s.endTime || (s.end_time ? svcTimeToLocal(s.end_time) : undefined);
     const duration = Number(s.duration || s.duration_minutes || svcLookup?.duration || 30) || 30;
-    return { ...s, name: sName, service: sName, staffId: s.staffId || s.staff_id || appt.staffId || appt.staff_id || undefined, time: mappedTime, endTime: mappedEndTime, duration };
+    const staffNameStr = (() => { const sf = s.staff; if (!sf) return ""; if (typeof sf === "object") return (sf as any)?.name || ""; return String(sf); })();
+    return { ...s, name: sName, service: sName, staff: staffNameStr, staffId: s.staffId || s.staff_id || appt.staffId || appt.staff_id || undefined, time: mappedTime, endTime: mappedEndTime, duration };
   });
 
   if (services.length > 1 && services.every((s: any) => s.time === services[0].time)) {
@@ -74,6 +75,8 @@ function mapBooking(appt: any, servicesList?: any[]): Booking {
     price: parseFloat(String(p.price ?? 0)) || 0,
     qty: Number(p.qty ?? p.quantity ?? 1) || 1,
     total: parseFloat(String(p.total ?? p.price ?? 0)) || 0,
+    staffId: String(p.staff_id ?? p.staffId ?? ""),
+    time: svcTimeToLocal(p.start_time ?? p.time ?? ""),
   }));
 
   const packageItems = (appt.package_items || appt.packageItems || appt.packages || []).map((p: any) => ({
@@ -83,6 +86,8 @@ function mapBooking(appt: any, servicesList?: any[]): Booking {
     price: parseFloat(String(p.price ?? 0)) || 0,
     qty: Number(p.qty ?? p.quantity ?? 1) || 1,
     total: parseFloat(String(p.total ?? p.price ?? 0)) || 0,
+    staffId: String(p.staff_id ?? p.staffId ?? ""),
+    time: svcTimeToLocal(p.start_time ?? p.time ?? ""),
   }));
 
   const membershipItems = (appt.membership_items || appt.membershipItems || appt.memberships || []).map((m: any) => ({
@@ -92,6 +97,8 @@ function mapBooking(appt: any, servicesList?: any[]): Booking {
     price: parseFloat(String(m.price ?? 0)) || 0,
     qty: Number(m.qty ?? m.quantity ?? 1) || 1,
     total: parseFloat(String(m.total ?? m.price ?? 0)) || 0,
+    staffId: String(m.staff_id ?? m.staffId ?? ""),
+    time: svcTimeToLocal(m.start_time ?? m.time ?? ""),
   }));
 
   const computedTotal = [
@@ -155,6 +162,11 @@ function mapBooking(appt: any, servicesList?: any[]): Booking {
     payingNow, dueAmount,
     paymentMode: appt.paymentMode || appt.payment_method || undefined,
     notes: parsedNotes, staffAlert: parsedStaffAlert,
+    discount: parseFloat(String(appt.discount_value ?? 0)) || 0,
+    discountType: appt.discount_type === "flat" ? "Flat (₹)" : "Percentage (%)",
+    exCharges: parseFloat(String(appt.ex_charges ?? 0)) || 0,
+    tipAmount: parseFloat(String(appt.tip_amount ?? 0)) || 0,
+    gst: parseFloat(String(appt.gst_percent ?? 0)) || 0,
   };
 }
 

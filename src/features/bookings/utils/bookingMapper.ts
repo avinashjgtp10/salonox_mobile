@@ -70,6 +70,25 @@ export function mapApiBooking(
     }
   }
 
+  // Converts a raw time value from a line-item (product/package/membership) into
+  // a padded "HH:MM" string, or "" when the value is absent or unparseable.
+  // Unlike svcTimeToLocal it never falls back to the booking start time.
+  function sanitizeItemTime(raw: string | null | undefined): string {
+    const t = String(raw ?? "").trim();
+    if (!t) return "";
+    if (/^\d{1,2}:\d{2}$/.test(t)) {
+      const [h, m] = t.split(":").map(Number);
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    }
+    if (t.includes("T") || t.endsWith("Z")) {
+      const d = new Date(t);
+      if (!isNaN(d.getTime())) {
+        return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+      }
+    }
+    return "";
+  }
+
   // ── Map services ─────────────────────────────────────────────────────────
   const services = (appt.services || []).map((s: any) => {
     const svcLookup = servicesList.find((rs: any) => String(rs.id) === String(s.service_id ?? s.id));
@@ -80,10 +99,12 @@ export function mapApiBooking(
       || "";
     const mappedTime = s.time || (s.start_time ? svcTimeToLocal(s.start_time) : startTime);
     const duration = Number(s.duration || s.duration_minutes || svcLookup?.duration || 30) || 30;
+    const staffNameStr = (() => { const sf = s.staff; if (!sf) return ""; if (typeof sf === "object") return (sf as any)?.name || ""; return String(sf); })();
     return {
       ...s,
       name: sName,
       service: sName,
+      staff: staffNameStr,
       staffId: s.staffId || s.staff_id || appt.staffId || appt.staff_id || undefined,
       time: mappedTime,
       duration,
@@ -110,6 +131,8 @@ export function mapApiBooking(
     price: parseFloat(String(p.price ?? 0)) || 0,
     qty: Number(p.qty ?? p.quantity ?? 1) || 1,
     total: parseFloat(String(p.total ?? p.price ?? 0)) || 0,
+    staffId: String(p.staff_id ?? p.staffId ?? ""),
+    time: sanitizeItemTime(p.time ?? p.start_time ?? p.startTime),
   }));
 
   const packageItems = (appt.package_items || appt.packageItems || appt.packages || []).map((p: any) => ({
@@ -120,6 +143,8 @@ export function mapApiBooking(
     price: parseFloat(String(p.price ?? 0)) || 0,
     qty: Number(p.qty ?? p.quantity ?? 1) || 1,
     total: parseFloat(String(p.total ?? p.price ?? 0)) || 0,
+    staffId: String(p.staff_id ?? p.staffId ?? ""),
+    time: sanitizeItemTime(p.time ?? p.start_time ?? p.startTime),
   }));
 
   const membershipItems = (appt.membership_items || appt.membershipItems || appt.memberships || []).map((m: any) => ({
@@ -130,6 +155,8 @@ export function mapApiBooking(
     price: parseFloat(String(m.price ?? 0)) || 0,
     qty: Number(m.qty ?? m.quantity ?? 1) || 1,
     total: parseFloat(String(m.total ?? m.price ?? 0)) || 0,
+    staffId: String(m.staff_id ?? m.staffId ?? ""),
+    time: sanitizeItemTime(m.time ?? m.start_time ?? m.startTime),
   }));
 
   // ── Compute grand total ───────────────────────────────────────────────────
@@ -228,5 +255,10 @@ export function mapApiBooking(
     dueAmount,
     notes: parsedNotes,
     staffAlert: parsedStaffAlert,
+    discount: parseFloat(String(appt.discount_value ?? 0)) || 0,
+    discountType: appt.discount_type === "flat" ? "Flat (₹)" : "Percentage (%)",
+    exCharges: parseFloat(String(appt.ex_charges ?? 0)) || 0,
+    tipAmount: parseFloat(String(appt.tip_amount ?? 0)) || 0,
+    gst: parseFloat(String(appt.gst_percent ?? 0)) || 0,
   } as Booking;
 }

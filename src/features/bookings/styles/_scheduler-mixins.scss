@@ -1,4 +1,4 @@
-@import 'scheduler-variables';
+@use 'scheduler-variables' as *;
 
 @mixin flex-center {
   display: flex;

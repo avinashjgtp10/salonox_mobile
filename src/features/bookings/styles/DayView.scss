@@ -9,12 +9,8 @@
   overflow: hidden;
   position: relative;
   z-index: 1;
-  user-select: auto;
+  user-select: none;
   cursor: default;
-
-  &--interacting {
-    user-select: none;
-  }
 
   &--dragging {
     cursor: grabbing;
@@ -32,20 +28,20 @@
 
 /* ── Time gutter ── */
 .dv-gutter {
-  width: 80px;
+  width: 72px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   border-right: 1px solid $dashboard-border;
-  background: #fafafa;
+  background: #f8fafc;
   z-index: 10;
   overflow: hidden;
 
   &__header {
-    height: 64px;
+    height: 56px;
     flex-shrink: 0;
     border-bottom: 1px solid $dashboard-border;
-    background: $white;
+    background: #f8fafc;
   }
 
   &__body {
@@ -68,7 +64,7 @@
 
   &__label {
     position: absolute;
-    top: -8px;
+    top: 2px;
     right: 8px;
     left: 4px;
     font-size: 11px;
@@ -81,13 +77,6 @@
       color: $dashboard-secondary;
       font-weight: 600;
     }
-  }
-
-  /* The first slot sits at y=0 in __body (overflow:hidden).
-     "top:-8px" would push the label above the clipping boundary —
-     pin it inside the slot so 12:00 AM is always fully visible. */
-  &__slot:first-child &__label {
-    top: 3px;
   }
 }
 
@@ -103,11 +92,11 @@
 /* ── Staff header ── */
 .dv-staff-header {
   flex-shrink: 0;
-  height: 64px;
+  height: 56px;
   overflow-x: hidden;
   overflow-y: hidden;
   border-bottom: 1px solid $dashboard-border;
-  background: $white;
+  background: #f8fafc;
   z-index: 5;
 
   &__inner {
@@ -120,32 +109,35 @@
   flex-shrink: 0;
   height: 100%;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 8px;
   border-right: 1px solid $dashboard-border;
   cursor: pointer;
-  background: $white;
+  background: #f8fafc;
   transition: background 0.15s;
+  padding: 0 8px;
 
   &--drag-target {
     background: #eff6ff;
   }
 
   &:hover {
-    background: #f9fafb;
+    background: #f0f2f6;
   }
 }
 
 .dv-staff-name {
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
   color: #374151;
-  text-align: center;
+  text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 
 /* ── Scrollable body ── */
@@ -154,6 +146,42 @@
   overflow-y: auto;
   overflow-x: auto;
   position: relative;
+}
+
+/* ── Loading state (shown while staff list is empty on first load) ── */
+.dv-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: #f8fafc;
+  color: #9ca3af;
+
+  &__spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid #e5e7eb;
+    border-top-color: #6366f1;
+    border-radius: 50%;
+    animation: dv-spin 0.7s linear infinite;
+  }
+
+  &__text {
+    font-size: 13px;
+    font-weight: 500;
+  }
+}
+
+@keyframes dv-spin { to { transform: rotate(360deg); } }
+
+/* ── Grid lines overlay layer (sits behind blocks and chips) ── */
+.dv-grid-lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
 }
 
 /* ── Empty state ── */
@@ -496,7 +524,7 @@
 
   &__label {
     position: absolute;
-    left: -84px;
+    left: -76px;
     top: -10px;
     background: $danger;
     color: $white;

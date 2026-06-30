@@ -1,0 +1,45 @@
+.pay-btn {
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 15px;
+  padding: 10px 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: opacity 0.15s, box-shadow 0.15s;
+  cursor: pointer;
+  font-family: inherit;
+  color: #fff;
+
+  &--full { width: 100%; }
+  &--auto { width: auto; }
+
+  &--green {
+    background: linear-gradient(135deg, #10b981, #059669);
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+  }
+
+  &--purple {
+    background: linear-gradient(135deg, #7c3aed, #6d28d9);
+    box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
+  }
+
+  &--disabled,
+  &:disabled {
+    background: #d1d5db !important;
+    box-shadow: none !important;
+    opacity: 0.65;
+    cursor: not-allowed;
+  }
+
+  &__spinner {
+    width: 16px;
+    height: 16px;
+    border-width: 2px;
+    flex-shrink: 0;
+  }
+
+  &__icon-partial { color: #c4b5fd; }
+}

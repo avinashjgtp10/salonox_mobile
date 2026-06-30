@@ -5,6 +5,7 @@ import MiniCalendar from "../shared/MiniCalendar.tsx";
 import TimeSelect from "../shared/TimeSelect";
 import Button from "../../../../components/ui/Button";
 import Input from "../../../../components/ui/Input";
+import "../../styles/Scheduler.scss";
 
 interface Props {
   onClose: () => void;
@@ -46,14 +47,13 @@ const BlockTimeModal: React.FC<Props> = ({ onClose, defaultStaffId, editingBlock
 
   return (
     <div
-      className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-end"
-      style={{ background: "rgba(0,0,0,.45)", zIndex: 1000 }}
+      className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-end btm-backdrop"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="d-flex flex-column bg-white h-100" style={{ width: "min(400px,100vw)", overflowY: "auto" }}>
+      <div className="d-flex flex-column bg-white h-100 btm-drawer">
 
         {/* Header */}
-        <div className="d-flex align-items-center gap-2 px-4 py-3 border-bottom sticky-top bg-white" style={{ zIndex: 5 }}>
+        <div className="d-flex align-items-center gap-2 px-4 py-3 border-bottom sticky-top bg-white btm-sticky-hdr">
           <button className="btn btn-sm btn-link text-dark p-0 text-decoration-none fs-5" onClick={onClose}>✕</button>
           <h5 className="mb-0 fw-bold">{isEdit ? "Edit Blocked Time" : "New Blocked Time"}</h5>
         </div>
@@ -63,16 +63,15 @@ const BlockTimeModal: React.FC<Props> = ({ onClose, defaultStaffId, editingBlock
 
           {/* Date */}
           <div className="position-relative">
-            <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Date *</label>
+            <label className="form-label fw-semibold text-uppercase text-muted btm-label">Date *</label>
             <input
               readOnly
               value={date}
               onClick={() => setShowCal((v) => !v)}
-              className="form-control"
-              style={{ cursor: "pointer" }}
+              className="form-control btm-date-input"
             />
             {showCal && (
-              <div className="position-absolute" style={{ top: "100%", left: 0, zIndex: 400 }}>
+              <div className="position-absolute btm-cal-portal">
                 <MiniCalendar value={date} onChange={(d) => { setDate(d); setShowCal(false); }} onClose={() => setShowCal(false)} />
               </div>
             )}
@@ -80,7 +79,7 @@ const BlockTimeModal: React.FC<Props> = ({ onClose, defaultStaffId, editingBlock
 
           {/* Staff */}
           <div>
-            <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Staff *</label>
+            <label className="form-label fw-semibold text-uppercase text-muted btm-label">Staff *</label>
             <select className="form-select" value={staffId} onChange={(e) => setStaffId(e.target.value)}>
               <option value="">Select Staff</option>
               {(staffList || []).map((s: { id: string; name: string }) => <option key={s.id} value={s.id}>{s.name.includes(" ") ? s.name : s.name.replace(/([a-z])([A-Z])/g, "$1 $2")}</option>)}
@@ -90,11 +89,11 @@ const BlockTimeModal: React.FC<Props> = ({ onClose, defaultStaffId, editingBlock
           {/* Start / End time */}
           <div className="row g-3">
             <div className="col">
-              <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Start Time *</label>
+              <label className="form-label fw-semibold text-uppercase text-muted btm-label">Start Time *</label>
               <TimeSelect value={startTime} onChange={setStartTime} interval={interval} className="form-select" />
             </div>
             <div className="col">
-              <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>End Time *</label>
+              <label className="form-label fw-semibold text-uppercase text-muted btm-label">End Time *</label>
               <TimeSelect value={endTime} onChange={setEndTime} interval={interval} className="form-select" />
             </div>
           </div>

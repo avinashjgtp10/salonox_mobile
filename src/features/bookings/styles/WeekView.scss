@@ -5,35 +5,36 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
+  user-select: none;
 }
 
 /* ── Gutter ── */
 .wv-gutter {
-  width: 80px;
+  width: 72px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   border-right: 1px solid $dashboard-border;
-  background: #fafafa;
+  background: #f8fafc;
 
   &__corner {
     height: 48px;
     flex-shrink: 0;
     border-bottom: 1px solid $dashboard-border;
-    background: $white;
+    background: #f8fafc;
   }
 
   &__body { flex: 1; overflow-y: hidden; }
 
   &__slot {
-    height: 30px;
+    height: 48px; /* MUST match SLOT_HEIGHT in useScheduler.ts */
     position: relative;
     border-bottom: 1px solid #f0f0f0;
   }
 
   &__time {
     position: absolute;
-    top: -8px;
+    top: 2px;
     right: 8px;
     left: 4px;
     font-size: 11px;
@@ -41,10 +42,6 @@
     font-weight: 500;
     white-space: nowrap;
     text-align: right;
-  }
-
-  &__slot:first-child &__time {
-    top: 3px;
   }
 }
 
@@ -62,7 +59,7 @@
   flex-shrink: 0;
   height: 48px;
   border-bottom: 1px solid $dashboard-border;
-  background: $white;
+  background: #f8fafc;
 }
 
 .wv-day-header {
@@ -73,7 +70,7 @@
   align-items: center;
   justify-content: center;
   border-right: 1px solid $dashboard-border;
-  background: $white;
+  background: #f8fafc;
   transition: background 0.15s;
 
   &--today { background: #eff6ff; }
@@ -97,7 +94,7 @@
 
 /* ── Slot ── */
 .wv-slot {
-  height: 30px;
+  height: 48px; /* MUST match SLOT_HEIGHT in useScheduler.ts */
   border-bottom: 1px solid #f0f0f0;
   cursor: pointer;
 
@@ -127,6 +124,11 @@
   &--pending   { background: linear-gradient(135deg, #f59e0b, #d97706); }
   &--partial   { background: linear-gradient(135deg, #7c3aed, #6d28d9); }
   &--cancelled { background: linear-gradient(135deg, #ef4444, #dc2626); }
+
+  &__time    { font-size: 10px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  &__client  { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.95; }
+  &__staff   { font-size: 9px;  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.8; }
+  &__service { font-size: 9px;  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.75; }
 }
 
 /* ── Off-hours overlay (grey band outside salon working hours) ── */

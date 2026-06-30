@@ -277,7 +277,6 @@ export const ClientPanel: React.FC<Props> = ({
                 )
             }
           </div>
-          {error && <div className="client-field-error">{error}</div>}
           {showDrop && searching && (
             <div className="client-dropdown">
               <div className="client-dropdown__searching">
@@ -366,7 +365,13 @@ export const ClientPanel: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* ── Client not found message (outside toolbar so buttons stay in same row) ── */}
+      {/* Error banner — rendered outside the toolbar so it never breaks the flex row */}
+      {error && !showAddForm && (
+        <div className="client-error-banner">
+          <span className="client-error-banner__icon">⚠</span>
+          {error}
+        </div>
+      )}
 
       {/* ── Add client form ── */}
       {showAddForm && (
@@ -377,8 +382,9 @@ export const ClientPanel: React.FC<Props> = ({
               className={`acf-input${addErrors.first ? " acf-input--error" : ""}`}
               placeholder=""
               value={addFirst}
+              maxLength={20}
               onChange={(e) => {
-                const val = e.target.value.replace(/[^a-zA-Z]/g, "");
+                const val = e.target.value.replace(/[^a-zA-Z]/g, "").slice(0, 20);
                 setAddFirst(val);
                 if (val.trim()) setAddErrors((prev) => ({ ...prev, first: undefined }));
               }}
@@ -389,7 +395,8 @@ export const ClientPanel: React.FC<Props> = ({
             className="acf-input"
             placeholder="Last name"
             value={addLast}
-            onChange={(e) => setAddLast(e.target.value.replace(/[^a-zA-Z]/g, ""))}
+            maxLength={20}
+            onChange={(e) => setAddLast(e.target.value.replace(/[^a-zA-Z]/g, "").slice(0, 20))}
           />
           <div className="acf-required-wrapper">
             {!addPhone && <span className="acf-label-overlay">Phone<span className="acf-req-star">*</span></span>}

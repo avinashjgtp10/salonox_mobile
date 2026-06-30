@@ -43,7 +43,7 @@ export function getBookingHeight(
   const [sh, sm] = startTime.split(":").map(Number);
   const [eh, em] = endTime.split(":").map(Number);
   const diff = eh * 60 + em - (sh * 60 + sm);
-  return Math.max((diff / intervalMins) * slotHeight, slotHeight);
+  return (diff / intervalMins) * slotHeight;
 }
 
 export function getCurrentTime(): string {

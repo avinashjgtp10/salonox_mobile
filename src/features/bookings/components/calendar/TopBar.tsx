@@ -7,6 +7,7 @@ import { formatDateLabel } from "../../utils/timeUtils";
 import MiniCalendar from "../shared/MiniCalendar.tsx";
 import { useAppSelector } from "../../../../hooks/useAppRedux";
 import api from "../../../../services/api/axios";
+import "../../styles/TopBar.scss";
 
 const AVATAR_COLORS = ["#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981","#3b82f6","#ef4444","#14b8a6"];
 function avatarColor(name: string) { return AVATAR_COLORS[(name?.charCodeAt(0) || 65) % AVATAR_COLORS.length]; }
@@ -14,7 +15,7 @@ function avatarColor(name: string) { return AVATAR_COLORS[(name?.charCodeAt(0) |
 interface TopBarProps {
   onNewAppointment: () => void;
   onBlockTime: () => void;
-  onRefresh?: () => void;
+  onRefresh?: () => void | Promise<void>;
   onNewAppointmentForClient?: (client: { id: string; name: string; phone: string }) => void;
 }
 
@@ -55,14 +56,9 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
     setSearchDone(false);
     if (searchTimer.current) clearTimeout(searchTimer.current);
     const trimmed = q.trim();
-    if (trimmed.length < 3) {
-      setClientResults([]); setShowClientDrop(false); return;
-    }
-    // For all-digit queries (phone), require exactly 10 digits before searching
+    if (trimmed.length < 3) { setClientResults([]); setShowClientDrop(false); return; }
     const isNumeric = /^\d+$/.test(trimmed);
-    if (isNumeric && trimmed.length !== 10) {
-      setClientResults([]); setShowClientDrop(false); return;
-    }
+    if (isNumeric && trimmed.length !== 10) { setClientResults([]); setShowClientDrop(false); return; }
     setShowClientDrop(true);
     searchTimer.current = setTimeout(async () => {
       setClientSearching(true);
@@ -90,57 +86,39 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
     setClientQuery(""); setClientResults([]); setShowClientDrop(false); setSearchDone(false);
   }
 
-  const [showViewDrop, setShowViewDrop] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showViewDrop,  setShowViewDrop]  = useState(false);
+  const [showDatePicker,setShowDatePicker]= useState(false);
   const [showStaffDrop, setShowStaffDrop] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isRefreshing,  setIsRefreshing]  = useState(false);
 
-  // ── Portal position state ─────────────────────────────────────────────────
-  const [viewDropPos, setViewDropPos] = useState({ top: 0, left: 0 });
+  const [viewDropPos,   setViewDropPos]   = useState({ top: 0, left: 0 });
   const [datePickerPos, setDatePickerPos] = useState({ top: 0, left: 0 });
-  const [staffDropPos, setStaffDropPos] = useState({ top: 0, left: 0 });
+  const [staffDropPos,  setStaffDropPos]  = useState({ top: 0, left: 0 });
 
-  const viewDropBtnRef = useRef<HTMLButtonElement>(null);
-  const dateBtnRef = useRef<HTMLButtonElement>(null);
-  const viewDropRef = useRef<HTMLDivElement>(null);
-  const datePickerRef = useRef<HTMLDivElement>(null);
+  const viewDropBtnRef  = useRef<HTMLButtonElement>(null);
+  const dateBtnRef      = useRef<HTMLButtonElement>(null);
+  const viewDropRef     = useRef<HTMLDivElement>(null);
+  const datePickerRef   = useRef<HTMLDivElement>(null);
   const staffDropBtnRef = useRef<HTMLButtonElement>(null);
-  const staffDropRef = useRef<HTMLDivElement>(null);
+  const staffDropRef    = useRef<HTMLDivElement>(null);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today   = new Date().toISOString().slice(0, 10);
   const isToday = currentDate === today;
 
-  // ── Close on outside click ────────────────────────────────────────────────
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       const target = e.target as Node;
-      if (
-        viewDropRef.current &&
-        !viewDropRef.current.contains(target) &&
-        viewDropBtnRef.current &&
-        !viewDropBtnRef.current.contains(target)
-      )
+      if (viewDropRef.current && !viewDropRef.current.contains(target) && viewDropBtnRef.current && !viewDropBtnRef.current.contains(target))
         setShowViewDrop(false);
-      if (
-        datePickerRef.current &&
-        !datePickerRef.current.contains(target) &&
-        dateBtnRef.current &&
-        !dateBtnRef.current.contains(target)
-      )
+      if (datePickerRef.current && !datePickerRef.current.contains(target) && dateBtnRef.current && !dateBtnRef.current.contains(target))
         setShowDatePicker(false);
-      if (
-        staffDropRef.current &&
-        !staffDropRef.current.contains(target) &&
-        staffDropBtnRef.current &&
-        !staffDropBtnRef.current.contains(target)
-      )
+      if (staffDropRef.current && !staffDropRef.current.contains(target) && staffDropBtnRef.current && !staffDropBtnRef.current.contains(target))
         setShowStaffDrop(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  // ── Recalculate portal positions on scroll/resize ─────────────────────────
   useEffect(() => {
     function reposition() {
       if (showViewDrop && viewDropBtnRef.current) {
@@ -158,19 +136,12 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
     }
     window.addEventListener("scroll", reposition, true);
     window.addEventListener("resize", reposition);
-    return () => {
-      window.removeEventListener("scroll", reposition, true);
-      window.removeEventListener("resize", reposition);
-    };
-  }, [showViewDrop, showDatePicker]);
+    return () => { window.removeEventListener("scroll", reposition, true); window.removeEventListener("resize", reposition); };
+  }, [showViewDrop, showDatePicker, showStaffDrop]);
 
   function getShortDateLabel() {
     if (viewMode === "Day") {
-      return new Date(currentDate + "T12:00:00").toLocaleDateString("en-US", {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-      });
+      return new Date(currentDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
     }
     return formatDateLabel(currentDate, viewMode);
   }
@@ -203,140 +174,50 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
     ? (staffList.find((s) => s.id === selectedStaffId)?.name ?? "Staff")
     : "All Staff";
 
+  const selectedStaffColor = selectedStaffId
+    ? staffList.find((s) => s.id === selectedStaffId)?.color
+    : undefined;
+
   return (
     <>
-      {/* ── TopBar ── */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          padding: "0 10px",
-          background: "#fff",
-          borderBottom: "1px solid #e5e7eb",
-          boxShadow: "0 1px 4px rgba(0,0,0,.06)",
-          height: 48,
-          flexShrink: 0,
-        }}
-      >
+      <div className="cal-topbar">
         {/* View dropdown trigger */}
         <button
           ref={viewDropBtnRef}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            openViewDrop();
-          }}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            border: "1px solid #d1d5db",
-            borderRadius: 6,
-            padding: "5px 9px",
-            background: "#fff",
-            cursor: "pointer",
-            fontSize: 12,
-            fontWeight: 600,
-            fontFamily: "inherit",
-            whiteSpace: "nowrap",
-            flexShrink: 0,
-            color: "#374151",
-          }}
+          className="topbar__view-btn"
+          onMouseDown={(e) => { e.stopPropagation(); openViewDrop(); }}
         >
-          {viewMode} <span style={{ fontSize: 9, opacity: 0.6 }}>▼</span>
+          {viewMode} <span className="topbar__arrow">▼</span>
         </button>
 
         {/* Prev */}
-        <button
-          onClick={() => navigate(-1)}
-          style={{
-            flexShrink: 0,
-            background: "none",
-            border: "1px solid #e5e7eb",
-            borderRadius: 6,
-            padding: "3px 8px",
-            fontSize: 16,
-            cursor: "pointer",
-            lineHeight: 1,
-            color: "#374151",
-          }}
-        >
-          ‹
-        </button>
+        <button className="topbar__nav-btn" onClick={() => navigate(-1)}>‹</button>
 
         {/* Date picker trigger */}
         <button
           ref={dateBtnRef}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            openDatePicker();
-          }}
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            color: "#111827",
-            textAlign: "center",
-            background: showDatePicker ? "#f3f4f6" : "none",
-            border: "1px solid " + (showDatePicker ? "#d1d5db" : "transparent"),
-            borderRadius: 6,
-            padding: "5px 8px",
-            cursor: "pointer",
-            fontFamily: "inherit",
-            whiteSpace: "nowrap",
-            flexShrink: 0,
-          }}
+          className={`topbar__date-btn${showDatePicker ? " topbar__date-btn--active" : ""}`}
+          onMouseDown={(e) => { e.stopPropagation(); openDatePicker(); }}
         >
           {getShortDateLabel()}{" "}
-          <span style={{ fontSize: 9, opacity: 0.5 }}>▼</span>
+          <span className="topbar__arrow topbar__arrow--faint">▼</span>
         </button>
 
         {/* Next */}
-        <button
-          onClick={() => navigate(1)}
-          style={{
-            flexShrink: 0,
-            background: "none",
-            border: "1px solid #e5e7eb",
-            borderRadius: 6,
-            padding: "3px 8px",
-            fontSize: 16,
-            cursor: "pointer",
-            lineHeight: 1,
-            color: "#374151",
-          }}
-        >
-          ›
-        </button>
+        <button className="topbar__nav-btn" onClick={() => navigate(1)}>›</button>
 
         {/* Today */}
         <button
+          className={`topbar__today-btn${isToday ? " topbar__today-btn--current" : ""}`}
           onClick={() => setCurrentDate(today)}
-          style={{
-            flexShrink: 0,
-            border: isToday ? "1px solid #e5e7eb" : "1px solid #3b82f6",
-            borderRadius: 6,
-            padding: "4px 10px",
-            fontSize: 11,
-            fontWeight: 700,
-            cursor: "pointer",
-            fontFamily: "inherit",
-            whiteSpace: "nowrap",
-            background: isToday ? "#f9fafb" : "#eff6ff",
-            color: isToday ? "#9ca3af" : "#3b82f6",
-            transition: "all 0.15s",
-          }}
         >
           Today
         </button>
 
         {/* ── Client search ── */}
-        <div ref={searchRef} style={{ width: 240, flexShrink: 0, position: "relative" }}>
-          <div style={{
-            display: "flex", alignItems: "center", gap: 6,
-            background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: 20,
-            padding: "5px 10px", transition: "all 0.15s",
-          }}>
-            <span style={{ fontSize: 12, opacity: 0.45, flexShrink: 0 }}>🔍</span>
+        <div ref={searchRef} className="topbar__client-search">
+          <div className="topbar__client-search-input-wrap">
+            <span className="topbar__client-search-icon">🔍</span>
             <input
               value={clientQuery}
               onChange={(e) => {
@@ -348,115 +229,67 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
               }}
               onFocus={() => { if (clientQuery.length >= 3) setShowClientDrop(true); }}
               placeholder="Search client…"
-              style={{
-                flex: 1, minWidth: 0, border: "none", background: "transparent",
-                fontSize: 12, fontFamily: "inherit", color: "#111827", outline: "none",
-              }}
+              className="topbar__client-search-input"
             />
-            {clientSearching && (
-              <span style={{
-                width: 11, height: 11, borderRadius: "50%", flexShrink: 0,
-                border: "2px solid #d1d5db", borderTopColor: "#6366f1",
-                animation: "topbar-spin 0.7s linear infinite", display: "inline-block",
-              }} />
-            )}
+            {clientSearching && <span className="topbar__client-search-spinner-sm" />}
             {clientQuery && !clientSearching && (
               <button
+                className="topbar__client-clear"
                 onMouseDown={(e) => { e.preventDefault(); closeSearch(); }}
-                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: "#9ca3af", fontSize: 14, flexShrink: 0 }}
               >×</button>
             )}
           </div>
 
           {showClientDrop && ReactDOM.createPortal(
             <div
+              className="topbar-client-drop"
               style={{
-                position: "fixed",
-                top: (searchRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
-                left: searchRef.current?.getBoundingClientRect().left ?? 0,
+                top:   (searchRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
+                left:  searchRef.current?.getBoundingClientRect().left ?? 0,
                 width: 340,
-                zIndex: 99999,
-                background: "#fff",
-                border: "1px solid #e5e7eb",
-                borderRadius: 12,
-                boxShadow: "0 8px 28px rgba(0,0,0,.14)",
-                overflow: "hidden",
-                maxHeight: 360,
-                overflowY: "auto",
               }}
             >
-              {/* Loading */}
               {clientSearching && (
-                <div style={{ padding: "16px 14px", display: "flex", alignItems: "center", gap: 8, color: "#6b7280", fontSize: 13 }}>
-                  <span style={{
-                    width: 14, height: 14, borderRadius: "50%",
-                    border: "2px solid #d1d5db", borderTopColor: "#6366f1",
-                    animation: "topbar-spin 0.7s linear infinite", display: "inline-block", flexShrink: 0,
-                  }} />
+                <div className="topbar-client-drop__loading">
+                  <span className="topbar-client-drop__loading-spinner" />
                   Searching…
                 </div>
               )}
 
-              {/* Results */}
               {!clientSearching && searchDone && clientResults.length > 0 && clientResults.map((c) => (
                 <div
                   key={c.id}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    closeSearch();
-                    onNewAppointmentForClient?.(c);
-                  }}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 10,
-                    padding: "10px 12px", borderBottom: "1px solid #f3f4f6",
-                    cursor: "pointer",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "")}
+                  className="topbar-client-drop__item"
+                  onMouseDown={(e) => { e.preventDefault(); closeSearch(); onNewAppointmentForClient?.(c); }}
                 >
-                  <span style={{
-                    width: 34, height: 34, borderRadius: "50%", flexShrink: 0,
-                    background: avatarColor(c.name), color: "#fff",
-                    fontSize: 13, fontWeight: 700,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                  }}>
+                  <span className="topbar-client-drop__avatar" style={{ background: avatarColor(c.name) }}>
                     {c.name.charAt(0).toUpperCase()}
                   </span>
-                  <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {c.name}
-                    </span>
-                    {c.phone && <span style={{ fontSize: 11, color: "#6b7280" }}>{c.phone}</span>}
+                  <span className="topbar-client-drop__info">
+                    <span className="topbar-client-drop__name">{c.name}</span>
+                    {c.phone && <span className="topbar-client-drop__phone">{c.phone}</span>}
                   </span>
                 </div>
               ))}
 
-              {/* No results */}
               {!clientSearching && searchDone && clientResults.length === 0 && (
-                <div style={{ padding: "16px", textAlign: "center" }}>
-                  <div style={{ fontSize: 13, color: "#ef4444", fontWeight: 600, marginBottom: 3 }}>
-                    No client found
-                  </div>
-                  <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 12 }}>
-                    "{clientQuery}" didn't match any client.
-                  </div>
-                  <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                <div className="topbar-client-drop__no-results">
+                  <div className="topbar-client-drop__no-results-title">No client found</div>
+                  <div className="topbar-client-drop__no-results-sub">"{clientQuery}" didn't match any client.</div>
+                  <div className="topbar-client-drop__no-results-actions">
                     <button
+                      className="topbar-client-drop__no-results-btn topbar-client-drop__no-results-btn--dark"
                       onMouseDown={(e) => {
                         e.preventDefault();
                         const phone = clientQuery.trim();
                         closeSearch();
                         onNewAppointmentForClient?.({ id: "", name: "", phone });
                       }}
-                      style={{
-                        flex: 1, padding: "7px 0", fontSize: 11, fontWeight: 600,
-                        border: "none", borderRadius: 7, cursor: "pointer",
-                        background: "#1f2937", color: "#fff", fontFamily: "inherit",
-                      }}
                     >
                       + Add Appointment
                     </button>
                     <button
+                      className="topbar-client-drop__no-results-btn topbar-client-drop__no-results-btn--outline"
                       onMouseDown={(e) => {
                         e.preventDefault();
                         const q = clientQuery.trim();
@@ -465,11 +298,6 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
                         navTo("/dashboard/clients/add", {
                           state: isPhone ? { prefillPhone: q } : { prefillName: q },
                         });
-                      }}
-                      style={{
-                        flex: 1, padding: "7px 0", fontSize: 11, fontWeight: 600,
-                        border: "1px solid #6366f1", borderRadius: 7, cursor: "pointer",
-                        background: "#eff0ff", color: "#4f46e5", fontFamily: "inherit",
                       }}
                     >
                       + Add Client
@@ -482,66 +310,42 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
           )}
         </div>
 
-        {/* Spacer — keeps right-side controls right-aligned */}
-        <div style={{ flex: 1, minWidth: 0 }} />
+        {/* Spacer */}
+        <div className="topbar__spacer" />
 
         {/* Staff filter */}
         <button
           ref={staffDropBtnRef}
+          className={`topbar__staff-btn${selectedStaffId ? " topbar__staff-btn--active" : ""}`}
           onMouseDown={(e) => { e.stopPropagation(); openStaffDrop(); }}
-          style={{
-            display: "flex", alignItems: "center", gap: 6,
-            border: "1px solid #d1d5db", borderRadius: 6,
-            padding: "5px 10px", background: selectedStaffId ? "#eff6ff" : "#fff",
-            cursor: "pointer", fontSize: 12, fontWeight: 600,
-            fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0,
-            color: selectedStaffId ? "#3b82f6" : "#374151",
-          }}
         >
-          {selectedStaffId && (
-            <span style={{
-              width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
-              background: staffList.find((s) => s.id === selectedStaffId)?.color ?? "#4f46e5",
-            }} />
+          {selectedStaffColor && (
+            <span className="topbar__staff-dot" style={{ background: selectedStaffColor }} />
           )}
           {selectedStaffName}
-          <span style={{ fontSize: 9, opacity: 0.6 }}>▼</span>
+          <span className="topbar__arrow">▼</span>
         </button>
 
         {/* Refresh */}
         <button
+          className={`topbar__refresh-btn${isRefreshing ? " topbar__refresh-btn--busy" : ""}`}
           onClick={async () => {
             if (!onRefresh || isRefreshing) return;
             setIsRefreshing(true);
             try { await onRefresh(); } finally { setIsRefreshing(false); }
           }}
           title="Refresh calendar"
-          style={{
-            flexShrink: 0,
-            border: "1px solid #d1d5db",
-            borderRadius: 6,
-            padding: "5px 8px",
-            background: "#fff",
-            cursor: onRefresh ? "pointer" : "default",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#374151",
-            opacity: isRefreshing ? 0.5 : 1,
-            transition: "opacity 0.15s",
-          }}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            width="14"
-            height="14"
+            width="14" height="14"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
             strokeWidth="2.2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            style={{ display: "block", transition: "transform 0.4s", transform: isRefreshing ? "rotate(360deg)" : "none" }}
+            className={`topbar__refresh-icon${isRefreshing ? " topbar__refresh-icon--spinning" : ""}`}
           >
             <polyline points="23 4 23 10 17 10" />
             <polyline points="1 20 1 14 7 14" />
@@ -550,32 +354,12 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
         </button>
 
         {/* Interval pills */}
-        <div
-          style={{
-            display: "flex",
-            gap: 2,
-            background: "#f3f4f6",
-            borderRadius: 6,
-            padding: 3,
-            flexShrink: 0,
-          }}
-        >
+        <div className="topbar__interval-group">
           {INTERVAL_OPTIONS.map((opt) => (
             <button
               key={opt}
+              className={`topbar__interval-btn${interval === opt ? " topbar__interval-btn--active" : ""}`}
               onClick={() => setInterval(opt)}
-              style={{
-                padding: "4px 8px",
-                fontSize: 11,
-                fontWeight: 600,
-                border: "none",
-                borderRadius: 4,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                background: interval === opt ? "#1f2937" : "transparent",
-                color: interval === opt ? "#fff" : "#6b7280",
-                whiteSpace: "nowrap",
-              }}
             >
               {opt.replace(" Mins", "m")}
             </button>
@@ -583,172 +367,62 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
         </div>
 
         {/* Add + */}
-        <button
-          onClick={onNewAppointment}
-          style={{
-            flexShrink: 0,
-            background: "#1f2937",
-            color: "#fff",
-            border: "none",
-            borderRadius: 6,
-            padding: "6px 12px",
-            fontWeight: 600,
-            fontSize: 12,
-            cursor: "pointer",
-            fontFamily: "inherit",
-            whiteSpace: "nowrap",
-          }}
-        >
-          Add +
-        </button>
+        <button className="topbar__add-btn" onClick={onNewAppointment}>Add +</button>
 
         {/* Block Time */}
-        <button
-          onClick={onBlockTime}
-          style={{
-            flexShrink: 0,
-            border: "1px solid #d1d5db",
-            borderRadius: 6,
-            padding: "5px 10px",
-            fontSize: 11,
-            cursor: "pointer",
-            background: "#fff",
-            fontWeight: 500,
-            fontFamily: "inherit",
-            whiteSpace: "nowrap",
-          }}
-        >
-          Block Time
-        </button>
+        <button className="topbar__block-btn" onClick={onBlockTime}>Block Time</button>
       </div>
 
       {/* ── View dropdown PORTAL ── */}
-      {showViewDrop &&
-        ReactDOM.createPortal(
-          <div
-            ref={viewDropRef}
-            style={{
-              position: "fixed",
-              top: viewDropPos.top,
-              left: viewDropPos.left,
-              zIndex: 99999,
-              background: "#fff",
-              border: "1px solid #e5e7eb",
-              borderRadius: 8,
-              boxShadow: "0 4px 16px rgba(0,0,0,.12)",
-              minWidth: 140,
-              overflow: "hidden",
-            }}
-          >
-            {VIEW_OPTIONS.map((v) => (
-              <button
-                key={v}
-                onClick={() => {
-                  setViewMode(v);
-                  setShowViewDrop(false);
-                }}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "9px 14px",
-                  width: "100%",
-                  background: viewMode === v ? "#f3f4f6" : "#fff",
-                  border: "none",
-                  cursor: "pointer",
-                  fontSize: 13,
-                  textAlign: "left",
-                  fontWeight: viewMode === v ? 600 : 400,
-                  fontFamily: "inherit",
-                }}
-              >
-                {v}
-              </button>
-            ))}
-          </div>,
-          document.body,
-        )}
+      {showViewDrop && ReactDOM.createPortal(
+        <div ref={viewDropRef} className="topbar-drop" style={{ top: viewDropPos.top, left: viewDropPos.left }}>
+          {VIEW_OPTIONS.map((v) => (
+            <button
+              key={v}
+              className={`topbar-drop__item${viewMode === v ? " topbar-drop__item--active" : ""}`}
+              onClick={() => { setViewMode(v); setShowViewDrop(false); }}
+            >
+              {v}
+            </button>
+          ))}
+        </div>,
+        document.body,
+      )}
 
       {/* ── Date picker PORTAL ── */}
-      {showDatePicker &&
-        ReactDOM.createPortal(
-          <div
-            ref={datePickerRef}
-            style={{
-              position: "fixed",
-              top: datePickerPos.top,
-              left: datePickerPos.left,
-              zIndex: 99999,
-            }}
-          >
-            <MiniCalendar
-              value={currentDate}
-              onChange={(d) => {
-                setCurrentDate(d);
-                setShowDatePicker(false);
-              }}
-              onClose={() => setShowDatePicker(false)}
-            />
-          </div>,
-          document.body,
-        )}
-
-      {/* Spinner keyframe */}
-      <style>{`@keyframes topbar-spin { to { transform: rotate(360deg); } }`}</style>
+      {showDatePicker && ReactDOM.createPortal(
+        <div ref={datePickerRef} className="topbar-cal-portal" style={{ top: datePickerPos.top, left: datePickerPos.left }}>
+          <MiniCalendar
+            value={currentDate}
+            onChange={(d) => { setCurrentDate(d); setShowDatePicker(false); }}
+            onClose={() => setShowDatePicker(false)}
+          />
+        </div>,
+        document.body,
+      )}
 
       {/* ── Staff filter PORTAL ── */}
-      {showStaffDrop &&
-        ReactDOM.createPortal(
-          <div
-            ref={staffDropRef}
-            style={{
-              position: "fixed",
-              top: staffDropPos.top,
-              left: staffDropPos.left,
-              zIndex: 99999,
-              background: "#fff",
-              border: "1px solid #e5e7eb",
-              borderRadius: 8,
-              boxShadow: "0 4px 16px rgba(0,0,0,.12)",
-              minWidth: 160,
-              overflow: "hidden",
-            }}
+      {showStaffDrop && ReactDOM.createPortal(
+        <div ref={staffDropRef} className="topbar-staff-drop" style={{ top: staffDropPos.top, left: staffDropPos.left }}>
+          <button
+            className={`topbar-staff-drop__item${!selectedStaffId ? " topbar-staff-drop__item--active" : ""}`}
+            onClick={() => { setSelectedStaffId(null); setShowStaffDrop(false); }}
           >
+            All Staff
+          </button>
+          {staffList.map((s) => (
             <button
-              onClick={() => { setSelectedStaffId(null); setShowStaffDrop(false); }}
-              style={{
-                display: "flex", alignItems: "center", gap: 8,
-                padding: "9px 14px", width: "100%",
-                background: !selectedStaffId ? "#f3f4f6" : "#fff",
-                border: "none", cursor: "pointer", fontSize: 13,
-                textAlign: "left", fontWeight: !selectedStaffId ? 600 : 400,
-                fontFamily: "inherit",
-              }}
+              key={s.id}
+              className={`topbar-staff-drop__item${selectedStaffId === s.id ? " topbar-staff-drop__item--active" : ""}`}
+              onClick={() => { setSelectedStaffId(s.id); setShowStaffDrop(false); }}
             >
-              All Staff
+              <span className="topbar-staff-drop__dot" style={{ background: s.color }} />
+              {s.name}
             </button>
-            {staffList.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => { setSelectedStaffId(s.id); setShowStaffDrop(false); }}
-                style={{
-                  display: "flex", alignItems: "center", gap: 8,
-                  padding: "9px 14px", width: "100%",
-                  background: selectedStaffId === s.id ? "#f3f4f6" : "#fff",
-                  border: "none", cursor: "pointer", fontSize: 13,
-                  textAlign: "left", fontWeight: selectedStaffId === s.id ? 600 : 400,
-                  fontFamily: "inherit",
-                }}
-              >
-                <span style={{
-                  width: 10, height: 10, borderRadius: "50%",
-                  background: s.color, flexShrink: 0,
-                }} />
-                {s.name}
-              </button>
-            ))}
-          </div>,
-          document.body,
-        )}
+          ))}
+        </div>,
+        document.body,
+      )}
     </>
   );
 };

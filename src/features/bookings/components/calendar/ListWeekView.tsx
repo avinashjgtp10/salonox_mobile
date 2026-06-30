@@ -4,10 +4,10 @@ import { useScheduler } from "../../hooks/useScheduler";
 import { useAppSelector } from "../../../../hooks/useAppRedux";
 import { getWeekDays, formatTime12 } from "../../utils/timeUtils";
 import Badge from "../../../../components/ui/Badge";
+import "../../styles/Scheduler.scss";
 
 const EMPTY_BOOKINGS: any[] = [];
 
-// Pure helpers outside component — zero re-creation cost
 function payVariant(status: string): "success" | "warning" | "secondary" {
   if (status === "Paid") return "success";
   if (status === "Partial") return "warning";
@@ -48,7 +48,7 @@ const ListWeekViewComponent: React.FC<ListWeekViewProps> = ({ onViewBill }) => {
   const weekDays = getWeekDays(currentDate);
 
   return (
-    <div style={{ height: "100%", overflowY: "auto", padding: "16px 20px", boxSizing: "border-box" }}>
+    <div className="lwv">
       {weekDays.map((day) => {
         const dayBk = getBookingsByDate(day);
         const isToday = day === today;
@@ -56,44 +56,21 @@ const ListWeekViewComponent: React.FC<ListWeekViewProps> = ({ onViewBill }) => {
           weekday: "long", month: "long", day: "numeric",
         });
         return (
-          <div key={day} style={{ marginBottom: 18 }}>
-            <div style={{
-              fontSize: 13, fontWeight: 700,
-              color: isToday ? "#2563eb" : "#374151",
-              padding: "6px 0 4px",
-              borderBottom: isToday ? "2px solid #2563eb" : "1px solid #e5e7eb",
-              marginBottom: 8,
-            }}>
+          <div key={day} className="lwv__day">
+            <div className={`lwv__day-header${isToday ? " lwv__day-header--today" : ""}`}>
               {label}
             </div>
             {dayBk.length === 0 ? (
-              <div style={{ fontSize: 12, color: "#9ca3af", fontStyle: "italic", paddingLeft: 4 }}>
-                No appointments
-              </div>
+              <div className="lwv__empty">No appointments</div>
             ) : (
               dayBk.map((b: any) => (
-                <div
-                  key={b.id}
-                  onClick={() => onViewBill(b)}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 12,
-                    padding: "10px 14px", background: "#fff",
-                    border: "1px solid #e5e7eb", borderRadius: 8,
-                    marginBottom: 6, cursor: "pointer", transition: "all 0.15s",
-                    boxShadow: "0 1px 3px rgba(0,0,0,.04)",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
-                >
-                  <div style={{
-                    width: 4, height: 36, borderRadius: 2, flexShrink: 0,
-                    background: chipBarColor(b),
-                  }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div key={b.id} className="lwv__card" onClick={() => onViewBill(b)}>
+                  <div className="lwv__bar" style={{ background: chipBarColor(b) }} />
+                  <div className="lwv__info">
+                    <div className="lwv__title">
                       {b.title || b.services[0]?.service || b.clientName || "Appointment"}
                     </div>
-                    <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>
+                    <div className="lwv__meta">
                       {b.clientName} · {formatTime12(b.startTime)}
                     </div>
                   </div>

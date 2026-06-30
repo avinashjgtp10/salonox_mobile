@@ -23,7 +23,10 @@ const TimeSelect: React.FC<TimeSelectProps> = ({
   // If the current value falls between slot boundaries (e.g. cascade produced "09:30"
   // but interval is "60 Mins"), inject it so the select doesn't silently fall back to
   // the first option and display "12:00 AM".
-  const allSlots = value && !slots.includes(value)
+  // Guard: only inject if it's a valid HH:MM string to prevent ISO dates or other
+  // garbage values from rendering as "--:--" in the dropdown.
+  const isValidHhmm = /^\d{2}:\d{2}$/.test(value);
+  const allSlots = value && isValidHhmm && !slots.includes(value)
     ? [...slots, value].sort()
     : slots;
   return (

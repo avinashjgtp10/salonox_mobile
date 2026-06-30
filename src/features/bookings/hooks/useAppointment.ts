@@ -105,32 +105,55 @@ export function useAppointment() {
       const baseData = {
         salon_id:         salonId || undefined,
         client_id:   (clientId && isRealId(clientId) && clientId !== 'walk-in') ? clientId : undefined,
-        staff_id:         toApiStaffId(firstRow?.staffId ?? (booking as any).staffId) ?? toApiStaffId(staffList[0]?.id),
+        staff_id:         toApiStaffId(firstRow?.staffId ?? (booking as any).staffId),
         scheduled_at:     new Date(bookingStartMs).toISOString(),
         ends_at:          new Date(bookingStartMs + durationMins * 60000).toISOString(),
         duration_minutes: durationMins,
         services:         apiServices,
-        package_items:    packageRows.map((p) => ({
-          package_id: (p as any).packageId || p.id || undefined,
-          name: (p as any).packageName || (p as any).name || "",
-          price: p.price || 0,
-          quantity: p.qty || 1,
-        })),
-        product_items:    productRows.map((p) => ({
-          product_id: (p as any).productId || p.id || undefined,
-          name: (p as any).productName || (p as any).name || "",
-          price: p.price || 0,
-          quantity: p.qty || 1,
-        })),
-        membership_items: membershipRows.map((m) => ({
-          membership_id: (m as any).membershipId || m.id || undefined,
-          name: (m as any).membershipName || (m as any).name || "",
-          price: m.price || 0,
-          quantity: m.qty || 1,
-        })),
+        package_items:    packageRows.map((p) => {
+          const t = (p as any).time;
+          const startMs = t ? new Date(`${calDate}T${t}:00`).getTime() : bookingStartMs;
+          return {
+            package_id: (p as any).packageId || p.id || undefined,
+            name: (p as any).packageName || (p as any).name || "",
+            price: p.price || 0,
+            quantity: p.qty || 1,
+            staff_id: (p as any).staffId ? toApiStaffId((p as any).staffId) : undefined,
+            start_time: new Date(startMs).toISOString(),
+          };
+        }),
+        product_items:    productRows.map((p) => {
+          const t = (p as any).time;
+          const startMs = t ? new Date(`${calDate}T${t}:00`).getTime() : bookingStartMs;
+          return {
+            product_id: (p as any).productId || p.id || undefined,
+            name: (p as any).productName || (p as any).name || "",
+            price: p.price || 0,
+            quantity: p.qty || 1,
+            staff_id: (p as any).staffId ? toApiStaffId((p as any).staffId) : undefined,
+            start_time: new Date(startMs).toISOString(),
+          };
+        }),
+        membership_items: membershipRows.map((m) => {
+          const t = (m as any).time;
+          const startMs = t ? new Date(`${calDate}T${t}:00`).getTime() : bookingStartMs;
+          return {
+            membership_id: (m as any).membershipId || m.id || undefined,
+            name: (m as any).membershipName || (m as any).name || "",
+            price: m.price || 0,
+            quantity: m.qty || 1,
+            staff_id: (m as any).staffId ? toApiStaffId((m as any).staffId) : undefined,
+            start_time: new Date(startMs).toISOString(),
+          };
+        }),
         notes:       notes || undefined,
         staff_alert: staffAlert || undefined,
         title:       (booking as any).title,
+        discount_value: (booking as any).discount ?? 0,
+        discount_type:  (booking as any).discountType === "Flat (₹)" ? "flat" : "percentage",
+        ex_charges:     (booking as any).exCharges ?? 0,
+        tip_amount:     (booking as any).tipAmount ?? 0,
+        gst_percent:    (booking as any).gst ?? 0,
       };
 
       if (existingBooking) {

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import type { ServiceItem } from "../../types/scheduler-types";
 import { currencySymbol } from "../../../../utils/currency";
 import { useSchedulerContext } from "../../store/SchedulerContext";
@@ -165,6 +166,8 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   const consumableDebounceRefs = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const dropRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const portalDropRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const trimmedSearch = serviceSearch.trim();
@@ -181,7 +184,9 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropRef.current && !dropRef.current.contains(event.target as Node)) {
+      const inField = dropRef.current?.contains(event.target as Node);
+      const inPortal = portalDropRef.current?.contains(event.target as Node);
+      if (!inField && !inPortal) {
         setShowDrop(false);
       }
     }
@@ -522,6 +527,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
           <span className="svc-field__label">Service</span>
           <div className="svc-field__input-wrap">
             <input
+              ref={inputRef}
               className={`svc-field__input${errorFields.service ? " svc-field__input--error" : ""}`}
               placeholder="Search service..."
               value={serviceSearch}
@@ -529,8 +535,15 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
               onChange={(e) => handleServiceSearchChange(e.target.value)}
               onFocus={() => setShowDrop(meetsMinSearchLength && (isSearching || apiResults !== null))}
             />
-            {showDrop && meetsMinSearchLength && (
-              <div className="svc-dropdown">
+            {showDrop && meetsMinSearchLength && inputRef.current && createPortal(
+              <div
+                ref={portalDropRef}
+                className="svc-dropdown"
+                style={(() => {
+                  const r = inputRef.current!.getBoundingClientRect();
+                  return { position: "fixed" as const, top: r.bottom + 2, left: r.left, width: r.width, zIndex: 9999 };
+                })()}
+              >
                 {isSearching ? (
                   <div className="svc-dropdown__searching">Searching...</div>
                 ) : apiResults && apiResults.length > 0 ? (
@@ -548,7 +561,8 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
                 ) : (
                   <div className="svc-dropdown__searching">No services found.</div>
                 )}
-              </div>
+              </div>,
+              document.body
             )}
           </div>
           {showSearchHelper && (
