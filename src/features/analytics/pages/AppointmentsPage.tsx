@@ -455,12 +455,36 @@ export default function AppointmentsPage() {
     || drawerClient?.notes
     || null;
 
-  const drawerStaffId = drawerAppt?.staffId || drawerAppt?.staff_id
-    || drawerAppt?.services?.[0]?.staffId || drawerAppt?.services?.[0]?.staff_id;
-  const drawerStaff = drawerStaffId ? staffById[drawerStaffId] : null;
-  const drawerStaffName = drawerAppt?.staff_name
-    || (drawerStaff ? `${drawerStaff.first_name || ""} ${drawerStaff.last_name || ""}`.trim() : null)
-    || null;
+  const drawerUniqueStaff = useMemo(() => {
+    if (!drawerAppt) return [] as { name: string; role?: string }[];
+    const seen = new Map<string, { name: string; role?: string }>();
+    const allItems: any[] = [
+      ...(drawerAppt.services || []),
+      ...(drawerAppt.productItems || drawerAppt.product_items || []),
+      ...(drawerAppt.packageItems || drawerAppt.package_items || []),
+      ...(drawerAppt.membershipItems || drawerAppt.membership_items || []),
+    ];
+    allItems.forEach((item: any) => {
+      const sId = String(item.staffId || item.staff_id || "");
+      if (!sId) return;
+      if (!seen.has(sId)) {
+        const s = staffById[sId];
+        const name = s
+          ? `${s.first_name || ""} ${s.last_name || ""}`.trim()
+          : (item.staff_name || item.staffName || "");
+        if (name) seen.set(sId, { name, role: s?.role });
+      }
+    });
+    const topId = String(drawerAppt.staffId || drawerAppt.staff_id || "");
+    if (topId && !seen.has(topId)) {
+      const s = staffById[topId];
+      const name = s
+        ? `${s.first_name || ""} ${s.last_name || ""}`.trim()
+        : (drawerAppt.staff_name || "");
+      if (name) seen.set(topId, { name, role: s?.role });
+    }
+    return Array.from(seen.values());
+  }, [drawerAppt, staffById]);
 
   let drawerDurationMins = 0;
   try {
@@ -1052,14 +1076,30 @@ export default function AppointmentsPage() {
                 <p className="appt-drawer__error">Failed to load appointment details.</p>
               ) : (
                 <>
-                  {/* Status + date row */}
+                  {/* Status + payment + date row */}
                   <div className="appt-drawer__meta-row">
-                    <span
-                      className="appt-drawer__status-badge"
-                      style={{ background: STATUS_COLOR[drawerStatus] || "#6b7280" }}
-                    >
-                      {STATUS_LABEL[drawerStatus] || drawerStatus}
-                    </span>
+                    <div className="appt-drawer__meta-badges">
+                      <span
+                        className="appt-drawer__status-badge"
+                        style={{ background: STATUS_COLOR[drawerStatus] || "#6b7280" }}
+                      >
+                        {STATUS_LABEL[drawerStatus] || drawerStatus}
+                      </span>
+                      {(() => {
+                        const ps = (drawerAppt.payment_status || drawerAppt.paymentStatus || "").toLowerCase();
+                        const label = PAYMENT_LABEL[ps];
+                        const color = PAYMENT_COLOR[ps];
+                        if (!label) return null;
+                        return (
+                          <span
+                            className="appt-drawer__pay-badge"
+                            style={{ color, borderColor: color }}
+                          >
+                            {label}
+                          </span>
+                        );
+                      })()}
+                    </div>
                     <span className="appt-drawer__date-label">
                       {drawerAppt.created_at
                         ? format(new Date(drawerAppt.created_at), "dd MMM yyyy, HH:mm")
@@ -1182,24 +1222,28 @@ export default function AppointmentsPage() {
                   )}
 
                   {/* ── TEAM MEMBER INFORMATION ──────────────────────────── */}
-                  {drawerStaffName && (
+                  {drawerUniqueStaff.length > 0 && (
                     <div className="appt-drawer__section">
                       <div className="appt-drawer__section-header">
                         <PersonFill size={13} />
-                        <span>Team Member</span>
+                        <span>{drawerUniqueStaff.length > 1 ? "Team Members" : "Team Member"}</span>
                       </div>
-                      <div className="appt-drawer__client-card">
-                        <div className="appt-drawer__avatar appt-drawer__avatar--staff">
-                          {drawerStaffName.trim().split(/\s+/).slice(0, 2).map((w: string) => w[0]).join("").toUpperCase() || "ST"}
-                        </div>
-                        <div className="appt-drawer__client-info">
-                          <div className="appt-drawer__client-name">{drawerStaffName}</div>
-                          {drawerStaff?.role && (
-                            <div className="appt-drawer__client-detail" style={{ textTransform: "capitalize" }}>
-                              {drawerStaff.role}
+                      <div className="appt-drawer__staff-list">
+                        {drawerUniqueStaff.map((s, i) => (
+                          <div key={i} className="appt-drawer__client-card">
+                            <div className="appt-drawer__avatar appt-drawer__avatar--staff">
+                              {s.name.trim().split(/\s+/).slice(0, 2).map((w: string) => w[0]).join("").toUpperCase() || "ST"}
                             </div>
-                          )}
-                        </div>
+                            <div className="appt-drawer__client-info">
+                              <div className="appt-drawer__client-name">{s.name}</div>
+                              {s.role && (
+                                <div className="appt-drawer__client-detail" style={{ textTransform: "capitalize" }}>
+                                  {s.role}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}

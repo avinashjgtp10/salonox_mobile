@@ -189,10 +189,11 @@ const schedulerSlice = createSlice({
         (s: any) => s.staffId && String(s.staffId) !== apptStaffId
       );
       if (hasPerServiceStaff) {
-        state.serviceStaffCache[String(payload.id)] = services.map((s: any) => ({
-          staffId: String(s.staffId ?? ""),
-          staff: String(s.staff ?? ""),
-        }));
+        state.serviceStaffCache[String(payload.id)] = services.map((s: any) => {
+          const sf = s.staff;
+          const staffStr = sf && typeof sf === "object" ? ((sf as any).name || "") : (sf ? String(sf) : "");
+          return { staffId: String(s.staffId ?? ""), staff: staffStr };
+        });
       }
     },
     updateBooking(state, { payload }: PayloadAction<Booking>) {
@@ -205,10 +206,11 @@ const schedulerSlice = createSlice({
         (s: any) => s.staffId && String(s.staffId) !== apptStaffId
       );
       if (hasPerServiceStaff) {
-        state.serviceStaffCache[String(payload.id)] = services.map((s: any) => ({
-          staffId: String(s.staffId ?? ""),
-          staff: String(s.staff ?? ""),
-        }));
+        state.serviceStaffCache[String(payload.id)] = services.map((s: any) => {
+          const sf = s.staff;
+          const staffStr = sf && typeof sf === "object" ? ((sf as any).name || "") : (sf ? String(sf) : "");
+          return { staffId: String(s.staffId ?? ""), staff: staffStr };
+        });
       }
     },
     patchPaymentStatus(

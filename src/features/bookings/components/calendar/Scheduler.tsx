@@ -23,6 +23,7 @@ import AppointmentModal from "../modals/AppointmentModal";
 import ViewBillModal    from "../modals/ViewBillModal";
 import PaymentModal     from "../modals/PaymentModal";
 import BlockTimeModal   from "../modals/BlockTimeModal";
+import "../../styles/Scheduler.scss";
 
 // Stable fallbacks — prevent new [] reference on every selector call when slice is undefined
 const EMPTY_ARR: never[] = [];
@@ -32,7 +33,7 @@ const SchedulerContent: React.FC = () => {
   const location    = useLocation();
   const navigate    = useNavigate();
   const salonId     = useAppSelector((s: any) => s.salon?.currentSalon?.id ?? s.auth?.user?.salon_id ?? "");
-  const { viewMode, setViewMode, currentDate, setCurrentDate, interval } = useSchedulerContext();
+  const { viewMode, setViewMode, currentDate, setCurrentDate } = useSchedulerContext();
 
   const apiServices = useAppSelector((s: any) => s.services?.items ?? EMPTY_ARR);
   const apiStaff    = useAppSelector((s: any) => s.staff?.items   ?? EMPTY_ARR);
@@ -284,17 +285,9 @@ const SchedulerContent: React.FC = () => {
   });
 
   return (
-    <div style={{
-      fontFamily: "'Segoe UI', system-ui, sans-serif",
-      background: "#f8fafc",
-      height: "100%",
-      display: "flex",
-      flexDirection: "column",
-      overflow: "hidden",
-      position: "relative",
-    }}>
+    <div className="scheduler">
       {(!staffReady || hasStaff) && (
-        <div style={{ flexShrink: 0, width: "100%", overflow: "hidden", position: "relative", zIndex: 30 }}>
+        <div className="scheduler__topbar-wrap">
           <TopBar
             onNewAppointment={handleNewAppointment}
             onBlockTime={() => handleBlockTime()}
@@ -304,35 +297,18 @@ const SchedulerContent: React.FC = () => {
         </div>
       )}
 
-      <div style={{
-        flex: 1, display: "flex", flexDirection: "column", minHeight: 0,
-        overflowY: viewMode === "Month" || viewMode === "List Week" ? "auto" : "hidden",
-        overflowX: "hidden",
-      }}>
+      <div className={`scheduler__body${viewMode === "Month" || viewMode === "List Week" ? " scheduler__body--scrollable" : ""}`}>
         {/* ── No-staff empty state ── */}
         {staffReady && !hasStaff ? (
-          <div style={{
-            flex: 1, display: "flex", flexDirection: "column",
-            alignItems: "center", justifyContent: "center", gap: 12,
-            color: "#64748b", textAlign: "center", padding: "40px 24px",
-          }}>
+          <div className="scheduler__empty-state">
             <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
               <circle cx="9" cy="7" r="4"/>
               <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
             </svg>
-            <p style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "#334155" }}>No staff available</p>
-            <p style={{ margin: 0, fontSize: 13, color: "#94a3b8" }}>Add team members to start scheduling appointments.</p>
-            <a
-              href="/dashboard/team"
-              style={{
-                marginTop: 8, padding: "8px 20px", borderRadius: 8,
-                background: "#6366f1", color: "#fff", fontWeight: 600,
-                fontSize: 13, textDecoration: "none", display: "inline-block",
-              }}
-            >
-              + Add Staff
-            </a>
+            <p className="scheduler__empty-title">No staff available</p>
+            <p className="scheduler__empty-subtitle">Add team members to start scheduling appointments.</p>
+            <a href="/dashboard/team" className="scheduler__empty-link">+ Add Staff</a>
           </div>
         ) : (
           <>

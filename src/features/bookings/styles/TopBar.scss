@@ -1,15 +1,29 @@
 @use "../../../styles/themes/variables" as *;
 
+// Root container for the calendar scheduler toolbar.
+// Uses a unique class name to avoid conflicting with DashboardTopbar's className="topbar".
+.cal-topbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+  position: relative;
+  height: 48px;
+  width: 100%;
+  flex-shrink: 0;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  padding: 0 10px;
+  z-index: 30;
+  box-sizing: border-box;
+}
+
+// BEM child selectors — referenced as className="topbar__*" in TopBar.tsx
 .topbar {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 10px;
-  background: $white;
-  border-bottom: 1px solid $dashboard-border;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
-  height: 48px;
-  flex-shrink: 0;
   font-family: inherit;
 
   &__arrow {
@@ -316,4 +330,246 @@
 .topbar-cal-portal {
   position: fixed;
   z-index: 99999;
+}
+
+/* ── Staff filter button (calendar TopBar) ── */
+.topbar__staff-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 5px 10px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  white-space: nowrap;
+  flex-shrink: 0;
+  color: #374151;
+  transition: background 0.15s;
+
+  &--active {
+    background: #eff6ff;
+    color: #3b82f6;
+    border-color: #bfdbfe;
+  }
+
+  &:hover { background: #f9fafb; }
+}
+
+.topbar__staff-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Refresh button (calendar TopBar) ── */
+.topbar__refresh-btn {
+  flex-shrink: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 5px 8px;
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #374151;
+  transition: opacity 0.15s, background 0.15s;
+
+  &:hover { background: #f3f4f6; }
+  &--busy { opacity: 0.5; cursor: default; }
+}
+
+.topbar__refresh-icon {
+  display: block;
+  &--spinning { animation: topbar-spin 0.7s linear infinite; }
+}
+
+/* ── Staff dropdown portal ── */
+.topbar-staff-drop {
+  position: fixed;
+  z-index: 99999;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  min-width: 160px;
+  overflow: hidden;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    width: 100%;
+    background: #fff;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    text-align: left;
+    font-weight: 400;
+    font-family: inherit;
+    transition: background 0.15s;
+
+    &--active { background: #f3f4f6; font-weight: 600; }
+    &:hover   { background: #f9fafb; }
+  }
+
+  &__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+}
+
+/* ── Client search: spinner inside input wrap (calendar TopBar) ── */
+.topbar__client-search-spinner-sm {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 2px solid #d1d5db;
+  border-top-color: #6366f1;
+  animation: topbar-spin 0.7s linear infinite;
+  display: inline-block;
+}
+
+.topbar__client-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  color: #9ca3af;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+/* ── Client search dropdown: richer version (calendar TopBar) ── */
+.topbar-client-drop {
+  position: fixed;
+  z-index: 99999;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.14);
+  overflow: hidden;
+  max-height: 360px;
+  overflow-y: auto;
+
+  &__loading {
+    padding: 16px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #6b7280;
+    font-size: 13px;
+  }
+
+  &__loading-spinner {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid #d1d5db;
+    border-top-color: #6366f1;
+    animation: topbar-spin 0.7s linear infinite;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #f3f4f6;
+    cursor: pointer;
+    transition: background 0.12s;
+
+    &:hover { background: #f9fafb; }
+  }
+
+  &__avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  &__name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #111827;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__phone {
+    font-size: 11px;
+    color: #6b7280;
+  }
+
+  &__no-results {
+    padding: 16px;
+    text-align: center;
+  }
+
+  &__no-results-title {
+    font-size: 13px;
+    color: #ef4444;
+    font-weight: 600;
+    margin-bottom: 3px;
+  }
+
+  &__no-results-sub {
+    font-size: 11px;
+    color: #9ca3af;
+    margin-bottom: 12px;
+  }
+
+  &__no-results-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+  }
+
+  &__no-results-btn {
+    flex: 1;
+    padding: 7px 0;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 7px;
+    cursor: pointer;
+    font-family: inherit;
+
+    &--dark {
+      border: none;
+      background: #1f2937;
+      color: #fff;
+    }
+
+    &--outline {
+      border: 1px solid #6366f1;
+      background: #eff0ff;
+      color: #4f46e5;
+    }
+  }
 }

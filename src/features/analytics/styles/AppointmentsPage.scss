@@ -779,6 +779,17 @@
     gap: 12px;
     padding: 16px 24px;
     border-bottom: 1px solid #f7f8fa;
+    flex-wrap: wrap;
+    overflow: hidden;
+  }
+
+  &__meta-badges {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-width: 0;
+    flex-shrink: 1;
   }
 
   &__status-badge {
@@ -790,11 +801,35 @@
     font-size: 12px;
     font-weight: 600;
     color: #fff;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  &__pay-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1.5px solid currentColor;
+    background: transparent;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   &__date-label {
     font-size: 13px;
     color: #9fa5b0;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* ── Staff list (multiple staff in one section) ─────────────────────── */
+  &__staff-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
   }
 
   /* ── Generic section card ───────────────────────────────────────────── */

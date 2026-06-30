@@ -24,6 +24,8 @@ import { ServicesPanel } from "./ServicesPanel";
 import { PaymentPanel }  from "./PaymentPanel";
 import TotalsPanel       from "./TotalsPanel";
 import PaymentButton     from "../shared/PaymentButton";
+import { printReceipt }  from "./ViewBillModal";
+import { store }         from "../../../../store/store";
 import "../../styles/AppointmentModal.scss";
 
 import type {
@@ -48,8 +50,16 @@ interface Props {
   onDeleteBooking?: (b: Booking) => void;
 }
 
+function nextQuarterHour(): string {
+  const now = new Date();
+  let h = now.getHours();
+  let m = Math.ceil(now.getMinutes() / 15) * 15;
+  if (m === 60) { m = 0; h = (h + 1) % 24; }
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
 function emptyService(staffId?: string, time?: string): ServiceItem {
-  return { id: "", service: "", staff: "", staffId: staffId || "", time: time || "09:00", price: 0, qty: 1, total: 0, duration: 30 };
+  return { id: "", service: "", staff: "", staffId: staffId || "", time: time || nextQuarterHour(), price: 0, qty: 1, total: 0, duration: 30 };
 }
 
 function timeToMins(t: string): number {
@@ -113,6 +123,7 @@ export const AppointmentModal: React.FC<Props> = ({
   const availableMemberships = useAppSelector(selectMembershipsList);
   const blockedTimes  = useAppSelector((s: any) => s.scheduler?.blockedTimes ?? []);
   const schedulerStaff = useAppSelector((s: any) => s.scheduler?.staffList ?? []);
+  const currentSalon  = useAppSelector((s: any) => s.salon?.currentSalon ?? null);
 
   // ── Client ───────────────────────────────────────────────────────────────
   const [selectedClient, setSelectedClient] = useState<Client | null>(
@@ -131,8 +142,8 @@ export const AppointmentModal: React.FC<Props> = ({
 
   // ── Line items ───────────────────────────────────────────────────────────
   const [serviceRows, setServiceRows]       = useState<ServiceItem[]>(() =>
-    existingBooking?.services?.length
-      ? existingBooking.services
+    existingBooking
+      ? (existingBooking.services ?? [])
       : [emptyService(defaultStaffId, defaultTime)]
   );
   const [packageRows, setPackageRows]       = useState<PackageItem[]>(existingBooking?.packageItems ?? []);
@@ -145,6 +156,7 @@ export const AppointmentModal: React.FC<Props> = ({
   const [gstPercent]                      = useState(existingBooking?.gst ?? 0);
   const [exCharges, setExCharges]         = useState(existingBooking?.exCharges ?? 0);
   const [tip, setTip]                     = useState(existingBooking?.tipAmount ?? 0);
+  const [focusedField, setFocusedField]   = useState<"exCharges" | "tip" | "discountValue" | null>(null);
 
   // ── Notes / Alert ─────────────────────────────────────────────────────────
   const [notes, setNotes]           = useState(existingBooking?.notes ?? "");
@@ -322,6 +334,11 @@ export const AppointmentModal: React.FC<Props> = ({
         startTime:     serviceRows[0]?.time || defaultTime || "10:00",
         paymentStatus: (existingBooking?.paymentStatus || "Unpaid") as any,
         grandTotal:    totals.grandTotal,
+        discount:      discountValue,
+        discountType,
+        exCharges,
+        tipAmount:     tip,
+        gst:           gstPercent,
       } as Partial<Booking>,
       serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId,
@@ -373,13 +390,22 @@ export const AppointmentModal: React.FC<Props> = ({
       paymentMode, singleMethod, splitEntries, partialAmtInput,
       includeClearDue, priorDueAmt, useEWallet,
     });
-    if (ok) { onRefresh?.(); onClose(); }
+    if (ok) {
+      if (printAfterPayment) {
+        const freshBooking = store.getState().scheduler.bookings.find(
+          (b: any) => String(b.id) === String(apptId)
+        );
+        if (freshBooking) printReceipt(freshBooking as any, schedulerStaff, currentSalon);
+      }
+      onRefresh?.();
+      onClose();
+    }
   }, [
     completePayment, existingBooking, apiAppointmentId,
     selectedClient, salonId, totals, alreadyPaidAmount,
     eWalletAmt, coupon, paymentMode, singleMethod, splitEntries,
     partialAmtInput, includeClearDue, priorDueAmt, useEWallet,
-    onRefresh, onClose,
+    onRefresh, onClose, printAfterPayment, schedulerStaff, currentSalon,
   ]);
 
   if (!isOpen) return null;
@@ -532,7 +558,7 @@ export const AppointmentModal: React.FC<Props> = ({
                   triggerPackages({});
                   triggerTemplates();
                 }
-                setPackageRows((rows) => [...rows, { id: "", packageId: "", packageName: "", price: 0, qty: 1, discount: 0, total: 0 }]);
+                setPackageRows((rows) => [...rows, { id: "", packageId: "", packageName: "", price: 0, qty: 1, discount: 0, total: 0, staffId: defaultStaffId || "", time: serviceRows[0]?.time || defaultTime || "" }]);
               }}
               productRows={productRows}
               onUpdateProduct={(i, r) => setProductRows((rows) => rows.map((x, idx) => idx === i ? r : x))}
@@ -542,7 +568,7 @@ export const AppointmentModal: React.FC<Props> = ({
                   prodRequested.current = true;
                   dispatch(fetchProductsThunk());
                 }
-                setProductRows((rows) => [...rows, { id: "", productId: "", productName: "", price: 0, qty: 1, discount: 0, total: 0 }]);
+                setProductRows((rows) => [...rows, { id: "", productId: "", productName: "", price: 0, qty: 1, discount: 0, total: 0, staffId: defaultStaffId || "", time: serviceRows[0]?.time || defaultTime || "" }]);
               }}
               membershipRows={membershipRows}
               onUpdateMembership={(i, r) => setMembershipRows((rows) => rows.map((x, idx) => idx === i ? r : x))}
@@ -552,7 +578,7 @@ export const AppointmentModal: React.FC<Props> = ({
                   memRequested.current = true;
                   dispatch(fetchMembershipsThunk());
                 }
-                setMembershipRows((rows) => [...rows, { id: "", membershipId: "", membershipName: "", price: 0, qty: 1, total: 0 }]);
+                setMembershipRows((rows) => [...rows, { id: "", membershipId: "", membershipName: "", price: 0, qty: 1, total: 0, staffId: defaultStaffId || "", time: serviceRows[0]?.time || defaultTime || "" }]);
               }}
               availablePackages={availablePackages}
               availableProducts={availableProducts}
@@ -583,18 +609,27 @@ export const AppointmentModal: React.FC<Props> = ({
                 </div>
                 <div className="field-group">
                   <label>Ex Charges</label>
-                  <input className="fg-input" type="number" min={0} value={exCharges}
-                    onChange={(e) => setExCharges(Number(e.target.value))} />
+                  <input className="fg-input" type="number" min={0}
+                    value={focusedField === "exCharges" && exCharges === 0 ? "" : exCharges}
+                    onFocus={() => setFocusedField("exCharges")}
+                    onBlur={() => setFocusedField(null)}
+                    onChange={(e) => setExCharges(e.target.value === "" ? 0 : Number(e.target.value))} />
                 </div>
                 <div className="field-group">
                   <label>Tip</label>
-                  <input className="fg-input" type="number" min={0} value={tip}
-                    onChange={(e) => setTip(Number(e.target.value))} />
+                  <input className="fg-input" type="number" min={0}
+                    value={focusedField === "tip" && tip === 0 ? "" : tip}
+                    onFocus={() => setFocusedField("tip")}
+                    onBlur={() => setFocusedField(null)}
+                    onChange={(e) => setTip(e.target.value === "" ? 0 : Number(e.target.value))} />
                 </div>
                 <div className="field-group">
                   <label>Svc Discount</label>
-                  <input className="fg-input" type="number" min={0} value={discountValue}
-                    onChange={(e) => setDiscountValue(Number(e.target.value))} />
+                  <input className="fg-input" type="number" min={0}
+                    value={focusedField === "discountValue" && discountValue === 0 ? "" : discountValue}
+                    onFocus={() => setFocusedField("discountValue")}
+                    onBlur={() => setFocusedField(null)}
+                    onChange={(e) => setDiscountValue(e.target.value === "" ? 0 : Number(e.target.value))} />
                 </div>
                 <div className="field-group">
                   <label>Disc. Type</label>
@@ -650,7 +685,11 @@ export const AppointmentModal: React.FC<Props> = ({
             <div className="appt-section" ref={paymentSectionRef}>
               <div className="appt-section__title" style={{ display: "flex", justifyContent: "space-between" }}>
                 <span>Amount to Pay</span>
-                <span>{currencySymbol}{totals.effectiveTotal.toFixed(2)}</span>
+                {alreadyPaidAmount > 0 ? (
+                  <span>Paid {currencySymbol}{alreadyPaidAmount.toFixed(2)} &nbsp;·&nbsp; Remaining {currencySymbol}{remainingDue.toFixed(2)}</span>
+                ) : (
+                  <span>{currencySymbol}{totals.effectiveTotal.toFixed(2)}</span>
+                )}
               </div>
               <PaymentPanel
                 effectiveTotal={totals.effectiveTotal}

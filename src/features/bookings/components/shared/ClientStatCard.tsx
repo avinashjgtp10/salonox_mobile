@@ -22,8 +22,8 @@ const STAT_ROWS: Array<{
   hideWhen?: (v: any) => boolean;
 }> = [
   { label: "Reward Points", key: "rewardPoints" },
-  { label: "Ewallet Amt",   key: "ewalletAmt",   format: (v) => `${currencySymbol}${v}` },
-  { label: "Unpaid Amt",    key: "unpaidAmt",     format: (v) => `${currencySymbol}${v}`,  danger: (v) => v > 0 },
+  { label: "Ewallet Amt",   key: "ewalletAmt",   format: (v) => `${currencySymbol}${Number(v).toLocaleString("en-IN")}` },
+  { label: "Unpaid Amt",    key: "unpaidAmt",     format: (v) => `${currencySymbol}${Number(v).toLocaleString("en-IN")}`,  danger: (v) => v > 0 },
   { label: "Assign Discount", key: "assignDiscount", format: (v) => `${v}%` },
   { label: "Disc. Validity", key: "discountValidity" },
   { label: "Membership",    key: "membership" },
