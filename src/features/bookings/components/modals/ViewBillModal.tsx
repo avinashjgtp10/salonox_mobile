@@ -106,10 +106,9 @@ export function printReceipt(
 
   const subtotalAmt = Number((booking as any).subtotal || 0);
   const couponDisc  = Number((booking as any).couponDiscount || 0);
-  const manualDisc  = (booking as any).discount && subtotalAmt > 0
-    ? Math.max(0, subtotalAmt - Number((booking as any).taxableAmount || 0) - couponDisc)
-    : 0;
+  const manualDisc  = Number((booking as any).discountAmount || 0);
   const exCharges = Number((booking as any).exCharges || 0);
+  const tipAmt    = Number((booking as any).tipAmount || 0);
 
   const summaryRow = (label: string, value: string, cls = "") =>
     `<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;${cls}">${label}<span>${value}</span></div>`;
@@ -119,6 +118,7 @@ export function printReceipt(
     manualDisc  > 0 ? summaryRow("Discount", `−${currencySymbol}${manualDisc.toFixed(2)}`, "color:#ef4444") : "",
     couponDisc  > 0 ? summaryRow(`Coupon (${(booking as any).couponCode || ""})`, `−${currencySymbol}${couponDisc.toFixed(2)}`, "color:#ef4444") : "",
     exCharges   > 0 ? summaryRow("Extra Charges", `${currencySymbol}${exCharges.toFixed(2)}`, "color:#6b7280") : "",
+    tipAmt      > 0 ? summaryRow("Tip", `${currencySymbol}${tipAmt.toFixed(2)}`, "color:#6b7280") : "",
     `<div style="display:flex;justify-content:space-between;font-size:17px;font-weight:800;color:#1f2937;border-top:2px solid #1f2937;margin-top:8px;padding-top:10px">Grand Total<span>${currencySymbol}${(booking.grandTotal || 0).toFixed(2)}</span></div>`,
     `<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;color:#16a34a;margin-top:6px">Amount Paid<span>${currencySymbol}${(booking.payingNow || 0).toFixed(2)}</span></div>`,
     (booking.dueAmount || 0) > 0 ? `<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;color:#dc2626;margin-top:4px">Balance Due<span>${currencySymbol}${(booking.dueAmount || 0).toFixed(2)}</span></div>` : "",
@@ -304,7 +304,9 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
           <div className="vbm-client-hero">
             <div className="vbm-avatar">{booking.clientName?.charAt(0) || "?"}</div>
             <div className="vbm-client-name">{booking.clientName}</div>
-            {booking.clientPhone && <div className="vbm-client-phone">{booking.clientPhone}</div>}
+            {booking.clientPhone && (
+              <div className="vbm-client-phone">{booking.clientPhone}</div>
+            )}
             {client && <div className="vbm-ewallet"><span>💳 eWallet: {currencySymbol}{client.eWallet?.toFixed(2) || "0.00"}</span></div>}
           </div>
 
@@ -345,15 +347,18 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
           <div className="vbm-section">
             <div className="vbm-section-label">Summary</div>
             {[
-              booking.subtotal     ? ["Subtotal", booking.subtotal,     "#374151", false] : null,
-              booking.taxableAmount ? ["Taxable",  booking.taxableAmount, "#374151", false] : null,
-              ["Total", booking.grandTotal, "#111827", true],
-              ["Paid",  booking.payingNow,  "#111827", false],
-              (booking.dueAmount || 0) > 0 ? ["Due", booking.dueAmount, "#ef4444", false] : null,
-            ].filter((row): row is [string, number, string, boolean] => row !== null).map(([l, v, c, bold]) => (
+              booking.subtotal       ? ["Subtotal", `${currencySymbol}${booking.subtotal.toFixed(2)}`, "#374151", false] : null,
+              booking.discountAmount ? ["Discount", `−${currencySymbol}${booking.discountAmount.toFixed(2)}`, "#ef4444", false] : null,
+              booking.couponDiscount ? [`Coupon (${booking.couponCode})`, `−${currencySymbol}${booking.couponDiscount.toFixed(2)}`, "#22c55e", false] : null,
+              booking.exCharges      ? ["Extra Charges", `${currencySymbol}${booking.exCharges.toFixed(2)}`, "#374151", false] : null,
+              booking.tipAmount      ? ["Tip", `${currencySymbol}${booking.tipAmount.toFixed(2)}`, "#374151", false] : null,
+              ["Total", `${currencySymbol}${(booking.grandTotal || 0).toFixed(2)}`, "#111827", true],
+              ["Paid",  `${currencySymbol}${(booking.payingNow || 0).toFixed(2)}`, "#111827", false],
+              (booking.dueAmount || 0) > 0 ? ["Due", `${currencySymbol}${(booking.dueAmount || 0).toFixed(2)}`, "#ef4444", false] : null,
+            ].filter((row): row is [string, string, string, boolean] => row !== null).map(([l, v, c, bold]) => (
               <div key={l as string} className={`vbm-summary-row${bold ? " vbm-summary-row--bold" : ""}`} style={{ color: c as string }}>
                 <span>{l as string}</span>
-                <span>{currencySymbol}{((v as number) || 0).toFixed(2)}</span>
+                <span>{v as string}</span>
               </div>
             ))}
           </div>
@@ -534,9 +539,11 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                 <div className="vbm-breakdown-card">
                   <div className="vbm-breakdown-card__title">Payment Breakdown</div>
                   {[
-                    booking.discount ? ["Discount", `−${currencySymbol}${Math.max(0, (booking.subtotal || 0) - (booking.taxableAmount || 0) - (booking.couponDiscount || 0)).toFixed(2)}`, "#ef4444"] : null,
+                    booking.subtotal ? ["Subtotal", `${currencySymbol}${(booking.subtotal || 0).toFixed(2)}`, "#6b7280"] : null,
+                    booking.discountAmount ? ["Discount", `−${currencySymbol}${(booking.discountAmount || 0).toFixed(2)}`, "#ef4444"] : null,
                     booking.couponDiscount ? [`Coupon (${booking.couponCode})`, `−${currencySymbol}${(booking.couponDiscount || 0).toFixed(2)}`, "#22c55e"] : null,
                     booking.exCharges ? ["Extra Charges", `${currencySymbol}${(booking.exCharges || 0).toFixed(2)}`, "#374151"] : null,
+                    booking.tipAmount ? ["Tip", `${currencySymbol}${(booking.tipAmount || 0).toFixed(2)}`, "#374151"] : null,
                   ].filter(Boolean).map((row, i) => (
                     <div key={i} className="vbm-breakdown-row" style={{ color: row![2] as string }}>
                       <span>{row![0] as string}</span><span>{row![1] as string}</span>

@@ -175,6 +175,15 @@ export function mapApiBooking(
 
   const grandTotalVal = parseFloat(String(appt.grand_total ?? appt.grandTotal ?? appt.total_amount ?? 0)) || computedTotal;
 
+  // ── Subtotal / discount / taxable amount ──────────────────────────────────
+  // The API stores the raw discount input (discount_value, a %/flat number) separately
+  // from the computed monetary discount (discount_amount). Use computedTotal as the
+  // subtotal fallback since the API doesn't always echo back a `subtotal` field.
+  const subtotalVal = parseFloat(String(appt.subtotal ?? 0)) || computedTotal;
+  const discountAmountVal = parseFloat(String(appt.discount_amount ?? appt.discountAmount ?? 0)) || 0;
+  const taxableAmountVal = parseFloat(String(appt.taxable_amount ?? appt.taxableAmount ?? 0))
+    || Math.max(0, subtotalVal - discountAmountVal);
+
   // ── Normalise paymentStatus (always Title Case) ───────────────────────────
   const normalizedPaymentStatus = normalizePaymentStatus(appt.payment_status ?? appt.paymentStatus);
 
@@ -256,9 +265,12 @@ export function mapApiBooking(
     notes: parsedNotes,
     staffAlert: parsedStaffAlert,
     discount: parseFloat(String(appt.discount_value ?? 0)) || 0,
+    discountAmount: discountAmountVal,
     discountType: appt.discount_type === "flat" ? "Flat (₹)" : "Percentage (%)",
     exCharges: parseFloat(String(appt.ex_charges ?? 0)) || 0,
     tipAmount: parseFloat(String(appt.tip_amount ?? 0)) || 0,
     gst: parseFloat(String(appt.gst_percent ?? 0)) || 0,
+    subtotal: subtotalVal,
+    taxableAmount: taxableAmountVal,
   } as Booking;
 }

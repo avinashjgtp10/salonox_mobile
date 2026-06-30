@@ -178,7 +178,7 @@ const BookingChipComponent: React.FC<Props> = ({
           if (isReadOnly) return;
           e.stopPropagation(); e.preventDefault();
           const h = Math.max(chipHeight, slotHeight);
-          onStartResize({ booking: b, startY: e.clientY, originalHeight: h, currentHeight: h });
+          onStartResize({ booking: b, startY: e.clientY, originalHeight: h, currentHeight: h, staffId });
         }}
       >
         <div className="dv-chip__resize-bar" />

@@ -57,8 +57,6 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
     if (searchTimer.current) clearTimeout(searchTimer.current);
     const trimmed = q.trim();
     if (trimmed.length < 3) { setClientResults([]); setShowClientDrop(false); return; }
-    const isNumeric = /^\d+$/.test(trimmed);
-    if (isNumeric && trimmed.length !== 10) { setClientResults([]); setShowClientDrop(false); return; }
     setShowClientDrop(true);
     searchTimer.current = setTimeout(async () => {
       setClientSearching(true);
@@ -281,9 +279,10 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
                       className="topbar-client-drop__no-results-btn topbar-client-drop__no-results-btn--dark"
                       onMouseDown={(e) => {
                         e.preventDefault();
-                        const phone = clientQuery.trim();
+                        const q = clientQuery.trim();
+                        const isPhone = /^\d{7,}$/.test(q.replace(/[^\d]/g, ""));
                         closeSearch();
-                        onNewAppointmentForClient?.({ id: "", name: "", phone });
+                        onNewAppointmentForClient?.({ id: "", name: isPhone ? "" : q, phone: isPhone ? q : "" });
                       }}
                     >
                       + Add Appointment

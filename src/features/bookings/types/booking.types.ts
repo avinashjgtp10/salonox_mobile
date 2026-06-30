@@ -116,6 +116,7 @@ export interface Booking {
   rewardPoints?: string;
   exCharges?: number;
   discount?: number;
+  discountAmount?: number; // computed monetary discount (₹), as opposed to discount which may be a raw %/flat input
   discountType?: DiscountType;
   gst?: number;
   couponCode?: string;

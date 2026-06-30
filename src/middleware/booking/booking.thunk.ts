@@ -117,6 +117,12 @@ function mapBooking(appt: any, servicesList?: any[]): Booking {
   const payingNow = parseFloat(String(appt.paid_amount ?? appt.payingNow ?? 0)) || 0;
   const dueAmount  = parseFloat(String(appt.due_amount  ?? appt.dueAmount  ?? 0)) || 0;
 
+  // Subtotal / discount / taxable amount — see bookingMapper.ts for rationale
+  const subtotalVal = parseFloat(String(appt.subtotal ?? 0)) || computedTotal;
+  const discountAmountVal = parseFloat(String(appt.discount_amount ?? appt.discountAmount ?? 0)) || 0;
+  const taxableAmountVal = parseFloat(String(appt.taxable_amount ?? appt.taxableAmount ?? 0))
+    || Math.max(0, subtotalVal - discountAmountVal);
+
   const rawNotes: string = appt.notes || "";
   const legacySep = "\n Staff Alert: ";
   const legacyIdx = rawNotes.indexOf(legacySep);
@@ -163,10 +169,13 @@ function mapBooking(appt: any, servicesList?: any[]): Booking {
     paymentMode: appt.paymentMode || appt.payment_method || undefined,
     notes: parsedNotes, staffAlert: parsedStaffAlert,
     discount: parseFloat(String(appt.discount_value ?? 0)) || 0,
+    discountAmount: discountAmountVal,
     discountType: appt.discount_type === "flat" ? "Flat (₹)" : "Percentage (%)",
     exCharges: parseFloat(String(appt.ex_charges ?? 0)) || 0,
     tipAmount: parseFloat(String(appt.tip_amount ?? 0)) || 0,
     gst: parseFloat(String(appt.gst_percent ?? 0)) || 0,
+    subtotal: subtotalVal,
+    taxableAmount: taxableAmountVal,
   };
 }
 

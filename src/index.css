@@ -64,3 +64,17 @@ button {
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
+
+/* ===== Hide number input spinner controls (Chrome, Edge, Safari, Firefox) ===== */
+/* Typing, mouse wheel, and arrow-key input remain unaffected — only the visible
+   up/down spinner UI is removed. */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+}
+input[type="number"] {
+  -moz-appearance: textfield !important;
+  appearance: textfield !important;
+}
+/* ===================================== */

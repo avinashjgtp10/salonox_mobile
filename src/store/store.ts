@@ -49,6 +49,16 @@ const shiftPersistConfig = {
   whitelist: ["staffMembers", "shifts"],
 };
 
+// Only persist serviceStaffCache — the local workaround for the backend not
+// reliably persisting/returning per-service staff_id after a drag (see
+// SchedulerContext.tsx). Without this, the correction is lost on every page
+// reload, even on the device that made the edit.
+const schedulerPersistConfig = {
+  key: "scheduler",
+  storage,
+  whitelist: ["serviceStaffCache"],
+};
+
 export const store = configureStore({
   reducer: {
     auth: persistReducer(authPersistConfig, authReducer) as unknown as Reducer<AuthState>,
@@ -62,7 +72,7 @@ export const store = configureStore({
     booking: bookingReducer,
     setting: settingReducer,
     app: appReducer,
-    scheduler: schedulerReducer,
+    scheduler: persistReducer(schedulerPersistConfig, schedulerReducer) as unknown as Reducer<ReturnType<typeof schedulerReducer>>,
     marketing: marketingReducer,
     inbox: inboxReducer,
     report: reportReducer,

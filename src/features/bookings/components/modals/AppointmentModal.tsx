@@ -523,6 +523,7 @@ export const AppointmentModal: React.FC<Props> = ({
               onStatsLoaded={setClientStats}
               historyUrlBase="/dashboard/clients"
               error={clientError || walkInPayError}
+              defaultName={!existingBooking && !selectedClient ? defaultClientName : undefined}
               defaultPhone={!existingBooking && !selectedClient ? defaultClientPhone : undefined}
               openAddForm={triggerAddForm}
             />
