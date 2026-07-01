@@ -19,230 +19,383 @@ export function printReceipt(
     id ? staffList.find((s) => String(s.id) === String(id))?.name ?? "" : "";
 
   const salonName    = salon?.business_name || "Salon";
-  const salonAddress = salon?.address       || "";
-  const salonPhone   = salon?.phone         || "";
-  const salonEmail   = salon?.email         || "";
-  const gst          = salon?.gst_number    || "";
-  const logoUrl      = salon?.logo_url      || "";
+  const salonAddress = (salon as any)?.address       || "";
+  const salonPhone   = (salon as any)?.phone         || "";
+  const salonEmail   = (salon as any)?.email         || "";
+  const salonWebsite = (salon as any)?.website_url   || "";
+  const gst          = (salon as any)?.gst_number    || "";
+  const logoUrl      = (salon as any)?.logo_url      || "";
 
-  const generatedAt = new Date().toLocaleString("en-IN", {
-    year: "numeric", month: "short", day: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
+  const now = new Date();
+  const printDate = now.toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" });
+  const printTime = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+  const invoiceNo = `INV-${String(booking.id).padStart(6, "0")}`;
 
-  const apptDate = (booking as any).billDate || (booking as any).date || "";
+  const apptDate = (booking as any).billDate || (booking as any).date || "—";
+  const apptTime = `${formatTime12(booking.startTime)} – ${formatTime12(booking.endTime)}`;
 
   const isCancelled = ((booking as any).status || "").toLowerCase() === "cancelled";
-  const ps = isCancelled ? "Cancelled" : (booking.paymentStatus ?? "Unpaid");
-  const PAY_COLOR: Record<string, string> = { Paid: "#16a34a", Partial: "#7c3aed", Unpaid: "#d97706", Cancelled: "#ef4444" };
+  const rawPs = isCancelled ? "Cancelled" : (booking.paymentStatus ?? "Unpaid");
+  const PAY_COLOR: Record<string, string> = { Paid: "#15803d", Partial: "#7c3aed", Unpaid: "#b45309", Cancelled: "#dc2626" };
   const PAY_BG:    Record<string, string> = { Paid: "#dcfce7", Partial: "#ede9fe", Unpaid: "#fef3c7", Cancelled: "#fee2e2" };
-  const payColor = PAY_COLOR[ps] ?? "#d97706";
-  const payBg    = PAY_BG[ps]    ?? "#fef3c7";
+  const payColor = PAY_COLOR[rawPs] ?? "#b45309";
+  const payBg    = PAY_BG[rawPs]    ?? "#fef3c7";
 
-  const allStaffDisplay = Array.from(new Set(
+  const allStaffIds = Array.from(new Set(
     [booking.staffId, ...(booking.services || []).map((s: any) => s.staffId)].filter(Boolean)
-  )).map((id) => findStaffName(id as string)).filter(Boolean).join(", ") || "—";
+  )) as string[];
+  const allStaffDisplay = allStaffIds.map((id) => findStaffName(id)).filter(Boolean).join(", ") || "—";
 
   const services        = booking.services || [];
   const packageItems    = (booking as any).packageItems  || (booking as any).packages     || [];
   const membershipItems = (booking as any).membershipItems || (booking as any).memberships || [];
   const productItems    = (booking as any).productItems  || (booking as any).products      || [];
 
-  const badgeStyle = (bg: string, color: string) =>
-    `display:inline-block;font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;text-transform:uppercase;letter-spacing:0.3px;background:${bg};color:${color}`;
+  // ── Currency: no symbol for calendar feature ──
+  const fmt = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  const td = (content: string, extra = "") =>
-    `<td style="padding:9px 11px;border-bottom:1px solid #f3f4f6;vertical-align:middle${extra ? ";" + extra : ""}">${content}</td>`;
+  // ── Table rows ────────────────────────────────────────────────────────────
+  let srNo = 0;
+  const BADGE: Record<string, [string, string]> = {
+    Service:    ["#ede9fe", "#5b21b6"],
+    Package:    ["#fef3c7", "#92400e"],
+    Membership: ["#dcfce7", "#15803d"],
+    Product:    ["#dbeafe", "#1d4ed8"],
+  };
 
   const makeRow = (
-    itemName: string,
-    badgeBg: string, badgeColor: string, badgeLabel: string,
-    staffDisplay: string,
-    timeDisplay: string,
+    name: string, type: string, staff: string, time: string,
     qty: number, price: number, discount: number, total: number,
-  ) =>
-    `<tr>
-      ${td(itemName, "text-align:left")}
-      ${td(`<span style="${badgeStyle(badgeBg, badgeColor)}">${badgeLabel}</span>`, "text-align:center")}
-      ${td(staffDisplay || "—", "text-align:center;font-size:11px;color:#6b7280")}
-      ${td(timeDisplay  || "—", "text-align:center;font-size:11px;color:#6b7280")}
-      ${td(String(qty),         "text-align:center")}
-      ${td(`${currencySymbol}${price.toFixed(2)}`, "text-align:right")}
-      ${td(discount > 0 ? `<span style="color:#ef4444">−${currencySymbol}${discount.toFixed(2)}</span>` : "—", "text-align:right")}
-      ${td(`${currencySymbol}${total.toFixed(2)}`, "text-align:right;font-weight:600")}
+    isEven: boolean,
+  ) => {
+    srNo++;
+    const [badgeBg, badgeColor] = BADGE[type] ?? ["#f3f4f6", "#374151"];
+    const rowBg = isEven ? "#f8fafc" : "#ffffff";
+    return `
+    <tr style="background:${rowBg};-webkit-print-color-adjust:exact;print-color-adjust:exact">
+      <td style="padding:9px 10px;border:1px solid #e2e8f0;text-align:center;color:#64748b;font-size:11px">${srNo}</td>
+      <td style="padding:9px 12px;border:1px solid #e2e8f0;font-weight:600;color:#1e293b;font-size:12px">${name}</td>
+      <td style="padding:9px 10px;border:1px solid #e2e8f0;text-align:center">
+        <span style="display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;background:${badgeBg};color:${badgeColor};letter-spacing:0.3px;text-transform:uppercase;-webkit-print-color-adjust:exact;print-color-adjust:exact">${type}</span>
+      </td>
+      <td style="padding:9px 10px;border:1px solid #e2e8f0;text-align:center;font-size:11px;color:#475569">${staff || "—"}</td>
+      <td style="padding:9px 10px;border:1px solid #e2e8f0;text-align:center;font-size:11px;color:#475569">${time || "—"}</td>
+      <td style="padding:9px 10px;border:1px solid #e2e8f0;text-align:center;font-size:12px">${qty}</td>
+      <td style="padding:9px 10px;border:1px solid #e2e8f0;text-align:right;font-size:12px">${fmt(price)}</td>
+      <td style="padding:9px 10px;border:1px solid #e2e8f0;text-align:right;font-size:12px;color:${discount > 0 ? "#dc2626" : "#94a3b8"}">${discount > 0 ? `−${fmt(discount)}` : "—"}</td>
+      <td style="padding:9px 12px;border:1px solid #e2e8f0;text-align:right;font-weight:700;font-size:12px;color:#1e293b">${fmt(total)}</td>
     </tr>`;
+  };
 
-  const svcRows = services.map((s: any) => makeRow(
-    s.service || s.name || "",
-    "#ede9fe", "#5b21b6", "Service",
-    findStaffName(s.staffId) || allStaffDisplay,
-    s.time ? formatTime12(s.time) : "—",
-    Number(s.qty || 1), Number(s.price || 0), Number(s.discount || 0), Number(s.total || s.price || 0),
-  )).join("");
-
-  const pkgRows = packageItems.map((p: any) => makeRow(
-    p.packageName || p.name || "",
-    "#fef3c7", "#92400e", "Package",
-    findStaffName(p.staffId) || "—", "—",
-    Number(p.qty || 1), Number(p.price || 0), Number(p.discount || 0), Number(p.total || p.price || 0),
-  )).join("");
-
-  const memRows = membershipItems.map((m: any) => makeRow(
-    m.membershipName || m.name || "",
-    "#dcfce7", "#15803d", "Membership",
-    findStaffName(m.staffId) || "—", "—",
-    Number(m.qty || 1), Number(m.price || 0), Number(m.discount || 0), Number(m.total || m.price || 0),
-  )).join("");
-
-  const prodRows = productItems.map((p: any) => makeRow(
-    p.productName || p.name || "",
-    "#dbeafe", "#1d4ed8", "Product",
-    findStaffName(p.staffId) || "—",
-    p.time ? formatTime12(p.time) : "—",
-    Number(p.qty || 1), Number(p.price || 0), Number(p.discount || 0), Number(p.total || p.price || 0),
-  )).join("");
-
+  let rowIdx = 0;
+  const svcRows  = services.map((s: any) => makeRow(s.service || s.name || "", "Service", findStaffName(s.staffId) || allStaffDisplay, s.time ? formatTime12(s.time) : "—", Number(s.qty||1), Number(s.price||0), Number(s.discount||0), Number(s.total||s.price||0), (rowIdx++ % 2 === 0))).join("");
+  const pkgRows  = packageItems.map((p: any) => makeRow(p.packageName||p.name||"", "Package", findStaffName(p.staffId)||"—", p.time ? formatTime12(p.time) : "—", Number(p.qty||1), Number(p.price||0), Number(p.discount||0), Number(p.total||p.price||0), (rowIdx++ % 2 === 0))).join("");
+  const memRows  = membershipItems.map((m: any) => makeRow(m.membershipName||m.name||"", "Membership", findStaffName(m.staffId)||"—", "—", Number(m.qty||1), Number(m.price||0), Number(m.discount||0), Number(m.total||m.price||0), (rowIdx++ % 2 === 0))).join("");
+  const prodRows = productItems.map((p: any) => makeRow(p.productName||p.name||"", "Product", findStaffName(p.staffId)||"—", p.time ? formatTime12(p.time) : "—", Number(p.qty||1), Number(p.price||0), Number(p.discount||0), Number(p.total||p.price||0), (rowIdx++ % 2 === 0))).join("");
   const allItemRows = svcRows + pkgRows + memRows + prodRows;
 
-  const subtotalAmt = Number((booking as any).subtotal || 0);
-  const couponDisc  = Number((booking as any).couponDiscount || 0);
+  // ── Payment summary ───────────────────────────────────────────────────────
+  const subtotalAmt = Number((booking as any).subtotal      || 0);
   const manualDisc  = Number((booking as any).discountAmount || 0);
-  const exCharges = Number((booking as any).exCharges || 0);
-  const tipAmt    = Number((booking as any).tipAmount || 0);
+  const couponDisc  = Number((booking as any).couponDiscount || 0);
+  const couponCode  = (booking as any).couponCode || "";
+  const exCharges   = Number((booking as any).exCharges     || 0);
+  const tipAmt      = Number((booking as any).tipAmount     || 0);
+  const gstPct      = Number((booking as any).gst           || 0);
+  const gstAmt      = Number((booking as any).gstAmount     || 0);
+  const grandTotal  = Number(booking.grandTotal || 0);
+  const paidAmt     = Number(booking.payingNow  || 0);
+  const dueAmt      = Number(booking.dueAmount  || 0);
 
-  const summaryRow = (label: string, value: string, cls = "") =>
-    `<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;${cls}">${label}<span>${value}</span></div>`;
+  const sumRow = (label: string, value: string, bold = false, color = "#334155", bg = "transparent", borderTop = false) =>
+    `<tr style="background:${bg};-webkit-print-color-adjust:exact;print-color-adjust:exact">
+      <td style="padding:7px 14px;font-size:12px;font-weight:${bold ? 700 : 500};color:${color};${borderTop ? "border-top:2px solid #1e293b;" : "border-top:1px solid #e2e8f0;"}border-left:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0">${label}</td>
+      <td style="padding:7px 14px;text-align:right;font-size:12px;font-weight:${bold ? 700 : 500};color:${color};${borderTop ? "border-top:2px solid #1e293b;" : "border-top:1px solid #e2e8f0;"}border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0">${value}</td>
+    </tr>`;
 
-  const summaryHtml = [
-    subtotalAmt > 0 ? summaryRow("Subtotal", `${currencySymbol}${subtotalAmt.toFixed(2)}`, "color:#6b7280") : "",
-    manualDisc  > 0 ? summaryRow("Discount", `−${currencySymbol}${manualDisc.toFixed(2)}`, "color:#ef4444") : "",
-    couponDisc  > 0 ? summaryRow(`Coupon (${(booking as any).couponCode || ""})`, `−${currencySymbol}${couponDisc.toFixed(2)}`, "color:#ef4444") : "",
-    exCharges   > 0 ? summaryRow("Extra Charges", `${currencySymbol}${exCharges.toFixed(2)}`, "color:#6b7280") : "",
-    tipAmt      > 0 ? summaryRow("Tip", `${currencySymbol}${tipAmt.toFixed(2)}`, "color:#6b7280") : "",
-    `<div style="display:flex;justify-content:space-between;font-size:17px;font-weight:800;color:#1f2937;border-top:2px solid #1f2937;margin-top:8px;padding-top:10px">Grand Total<span>${currencySymbol}${(booking.grandTotal || 0).toFixed(2)}</span></div>`,
-    `<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;color:#16a34a;margin-top:6px">Amount Paid<span>${currencySymbol}${(booking.payingNow || 0).toFixed(2)}</span></div>`,
-    (booking.dueAmount || 0) > 0 ? `<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;color:#dc2626;margin-top:4px">Balance Due<span>${currencySymbol}${(booking.dueAmount || 0).toFixed(2)}</span></div>` : "",
+  const summaryRows = [
+    subtotalAmt > 0 ? sumRow("Subtotal", fmt(subtotalAmt)) : "",
+    manualDisc  > 0 ? sumRow("Discount", `−${fmt(manualDisc)}`, false, "#dc2626") : "",
+    couponDisc  > 0 ? sumRow(`Coupon${couponCode ? ` (${couponCode})` : ""}`, `−${fmt(couponDisc)}`, false, "#dc2626") : "",
+    exCharges   > 0 ? sumRow("Extra Charges", `+${fmt(exCharges)}`) : "",
+    tipAmt      > 0 ? sumRow("Tip", `+${fmt(tipAmt)}`) : "",
+    gstAmt      > 0 ? sumRow(`GST${gstPct > 0 ? ` (${gstPct}%)` : ""}`, `+${fmt(gstAmt)}`) : "",
+    sumRow("Grand Total", fmt(grandTotal), true, "#ffffff", "#1e293b", true)
+      .replace("border-top:1px solid #e2e8f0;border-left:1px solid #e2e8f0", "border-top:2px solid #1e293b;border-left:1px solid #1e293b")
+      .replace("border-top:1px solid #e2e8f0;border-right:1px solid #e2e8f0", "border-top:2px solid #1e293b;border-right:1px solid #1e293b")
+      .replace("border-bottom:1px solid #e2e8f0;", "border-bottom:1px solid #1e293b;"),
+    paidAmt > 0 ? sumRow("Amount Paid", fmt(paidAmt), false, "#15803d") : "",
+    dueAmt  > 0 ? sumRow("Balance Due", fmt(dueAmt),  true,  "#dc2626") : "",
   ].filter(Boolean).join("");
 
+  // ── Info helper ───────────────────────────────────────────────────────────
+  const infoCell = (label: string, value: string) =>
+    `<div style="margin-bottom:10px">
+      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:#94a3b8;margin-bottom:3px">${label}</div>
+      <div style="font-size:12px;font-weight:600;color:#1e293b;line-height:1.4">${value || "—"}</div>
+    </div>`;
+
   const html = `<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Receipt — ${salonName}</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Invoice ${invoiceNo} — ${salonName}</title>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',Arial,sans-serif;background:#f4f4f5}
-.receipt{max-width:700px;margin:24px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.10)}
-.rh{background:linear-gradient(135deg,#1f2937,#374151);color:#fff;padding:28px 32px 22px}
-.rh-logo{width:52px;height:52px;border-radius:50%;object-fit:cover;margin-bottom:8px;border:2px solid rgba(255,255,255,.3)}
-.rh-name{font-size:22px;font-weight:800;letter-spacing:-.5px}
-.rh-meta{font-size:11px;color:rgba(255,255,255,.7);margin-top:5px;line-height:1.7}
-.rh-foot{display:flex;justify-content:space-between;align-items:center;margin-top:18px;padding-top:16px;border-top:1px solid rgba(255,255,255,.15)}
-.rh-id{font-size:11px;color:rgba(255,255,255,.6)}
-.pay-badge{padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700}
-.sec{padding:20px 32px}
-.sec+.sec{border-top:1px solid #f3f4f6}
-.sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#9ca3af;margin-bottom:12px}
-.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-.il{font-size:10px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
-.iv{font-size:13px;font-weight:600;color:#1f2937}
-.is{font-size:11px;color:#6b7280;margin-top:2px}
-table{width:100%;border-collapse:collapse;font-size:12px}
-thead tr{background:#1f2937;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-thead th{padding:10px 11px;font-size:11px;font-weight:600;letter-spacing:.3px;white-space:nowrap}
-thead th:first-child{text-align:left}
-thead th:not(:first-child){text-align:center}
-thead th:last-child{text-align:right}
-tbody tr:nth-child(even){background:#f9fafb}
-.footer{background:#1f2937;color:rgba(255,255,255,.7);text-align:center;padding:18px 32px;font-size:11px;line-height:1.8;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.footer strong{color:#fff;font-size:13px}
-@media print{
-  body{background:none}
-  .receipt{box-shadow:none;border-radius:0;margin:0;max-width:100%}
-}
-@page{margin:8mm}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:#334155;background:#e8ecf0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .page{width:210mm;min-height:297mm;margin:12mm auto;background:#fff;box-shadow:0 4px 32px rgba(0,0,0,.15);display:flex;flex-direction:column}
+  /* ── Header ── */
+  .inv-header{background:#1e293b;color:#fff;padding:28px 32px 24px;display:flex;justify-content:space-between;align-items:flex-start;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .inv-header-left{display:flex;align-items:flex-start;gap:16px}
+  .inv-logo{width:64px;height:64px;border-radius:8px;object-fit:cover;border:2px solid rgba(255,255,255,.2);flex-shrink:0}
+  .inv-logo-placeholder{width:64px;height:64px;border-radius:8px;background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:rgba(255,255,255,.6);flex-shrink:0}
+  .inv-salon-name{font-size:22px;font-weight:800;letter-spacing:-0.5px;margin-bottom:5px}
+  .inv-salon-meta{font-size:10.5px;color:rgba(255,255,255,.65);line-height:1.9}
+  .inv-salon-meta span{display:block}
+  .inv-header-right{text-align:right;flex-shrink:0}
+  .inv-title{font-size:22px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#fff;margin-bottom:8px}
+  .inv-id-block{font-size:10.5px;color:rgba(255,255,255,.65);line-height:2}
+  .inv-id-block strong{color:#fff;font-size:12px}
+  /* ── Divider band ── */
+  .inv-band{height:5px;background:linear-gradient(90deg,#3b82f6,#8b5cf6,#ec4899);-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  /* ── Two-col info section ── */
+  .inv-info{display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:1px solid #e2e8f0}
+  .inv-info-col{padding:20px 32px}
+  .inv-info-col+.inv-info-col{border-left:1px solid #e2e8f0}
+  .inv-section-title{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#3b82f6;margin-bottom:14px;padding-bottom:6px;border-bottom:2px solid #e2e8f0}
+  .inv-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 24px}
+  /* ── Payment badge ── */
+  .pay-badge{display:inline-block;padding:3px 12px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:0.3px;text-transform:uppercase}
+  /* ── Services table ── */
+  .inv-table-section{padding:0 32px 24px}
+  .inv-section-title-dark{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#3b82f6;margin:20px 0 12px;padding-bottom:6px;border-bottom:2px solid #e2e8f0}
+  table.inv-table{width:100%;border-collapse:collapse;font-size:11.5px}
+  table.inv-table thead tr{background:#1e293b;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  table.inv-table thead th{padding:10px 10px;color:#fff;font-size:10px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;border:1px solid #0f172a;white-space:nowrap}
+  table.inv-table thead th:nth-child(1){text-align:center;width:40px}
+  table.inv-table thead th:nth-child(2){text-align:left}
+  table.inv-table thead th:nth-child(3){text-align:center}
+  table.inv-table thead th:nth-child(4){text-align:center}
+  table.inv-table thead th:nth-child(5){text-align:center}
+  table.inv-table thead th:nth-child(6){text-align:center;width:36px}
+  table.inv-table thead th:nth-child(7){text-align:right}
+  table.inv-table thead th:nth-child(8){text-align:right}
+  table.inv-table thead th:nth-child(9){text-align:right}
+  table.inv-table tfoot tr{background:#f1f5f9;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  table.inv-table tfoot td{padding:8px 12px;font-size:11.5px;font-weight:700;color:#1e293b;border:1px solid #e2e8f0}
+  /* ── Summary + notes row ── */
+  .inv-bottom{display:grid;grid-template-columns:1fr auto;gap:32px;padding:0 32px 28px;align-items:start}
+  .inv-notes{font-size:11px;color:#475569;line-height:1.7;background:#fefce8;border:1px solid #fef08a;border-radius:6px;padding:12px 14px}
+  .inv-notes-title{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#92400e;margin-bottom:6px}
+  .inv-summary-table{width:260px;border-collapse:collapse}
+  .inv-summary-table td{padding:7px 14px;font-size:12px;border:1px solid #e2e8f0}
+  /* ── Footer ── */
+  .inv-footer{margin-top:auto;background:#1e293b;color:rgba(255,255,255,.7);padding:18px 32px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .inv-footer-inner{display:flex;justify-content:space-between;align-items:center;gap:16px}
+  .inv-footer-brand{font-size:13px;font-weight:700;color:#fff}
+  .inv-footer-contact{font-size:10.5px;line-height:1.8;text-align:center}
+  .inv-footer-terms{font-size:10px;color:rgba(255,255,255,.5);text-align:right;line-height:1.7}
+  /* ── Action toolbar (screen only) ── */
+  .print-toolbar{position:fixed;top:0;left:0;right:0;height:52px;background:#1e293b;display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:9999;box-shadow:0 2px 12px rgba(0,0,0,.3)}
+  .pt-brand{font-size:13px;font-weight:700;color:#fff;display:flex;align-items:center;gap:8px}
+  .pt-brand span{font-size:11px;color:rgba(255,255,255,.5);font-weight:400}
+  .pt-actions{display:flex;align-items:center;gap:8px}
+  .pt-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:6px;border:none;font-size:12px;font-weight:600;cursor:pointer;transition:opacity .15s;white-space:nowrap}
+  .pt-btn:hover{opacity:.85}
+  .pt-btn--primary{background:#3b82f6;color:#fff}
+  .pt-btn--ghost{background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2)}
+  .pt-btn--danger{background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}
+  .pt-divider{width:1px;height:24px;background:rgba(255,255,255,.15);margin:0 4px}
+  body{padding-top:52px}
+  @media print{
+    .print-toolbar{display:none}
+    body{background:none;padding-top:0}
+    .page{width:100%;margin:0;box-shadow:none;min-height:100vh}
+    table.inv-table{page-break-inside:auto}
+    table.inv-table thead{display:table-header-group}
+    table.inv-table tr{page-break-inside:avoid}
+    .inv-bottom{page-break-inside:avoid}
+    .inv-footer{page-break-inside:avoid}
+  }
+  #orient-style{display:none}
 </style>
+<style id="orient-style">@page{size:A4 portrait;margin:12mm 15mm}</style>
+<script>
+  function doPrint(){window.print();}
+  function savePdf(){
+    var s=document.getElementById('orient-style');
+    var prev=s.textContent;
+    window.print();
+  }
+  var _landscape=false;
+  function toggleLandscape(){
+    _landscape=!_landscape;
+    var s=document.getElementById('orient-style');
+    var btn=document.getElementById('btn-landscape');
+    if(_landscape){
+      s.textContent='@page{size:A4 landscape;margin:10mm 12mm}.page{width:280mm;min-height:195mm}';
+      btn.textContent='⬜ Portrait';
+      btn.title='Switch to Portrait';
+    } else {
+      s.textContent='@page{size:A4 portrait;margin:12mm 15mm}.page{width:210mm;min-height:297mm}';
+      btn.textContent='↔ Landscape';
+      btn.title='Switch to Landscape';
+    }
+  }
+</script>
 </head>
 <body>
-<div class="receipt">
-  <div class="rh">
-    ${logoUrl ? `<img class="rh-logo" src="${logoUrl}" alt="" onerror="this.style.display='none'">` : ""}
-    <div class="rh-name">${salonName}</div>
-    <div class="rh-meta">
-      ${salonAddress}
-      ${(salonPhone || salonEmail) ? `<br>${[salonPhone, salonEmail].filter(Boolean).join(" &nbsp;·&nbsp; ")}` : ""}
-      ${gst ? `<br>GST: ${gst}` : ""}
-    </div>
-    <div class="rh-foot">
-      <div class="rh-id">
-        Booking #<strong style="color:#fff">${booking.id}</strong>
-        &nbsp;·&nbsp; ${generatedAt}
+
+<!-- ── Action toolbar ── -->
+<div class="print-toolbar">
+  <div class="pt-brand">
+    🖨️ Receipt Preview
+    <span>— ${invoiceNo}</span>
+  </div>
+  <div class="pt-actions">
+    <button class="pt-btn pt-btn--primary" onclick="doPrint()" title="Print this receipt">
+      🖨️ Print
+    </button>
+    <button class="pt-btn pt-btn--ghost" onclick="savePdf()" title="Save as PDF via browser print dialog">
+      💾 Save as PDF
+    </button>
+    <div class="pt-divider"></div>
+    <button class="pt-btn pt-btn--ghost" id="btn-landscape" onclick="toggleLandscape()" title="Switch to Landscape">
+      ↔ Landscape
+    </button>
+    <div class="pt-divider"></div>
+    <button class="pt-btn pt-btn--danger" onclick="window.close()" title="Close preview">
+      ✕ Close
+    </button>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- ═══ HEADER ═══ -->
+  <div class="inv-header">
+    <div class="inv-header-left">
+      ${logoUrl
+        ? `<img class="inv-logo" src="${logoUrl}" alt="${salonName}" onerror="this.style.display='none'">`
+        : `<div class="inv-logo-placeholder">${salonName.charAt(0).toUpperCase()}</div>`}
+      <div>
+        <div class="inv-salon-name">${salonName}</div>
+        <div class="inv-salon-meta">
+          ${salonAddress ? `<span>📍 ${salonAddress}</span>` : ""}
+          ${salonPhone   ? `<span>📞 ${salonPhone}</span>` : ""}
+          ${salonEmail   ? `<span>✉ ${salonEmail}</span>` : ""}
+          ${salonWebsite ? `<span>🌐 ${salonWebsite}</span>` : ""}
+          ${gst          ? `<span>GST No: ${gst}</span>` : ""}
+        </div>
       </div>
-      <span class="pay-badge" style="background:${payBg};color:${payColor}">${ps}</span>
+    </div>
+    <div class="inv-header-right">
+      <div class="inv-title">Appointment<br>Receipt</div>
+      <div class="inv-id-block">
+        <strong>${invoiceNo}</strong><br>
+        Booking #${booking.id}<br>
+        ${printDate} · ${printTime}
+      </div>
     </div>
   </div>
 
-  <div class="sec">
-    <div class="sec-title">Customer &amp; Appointment</div>
-    <div class="grid3">
-      <div>
-        <div class="il">Client</div>
-        <div class="iv">${booking.clientName || "Walk-In"}</div>
-        ${booking.clientPhone ? `<div class="is">${booking.clientPhone}</div>` : ""}
+  <!-- Accent band -->
+  <div class="inv-band"></div>
+
+  <!-- ═══ CUSTOMER + APPOINTMENT INFO ═══ -->
+  <div class="inv-info">
+    <div class="inv-info-col">
+      <div class="inv-section-title">Customer Information</div>
+      <div class="inv-info-grid">
+        ${infoCell("Name",   booking.clientName  || "Walk-In")}
+        ${infoCell("Phone",  booking.clientPhone || "—")}
+        ${infoCell("Email",  (booking as any).clientEmail || "—")}
+        ${infoCell("Membership", (booking as any).membershipName || "—")}
       </div>
-      <div>
-        <div class="il">Date &amp; Time</div>
-        <div class="iv">${apptDate}</div>
-        <div class="is">${formatTime12(booking.startTime)} – ${formatTime12(booking.endTime)}</div>
-      </div>
-      <div>
-        <div class="il">Staff · Payment</div>
-        <div class="iv">${allStaffDisplay}</div>
-        <div class="is">via ${(booking as any).paymentMode || "—"}</div>
+    </div>
+    <div class="inv-info-col">
+      <div class="inv-section-title">Appointment Details</div>
+      <div class="inv-info-grid">
+        ${infoCell("Date",           apptDate)}
+        ${infoCell("Time",           apptTime)}
+        ${infoCell("Staff",          allStaffDisplay)}
+        ${infoCell("Payment Method", (booking as any).paymentMode || "—")}
+        ${infoCell("Booking Status", (booking as any).status || "Confirmed")}
+        ${infoCell("Payment Status", `<span class="pay-badge" style="background:${payBg};color:${payColor}">${rawPs}</span>`)}
       </div>
     </div>
   </div>
 
-  <div class="sec" style="padding-top:0;padding-bottom:0">
-    <div class="sec-title" style="padding-top:20px">Services &amp; Items</div>
-    <table>
+  <!-- ═══ SERVICES TABLE ═══ -->
+  <div class="inv-table-section">
+    <div class="inv-section-title-dark">Services &amp; Items</div>
+    <table class="inv-table">
       <thead>
         <tr>
-          <th style="text-align:left">Item</th>
+          <th>#</th>
+          <th>Item Name</th>
           <th>Type</th>
-          <th>Staff</th>
+          <th>Assigned Staff</th>
           <th>Time</th>
           <th>Qty</th>
           <th>Price</th>
-          <th>Disc</th>
+          <th>Discount</th>
           <th>Total</th>
         </tr>
       </thead>
-      <tbody>${allItemRows}</tbody>
+      <tbody>
+        ${allItemRows || `<tr><td colspan="9" style="text-align:center;padding:20px;color:#94a3b8;border:1px solid #e2e8f0">No items</td></tr>`}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="8" style="text-align:right;padding:9px 12px;border:1px solid #e2e8f0;font-size:11px;color:#64748b">Items Total</td>
+          <td style="text-align:right;padding:9px 12px;border:1px solid #e2e8f0;font-weight:700;color:#1e293b">${fmt(Number((booking as any).subtotal || grandTotal))}</td>
+        </tr>
+      </tfoot>
     </table>
   </div>
 
-  <div style="display:flex;justify-content:flex-end;padding:20px 32px;background:#f9fafb;border-top:1px solid #f3f4f6">
-    <div style="width:280px">${summaryHtml}</div>
+  <!-- ═══ PAYMENT SUMMARY + NOTES ═══ -->
+  <div class="inv-bottom">
+    <div>
+      ${booking.notes ? `<div class="inv-notes"><div class="inv-notes-title">📝 Notes</div>${booking.notes}</div>` : ""}
+      ${(booking as any).staffAlert ? `<div class="inv-notes" style="margin-top:8px;background:#fff7ed;border-color:#fed7aa"><div class="inv-notes-title" style="color:#9a3412">🔔 Staff Alert</div>${(booking as any).staffAlert}</div>` : ""}
+    </div>
+    <div>
+      <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#3b82f6;margin-bottom:8px;padding-bottom:6px;border-bottom:2px solid #e2e8f0">Payment Summary</div>
+      <table class="inv-summary-table">
+        <tbody>${summaryRows}</tbody>
+      </table>
+    </div>
   </div>
 
-  ${booking.notes ? `<div class="sec" style="background:#fffbeb"><div class="sec-title">Notes</div><div style="font-size:12px;color:#374151;line-height:1.6">${booking.notes}</div></div>` : ""}
-
-  <div class="footer">
-    <strong>Thank you for visiting ${salonName}!</strong><br>
-    We appreciate your business and look forward to seeing you again.
-    ${(salonPhone || salonEmail) ? `<br><span style="font-size:10px">${[salonPhone, salonEmail].filter(Boolean).join(" · ")}</span>` : ""}
+  <!-- ═══ FOOTER ═══ -->
+  <div class="inv-footer">
+    <div class="inv-footer-inner">
+      <div>
+        <div class="inv-footer-brand">Thank you for choosing ${salonName}!</div>
+        <div style="font-size:10.5px;color:rgba(255,255,255,.6);margin-top:3px">We look forward to seeing you again.</div>
+      </div>
+      <div class="inv-footer-contact">
+        ${[salonPhone, salonEmail, salonWebsite].filter(Boolean).join("&nbsp; · &nbsp;")}
+      </div>
+      <div class="inv-footer-terms">
+        This is a computer-generated receipt.<br>
+        No signature required.
+      </div>
+    </div>
   </div>
+
 </div>
 </body>
 </html>`;
 
-  const win = window.open("", "_blank", "width=750,height=700");
-  if (!win) { alert("Please allow popups to print."); return; }
+  const win = window.open("", "_blank", "width=960,height=860");
+  if (!win) { alert("Please allow popups to print the receipt."); return; }
   win.document.write(html);
   win.document.close();
   win.focus();
-  setTimeout(() => { win.onafterprint = () => win.close(); win.print(); }, 500);
 }
 
 const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue }) => {

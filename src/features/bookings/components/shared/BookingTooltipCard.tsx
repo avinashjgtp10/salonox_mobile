@@ -59,25 +59,35 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
 
   const primaryStaff = staffList.find((s) => s.id === booking.staffId);
 
-  const staffNames = Array.from(
-    new Set(
-      [booking.staffId, ...(booking.services || []).map((s) => s.staffId)].filter(Boolean) as string[]
-    )
-  ).map(getStaffName).filter(Boolean);
-
   const services        = booking.services || [];
   const packageItems    = (booking as any).packageItems  || (booking as any).packages  || [];
   const membershipItems = (booking as any).membershipItems || (booking as any).memberships || [];
   const productItems    = (booking as any).productItems  || (booking as any).products  || [];
 
+  const staffNames = Array.from(
+    new Set(
+      [
+        booking.staffId,
+        ...services.map((s) => s.staffId),
+        ...packageItems.map((p: any) => p.staffId),
+        ...membershipItems.map((m: any) => m.staffId),
+        ...productItems.map((p: any) => p.staffId),
+      ].filter(Boolean) as string[]
+    )
+  ).map(getStaffName).filter(Boolean);
+
+  const itemStaffSub = (staffId?: string) =>
+    staffId && staffId !== booking.staffId ? getStaffName(staffId) : "";
+
   const allItems: FlatItem[] = [
-    ...services.map((svc: any) => {
-      const svcStaff = svc.staffId && svc.staffId !== booking.staffId ? getStaffName(svc.staffId) : "";
-      return { icon: <Scissors size={13} />, name: svc.service || svc.name || "", price: Number(svc.total) || Number(svc.price) || 0, subText: svcStaff || undefined };
-    }),
-    ...packageItems.map((p: any)    => ({ icon: <IconBox />,      name: p.name || p.packageName    || "", price: Number(p.total) || Number(p.price) || 0 })),
-    ...membershipItems.map((m: any) => ({ icon: <AwardFill size={13} />, name: m.name || m.membershipName || "", price: Number(m.total) || Number(m.price) || 0 })),
-    ...productItems.map((p: any)    => ({ icon: <IconTag />,      name: p.name || p.productName    || "", price: Number(p.total) || Number(p.price) || 0 })),
+    ...services.map((svc: any) =>
+      ({ icon: <Scissors size={13} />, name: svc.service || svc.name || "", price: Number(svc.total) || Number(svc.price) || 0, subText: itemStaffSub(svc.staffId) || undefined })),
+    ...packageItems.map((p: any) =>
+      ({ icon: <IconBox />, name: p.name || p.packageName || "", price: Number(p.total) || Number(p.price) || 0, subText: itemStaffSub(p.staffId) || undefined })),
+    ...membershipItems.map((m: any) =>
+      ({ icon: <AwardFill size={13} />, name: m.name || m.membershipName || "", price: Number(m.total) || Number(m.price) || 0, subText: itemStaffSub(m.staffId) || undefined })),
+    ...productItems.map((p: any) =>
+      ({ icon: <IconTag />, name: p.name || p.productName || "", price: Number(p.total) || Number(p.price) || 0, subText: itemStaffSub(p.staffId) || undefined })),
   ].filter((item) => item.name);
 
   const computedTotal = allItems.reduce((sum, item) => sum + item.price, 0);

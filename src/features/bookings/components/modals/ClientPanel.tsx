@@ -367,7 +367,7 @@ export const ClientPanel: React.FC<Props> = ({
       </div>
 
       {/* Error banner — rendered outside the toolbar so it never breaks the flex row */}
-      {error && !showAddForm && (
+      {error && (
         <div className="client-error-banner">
           <span className="client-error-banner__icon">⚠</span>
           {error}
