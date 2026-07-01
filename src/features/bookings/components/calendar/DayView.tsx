@@ -9,6 +9,7 @@ import { formatTime12, getCurrentTime, addMinutes } from "../../utils/timeUtils"
 import Avatar from "../shared/Avatar";
 import BookingTooltipCard from "../shared/BookingTooltipCard";
 import BookingChip from "./BookingChip";
+import { useListClientPackagesQuery } from "../../../../services/api/endpoints/packages.endpoints";
 import "../../styles/DayView.scss";
 
 // Stable empty array — avoids allocating a new [] on every render for staff with no blocks
@@ -88,6 +89,26 @@ const DayView: React.FC<DayViewProps> = ({
     tipTimerRef.current = setTimeout(() => setHovered(null), 150);
   }, []);
   const keepTip = useCallback(() => { clearTimeout(tipTimerRef.current); }, []);
+
+  // Fetch the hovered client's active packages for tooltip fallback coverage detection
+  const hoveredClientId = hovered?.booking?.clientId && String(hovered.booking.clientId) !== "walk-in"
+    ? String(hovered.booking.clientId) : undefined;
+  const { data: hoveredPkgData } = useListClientPackagesQuery(
+    { clientId: hoveredClientId, status: "Active", limit: 50 },
+    { skip: !hoveredClientId }
+  );
+  const tooltipCoveredServices = useMemo(() => {
+    const map = new Map<string, number>();
+    (hoveredPkgData?.items ?? []).forEach((pkg: any) => {
+      pkg.services.forEach((svc: any) => {
+        if (svc.remainingSessions > 0) {
+          const key = (svc.serviceName || "").toLowerCase();
+          map.set(key, (map.get(key) ?? 0) + svc.remainingSessions);
+        }
+      });
+    });
+    return map;
+  }, [hoveredPkgData]);
 
   // ── Drag / resize state ───────────────────────────────────────────────────
   const [dragging, setDragging] = useState<{
@@ -680,7 +701,7 @@ const DayView: React.FC<DayViewProps> = ({
                       // Per-service staff: show chip under each service's staff column
                       if ((b.services || []).some((s: any) => String(s.staffId) === String(staff.id))) return true;
                       // Backward compat: if no service has a staffId, fall back to appointment-level staffId
-                      if (b.staffId === staff.id && !(b.services || []).some((s: any) => s.staffId)) return true;
+                      if (b.staffId && String(b.staffId) === String(staff.id) && !(b.services || []).some((s: any) => s.staffId)) return true;
                       return false;
                     })
                     .map((b) => {
@@ -750,6 +771,7 @@ const DayView: React.FC<DayViewProps> = ({
           anchorEl={hovered.el}
           onMouseEnter={keepTip}
           onMouseLeave={closeTip}
+          coveredServices={tooltipCoveredServices}
         />
       )}
 

@@ -53,6 +53,10 @@ export function printReceipt(
   const PAY_BG:    Record<string, string> = { Paid: "#dcfce7", Partial: "#ede9fe", Unpaid: "#fef3c7", Cancelled: "#fee2e2" };
   const payColor = PAY_COLOR[rawPs] ?? "#b45309";
   const payBg    = PAY_BG[rawPs]    ?? "#fef3c7";
+  const _printGt = (booking as any).grandTotal;
+  const isPackagePaid = (booking as any).paymentMode === "Package" ||
+    (_printGt !== null && _printGt !== undefined && Number(_printGt) === 0) ||
+    (booking.paymentStatus === "Paid" && Number(booking.payingNow) === 0 && Number(booking.dueAmount) === 0);
 
   const allStaffIds = Array.from(new Set(
     [booking.staffId, ...(booking.services || []).map((s: any) => s.staffId)].filter(Boolean)
@@ -101,7 +105,7 @@ export function printReceipt(
   };
 
   let rowIdx = 0;
-  const svcRows  = services.map((s: any) => makeRow(s.service || s.name || "", "Service", findStaffName(s.staffId) || allStaffDisplay, s.time ? formatTime12(s.time) : "—", Number(s.qty||1), Number(s.price||0), Number(s.discount||0), Number(s.total||s.price||0), (rowIdx++ % 2 === 0))).join("");
+  const svcRows  = services.map((s: any) => makeRow(s.service || s.name || "", "Service", findStaffName(s.staffId) || allStaffDisplay, s.time ? formatTime12(s.time) : "—", Number(s.qty||1), Number(s.price||0), Number(s.discount||0), isPackagePaid ? 0 : Number(s.total||s.price||0), (rowIdx++ % 2 === 0))).join("");
   const pkgRows  = packageItems.map((p: any) => makeRow(p.packageName||p.name||"", "Package", findStaffName(p.staffId)||"—", p.time ? formatTime12(p.time) : "—", Number(p.qty||1), Number(p.price||0), Number(p.discount||0), Number(p.total||p.price||0), (rowIdx++ % 2 === 0))).join("");
   const memRows  = membershipItems.map((m: any) => makeRow(m.membershipName||m.name||"", "Membership", findStaffName(m.staffId)||"—", "—", Number(m.qty||1), Number(m.price||0), Number(m.discount||0), Number(m.total||m.price||0), (rowIdx++ % 2 === 0))).join("");
   const prodRows = productItems.map((p: any) => makeRow(p.productName||p.name||"", "Product", findStaffName(p.staffId)||"—", p.time ? formatTime12(p.time) : "—", Number(p.qty||1), Number(p.price||0), Number(p.discount||0), Number(p.total||p.price||0), (rowIdx++ % 2 === 0))).join("");
@@ -133,9 +137,9 @@ export function printReceipt(
     exCharges   > 0 ? sumRow("Extra Charges",    `+${fmt(exCharges)}`) : "",
     tipAmt      > 0 ? sumRow("Tip (Staff)",       `+${fmt(tipAmt)}`) : "",
     gstAmt      > 0 ? sumRow(`GST${gstPct > 0 ? ` (${gstPct}%)` : ""}`, `+${fmt(gstAmt)}`) : "",
-    sumRow("Grand Total",  fmt(grandTotal), true, "#111827", true),
-    paidAmt > 0 ? sumRow("Amount Paid",   fmt(paidAmt), false, "#15803d") : "",
-    dueAmt  > 0 ? sumRow("Balance Due",   fmt(dueAmt),  true,  "#dc2626") : "",
+    sumRow("Grand Total", fmt(isPackagePaid ? 0 : grandTotal), true, "#111827", true),
+    paidAmt > 0 ? sumRow("Amount Paid", fmt(paidAmt), false, "#15803d") : "",
+    dueAmt  > 0 ? sumRow("Balance Due", fmt(dueAmt),  true,  "#dc2626") : "",
   ].filter(Boolean).join("");
 
   // ── Info helper ───────────────────────────────────────────────────────────
@@ -446,6 +450,10 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
 
   const staffName = allStaffNames.join(", ") || "—";
   const payVariant = booking.paymentStatus === "Paid" ? ("success" as const) : booking.paymentStatus === "Partial" ? ("warning" as const) : ("danger" as const);
+  const _vbmGt = (booking as any).grandTotal;
+  const isPackagePaid = (booking as any).paymentMode === "Package" ||
+    (_vbmGt !== null && _vbmGt !== undefined && Number(_vbmGt) === 0) ||
+    (booking.paymentStatus === "Paid" && Number(booking.payingNow) === 0 && Number(booking.dueAmount) === 0);
 
   return (
     <div className="vbm-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -505,7 +513,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
               booking.couponDiscount ? [`Coupon (${booking.couponCode})`, `−${currencySymbol}${booking.couponDiscount.toFixed(2)}`, "#22c55e", false] : null,
               booking.exCharges      ? ["Extra Charges", `${currencySymbol}${booking.exCharges.toFixed(2)}`, "#374151", false] : null,
               booking.tipAmount      ? ["Tip", `${currencySymbol}${booking.tipAmount.toFixed(2)}`, "#374151", false] : null,
-              ["Total", `${currencySymbol}${(booking.grandTotal || 0).toFixed(2)}`, "#111827", true],
+              ["Total", `${currencySymbol}${(isPackagePaid ? 0 : (booking.grandTotal || 0)).toFixed(2)}`, "#111827", true],
               ["Paid",  `${currencySymbol}${(booking.payingNow || 0).toFixed(2)}`, "#111827", false],
               (booking.dueAmount || 0) > 0 ? ["Due", `${currencySymbol}${(booking.dueAmount || 0).toFixed(2)}`, "#ef4444", false] : null,
             ].filter((row): row is [string, string, string, boolean] => row !== null).map(([l, v, c, bold]) => (
@@ -621,7 +629,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                             {s.time && <span>{svcStaffName ? " · " : ""}{s.time}</span>}
                           </div>
                         </div>
-                        <div className="vbm-service-card__total">{currencySymbol}{(s.total || 0).toFixed(2)}</div>
+                        <div className="vbm-service-card__total">{currencySymbol}{(isPackagePaid ? 0 : (s.total || 0)).toFixed(2)}</div>
                       </div>
                       <div className="vbm-service-card__pills">
                         {[["Qty", s.qty], ["Price", `${currencySymbol}${(s.price || 0).toFixed(2)}`], ["Disc", `${currencySymbol}${((s as any).discount || 0).toFixed(2)}`]].map(([lbl, val]) => (
@@ -702,7 +710,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                       <span>{row![0] as string}</span><span>{row![1] as string}</span>
                     </div>
                   ))}
-                  <div className="vbm-breakdown-row vbm-breakdown-row--grand"><span>Grand Total</span><span>{currencySymbol}{(booking.grandTotal || 0).toFixed(2)}</span></div>
+                  <div className="vbm-breakdown-row vbm-breakdown-row--grand"><span>Grand Total</span><span>{currencySymbol}{(isPackagePaid ? 0 : (booking.grandTotal || 0)).toFixed(2)}</span></div>
                   <div className="vbm-breakdown-row vbm-breakdown-row--paid"><span>Paid</span><span>{currencySymbol}{(booking.payingNow || 0).toFixed(2)}</span></div>
                   {(booking.dueAmount || 0) > 0 && (
                     <div className="vbm-breakdown-row vbm-breakdown-row--due"><span>Balance Due</span><span>{currencySymbol}{(booking.dueAmount || 0).toFixed(2)}</span></div>
@@ -718,7 +726,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                   { icon: "💼", label: "Staff", detail: staffName },
                   { icon: "💳", label: "Payment Status", detail: booking.paymentStatus },
                   { icon: "📋", label: "Booking Status", detail: status },
-                  { icon: "💰", label: "Grand Total", detail: `${currencySymbol}${(booking.grandTotal || 0).toFixed(2)}` },
+                  { icon: "💰", label: "Grand Total", detail: `${currencySymbol}${(isPackagePaid ? 0 : (booking.grandTotal || 0)).toFixed(2)}` },
                   ...(booking.payingNow ? [{ icon: "✅", label: "Amount Paid", detail: `${currencySymbol}${(booking.payingNow || 0).toFixed(2)}` }] : []),
                   ...(booking.dueAmount ? [{ icon: "⏳", label: "Balance Due", detail: `${currencySymbol}${(booking.dueAmount || 0).toFixed(2)}` }] : []),
                   ...((booking as any).staffAlert ? [{ icon: "🔔", label: "Staff Alert", detail: (booking as any).staffAlert }] : []),

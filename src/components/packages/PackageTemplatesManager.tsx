@@ -19,10 +19,11 @@ import type { Service } from "../../features/catalog/types/catalog.types";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface SvcRow {
-  id:            number;
-  serviceName:   string;
-  totalSessions: string;
-  price:         string;
+  id:              number;
+  serviceName:     string;
+  totalSessions:   string;
+  price:           string;
+  perSessionPrice: string; // locked per-session rate; price = perSessionPrice × sessions
 }
 
 interface FormState {
@@ -54,7 +55,7 @@ function emptyForm(): FormState {
     name: "", neverExpires: true, expiryDate: "",
     basePrice: "", gstPercentage: "0", discount: "0",
     paymentMethod: "cash",
-    services: [{ id: Date.now(), serviceName: "", totalSessions: "1", price: "" }],
+    services: [{ id: Date.now(), serviceName: "", totalSessions: "1", price: "", perSessionPrice: "" }],
   };
 }
 
@@ -86,12 +87,36 @@ function templateToForm(t: PackageTemplate): FormState {
     discount:      String(t.discount),
     paymentMethod: t.paymentMethod,
     services:      t.services.map((s, i) => ({
-      id:            i,
-      serviceName:   s.serviceName,
-      totalSessions: String(s.totalSessions),
-      price:         String(s.price),
+      id:              i,
+      serviceName:     s.serviceName,
+      totalSessions:   String(s.totalSessions),
+      price:           String(s.price),
+      perSessionPrice: s.totalSessions > 0 ? String(s.price / s.totalSessions) : String(s.price),
     })),
   };
+}
+
+// ─── Sessions stepper (local state keeps display value isolated from form) ────
+
+function SessionInput({ value, disabled, onCommit }: {
+  value:     string;
+  disabled:  boolean;
+  onCommit:  (val: string) => void;
+}) {
+  const [local, setLocal] = useState(value);
+  useEffect(() => { setLocal(value); }, [value]);
+  return (
+    <input
+      type="number"
+      className="pkg-sold-panel__edit-input"
+      value={local}
+      onChange={e => setLocal(e.target.value)}
+      onBlur={() => onCommit(local || "1")}
+      disabled={disabled}
+      min={1}
+      style={{ textAlign: "center" }}
+    />
+  );
 }
 
 // ─── Service search dropdown ──────────────────────────────────────────────────
@@ -340,20 +365,60 @@ function FormPanel({ form, saving, error, isEdit, catalogServices, servicesLoadi
   const gstAmt = (base - disc) * gst / 100;
   const total  = base - disc + gstAmt;
 
+  // base price is "auto" when empty or equals the current services sum
+  const isBasePriceAuto = !form.basePrice || parseFloat(form.basePrice) === servicesTotal;
+
+  const calcTotal = (svcs: SvcRow[]) =>
+    svcs.reduce((s, r) => s + (parseFloat(r.price) || 0), 0);
+
+  const pushWithBase = (svcs: SvcRow[]) => {
+    const t = calcTotal(svcs);
+    onChange({ services: svcs, ...(isBasePriceAuto ? { basePrice: t > 0 ? String(t) : "" } : {}) });
+  };
+
   const addService = () =>
-    onChange({ services: [...form.services, { id: Date.now(), serviceName: "", totalSessions: "1", price: "" }] });
+    pushWithBase([...form.services, { id: Date.now(), serviceName: "", totalSessions: "1", price: "", perSessionPrice: "" }]);
 
   const removeService = (id: number) =>
-    onChange({ services: form.services.filter(s => s.id !== id) });
+    pushWithBase(form.services.filter(s => s.id !== id));
 
-  const updateService = (id: number, patch: Partial<SvcRow>) =>
-    onChange({ services: form.services.map(s => s.id === id ? { ...s, ...patch } : s) });
+  const updateService = (id: number, patch: Partial<SvcRow>) => {
+    let svcs = form.services.map(s => s.id === id ? { ...s, ...patch } : s);
+    if ("price" in patch) {
+      // when user manually edits price, recalculate perSessionPrice
+      svcs = svcs.map(s => {
+        if (s.id !== id) return s;
+        const sessions = Math.max(1, parseInt(s.totalSessions) || 1);
+        const price    = parseFloat(s.price) || 0;
+        return { ...s, perSessionPrice: String(price / sessions) };
+      });
+      pushWithBase(svcs);
+    } else {
+      onChange({ services: svcs });
+    }
+  };
+
+  // Uses stored perSessionPrice so old totalSessions value doesn't matter
+  const updateSessions = (id: number, newSessionsStr: string) => {
+    const svc = form.services.find(s => s.id === id);
+    if (!svc) return;
+    const newSessions  = Math.max(1, parseInt(newSessionsStr) || 1);
+    const perSession   = parseFloat(svc.perSessionPrice) || parseFloat(svc.price) || 0;
+    const newPrice     = Math.round(perSession * newSessions * 100) / 100;
+    const svcs = form.services.map(s =>
+      s.id === id ? { ...s, totalSessions: String(newSessions), price: newPrice > 0 ? String(newPrice) : "" } : s
+    );
+    pushWithBase(svcs);
+  };
 
   const pickService = (rowId: number, svc: Service) => {
-    updateService(rowId, {
-      serviceName: String(svc.name),
-      price: svc.price != null ? String(parseFloat(String(svc.price)) || 0) : "",
-    });
+    const svcPrice = svc.price != null ? String(parseFloat(String(svc.price)) || 0) : "";
+    const svcs = form.services.map(s =>
+      s.id === rowId
+        ? { ...s, serviceName: String(svc.name), price: svcPrice, totalSessions: "1", perSessionPrice: svcPrice }
+        : s
+    );
+    pushWithBase(svcs);
   };
 
   return (
@@ -450,14 +515,10 @@ function FormPanel({ form, saving, error, isEdit, catalogServices, servicesLoadi
                   onChange={picked => pickService(svc.id, picked)}
                   onSearch={onSearch}
                 />
-                <input
-                  type="number"
-                  className="pkg-sold-panel__edit-input"
+                <SessionInput
                   value={svc.totalSessions}
-                  onChange={e => updateService(svc.id, { totalSessions: e.target.value })}
                   disabled={saving}
-                  min={1}
-                  style={{ textAlign: "center" }}
+                  onCommit={val => updateSessions(svc.id, val)}
                 />
                 <input
                   type="number"

@@ -22,6 +22,7 @@ interface SavePayload {
   salonId?: string;
   clientId?: string | null;
   existingBooking?: Booking | null;
+  isPackageAppointment?: boolean;
 }
 
 function addMinutes(time: string, mins: number): string {
@@ -43,9 +44,18 @@ function buildServiceApiItems(services: ServiceItem[], bookingStartMs: number, b
       const hasDbServiceId = !!(s as any).service_id;
       const svcTypeId      = (s as any).service_id || s.id || undefined;
       const svcRowId       = hasDbServiceId ? ((s as any).id || undefined) : undefined;
-      const price          = parseFloat(String((s as any).price ?? 0)) || 0;
-      const qty            = Number((s as any).qty ?? (s as any).quantity ?? 1) || 1;
-      const total          = parseFloat(String((s as any).total ?? (s as any).price ?? 0)) || price * qty;
+      const price  = parseFloat(String((s as any).price ?? 0)) || 0;
+      const qty    = Number((s as any).qty ?? (s as any).quantity ?? 1) || 1;
+      const rawTotal = (s as any).total;
+      const uiTotal = (rawTotal !== undefined && rawTotal !== null)
+        ? (parseFloat(String(rawTotal)) || 0)
+        : price * qty;
+      // Package-covered services have uiTotal=0 in the UI, but sending total=0 to the backend
+      // causes the appointment to fail validation or be silently discarded.
+      // Send the catalog total (price × qty) so the appointment is stored correctly.
+      // The ₹0 package coverage is recorded via the ₹0 payment posted after booking.
+      const apiTotal = uiTotal > 0 ? uiTotal : price * qty;
+      const isPackageService = !!(s as any).isPackageService;
       return {
         ...(svcRowId ? { id: svcRowId } : {}),
         service_id: svcTypeId,
@@ -55,8 +65,9 @@ function buildServiceApiItems(services: ServiceItem[], bookingStartMs: number, b
         end_time: new Date(svcStartMs + (s.duration || 30) * 60000).toISOString(),
         price,
         qty,
-        total,
+        total: apiTotal,
         duration: s.duration || 30,
+        ...(isPackageService ? { is_package_service: true } : {}),
       };
     });
 }
@@ -79,6 +90,7 @@ export function useAppointment() {
     const {
       booking, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, clientId, existingBooking,
+      isPackageAppointment,
     } = payload;
 
     setIsSaving(true);
@@ -113,13 +125,15 @@ export function useAppointment() {
         package_items:    packageRows.map((p) => {
           const t = (p as any).time;
           const startMs = t ? new Date(`${calDate}T${t}:00`).getTime() : bookingStartMs;
+          const isPackageService = !!(p as any).isPackageService;
           return {
             package_id: (p as any).packageId || p.id || undefined,
             name: (p as any).packageName || (p as any).name || "",
-            price: p.price || 0,
+            price: isPackageService ? 0 : (p.price || 0),
             quantity: p.qty || 1,
             staff_id: (p as any).staffId ? toApiStaffId((p as any).staffId) : undefined,
             start_time: new Date(startMs).toISOString(),
+            ...(isPackageService ? { is_package_service: true } : {}),
           };
         }),
         product_items:    productRows.map((p) => {

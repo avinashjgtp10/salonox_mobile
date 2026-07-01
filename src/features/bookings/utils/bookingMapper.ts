@@ -89,6 +89,12 @@ export function mapApiBooking(
     return "";
   }
 
+  // Detect package-covered appointments: payment_method=package with paid_amount=0 means ₹0 to client.
+  // We store catalog total in DB so grand_total>0, but display must show ₹0.
+  const isPackagePaid =
+    ((appt.payment_method || appt.paymentMode || appt.payment_mode || "").toLowerCase() === "package") &&
+    (parseFloat(String(appt.paid_amount ?? appt.payingNow ?? 0)) || 0) === 0;
+
   // ── Map services ─────────────────────────────────────────────────────────
   const services = (appt.services || []).map((s: any) => {
     const svcLookup = servicesList.find((rs: any) => String(rs.id) === String(s.service_id ?? s.id));
@@ -106,12 +112,15 @@ export function mapApiBooking(
     const derivedDiscount = (sTotal > 0 && sPrice * sQty > sTotal)
       ? Math.round((sPrice * sQty - sTotal) * 100) / 100
       : (parseFloat(String(s.discount ?? 0)) || 0);
+    const isServiceFromPackage = !!(s.is_package_service || (s as any).isPackageService);
     return {
       ...s,
+      ...(isPackagePaid || isServiceFromPackage ? { total: 0 } : {}),
+      isPackageService: isServiceFromPackage,
       name: sName,
       service: sName,
       staff: staffNameStr,
-      staffId: s.staffId || s.staff_id || appt.staffId || appt.staff_id || undefined,
+      staffId: (s.staffId || s.staff_id || appt.staffId || appt.staff_id) ? String(s.staffId || s.staff_id || appt.staffId || appt.staff_id) : undefined,
       time: mappedTime,
       duration,
       discount: derivedDiscount,
@@ -142,17 +151,21 @@ export function mapApiBooking(
     time: sanitizeItemTime(p.time ?? p.start_time ?? p.startTime),
   }));
 
-  const packageItems = (appt.package_items || appt.packageItems || appt.packages || []).map((p: any) => ({
-    id: String(p.id ?? ""),
-    packageId: String(p.package_id ?? p.packageId ?? ""),
-    packageName: p.package_name ?? p.packageName ?? p.name ?? "",
-    name: p.package_name ?? p.packageName ?? p.name ?? "",
-    price: parseFloat(String(p.price ?? 0)) || 0,
-    qty: Number(p.qty ?? p.quantity ?? 1) || 1,
-    total: parseFloat(String(p.total ?? p.price ?? 0)) || 0,
-    staffId: String(p.staff_id ?? p.staffId ?? ""),
-    time: sanitizeItemTime(p.time ?? p.start_time ?? p.startTime),
-  }));
+  const packageItems = (appt.package_items || appt.packageItems || appt.packages || []).map((p: any) => {
+    const isPkgService = !!(p.is_package_service || (p as any).isPackageService);
+    return {
+      id: String(p.id ?? ""),
+      packageId: String(p.package_id ?? p.packageId ?? ""),
+      packageName: p.package_name ?? p.packageName ?? p.name ?? "",
+      name: p.package_name ?? p.packageName ?? p.name ?? "",
+      price: parseFloat(String(p.price ?? 0)) || 0,
+      qty: Number(p.qty ?? p.quantity ?? 1) || 1,
+      isPackageService: isPkgService,
+      total: isPkgService ? 0 : (parseFloat(String(p.total ?? p.price ?? 0)) || 0),
+      staffId: String(p.staff_id ?? p.staffId ?? ""),
+      time: sanitizeItemTime(p.time ?? p.start_time ?? p.startTime),
+    };
+  });
 
   const membershipItems = (appt.membership_items || appt.membershipItems || appt.memberships || []).map((m: any) => ({
     id: String(m.id ?? ""),
@@ -180,7 +193,14 @@ export function mapApiBooking(
     return sum + price * qty;
   }, 0);
 
-  const grandTotalVal = parseFloat(String(appt.grand_total ?? appt.grandTotal ?? appt.total_amount ?? 0)) || computedTotal;
+  // For mixed appointments, recompute from mapped items (package services already have total=0)
+  const hasPerServicePackage = services.some((s: any) => s.isPackageService)
+    || packageItems.some((p: any) => p.isPackageService);
+  const grandTotalVal = isPackagePaid ? 0
+    : hasPerServicePackage
+      ? Math.max(0, [...services, ...productItems, ...packageItems, ...membershipItems]
+          .reduce((sum, item: any) => sum + (Number(item.total) || 0), 0))
+      : (parseFloat(String(appt.grand_total ?? appt.grandTotal ?? appt.total_amount ?? 0)) || computedTotal);
 
   // ── Subtotal / discount / taxable amount ──────────────────────────────────
   const subtotalVal = parseFloat(String(appt.subtotal ?? 0)) || computedTotal;
@@ -209,6 +229,7 @@ export function mapApiBooking(
   // ── Normalise paymentStatus (always Title Case) ───────────────────────────
   const normalizedPaymentStatus = normalizePaymentStatus(appt.payment_status ?? appt.paymentStatus);
 
+
   // ── Compute payingNow / dueAmount ─────────────────────────────────────────
   const paidAmountVal = Number(appt.paid_amount ?? 0) || 0;
 
@@ -225,9 +246,11 @@ export function mapApiBooking(
   }
 
   // Use API's due_amount directly if provided (most accurate); else compute.
+  // Package payments always have due_amount=0 (client owes nothing — covered by package).
   const apiDue = Number(appt.due_amount ?? appt.dueAmount ?? NaN);
-  const dueAmount = (!isNaN(apiDue) && apiDue > 0)
-    ? apiDue
+  const dueAmount = isPackagePaid ? 0
+    : hasPerServicePackage ? Math.max(0, parseFloat((grandTotalVal - payingNow).toFixed(2)))
+    : (!isNaN(apiDue) && apiDue > 0) ? apiDue
     : Math.max(0, parseFloat((grandTotalVal - payingNow).toFixed(2)));
 
   // ── Notes / staffAlert split ──────────────────────────────────────────────
@@ -280,7 +303,7 @@ export function mapApiBooking(
     clientGst,
     loyaltyPoints,
     membershipName,
-    staffId: appt.staffId || appt.staff_id || undefined,
+    staffId: (() => { const raw = appt.staffId || appt.staff_id || packageItems.find((p: any) => p.staffId)?.staffId; return raw ? String(raw) : undefined; })(),
     clientId: String(appt.clientId ?? appt.client_id ?? appt.client?.id ?? ""),
     date: appt.date
       ? toLocalDateStr(appt.date)
@@ -295,8 +318,11 @@ export function mapApiBooking(
     membershipItems,
     memberships: membershipItems,
     grandTotal: grandTotalVal,
-    paymentStatus: normalizedPaymentStatus,
+    // When package-covered items bring our recomputed due to 0, the backend's payments table may still
+    // show "partial" (it used the old grand_total that included catalog prices). Override to "Paid".
+    paymentStatus: (hasPerServicePackage && dueAmount === 0 && payingNow > 0) ? "Paid" : normalizedPaymentStatus,
     payment_status: (appt.payment_status ?? "unpaid") as any,
+    paymentMode: appt.paymentMode || appt.payment_mode || appt.payment_method,
     payingNow,
     dueAmount,
     notes: parsedNotes,

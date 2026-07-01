@@ -52,6 +52,7 @@ interface ServiceRowProps {
   hasError?: boolean;
   errorFields?: { service?: boolean; staff?: boolean; time?: boolean; price?: boolean; qty?: boolean };
   disabled?: boolean;
+  coveredServices?: Map<string, number>;
 }
 
 function fmtName(name: string) {
@@ -133,6 +134,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   onClearError,
   errorFields = {},
   disabled,
+  coveredServices,
 }) => {
   const schedulerContext = useSchedulerContext();
   const interval = schedulerContext.interval;
@@ -144,6 +146,20 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   const [discountInput, setDiscountInput] = useState(String(row.discount || ""));
   const [apiResults, setApiResults] = useState<SearchServiceResult[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+
+  // Tracks catalog price & package remaining for this row so qty changes recalculate correctly
+  const catalogPriceRef = useRef<number>(0);
+  const pkgRemainingRef = useRef<number>(0);
+
+  // When package data loads for an existing row (not freshly selected), initialise the refs
+  useEffect(() => {
+    if (!row.service || !coveredServices || coveredServices.size === 0) return;
+    const remaining = coveredServices.get(row.service.toLowerCase()) ?? 0;
+    if (remaining > 0) {
+      pkgRemainingRef.current = remaining;
+      if (!catalogPriceRef.current) catalogPriceRef.current = Number(row.price) || 0;
+    }
+  }, [coveredServices]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Reminder modal state ──────────────────────────────────────────────────────
   const [showReminderModal, setShowReminderModal] = useState(false);
@@ -288,16 +304,23 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   }
 
   function selectService(service: { id?: string; name: string; price: number; duration?: number }) {
+    const remaining = coveredServices?.get(service.name.toLowerCase()) ?? 0;
+    catalogPriceRef.current = service.price;
+    pkgRemainingRef.current = remaining;
+
+    const qty = getSafeQty(row.qty);
+    const discount = parseFloat(discountInput) || 0;
+    const paidQty = Math.max(0, qty - remaining);
+    const effectiveTotal = calcTotal(service.price, paidQty, discount);
+
     setServiceSearch(service.name);
     onChange(row.tempId, "id", service.id ?? "");
     onChange(row.tempId, "service", service.name);
     onChange(row.tempId, "price", service.price);
     onChange(row.tempId, "duration", service.duration ?? 30);
-
-    const qty = getSafeQty(row.qty);
-    const discount = parseFloat(discountInput) || 0;
     onChange(row.tempId, "qty", qty);
-    onChange(row.tempId, "total", calcTotal(service.price, qty, discount));
+    onChange(row.tempId, "total", effectiveTotal);
+    onChange(row.tempId, "isPackageService", paidQty === 0);
 
     setShowDrop(false);
     onClearError?.(row.tempId, "service");
@@ -308,6 +331,10 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     const price = Math.max(0, parseFloat(value) || 0);
     const qty = getSafeQty(row.qty);
     const discount = parseFloat(discountInput) || 0;
+
+    // Manual price edit overrides package logic
+    catalogPriceRef.current = price;
+    pkgRemainingRef.current = 0;
 
     onChange(row.tempId, "price", price);
     onChange(row.tempId, "total", calcTotal(price, qty, discount));
@@ -324,8 +351,11 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     const qty = parseInt(normalizedValue, 10);
     if (Number.isInteger(qty) && qty > 0) {
       const discount = parseFloat(discountInput) || 0;
+      const remaining = pkgRemainingRef.current;
+      const catalogPrice = catalogPriceRef.current || (row.price || 0);
+      const paidQty = remaining > 0 ? Math.max(0, qty - remaining) : qty;
       onChange(row.tempId, "qty", qty);
-      onChange(row.tempId, "total", calcTotal(row.price || 0, qty, discount));
+      onChange(row.tempId, "total", calcTotal(catalogPrice, paidQty, discount));
       onClearError?.(row.tempId, "qty");
     }
   }
@@ -337,7 +367,11 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
 
     setQtyInput(String(clampedQty));
     onChange(row.tempId, "qty", clampedQty);
-    onChange(row.tempId, "total", calcTotal(row.price || 0, clampedQty, discount));
+    // Use pkgRemainingRef so blur doesn't override ₹0 for package-covered services
+    const remaining = pkgRemainingRef.current;
+    const catalogPrice = catalogPriceRef.current || (row.price || 0);
+    const paidQty = remaining > 0 ? Math.max(0, clampedQty - remaining) : clampedQty;
+    onChange(row.tempId, "total", calcTotal(catalogPrice, paidQty, discount));
     onClearError?.(row.tempId, "qty");
   }
 
@@ -520,6 +554,9 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     }
   }
 
+  const pkgRemaining = coveredServices?.get(row.service.trim().toLowerCase()) ?? 0;
+  const isPackageCovered = row.service.trim() !== "" && pkgRemaining > 0;
+
   return (
     <>
       <div className="svc-row">
@@ -569,6 +606,11 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
             <span className="svc-field__hint">Type at least 3 characters to search services.</span>
           )}
           {errorFields.service && <span className="svc-field__err">Select a service</span>}
+          {isPackageCovered && (
+            <span className="svc-field__pkg-badge">
+              ✓ Package Applied
+            </span>
+          )}
         </div>
 
         <div className="svc-field">

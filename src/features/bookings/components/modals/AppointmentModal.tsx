@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { currencySymbol } from "../../utils/currency";
 import { useAppSelector, useAppDispatch } from "../../../../hooks/useAppRedux";
 import { useAppointment }    from "../../hooks/useAppointment";
@@ -6,10 +6,12 @@ import { usePayment }        from "../../hooks/usePayment";
 import { useCoupon }         from "../../hooks/useCoupon";
 import { usePackageSessions } from "../../hooks/usePackageSessions";
 import { useServices }       from "../../hooks/useServices";
-import { useLazyListPackagesQuery, useLazyListPackageTemplatesQuery } from "../../../../services/api/endpoints/packages.endpoints";
+import { useLazyListPackagesQuery, useLazyListPackageTemplatesQuery, useListClientPackagesQuery, useCompleteClientPackageSessionMutation } from "../../../../services/api/endpoints/packages.endpoints";
 import { fetchProductsThunk } from "../../../../middleware/catalog/products.thunk";
 import { fetchMembershipsThunk } from "../../../../middleware/membership/membership.thunk";
-import { setPackagesList } from "../../../../store/schedulerSlice";
+import { setPackagesList, patchPaymentStatus } from "../../../../store/schedulerSlice";
+import { postPaymentThunk } from "../../../../middleware/booking/payment.thunk";
+import { isRealId } from "../../utils/paymentUtils";
 import { computeTotals }     from "../../utils/totalsUtils";
 import { formatTime12 }      from "../../utils/timeUtils";
 import { computePointsEarned, computeEWalletCredit, EWALLET_REDEEM_MINIMUM } from "../../utils/paymentUtils";
@@ -189,6 +191,87 @@ export const AppointmentModal: React.FC<Props> = ({
   const { completePayment, isProcessing, payError }            = usePayment();
   const coupon = useCoupon(salonId);
   usePackageSessions(selectedClient?.id ?? null);
+  const [completePackageSession] = useCompleteClientPackageSessionMutation();
+
+  // Fetch client's active packages to check which services are pre-paid (price = 0)
+  const clientIdForPkg = selectedClient?.id && selectedClient.id !== "walk-in" ? selectedClient.id : undefined;
+  const { data: clientPkgsData } = useListClientPackagesQuery(
+    { clientId: clientIdForPkg, status: "Active", limit: 50 },
+    { skip: !clientIdForPkg },
+  );
+  // Map of lower-cased service name → remaining sessions from active packages (memoized for stable reference)
+  const coveredServices = useMemo(() => {
+    const map = new Map<string, number>();
+    (clientPkgsData?.items ?? []).forEach((pkg) => {
+      pkg.services.forEach((svc) => {
+        if (svc.remainingSessions > 0) {
+          const key = svc.serviceName.toLowerCase();
+          map.set(key, (map.get(key) ?? 0) + svc.remainingSessions);
+        }
+      });
+    });
+    return map;
+  }, [clientPkgsData]);
+
+  // When package data loads, apply ₹0 pricing to any already-loaded service rows that are covered
+  useEffect(() => {
+    if (coveredServices.size === 0) return;
+    setServiceRows((prev) =>
+      prev.map((row) => {
+        if (!row.service.trim()) return row;
+        const remaining = coveredServices.get(row.service.toLowerCase()) ?? 0;
+        if (remaining <= 0) return row;
+        const qty = Number(row.qty) || 1;
+        const paidQty = Math.max(0, qty - remaining);
+        const catalogPrice = Number(row.price) || 0;
+        return { ...row, total: paidQty * catalogPrice, isPackageService: paidQty === 0 };
+      })
+    );
+  }, [coveredServices]);
+
+  // Also apply ₹0 to package rows when the client already owns that package (matched by name)
+  useEffect(() => {
+    if (coveredServices.size === 0) return;
+    setPackageRows((prev) =>
+      prev.map((row) => {
+        const name = ((row as any).packageName || (row as any).name || "").toLowerCase();
+        if (!name || !coveredServices.has(name)) return row;
+        return { ...row, price: 0, total: 0, isPackageService: true };
+      })
+    );
+  }, [coveredServices]);
+
+  // Marks package sessions as complete for each covered service row after appointment is done
+  async function markPackageSessions() {
+    const pkgs = clientPkgsData?.items ?? [];
+    for (const row of serviceRows) {
+      const key = row.service.toLowerCase();
+      const remaining = coveredServices.get(key) ?? 0;
+      if (remaining <= 0) continue;
+
+      // Find the package + service that covers this row
+      const qty = Number(row.qty) || 1;
+      const sessionsToMark = Math.min(qty, remaining);
+
+      for (const pkg of pkgs) {
+        const svc = pkg.services.find(
+          (s) => s.serviceName.toLowerCase() === key && s.remainingSessions > 0
+        );
+        if (!svc) continue;
+        for (let i = 0; i < sessionsToMark; i++) {
+          try {
+            await completePackageSession({
+              id: pkg.id,
+              body: { serviceId: svc.serviceId, staffName: row.staff || "Staff" },
+            }).unwrap();
+          } catch {
+            // don't block the appointment flow on session-mark failure
+          }
+        }
+        break; // one package is enough per service row
+      }
+    }
+  }
 
   // ── Totals ───────────────────────────────────────────────────────────────
   const totals = computeTotals({
@@ -384,17 +467,34 @@ export const AppointmentModal: React.FC<Props> = ({
       } as Partial<Booking>,
       serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId,
-      clientId:        selectedClient?.id ?? null,
-      existingBooking: existingBooking ?? null,
+      clientId:             selectedClient?.id ?? null,
+      existingBooking:      existingBooking ?? null,
+      isPackageAppointment: totals.grandTotal === 0,
     };
   }
 
   const handleSaveAndPay = useCallback(async () => {
     if (!validate()) return;
     const id = await save(buildSavePayload());
-    if (id) { onRefresh?.(); onClose(); }
+    if (id) {
+      // For package-covered appointments (grand total = ₹0), mark paymentMode in Redux BEFORE
+      // onRefresh overwrites the booking from the API. The paymentPatchCache survives setBookings,
+      // so the tooltip and bill correctly show ₹0 even while the appointment is still Unpaid.
+      if (totals.grandTotal === 0) {
+        dispatch(patchPaymentStatus({
+          id: String(id),
+          paymentStatus: "Unpaid",
+          payingNow: 0,
+          dueAmount: 0,
+          grandTotal: 0,
+          paymentMode: "Package",
+        }));
+      }
+      onRefresh?.();
+      onClose();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [save, selectedClient, serviceRows, packageRows, productRows, membershipRows,
+  }, [save, dispatch, totals.grandTotal, selectedClient, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
       discountType, discountValue, exCharges, tip, gstPercent, totals,
       onRefresh, onClose]);
@@ -437,6 +537,7 @@ export const AppointmentModal: React.FC<Props> = ({
       includeClearDue, priorDueAmt, useEWallet,
     });
     if (ok) {
+      await markPackageSessions();
       if (printAfterPayment) {
         const freshBooking = store.getState().scheduler.bookings.find(
           (b: any) => String(b.id) === String(apptId)
@@ -453,6 +554,46 @@ export const AppointmentModal: React.FC<Props> = ({
     partialAmtInput, includeClearDue, priorDueAmt, useEWallet,
     onRefresh, onClose, printAfterPayment, schedulerStaff, currentSalon,
   ]);
+
+  // ── Zero-payment for fully package-covered appointments ─────────────────
+  const handleZeroPackagePayment = useCallback(async () => {
+    const apptId = existingBooking?.id ?? apiAppointmentId;
+    if (!apptId) return;
+    // Catalog total = what the backend stored (price × qty per service, before package discount).
+    // The appointment was saved at full price so grand_total > 0 in the DB.
+    // We declare that amount as "paid via Package" so the backend marks the appointment Paid.
+    const catalogTotal = serviceRows.reduce((s: number, r) => {
+      const p = Number((r as any).price) || 0;
+      const q = Number(r.qty) || 1;
+      return s + p * q;
+    }, 0);
+    const result: any = await dispatch(postPaymentThunk({
+      salon_id:       salonId || undefined,
+      appointment_id: apptId,
+      client_id:      (selectedClient?.id && isRealId(selectedClient.id)) ? selectedClient.id : undefined,
+      gross_amount:   catalogTotal,
+      net_amount:     0,
+      paid_amount:    0,
+      due_amount:     0,
+      payment_method: "Package",
+      split_details:  { Package: catalogTotal },
+      status:         "completed",
+    }));
+    if (!postPaymentThunk.rejected.match(result)) {
+      dispatch(patchPaymentStatus({
+        id: String(apptId),
+        paymentStatus: "Paid",
+        payingNow: 0,
+        dueAmount: 0,
+        grandTotal: 0,
+        paymentMode: "Package",
+      }));
+      await markPackageSessions();
+      onRefresh?.();
+      onClose();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, existingBooking, apiAppointmentId, selectedClient, salonId, serviceRows, onRefresh, onClose]);
 
   if (!isOpen) return null;
 
@@ -630,6 +771,7 @@ export const AppointmentModal: React.FC<Props> = ({
               availablePackages={availablePackages}
               availableProducts={availableProducts}
               availableMemberships={availableMemberships}
+              coveredServices={coveredServices}
               frozen={false}
               svcErrors={svcErrors}
               pkgErrors={pkgErrors}
@@ -737,7 +879,8 @@ export const AppointmentModal: React.FC<Props> = ({
                 <div className="pn-layout__right">
                   <TotalsPanel
                     subtotal={totals.subtotal}
-                    serviceTotal={serviceRows.reduce((s, r) => s + r.total, 0)}
+                    serviceTotal={serviceRows.filter(r => !r.isPackageService).reduce((s, r) => s + r.total, 0)}
+                    packageServiceCount={serviceRows.filter(r => r.isPackageService).length}
                     packageTotal={packageRows.reduce((s, r) => s + r.total, 0)}
                     productTotal={productRows.reduce((s, r) => s + r.total, 0)}
                     membershipTotal={membershipRows.reduce((s, r) => s + r.total, 0)}
@@ -765,6 +908,20 @@ export const AppointmentModal: React.FC<Props> = ({
                   <span>{currencySymbol}{totals.effectiveTotal.toFixed(2)}</span>
                 )}
               </div>
+              {totals.grandTotal === 0 ? (
+                <div style={{
+                  display: "flex", flexDirection: "column", alignItems: "center",
+                  gap: 10, padding: "24px 16px", background: "#f0fdf4",
+                  border: "1px solid #86efac", borderRadius: 10, marginTop: 8,
+                }}>
+                  <div style={{ fontSize: 32 }}>📦</div>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: "#15803d" }}>Package Payment</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: "#16a34a" }}>{currencySymbol}0.00</div>
+                  <div style={{ fontSize: 13, color: "#166534", textAlign: "center" }}>
+                    This appointment is fully covered by the client's active package. No payment required.
+                  </div>
+                </div>
+              ) : (
               <PaymentPanel
                 effectiveTotal={totals.effectiveTotal}
                 remainingDue={remainingDue}
@@ -799,6 +956,7 @@ export const AppointmentModal: React.FC<Props> = ({
                 previewWalletCredit={previewWalletCredit}
                 frozen={isPaymentFrozen}
               />
+              )}
             </div>
           )}
 
@@ -832,27 +990,42 @@ export const AppointmentModal: React.FC<Props> = ({
                     {isSaving ? "Saving…" : "Update Appointment"}
                   </button>
                   {!isPaymentFrozen && (
-                    <button className="btn btn-dark" disabled={isSaving} onClick={async () => {
-                      const isWalkIn = !selectedClient || selectedClient.id === "walk-in";
-                      if (isWalkIn) {
-                        setWalkInPayError("Add client details before proceeding to payment.");
-                        setTriggerAddForm(true);
-                        clientSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                        return;
-                      }
-                      if (!validate()) return;
-                      const id = await save(buildSavePayload());
-                      if (!id) return;
-                      setShowPaymentSection(true);
-                      setTimeout(() => {
-                        paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                      }, 50);
-                    }}>
-                      {isSaving ? "Saving…" : "Continue to Payment"}
-                    </button>
+                    totals.grandTotal === 0 ? (
+                      <button className="btn btn-dark" disabled={isSaving}
+                        style={{ background: "#16a34a", borderColor: "#16a34a" }}
+                        onClick={async () => {
+                          if (!validate()) return;
+                          const id = await save(buildSavePayload());
+                          if (!id) return;
+                          setShowPaymentSection(true);
+                          setTimeout(() => { paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 50);
+                        }}>
+                        {isSaving ? "Saving…" : `Continue with Payment (${currencySymbol}0)`}
+                      </button>
+                    ) : (
+                      <button className="btn btn-dark" disabled={isSaving} onClick={async () => {
+                        const isWalkIn = !selectedClient || selectedClient.id === "walk-in";
+                        if (isWalkIn) {
+                          setWalkInPayError("Add client details before proceeding to payment.");
+                          setTriggerAddForm(true);
+                          clientSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                          return;
+                        }
+                        if (!validate()) return;
+                        const id = await save(buildSavePayload());
+                        if (!id) return;
+                        setShowPaymentSection(true);
+                        setTimeout(() => {
+                          paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }, 50);
+                      }}>
+                        {isSaving ? "Saving…" : "Continue to Payment"}
+                      </button>
+                    )
                   )}
                 </>
               ) : (
+                // New appointment (no existingBooking) — always save and close
                 <button className="btn btn-dark" style={{ width: "100%" }} onClick={handleSaveAndPay} disabled={isSaving}>
                   {isSaving ? "Saving…" : "Save Appointment"}
                 </button>
@@ -865,13 +1038,24 @@ export const AppointmentModal: React.FC<Props> = ({
                   <PencilFill size={13} /> Update Appointment
                 </button>
               )}
-              <PaymentButton
-                amount={isPartialEntry ? parsedPartial : (includeClearDue ? remainingDue + priorDueAmt : remainingDue)}
-                isPartial={isPartialEntry}
-                disabled={isPayDisabled}
-                label={isProcessing ? "Processing…" : confirmLabel}
-                onClick={handlePay}
-              />
+              {totals.grandTotal === 0 ? (
+                <button
+                  className="btn btn-dark"
+                  style={{ background: "#16a34a", borderColor: "#16a34a", flex: 1 }}
+                  disabled={isProcessing}
+                  onClick={handleZeroPackagePayment}
+                >
+                  {isProcessing ? "Processing…" : `Confirm & Complete (Package — ${currencySymbol}0)`}
+                </button>
+              ) : (
+                <PaymentButton
+                  amount={isPartialEntry ? parsedPartial : (includeClearDue ? remainingDue + priorDueAmt : remainingDue)}
+                  isPartial={isPartialEntry}
+                  disabled={isPayDisabled}
+                  label={isProcessing ? "Processing…" : confirmLabel}
+                  onClick={handlePay}
+                />
+              )}
             </>
           )}
         </div>

@@ -20,6 +20,7 @@ interface BookingTooltipCardProps {
   anchorEl: HTMLElement;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
+  coveredServices?: Map<string, number>;
 }
 
 const PAY_LABEL: Record<string, string> = { Paid: "Paid", Partial: "Due", Unpaid: "Unpaid", Cancelled: "Cancelled" };
@@ -39,6 +40,7 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
   anchorEl,
   onMouseEnter,
   onMouseLeave,
+  coveredServices,
 }) => {
   const { refs, floatingStyles } = useFloating({
     placement: "right",
@@ -79,15 +81,36 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
   const itemStaffSub = (staffId?: string) =>
     staffId && staffId !== booking.staffId ? getStaffName(staffId) : "";
 
+  const isPackagePaid =
+    (((booking as any).paymentMode || "").toLowerCase() === "package");
+
   const allItems: FlatItem[] = [
-    ...services.map((svc: any) =>
-      ({ icon: <Scissors size={13} />, name: svc.service || svc.name || "", price: Number(svc.total) || Number(svc.price) || 0, subText: itemStaffSub(svc.staffId) || undefined })),
-    ...packageItems.map((p: any) =>
-      ({ icon: <IconBox />, name: p.name || p.packageName || "", price: Number(p.total) || Number(p.price) || 0, subText: itemStaffSub(p.staffId) || undefined })),
-    ...membershipItems.map((m: any) =>
-      ({ icon: <AwardFill size={13} />, name: m.name || m.membershipName || "", price: Number(m.total) || Number(m.price) || 0, subText: itemStaffSub(m.staffId) || undefined })),
-    ...productItems.map((p: any) =>
-      ({ icon: <IconTag />, name: p.name || p.productName || "", price: Number(p.total) || Number(p.price) || 0, subText: itemStaffSub(p.staffId) || undefined })),
+    ...services.map((svc: any) => {
+      const svcName = (svc.service || svc.name || "").toLowerCase();
+      const isCovered = isPackagePaid
+        || !!(svc.isPackageService || svc.is_package_service)
+        || (coveredServices != null && coveredServices.size > 0 && coveredServices.has(svcName));
+      const rawTotal = (svc as any).total;
+      const price = isCovered ? 0
+        : ((rawTotal !== undefined && rawTotal !== null) ? Number(rawTotal) : (Number(svc.price) || 0));
+      return {
+        icon: isCovered ? <IconBox /> : <Scissors size={13} />,
+        name: svc.service || svc.name || "",
+        price,
+        subText: isCovered ? "From Package" : (itemStaffSub(svc.staffId) || undefined),
+      };
+    }),
+    ...packageItems.map((p: any) => {
+      const isPkgCovered = isPackagePaid || !!(p.isPackageService || p.is_package_service);
+      return {
+        icon: <IconBox />,
+        name: p.name || p.packageName || "",
+        price: isPkgCovered ? 0 : (Number(p.total) || Number(p.price) || 0),
+        subText: isPkgCovered ? "From Package" : (itemStaffSub(p.staffId) || undefined),
+      };
+    }),
+    ...membershipItems.map((m: any) => ({ icon: <AwardFill size={13} />, name: m.name || m.membershipName || "", price: Number(m.total) || Number(m.price) || 0, subText: itemStaffSub(m.staffId) || undefined })),
+    ...productItems.map((p: any)    => ({ icon: <IconTag />,      name: p.name || p.productName    || "", price: Number(p.total) || Number(p.price) || 0, subText: itemStaffSub(p.staffId) || undefined })),
   ].filter((item) => item.name);
 
   const computedTotal = allItems.reduce((sum, item) => sum + item.price, 0);
@@ -101,7 +124,14 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
   const taxable       = Math.max(0, computedTotal - discountAmt);
   const gstAmount      = (taxable * gstPercent) / 100;
   const adjustedTotal = taxable + gstAmount + exCharges + tipAmount;
-  const total = adjustedTotal || booking.grandTotal || computedTotal || 0;
+  const hasAnyCovered = services.some((svc: any) =>
+    svc.isPackageService || svc.is_package_service
+    || (coveredServices != null && coveredServices.size > 0 && coveredServices.has((svc.service || svc.name || "").toLowerCase()))
+  ) || packageItems.some((p: any) => p.isPackageService || p.is_package_service);
+  // Package-paid or mixed: total is derived from allItems (covered services already priced at ₹0).
+  const total = (isPackagePaid || hasAnyCovered)
+    ? adjustedTotal
+    : (allItems.length > 0 ? adjustedTotal : (Number(booking.grandTotal) || 0));
 
   const isCancelled = (booking.status || "").toLowerCase() === "cancelled";
   const rawPs = isCancelled ? "Cancelled" : (booking.paymentStatus ?? "Unpaid");
@@ -191,13 +221,28 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
               <span>Total</span>
               <span>{currencySymbol}{Number(total).toFixed(0)}</span>
             </div>
-            {booking.payingNow != null && Number(booking.payingNow) > 0 && (
-              <div className="btc__paid-row">
-                <span>Paid</span>
-                <span>{currencySymbol}{Number(booking.payingNow).toFixed(0)}</span>
+            {isPackagePaid ? (
+              <div className="btc__paid-row" style={{ color: "#16a34a" }}>
+                <span>Paid via Package</span>
+                <span>{currencySymbol}0</span>
               </div>
+            ) : (
+              <>
+                {hasAnyCovered && (
+                  <div className="btc__paid-row" style={{ color: "#16a34a" }}>
+                    <span>📦 Package covered</span>
+                    <span>{currencySymbol}0</span>
+                  </div>
+                )}
+                {booking.payingNow != null && Number(booking.payingNow) > 0 && (
+                  <div className="btc__paid-row">
+                    <span>Paid</span>
+                    <span>{currencySymbol}{Number(booking.payingNow).toFixed(0)}</span>
+                  </div>
+                )}
+              </>
             )}
-            {Number(booking.dueAmount) > 0 && (
+            {!isPackagePaid && Number(booking.dueAmount) > 0 && (
               <div className="btc__due-row">
                 <span>Due</span>
                 <span>{currencySymbol}{Number(booking.dueAmount).toFixed(0)}</span>
