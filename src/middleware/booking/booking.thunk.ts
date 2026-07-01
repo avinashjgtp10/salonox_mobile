@@ -53,7 +53,13 @@ function mapBooking(appt: any, servicesList?: any[]): Booking {
     const mappedEndTime: string | undefined = s.endTime || (s.end_time ? svcTimeToLocal(s.end_time) : undefined);
     const duration = Number(s.duration || s.duration_minutes || svcLookup?.duration || 30) || 30;
     const staffNameStr = (() => { const sf = s.staff; if (!sf) return ""; if (typeof sf === "object") return (sf as any)?.name || ""; return String(sf); })();
-    return { ...s, name: sName, service: sName, staff: staffNameStr, staffId: s.staffId || s.staff_id || appt.staffId || appt.staff_id || undefined, time: mappedTime, endTime: mappedEndTime, duration };
+    const sPrice = parseFloat(String(s.price ?? 0)) || 0;
+    const sQty   = Number(s.qty ?? s.quantity ?? 1) || 1;
+    const sTotal = parseFloat(String(s.total ?? 0)) || 0;
+    const derivedDiscount = (sTotal > 0 && sPrice * sQty > sTotal)
+      ? Math.round((sPrice * sQty - sTotal) * 100) / 100
+      : (parseFloat(String(s.discount ?? 0)) || 0);
+    return { ...s, name: sName, service: sName, staff: staffNameStr, staffId: s.staffId || s.staff_id || appt.staffId || appt.staff_id || undefined, time: mappedTime, endTime: mappedEndTime, duration, discount: derivedDiscount };
   });
 
   if (services.length > 1 && services.every((s: any) => s.time === services[0].time)) {
@@ -119,7 +125,23 @@ function mapBooking(appt: any, servicesList?: any[]): Booking {
 
   // Subtotal / discount / taxable amount — see bookingMapper.ts for rationale
   const subtotalVal = parseFloat(String(appt.subtotal ?? 0)) || computedTotal;
-  const discountAmountVal = parseFloat(String(appt.discount_amount ?? appt.discountAmount ?? 0)) || 0;
+
+  const discountValueRaw = parseFloat(String(appt.discount_value ?? appt.discount ?? 0)) || 0;
+  const discountTypeRaw  = (appt.discount_type || "").toLowerCase();
+
+  let discountAmountVal = parseFloat(String(appt.discount_amount ?? appt.discountAmount ?? 0)) || 0;
+  if (discountAmountVal === 0 && discountValueRaw > 0) {
+    if (discountTypeRaw === "flat") {
+      discountAmountVal = discountValueRaw;
+    } else {
+      const svcBase = services.reduce((sum: number, s: any) => sum + (parseFloat(String(s.total ?? s.price ?? 0)) || 0), 0)
+        + packageItems.reduce((sum: number, p: any) => sum + (parseFloat(String(p.total ?? p.price ?? 0)) || 0), 0)
+        + membershipItems.reduce((sum: number, m: any) => sum + (parseFloat(String(m.total ?? m.price ?? 0)) || 0), 0);
+      const base = svcBase > 0 ? svcBase : subtotalVal;
+      discountAmountVal = Math.round((base * discountValueRaw / 100) * 100) / 100;
+    }
+  }
+
   const taxableAmountVal = parseFloat(String(appt.taxable_amount ?? appt.taxableAmount ?? 0))
     || Math.max(0, subtotalVal - discountAmountVal);
 
@@ -159,6 +181,11 @@ function mapBooking(appt: any, servicesList?: any[]): Booking {
       if (!c) return "";
       return c.fullName || c.full_name || c.name || `${c.first_name || c.firstName || ""} ${c.last_name || c.lastName || ""}`.trim() || "";
     })(),
+    clientPhone:    appt.clientPhone    || appt.client_phone    || appt.client?.phone  || appt.client?.mobile || "",
+    clientEmail:    appt.clientEmail    || appt.client_email    || appt.client?.email  || "",
+    clientGst:      appt.clientGst      || appt.client_gst      || appt.client?.gst_number || appt.client?.gst || "",
+    loyaltyPoints:  appt.loyaltyPoints  ?? appt.loyalty_points  ?? appt.client?.loyalty_points ?? null,
+    membershipName: appt.membershipName || appt.membership_name || (appt.memberships || appt.membership_items || [])[0]?.membership_name || (appt.memberships || appt.membership_items || [])[0]?.name || "",
     date: appt.date ? toLocalDateStr(appt.date) : (appt.scheduled_at ? toLocalDateStr(appt.scheduled_at) : undefined),
     grandTotal: grandTotalVal || appt.grandTotal,
     startTime, endTime, services,

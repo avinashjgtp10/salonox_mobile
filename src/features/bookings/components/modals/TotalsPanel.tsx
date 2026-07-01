@@ -25,7 +25,7 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
   const discountVal = discountType === "Percentage (%)" ? (serviceTotal * discount) / 100 : discount;
   const totalDiscount = totalDiscountProp !== undefined ? totalDiscountProp : Math.min(discountVal, serviceTotal);
   const taxable = Math.max(0, subtotal - totalDiscount);
-  const grandTotal = taxable + exCharges + tip;
+  const grandTotal = taxable + exCharges;
 
   const rows = [
     ...(serviceTotal    > 0 ? [{ label: "Service",    value: `${currencySymbol}${serviceTotal.toFixed(2)}`,    color: "" }] : []),
@@ -33,12 +33,12 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
     ...(productTotal    > 0 ? [{ label: "Product",    value: `${currencySymbol}${productTotal.toFixed(2)}`,    color: "" }] : []),
     ...(membershipTotal > 0 ? [{ label: "Membership", value: `${currencySymbol}${membershipTotal.toFixed(2)}`, color: "" }] : []),
     { label: "Subtotal", value: `${currencySymbol}${subtotal.toFixed(2)}`, color: "" },
-    ...(totalDiscount > 0 ? [{ label: "Discount", value: `-${currencySymbol}${totalDiscount.toFixed(2)}`, color: "text-danger" }] : []),
-    ...(exCharges     > 0 ? [{ label: "Ex Charges", value: `${currencySymbol}${exCharges.toFixed(2)}`, color: "" }] : []),
-    ...(tip           > 0 ? [{ label: "Tip",        value: `${currencySymbol}${tip.toFixed(2)}`,        color: "" }] : []),
+    ...(totalDiscount > 0 ? [{ label: "Discount",   value: `-${currencySymbol}${totalDiscount.toFixed(2)}`, color: "text-danger" }] : []),
+    ...(exCharges     > 0 ? [{ label: "Ex Charges", value: `${currencySymbol}${exCharges.toFixed(2)}`,      color: "" }] : []),
     { label: "Grand Total", value: `${currencySymbol}${grandTotal.toFixed(2)}`, color: "", bold: true },
-    ...(alreadyPaid > 0 ? [{ label: "Paid", value: `${currencySymbol}${alreadyPaid.toFixed(2)}`, color: "text-success", bold: false }] : []),
-    ...(dueAmount   > 0 ? [{ label: "Due",  value: `${currencySymbol}${dueAmount.toFixed(2)}`,   color: "text-danger",  bold: false }] : []),
+    ...(tip         > 0 ? [{ label: "Tip (Staff)", value: `${currencySymbol}${tip.toFixed(2)}`,        color: "text-secondary" }] : []),
+    ...(alreadyPaid > 0 ? [{ label: "Paid",        value: `${currencySymbol}${alreadyPaid.toFixed(2)}`, color: "text-success",   bold: false }] : []),
+    ...(dueAmount   > 0 ? [{ label: "Due",          value: `${currencySymbol}${dueAmount.toFixed(2)}`,  color: "text-danger",    bold: false }] : []),
   ];
 
   return (

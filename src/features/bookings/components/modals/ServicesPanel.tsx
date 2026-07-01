@@ -463,6 +463,12 @@ function SearchableItemRow(props: SearchableItemRowProps) {
   }
 
   function handleSelect(item: SearchableCatalogItem) {
+    if (kind === "product" && item.stock !== undefined && item.stock <= 0) {
+      setScanMessage("This product is out of stock and cannot be added.");
+      setResults([]);
+      setShowDrop(false);
+      return;
+    }
     userTypedRef.current = false;
     const qty = getSafeQty(row.qty);
     const discount = parseInt(discountInput, 10) || 0;
@@ -668,6 +674,9 @@ function SearchableItemRow(props: SearchableItemRowProps) {
                       key={`${kind}-${item.id}`}
                       className="svc-dropdown__item"
                       onMouseDown={() => handleSelect(item)}
+                      disabled={isOutOfStock}
+                      style={isOutOfStock ? { cursor: "not-allowed", opacity: 0.6 } : undefined}
+                      title={isOutOfStock ? "Out of stock" : undefined}
                     >
                       <span className="svc-dropdown__name" style={isOutOfStock ? { color: "#dc2626" } : undefined}>
                         {item.name}

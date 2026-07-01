@@ -38,7 +38,7 @@ export function computeTotals(input: TotalsInput): TotalsResult {
   const {
     serviceRows, packageRows, productRows, membershipRows,
     discountType, discountValue, gstPercent,
-    exCharges, tip, couponDiscount, eWalletUsed,
+    exCharges, couponDiscount, eWalletUsed,
   } = input;
 
   const subtotal =
@@ -47,15 +47,16 @@ export function computeTotals(input: TotalsInput): TotalsResult {
     rowsTotal(productRows) +
     rowsTotal(membershipRows);
 
+  const serviceTotal = rowsTotal(serviceRows) + rowsTotal(packageRows) + rowsTotal(membershipRows);
   const itemDisc =
     discountType === "Percentage (%)"
-      ? (subtotal * discountValue) / 100
+      ? (serviceTotal * discountValue) / 100
       : discountValue;
 
   const totalDisc = Math.max(0, itemDisc) + Math.max(0, couponDiscount);
   const taxable   = Math.max(0, subtotal - totalDisc);
   const gstAmount = (taxable * gstPercent) / 100;
-  const grandTotal = taxable + gstAmount + exCharges + tip;
+  const grandTotal = taxable + gstAmount + exCharges;
   const effectiveTotal = Math.max(0, grandTotal - eWalletUsed);
 
   return { subtotal, totalDisc, taxable, gstAmount, grandTotal, effectiveTotal };

@@ -427,6 +427,8 @@ export const AppointmentModal: React.FC<Props> = ({
       salonId,
       grandTotal:        totals.grandTotal,
       effectiveTotal:    totals.effectiveTotal,
+      subtotal:          totals.subtotal,
+      manualDiscountAmt: totals.totalDisc,
       alreadyPaidAmount,
       eWalletAmt,
       couponDiscount:    coupon.discount,
@@ -682,6 +684,7 @@ export const AppointmentModal: React.FC<Props> = ({
                     value={focusedField === "exCharges" && exCharges === 0 ? "" : exCharges}
                     onFocus={() => setFocusedField("exCharges")}
                     onBlur={() => setFocusedField(null)}
+                    onWheel={(e) => e.currentTarget.blur()}
                     onChange={(e) => setExCharges(e.target.value === "" ? 0 : Number(e.target.value))} />
                 </div>
                 <div className="field-group">
@@ -690,6 +693,7 @@ export const AppointmentModal: React.FC<Props> = ({
                     value={focusedField === "tip" && tip === 0 ? "" : tip}
                     onFocus={() => setFocusedField("tip")}
                     onBlur={() => setFocusedField(null)}
+                    onWheel={(e) => e.currentTarget.blur()}
                     onChange={(e) => setTip(e.target.value === "" ? 0 : Number(e.target.value))} />
                 </div>
                 <div className="field-group">
@@ -698,6 +702,7 @@ export const AppointmentModal: React.FC<Props> = ({
                     value={focusedField === "discountValue" && discountValue === 0 ? "" : discountValue}
                     onFocus={() => setFocusedField("discountValue")}
                     onBlur={() => setFocusedField(null)}
+                    onWheel={(e) => e.currentTarget.blur()}
                     onChange={(e) => setDiscountValue(e.target.value === "" ? 0 : Number(e.target.value))} />
                 </div>
                 <div className="field-group">
