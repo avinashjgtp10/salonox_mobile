@@ -11,8 +11,10 @@ interface CompletePaymentParams {
   clientId?: string | null;
   salonId?: string;
   // Totals
-  grandTotal: number;
-  effectiveTotal: number;
+  grandTotal: number;       // post-discount net total (used for UI + net_amount)
+  effectiveTotal: number;   // grandTotal - eWalletUsed
+  subtotal?: number;        // pre-discount subtotal → sent as gross_amount to backend
+  manualDiscountAmt?: number; // monetary discount applied on services (from totals.totalDisc)
   alreadyPaidAmount: number;
   eWalletAmt: number;
   couponDiscount: number;
@@ -44,11 +46,16 @@ export function usePayment() {
   const completePayment = useCallback(async (params: CompletePaymentParams): Promise<boolean> => {
     const {
       appointmentId, clientId, salonId,
-      grandTotal, effectiveTotal, alreadyPaidAmount,
-      eWalletAmt, couponDiscount, couponApplied,
+      grandTotal, effectiveTotal, subtotal, manualDiscountAmt,
+      alreadyPaidAmount, eWalletAmt, couponDiscount, couponApplied,
       paymentMode, singleMethod, splitEntries, partialAmtInput,
       includeClearDue, priorDueAmt, useEWallet,
     } = params;
+
+    // gross_amount = pre-discount subtotal so the backend can compute:
+    //   net = gross - discount_amount, due = net - paid = 0
+    const payloadGross    = (subtotal && subtotal > grandTotal) ? subtotal : grandTotal;
+    const payloadDiscount = (manualDiscountAmt || 0) + couponDiscount;
 
     setIsProcessing(true);
     setPayError(null);
@@ -86,8 +93,8 @@ export function usePayment() {
         salon_id:         salonId || undefined,
         appointment_id:   appointmentId,
         client_id:        (clientId && isRealId(clientId)) ? clientId : undefined,
-        gross_amount:     grandTotal,
-        discount_amount:  alreadyPaidAmount > 0 ? 0 : couponDiscount,
+        gross_amount:     payloadGross,
+        discount_amount:  alreadyPaidAmount > 0 ? 0 : payloadDiscount,
         ewallet_used:     useEWallet ? eWalletAmt : 0,
         net_amount:       effectiveTotal,
         paid_amount:      currentCharge,

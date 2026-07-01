@@ -14,7 +14,7 @@ interface Props {
 }
 
 const BlockTimeModal: React.FC<Props> = ({ onClose, defaultStaffId, editingBlock }) => {
-  const { addBlockedTime, updateBlockedTime, deleteBlockedTime, currentDate, interval, staffList } = useSchedulerContext();
+  const { addBlockedTime, updateBlockedTime, deleteBlockedTime, currentDate, interval, staffList, bookings } = useSchedulerContext();
 
   const isEdit = !!editingBlock;
 
@@ -25,11 +25,25 @@ const BlockTimeModal: React.FC<Props> = ({ onClose, defaultStaffId, editingBlock
   const [reason,    setReason]    = useState(editingBlock?.reason    || "");
   const [showCal,   setShowCal]   = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [conflictError, setConflictError] = useState("");
 
   const canSave = !!staffId && !!startTime && !!endTime && startTime < endTime;
 
+  function hasAppointmentConflict(): boolean {
+    return bookings.some((b) => {
+      if (b.staffId !== staffId || b.date !== date) return false;
+      if (isEdit && String(b.id) === String(editingBlock!.id)) return false;
+      return startTime < b.endTime && endTime > b.startTime;
+    });
+  }
+
   function handleSave() {
     if (!canSave) return;
+    if (hasAppointmentConflict()) {
+      setConflictError("An appointment is already scheduled at this time. Cannot add block time here.");
+      return;
+    }
+    setConflictError("");
     if (isEdit) {
       updateBlockedTime({ ...editingBlock!, staffId, date, startTime, endTime, reason });
     } else {
@@ -72,7 +86,7 @@ const BlockTimeModal: React.FC<Props> = ({ onClose, defaultStaffId, editingBlock
             />
             {showCal && (
               <div className="position-absolute btm-cal-portal">
-                <MiniCalendar value={date} onChange={(d) => { setDate(d); setShowCal(false); }} onClose={() => setShowCal(false)} />
+                <MiniCalendar value={date} onChange={(d) => { setDate(d); setShowCal(false); setConflictError(""); }} onClose={() => setShowCal(false)} />
               </div>
             )}
           </div>
@@ -80,7 +94,7 @@ const BlockTimeModal: React.FC<Props> = ({ onClose, defaultStaffId, editingBlock
           {/* Staff */}
           <div>
             <label className="form-label fw-semibold text-uppercase text-muted btm-label">Staff *</label>
-            <select className="form-select" value={staffId} onChange={(e) => setStaffId(e.target.value)}>
+            <select className="form-select" value={staffId} onChange={(e) => { setStaffId(e.target.value); setConflictError(""); }}>
               <option value="">Select Staff</option>
               {(staffList || []).map((s: { id: string; name: string }) => <option key={s.id} value={s.id}>{s.name.includes(" ") ? s.name : s.name.replace(/([a-z])([A-Z])/g, "$1 $2")}</option>)}
             </select>
@@ -90,17 +104,23 @@ const BlockTimeModal: React.FC<Props> = ({ onClose, defaultStaffId, editingBlock
           <div className="row g-3">
             <div className="col">
               <label className="form-label fw-semibold text-uppercase text-muted btm-label">Start Time *</label>
-              <TimeSelect value={startTime} onChange={setStartTime} interval={interval} className="form-select" />
+              <TimeSelect value={startTime} onChange={(v) => { setStartTime(v); setConflictError(""); }} interval={interval} className="form-select" />
             </div>
             <div className="col">
               <label className="form-label fw-semibold text-uppercase text-muted btm-label">End Time *</label>
-              <TimeSelect value={endTime} onChange={setEndTime} interval={interval} className="form-select" />
+              <TimeSelect value={endTime} onChange={(v) => { setEndTime(v); setConflictError(""); }} interval={interval} className="form-select" />
             </div>
           </div>
 
           {startTime && endTime && startTime >= endTime && (
             <div className="alert alert-warning py-2 px-3 mb-0" style={{ fontSize: 12 }}>
               End time must be after start time.
+            </div>
+          )}
+
+          {conflictError && (
+            <div className="alert alert-danger py-2 px-3 mb-0" style={{ fontSize: 12 }}>
+              {conflictError}
             </div>
           )}
 

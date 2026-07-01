@@ -100,6 +100,12 @@ export function mapApiBooking(
     const mappedTime = s.time || (s.start_time ? svcTimeToLocal(s.start_time) : startTime);
     const duration = Number(s.duration || s.duration_minutes || svcLookup?.duration || 30) || 30;
     const staffNameStr = (() => { const sf = s.staff; if (!sf) return ""; if (typeof sf === "object") return (sf as any)?.name || ""; return String(sf); })();
+    const sPrice = parseFloat(String(s.price ?? 0)) || 0;
+    const sQty   = Number(s.qty ?? s.quantity ?? 1) || 1;
+    const sTotal = parseFloat(String(s.total ?? 0)) || 0;
+    const derivedDiscount = (sTotal > 0 && sPrice * sQty > sTotal)
+      ? Math.round((sPrice * sQty - sTotal) * 100) / 100
+      : (parseFloat(String(s.discount ?? 0)) || 0);
     return {
       ...s,
       name: sName,
@@ -108,6 +114,7 @@ export function mapApiBooking(
       staffId: s.staffId || s.staff_id || appt.staffId || appt.staff_id || undefined,
       time: mappedTime,
       duration,
+      discount: derivedDiscount,
     };
   });
 
@@ -176,11 +183,26 @@ export function mapApiBooking(
   const grandTotalVal = parseFloat(String(appt.grand_total ?? appt.grandTotal ?? appt.total_amount ?? 0)) || computedTotal;
 
   // ── Subtotal / discount / taxable amount ──────────────────────────────────
-  // The API stores the raw discount input (discount_value, a %/flat number) separately
-  // from the computed monetary discount (discount_amount). Use computedTotal as the
-  // subtotal fallback since the API doesn't always echo back a `subtotal` field.
   const subtotalVal = parseFloat(String(appt.subtotal ?? 0)) || computedTotal;
-  const discountAmountVal = parseFloat(String(appt.discount_amount ?? appt.discountAmount ?? 0)) || 0;
+
+  const discountValueRaw = parseFloat(String(appt.discount_value ?? appt.discount ?? 0)) || 0;
+  const discountTypeRaw  = (appt.discount_type || "").toLowerCase();
+
+  let discountAmountVal = parseFloat(String(appt.discount_amount ?? appt.discountAmount ?? 0)) || 0;
+  // API often omits discount_amount — compute it from discount_value + discount_type
+  if (discountAmountVal === 0 && discountValueRaw > 0) {
+    if (discountTypeRaw === "flat") {
+      discountAmountVal = discountValueRaw;
+    } else {
+      // Percentage — apply only to services/packages/memberships (not products)
+      const svcBase = services.reduce((sum: number, s: any) => sum + (parseFloat(String(s.total ?? s.price ?? 0)) || 0), 0)
+        + packageItems.reduce((sum: number, p: any) => sum + (parseFloat(String(p.total ?? p.price ?? 0)) || 0), 0)
+        + membershipItems.reduce((sum: number, m: any) => sum + (parseFloat(String(m.total ?? m.price ?? 0)) || 0), 0);
+      const base = svcBase > 0 ? svcBase : subtotalVal;
+      discountAmountVal = Math.round((base * discountValueRaw / 100) * 100) / 100;
+    }
+  }
+
   const taxableAmountVal = parseFloat(String(appt.taxable_amount ?? appt.taxableAmount ?? 0))
     || Math.max(0, subtotalVal - discountAmountVal);
 
@@ -238,11 +260,26 @@ export function mapApiBooking(
       || `${c.first_name || c.firstName || ""} ${c.last_name || c.lastName || ""}`.trim()
       || "";
   })();
+  const clientPhone = appt.clientPhone || appt.client_phone || appt.client?.phone || appt.client?.mobile || "";
+  const clientEmail = appt.clientEmail || appt.client_email || appt.client?.email || "";
+  const clientGst   = appt.clientGst   || appt.client_gst   || appt.client?.gst_number || appt.client?.gst || "";
+  const loyaltyPoints = appt.loyaltyPoints ?? appt.loyalty_points ?? appt.client?.loyalty_points ?? null;
+  const membershipName = (() => {
+    if (appt.membershipName) return appt.membershipName;
+    if (appt.membership_name) return appt.membership_name;
+    const m = (appt.memberships || appt.membership_items || [])[0];
+    return m ? (m.membership_name || m.membershipName || m.name || "") : "";
+  })();
 
   return {
     ...appt,
     title,
     clientName,
+    clientPhone,
+    clientEmail,
+    clientGst,
+    loyaltyPoints,
+    membershipName,
     staffId: appt.staffId || appt.staff_id || undefined,
     clientId: String(appt.clientId ?? appt.client_id ?? appt.client?.id ?? ""),
     date: appt.date

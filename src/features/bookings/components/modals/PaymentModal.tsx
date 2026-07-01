@@ -63,7 +63,10 @@ const PaymentModal: React.FC<Props> = ({ booking, onClose, collectDue = false })
   const currentRevenue   = clientStat?.totalRevenue      ?? 0;
   const currentPoints    = clientStat?.rewardPointsTotal ?? 0;
   const currentMembership = clientStat?.membership ?? "NA";
+  // gross = what the backend stored as grand_total (may be pre-discount)
+  // manualDiscount = monetary discount computed by our mapper
   const grandTotal       = booking.grandTotal || 0;
+  const manualDiscount   = (booking as any).discountAmount || 0;
 
   // ── Coupon ──────────────────────────────────────────────────────────────────
   const [couponInput,    setCouponInput]    = useState("");
@@ -103,7 +106,7 @@ const PaymentModal: React.FC<Props> = ({ booking, onClose, collectDue = false })
   const [newMembership,setNewMembership]= useState("");
 
   // ── Derived ──────────────────────────────────────────────────────────────────
-  const effectiveTotal    = Math.max(0, grandTotal - couponDiscount - (useEWallet ? eWalletAmt : 0));
+  const effectiveTotal    = Math.max(0, grandTotal - manualDiscount - couponDiscount - (useEWallet ? eWalletAmt : 0));
   const previewPoints     = computePointsEarned(effectiveTotal);
   const previewWallet     = computeEWalletCredit(previewPoints);
   const previewRevenue    = currentRevenue + effectiveTotal;
@@ -218,16 +221,17 @@ const PaymentModal: React.FC<Props> = ({ booking, onClose, collectDue = false })
         await api.post(PAYMENT.BASE, {
           appointment_id: appointmentId,
           client_id: booking.clientId && !String(booking.clientId).startsWith("b_") ? booking.clientId : undefined,
-          gross_amount: collectDue ? (booking.grandTotal || grandTotal) : grandTotal,
-          discount_amount: collectDue ? 0 : couponDiscount,
-          ewallet_used: collectDue ? 0 : (useEWallet ? eWalletAmt : 0),
-          net_amount: collectDue ? (booking.grandTotal || grandTotal) : effectiveTotal,
-          paid_amount: totalPaid,
-          due_amount: remainingDue,
-          coupon_code: collectDue ? undefined : (couponApplied || undefined),
-          payment_method: methodLabel.toLowerCase(),
-          split_details: payMode === "Split" ? methods : undefined,
-          status: remainingDue > 0 ? "partial" : "completed",
+          // gross = pre-discount total so backend computes: net = gross - discount_amount, due = net - paid
+          gross_amount:    collectDue ? (booking.grandTotal || grandTotal) : grandTotal,
+          discount_amount: collectDue ? 0 : (manualDiscount + couponDiscount),
+          ewallet_used:    collectDue ? 0 : (useEWallet ? eWalletAmt : 0),
+          net_amount:      collectDue ? (booking.dueAmount || 0) : effectiveTotal,
+          paid_amount:     totalPaid,
+          due_amount:      remainingDue,
+          coupon_code:     collectDue ? undefined : (couponApplied || undefined),
+          payment_method:  methodLabel.toLowerCase(),
+          split_details:   payMode === "Split" ? methods : undefined,
+          status:          remainingDue > 0 ? "partial" : "completed",
         });
       } catch (err) {
         console.error("Failed to save payment:", err);
@@ -352,6 +356,12 @@ const PaymentModal: React.FC<Props> = ({ booking, onClose, collectDue = false })
                   <span className="fw-semibold">{currencySymbol}{(p.total || p.price * p.qty).toFixed(2)}</span>
                 </div>
               ))}
+              {manualDiscount > 0 && (
+                <div className="d-flex justify-content-between px-3 py-2 border-bottom small text-danger">
+                  <span>Discount ({(booking as any).discountType === "Flat (₹)" ? "Flat" : `${(booking as any).discount ?? 0}%`})</span>
+                  <span>−{currencySymbol}{manualDiscount.toFixed(2)}</span>
+                </div>
+              )}
               {couponDiscount > 0 && (
                 <div className="d-flex justify-content-between px-3 py-2 border-bottom small text-success">
                   <span>Coupon <Badge variant="success">{couponApplied}</Badge></span>
