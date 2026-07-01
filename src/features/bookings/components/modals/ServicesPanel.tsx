@@ -69,6 +69,7 @@ interface Props {
   availableProducts: any[];
   availableMemberships: any[];
   frozen?: boolean;
+  coveredServices?: Map<string, number>;
 
   svcErrors?: Array<{ service?: boolean; staff?: boolean; time?: boolean }>;
   pkgErrors?: boolean[];
@@ -786,7 +787,7 @@ export const ServicesPanel: React.FC<Props> = ({
   productRows, onUpdateProduct, onRemoveProduct, onAddProduct,
   membershipRows, onUpdateMembership, onRemoveMembership, onAddMembership,
   availablePackages, availableProducts, availableMemberships,
-  frozen,
+  frozen, coveredServices,
   svcErrors, pkgErrors, prodErrors, memErrors, onClearSvcError,
 }) => {
   const { staffList, interval } = useSchedulerContext();
@@ -831,6 +832,7 @@ export const ServicesPanel: React.FC<Props> = ({
           onUpdateService(i, field, value);
         }}
         onRemove={() => onRemoveService(i)}
+        coveredServices={coveredServices}
       />
     ))}
 

@@ -15,12 +15,13 @@ interface TotalsPanelProps {
   tip?: number;
   alreadyPaid?: number;
   dueAmount?: number;
+  packageServiceCount?: number;
 }
 
 const TotalsPanel: React.FC<TotalsPanelProps> = ({
   subtotal, serviceTotal, packageTotal, productTotal, membershipTotal,
   exCharges, discount, discountType, totalDiscount: totalDiscountProp, tip = 0,
-  alreadyPaid = 0, dueAmount = 0,
+  alreadyPaid = 0, dueAmount = 0, packageServiceCount = 0,
 }) => {
   const discountVal = discountType === "Percentage (%)" ? (serviceTotal * discount) / 100 : discount;
   const totalDiscount = totalDiscountProp !== undefined ? totalDiscountProp : Math.min(discountVal, serviceTotal);
@@ -28,6 +29,7 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
   const grandTotal = taxable + exCharges;
 
   const rows = [
+    ...(packageServiceCount > 0 ? [{ label: `📦 Package Service${packageServiceCount > 1 ? "s" : ""} (${packageServiceCount})`, value: `${currencySymbol}0`, color: "text-success" }] : []),
     ...(serviceTotal    > 0 ? [{ label: "Service",    value: `${currencySymbol}${serviceTotal.toFixed(2)}`,    color: "" }] : []),
     ...(packageTotal    > 0 ? [{ label: "Package",    value: `${currencySymbol}${packageTotal.toFixed(2)}`,    color: "" }] : []),
     ...(productTotal    > 0 ? [{ label: "Product",    value: `${currencySymbol}${productTotal.toFixed(2)}`,    color: "" }] : []),

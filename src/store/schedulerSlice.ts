@@ -85,7 +85,7 @@ interface SchedulerState {
   staffSchedules: Record<string, Record<number, StaffDaySchedule>>;
   scheduleVersion: number;
   dragPatchCache: Record<string, { startTime: string; endTime: string; staffId?: string }>;
-  paymentPatchCache: Record<string, { paymentStatus: string; payingNow: number; dueAmount: number; grandTotal?: number }>;
+  paymentPatchCache: Record<string, { paymentStatus: string; payingNow: number; dueAmount: number; grandTotal?: number; paymentMode?: string }>;
   serviceStaffCache: Record<string, Array<{ staffId: string; staff: string }>>;
 }
 
@@ -126,6 +126,7 @@ const schedulerSlice = createSlice({
           (merged as any).payingNow      = pay.payingNow;
           (merged as any).dueAmount      = pay.paymentStatus === "Paid" ? 0 : pay.dueAmount;
           if (pay.grandTotal !== undefined) (merged as any).grandTotal = pay.grandTotal;
+          if (pay.paymentMode !== undefined) (merged as any).paymentMode = pay.paymentMode;
         }
         // Restore per-service staff assignments that the list endpoint collapses to appointment-level.
         if (svcStaff?.length && (merged as any).services?.length) {
@@ -238,6 +239,7 @@ const schedulerSlice = createSlice({
         payingNow:     payload.payingNow ?? 0,
         dueAmount:     payload.paymentStatus === "Paid" ? 0 : (payload.dueAmount ?? 0),
         grandTotal:    payload.grandTotal,
+        paymentMode:   payload.paymentMode,
       };
     },
     replaceBookingId(state, { payload }: PayloadAction<{ localId: string; realId: string }>) {

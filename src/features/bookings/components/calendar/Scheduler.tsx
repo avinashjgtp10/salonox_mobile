@@ -41,8 +41,10 @@ const SchedulerContent: React.FC = () => {
 
   // ── Data hooks ───────────────────────────────────────────────────────────
   const { staffReady, hasStaff } = useStaffSchedule(salonId);
-  // Skip appointment fetch until staff is confirmed available
-  useBookings(!hasStaff);
+  // Fetch bookings as soon as salonId is known — parallel with staff, no more serial dependency.
+  // Waiting for hasStaff caused appointments to vanish on page refresh when Redux state is empty
+  // and the auth → salon → staff chain took 3-4 s (or broke silently).
+  useBookings(!salonId);
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [showNewAppt, setShowNewAppt]         = useState(false);
@@ -214,6 +216,13 @@ const SchedulerContent: React.FC = () => {
     const updated = fresh.map((fb) => {
       const merged: Booking = { ...fb } as Booking;
       const local = latestBookings.find((lb) => String(lb.id) === String(fb.id));
+
+      // Package appointments: list endpoint may return staff_id=null even though it was set at
+      // creation time (backend stores staffId in package_items, not in appointments table).
+      // Preserve the staffId from the local Redux booking so the chip stays visible.
+      if (!merged.staffId && local?.staffId) {
+        (merged as any).staffId = local.staffId;
+      }
 
       // Preserve per-service staffIds saved locally when the API list endpoint
       // doesn't return staff_id per service (all services fall back to appt-level staffId).

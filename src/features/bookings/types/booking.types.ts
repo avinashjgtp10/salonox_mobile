@@ -30,6 +30,7 @@ export interface ServiceItem {
   total: number;
   duration?: number;
   isFav?: boolean;
+  isPackageService?: boolean;
 }
 
 export interface PackageItem {
