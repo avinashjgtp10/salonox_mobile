@@ -122,7 +122,11 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
   const gstPercent    = Number(booking.gst) || 0;
   const discountAmt   = booking.discountType === "Flat (₹)" ? discountValue : (computedTotal * discountValue) / 100;
   const taxable       = Math.max(0, computedTotal - discountAmt);
-  const gstAmount      = (taxable * gstPercent) / 100;
+  // Prefer the persisted (accurate, per-tax) amount; fall back to the old
+  // blended-rate estimate for bookings saved before tax breakdown existed.
+  const gstAmount      = (booking as any).gstAmount != null
+    ? Number((booking as any).gstAmount) || 0
+    : (taxable * gstPercent) / 100;
   const adjustedTotal = taxable + gstAmount + exCharges + tipAmount;
   const hasAnyCovered = services.some((svc: any) =>
     svc.isPackageService || svc.is_package_service

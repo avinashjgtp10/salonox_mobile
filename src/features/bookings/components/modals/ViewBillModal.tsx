@@ -120,6 +120,7 @@ export function printReceipt(
   const tipAmt      = Number((booking as any).tipAmount     || 0);
   const gstPct      = Number((booking as any).gst           || 0);
   const gstAmt      = Number((booking as any).gstAmount     || 0);
+  const taxBreakdown = ((booking as any).taxBreakdown || []) as { name: string; rate: number; amount: number; inclusive: boolean }[];
   const grandTotal  = Number(booking.grandTotal || 0);
   const paidAmt     = Number(booking.payingNow  || 0);
   const dueAmt      = Number(booking.dueAmount  || 0);
@@ -136,7 +137,24 @@ export function printReceipt(
     couponDisc  > 0 ? sumRow(`Coupon${couponCode ? ` (${couponCode})` : ""}`, `−${fmt(couponDisc)}`, false, "#dc2626") : "",
     exCharges   > 0 ? sumRow("Extra Charges",    `+${fmt(exCharges)}`) : "",
     tipAmt      > 0 ? sumRow("Tip (Staff)",       `+${fmt(tipAmt)}`) : "",
-    gstAmt      > 0 ? sumRow(`GST${gstPct > 0 ? ` (${gstPct}%)` : ""}`, `+${fmt(gstAmt)}`) : "",
+    // Itemized per-tax lines (CGST, SGST, etc.) + a "Total Tax" subtotal —
+    // e.g. "CGST 9%" / "SGST/UTGST 9%" / "Total Tax". Falls back to the old
+    // single blended "GST" line for bookings saved before this.
+    ...(taxBreakdown.length > 0
+      ? [
+          ...taxBreakdown
+            .filter((t) => t.amount > 0)
+            .map((t) => sumRow(
+              `${t.name} ${t.rate}%${t.inclusive ? " (incl.)" : ""}`,
+              `${t.inclusive ? "" : "+"}${fmt(t.amount)}`,
+            )),
+          sumRow(
+            "Total Tax",
+            fmt(taxBreakdown.reduce((s, t) => s + (t.amount > 0 ? t.amount : 0), 0)),
+            false, "#111827",
+          ),
+        ]
+      : [gstAmt > 0 ? sumRow(`GST${gstPct > 0 ? ` (${gstPct}%)` : ""}`, `+${fmt(gstAmt)}`) : ""]),
     sumRow("Grand Total", fmt(isPackagePaid ? 0 : grandTotal), true, "#111827", true),
     paidAmt > 0 ? sumRow("Amount Paid", fmt(paidAmt), false, "#15803d") : "",
     dueAmt  > 0 ? sumRow("Balance Due", fmt(dueAmt),  true,  "#dc2626") : "",
@@ -705,6 +723,20 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                     booking.couponDiscount ? [`Coupon (${booking.couponCode})`, `−${currencySymbol}${(booking.couponDiscount || 0).toFixed(2)}`, "#22c55e"] : null,
                     booking.exCharges ? ["Extra Charges", `${currencySymbol}${(booking.exCharges || 0).toFixed(2)}`, "#374151"] : null,
                     booking.tipAmount ? ["Tip", `${currencySymbol}${(booking.tipAmount || 0).toFixed(2)}`, "#374151"] : null,
+                    ...((booking as any).taxBreakdown?.length
+                      ? [
+                          ...(booking as any).taxBreakdown
+                            .filter((t: any) => t.amount > 0)
+                            .map((t: any) => [
+                              `${t.name} ${t.rate}%${t.inclusive ? " (incl.)" : ""}`,
+                              `${t.inclusive ? "" : "+"}${currencySymbol}${t.amount.toFixed(2)}`,
+                              "#374151",
+                            ]),
+                          ["Total Tax", `${currencySymbol}${(booking as any).taxBreakdown.reduce((s: number, t: any) => s + (t.amount > 0 ? t.amount : 0), 0).toFixed(2)}`, "#111827"],
+                        ]
+                      : ((booking as any).gstAmount > 0
+                          ? [[`GST${(booking as any).gst ? ` (${(booking as any).gst}%)` : ""}`, `+${currencySymbol}${(booking as any).gstAmount.toFixed(2)}`, "#374151"]]
+                          : [])),
                   ].filter(Boolean).map((row, i) => (
                     <div key={i} className="vbm-breakdown-row" style={{ color: row![2] as string }}>
                       <span>{row![0] as string}</span><span>{row![1] as string}</span>

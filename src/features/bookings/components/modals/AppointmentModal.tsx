@@ -11,6 +11,8 @@ import { fetchProductsThunk } from "../../../../middleware/catalog/products.thun
 import { fetchMembershipsThunk } from "../../../../middleware/membership/membership.thunk";
 import { setPackagesList, patchPaymentStatus } from "../../../../store/schedulerSlice";
 import { postPaymentThunk } from "../../../../middleware/booking/payment.thunk";
+import { fetchSettingsThunk } from "../../../../middleware/setting/setting.thunk";
+import { getActiveTaxes } from "../../../settings/utils/taxSettings";
 import { isRealId } from "../../utils/paymentUtils";
 import { computeTotals }     from "../../utils/totalsUtils";
 import { formatTime12 }      from "../../utils/timeUtils";
@@ -81,6 +83,11 @@ export const AppointmentModal: React.FC<Props> = ({
 
   // Always fetch services + clients when modal opens
   useServices(salonId);
+
+  // Active taxes from Tax Mapping settings, for bill calculation
+  useEffect(() => { dispatch(fetchSettingsThunk()); }, [dispatch]);
+  const settingItems = useAppSelector((s) => s.setting.items);
+  const activeTaxes  = useMemo(() => getActiveTaxes(settingItems), [settingItems]);
 
   // ── Lazy on-demand fetching ───────────────────────────────────────────────
   const [triggerPackages, { data: packagesData }]       = useLazyListPackagesQuery();
@@ -157,7 +164,6 @@ export const AppointmentModal: React.FC<Props> = ({
   // ── Charges / Discounts ───────────────────────────────────────────────────
   const [discountType, setDiscountType]   = useState<DiscountType>(existingBooking?.discountType || "Percentage (%)");
   const [discountValue, setDiscountValue] = useState(existingBooking?.discount ?? 0);
-  const [gstPercent]                      = useState(existingBooking?.gst ?? 0);
   const [exCharges, setExCharges]         = useState(existingBooking?.exCharges ?? 0);
   const [tip, setTip]                     = useState(existingBooking?.tipAmount ?? 0);
   const [focusedField, setFocusedField]   = useState<"exCharges" | "tip" | "discountValue" | null>(null);
@@ -276,7 +282,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // ── Totals ───────────────────────────────────────────────────────────────
   const totals = computeTotals({
     serviceRows, packageRows, productRows, membershipRows,
-    discountType, discountValue, gstPercent, exCharges, tip,
+    discountType, discountValue, taxes: activeTaxes, exCharges, tip,
     couponDiscount: coupon.discount,
     eWalletUsed: useEWallet ? eWalletAmt : 0,
   });
@@ -463,7 +469,9 @@ export const AppointmentModal: React.FC<Props> = ({
         discountType,
         exCharges,
         tipAmount:     tip,
-        gst:           gstPercent,
+        gst:           totals.taxable > 0 ? Number(((totals.gstAmount / totals.taxable) * 100).toFixed(4)) : 0,
+        gstAmount:     totals.gstAmount,
+        taxBreakdown:  totals.taxBreakdown,
       } as Partial<Booking>,
       serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId,
@@ -496,7 +504,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [save, dispatch, totals.grandTotal, selectedClient, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
-      discountType, discountValue, exCharges, tip, gstPercent, totals,
+      discountType, discountValue, exCharges, tip, activeTaxes, totals,
       onRefresh, onClose]);
 
   const handleUpdate = useCallback(async () => {
@@ -506,7 +514,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [save, selectedClient, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
-      discountType, discountValue, exCharges, tip, gstPercent, totals,
+      discountType, discountValue, exCharges, tip, activeTaxes, totals,
       onRefresh, onClose]);
 
   // ── Pay ──────────────────────────────────────────────────────────────────
@@ -535,6 +543,8 @@ export const AppointmentModal: React.FC<Props> = ({
       couponApplied:     coupon.applied,
       paymentMode, singleMethod, splitEntries, partialAmtInput,
       includeClearDue, priorDueAmt, useEWallet,
+      gstAmount:         totals.gstAmount,
+      taxBreakdown:      totals.taxBreakdown,
     });
     if (ok) {
       await markPackageSessions();
@@ -888,6 +898,8 @@ export const AppointmentModal: React.FC<Props> = ({
                     discount={discountValue}
                     discountType={discountType}
                     totalDiscount={totals.totalDisc}
+                    gstAmount={totals.gstAmount}
+                    taxBreakdown={totals.taxBreakdown}
                     tip={tip}
                     alreadyPaid={alreadyPaidAmount}
                     dueAmount={remainingDue}
