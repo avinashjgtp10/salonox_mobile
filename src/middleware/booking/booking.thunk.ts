@@ -198,6 +198,7 @@ function mapBooking(appt: any, servicesList?: any[]): Booking {
 
   return {
     ...appt, title,
+    invoiceNumber: appt.invoice_number ? Number(appt.invoice_number) : undefined,
     payment_status: (appt.payment_status ?? "unpaid") as any,
     // When package-covered items bring our recomputed due to 0, the backend's payments table may still
     // show "partial" (it used the old grand_total that included catalog prices). Override to "Paid".

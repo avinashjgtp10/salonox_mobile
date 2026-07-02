@@ -312,8 +312,8 @@ export const AppointmentModal: React.FC<Props> = ({
   const [apptConflictError,   setApptConflictError]   = useState("");
   const [svcErrors,      setSvcErrors]      = useState<Array<{ service?: boolean; staff?: boolean; time?: boolean }>>([]);
   const [pkgErrors,      setPkgErrors]      = useState<boolean[]>([]);
-  const [prodErrors,     setProdErrors]     = useState<boolean[]>([]);
-  const [memErrors,      setMemErrors]      = useState<boolean[]>([]);
+  const [prodErrors,     setProdErrors]     = useState<Array<{ item?: boolean; staff?: boolean; time?: boolean }>>([]);
+  const [memErrors,      setMemErrors]      = useState<Array<{ item?: boolean; staff?: boolean; time?: boolean }>>([]);
 
   useEffect(() => {
     if (selectedClient && selectedClient.id !== "walk-in") {
@@ -378,13 +378,21 @@ export const AppointmentModal: React.FC<Props> = ({
     setPkgErrors(pe);
     if (pe.some(Boolean)) ok = false;
 
-    const pre = productRows.map((r) => !(r as any).productId);
+    const pre = productRows.map((r) => ({
+      item:  !(r as any).productId,
+      staff: !!(r as any).productId && !r.staffId,
+      time:  !!(r as any).productId && !r.time,
+    }));
     setProdErrors(pre);
-    if (pre.some(Boolean)) ok = false;
+    if (pre.some((e) => e.item || e.staff || e.time)) ok = false;
 
-    const me = membershipRows.map((r) => !(r as any).membershipId);
+    const me = membershipRows.map((r) => ({
+      item:  !(r as any).membershipId,
+      staff: !!(r as any).membershipId && !r.staffId,
+      time:  !!(r as any).membershipId && !r.time,
+    }));
     setMemErrors(me);
-    if (me.some(Boolean)) ok = false;
+    if (me.some((e) => e.item || e.staff || e.time)) ok = false;
 
     // ── Block time conflict check ─────────────────────────────────────────
     setBlockTimeError("");
@@ -600,8 +608,8 @@ export const AppointmentModal: React.FC<Props> = ({
       }));
       await markPackageSessions();
       onRefresh?.();
-      onClose();
     }
+    onClose();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, existingBooking, apiAppointmentId, selectedClient, salonId, serviceRows, onRefresh, onClose]);
 

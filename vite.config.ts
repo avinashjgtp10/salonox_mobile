@@ -70,6 +70,12 @@ export default defineConfig(({ mode }) => {
             return 'chunk-router'
           }
 
+          // ── Calendar / booking views (avoid "Scheduler" in chunk name — triggers ad blockers)
+          if (id.includes('src/features/bookings/') ||
+              id.includes('src/routes/DashboardRoutes')) {
+            return 'chunk-calendar'
+          }
+
           // ── FullCalendar (very large) ────────────────────────────────────────
           if (id.includes('node_modules/@fullcalendar/')) {
             return 'chunk-fullcalendar'

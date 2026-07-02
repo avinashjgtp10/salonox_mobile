@@ -63,6 +63,7 @@ export interface MembershipItem {
   membershipName: string;
   price: number;
   qty: number;
+  discount?: number;
   total: number;
   staffId?: string;
   time?: string;
@@ -91,10 +92,15 @@ export type IntervalOption  = "5 Mins" | "10 Mins" | "15 Mins" | "20 Mins" | "30
 export interface Booking {
   id: string;
   title?: string;
+  invoiceNumber?: number;
   clientId?: string;
   clientName: string;
   clientPhone: string;
+  clientEmail?: string;
   staffId: string;
+  staffName?: string;
+  staffPhone?: string;
+  staffEmail?: string;
   date: string;
   billDate: string;
   startTime: string;
