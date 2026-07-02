@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { currencySymbol } from "../../utils/currency";
 import type { Booking, BookingStatus } from "../../types/scheduler-types";
 import type { Salon } from "../../../../types/salon.types";
@@ -6,6 +6,8 @@ import { useSchedulerContext } from "../../store/SchedulerContext";
 import { useAppSelector } from "../../../../hooks/useAppRedux";
 import { formatTime12 } from "../../utils/timeUtils";
 import Badge from "../../../../components/ui/Badge";
+import { getActiveTaxes } from "../../../settings/utils/taxSettings";
+import { computeTotals } from "../../utils/totalsUtils";
 import "../../styles/ViewBillModal.scss";
 
 interface Props { booking: Booking; onClose: () => void; onEdit?: (booking: Booking) => void; onCollectDue?: (booking: Booking) => void }
@@ -42,7 +44,10 @@ export function printReceipt(
   const now = new Date();
   const printDate = now.toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" });
   const printTime = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-  const invoiceNo = `INV-${String(booking.id).padStart(6, "0")}`;
+  const invoiceSeq = (booking as any).invoiceNumber || (booking as any).invoice_number;
+  const invoiceNo  = invoiceSeq
+    ? `INV-${String(invoiceSeq).padStart(5, "0")}`
+    : `INV-${String(booking.id).slice(0, 8).toUpperCase()}`;
 
   const apptDate = (booking as any).billDate || (booking as any).date || "—";
   const apptTime = `${formatTime12(booking.startTime)} – ${formatTime12(booking.endTime)}`;
@@ -315,7 +320,7 @@ export function printReceipt(
       <div class="inv-title-word">Invoice</div>
       <table class="inv-meta-table">
         <tr><td>Invoice No</td><td><strong>${invoiceNo}</strong></td></tr>
-        <tr><td>Booking #</td><td>${booking.id}</td></tr>
+        <tr><td>Booking #</td><td>${invoiceSeq ? String(invoiceSeq).padStart(5, "0") : String(booking.id).slice(0, 8).toUpperCase()}</td></tr>
         <tr><td>Date</td><td>${printDate}</td></tr>
         <tr><td>Time</td><td>${printTime}</td></tr>
       </table>
@@ -423,6 +428,8 @@ export function printReceipt(
 const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue }) => {
   const { staffList, clientsList } = useSchedulerContext();
   const currentSalon = useAppSelector((s) => s.salon.currentSalon);
+  const settingItems = useAppSelector((s) => s.setting.items);
+  const activeTaxes  = useMemo(() => getActiveTaxes(settingItems), [settingItems]);
   const [tab, setTab] = useState<"Booking Details" | "Activity Log">("Booking Details");
   const [showDotMenu, setShowDotMenu] = useState(false);
 
@@ -482,10 +489,13 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
         <div className="vbm-left">
           <div className="vbm-client-hero">
             <div className="vbm-avatar">{booking.clientName?.charAt(0) || "?"}</div>
-            <div className="vbm-client-name">{booking.clientName}</div>
-            {booking.clientPhone && (
-              <div className="vbm-client-phone">{booking.clientPhone}</div>
-            )}
+            <div className="vbm-client-name">{booking.clientName || "Walk-In"}</div>
+            <div className="vbm-client-phone">
+              📞 {booking.clientPhone || client?.phone || "—"}
+            </div>
+            <div className="vbm-client-phone" style={{ fontSize: 12 }}>
+              ✉️ {(booking as any).clientEmail || client?.email || "—"}
+            </div>
             {client && <div className="vbm-ewallet"><span>💳 eWallet: {currencySymbol}{client.eWallet?.toFixed(2) || "0.00"}</span></div>}
           </div>
 
@@ -582,7 +592,11 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
               <button className="vbm-close-btn btn btn-sm btn-link text-dark text-decoration-none" onClick={onClose}>✕</button>
               <div>
                 <h2 className="vbm-header__title mb-0">View Appointment</h2>
-                <div className="vbm-header__id text-muted small">#{booking.id}</div>
+                <div className="vbm-header__id text-muted small">
+                  #{(booking as any).invoiceNumber
+                    ? String((booking as any).invoiceNumber).padStart(5, "0")
+                    : String(booking.id).slice(0, 8).toUpperCase()}
+                </div>
               </div>
             </div>
             <div ref={dotMenuRef} style={{ position: "relative" }}>
@@ -603,7 +617,35 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                   </button>
                   <div style={{ height: 1, background: "#f3f4f6" }} />
                   <button
-                    onClick={() => { setShowDotMenu(false); printReceipt(booking, staffList, currentSalon, client); }}
+                    onClick={() => {
+                      setShowDotMenu(false);
+                      // If the booking was loaded from the backend it won't carry taxBreakdown
+                      // (the backend doesn't persist/return that field). Re-derive it now from
+                      // the active tax settings so the printed invoice always shows correct tax.
+                      const existingBreakdown = (booking as any).taxBreakdown;
+                      let printBooking: Booking = booking;
+                      if ((!existingBreakdown || existingBreakdown.length === 0) && activeTaxes.length > 0) {
+                        const toRow = (items: any[]) => items.map((i: any) => ({
+                          price: Number(i.price || 0), qty: Number(i.qty || 1),
+                          discount: Number(i.discount || 0), total: Number(i.total || i.price || 0),
+                        }));
+                        const totals = computeTotals({
+                          serviceRows:    toRow(booking.services || []),
+                          packageRows:    toRow((booking as any).packageItems || []),
+                          productRows:    toRow((booking as any).productItems || []),
+                          membershipRows: toRow((booking as any).membershipItems || []),
+                          discountType:   (booking as any).discountType || "Flat (₹)",
+                          discountValue:  Number((booking as any).discountAmount || 0),
+                          taxes:          activeTaxes,
+                          exCharges:      Number((booking as any).exCharges || 0),
+                          tip:            Number((booking as any).tipAmount || 0),
+                          couponDiscount: Number((booking as any).couponDiscount || 0),
+                          eWalletUsed:    0,
+                        });
+                        printBooking = { ...booking, taxBreakdown: totals.taxBreakdown, gstAmount: totals.gstAmount } as any;
+                      }
+                      printReceipt(printBooking, staffList, currentSalon, client);
+                    }}
                     style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#111827", borderRadius: "0 0 10px 10px", textAlign: "left" }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
@@ -754,7 +796,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                 <div className="vbm-activity-card__title">Activity Log</div>
                 {[
                   { icon: "📅", label: "Appointment Created", detail: `${booking.billDate || booking.date} · ${formatTime12(booking.startTime)} – ${formatTime12(booking.endTime)}` },
-                  { icon: "👤", label: "Client", detail: booking.clientName + (booking.clientPhone ? ` · ${booking.clientPhone}` : "") },
+                  { icon: "👤", label: "Client", detail: [booking.clientName, booking.clientPhone, (booking as any).clientEmail].filter(Boolean).join(" · ") },
                   { icon: "💼", label: "Staff", detail: staffName },
                   { icon: "💳", label: "Payment Status", detail: booking.paymentStatus },
                   { icon: "📋", label: "Booking Status", detail: status },

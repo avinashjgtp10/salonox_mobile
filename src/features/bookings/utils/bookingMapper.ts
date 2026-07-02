@@ -286,6 +286,9 @@ export function mapApiBooking(
   const clientPhone = appt.clientPhone || appt.client_phone || appt.client?.phone || appt.client?.mobile || "";
   const clientEmail = appt.clientEmail || appt.client_email || appt.client?.email || "";
   const clientGst   = appt.clientGst   || appt.client_gst   || appt.client?.gst_number || appt.client?.gst || "";
+  const staffName   = appt.staffName   || appt.staff_name   || "";
+  const staffPhone  = appt.staffPhone  || appt.staff_phone  || "";
+  const staffEmail  = appt.staffEmail  || appt.staff_email  || "";
   const loyaltyPoints = appt.loyaltyPoints ?? appt.loyalty_points ?? appt.client?.loyalty_points ?? null;
   const membershipName = (() => {
     if (appt.membershipName) return appt.membershipName;
@@ -297,10 +300,14 @@ export function mapApiBooking(
   return {
     ...appt,
     title,
+    invoiceNumber: appt.invoice_number ? Number(appt.invoice_number) : undefined,
     clientName,
     clientPhone,
     clientEmail,
     clientGst,
+    staffName,
+    staffPhone,
+    staffEmail,
     loyaltyPoints,
     membershipName,
     staffId: (() => { const raw = appt.staffId || appt.staff_id || packageItems.find((p: any) => p.staffId)?.staffId; return raw ? String(raw) : undefined; })(),

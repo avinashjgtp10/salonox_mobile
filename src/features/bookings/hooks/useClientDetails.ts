@@ -68,8 +68,10 @@ export function useClientDetails(clientId: string | null | undefined) {
       setStats(buildStats(enriched));
 
       // ── Phase 2: history stats (background, non-blocking) ────────────────
-      api.get(`/api/v1/clients/${id}/history`)
-        .then((r) => {
+      Promise.all([
+        api.get(`/api/v1/clients/${id}/history`),
+        api.get(`/api/v1/client-packages?clientId=${id}&limit=500`).catch(() => ({ data: null })),
+      ]).then(([r, pkgRes]) => {
           if (cancelled) return;
           const histData = r.data?.data ?? r.data ?? null;
           const s = histData?.stats ?? null;
@@ -108,11 +110,18 @@ export function useClientDetails(clientId: string | null | undefined) {
           // Most recent visit = newest paid or partial appointment
           const lastPaidAt = sortedAppts.find((a) => isPaid(a) || isPartial(a))?.scheduled_at ?? null;
 
-          // Revenue: fully paid appointments (all items) + paid portion of partial appointments
+          // Revenue: fully paid appointments + paid portion of partial appointments
           const paidRevenue    = paidAppts.reduce((sum: number, a: any) => sum + apptTotal(a), 0);
           const partialRevenue = partialAppts.reduce((sum: number, a: any) =>
             sum + Number(a.amount_paid ?? a.paid_amount ?? 0), 0);
-          const totalBilled = paidRevenue + partialRevenue;
+
+          // Package purchases: add paid amount (money actually collected for the package)
+          const pkgItems: any[] = pkgRes.data?.data?.items ?? pkgRes.data?.items ?? pkgRes.data?.data ?? [];
+          const packageRevenue = Array.isArray(pkgItems)
+            ? pkgItems.reduce((sum: number, p: any) => sum + Number(p.paidAmount ?? p.paid_amount ?? p.totalAmount ?? p.total_amount ?? 0), 0)
+            : 0;
+
+          const totalBilled = paidRevenue + partialRevenue + packageRevenue;
 
           // Unpaid amount = due portion of PARTIALLY-paid appointments only. A booked/
           // confirmed appointment that simply hasn't happened/been paid yet is not "unpaid
@@ -143,6 +152,7 @@ export function useClientDetails(clientId: string | null | undefined) {
           });
         })
         .catch(() => { /* history is best-effort */ });
+
     } catch (err: any) {
       if (!cancelled) setError(err?.message || "Failed to load client");
     } finally {

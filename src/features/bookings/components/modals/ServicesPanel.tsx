@@ -73,8 +73,8 @@ interface Props {
 
   svcErrors?: Array<{ service?: boolean; staff?: boolean; time?: boolean }>;
   pkgErrors?: boolean[];
-  prodErrors?: boolean[];
-  memErrors?: boolean[];
+  prodErrors?: Array<{ item?: boolean; staff?: boolean; time?: boolean }>;
+  memErrors?: Array<{ item?: boolean; staff?: boolean; time?: boolean }>;
   onClearSvcError?: (index: number, field: string) => void;
 }
 
@@ -83,6 +83,8 @@ type SearchableItemRowProps =
       row: PackageItem;
       frozen?: boolean;
       error?: boolean;
+      staffError?: boolean;
+      timeError?: boolean;
       kind: "package";
       items: SearchableCatalogItem[];
       placeholder: string;
@@ -98,6 +100,8 @@ type SearchableItemRowProps =
       productRows: ProductItem[];
       frozen?: boolean;
       error?: boolean;
+      staffError?: boolean;
+      timeError?: boolean;
       kind: "product";
       items: SearchableCatalogItem[];
       placeholder: string;
@@ -272,6 +276,8 @@ function SearchableItemRow(props: SearchableItemRowProps) {
     row,
     frozen,
     error,
+    staffError,
+    timeError,
     kind,
     items,
     placeholder,
@@ -702,41 +708,49 @@ function SearchableItemRow(props: SearchableItemRowProps) {
         {error && <span className="svc-field__err">Please select a {kind}</span>}
       </div>
 
-      <div className="svc-staff-pill">
-        <button
-          type="button"
-          disabled={frozen}
-          className="svc-staff-pill__clear"
-          onClick={() => !frozen && onUpdate({ ...row, staffId: "" } as any)}
-        >
-          ×
-        </button>
-        <select
-          disabled={frozen}
-          value={row.staffId || ""}
-          onChange={(e) => onUpdate({ ...row, staffId: e.target.value } as any)}
-          className="svc-staff-pill__select"
-          style={{ color: row.staffId ? "#111827" : "#6b7280" }}
-        >
-          <option value="" disabled style={{ color: "#000", background: "#fff" }}>
-            Select Staff
-          </option>
-          {staffList.map((s) => (
-            <option key={s.id} value={s.id} style={{ color: "#000", background: "#fff" }}>
-              {fmtName(s.name)}
+      {/* Staff — wrapped to show error below */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <div className={`svc-staff-pill${staffError ? " svc-staff-pill--error" : ""}`}>
+          <button
+            type="button"
+            disabled={frozen}
+            className="svc-staff-pill__clear"
+            onClick={() => !frozen && onUpdate({ ...row, staffId: "" } as any)}
+          >
+            ×
+          </button>
+          <select
+            disabled={frozen}
+            value={row.staffId || ""}
+            onChange={(e) => onUpdate({ ...row, staffId: e.target.value } as any)}
+            className="svc-staff-pill__select"
+            style={{ color: row.staffId ? "#111827" : "#6b7280" }}
+          >
+            <option value="" disabled style={{ color: "#000", background: "#fff" }}>
+              Select Staff
             </option>
-          ))}
-        </select>
+            {staffList.map((s) => (
+              <option key={s.id} value={s.id} style={{ color: "#000", background: "#fff" }}>
+                {fmtName(s.name)}
+              </option>
+            ))}
+          </select>
+        </div>
+        {staffError && <span className="svc-field__err">Select staff</span>}
       </div>
 
-      <TimeSelect
-        disabled={frozen}
-        value={row.time || ""}
-        onChange={(value) => onUpdate({ ...row, time: value } as any)}
-        interval={interval}
-        className="svc-field__input svc-field__select"
-        placeholder="Time"
-      />
+      {/* Time — wrapped to show error below */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <TimeSelect
+          disabled={frozen}
+          value={row.time || ""}
+          onChange={(value) => onUpdate({ ...row, time: value } as any)}
+          interval={interval}
+          className={`svc-field__input svc-field__select${timeError ? " svc-field__input--error" : ""}`}
+          placeholder="Time"
+        />
+        {timeError && <span className="svc-field__err">Select time</span>}
+      </div>
 
       <input
         className="svc-field__input svc-field__input--readonly"
@@ -773,6 +787,9 @@ function SearchableItemRow(props: SearchableItemRowProps) {
         readOnly
         value={`${currencySymbol}${row.total.toFixed(2)}`}
       />
+
+      {/* Placeholder for quick-actions column so columns align with service rows */}
+      <span />
 
       {!frozen
         ? <button className="svc-del-btn" onClick={onRemove}><Trash size={13} /></button>
@@ -839,7 +856,7 @@ export const ServicesPanel: React.FC<Props> = ({
     {packageRows.length > 0 && (
       <>
         <div className="item-section-header item-section-header--package">
-          <span>Package</span><span>Staff</span><span>Time</span><span>Price</span><span>Qty</span><span>Disc</span><span>Total</span><span />
+          <span>Package</span><span>Staff</span><span>Time</span><span>Price</span><span>Qty</span><span>Disc</span><span>Total</span><span /><span />
         </div>
         {packageRows.map((row, i) => (
           <SearchableItemRow
@@ -864,7 +881,7 @@ export const ServicesPanel: React.FC<Props> = ({
     {productRows.length > 0 && (
       <>
         <div className="item-section-header item-section-header--product">
-          <span>Product</span><span>Staff</span><span>Time</span><span>Price</span><span>Qty</span><span>Disc</span><span>Total</span><span />
+          <span>Product</span><span>Staff</span><span>Time</span><span>Price</span><span>Qty</span><span>Disc</span><span>Total</span><span /><span />
         </div>
         {productRows.map((row, i) => (
           <SearchableItemRow
@@ -872,7 +889,9 @@ export const ServicesPanel: React.FC<Props> = ({
             row={row}
             productRows={productRows}
             frozen={frozen}
-            error={prodErrors?.[i]}
+            error={prodErrors?.[i]?.item}
+            staffError={prodErrors?.[i]?.staff}
+            timeError={prodErrors?.[i]?.time}
             kind="product"
             items={stableProductItems}
             placeholder="Search product..."
@@ -895,73 +914,121 @@ export const ServicesPanel: React.FC<Props> = ({
     {membershipRows.length > 0 && (
       <>
         <div className="item-section-header item-section-header--membership">
-          <span>Membership</span><span>Staff</span><span>Time</span><span>Price</span><span>Qty</span><span>Total</span><span />
+          <span>Membership</span><span>Staff</span><span>Time</span><span>Price</span><span>Qty</span><span>Disc</span><span>Total</span><span /><span />
         </div>
-        {membershipRows.map((row, i) => (
-          <div key={`mem-${i}`} className="item-row item-row--membership">
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <select
-                className={`svc-field__input${memErrors?.[i] ? " svc-field__input--error" : ""}`}
+        {membershipRows.map((row, i) => {
+          const memDisc = row.discount || 0;
+          return (
+            <div key={`mem-${i}`} className="item-row item-row--membership">
+              {/* 1 — Name */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <select
+                  className={`svc-field__input${memErrors?.[i]?.item ? " svc-field__input--error" : ""}`}
+                  disabled={frozen}
+                  value={(row as any).membershipId || ""}
+                  onChange={(e) => {
+                    const m = availableMemberships.find((mb: any) => String(mb.id) === e.target.value);
+                    if (m) onUpdateMembership(i, { ...row, membershipId: m.id, membershipName: m.name, price: m.price, qty: 1, discount: 0, total: m.price });
+                  }}
+                >
+                  <option value="">Select membership...</option>
+                  {availableMemberships.map((m: any) => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+                {memErrors?.[i]?.item && <span className="svc-field__err">Please select a membership</span>}
+              </div>
+
+              {/* 2 — Staff */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <div className={`svc-staff-pill${memErrors?.[i]?.staff ? " svc-staff-pill--error" : ""}`}>
+                  <button
+                    type="button"
+                    disabled={frozen}
+                    className="svc-staff-pill__clear"
+                    onClick={() => !frozen && onUpdateMembership(i, { ...row, staffId: "" })}
+                  >
+                    ×
+                  </button>
+                  <select
+                    disabled={frozen}
+                    value={row.staffId || ""}
+                    onChange={(e) => onUpdateMembership(i, { ...row, staffId: e.target.value })}
+                    className="svc-staff-pill__select"
+                    style={{ color: row.staffId ? "#111827" : "#6b7280" }}
+                  >
+                    <option value="" disabled style={{ color: "#000", background: "#fff" }}>
+                      Select Staff
+                    </option>
+                    {staffList.map((s) => (
+                      <option key={s.id} value={s.id} style={{ color: "#000", background: "#fff" }}>
+                        {fmtName(s.name)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {memErrors?.[i]?.staff && <span className="svc-field__err">Select staff</span>}
+              </div>
+
+              {/* 3 — Time */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <TimeSelect
+                  disabled={frozen}
+                  value={row.time || ""}
+                  onChange={(value) => onUpdateMembership(i, { ...row, time: value })}
+                  interval={interval}
+                  className={`svc-field__input svc-field__select${memErrors?.[i]?.time ? " svc-field__input--error" : ""}`}
+                  placeholder="Time"
+                />
+                {memErrors?.[i]?.time && <span className="svc-field__err">Select time</span>}
+              </div>
+
+              {/* 4 — Price (readonly) */}
+              <input className="svc-field__input svc-field__input--readonly" readOnly value={row.price ? `${currencySymbol}${row.price}` : "—"} />
+
+              {/* 5 — Qty */}
+              <input
+                className="svc-field__input"
+                type="text"
+                inputMode="numeric"
+                maxLength={2}
                 disabled={frozen}
-                value={(row as any).membershipId || ""}
+                placeholder="1"
+                value={row.qty || 1}
                 onChange={(e) => {
-                  const m = availableMemberships.find((mb: any) => String(mb.id) === e.target.value);
-                  if (m) onUpdateMembership(i, { ...row, membershipId: m.id, membershipName: m.name, price: m.price, qty: 1, total: m.price });
+                  const qty = Math.max(1, parseInt(e.target.value, 10) || 1);
+                  onUpdateMembership(i, { ...row, qty, total: Math.max(0, row.price * qty - memDisc) });
                 }}
-              >
-                <option value="">Select membership...</option>
-                {availableMemberships.map((m: any) => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
-              </select>
-              {memErrors?.[i] && <span className="svc-field__err">Please select a membership</span>}
-            </div>
-            <div className="svc-staff-pill">
-              <button
-                type="button"
+              />
+
+              {/* 6 — Discount */}
+              <input
+                className="svc-field__input"
+                type="text"
+                inputMode="numeric"
+                maxLength={5}
                 disabled={frozen}
-                className="svc-staff-pill__clear"
-                onClick={() => !frozen && onUpdateMembership(i, { ...row, staffId: "" })}
-              >
-                ×
-              </button>
-              <select
-                disabled={frozen}
-                value={row.staffId || ""}
-                onChange={(e) => onUpdateMembership(i, { ...row, staffId: e.target.value })}
-                className="svc-staff-pill__select"
-                style={{ color: row.staffId ? "#111827" : "#6b7280" }}
-              >
-                <option value="" disabled style={{ color: "#000", background: "#fff" }}>
-                  Select Staff
-                </option>
-                {staffList.map((s) => (
-                  <option key={s.id} value={s.id} style={{ color: "#000", background: "#fff" }}>
-                    {fmtName(s.name)}
-                  </option>
-                ))}
-              </select>
+                placeholder="0"
+                value={memDisc > 0 ? String(memDisc) : ""}
+                onChange={(e) => {
+                  const disc = Math.max(0, parseInt(e.target.value.replace(/\D/g, ""), 10) || 0);
+                  onUpdateMembership(i, { ...row, discount: disc, total: Math.max(0, row.price * (row.qty || 1) - disc) });
+                }}
+              />
+
+              {/* 7 — Total (readonly) */}
+              <input className="svc-field__input svc-field__input--readonly" readOnly value={`${currencySymbol}${row.total.toFixed(2)}`} />
+
+              {/* 8 — Placeholder (quick-actions column) */}
+              <span />
+
+              {/* 9 — Delete */}
+              {!frozen
+                ? <button className="svc-del-btn" onClick={() => onRemoveMembership(i)}><Trash size={13} /></button>
+                : <span />}
             </div>
-            <TimeSelect
-              disabled={frozen}
-              value={row.time || ""}
-              onChange={(value) => onUpdateMembership(i, { ...row, time: value })}
-              interval={interval}
-              className="svc-field__input svc-field__select"
-              placeholder="Time"
-            />
-            <input className="svc-field__input svc-field__input--readonly" readOnly value={row.price ? `${currencySymbol}${row.price}` : "—"} />
-            <input
-              className="svc-field__input"
-              type="number" min={1} disabled={frozen} value={row.qty}
-              onChange={(e) => onUpdateMembership(i, { ...row, qty: Number(e.target.value), total: row.price * Number(e.target.value) })}
-            />
-            <input className="svc-field__input svc-field__input--readonly" readOnly value={`${currencySymbol}${row.total.toFixed(2)}`} />
-            {!frozen
-              ? <button className="svc-del-btn" onClick={() => onRemoveMembership(i)}><Trash size={13} /></button>
-              : <span />}
-          </div>
-        ))}
+          );
+        })}
       </>
     )}
 

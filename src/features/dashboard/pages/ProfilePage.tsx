@@ -2,32 +2,20 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import {
-  ChevronLeft,
-  PencilSquare,
-  Check2,
-  XLg,
-  Person,
-  Envelope,
-  Telephone,
-  Building,
-  GeoAlt,
-  Globe,
-  ShieldLock,
-  EyeSlash,
-  Eye,
-  Camera,
-  CheckCircleFill,
-  ArrowClockwise,
+  ChevronLeft, PencilSquare, Check2, XLg,
+  Person, Envelope, Telephone, Building, GeoAlt,
+  Globe, ShieldLock, EyeSlash, Eye, Camera,
+  CheckCircleFill, ArrowClockwise,
+  PersonBadge, Hash, MapFill, CreditCard, Tag, Clock, FileText,
 } from "react-bootstrap-icons";
 import toast from "react-hot-toast";
 import type { AppDispatch, RootState } from "../../../store/store";
 import {
-  fetchMeThunk,
-  updateUserThunk,
-  uploadAvatarThunk,
-  changePasswordThunk,
+  fetchMeThunk, updateUserThunk, uploadAvatarThunk, changePasswordThunk,
 } from "../../../middleware/user/user.thunk";
+import { getMySalonThunk, updateSalonThunk } from "../../../middleware/salon/salon.thunk";
 import type { UpdateUserPayload } from "../../../types/user.types";
+import type { UpdateSalonPayload } from "../../../types/salon.types";
 import "../styles/ProfilePage.scss";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -39,34 +27,104 @@ const getInitials = (name?: string) => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
-// ── Input field component ──────────────────────────────────────────────────────
+const formatRole = (role?: string | null) => {
+  if (!role) return null;
+  return role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+};
+
+const formatDate = (iso?: string) => {
+  if (!iso) return null;
+  try {
+    return new Date(iso).toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+  } catch {
+    return null;
+  }
+};
+
+// ── Validation ────────────────────────────────────────────────────────────────
+
+type Errors = Record<string, string>;
+
+function validateUserForm(form: UpdateUserPayload): Errors {
+  const e: Errors = {};
+  const name = form.fullName?.trim() ?? "";
+  if (!name)               e.fullName = "Full name is required.";
+  else if (name.length < 2) e.fullName = "Full name must be at least 2 characters.";
+  else if (name.length > 100) e.fullName = "Full name must be under 100 characters.";
+
+  const phone = form.phone?.trim() ?? "";
+  if (phone && !/^\+?[\d\s\-()\[\]]{7,20}$/.test(phone))
+    e.phone = "Enter a valid phone number.";
+
+  if ((form.country?.trim() ?? "").length > 100)
+    e.country = "Country name is too long.";
+
+  return e;
+}
+
+function validateSalonForm(form: UpdateSalonPayload): Errors {
+  const e: Errors = {};
+
+  if (!String(form.business_name ?? "").trim())
+    e.business_name = "Salon name is required.";
+
+  const email = String(form.email ?? "").trim();
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    e.email = "Enter a valid email address.";
+
+  const phone = String(form.phone ?? "").trim();
+  if (phone && !/^\+?[\d\s\-()\[\]]{7,20}$/.test(phone))
+    e.phone = "Enter a valid phone number.";
+
+  const website = String(form.website_url ?? "").trim();
+  if (website && !/^https?:\/\/.+/.test(website))
+    e.website_url = "Website must start with http:// or https://.";
+
+  const gst = String(form.gst_number ?? "").trim().toUpperCase();
+  if (gst && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gst))
+    e.gst_number = "Invalid GST format (e.g. 22AAAAA0000A1Z5).";
+
+  const pan = String(form.pan_number ?? "").trim().toUpperCase();
+  if (pan && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan))
+    e.pan_number = "Invalid PAN format (e.g. ABCDE1234F).";
+
+  const pincode = String(form.pincode ?? "").trim();
+  if (pincode && !/^[0-9]{4,10}$/.test(pincode))
+    e.pincode = "Pincode must be 4–10 digits.";
+
+  const currency = String(form.currency ?? "").trim().toUpperCase();
+  if (currency && !/^[A-Z]{3}$/.test(currency))
+    e.currency = "Use a 3-letter currency code (e.g. INR, USD).";
+
+  const desc = String(form.description ?? "").trim();
+  if (desc.length > 500)
+    e.description = "Description must be under 500 characters.";
+
+  return e;
+}
+
+// ── Field component ───────────────────────────────────────────────────────────
 
 interface FieldProps {
   label: string;
   value: string;
-  name: keyof UpdateUserPayload;
+  name: string;
   icon: React.ReactNode;
   editing: boolean;
   type?: string;
   placeholder?: string;
   readOnly?: boolean;
-  onChange: (name: keyof UpdateUserPayload, value: string) => void;
+  error?: string;
+  onChange: (name: string, value: string) => void;
 }
 
 const ProfileField = ({
-  label,
-  value,
-  name,
-  icon,
-  editing,
-  type = "text",
-  placeholder,
-  readOnly = false,
-  onChange,
+  label, value, name, icon, editing, type = "text",
+  placeholder, readOnly = false, error, onChange,
 }: FieldProps) => (
   <div className="pp-field">
     <label className="pp-field-label">{label}</label>
-    <div className={`pp-field-wrap ${editing && !readOnly ? "pp-field-wrap--active" : ""}`}>
+    <div className={`pp-field-wrap ${editing && !readOnly ? "pp-field-wrap--active" : ""} ${error ? "pp-field-wrap--error" : ""}`}>
       <span className="pp-field-icon">{icon}</span>
       {editing && !readOnly ? (
         <input
@@ -82,14 +140,13 @@ const ProfileField = ({
           {value || `No ${label.toLowerCase()} set`}
         </span>
       )}
-      {readOnly && editing && (
-        <span className="pp-field-readonly-badge">locked</span>
-      )}
+      {readOnly && editing && <span className="pp-field-readonly-badge">locked</span>}
     </div>
+    {error && <span className="pp-field-error">{error}</span>}
   </div>
 );
 
-// ── Loading skeleton ──────────────────────────────────────────────────────────
+// ── Skeleton ──────────────────────────────────────────────────────────────────
 
 const ProfileSkeleton = () => (
   <div className="pp-skeleton-wrap">
@@ -103,22 +160,36 @@ const ProfileSkeleton = () => (
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
-  const navigate  = useNavigate();
-  const dispatch  = useDispatch<AppDispatch>();
-  const profile   = useSelector((s: RootState) => s.user.profile);
-  const fetching       = useSelector((s: RootState) => s.user.loading.fetch);
-  const saving         = useSelector((s: RootState) => s.user.loading.update);
-  const uploading      = useSelector((s: RootState) => s.user.loading.avatar);
-  const changingPw     = useSelector((s: RootState) => s.user.loading.changePassword);
-  const fetchErr       = useSelector((s: RootState) => s.user.error);
+  const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>();
 
-  // ── Edit state ───────────────────────────────────────────────────────────────
-  const [editing,   setEditing]   = useState(false);
-  const [saved,     setSaved]     = useState(false);
-  const [form,      setForm]      = useState<UpdateUserPayload>({});
-  const [formError, setFormError] = useState<string | null>(null);
+  // ── Redux state ───────────────────────────────────────────────────────────
+  const profile       = useSelector((s: RootState) => s.user.profile);
+  const fetching      = useSelector((s: RootState) => s.user.loading.fetch);
+  const saving        = useSelector((s: RootState) => s.user.loading.update);
+  const uploading     = useSelector((s: RootState) => s.user.loading.avatar);
+  const changingPw    = useSelector((s: RootState) => s.user.loading.changePassword);
+  const fetchErr      = useSelector((s: RootState) => s.user.error);
+  const currentSalon  = useSelector((s: RootState) => s.salon.currentSalon);
+  const salonFetching = useSelector((s: RootState) => s.salon.loading.fetch);
+  const salonSaving   = useSelector((s: RootState) => s.salon.loading.update);
+  const authRole      = useSelector((s: RootState) => s.auth.role);
 
-  // ── Password change state ────────────────────────────────────────────────────
+  // ── User edit state ───────────────────────────────────────────────────────
+  const [editing,     setEditing]     = useState(false);
+  const [saved,       setSaved]       = useState(false);
+  const [form,        setForm]        = useState<UpdateUserPayload>({});
+  const [formError,   setFormError]   = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Errors>({});
+
+  // ── Salon edit state ──────────────────────────────────────────────────────
+  const [salonEditing,     setSalonEditing]     = useState(false);
+  const [salonSaved,       setSalonSaved]       = useState(false);
+  const [salonForm,        setSalonForm]        = useState<UpdateSalonPayload>({});
+  const [salonError,       setSalonError]       = useState<string | null>(null);
+  const [salonFieldErrors, setSalonFieldErrors] = useState<Errors>({});
+
+  // ── Password state ────────────────────────────────────────────────────────
   const [pwSection,  setPwSection]  = useState(false);
   const [pwCurrent,  setPwCurrent]  = useState("");
   const [pwNew,      setPwNew]      = useState("");
@@ -129,15 +200,15 @@ export default function ProfilePage() {
   const [pwError,    setPwError]    = useState<string | null>(null);
   const [pwSuccess,  setPwSuccess]  = useState(false);
 
-  // Avatar upload ref
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // ── Fetch profile on mount ────────────────────────────────────────────────────
+  // ── Fetch on mount ────────────────────────────────────────────────────────
   useEffect(() => {
     dispatch(fetchMeThunk());
+    dispatch(getMySalonThunk());
   }, [dispatch]);
 
-  // Sync form from Redux when profile loads / changes
+  // ── Sync user form ────────────────────────────────────────────────────────
   useEffect(() => {
     if (profile) {
       setForm({
@@ -151,24 +222,58 @@ export default function ProfilePage() {
     }
   }, [profile]);
 
-  // Reset "saved" tick after 2s
+  // ── Sync salon form ───────────────────────────────────────────────────────
+  useEffect(() => {
+    if (currentSalon) {
+      setSalonForm({
+        business_name:     currentSalon.business_name     ?? "",
+        email:             currentSalon.email             ?? "",
+        phone:             currentSalon.phone             ?? "",
+        website_url:       currentSalon.website_url       ?? "",
+        gst_number:        currentSalon.gst_number        ?? "",
+        pan_number:        currentSalon.pan_number        ?? "",
+        address:           currentSalon.address           ?? "",
+        city:              currentSalon.city              ?? "",
+        state:             currentSalon.state             ?? "",
+        country:           currentSalon.country           ?? "",
+        pincode:           currentSalon.pincode           ?? "",
+        timezone:          currentSalon.timezone          ?? "",
+        currency:          currentSalon.currency          ?? "",
+        business_category: currentSalon.business_category ?? "",
+        business_type:     currentSalon.business_type     ?? "",
+        description:       currentSalon.description       ?? "",
+      });
+    }
+  }, [currentSalon]);
+
   useEffect(() => {
     if (!saved) return;
     const t = setTimeout(() => setSaved(false), 2000);
     return () => clearTimeout(t);
   }, [saved]);
 
-  // ── Handlers ─────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!salonSaved) return;
+    const t = setTimeout(() => setSalonSaved(false), 2000);
+    return () => clearTimeout(t);
+  }, [salonSaved]);
 
-  const handleFieldChange = (name: keyof UpdateUserPayload, value: string) => {
-    setForm(prev => ({ ...prev, [name]: value }));
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
+  const handleFieldChange = (name: string, value: string) => {
+    setForm((prev) => ({ ...prev, [name]: value }));
+    if (fieldErrors[name]) setFieldErrors((prev) => { const e = { ...prev }; delete e[name]; return e; });
+  };
+
+  const handleSalonFieldChange = (name: string, value: string) => {
+    setSalonForm((prev) => ({ ...prev, [name]: value }));
+    if (salonFieldErrors[name]) setSalonFieldErrors((prev) => { const e = { ...prev }; delete e[name]; return e; });
   };
 
   const handleSave = async () => {
-    if (!form.fullName?.trim()) {
-      setFormError("Full name is required.");
-      return;
-    }
+    const errors = validateUserForm(form);
+    if (Object.keys(errors).length > 0) { setFieldErrors(errors); return; }
+    setFieldErrors({});
     setFormError(null);
     const result = await dispatch(updateUserThunk(form));
     if (updateUserThunk.fulfilled.match(result)) {
@@ -185,51 +290,74 @@ export default function ProfilePage() {
   const handleCancel = () => {
     if (profile) {
       setForm({
-        fullName:     profile.fullName     ?? "",
-        phone:        profile.phone        ?? "",
-        businessName: profile.businessName ?? "",
-        address:      profile.address      ?? "",
-        country:      profile.country      ?? "",
-        countryCode:  profile.countryCode  ?? "",
+        fullName: profile.fullName ?? "", phone: profile.phone ?? "",
+        businessName: profile.businessName ?? "", address: profile.address ?? "",
+        country: profile.country ?? "", countryCode: profile.countryCode ?? "",
       });
     }
+    setFieldErrors({});
     setFormError(null);
     setEditing(false);
+  };
+
+  const handleSalonSave = async () => {
+    if (!currentSalon?.id) return;
+    const errors = validateSalonForm(salonForm);
+    if (Object.keys(errors).length > 0) { setSalonFieldErrors(errors); return; }
+    setSalonFieldErrors({});
+    setSalonError(null);
+    const result = await dispatch(updateSalonThunk({ id: currentSalon.id, payload: salonForm }));
+    if (updateSalonThunk.fulfilled.match(result)) {
+      setSalonSaved(true);
+      setSalonEditing(false);
+      toast.success("Salon updated successfully!");
+    } else {
+      const msg = String(result.payload ?? "Failed to save salon.");
+      setSalonError(msg);
+      toast.error(msg);
+    }
+  };
+
+  const handleSalonCancel = () => {
+    if (currentSalon) {
+      setSalonForm({
+        business_name: currentSalon.business_name ?? "", email: currentSalon.email ?? "",
+        phone: currentSalon.phone ?? "", website_url: currentSalon.website_url ?? "",
+        gst_number: currentSalon.gst_number ?? "", pan_number: currentSalon.pan_number ?? "",
+        address: currentSalon.address ?? "", city: currentSalon.city ?? "",
+        state: currentSalon.state ?? "", country: currentSalon.country ?? "",
+        pincode: currentSalon.pincode ?? "", timezone: currentSalon.timezone ?? "",
+        currency: currentSalon.currency ?? "", business_category: currentSalon.business_category ?? "",
+        business_type: currentSalon.business_type ?? "", description: currentSalon.description ?? "",
+      });
+    }
+    setSalonFieldErrors({});
+    setSalonError(null);
+    setSalonEditing(false);
   };
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Validate file type & size
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image file.");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image must be under 5 MB.");
-      return;
-    }
-
+    if (!file.type.startsWith("image/")) { toast.error("Please select an image file."); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error("Image must be under 5 MB."); return; }
     const result = await dispatch(uploadAvatarThunk(file));
     if (uploadAvatarThunk.fulfilled.match(result)) {
       toast.success("Profile photo updated!");
     } else {
       toast.error(String(result.payload ?? "Failed to upload photo."));
     }
-    // Reset file input
     if (fileRef.current) fileRef.current.value = "";
   };
 
   const handlePasswordChange = async () => {
-    if (!pwCurrent) { setPwError("Current password is required."); return; }
-    if (pwNew.length < 8) { setPwError("New password must be at least 8 characters."); return; }
-    if (!/[A-Z]/.test(pwNew)) { setPwError("New password must contain at least one uppercase letter."); return; }
-    if (!/[a-z]/.test(pwNew)) { setPwError("New password must contain at least one lowercase letter."); return; }
-    if (!/[0-9]/.test(pwNew)) { setPwError("New password must contain at least one number."); return; }
+    if (!pwCurrent)          { setPwError("Current password is required."); return; }
+    if (pwNew.length < 8)    { setPwError("New password must be at least 8 characters."); return; }
+    if (!/[A-Z]/.test(pwNew)) { setPwError("Must contain at least one uppercase letter."); return; }
+    if (!/[a-z]/.test(pwNew)) { setPwError("Must contain at least one lowercase letter."); return; }
+    if (!/[0-9]/.test(pwNew)) { setPwError("Must contain at least one number."); return; }
     if (pwNew !== pwConfirm) { setPwError("Passwords do not match."); return; }
     setPwError(null);
-
     const result = await dispatch(changePasswordThunk({ currentPassword: pwCurrent, newPassword: pwNew }));
     if (changePasswordThunk.fulfilled.match(result)) {
       setPwSuccess(true);
@@ -238,18 +366,18 @@ export default function ProfilePage() {
       setTimeout(() => { setPwSuccess(false); setPwSection(false); }, 2000);
     } else {
       const msg = String(result.payload ?? "Failed to change password.");
-      setPwError(msg);
-      toast.error(msg);
+      setPwError(msg); toast.error(msg);
     }
   };
 
-  const handleRetry = () => dispatch(fetchMeThunk());
-
-  const displayName = profile?.fullName   ?? "Salon Owner";
-  const email       = profile?.email      ?? "";
+  const displayName = profile?.fullName ?? "Salon Owner";
+  const email       = profile?.email    ?? "";
   const initials    = getInitials(displayName);
+  const roleBadge   = formatRole(profile?.role ?? authRole);
+  const memberSince = formatDate(profile?.createdAt);
+  const isVerified  = profile?.isVerified;
 
-  // ── Loading state ─────────────────────────────────────────────────────────────
+  // ── Loading ───────────────────────────────────────────────────────────────
   if (fetching && !profile) {
     return (
       <div className="pp-page">
@@ -268,7 +396,7 @@ export default function ProfilePage() {
     );
   }
 
-  // ── Error state ───────────────────────────────────────────────────────────────
+  // ── Error ─────────────────────────────────────────────────────────────────
   if (fetchErr && !profile) {
     return (
       <div className="pp-page">
@@ -280,7 +408,7 @@ export default function ProfilePage() {
         </div>
         <div className="pp-fetch-error">
           <p>{fetchErr}</p>
-          <button className="pp-retry-btn" onClick={handleRetry}>
+          <button className="pp-retry-btn" onClick={() => dispatch(fetchMeThunk())}>
             <ArrowClockwise size={14} /> Try Again
           </button>
         </div>
@@ -294,25 +422,22 @@ export default function ProfilePage() {
       {/* ── PAGE HEADER ── */}
       <div className="pp-page-header">
         <button className="pp-back-btn" onClick={() => navigate(-1)}>
-          <ChevronLeft size={16} />
-          <span>Back</span>
+          <ChevronLeft size={16} /><span>Back</span>
         </button>
         <h1 className="pp-page-title">My Profile</h1>
-        <p className="pp-page-sub">Manage your personal information and account settings</p>
+        <p className="pp-page-sub">Manage your personal information and salon details</p>
       </div>
 
       <div className="pp-layout">
 
-        {/* ── LEFT COLUMN: Avatar card ── */}
+        {/* ── SIDEBAR ── */}
         <aside className="pp-sidebar">
           <div className="pp-avatar-card">
 
             {/* Avatar */}
             <div className="pp-avatar-wrap">
-              {(uploading) && (
-                <div className="pp-avatar-uploading">
-                  <span className="pp-spinner" />
-                </div>
+              {uploading && (
+                <div className="pp-avatar-uploading"><span className="pp-spinner" /></div>
               )}
               {profile?.avatarUrl ? (
                 <img
@@ -345,28 +470,32 @@ export default function ProfilePage() {
             <h2 className="pp-avatar-name">{displayName}</h2>
             {email && <p className="pp-avatar-email">{email}</p>}
 
-            {/* Completion badge */}
-            <div className={`pp-completion ${saved ? "pp-completion--green" : ""}`}>
-              <CheckCircleFill size={13} />
-              <span>{saved ? "Profile saved!" : "Profile active"}</span>
+            {/* Role + Verified badges */}
+            <div className="pp-badge-row">
+              {roleBadge && <span className="pp-role-badge">{roleBadge}</span>}
+              {isVerified && (
+                <span className="pp-verified-badge">
+                  <CheckCircleFill size={10} /> Verified
+                </span>
+              )}
             </div>
 
-            {/* Edit toggle */}
+            {memberSince && <p className="pp-member-since">Member since {memberSince}</p>}
+
+            <div className={`pp-completion ${saved || salonSaved ? "pp-completion--green" : ""}`}>
+              <CheckCircleFill size={13} />
+              <span>{saved || salonSaved ? "Changes saved!" : "Profile active"}</span>
+            </div>
+
+            {/* User edit toggle */}
             {!editing ? (
               <button className="pp-edit-btn" onClick={() => setEditing(true)}>
-                <PencilSquare size={14} />
-                Edit Profile
+                <PencilSquare size={14} /> Edit Profile
               </button>
             ) : (
               <div className="pp-edit-actions">
-                <button
-                  className="pp-save-btn"
-                  onClick={handleSave}
-                  disabled={saving}
-                >
-                  {saving
-                    ? <span className="pp-spinner" />
-                    : <Check2 size={14} />}
+                <button className="pp-save-btn" onClick={handleSave} disabled={saving}>
+                  {saving ? <span className="pp-spinner" /> : <Check2 size={14} />}
                   {saving ? "Saving…" : "Save Changes"}
                 </button>
                 <button className="pp-cancel-btn" onClick={handleCancel}>
@@ -388,7 +517,9 @@ export default function ProfilePage() {
             </div>
             <div className="pp-info-strip-row">
               <Building size={13} />
-              <span className="pp-info-strip-val">{profile?.businessName || "—"}</span>
+              <span className="pp-info-strip-val">
+                {currentSalon?.business_name || profile?.businessName || "—"}
+              </span>
             </div>
             <div className="pp-info-strip-row">
               <Globe size={13} />
@@ -397,23 +528,19 @@ export default function ProfilePage() {
           </div>
         </aside>
 
-        {/* ── RIGHT COLUMN: Details ── */}
+        {/* ── MAIN ── */}
         <div className="pp-main">
 
-          {/* Error banner */}
+          {/* User banners */}
           {formError && (
             <div className="pp-error-banner">
-              <XLg size={13} />
-              {formError}
+              <XLg size={13} />{formError}
               <button className="pp-error-close" onClick={() => setFormError(null)}><XLg size={11} /></button>
             </div>
           )}
-
-          {/* Success banner */}
           {saved && (
             <div className="pp-success-banner">
-              <CheckCircleFill size={13} />
-              Profile updated successfully!
+              <CheckCircleFill size={13} /> Profile updated successfully!
             </div>
           )}
 
@@ -431,80 +558,222 @@ export default function ProfilePage() {
 
             <div className="pp-fields-grid">
               <ProfileField
-                label="Full Name"
-                value={form.fullName ?? ""}
-                name="fullName"
-                icon={<Person size={14} />}
-                editing={editing}
-                placeholder="Enter full name"
+                label="Full Name" value={form.fullName ?? ""} name="fullName"
+                icon={<Person size={14} />} editing={editing}
+                placeholder="Enter full name" error={fieldErrors.fullName}
                 onChange={handleFieldChange}
               />
               <ProfileField
-                label="Email Address"
-                value={email}
-                name="fullName"  /* email is read-only */
-                icon={<Envelope size={14} />}
-                editing={editing}
-                readOnly={true}
+                label="Email Address" value={email} name="email"
+                icon={<Envelope size={14} />} editing={editing}
+                readOnly onChange={handleFieldChange}
+              />
+              <ProfileField
+                label="Phone Number" value={form.phone ?? ""} name="phone"
+                icon={<Telephone size={14} />} editing={editing}
+                type="tel" placeholder="+91 98765 43210" error={fieldErrors.phone}
                 onChange={handleFieldChange}
               />
               <ProfileField
-                label="Phone Number"
-                value={form.phone ?? ""}
-                name="phone"
-                icon={<Telephone size={14} />}
-                editing={editing}
-                type="tel"
-                placeholder="+91 98765 43210"
+                label="Country" value={form.country ?? ""} name="country"
+                icon={<Globe size={14} />} editing={editing}
+                placeholder="e.g. India" error={fieldErrors.country}
                 onChange={handleFieldChange}
               />
-              <ProfileField
-                label="Country"
-                value={form.country ?? ""}
-                name="country"
-                icon={<Globe size={14} />}
-                editing={editing}
-                placeholder="e.g. India"
-                onChange={handleFieldChange}
-              />
+              {roleBadge && (
+                <div className="pp-field">
+                  <label className="pp-field-label">Role</label>
+                  <div className="pp-field-wrap">
+                    <span className="pp-field-icon"><PersonBadge size={14} /></span>
+                    <span className="pp-field-value">{roleBadge}</span>
+                    <span className="pp-field-readonly-badge">system</span>
+                  </div>
+                </div>
+              )}
+              {memberSince && (
+                <div className="pp-field">
+                  <label className="pp-field-label">Member Since</label>
+                  <div className="pp-field-wrap">
+                    <span className="pp-field-icon"><CheckCircleFill size={14} /></span>
+                    <span className="pp-field-value">{memberSince}</span>
+                  </div>
+                </div>
+              )}
             </div>
           </section>
 
-          {/* ── Business Information ── */}
+          {/* ── Salon Information ── */}
           <section className="pp-section">
             <div className="pp-section-header">
-              <div className="pp-section-icon" style={{ background: "#f0fdf4", color: "#16a34a" }}>
+              <div className="pp-section-icon" style={{ background: "#faf5ff", color: "#7c3aed" }}>
                 <Building size={16} />
               </div>
               <div>
-                <h3 className="pp-section-title">Business Information</h3>
-                <p className="pp-section-sub">Your salon or business details</p>
+                <h3 className="pp-section-title">Salon Information</h3>
+                <p className="pp-section-sub">
+                  {salonFetching ? "Loading salon details…" : "Your salon's business details and location"}
+                </p>
               </div>
+              {!salonFetching && currentSalon && (
+                !salonEditing ? (
+                  <button className="pp-section-toggle" onClick={() => setSalonEditing(true)}>
+                    Edit
+                  </button>
+                ) : (
+                  <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
+                    <button
+                      className="pp-section-toggle pp-section-toggle--open"
+                      onClick={handleSalonSave}
+                      disabled={salonSaving}
+                    >
+                      {salonSaving ? "Saving…" : "Save"}
+                    </button>
+                    <button className="pp-section-toggle" onClick={handleSalonCancel}>
+                      Cancel
+                    </button>
+                  </div>
+                )
+              )}
             </div>
 
-            <div className="pp-fields-grid">
-              <ProfileField
-                label="Business Name"
-                value={form.businessName ?? ""}
-                name="businessName"
-                icon={<Building size={14} />}
-                editing={editing}
-                placeholder="Enter business name"
-                onChange={handleFieldChange}
-              />
-              <ProfileField
-                label="Address"
-                value={form.address ?? ""}
-                name="address"
-                icon={<GeoAlt size={14} />}
-                editing={editing}
-                placeholder="Enter address"
-                onChange={handleFieldChange}
-              />
-            </div>
+            {/* Salon banners */}
+            {salonError && (
+              <div className="pp-error-banner" style={{ marginBottom: 16 }}>
+                <XLg size={13} />{salonError}
+                <button className="pp-error-close" onClick={() => setSalonError(null)}><XLg size={11} /></button>
+              </div>
+            )}
+            {salonSaved && (
+              <div className="pp-success-banner" style={{ marginBottom: 16 }}>
+                <CheckCircleFill size={13} /> Salon updated successfully!
+              </div>
+            )}
+
+            {salonFetching && !currentSalon ? (
+              <ProfileSkeleton />
+            ) : currentSalon ? (
+              <>
+                {/* Basic */}
+                <p className="pp-subsection-label">Basic Details</p>
+                <div className="pp-fields-grid" style={{ marginBottom: 20 }}>
+                  <ProfileField
+                    label="Salon Name" value={String(salonForm.business_name ?? "")} name="business_name"
+                    icon={<Building size={14} />} editing={salonEditing}
+                    placeholder="Enter salon name" error={salonFieldErrors.business_name}
+                    onChange={handleSalonFieldChange}
+                  />
+                  <ProfileField
+                    label="Salon Email" value={String(salonForm.email ?? "")} name="email"
+                    icon={<Envelope size={14} />} editing={salonEditing}
+                    type="email" placeholder="salon@example.com" error={salonFieldErrors.email}
+                    onChange={handleSalonFieldChange}
+                  />
+                  <ProfileField
+                    label="Salon Phone" value={String(salonForm.phone ?? "")} name="phone"
+                    icon={<Telephone size={14} />} editing={salonEditing}
+                    type="tel" placeholder="+91 98765 43210" error={salonFieldErrors.phone}
+                    onChange={handleSalonFieldChange}
+                  />
+                  <ProfileField
+                    label="Website" value={String(salonForm.website_url ?? "")} name="website_url"
+                    icon={<Globe size={14} />} editing={salonEditing}
+                    placeholder="https://yoursalon.com" error={salonFieldErrors.website_url}
+                    onChange={handleSalonFieldChange}
+                  />
+                </div>
+
+                {/* Business & Tax */}
+                <p className="pp-subsection-label">Business &amp; Tax</p>
+                <div className="pp-fields-grid" style={{ marginBottom: 20 }}>
+                  <ProfileField
+                    label="GST Number" value={String(salonForm.gst_number ?? "")} name="gst_number"
+                    icon={<Hash size={14} />} editing={salonEditing}
+                    placeholder="22AAAAA0000A1Z5" error={salonFieldErrors.gst_number}
+                    onChange={handleSalonFieldChange}
+                  />
+                  <ProfileField
+                    label="Business Reg. No. (PAN)" value={String(salonForm.pan_number ?? "")} name="pan_number"
+                    icon={<CreditCard size={14} />} editing={salonEditing}
+                    placeholder="AAAAA1234A" error={salonFieldErrors.pan_number}
+                    onChange={handleSalonFieldChange}
+                  />
+                  <ProfileField
+                    label="Business Type" value={String(salonForm.business_type ?? "")} name="business_type"
+                    icon={<Building size={14} />} editing={salonEditing}
+                    placeholder="e.g. Salon, Spa" onChange={handleSalonFieldChange}
+                  />
+                  <ProfileField
+                    label="Business Category" value={String(salonForm.business_category ?? "")} name="business_category"
+                    icon={<Tag size={14} />} editing={salonEditing}
+                    placeholder="e.g. Hair, Beauty" onChange={handleSalonFieldChange}
+                  />
+                </div>
+
+                {/* Location */}
+                <p className="pp-subsection-label">Location</p>
+                <div className="pp-fields-grid" style={{ marginBottom: 20 }}>
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <ProfileField
+                      label="Address" value={String(salonForm.address ?? "")} name="address"
+                      icon={<GeoAlt size={14} />} editing={salonEditing}
+                      placeholder="Street address" onChange={handleSalonFieldChange}
+                    />
+                  </div>
+                  <ProfileField
+                    label="City" value={String(salonForm.city ?? "")} name="city"
+                    icon={<MapFill size={14} />} editing={salonEditing}
+                    placeholder="City" onChange={handleSalonFieldChange}
+                  />
+                  <ProfileField
+                    label="State" value={String(salonForm.state ?? "")} name="state"
+                    icon={<MapFill size={14} />} editing={salonEditing}
+                    placeholder="State" onChange={handleSalonFieldChange}
+                  />
+                  <ProfileField
+                    label="Country" value={String(salonForm.country ?? "")} name="country"
+                    icon={<Globe size={14} />} editing={salonEditing}
+                    placeholder="Country" onChange={handleSalonFieldChange}
+                  />
+                  <ProfileField
+                    label="Pincode" value={String(salonForm.pincode ?? "")} name="pincode"
+                    icon={<Hash size={14} />} editing={salonEditing}
+                    placeholder="400001" error={salonFieldErrors.pincode}
+                    onChange={handleSalonFieldChange}
+                  />
+                </div>
+
+                {/* Regional Settings */}
+                <p className="pp-subsection-label">Regional Settings</p>
+                <div className="pp-fields-grid">
+                  <ProfileField
+                    label="Timezone" value={String(salonForm.timezone ?? "")} name="timezone"
+                    icon={<Clock size={14} />} editing={salonEditing}
+                    placeholder="Asia/Kolkata" onChange={handleSalonFieldChange}
+                  />
+                  <ProfileField
+                    label="Currency" value={String(salonForm.currency ?? "")} name="currency"
+                    icon={<CreditCard size={14} />} editing={salonEditing}
+                    placeholder="INR" error={salonFieldErrors.currency}
+                    onChange={handleSalonFieldChange}
+                  />
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <ProfileField
+                      label="Description" value={String(salonForm.description ?? "")} name="description"
+                      icon={<FileText size={14} />} editing={salonEditing}
+                      placeholder="Brief description of your salon" error={salonFieldErrors.description}
+                      onChange={handleSalonFieldChange}
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <p style={{ fontSize: 13, color: "#9ca3af", padding: "8px 0" }}>
+                No salon linked to your account.
+              </p>
+            )}
           </section>
 
-          {/* ── Security ── */}
+          {/* ── Account & Security ── */}
           <section className="pp-section">
             <div className="pp-section-header">
               <div className="pp-section-icon" style={{ background: "#fefce8", color: "#ca8a04" }}>
@@ -516,7 +785,7 @@ export default function ProfilePage() {
               </div>
               <button
                 className={`pp-section-toggle ${pwSection ? "pp-section-toggle--open" : ""}`}
-                onClick={() => { setPwSection(v => !v); setPwError(null); setPwSuccess(false); }}
+                onClick={() => { setPwSection((v) => !v); setPwError(null); setPwSuccess(false); }}
               >
                 {pwSection ? "Close" : "Change Password"}
               </button>
@@ -526,19 +795,16 @@ export default function ProfilePage() {
               <div className="pp-pw-body">
                 {pwSuccess && (
                   <div className="pp-success-banner">
-                    <CheckCircleFill size={13} />
-                    Password changed successfully!
+                    <CheckCircleFill size={13} /> Password changed successfully!
                   </div>
                 )}
                 {pwError && (
                   <div className="pp-error-banner">
-                    <XLg size={13} />
-                    {pwError}
+                    <XLg size={13} />{pwError}
                     <button className="pp-error-close" onClick={() => setPwError(null)}><XLg size={11} /></button>
                   </div>
                 )}
                 <div className="pp-pw-fields">
-                  {/* Current password */}
                   <div className="pp-pw-field">
                     <label className="pp-field-label">Current Password</label>
                     <div className="pp-pw-input-wrap">
@@ -547,16 +813,15 @@ export default function ProfilePage() {
                         type={showPwCur ? "text" : "password"}
                         className="pp-pw-input"
                         value={pwCurrent}
-                        onChange={e => setPwCurrent(e.target.value)}
+                        onChange={(e) => setPwCurrent(e.target.value)}
                         placeholder="Enter current password"
                         autoComplete="current-password"
                       />
-                      <button className="pp-pw-eye" onClick={() => setShowPwCur(v => !v)}>
+                      <button className="pp-pw-eye" onClick={() => setShowPwCur((v) => !v)}>
                         {showPwCur ? <EyeSlash size={14} /> : <Eye size={14} />}
                       </button>
                     </div>
                   </div>
-                  {/* New password */}
                   <div className="pp-pw-field">
                     <label className="pp-field-label">New Password</label>
                     <div className="pp-pw-input-wrap">
@@ -565,18 +830,17 @@ export default function ProfilePage() {
                         type={showPwNew ? "text" : "password"}
                         className="pp-pw-input"
                         value={pwNew}
-                        onChange={e => setPwNew(e.target.value)}
+                        onChange={(e) => setPwNew(e.target.value)}
                         placeholder="Min 8 characters"
                         autoComplete="new-password"
                       />
-                      <button className="pp-pw-eye" onClick={() => setShowPwNew(v => !v)}>
+                      <button className="pp-pw-eye" onClick={() => setShowPwNew((v) => !v)}>
                         {showPwNew ? <EyeSlash size={14} /> : <Eye size={14} />}
                       </button>
                     </div>
-                    {/* Strength indicator */}
                     {pwNew.length > 0 && (
                       <div className="pp-pw-strength">
-                        {[1,2,3,4].map(i => (
+                        {[1, 2, 3, 4].map((i) => (
                           <div
                             key={i}
                             className={`pp-pw-bar ${
@@ -594,7 +858,6 @@ export default function ProfilePage() {
                       </div>
                     )}
                   </div>
-                  {/* Confirm password */}
                   <div className="pp-pw-field">
                     <label className="pp-field-label">Confirm New Password</label>
                     <div className="pp-pw-input-wrap">
@@ -603,11 +866,11 @@ export default function ProfilePage() {
                         type={showPwConf ? "text" : "password"}
                         className="pp-pw-input"
                         value={pwConfirm}
-                        onChange={e => setPwConfirm(e.target.value)}
+                        onChange={(e) => setPwConfirm(e.target.value)}
                         placeholder="Re-enter new password"
                         autoComplete="new-password"
                       />
-                      <button className="pp-pw-eye" onClick={() => setShowPwConf(v => !v)}>
+                      <button className="pp-pw-eye" onClick={() => setShowPwConf((v) => !v)}>
                         {showPwConf ? <EyeSlash size={14} /> : <Eye size={14} />}
                       </button>
                     </div>
@@ -618,7 +881,9 @@ export default function ProfilePage() {
                   onClick={handlePasswordChange}
                   disabled={changingPw}
                 >
-                  {changingPw ? <span className="pp-spinner" style={{ borderTopColor: "#fff", borderColor: "rgba(255,255,255,0.35)" }} /> : <ShieldLock size={14} />}
+                  {changingPw
+                    ? <span className="pp-spinner" style={{ borderTopColor: "#fff", borderColor: "rgba(255,255,255,0.35)" }} />
+                    : <ShieldLock size={14} />}
                   {changingPw ? "Updating…" : "Update Password"}
                 </button>
               </div>

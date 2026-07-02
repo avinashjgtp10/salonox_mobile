@@ -16,6 +16,13 @@ export type Salon = {
   is_active: boolean;
   onboarding_completed: boolean;
   address: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  pincode: string | null;
+  timezone: string | null;
+  currency: string | null;
+  business_category: string | null;
   location_type: "physical" | "mobile" | "virtual" | null;
   team_type: "independent" | "team" | null;
   team_size: "2-5" | "6-10" | "11+" | null;
@@ -36,6 +43,13 @@ export type CreateSalonPayload = {
   gst_number?: string;
   pan_number?: string;
   address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  pincode?: string;
+  timezone?: string;
+  currency?: string;
+  business_category?: string;
   location_type?: "physical" | "mobile" | "virtual";
   team_type?: "independent" | "team";
   team_size?: "2-5" | "6-10" | "11+";

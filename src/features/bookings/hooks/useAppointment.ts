@@ -31,7 +31,12 @@ function addMinutes(time: string, mins: number): string {
   return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
-function buildServiceApiItems(services: ServiceItem[], bookingStartMs: number, bookingStartMins: number) {
+function buildServiceApiItems(
+  services: ServiceItem[],
+  bookingStartMs: number,
+  bookingStartMins: number,
+  resolveStaffName: (staffId?: string) => string | undefined,
+) {
   return services
     .filter((s) => s.service.trim())
     .map((s) => {
@@ -61,6 +66,7 @@ function buildServiceApiItems(services: ServiceItem[], bookingStartMs: number, b
         service_id: svcTypeId,
         name: s.service,
         staff_id: toApiStaffId(s.staffId),
+        staff_name: resolveStaffName(s.staffId),
         start_time: new Date(svcStartMs).toISOString(),
         end_time: new Date(svcStartMs + (s.duration || 30) * 60000).toISOString(),
         price,
@@ -90,7 +96,7 @@ export function useAppointment() {
     const {
       booking, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, clientId, existingBooking,
-      isPackageAppointment,
+      isPackageAppointment: _isPackageAppointment,
     } = payload;
 
     setIsSaving(true);
@@ -112,7 +118,13 @@ export function useAppointment() {
       const [sh, sm] = startTime.split(":").map(Number);
       const durationMins = Math.max(5, (eh * 60 + em) - (sh * 60 + sm));
 
-      const apiServices = buildServiceApiItems(serviceRows, bookingStartMs, bookingStartMins);
+      const resolveStaffName = (staffId?: string) => {
+        if (!staffId) return undefined;
+        const sf = staffList.find((st: any) => String(st.id) === String(staffId));
+        return sf?.name || sf?.full_name || sf?.fullName || undefined;
+      };
+
+      const apiServices = buildServiceApiItems(serviceRows, bookingStartMs, bookingStartMins, resolveStaffName);
 
       const baseData = {
         salon_id:         salonId || undefined,
@@ -126,12 +138,14 @@ export function useAppointment() {
           const t = (p as any).time;
           const startMs = t ? new Date(`${calDate}T${t}:00`).getTime() : bookingStartMs;
           const isPackageService = !!(p as any).isPackageService;
+          const staffMember = staffList.find((st: any) => String(st.id) === String((p as any).staffId ?? ""));
           return {
             package_id: (p as any).packageId || p.id || undefined,
             name: (p as any).packageName || (p as any).name || "",
             price: isPackageService ? 0 : (p.price || 0),
             quantity: p.qty || 1,
             staff_id: (p as any).staffId ? toApiStaffId((p as any).staffId) : undefined,
+            staff_name: staffMember?.name || staffMember?.full_name || staffMember?.fullName || undefined,
             start_time: new Date(startMs).toISOString(),
             ...(isPackageService ? { is_package_service: true } : {}),
           };
@@ -139,24 +153,28 @@ export function useAppointment() {
         product_items:    productRows.map((p) => {
           const t = (p as any).time;
           const startMs = t ? new Date(`${calDate}T${t}:00`).getTime() : bookingStartMs;
+          const staffMember = staffList.find((st: any) => String(st.id) === String((p as any).staffId ?? ""));
           return {
             product_id: (p as any).productId || p.id || undefined,
             name: (p as any).productName || (p as any).name || "",
             price: p.price || 0,
             quantity: p.qty || 1,
             staff_id: (p as any).staffId ? toApiStaffId((p as any).staffId) : undefined,
+            staff_name: staffMember?.name || staffMember?.full_name || staffMember?.fullName || undefined,
             start_time: new Date(startMs).toISOString(),
           };
         }),
         membership_items: membershipRows.map((m) => {
           const t = (m as any).time;
           const startMs = t ? new Date(`${calDate}T${t}:00`).getTime() : bookingStartMs;
+          const staffMember = staffList.find((st: any) => String(st.id) === String((m as any).staffId ?? ""));
           return {
             membership_id: (m as any).membershipId || m.id || undefined,
             name: (m as any).membershipName || (m as any).name || "",
             price: m.price || 0,
             quantity: m.qty || 1,
             staff_id: (m as any).staffId ? toApiStaffId((m as any).staffId) : undefined,
+            staff_name: staffMember?.name || staffMember?.full_name || staffMember?.fullName || undefined,
             start_time: new Date(startMs).toISOString(),
           };
         }),
