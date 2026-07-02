@@ -85,7 +85,7 @@ interface SchedulerState {
   staffSchedules: Record<string, Record<number, StaffDaySchedule>>;
   scheduleVersion: number;
   dragPatchCache: Record<string, { startTime: string; endTime: string; staffId?: string }>;
-  paymentPatchCache: Record<string, { paymentStatus: string; payingNow: number; dueAmount: number; grandTotal?: number; paymentMode?: string }>;
+  paymentPatchCache: Record<string, { paymentStatus: string; payingNow: number; dueAmount: number; grandTotal?: number; paymentMode?: string; gstAmount?: number; taxBreakdown?: Booking["taxBreakdown"] }>;
   serviceStaffCache: Record<string, Array<{ staffId: string; staff: string }>>;
 }
 
@@ -127,6 +127,8 @@ const schedulerSlice = createSlice({
           (merged as any).dueAmount      = pay.paymentStatus === "Paid" ? 0 : pay.dueAmount;
           if (pay.grandTotal !== undefined) (merged as any).grandTotal = pay.grandTotal;
           if (pay.paymentMode !== undefined) (merged as any).paymentMode = pay.paymentMode;
+          if (pay.gstAmount !== undefined) (merged as any).gstAmount = pay.gstAmount;
+          if (pay.taxBreakdown !== undefined) (merged as any).taxBreakdown = pay.taxBreakdown;
         }
         // Restore per-service staff assignments that the list endpoint collapses to appointment-level.
         if (svcStaff?.length && (merged as any).services?.length) {
@@ -223,6 +225,8 @@ const schedulerSlice = createSlice({
         dueAmount?: number;
         grandTotal?: number;
         paymentMode?: string;
+        gstAmount?: number;
+        taxBreakdown?: Booking["taxBreakdown"];
       }>
     ) {
       const booking = state.bookings.find((b) => String(b.id) === String(payload.id));
@@ -233,6 +237,8 @@ const schedulerSlice = createSlice({
         if (payload.dueAmount  !== undefined) (booking as any).dueAmount  = payload.paymentStatus === "Paid" ? 0 : payload.dueAmount;
         if (payload.grandTotal !== undefined) (booking as any).grandTotal = payload.grandTotal;
         if (payload.paymentMode !== undefined) (booking as any).paymentMode = payload.paymentMode;
+        if (payload.gstAmount !== undefined) (booking as any).gstAmount = payload.gstAmount;
+        if (payload.taxBreakdown !== undefined) (booking as any).taxBreakdown = payload.taxBreakdown;
       }
       state.paymentPatchCache[String(payload.id)] = {
         paymentStatus: payload.paymentStatus,
@@ -240,6 +246,8 @@ const schedulerSlice = createSlice({
         dueAmount:     payload.paymentStatus === "Paid" ? 0 : (payload.dueAmount ?? 0),
         grandTotal:    payload.grandTotal,
         paymentMode:   payload.paymentMode,
+        gstAmount:     payload.gstAmount,
+        taxBreakdown:  payload.taxBreakdown,
       };
     },
     replaceBookingId(state, { payload }: PayloadAction<{ localId: string; realId: string }>) {

@@ -119,7 +119,9 @@ export interface Booking {
   discount?: number;
   discountAmount?: number; // computed monetary discount (₹), as opposed to discount which may be a raw %/flat input
   discountType?: DiscountType;
-  gst?: number;
+  gst?: number; // effective blended tax rate (%), for legacy/simple display
+  gstAmount?: number; // total add-on tax amount included in grandTotal
+  taxBreakdown?: { name: string; rate: number; amount: number; inclusive: boolean }[];
   couponCode?: string;
   couponDiscount?: number;
   subtotal: number;

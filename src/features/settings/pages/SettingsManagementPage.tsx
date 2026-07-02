@@ -10,17 +10,13 @@ import {
 } from "../../../middleware/setting/setting.thunk";
 import { clearSettingError } from "../../../store/settingSlice";
 import type { Setting, CreateSettingPayload } from "../../../types/setting.types";
-
-const TAX_TYPES = ["CGST", "SGST", "IGST", "GST", "VAT", "CESS", "Other"];
-
-function inferTaxType(key: string): string {
-  const upper = key.trim().toUpperCase();
-  for (const t of TAX_TYPES) {
-    if (t === "Other") continue;
-    if (upper === t || upper.startsWith(t)) return t;
-  }
-  return "";
-}
+import {
+  TAX_TYPES,
+  inferTaxType,
+  parseTaxValue,
+  isTaxSetting,
+  type TaxValuePayload,
+} from "../utils/taxSettings";
 
 interface TaxForm {
   tax_type: string;
@@ -44,7 +40,7 @@ const EMPTY_FORM: TaxForm = {
   tax_name: "",
   tax_value: "",
   active: true,
-  inclusive_taxes: true,
+  inclusive_taxes: false,
   applicable_service: true,
   applicable_product: true,
   applicable_membership: false,
@@ -52,10 +48,9 @@ const EMPTY_FORM: TaxForm = {
 };
 
 function taxFormToPayload(f: TaxForm): CreateSettingPayload {
-  return {
-    key: f.tax_name,
-    value: f.tax_value,
+  const value: TaxValuePayload = {
     tax_type: f.tax_type,
+    tax_value: f.tax_value,
     active: f.active,
     inclusive_taxes: f.inclusive_taxes,
     applicable_for: {
@@ -65,30 +60,37 @@ function taxFormToPayload(f: TaxForm): CreateSettingPayload {
       packages: f.applicable_packages,
     },
   };
+  return {
+    key: f.tax_name,
+    value: JSON.stringify(value),
+  };
 }
 
 function settingToTaxForm(s: Setting): TaxForm {
-  const applicable = (s.applicable_for as Record<string, boolean> | undefined) ?? {};
-  const savedType = (s.tax_type as string) ?? "";
+  const parsed = parseTaxValue(s.value);
+  const applicable = parsed.applicable_for ?? {};
   return {
-    tax_type: savedType || inferTaxType(s.key ?? ""),
+    tax_type: parsed.tax_type || inferTaxType(s.key ?? ""),
     tax_name: s.key ?? "",
-    tax_value: s.value !== null && s.value !== undefined ? String(s.value) : "",
-    active:                s.active             != null ? Boolean(s.active)             : true,
-    inclusive_taxes:       s.inclusive_taxes    != null ? Boolean(s.inclusive_taxes)    : true,
-    applicable_service:    applicable.service   != null ? Boolean(applicable.service)   : true,
-    applicable_product:    applicable.product   != null ? Boolean(applicable.product)   : true,
-    applicable_membership: applicable.membership!= null ? Boolean(applicable.membership): false,
-    applicable_packages:   applicable.packages  != null ? Boolean(applicable.packages)  : false,
+    tax_value: parsed.tax_value ?? (typeof s.value === "string" ? s.value : ""),
+    active:                parsed.active             != null ? Boolean(parsed.active)             : true,
+    inclusive_taxes:       parsed.inclusive_taxes    != null ? Boolean(parsed.inclusive_taxes)    : true,
+    applicable_service:    applicable.service        != null ? Boolean(applicable.service)        : true,
+    applicable_product:    applicable.product         != null ? Boolean(applicable.product)        : true,
+    applicable_membership: applicable.membership      != null ? Boolean(applicable.membership)     : false,
+    applicable_packages:   applicable.packages         != null ? Boolean(applicable.packages)       : false,
   };
 }
 
 function listLabel(s: Setting): string {
-  const type = (s.tax_type as string) || inferTaxType(s.key ?? "");
+  const parsed = parseTaxValue(s.value);
+  const type = parsed.tax_type || inferTaxType(s.key ?? "");
   const name = s.key ?? "";
-  const val  = s.value !== null && s.value !== undefined ? String(s.value) : "";
+  const val = parsed.tax_value ?? "";
   const prefix = type && type !== "Other" ? type : name.toUpperCase();
-  return val ? `${prefix} (${val}%)` : prefix;
+  if (!val) return prefix;
+  const suffix = parsed.inclusive_taxes ? ", incl." : "";
+  return `${prefix} (${val}%${suffix})`;
 }
 
 export default function SettingsManagementPage() {
@@ -113,15 +115,20 @@ export default function SettingsManagementPage() {
     }
   }, [error, dispatch]);
 
+  const taxSettings = useMemo(() => items.filter(isTaxSetting), [items]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((s) =>
-      s.key.toLowerCase().includes(q) ||
-      String(s.value).toLowerCase().includes(q) ||
-      String(s.tax_type ?? "").toLowerCase().includes(q)
-    );
-  }, [items, search]);
+    if (!q) return taxSettings;
+    return taxSettings.filter((s) => {
+      const parsed = parseTaxValue(s.value);
+      return (
+        s.key.toLowerCase().includes(q) ||
+        String(parsed.tax_value ?? "").toLowerCase().includes(q) ||
+        String(parsed.tax_type ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [taxSettings, search]);
 
   const selectedSetting = useMemo(
     () => items.find((s) => s.id === selectedId) ?? null,
@@ -205,6 +212,11 @@ export default function SettingsManagementPage() {
   }
 
   function handleTypeClick(type: string) {
+    const existing = taxSettings.find((s) => parseTaxValue(s.value).tax_type === type);
+    if (existing) {
+      handleSelect(existing);
+      return;
+    }
     setSelectedId(null);
     setIsCreating(true);
     setForm({ ...EMPTY_FORM, tax_type: type, tax_name: type });
@@ -246,7 +258,7 @@ export default function SettingsManagementPage() {
                 <div
                   key={type}
                   className={`sm-split__item sm-split__item--type${
-                    isCreating && form.tax_type === type ? " active" : ""
+                    showForm && form.tax_type === type ? " active" : ""
                   }`}
                   onClick={() => handleTypeClick(type)}
                 >
