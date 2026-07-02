@@ -30,6 +30,10 @@ const ReportsPage = lazy(() =>
   import("../features/analytics/pages/ReportsPage")
 );
 
+const CashManagementPage = lazy(() =>
+  import("../features/cash-management/pages/CashManagementPage")
+);
+
 const ProfilePage = lazy(() =>
   import("../features/dashboard/pages/ProfilePage")
 );
@@ -61,6 +65,7 @@ export const DashboardRoutes = (
 
       {/* Sales — requires view_sales (sub-routes handle create_sales internally) */}
       <Route element={<PermissionGuard permKey="view_sales" />}>
+        <Route path="cash-management" element={<CashManagementPage />} />
         <Route path="sales/*" element={<SalesRoutes />} />
       </Route>
 
