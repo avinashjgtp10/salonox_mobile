@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import {
   Bell,
   Mail,
-  Smartphone,
   Monitor,
   Calendar,
   DollarSign,
@@ -25,16 +24,96 @@ import SettingsToggle from "../components/SettingsToggle";
 import SettingsSection from "../components/SettingsSection";
 
 const NOTIF_KEY = "notification_preferences";
+const WHATSAPP_KEY = "whatsapp_notification_preferences";
 
 interface NotifStorage {
-  channels: { email: boolean; sms: boolean; push: boolean };
+  channels: { email: boolean; push: boolean };
   events: NotifPrefs;
   digest: { morning: boolean; evening: boolean; weekly: boolean };
 }
 
+interface WhatsAppPrefs {
+  quotationPlaced: boolean;
+  quotationRequested: boolean;
+  anniversaryOffer: boolean;
+  birthdayOffer: boolean;
+  loyaltyExpiry: boolean;
+  loyaltyEarning: boolean;
+  membershipPurchase: boolean;
+  membershipExpiry: boolean;
+  membershipRenewal: boolean;
+  onlineRedeemable: boolean;
+  appointmentOnlineBooked: boolean;
+  appointmentConfirmed: boolean;
+  appointmentCancelled: boolean;
+}
+
+type WhatsAppKey = keyof WhatsAppPrefs;
+
+const defaultWhatsAppPrefs: WhatsAppPrefs = {
+  quotationPlaced: true,
+  quotationRequested: true,
+  anniversaryOffer: false,
+  birthdayOffer: true,
+  loyaltyExpiry: true,
+  loyaltyEarning: true,
+  membershipPurchase: true,
+  membershipExpiry: true,
+  membershipRenewal: true,
+  onlineRedeemable: false,
+  appointmentOnlineBooked: true,
+  appointmentConfirmed: true,
+  appointmentCancelled: false,
+};
+
+interface WhatsAppGroup {
+  label: string;
+  items: { key: WhatsAppKey; label: string }[];
+}
+
+const whatsappGroups: WhatsAppGroup[] = [
+  {
+    label: "Quotation",
+    items: [
+      { key: "quotationPlaced", label: "Quotation Placed Message to customer" },
+      { key: "quotationRequested", label: "Quotation Requested Message to Owner" },
+    ],
+  },
+  {
+    label: "Occasional",
+    items: [
+      { key: "anniversaryOffer", label: "Anniversary Offer" },
+      { key: "birthdayOffer", label: "Birthday Offer" },
+    ],
+  },
+  {
+    label: "Loyalty",
+    items: [
+      { key: "loyaltyExpiry", label: "Loyalty Expiry Reminder" },
+      { key: "loyaltyEarning", label: "Loyalty Earning" },
+    ],
+  },
+  {
+    label: "Membership",
+    items: [
+      { key: "membershipPurchase", label: "Membership Purchase" },
+      { key: "membershipExpiry", label: "Membership Expiry" },
+      { key: "membershipRenewal", label: "Membership Renewal" },
+      { key: "onlineRedeemable", label: "Online Redeemable purchase to Owner" },
+    ],
+  },
+  {
+    label: "Appointment",
+    items: [
+      { key: "appointmentOnlineBooked", label: "Appointment Online booked message to Salon Owner" },
+      { key: "appointmentConfirmed", label: "Appointment Confirmed message to Customer" },
+      { key: "appointmentCancelled", label: "Appointment Cancelled message to Customer" },
+    ],
+  },
+];
+
 interface NotifChannel {
   email: boolean;
-  sms: boolean;
   push: boolean;
 }
 
@@ -54,22 +133,22 @@ interface NotifPrefs {
 }
 
 const defaultPrefs: NotifPrefs = {
-  newAppointment: { email: true, sms: true, push: true },
-  appointmentReminder: { email: true, sms: true, push: false },
-  appointmentCancelled: { email: true, sms: false, push: true },
-  appointmentCompleted: { email: false, sms: false, push: false },
-  newPayment: { email: true, sms: false, push: true },
-  paymentFailed: { email: true, sms: true, push: true },
-  newClient: { email: true, sms: false, push: false },
-  clientReview: { email: true, sms: false, push: true },
-  newMessage: { email: false, sms: true, push: true },
-  lowInventory: { email: true, sms: false, push: true },
-  staffLogin: { email: false, sms: false, push: false },
-  marketingCampaign: { email: true, sms: false, push: false },
+  newAppointment: { email: true, push: true },
+  appointmentReminder: { email: true, push: false },
+  appointmentCancelled: { email: true, push: true },
+  appointmentCompleted: { email: false, push: false },
+  newPayment: { email: true, push: true },
+  paymentFailed: { email: true, push: true },
+  newClient: { email: true, push: false },
+  clientReview: { email: true, push: true },
+  newMessage: { email: false, push: true },
+  lowInventory: { email: true, push: true },
+  staffLogin: { email: false, push: false },
+  marketingCampaign: { email: true, push: false },
 };
 
 type NotifKey = keyof NotifPrefs;
-type Channel = "email" | "sms" | "push";
+type Channel = "email" | "push";
 
 interface NotifRow {
   key: NotifKey;
@@ -187,12 +266,15 @@ export default function NotificationsPage() {
   const [prefs, setPrefs] = useState<NotifPrefs>(defaultPrefs);
   const [saving, setSaving] = useState(false);
   const [globalEmail, setGlobalEmail] = useState(true);
-  const [globalSms, setGlobalSms] = useState(true);
   const [globalPush, setGlobalPush] = useState(true);
   const [digestMorning, setDigestMorning] = useState(true);
   const [digestEvening, setDigestEvening] = useState(false);
   const [digestWeekly, setDigestWeekly] = useState(true);
   const [settingId, setSettingId] = useState<EntityId | null>(null);
+
+  const [whatsappPrefs, setWhatsappPrefs] = useState<WhatsAppPrefs>(defaultWhatsAppPrefs);
+  const [savingWhatsapp, setSavingWhatsapp] = useState(false);
+  const [whatsappSettingId, setWhatsappSettingId] = useState<EntityId | null>(null);
 
   useEffect(() => {
     dispatch(fetchSettingsThunk());
@@ -207,7 +289,6 @@ export default function NotificationsPage() {
       const stored: NotifStorage = JSON.parse(raw);
       if (stored.channels) {
         setGlobalEmail(stored.channels.email ?? true);
-        setGlobalSms(stored.channels.sms ?? true);
         setGlobalPush(stored.channels.push ?? true);
       }
       if (stored.events) setPrefs(stored.events);
@@ -216,6 +297,19 @@ export default function NotificationsPage() {
         setDigestEvening(stored.digest.evening ?? false);
         setDigestWeekly(stored.digest.weekly ?? true);
       }
+    } catch {
+      // malformed value — keep defaults
+    }
+  }, [settingItems]);
+
+  useEffect(() => {
+    const found = settingItems.find((s) => s.key === WHATSAPP_KEY);
+    if (!found) return;
+    setWhatsappSettingId(found.id);
+    try {
+      const raw = typeof found.value === "string" ? found.value : JSON.stringify(found.value);
+      const stored: WhatsAppPrefs = JSON.parse(raw);
+      setWhatsappPrefs((prev) => ({ ...prev, ...stored }));
     } catch {
       // malformed value — keep defaults
     }
@@ -231,10 +325,14 @@ export default function NotificationsPage() {
     }));
   };
 
+  const toggleWhatsapp = (key: WhatsAppKey) => {
+    setWhatsappPrefs((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
   const handleSave = async () => {
     setSaving(true);
     const stored: NotifStorage = {
-      channels: { email: globalEmail, sms: globalSms, push: globalPush },
+      channels: { email: globalEmail, push: globalPush },
       events: prefs,
       digest: { morning: digestMorning, evening: digestEvening, weekly: digestWeekly },
     };
@@ -259,6 +357,31 @@ export default function NotificationsPage() {
     setSaving(false);
     if (ok) toast.success("Notification preferences saved");
     else toast.error("Failed to save preferences");
+  };
+
+  const handleSaveWhatsapp = async () => {
+    setSavingWhatsapp(true);
+    const value = JSON.stringify(whatsappPrefs);
+
+    let ok = false;
+    if (whatsappSettingId) {
+      const result = await dispatch(
+        updateSettingThunk({ id: whatsappSettingId, data: { key: WHATSAPP_KEY, value } })
+      );
+      ok = updateSettingThunk.fulfilled.match(result);
+    } else {
+      const result = await dispatch(
+        createSettingThunk({ key: WHATSAPP_KEY, value, description: "WhatsApp notification preferences" })
+      );
+      if (createSettingThunk.fulfilled.match(result)) {
+        setWhatsappSettingId(result.payload.id);
+        ok = true;
+      }
+    }
+
+    setSavingWhatsapp(false);
+    if (ok) toast.success("WhatsApp notification preferences saved");
+    else toast.error("Failed to save WhatsApp preferences");
   };
 
   return (
@@ -298,25 +421,6 @@ export default function NotificationsPage() {
         <div className="settings-toggle-row">
           <div
             className="settings-security-icon"
-            style={{ background: "#f0fdf4", color: "#16a34a" }}
-          >
-            <Smartphone size={18} />
-          </div>
-          <div className="settings-toggle-info">
-            <p className="settings-toggle-title">SMS Notifications</p>
-            <p className="settings-toggle-desc">
-              Receive text messages on your phone
-            </p>
-          </div>
-          <SettingsToggle
-            checked={globalSms}
-            onChange={() => setGlobalSms((v) => !v)}
-          />
-        </div>
-
-        <div className="settings-toggle-row">
-          <div
-            className="settings-security-icon"
             style={{ background: "#fffbeb", color: "#d97706" }}
           >
             <Monitor size={18} />
@@ -344,7 +448,6 @@ export default function NotificationsPage() {
         <div className="notif-table-header">
           <span>Event</span>
           <span>Email</span>
-          <span>SMS</span>
           <span>Push</span>
         </div>
 
@@ -368,13 +471,6 @@ export default function NotificationsPage() {
               <SettingsToggle
                 checked={prefs[row.key].email && globalEmail}
                 onChange={() => toggle(row.key, "email")}
-              />
-            </div>
-
-            <div className="notif-toggle-cell">
-              <SettingsToggle
-                checked={prefs[row.key].sms && globalSms}
-                onChange={() => toggle(row.key, "sms")}
               />
             </div>
 
@@ -431,6 +527,43 @@ export default function NotificationsPage() {
             </p>
           </div>
           <SettingsToggle checked={digestWeekly} onChange={() => setDigestWeekly((v) => !v)} />
+        </div>
+      </SettingsSection>
+
+      {/* WhatsApp Notification Settings */}
+      <SettingsSection
+        title="WhatsApp Notification Settings"
+        desc="Control which events send WhatsApp messages to customers and owners."
+        noPadding
+      >
+        {whatsappGroups.map((group, gi) => (
+          <div key={group.label} className={`wa-notif-group${gi > 0 ? " wa-notif-group--bordered" : ""}`}>
+            <p className="wa-notif-group-label">{group.label}</p>
+            {group.items.map((item) => (
+              <div key={item.key} className="wa-notif-row">
+                <span className="wa-notif-row-label">{item.label}</span>
+                <label className="wa-notif-checkbox-wrap">
+                  <input
+                    type="checkbox"
+                    className="wa-notif-checkbox"
+                    checked={whatsappPrefs[item.key]}
+                    onChange={() => toggleWhatsapp(item.key)}
+                  />
+                  <span className="wa-notif-channel-label">WhatsApp</span>
+                </label>
+              </div>
+            ))}
+          </div>
+        ))}
+        <div className="notif-table-footer">
+          <Button
+            size="sm"
+            loading={savingWhatsapp}
+            onClick={handleSaveWhatsapp}
+            iconLeft={<Save size={14} />}
+          >
+            Save preferences
+          </Button>
         </div>
       </SettingsSection>
     </>

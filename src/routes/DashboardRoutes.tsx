@@ -38,6 +38,10 @@ const ProfilePage = lazy(() =>
   import("../features/dashboard/pages/ProfilePage")
 );
 
+const NotificationsPage = lazy(() =>
+  import("../features/dashboard/pages/NotificationsPage")
+);
+
 export const DashboardRoutes = (
   <Route element={<AuthGuard />}>
     <Route
@@ -99,9 +103,10 @@ export const DashboardRoutes = (
         <Route path="online-booking/*" element={<OnlineBookingRoutes />} />
       </Route>
 
-      {/* Apps and Profile — no permission guard needed */}
+      {/* Apps, Profile, Notifications — no permission guard needed */}
       <Route path="apps/*" element={<AppsRoutes />} />
       <Route path="profile" element={<ProfilePage />} />
+      <Route path="notifications" element={<NotificationsPage />} />
 
       {/* Help & Support — accessible to all authenticated users */}
       <Route path="help" element={<HelpPage />} />

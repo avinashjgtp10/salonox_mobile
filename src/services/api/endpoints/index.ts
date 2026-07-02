@@ -29,3 +29,4 @@ export * from "./clientMemberships.endpoints";
 export * from "./attendance.endpoints";
 export * from "./device.endpoints";
 export * from "./superAdmin.endpoints";
+export * from "./notifications.endpoints";
