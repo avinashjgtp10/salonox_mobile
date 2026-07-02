@@ -72,7 +72,7 @@ export default function UsersPage() {
   const [creating, setCreating]       = useState(false);
   const [createErr, setCreateErr]     = useState("");
   const [createdUser, setCreatedUser] = useState<{ email: string; password: string; role: string; name: string } | null>(null);
-  const [form, setForm] = useState({ first_name: "", last_name: "", email: "", password: "", phone: "", role: "salon_owner" });
+  const [form, setForm] = useState({ first_name: "", last_name: "", email: "", password: "", phone: "", role: "salon_owner", business_name: "", address: "" });
   const [showFormPw, setShowFormPw] = useState(false);
 
   const load = useCallback(() => {
@@ -155,7 +155,7 @@ export default function UsersPage() {
 
   function openCreateModal() {
     const pw = genPassword();
-    setForm({ first_name: "", last_name: "", email: "", password: pw, phone: "", role: "salon_owner" });
+    setForm({ first_name: "", last_name: "", email: "", password: pw, phone: "", role: "salon_owner", business_name: "", address: "" });
     setCreateErr(""); setCreatedUser(null); setShowFormPw(false); setCreateModal(true);
   }
 
@@ -163,11 +163,14 @@ export default function UsersPage() {
     if (!form.first_name.trim()) { setCreateErr("First name is required."); return; }
     if (!form.email.trim()) { setCreateErr("Email is required."); return; }
     if (form.password.length < 6) { setCreateErr("Password must be at least 6 characters."); return; }
+    if (form.role === "salon_owner" && !form.business_name.trim()) { setCreateErr("Business name is required for Salon Owner."); return; }
     setCreateErr(""); setCreating(true);
     const r = await dispatch(createUserThunk({
       first_name: form.first_name, last_name: form.last_name || undefined,
       email: form.email, password: form.password,
       phone: form.phone || undefined, role: form.role,
+      business_name: form.business_name.trim() || undefined,
+      address: form.address.trim() || undefined,
     }));
     setCreating(false);
     if (createUserThunk.fulfilled.match(r)) {
@@ -252,7 +255,7 @@ export default function UsersPage() {
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
                   <button style={{ ...btnSecondary, flex: 1 }} onClick={() => setCreateModal(false)}>Close</button>
-                  <button style={{ ...btnPrimary, flex: 1 }} onClick={() => { setCreatedUser(null); const pw = genPassword(); setForm({ first_name: "", last_name: "", email: "", password: pw, phone: "", role: "salon_owner" }); }}>
+                  <button style={{ ...btnPrimary, flex: 1 }} onClick={() => { setCreatedUser(null); const pw = genPassword(); setForm({ first_name: "", last_name: "", email: "", password: pw, phone: "", role: "salon_owner", business_name: "", address: "" }); }}>
                     Create Another
                   </button>
                 </div>
@@ -311,6 +314,29 @@ export default function UsersPage() {
                     ))}
                   </select>
                 </div>
+
+                {form.role === "salon_owner" && (
+                  <>
+                    <div>
+                      <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: "#374151", marginBottom: 5 }}>Business Name *</label>
+                      <input value={form.business_name} placeholder="e.g. Glamour Studio"
+                        onChange={(e) => setForm((f) => ({ ...f, business_name: e.target.value }))}
+                        style={{ ...inputStyle }}
+                        onFocus={(e) => (e.target.style.borderColor = "#6366f1")}
+                        onBlur={(e)  => (e.target.style.borderColor = "#e2e8f0")}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: "#374151", marginBottom: 5 }}>Business Address <span style={{ color: "#94a3b8", fontWeight: 400 }}>(optional)</span></label>
+                      <input value={form.address} placeholder="e.g. 12 MG Road, Mumbai"
+                        onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+                        style={{ ...inputStyle }}
+                        onFocus={(e) => (e.target.style.borderColor = "#6366f1")}
+                        onBlur={(e)  => (e.target.style.borderColor = "#e2e8f0")}
+                      />
+                    </div>
+                  </>
+                )}
 
                 <div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>

@@ -1,47 +1,71 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import type { Booking, BlockedTime } from "../../types/scheduler-types";
+import { useSingleClick } from "../../../../utils/singleClick";
+import type { Booking, BlockedTime } from "../../types/booking.types";
 import { useAppDispatch, useAppSelector } from "../../../../hooks/useAppRedux";
-import { fetchBookingByIdThunk, fetchBookingsThunk } from "../../../../middleware/booking/booking.thunk";
-import { setBookings } from "../../../../store/schedulerSlice";
+import { fetchBookingByIdThunk, fetchBookingsThunk, cancelBookingThunk, deleteBookingThunk } from "../../../../middleware/booking/booking.thunk";
+import { setBookings, clearDragPatch, deleteBooking } from "../../../../store/schedulerSlice";
 import { store } from "../../../../store/store";
 import { useSchedulerContext } from "../../store/SchedulerContext";
-import { useSchedulerInit, mapApiBooking } from "../../hooks/useSchedulerInit";
-import TopBar from "./TopBar";
-import DayView from "./DayView";
-import WeekView from "./WeekView";
-import MonthView from "./MonthView";
-import ListWeekView from "./ListWeekView";
-import NewAppointmentModal from "../modals/NewAppointmentModal";
-import ViewBillModal from "../modals/ViewBillModal";
-import PaymentModal from "../modals/PaymentModal";
-import BlockTimeModal from "../modals/BlockTimeModal";
+// ── NEW: 2 focused hooks replace useSchedulerInit ─────────────────────────────
+import { useBookings }      from "../../hooks/useBookings";
+import { useStaffSchedule } from "../../hooks/useStaffSchedule";
+// ── NEW: mapApiBooking now lives in utils ─────────────────────────────────────
+import { mapApiBooking } from "../../utils/bookingMapper";
+import { getCurrentTime } from "../../utils/timeUtils";
+import TopBar        from "./TopBar";
+import DayView       from "./DayView";
+import WeekView      from "./WeekView";
+import MonthView     from "./MonthView";
+import ListWeekView  from "./ListWeekView";
+// ── NEW: AppointmentModal replaces NewAppointmentModal ────────────────────────
+import AppointmentModal from "../modals/AppointmentModal";
+import ViewBillModal    from "../modals/ViewBillModal";
+import PaymentModal     from "../modals/PaymentModal";
+import BlockTimeModal   from "../modals/BlockTimeModal";
+import "../../styles/Scheduler.scss";
+
+// Stable fallbacks — prevent new [] reference on every selector call when slice is undefined
+const EMPTY_ARR: never[] = [];
 
 const SchedulerContent: React.FC = () => {
-  useSchedulerInit();
-  const dispatch = useAppDispatch();
-  const location = useLocation();
-  const navigate = useNavigate();
+  const dispatch    = useAppDispatch();
+  const location    = useLocation();
+  const navigate    = useNavigate();
+  const salonId     = useAppSelector((s: any) => s.salon?.currentSalon?.id ?? s.auth?.user?.salon_id ?? "");
   const { viewMode, setViewMode, currentDate, setCurrentDate } = useSchedulerContext();
-  const apiServices = useAppSelector((s: any) => s.services?.items ?? []);
-  const apiStaff = useAppSelector((s: any) => s.staff?.items ?? []);
-  const apiClients = useAppSelector((s: any) => s.client?.items ?? []);
 
-  const [showNewAppt, setShowNewAppt] = useState(false);
-  const [showBlockTime, setShowBlockTime] = useState(false);
-  const [viewingBooking, setViewingBooking] = useState<Booking | null>(null);
-  const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
-  const [paymentBooking, setPaymentBooking] = useState<Booking | null>(null);
-  const [collectDueMode, setCollectDueMode] = useState(false);
-  const [apptDefaults, setApptDefaults] = useState<{ staffId?: string; defaultTime?: string }>({});
-  const [blockStaffId, setBlockStaffId] = useState<string | undefined>(undefined);
+  const apiServices = useAppSelector((s: any) => s.services?.items ?? EMPTY_ARR);
+  const apiStaff    = useAppSelector((s: any) => s.staff?.items   ?? EMPTY_ARR);
+  const apiClients  = useAppSelector((s: any) => s.client?.items  ?? EMPTY_ARR);
+
+  // ── Data hooks ───────────────────────────────────────────────────────────
+  const { staffReady, hasStaff } = useStaffSchedule(salonId);
+  // Fetch bookings as soon as salonId is known — parallel with staff, no more serial dependency.
+  // Waiting for hasStaff caused appointments to vanish on page refresh when Redux state is empty
+  // and the auth → salon → staff chain took 3-4 s (or broke silently).
+  useBookings(!salonId);
+
+  // ── UI state ──────────────────────────────────────────────────────────────
+  const [showNewAppt, setShowNewAppt]         = useState(false);
+  const [showBlockTime, setShowBlockTime]     = useState(false);
+  const [viewingBooking, setViewingBooking]   = useState<Booking | null>(null);
+  const [editingBooking, setEditingBooking]   = useState<Booking | null>(null);
+  const [paymentBooking, setPaymentBooking]   = useState<Booking | null>(null);
+  const [collectDueMode, setCollectDueMode]   = useState(false);
+  const [apptDefaults, setApptDefaults]       = useState<{ staffId?: string; defaultTime?: string }>({});
+  const [defaultClient, setDefaultClient]     = useState<{ id: string; name: string; phone: string } | null>(null);
+  const [blockStaffId, setBlockStaffId]       = useState<string | undefined>(undefined);
   const [editingBlockTime, setEditingBlockTime] = useState<BlockedTime | undefined>(undefined);
 
-  // Auto-open appointment for editing when navigated from Reports page
+  function getGlobalSearchDefaultTime() {
+    return getCurrentTime();
+  }
+
+  // ── Auto-open appointment when navigated from Reports page ────────────────
   useEffect(() => {
     const appointmentId = (location.state as any)?.openAppointmentId;
     if (!appointmentId) return;
-    // Clear the state so refreshing doesn't re-open
     navigate(location.pathname, { replace: true, state: {} });
     (async () => {
       try {
@@ -55,37 +79,43 @@ const SchedulerContent: React.FC = () => {
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function handleSlotClick(staffId: string, time: string) {
+  // ── Auto-open New Appointment drawer when navigated from Quick Sale ────────
+  useEffect(() => {
+    if (!(location.state as any)?.openNewAppt) return;
+    navigate(location.pathname, { replace: true, state: {} });
+    setEditingBooking(null);
+    setApptDefaults({});
+    setShowNewAppt(true);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSlotClick = useSingleClick((staffId: string, time: string) => {
     setApptDefaults({ staffId, defaultTime: time });
     setEditingBooking(null);
     setShowNewAppt(true);
-  }
+  });
 
-  /**
-   * For bookings that came from the API (non-temp ID), fetch the full record
-   * so the edit modal gets service line items and all details.
-   * Falls back to the cached local booking if the API call fails.
-   */
-  async function handleEditBooking(booking: Booking) {
+  const handleEditBooking = useSingleClick(async (booking: Booking) => {
+    if (booking.paymentStatus === "Paid") {
+      setViewingBooking(booking);
+      return;
+    }
     const isApiBooking = !String(booking.id).startsWith("b_");
     if (isApiBooking) {
       try {
         const action = await (dispatch(fetchBookingByIdThunk(booking.id)) as any);
         if (fetchBookingByIdThunk.fulfilled.match(action)) {
           const enriched = mapApiBooking(action.payload, apiServices, apiStaff, apiClients);
-
-          // Build a map from the local Redux booking (has post-drag staff + prices)
           const localPriceMap = new Map(
             (booking.services || []).map((s: any) => [String(s.id), s])
           );
-
-          // Merge services: API has fresh name/time metadata; local has current staff+prices.
-          // Drag-and-drop updates staffId locally but doesn't re-send services to the API,
-          // so the API's service staffId is stale after a drag — always prefer local staffId.
+          const localServices = booking.services || [];
           const mergedServices = enriched.services.length
-            ? enriched.services.map((svc: any) => {
-                const local = localPriceMap.get(String(svc.id));
-                const resolvedStaffId = local?.staffId || svc.staffId;
+            ? enriched.services.map((svc: any, idx: number) => {
+                // Match by ID first; fall back to position for newly created services
+                const local = localPriceMap.get(String(svc.id)) ?? localServices[idx];
+                // Prefer detail-API staffId — it has per-service staff_id from DB.
+                // local comes from the list endpoint which collapses all services to appointment-level staffId.
+                const resolvedStaffId = svc.staffId || local?.staffId;
                 const resolvedStaff = resolvedStaffId
                   ? (apiStaff.find((s: any) => String(s.id) === String(resolvedStaffId)) as any)?.name || svc.staff
                   : svc.staff;
@@ -99,12 +129,10 @@ const SchedulerContent: React.FC = () => {
                 };
               })
             : booking.services;
-
           setEditingBooking({
             ...booking,
             ...enriched,
             services: mergedServices,
-            // Always trust local Redux for payment fields — updated by patchPaymentStatus
             paymentStatus: booking.paymentStatus,
             payingNow: booking.payingNow != null ? booking.payingNow : enriched.payingNow,
             dueAmount: booking.dueAmount != null ? booking.dueAmount : enriched.dueAmount,
@@ -113,127 +141,225 @@ const SchedulerContent: React.FC = () => {
           setShowNewAppt(true);
           return;
         }
-      } catch {
-        // fall through — use cached booking
-      }
+      } catch { /* fall through */ }
     }
     setEditingBooking(booking);
     setShowNewAppt(true);
-  }
+  });
 
-  function handleCollectDue(booking: Booking) {
-    // Open PaymentModal in collect-due mode with the original booking intact
+  // Force-open edit modal regardless of payment status (called from ViewBillModal Edit button)
+  const handleForceEdit = useSingleClick(async (booking: Booking) => {
+    setViewingBooking(null);
+    const isApiBooking = !String(booking.id).startsWith("b_");
+    if (isApiBooking) {
+      try {
+        const action = await (dispatch(fetchBookingByIdThunk(booking.id)) as any);
+        if (fetchBookingByIdThunk.fulfilled.match(action)) {
+          const enriched = mapApiBooking(action.payload, apiServices, apiStaff, apiClients);
+          // Preserve per-service staffIds from local Redux booking — same logic as handleEditBooking
+          const localPriceMap = new Map((booking.services || []).map((s: any) => [String(s.id), s]));
+          const localServices = booking.services || [];
+          const mergedServices = enriched.services.length
+            ? enriched.services.map((svc: any, idx: number) => {
+                const local = localPriceMap.get(String(svc.id)) ?? localServices[idx];
+                const resolvedStaffId = svc.staffId || local?.staffId;
+                const resolvedStaff = resolvedStaffId
+                  ? (apiStaff.find((s: any) => String(s.id) === String(resolvedStaffId)) as any)?.name || svc.staff
+                  : svc.staff;
+                return { ...svc, staffId: resolvedStaffId, staff: resolvedStaff };
+              })
+            : booking.services;
+          setEditingBooking({ ...booking, ...enriched, services: mergedServices, paymentStatus: booking.paymentStatus });
+          setShowNewAppt(true);
+          return;
+        }
+      } catch { /* fall through */ }
+    }
+    setEditingBooking(booking);
+    setShowNewAppt(true);
+  });
+
+  const handleCollectDue = useSingleClick((booking: Booking) => {
     setPaymentBooking(booking);
     setCollectDueMode(true);
-  }
+  });
 
-  function handleBlockTime(staffId?: string) {
+  const handleBlockTime = useSingleClick((staffId?: string) => {
     setBlockStaffId(staffId);
     setEditingBlockTime(undefined);
     setShowBlockTime(true);
-  }
+  });
 
-  function handleEditBlockTime(block: BlockedTime) {
+  const handleEditBlockTime = useSingleClick((block: BlockedTime) => {
     setEditingBlockTime(block);
     setBlockStaffId(undefined);
     setShowBlockTime(true);
-  }
+  });
 
-  function handleDayClick(date: string) {
+  const handleDayClick = useSingleClick((date: string) => {
     setCurrentDate(date);
     setViewMode("Day");
-  }
+  });
 
-  async function handleRefresh() {
+  const handleRefresh = useSingleClick(async () => {
     const dateStr = currentDate || new Date().toISOString().slice(0, 10);
     const action = await (dispatch(fetchBookingsThunk({ startDate: dateStr, endDate: dateStr })) as any);
     if (!fetchBookingsThunk.fulfilled.match(action)) return;
 
-    const PAY_RANK: Record<string, number> = { Paid: 2, Partial: 1, Unpaid: 0 };
-
     const payload = action.payload as any;
     const fresh: Booking[] = (Array.isArray(payload) ? payload : (payload?.data ?? [])) as Booking[];
     const freshIds = new Set(fresh.map((fb) => String(fb.id)));
-
-    const latestBookings: Booking[] = store.getState().scheduler.bookings;
+    const schedulerState = store.getState().scheduler as any;
+    const latestBookings: Booking[] = schedulerState.bookings;
+    const payCache: Record<string, any> = schedulerState.paymentPatchCache ?? {};
 
     const updated = fresh.map((fb) => {
-      const local = latestBookings.find((lb) => String(lb.id) === String(fb.id));
-      if (!local) return fb;
-
-      // Trust server for position (date/time/staff) — this corrects any stale drag position.
-      // Only keep local payment state when it's ahead of what the server knows
-      // (e.g., payment was just processed but server refresh hasn't caught up yet).
       const merged: Booking = { ...fb } as Booking;
+      const local = latestBookings.find((lb) => String(lb.id) === String(fb.id));
 
-      if ((PAY_RANK[local.paymentStatus] ?? 0) > (PAY_RANK[fb.paymentStatus] ?? 0)) {
-        merged.paymentStatus = local.paymentStatus;
-        merged.dueAmount = local.dueAmount;
-        merged.payingNow = local.payingNow;
-        (merged as any).paymentMode = (local as any).paymentMode || (fb as any).paymentMode;
+      // Package appointments: list endpoint may return staff_id=null even though it was set at
+      // creation time (backend stores staffId in package_items, not in appointments table).
+      // Preserve the staffId from the local Redux booking so the chip stays visible.
+      if (!merged.staffId && local?.staffId) {
+        (merged as any).staffId = local.staffId;
+      }
+
+      // Preserve per-service staffIds saved locally when the API list endpoint
+      // doesn't return staff_id per service (all services fall back to appt-level staffId).
+      if (local?.services?.length) {
+        if (!merged.services?.length) {
+          // API returned no services at all — keep the locally cached services so
+          // multi-staff chips survive the refresh without losing their assignments.
+          (merged as any).services = local.services;
+        } else {
+          const allSameAsAppt = merged.services.every(
+            (s: any) => !s.staffId || String(s.staffId) === String(merged.staffId)
+          );
+          if (allSameAsAppt) {
+            const localById = new Map(local.services.map((s: any) => [String(s.id), s]));
+            merged.services = merged.services.map((svc: any, idx: number) => {
+              // Match by ID first; fall back to position for newly created services
+              const localSvc = localById.get(String(svc.id)) ?? (local as any).services[idx];
+              return localSvc?.staffId ? { ...svc, staffId: localSvc.staffId, staff: localSvc.staff } : svc;
+            });
+          }
+        }
+      }
+
+      const pay = payCache[String(fb.id)];
+      if (pay) {
+        merged.paymentStatus = pay.paymentStatus;
+        merged.dueAmount = pay.paymentStatus === "Paid" ? 0 : pay.dueAmount;
+        merged.payingNow = pay.payingNow;
+        if (pay.grandTotal !== undefined) (merged as any).grandTotal = pay.grandTotal;
+        if (local) (merged as any).paymentMode = (local as any).paymentMode || (fb as any).paymentMode;
       }
       return merged;
     });
 
     const preserved = latestBookings.filter((lb) => !freshIds.has(String(lb.id)));
+    fresh.forEach((fb) => dispatch(clearDragPatch(String(fb.id))));
     dispatch(setBookings([...updated, ...preserved]));
-  }
+  });
 
-  async function handleCloseAppt() {
+  function handleCloseAppt() {
     setShowNewAppt(false);
     setEditingBooking(null);
+    setDefaultClient(null);
     setApptDefaults({});
-    await handleRefresh();
   }
 
+  const handleCancelBooking = useSingleClick(async (booking: Booking) => {
+    const result = await (dispatch(cancelBookingThunk(booking.id)) as any);
+    if (cancelBookingThunk.fulfilled.match(result)) handleRefresh();
+  });
+
+  const handleDeleteBooking = useSingleClick(async (booking: Booking) => {
+    const result = await (dispatch(deleteBookingThunk(booking.id)) as any);
+    if (deleteBookingThunk.fulfilled.match(result)) dispatch(deleteBooking(String(booking.id)));
+  });
+
+  const handleNewAppointment = useSingleClick(() => {
+    setEditingBooking(null);
+    setDefaultClient(null);
+    setApptDefaults({});
+    setShowNewAppt(true);
+  });
+
+  const handleNewAppointmentForClient = useSingleClick((client: { id: string; name: string; phone: string }) => {
+    setEditingBooking(null);
+    setApptDefaults({ defaultTime: getGlobalSearchDefaultTime() });
+    setDefaultClient(client);
+    setShowNewAppt(true);
+  });
+
   return (
-    <div style={{
-      fontFamily: "'Segoe UI', system-ui, sans-serif",
-      background: "#f8fafc",
-      height: "100%",
-      display: "flex",
-      flexDirection: "column",
-      overflow: "hidden",
-      position: "relative",
-    }}>
-      <div style={{ flexShrink: 0, width: "100%", overflow: "hidden", position: "relative", zIndex: 30 }}>
-        <TopBar
-          onNewAppointment={() => { setEditingBooking(null); setApptDefaults({}); setShowNewAppt(true); }}
-          onBlockTime={() => handleBlockTime()}
-          onRefresh={handleRefresh}
-        />
-      </div>
-
-      <div style={{
-        flex: 1, display: "flex", flexDirection: "column", minHeight: 0,
-        overflowY: viewMode === "Month" || viewMode === "List Week" ? "auto" : "hidden",
-        overflowX: "hidden",
-      }}>
-        {viewMode === "Day" && (
-          <DayView
-            onSlotClick={handleSlotClick}
-            onEditBooking={handleEditBooking}
-            onBlockTime={(staffId: string) => handleBlockTime(staffId)}
-            onEditBlockTime={handleEditBlockTime}
+    <div className="scheduler">
+      {(!staffReady || hasStaff) && (
+        <div className="scheduler__topbar-wrap">
+          <TopBar
+            onNewAppointment={handleNewAppointment}
+            onBlockTime={() => handleBlockTime()}
+            onRefresh={handleRefresh}
+            onNewAppointmentForClient={handleNewAppointmentForClient}
           />
-        )}
-        {viewMode === "Week" && (
-          <WeekView onSlotClick={handleSlotClick} onViewBill={setViewingBooking} />
-        )}
-        {viewMode === "Month" && (
-          <MonthView onDayClick={handleDayClick} onViewBill={setViewingBooking} />
-        )}
-        {viewMode === "List Week" && (
-          <ListWeekView onViewBill={setViewingBooking} />
+        </div>
+      )}
+
+      <div className={`scheduler__body${viewMode === "Month" || viewMode === "List Week" ? " scheduler__body--scrollable" : ""}`}>
+        {/* ── No-staff empty state ── */}
+        {staffReady && !hasStaff ? (
+          <div className="scheduler__empty-state">
+            <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            <p className="scheduler__empty-title">No staff available</p>
+            <p className="scheduler__empty-subtitle">Add team members to start scheduling appointments.</p>
+            <a href="/dashboard/team" className="scheduler__empty-link">+ Add Staff</a>
+          </div>
+        ) : (
+          <>
+            {viewMode === "Day" && (
+              <DayView
+                onSlotClick={handleSlotClick}
+                onEditBooking={handleEditBooking}
+                onCancelBooking={handleCancelBooking}
+                onDeleteBooking={handleDeleteBooking}
+                onBlockTime={(staffId: string) => handleBlockTime(staffId)}
+                onEditBlockTime={handleEditBlockTime}
+              />
+            )}
+            {viewMode === "Week" && (
+              <WeekView onSlotClick={handleSlotClick} onViewBill={setViewingBooking} />
+            )}
+            {viewMode === "Month" && (
+              <MonthView onDayClick={handleDayClick} onViewBill={setViewingBooking} />
+            )}
+            {viewMode === "List Week" && (
+              <ListWeekView onViewBill={setViewingBooking} />
+            )}
+          </>
         )}
       </div>
 
+      {/* ── AppointmentModal replaces NewAppointmentModal ── */}
       {showNewAppt && (
-        <NewAppointmentModal
+        <AppointmentModal
+          isOpen={showNewAppt}
+          salonId={salonId}
           onClose={handleCloseAppt}
+          onRefresh={handleRefresh}
           defaultStaffId={apptDefaults.staffId}
           defaultTime={apptDefaults.defaultTime}
+          defaultDate={editingBooking?.date || undefined}
           existingBooking={editingBooking || undefined}
+          defaultClientId={defaultClient?.id}
+          defaultClientName={defaultClient?.name}
+          defaultClientPhone={defaultClient?.phone}
+          onCancelBooking={handleCancelBooking}
+          onDeleteBooking={handleDeleteBooking}
         />
       )}
       {showBlockTime && (
@@ -247,7 +373,7 @@ const SchedulerContent: React.FC = () => {
         <ViewBillModal
           booking={viewingBooking}
           onClose={() => setViewingBooking(null)}
-          onEdit={(b) => { setViewingBooking(null); handleEditBooking(b); }}
+          onEdit={(b) => handleForceEdit(b)}
           onCollectDue={handleCollectDue}
         />
       )}

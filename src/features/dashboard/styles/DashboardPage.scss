@@ -72,24 +72,6 @@ body {
   &:hover { background: $btn-hover; }
 }
 
-.notification {
-  position: relative;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-}
-
-.badge {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  background: $badge-bg;
-  color: $white;
-  font-size: 9px;
-  padding: 2px 5px;
-  border-radius: 50%;
-}
-
 .profile {
   width: 30px;
   height: 30px;
@@ -258,7 +240,8 @@ body {
   margin-left: 90px;
   padding: 20px;
   background: #f9fafb;
-  min-height: calc(100vh - 70px);
+  height: calc(100vh - 70px);
+  overflow-y: auto;
   transition: margin 0.25s ease;
   &.shifted { margin-left: 410px; }
 }

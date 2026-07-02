@@ -1,0 +1,310 @@
+import React from "react";
+import type { SingleMethod, SplitEntry } from "../../types";
+import "../../styles/AppointmentModal.scss";
+import { SINGLE_METHODS } from "../../types";
+import { currencySymbol } from "../../utils/currency";
+
+interface Props {
+  // Totals
+  effectiveTotal: number;
+  remainingDue: number;
+  alreadyPaid: number;
+  grandTotal: number;
+
+  // eWallet
+  eWalletBalance: number;
+  useEWallet: boolean;
+  eWalletAmt: number;
+  onToggleEWallet: (v: boolean) => void;
+
+  // Coupon
+  couponInput: string;
+  onCouponInputChange: (v: string) => void;
+  onApplyCoupon: () => void;
+  couponDiscount: number;
+  couponMessage: string;
+  couponError: string;
+  couponLoading: boolean;
+
+  // Payment method
+  paymentMode: "single" | "split";
+  onSetPaymentMode: (m: "single" | "split") => void;
+  singleMethod: SingleMethod | null;
+  onSetSingleMethod: (m: SingleMethod) => void;
+  splitEntries: SplitEntry[];
+  onSetSplitEntries: (entries: SplitEntry[]) => void;
+  payMethodError: boolean;
+
+  // Partial amount (single mode)
+  partialAmtInput: string;
+  onSetPartialAmt: (v: string) => void;
+
+  // Clear prior due
+  priorDueAmt: number;
+  includeClearDue: boolean;
+  onToggleClearDue: (v: boolean) => void;
+
+  // Print
+  printAfterPayment: boolean;
+  onTogglePrint: (v: boolean) => void;
+
+  // Rewards preview
+  previewPoints: number;
+  previewWalletCredit: number;
+
+  frozen?: boolean;
+}
+
+const EWALLET_MINIMUM = 100;
+
+export const PaymentPanel: React.FC<Props> = ({
+  remainingDue, alreadyPaid,
+  eWalletBalance, useEWallet, eWalletAmt, onToggleEWallet,
+  couponInput, onCouponInputChange, onApplyCoupon,
+  couponMessage, couponError, couponLoading,
+  paymentMode, onSetPaymentMode,
+  singleMethod, onSetSingleMethod,
+  splitEntries, onSetSplitEntries, payMethodError,
+  partialAmtInput, onSetPartialAmt,
+  priorDueAmt, includeClearDue, onToggleClearDue,
+  printAfterPayment, onTogglePrint,
+  previewPoints, previewWalletCredit,
+  frozen,
+}) => {
+  const totalToCollect = includeClearDue ? remainingDue + priorDueAmt : remainingDue;
+
+  return (
+    <div className="payment-panel">
+      {/* Rewards preview */}
+      {previewPoints > 0 && (
+        <div className="pay-rewards">
+          🎁 Earn <strong>{previewPoints} pts</strong> → {currencySymbol}{previewWalletCredit.toFixed(2)} eWallet credit
+        </div>
+      )}
+
+      {/* Coupon */}
+      {!frozen && alreadyPaid === 0 && (
+        <div className="pay-coupon">
+          <label className="pay-coupon__label">COUPON CODE</label>
+          <div className="pay-coupon__row">
+            <input
+              className="form-control-custom"
+              placeholder="SAVE10, FLAT50, NEW20"
+              value={couponInput}
+              onChange={(e) => onCouponInputChange(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && onApplyCoupon()}
+              disabled={couponLoading}
+            />
+            <button className="btn btn-dark" onClick={onApplyCoupon} disabled={couponLoading}>
+              {couponLoading ? "…" : "Apply"}
+            </button>
+          </div>
+          {couponMessage && <div className="pay-coupon__msg success">{couponMessage}</div>}
+          {couponError   && <div className="pay-coupon__msg error">{couponError}</div>}
+        </div>
+      )}
+
+      {/* eWallet */}
+      {eWalletBalance >= EWALLET_MINIMUM && !frozen && (
+        <div
+          className={`pay-ewallet${useEWallet ? " pay-ewallet--active" : ""}`}
+          onClick={() => onToggleEWallet(!useEWallet)}
+        >
+          <input type="checkbox" checked={useEWallet} readOnly />
+          <span>Use eWallet (Available: {currencySymbol}{eWalletBalance.toFixed(2)})</span>
+          {useEWallet && eWalletAmt > 0 && (
+            <span className="pay-ewallet__deducted">-{currencySymbol}{eWalletAmt.toFixed(2)}</span>
+          )}
+        </div>
+      )}
+
+      {/* Clear prior due */}
+      {!frozen && priorDueAmt > 0 && (
+        <div
+          className={`pay-clear-due${includeClearDue ? " pay-clear-due--active" : ""}`}
+          onClick={() => onToggleClearDue(!includeClearDue)}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "10px 14px",
+            background: includeClearDue ? "#fef3c7" : "#fff7ed",
+            borderTop: "1px solid #fde68a",
+            cursor: "pointer", userSelect: "none",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="checkbox" checked={includeClearDue}
+              onChange={(e) => onToggleClearDue(e.target.checked)}
+              style={{ accentColor: "#f59e0b", width: 15, height: 15 }}
+            />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#92400e" }}>
+                🔔 Clear Pending Due — {currencySymbol}{priorDueAmt.toFixed(2)}
+              </div>
+              <div style={{ fontSize: 11, color: "#b45309", marginTop: 1 }}>
+                Client has unpaid balance from previous visit(s)
+              </div>
+            </div>
+          </div>
+          {includeClearDue && (
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 11, color: "#78350f" }}>Total to collect</div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: "#92400e" }}>
+                {currencySymbol}{totalToCollect.toFixed(2)}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Payment method */}
+      {!frozen && (
+        <div className="pay-method">
+          <label className="pay-method__label">PAYMENT METHOD <span className="req">*</span></label>
+
+          {/* Single / Split toggle */}
+          <div className="pay-method__mode">
+            {(["single", "split"] as const).map((mode) => (
+              <button
+                key={mode}
+                className={paymentMode === mode ? "active" : ""}
+                onClick={() => onSetPaymentMode(mode)}
+              >
+                {mode === "single" ? "Single" : "Split"}
+              </button>
+            ))}
+          </div>
+
+          {paymentMode === "single" ? (
+            <>
+              <div className="pay-method__options">
+                {SINGLE_METHODS.map((m) => (
+                  <button
+                    key={m}
+                    className={`${singleMethod === m ? "active" : ""}${payMethodError ? " error" : ""}`}
+                    onClick={() => onSetSingleMethod(m)}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+              {payMethodError && (
+                <div className="pay-method__error">Please select a payment method to continue.</div>
+              )}
+              {/* Due amount row */}
+              {totalToCollect > 0 && (
+                <div className="pay-due-row">
+                  <span className="pay-due-row__label">Due —</span>
+                  <div className="pay-due-row__field">
+                    <span className="pay-due-row__symbol">{currencySymbol}</span>
+                    <input
+                      type="number"
+                      className="pay-due-row__input"
+                      min={0.01}
+                      step={0.01}
+                      placeholder={totalToCollect.toFixed(2)}
+                      value={partialAmtInput}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === "") { onSetPartialAmt(""); return; }
+                        const val = parseFloat(raw);
+                        onSetPartialAmt(!isNaN(val) && val > totalToCollect ? totalToCollect.toFixed(2) : raw);
+                      }}
+                    />
+                  </div>
+                  <label className="pay-due-row__full-label">
+                    <input
+                      type="checkbox"
+                      className="pay-due-row__full-check"
+                      checked={partialAmtInput === ""}
+                      onChange={(e) => { if (e.target.checked) onSetPartialAmt(""); }}
+                    />
+                    Full
+                  </label>
+                </div>
+              )}
+            </>
+          ) : (
+            /* Split entries */
+            <div className="pay-split">
+              {splitEntries.map((entry, i) => (
+                <div key={i} className="pay-split__row">
+                  <div className="pay-split__methods">
+                    {SINGLE_METHODS.map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        className={`pay-split__method-btn${entry.method === m ? " active" : ""}`}
+                        onClick={() => {
+                          const updated = [...splitEntries];
+                          updated[i] = { ...entry, method: m };
+                          onSetSplitEntries(updated);
+                        }}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="pay-split__amt-field">
+                    <span className="pay-split__symbol">{currencySymbol}</span>
+                    <input
+                      type="number"
+                      className="pay-split__input"
+                      min={0}
+                      step={0.01}
+                      placeholder="Amount"
+                      value={entry.amount}
+                      onChange={(e) => {
+                        const updated = [...splitEntries];
+                        updated[i] = { ...entry, amount: e.target.value };
+                        onSetSplitEntries(updated);
+                      }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="pay-split__remove"
+                    onClick={() => onSetSplitEntries(splitEntries.filter((_, idx) => idx !== i))}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <div className="pay-split__footer">
+                <button
+                  type="button"
+                  className="pay-split__add"
+                  onClick={() => onSetSplitEntries([...splitEntries, { method: "Cash", amount: "" }])}
+                >
+                  + Add Method
+                </button>
+                {(() => {
+                  const splitTotal = splitEntries.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+                  const rem = remainingDue - splitTotal;
+                  return (
+                    <div className="pay-split__totals">
+                      Total: <span className={rem <= 0 ? "ok" : "short"}>{currencySymbol}{splitTotal.toFixed(2)}</span>
+                      {rem > 0 && <span className="rem"> {currencySymbol}{rem.toFixed(2)} remaining</span>}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Print receipt */}
+      <div className="pay-print">
+        <input
+          type="checkbox" id="print-receipt"
+          checked={printAfterPayment}
+          onChange={(e) => onTogglePrint(e.target.checked)}
+        />
+        <label htmlFor="print-receipt">Print receipt after payment</label>
+      </div>
+    </div>
+  );
+};
+
+export default PaymentPanel;

@@ -1,5 +1,6 @@
 import React from "react";
 import type { Staff } from "../../types/scheduler-types";
+import "../../styles/Scheduler.scss";
 
 interface AvatarProps {
   staff: Staff;
@@ -7,7 +8,6 @@ interface AvatarProps {
 }
 
 const Avatar: React.FC<AvatarProps> = ({ staff, size = 36 }) => {
-  // Build a 2-char abbreviation: first letters of first two words, or first 2 chars
   const words = staff.name.trim().split(/\s+/);
   const abbrev =
     words.length >= 2
@@ -16,20 +16,12 @@ const Avatar: React.FC<AvatarProps> = ({ staff, size = 36 }) => {
 
   return (
     <div
+      className="staff-avatar"
       style={{
         width: size,
         height: size,
-        borderRadius: "50%",
         background: staff.color,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
         fontSize: Math.round(size * 0.36),
-        fontWeight: 700,
-        color: "#fff",
-        letterSpacing: "0.5px",
-        flexShrink: 0,
-        userSelect: "none",
       }}
     >
       {abbrev}

@@ -9,12 +9,8 @@
   overflow: hidden;
   position: relative;
   z-index: 1;
-  user-select: auto;
+  user-select: none;
   cursor: default;
-
-  &--interacting {
-    user-select: none;
-  }
 
   &--dragging {
     cursor: grabbing;
@@ -30,29 +26,68 @@
   }
 }
 
-/* ── Time gutter ── */
+/* ── Single scrollable container ──
+   Header row and gutter are position:sticky children of this element (see below),
+   so the browser keeps them pixel-perfect in sync with the grid on both axes natively
+   — no JS scrollTop/translateX mirroring, which used to lag a frame behind during
+   fast/inertial scrolling and was the cause of the time-label/gridline drift. */
+.dv-scroll-body {
+  flex: 1;
+  width: 100%;
+  overflow: auto;
+  position: relative;
+}
+
+.dv-scroll-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 100%;
+}
+
+/* ── Sticky header row (corner cell + staff column headers) ── */
+.dv-header-row {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  flex-shrink: 0;
+}
+
+.dv-gutter__header {
+  position: sticky;
+  left: 0;
+  z-index: 16;
+  width: 72px;
+  height: 56px;
+  flex-shrink: 0;
+  border-bottom: 1px solid $dashboard-border;
+  border-right: 1px solid $dashboard-border;
+  background: #f8fafc;
+}
+
+.dv-staff-header {
+  display: flex;
+  height: 56px;
+  flex-shrink: 0;
+  border-bottom: 1px solid $dashboard-border;
+  background: #f8fafc;
+}
+
+/* ── Body row: sticky-left time gutter + grid columns ── */
+.dv-body-row {
+  display: flex;
+}
+
 .dv-gutter {
-  width: 80px;
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  width: 72px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   border-right: 1px solid $dashboard-border;
-  background: #fafafa;
-  z-index: 10;
-  overflow: hidden;
-
-  &__header {
-    height: 64px;
-    flex-shrink: 0;
-    border-bottom: 1px solid $dashboard-border;
-    background: $white;
-  }
-
-  &__body {
-    flex: 1;
-    overflow-y: hidden;
-    overflow-x: hidden;
-  }
+  background: #f8fafc;
 
   /* Each time slot row in the gutter — MUST match SLOT_HEIGHT = 48 */
   &__slot {
@@ -68,7 +103,7 @@
 
   &__label {
     position: absolute;
-    top: -8px;
+    top: 2px;
     right: 8px;
     left: 4px;
     font-size: 11px;
@@ -82,78 +117,77 @@
       font-weight: 600;
     }
   }
-
-  /* The first slot sits at y=0 in __body (overflow:hidden).
-     "top:-8px" would push the label above the clipping boundary —
-     pin it inside the slot so 12:00 AM is always fully visible. */
-  &__slot:first-child &__label {
-    top: 3px;
-  }
-}
-
-/* ── Staff columns container ── */
-.dv-columns {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-width: 0;
-}
-
-/* ── Staff header ── */
-.dv-staff-header {
-  flex-shrink: 0;
-  height: 64px;
-  overflow-x: hidden;
-  overflow-y: hidden;
-  border-bottom: 1px solid $dashboard-border;
-  background: $white;
-  z-index: 5;
-
-  &__inner {
-    display: flex;
-    height: 100%;
-  }
 }
 
 .dv-staff-col-header {
   flex-shrink: 0;
   height: 100%;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 8px;
   border-right: 1px solid $dashboard-border;
   cursor: pointer;
-  background: $white;
+  background: #f8fafc;
   transition: background 0.15s;
+  padding: 0 8px;
 
   &--drag-target {
     background: #eff6ff;
   }
 
   &:hover {
-    background: #f9fafb;
+    background: #f0f2f6;
   }
 }
 
 .dv-staff-name {
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
   color: #374151;
-  text-align: center;
+  text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 
-/* ── Scrollable body ── */
-.dv-scroll-body {
+/* ── Loading state (shown while staff list is empty on first load) ── */
+.dv-loading {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: auto;
-  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: #f8fafc;
+  color: #9ca3af;
+
+  &__spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid #e5e7eb;
+    border-top-color: #6366f1;
+    border-radius: 50%;
+    animation: dv-spin 0.7s linear infinite;
+  }
+
+  &__text {
+    font-size: 13px;
+    font-weight: 500;
+  }
+}
+
+@keyframes dv-spin { to { transform: rotate(360deg); } }
+
+/* ── Grid lines overlay layer (sits behind blocks and chips) ── */
+.dv-grid-lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
 }
 
 /* ── Empty state ── */
@@ -496,7 +530,7 @@
 
   &__label {
     position: absolute;
-    left: -84px;
+    left: -76px;
     top: -10px;
     background: $danger;
     color: $white;

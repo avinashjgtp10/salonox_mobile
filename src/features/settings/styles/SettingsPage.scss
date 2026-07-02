@@ -1970,3 +1970,471 @@
   }
 }
 
+/* ============================================================
+   SETTINGS MANAGEMENT — SPLIT LIST + DETAIL PANEL
+   (Mirrors the Tax Mapping UI pattern)
+   ============================================================ */
+
+.sm-split {
+  display: flex;
+  border: 1px solid $dashboard-border;
+  border-radius: 12px;
+  overflow: hidden;
+  background: $white;
+  /* Fixed height so the inner list's overflow-y: auto activates */
+  height: calc(100vh - 260px);
+  max-height: calc(100vh - 260px);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+/* ── Left List Panel ── */
+.sm-split__list {
+  width: 280px;
+  flex-shrink: 0;
+  border-right: 1px solid $dashboard-border;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  @media (max-width: 900px) {
+    width: 220px;
+  }
+}
+
+.sm-split__search {
+  padding: 10px 12px;
+  border-bottom: 1px solid $dashboard-border;
+  position: relative;
+  background: $white;
+}
+
+.sm-split__search-icon {
+  position: absolute;
+  left: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: $dashboard-secondary;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.sm-split__search-input {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px 0 32px;
+  border: 1.5px solid $dashboard-border;
+  border-radius: 8px;
+  font-size: 13px;
+  color: $dashboard-primary;
+  background: $white;
+  outline: none;
+  transition: border-color 0.15s;
+
+  &::placeholder {
+    color: #9ca3af;
+  }
+
+  &:focus {
+    border-color: $dashboard-primary;
+    box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.06);
+  }
+}
+
+.sm-split__items {
+  flex: 1;
+  min-height: 0;       /* critical — lets flex child shrink below content size */
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  &::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #f3f4f6;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #9ca3af;
+    border-radius: 4px;
+  }
+}
+
+.sm-split__item {
+  padding: 12px 16px;
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: $dashboard-primary;
+  border-bottom: 1px solid $dashboard-border;
+  transition: background 0.12s;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: #f9fafb;
+  }
+
+  &.active {
+    background: #eff6ff;
+    color: #1d4ed8;
+
+    .sm-split__item-sub {
+      color: #3b82f6;
+    }
+  }
+}
+
+.sm-split__item-sub {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: $dashboard-secondary;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sm-split__footer {
+  padding: 12px;
+  border-top: 1px solid $dashboard-border;
+  background: $white;
+}
+
+.sm-split__create-btn {
+  width: 100%;
+  height: 38px;
+  background: #2563eb;
+  color: $white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  letter-spacing: 0.01em;
+
+  &:hover {
+    background: #1d4ed8;
+  }
+
+  &:active {
+    background: #1e40af;
+  }
+}
+
+/* ── Right Detail Panel ── */
+.sm-split__detail {
+  flex: 1;
+  min-width: 0;
+  padding: 24px 28px;
+  overflow-y: auto;
+}
+
+.sm-split__detail-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #2563eb;
+  margin: 0 0 22px;
+}
+
+.sm-split__form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+
+  @media (max-width: 700px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sm-split__form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sm-split__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: $dashboard-primary;
+}
+
+.sm-split__input {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  border: 1.5px solid $dashboard-border;
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: $dashboard-primary;
+  background: $white;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &::placeholder {
+    color: #9ca3af;
+  }
+
+  &:focus {
+    border-color: $dashboard-primary;
+    box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.08);
+  }
+
+  &--error {
+    border-color: $danger;
+
+    &:focus {
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+    }
+  }
+}
+
+.sm-split__textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1.5px solid $dashboard-border;
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: $dashboard-primary;
+  background: $white;
+  outline: none;
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+  line-height: 1.5;
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &::placeholder {
+    color: #9ca3af;
+  }
+
+  &:focus {
+    border-color: $dashboard-primary;
+    box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.08);
+  }
+}
+
+.sm-split__divider {
+  border: none;
+  border-top: 1px solid $dashboard-border;
+  margin: 20px 0 0;
+}
+
+.sm-split__actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  padding-top: 16px;
+}
+
+.sm-split__btn {
+  height: 38px;
+  padding: 0 20px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1.5px solid $dashboard-border;
+  background: $white;
+  color: $dashboard-primary;
+  transition: background 0.15s, border-color 0.15s;
+  line-height: 1;
+
+  &:hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+  }
+
+  &--primary {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: $white;
+
+    &:hover {
+      background: #1d4ed8;
+      border-color: #1d4ed8;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  &--danger {
+    background: $white;
+    border-color: $danger;
+    color: $danger;
+
+    &:hover {
+      background: #fef2f2;
+    }
+  }
+}
+
+.sm-split__empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 200px;
+  color: $dashboard-secondary;
+  font-size: 13.5px;
+  text-align: center;
+  gap: 10px;
+
+  p {
+    margin: 0;
+  }
+}
+
+.sm-split__list-loading,
+.sm-split__list-error {
+  padding: 20px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: $dashboard-secondary;
+}
+
+.sm-split__list-error {
+  color: $danger;
+}
+
+/* ── Tax Value input + % badge ── */
+.sm-split__value-wrap {
+  display: flex;
+  align-items: stretch;
+  border: 1.5px solid $dashboard-border;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &:focus-within {
+    border-color: $dashboard-primary;
+    box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.08);
+  }
+
+  &--error {
+    border-color: $danger;
+
+    &:focus-within {
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+    }
+  }
+}
+
+.sm-split__value-input {
+  flex: 1;
+  height: 38px;
+  padding: 0 12px;
+  border: none;
+  outline: none;
+  font-size: 13.5px;
+  color: $dashboard-primary;
+  background: $white;
+  min-width: 0;
+  -moz-appearance: textfield;
+  appearance: textfield;
+
+  &::placeholder {
+    color: #9ca3af;
+  }
+
+  &::-webkit-inner-spin-button,
+  &::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}
+
+.sm-split__value-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  background: #6b7280;
+  color: $white;
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+/* ── Checkboxes row ── */
+.sm-split__check-row {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  margin-bottom: 20px;
+}
+
+.sm-split__check-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: $dashboard-primary;
+  user-select: none;
+
+  input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #2563eb;
+    cursor: pointer;
+    margin: 0;
+    flex-shrink: 0;
+  }
+}
+
+/* ── Applicable For section ── */
+.sm-split__applicable-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: $dashboard-primary;
+  margin: 0 0 12px;
+}
+
+.sm-split__applicable-row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+/* ── Predefined type hint label ── */
+.sm-split__type-hint {
+  padding: 8px 16px 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: $dashboard-secondary;
+}
+
+/* ── Predefined type list item (slightly muted vs saved items) ── */
+.sm-split__item--type {
+  color: $dashboard-secondary;
+  font-weight: 500;
+
+  &:hover {
+    background: #f3f4f6;
+    color: $dashboard-primary;
+  }
+
+  &.active {
+    background: #eff6ff;
+    color: #1d4ed8;
+  }
+}
+

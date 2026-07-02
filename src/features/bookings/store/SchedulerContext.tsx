@@ -1,7 +1,4 @@
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-function toApiStaffId(id?: string | null): string | undefined {
-  return id && UUID_RE.test(id) ? id : undefined;
-}
+import { toApiStaffId } from "../utils/paymentUtils";
 function toLocalDateStr(iso: string): string {
   const d = new Date(iso);
   return [
@@ -29,11 +26,12 @@ import {
   deductEWallet,
   processPaymentRewards,
   setSelectedStaffId,
+  setDragPatch,
+  clearDragPatch,
 } from "../../../store/schedulerSlice";
 import { updateBookingThunk, deleteBookingThunk } from "../../../middleware/booking/booking.thunk";
+import { updateStaffThunk } from "../../../middleware/staff/staff.thunk";
 import {
-  fetchBlockedTimesThunk,
-  createBlockedTimeThunk,
   updateBlockedTimeThunk,
   deleteBlockedTimeThunk,
 } from "../../../middleware/blockedTime/blockedTime.thunk";
@@ -68,10 +66,46 @@ export function useSchedulerContext() {
     updateBooking: (b: Booking) => {
       const previousBooking = bookings.find((existing) => String(existing.id) === String(b.id));
       dispatch(updateBookingAction(b));
+      // Store the drag position so setBookings re-runs (from background fetches or
+      // navigation remounts) don't revert to stale rawApiBookings data.
+      dispatch(setDragPatch({ id: String(b.id), startTime: b.startTime, endTime: b.endTime, staffId: b.staffId || undefined }));
       if (!String(b.id).startsWith("b_")) {
         const [sh, sm] = b.startTime.split(":").map(Number);
         const [eh, em] = b.endTime.split(":").map(Number);
         const duration = Math.max(5, (eh * 60 + em) - (sh * 60 + sm));
+        // Send updated service staff_ids so the backend persists the new staff
+        // assignment. Without this, a refresh after dragging to a different staff
+        // causes the server to return the old staff_id on services, reverting the drag.
+        // Mirrors buildServiceApiItems() in useAppointment.ts (the proven-working save
+        // path) field-for-field: the backend appears to replace each service row with
+        // exactly what's sent, so any field omitted here (e.g. name) gets nulled out —
+        // that's what was blanking the displayed service name after a drag.
+        const serviceItems = (b.services || []).map((s: any) => {
+          const hasDbServiceId = !!s.service_id;
+          const svcTypeId = s.service_id || s.id || undefined;
+          const svcRowId  = hasDbServiceId ? (s.id || undefined) : undefined;
+          return {
+            ...(svcRowId ? { id: svcRowId } : {}),
+            service_id: svcTypeId,
+            name: s.service || s.name,
+            staff_id: toApiStaffId(s.staffId),
+            start_time: new Date(`${b.date}T${s.time || b.startTime}:00`).toISOString(),
+            price: s.price,
+            qty: s.qty ?? 1,
+            discount: s.discount,
+            total: s.total,
+            duration: s.duration,
+          };
+        });
+
+        // NOTE: package_items / product_items / membership_items are intentionally
+        // OMITTED here. This function only ever runs for drag/resize reschedules and
+        // payment-status updates (never item edits — see useAppointment.ts for that).
+        // `b` here is sourced from the calendar's lightweight list-range fetch, which
+        // does not return nested product/package/membership data, so those fields would
+        // be empty even for bookings that have them. Sending them as `[]` previously
+        // wiped real data server-side on every drag. Omitting the keys keeps this a true
+        // partial update — staff/time (and per-service time/staff) only.
         const apiPayload = {
           id: b.id,
           data: {
@@ -85,19 +119,14 @@ export function useSchedulerContext() {
               : b.status === "Pending" ? "booked"
                 : "confirmed",
             title: (b as any).title,
-            // Do NOT send services when rescheduling — the API runs a per-service
-            // availability check that conflicts with the booking being moved itself.
-            // Services remain associated with the booking; only the booking-level
-            // time fields need to change for a drag-and-drop reschedule.
-            package_items: b.packageItems ?? [],
-            product_items: (b as any).productItems ?? [],
-            membership_items: (b as any).membershipItems ?? [],
+            services: serviceItems,
           },
         };
         return (dispatch(updateBookingThunk(apiPayload)) as any)
           .then((action: any) => {
             if (updateBookingThunk.rejected.match(action)) {
               if (previousBooking) dispatch(updateBookingAction(previousBooking));
+              dispatch(clearDragPatch(String(b.id)));
               throw new Error(action.payload as string || "Staff member already has an appointment at this time");
             }
             // Keep the optimistic Redux update (already applied via dispatch(updateBookingAction(b))
@@ -107,6 +136,7 @@ export function useSchedulerContext() {
           })
           .catch((err: any) => {
             if (previousBooking) dispatch(updateBookingAction(previousBooking));
+            dispatch(clearDragPatch(String(b.id)));
             throw err;
           });
       }
@@ -128,18 +158,24 @@ export function useSchedulerContext() {
 
     addBlockedTime: (bt: BlockedTime) => {
       dispatch(addBlockedTimeAction(bt));
-      if (salonId) {
-        (dispatch(createBlockedTimeThunk({
-          salon_id: salonId,
-          staff_id: bt.staffId,
-          date: bt.date,
-          start_time: bt.startTime,
-          end_time: bt.endTime,
-          reason: bt.reason,
+      if (bt.staffId) {
+        // PATCH /api/v1/staff/:staffId — embed blocked_times in the staff update body
+        (dispatch(updateStaffThunk({
+          id: bt.staffId,
+          data: {
+            blocked_times: [{
+              date: bt.date,
+              start_time: bt.startTime,
+              end_time: bt.endTime,
+              reason: bt.reason,
+            }],
+          } as any,
         })) as any)
           .then((action: any) => {
-            if (createBlockedTimeThunk.fulfilled.match(action)) {
-              const realId = String(action.payload?.id || "");
+            if (updateStaffThunk.fulfilled.match(action)) {
+              const createdBts: any[] = action.payload?.blocked_times ?? [];
+              const realBt = createdBts[0];
+              const realId = realBt ? String(realBt.id) : "";
               if (realId && realId !== bt.id) {
                 dispatch(replaceBlockedTimeId({ localId: bt.id, realId }));
               }
@@ -154,8 +190,8 @@ export function useSchedulerContext() {
       if (!String(bt.id).startsWith("bt_")) {
         (dispatch(updateBlockedTimeThunk({
           id: bt.id,
+          staffId: bt.staffId,
           data: {
-            staff_id: bt.staffId,
             date: bt.date,
             start_time: bt.startTime,
             end_time: bt.endTime,
@@ -176,22 +212,14 @@ export function useSchedulerContext() {
     },
 
     deleteBlockedTime: (id: string) => {
+      const bt = blockedTimes.find((b) => b.id === id);
       dispatch(deleteBlockedTimeAction(id));
-      if (!String(id).startsWith("bt_")) {
-        (dispatch(deleteBlockedTimeThunk(id)) as any).catch((err: any) =>
+      if (!String(id).startsWith("bt_") && bt?.staffId) {
+        (dispatch(deleteBlockedTimeThunk({ id, staffId: bt.staffId })) as any).catch((err: any) =>
           console.error("Failed to delete blocked time from API:", err)
         );
       }
     },
-
-    fetchBlockedTimes: (date?: string, staffId?: string) =>
-      (dispatch(fetchBlockedTimesThunk({ date, staffId })) as any)
-        .then((action: any) => {
-          if (fetchBlockedTimesThunk.fulfilled.match(action)) {
-            dispatch(setBlockedTimes(action.payload));
-          }
-        })
-        .catch((err: any) => console.error("Failed to fetch blocked times:", err)),
 
     // ── Calendar navigation ──────────────────────────────────────────────────
     viewMode,

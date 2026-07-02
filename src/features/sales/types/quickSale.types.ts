@@ -2,8 +2,22 @@ import type { PaymentMethod } from "../../../types/sale.types";
 
 export interface InitStaff { id: string; name: string; }
 export interface InitService { id: string; name: string; price: number; duration: number; }
-export interface LazyProduct { id: string; name: string; price: number | null; stock: number; }
-export interface LazyMembership { name: string; price: number; }
+export interface LazyProduct {
+  id: string;
+  name: string;
+  price: number | null;
+  stock: number;
+  barcode?: string | null;
+  barcodeSearchValues?: Array<string | null | undefined>;
+}
+export interface LazyMembership {
+  id: string;
+  name: string;
+  price: number;
+  sessions: number;   // 0 = unlimited
+  validFor: string;   // e.g. "1 Month", "1 Year"
+  colour: string;
+}
 
 export interface SvcRow {
   tempId: string; id: string; service: string; staffId: string;
@@ -22,9 +36,12 @@ export interface ProdRow {
 }
 
 export interface MemRow {
-  tempId: string; name: string; price: number; qty: number;
+  tempId: string; membershipId: string; name: string; price: number; qty: number;
   total: number; staffId: string; search: string; showDrop: boolean;
   discountVal: number; discountType: "percentage" | "flat";
+  sessions: number;   // from membership plan (0 = unlimited)
+  validFor: string;
+  colour: string;
   errors: string[];
 }
 

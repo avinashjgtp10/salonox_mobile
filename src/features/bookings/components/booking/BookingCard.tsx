@@ -1,6 +1,7 @@
 import React from "react";
-import type { Booking } from "../../types/scheduler-types";
+import type { Booking } from "../../types/booking.types";
 import { formatTime12 } from "../../utils/timeUtils";
+import { currencySymbol } from "../../utils/currency";
 
 interface BookingCardProps {
   booking: Booking;
@@ -19,8 +20,9 @@ const BookingCard: React.FC<BookingCardProps> = ({
   const isPartial = ps === "partial";
   const isCancelled = bs === "cancelled";
 
-  const statusColor = isCancelled ? "#ef4444" : isPaid ? "#22c55e" : isPartial ? "#7c3aed" : "#f59e0b";
-  const statusBg = isCancelled ? "#fef2f2" : isPaid ? "#dcfce7" : isPartial ? "#ede9fe" : "#fef3c7";
+  const statusLabel = isCancelled ? "Cancelled" : isPaid ? "Completed" : isPartial ? "Due" : "Pending";
+  const statusColor = isCancelled ? "#ef4444" : isPaid ? "#22c55e" : isPartial ? "#6d28d9" : "#d97706";
+  const statusBg    = isCancelled ? "#fef2f2" : isPaid ? "#dcfce7" : isPartial ? "#ede9fe" : "#fef3c7";
 
   const lastNote = booking.notes || "";
 
@@ -50,7 +52,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
             borderRadius: 4, padding: "2px 8px", marginTop: 2,
             display: "inline-block", border: `1px solid ${statusColor}`,
           }}>
-            {booking.status}
+            {statusLabel}
           </span>
         </div>
         <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#6b7280" }}>✕</button>
@@ -72,7 +74,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
           color: booking.paymentStatus === "Paid" ? "#22c55e" : booking.paymentStatus === "Partial" ? "#7c3aed" : "#ef4444",
           fontWeight: 600,
         }}>{booking.paymentStatus}</span></span>
-        <span>Bill: <strong>₹{(booking.grandTotal || 0).toFixed(2)}</strong></span>
+        <span>Bill: <strong>{currencySymbol}{(booking.grandTotal || 0).toFixed(2)}</strong></span>
       </div>
 
       {/* Last note */}

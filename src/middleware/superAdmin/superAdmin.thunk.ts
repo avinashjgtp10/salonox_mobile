@@ -200,7 +200,7 @@ export const deleteUserThunk = createAsyncThunk<void, { id: string; force?: bool
   }
 );
 
-export const createUserThunk = createAsyncThunk<any, { first_name: string; last_name?: string; email: string; password: string; phone?: string; role: string }, { rejectValue: string }>(
+export const createUserThunk = createAsyncThunk<any, { first_name: string; last_name?: string; email: string; password: string; phone?: string; role: string; business_name?: string; address?: string }, { rejectValue: string }>(
   "superAdmin/createUser",
   async (payload, { rejectWithValue }) => {
     try {

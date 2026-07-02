@@ -15,7 +15,9 @@ import {
   fetchSaleByIdThunk,
 } from "../../../middleware/sale/sale.thunk";
 import { clearSaleError } from "../../../store/saleSlice";
-import { fetchClientsThunk } from "../../../middleware/client/client.thunk";
+import { fetchClientsThunk, createClientThunk } from "../../../middleware/client/client.thunk";
+import { purchaseClientMembershipThunk } from "../../../middleware/clientMembership/clientMembership.thunk";
+import { durationToExpiresAt } from "../utils/quickSale.utils";
 import type { AppDispatch, RootState } from "../../../store/store";
 import type { PaymentMethod } from "../../../types/sale.types";
 
@@ -41,7 +43,7 @@ import ItemEmptyState from "../components/ItemEmptyState";
 import ServiceItemRow, { ServiceColHeaders } from "../components/ServiceItemRow";
 import ProductItemRow, { ProductColHeaders } from "../components/ProductItemRow";
 import MembershipItemRow, { MembershipColHeaders } from "../components/MembershipItemRow";
-import AddClientForm from "../components/AddClientForm";
+import AddClientForm, { type ExtraClientInfo } from "../components/AddClientForm";
 import "../styles/QuickSalePage.scss";
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -168,6 +170,8 @@ export default function QuickSalePage() {
   useEffect(() => { if (cachedProducts)    setProductsList(mapProducts(cachedProducts)); },       [cachedProducts]);
   useEffect(() => { if (cachedMemberships) setMembershipsList(mapMemberships(cachedMemberships)); }, [cachedMemberships]);
 
+  const [clientActiveMemberships] = useState<any[]>([]);
+
   useEffect(() => {
     dispatch(clearSaleError());
     dispatch(fetchSaleInitThunk());
@@ -248,7 +252,7 @@ export default function QuickSalePage() {
       } else if (item.item_type === "product") {
         prodRows.push({ tempId: makeTempId(), id: item.item_id || "", productName: item.name, staffId, price, qty, total, search: item.name, showDrop: false, stock: null, discountVal: discPct, discountType: "percentage", errors: [] });
       } else if (item.item_type === "membership") {
-        memRows.push({ tempId: makeTempId(), name: item.name, staffId, price, qty, total, search: item.name, showDrop: false, discountVal: discPct, discountType: "percentage", errors: [] });
+        memRows.push({ tempId: makeTempId(), membershipId: item.item_id || "", name: item.name, staffId, price, qty, total, search: item.name, showDrop: false, discountVal: discPct, discountType: "percentage", sessions: 0, validFor: "", colour: "", errors: [] });
       } else if (item.item_type === "quick") {
         exChargesVal = price;
       }
@@ -332,7 +336,7 @@ export default function QuickSalePage() {
   async function addMemRow() {
     await ensureMembershipsLoaded();
     setActiveTab("memberships");
-    setMembershipRows((r) => [...r, { tempId: makeTempId(), name: "", staffId: "", price: 0, qty: 1, total: 0, search: "", showDrop: false, discountVal: 0, discountType: "percentage", errors: [] }]);
+    setMembershipRows((r) => [...r, { tempId: makeTempId(), membershipId: "", name: "", staffId: "", price: 0, qty: 1, total: 0, search: "", showDrop: false, discountVal: 0, discountType: "percentage", sessions: 0, validFor: "", colour: "", errors: [] }]);
     setErrorMsg("");
   }
   function updateMemRow(tid: string, p: Partial<MemRow>) { setMembershipRows((r) => r.map((x) => x.tempId === tid ? { ...x, ...p } : x)); }
@@ -365,7 +369,7 @@ export default function QuickSalePage() {
     } catch { /* silent */ } finally { setPhoneCheckLoading(false); }
   }
 
-  async function handleSaveNewClient() {
+  async function handleSaveNewClient(extraInfo?: ExtraClientInfo) {
     if (phoneDuplicate || phoneCheckLoading || isSavingClient) return;
     const errs: string[] = [];
     const firstNameTrim = newClientFirstName.trim();
@@ -379,27 +383,58 @@ export default function QuickSalePage() {
 
     setIsSavingClient(true);
     try {
-      const cleaned   = newClientPhone.trim().replace(/\D/g, "");
-      const dialDigits = selectedCountry.dialCode.replace(/\D/g, "");
+      const cleaned     = newClientPhone.trim().replace(/\D/g, "");
+      const dialDigits  = selectedCountry.dialCode.replace(/\D/g, "");
       const phoneDigits = cleaned.startsWith(dialDigits) ? cleaned : `${dialDigits}${cleaned}`;
       const phoneNumberWithPlus = `+${phoneDigits}`;
 
-      const res = await api.post("/api/v1/clients", {
+      const fullName = `${newClientFirstName.trim()} ${newClientLastName.trim()}`.trim();
+      const payload: Record<string, any> & { fullName: string } = {
+        fullName,
         first_name:   newClientFirstName.trim(),
         last_name:    newClientLastName.trim(),
         phone_number: phoneNumberWithPlus,
         gender:       newClientGender,
-      });
-      const saved = res.data?.data || res.data;
-      const name  = `${newClientFirstName.trim()} ${newClientLastName.trim()}`.trim();
-      setClient({ id: String(saved?.id || ""), name, phone: phoneNumberWithPlus, initials: toInitials(name) });
+      };
+      if (extraInfo?.email) payload.email = extraInfo.email;
+
+      const result = await dispatch(createClientThunk(payload));
+      if (createClientThunk.rejected.match(result)) {
+        setErrorMsg((result.payload as string) || "Failed to save client.");
+        return;
+      }
+      const saved = result.payload as any;
+      const savedId = saved?.id;
+
+      // PATCH extra fields using correct backend field names
+      if (savedId && extraInfo) {
+        const patch: Record<string, any> = {};
+        if (extraInfo.title)            patch.title              = extraInfo.title;
+        if (extraInfo.email)            patch.email              = extraInfo.email;
+        if (extraInfo.dob) {
+          const [yyyy, mm, dd] = extraInfo.dob.split("-");
+          if (dd && mm) patch.birthday_day_month = `${dd}-${mm}`;
+          if (yyyy)     patch.birthday_year      = Number(yyyy);
+        }
+        if (extraInfo.anniversary_date) patch.anniversary_date   = extraInfo.anniversary_date;
+        if (extraInfo.gst_number)       patch.gst_number         = extraInfo.gst_number;
+        if (extraInfo.source)           patch.client_source      = extraInfo.source;
+        if (extraInfo.profession)       patch.occupation         = extraInfo.profession;
+        if (extraInfo.staff_preference) patch.staff_id           = extraInfo.staff_preference;
+        if (Object.keys(patch).length > 0) {
+          try { await api.patch(`/api/v1/clients/${savedId}`, patch); } catch { /* extra fields are optional */ }
+        }
+      }
+
+      const name = fullName;
+      setClient({ id: String(savedId || ""), name, phone: phoneNumberWithPlus, initials: toInitials(name) });
       setClientSearch(name); setIsWalkin(false); setIsClientSaved(true);
       setShowAddClientForm(false);
       setNewClientFirstName(""); setNewClientLastName(""); setNewClientPhone(""); setNewClientGender("");
       setFormErrors([]);
       setClientError("");
     } catch (err: any) {
-      setErrorMsg(err?.response?.data?.message || "Failed to save client.");
+      setErrorMsg(err?.message || "Failed to save client.");
     } finally { setIsSavingClient(false); }
   }
 
@@ -445,7 +480,7 @@ export default function QuickSalePage() {
       }),
       ...membershipRows.filter((r) => r.name).map((r) => {
         const discAmt = (r.price * (Number(r.qty) || 0) * r.discountVal) / 100;
-        return { item_type: "membership" as const, name: r.name, staff_id: r.staffId || undefined, quantity: Number(r.qty) || 0, unit_price: String(r.price), discount_amount: discAmt > 0 ? discAmt.toFixed(2) : undefined };
+        return { item_type: "membership" as const, item_id: r.membershipId || undefined, name: r.name, staff_id: r.staffId || undefined, quantity: Number(r.qty) || 0, unit_price: String(r.price), discount_amount: discAmt > 0 ? discAmt.toFixed(2) : undefined };
       }),
     ];
     if (exCharges > 0) lineItems.push({ item_type: "quick" as const, name: "Extra Charges", quantity: 1, unit_price: String(exCharges) });
@@ -620,7 +655,21 @@ export default function QuickSalePage() {
 
       const checkoutResult = await dispatch(checkoutSaleThunk(checkoutPayload));
       if (checkoutSaleThunk.fulfilled.match(checkoutResult)) {
-        window.scrollTo({ top: 0, behavior: "smooth" })
+        // Create ClientMembership records for each purchased membership
+        if (client?.id) {
+          for (const m of membershipRows.filter((r) => r.name && r.membershipId)) {
+            dispatch(purchaseClientMembershipThunk({
+              clientId: client.id,
+              membershipId: m.membershipId,
+              membershipName: m.name,
+              colour: m.colour || undefined,
+              totalSessions: m.sessions || 0,
+              expiresAt: durationToExpiresAt(m.validFor),
+              pricePaid: m.price,
+            })).catch(() => {});
+          }
+        }
+        window.scrollTo({ top: 0, behavior: "smooth" });
         setSuccessMsg("Sale completed successfully!"); resetForm();
       } else {
         setErrorMsg((checkoutResult.payload as string) || "Checkout failed.");
@@ -676,6 +725,20 @@ export default function QuickSalePage() {
 
       const checkoutResult = await dispatch(checkoutSaleThunk(checkoutPayload));
       if (checkoutSaleThunk.fulfilled.match(checkoutResult)) {
+        // Create ClientMembership records (edit-mode checkout)
+        if (client?.id) {
+          for (const m of membershipRows.filter((r) => r.name && r.membershipId)) {
+            dispatch(purchaseClientMembershipThunk({
+              clientId: client.id,
+              membershipId: m.membershipId,
+              membershipName: m.name,
+              colour: m.colour || undefined,
+              totalSessions: m.sessions || 0,
+              expiresAt: durationToExpiresAt(m.validFor),
+              pricePaid: m.price,
+            })).catch(() => {});
+          }
+        }
         setSuccessMsg("Sale completed successfully!");
         setTimeout(() => navigate("/dashboard/sales"), 1500);
       } else {
@@ -924,6 +987,7 @@ export default function QuickSalePage() {
                   phoneCheckLoading={phoneCheckLoading}
                   isSavingClient={isSavingClient}
                   formErrors={formErrors}
+                  staffList={staffList}
                   onFirstNameChange={(v) => { setNewClientFirstName(v); setFormErrors((p) => p.filter((x) => x !== "first_name_required" && x !== "first_name_length")); }}
                   onLastNameChange={(v) => { setNewClientLastName(v); setFormErrors((p) => p.filter((x) => x !== "last_name_length")); }}
                   onPhoneChange={(v) => {
@@ -934,7 +998,7 @@ export default function QuickSalePage() {
                   onGenderChange={(v) => { setNewClientGender(v); setFormErrors((p) => p.filter((x) => x !== "gender")); }}
                   onCountryChange={setSelectedCountry}
                   onPhoneBlur={() => { if (phoneValid(newClientPhone)) checkPhoneExists(newClientPhone); }}
-                  onSave={handleSaveNewClient}
+                  onSave={(extra) => handleSaveNewClient(extra)}
                 />
               )}
             </div>
@@ -1001,6 +1065,28 @@ export default function QuickSalePage() {
             {/* Memberships tab */}
             {activeTab === "memberships" && (
               <>
+                {/* Client's active memberships (Issue 2) — only active shown (Issue 3) */}
+                {clientActiveMemberships.length > 0 && (
+                  <div style={{ marginBottom: 12, padding: "10px 12px", background: "#f0f9ff", borderRadius: 8, border: "1px solid #bae6fd" }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "#0369a1", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      🎫 Client's Active Memberships
+                    </div>
+                    {clientActiveMemberships.map((cm: any) => (
+                      <div key={cm.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "5px 0", fontSize: 13, borderBottom: "1px solid #e0f2fe" }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: cm.colour || "#1a1a2e", flexShrink: 0, display: "inline-block" }} />
+                        <span style={{ flex: 1, fontWeight: 500 }}>{cm.membershipName}</span>
+                        <span style={{ color: "#0c4a6e", fontWeight: 600, fontSize: 12 }}>
+                          {cm.totalSessions === 0 ? "Unlimited" : `${cm.remainingSessions}/${cm.totalSessions} sessions`}
+                        </span>
+                        {cm.expiresAt && (
+                          <span style={{ color: "#64748b", fontSize: 11 }}>
+                            Exp: {new Date(cm.expiresAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {membershipRows.length > 0 && <MembershipColHeaders />}
                 {membershipRows.map((row) => (
                   <MembershipItemRow key={row.tempId} row={row} staffList={staffList} membershipsList={membershipsList} onUpdate={updateMemRow} onRemove={removeMemRow} />

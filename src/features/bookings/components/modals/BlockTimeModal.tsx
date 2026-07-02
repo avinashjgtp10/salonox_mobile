@@ -5,6 +5,7 @@ import MiniCalendar from "../shared/MiniCalendar.tsx";
 import TimeSelect from "../shared/TimeSelect";
 import Button from "../../../../components/ui/Button";
 import Input from "../../../../components/ui/Input";
+import "../../styles/Scheduler.scss";
 
 interface Props {
   onClose: () => void;
@@ -13,7 +14,7 @@ interface Props {
 }
 
 const BlockTimeModal: React.FC<Props> = ({ onClose, defaultStaffId, editingBlock }) => {
-  const { addBlockedTime, updateBlockedTime, deleteBlockedTime, currentDate, interval, staffList } = useSchedulerContext();
+  const { addBlockedTime, updateBlockedTime, deleteBlockedTime, currentDate, interval, staffList, bookings } = useSchedulerContext();
 
   const isEdit = !!editingBlock;
 
@@ -24,11 +25,25 @@ const BlockTimeModal: React.FC<Props> = ({ onClose, defaultStaffId, editingBlock
   const [reason,    setReason]    = useState(editingBlock?.reason    || "");
   const [showCal,   setShowCal]   = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [conflictError, setConflictError] = useState("");
 
   const canSave = !!staffId && !!startTime && !!endTime && startTime < endTime;
 
+  function hasAppointmentConflict(): boolean {
+    return bookings.some((b) => {
+      if (b.staffId !== staffId || b.date !== date) return false;
+      if (isEdit && String(b.id) === String(editingBlock!.id)) return false;
+      return startTime < b.endTime && endTime > b.startTime;
+    });
+  }
+
   function handleSave() {
     if (!canSave) return;
+    if (hasAppointmentConflict()) {
+      setConflictError("An appointment is already scheduled at this time. Cannot add block time here.");
+      return;
+    }
+    setConflictError("");
     if (isEdit) {
       updateBlockedTime({ ...editingBlock!, staffId, date, startTime, endTime, reason });
     } else {
@@ -46,14 +61,13 @@ const BlockTimeModal: React.FC<Props> = ({ onClose, defaultStaffId, editingBlock
 
   return (
     <div
-      className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-end"
-      style={{ background: "rgba(0,0,0,.45)", zIndex: 1000 }}
+      className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-end btm-backdrop"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="d-flex flex-column bg-white h-100" style={{ width: "min(400px,100vw)", overflowY: "auto" }}>
+      <div className="d-flex flex-column bg-white h-100 btm-drawer">
 
         {/* Header */}
-        <div className="d-flex align-items-center gap-2 px-4 py-3 border-bottom sticky-top bg-white" style={{ zIndex: 5 }}>
+        <div className="d-flex align-items-center gap-2 px-4 py-3 border-bottom sticky-top bg-white btm-sticky-hdr">
           <button className="btn btn-sm btn-link text-dark p-0 text-decoration-none fs-5" onClick={onClose}>✕</button>
           <h5 className="mb-0 fw-bold">{isEdit ? "Edit Blocked Time" : "New Blocked Time"}</h5>
         </div>
@@ -63,25 +77,24 @@ const BlockTimeModal: React.FC<Props> = ({ onClose, defaultStaffId, editingBlock
 
           {/* Date */}
           <div className="position-relative">
-            <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Date *</label>
+            <label className="form-label fw-semibold text-uppercase text-muted btm-label">Date *</label>
             <input
               readOnly
               value={date}
               onClick={() => setShowCal((v) => !v)}
-              className="form-control"
-              style={{ cursor: "pointer" }}
+              className="form-control btm-date-input"
             />
             {showCal && (
-              <div className="position-absolute" style={{ top: "100%", left: 0, zIndex: 400 }}>
-                <MiniCalendar value={date} onChange={(d) => { setDate(d); setShowCal(false); }} onClose={() => setShowCal(false)} />
+              <div className="position-absolute btm-cal-portal">
+                <MiniCalendar value={date} onChange={(d) => { setDate(d); setShowCal(false); setConflictError(""); }} onClose={() => setShowCal(false)} />
               </div>
             )}
           </div>
 
           {/* Staff */}
           <div>
-            <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Staff *</label>
-            <select className="form-select" value={staffId} onChange={(e) => setStaffId(e.target.value)}>
+            <label className="form-label fw-semibold text-uppercase text-muted btm-label">Staff *</label>
+            <select className="form-select" value={staffId} onChange={(e) => { setStaffId(e.target.value); setConflictError(""); }}>
               <option value="">Select Staff</option>
               {(staffList || []).map((s: { id: string; name: string }) => <option key={s.id} value={s.id}>{s.name.includes(" ") ? s.name : s.name.replace(/([a-z])([A-Z])/g, "$1 $2")}</option>)}
             </select>
@@ -90,18 +103,24 @@ const BlockTimeModal: React.FC<Props> = ({ onClose, defaultStaffId, editingBlock
           {/* Start / End time */}
           <div className="row g-3">
             <div className="col">
-              <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>Start Time *</label>
-              <TimeSelect value={startTime} onChange={setStartTime} interval={interval} className="form-select" />
+              <label className="form-label fw-semibold text-uppercase text-muted btm-label">Start Time *</label>
+              <TimeSelect value={startTime} onChange={(v) => { setStartTime(v); setConflictError(""); }} interval={interval} className="form-select" />
             </div>
             <div className="col">
-              <label className="form-label fw-semibold text-uppercase text-muted" style={{ fontSize: 11 }}>End Time *</label>
-              <TimeSelect value={endTime} onChange={setEndTime} interval={interval} className="form-select" />
+              <label className="form-label fw-semibold text-uppercase text-muted btm-label">End Time *</label>
+              <TimeSelect value={endTime} onChange={(v) => { setEndTime(v); setConflictError(""); }} interval={interval} className="form-select" />
             </div>
           </div>
 
           {startTime && endTime && startTime >= endTime && (
             <div className="alert alert-warning py-2 px-3 mb-0" style={{ fontSize: 12 }}>
               End time must be after start time.
+            </div>
+          )}
+
+          {conflictError && (
+            <div className="alert alert-danger py-2 px-3 mb-0" style={{ fontSize: 12 }}>
+              {conflictError}
             </div>
           )}
 

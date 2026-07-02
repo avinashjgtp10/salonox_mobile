@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { currencySymbol } from "../../utils/currency";
 import {
   useFloating,
   flip,
@@ -7,8 +8,11 @@ import {
   FloatingPortal,
   autoUpdate,
 } from "@floating-ui/react";
+import { Scissors, AwardFill } from "react-bootstrap-icons";
+import { IconBox, IconTag } from "../../../sales/components/QuickSaleIcons";
 import type { Booking, Staff } from "../../types/scheduler-types";
 import { formatTime12 } from "../../utils/timeUtils";
+import "../../styles/BookingTooltipCard.scss";
 
 interface BookingTooltipCardProps {
   booking: Booking;
@@ -16,11 +20,19 @@ interface BookingTooltipCardProps {
   anchorEl: HTMLElement;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
+  coveredServices?: Map<string, number>;
 }
 
-const PAY_LABEL: Record<string, string> = { Paid: "Paid", Partial: "Partial", Unpaid: "Due" };
-const PAY_COLOR: Record<string, string> = { Paid: "#16a34a", Partial: "#7c3aed", Unpaid: "#d97706" };
-const PAY_BG:    Record<string, string> = { Paid: "#dcfce7", Partial: "#ede9fe", Unpaid: "#fef3c7" };
+const PAY_LABEL: Record<string, string> = { Paid: "Paid", Partial: "Due", Unpaid: "Unpaid", Cancelled: "Cancelled" };
+const PAY_COLOR: Record<string, string> = { Paid: "#16a34a", Partial: "#6d28d9", Unpaid: "#d97706", Cancelled: "#ef4444" };
+const PAY_BG:    Record<string, string> = { Paid: "#dcfce7", Partial: "#ede9fe", Unpaid: "#fef3c7", Cancelled: "#fee2e2" };
+
+interface FlatItem {
+  icon: React.ReactNode;
+  name: string;
+  price: number;
+  subText?: string;
+}
 
 const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
   booking,
@@ -28,8 +40,8 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
   anchorEl,
   onMouseEnter,
   onMouseLeave,
+  coveredServices,
 }) => {
-  // Position via floating-ui — uses the chip DOM element as the reference
   const { refs, floatingStyles } = useFloating({
     placement: "right",
     middleware: [offset(10), flip({ fallbackAxisSideDirection: "end" }), shift({ padding: 8 })],
@@ -37,7 +49,6 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
     elements: { reference: anchorEl },
   });
 
-  // Defer visibility by one frame so floating-ui has computed the position before we show
   const [visible, setVisible] = useState(false);
   useEffect(() => {
     const id = requestAnimationFrame(() => setVisible(true));
@@ -45,40 +56,96 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
   }, []);
 
   // ── Data helpers ──────────────────────────────────────────────────────────
-  const getStaffName = (staffId?: string) =>
-    staffId ? (staffList.find((s) => s.id === staffId)?.name ?? "") : "";
+  const getStaffName = (staffId?: string | number) =>
+    staffId ? (staffList.find((s) => String(s.id) === String(staffId))?.name ?? "") : "";
 
   const primaryStaff = staffList.find((s) => s.id === booking.staffId);
 
-  // Collect unique staff names involved across all services
+  const services        = booking.services || [];
+  const packageItems    = (booking as any).packageItems  || (booking as any).packages  || [];
+  const membershipItems = (booking as any).membershipItems || (booking as any).memberships || [];
+  const productItems    = (booking as any).productItems  || (booking as any).products  || [];
+
   const staffNames = Array.from(
     new Set(
       [
         booking.staffId,
-        ...(booking.services || []).map((s) => s.staffId),
+        ...services.map((s) => s.staffId),
+        ...packageItems.map((p: any) => p.staffId),
+        ...membershipItems.map((m: any) => m.staffId),
+        ...productItems.map((p: any) => p.staffId),
       ].filter(Boolean) as string[]
     )
-  )
-    .map(getStaffName)
-    .filter(Boolean);
+  ).map(getStaffName).filter(Boolean);
 
-  const services      = booking.services || [];
-  const productItems  = (booking as any).productItems  || (booking as any).products  || [];
-  const packageItems  = (booking as any).packageItems  || (booking as any).packages  || [];
+  const itemStaffSub = (staffId?: string) =>
+    staffId && staffId !== booking.staffId ? getStaffName(staffId) : "";
 
-  const total = booking.grandTotal || 0;
-  const ps    = booking.paymentStatus ?? "Unpaid";
+  const isPackagePaid =
+    (((booking as any).paymentMode || "").toLowerCase() === "package");
+
+  const allItems: FlatItem[] = [
+    ...services.map((svc: any) => {
+      const svcName = (svc.service || svc.name || "").toLowerCase();
+      const isCovered = isPackagePaid
+        || !!(svc.isPackageService || svc.is_package_service)
+        || (coveredServices != null && coveredServices.size > 0 && coveredServices.has(svcName));
+      const rawTotal = (svc as any).total;
+      const price = isCovered ? 0
+        : ((rawTotal !== undefined && rawTotal !== null) ? Number(rawTotal) : (Number(svc.price) || 0));
+      return {
+        icon: isCovered ? <IconBox /> : <Scissors size={13} />,
+        name: svc.service || svc.name || "",
+        price,
+        subText: isCovered ? "From Package" : (itemStaffSub(svc.staffId) || undefined),
+      };
+    }),
+    ...packageItems.map((p: any) => {
+      const isPkgCovered = isPackagePaid || !!(p.isPackageService || p.is_package_service);
+      return {
+        icon: <IconBox />,
+        name: p.name || p.packageName || "",
+        price: isPkgCovered ? 0 : (Number(p.total) || Number(p.price) || 0),
+        subText: isPkgCovered ? "From Package" : (itemStaffSub(p.staffId) || undefined),
+      };
+    }),
+    ...membershipItems.map((m: any) => ({ icon: <AwardFill size={13} />, name: m.name || m.membershipName || "", price: Number(m.total) || Number(m.price) || 0, subText: itemStaffSub(m.staffId) || undefined })),
+    ...productItems.map((p: any)    => ({ icon: <IconTag />,      name: p.name || p.productName    || "", price: Number(p.total) || Number(p.price) || 0, subText: itemStaffSub(p.staffId) || undefined })),
+  ].filter((item) => item.name);
+
+  const computedTotal = allItems.reduce((sum, item) => sum + item.price, 0);
+
+  // ── Charges & discount breakdown (mirrors totalsUtils.computeTotals) ───────
+  const discountValue = Number(booking.discount) || 0;
+  const exCharges     = Number((booking as any).exCharges) || 0;
+  const tipAmount     = Number((booking as any).tipAmount) || 0;
+  const gstPercent    = Number(booking.gst) || 0;
+  const discountAmt   = booking.discountType === "Flat (₹)" ? discountValue : (computedTotal * discountValue) / 100;
+  const taxable       = Math.max(0, computedTotal - discountAmt);
+  // Prefer the persisted (accurate, per-tax) amount; fall back to the old
+  // blended-rate estimate for bookings saved before tax breakdown existed.
+  const gstAmount      = (booking as any).gstAmount != null
+    ? Number((booking as any).gstAmount) || 0
+    : (taxable * gstPercent) / 100;
+  const adjustedTotal = taxable + gstAmount + exCharges + tipAmount;
+  const hasAnyCovered = services.some((svc: any) =>
+    svc.isPackageService || svc.is_package_service
+    || (coveredServices != null && coveredServices.size > 0 && coveredServices.has((svc.service || svc.name || "").toLowerCase()))
+  ) || packageItems.some((p: any) => p.isPackageService || p.is_package_service);
+  // Package-paid or mixed: total is derived from allItems (covered services already priced at ₹0).
+  const total = (isPackagePaid || hasAnyCovered)
+    ? adjustedTotal
+    : (allItems.length > 0 ? adjustedTotal : (Number(booking.grandTotal) || 0));
+
+  const isCancelled = (booking.status || "").toLowerCase() === "cancelled";
+  const rawPs = isCancelled ? "Cancelled" : (booking.paymentStatus ?? "Unpaid");
+  const ps    = rawPs.charAt(0).toUpperCase() + rawPs.slice(1).toLowerCase();
   const payColor = PAY_COLOR[ps] ?? "#d97706";
   const payBg    = PAY_BG[ps]    ?? "#fef3c7";
   const payLabel = PAY_LABEL[ps] ?? ps;
 
-  // Client avatar uses initials
-  const clientInitials = (booking.clientName ?? "?")
-    .split(" ")
-    .map((w) => w[0] ?? "")
-    .join("")
-    .toUpperCase()
-    .slice(0, 2) || "?";
+  const clientInitials = (booking.clientName || "Walk-In")
+    .split(" ").map((w) => w[0] ?? "").join("").toUpperCase().slice(0, 2) || "W";
 
   const avatarColor = primaryStaff?.color ?? "#6b7280";
 
@@ -86,225 +153,110 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
     <FloatingPortal>
       <div
         ref={refs.setFloating}
-        style={{
-          ...floatingStyles,
-          zIndex: 99999,
-          opacity: visible ? 1 : 0,
-          transition: "opacity 0.1s",
-          pointerEvents: visible ? "auto" : "none",
-        }}
+        style={{ ...floatingStyles, zIndex: 99999, opacity: visible ? 1 : 0, transition: "opacity 0.1s", pointerEvents: visible ? "auto" : "none" }}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
       >
-        <div
-          style={{
-            background: "#fff",
-            border: "1px solid #e5e7eb",
-            borderRadius: 10,
-            boxShadow: "0 8px 32px rgba(0,0,0,.18)",
-            width: 268,
-            fontFamily: "'Segoe UI', system-ui, sans-serif",
-            fontSize: 13,
-            overflow: "hidden",
-          }}
-        >
-          {/* ── Header: avatar + client + time + pay badge ── */}
-          <div
-            style={{
-              padding: "11px 13px",
-              borderBottom: "1px solid #f3f4f6",
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-            }}
-          >
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: "50%",
-                background: avatarColor,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#fff",
-                fontWeight: 700,
-                fontSize: 13,
-                flexShrink: 0,
-                userSelect: "none",
-              }}
-            >
-              {clientInitials}
+        <div className="btc">
+          {/* ── Header ── */}
+          <div className="btc__header">
+            <div className="btc__avatar" style={{ background: avatarColor }}>{clientInitials}</div>
+            <div className="btc__client-info">
+              <div className="btc__client-name">{booking.clientName || "Walk-In"}</div>
+              {booking.clientPhone && <div className="btc__phone">{booking.clientPhone}</div>}
+              <div className="btc__time">{formatTime12(booking.startTime)} – {formatTime12(booking.endTime)}</div>
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div
-                style={{
-                  fontWeight: 700,
-                  color: "#111827",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  fontSize: 13,
-                }}
-              >
-                {booking.clientName || "Unknown Client"}
-              </div>
-              <div style={{ fontSize: 11, color: "#6b7280", marginTop: 1 }}>
-                {formatTime12(booking.startTime)} – {formatTime12(booking.endTime)}
-              </div>
-            </div>
-            <span
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                padding: "2px 7px",
-                borderRadius: 4,
-                background: payBg,
-                color: payColor,
-                flexShrink: 0,
-                letterSpacing: "0.2px",
-              }}
-            >
-              {payLabel}
-            </span>
+            <span className="btc__pay-badge" style={{ background: payBg, color: payColor }}>{payLabel}</span>
           </div>
 
           {/* ── Staff row ── */}
           {staffNames.length > 0 && (
-            <div
-              style={{
-                padding: "7px 13px",
-                borderBottom: "1px solid #f3f4f6",
-                fontSize: 12,
-                color: "#374151",
-                display: "flex",
-                gap: 5,
-                alignItems: "center",
-              }}
-            >
-              <span style={{ color: "#9ca3af" }}>Staff:</span>
-              <span style={{ fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {staffNames.join(", ")}
-              </span>
+            <div className="btc__staff-row">
+              <span className="btc__staff-label">Staff:</span>
+              <span className="btc__staff-names">{staffNames.join(", ")}</span>
             </div>
           )}
 
-          {/* ── Service / product / package rows ── */}
-          <div style={{ padding: "6px 13px" }}>
-            {services.map((svc, i) => {
-              const svcStaff = svc.staffId && svc.staffId !== booking.staffId
-                ? getStaffName(svc.staffId)
-                : "";
-              const svcTotal = svc.total || svc.price || 0;
-              return (
-                <div
-                  key={i}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                    padding: "4px 0",
-                    borderBottom:
-                      i < services.length - 1 || productItems.length > 0 || packageItems.length > 0
-                        ? "1px solid #f9fafb"
-                        : "none",
-                  }}
-                >
-                  <div style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
-                    <div
-                      style={{
-                        color: "#111827",
-                        fontWeight: 500,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        fontSize: 12,
-                      }}
-                    >
-                      {svc.service || (svc as any).name}
+          {/* ── Item rows ── */}
+          {allItems.length > 0 && (
+            <div className="btc__items">
+              {allItems.map((item, i) => (
+                <div key={i} className={`btc__item ${item.subText ? "btc__item--flex-start" : "btc__item--centered"}`}>
+                  <div className="btc__item-left">
+                    <span className="btc__item-icon">{item.icon}</span>
+                    <div className="btc__item-info">
+                      <div className="btc__item-name">{item.name}</div>
+                      {item.subText && <div className="btc__item-sub">{item.subText}</div>}
                     </div>
-                    {svcStaff && (
-                      <div style={{ fontSize: 10, color: "#9ca3af" }}>{svcStaff}</div>
-                    )}
                   </div>
-                  <div style={{ color: "#374151", fontWeight: 600, fontSize: 12, flexShrink: 0 }}>
-                    ₹{Number(svcTotal).toFixed(0)}
-                  </div>
+                  <div className="btc__item-price">{currencySymbol}{item.price.toFixed(0)}</div>
                 </div>
-              );
-            })}
-
-            {productItems.map((p: any, i: number) => (
-              <div
-                key={`prod-${i}`}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  padding: "4px 0",
-                  borderBottom: i < productItems.length - 1 ? "1px solid #f9fafb" : "none",
-                }}
-              >
-                <div style={{ color: "#111827", fontWeight: 500, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-                  {p.name || p.productName}
-                </div>
-                <div style={{ color: "#374151", fontWeight: 600, fontSize: 12, flexShrink: 0 }}>
-                  ₹{Number(p.total || p.price || 0).toFixed(0)}
-                </div>
-              </div>
-            ))}
-
-            {packageItems.map((p: any, i: number) => (
-              <div
-                key={`pkg-${i}`}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  padding: "4px 0",
-                  borderBottom: i < packageItems.length - 1 ? "1px solid #f9fafb" : "none",
-                }}
-              >
-                <div style={{ color: "#111827", fontWeight: 500, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-                  {p.name || p.packageName}
-                </div>
-                <div style={{ color: "#374151", fontWeight: 600, fontSize: 12, flexShrink: 0 }}>
-                  ₹{Number(p.total || p.price || 0).toFixed(0)}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* ── Total ── */}
-          <div
-            style={{
-              padding: "8px 13px",
-              borderTop: "1px solid #f3f4f6",
-              display: "flex",
-              justifyContent: "space-between",
-              fontWeight: 700,
-              color: "#111827",
-              fontSize: 13,
-            }}
-          >
-            <span>Total</span>
-            <span>₹{Number(total).toFixed(0)}</span>
-          </div>
-
-          {/* ── Notes (only if non-empty) ── */}
-          {booking.notes && (
-            <div
-              style={{
-                padding: "6px 13px 10px",
-                fontSize: 11,
-                color: "#6b7280",
-                borderTop: "1px solid #f9fafb",
-                fontStyle: "italic",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              📝 {booking.notes}
+              ))}
             </div>
+          )}
+
+          {/* ── Totals ── */}
+          <div className="btc__totals">
+            {discountAmt > 0 && (
+              <div className="btc__paid-row">
+                <span>Discount</span>
+                <span>-{currencySymbol}{discountAmt.toFixed(0)}</span>
+              </div>
+            )}
+            {exCharges > 0 && (
+              <div className="btc__paid-row">
+                <span>Ex. Charges</span>
+                <span>{currencySymbol}{exCharges.toFixed(0)}</span>
+              </div>
+            )}
+            {tipAmount > 0 && (
+              <div className="btc__paid-row">
+                <span>Tip</span>
+                <span>{currencySymbol}{tipAmount.toFixed(0)}</span>
+              </div>
+            )}
+            {gstAmount > 0 && (
+              <div className="btc__paid-row">
+                <span>GST ({gstPercent}%)</span>
+                <span>{currencySymbol}{gstAmount.toFixed(0)}</span>
+              </div>
+            )}
+            <div className="btc__total-row">
+              <span>Total</span>
+              <span>{currencySymbol}{Number(total).toFixed(0)}</span>
+            </div>
+            {isPackagePaid ? (
+              <div className="btc__paid-row" style={{ color: "#16a34a" }}>
+                <span>Paid via Package</span>
+                <span>{currencySymbol}0</span>
+              </div>
+            ) : (
+              <>
+                {hasAnyCovered && (
+                  <div className="btc__paid-row" style={{ color: "#16a34a" }}>
+                    <span>📦 Package covered</span>
+                    <span>{currencySymbol}0</span>
+                  </div>
+                )}
+                {booking.payingNow != null && Number(booking.payingNow) > 0 && (
+                  <div className="btc__paid-row">
+                    <span>Paid</span>
+                    <span>{currencySymbol}{Number(booking.payingNow).toFixed(0)}</span>
+                  </div>
+                )}
+              </>
+            )}
+            {!isPackagePaid && Number(booking.dueAmount) > 0 && (
+              <div className="btc__due-row">
+                <span>Due</span>
+                <span>{currencySymbol}{Number(booking.dueAmount).toFixed(0)}</span>
+              </div>
+            )}
+          </div>
+
+          {/* ── Notes ── */}
+          {booking.notes && (
+            <div className="btc__notes">📝 {booking.notes}</div>
           )}
         </div>
       </div>
