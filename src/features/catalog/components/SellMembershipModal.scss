@@ -19,7 +19,6 @@
   max-width: 500px;
   margin: 20px;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.18);
-  overflow: hidden;
 
   &__header {
     display: flex;
@@ -28,6 +27,7 @@
     padding: 20px 24px;
     border-bottom: 1px solid #f1f5f9;
     background: #fafbff;
+    border-radius: 16px 16px 0 0;
   }
 
   &__header-info {

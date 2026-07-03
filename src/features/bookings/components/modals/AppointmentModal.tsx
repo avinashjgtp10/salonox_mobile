@@ -7,6 +7,7 @@ import { useCoupon }         from "../../hooks/useCoupon";
 import { usePackageSessions } from "../../hooks/usePackageSessions";
 import { useServices }       from "../../hooks/useServices";
 import { useLazyListPackagesQuery, useLazyListPackageTemplatesQuery, useListClientPackagesQuery, useCompleteClientPackageSessionMutation } from "../../../../services/api/endpoints/packages.endpoints";
+import { useClientMembershipWallet } from "../../hooks/useClientMembershipWallet";
 import { fetchProductsThunk } from "../../../../middleware/catalog/products.thunk";
 import { fetchMembershipsThunk } from "../../../../middleware/membership/membership.thunk";
 import { setPackagesList, patchPaymentStatus } from "../../../../store/schedulerSlice";
@@ -219,13 +220,38 @@ export const AppointmentModal: React.FC<Props> = ({
     return map;
   }, [clientPkgsData]);
 
-  // When package data loads, apply ₹0 pricing to any already-loaded service rows that are covered
+  // Manual opt-in via the "Apply Package" checkbox below the services list —
+  // same treatment as "Apply Membership": unchecked by default, nothing is
+  // pre-paid/covered until staff explicitly applies it.
+  const [applyPackage, setApplyPackage] = useState(false);
+  useEffect(() => { setApplyPackage(false); }, [clientIdForPkg]);
+  const EMPTY_COVERED = useMemo(() => new Map<string, number>(), []);
+  const effectiveCoveredServices = applyPackage ? coveredServices : EMPTY_COVERED;
+
+  // Apply (or restore) ₹0 pricing on service rows as the checkbox is toggled.
+  // Nothing is committed server-side just by checking this box — package
+  // sessions are only marked consumed after checkout (markPackageSessions) —
+  // so it's always safe to fully reverse here when unchecked.
   useEffect(() => {
-    if (coveredServices.size === 0) return;
+    if (effectiveCoveredServices.size === 0) {
+      setServiceRows((prev) => {
+        let changed = false;
+        const next = prev.map((row) => {
+          if (!(row as any).isPackageService) return row;
+          changed = true;
+          const qty      = Number(row.qty) || 1;
+          const discount = Number((row as any).discount) || 0;
+          const price    = Number(row.price) || 0;
+          return { ...row, total: Math.max(0, price * qty - discount), isPackageService: false };
+        });
+        return changed ? next : prev;
+      });
+      return;
+    }
     setServiceRows((prev) =>
       prev.map((row) => {
         if (!row.service.trim()) return row;
-        const remaining = coveredServices.get(row.service.toLowerCase()) ?? 0;
+        const remaining = effectiveCoveredServices.get(row.service.toLowerCase()) ?? 0;
         if (remaining <= 0) return row;
         const qty = Number(row.qty) || 1;
         const paidQty = Math.max(0, qty - remaining);
@@ -233,26 +259,76 @@ export const AppointmentModal: React.FC<Props> = ({
         return { ...row, total: paidQty * catalogPrice, isPackageService: paidQty === 0 };
       })
     );
-  }, [coveredServices]);
+  }, [effectiveCoveredServices]);
 
-  // Also apply ₹0 to package rows when the client already owns that package (matched by name)
+  // Apply (or restore) ₹0 pricing on package rows when the client already owns that package
   useEffect(() => {
-    if (coveredServices.size === 0) return;
+    if (effectiveCoveredServices.size === 0) {
+      setPackageRows((prev) => {
+        let changed = false;
+        const next = prev.map((row) => {
+          if (!(row as any).isPackageService) return row;
+          const name = ((row as any).packageName || (row as any).name || "").toLowerCase();
+          const catalogPkg = availablePackages.find((p: any) => (p.name || "").toLowerCase() === name);
+          if (!catalogPkg) return row;
+          changed = true;
+          const qty   = row.qty || 1;
+          const price = Number(catalogPkg.price) || 0;
+          return { ...row, price, total: price * qty, isPackageService: false };
+        });
+        return changed ? next : prev;
+      });
+      return;
+    }
     setPackageRows((prev) =>
       prev.map((row) => {
         const name = ((row as any).packageName || (row as any).name || "").toLowerCase();
-        if (!name || !coveredServices.has(name)) return row;
+        if (!name || !effectiveCoveredServices.has(name)) return row;
         return { ...row, price: 0, total: 0, isPackageService: true };
       })
     );
-  }, [coveredServices]);
+  }, [effectiveCoveredServices, availablePackages]);
+
+  // ── Membership wallet: preview allocation across service rows ──────────────
+  // Amount-based running pool (not per-name matching like packages) — draws
+  // from the client's single highest-balance active membership, in row order.
+  // Manual opt-in via the "Apply Membership" checkbox below the services list —
+  // unchecked by default, so a client with balance isn't billed from their
+  // wallet unless staff explicitly chooses to.
+  // Display-only: the backend independently recomputes and applies the real
+  // deduction at payment time (see payments.service.ts), gated on the same
+  // flag sent with the payment — this is just a preview.
+  const { primary: primaryMembership } = useClientMembershipWallet(clientIdForPkg);
+  const [applyMembership, setApplyMembership] = useState(false);
+  useEffect(() => { setApplyMembership(false); }, [clientIdForPkg]);
+  const membershipWalletMap = useMemo(() => {
+    const map = new Map<string, { walletUsed: number; payable: number }>();
+    if (!applyMembership) return map;
+    let remaining = primaryMembership?.membershipWalletBalance ?? 0;
+    if (remaining <= 0) return map;
+    serviceRows.forEach((row, i) => {
+      const tempId = (row as any).tempId || String(i);
+      if (!row.service.trim() || (row as any).isPackageService) return;
+      const rowTotal = Number(row.total) || 0;
+      if (rowTotal <= 0 || remaining <= 0) return;
+      const used = Math.min(remaining, rowTotal);
+      remaining -= used;
+      map.set(tempId, { walletUsed: used, payable: rowTotal - used });
+    });
+    return map;
+  }, [serviceRows, primaryMembership, applyMembership]);
+  const membershipWalletUsedTotal = useMemo(
+    () => Array.from(membershipWalletMap.values()).reduce((s, v) => s + v.walletUsed, 0),
+    [membershipWalletMap],
+  );
+  const membershipWalletRemaining = Math.max(0, (primaryMembership?.membershipWalletBalance ?? 0) - membershipWalletUsedTotal);
 
   // Marks package sessions as complete for each covered service row after appointment is done
   async function markPackageSessions() {
     const pkgs = clientPkgsData?.items ?? [];
     for (const row of serviceRows) {
       const key = row.service.toLowerCase();
-      const remaining = coveredServices.get(key) ?? 0;
+      const remaining = effectiveCoveredServices.get(key) ?? 0;
       if (remaining <= 0) continue;
 
       // Find the package + service that covers this row
@@ -285,6 +361,7 @@ export const AppointmentModal: React.FC<Props> = ({
     discountType, discountValue, taxes: activeTaxes, exCharges, tip,
     couponDiscount: coupon.discount,
     eWalletUsed: useEWallet ? eWalletAmt : 0,
+    membershipWalletUsed: membershipWalletUsedTotal,
   });
 
   const alreadyPaidAmount   = existingBooking?.payingNow ?? 0;
@@ -551,6 +628,7 @@ export const AppointmentModal: React.FC<Props> = ({
       couponApplied:     coupon.applied,
       paymentMode, singleMethod, splitEntries, partialAmtInput,
       includeClearDue, priorDueAmt, useEWallet,
+      applyMembershipWallet: applyMembership,
       gstAmount:         totals.gstAmount,
       taxBreakdown:      totals.taxBreakdown,
     });
@@ -569,7 +647,7 @@ export const AppointmentModal: React.FC<Props> = ({
     completePayment, existingBooking, apiAppointmentId,
     selectedClient, salonId, totals, alreadyPaidAmount,
     eWalletAmt, coupon, paymentMode, singleMethod, splitEntries,
-    partialAmtInput, includeClearDue, priorDueAmt, useEWallet,
+    partialAmtInput, includeClearDue, priorDueAmt, useEWallet, applyMembership,
     onRefresh, onClose, printAfterPayment, schedulerStaff, currentSalon,
   ]);
 
@@ -789,7 +867,8 @@ export const AppointmentModal: React.FC<Props> = ({
               availablePackages={availablePackages}
               availableProducts={availableProducts}
               availableMemberships={availableMemberships}
-              coveredServices={coveredServices}
+              coveredServices={effectiveCoveredServices}
+              membershipWalletInfo={membershipWalletMap}
               frozen={false}
               svcErrors={svcErrors}
               pkgErrors={pkgErrors}
@@ -802,6 +881,33 @@ export const AppointmentModal: React.FC<Props> = ({
               })}
             />
           </div>
+
+          {/* Apply Package — manual opt-in, same treatment as Apply Membership below */}
+          {coveredServices.size > 0 && (
+            <div
+              className={`pay-ewallet${applyPackage ? " pay-ewallet--active" : ""}`}
+              style={{ margin: "0 0 12px" }}
+              onClick={() => setApplyPackage(v => !v)}
+            >
+              <input type="checkbox" checked={applyPackage} readOnly />
+              <span>Apply Package ({coveredServices.size} service{coveredServices.size !== 1 ? "s" : ""} covered)</span>
+            </div>
+          )}
+
+          {/* Apply Membership — manual opt-in to draw from the client's membership wallet */}
+          {primaryMembership && (
+            <div
+              className={`pay-ewallet${applyMembership ? " pay-ewallet--active" : ""}`}
+              style={{ margin: "0 0 12px" }}
+              onClick={() => setApplyMembership(v => !v)}
+            >
+              <input type="checkbox" checked={applyMembership} readOnly />
+              <span>Apply Membership (Available: {currencySymbol}{primaryMembership.membershipWalletBalance.toFixed(2)})</span>
+              {applyMembership && membershipWalletUsedTotal > 0 && (
+                <span className="pay-ewallet__deducted">-{currencySymbol}{membershipWalletUsedTotal.toFixed(2)}</span>
+              )}
+            </div>
+          )}
 
           {/* Staff conflict errors — shown immediately below Services & Items */}
           {apptConflictError && (
@@ -951,6 +1057,8 @@ export const AppointmentModal: React.FC<Props> = ({
                 useEWallet={useEWallet}
                 eWalletAmt={eWalletAmt}
                 onToggleEWallet={setUseEWallet}
+                membershipWalletUsed={membershipWalletUsedTotal}
+                membershipWalletRemaining={membershipWalletRemaining}
                 couponInput={coupon.input}
                 onCouponInputChange={coupon.setInput}
                 onApplyCoupon={() => coupon.apply(totals.subtotal)}

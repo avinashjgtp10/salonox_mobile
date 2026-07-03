@@ -103,8 +103,17 @@ export function useAppointment() {
     setError(null);
 
     try {
-      const firstRow   = serviceRows[0];
-      const startTime  = firstRow?.time || defaultTime || "10:00";
+      // Membership/package/product-only bookings have no serviceRows at all —
+      // falling back to a hardcoded default time here would silently move an
+      // existing appointment away from its real booked slot on every save
+      // (e.g. clicking "Continue to Payment"). When editing an existing
+      // booking with no service rows, preserve its own start/end time instead.
+      const firstRow      = serviceRows[0];
+      const noServiceRows = serviceRows.length === 0;
+      const startTime  = firstRow?.time
+        || (noServiceRows ? existingBooking?.startTime : undefined)
+        || defaultTime
+        || "10:00";
       const bookingStartMs   = new Date(`${calDate}T${startTime}:00`).getTime();
       const [stH, stM]       = startTime.split(":").map(Number);
       const bookingStartMins = stH * 60 + stM;
@@ -112,7 +121,9 @@ export function useAppointment() {
       // Compute endTime from last service
       const lastRow   = serviceRows[serviceRows.length - 1] ?? firstRow;
       const lastStart = lastRow?.time || startTime;
-      const endTime   = addMinutes(lastStart, lastRow?.duration || 30);
+      const endTime   = lastRow?.time
+        ? addMinutes(lastStart, lastRow?.duration || 30)
+        : (noServiceRows && existingBooking?.endTime) || addMinutes(startTime, 30);
 
       const [eh, em] = endTime.split(":").map(Number);
       const [sh, sm] = startTime.split(":").map(Number);

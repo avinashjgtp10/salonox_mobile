@@ -10,6 +10,7 @@ import {
   computePointsEarned, computeEWalletCredit,
   EWALLET_REDEEM_MINIMUM, MEMBERSHIP_TIERS,
 } from "../../../../store/schedulerSlice";
+import { useClientMembershipWallet } from "../../hooks/useClientMembershipWallet";
 import Button from "../../../../components/ui/Button";
 import Badge from "../../../../components/ui/Badge";
 import "../../styles/PaymentModal.scss";
@@ -81,6 +82,15 @@ const PaymentModal: React.FC<Props> = ({ booking, onClose, collectDue = false })
   const [eWalletAmt, setEWalletAmt] = useState(0);
   const canUseEWallet = eWalletBalance >= EWALLET_REDEEM_MINIMUM;
 
+  // ── Membership wallet — manual opt-in via "Apply Membership" checkbox ────
+  const { primary: primaryMembership } = useClientMembershipWallet(booking.clientId);
+  const [applyMembership, setApplyMembership] = useState(false);
+  const serviceOnlyTotal = booking.services.reduce((s, svc) => s + (svc.total || 0), 0);
+  const membershipWalletUsed = applyMembership
+    ? Math.max(0, Math.min(primaryMembership?.membershipWalletBalance ?? 0, serviceOnlyTotal))
+    : 0;
+  const membershipWalletRemaining = Math.max(0, (primaryMembership?.membershipWalletBalance ?? 0) - membershipWalletUsed);
+
   // ── Payment method ───────────────────────────────────────────────────────────
   const [payMode,       setPayMode]       = useState<"Single" | "Split">("Single");
   const [singleMethod,  setSingleMethod]  = useState<SingleMethod>("Cash");
@@ -106,7 +116,7 @@ const PaymentModal: React.FC<Props> = ({ booking, onClose, collectDue = false })
   const [newMembership,setNewMembership]= useState("");
 
   // ── Derived ──────────────────────────────────────────────────────────────────
-  const effectiveTotal    = Math.max(0, grandTotal - manualDiscount - couponDiscount - (useEWallet ? eWalletAmt : 0));
+  const effectiveTotal    = Math.max(0, grandTotal - manualDiscount - couponDiscount - (useEWallet ? eWalletAmt : 0) - membershipWalletUsed);
   const previewPoints     = computePointsEarned(effectiveTotal);
   const previewWallet     = computeEWalletCredit(previewPoints);
   const previewRevenue    = currentRevenue + effectiveTotal;
@@ -232,6 +242,7 @@ const PaymentModal: React.FC<Props> = ({ booking, onClose, collectDue = false })
           payment_method:  methodLabel.toLowerCase(),
           split_details:   payMode === "Split" ? methods : undefined,
           status:          remainingDue > 0 ? "partial" : "completed",
+          apply_membership_wallet: applyMembership,
         });
       } catch (err) {
         console.error("Failed to save payment:", err);
@@ -373,6 +384,11 @@ const PaymentModal: React.FC<Props> = ({ booking, onClose, collectDue = false })
                   <span>eWallet</span><span>−{currencySymbol}{eWalletAmt.toFixed(2)}</span>
                 </div>
               )}
+              {membershipWalletUsed > 0 && (
+                <div className="d-flex justify-content-between px-3 py-2 border-bottom small text-primary">
+                  <span>Membership Wallet</span><span>−{currencySymbol}{membershipWalletUsed.toFixed(2)}</span>
+                </div>
+              )}
               <div className="d-flex justify-content-between px-3 py-3 fw-bold"
                 style={{ background: "#111827", color: "#fff", borderRadius: "0 0 8px 8px" }}>
                 <span>{collectDue ? "Outstanding Balance" : "Amount to Pay"}</span>
@@ -447,6 +463,24 @@ const PaymentModal: React.FC<Props> = ({ booking, onClose, collectDue = false })
               ) : (
                 <div className="small text-muted">
                   🔒 eWallet: {currencySymbol}{eWalletBalance.toFixed(2)} — Redeemable at {currencySymbol}{EWALLET_REDEEM_MINIMUM}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Membership wallet — manual opt-in */}
+          {primaryMembership && (
+            <div className="rounded-3 p-3 border border-primary bg-light">
+              <div className="form-check">
+                <input type="checkbox" className="form-check-input" id="applyMembership"
+                  checked={applyMembership} onChange={(e) => setApplyMembership(e.target.checked)} />
+                <label className="form-check-label fw-semibold text-primary" htmlFor="applyMembership">
+                  Apply Membership (Available: {currencySymbol}{primaryMembership.membershipWalletBalance.toFixed(2)})
+                </label>
+              </div>
+              {applyMembership && membershipWalletUsed > 0 && (
+                <div className="text-primary small mt-1 fw-semibold">
+                  ✓ Applying {currencySymbol}{membershipWalletUsed.toFixed(2)} from Membership Wallet — Remaining Balance: {currencySymbol}{membershipWalletRemaining.toFixed(2)}
                 </div>
               )}
             </div>

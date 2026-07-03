@@ -24,6 +24,7 @@ export interface PaymentPayload {
   split_details?: Record<string, number>;
   status: "completed" | "partial";
   notes?: string;
+  apply_membership_wallet?: boolean;
 }
 
 // ─── Result of clearing a prior due ─────────────────────────────────────────
