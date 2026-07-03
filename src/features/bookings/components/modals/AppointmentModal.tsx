@@ -316,10 +316,11 @@ export const AppointmentModal: React.FC<Props> = ({
     onRefresh, onClose,
   ]);
 
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+
   if (!isOpen) return null;
 
   const isCancelledBooking = existingBooking?.status?.toLowerCase() === "cancelled";
-  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const isPaymentFrozen = existingBooking?.paymentStatus === "Paid"
     || (alreadyPaidAmount > 0 && alreadyPaidAmount >= totals.effectiveTotal);
   const parsedPartial   = parseFloat(partialAmtInput);
