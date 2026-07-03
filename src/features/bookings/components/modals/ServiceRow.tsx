@@ -53,6 +53,7 @@ interface ServiceRowProps {
   errorFields?: { service?: boolean; staff?: boolean; time?: boolean; price?: boolean; qty?: boolean };
   disabled?: boolean;
   coveredServices?: Map<string, number>;
+  membershipWalletInfo?: { walletUsed: number; payable: number };
 }
 
 function fmtName(name: string) {
@@ -135,6 +136,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   errorFields = {},
   disabled,
   coveredServices,
+  membershipWalletInfo,
 }) => {
   const schedulerContext = useSchedulerContext();
   const interval = schedulerContext.interval;
@@ -151,13 +153,18 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   const catalogPriceRef = useRef<number>(0);
   const pkgRemainingRef = useRef<number>(0);
 
-  // When package data loads for an existing row (not freshly selected), initialise the refs
+  // When package data loads for an existing row (not freshly selected), initialise the refs.
+  // Also resets pkgRemainingRef back to 0 when coverage disappears (e.g. the "Apply
+  // Package" checkbox is unchecked) — otherwise qty/price handlers below would keep
+  // using a stale remaining-sessions value after coverage was turned off.
   useEffect(() => {
-    if (!row.service || !coveredServices || coveredServices.size === 0) return;
-    const remaining = coveredServices.get(row.service.toLowerCase()) ?? 0;
+    if (!row.service) return;
+    const remaining = coveredServices?.get(row.service.toLowerCase()) ?? 0;
     if (remaining > 0) {
       pkgRemainingRef.current = remaining;
       if (!catalogPriceRef.current) catalogPriceRef.current = Number(row.price) || 0;
+    } else {
+      pkgRemainingRef.current = 0;
     }
   }, [coveredServices]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -609,6 +616,11 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
           {isPackageCovered && (
             <span className="svc-field__pkg-badge">
               ✓ Package Applied
+            </span>
+          )}
+          {!isPackageCovered && membershipWalletInfo && membershipWalletInfo.walletUsed > 0 && (
+            <span className="svc-field__pkg-badge" title={`You pay ${currencySymbol}${membershipWalletInfo.payable.toFixed(2)}`}>
+              ✓ Wallet Applied −{currencySymbol}{membershipWalletInfo.walletUsed.toFixed(2)}
             </span>
           )}
         </div>

@@ -22,6 +22,7 @@ export interface ClientMembership {
   expiresAt?: string;
   status: 'active' | 'expired' | 'exhausted' | 'cancelled';
   pricePaid?: number;
+  membershipWalletBalance: number;
   usageLog?: UsageLogEntry[];
   createdAt: string;
   updatedAt: string;
@@ -35,6 +36,9 @@ export interface UsageLogEntry {
   sessionsConsumed: number;
   notes?: string;
   usedAt: string;
+  amountDeducted?: number;
+  remainingBalance?: number;
+  serviceId?: string;
 }
 
 export interface ClientMembershipsListResponse {

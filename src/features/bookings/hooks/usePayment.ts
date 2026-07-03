@@ -30,6 +30,7 @@ interface CompletePaymentParams {
   includeClearDue: boolean;
   priorDueAmt: number;
   useEWallet: boolean;
+  applyMembershipWallet?: boolean;
 }
 
 /**
@@ -51,7 +52,7 @@ export function usePayment() {
       grandTotal, effectiveTotal, subtotal, manualDiscountAmt,
       alreadyPaidAmount, eWalletAmt, couponDiscount, couponApplied,
       paymentMode, singleMethod, splitEntries, partialAmtInput,
-      includeClearDue, priorDueAmt, useEWallet,
+      includeClearDue, priorDueAmt, useEWallet, applyMembershipWallet,
       gstAmount, taxBreakdown,
     } = params;
 
@@ -113,6 +114,7 @@ export function usePayment() {
         payment_method:   methodLabel,
         split_details:    paymentMode === "split" ? methods : { [singleMethod!]: currentCharge },
         status:           newDue > 0 ? "partial" : "completed",
+        apply_membership_wallet: !!applyMembershipWallet,
       }));
 
       // "already completed" is treated as success

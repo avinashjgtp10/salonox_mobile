@@ -71,7 +71,8 @@ export function useClientDetails(clientId: string | null | undefined) {
       Promise.all([
         api.get(`/api/v1/clients/${id}/history`),
         api.get(`/api/v1/client-packages?clientId=${id}&limit=500`).catch(() => ({ data: null })),
-      ]).then(([r, pkgRes]) => {
+        api.get(`/api/v1/client-memberships?clientId=${id}&limit=200`).catch(() => ({ data: null })),
+      ]).then(([r, pkgRes, memRes]) => {
           if (cancelled) return;
           const histData = r.data?.data ?? r.data ?? null;
           const s = histData?.stats ?? null;
@@ -110,8 +111,16 @@ export function useClientDetails(clientId: string | null | undefined) {
           // Most recent visit = newest paid or partial appointment
           const lastPaidAt = sortedAppts.find((a) => isPaid(a) || isPartial(a))?.scheduled_at ?? null;
 
-          // Revenue: fully paid appointments + paid portion of partial appointments
-          const paidRevenue    = paidAppts.reduce((sum: number, a: any) => sum + apptTotal(a), 0);
+          // Revenue: fully paid appointments + paid portion of partial appointments.
+          // For fully-paid appointments, prefer the payment's actual net_amount over
+          // the raw catalog apptTotal() — net_amount is already reduced by any
+          // membership-wallet/package coverage, whose value was already recognized
+          // as revenue when that membership/package was originally sold. Falling back
+          // to apptTotal() only when no payment record exists (net_amount is null).
+          const paidRevenue = paidAppts.reduce((sum: number, a: any) => {
+            const net = a.net_amount;
+            return sum + ((net !== null && net !== undefined) ? Number(net) : apptTotal(a));
+          }, 0);
           const partialRevenue = partialAppts.reduce((sum: number, a: any) =>
             sum + Number(a.amount_paid ?? a.paid_amount ?? 0), 0);
 
@@ -121,19 +130,27 @@ export function useClientDetails(clientId: string | null | undefined) {
             ? pkgItems.reduce((sum: number, p: any) => sum + Number(p.paidAmount ?? p.paid_amount ?? p.totalAmount ?? p.total_amount ?? 0), 0)
             : 0;
 
-          const totalBilled = paidRevenue + partialRevenue + packageRevenue;
+          // Membership purchases (e.g. "Sell to client") — these create a
+          // client_memberships row directly with no appointment/payment/sale
+          // record, so they'd otherwise never be counted anywhere as revenue.
+          const memItems: any[] = memRes?.data?.data?.items ?? memRes?.data?.items ?? [];
+          const membershipRevenue = Array.isArray(memItems)
+            ? memItems.reduce((sum: number, m: any) => sum + Number(m.pricePaid ?? m.price_paid ?? 0), 0)
+            : 0;
+
+          const totalBilled = paidRevenue + partialRevenue + packageRevenue + membershipRevenue;
 
           // Unpaid amount = due portion of PARTIALLY-paid appointments only. A booked/
           // confirmed appointment that simply hasn't happened/been paid yet is not "unpaid
           // debt" — it shouldn't count here until the client has actually made a partial
           // payment against it.
+          // Uses the backend's authoritative due_amount (already net of discount/eWallet/
+          // membership-wallet deductions — see payments.service.ts) rather than recomputing
+          // from the appointment's raw catalog total, which doesn't know about those
+          // deductions and would overstate what's actually still owed.
           const unpaidFromHistory = sortedAppts
             .filter((a: any) => isPartial(a))
-            .reduce((sum: number, a: any) => {
-              const total = apptTotal(a);
-              const paid  = Number(a.amount_paid ?? a.paid_amount ?? 0);
-              return sum + Math.max(0, total - paid);
-            }, 0);
+            .reduce((sum: number, a: any) => sum + Math.max(0, Number(a.due_amount ?? 0)), 0);
 
           setDetails((prev) => {
             if (!prev) return prev;

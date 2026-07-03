@@ -7,6 +7,7 @@ import { useClientDetails } from "../../hooks/useClientDetails";
 import { useAppSelector } from "../../../../hooks/useAppRedux";
 import { selectBookings } from "../../../../store/selectors/scheduler.selectors";
 import { useListClientPackagesQuery } from "../../../../services/api/endpoints/packages.endpoints";
+import { useClientMembershipWallet } from "../../hooks/useClientMembershipWallet";
 import api from "../../../../services/api/axios";
 import "../../styles/AppointmentModal.scss";
 
@@ -99,6 +100,8 @@ export const ClientPanel: React.FC<Props> = ({
     { clientId: clientIdForPkg, status: "Active", limit: 50 },
     { skip: !clientIdForPkg },
   );
+
+  const { memberships: clientMemberships } = useClientMembershipWallet(clientIdForPkg);
 
   // Calculate real unpaid amount from Redux — API always returns 0.
   // Falls back to the existingBooking's dueAmount when Redux doesn't have the booking yet.
@@ -453,6 +456,7 @@ export const ClientPanel: React.FC<Props> = ({
           phone={details.phone_number || details.phone || ""}
           stats={{ ...stats, unpaidAmt }}
           packages={clientPkgsData?.items ?? []}
+          memberships={clientMemberships}
           onViewHistory={onViewHistory}
         />
       )}

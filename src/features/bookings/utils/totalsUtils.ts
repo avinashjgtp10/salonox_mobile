@@ -20,6 +20,7 @@ export interface TotalsInput {
   tip: number;
   couponDiscount: number;
   eWalletUsed: number;
+  membershipWalletUsed?: number;
 }
 
 export interface TaxBreakdownEntry {
@@ -95,7 +96,7 @@ export function computeTotals(input: TotalsInput): TotalsResult {
   const {
     serviceRows, packageRows, productRows, membershipRows,
     discountType, discountValue, taxes,
-    exCharges, couponDiscount, eWalletUsed,
+    exCharges, couponDiscount, eWalletUsed, membershipWalletUsed = 0,
   } = input;
 
   const serviceBase    = rowsTotal(serviceRows);
@@ -136,7 +137,7 @@ export function computeTotals(input: TotalsInput): TotalsResult {
 
   const taxBreakdown = mergeBreakdown(allBreakdown);
   const grandTotal = taxable + gstAmount + exCharges;
-  const effectiveTotal = Math.max(0, grandTotal - eWalletUsed);
+  const effectiveTotal = Math.max(0, grandTotal - eWalletUsed - membershipWalletUsed);
 
   return { subtotal, totalDisc, taxable, gstAmount, taxBreakdown, grandTotal, effectiveTotal };
 }

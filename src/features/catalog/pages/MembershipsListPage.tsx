@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Search, PlusLg, Sliders, ChevronDown,
   PencilSquare, Trash3, FileEarmarkPdf,
   FileEarmarkExcel, FiletypeCsv, CardList,
-  Award, CurrencyRupee, CheckCircleFill,
+  Award, CurrencyRupee, CheckCircleFill, Bag,
 } from "react-bootstrap-icons";
 import type { AppDispatch } from "../../../store/store";
+import type { Membership } from "../../../services/api/endpoints/memberships.endpoints";
 import {
   fetchMembershipsThunk,
   deleteMembershipThunk,
@@ -23,6 +24,8 @@ import {
 } from "../../../store/selectors/membership.selectors";
 import MembershipFilterDrawer from "../components/MembershipFilterDrawer";
 import MembershipDetailsDrawer from "../components/MembershipDetailsDrawer";
+import MembershipPickerModal from "../components/MembershipPickerModal";
+import SellMembershipModal from "../components/SellMembershipModal";
 import "../styles/MembershipsListPage.scss";
 
 const PAGE_SIZE = 20;
@@ -70,9 +73,23 @@ const MembershipsListPage: React.FC = () => {
   const [optOpen,    setOptOpen]    = useState(false);
   const [exporting,  setExporting]  = useState<"csv" | "excel" | "pdf" | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [sellPickerOpen, setSellPickerOpen] = useState(false);
+  const [sellMembership, setSellMembership] = useState<Membership | null>(null);
 
   const [drawerId,   setDrawerId]   = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const optDropRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!optOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (optDropRef.current && !optDropRef.current.contains(e.target as Node)) {
+        setOptOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [optOpen]);
 
   // ── plans list ────────────────────────────────────────────────────────────
   const buildQuery = useCallback(() => ({
@@ -124,7 +141,7 @@ const MembershipsListPage: React.FC = () => {
           <p className="msp__subtitle">Create and manage membership plans for your clients</p>
         </div>
         <div className="msp__hdr-actions">
-          <div className="msp__dd-wrap">
+          <div className="msp__dd-wrap" ref={optDropRef}>
             <button className="msp__btn msp__btn--outline" onClick={() => setOptOpen(v => !v)}>
               Options <ChevronDown size={13} />
             </button>
@@ -154,6 +171,9 @@ const MembershipsListPage: React.FC = () => {
               </ul>
             )}
           </div>
+          <button className="msp__btn msp__btn--outline" onClick={() => setSellPickerOpen(true)}>
+            <Bag size={14} /> Sell to client
+          </button>
           <div className="msp__add-wrap">
             <button
               className="msp__btn msp__btn--dark"
@@ -339,6 +359,18 @@ const MembershipsListPage: React.FC = () => {
         membershipId={drawerId}
         isOpen={drawerOpen}
         onClose={() => setDrawerOpen(false)}
+      />
+
+      {sellPickerOpen && (
+        <MembershipPickerModal
+          onClose={() => setSellPickerOpen(false)}
+          onSelect={m => { setSellPickerOpen(false); setSellMembership(m); }}
+        />
+      )}
+
+      <SellMembershipModal
+        membership={sellMembership}
+        onClose={() => setSellMembership(null)}
       />
 
     </div>

@@ -61,6 +61,7 @@ function loadLocalMemberships(salonId: string): ClientMembership[] {
         purchasedAt:       rec.purchasedAt || new Date().toISOString(),
         status:            "active",
         pricePaid:         rec.pricePaid || 0,
+        membershipWalletBalance: rec.pricePaid || 0,
         usageLog:          [],
         createdAt:         rec.purchasedAt || new Date().toISOString(),
         updatedAt:         rec.purchasedAt || new Date().toISOString(),
@@ -142,6 +143,7 @@ async function loadSynthMemberships(): Promise<ClientMembership[]> {
         expiresAt:        catMem?.validFor ? durationToExpiresAt(catMem.validFor) : undefined,
         status:           "active",
         pricePaid:        Number(mi.total || mi.price || mi.amount || 0) || catMem?.price || 0,
+        membershipWalletBalance: Number(mi.total || mi.price || mi.amount || 0) || catMem?.price || 0,
         usageLog:         [],
         createdAt:        purchasedAt,
         updatedAt:        purchasedAt,
@@ -185,6 +187,7 @@ async function loadSynthMemberships(): Promise<ClientMembership[]> {
         expiresAt:         catMem?.validFor ? durationToExpiresAt(catMem.validFor) : undefined,
         status:            "active",
         pricePaid:         Number(catMem.price) || 0,
+        membershipWalletBalance: Number(catMem.price) || 0,
         usageLog:          [],
         createdAt:         new Date().toISOString(),
         updatedAt:         new Date().toISOString(),
@@ -235,12 +238,9 @@ interface DetailPanelProps {
 }
 
 function computeBalance(item: ClientMembership) {
-  const total = Number(item.pricePaid) || 0;
-  const used  = (item.usageLog ?? []).reduce((s, log) => {
-    const m = String((log as any).notes ?? "").match(/covered:([\d.]+)/);
-    return s + (m ? parseFloat(m[1]) : 0);
-  }, 0);
-  return { total, used, remaining: Math.max(0, total - used) };
+  const remaining = Number(item.membershipWalletBalance) || 0;
+  const used = (item.usageLog ?? []).reduce((s, log) => s + (Number(log.amountDeducted) || 0), 0);
+  return { total: remaining + used, used, remaining };
 }
 
 function DetailPanel({ item, consuming, onConsume, onCancel, onClose }: DetailPanelProps) {
