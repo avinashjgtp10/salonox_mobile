@@ -1,12 +1,20 @@
-import React, { useEffect, useRef, useState } from "react";
-import { currencySymbol } from "../../../../utils/currency";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { currencySymbol } from "../../utils/currency";
 import ServiceRow from "./ServiceRow";
 import { Trash } from "react-bootstrap-icons";
 import api from "../../../../services/api/axios";
 import type { ServiceItem, PackageItem, ProductItem, MembershipItem } from "../../types";
+import { useSchedulerContext } from "../../store/SchedulerContext";
+import TimeSelect from "../shared/TimeSelect";
+import type { IntervalOption } from "../../types/scheduler-types";
 
 const MIN_SEARCH_LENGTH = 3;
 const DEBOUNCE_MS = 350;
+
+function fmtName(name: string) {
+  return name.includes(" ") ? name : name.replace(/([a-z])([A-Z])/g, "$1 $2");
+}
 
 interface SearchableCatalogItem {
   id: string | number;
@@ -61,11 +69,13 @@ interface Props {
   availableProducts: any[];
   availableMemberships: any[];
   frozen?: boolean;
+  coveredServices?: Map<string, number>;
+  membershipWalletInfo?: Map<string, { walletUsed: number; payable: number }>;
 
   svcErrors?: Array<{ service?: boolean; staff?: boolean; time?: boolean }>;
   pkgErrors?: boolean[];
-  prodErrors?: boolean[];
-  memErrors?: boolean[];
+  prodErrors?: Array<{ item?: boolean; staff?: boolean; time?: boolean }>;
+  memErrors?: Array<{ item?: boolean; staff?: boolean; time?: boolean }>;
   onClearSvcError?: (index: number, field: string) => void;
 }
 
@@ -74,11 +84,15 @@ type SearchableItemRowProps =
       row: PackageItem;
       frozen?: boolean;
       error?: boolean;
+      staffError?: boolean;
+      timeError?: boolean;
       kind: "package";
       items: SearchableCatalogItem[];
       placeholder: string;
       helperText: string;
       emptyText: string;
+      staffList: { id: string; name: string }[];
+      interval: IntervalOption;
       onUpdate: (row: PackageItem) => void;
       onRemove: () => void;
     }
@@ -87,11 +101,15 @@ type SearchableItemRowProps =
       productRows: ProductItem[];
       frozen?: boolean;
       error?: boolean;
+      staffError?: boolean;
+      timeError?: boolean;
       kind: "product";
       items: SearchableCatalogItem[];
       placeholder: string;
       helperText: string;
       emptyText: string;
+      staffList: { id: string; name: string }[];
+      interval: IntervalOption;
       onUpdate: (row: ProductItem) => void;
       onUpdateProductRow: (index: number, row: ProductItem) => void;
       onAddProductRow: () => void;
@@ -259,11 +277,15 @@ function SearchableItemRow(props: SearchableItemRowProps) {
     row,
     frozen,
     error,
+    staffError,
+    timeError,
     kind,
     items,
     placeholder,
     helperText,
     emptyText,
+    staffList,
+    interval,
     onUpdate,
     onRemove,
   } = props;
@@ -284,6 +306,11 @@ function SearchableItemRow(props: SearchableItemRowProps) {
   const dropRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const portalDropRef = useRef<HTMLDivElement>(null);
+  // Only true while the user is actively typing. The search effect checks this before
+  // opening the dropdown — this prevents the dropdown from auto-opening when the
+  // items catalog loads async (which changes the `items` dep and re-runs the effect).
+  const userTypedRef = useRef(false);
   const trimmedSearch = search.trim();
   const isNumericPriceSearch = kind === "product" && /^\d+(\.\d+)?$/.test(trimmedSearch);
   const meetsMinSearchLength = trimmedSearch.length >= MIN_SEARCH_LENGTH;
@@ -343,7 +370,9 @@ function SearchableItemRow(props: SearchableItemRowProps) {
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropRef.current && !dropRef.current.contains(event.target as Node)) {
+      const inField = dropRef.current?.contains(event.target as Node);
+      const inPortal = portalDropRef.current?.contains(event.target as Node);
+      if (!inField && !inPortal) {
         setShowDrop(false);
       }
     }
@@ -359,6 +388,14 @@ function SearchableItemRow(props: SearchableItemRowProps) {
     if (frozen || !meetsMinSearchLength) {
       setResults([]);
       setIsSearching(false);
+      setShowDrop(false);
+      return;
+    }
+
+    // Only open the dropdown when the user is actively typing.
+    // This prevents automatic reopening when the items catalog reloads (a dep change
+    // that re-runs this effect even though the user hasn't touched the input).
+    if (!userTypedRef.current) {
       setShowDrop(false);
       return;
     }
@@ -422,6 +459,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
     const qty = getSafeQty(row.qty);
     const discount = parseInt(discountInput, 10) || 0;
 
+    userTypedRef.current = true;
     setScanMessage("");
     setSearch(value);
     updateRow({
@@ -433,19 +471,27 @@ function SearchableItemRow(props: SearchableItemRowProps) {
   }
 
   function handleSelect(item: SearchableCatalogItem) {
+    if (kind === "product" && item.stock !== undefined && item.stock <= 0) {
+      setScanMessage("This product is out of stock and cannot be added.");
+      setResults([]);
+      setShowDrop(false);
+      return;
+    }
+    userTypedRef.current = false;
     const qty = getSafeQty(row.qty);
     const discount = parseInt(discountInput, 10) || 0;
     const price = Number(item.price ?? 0) || 0;
 
     setScanMessage("");
     setSearch(item.name);
+    setResults([]);
+    setShowDrop(false);
     updateRow({
       selectedId: String(item.id),
       selectedName: item.name,
       price,
       total: calcTotal(price, qty, discount),
     });
-    setShowDrop(false);
   }
 
   function handleQtyChange(value: string) {
@@ -555,6 +601,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
     }
 
     const nextDiscount = row.discount || 0;
+    userTypedRef.current = false;
     setScanMessage("");
     setSearch(matchedItem.name);
     updateRow({
@@ -614,8 +661,15 @@ function SearchableItemRow(props: SearchableItemRowProps) {
               handleBarcodeSubmit();
             }}
           />
-          {showDrop && meetsMinSearchLength && (
-            <div className="svc-dropdown">
+          {showDrop && meetsMinSearchLength && inputRef.current && createPortal(
+            <div
+              ref={portalDropRef}
+              className="svc-dropdown"
+              style={(() => {
+                const r = inputRef.current!.getBoundingClientRect();
+                return { position: "fixed" as const, top: r.bottom + 2, left: r.left, width: r.width, zIndex: 9999 };
+              })()}
+            >
               {isSearching ? (
                 <div className="svc-dropdown__searching">Searching...</div>
               ) : results.length > 0 ? (
@@ -628,6 +682,9 @@ function SearchableItemRow(props: SearchableItemRowProps) {
                       key={`${kind}-${item.id}`}
                       className="svc-dropdown__item"
                       onMouseDown={() => handleSelect(item)}
+                      disabled={isOutOfStock}
+                      style={isOutOfStock ? { cursor: "not-allowed", opacity: 0.6 } : undefined}
+                      title={isOutOfStock ? "Out of stock" : undefined}
                     >
                       <span className="svc-dropdown__name" style={isOutOfStock ? { color: "#dc2626" } : undefined}>
                         {item.name}
@@ -640,7 +697,8 @@ function SearchableItemRow(props: SearchableItemRowProps) {
               ) : (
                 <div className="svc-dropdown__searching">{emptyText}</div>
               )}
-            </div>
+            </div>,
+            document.body
           )}
         </div>
         {scanMessage ? (
@@ -649,6 +707,50 @@ function SearchableItemRow(props: SearchableItemRowProps) {
           <span className="svc-field__hint">{helperText}</span>
         ) : null}
         {error && <span className="svc-field__err">Please select a {kind}</span>}
+      </div>
+
+      {/* Staff — wrapped to show error below */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <div className={`svc-staff-pill${staffError ? " svc-staff-pill--error" : ""}`}>
+          <button
+            type="button"
+            disabled={frozen}
+            className="svc-staff-pill__clear"
+            onClick={() => !frozen && onUpdate({ ...row, staffId: "" } as any)}
+          >
+            ×
+          </button>
+          <select
+            disabled={frozen}
+            value={row.staffId || ""}
+            onChange={(e) => onUpdate({ ...row, staffId: e.target.value } as any)}
+            className="svc-staff-pill__select"
+            style={{ color: row.staffId ? "#111827" : "#6b7280" }}
+          >
+            <option value="" disabled style={{ color: "#000", background: "#fff" }}>
+              Select Staff
+            </option>
+            {staffList.map((s) => (
+              <option key={s.id} value={s.id} style={{ color: "#000", background: "#fff" }}>
+                {fmtName(s.name)}
+              </option>
+            ))}
+          </select>
+        </div>
+        {staffError && <span className="svc-field__err">Select staff</span>}
+      </div>
+
+      {/* Time — wrapped to show error below */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <TimeSelect
+          disabled={frozen}
+          value={row.time || ""}
+          onChange={(value) => onUpdate({ ...row, time: value } as any)}
+          interval={interval}
+          className={`svc-field__input svc-field__select${timeError ? " svc-field__input--error" : ""}`}
+          placeholder="Time"
+        />
+        {timeError && <span className="svc-field__err">Select time</span>}
       </div>
 
       <input
@@ -687,6 +789,9 @@ function SearchableItemRow(props: SearchableItemRowProps) {
         value={`${currencySymbol}${row.total.toFixed(2)}`}
       />
 
+      {/* Placeholder for quick-actions column so columns align with service rows */}
+      <span />
+
       {!frozen
         ? <button className="svc-del-btn" onClick={onRemove}><Trash size={13} /></button>
         : <span />}
@@ -700,10 +805,37 @@ export const ServicesPanel: React.FC<Props> = ({
   productRows, onUpdateProduct, onRemoveProduct, onAddProduct,
   membershipRows, onUpdateMembership, onRemoveMembership, onAddMembership,
   availablePackages, availableProducts, availableMemberships,
-  frozen,
+  frozen, coveredServices, membershipWalletInfo,
   svcErrors, pkgErrors, prodErrors, memErrors, onClearSvcError,
 }) => {
+  const { staffList, interval } = useSchedulerContext();
   const [pendingProductFocusIndex, setPendingProductFocusIndex] = useState<number | null>(null);
+
+  // Memoize mapped catalog arrays so their reference is stable across re-renders.
+  // Without this, the inline .map() creates a new array every render, causing the
+  // search useEffect (which has `items` as a dep) to re-run after every state update
+  // and reopen the dropdown immediately after a product/package is selected.
+  const stablePackageItems = useMemo(() =>
+    availablePackages.map((item: any) => ({
+      id: item.id,
+      name: item.name,
+      price: item.price,
+    })),
+    [availablePackages]
+  );
+
+  const stableProductItems = useMemo(() =>
+    availableProducts.map((item: any) => ({
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      stock: item.stock,
+      barcode: item.barcode,
+      barcodeSearchValues: [item.barcode],
+      priceSearchValues: getProductPriceSearchValues(item),
+    })),
+    [availableProducts]
+  );
 
   return (
   <div className="services-panel">
@@ -718,29 +850,29 @@ export const ServicesPanel: React.FC<Props> = ({
           onUpdateService(i, field, value);
         }}
         onRemove={() => onRemoveService(i)}
+        coveredServices={coveredServices}
+        membershipWalletInfo={membershipWalletInfo?.get((row as any).tempId || String(i))}
       />
     ))}
 
     {packageRows.length > 0 && (
       <>
         <div className="item-section-header item-section-header--package">
-          <span>Package</span><span>Price</span><span>Qty</span><span>Disc ({currencySymbol})</span><span>Total</span><span />
+          <span>Package</span><span>Staff</span><span>Time</span><span>Price</span><span>Qty</span><span>Disc</span><span>Total</span><span /><span />
         </div>
         {packageRows.map((row, i) => (
           <SearchableItemRow
-            key={`pkg-${i}`}
+            key={`pkg-${row.packageId || `new-${i}`}`}
             row={row}
             frozen={frozen}
             error={pkgErrors?.[i]}
             kind="package"
-            items={availablePackages.map((item: any) => ({
-              id: item.id,
-              name: item.name,
-              price: item.price,
-            }))}
+            items={stablePackageItems}
             placeholder="Search package..."
             helperText="Type at least 3 characters to search packages."
             emptyText="No packages found."
+            staffList={staffList}
+            interval={interval}
             onUpdate={(nextRow) => onUpdatePackage(i, nextRow)}
             onRemove={() => onRemovePackage(i)}
           />
@@ -751,28 +883,24 @@ export const ServicesPanel: React.FC<Props> = ({
     {productRows.length > 0 && (
       <>
         <div className="item-section-header item-section-header--product">
-          <span>Product</span><span>Price</span><span>Qty</span><span>Disc ({currencySymbol})</span><span>Total</span><span />
+          <span>Product</span><span>Staff</span><span>Time</span><span>Price</span><span>Qty</span><span>Disc</span><span>Total</span><span /><span />
         </div>
         {productRows.map((row, i) => (
           <SearchableItemRow
-            key={`prod-${i}`}
+            key={`prod-${row.productId || `new-${i}`}`}
             row={row}
             productRows={productRows}
             frozen={frozen}
-            error={prodErrors?.[i]}
+            error={prodErrors?.[i]?.item}
+            staffError={prodErrors?.[i]?.staff}
+            timeError={prodErrors?.[i]?.time}
             kind="product"
-            items={availableProducts.map((item: any) => ({
-              id: item.id,
-              name: item.name,
-              price: item.price,
-              stock: item.stock,
-              barcode: item.barcode,
-              barcodeSearchValues: [item.barcode],
-              priceSearchValues: getProductPriceSearchValues(item),
-            }))}
+            items={stableProductItems}
             placeholder="Search product..."
             helperText="Type at least 3 characters to search products, barcodes, or prices."
             emptyText="No products found."
+            staffList={staffList}
+            interval={interval}
             onUpdate={(nextRow) => onUpdateProduct(i, nextRow)}
             onUpdateProductRow={onUpdateProduct}
             onAddProductRow={onAddProduct}
@@ -788,39 +916,121 @@ export const ServicesPanel: React.FC<Props> = ({
     {membershipRows.length > 0 && (
       <>
         <div className="item-section-header item-section-header--membership">
-          <span>Membership</span><span>Price</span><span>Qty</span><span>Total</span><span />
+          <span>Membership</span><span>Staff</span><span>Time</span><span>Price</span><span>Qty</span><span>Disc</span><span>Total</span><span /><span />
         </div>
-        {membershipRows.map((row, i) => (
-          <div key={`mem-${i}`} className="item-row item-row--membership">
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <select
-                className={`svc-field__input${memErrors?.[i] ? " svc-field__input--error" : ""}`}
+        {membershipRows.map((row, i) => {
+          const memDisc = row.discount || 0;
+          return (
+            <div key={`mem-${i}`} className="item-row item-row--membership">
+              {/* 1 — Name */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <select
+                  className={`svc-field__input${memErrors?.[i]?.item ? " svc-field__input--error" : ""}`}
+                  disabled={frozen}
+                  value={(row as any).membershipId || ""}
+                  onChange={(e) => {
+                    const m = availableMemberships.find((mb: any) => String(mb.id) === e.target.value);
+                    if (m) onUpdateMembership(i, { ...row, membershipId: m.id, membershipName: m.name, price: m.price, qty: 1, discount: 0, total: m.price });
+                  }}
+                >
+                  <option value="">Select membership...</option>
+                  {availableMemberships.map((m: any) => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+                {memErrors?.[i]?.item && <span className="svc-field__err">Please select a membership</span>}
+              </div>
+
+              {/* 2 — Staff */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <div className={`svc-staff-pill${memErrors?.[i]?.staff ? " svc-staff-pill--error" : ""}`}>
+                  <button
+                    type="button"
+                    disabled={frozen}
+                    className="svc-staff-pill__clear"
+                    onClick={() => !frozen && onUpdateMembership(i, { ...row, staffId: "" })}
+                  >
+                    ×
+                  </button>
+                  <select
+                    disabled={frozen}
+                    value={row.staffId || ""}
+                    onChange={(e) => onUpdateMembership(i, { ...row, staffId: e.target.value })}
+                    className="svc-staff-pill__select"
+                    style={{ color: row.staffId ? "#111827" : "#6b7280" }}
+                  >
+                    <option value="" disabled style={{ color: "#000", background: "#fff" }}>
+                      Select Staff
+                    </option>
+                    {staffList.map((s) => (
+                      <option key={s.id} value={s.id} style={{ color: "#000", background: "#fff" }}>
+                        {fmtName(s.name)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {memErrors?.[i]?.staff && <span className="svc-field__err">Select staff</span>}
+              </div>
+
+              {/* 3 — Time */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <TimeSelect
+                  disabled={frozen}
+                  value={row.time || ""}
+                  onChange={(value) => onUpdateMembership(i, { ...row, time: value })}
+                  interval={interval}
+                  className={`svc-field__input svc-field__select${memErrors?.[i]?.time ? " svc-field__input--error" : ""}`}
+                  placeholder="Time"
+                />
+                {memErrors?.[i]?.time && <span className="svc-field__err">Select time</span>}
+              </div>
+
+              {/* 4 — Price (readonly) */}
+              <input className="svc-field__input svc-field__input--readonly" readOnly value={row.price ? `${currencySymbol}${row.price}` : "—"} />
+
+              {/* 5 — Qty */}
+              <input
+                className="svc-field__input"
+                type="text"
+                inputMode="numeric"
+                maxLength={2}
                 disabled={frozen}
-                value={(row as any).membershipId || ""}
+                placeholder="1"
+                value={row.qty || 1}
                 onChange={(e) => {
-                  const m = availableMemberships.find((mb: any) => String(mb.id) === e.target.value);
-                  if (m) onUpdateMembership(i, { ...row, membershipId: m.id, membershipName: m.name, price: m.price, qty: 1, total: m.price });
+                  const qty = Math.max(1, parseInt(e.target.value, 10) || 1);
+                  onUpdateMembership(i, { ...row, qty, total: Math.max(0, row.price * qty - memDisc) });
                 }}
-              >
-                <option value="">Select membership...</option>
-                {availableMemberships.map((m: any) => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
-              </select>
-              {memErrors?.[i] && <span className="svc-field__err">Please select a membership</span>}
+              />
+
+              {/* 6 — Discount */}
+              <input
+                className="svc-field__input"
+                type="text"
+                inputMode="numeric"
+                maxLength={5}
+                disabled={frozen}
+                placeholder="0"
+                value={memDisc > 0 ? String(memDisc) : ""}
+                onChange={(e) => {
+                  const disc = Math.max(0, parseInt(e.target.value.replace(/\D/g, ""), 10) || 0);
+                  onUpdateMembership(i, { ...row, discount: disc, total: Math.max(0, row.price * (row.qty || 1) - disc) });
+                }}
+              />
+
+              {/* 7 — Total (readonly) */}
+              <input className="svc-field__input svc-field__input--readonly" readOnly value={`${currencySymbol}${row.total.toFixed(2)}`} />
+
+              {/* 8 — Placeholder (quick-actions column) */}
+              <span />
+
+              {/* 9 — Delete */}
+              {!frozen
+                ? <button className="svc-del-btn" onClick={() => onRemoveMembership(i)}><Trash size={13} /></button>
+                : <span />}
             </div>
-            <input className="svc-field__input svc-field__input--readonly" readOnly value={row.price ? `${currencySymbol}${row.price}` : "—"} />
-            <input
-              className="svc-field__input"
-              type="number" min={1} disabled={frozen} value={row.qty}
-              onChange={(e) => onUpdateMembership(i, { ...row, qty: Number(e.target.value), total: row.price * Number(e.target.value) })}
-            />
-            <input className="svc-field__input svc-field__input--readonly" readOnly value={`${currencySymbol}${row.total.toFixed(2)}`} />
-            {!frozen
-              ? <button className="svc-del-btn" onClick={() => onRemoveMembership(i)}><Trash size={13} /></button>
-              : <span />}
-          </div>
-        ))}
+          );
+        })}
       </>
     )}
 

@@ -5,6 +5,7 @@ import { useAppSelector } from "../../../../hooks/useAppRedux";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import { getWeekDays, DAYS_SHORT, formatTime12, getCurrentTime } from "../../utils/timeUtils";
 import BookingTooltipCard from "../shared/BookingTooltipCard";
+import { useListClientPackagesQuery } from "../../../../services/api/endpoints/packages.endpoints";
 import "../../styles/WeekView.scss";
 
 // Stable empty fallback — prevents allocating a new [] on every Map miss
@@ -50,6 +51,26 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({ onSlotClick, onViewBill })
   const openTip = useCallback((booking: Booking, el: HTMLElement) => { clearTimeout(closeTimerRef.current); setHovered({ booking, el }); }, []);
   const closeTip = useCallback(() => { closeTimerRef.current = setTimeout(() => setHovered(null), 150); }, []);
   const keepTip = useCallback(() => { clearTimeout(closeTimerRef.current); }, []);
+
+  // Fetch the hovered client's active packages for tooltip fallback coverage detection
+  const hoveredClientId = hovered?.booking?.clientId && String(hovered.booking.clientId) !== "walk-in"
+    ? String(hovered.booking.clientId) : undefined;
+  const { data: hoveredPkgData } = useListClientPackagesQuery(
+    { clientId: hoveredClientId, status: "Active", limit: 50 },
+    { skip: !hoveredClientId }
+  );
+  const tooltipCoveredServices = useMemo(() => {
+    const map = new Map<string, number>();
+    (hoveredPkgData?.items ?? []).forEach((pkg: any) => {
+      pkg.services.forEach((svc: any) => {
+        if (svc.remainingSessions > 0) {
+          const key = (svc.serviceName || "").toLowerCase();
+          map.set(key, (map.get(key) ?? 0) + svc.remainingSessions);
+        }
+      });
+    });
+    return map;
+  }, [hoveredPkgData]);
 
   useEffect(() => { const t = setInterval(() => setNowTime(getCurrentTime()), 60000); return () => clearInterval(t); }, []);
 
@@ -185,21 +206,21 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({ onSlotClick, onViewBill })
                     const isConfirmed = bs === "confirmed" || bs === "completed";
                     const isCancelled = bs === "cancelled";
                     const statusClass = isCancelled ? "cancelled" : isPaid ? "confirmed" : isPartial ? "partial" : isConfirmed ? "confirmed" : "pending";
-                    const chipH = Math.max(durationToPx(b.startTime, b.endTime), 28);
+                    const chipH = durationToPx(b.startTime, b.endTime);
                     const primaryStaffName = staffById.get(b.staffId)?.name ?? "";
                     return (
                       <div
                         key={b.id}
                         className={`wv-chip wv-chip--${statusClass}`}
-                        style={{ top: timeToPx(b.startTime), height: chipH, overflow: "hidden" }}
+                        style={{ top: timeToPx(b.startTime), height: chipH }}
                         onMouseEnter={(e) => openTip(b, e.currentTarget)}
                         onMouseLeave={closeTip}
                         onClick={(e) => { e.stopPropagation(); onViewBill(b); }}
                       >
-                        <div style={{ fontSize: 10, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{formatTime12(b.startTime)}</div>
-                        <div style={{ fontSize: 10, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", opacity: 0.95 }}>{b.clientName}</div>
-                        {chipH > 44 && primaryStaffName && <div style={{ fontSize: 9, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", opacity: 0.8 }}>{primaryStaffName}</div>}
-                        {chipH > 58 && <div style={{ fontSize: 9, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", opacity: 0.75 }}>{b.title || b.services[0]?.service || "Appointment"}</div>}
+                        <div className="wv-chip__time">{formatTime12(b.startTime)}</div>
+                        <div className="wv-chip__client">{b.clientName}</div>
+                        {chipH > 44 && primaryStaffName && <div className="wv-chip__staff">{primaryStaffName}</div>}
+                        {chipH > 58 && <div className="wv-chip__service">{b.title || b.services[0]?.service || "Appointment"}</div>}
                       </div>
                     );
                   })}
@@ -211,7 +232,7 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({ onSlotClick, onViewBill })
         </div>
       </div>
     </div>
-    {hovered && <BookingTooltipCard booking={hovered.booking} staffList={staffList} anchorEl={hovered.el} onMouseEnter={keepTip} onMouseLeave={closeTip} />}
+    {hovered && <BookingTooltipCard booking={hovered.booking} staffList={staffList} anchorEl={hovered.el} onMouseEnter={keepTip} onMouseLeave={closeTip} coveredServices={tooltipCoveredServices} />}
     </>
   );
 };

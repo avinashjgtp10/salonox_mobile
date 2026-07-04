@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { applyCouponThunk } from "../../../middleware/booking/payment.thunk";
-import { currencySymbol } from "../../../utils/currency";
+import { currencySymbol } from "../utils/currency";
 
 export interface CouponState {
   input: string;

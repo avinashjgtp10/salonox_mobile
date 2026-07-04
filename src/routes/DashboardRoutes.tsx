@@ -30,8 +30,16 @@ const ReportsPage = lazy(() =>
   import("../features/analytics/pages/ReportsPage")
 );
 
+const CashManagementPage = lazy(() =>
+  import("../features/cash-management/pages/CashManagementPage")
+);
+
 const ProfilePage = lazy(() =>
   import("../features/dashboard/pages/ProfilePage")
+);
+
+const NotificationsPage = lazy(() =>
+  import("../features/dashboard/pages/NotificationsPage")
 );
 
 export const DashboardRoutes = (
@@ -61,6 +69,7 @@ export const DashboardRoutes = (
 
       {/* Sales — requires view_sales (sub-routes handle create_sales internally) */}
       <Route element={<PermissionGuard permKey="view_sales" />}>
+        <Route path="cash-management" element={<CashManagementPage />} />
         <Route path="sales/*" element={<SalesRoutes />} />
       </Route>
 
@@ -94,9 +103,10 @@ export const DashboardRoutes = (
         <Route path="online-booking/*" element={<OnlineBookingRoutes />} />
       </Route>
 
-      {/* Apps and Profile — no permission guard needed */}
+      {/* Apps, Profile, Notifications — no permission guard needed */}
       <Route path="apps/*" element={<AppsRoutes />} />
       <Route path="profile" element={<ProfilePage />} />
+      <Route path="notifications" element={<NotificationsPage />} />
 
       {/* Help & Support — accessible to all authenticated users */}
       <Route path="help" element={<HelpPage />} />

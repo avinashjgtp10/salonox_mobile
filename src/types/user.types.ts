@@ -13,6 +13,10 @@ export interface User {
   avatarUrl?: string;
   isOnboardingComplete?: boolean;
   custom_permissions?: Record<string, boolean> | null;
+  role?: string;
+  isVerified?: boolean;
+  isActive?: boolean;
+  createdAt?: string;
 }
 
 // ── Payloads ──────────────────────────────────────────────────────────────────

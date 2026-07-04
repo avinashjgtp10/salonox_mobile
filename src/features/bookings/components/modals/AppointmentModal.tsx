@@ -1,16 +1,22 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
-import { currencySymbol } from "../../../../utils/currency";
+import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { currencySymbol } from "../../utils/currency";
 import { useAppSelector, useAppDispatch } from "../../../../hooks/useAppRedux";
 import { useAppointment }    from "../../hooks/useAppointment";
 import { usePayment }        from "../../hooks/usePayment";
 import { useCoupon }         from "../../hooks/useCoupon";
 import { usePackageSessions } from "../../hooks/usePackageSessions";
 import { useServices }       from "../../hooks/useServices";
-import { useLazyListPackagesQuery, useLazyListPackageTemplatesQuery } from "../../../../services/api/endpoints/packages.endpoints";
+import { useLazyListPackagesQuery, useLazyListPackageTemplatesQuery, useListClientPackagesQuery, useCompleteClientPackageSessionMutation } from "../../../../services/api/endpoints/packages.endpoints";
+import { useClientMembershipWallet } from "../../hooks/useClientMembershipWallet";
 import { fetchProductsThunk } from "../../../../middleware/catalog/products.thunk";
 import { fetchMembershipsThunk } from "../../../../middleware/membership/membership.thunk";
-import { setPackagesList } from "../../../../store/schedulerSlice";
+import { setPackagesList, patchPaymentStatus } from "../../../../store/schedulerSlice";
+import { postPaymentThunk } from "../../../../middleware/booking/payment.thunk";
+import { fetchSettingsThunk } from "../../../../middleware/setting/setting.thunk";
+import { getActiveTaxes } from "../../../settings/utils/taxSettings";
+import { isRealId } from "../../utils/paymentUtils";
 import { computeTotals }     from "../../utils/totalsUtils";
+import { formatTime12 }      from "../../utils/timeUtils";
 import { computePointsEarned, computeEWalletCredit, EWALLET_REDEEM_MINIMUM } from "../../utils/paymentUtils";
 import {
   selectPackagesList, selectProductsList, selectMembershipsList,
@@ -24,6 +30,8 @@ import { ServicesPanel } from "./ServicesPanel";
 import { PaymentPanel }  from "./PaymentPanel";
 import TotalsPanel       from "./TotalsPanel";
 import PaymentButton     from "../shared/PaymentButton";
+import { printReceipt }  from "./ViewBillModal";
+import { store }         from "../../../../store/store";
 import "../../styles/AppointmentModal.scss";
 
 import type {
@@ -48,8 +56,22 @@ interface Props {
   onDeleteBooking?: (b: Booking) => void;
 }
 
+function nextQuarterHour(): string {
+  const now = new Date();
+  let h = now.getHours();
+  let m = Math.ceil(now.getMinutes() / 15) * 15;
+  if (m === 60) { m = 0; h = (h + 1) % 24; }
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
 function emptyService(staffId?: string, time?: string): ServiceItem {
-  return { id: "", service: "", staff: "", staffId: staffId || "", time: time || "09:00", price: 0, qty: 1, total: 0, duration: 30 };
+  return { id: "", service: "", staff: "", staffId: staffId || "", time: time || nextQuarterHour(), price: 0, qty: 1, total: 0, duration: 30 };
+}
+
+function timeToMins(t: string): number {
+  if (!t) return 0;
+  const [h, m] = t.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
 }
 
 export const AppointmentModal: React.FC<Props> = ({
@@ -62,6 +84,11 @@ export const AppointmentModal: React.FC<Props> = ({
 
   // Always fetch services + clients when modal opens
   useServices(salonId);
+
+  // Active taxes from Tax Mapping settings, for bill calculation
+  useEffect(() => { dispatch(fetchSettingsThunk()); }, [dispatch]);
+  const settingItems = useAppSelector((s) => s.setting.items);
+  const activeTaxes  = useMemo(() => getActiveTaxes(settingItems), [settingItems]);
 
   // ── Lazy on-demand fetching ───────────────────────────────────────────────
   const [triggerPackages, { data: packagesData }]       = useLazyListPackagesQuery();
@@ -105,11 +132,17 @@ export const AppointmentModal: React.FC<Props> = ({
   const availablePackages    = useAppSelector(selectPackagesList);
   const availableProducts    = useAppSelector(selectProductsList);
   const availableMemberships = useAppSelector(selectMembershipsList);
+  const blockedTimes   = useAppSelector((s: any) => s.scheduler?.blockedTimes ?? []);
+  const schedulerStaff = useAppSelector((s: any) => s.scheduler?.staffList ?? []);
+  const existingBookings = useAppSelector((s: any) => s.scheduler?.bookings ?? []);
+  const currentSalon  = useAppSelector((s: any) => s.salon?.currentSalon ?? null);
 
   // ── Client ───────────────────────────────────────────────────────────────
   const [selectedClient, setSelectedClient] = useState<Client | null>(
-    existingBooking?.clientId
-      ? { id: String(existingBooking.clientId), name: existingBooking.clientName || "", phone: existingBooking.clientPhone || "", eWallet: 0 }
+    existingBooking
+      ? (existingBooking.clientId
+          ? { id: String(existingBooking.clientId), name: existingBooking.clientName || "", phone: existingBooking.clientPhone || "", eWallet: 0 }
+          : { id: "walk-in", name: "Walk-In", phone: "", eWallet: 0 })
       : defaultClientId
         ? { id: defaultClientId, name: defaultClientName || "", phone: defaultClientPhone || "", eWallet: 0 }
         : null
@@ -121,8 +154,8 @@ export const AppointmentModal: React.FC<Props> = ({
 
   // ── Line items ───────────────────────────────────────────────────────────
   const [serviceRows, setServiceRows]       = useState<ServiceItem[]>(() =>
-    existingBooking?.services?.length
-      ? existingBooking.services
+    existingBooking
+      ? (existingBooking.services ?? [])
       : [emptyService(defaultStaffId, defaultTime)]
   );
   const [packageRows, setPackageRows]       = useState<PackageItem[]>(existingBooking?.packageItems ?? []);
@@ -132,9 +165,9 @@ export const AppointmentModal: React.FC<Props> = ({
   // ── Charges / Discounts ───────────────────────────────────────────────────
   const [discountType, setDiscountType]   = useState<DiscountType>(existingBooking?.discountType || "Percentage (%)");
   const [discountValue, setDiscountValue] = useState(existingBooking?.discount ?? 0);
-  const [gstPercent]                      = useState(existingBooking?.gst ?? 0);
   const [exCharges, setExCharges]         = useState(existingBooking?.exCharges ?? 0);
   const [tip, setTip]                     = useState(existingBooking?.tipAmount ?? 0);
+  const [focusedField, setFocusedField]   = useState<"exCharges" | "tip" | "discountValue" | null>(null);
 
   // ── Notes / Alert ─────────────────────────────────────────────────────────
   const [notes, setNotes]           = useState(existingBooking?.notes ?? "");
@@ -155,22 +188,187 @@ export const AppointmentModal: React.FC<Props> = ({
   const [showPaymentSection, setShowPaymentSection] = useState(false);
   const paymentSectionRef = useRef<HTMLDivElement>(null);
 
+  // ── Walk-in → Add Client gate ─────────────────────────────────────────────
+  const [triggerAddForm, setTriggerAddForm]   = useState(false);
+  const [walkInPayError, setWalkInPayError]   = useState("");
+  const clientSectionRef = useRef<HTMLDivElement>(null);
+
   // ── Hooks ────────────────────────────────────────────────────────────────
   const { save, isSaving, error: saveError, apiAppointmentId } = useAppointment();
   const { completePayment, isProcessing, payError }            = usePayment();
   const coupon = useCoupon(salonId);
   usePackageSessions(selectedClient?.id ?? null);
+  const [completePackageSession] = useCompleteClientPackageSessionMutation();
+
+  // Fetch client's active packages to check which services are pre-paid (price = 0)
+  const clientIdForPkg = selectedClient?.id && selectedClient.id !== "walk-in" ? selectedClient.id : undefined;
+  const { data: clientPkgsData } = useListClientPackagesQuery(
+    { clientId: clientIdForPkg, status: "Active", limit: 50 },
+    { skip: !clientIdForPkg },
+  );
+  // Map of lower-cased service name → remaining sessions from active packages (memoized for stable reference)
+  const coveredServices = useMemo(() => {
+    const map = new Map<string, number>();
+    (clientPkgsData?.items ?? []).forEach((pkg) => {
+      pkg.services.forEach((svc) => {
+        if (svc.remainingSessions > 0) {
+          const key = svc.serviceName.toLowerCase();
+          map.set(key, (map.get(key) ?? 0) + svc.remainingSessions);
+        }
+      });
+    });
+    return map;
+  }, [clientPkgsData]);
+
+  // Manual opt-in via the "Apply Package" checkbox below the services list —
+  // same treatment as "Apply Membership": unchecked by default, nothing is
+  // pre-paid/covered until staff explicitly applies it.
+  const [applyPackage, setApplyPackage] = useState(false);
+  useEffect(() => { setApplyPackage(false); }, [clientIdForPkg]);
+  const EMPTY_COVERED = useMemo(() => new Map<string, number>(), []);
+  const effectiveCoveredServices = applyPackage ? coveredServices : EMPTY_COVERED;
+
+  // Apply (or restore) ₹0 pricing on service rows as the checkbox is toggled.
+  // Nothing is committed server-side just by checking this box — package
+  // sessions are only marked consumed after checkout (markPackageSessions) —
+  // so it's always safe to fully reverse here when unchecked.
+  useEffect(() => {
+    if (effectiveCoveredServices.size === 0) {
+      setServiceRows((prev) => {
+        let changed = false;
+        const next = prev.map((row) => {
+          if (!(row as any).isPackageService) return row;
+          changed = true;
+          const qty      = Number(row.qty) || 1;
+          const discount = Number((row as any).discount) || 0;
+          const price    = Number(row.price) || 0;
+          return { ...row, total: Math.max(0, price * qty - discount), isPackageService: false };
+        });
+        return changed ? next : prev;
+      });
+      return;
+    }
+    setServiceRows((prev) =>
+      prev.map((row) => {
+        if (!row.service.trim()) return row;
+        const remaining = effectiveCoveredServices.get(row.service.toLowerCase()) ?? 0;
+        if (remaining <= 0) return row;
+        const qty = Number(row.qty) || 1;
+        const paidQty = Math.max(0, qty - remaining);
+        const catalogPrice = Number(row.price) || 0;
+        return { ...row, total: paidQty * catalogPrice, isPackageService: paidQty === 0 };
+      })
+    );
+  }, [effectiveCoveredServices]);
+
+  // Apply (or restore) ₹0 pricing on package rows when the client already owns that package
+  useEffect(() => {
+    if (effectiveCoveredServices.size === 0) {
+      setPackageRows((prev) => {
+        let changed = false;
+        const next = prev.map((row) => {
+          if (!(row as any).isPackageService) return row;
+          const name = ((row as any).packageName || (row as any).name || "").toLowerCase();
+          const catalogPkg = availablePackages.find((p: any) => (p.name || "").toLowerCase() === name);
+          if (!catalogPkg) return row;
+          changed = true;
+          const qty   = row.qty || 1;
+          const price = Number(catalogPkg.price) || 0;
+          return { ...row, price, total: price * qty, isPackageService: false };
+        });
+        return changed ? next : prev;
+      });
+      return;
+    }
+    setPackageRows((prev) =>
+      prev.map((row) => {
+        const name = ((row as any).packageName || (row as any).name || "").toLowerCase();
+        if (!name || !effectiveCoveredServices.has(name)) return row;
+        return { ...row, price: 0, total: 0, isPackageService: true };
+      })
+    );
+  }, [effectiveCoveredServices, availablePackages]);
+
+  // ── Membership wallet: preview allocation across service rows ──────────────
+  // Amount-based running pool (not per-name matching like packages) — draws
+  // from the client's single highest-balance active membership, in row order.
+  // Manual opt-in via the "Apply Membership" checkbox below the services list —
+  // unchecked by default, so a client with balance isn't billed from their
+  // wallet unless staff explicitly chooses to.
+  // Display-only: the backend independently recomputes and applies the real
+  // deduction at payment time (see payments.service.ts), gated on the same
+  // flag sent with the payment — this is just a preview.
+  const { primary: primaryMembership } = useClientMembershipWallet(clientIdForPkg);
+  const [applyMembership, setApplyMembership] = useState(false);
+  useEffect(() => { setApplyMembership(false); }, [clientIdForPkg]);
+  const membershipWalletMap = useMemo(() => {
+    const map = new Map<string, { walletUsed: number; payable: number }>();
+    if (!applyMembership) return map;
+    let remaining = primaryMembership?.membershipWalletBalance ?? 0;
+    if (remaining <= 0) return map;
+    serviceRows.forEach((row, i) => {
+      const tempId = (row as any).tempId || String(i);
+      if (!row.service.trim() || (row as any).isPackageService) return;
+      const rowTotal = Number(row.total) || 0;
+      if (rowTotal <= 0 || remaining <= 0) return;
+      const used = Math.min(remaining, rowTotal);
+      remaining -= used;
+      map.set(tempId, { walletUsed: used, payable: rowTotal - used });
+    });
+    return map;
+  }, [serviceRows, primaryMembership, applyMembership]);
+  const membershipWalletUsedTotal = useMemo(
+    () => Array.from(membershipWalletMap.values()).reduce((s, v) => s + v.walletUsed, 0),
+    [membershipWalletMap],
+  );
+  const membershipWalletRemaining = Math.max(0, (primaryMembership?.membershipWalletBalance ?? 0) - membershipWalletUsedTotal);
+
+  // Marks package sessions as complete for each covered service row after appointment is done
+  async function markPackageSessions() {
+    const pkgs = clientPkgsData?.items ?? [];
+    for (const row of serviceRows) {
+      const key = row.service.toLowerCase();
+      const remaining = effectiveCoveredServices.get(key) ?? 0;
+      if (remaining <= 0) continue;
+
+      // Find the package + service that covers this row
+      const qty = Number(row.qty) || 1;
+      const sessionsToMark = Math.min(qty, remaining);
+
+      for (const pkg of pkgs) {
+        const svc = pkg.services.find(
+          (s) => s.serviceName.toLowerCase() === key && s.remainingSessions > 0
+        );
+        if (!svc) continue;
+        for (let i = 0; i < sessionsToMark; i++) {
+          try {
+            await completePackageSession({
+              id: pkg.id,
+              body: { serviceId: svc.serviceId, staffName: row.staff || "Staff" },
+            }).unwrap();
+          } catch {
+            // don't block the appointment flow on session-mark failure
+          }
+        }
+        break; // one package is enough per service row
+      }
+    }
+  }
 
   // ── Totals ───────────────────────────────────────────────────────────────
   const totals = computeTotals({
     serviceRows, packageRows, productRows, membershipRows,
-    discountType, discountValue, gstPercent, exCharges, tip,
+    discountType, discountValue, taxes: activeTaxes, exCharges, tip,
     couponDiscount: coupon.discount,
     eWalletUsed: useEWallet ? eWalletAmt : 0,
+    membershipWalletUsed: membershipWalletUsedTotal,
   });
 
   const alreadyPaidAmount   = existingBooking?.payingNow ?? 0;
-  const remainingDue        = Math.max(0, totals.effectiveTotal - alreadyPaidAmount);
+  // For partial bookings, trust the API's dueAmount directly — payingNow can be unreliable
+  const remainingDue = (existingBooking?.paymentStatus === "Partial" && (existingBooking?.dueAmount ?? 0) > 0)
+    ? existingBooking.dueAmount
+    : Math.max(0, totals.effectiveTotal - alreadyPaidAmount);
   // Exclude current appointment's due so "Clear Pending Due" only shows OTHER unpaid appointments
   const priorDueAmt         = Math.max(0, (clientStats?.unpaidAmt ?? 0) - remainingDue);
   const previewPoints       = computePointsEarned(totals.effectiveTotal);
@@ -185,14 +383,31 @@ export const AppointmentModal: React.FC<Props> = ({
   }, [useEWallet, clientStats, totals.grandTotal]);
 
   // ── Inline validation errors ──────────────────────────────────────────────
-  const [clientError,  setClientError]  = useState("");
-  const [noItemsError, setNoItemsError] = useState(false);
-  const [svcErrors,    setSvcErrors]    = useState<Array<{ service?: boolean; staff?: boolean; time?: boolean }>>([]);
-  const [pkgErrors,    setPkgErrors]    = useState<boolean[]>([]);
-  const [prodErrors,   setProdErrors]   = useState<boolean[]>([]);
-  const [memErrors,    setMemErrors]    = useState<boolean[]>([]);
+  const [clientError,    setClientError]    = useState("");
+  const [noItemsError,   setNoItemsError]   = useState(false);
+  const [blockTimeError,      setBlockTimeError]      = useState("");
+  const [apptConflictError,   setApptConflictError]   = useState("");
+  const [svcErrors,      setSvcErrors]      = useState<Array<{ service?: boolean; staff?: boolean; time?: boolean }>>([]);
+  const [pkgErrors,      setPkgErrors]      = useState<boolean[]>([]);
+  const [prodErrors,     setProdErrors]     = useState<Array<{ item?: boolean; staff?: boolean; time?: boolean }>>([]);
+  const [memErrors,      setMemErrors]      = useState<Array<{ item?: boolean; staff?: boolean; time?: boolean }>>([]);
 
-  useEffect(() => { if (selectedClient) setClientError(""); }, [selectedClient]);
+  useEffect(() => {
+    if (selectedClient && selectedClient.id !== "walk-in") {
+      setClientError("");
+      setWalkInPayError("");
+      setTriggerAddForm(false);
+    }
+  }, [selectedClient]);
+
+  // Auto-open payment section for partial-paid appointments so user can pay the remaining due
+  useEffect(() => {
+    if (isOpen && existingBooking?.paymentStatus === "Partial") {
+      setShowPaymentSection(true);
+    } else if (!isOpen) {
+      setShowPaymentSection(false);
+    }
+  }, [isOpen, existingBooking?.id, existingBooking?.paymentStatus]);
 
   useEffect(() => {
     if (!noItemsError) return;
@@ -203,6 +418,12 @@ export const AppointmentModal: React.FC<Props> = ({
       membershipRows.some((r) => (r as any).membershipId);
     if (hasAny) setNoItemsError(false);
   }, [serviceRows, packageRows, productRows, membershipRows, noItemsError]);
+
+  useEffect(() => {
+    if (blockTimeError)    setBlockTimeError("");
+    if (apptConflictError) setApptConflictError("");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serviceRows, packageRows, membershipRows, productRows, calDate]);
 
   function validate(): boolean {
     let ok = true;
@@ -234,13 +455,85 @@ export const AppointmentModal: React.FC<Props> = ({
     setPkgErrors(pe);
     if (pe.some(Boolean)) ok = false;
 
-    const pre = productRows.map((r) => !(r as any).productId);
+    const pre = productRows.map((r) => ({
+      item:  !(r as any).productId,
+      staff: !!(r as any).productId && !r.staffId,
+      time:  !!(r as any).productId && !r.time,
+    }));
     setProdErrors(pre);
-    if (pre.some(Boolean)) ok = false;
+    if (pre.some((e) => e.item || e.staff || e.time)) ok = false;
 
-    const me = membershipRows.map((r) => !(r as any).membershipId);
+    const me = membershipRows.map((r) => ({
+      item:  !(r as any).membershipId,
+      staff: !!(r as any).membershipId && !r.staffId,
+      time:  !!(r as any).membershipId && !r.time,
+    }));
     setMemErrors(me);
-    if (me.some(Boolean)) ok = false;
+    if (me.some((e) => e.item || e.staff || e.time)) ok = false;
+
+    // ── Block time conflict check ─────────────────────────────────────────
+    setBlockTimeError("");
+    const rowsToCheck = [
+      ...serviceRows.filter((r) => r.service.trim() && r.staffId && r.time)
+        .map((r) => ({ staffId: r.staffId, time: r.time, duration: r.duration || 30 })),
+      ...packageRows.filter((r: any) => r.packageId && r.staffId && r.time)
+        .map((r: any) => ({ staffId: r.staffId, time: r.time, duration: r.duration || 30 })),
+      ...membershipRows.filter((r: any) => r.membershipId && r.staffId && r.time)
+        .map((r: any) => ({ staffId: r.staffId, time: r.time, duration: r.duration || 30 })),
+      ...productRows.filter((r: any) => r.productId && r.staffId && r.time)
+        .map((r: any) => ({ staffId: r.staffId, time: r.time, duration: r.duration || 30 })),
+    ];
+    for (const row of rowsToCheck) {
+      const svcStart = timeToMins(row.time);
+      const svcEnd   = svcStart + (row.duration || 30);
+      const conflict = (blockedTimes as any[]).find((bt) => {
+        if (String(bt.staffId) !== String(row.staffId)) return false;
+        if (bt.date !== calDate) return false;
+        const btStart = timeToMins(bt.startTime);
+        const btEnd   = timeToMins(bt.endTime);
+        return svcStart < btEnd && svcEnd > btStart;
+      });
+      if (conflict) {
+        const staffName =
+          (schedulerStaff as any[]).find((s) => String(s.id) === String(row.staffId))?.name ||
+          "This staff member";
+        const reasonPart = conflict.reason ? ` (${conflict.reason})` : "";
+        setBlockTimeError(
+          `${staffName} is blocked from ${conflict.startTime} to ${conflict.endTime} on this date${reasonPart}. Please choose a different time or staff.`
+        );
+        ok = false;
+        break;
+      }
+    }
+
+    // ── Existing appointment conflict check ───────────────────────────────
+    setApptConflictError("");
+    for (const row of rowsToCheck) {
+      const svcStart = timeToMins(row.time);
+      const svcEnd   = svcStart + (row.duration || 30);
+      const clash = (existingBookings as any[]).find((b) => {
+        if (existingBooking && String(b.id) === String(existingBooking.id)) return false;
+        if (b.date !== calDate) return false;
+        const bStaffId = String(b.staffId || "");
+        const rowStaffId = String(row.staffId);
+        const staffMatch = bStaffId === rowStaffId ||
+          (b.services || []).some((s: any) => String(s.staffId) === rowStaffId);
+        if (!staffMatch) return false;
+        const bStart = timeToMins(b.startTime);
+        const bEnd   = timeToMins(b.endTime);
+        return svcStart < bEnd && svcEnd > bStart;
+      });
+      if (clash) {
+        const staffName =
+          (schedulerStaff as any[]).find((s) => String(s.id) === String(row.staffId))?.name ||
+          "This staff member";
+        setApptConflictError(
+          `${staffName} already has an appointment at ${formatTime12(clash.startTime)} – ${formatTime12(clash.endTime)}. Please choose a different time or staff.`
+        );
+        ok = false;
+        break;
+      }
+    }
 
     return ok;
   }
@@ -255,22 +548,48 @@ export const AppointmentModal: React.FC<Props> = ({
         staffId:       serviceRows[0]?.staffId || defaultStaffId || "",
         date:          calDate,
         startTime:     serviceRows[0]?.time || defaultTime || "10:00",
-        paymentStatus: "Unpaid",
+        paymentStatus: (existingBooking?.paymentStatus || "Unpaid") as any,
+        grandTotal:    totals.grandTotal,
+        discount:      discountValue,
+        discountType,
+        exCharges,
+        tipAmount:     tip,
+        gst:           totals.taxable > 0 ? Number(((totals.gstAmount / totals.taxable) * 100).toFixed(4)) : 0,
+        gstAmount:     totals.gstAmount,
+        taxBreakdown:  totals.taxBreakdown,
       } as Partial<Booking>,
       serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId,
-      clientId:        selectedClient?.id ?? null,
-      existingBooking: existingBooking ?? null,
+      clientId:             selectedClient?.id ?? null,
+      existingBooking:      existingBooking ?? null,
+      isPackageAppointment: totals.grandTotal === 0,
     };
   }
 
   const handleSaveAndPay = useCallback(async () => {
     if (!validate()) return;
     const id = await save(buildSavePayload());
-    if (id) { onRefresh?.(); onClose(); }
+    if (id) {
+      // For package-covered appointments (grand total = ₹0), mark paymentMode in Redux BEFORE
+      // onRefresh overwrites the booking from the API. The paymentPatchCache survives setBookings,
+      // so the tooltip and bill correctly show ₹0 even while the appointment is still Unpaid.
+      if (totals.grandTotal === 0) {
+        dispatch(patchPaymentStatus({
+          id: String(id),
+          paymentStatus: "Unpaid",
+          payingNow: 0,
+          dueAmount: 0,
+          grandTotal: 0,
+          paymentMode: "Package",
+        }));
+      }
+      onRefresh?.();
+      onClose();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [save, selectedClient, serviceRows, packageRows, productRows, membershipRows,
+  }, [save, dispatch, totals.grandTotal, selectedClient, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
+      discountType, discountValue, exCharges, tip, activeTaxes, totals,
       onRefresh, onClose]);
 
   const handleUpdate = useCallback(async () => {
@@ -280,6 +599,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [save, selectedClient, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
+      discountType, discountValue, exCharges, tip, activeTaxes, totals,
       onRefresh, onClose]);
 
   // ── Pay ──────────────────────────────────────────────────────────────────
@@ -300,29 +620,87 @@ export const AppointmentModal: React.FC<Props> = ({
       salonId,
       grandTotal:        totals.grandTotal,
       effectiveTotal:    totals.effectiveTotal,
+      subtotal:          totals.subtotal,
+      manualDiscountAmt: totals.totalDisc,
       alreadyPaidAmount,
       eWalletAmt,
       couponDiscount:    coupon.discount,
       couponApplied:     coupon.applied,
       paymentMode, singleMethod, splitEntries, partialAmtInput,
       includeClearDue, priorDueAmt, useEWallet,
+      applyMembershipWallet: applyMembership,
+      gstAmount:         totals.gstAmount,
+      taxBreakdown:      totals.taxBreakdown,
     });
-    if (ok) { onRefresh?.(); onClose(); }
+    if (ok) {
+      await markPackageSessions();
+      if (printAfterPayment) {
+        const freshBooking = store.getState().scheduler.bookings.find(
+          (b: any) => String(b.id) === String(apptId)
+        );
+        if (freshBooking) printReceipt(freshBooking as any, schedulerStaff, currentSalon);
+      }
+      onRefresh?.();
+      onClose();
+    }
   }, [
     completePayment, existingBooking, apiAppointmentId,
     selectedClient, salonId, totals, alreadyPaidAmount,
     eWalletAmt, coupon, paymentMode, singleMethod, splitEntries,
-    partialAmtInput, includeClearDue, priorDueAmt, useEWallet,
-    onRefresh, onClose,
+    partialAmtInput, includeClearDue, priorDueAmt, useEWallet, applyMembership,
+    onRefresh, onClose, printAfterPayment, schedulerStaff, currentSalon,
   ]);
 
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  // ── Zero-payment for fully package-covered appointments ─────────────────
+  const handleZeroPackagePayment = useCallback(async () => {
+    const apptId = existingBooking?.id ?? apiAppointmentId;
+    if (!apptId) return;
+    // Catalog total = what the backend stored (price × qty per service, before package discount).
+    // The appointment was saved at full price so grand_total > 0 in the DB.
+    // We declare that amount as "paid via Package" so the backend marks the appointment Paid.
+    const catalogTotal = serviceRows.reduce((s: number, r) => {
+      const p = Number((r as any).price) || 0;
+      const q = Number(r.qty) || 1;
+      return s + p * q;
+    }, 0);
+    const result: any = await dispatch(postPaymentThunk({
+      salon_id:       salonId || undefined,
+      appointment_id: apptId,
+      client_id:      (selectedClient?.id && isRealId(selectedClient.id)) ? selectedClient.id : undefined,
+      gross_amount:   catalogTotal,
+      net_amount:     0,
+      paid_amount:    0,
+      due_amount:     0,
+      payment_method: "Package",
+      split_details:  { Package: catalogTotal },
+      status:         "completed",
+    }));
+    if (!postPaymentThunk.rejected.match(result)) {
+      dispatch(patchPaymentStatus({
+        id: String(apptId),
+        paymentStatus: "Paid",
+        payingNow: 0,
+        dueAmount: 0,
+        grandTotal: 0,
+        paymentMode: "Package",
+      }));
+      await markPackageSessions();
+      onRefresh?.();
+    }
+    onClose();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, existingBooking, apiAppointmentId, selectedClient, salonId, serviceRows, onRefresh, onClose]);
 
   if (!isOpen) return null;
 
   const isCancelledBooking = existingBooking?.status?.toLowerCase() === "cancelled";
+  const isPartialBooking   = existingBooking?.paymentStatus === "Partial";
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const isPaymentFrozen = existingBooking?.paymentStatus === "Paid"
-    || (alreadyPaidAmount > 0 && alreadyPaidAmount >= totals.effectiveTotal);
+    || (existingBooking?.paymentStatus !== "Partial"
+        && alreadyPaidAmount > 0
+        && alreadyPaidAmount >= totals.effectiveTotal);
   const parsedPartial   = parseFloat(partialAmtInput);
   const isPartialEntry  = !isNaN(parsedPartial) && parsedPartial > 0 && parsedPartial < remainingDue;
 
@@ -362,8 +740,8 @@ export const AppointmentModal: React.FC<Props> = ({
               </span>
             )
           )}
-          {/* Three-dot menu — only for existing appointments */}
-          {existingBooking && (
+          {/* Three-dot menu — hidden for partial-payment appointments */}
+          {existingBooking && !isPartialBooking && (
             <div style={{ position: "relative", marginLeft: "auto" }}>
               <button
                 onClick={() => setHeaderMenuOpen((v) => !v)}
@@ -386,7 +764,7 @@ export const AppointmentModal: React.FC<Props> = ({
                     borderRadius: 8, boxShadow: "0 4px 20px rgba(0,0,0,0.13)",
                     zIndex: 9999, minWidth: 190, padding: "4px 0",
                   }}>
-                    {!isCancelledBooking && onCancelBooking && (
+                    {!isCancelledBooking && existingBooking?.paymentStatus !== "Partial" && onCancelBooking && (
                       <button
                         style={apptMenuItemStyle}
                         onClick={() => { setHeaderMenuOpen(false); onCancelBooking(existingBooking); onClose(); }}
@@ -413,7 +791,7 @@ export const AppointmentModal: React.FC<Props> = ({
         <div className="appt-drawer-body" style={isCancelledBooking ? { pointerEvents: "none", opacity: 0.55, userSelect: "none" } : undefined}>
 
           {/* 1. Client */}
-          <div className="appt-section">
+          <div className="appt-section" ref={clientSectionRef}>
             <div className="appt-section__title"><PersonFill size={15} /> Client</div>
             <ClientPanel
               salonId={salonId}
@@ -426,13 +804,15 @@ export const AppointmentModal: React.FC<Props> = ({
               onClearClient={() => { setSelectedClient(null); setClientStats(null); }}
               onStatsLoaded={setClientStats}
               historyUrlBase="/dashboard/clients"
-              error={clientError}
+              error={clientError || walkInPayError}
+              defaultName={!existingBooking && !selectedClient ? defaultClientName : undefined}
               defaultPhone={!existingBooking && !selectedClient ? defaultClientPhone : undefined}
+              openAddForm={triggerAddForm}
             />
           </div>
 
           {/* 2. Services & Items */}
-          <div className="appt-section">
+          <div className="appt-section" style={isPartialBooking ? { pointerEvents: "none", opacity: 0.7 } : undefined}>
             <div className="appt-section__title"><Scissors size={15} /> Services &amp; Items</div>
             {noItemsError && (
               <div className="services-no-items-error">
@@ -463,7 +843,7 @@ export const AppointmentModal: React.FC<Props> = ({
                   triggerPackages({});
                   triggerTemplates();
                 }
-                setPackageRows((rows) => [...rows, { id: "", packageId: "", packageName: "", price: 0, qty: 1, discount: 0, total: 0 }]);
+                setPackageRows((rows) => [...rows, { id: "", packageId: "", packageName: "", price: 0, qty: 1, discount: 0, total: 0, staffId: defaultStaffId || "", time: serviceRows[0]?.time || defaultTime || "" }]);
               }}
               productRows={productRows}
               onUpdateProduct={(i, r) => setProductRows((rows) => rows.map((x, idx) => idx === i ? r : x))}
@@ -473,7 +853,7 @@ export const AppointmentModal: React.FC<Props> = ({
                   prodRequested.current = true;
                   dispatch(fetchProductsThunk());
                 }
-                setProductRows((rows) => [...rows, { id: "", productId: "", productName: "", price: 0, qty: 1, discount: 0, total: 0 }]);
+                setProductRows((rows) => [...rows, { id: "", productId: "", productName: "", price: 0, qty: 1, discount: 0, total: 0, staffId: defaultStaffId || "", time: serviceRows[0]?.time || defaultTime || "" }]);
               }}
               membershipRows={membershipRows}
               onUpdateMembership={(i, r) => setMembershipRows((rows) => rows.map((x, idx) => idx === i ? r : x))}
@@ -483,11 +863,13 @@ export const AppointmentModal: React.FC<Props> = ({
                   memRequested.current = true;
                   dispatch(fetchMembershipsThunk());
                 }
-                setMembershipRows((rows) => [...rows, { id: "", membershipId: "", membershipName: "", price: 0, qty: 1, total: 0 }]);
+                setMembershipRows((rows) => [...rows, { id: "", membershipId: "", membershipName: "", price: 0, qty: 1, total: 0, staffId: defaultStaffId || "", time: serviceRows[0]?.time || defaultTime || "" }]);
               }}
               availablePackages={availablePackages}
               availableProducts={availableProducts}
               availableMemberships={availableMemberships}
+              coveredServices={effectiveCoveredServices}
+              membershipWalletInfo={membershipWalletMap}
               frozen={false}
               svcErrors={svcErrors}
               pkgErrors={pkgErrors}
@@ -500,6 +882,57 @@ export const AppointmentModal: React.FC<Props> = ({
               })}
             />
           </div>
+
+          {/* Apply Package — manual opt-in, same treatment as Apply Membership below */}
+          {coveredServices.size > 0 && (
+            <div
+              className={`pay-ewallet${applyPackage ? " pay-ewallet--active" : ""}`}
+              style={{ margin: "0 0 12px" }}
+              onClick={() => setApplyPackage(v => !v)}
+            >
+              <input type="checkbox" checked={applyPackage} readOnly />
+              <span>Apply Package ({coveredServices.size} service{coveredServices.size !== 1 ? "s" : ""} covered)</span>
+            </div>
+          )}
+
+          {/* Apply Membership — manual opt-in to draw from the client's membership wallet */}
+          {primaryMembership && (
+            <div
+              className={`pay-ewallet${applyMembership ? " pay-ewallet--active" : ""}`}
+              style={{ margin: "0 0 12px" }}
+              onClick={() => setApplyMembership(v => !v)}
+            >
+              <input type="checkbox" checked={applyMembership} readOnly />
+              <span>Apply Membership (Available: {currencySymbol}{primaryMembership.membershipWalletBalance.toFixed(2)})</span>
+              {applyMembership && membershipWalletUsedTotal > 0 && (
+                <span className="pay-ewallet__deducted">-{currencySymbol}{membershipWalletUsedTotal.toFixed(2)}</span>
+              )}
+            </div>
+          )}
+
+          {/* Staff conflict errors — shown immediately below Services & Items */}
+          {apptConflictError && (
+            <div style={{
+              margin: "0 0 4px", padding: "10px 14px",
+              background: "#fef2f2", border: "1px solid #fca5a5",
+              borderRadius: 8, color: "#dc2626", fontSize: 13,
+              display: "flex", alignItems: "flex-start", gap: 8,
+            }}>
+              <span style={{ flexShrink: 0 }}>⛔</span>
+              <span>{apptConflictError}</span>
+            </div>
+          )}
+          {(saveError || payError) && (
+            <div style={{
+              margin: "0 0 4px", padding: "10px 14px",
+              background: "#fef2f2", border: "1px solid #fca5a5",
+              borderRadius: 8, color: "#dc2626", fontSize: 13,
+              display: "flex", alignItems: "flex-start", gap: 8,
+            }}>
+              <span style={{ flexShrink: 0 }}>⛔</span>
+              <span>{saveError || payError}</span>
+            </div>
+          )}
 
           {/* 3. Charges & Discounts */}
           {!showPaymentSection && (
@@ -514,25 +947,37 @@ export const AppointmentModal: React.FC<Props> = ({
                 </div>
                 <div className="field-group">
                   <label>Ex Charges</label>
-                  <input className="fg-input" type="number" min={0} value={exCharges}
-                    onChange={(e) => setExCharges(Number(e.target.value))} />
+                  <input className="fg-input" type="number" min={0}
+                    value={focusedField === "exCharges" && exCharges === 0 ? "" : exCharges}
+                    onFocus={() => setFocusedField("exCharges")}
+                    onBlur={() => setFocusedField(null)}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    onChange={(e) => setExCharges(e.target.value === "" ? 0 : Number(e.target.value))} />
                 </div>
                 <div className="field-group">
                   <label>Tip</label>
-                  <input className="fg-input" type="number" min={0} value={tip}
-                    onChange={(e) => setTip(Number(e.target.value))} />
+                  <input className="fg-input" type="number" min={0}
+                    value={focusedField === "tip" && tip === 0 ? "" : tip}
+                    onFocus={() => setFocusedField("tip")}
+                    onBlur={() => setFocusedField(null)}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    onChange={(e) => setTip(e.target.value === "" ? 0 : Number(e.target.value))} />
                 </div>
                 <div className="field-group">
                   <label>Svc Discount</label>
-                  <input className="fg-input" type="number" min={0} value={discountValue}
-                    onChange={(e) => setDiscountValue(Number(e.target.value))} />
+                  <input className="fg-input" type="number" min={0}
+                    value={focusedField === "discountValue" && discountValue === 0 ? "" : discountValue}
+                    onFocus={() => setFocusedField("discountValue")}
+                    onBlur={() => setFocusedField(null)}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    onChange={(e) => setDiscountValue(e.target.value === "" ? 0 : Number(e.target.value))} />
                 </div>
                 <div className="field-group">
                   <label>Disc. Type</label>
                   <select className="fg-input" value={discountType}
                     onChange={(e) => setDiscountType(e.target.value as DiscountType)}>
                     <option value="Percentage (%)">Percentage (%)</option>
-                    <option value="Flat (₹)">Flat ({currencySymbol})</option>
+                    <option value="Flat (₹)">Flat</option>
                   </select>
                 </div>
               </div>
@@ -559,7 +1004,8 @@ export const AppointmentModal: React.FC<Props> = ({
                 <div className="pn-layout__right">
                   <TotalsPanel
                     subtotal={totals.subtotal}
-                    serviceTotal={serviceRows.reduce((s, r) => s + r.total, 0)}
+                    serviceTotal={serviceRows.filter(r => !r.isPackageService).reduce((s, r) => s + r.total, 0)}
+                    packageServiceCount={serviceRows.filter(r => r.isPackageService).length}
                     packageTotal={packageRows.reduce((s, r) => s + r.total, 0)}
                     productTotal={productRows.reduce((s, r) => s + r.total, 0)}
                     membershipTotal={membershipRows.reduce((s, r) => s + r.total, 0)}
@@ -567,6 +1013,8 @@ export const AppointmentModal: React.FC<Props> = ({
                     discount={discountValue}
                     discountType={discountType}
                     totalDiscount={totals.totalDisc}
+                    gstAmount={totals.gstAmount}
+                    taxBreakdown={totals.taxBreakdown}
                     tip={tip}
                     alreadyPaid={alreadyPaidAmount}
                     dueAmount={remainingDue}
@@ -581,8 +1029,26 @@ export const AppointmentModal: React.FC<Props> = ({
             <div className="appt-section" ref={paymentSectionRef}>
               <div className="appt-section__title" style={{ display: "flex", justifyContent: "space-between" }}>
                 <span>Amount to Pay</span>
-                <span>{currencySymbol}{totals.effectiveTotal.toFixed(2)}</span>
+                {alreadyPaidAmount > 0 ? (
+                  <span>Paid {currencySymbol}{alreadyPaidAmount.toFixed(2)} &nbsp;·&nbsp; Remaining {currencySymbol}{remainingDue.toFixed(2)}</span>
+                ) : (
+                  <span>{currencySymbol}{totals.effectiveTotal.toFixed(2)}</span>
+                )}
               </div>
+              {totals.grandTotal === 0 ? (
+                <div style={{
+                  display: "flex", flexDirection: "column", alignItems: "center",
+                  gap: 10, padding: "24px 16px", background: "#f0fdf4",
+                  border: "1px solid #86efac", borderRadius: 10, marginTop: 8,
+                }}>
+                  <div style={{ fontSize: 32 }}>📦</div>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: "#15803d" }}>Package Payment</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: "#16a34a" }}>{currencySymbol}0.00</div>
+                  <div style={{ fontSize: 13, color: "#166534", textAlign: "center" }}>
+                    This appointment is fully covered by the client's active package. No payment required.
+                  </div>
+                </div>
+              ) : (
               <PaymentPanel
                 effectiveTotal={totals.effectiveTotal}
                 remainingDue={remainingDue}
@@ -592,6 +1058,8 @@ export const AppointmentModal: React.FC<Props> = ({
                 useEWallet={useEWallet}
                 eWalletAmt={eWalletAmt}
                 onToggleEWallet={setUseEWallet}
+                membershipWalletUsed={membershipWalletUsedTotal}
+                membershipWalletRemaining={membershipWalletRemaining}
                 couponInput={coupon.input}
                 onCouponInputChange={coupon.setInput}
                 onApplyCoupon={() => coupon.apply(totals.subtotal)}
@@ -617,11 +1085,20 @@ export const AppointmentModal: React.FC<Props> = ({
                 previewWalletCredit={previewWalletCredit}
                 frozen={isPaymentFrozen}
               />
+              )}
             </div>
           )}
 
-          {(saveError || payError) && (
-            <div className="err-text" style={{ marginTop: 8 }}>{saveError || payError}</div>
+          {blockTimeError && (
+            <div style={{
+              margin: "8px 0", padding: "10px 14px",
+              background: "#fef2f2", border: "1px solid #fca5a5",
+              borderRadius: 8, color: "#dc2626", fontSize: 13,
+              display: "flex", alignItems: "flex-start", gap: 8,
+            }}>
+              <span style={{ flexShrink: 0 }}>⛔</span>
+              <span>{blockTimeError}</span>
+            </div>
           )}
         </div>
 
@@ -642,17 +1119,42 @@ export const AppointmentModal: React.FC<Props> = ({
                     {isSaving ? "Saving…" : "Update Appointment"}
                   </button>
                   {!isPaymentFrozen && (
-                    <button className="btn btn-dark" onClick={() => {
-                      setShowPaymentSection(true);
-                      setTimeout(() => {
-                        paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                      }, 50);
-                    }}>
-                      Continue to Payment
-                    </button>
+                    totals.grandTotal === 0 ? (
+                      <button className="btn btn-dark" disabled={isSaving}
+                        style={{ background: "#16a34a", borderColor: "#16a34a" }}
+                        onClick={async () => {
+                          if (!validate()) return;
+                          const id = await save(buildSavePayload());
+                          if (!id) return;
+                          setShowPaymentSection(true);
+                          setTimeout(() => { paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 50);
+                        }}>
+                        {isSaving ? "Saving…" : `Continue with Payment (${currencySymbol}0)`}
+                      </button>
+                    ) : (
+                      <button className="btn btn-dark" disabled={isSaving} onClick={async () => {
+                        const isWalkIn = !selectedClient || selectedClient.id === "walk-in";
+                        if (isWalkIn) {
+                          setWalkInPayError("Add client details before proceeding to payment.");
+                          setTriggerAddForm(true);
+                          clientSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                          return;
+                        }
+                        if (!validate()) return;
+                        const id = await save(buildSavePayload());
+                        if (!id) return;
+                        setShowPaymentSection(true);
+                        setTimeout(() => {
+                          paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }, 50);
+                      }}>
+                        {isSaving ? "Saving…" : "Continue to Payment"}
+                      </button>
+                    )
                   )}
                 </>
               ) : (
+                // New appointment (no existingBooking) — always save and close
                 <button className="btn btn-dark" style={{ width: "100%" }} onClick={handleSaveAndPay} disabled={isSaving}>
                   {isSaving ? "Saving…" : "Save Appointment"}
                 </button>
@@ -660,16 +1162,29 @@ export const AppointmentModal: React.FC<Props> = ({
             </>
           ) : (
             <>
-              <button className="btn btn-outline-secondary" onClick={() => setShowPaymentSection(false)}>
-                <PencilFill size={13} /> Update Appointment
-              </button>
-              <PaymentButton
-                amount={isPartialEntry ? parsedPartial : (includeClearDue ? remainingDue + priorDueAmt : remainingDue)}
-                isPartial={isPartialEntry}
-                disabled={isPayDisabled}
-                label={isProcessing ? "Processing…" : confirmLabel}
-                onClick={handlePay}
-              />
+              {!isPartialBooking && (
+                <button className="btn btn-outline-secondary" onClick={() => setShowPaymentSection(false)}>
+                  <PencilFill size={13} /> Update Appointment
+                </button>
+              )}
+              {totals.grandTotal === 0 ? (
+                <button
+                  className="btn btn-dark"
+                  style={{ background: "#16a34a", borderColor: "#16a34a", flex: 1 }}
+                  disabled={isProcessing}
+                  onClick={handleZeroPackagePayment}
+                >
+                  {isProcessing ? "Processing…" : `Confirm & Complete (Package — ${currencySymbol}0)`}
+                </button>
+              ) : (
+                <PaymentButton
+                  amount={isPartialEntry ? parsedPartial : (includeClearDue ? remainingDue + priorDueAmt : remainingDue)}
+                  isPartial={isPartialEntry}
+                  disabled={isPayDisabled}
+                  label={isProcessing ? "Processing…" : confirmLabel}
+                  onClick={handlePay}
+                />
+              )}
             </>
           )}
         </div>

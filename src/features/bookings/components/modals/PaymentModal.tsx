@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { currencySymbol } from "../../../../utils/currency";
+import { currencySymbol } from "../../utils/currency";
 import type { Booking, PaymentStatus } from "../../types/scheduler-types";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import { useAppSelector } from "../../../../hooks/useAppRedux";
@@ -10,6 +10,7 @@ import {
   computePointsEarned, computeEWalletCredit,
   EWALLET_REDEEM_MINIMUM, MEMBERSHIP_TIERS,
 } from "../../../../store/schedulerSlice";
+import { useClientMembershipWallet } from "../../hooks/useClientMembershipWallet";
 import Button from "../../../../components/ui/Button";
 import Badge from "../../../../components/ui/Badge";
 import "../../styles/PaymentModal.scss";
@@ -63,7 +64,10 @@ const PaymentModal: React.FC<Props> = ({ booking, onClose, collectDue = false })
   const currentRevenue   = clientStat?.totalRevenue      ?? 0;
   const currentPoints    = clientStat?.rewardPointsTotal ?? 0;
   const currentMembership = clientStat?.membership ?? "NA";
+  // gross = what the backend stored as grand_total (may be pre-discount)
+  // manualDiscount = monetary discount computed by our mapper
   const grandTotal       = booking.grandTotal || 0;
+  const manualDiscount   = (booking as any).discountAmount || 0;
 
   // ── Coupon ──────────────────────────────────────────────────────────────────
   const [couponInput,    setCouponInput]    = useState("");
@@ -77,6 +81,15 @@ const PaymentModal: React.FC<Props> = ({ booking, onClose, collectDue = false })
   const [useEWallet, setUseEWallet] = useState(false);
   const [eWalletAmt, setEWalletAmt] = useState(0);
   const canUseEWallet = eWalletBalance >= EWALLET_REDEEM_MINIMUM;
+
+  // ── Membership wallet — manual opt-in via "Apply Membership" checkbox ────
+  const { primary: primaryMembership } = useClientMembershipWallet(booking.clientId);
+  const [applyMembership, setApplyMembership] = useState(false);
+  const serviceOnlyTotal = booking.services.reduce((s, svc) => s + (svc.total || 0), 0);
+  const membershipWalletUsed = applyMembership
+    ? Math.max(0, Math.min(primaryMembership?.membershipWalletBalance ?? 0, serviceOnlyTotal))
+    : 0;
+  const membershipWalletRemaining = Math.max(0, (primaryMembership?.membershipWalletBalance ?? 0) - membershipWalletUsed);
 
   // ── Payment method ───────────────────────────────────────────────────────────
   const [payMode,       setPayMode]       = useState<"Single" | "Split">("Single");
@@ -103,7 +116,7 @@ const PaymentModal: React.FC<Props> = ({ booking, onClose, collectDue = false })
   const [newMembership,setNewMembership]= useState("");
 
   // ── Derived ──────────────────────────────────────────────────────────────────
-  const effectiveTotal    = Math.max(0, grandTotal - couponDiscount - (useEWallet ? eWalletAmt : 0));
+  const effectiveTotal    = Math.max(0, grandTotal - manualDiscount - couponDiscount - (useEWallet ? eWalletAmt : 0) - membershipWalletUsed);
   const previewPoints     = computePointsEarned(effectiveTotal);
   const previewWallet     = computeEWalletCredit(previewPoints);
   const previewRevenue    = currentRevenue + effectiveTotal;
@@ -218,16 +231,18 @@ const PaymentModal: React.FC<Props> = ({ booking, onClose, collectDue = false })
         await api.post(PAYMENT.BASE, {
           appointment_id: appointmentId,
           client_id: booking.clientId && !String(booking.clientId).startsWith("b_") ? booking.clientId : undefined,
-          gross_amount: collectDue ? (booking.grandTotal || grandTotal) : grandTotal,
-          discount_amount: collectDue ? 0 : couponDiscount,
-          ewallet_used: collectDue ? 0 : (useEWallet ? eWalletAmt : 0),
-          net_amount: collectDue ? (booking.grandTotal || grandTotal) : effectiveTotal,
-          paid_amount: totalPaid,
-          due_amount: remainingDue,
-          coupon_code: collectDue ? undefined : (couponApplied || undefined),
-          payment_method: methodLabel.toLowerCase(),
-          split_details: payMode === "Split" ? methods : undefined,
-          status: remainingDue > 0 ? "partial" : "completed",
+          // gross = pre-discount total so backend computes: net = gross - discount_amount, due = net - paid
+          gross_amount:    collectDue ? (booking.grandTotal || grandTotal) : grandTotal,
+          discount_amount: collectDue ? 0 : (manualDiscount + couponDiscount),
+          ewallet_used:    collectDue ? 0 : (useEWallet ? eWalletAmt : 0),
+          net_amount:      collectDue ? (booking.dueAmount || 0) : effectiveTotal,
+          paid_amount:     totalPaid,
+          due_amount:      remainingDue,
+          coupon_code:     collectDue ? undefined : (couponApplied || undefined),
+          payment_method:  methodLabel.toLowerCase(),
+          split_details:   payMode === "Split" ? methods : undefined,
+          status:          remainingDue > 0 ? "partial" : "completed",
+          apply_membership_wallet: applyMembership,
         });
       } catch (err) {
         console.error("Failed to save payment:", err);
@@ -352,6 +367,12 @@ const PaymentModal: React.FC<Props> = ({ booking, onClose, collectDue = false })
                   <span className="fw-semibold">{currencySymbol}{(p.total || p.price * p.qty).toFixed(2)}</span>
                 </div>
               ))}
+              {manualDiscount > 0 && (
+                <div className="d-flex justify-content-between px-3 py-2 border-bottom small text-danger">
+                  <span>Discount ({(booking as any).discountType === "Flat (₹)" ? "Flat" : `${(booking as any).discount ?? 0}%`})</span>
+                  <span>−{currencySymbol}{manualDiscount.toFixed(2)}</span>
+                </div>
+              )}
               {couponDiscount > 0 && (
                 <div className="d-flex justify-content-between px-3 py-2 border-bottom small text-success">
                   <span>Coupon <Badge variant="success">{couponApplied}</Badge></span>
@@ -361,6 +382,11 @@ const PaymentModal: React.FC<Props> = ({ booking, onClose, collectDue = false })
               {useEWallet && eWalletAmt > 0 && (
                 <div className="d-flex justify-content-between px-3 py-2 border-bottom small text-primary">
                   <span>eWallet</span><span>−{currencySymbol}{eWalletAmt.toFixed(2)}</span>
+                </div>
+              )}
+              {membershipWalletUsed > 0 && (
+                <div className="d-flex justify-content-between px-3 py-2 border-bottom small text-primary">
+                  <span>Membership Wallet</span><span>−{currencySymbol}{membershipWalletUsed.toFixed(2)}</span>
                 </div>
               )}
               <div className="d-flex justify-content-between px-3 py-3 fw-bold"
@@ -437,6 +463,24 @@ const PaymentModal: React.FC<Props> = ({ booking, onClose, collectDue = false })
               ) : (
                 <div className="small text-muted">
                   🔒 eWallet: {currencySymbol}{eWalletBalance.toFixed(2)} — Redeemable at {currencySymbol}{EWALLET_REDEEM_MINIMUM}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Membership wallet — manual opt-in */}
+          {primaryMembership && (
+            <div className="rounded-3 p-3 border border-primary bg-light">
+              <div className="form-check">
+                <input type="checkbox" className="form-check-input" id="applyMembership"
+                  checked={applyMembership} onChange={(e) => setApplyMembership(e.target.checked)} />
+                <label className="form-check-label fw-semibold text-primary" htmlFor="applyMembership">
+                  Apply Membership (Available: {currencySymbol}{primaryMembership.membershipWalletBalance.toFixed(2)})
+                </label>
+              </div>
+              {applyMembership && membershipWalletUsed > 0 && (
+                <div className="text-primary small mt-1 fw-semibold">
+                  ✓ Applying {currencySymbol}{membershipWalletUsed.toFixed(2)} from Membership Wallet — Remaining Balance: {currencySymbol}{membershipWalletRemaining.toFixed(2)}
                 </div>
               )}
             </div>

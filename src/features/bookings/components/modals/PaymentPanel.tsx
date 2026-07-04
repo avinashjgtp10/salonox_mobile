@@ -2,7 +2,7 @@ import React from "react";
 import type { SingleMethod, SplitEntry } from "../../types";
 import "../../styles/AppointmentModal.scss";
 import { SINGLE_METHODS } from "../../types";
-import { currencySymbol } from "../../../../utils/currency";
+import { currencySymbol } from "../../utils/currency";
 
 interface Props {
   // Totals
@@ -16,6 +16,10 @@ interface Props {
   useEWallet: boolean;
   eWalletAmt: number;
   onToggleEWallet: (v: boolean) => void;
+
+  // Membership wallet (automatic, not a toggle)
+  membershipWalletUsed?: number;
+  membershipWalletRemaining?: number;
 
   // Coupon
   couponInput: string;
@@ -60,6 +64,7 @@ const EWALLET_MINIMUM = 100;
 export const PaymentPanel: React.FC<Props> = ({
   remainingDue, alreadyPaid,
   eWalletBalance, useEWallet, eWalletAmt, onToggleEWallet,
+  membershipWalletUsed = 0, membershipWalletRemaining,
   couponInput, onCouponInputChange, onApplyCoupon,
   couponMessage, couponError, couponLoading,
   paymentMode, onSetPaymentMode,
@@ -114,6 +119,19 @@ export const PaymentPanel: React.FC<Props> = ({
           <span>Use eWallet (Available: {currencySymbol}{eWalletBalance.toFixed(2)})</span>
           {useEWallet && eWalletAmt > 0 && (
             <span className="pay-ewallet__deducted">-{currencySymbol}{eWalletAmt.toFixed(2)}</span>
+          )}
+        </div>
+      )}
+
+      {/* Membership wallet — automatic, informational only */}
+      {membershipWalletUsed > 0 && (
+        <div className="pay-ewallet pay-ewallet--active" style={{ cursor: "default" }}>
+          <span>Membership Wallet Applied</span>
+          <span className="pay-ewallet__deducted">-{currencySymbol}{membershipWalletUsed.toFixed(2)}</span>
+          {membershipWalletRemaining != null && (
+            <span style={{ marginLeft: "auto", fontSize: 12, opacity: 0.75 }}>
+              Remaining Balance: {currencySymbol}{membershipWalletRemaining.toFixed(2)}
+            </span>
           )}
         </div>
       )}

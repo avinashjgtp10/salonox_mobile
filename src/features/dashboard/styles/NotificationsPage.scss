@@ -1,0 +1,409 @@
+@use "../../../styles/themes/variables" as *;
+
+.notif-page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 28px 24px 48px;
+}
+
+/* ── Header ── */
+.notif-page-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.notif-page-back {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid $dashboard-border;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  color: $dashboard-primary;
+  transition: background 0.15s, box-shadow 0.15s;
+  flex-shrink: 0;
+
+  &:hover { background: $dashboard-bg; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+}
+
+.notif-page-heading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: $dashboard-primary;
+    margin: 0;
+  }
+}
+
+.notif-page-badge {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #ef4444;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 20px;
+  padding: 2px 10px;
+}
+
+.notif-page-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notif-page-icon-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid $dashboard-border;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  color: $dashboard-secondary;
+  transition: all 0.15s;
+
+  &:hover:not(:disabled) { background: $dashboard-bg; color: $dashboard-primary; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.notif-page-spin {
+  animation: spin 0.7s linear infinite;
+}
+
+.notif-page-mark-all {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: $dashboard-secondary;
+  background: none;
+  border: 1px solid $dashboard-border;
+  border-radius: 8px;
+  padding: 7px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+
+  &:hover { background: $dashboard-bg; color: $dashboard-primary; }
+}
+
+/* ── Info banner ── */
+.notif-page-info-banner {
+  background: #f0f7ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.notif-page-info-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1d4ed8;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover { background: #e0f0ff; }
+}
+
+.notif-page-info-chevron {
+  margin-left: auto;
+  font-size: 10px;
+}
+
+.notif-page-info-body {
+  padding: 0 16px 14px;
+  border-top: 1px solid #bfdbfe;
+
+  p {
+    font-size: 12.5px;
+    color: #1e40af;
+    margin: 10px 0 8px;
+  }
+
+  ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12.5px;
+    color: #374151;
+  }
+}
+
+.notif-page-info-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.notif-page-info-note {
+  margin-top: 10px !important;
+  font-size: 11.5px !important;
+  color: #6b7280 !important;
+  font-style: italic;
+}
+
+/* ── Error state ── */
+.notif-page-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 24px;
+  text-align: center;
+  color: #ef4444;
+
+  p {
+    font-size: 14px;
+    color: #374151;
+    margin: 12px 0 16px;
+  }
+
+  button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 18px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: $dashboard-primary;
+    cursor: pointer;
+    transition: background 0.15s;
+
+    &:hover { background: $dashboard-bg; }
+  }
+}
+
+/* ── Filter tabs ── */
+.notif-page-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid $dashboard-border;
+  padding-bottom: 0;
+}
+
+.notif-page-tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 18px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #9ca3af;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+
+  &:hover { color: $dashboard-primary; }
+
+  &--active {
+    color: $dashboard-primary;
+    border-bottom-color: $dashboard-primary;
+  }
+}
+
+.notif-page-tab-count {
+  font-size: 11px;
+  font-weight: 700;
+  background: #f3f4f6;
+  color: #6b7280;
+  border-radius: 20px;
+  padding: 1px 7px;
+
+  &--unread {
+    background: #fef2f2;
+    color: #ef4444;
+  }
+}
+
+/* ── Body ── */
+.notif-page-body {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Empty state ── */
+.notif-page-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 72px 24px;
+  text-align: center;
+  color: #9ca3af;
+
+  .notif-page-empty-icon {
+    margin-bottom: 16px;
+    opacity: 0.35;
+  }
+
+  p {
+    font-size: 15px;
+    font-weight: 600;
+    color: #6b7280;
+    margin: 0 0 6px;
+  }
+
+  span {
+    font-size: 13px;
+    color: #9ca3af;
+  }
+}
+
+.notif-page-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #e5e7eb;
+  border-top-color: $dashboard-primary;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Group ── */
+.notif-page-group-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 10px;
+}
+
+.notif-page-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: #fff;
+  border: 1px solid $dashboard-border;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+/* ── Item ── */
+.notif-page-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  cursor: pointer;
+  transition: background 0.12s;
+  position: relative;
+  border-bottom: 1px solid #f3f4f6;
+
+  &:last-child { border-bottom: none; }
+
+  &:hover { background: #f9fafb; }
+
+  &--unread {
+    background: #f0f7ff;
+    &:hover { background: #e8f0fe; }
+  }
+}
+
+.notif-page-item-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.notif-page-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.notif-page-item-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.notif-page-item-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 2px 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.notif-page-item-time {
+  font-size: 11.5px;
+  color: #9ca3af;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.notif-page-item-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: $dashboard-primary;
+  margin: 0 0 3px;
+  line-height: 1.4;
+}
+
+.notif-page-item-body {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.notif-page-item-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #3b82f6;
+  flex-shrink: 0;
+  margin-top: 6px;
+}

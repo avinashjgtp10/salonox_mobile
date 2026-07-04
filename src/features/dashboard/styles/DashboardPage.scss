@@ -72,24 +72,6 @@ body {
   &:hover { background: $btn-hover; }
 }
 
-.notification {
-  position: relative;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-}
-
-.badge {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  background: $badge-bg;
-  color: $white;
-  font-size: 9px;
-  padding: 2px 5px;
-  border-radius: 50%;
-}
-
 .profile {
   width: 30px;
   height: 30px;
@@ -1032,6 +1014,123 @@ body {
 .topbar-notif-footer {
   border-top: 1px solid $dashboard-border;
   padding: 10px 18px;
+}
+
+/* ── PUSH NOTIFICATION TOASTS ── */
+.notif-toast-container {
+  position: fixed;
+  top: 72px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.notif-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.13), 0 2px 8px rgba(0,0,0,0.07);
+  padding: 14px 16px;
+  min-width: 300px;
+  max-width: 360px;
+  pointer-events: all;
+  cursor: pointer;
+  border-left: 4px solid var(--toast-color, #3b82f6);
+  animation: toastSlideIn 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards;
+
+  &.notif-toast--exit {
+    animation: toastSlideOut 0.25s ease-in forwards;
+  }
+
+  &:hover { box-shadow: 0 12px 40px rgba(0,0,0,0.16); }
+}
+
+.notif-toast-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--toast-bg, #eff6ff);
+  color: var(--toast-color, #3b82f6);
+}
+
+.notif-toast-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.notif-toast-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: $dashboard-primary;
+  margin: 0 0 3px;
+  line-height: 1.3;
+}
+
+.notif-toast-text {
+  font-size: 12.5px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.notif-toast-time {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 4px;
+  display: block;
+}
+
+.notif-toast-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+  align-self: flex-start;
+  transition: color 0.15s;
+
+  &:hover { color: $dashboard-primary; }
+}
+
+.notif-toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  border-radius: 0 0 14px 14px;
+  background: var(--toast-color, #3b82f6);
+  opacity: 0.4;
+  animation: toastProgress 5s linear forwards;
+}
+
+@keyframes toastSlideIn {
+  from { opacity: 0; transform: translateX(110%); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes toastSlideOut {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(110%); }
+}
+
+@keyframes toastProgress {
+  from { width: 100%; }
+  to   { width: 0%; }
 }
 
 .topbar-notif-view-all {

@@ -30,6 +30,7 @@ export interface ResizeState {
   startY: number;
   originalHeight: number;
   currentHeight: number;
+  staffId: string;
 }
 
 export interface UseDragDropReturn {

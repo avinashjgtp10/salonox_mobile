@@ -1,0 +1,183 @@
+.btc {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  width: 278px;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+  overflow: hidden;
+
+  // ── Header ──
+  &__header {
+    padding: 11px 13px;
+    border-bottom: 1px solid #f3f4f6;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 13px;
+    flex-shrink: 0;
+    user-select: none;
+  }
+
+  &__client-info { flex: 1; min-width: 0; }
+
+  &__client-name {
+    font-weight: 700;
+    color: #111827;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+  }
+
+  &__phone {
+    font-size: 11px;
+    color: #6b7280;
+    margin-top: 1px;
+  }
+
+  &__time {
+    font-size: 11px;
+    color: #6b7280;
+    margin-top: 1px;
+  }
+
+  &__pay-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    letter-spacing: 0.2px;
+  }
+
+  // ── Staff row ──
+  &__staff-row {
+    padding: 7px 13px;
+    border-bottom: 1px solid #f3f4f6;
+    font-size: 12px;
+    color: #374151;
+    display: flex;
+    gap: 5px;
+    align-items: center;
+  }
+
+  &__staff-label { color: #9ca3af; }
+
+  &__staff-names {
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // ── Items ──
+  &__items { padding: 6px 13px; }
+
+  &__item {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    border-bottom: 1px solid #f9fafb;
+
+    &:last-child  { border-bottom: none; }
+    &--flex-start { align-items: flex-start; }
+    &--centered   { align-items: center; }
+  }
+
+  &__item-left {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    margin-right: 8px;
+  }
+
+  &__item-icon {
+    font-size: 12px;
+    flex-shrink: 0;
+    line-height: 18px;
+    user-select: none;
+  }
+
+  &__item-info { min-width: 0; }
+
+  &__item-name {
+    color: #111827;
+    font-weight: 500;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 18px;
+  }
+
+  &__item-sub {
+    font-size: 10px;
+    color: #9ca3af;
+    margin-top: 1px;
+  }
+
+  &__item-price {
+    color: #374151;
+    font-weight: 600;
+    font-size: 12px;
+    flex-shrink: 0;
+    line-height: 18px;
+  }
+
+  // ── Totals ──
+  &__totals { border-top: 1px solid #f3f4f6; }
+
+  &__total-row {
+    padding: 8px 13px 4px;
+    display: flex;
+    justify-content: space-between;
+    font-weight: 700;
+    color: #111827;
+    font-size: 13px;
+  }
+
+  &__paid-row {
+    padding: 2px 13px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #16a34a;
+    font-weight: 600;
+  }
+
+  &__due-row {
+    padding: 2px 13px 8px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #dc2626;
+    font-weight: 600;
+  }
+
+  // ── Notes ──
+  &__notes {
+    padding: 6px 13px 10px;
+    font-size: 11px;
+    color: #6b7280;
+    border-top: 1px solid #f9fafb;
+    font-style: italic;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

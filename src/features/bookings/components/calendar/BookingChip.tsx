@@ -1,7 +1,7 @@
 import React from "react";
 import type { Booking } from "../../types";
 import type { DragCandidate, ResizeState } from "../../hooks/useDragDrop";
-import { currencySymbol } from "../../../../utils/currency";
+import { currencySymbol } from "../../utils/currency";
 import { formatTime12, addMinutes } from "../../utils/timeUtils";
 
 function buildTitle(b: Booking): string {
@@ -178,7 +178,7 @@ const BookingChipComponent: React.FC<Props> = ({
           if (isReadOnly) return;
           e.stopPropagation(); e.preventDefault();
           const h = Math.max(chipHeight, slotHeight);
-          onStartResize({ booking: b, startY: e.clientY, originalHeight: h, currentHeight: h });
+          onStartResize({ booking: b, startY: e.clientY, originalHeight: h, currentHeight: h, staffId });
         }}
       >
         <div className="dv-chip__resize-bar" />

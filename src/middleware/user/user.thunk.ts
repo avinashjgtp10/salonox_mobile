@@ -22,6 +22,10 @@ interface BackendUser {
   avatarUrl?: string | null;
   isOnboardingComplete?: boolean;
   custom_permissions?: Record<string, boolean> | null;
+  role?: string;
+  isVerified?: boolean;
+  isActive?: boolean;
+  createdAt?: string;
 }
 
 interface ApiResponse<T> {
@@ -51,6 +55,10 @@ function toUser(raw: BackendUser): User {
     avatarUrl: raw.avatarUrl ?? undefined,
     isOnboardingComplete: raw.isOnboardingComplete,
     custom_permissions: raw.custom_permissions ?? null,
+    role: raw.role ?? undefined,
+    isVerified: raw.isVerified ?? undefined,
+    isActive: raw.isActive ?? undefined,
+    createdAt: raw.createdAt ?? undefined,
   };
 }
 

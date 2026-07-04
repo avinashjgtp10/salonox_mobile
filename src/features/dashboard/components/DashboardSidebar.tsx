@@ -13,7 +13,9 @@ import {
   Grid3x3Gap,
   Gear,
   QuestionCircle,
+  Cash,
 } from "react-bootstrap-icons";
+
 import { usePermissions } from "../../../hooks/usePermissions";
 
 type MenuKey =
@@ -56,14 +58,17 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
       )}
 
       {can("view_sales") && can("create_sales") && (
-        <NavLink
-          to="/dashboard/sales/quick"
-          className={({ isActive }) => navClass(isActive)}
-          onClick={() => onMenuChange(null)}
+        <button
+          type="button"
+          className="nav-btn"
+          onClick={() => {
+            onMenuChange(null);
+            navigate("/dashboard/calendar", { state: { openNewAppt: true } });
+          }}
         >
           <Lightning size={26} />
           <span className="nav-label">Quick Sale</span>
-        </NavLink>
+        </button>
       )}
 
       {can("view_appointments") && (
@@ -124,6 +129,20 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
           <Person size={26} />
           <span className="nav-label">Online booking</span>
         </button>
+      )}
+
+      {can("view_sales") && (
+        <NavLink
+          to={{
+            pathname: "/dashboard/cash-management",
+          }}
+          state={{ autoloadCashManagement: Date.now() }}
+          className={({ isActive }) => navClass(isActive)}
+          onClick={() => onMenuChange(null)}
+        >
+          <Cash  size={26} />
+          <span className="nav-label">Cash Management</span>
+        </NavLink>
       )}
 
       {can("view_marketing") && (

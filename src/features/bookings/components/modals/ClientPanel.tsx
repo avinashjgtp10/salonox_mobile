@@ -6,6 +6,8 @@ import { ClientStatCard } from "../shared/ClientStatCard";
 import { useClientDetails } from "../../hooks/useClientDetails";
 import { useAppSelector } from "../../../../hooks/useAppRedux";
 import { selectBookings } from "../../../../store/selectors/scheduler.selectors";
+import { useListClientPackagesQuery } from "../../../../services/api/endpoints/packages.endpoints";
+import { useClientMembershipWallet } from "../../hooks/useClientMembershipWallet";
 import api from "../../../../services/api/axios";
 import "../../styles/AppointmentModal.scss";
 
@@ -58,34 +60,48 @@ interface Props {
   onStatsLoaded?: (stats: ClientStats) => void;
   historyUrlBase?: string;
   error?: string;
+  defaultName?: string;
   defaultPhone?: string;
+  openAddForm?: boolean;
 }
 
 export const ClientPanel: React.FC<Props> = ({
   salonId, calDate, onDateChange, selectedClientId,
   fallbackUnpaidAmt,
-  onSelectClient, onClearClient, onStatsLoaded, error, defaultPhone,
+  onSelectClient, onClearClient, onStatsLoaded, error, defaultName, defaultPhone, openAddForm,
 }) => {
   const navigate = useNavigate();
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(selectedClientId === "walk-in" ? "Walk In" : "");
   const [suggestions, setSuggestions] = useState<Client[]>([]);
   const [totalFound, setTotalFound] = useState(0);
   const [showDrop, setShowDrop] = useState(false);
-  const [showAddForm, setShowAddForm] = useState(!!defaultPhone);
-  const [addFirst, setAddFirst] = useState("");
+  const [showAddForm, setShowAddForm] = useState(!!defaultName || !!defaultPhone);
+  const [addFirst, setAddFirst] = useState(defaultName ?? "");
   const [addLast, setAddLast] = useState("");
   const [addPhone, setAddPhone] = useState(defaultPhone ?? "");
   const [addGender, setAddGender] = useState("");
   const [addSaving, setAddSaving] = useState(false);
   const [addErrors, setAddErrors] = useState<{ first?: string; phone?: string; gender?: string }>({});
   const [noResults, setNoResults] = useState(false);
+  const [searching, setSearching] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
   const skipNextSearch = useRef(false);
-  // Prevents the initial search effect from clearing the defaultPhone pre-fill on mount
-  const skipInitialClear = useRef(!!defaultPhone);
+  const skipNextClear = useRef(false);
+  // Prevents the initial search effect from clearing the defaultName/defaultPhone pre-fill on mount
+  const skipInitialClear = useRef(!!defaultName || !!defaultPhone);
+
+  useEffect(() => { if (openAddForm) setShowAddForm(true); }, [openAddForm]);
 
   const { details, stats, loading: statsLoading } = useClientDetails(selectedClientId);
   const allBookings = useAppSelector(selectBookings);
+
+  const clientIdForPkg = selectedClientId && selectedClientId !== "walk-in" ? selectedClientId : undefined;
+  const { data: clientPkgsData } = useListClientPackagesQuery(
+    { clientId: clientIdForPkg, status: "Active", limit: 50 },
+    { skip: !clientIdForPkg },
+  );
+
+  const { memberships: clientMemberships } = useClientMembershipWallet(clientIdForPkg);
 
   // Calculate real unpaid amount from Redux — API always returns 0.
   // Falls back to the existingBooking's dueAmount when Redux doesn't have the booking yet.
@@ -119,13 +135,21 @@ export const ClientPanel: React.FC<Props> = ({
 
   useEffect(() => {
     if (search.length < 3) {
-      setSuggestions([]); setNoResults(false);
-      if (skipInitialClear.current) { skipInitialClear.current = false; } else { clearPrefill(); }
+      setSuggestions([]); setNoResults(false); setSearching(false);
+      if (skipInitialClear.current) {
+        skipInitialClear.current = false;
+      } else if (skipNextClear.current) {
+        skipNextClear.current = false;
+      } else {
+        clearPrefill();
+      }
       return;
     }
     if (search === "Walk In") return;
     let cancelled = false;
     if (skipNextSearch.current) { skipNextSearch.current = false; return; }
+    setSearching(true);
+    setShowDrop(true);
     const t = setTimeout(async () => {
       try {
         const res = await api.get(`/api/v1/clients/search?q=${encodeURIComponent(search)}&salon_id=${salonId || ""}`);
@@ -149,13 +173,14 @@ export const ClientPanel: React.FC<Props> = ({
           setAddErrors({});
         } else {
           setNoResults(false);
+          setShowAddForm(false);
         }
-        setShowDrop(true);
+        setSearching(false);
       } catch {
-        if (!cancelled) { setSuggestions([]); setTotalFound(0); setNoResults(false); }
+        if (!cancelled) { setSuggestions([]); setTotalFound(0); setNoResults(false); setSearching(false); }
       }
     }, 250);
-    return () => { clearTimeout(t); cancelled = true; };
+    return () => { clearTimeout(t); cancelled = true; setSearching(false); };
   }, [search, salonId]);
 
   function selectClient(c: Client) {
@@ -170,6 +195,9 @@ export const ClientPanel: React.FC<Props> = ({
     onSelectClient(walkIn);
     setSearch("Walk In");
     setShowDrop(false);
+    setShowAddForm(false);
+    setNoResults(false);
+    clearPrefill();
   }
 
   async function handleCreateClient() {
@@ -248,17 +276,54 @@ export const ClientPanel: React.FC<Props> = ({
               }}
               onFocus={() => suggestions.length > 0 && setShowDrop(true)}
             />
-            {(search || selectedClientId) && (
-              <button
-                className="client-search-clear"
-                type="button"
-                tabIndex={-1}
-                onMouseDown={(e) => { e.preventDefault(); setSearch(""); onClearClient(); setSuggestions([]); setTotalFound(0); setShowDrop(false); setNoResults(false); clearPrefill(); }}
-              >×</button>
-            )}
+            {searching
+              ? <span className="client-search-spinner" />
+              : (search || selectedClientId) && (
+                  <button
+                    className="client-search-clear"
+                    type="button"
+                    tabIndex={-1}
+                    onMouseDown={(e) => { e.preventDefault(); setSearch(""); onClearClient(); setSuggestions([]); setTotalFound(0); setShowDrop(false); setNoResults(false); clearPrefill(); }}
+                  >×</button>
+                )
+            }
           </div>
-          {error && <div className="client-field-error">{error}</div>}
-          {showDrop && suggestions.length > 0 && (
+          {showDrop && searching && (
+            <div className="client-dropdown">
+              <div className="client-dropdown__searching">
+                <span className="client-dropdown__searching-dot" />
+                Searching…
+              </div>
+            </div>
+          )}
+          {showDrop && !searching && noResults && (
+            <div className="client-dropdown">
+              <div
+                className="client-dropdown__no-results"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  skipNextClear.current = true;
+                  setSearch("");
+                  setShowDrop(false);
+                  setNoResults(false);
+                  setShowAddForm(true);
+                }}
+              >
+                <svg className="client-dropdown__no-results-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+                </svg>
+                <span>
+                  No clients found for{" "}
+                  <span className="client-dropdown__no-results-keyword">
+                    <span className="client-dropdown__no-results-keyword-text">"{search}"</span>
+                    <span className="client-dropdown__no-results-keyword-line" />
+                  </span>
+                </span>
+              </div>
+            </div>
+          )}
+          {showDrop && !searching && suggestions.length > 0 && (
             <div className="client-dropdown">
               <div className="client-dropdown__count">
                 {totalFound} CLIENT{totalFound !== 1 ? "S" : ""} FOUND
@@ -311,10 +376,11 @@ export const ClientPanel: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* ── Client not found message (outside toolbar so buttons stay in same row) ── */}
-      {noResults && (
-        <div className="client-not-found-msg">
-          Client not found. Please create a new client.
+      {/* Error banner — rendered outside the toolbar so it never breaks the flex row */}
+      {error && (
+        <div className="client-error-banner">
+          <span className="client-error-banner__icon">⚠</span>
+          {error}
         </div>
       )}
 
@@ -327,8 +393,9 @@ export const ClientPanel: React.FC<Props> = ({
               className={`acf-input${addErrors.first ? " acf-input--error" : ""}`}
               placeholder=""
               value={addFirst}
+              maxLength={20}
               onChange={(e) => {
-                const val = e.target.value.replace(/[^a-zA-Z]/g, "");
+                const val = e.target.value.replace(/[^a-zA-Z]/g, "").slice(0, 20);
                 setAddFirst(val);
                 if (val.trim()) setAddErrors((prev) => ({ ...prev, first: undefined }));
               }}
@@ -339,7 +406,8 @@ export const ClientPanel: React.FC<Props> = ({
             className="acf-input"
             placeholder="Last name"
             value={addLast}
-            onChange={(e) => setAddLast(e.target.value.replace(/[^a-zA-Z]/g, ""))}
+            maxLength={20}
+            onChange={(e) => setAddLast(e.target.value.replace(/[^a-zA-Z]/g, "").slice(0, 20))}
           />
           <div className="acf-required-wrapper">
             {!addPhone && <span className="acf-label-overlay">Phone<span className="acf-req-star">*</span></span>}
@@ -387,6 +455,8 @@ export const ClientPanel: React.FC<Props> = ({
           name={details.full_name || `${details.first_name || ""} ${details.last_name || ""}`.trim() || search}
           phone={details.phone_number || details.phone || ""}
           stats={{ ...stats, unpaidAmt }}
+          packages={clientPkgsData?.items ?? []}
+          memberships={clientMemberships}
           onViewHistory={onViewHistory}
         />
       )}

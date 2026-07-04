@@ -18,8 +18,20 @@ export const fetchSettingsThunk = createAsyncThunk<
   { rejectValue: string }
 >("setting/fetchAll", async (_, { rejectWithValue }) => {
   try {
-    const res = await api.get<SettingListResponse>(SETTING.BASE);
-    return res.data.data;
+    const res = await api.get(SETTING.BASE);
+    const body = res.data;
+    const raw = body?.data;
+    console.log("[fetchSettingsThunk] raw response:", body);
+    // Paginated: { data: { items: [], total, ... } }
+    if (raw && Array.isArray((raw as any).items)) return (raw as any).items as Setting[];
+    // Plain array: { data: [] }
+    if (Array.isArray(raw)) return raw as Setting[];
+    // Nested: { data: { data: [], pagination } }
+    if (raw && Array.isArray((raw as any).data)) return (raw as any).data as Setting[];
+    // Body itself is an array
+    if (Array.isArray(body)) return body as Setting[];
+    console.warn("[fetchSettingsThunk] unrecognised shape — returning []", body);
+    return [];
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to fetch settings");

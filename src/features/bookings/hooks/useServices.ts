@@ -35,7 +35,8 @@ export function useServices(salonId?: string | null) {
     const mapped: Client[] = apiClients.map((c: any) => ({
       id: String(c.id),
       name: c.fullName || c.full_name || `${c.first_name || ""} ${c.last_name || ""}`.trim() || "",
-      phone: c.phone || c.phone_number || "",
+      phone: c.phone || c.phone_number || c.mobile || "",
+      email: c.email || c.email_address || "",
       eWallet: c.wallet_balance || 0,
     }));
     dispatch(setClientsList(mapped));

@@ -70,6 +70,31 @@ export function mapApiBooking(
     }
   }
 
+  // Converts a raw time value from a line-item (product/package/membership) into
+  // a padded "HH:MM" string, or "" when the value is absent or unparseable.
+  // Unlike svcTimeToLocal it never falls back to the booking start time.
+  function sanitizeItemTime(raw: string | null | undefined): string {
+    const t = String(raw ?? "").trim();
+    if (!t) return "";
+    if (/^\d{1,2}:\d{2}$/.test(t)) {
+      const [h, m] = t.split(":").map(Number);
+      return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    }
+    if (t.includes("T") || t.endsWith("Z")) {
+      const d = new Date(t);
+      if (!isNaN(d.getTime())) {
+        return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+      }
+    }
+    return "";
+  }
+
+  // Detect package-covered appointments: payment_method=package with paid_amount=0 means ₹0 to client.
+  // We store catalog total in DB so grand_total>0, but display must show ₹0.
+  const isPackagePaid =
+    ((appt.payment_method || appt.paymentMode || appt.payment_mode || "").toLowerCase() === "package") &&
+    (parseFloat(String(appt.paid_amount ?? appt.payingNow ?? 0)) || 0) === 0;
+
   // ── Map services ─────────────────────────────────────────────────────────
   const services = (appt.services || []).map((s: any) => {
     const svcLookup = servicesList.find((rs: any) => String(rs.id) === String(s.service_id ?? s.id));
@@ -80,13 +105,25 @@ export function mapApiBooking(
       || "";
     const mappedTime = s.time || (s.start_time ? svcTimeToLocal(s.start_time) : startTime);
     const duration = Number(s.duration || s.duration_minutes || svcLookup?.duration || 30) || 30;
+    const staffNameStr = (() => { const sf = s.staff; if (!sf) return ""; if (typeof sf === "object") return (sf as any)?.name || ""; return String(sf); })();
+    const sPrice = parseFloat(String(s.price ?? 0)) || 0;
+    const sQty   = Number(s.qty ?? s.quantity ?? 1) || 1;
+    const sTotal = parseFloat(String(s.total ?? 0)) || 0;
+    const derivedDiscount = (sTotal > 0 && sPrice * sQty > sTotal)
+      ? Math.round((sPrice * sQty - sTotal) * 100) / 100
+      : (parseFloat(String(s.discount ?? 0)) || 0);
+    const isServiceFromPackage = !!(s.is_package_service || (s as any).isPackageService);
     return {
       ...s,
+      ...(isPackagePaid || isServiceFromPackage ? { total: 0 } : {}),
+      isPackageService: isServiceFromPackage,
       name: sName,
       service: sName,
-      staffId: s.staffId || s.staff_id || appt.staffId || appt.staff_id || undefined,
+      staff: staffNameStr,
+      staffId: (s.staffId || s.staff_id || appt.staffId || appt.staff_id) ? String(s.staffId || s.staff_id || appt.staffId || appt.staff_id) : undefined,
       time: mappedTime,
       duration,
+      discount: derivedDiscount,
     };
   });
 
@@ -110,17 +147,25 @@ export function mapApiBooking(
     price: parseFloat(String(p.price ?? 0)) || 0,
     qty: Number(p.qty ?? p.quantity ?? 1) || 1,
     total: parseFloat(String(p.total ?? p.price ?? 0)) || 0,
+    staffId: String(p.staff_id ?? p.staffId ?? ""),
+    time: sanitizeItemTime(p.time ?? p.start_time ?? p.startTime),
   }));
 
-  const packageItems = (appt.package_items || appt.packageItems || appt.packages || []).map((p: any) => ({
-    id: String(p.id ?? ""),
-    packageId: String(p.package_id ?? p.packageId ?? ""),
-    packageName: p.package_name ?? p.packageName ?? p.name ?? "",
-    name: p.package_name ?? p.packageName ?? p.name ?? "",
-    price: parseFloat(String(p.price ?? 0)) || 0,
-    qty: Number(p.qty ?? p.quantity ?? 1) || 1,
-    total: parseFloat(String(p.total ?? p.price ?? 0)) || 0,
-  }));
+  const packageItems = (appt.package_items || appt.packageItems || appt.packages || []).map((p: any) => {
+    const isPkgService = !!(p.is_package_service || (p as any).isPackageService);
+    return {
+      id: String(p.id ?? ""),
+      packageId: String(p.package_id ?? p.packageId ?? ""),
+      packageName: p.package_name ?? p.packageName ?? p.name ?? "",
+      name: p.package_name ?? p.packageName ?? p.name ?? "",
+      price: parseFloat(String(p.price ?? 0)) || 0,
+      qty: Number(p.qty ?? p.quantity ?? 1) || 1,
+      isPackageService: isPkgService,
+      total: isPkgService ? 0 : (parseFloat(String(p.total ?? p.price ?? 0)) || 0),
+      staffId: String(p.staff_id ?? p.staffId ?? ""),
+      time: sanitizeItemTime(p.time ?? p.start_time ?? p.startTime),
+    };
+  });
 
   const membershipItems = (appt.membership_items || appt.membershipItems || appt.memberships || []).map((m: any) => ({
     id: String(m.id ?? ""),
@@ -130,6 +175,8 @@ export function mapApiBooking(
     price: parseFloat(String(m.price ?? 0)) || 0,
     qty: Number(m.qty ?? m.quantity ?? 1) || 1,
     total: parseFloat(String(m.total ?? m.price ?? 0)) || 0,
+    staffId: String(m.staff_id ?? m.staffId ?? ""),
+    time: sanitizeItemTime(m.time ?? m.start_time ?? m.startTime),
   }));
 
   // ── Compute grand total ───────────────────────────────────────────────────
@@ -146,10 +193,42 @@ export function mapApiBooking(
     return sum + price * qty;
   }, 0);
 
-  const grandTotalVal = parseFloat(String(appt.grand_total ?? appt.grandTotal ?? appt.total_amount ?? 0)) || computedTotal;
+  // For mixed appointments, recompute from mapped items (package services already have total=0)
+  const hasPerServicePackage = services.some((s: any) => s.isPackageService)
+    || packageItems.some((p: any) => p.isPackageService);
+  const grandTotalVal = isPackagePaid ? 0
+    : hasPerServicePackage
+      ? Math.max(0, [...services, ...productItems, ...packageItems, ...membershipItems]
+          .reduce((sum, item: any) => sum + (Number(item.total) || 0), 0))
+      : (parseFloat(String(appt.grand_total ?? appt.grandTotal ?? appt.total_amount ?? 0)) || computedTotal);
+
+  // ── Subtotal / discount / taxable amount ──────────────────────────────────
+  const subtotalVal = parseFloat(String(appt.subtotal ?? 0)) || computedTotal;
+
+  const discountValueRaw = parseFloat(String(appt.discount_value ?? appt.discount ?? 0)) || 0;
+  const discountTypeRaw  = (appt.discount_type || "").toLowerCase();
+
+  let discountAmountVal = parseFloat(String(appt.discount_amount ?? appt.discountAmount ?? 0)) || 0;
+  // API often omits discount_amount — compute it from discount_value + discount_type
+  if (discountAmountVal === 0 && discountValueRaw > 0) {
+    if (discountTypeRaw === "flat") {
+      discountAmountVal = discountValueRaw;
+    } else {
+      // Percentage — apply only to services/packages/memberships (not products)
+      const svcBase = services.reduce((sum: number, s: any) => sum + (parseFloat(String(s.total ?? s.price ?? 0)) || 0), 0)
+        + packageItems.reduce((sum: number, p: any) => sum + (parseFloat(String(p.total ?? p.price ?? 0)) || 0), 0)
+        + membershipItems.reduce((sum: number, m: any) => sum + (parseFloat(String(m.total ?? m.price ?? 0)) || 0), 0);
+      const base = svcBase > 0 ? svcBase : subtotalVal;
+      discountAmountVal = Math.round((base * discountValueRaw / 100) * 100) / 100;
+    }
+  }
+
+  const taxableAmountVal = parseFloat(String(appt.taxable_amount ?? appt.taxableAmount ?? 0))
+    || Math.max(0, subtotalVal - discountAmountVal);
 
   // ── Normalise paymentStatus (always Title Case) ───────────────────────────
   const normalizedPaymentStatus = normalizePaymentStatus(appt.payment_status ?? appt.paymentStatus);
+
 
   // ── Compute payingNow / dueAmount ─────────────────────────────────────────
   const paidAmountVal = Number(appt.paid_amount ?? 0) || 0;
@@ -167,9 +246,11 @@ export function mapApiBooking(
   }
 
   // Use API's due_amount directly if provided (most accurate); else compute.
+  // Package payments always have due_amount=0 (client owes nothing — covered by package).
   const apiDue = Number(appt.due_amount ?? appt.dueAmount ?? NaN);
-  const dueAmount = (!isNaN(apiDue) && apiDue > 0)
-    ? apiDue
+  const dueAmount = isPackagePaid ? 0
+    : hasPerServicePackage ? Math.max(0, parseFloat((grandTotalVal - payingNow).toFixed(2)))
+    : (!isNaN(apiDue) && apiDue > 0) ? apiDue
     : Math.max(0, parseFloat((grandTotalVal - payingNow).toFixed(2)));
 
   // ── Notes / staffAlert split ──────────────────────────────────────────────
@@ -202,12 +283,34 @@ export function mapApiBooking(
       || `${c.first_name || c.firstName || ""} ${c.last_name || c.lastName || ""}`.trim()
       || "";
   })();
+  const clientPhone = appt.clientPhone || appt.client_phone || appt.client?.phone || appt.client?.mobile || "";
+  const clientEmail = appt.clientEmail || appt.client_email || appt.client?.email || "";
+  const clientGst   = appt.clientGst   || appt.client_gst   || appt.client?.gst_number || appt.client?.gst || "";
+  const staffName   = appt.staffName   || appt.staff_name   || "";
+  const staffPhone  = appt.staffPhone  || appt.staff_phone  || "";
+  const staffEmail  = appt.staffEmail  || appt.staff_email  || "";
+  const loyaltyPoints = appt.loyaltyPoints ?? appt.loyalty_points ?? appt.client?.loyalty_points ?? null;
+  const membershipName = (() => {
+    if (appt.membershipName) return appt.membershipName;
+    if (appt.membership_name) return appt.membership_name;
+    const m = (appt.memberships || appt.membership_items || [])[0];
+    return m ? (m.membership_name || m.membershipName || m.name || "") : "";
+  })();
 
   return {
     ...appt,
     title,
+    invoiceNumber: appt.invoice_number ? Number(appt.invoice_number) : undefined,
     clientName,
-    staffId: appt.staffId || appt.staff_id || undefined,
+    clientPhone,
+    clientEmail,
+    clientGst,
+    staffName,
+    staffPhone,
+    staffEmail,
+    loyaltyPoints,
+    membershipName,
+    staffId: (() => { const raw = appt.staffId || appt.staff_id || packageItems.find((p: any) => p.staffId)?.staffId; return raw ? String(raw) : undefined; })(),
     clientId: String(appt.clientId ?? appt.client_id ?? appt.client?.id ?? ""),
     date: appt.date
       ? toLocalDateStr(appt.date)
@@ -222,11 +325,22 @@ export function mapApiBooking(
     membershipItems,
     memberships: membershipItems,
     grandTotal: grandTotalVal,
-    paymentStatus: normalizedPaymentStatus,
+    // When package-covered items bring our recomputed due to 0, the backend's payments table may still
+    // show "partial" (it used the old grand_total that included catalog prices). Override to "Paid".
+    paymentStatus: (hasPerServicePackage && dueAmount === 0 && payingNow > 0) ? "Paid" : normalizedPaymentStatus,
     payment_status: (appt.payment_status ?? "unpaid") as any,
+    paymentMode: appt.paymentMode || appt.payment_mode || appt.payment_method,
     payingNow,
     dueAmount,
     notes: parsedNotes,
     staffAlert: parsedStaffAlert,
+    discount: parseFloat(String(appt.discount_value ?? 0)) || 0,
+    discountAmount: discountAmountVal,
+    discountType: appt.discount_type === "flat" ? "Flat (₹)" : "Percentage (%)",
+    exCharges: parseFloat(String(appt.ex_charges ?? 0)) || 0,
+    tipAmount: parseFloat(String(appt.tip_amount ?? 0)) || 0,
+    gst: parseFloat(String(appt.gst_percent ?? 0)) || 0,
+    subtotal: subtotalVal,
+    taxableAmount: taxableAmountVal,
   } as Booking;
 }

@@ -1,16 +1,14 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Search, PlusLg, Sliders, ChevronDown,
   PencilSquare, Trash3, FileEarmarkPdf,
   FileEarmarkExcel, FiletypeCsv, CardList,
-  Award, CurrencyRupee, CheckCircleFill,
-  PersonFill, ExclamationCircle,
+  Award, CurrencyRupee, CheckCircleFill, Bag,
 } from "react-bootstrap-icons";
-import ClientSelectorWithAdd from "../../../components/packages/ClientSelectorWithAdd";
-import type { ClientSearchResult } from "../../clients/components/ClientSearchInput";
 import type { AppDispatch } from "../../../store/store";
+import type { Membership } from "../../../services/api/endpoints/memberships.endpoints";
 import {
   fetchMembershipsThunk,
   deleteMembershipThunk,
@@ -26,6 +24,8 @@ import {
 } from "../../../store/selectors/membership.selectors";
 import MembershipFilterDrawer from "../components/MembershipFilterDrawer";
 import MembershipDetailsDrawer from "../components/MembershipDetailsDrawer";
+import MembershipPickerModal from "../components/MembershipPickerModal";
+import SellMembershipModal from "../components/SellMembershipModal";
 import "../styles/MembershipsListPage.scss";
 
 const PAGE_SIZE = 20;
@@ -73,24 +73,23 @@ const MembershipsListPage: React.FC = () => {
   const [optOpen,    setOptOpen]    = useState(false);
   const [exporting,  setExporting]  = useState<"csv" | "excel" | "pdf" | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [sellPickerOpen, setSellPickerOpen] = useState(false);
+  const [sellMembership, setSellMembership] = useState<Membership | null>(null);
 
   const [drawerId,   setDrawerId]   = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // ── client selection (persisted across navigation) ───────────────────────
-  const [selectedClient, setSelectedClient] = useState<ClientSearchResult | null>(() => {
-    try {
-      const saved = sessionStorage.getItem("msp_selected_client");
-      return saved ? JSON.parse(saved) : null;
-    } catch { return null; }
-  });
+  const optDropRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (selectedClient) {
-      sessionStorage.setItem("msp_selected_client", JSON.stringify(selectedClient));
-    } else {
-      sessionStorage.removeItem("msp_selected_client");
-    }
-  }, [selectedClient]);
+    if (!optOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (optDropRef.current && !optDropRef.current.contains(e.target as Node)) {
+        setOptOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [optOpen]);
 
   // ── plans list ────────────────────────────────────────────────────────────
   const buildQuery = useCallback(() => ({
@@ -142,7 +141,7 @@ const MembershipsListPage: React.FC = () => {
           <p className="msp__subtitle">Create and manage membership plans for your clients</p>
         </div>
         <div className="msp__hdr-actions">
-          <div className="msp__dd-wrap">
+          <div className="msp__dd-wrap" ref={optDropRef}>
             <button className="msp__btn msp__btn--outline" onClick={() => setOptOpen(v => !v)}>
               Options <ChevronDown size={13} />
             </button>
@@ -172,18 +171,16 @@ const MembershipsListPage: React.FC = () => {
               </ul>
             )}
           </div>
+          <button className="msp__btn msp__btn--outline" onClick={() => setSellPickerOpen(true)}>
+            <Bag size={14} /> Sell to client
+          </button>
           <div className="msp__add-wrap">
             <button
               className="msp__btn msp__btn--dark"
-              disabled={!selectedClient}
-              onClick={() => selectedClient && navigate("/dashboard/catalog/memberships/create", { state: { client: selectedClient } })}
-              title={!selectedClient ? "Search or create a client to continue." : undefined}
+              onClick={() => navigate("/dashboard/catalog/memberships/create")}
             >
               <PlusLg size={15} /> Add membership
             </button>
-            {!selectedClient && (
-              <p className="msp__add-hint">Search or create a client to continue.</p>
-            )}
           </div>
         </div>
       </div>
@@ -213,24 +210,6 @@ const MembershipsListPage: React.FC = () => {
           <span className="msp__stat-label">Avg. price</span>
           <strong className="msp__stat-val">₹{stats.avg.toLocaleString("en-IN")}</strong>
         </div>
-      </div>
-
-      {/* ── Select Client (inline) ──────────────────────────────────────── */}
-      <div className="msp__select-client-card">
-        <div className="msp__sc-label">
-          <PersonFill size={14} /> Select Client
-        </div>
-        <ClientSelectorWithAdd
-          defaultClient={selectedClient}
-          onSelect={client => setSelectedClient(client)}
-          onClear={() => { setSelectedClient(null); }}
-          placeholder="Search client by name or mobile number..."
-        />
-        {!selectedClient && (
-          <p className="msp__sc-hint">
-            <ExclamationCircle size={13} /> Search or create a client to continue.
-          </p>
-        )}
       </div>
 
       {/* ── Controls ────────────────────────────────────────────────────── */}
@@ -380,6 +359,18 @@ const MembershipsListPage: React.FC = () => {
         membershipId={drawerId}
         isOpen={drawerOpen}
         onClose={() => setDrawerOpen(false)}
+      />
+
+      {sellPickerOpen && (
+        <MembershipPickerModal
+          onClose={() => setSellPickerOpen(false)}
+          onSelect={m => { setSellPickerOpen(false); setSellMembership(m); }}
+        />
+      )}
+
+      <SellMembershipModal
+        membership={sellMembership}
+        onClose={() => setSellMembership(null)}
       />
 
     </div>

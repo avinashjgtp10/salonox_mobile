@@ -15,8 +15,10 @@ export function generateTimeSlots(
   return slots;
 }
 
-export function formatTime12(time: string): string {
+export function formatTime12(time: string | undefined | null): string {
+  if (!time) return "--:--";
   const [h, m] = time.split(":").map(Number);
+  if (isNaN(h) || isNaN(m)) return "--:--";
   const ampm = h >= 12 ? "PM" : "AM";
   const hh = h % 12 || 12;
   return `${hh}:${m.toString().padStart(2, "0")} ${ampm}`;
@@ -41,7 +43,7 @@ export function getBookingHeight(
   const [sh, sm] = startTime.split(":").map(Number);
   const [eh, em] = endTime.split(":").map(Number);
   const diff = eh * 60 + em - (sh * 60 + sm);
-  return Math.max((diff / intervalMins) * slotHeight, slotHeight);
+  return (diff / intervalMins) * slotHeight;
 }
 
 export function getCurrentTime(): string {

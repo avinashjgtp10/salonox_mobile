@@ -46,13 +46,29 @@ function mapBooking(appt: any, servicesList?: any[]): Booking {
     } catch { return startTime; }
   }
 
+  // Detect package-covered appointments: payment_method=package with paid_amount=0 means ₹0 to client.
+  // We store catalog total (e.g. ₹150) in DB so grand_total>0, but display must show ₹0.
+  // No paid_status check — "package" payment_method alone signals coverage (works for both Unpaid and Paid states).
+  const isPackagePaid =
+    ((appt.payment_method || appt.paymentMode || "").toLowerCase() === "package") &&
+    (parseFloat(String(appt.paid_amount ?? appt.payingNow ?? 0)) || 0) === 0;
+
   const services = (appt.services || []).map((s: any) => {
     const svcLookup = servicesList?.find((rs: any) => String(rs.id) === String(s.service_id ?? s.id));
     const sName = s.name || (typeof s.service === "object" ? s.service?.name || s.service?.service : s.service) || s.service_name || svcLookup?.name || "";
     const mappedTime = s.time || (s.start_time ? svcTimeToLocal(s.start_time) : startTime);
     const mappedEndTime: string | undefined = s.endTime || (s.end_time ? svcTimeToLocal(s.end_time) : undefined);
     const duration = Number(s.duration || s.duration_minutes || svcLookup?.duration || 30) || 30;
-    return { ...s, name: sName, service: sName, staffId: s.staffId || s.staff_id || appt.staffId || appt.staff_id || undefined, time: mappedTime, endTime: mappedEndTime, duration };
+    const staffNameStr = (() => { const sf = s.staff; if (!sf) return ""; if (typeof sf === "object") return (sf as any)?.name || ""; return String(sf); })();
+    const sPrice = parseFloat(String(s.price ?? 0)) || 0;
+    const sQty   = Number(s.qty ?? s.quantity ?? 1) || 1;
+    const sTotal = parseFloat(String(s.total ?? 0)) || 0;
+    const derivedDiscount = (sTotal > 0 && sPrice * sQty > sTotal)
+      ? Math.round((sPrice * sQty - sTotal) * 100) / 100
+      : (parseFloat(String(s.discount ?? 0)) || 0);
+    const rawSvcStaffId = s.staffId || s.staff_id || appt.staffId || appt.staff_id;
+    const isServiceFromPackage = !!(s.is_package_service || (s as any).isPackageService);
+    return { ...s, ...(isPackagePaid || isServiceFromPackage ? { total: 0 } : {}), isPackageService: isServiceFromPackage, name: sName, service: sName, staff: staffNameStr, staffId: rawSvcStaffId ? String(rawSvcStaffId) : undefined, time: mappedTime, endTime: mappedEndTime, duration, discount: derivedDiscount };
   });
 
   if (services.length > 1 && services.every((s: any) => s.time === services[0].time)) {
@@ -74,16 +90,24 @@ function mapBooking(appt: any, servicesList?: any[]): Booking {
     price: parseFloat(String(p.price ?? 0)) || 0,
     qty: Number(p.qty ?? p.quantity ?? 1) || 1,
     total: parseFloat(String(p.total ?? p.price ?? 0)) || 0,
+    staffId: String(p.staff_id ?? p.staffId ?? ""),
+    time: svcTimeToLocal(p.start_time ?? p.time ?? ""),
   }));
 
-  const packageItems = (appt.package_items || appt.packageItems || appt.packages || []).map((p: any) => ({
-    id: String(p.id ?? ""), packageId: String(p.package_id ?? p.packageId ?? ""),
-    packageName: p.package_name ?? p.packageName ?? p.name ?? "",
-    name: p.package_name ?? p.packageName ?? p.name ?? "",
-    price: parseFloat(String(p.price ?? 0)) || 0,
-    qty: Number(p.qty ?? p.quantity ?? 1) || 1,
-    total: parseFloat(String(p.total ?? p.price ?? 0)) || 0,
-  }));
+  const packageItems = (appt.package_items || appt.packageItems || appt.packages || []).map((p: any) => {
+    const isPkgService = !!(p.is_package_service || (p as any).isPackageService);
+    return {
+      id: String(p.id ?? ""), packageId: String(p.package_id ?? p.packageId ?? ""),
+      packageName: p.package_name ?? p.packageName ?? p.name ?? "",
+      name: p.package_name ?? p.packageName ?? p.name ?? "",
+      price: parseFloat(String(p.price ?? 0)) || 0,
+      qty: Number(p.qty ?? p.quantity ?? 1) || 1,
+      isPackageService: isPkgService,
+      total: isPkgService ? 0 : (parseFloat(String(p.total ?? p.price ?? 0)) || 0),
+      staffId: String(p.staff_id ?? p.staffId ?? ""),
+      time: svcTimeToLocal(p.start_time ?? p.time ?? ""),
+    };
+  });
 
   const membershipItems = (appt.membership_items || appt.membershipItems || appt.memberships || []).map((m: any) => ({
     id: String(m.id ?? ""), membershipId: String(m.membership_id ?? m.membershipId ?? ""),
@@ -92,23 +116,62 @@ function mapBooking(appt: any, servicesList?: any[]): Booking {
     price: parseFloat(String(m.price ?? 0)) || 0,
     qty: Number(m.qty ?? m.quantity ?? 1) || 1,
     total: parseFloat(String(m.total ?? m.price ?? 0)) || 0,
+    staffId: String(m.staff_id ?? m.staffId ?? ""),
+    time: svcTimeToLocal(m.start_time ?? m.time ?? ""),
   }));
 
   const computedTotal = [
     ...(appt.services || []), ...(appt.product_items || []),
     ...(appt.package_items || []), ...(appt.membership_items || []),
   ].reduce((sum: number, item: any) => {
-    const itemTotal = parseFloat(String(item.total ?? 0)) || 0;
-    if (itemTotal > 0) return sum + itemTotal;
+    const rawItemTotal = item.total;
+    // Respect explicit total=0 (package-covered); only fall back to price*qty when total is absent
+    if (rawItemTotal !== null && rawItemTotal !== undefined) {
+      return sum + (parseFloat(String(rawItemTotal)) || 0);
+    }
     const price = parseFloat(String(item.price ?? item.unit_price ?? 0)) || 0;
     const qty = Number(item.quantity ?? item.qty ?? 1) || 1;
     return sum + price * qty;
   }, 0);
 
-  const grandTotalVal = parseFloat(String(appt.grand_total ?? appt.grandTotal ?? appt.total_amount ?? 0)) || computedTotal;
-  // Trust the API fields directly — recalculating from item totals ignores discounts and causes wrong statuses
+  // Use ?? (not ||) so grand_total=0 is trusted as 0, not fallen through to computedTotal
+  const rawGrandTotal = appt.grand_total ?? appt.grandTotal ?? appt.total_amount;
+  const hasPerServicePackage = services.some((s: any) => s.isPackageService)
+    || packageItems.some((p: any) => p.isPackageService);
+  const grandTotalVal = isPackagePaid ? 0
+    : hasPerServicePackage
+      ? Math.max(0, [...services, ...productItems, ...packageItems, ...membershipItems]
+          .reduce((sum, item: any) => sum + (Number(item.total) || 0), 0))
+      : ((rawGrandTotal !== null && rawGrandTotal !== undefined)
+          ? (parseFloat(String(rawGrandTotal)) || 0)
+          : computedTotal);
   const payingNow = parseFloat(String(appt.paid_amount ?? appt.payingNow ?? 0)) || 0;
-  const dueAmount  = parseFloat(String(appt.due_amount  ?? appt.dueAmount  ?? 0)) || 0;
+  const rawDueAmount = parseFloat(String(appt.due_amount ?? appt.dueAmount ?? 0)) || 0;
+  const dueAmount = isPackagePaid ? 0
+    : hasPerServicePackage ? Math.max(0, parseFloat((grandTotalVal - payingNow).toFixed(2)))
+    : rawDueAmount;
+
+  // Subtotal / discount / taxable amount — see bookingMapper.ts for rationale
+  const subtotalVal = parseFloat(String(appt.subtotal ?? 0)) || computedTotal;
+
+  const discountValueRaw = parseFloat(String(appt.discount_value ?? appt.discount ?? 0)) || 0;
+  const discountTypeRaw  = (appt.discount_type || "").toLowerCase();
+
+  let discountAmountVal = parseFloat(String(appt.discount_amount ?? appt.discountAmount ?? 0)) || 0;
+  if (discountAmountVal === 0 && discountValueRaw > 0) {
+    if (discountTypeRaw === "flat") {
+      discountAmountVal = discountValueRaw;
+    } else {
+      const svcBase = services.reduce((sum: number, s: any) => sum + (parseFloat(String(s.total ?? s.price ?? 0)) || 0), 0)
+        + packageItems.reduce((sum: number, p: any) => sum + (parseFloat(String(p.total ?? p.price ?? 0)) || 0), 0)
+        + membershipItems.reduce((sum: number, m: any) => sum + (parseFloat(String(m.total ?? m.price ?? 0)) || 0), 0);
+      const base = svcBase > 0 ? svcBase : subtotalVal;
+      discountAmountVal = Math.round((base * discountValueRaw / 100) * 100) / 100;
+    }
+  }
+
+  const taxableAmountVal = parseFloat(String(appt.taxable_amount ?? appt.taxableAmount ?? 0))
+    || Math.max(0, subtotalVal - discountAmountVal);
 
   const rawNotes: string = appt.notes || "";
   const legacySep = "\n Staff Alert: ";
@@ -125,19 +188,22 @@ function mapBooking(appt: any, servicesList?: any[]): Booking {
     ...membershipItems.map((m: any) => m.name).filter(Boolean),
   ].join(", ") || "Appointment";
 
+  const rawPaymentStatus = (() => {
+    const raw = (appt.payment_status ?? appt.paymentStatus ?? "unpaid").toLowerCase();
+    if (raw === "paid" || raw === "completed") return "Paid";
+    if (raw === "partial") return "Partial";
+    if (raw === "cancelled") return "Cancelled";
+    return "Unpaid";
+  })();
+
   return {
     ...appt, title,
+    invoiceNumber: appt.invoice_number ? Number(appt.invoice_number) : undefined,
     payment_status: (appt.payment_status ?? "unpaid") as any,
-    paymentStatus: (() => {
-      // Trust the API's payment_status — it is computed from the payments table by the backend subquery
-      // and already accounts for discounts, partial payments, and eWallet deductions correctly.
-      const raw = (appt.payment_status ?? appt.paymentStatus ?? "unpaid").toLowerCase();
-      if (raw === "paid" || raw === "completed") return "Paid";
-      if (raw === "partial") return "Partial";
-      if (raw === "cancelled") return "Cancelled";
-      return "Unpaid";
-    })(),
-    staffId:  appt.staffId  || appt.staff_id  || undefined,
+    // When package-covered items bring our recomputed due to 0, the backend's payments table may still
+    // show "partial" (it used the old grand_total that included catalog prices). Override to "Paid".
+    paymentStatus: (hasPerServicePackage && dueAmount === 0 && payingNow > 0) ? "Paid" : rawPaymentStatus,
+    staffId: (() => { const raw = appt.staffId || appt.staff_id || packageItems.find((p: any) => p.staffId)?.staffId; return raw ? String(raw) : undefined; })(),
     clientId: String(appt.clientId || appt.client_id || appt.client?.id || ""),
     clientName: (() => {
       if (appt.clientName) return appt.clientName;
@@ -146,8 +212,13 @@ function mapBooking(appt: any, servicesList?: any[]): Booking {
       if (!c) return "";
       return c.fullName || c.full_name || c.name || `${c.first_name || c.firstName || ""} ${c.last_name || c.lastName || ""}`.trim() || "";
     })(),
+    clientPhone:    appt.clientPhone    || appt.client_phone    || appt.client?.phone  || appt.client?.mobile || "",
+    clientEmail:    appt.clientEmail    || appt.client_email    || appt.client?.email  || "",
+    clientGst:      appt.clientGst      || appt.client_gst      || appt.client?.gst_number || appt.client?.gst || "",
+    loyaltyPoints:  appt.loyaltyPoints  ?? appt.loyalty_points  ?? appt.client?.loyalty_points ?? null,
+    membershipName: appt.membershipName || appt.membership_name || (appt.memberships || appt.membership_items || [])[0]?.membership_name || (appt.memberships || appt.membership_items || [])[0]?.name || "",
     date: appt.date ? toLocalDateStr(appt.date) : (appt.scheduled_at ? toLocalDateStr(appt.scheduled_at) : undefined),
-    grandTotal: grandTotalVal || appt.grandTotal,
+    grandTotal: isPackagePaid ? 0 : (grandTotalVal || appt.grandTotal),
     startTime, endTime, services,
     products: productItems, productItems,
     packages: packageItems, packageItems,
@@ -155,6 +226,14 @@ function mapBooking(appt: any, servicesList?: any[]): Booking {
     payingNow, dueAmount,
     paymentMode: appt.paymentMode || appt.payment_method || undefined,
     notes: parsedNotes, staffAlert: parsedStaffAlert,
+    discount: parseFloat(String(appt.discount_value ?? 0)) || 0,
+    discountAmount: discountAmountVal,
+    discountType: appt.discount_type === "flat" ? "Flat (₹)" : "Percentage (%)",
+    exCharges: parseFloat(String(appt.ex_charges ?? 0)) || 0,
+    tipAmount: parseFloat(String(appt.tip_amount ?? 0)) || 0,
+    gst: parseFloat(String(appt.gst_percent ?? 0)) || 0,
+    subtotal: subtotalVal,
+    taxableAmount: taxableAmountVal,
   };
 }
 
@@ -175,7 +254,7 @@ export const fetchBookingsThunk = createAsyncThunk<
 >("booking/fetchAll", async (filters, { rejectWithValue, getState }) => {
   try {
     const state = getState() as any;
-    const salonId = state.salon.currentSalon?.id;
+    const salonId = state.salon?.currentSalon?.id ?? state.auth?.user?.salon_id;
     const servicesList = state.scheduler?.servicesList || [];
     const params = new URLSearchParams();
     if (salonId) params.set("salon_id", String(salonId));

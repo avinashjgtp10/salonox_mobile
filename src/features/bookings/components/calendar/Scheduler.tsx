@@ -4,7 +4,7 @@ import { useSingleClick } from "../../../../utils/singleClick";
 import type { Booking, BlockedTime } from "../../types/booking.types";
 import { useAppDispatch, useAppSelector } from "../../../../hooks/useAppRedux";
 import { fetchBookingByIdThunk, fetchBookingsThunk, cancelBookingThunk, deleteBookingThunk } from "../../../../middleware/booking/booking.thunk";
-import { setBookings, clearDragPatch } from "../../../../store/schedulerSlice";
+import { setBookings, clearDragPatch, deleteBooking } from "../../../../store/schedulerSlice";
 import { store } from "../../../../store/store";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 // ── NEW: 2 focused hooks replace useSchedulerInit ─────────────────────────────
@@ -23,6 +23,7 @@ import AppointmentModal from "../modals/AppointmentModal";
 import ViewBillModal    from "../modals/ViewBillModal";
 import PaymentModal     from "../modals/PaymentModal";
 import BlockTimeModal   from "../modals/BlockTimeModal";
+import "../../styles/Scheduler.scss";
 
 // Stable fallbacks — prevent new [] reference on every selector call when slice is undefined
 const EMPTY_ARR: never[] = [];
@@ -32,7 +33,7 @@ const SchedulerContent: React.FC = () => {
   const location    = useLocation();
   const navigate    = useNavigate();
   const salonId     = useAppSelector((s: any) => s.salon?.currentSalon?.id ?? s.auth?.user?.salon_id ?? "");
-  const { viewMode, setViewMode, currentDate, setCurrentDate, interval } = useSchedulerContext();
+  const { viewMode, setViewMode, currentDate, setCurrentDate } = useSchedulerContext();
 
   const apiServices = useAppSelector((s: any) => s.services?.items ?? EMPTY_ARR);
   const apiStaff    = useAppSelector((s: any) => s.staff?.items   ?? EMPTY_ARR);
@@ -40,8 +41,10 @@ const SchedulerContent: React.FC = () => {
 
   // ── Data hooks ───────────────────────────────────────────────────────────
   const { staffReady, hasStaff } = useStaffSchedule(salonId);
-  // Skip appointment fetch until staff is confirmed available
-  useBookings(!hasStaff);
+  // Fetch bookings as soon as salonId is known — parallel with staff, no more serial dependency.
+  // Waiting for hasStaff caused appointments to vanish on page refresh when Redux state is empty
+  // and the auth → salon → staff chain took 3-4 s (or broke silently).
+  useBookings(!salonId);
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [showNewAppt, setShowNewAppt]         = useState(false);
@@ -76,6 +79,15 @@ const SchedulerContent: React.FC = () => {
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Auto-open New Appointment drawer when navigated from Quick Sale ────────
+  useEffect(() => {
+    if (!(location.state as any)?.openNewAppt) return;
+    navigate(location.pathname, { replace: true, state: {} });
+    setEditingBooking(null);
+    setApptDefaults({});
+    setShowNewAppt(true);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleSlotClick = useSingleClick((staffId: string, time: string) => {
     setApptDefaults({ staffId, defaultTime: time });
     setEditingBooking(null);
@@ -96,10 +108,14 @@ const SchedulerContent: React.FC = () => {
           const localPriceMap = new Map(
             (booking.services || []).map((s: any) => [String(s.id), s])
           );
+          const localServices = booking.services || [];
           const mergedServices = enriched.services.length
-            ? enriched.services.map((svc: any) => {
-                const local = localPriceMap.get(String(svc.id));
-                const resolvedStaffId = local?.staffId || svc.staffId;
+            ? enriched.services.map((svc: any, idx: number) => {
+                // Match by ID first; fall back to position for newly created services
+                const local = localPriceMap.get(String(svc.id)) ?? localServices[idx];
+                // Prefer detail-API staffId — it has per-service staff_id from DB.
+                // local comes from the list endpoint which collapses all services to appointment-level staffId.
+                const resolvedStaffId = svc.staffId || local?.staffId;
                 const resolvedStaff = resolvedStaffId
                   ? (apiStaff.find((s: any) => String(s.id) === String(resolvedStaffId)) as any)?.name || svc.staff
                   : svc.staff;
@@ -140,7 +156,20 @@ const SchedulerContent: React.FC = () => {
         const action = await (dispatch(fetchBookingByIdThunk(booking.id)) as any);
         if (fetchBookingByIdThunk.fulfilled.match(action)) {
           const enriched = mapApiBooking(action.payload, apiServices, apiStaff, apiClients);
-          setEditingBooking({ ...booking, ...enriched, paymentStatus: booking.paymentStatus });
+          // Preserve per-service staffIds from local Redux booking — same logic as handleEditBooking
+          const localPriceMap = new Map((booking.services || []).map((s: any) => [String(s.id), s]));
+          const localServices = booking.services || [];
+          const mergedServices = enriched.services.length
+            ? enriched.services.map((svc: any, idx: number) => {
+                const local = localPriceMap.get(String(svc.id)) ?? localServices[idx];
+                const resolvedStaffId = svc.staffId || local?.staffId;
+                const resolvedStaff = resolvedStaffId
+                  ? (apiStaff.find((s: any) => String(s.id) === String(resolvedStaffId)) as any)?.name || svc.staff
+                  : svc.staff;
+                return { ...svc, staffId: resolvedStaffId, staff: resolvedStaff };
+              })
+            : booking.services;
+          setEditingBooking({ ...booking, ...enriched, services: mergedServices, paymentStatus: booking.paymentStatus });
           setShowNewAppt(true);
           return;
         }
@@ -186,13 +215,43 @@ const SchedulerContent: React.FC = () => {
 
     const updated = fresh.map((fb) => {
       const merged: Booking = { ...fb } as Booking;
+      const local = latestBookings.find((lb) => String(lb.id) === String(fb.id));
+
+      // Package appointments: list endpoint may return staff_id=null even though it was set at
+      // creation time (backend stores staffId in package_items, not in appointments table).
+      // Preserve the staffId from the local Redux booking so the chip stays visible.
+      if (!merged.staffId && local?.staffId) {
+        (merged as any).staffId = local.staffId;
+      }
+
+      // Preserve per-service staffIds saved locally when the API list endpoint
+      // doesn't return staff_id per service (all services fall back to appt-level staffId).
+      if (local?.services?.length) {
+        if (!merged.services?.length) {
+          // API returned no services at all — keep the locally cached services so
+          // multi-staff chips survive the refresh without losing their assignments.
+          (merged as any).services = local.services;
+        } else {
+          const allSameAsAppt = merged.services.every(
+            (s: any) => !s.staffId || String(s.staffId) === String(merged.staffId)
+          );
+          if (allSameAsAppt) {
+            const localById = new Map(local.services.map((s: any) => [String(s.id), s]));
+            merged.services = merged.services.map((svc: any, idx: number) => {
+              // Match by ID first; fall back to position for newly created services
+              const localSvc = localById.get(String(svc.id)) ?? (local as any).services[idx];
+              return localSvc?.staffId ? { ...svc, staffId: localSvc.staffId, staff: localSvc.staff } : svc;
+            });
+          }
+        }
+      }
+
       const pay = payCache[String(fb.id)];
       if (pay) {
         merged.paymentStatus = pay.paymentStatus;
         merged.dueAmount = pay.paymentStatus === "Paid" ? 0 : pay.dueAmount;
         merged.payingNow = pay.payingNow;
         if (pay.grandTotal !== undefined) (merged as any).grandTotal = pay.grandTotal;
-        const local = latestBookings.find((lb) => String(lb.id) === String(fb.id));
         if (local) (merged as any).paymentMode = (local as any).paymentMode || (fb as any).paymentMode;
       }
       return merged;
@@ -217,7 +276,7 @@ const SchedulerContent: React.FC = () => {
 
   const handleDeleteBooking = useSingleClick(async (booking: Booking) => {
     const result = await (dispatch(deleteBookingThunk(booking.id)) as any);
-    if (deleteBookingThunk.fulfilled.match(result)) handleRefresh();
+    if (deleteBookingThunk.fulfilled.match(result)) dispatch(deleteBooking(String(booking.id)));
   });
 
   const handleNewAppointment = useSingleClick(() => {
@@ -235,17 +294,9 @@ const SchedulerContent: React.FC = () => {
   });
 
   return (
-    <div style={{
-      fontFamily: "'Segoe UI', system-ui, sans-serif",
-      background: "#f8fafc",
-      height: "100%",
-      display: "flex",
-      flexDirection: "column",
-      overflow: "hidden",
-      position: "relative",
-    }}>
+    <div className="scheduler">
       {(!staffReady || hasStaff) && (
-        <div style={{ flexShrink: 0, width: "100%", overflow: "hidden", position: "relative", zIndex: 30 }}>
+        <div className="scheduler__topbar-wrap">
           <TopBar
             onNewAppointment={handleNewAppointment}
             onBlockTime={() => handleBlockTime()}
@@ -255,35 +306,18 @@ const SchedulerContent: React.FC = () => {
         </div>
       )}
 
-      <div style={{
-        flex: 1, display: "flex", flexDirection: "column", minHeight: 0,
-        overflowY: viewMode === "Month" || viewMode === "List Week" ? "auto" : "hidden",
-        overflowX: "hidden",
-      }}>
+      <div className={`scheduler__body${viewMode === "Month" || viewMode === "List Week" ? " scheduler__body--scrollable" : ""}`}>
         {/* ── No-staff empty state ── */}
         {staffReady && !hasStaff ? (
-          <div style={{
-            flex: 1, display: "flex", flexDirection: "column",
-            alignItems: "center", justifyContent: "center", gap: 12,
-            color: "#64748b", textAlign: "center", padding: "40px 24px",
-          }}>
+          <div className="scheduler__empty-state">
             <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
               <circle cx="9" cy="7" r="4"/>
               <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
             </svg>
-            <p style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "#334155" }}>No staff available</p>
-            <p style={{ margin: 0, fontSize: 13, color: "#94a3b8" }}>Add team members to start scheduling appointments.</p>
-            <a
-              href="/dashboard/team"
-              style={{
-                marginTop: 8, padding: "8px 20px", borderRadius: 8,
-                background: "#6366f1", color: "#fff", fontWeight: 600,
-                fontSize: 13, textDecoration: "none", display: "inline-block",
-              }}
-            >
-              + Add Staff
-            </a>
+            <p className="scheduler__empty-title">No staff available</p>
+            <p className="scheduler__empty-subtitle">Add team members to start scheduling appointments.</p>
+            <a href="/dashboard/team" className="scheduler__empty-link">+ Add Staff</a>
           </div>
         ) : (
           <>

@@ -480,9 +480,7 @@ export default function RegisterPage() {
             />
             <span className="rp-terms__text">
               I agree to the{" "}
-              <Link to="/privacy-policy" target="_blank" rel="noopener noreferrer" className="rp-terms__link">Privacy Policy</Link>,{" "}
-              <Link to="/terms-of-service" target="_blank" rel="noopener noreferrer" className="rp-terms__link">Terms of Service</Link> and{" "}
-              <Link to="/terms-of-business" target="_blank" rel="noopener noreferrer" className="rp-terms__link">Terms of Business</Link>.
+              <Link to="/terms" target="_blank" rel="noopener noreferrer" className="rp-terms__link">Terms & Conditions</Link>.
             </span>
           </label>
           {errors.terms && <span className="rp-error-msg">{errors.terms}</span>}

@@ -11,6 +11,7 @@ const RolesPermissionsPage  = lazy(() => import("../features/settings/pages/Role
 const IntegrationsPage      = lazy(() => import("../features/settings/pages/IntegrationsPage"));
 const BillingPage           = lazy(() => import("../features/settings/pages/BillingPage"));
 const DataPrivacyPage       = lazy(() => import("../features/settings/pages/DataPrivacyPage"));
+const SettingsManagementPage = lazy(() => import("../features/settings/pages/SettingsManagementPage"));
 
 export const SettingsRoutes = () => (
   <Suspense fallback={<PageLoader />}>
@@ -26,6 +27,7 @@ export const SettingsRoutes = () => (
         <Route path="integrations"  element={<IntegrationsPage />} />
         <Route path="billing"       element={<BillingPage />} />
         <Route path="data-privacy"  element={<DataPrivacyPage />} />
+        <Route path="tax-mapping"    element={<SettingsManagementPage />} />
         {/* Catch-all → profile */}
         <Route path="*"             element={<Navigate to="profile" replace />} />
       </Route>

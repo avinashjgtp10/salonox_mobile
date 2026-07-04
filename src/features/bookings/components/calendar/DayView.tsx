@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
 import { useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
 import type { RootState } from "../../../../store/store";
 import type { Booking, BlockedTime } from "../../types/booking.types";
 import { useScheduler, SLOT_HEIGHT } from "../../hooks/useScheduler";
@@ -10,10 +9,15 @@ import { formatTime12, getCurrentTime, addMinutes } from "../../utils/timeUtils"
 import Avatar from "../shared/Avatar";
 import BookingTooltipCard from "../shared/BookingTooltipCard";
 import BookingChip from "./BookingChip";
+import { useListClientPackagesQuery } from "../../../../services/api/endpoints/packages.endpoints";
 import "../../styles/DayView.scss";
 
 // Stable empty array — avoids allocating a new [] on every render for staff with no blocks
 const EMPTY_BLOCKS: BlockedTime[] = [];
+
+// Must match .dv-gutter width and .dv-header-row height in DayView.scss
+const GUTTER_WIDTH = 72;
+const HEADER_HEIGHT = 56;
 
 // Moved outside component — pure function, no closure needed
 function to24h(t: string): string {
@@ -39,8 +43,6 @@ const DayView: React.FC<DayViewProps> = ({
 }) => {
   const { currentDate, slots, timeToPx, durationToPx, intervalMins } = useScheduler();
   const { blockedTimes, deleteBlockedTime, updateBooking, staffList, selectedStaffId, bookings } = useSchedulerContext();
-  const navigate = useNavigate();
-  const staffLoading = useSelector((s: RootState) => (s as any).staff?.loading?.fetchAll ?? false);
 
   const visibleStaff = useMemo(
     () => selectedStaffId ? staffList.filter((s) => s.id === selectedStaffId) : staffList,
@@ -65,8 +67,11 @@ const DayView: React.FC<DayViewProps> = ({
     return () => window.removeEventListener("resize", measure);
   }, [visibleStaff.length]);
 
-  const COL_WIDTH = containerWidth > 0 && visibleStaff.length > 0
-    ? Math.max(160, Math.ceil(containerWidth / visibleStaff.length))
+  // containerRef now measures the full dv-root width (gutter + columns), so subtract
+  // the gutter's fixed width to get the space actually available to staff columns.
+  const availableColsWidth = Math.max(0, containerWidth - GUTTER_WIDTH);
+  const COL_WIDTH = availableColsWidth > 0 && visibleStaff.length > 0
+    ? Math.max(160, Math.ceil(availableColsWidth / visibleStaff.length))
     : 160;
 
   const [nowTime, setNowTime] = useState(getCurrentTime());
@@ -85,6 +90,26 @@ const DayView: React.FC<DayViewProps> = ({
   }, []);
   const keepTip = useCallback(() => { clearTimeout(tipTimerRef.current); }, []);
 
+  // Fetch the hovered client's active packages for tooltip fallback coverage detection
+  const hoveredClientId = hovered?.booking?.clientId && String(hovered.booking.clientId) !== "walk-in"
+    ? String(hovered.booking.clientId) : undefined;
+  const { data: hoveredPkgData } = useListClientPackagesQuery(
+    { clientId: hoveredClientId, status: "Active", limit: 50 },
+    { skip: !hoveredClientId }
+  );
+  const tooltipCoveredServices = useMemo(() => {
+    const map = new Map<string, number>();
+    (hoveredPkgData?.items ?? []).forEach((pkg: any) => {
+      pkg.services.forEach((svc: any) => {
+        if (svc.remainingSessions > 0) {
+          const key = (svc.serviceName || "").toLowerCase();
+          map.set(key, (map.get(key) ?? 0) + svc.remainingSessions);
+        }
+      });
+    });
+    return map;
+  }, [hoveredPkgData]);
+
   // ── Drag / resize state ───────────────────────────────────────────────────
   const [dragging, setDragging] = useState<{
     booking: Booking; startX: number; startY: number;
@@ -102,7 +127,7 @@ const DayView: React.FC<DayViewProps> = ({
   } | null>(null);
 
   const [resizing, setResizing] = useState<{
-    booking: Booking; startY: number; originalHeight: number; currentHeight: number;
+    booking: Booking; startY: number; originalHeight: number; currentHeight: number; staffId: string;
   } | null>(null);
 
   // Stable handlers for BookingChip — useCallback(fn,[]) since setters are stable
@@ -172,11 +197,8 @@ const DayView: React.FC<DayViewProps> = ({
     return false;
   }
 
-  const gutterBodyRef = useRef<HTMLDivElement>(null);
   const scrollBodyRef = useRef<HTMLDivElement>(null);
-  const headerRef = useRef<HTMLDivElement>(null);
   const staffMenuRef = useRef<HTMLDivElement>(null);
-  const syncing = useRef(false);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -198,21 +220,13 @@ const DayView: React.FC<DayViewProps> = ({
       }
       const now = new Date();
       const px = ((now.getHours() * 60 + now.getMinutes()) / intervalMins) * SLOT_HEIGHT;
-      scrollBodyRef.current.scrollTop = Math.max(0, px - 150);
+      // +HEADER_HEIGHT because the sticky header row now lives inside the scrollable
+      // content (see dv-scroll-content), so scrollTop 0 is the top of the header, not the grid.
+      scrollBodyRef.current.scrollTop = Math.max(0, px + HEADER_HEIGHT - 150);
     }
     requestAnimationFrame(() => scrollToNow());
     return () => { cancelled = true; };
   }, [isToday, intervalMins, currentDate]);
-
-  function onBodyScroll() {
-    if (syncing.current) return;
-    syncing.current = true;
-    if (gutterBodyRef.current && scrollBodyRef.current)
-      gutterBodyRef.current.scrollTop = scrollBodyRef.current.scrollTop;
-    if (headerRef.current && scrollBodyRef.current)
-      headerRef.current.scrollLeft = scrollBodyRef.current.scrollLeft;
-    syncing.current = false;
-  }
 
   useEffect(() => {
     const t = setInterval(() => setNowTime(getCurrentTime()), 60000);
@@ -296,15 +310,26 @@ const DayView: React.FC<DayViewProps> = ({
             ? String(s.staffId) === String(dragging.originalStaffId)
             : String(orig.staffId) === String(dragging.originalStaffId);
 
-          const sMins = toMins(s.time || dragging.originalStart) + deltaMins;
-          const sh = Math.floor(sMins / 60);
-          const sm = Math.round(sMins % 60);
-          const shiftedTime = `${sh.toString().padStart(2, "0")}:${sm.toString().padStart(2, "0")}`;
+          // Only shift the time of the staff/service group actually being dragged —
+          // other staff's services in the same multi-staff booking must stay put.
+          if (!matchesDraggedStaff) return s;
+
+          const shiftMins = (t: string) => {
+            const mins = toMins(t) + deltaMins;
+            const h = Math.floor(mins / 60);
+            const m = Math.round(mins % 60);
+            return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+          };
+
+          const shiftedTime = shiftMins(s.time || dragging.originalStart);
+          const existingEnd = s.endTime || s.end_time;
+          const shiftedEnd = existingEnd ? shiftMins(existingEnd) : undefined;
 
           return {
             ...s,
             time: shiftedTime,
-            staffId: matchesDraggedStaff ? dragging.currentStaffId : s.staffId,
+            ...(shiftedEnd ? { endTime: shiftedEnd, end_time: shiftedEnd } : {}),
+            staffId: dragging.currentStaffId,
           };
         }) || [];
 
@@ -366,11 +391,15 @@ const DayView: React.FC<DayViewProps> = ({
         return;
       }
 
-      const updatedServices = [...(orig.services || [])];
-      if (updatedServices.length > 0) {
-        const lastSvc = updatedServices[updatedServices.length - 1];
-        updatedServices[updatedServices.length - 1] = { ...lastSvc, endTime: newEnd, end_time: newEnd };
-      }
+      // Only extend the service(s) belonging to the staff whose chip was actually
+      // resized — other staff's services in the same multi-staff booking must stay put.
+      const resizedServices = (orig.services || []).filter((s: any) =>
+        s.staffId ? String(s.staffId) === String(resizing.staffId) : String(orig.staffId) === String(resizing.staffId)
+      );
+      const lastResizedSvc = resizedServices[resizedServices.length - 1];
+      const updatedServices = (orig.services || []).map((s: any) =>
+        s === lastResizedSvc ? { ...s, endTime: newEnd, end_time: newEnd } : s
+      );
 
       updateBooking({ ...orig, endTime: newEnd, services: updatedServices });
       setResizing(null);
@@ -431,7 +460,7 @@ const DayView: React.FC<DayViewProps> = ({
     const slotMins = toMins(slotTime);
     return dayBookings.some((b) => {
       if ((b.status as string) === "Cancelled") return false;
-      const staffServices = (b.services || []).filter((s: any) => s.staffId === staffId);
+      const staffServices = (b.services || []).filter((s: any) => String(s.staffId) === String(staffId));
       if (staffServices.length > 0) {
         return staffServices.some((s: any) => {
           const svcStart = s.time || b.startTime;
@@ -439,7 +468,7 @@ const DayView: React.FC<DayViewProps> = ({
           return slotMins >= toMins(svcStart) && slotMins < toMins(svcEnd);
         });
       }
-      if (b.staffId === staffId) {
+      if (String(b.staffId) === String(staffId)) {
         return slotMins >= toMins(b.startTime) && slotMins < toMins(b.endTime);
       }
       return false;
@@ -466,105 +495,77 @@ const DayView: React.FC<DayViewProps> = ({
   }
 
   if (staffList.length === 0) {
-    if (staffLoading) {
-      return (
-        <div style={{
-          flex: 1, display: "flex", flexDirection: "column",
-          alignItems: "center", justifyContent: "center", gap: 12,
-          background: "#f8fafc", color: "#9ca3af",
-        }}>
-          <div style={{
-            width: 36, height: 36, border: "3px solid #e5e7eb",
-            borderTopColor: "#6366f1", borderRadius: "50%",
-            animation: "dv-spin 0.7s linear infinite",
-          }} />
-          <span style={{ fontSize: 13, fontWeight: 500 }}>Loading calendar…</span>
-          <style>{`@keyframes dv-spin { to { transform: rotate(360deg); } }`}</style>
-        </div>
-      );
-    }
+    // Scheduler.tsx already handles the confirmed "no staff" case (staffReady && !hasStaff).
+    // When DayView is rendered but staffList is empty we are still in the loading phase,
+    // so always show the loader — never show "Add Staff" here.
     return (
-      <div style={{
-        flex: 1, display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center", gap: 16,
-        background: "#f8fafc",
-      }}>
-        <div style={{ fontSize: 48 }}>👥</div>
-        <div style={{ fontSize: 18, fontWeight: 700, color: "#111827" }}>No staff added yet</div>
-        <div style={{ fontSize: 13, color: "#6b7280", textAlign: "center", maxWidth: 280 }}>
-          Add at least one staff member to start scheduling appointments on the calendar.
-        </div>
-        <button
-          onClick={() => navigate("/dashboard/team/staff")}
-          style={{
-            marginTop: 4, padding: "10px 24px", background: "#6366f1",
-            color: "#fff", border: "none", borderRadius: 8, fontSize: 14,
-            fontWeight: 600, cursor: "pointer",
-          }}
-        >
-          Add Staff →
-        </button>
+      <div className="dv-loading">
+        <div className="dv-loading__spinner" />
+        <span className="dv-loading__text">Loading calendar…</span>
       </div>
     );
   }
 
   return (
     <div
+      ref={containerRef}
       className={`dv-root${isInteracting ? " dv-root--interacting" : ""}${dragging ? " dv-root--dragging" : ""}${resizing ? " dv-root--resizing" : ""}`}
       onClick={() => setStaffMenu(null)}
     >
-      {/* ── Time gutter ── */}
-      <div className="dv-gutter">
-        <div className="dv-gutter__header" />
-        <div ref={gutterBodyRef} className="dv-gutter__body">
-          {slots.map((t) => {
-            const [, m] = t.split(":").map(Number);
-            return (
-              <div key={t} className={`dv-gutter__slot${m === 0 ? " dv-gutter__slot--hour" : ""}`}>
-                <span className={`dv-gutter__label${m === 0 ? " dv-gutter__label--hour" : ""}`}>
-                  {formatTime12(t)}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── Staff columns ── */}
-      <div ref={containerRef} className="dv-columns">
-        <div ref={headerRef} className="dv-staff-header">
-          <div className="dv-staff-header__inner" style={{ width: totalWidth }}>
-            {visibleStaff.map((staff) => {
-              const isDragTarget = dragging?.currentStaffId === staff.id && dragging.booking.staffId !== staff.id;
-              return (
-                <div
-                  key={staff.id}
-                  className={`dv-staff-col-header${isDragTarget ? " dv-staff-col-header--drag-target" : ""}`}
-                  style={{ width: COL_WIDTH }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                    setStaffMenu((prev) => prev?.staffId === staff.id ? null : { staffId: staff.id, x: rect.left, y: rect.bottom + 4 });
-                  }}
-                >
-                  <Avatar staff={staff} size={36} />
-                  <span className="dv-staff-name" style={{ maxWidth: COL_WIDTH - 8 }}>{staff.name}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div ref={scrollBodyRef} onScroll={onBodyScroll} className="dv-scroll-body">
-          {dayBookings.length === 0 && !isInteracting && (
-            <div className="dv-empty-state">
-              <div className="dv-empty-state__icon">📅</div>
-              <div className="dv-empty-state__title">No appointments today</div>
-              <div className="dv-empty-state__sub">Click any time slot to add one</div>
+      {/* Single scrollable container — header row and gutter are CSS position:sticky
+          inside it, so the browser keeps them in sync with the grid natively (no JS
+          scrollTop mirroring, which used to visibly lag behind during fast scrolling). */}
+      <div ref={scrollBodyRef} className="dv-scroll-body">
+        <div className="dv-scroll-content" style={{ width: totalWidth + GUTTER_WIDTH }}>
+          {/* ── Sticky header row (corner + staff headers) ── */}
+          <div className="dv-header-row">
+            <div className="dv-gutter__header" />
+            <div className="dv-staff-header" style={{ width: totalWidth }}>
+              {visibleStaff.map((staff) => {
+                const isDragTarget = dragging?.currentStaffId === staff.id && dragging.booking.staffId !== staff.id;
+                return (
+                  <div
+                    key={staff.id}
+                    className={`dv-staff-col-header${isDragTarget ? " dv-staff-col-header--drag-target" : ""}`}
+                    style={{ width: COL_WIDTH }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                      setStaffMenu((prev) => prev?.staffId === staff.id ? null : { staffId: staff.id, x: rect.left, y: rect.bottom + 4 });
+                    }}
+                  >
+                    <Avatar staff={staff} size={36} />
+                    <span className="dv-staff-name" style={{ maxWidth: COL_WIDTH - 8 }}>{staff.name}</span>
+                  </div>
+                );
+              })}
             </div>
-          )}
+          </div>
 
-          <div className="dv-grid" style={{ width: totalWidth }}>
+          {/* ── Sticky-left time gutter + grid columns ── */}
+          <div className="dv-body-row">
+            <div className="dv-gutter">
+              {slots.map((t) => {
+                const [, m] = t.split(":").map(Number);
+                return (
+                  <div key={t} className={`dv-gutter__slot${m === 0 ? " dv-gutter__slot--hour" : ""}`}>
+                    <span className={`dv-gutter__label${m === 0 ? " dv-gutter__label--hour" : ""}`}>
+                      {formatTime12(t)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {dayBookings.length === 0 && !isInteracting && (
+              <div className="dv-empty-state">
+                <div className="dv-empty-state__icon">📅</div>
+                <div className="dv-empty-state__title">No appointments today</div>
+                <div className="dv-empty-state__sub">Click any time slot to add one</div>
+              </div>
+            )}
+
+            <div className="dv-grid" style={{ width: totalWidth }}>
             {visibleStaff.map((staff, staffIndex) => {
               const isDragTarget = dragging?.currentStaffId === staff.id && dragging.booking.staffId !== staff.id;
               const isFirstCol = staffIndex === 0;
@@ -579,7 +580,7 @@ const DayView: React.FC<DayViewProps> = ({
                   style={{ width: COL_WIDTH }}
                 >
                   {/* Grid Lines Layer (z-index 2) */}
-                  <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 2 }}>
+                  <div className="dv-grid-lines">
                     {slots.map((t) => {
                       const [, m] = t.split(":").map(Number);
                       return <div key={`grid-${t}`} className={`calendar-grid-line${m === 0 ? " calendar-grid-line--hour" : ""}`} />;
@@ -697,8 +698,11 @@ const DayView: React.FC<DayViewProps> = ({
                   {dayBookings
                     .filter((b) => {
                       if (dragging?.booking.id === b.id) return dragging.currentStaffId === staff.id;
-                      if (b.staffId) return b.staffId === staff.id;
-                      return (b.services || []).some((s: any) => s.staffId === staff.id);
+                      // Per-service staff: show chip under each service's staff column
+                      if ((b.services || []).some((s: any) => String(s.staffId) === String(staff.id))) return true;
+                      // Backward compat: if no service has a staffId, fall back to appointment-level staffId
+                      if (b.staffId && String(b.staffId) === String(staff.id) && !(b.services || []).some((s: any) => s.staffId)) return true;
+                      return false;
                     })
                     .map((b) => {
                       const isDraggingThis = dragging?.booking.id === b.id;
@@ -717,7 +721,7 @@ const DayView: React.FC<DayViewProps> = ({
                         : b.endTime;
                       if (isTimeRangeUnavailable(staff.id, staffStart, staffEnd)) return null;
                       const chipTop    = isDraggingThis ? dragging!.currentTop : timeToPx(staffStart);
-                      const chipHeight = isResizingThis ? resizing!.currentHeight : Math.max(durationToPx(staffStart, staffEnd), SLOT_HEIGHT);
+                      const chipHeight = isResizingThis ? resizing!.currentHeight : durationToPx(staffStart, staffEnd);
                       return (
                         <BookingChip
                           key={`${b.id}-${staff.id}`}
@@ -755,6 +759,7 @@ const DayView: React.FC<DayViewProps> = ({
                 </div>
               );
             })}
+            </div>
           </div>
         </div>
       </div>
@@ -766,6 +771,7 @@ const DayView: React.FC<DayViewProps> = ({
           anchorEl={hovered.el}
           onMouseEnter={keepTip}
           onMouseLeave={closeTip}
+          coveredServices={tooltipCoveredServices}
         />
       )}
 

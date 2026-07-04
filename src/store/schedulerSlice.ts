@@ -85,7 +85,8 @@ interface SchedulerState {
   staffSchedules: Record<string, Record<number, StaffDaySchedule>>;
   scheduleVersion: number;
   dragPatchCache: Record<string, { startTime: string; endTime: string; staffId?: string }>;
-  paymentPatchCache: Record<string, { paymentStatus: string; payingNow: number; dueAmount: number; grandTotal?: number }>;
+  paymentPatchCache: Record<string, { paymentStatus: string; payingNow: number; dueAmount: number; grandTotal?: number; paymentMode?: string; gstAmount?: number; taxBreakdown?: Booking["taxBreakdown"] }>;
+  serviceStaffCache: Record<string, Array<{ staffId: string; staff: string }>>;
 }
 
 const initialState: SchedulerState = {
@@ -106,6 +107,7 @@ const initialState: SchedulerState = {
   scheduleVersion: 0,
   dragPatchCache: {},
   paymentPatchCache: {},
+  serviceStaffCache: {},
 };
 
 const schedulerSlice = createSlice({
@@ -114,17 +116,32 @@ const schedulerSlice = createSlice({
   reducers: {
     setBookings(state, { payload }: PayloadAction<Booking[]>) {
       state.bookings = payload.map((b) => {
-        const drag = state.dragPatchCache[String(b.id)];
-        const pay  = state.paymentPatchCache[String(b.id)];
-        const merged = drag ? { ...b, ...drag } : { ...b };
+        const drag    = state.dragPatchCache[String(b.id)];
+        const pay     = state.paymentPatchCache[String(b.id)];
+        const svcStaff = state.serviceStaffCache[String(b.id)];
+        const merged  = drag ? { ...b, ...drag } : { ...b };
         if (pay) {
-          // Always trust local cache — it reflects the user's most recent payment action.
-          // API often returns stale/incorrect payment_status; cache is always authoritative.
           (merged as any).paymentStatus  = pay.paymentStatus;
           (merged as any).payment_status = pay.paymentStatus.toLowerCase();
           (merged as any).payingNow      = pay.payingNow;
           (merged as any).dueAmount      = pay.paymentStatus === "Paid" ? 0 : pay.dueAmount;
           if (pay.grandTotal !== undefined) (merged as any).grandTotal = pay.grandTotal;
+          if (pay.paymentMode !== undefined) (merged as any).paymentMode = pay.paymentMode;
+          if (pay.gstAmount !== undefined) (merged as any).gstAmount = pay.gstAmount;
+          if (pay.taxBreakdown !== undefined) (merged as any).taxBreakdown = pay.taxBreakdown;
+        }
+        // Restore per-service staff assignments that the list endpoint collapses to appointment-level.
+        if (svcStaff?.length && (merged as any).services?.length) {
+          const apptStaffId = String((merged as any).staffId ?? "");
+          const allSame = ((merged as any).services as any[]).every(
+            (s: any) => !s.staffId || String(s.staffId) === apptStaffId
+          );
+          if (allSame) {
+            (merged as any).services = ((merged as any).services as any[]).map((svc: any, idx: number) => {
+              const cached = svcStaff[idx];
+              return cached ? { ...svc, staffId: cached.staffId, staff: cached.staff } : svc;
+            });
+          }
         }
         return merged;
       });
@@ -169,10 +186,35 @@ const schedulerSlice = createSlice({
     },
     addBooking(state, { payload }: PayloadAction<Booking>) {
       state.bookings.push(payload);
+      const services: any[] = (payload as any).services ?? [];
+      const apptStaffId = String((payload as any).staffId ?? "");
+      const hasPerServiceStaff = services.some(
+        (s: any) => s.staffId && String(s.staffId) !== apptStaffId
+      );
+      if (hasPerServiceStaff) {
+        state.serviceStaffCache[String(payload.id)] = services.map((s: any) => {
+          const sf = s.staff;
+          const staffStr = sf && typeof sf === "object" ? ((sf as any).name || "") : (sf ? String(sf) : "");
+          return { staffId: String(s.staffId ?? ""), staff: staffStr };
+        });
+      }
     },
     updateBooking(state, { payload }: PayloadAction<Booking>) {
       const idx = state.bookings.findIndex((b) => b.id === payload.id);
       if (idx !== -1) state.bookings[idx] = payload;
+      // Cache per-service staff assignments so setBookings can restore them after list-endpoint overwrites.
+      const services: any[] = (payload as any).services ?? [];
+      const apptStaffId = String((payload as any).staffId ?? "");
+      const hasPerServiceStaff = services.some(
+        (s: any) => s.staffId && String(s.staffId) !== apptStaffId
+      );
+      if (hasPerServiceStaff) {
+        state.serviceStaffCache[String(payload.id)] = services.map((s: any) => {
+          const sf = s.staff;
+          const staffStr = sf && typeof sf === "object" ? ((sf as any).name || "") : (sf ? String(sf) : "");
+          return { staffId: String(s.staffId ?? ""), staff: staffStr };
+        });
+      }
     },
     patchPaymentStatus(
       state,
@@ -183,6 +225,8 @@ const schedulerSlice = createSlice({
         dueAmount?: number;
         grandTotal?: number;
         paymentMode?: string;
+        gstAmount?: number;
+        taxBreakdown?: Booking["taxBreakdown"];
       }>
     ) {
       const booking = state.bookings.find((b) => String(b.id) === String(payload.id));
@@ -193,20 +237,30 @@ const schedulerSlice = createSlice({
         if (payload.dueAmount  !== undefined) (booking as any).dueAmount  = payload.paymentStatus === "Paid" ? 0 : payload.dueAmount;
         if (payload.grandTotal !== undefined) (booking as any).grandTotal = payload.grandTotal;
         if (payload.paymentMode !== undefined) (booking as any).paymentMode = payload.paymentMode;
+        if (payload.gstAmount !== undefined) (booking as any).gstAmount = payload.gstAmount;
+        if (payload.taxBreakdown !== undefined) (booking as any).taxBreakdown = payload.taxBreakdown;
       }
       state.paymentPatchCache[String(payload.id)] = {
         paymentStatus: payload.paymentStatus,
         payingNow:     payload.payingNow ?? 0,
         dueAmount:     payload.paymentStatus === "Paid" ? 0 : (payload.dueAmount ?? 0),
         grandTotal:    payload.grandTotal,
+        paymentMode:   payload.paymentMode,
+        gstAmount:     payload.gstAmount,
+        taxBreakdown:  payload.taxBreakdown,
       };
     },
     replaceBookingId(state, { payload }: PayloadAction<{ localId: string; realId: string }>) {
       const idx = state.bookings.findIndex((b) => b.id === payload.localId);
       if (idx !== -1) state.bookings[idx] = { ...state.bookings[idx], id: payload.realId };
+      if (state.serviceStaffCache[payload.localId]) {
+        state.serviceStaffCache[payload.realId] = state.serviceStaffCache[payload.localId];
+        delete state.serviceStaffCache[payload.localId];
+      }
     },
     deleteBooking(state, { payload }: PayloadAction<string>) {
       state.bookings = state.bookings.filter((b) => b.id !== payload);
+      delete state.serviceStaffCache[String(payload)];
     },
     setBlockedTimes(state, { payload }: PayloadAction<BlockedTime[]>) {
       state.blockedTimes = payload;

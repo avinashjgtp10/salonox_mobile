@@ -4,15 +4,19 @@ import { patchPaymentStatus } from "../../../store/schedulerSlice";
 import { postPaymentThunk, clearClientDuesThunk } from "../../../middleware/booking/payment.thunk";
 import { selectBookings } from "../../../store/selectors/scheduler.selectors";
 import { buildMethodLabel, isRealId } from "../utils/paymentUtils";
-import type { SingleMethod, SplitEntry } from "../types";
+import type { SingleMethod, SplitEntry, Booking } from "../types";
 
 interface CompletePaymentParams {
   appointmentId: string | number;
   clientId?: string | null;
   salonId?: string;
   // Totals
-  grandTotal: number;
-  effectiveTotal: number;
+  grandTotal: number;       // post-discount net total (used for UI + net_amount)
+  effectiveTotal: number;   // grandTotal - eWalletUsed
+  subtotal?: number;        // pre-discount subtotal → sent as gross_amount to backend
+  manualDiscountAmt?: number; // monetary discount applied on services (from totals.totalDisc)
+  gstAmount?: number;         // add-on tax amount included in grandTotal, for receipt display
+  taxBreakdown?: Booking["taxBreakdown"];
   alreadyPaidAmount: number;
   eWalletAmt: number;
   couponDiscount: number;
@@ -26,6 +30,7 @@ interface CompletePaymentParams {
   includeClearDue: boolean;
   priorDueAmt: number;
   useEWallet: boolean;
+  applyMembershipWallet?: boolean;
 }
 
 /**
@@ -44,11 +49,17 @@ export function usePayment() {
   const completePayment = useCallback(async (params: CompletePaymentParams): Promise<boolean> => {
     const {
       appointmentId, clientId, salonId,
-      grandTotal, effectiveTotal, alreadyPaidAmount,
-      eWalletAmt, couponDiscount, couponApplied,
+      grandTotal, effectiveTotal, subtotal, manualDiscountAmt,
+      alreadyPaidAmount, eWalletAmt, couponDiscount, couponApplied,
       paymentMode, singleMethod, splitEntries, partialAmtInput,
-      includeClearDue, priorDueAmt, useEWallet,
+      includeClearDue, priorDueAmt, useEWallet, applyMembershipWallet,
+      gstAmount, taxBreakdown,
     } = params;
+
+    // gross_amount = pre-discount subtotal so the backend can compute:
+    //   net = gross - discount_amount, due = net - paid = 0
+    const payloadGross    = (subtotal && subtotal > grandTotal) ? subtotal : grandTotal;
+    const payloadDiscount = (manualDiscountAmt || 0) + couponDiscount;
 
     setIsProcessing(true);
     setPayError(null);
@@ -82,12 +93,19 @@ export function usePayment() {
       const methodLabel   = buildMethodLabel(paymentMode, singleMethod, methods);
 
       // ── Post payment for current appointment ────────────────────────────
+      // KNOWN GAP: the backend (payments.service.ts `create()`) recomputes
+      // gross_amount/net_amount server-side from raw appointment item prices
+      // and ignores whatever we send here — it does not add tax. So the
+      // receipt below correctly displays tax (gstAmount/taxBreakdown), but
+      // the amount actually required to mark the appointment "Paid" excludes
+      // it. Fixing that requires updating payments.service.ts to add the
+      // same active/applicable tax from salon_settings into its recompute.
       const result: any = await dispatch(postPaymentThunk({
         salon_id:         salonId || undefined,
         appointment_id:   appointmentId,
         client_id:        (clientId && isRealId(clientId)) ? clientId : undefined,
-        gross_amount:     grandTotal,
-        discount_amount:  alreadyPaidAmount > 0 ? 0 : couponDiscount,
+        gross_amount:     payloadGross,
+        discount_amount:  alreadyPaidAmount > 0 ? 0 : payloadDiscount,
         ewallet_used:     useEWallet ? eWalletAmt : 0,
         net_amount:       effectiveTotal,
         paid_amount:      currentCharge,
@@ -96,6 +114,7 @@ export function usePayment() {
         payment_method:   methodLabel,
         split_details:    paymentMode === "split" ? methods : { [singleMethod!]: currentCharge },
         status:           newDue > 0 ? "partial" : "completed",
+        apply_membership_wallet: !!applyMembershipWallet,
       }));
 
       // "already completed" is treated as success
@@ -115,6 +134,8 @@ export function usePayment() {
         paymentMode: paymentMode === "split"
           ? Object.keys(methods).filter((k) => k !== "eWallet").join("+")
           : (singleMethod || "Cash"),
+        gstAmount,
+        taxBreakdown,
       }));
 
       // ── Clear prior dues if toggled ──────────────────────────────────────

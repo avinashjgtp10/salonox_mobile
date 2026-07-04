@@ -30,6 +30,7 @@ export interface ServiceItem {
   total: number;
   duration?: number;
   isFav?: boolean;
+  isPackageService?: boolean;
 }
 
 export interface PackageItem {
@@ -40,6 +41,8 @@ export interface PackageItem {
   qty: number;
   discount?: number;
   total: number;
+  staffId?: string;
+  time?: string;
 }
 
 export interface ProductItem {
@@ -50,6 +53,8 @@ export interface ProductItem {
   qty: number;
   discount?: number;
   total: number;
+  staffId?: string;
+  time?: string;
 }
 
 export interface MembershipItem {
@@ -58,7 +63,10 @@ export interface MembershipItem {
   membershipName: string;
   price: number;
   qty: number;
+  discount?: number;
   total: number;
+  staffId?: string;
+  time?: string;
 }
 
 export interface GroupItem {
@@ -84,10 +92,15 @@ export type IntervalOption  = "5 Mins" | "10 Mins" | "15 Mins" | "20 Mins" | "30
 export interface Booking {
   id: string;
   title?: string;
+  invoiceNumber?: number;
   clientId?: string;
   clientName: string;
   clientPhone: string;
+  clientEmail?: string;
   staffId: string;
+  staffName?: string;
+  staffPhone?: string;
+  staffEmail?: string;
   date: string;
   billDate: string;
   startTime: string;
@@ -110,8 +123,11 @@ export interface Booking {
   rewardPoints?: string;
   exCharges?: number;
   discount?: number;
+  discountAmount?: number; // computed monetary discount (₹), as opposed to discount which may be a raw %/flat input
   discountType?: DiscountType;
-  gst?: number;
+  gst?: number; // effective blended tax rate (%), for legacy/simple display
+  gstAmount?: number; // total add-on tax amount included in grandTotal
+  taxBreakdown?: { name: string; rate: number; amount: number; inclusive: boolean }[];
   couponCode?: string;
   couponDiscount?: number;
   subtotal: number;

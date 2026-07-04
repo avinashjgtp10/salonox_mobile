@@ -57,6 +57,16 @@ export default defineConfig(({ mode }) => {
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // ── Vite's dynamic-import preload helper is a shared runtime util with
+          // no owner — left unpinned, Rollup drops it into whichever feature chunk
+          // happens to reference it first, which can wire up a circular chunk
+          // dependency (and a "Cannot access X before initialization" TDZ error)
+          // between that feature chunk and chunk-vendor-misc. Pin it to chunk-react
+          // (always loads first, has no outgoing chunk deps) so it can't do that.
+          if (id.includes('vite/preload-helper')) {
+            return 'chunk-react'
+          }
+
           // ── React core ──────────────────────────────────────────────────────
           if (id.includes('node_modules/react/') ||
               id.includes('node_modules/react-dom/') ||
@@ -64,10 +74,34 @@ export default defineConfig(({ mode }) => {
             return 'chunk-react'
           }
 
+          // ── Shared low-level deps (needed eagerly by many other chunks at
+          // module-init time — keep with chunk-react, the first chunk loaded,
+          // to avoid circular chunk dependencies / TDZ errors) ────────────────
+          if (id.includes('node_modules/prop-types/') ||
+              id.includes('node_modules/react-is/') ||
+              id.includes('node_modules/object-assign/') ||
+              id.includes('node_modules/react-redux/') ||
+              id.includes('node_modules/@reduxjs/toolkit/') ||
+              id.includes('node_modules/redux-persist/') ||
+              id.includes('node_modules/redux/') ||
+              id.includes('node_modules/redux-thunk/') ||
+              id.includes('node_modules/immer/') ||
+              id.includes('node_modules/reselect/') ||
+              id.includes('node_modules/use-sync-external-store/') ||
+              id.includes('node_modules/@standard-schema/')) {
+            return 'chunk-react'
+          }
+
           // ── Router ──────────────────────────────────────────────────────────
           if (id.includes('node_modules/react-router') ||
               id.includes('node_modules/@remix-run/')) {
             return 'chunk-router'
+          }
+
+          // ── Calendar / booking views (avoid "Scheduler" in chunk name — triggers ad blockers)
+          if (id.includes('src/features/bookings/') ||
+              id.includes('src/routes/DashboardRoutes')) {
+            return 'chunk-calendar'
           }
 
           // ── FullCalendar (very large) ────────────────────────────────────────
