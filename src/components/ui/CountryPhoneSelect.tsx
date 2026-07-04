@@ -1,11 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import { COUNTRIES } from "./countryData";
+import "./styles/CountryPhoneSelect.scss";
 
 export type { CountryOption } from "./countryData";
 
 const DEFAULT_INDIA = COUNTRIES.find((c) => c.cca2 === "IN")!;
 
 interface Props {
+  /** ISO 3166-1 alpha-2 code (e.g. "IN", "US"). Dial codes aren't unique
+   *  across countries (US/CA both use "+1"), so the selection is keyed by
+   *  the country code rather than the dial code. */
   value: string;
   onChange: (country: import("./countryData").CountryOption) => void;
 }
@@ -37,7 +41,7 @@ export default function CountryPhoneSelect({ value, onChange }: Props) {
     }
   }, [open]);
 
-  const selected = COUNTRIES.find((c) => c.dialCode === value) ?? DEFAULT_INDIA;
+  const selected = COUNTRIES.find((c) => c.cca2 === value) ?? DEFAULT_INDIA;
   const filtered = search.trim()
     ? COUNTRIES.filter(
         (c) =>
@@ -48,37 +52,15 @@ export default function CountryPhoneSelect({ value, onChange }: Props) {
     : COUNTRIES;
 
   return (
-    <div ref={wrapperRef} style={{ position: "relative" }}>
+    <div ref={wrapperRef} className="ui-country-select">
       {/* Trigger button */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 4,
-          height: "100%",
-          padding: "0 8px 0 12px",
-          border: "none",
-          background: "transparent",
-          cursor: "pointer",
-          minWidth: 82,
-          fontSize: 13,
-          fontWeight: 500,
-          color: "#4b5563",
-          whiteSpace: "nowrap",
-        }}
-      >
-        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", color: "#4b5563" }}>
-          {selected.cca2}
-        </span>
-        <span style={{ fontSize: 12, fontWeight: 600, fontFamily: "monospace", color: "#374151" }}>
-          {selected.dialCode}
-        </span>
+      <button type="button" className="ui-country-select__trigger" onClick={() => setOpen((v) => !v)}>
+        <span className="ui-country-select__trigger-code">{selected.cca2}</span>
+        <span className="ui-country-select__trigger-dial">{selected.dialCode}</span>
         <svg
           width="10" height="10"
           viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5"
-          style={{ flexShrink: 0, transition: "transform 0.15s", transform: open ? "rotate(180deg)" : "none" }}
+          className={`ui-country-select__chevron${open ? " ui-country-select__chevron--open" : ""}`}
         >
           <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
@@ -86,43 +68,17 @@ export default function CountryPhoneSelect({ value, onChange }: Props) {
 
       {/* Dropdown panel */}
       {open && (
-        <div style={{
-          position: "absolute",
-          left: 0,
-          top: "calc(100% + 4px)",
-          zIndex: 9999,
-          width: 288,
-          background: "#fff",
-          border: "1px solid #e5e7eb",
-          borderRadius: 12,
-          boxShadow: "0 10px 40px rgba(0,0,0,0.15)",
-          overflow: "hidden",
-        }}>
+        <div className="ui-country-select__panel">
           {/* Search bar */}
-          <div style={{ padding: 8, borderBottom: "1px solid #f3f4f6", background: "#f9fafb" }}>
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              background: "#fff",
-              border: "1px solid #e5e7eb",
-              borderRadius: 8,
-              padding: "6px 10px",
-            }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" style={{ flexShrink: 0 }}>
+          <div className="ui-country-select__search-bar">
+            <div className="ui-country-select__search-box">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" className="ui-country-select__search-icon">
                 <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" strokeLinecap="round" />
               </svg>
               <input
                 ref={searchRef}
                 type="text"
-                style={{
-                  flex: 1,
-                  border: "none",
-                  outline: "none",
-                  background: "transparent",
-                  fontSize: 13,
-                  color: "#111827",
-                }}
+                className="ui-country-select__search-input"
                 placeholder="Search country or code…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -130,8 +86,9 @@ export default function CountryPhoneSelect({ value, onChange }: Props) {
               {search && (
                 <button
                   type="button"
+                  aria-label="Clear search"
                   onClick={() => setSearch("")}
-                  style={{ background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1, display: "flex", alignItems: "center" }}
+                  className="ui-country-select__clear-btn"
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5">
                     <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
@@ -142,48 +99,30 @@ export default function CountryPhoneSelect({ value, onChange }: Props) {
           </div>
 
           {/* Country list */}
-          <div ref={listRef} style={{ maxHeight: 240, overflowY: "auto" }}>
+          <div ref={listRef} className="ui-country-select__list">
             {filtered.length === 0 && (
-              <div style={{ padding: "12px 16px", fontSize: 13, color: "#9ca3af", textAlign: "center" }}>
+              <div className="ui-country-select__empty">
                 No countries found for "{search}"
               </div>
             )}
 
             {filtered.map((c) => {
-              const isSel = c.dialCode === value && c.cca2 === selected.cca2;
+              const isSel = c.cca2 === selected.cca2;
               return (
                 <button
                   key={c.cca2}
                   type="button"
                   data-selected={isSel}
-                  style={{
-                    width: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    padding: "7px 14px",
-                    border: "none",
-                    borderBottom: "1px solid #f9fafb",
-                    background: isSel ? "#eff6ff" : "transparent",
-                    cursor: "pointer",
-                    textAlign: "left",
-                    color: isSel ? "#1d4ed8" : "#1f2937",
-                  }}
-                  onMouseEnter={(e) => { if (!isSel) e.currentTarget.style.background = "#f9fafb"; }}
-                  onMouseLeave={(e) => { if (!isSel) e.currentTarget.style.background = "transparent"; }}
+                  className={`ui-country-select__option${isSel ? " ui-country-select__option--selected" : ""}`}
                   onClick={() => { onChange(c); setOpen(false); setSearch(""); }}
                 >
-                  <span style={{ width: 28, textAlign: "center", flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#6b7280", letterSpacing: "0.05em" }}>
-                    {c.cca2}
-                  </span>
-                  <span style={{ flex: 1, fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {c.name}
-                  </span>
-                  <span style={{ flexShrink: 0, fontSize: 12, fontFamily: "monospace", fontWeight: 600, color: isSel ? "#2563eb" : "#6b7280" }}>
+                  <span className="ui-country-select__option-code">{c.cca2}</span>
+                  <span className="ui-country-select__option-name">{c.name}</span>
+                  <span className={`ui-country-select__option-dial${isSel ? " ui-country-select__option-dial--selected" : ""}`}>
                     {c.dialCode}
                   </span>
                   {isSel && (
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2.5" style={{ flexShrink: 0 }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2.5" className="ui-country-select__check-icon">
                       <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   )}
@@ -193,7 +132,7 @@ export default function CountryPhoneSelect({ value, onChange }: Props) {
           </div>
 
           {/* Footer */}
-          <div style={{ padding: "5px 12px", borderTop: "1px solid #f3f4f6", background: "#f9fafb", fontSize: 11, color: "#9ca3af", textAlign: "right" }}>
+          <div className="ui-country-select__footer">
             {filtered.length} of {COUNTRIES.length} countries
           </div>
         </div>

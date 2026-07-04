@@ -1,0 +1,21 @@
+.ui-phone-input {
+  &__label {
+    font-size: 13px;
+    color: #374151;
+  }
+
+  &__required {
+    color: #dc2626;
+  }
+
+  &__field {
+    outline: none;
+    padding: 8px 12px;
+    min-width: 0;
+    background: transparent;
+  }
+
+  &__error {
+    font-size: 12px;
+  }
+}

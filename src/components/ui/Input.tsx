@@ -1,4 +1,5 @@
 import React, { useId } from "react";
+import "./styles/Input.scss";
 
 interface InputProps extends Omit<
   React.InputHTMLAttributes<HTMLInputElement | HTMLTextAreaElement>,
@@ -52,19 +53,13 @@ const Input: React.FC<InputProps> = ({
       return (
         <div className="position-relative d-flex align-items-center">
           {iconLeft && (
-            <div
-              className="position-absolute start-0 ps-3 text-muted d-flex align-items-center"
-              style={{ zIndex: 4 }}
-            >
+            <div className="position-absolute start-0 ps-3 text-muted d-flex align-items-center ui-input__icon-wrap">
               {iconLeft}
             </div>
           )}
           {inputElement}
           {iconRight && (
-            <div
-              className="position-absolute end-0 pe-3 text-muted d-flex align-items-center"
-              style={{ zIndex: 4 }}
-            >
+            <div className="position-absolute end-0 pe-3 text-muted d-flex align-items-center ui-input__icon-wrap">
               {iconRight}
             </div>
           )}
@@ -89,15 +84,11 @@ const Input: React.FC<InputProps> = ({
     <div className={containerClass}>
       {label && (
         <div className={showCharCount ? "d-flex justify-content-between align-items-center mb-1" : undefined}>
-          <label
-            htmlFor={inputId}
-            className="form-label fw-semibold mb-0"
-            style={{ fontSize: "13px", color: "#374151" }}
-          >
+          <label htmlFor={inputId} className="form-label fw-semibold mb-0 ui-input__label">
             {label}
           </label>
           {showCharCount && props.maxLength !== undefined && (
-            <span className="text-muted" style={{ fontSize: "12px" }}>
+            <span className="text-muted ui-input__char-count">
               {String(props.value ?? "").length}/{props.maxLength}
             </span>
           )}
@@ -105,7 +96,7 @@ const Input: React.FC<InputProps> = ({
       )}
       {renderInput()}
       {error && (
-        <div className="text-danger mt-1" style={{ fontSize: "12px" }}>
+        <div className="text-danger mt-1 ui-input__error">
           {error}
         </div>
       )}

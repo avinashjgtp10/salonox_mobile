@@ -2612,6 +2612,7 @@ html {
     .showcase-img {
       width: 100%;
       height: auto;
+      aspect-ratio: 1024 / 596;
       object-fit: contain;
       display: block;
     }
@@ -3081,6 +3082,71 @@ html {
       background-size: 16px;
       cursor: pointer;
     }
+
+    /* International phone number field (react-phone-number-input),
+       restyled to match the plain text inputs above. */
+    .PhoneInput {
+      align-items: center;
+      width: 100%;
+      padding: 0 14px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--gray-200);
+      background: var(--white);
+      transition: border-color 0.25s ease, box-shadow 0.25s ease;
+
+      &.PhoneInput--focus {
+        border-color: var(--emerald);
+      }
+
+      &.PhoneInput--invalid {
+        border-color: #ef4444;
+      }
+    }
+
+    .PhoneInputCountry {
+      margin-right: 10px;
+      padding-right: 10px;
+      border-right: 1.5px solid var(--gray-200);
+    }
+
+    .PhoneInputCountryIcon {
+      width: 26px;
+      height: 19px;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .PhoneInputCountrySelectArrow {
+      color: var(--gray-400);
+      opacity: 1;
+    }
+
+    .PhoneInputInput {
+      border: none;
+      outline: none;
+      background: transparent;
+      padding: 12px 0;
+      font-family: var(--font-body);
+      font-size: 14.5px;
+      color: var(--navy);
+      width: 100%;
+
+      // Overrides the generic `.demo-field input:focus` box-shadow — this
+      // field's focus ring already lives on the `.PhoneInput` wrapper border.
+      &:focus {
+        box-shadow: none;
+      }
+
+      &::placeholder {
+        color: var(--gray-400);
+      }
+    }
+  }
+
+  .demo-field-error {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #ef4444;
   }
 
   .demo-form .btn {
@@ -3277,6 +3343,9 @@ html {
     }
   }
 
+  // Icon-only floating WhatsApp button — no circle, background, border, or
+  // shadow chrome; the FaWhatsapp glyph is already the full brand mark, so it
+  // only needs positioning, brand-color tinting, and a hover scale.
   .floating-whatsapp-cta {
     position: fixed;
     right: 24px;
@@ -3285,80 +3354,24 @@ html {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 64px;
-    height: 64px;
-    padding: 0;
-    border-radius: 50%;
-    background: linear-gradient(135deg, rgba(15, 23, 42, 0.96) 0%, rgba(5, 150, 105, 0.94) 100%);
-    color: var(--white);
-    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.12);
-    -webkit-backdrop-filter: blur(12px);
-    backdrop-filter: blur(12px);
-    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease, filter 0.35s ease;
-    animation: whatsapp-pulse 3.2s ease-in-out infinite;
-
-    &::after {
-      content: '';
-      position: absolute;
-      inset: -4px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(52, 211, 153, 0.2) 0%, rgba(52, 211, 153, 0) 72%);
-      opacity: 0;
-      transition: opacity 0.35s ease;
-      pointer-events: none;
-    }
+    line-height: 0;
+    color: #25d366;
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 
     &:hover {
-      transform: translateY(-4px) scale(1.01);
-      box-shadow: 0 24px 46px rgba(5, 150, 105, 0.26), 0 0 0 1px rgba(255, 255, 255, 0.18);
-      filter: saturate(1.06);
-      animation-play-state: paused;
-
-      &::after {
-        opacity: 1;
-      }
+      transform: scale(1.12);
     }
 
     &__icon {
-      flex: 0 0 auto;
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
       display: flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--gradient-emerald);
-      box-shadow: 0 10px 24px rgba(16, 185, 129, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.22);
     }
 
     &__icon svg {
-      width: 24px;
-      height: 24px;
-      color: var(--white);
-      stroke: var(--white);
+      width: 56px;
+      height: 56px;
       display: block;
       margin: 0;
       padding: 0;
-      transform: none;
-    }
-
-    &__icon .icon-whatsapp {
-      fill: currentColor;
-      stroke: none;
-      color: var(--white);
-    }
-  }
-
-  @keyframes whatsapp-pulse {
-    0%,
-    100% {
-      transform: translateY(0);
-      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.12);
-    }
-
-    50% {
-      transform: translateY(-2px);
-      box-shadow: 0 24px 44px rgba(5, 150, 105, 0.22), 0 0 0 8px rgba(16, 185, 129, 0.08);
     }
   }
 
@@ -3629,7 +3642,8 @@ html {
     }
 
     .demo-field input,
-    .demo-field select {
+    .demo-field select,
+    .demo-field .PhoneInput {
       min-height: 52px;
       font-size: 16px;
     }
@@ -3683,35 +3697,11 @@ html {
     .floating-whatsapp-cta {
       right: 16px;
       bottom: max(16px, env(safe-area-inset-bottom));
-      width: 52px;
-      height: 52px;
-      background: #25d366;
-      box-shadow: 0 12px 28px rgba(37, 211, 102, 0.35);
-      -webkit-backdrop-filter: none;
-      backdrop-filter: none;
-      animation: none;
-    }
-
-    .floating-whatsapp-cta::after {
-      display: none;
-    }
-
-    .floating-whatsapp-cta__icon {
-      width: 100%;
-      height: 100%;
-      background: transparent;
-      box-shadow: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
 
     .floating-whatsapp-cta__icon svg {
-      width: 26px;
-      height: 26px;
-      margin: 0;
-      padding: 0;
-      transform: none;
+      width: 48px;
+      height: 48px;
     }
 
     .feature-modal-backdrop {
@@ -4193,12 +4183,6 @@ html {
       text-align: center;
     }
 
-    .floating-whatsapp-cta {
-      right: 16px;
-      bottom: max(16px, env(safe-area-inset-bottom));
-      width: min(286px, calc(100vw - 32px));
-      padding-right: 14px;
-    }
   }
 
   @media (max-width: 480px) {
@@ -4271,24 +4255,11 @@ html {
     .floating-whatsapp-cta {
       right: 14px;
       bottom: max(14px, env(safe-area-inset-bottom));
-      width: 48px;
-      height: 48px;
-    }
-
-    .floating-whatsapp-cta__icon {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
 
     .floating-whatsapp-cta__icon svg {
-      width: 24px;
-      height: 24px;
-      margin: 0;
-      padding: 0;
-      transform: none;
+      width: 42px;
+      height: 42px;
     }
 
   }

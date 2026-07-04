@@ -905,6 +905,7 @@ $success:    #22c55e;
   font-weight: 600;
   color: $info;
   transition: all 0.15s;
+  -webkit-user-select: none;
   user-select: none;
 
   &--active {
@@ -933,6 +934,7 @@ $success:    #22c55e;
   border-radius: 8px;
   border-top: 1px solid #fde68a;
   cursor: pointer;
+  -webkit-user-select: none;
   user-select: none;
   transition: background 0.15s;
   &--active { background: #fef3c7; }
@@ -1197,6 +1199,7 @@ $success:    #22c55e;
     white-space: nowrap;
     cursor: pointer;
     flex-shrink: 0;
+    -webkit-user-select: none;
     user-select: none;
   }
 
@@ -1238,6 +1241,7 @@ $success:    #22c55e;
   cursor: pointer;
   box-shadow: 0 1px 4px rgba(0,0,0,0.12);
   transition: box-shadow 0.15s, transform 0.1s;
+  -webkit-user-select: none;
   user-select: none;
 
   &:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.18); transform: translateY(-1px); }

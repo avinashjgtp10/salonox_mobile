@@ -1,8 +1,11 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FaWhatsapp } from 'react-icons/fa';
-// TypeScript may not have declarations for .scss imports in this repo setup.
-// Suppress the error for this side-effect stylesheet import.
+import PhoneInput, { type Country } from 'react-phone-number-input';
+import flags from 'react-phone-number-input/flags';
+import { isValidPhoneNumber, isPossiblePhoneNumber } from 'libphonenumber-js';
+// @ts-ignore
+import 'react-phone-number-input/style.css';
 // @ts-ignore
 import '../styles/landing.scss';
 
@@ -186,7 +189,13 @@ type WhyFeature = Feature & {
   metricLabel: string;
 };
 type Branch = { name: string; bookings: string; revenue: string };
-type DemoForm = { name: string; email: string; salon: string; locations: string; agreed: boolean };
+type DemoForm = { name: string; email: string; phone: string; salon: string; city: string; locations: string; agreed: boolean };
+const DEMO_PHONE_DEFAULT_COUNTRY: Country = 'IN';
+
+const countryDisplayNames = typeof Intl.DisplayNames === 'function'
+  ? new Intl.DisplayNames(['en'], { type: 'region' })
+  : null;
+const countryName = (country: Country) => countryDisplayNames?.of(country) || country;
 
 const FEATURES: Feature[] = [
   { icon: 'Calendar', title: 'Effortless scheduling', desc: 'Manage every chair, room, and stylist from one drag-and-drop calendar built for busy floors.' },
@@ -391,16 +400,11 @@ const PLANS = [
 
 function useReveal<T extends HTMLElement>() {
   const ref = useRef<T | null>(null);
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(() => typeof IntersectionObserver === 'undefined');
 
   useEffect(() => {
     const node = ref.current;
-    if (!node) return;
-
-    if (typeof IntersectionObserver === 'undefined') {
-      setVisible(true);
-      return;
-    }
+    if (!node || typeof IntersectionObserver === 'undefined') return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -607,11 +611,50 @@ const FeatureProductPreview: React.FC<{ feature: WhyFeature }> = ({ feature }) =
 /* ---------------------------------- Component ---------------------------------- */
 
 const LandingPage: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeBranch, setActiveBranch] = useState(0);
   const [branches, setBranches] = useState<Branch[]>(INITIAL_BRANCHES);
   const [selectedWhyFeature, setSelectedWhyFeature] = useState<WhyFeature | null>(null);
+
+  // The dashboard shell forces `overflow: hidden !important` + `height: 100%`
+  // on html/body/#root (src/index.css) so its own panes can own scrolling.
+  // That rule is global, so on this page it also clips #root to the viewport
+  // and disables window scrolling. Restore natural height/scrolling while
+  // this page is mounted, using `important` so it wins over the stylesheet
+  // rule, and put everything back on unmount so the dashboard is unaffected.
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const root = document.getElementById('root');
+    const targets = [html, body, root].filter((el): el is HTMLElement => !!el);
+
+    const prev = targets.map((el) => ({
+      el,
+      overflow: el.style.getPropertyValue('overflow'),
+      overflowPriority: el.style.getPropertyPriority('overflow'),
+      height: el.style.getPropertyValue('height'),
+      heightPriority: el.style.getPropertyPriority('height'),
+    }));
+
+    html.style.setProperty('overflow', 'auto', 'important');
+    body.style.setProperty('overflow', 'auto', 'important');
+    body.style.setProperty('height', 'auto', 'important');
+    root?.style.setProperty('overflow', 'visible', 'important');
+    root?.style.setProperty('height', 'auto', 'important');
+
+    return () => {
+      prev.forEach(({ el, overflow, overflowPriority, height, heightPriority }) => {
+        if (overflow) el.style.setProperty('overflow', overflow, overflowPriority);
+        else el.style.removeProperty('overflow');
+        if (height) el.style.setProperty('height', height, heightPriority);
+        else el.style.removeProperty('height');
+      });
+    };
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -620,11 +663,15 @@ const LandingPage: React.FC = () => {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  // Locks page scroll behind the mobile drawer / feature modal. Must keep the
+  // `important` priority from the effect above — a plain assignment here would
+  // drop it, letting the global stylesheet rule silently reclaim scroll lock.
   useEffect(() => {
-    document.body.style.overflow = mobileOpen || selectedWhyFeature ? 'hidden' : '';
-    return () => {
-      document.body.style.overflow = '';
-    };
+    document.body.style.setProperty(
+      'overflow',
+      mobileOpen || selectedWhyFeature ? 'hidden' : 'auto',
+      'important'
+    );
   }, [mobileOpen, selectedWhyFeature]);
 
   useEffect(() => {
@@ -656,67 +703,101 @@ const LandingPage: React.FC = () => {
     });
   }, []);
 
+  const scrollToId = useCallback((id: string) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    const nav = document.querySelector<HTMLElement>('.salonox-landing .nav');
+    const navOffset = nav ? nav.offsetHeight + 16 : 88;
+    const targetTop = el.getBoundingClientRect().top + window.scrollY - navOffset;
+
+    window.scrollTo({
+      top: Math.max(targetTop, 0),
+      behavior: 'smooth',
+    });
+
+    window.history.replaceState(null, '', `#${id}`);
+  }, []);
+
+  // Below-the-fold lazy images (e.g. the "how it works" showcase screenshots)
+  // can still be loading when a nav click fires, growing the page and shifting
+  // every section beneath them further down mid-animation. That leaves the
+  // target computed at click time stale, so the smooth scroll lands short —
+  // it looks like the scroll stopped "halfway" into the section. Re-issuing
+  // the scroll once things settle corrects for that. Guarded by id so a
+  // second, newer click isn't overridden by a stale correction.
+  const pendingScrollId = useRef<string | null>(null);
+  const scrollToIdSettled = useCallback(
+    (id: string) => {
+      pendingScrollId.current = id;
+      scrollToId(id);
+      window.setTimeout(() => {
+        if (pendingScrollId.current === id) scrollToId(id);
+      }, 550);
+    },
+    [scrollToId]
+  );
+
+  // Runs once per mount so a navbar link clicked from another route (e.g. the
+  // About or Terms pages) lands here, then scrolls to the requested section.
+  useEffect(() => {
+    if (!location.hash) return;
+    const id = location.hash.slice(1);
+    const t = setTimeout(() => scrollToIdSettled(id), 60);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const scrollToSection = useCallback(
     (id: string) => (e: React.MouseEvent<HTMLElement>) => {
       e.preventDefault();
 
       setMobileOpen(false);
       setSelectedWhyFeature(null);
-      document.body.style.overflow = '';
 
-      window.requestAnimationFrame(() => {
-        const el = document.getElementById(id);
-        if (!el) return;
+      if (location.pathname !== '/') {
+        navigate(`/#${id}`);
+        return;
+      }
 
-        const nav = document.querySelector<HTMLElement>('.salonox-landing .nav');
-        const navOffset = nav ? nav.offsetHeight + 16 : 88;
-        const targetTop = el.getBoundingClientRect().top + window.scrollY - navOffset;
-
-        window.scrollTo({
-          top: Math.max(targetTop, 0),
-          behavior: 'smooth',
-        });
-
-        window.history.replaceState(null, '', `#${id}`);
-      });
+      window.requestAnimationFrame(() => scrollToIdSettled(id));
     },
-    []
+    [location.pathname, navigate, scrollToIdSettled]
   );
 
-  const jumpToSection = useCallback((id: string) => {
-    setSelectedWhyFeature(null);
-    setMobileOpen(false);
+  const jumpToSection = useCallback(
+    (id: string) => {
+      setSelectedWhyFeature(null);
+      setMobileOpen(false);
 
-    window.requestAnimationFrame(() => {
-      const el = document.getElementById(id);
-      if (!el) return;
+      if (location.pathname !== '/') {
+        navigate(`/#${id}`);
+        return;
+      }
 
-      const nav = document.querySelector<HTMLElement>('.nav');
-      const navOffset = nav ? nav.offsetHeight + 16 : 88;
-      const targetTop = el.getBoundingClientRect().top + window.scrollY - navOffset;
-
-      window.scrollTo({
-        top: Math.max(targetTop, 0),
-        behavior: 'smooth',
-      });
-
-      window.history.replaceState(null, '', `#${id}`);
-    });
-  }, []);
+      window.requestAnimationFrame(() => scrollToIdSettled(id));
+    },
+    [location.pathname, navigate, scrollToIdSettled]
+  );
 
   const [demoForm, setDemoForm] = useState<DemoForm>({
     name: '',
     email: '',
+    phone: '',
     salon: '',
+    city: '',
     locations: '',
     agreed: false,
   });
   const [demoSubmitted, setDemoSubmitted] = useState(false);
   const [demoSubmitting, setDemoSubmitting] = useState(false);
   const [demoError, setDemoError] = useState('');
+  const [phoneCountry, setPhoneCountry] = useState<Country | undefined>(DEMO_PHONE_DEFAULT_COUNTRY);
+  const [phoneError, setPhoneError] = useState('');
+  const [phoneTouched, setPhoneTouched] = useState(false);
 
   const handleDemoChange = useCallback(
-    (field: keyof DemoForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    (field: keyof Omit<DemoForm, 'phone'>) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       const value = e.target instanceof HTMLInputElement && e.target.type === 'checkbox'
         ? e.target.checked
         : e.target.value;
@@ -727,9 +808,47 @@ const LandingPage: React.FC = () => {
     []
   );
 
+  const validatePhone = useCallback((value: string, country: Country | undefined) => {
+    if (!value) return 'Mobile number is required.';
+    if (!isPossiblePhoneNumber(value)) return 'Enter a complete mobile number.';
+    if (!isValidPhoneNumber(value, country)) {
+      return `Enter a valid mobile number for ${country ? countryName(country) : 'the selected country'}.`;
+    }
+    return '';
+  }, []);
+
+  // Re-runs off committed state (not handler closures) so a country switch —
+  // which renormalizes the stored E.164 value on its own render cycle — always
+  // gets validated against the pairing that actually lands, never a stale one.
+  useEffect(() => {
+    if (!phoneTouched) return;
+    setPhoneError(validatePhone(demoForm.phone, phoneCountry));
+  }, [demoForm.phone, phoneCountry, phoneTouched, validatePhone]);
+
+  const handlePhoneChange = useCallback((value?: string) => {
+    setDemoForm((prev) => ({ ...prev, phone: value || '' }));
+    setDemoError('');
+  }, []);
+
+  const handlePhoneBlur = useCallback(() => {
+    setPhoneTouched(true);
+  }, []);
+
+  const handlePhoneCountryChange = useCallback((country?: Country) => {
+    setPhoneCountry(country);
+  }, []);
+
   const handleDemoSubmit = useCallback(
     async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
+
+      const phoneValidationError = validatePhone(demoForm.phone, phoneCountry);
+      if (phoneValidationError) {
+        setPhoneTouched(true);
+        setPhoneError(phoneValidationError);
+        return;
+      }
+
       setDemoSubmitting(true);
       setDemoError('');
 
@@ -747,7 +866,9 @@ const LandingPage: React.FC = () => {
             _replyto: demoForm.email,
             name: demoForm.name,
             work_email: demoForm.email,
+            phone_number: demoForm.phone,
             salon_name: demoForm.salon,
+            city: demoForm.city,
             locations: demoForm.locations,
           }),
         });
@@ -763,7 +884,7 @@ const LandingPage: React.FC = () => {
         setDemoSubmitting(false);
       }
     },
-    [demoForm]
+    [demoForm, phoneCountry, validatePhone]
   );
 
   return (
@@ -1127,7 +1248,7 @@ const LandingPage: React.FC = () => {
           </Reveal>
 
           <div className="showcase-grid">
-            {SHOWCASE.map((item, _i) => {
+            {SHOWCASE.map((item) => {
               const Cmp = Icon[item.icon];
               return (
                 <Reveal key={item.title} delay={0}>
@@ -1276,6 +1397,26 @@ const LandingPage: React.FC = () => {
                       />
                     </label>
                     <label className="demo-field">
+                      <span>Mobile Number</span>
+                      <PhoneInput
+                        addInternationalOption={false}
+                        defaultCountry={DEMO_PHONE_DEFAULT_COUNTRY}
+                        flags={flags}
+                        placeholder="9876543210"
+                        value={demoForm.phone}
+                        onChange={handlePhoneChange}
+                        onCountryChange={handlePhoneCountryChange}
+                        onBlur={handlePhoneBlur}
+                        numberInputProps={{ required: true }}
+                        className={phoneTouched && phoneError ? 'PhoneInput--invalid' : ''}
+                        aria-invalid={phoneTouched && !!phoneError}
+                        aria-describedby={phoneTouched && phoneError ? 'demo-phone-error' : undefined}
+                      />
+                      {phoneTouched && phoneError && (
+                        <span className="demo-field-error" id="demo-phone-error" role="alert">{phoneError}</span>
+                      )}
+                    </label>
+                    <label className="demo-field">
                       <span>Salon Name</span>
                       <input
                         type="text"
@@ -1283,6 +1424,16 @@ const LandingPage: React.FC = () => {
                         placeholder="e.g. The Glow Room"
                         value={demoForm.salon}
                         onChange={handleDemoChange('salon')}
+                      />
+                    </label>
+                    <label className="demo-field">
+                      <span>City</span>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Mumbai"
+                        value={demoForm.city}
+                        onChange={handleDemoChange('city')}
                       />
                     </label>
                     <label className="demo-field">
