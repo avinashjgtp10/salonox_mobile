@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { Check2, ChevronDown, CheckCircleFill, PersonFill } from "react-bootstrap-icons";
+import { Check2, ChevronDown, PersonFill } from "react-bootstrap-icons";
 import type { AppDispatch } from "../../../store/store";
 import { createMembershipThunk, updateMembershipThunk } from "../../../middleware/membership/membership.thunk";
 import { selectMembershipsSubmitting, selectMembershipsError } from "../../../store/selectors/membership.selectors";
 import { clearMembershipError } from "../../../store/membershipSlice";
 import { purchaseClientMembershipThunk } from "../../../middleware/clientMembership/clientMembership.thunk";
 import type { ClientSearchResult } from "../../clients/components/ClientSearchInput";
-import ClientSelectorWithAdd from "../../../components/packages/ClientSelectorWithAdd";
 import api from "../../../services/api/axios";
 import "../styles/CreateMembershipPage.scss";
 
@@ -63,15 +62,6 @@ const CreateMembershipPage: React.FC = () => {
   const [description,  setDescription]  = useState("");
   const [errors,       setErrors]       = useState<Record<string, string>>({});
 
-  // sell-to-client state (edit mode only)
-  const [sellClient,   setSellClient]   = useState<ClientSearchResult | null>(locationClient ?? null);
-  const [selling,      setSelling]      = useState(false);
-  const [sellSuccess,  setSellSuccess]  = useState(false);
-  const [sellError,    setSellError]    = useState<string | null>(null);
-
-  // keep sellClient in sync when pageClient changes (e.g. "Change Client")
-  useEffect(() => { setSellClient(pageClient); setSellSuccess(false); setSellError(null); }, [pageClient]);
-
   const priceNum       = parseFloat(price)       || 0;
   const bonusCreditNum = parseFloat(bonusCredit) || 0;
   const walletValue    = useMemo(() => priceNum + bonusCreditNum, [priceNum, bonusCreditNum]);
@@ -117,28 +107,6 @@ const CreateMembershipPage: React.FC = () => {
     if (!priceNum || priceNum <= 0) e.price = "Price must be greater than 0";
     setErrors(e);
     return Object.keys(e).length === 0;
-  };
-
-  const handleSell = async () => {
-    if (!sellClient || !id || selling) return;
-    setSelling(true);
-    setSellError(null);
-    setSellSuccess(false);
-    const result = await dispatch(purchaseClientMembershipThunk({
-      clientId:       String(sellClient.id),
-      membershipId:   id,
-      membershipName: name,
-      colour:         tierColor,
-      totalSessions:  0,
-      pricePaid:      walletValue,  // wallet = paid + bonusCredit; this is the spendable balance
-    }));
-    setSelling(false);
-    if (purchaseClientMembershipThunk.fulfilled.match(result)) {
-      setSellSuccess(true);
-      setSellClient(null);
-    } else {
-      setSellError((result.payload as string) ?? "Failed to sell membership");
-    }
   };
 
   const handleSave = async () => {
@@ -473,47 +441,6 @@ const CreateMembershipPage: React.FC = () => {
           {/* ── RIGHT: Preview ───────────────────────────────────────────── */}
           <div className="cmp__sidebar">
             <div className="cmp__sticky">
-
-              {/* Sell to Client (edit mode only) */}
-              {id && (
-                <div className="cmp__sell-card">
-                  <h4 className="cmp__sell-title">Sell to Client</h4>
-
-                  {sellSuccess && (
-                    <div className="cmp__sell-success">
-                      <CheckCircleFill size={14} /> Membership sold successfully!
-                    </div>
-                  )}
-                  {sellError && (
-                    <div className="cmp__sell-error">{sellError}</div>
-                  )}
-
-                  {/* Only show selector when no client was passed from the list page */}
-                  {!pageClient && (
-                    <ClientSelectorWithAdd
-                      formAtTop
-                      onSelect={client => {
-                        setSellClient(client);
-                        setSellSuccess(false);
-                        setSellError(null);
-                      }}
-                      placeholder="Search client by name or mobile number..."
-                    />
-                  )}
-
-                  {sellClient && (
-                    <button
-                      className="cmp__sell-btn"
-                      onClick={handleSell}
-                      disabled={selling}
-                    >
-                      {selling
-                        ? "Selling…"
-                        : `Sell ₹${priceNum.toLocaleString("en-IN")} to ${sellClient.first_name} ${sellClient.last_name ?? ""}`.trim()}
-                    </button>
-                  )}
-                </div>
-              )}
 
               {/* Summary */}
               <div className="cmp__preview-card">
