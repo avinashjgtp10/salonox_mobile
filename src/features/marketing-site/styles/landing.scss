@@ -837,41 +837,142 @@ body.landing-page-active,
         background: var(--gray-50);
       }
 
-      .mock-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 16px;
-
-        h5 {
-          font-size: 15px;
-          font-weight: 800;
-          color: var(--navy);
-        }
+      .revenue-dash {
+        margin-bottom: 18px;
       }
 
-      .mock-chip {
+      .revenue-dash-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      .revenue-dash-heading {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+
+      .revenue-dash-label {
         font-size: 11.5px;
+        font-weight: 700;
+        color: var(--gray-500);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+
+      .revenue-dash-value {
+        font-size: 21px;
+        font-weight: 800;
+        color: var(--navy);
+        letter-spacing: -0.01em;
+      }
+
+      .revenue-dash-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
         font-weight: 700;
         color: var(--emerald-dark);
         background: var(--emerald-soft);
-        padding: 5px 12px;
+        padding: 6px 10px;
         border-radius: var(--radius-pill);
+        white-space: nowrap;
+        flex-shrink: 0;
+
+        svg {
+          width: 12px;
+          height: 12px;
+          stroke: var(--emerald-dark);
+        }
       }
 
-      .mock-bars {
-        display: flex;
-        align-items: flex-end;
-        gap: 10px;
-        height: 110px;
-        margin-bottom: 18px;
+      .revenue-chart-wrap {
+        width: 100%;
+        border-radius: 14px;
+        background: linear-gradient(180deg, rgba(16, 185, 129, 0.05), rgba(255, 255, 255, 0.4));
+        border: 1px solid rgba(16, 185, 129, 0.12);
+        padding: 10px 4px 4px;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+      }
 
-        i {
-          flex: 1;
-          border-radius: 8px 8px 0 0;
-          background: linear-gradient(180deg, var(--emerald-light), var(--emerald));
-          opacity: 0.85;
-          animation: bar-grow 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+      .revenue-chart-svg {
+        display: block;
+        width: 100%;
+        height: auto;
+        overflow: visible;
+      }
+
+      .revenue-grid-line {
+        stroke: var(--navy);
+        stroke-opacity: 0.08;
+        stroke-width: 1;
+        stroke-dasharray: 3 4;
+      }
+
+      .revenue-area {
+        fill: url(#revenueAreaGradient);
+      }
+
+      .revenue-line {
+        fill: none;
+        stroke: url(#revenueLineGradient);
+        stroke-width: 2.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        filter: drop-shadow(0 2px 4px rgba(5, 150, 105, 0.25));
+      }
+
+      .revenue-axis-label {
+        font-size: 7.5px;
+        font-weight: 600;
+        fill: var(--gray-500);
+        font-family: inherit;
+      }
+
+      .revenue-axis-y {
+        text-anchor: end;
+        dominant-baseline: middle;
+      }
+
+      .revenue-axis-x {
+        text-anchor: middle;
+        dominant-baseline: hanging;
+      }
+
+      .revenue-hit {
+        fill: transparent;
+        cursor: pointer;
+      }
+
+      .revenue-dot {
+        fill: var(--white);
+        stroke: var(--emerald-dark);
+        stroke-width: 2;
+        transition: r 0.15s ease;
+
+        &.is-active {
+          stroke: var(--emerald-dark);
+          fill: var(--emerald);
+        }
+      }
+
+      .revenue-tooltip {
+        pointer-events: none;
+
+        rect {
+          fill: var(--navy);
+          opacity: 0.92;
+        }
+
+        text {
+          fill: var(--white);
+          font-size: 9px;
+          font-weight: 700;
+          font-family: inherit;
         }
       }
 
@@ -1006,18 +1107,6 @@ body.landing-page-active,
 
     50% {
       transform: translateY(-14px);
-    }
-  }
-
-  @keyframes bar-grow {
-    from {
-      transform: scaleY(0);
-      transform-origin: bottom;
-    }
-
-    to {
-      transform: scaleY(1);
-      transform-origin: bottom;
     }
   }
 
@@ -4746,8 +4835,12 @@ body.landing-page-active,
       padding: 14px;
     }
 
-    .mock-bars {
-      height: 70px;
+    .revenue-dash-value {
+      font-size: 18px;
+    }
+
+    .revenue-axis-label {
+      font-size: 8.5px;
     }
 
     .floating-whatsapp-cta {
@@ -4952,6 +5045,85 @@ body.landing-page-active,
       width: 38px;
       height: 38px;
       border-radius: 10px;
+    }
+  }
+
+  /* ====================================================================
+     LARGE DESKTOPS & WIDE MONITORS
+     Progressively widen the shell so content doesn't get lost in the
+     margins on 1600px+, 1080p and 1440p/4K displays. Kept after all
+     base rules so these overrides win the cascade.
+     ==================================================================== */
+  @media (min-width: 1536px) {
+    .container {
+      max-width: 1340px;
+    }
+
+    .nav .nav-inner {
+      max-width: 1420px;
+    }
+
+    .hero .hero-copy h1 {
+      font-size: clamp(36px, 4.6vw, 66px);
+    }
+  }
+
+  @media (min-width: 1728px) {
+    .container {
+      max-width: 1440px;
+    }
+
+    .nav .nav-inner {
+      max-width: 1520px;
+    }
+
+    .hero .hero-grid {
+      gap: 72px;
+    }
+
+    .hero .hero-copy h1 {
+      font-size: 70px;
+    }
+
+    .hero .hero-copy .hero-sub {
+      font-size: 19px;
+      max-width: 560px;
+    }
+  }
+
+  @media (min-width: 1920px) {
+    .container {
+      max-width: 1540px;
+    }
+
+    .nav .nav-inner {
+      max-width: 1620px;
+    }
+
+    .hero {
+      padding: 196px 0 128px;
+    }
+
+    .hero .hero-copy h1 {
+      font-size: 74px;
+    }
+  }
+
+  @media (min-width: 2400px) {
+    .container {
+      max-width: 1680px;
+    }
+
+    .nav .nav-inner {
+      max-width: 1760px;
+    }
+
+    .hero {
+      padding: 220px 0 150px;
+    }
+
+    .hero .hero-copy h1 {
+      font-size: 80px;
     }
   }
 

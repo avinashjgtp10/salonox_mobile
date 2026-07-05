@@ -531,6 +531,156 @@ function useReveal<T extends HTMLElement>() {
   return { ref, visible };
 }
 
+/* ---------------------------------- Hero revenue chart (inline SVG, zero deps) ---------------------------------- */
+
+type RevenuePoint = { day: string; value: number };
+
+const HERO_REVENUE_DATA: RevenuePoint[] = [
+  { day: 'Mon', value: 28400 },
+  { day: 'Tue', value: 33800 },
+  { day: 'Wed', value: 31200 },
+  { day: 'Thu', value: 42600 },
+  { day: 'Fri', value: 39900 },
+  { day: 'Sat', value: 47800 },
+  { day: 'Sun', value: 24860 },
+];
+
+const CHART_W = 300;
+const CHART_H = 150;
+const CHART_PAD = { left: 34, right: 8, top: 12, bottom: 24 };
+const CHART_Y_MAX = 60000;
+const CHART_Y_TICKS = [0, 20000, 40000, 60000];
+
+function scaleRevenueX(i: number, count: number) {
+  const innerW = CHART_W - CHART_PAD.left - CHART_PAD.right;
+  return CHART_PAD.left + (i * innerW) / (count - 1);
+}
+
+function scaleRevenueY(value: number) {
+  const innerH = CHART_H - CHART_PAD.top - CHART_PAD.bottom;
+  return CHART_H - CHART_PAD.bottom - (value / CHART_Y_MAX) * innerH;
+}
+
+function buildSmoothPath(points: { x: number; y: number }[]) {
+  if (points.length < 2) return '';
+  let d = `M ${points[0].x},${points[0].y}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i - 1] || points[i];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[i + 2] || p2;
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C ${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${p2.x},${p2.y}`;
+  }
+  return d;
+}
+
+const HeroRevenueChart: React.FC = () => {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+
+  const points = HERO_REVENUE_DATA.map((d, i) => ({
+    ...d,
+    x: scaleRevenueX(i, HERO_REVENUE_DATA.length),
+    y: scaleRevenueY(d.value),
+  }));
+
+  const linePath = buildSmoothPath(points);
+  const baseline = CHART_H - CHART_PAD.bottom;
+  const areaPath = `${linePath} L ${points[points.length - 1].x},${baseline} L ${points[0].x},${baseline} Z`;
+
+  return (
+    <div className="revenue-dash">
+      <div className="revenue-dash-head">
+        <div className="revenue-dash-heading">
+          <span className="revenue-dash-label">Weekly Revenue</span>
+          <strong className="revenue-dash-value">₹2,48,560</strong>
+        </div>
+        <span className="revenue-dash-badge">
+          <Icon.TrendingUp />
+          +18.4% vs last week
+        </span>
+      </div>
+
+      <div className="revenue-chart-wrap">
+        <svg
+          className="revenue-chart-svg"
+          viewBox={`0 0 ${CHART_W} ${CHART_H}`}
+          preserveAspectRatio="xMidYMid meet"
+          role="img"
+          aria-label="Weekly revenue trend from Monday to Sunday"
+        >
+          <defs>
+            <linearGradient id="revenueAreaGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#10B981" stopOpacity="0.32" />
+              <stop offset="100%" stopColor="#10B981" stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id="revenueLineGradient" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#34D399" />
+              <stop offset="100%" stopColor="#059669" />
+            </linearGradient>
+          </defs>
+
+          {CHART_Y_TICKS.map((tick) => (
+            <line
+              key={tick}
+              className="revenue-grid-line"
+              x1={CHART_PAD.left}
+              x2={CHART_W - CHART_PAD.right}
+              y1={scaleRevenueY(tick)}
+              y2={scaleRevenueY(tick)}
+            />
+          ))}
+
+          <path className="revenue-area" d={areaPath} />
+          <path className="revenue-line" d={linePath} />
+
+          {CHART_Y_TICKS.map((tick) => (
+            <text
+              key={tick}
+              className="revenue-axis-label revenue-axis-y"
+              x={CHART_PAD.left - 6}
+              y={scaleRevenueY(tick)}
+            >
+              {tick === 0 ? '₹0' : `₹${tick / 1000}K`}
+            </text>
+          ))}
+
+          {points.map((p) => (
+            <text key={p.day} className="revenue-axis-label revenue-axis-x" x={p.x} y={CHART_H - 6}>
+              {p.day}
+            </text>
+          ))}
+
+          {points.map((p, i) => (
+            <g
+              key={p.day}
+              onMouseEnter={() => setActiveIndex(i)}
+              onMouseLeave={() => setActiveIndex(null)}
+              onFocus={() => setActiveIndex(i)}
+              onBlur={() => setActiveIndex(null)}
+              tabIndex={0}
+              role="img"
+              aria-label={`${p.day}: ₹${p.value.toLocaleString('en-IN')}`}
+            >
+              <circle className="revenue-hit" cx={p.x} cy={p.y} r={11} />
+              <circle className={`revenue-dot${activeIndex === i ? ' is-active' : ''}`} cx={p.x} cy={p.y} r={activeIndex === i ? 5 : 3} />
+              {activeIndex === i && (
+                <g className="revenue-tooltip" transform={`translate(${p.x}, ${p.y})`}>
+                  <rect x={-28} y={-34} width={56} height={20} rx={6} />
+                  <text x={0} y={-20} textAnchor="middle">₹{(p.value / 1000).toFixed(1)}K</text>
+                </g>
+              )}
+            </g>
+          ))}
+        </svg>
+      </div>
+    </div>
+  );
+};
+
 const Reveal: React.FC<{ children: React.ReactNode; delay?: 0 | 1 | 2 | 3 | 4; className?: string }> = ({
   children,
   delay = 0,
@@ -1575,19 +1725,7 @@ const LandingPage: React.FC = () => {
                   <i /><i /><i />
                 </div>
                 <div className="mock-body">
-                  <div className="mock-row">
-                    <h5>Weekly revenue</h5>
-                    <span className="mock-chip">+18.4%</span>
-                  </div>
-                  <div className="mock-bars">
-                    <i className="mock-bar mock-bar--1" />
-                    <i className="mock-bar mock-bar--2" />
-                    <i className="mock-bar mock-bar--3" />
-                    <i className="mock-bar mock-bar--4" />
-                    <i className="mock-bar mock-bar--5" />
-                    <i className="mock-bar mock-bar--6" />
-                    <i className="mock-bar mock-bar--7" />
-                  </div>
+                  <HeroRevenueChart />
                   <div className="mock-list">
                     <div className="mock-list-item">
                       <span className="avatar" />
@@ -1607,7 +1745,7 @@ const LandingPage: React.FC = () => {
                 <span className="float-icon"><Icon.Card /></span>
                 <span>
                   <span className="float-label">Paid today</span>
-                  <span className="float-value">$4,210</span>
+                  <span className="float-value">₹4,210</span>
                 </span>
               </div>
             </div>

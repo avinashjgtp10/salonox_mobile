@@ -351,6 +351,16 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+
+  &--blue   { background: #eff6ff; color: #2563eb; }
+  &--green  { background: #f0fdf4; color: #16a34a; }
+  &--amber  { background: #fefce8; color: #ca8a04; }
+  &--purple { background: #faf5ff; color: #7c3aed; }
+}
+
+/* Hidden native file input (triggered via the camera button) */
+.pp-avatar-file {
+  display: none;
 }
 
 .pp-section-title {
