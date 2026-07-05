@@ -1,0 +1,18 @@
+.ui-input {
+  &__icon-wrap {
+    z-index: 4;
+  }
+
+  &__label {
+    font-size: 13px;
+    color: #374151;
+  }
+
+  &__char-count {
+    font-size: 12px;
+  }
+
+  &__error {
+    font-size: 12px;
+  }
+}

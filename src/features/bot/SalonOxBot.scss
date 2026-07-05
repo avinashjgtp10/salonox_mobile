@@ -74,6 +74,7 @@ $green-darker: #085041;
   gap: 10px;
   flex-shrink: 0;
   cursor: grab;
+  -webkit-user-select: none;
   user-select: none;
 
   &--dragging {
@@ -246,6 +247,10 @@ $green-darker: #085041;
   p {
     margin: 0;
     color: #1a202c;
+  }
+
+  .sbot-msg-text {
+    white-space: pre-wrap;
   }
 }
 

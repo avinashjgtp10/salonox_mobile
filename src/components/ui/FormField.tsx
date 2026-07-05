@@ -1,5 +1,6 @@
 // src/components/ui/FormField.tsx
 import React from "react";
+import "./styles/FormField.scss";
 
 interface FormFieldProps {
   label: string;
@@ -11,26 +12,14 @@ interface FormFieldProps {
 }
 
 const FormField: React.FC<FormFieldProps> = ({ label, required, error, hint, children, className = "" }) => (
-  <div className={className} style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-    <label
-      style={{
-        fontSize: 11,
-        fontWeight: 700,
-        color: error ? "#DC2626" : "#6B7280",
-        textTransform: "uppercase",
-        letterSpacing: ".06em",
-      }}
-    >
+  <div className={`ui-form-field ${className}`}>
+    <label className={`ui-form-field__label${error ? " ui-form-field__label--error" : ""}`}>
       {label}
-      {required && <span style={{ color: "#DC2626" }}> *</span>}
+      {required && <span className="ui-form-field__required"> *</span>}
     </label>
     {children}
-    {hint && !error && (
-      <span style={{ fontSize: 11, color: "#9CA3AF" }}>{hint}</span>
-    )}
-    {error && (
-      <span style={{ fontSize: 11, color: "#DC2626", fontWeight: 600 }}>{error}</span>
-    )}
+    {hint && !error && <span className="ui-form-field__hint">{hint}</span>}
+    {error && <span className="ui-form-field__error">{error}</span>}
   </div>
 );
 

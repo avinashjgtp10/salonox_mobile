@@ -462,7 +462,9 @@ export default function ProfilePage() {
                 ref={fileRef}
                 type="file"
                 accept="image/*"
-                style={{ display: "none" }}
+                className="pp-avatar-file"
+                aria-label="Upload profile photo"
+                title="Upload profile photo"
                 onChange={handleAvatarChange}
               />
             </div>
@@ -534,8 +536,9 @@ export default function ProfilePage() {
           {/* User banners */}
           {formError && (
             <div className="pp-error-banner">
-              <XLg size={13} />{formError}
-              <button className="pp-error-close" onClick={() => setFormError(null)}><XLg size={11} /></button>
+              <XLg size={13} />
+              {formError}
+              <button className="pp-error-close" aria-label="Dismiss error" title="Dismiss error" onClick={() => setFormError(null)}><XLg size={11} /></button>
             </div>
           )}
           {saved && (
@@ -547,7 +550,7 @@ export default function ProfilePage() {
           {/* ── Personal Information ── */}
           <section className="pp-section">
             <div className="pp-section-header">
-              <div className="pp-section-icon" style={{ background: "#eff6ff", color: "#2563eb" }}>
+              <div className="pp-section-icon pp-section-icon--blue">
                 <Person size={16} />
               </div>
               <div>
@@ -605,7 +608,7 @@ export default function ProfilePage() {
           {/* ── Salon Information ── */}
           <section className="pp-section">
             <div className="pp-section-header">
-              <div className="pp-section-icon" style={{ background: "#faf5ff", color: "#7c3aed" }}>
+              <div className="pp-section-icon pp-section-icon--purple">
                 <Building size={16} />
               </div>
               <div>
@@ -776,7 +779,7 @@ export default function ProfilePage() {
           {/* ── Account & Security ── */}
           <section className="pp-section">
             <div className="pp-section-header">
-              <div className="pp-section-icon" style={{ background: "#fefce8", color: "#ca8a04" }}>
+              <div className="pp-section-icon pp-section-icon--amber">
                 <ShieldLock size={16} />
               </div>
               <div>
@@ -800,8 +803,9 @@ export default function ProfilePage() {
                 )}
                 {pwError && (
                   <div className="pp-error-banner">
-                    <XLg size={13} />{pwError}
-                    <button className="pp-error-close" onClick={() => setPwError(null)}><XLg size={11} /></button>
+                    <XLg size={13} />
+                    {pwError}
+                    <button className="pp-error-close" aria-label="Dismiss error" title="Dismiss error" onClick={() => setPwError(null)}><XLg size={11} /></button>
                   </div>
                 )}
                 <div className="pp-pw-fields">
@@ -817,7 +821,12 @@ export default function ProfilePage() {
                         placeholder="Enter current password"
                         autoComplete="current-password"
                       />
-                      <button className="pp-pw-eye" onClick={() => setShowPwCur((v) => !v)}>
+                      <button
+                        className="pp-pw-eye"
+                        aria-label={showPwCur ? "Hide password" : "Show password"}
+                        title={showPwCur ? "Hide password" : "Show password"}
+                        onClick={() => setShowPwCur(v => !v)}
+                      >
                         {showPwCur ? <EyeSlash size={14} /> : <Eye size={14} />}
                       </button>
                     </div>
@@ -834,7 +843,12 @@ export default function ProfilePage() {
                         placeholder="Min 8 characters"
                         autoComplete="new-password"
                       />
-                      <button className="pp-pw-eye" onClick={() => setShowPwNew((v) => !v)}>
+                      <button
+                        className="pp-pw-eye"
+                        aria-label={showPwNew ? "Hide password" : "Show password"}
+                        title={showPwNew ? "Hide password" : "Show password"}
+                        onClick={() => setShowPwNew(v => !v)}
+                      >
                         {showPwNew ? <EyeSlash size={14} /> : <Eye size={14} />}
                       </button>
                     </div>
@@ -870,7 +884,12 @@ export default function ProfilePage() {
                         placeholder="Re-enter new password"
                         autoComplete="new-password"
                       />
-                      <button className="pp-pw-eye" onClick={() => setShowPwConf((v) => !v)}>
+                      <button
+                        className="pp-pw-eye"
+                        aria-label={showPwConf ? "Hide password" : "Show password"}
+                        title={showPwConf ? "Hide password" : "Show password"}
+                        onClick={() => setShowPwConf(v => !v)}
+                      >
                         {showPwConf ? <EyeSlash size={14} /> : <Eye size={14} />}
                       </button>
                     </div>
@@ -881,9 +900,7 @@ export default function ProfilePage() {
                   onClick={handlePasswordChange}
                   disabled={changingPw}
                 >
-                  {changingPw
-                    ? <span className="pp-spinner" style={{ borderTopColor: "#fff", borderColor: "rgba(255,255,255,0.35)" }} />
-                    : <ShieldLock size={14} />}
+                  {changingPw ? <span className="pp-spinner" /> : <ShieldLock size={14} />}
                   {changingPw ? "Updating…" : "Update Password"}
                 </button>
               </div>

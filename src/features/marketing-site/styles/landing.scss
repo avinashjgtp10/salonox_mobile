@@ -837,41 +837,142 @@ body.landing-page-active,
         background: var(--gray-50);
       }
 
-      .mock-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 16px;
-
-        h5 {
-          font-size: 15px;
-          font-weight: 800;
-          color: var(--navy);
-        }
+      .revenue-dash {
+        margin-bottom: 18px;
       }
 
-      .mock-chip {
+      .revenue-dash-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      .revenue-dash-heading {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+
+      .revenue-dash-label {
         font-size: 11.5px;
+        font-weight: 700;
+        color: var(--gray-500);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+
+      .revenue-dash-value {
+        font-size: 21px;
+        font-weight: 800;
+        color: var(--navy);
+        letter-spacing: -0.01em;
+      }
+
+      .revenue-dash-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
         font-weight: 700;
         color: var(--emerald-dark);
         background: var(--emerald-soft);
-        padding: 5px 12px;
+        padding: 6px 10px;
         border-radius: var(--radius-pill);
+        white-space: nowrap;
+        flex-shrink: 0;
+
+        svg {
+          width: 12px;
+          height: 12px;
+          stroke: var(--emerald-dark);
+        }
       }
 
-      .mock-bars {
-        display: flex;
-        align-items: flex-end;
-        gap: 10px;
-        height: 110px;
-        margin-bottom: 18px;
+      .revenue-chart-wrap {
+        width: 100%;
+        border-radius: 14px;
+        background: linear-gradient(180deg, rgba(16, 185, 129, 0.05), rgba(255, 255, 255, 0.4));
+        border: 1px solid rgba(16, 185, 129, 0.12);
+        padding: 10px 4px 4px;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+      }
 
-        i {
-          flex: 1;
-          border-radius: 8px 8px 0 0;
-          background: linear-gradient(180deg, var(--emerald-light), var(--emerald));
-          opacity: 0.85;
-          animation: bar-grow 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+      .revenue-chart-svg {
+        display: block;
+        width: 100%;
+        height: auto;
+        overflow: visible;
+      }
+
+      .revenue-grid-line {
+        stroke: var(--navy);
+        stroke-opacity: 0.08;
+        stroke-width: 1;
+        stroke-dasharray: 3 4;
+      }
+
+      .revenue-area {
+        fill: url(#revenueAreaGradient);
+      }
+
+      .revenue-line {
+        fill: none;
+        stroke: url(#revenueLineGradient);
+        stroke-width: 2.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        filter: drop-shadow(0 2px 4px rgba(5, 150, 105, 0.25));
+      }
+
+      .revenue-axis-label {
+        font-size: 7.5px;
+        font-weight: 600;
+        fill: var(--gray-500);
+        font-family: inherit;
+      }
+
+      .revenue-axis-y {
+        text-anchor: end;
+        dominant-baseline: middle;
+      }
+
+      .revenue-axis-x {
+        text-anchor: middle;
+        dominant-baseline: hanging;
+      }
+
+      .revenue-hit {
+        fill: transparent;
+        cursor: pointer;
+      }
+
+      .revenue-dot {
+        fill: var(--white);
+        stroke: var(--emerald-dark);
+        stroke-width: 2;
+        transition: r 0.15s ease;
+
+        &.is-active {
+          stroke: var(--emerald-dark);
+          fill: var(--emerald);
+        }
+      }
+
+      .revenue-tooltip {
+        pointer-events: none;
+
+        rect {
+          fill: var(--navy);
+          opacity: 0.92;
+        }
+
+        text {
+          fill: var(--white);
+          font-size: 9px;
+          font-weight: 700;
+          font-family: inherit;
         }
       }
 
@@ -1006,18 +1107,6 @@ body.landing-page-active,
 
     50% {
       transform: translateY(-14px);
-    }
-  }
-
-  @keyframes bar-grow {
-    from {
-      transform: scaleY(0);
-      transform-origin: bottom;
-    }
-
-    to {
-      transform: scaleY(1);
-      transform-origin: bottom;
     }
   }
 
@@ -2621,6 +2710,7 @@ body.landing-page-active,
     .showcase-img {
       width: 100%;
       height: auto;
+      aspect-ratio: 1024 / 596;
       object-fit: contain;
       display: block;
     }
@@ -3090,6 +3180,71 @@ body.landing-page-active,
       background-size: 16px;
       cursor: pointer;
     }
+
+    /* International phone number field (react-phone-number-input),
+       restyled to match the plain text inputs above. */
+    .PhoneInput {
+      align-items: center;
+      width: 100%;
+      padding: 0 14px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--gray-200);
+      background: var(--white);
+      transition: border-color 0.25s ease, box-shadow 0.25s ease;
+
+      &.PhoneInput--focus {
+        border-color: var(--emerald);
+      }
+
+      &.PhoneInput--invalid {
+        border-color: #ef4444;
+      }
+    }
+
+    .PhoneInputCountry {
+      margin-right: 10px;
+      padding-right: 10px;
+      border-right: 1.5px solid var(--gray-200);
+    }
+
+    .PhoneInputCountryIcon {
+      width: 26px;
+      height: 19px;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .PhoneInputCountrySelectArrow {
+      color: var(--gray-400);
+      opacity: 1;
+    }
+
+    .PhoneInputInput {
+      border: none;
+      outline: none;
+      background: transparent;
+      padding: 12px 0;
+      font-family: var(--font-body);
+      font-size: 14.5px;
+      color: var(--navy);
+      width: 100%;
+
+      // Overrides the generic `.demo-field input:focus` box-shadow — this
+      // field's focus ring already lives on the `.PhoneInput` wrapper border.
+      &:focus {
+        box-shadow: none;
+      }
+
+      &::placeholder {
+        color: var(--gray-400);
+      }
+    }
+  }
+
+  .demo-field-error {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #ef4444;
   }
 
   .demo-form .btn {
@@ -3674,6 +3829,9 @@ body.landing-page-active,
     }
   }
 
+  // Icon-only floating WhatsApp button — no circle, background, border, or
+  // shadow chrome; the FaWhatsapp glyph is already the full brand mark, so it
+  // only needs positioning, brand-color tinting, and a hover scale.
   .floating-whatsapp-cta {
     position: fixed;
     right: 24px;
@@ -3682,80 +3840,24 @@ body.landing-page-active,
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 64px;
-    height: 64px;
-    padding: 0;
-    border-radius: 50%;
-    background: linear-gradient(135deg, rgba(15, 23, 42, 0.96) 0%, rgba(5, 150, 105, 0.94) 100%);
-    color: var(--white);
-    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.12);
-    -webkit-backdrop-filter: blur(12px);
-    backdrop-filter: blur(12px);
-    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease, filter 0.35s ease;
-    animation: whatsapp-pulse 3.2s ease-in-out infinite;
-
-    &::after {
-      content: '';
-      position: absolute;
-      inset: -4px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(52, 211, 153, 0.2) 0%, rgba(52, 211, 153, 0) 72%);
-      opacity: 0;
-      transition: opacity 0.35s ease;
-      pointer-events: none;
-    }
+    line-height: 0;
+    color: #25d366;
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 
     &:hover {
-      transform: translateY(-4px) scale(1.01);
-      box-shadow: 0 24px 46px rgba(5, 150, 105, 0.26), 0 0 0 1px rgba(255, 255, 255, 0.18);
-      filter: saturate(1.06);
-      animation-play-state: paused;
-
-      &::after {
-        opacity: 1;
-      }
+      transform: scale(1.12);
     }
 
     &__icon {
-      flex: 0 0 auto;
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
       display: flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--gradient-emerald);
-      box-shadow: 0 10px 24px rgba(16, 185, 129, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.22);
     }
 
     &__icon svg {
-      width: 24px;
-      height: 24px;
-      color: var(--white);
-      stroke: var(--white);
+      width: 56px;
+      height: 56px;
       display: block;
       margin: 0;
       padding: 0;
-      transform: none;
-    }
-
-    &__icon .icon-whatsapp {
-      fill: currentColor;
-      stroke: none;
-      color: var(--white);
-    }
-  }
-
-  @keyframes whatsapp-pulse {
-    0%,
-    100% {
-      transform: translateY(0);
-      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.12);
-    }
-
-    50% {
-      transform: translateY(-2px);
-      box-shadow: 0 24px 44px rgba(5, 150, 105, 0.22), 0 0 0 8px rgba(16, 185, 129, 0.08);
     }
   }
 
@@ -4034,7 +4136,8 @@ body.landing-page-active,
     }
 
     .demo-field input,
-    .demo-field select {
+    .demo-field select,
+    .demo-field .PhoneInput {
       min-height: 52px;
       font-size: 16px;
     }
@@ -4181,35 +4284,11 @@ body.landing-page-active,
     .floating-whatsapp-cta {
       right: 16px;
       bottom: max(16px, env(safe-area-inset-bottom));
-      width: 52px;
-      height: 52px;
-      background: #25d366;
-      box-shadow: 0 12px 28px rgba(37, 211, 102, 0.35);
-      -webkit-backdrop-filter: none;
-      backdrop-filter: none;
-      animation: none;
-    }
-
-    .floating-whatsapp-cta::after {
-      display: none;
-    }
-
-    .floating-whatsapp-cta__icon {
-      width: 100%;
-      height: 100%;
-      background: transparent;
-      box-shadow: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
 
     .floating-whatsapp-cta__icon svg {
-      width: 26px;
-      height: 26px;
-      margin: 0;
-      padding: 0;
-      transform: none;
+      width: 48px;
+      height: 48px;
     }
 
     .feature-modal-backdrop {
@@ -4691,12 +4770,6 @@ body.landing-page-active,
       text-align: center;
     }
 
-    .floating-whatsapp-cta {
-      right: 16px;
-      bottom: max(16px, env(safe-area-inset-bottom));
-      width: min(286px, calc(100vw - 32px));
-      padding-right: 14px;
-    }
   }
 
   @media (max-width: 480px) {
@@ -4762,31 +4835,22 @@ body.landing-page-active,
       padding: 14px;
     }
 
-    .mock-bars {
-      height: 70px;
+    .revenue-dash-value {
+      font-size: 18px;
+    }
+
+    .revenue-axis-label {
+      font-size: 8.5px;
     }
 
     .floating-whatsapp-cta {
       right: 14px;
       bottom: max(14px, env(safe-area-inset-bottom));
-      width: 48px;
-      height: 48px;
-    }
-
-    .floating-whatsapp-cta__icon {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
 
     .floating-whatsapp-cta__icon svg {
-      width: 24px;
-      height: 24px;
-      margin: 0;
-      padding: 0;
-      transform: none;
+      width: 42px;
+      height: 42px;
     }
 
   }
@@ -4981,6 +5045,85 @@ body.landing-page-active,
       width: 38px;
       height: 38px;
       border-radius: 10px;
+    }
+  }
+
+  /* ====================================================================
+     LARGE DESKTOPS & WIDE MONITORS
+     Progressively widen the shell so content doesn't get lost in the
+     margins on 1600px+, 1080p and 1440p/4K displays. Kept after all
+     base rules so these overrides win the cascade.
+     ==================================================================== */
+  @media (min-width: 1536px) {
+    .container {
+      max-width: 1340px;
+    }
+
+    .nav .nav-inner {
+      max-width: 1420px;
+    }
+
+    .hero .hero-copy h1 {
+      font-size: clamp(36px, 4.6vw, 66px);
+    }
+  }
+
+  @media (min-width: 1728px) {
+    .container {
+      max-width: 1440px;
+    }
+
+    .nav .nav-inner {
+      max-width: 1520px;
+    }
+
+    .hero .hero-grid {
+      gap: 72px;
+    }
+
+    .hero .hero-copy h1 {
+      font-size: 70px;
+    }
+
+    .hero .hero-copy .hero-sub {
+      font-size: 19px;
+      max-width: 560px;
+    }
+  }
+
+  @media (min-width: 1920px) {
+    .container {
+      max-width: 1540px;
+    }
+
+    .nav .nav-inner {
+      max-width: 1620px;
+    }
+
+    .hero {
+      padding: 196px 0 128px;
+    }
+
+    .hero .hero-copy h1 {
+      font-size: 74px;
+    }
+  }
+
+  @media (min-width: 2400px) {
+    .container {
+      max-width: 1680px;
+    }
+
+    .nav .nav-inner {
+      max-width: 1760px;
+    }
+
+    .hero {
+      padding: 220px 0 150px;
+    }
+
+    .hero .hero-copy h1 {
+      font-size: 80px;
     }
   }
 

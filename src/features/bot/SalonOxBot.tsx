@@ -61,6 +61,40 @@ export default function SalonOxBot() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Applied imperatively (not via the JSX `style` prop) since these positions
+  // come from live drag coordinates and can't be expressed as static CSS.
+  useEffect(() => {
+    const el = fabRef.current;
+    if (!el) return;
+    if (fabPos) {
+      el.style.setProperty('top', `${fabPos.y}px`);
+      el.style.setProperty('left', `${fabPos.x}px`);
+      el.style.setProperty('bottom', 'auto');
+      el.style.setProperty('right', 'auto');
+    } else {
+      el.style.removeProperty('top');
+      el.style.removeProperty('left');
+      el.style.removeProperty('bottom');
+      el.style.removeProperty('right');
+    }
+  }, [fabPos]);
+
+  useEffect(() => {
+    const el = winRef.current;
+    if (!el) return;
+    if (winPos) {
+      el.style.setProperty('top', `${winPos.y}px`);
+      el.style.setProperty('left', `${winPos.x}px`);
+      el.style.setProperty('bottom', 'auto');
+      el.style.setProperty('right', 'auto');
+    } else {
+      el.style.removeProperty('top');
+      el.style.removeProperty('left');
+      el.style.removeProperty('bottom');
+      el.style.removeProperty('right');
+    }
+  }, [winPos, open]);
+
   if (!isDashboard) return null;
 
   const reset = () => {
@@ -183,21 +217,12 @@ export default function SalonOxBot() {
     document.addEventListener('mouseup', onUp);
   };
 
-  const winStyle: React.CSSProperties = winPos
-    ? { top: winPos.y, left: winPos.x, bottom: 'auto', right: 'auto' }
-    : {};
-
-  const fabStyle: React.CSSProperties = fabPos
-    ? { top: fabPos.y, left: fabPos.x, bottom: 'auto', right: 'auto' }
-    : {};
-
   return (
     <>
       {/* Floating Button */}
       <button
         ref={fabRef}
         className={`sbot-fab ${open ? 'sbot-fab--open' : ''} ${fabPos ? 'sbot-fab--dragged' : ''}`}
-        style={fabStyle}
         onMouseDown={onFabMouseDown}
         aria-label="Toggle SalonOx Assistant"
       >
@@ -210,7 +235,7 @@ export default function SalonOxBot() {
 
       {/* Chat Window */}
       {open && (
-        <div ref={winRef} className="sbot-window" style={winStyle}>
+        <div ref={winRef} className="sbot-window">
 
           {/* Header — drag handle */}
           <div
@@ -252,7 +277,7 @@ export default function SalonOxBot() {
                 )}
                 <div className="sbot-bub">
                   {msg.text && (
-                    <p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{msg.text}</p>
+                    <p className="sbot-msg-text">{msg.text}</p>
                   )}
                   {msg.chips && msg.chips.length > 0 && (
                     <div className="sbot-chips">
@@ -293,7 +318,13 @@ export default function SalonOxBot() {
               disabled={loading}
               autoFocus
             />
-            <button className="sbot-send" onClick={() => sendMessage(input)} disabled={loading || !input.trim()}>
+            <button
+              type="button"
+              className="sbot-send"
+              onClick={() => sendMessage(input)}
+              disabled={loading || !input.trim()}
+              aria-label="Send message"
+            >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
             </button>
           </div>

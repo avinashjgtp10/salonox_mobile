@@ -651,6 +651,7 @@ export const AppointmentModal: React.FC<Props> = ({
     onRefresh, onClose, printAfterPayment, schedulerStaff, currentSalon,
   ]);
 
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   // ── Zero-payment for fully package-covered appointments ─────────────────
   const handleZeroPackagePayment = useCallback(async () => {
     const apptId = existingBooking?.id ?? apiAppointmentId;

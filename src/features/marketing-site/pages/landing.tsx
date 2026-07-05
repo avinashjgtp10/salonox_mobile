@@ -1,8 +1,11 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FaWhatsapp } from 'react-icons/fa';
-// TypeScript may not have declarations for .scss imports in this repo setup.
-// Suppress the error for this side-effect stylesheet import.
+import PhoneInput, { type Country } from 'react-phone-number-input';
+import flags from 'react-phone-number-input/flags';
+import { isValidPhoneNumber, isPossiblePhoneNumber } from 'libphonenumber-js';
+// @ts-ignore
+import 'react-phone-number-input/style.css';
 // @ts-ignore
 import '../styles/landing.scss';
 
@@ -186,7 +189,13 @@ type WhyFeature = Feature & {
   metricLabel: string;
 };
 type Branch = { name: string; bookings: string; revenue: string };
-type DemoForm = { name: string; email: string; salon: string; locations: string; agreed: boolean };
+type DemoForm = { name: string; email: string; phone: string; salon: string; city: string; locations: string; agreed: boolean };
+const DEMO_PHONE_DEFAULT_COUNTRY: Country = 'IN';
+
+const countryDisplayNames = typeof Intl.DisplayNames === 'function'
+  ? new Intl.DisplayNames(['en'], { type: 'region' })
+  : null;
+const countryName = (country: Country) => countryDisplayNames?.of(country) || country;
 
 const FEATURES: Feature[] = [
   { icon: 'Calendar', title: 'Effortless scheduling', desc: 'Manage every chair, room, and stylist from one drag-and-drop calendar built for busy floors.' },
@@ -497,16 +506,11 @@ const PLANS = [
 
 function useReveal<T extends HTMLElement>() {
   const ref = useRef<T | null>(null);
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(() => typeof IntersectionObserver === 'undefined');
 
   useEffect(() => {
     const node = ref.current;
-    if (!node) return;
-
-    if (typeof IntersectionObserver === 'undefined') {
-      setVisible(true);
-      return;
-    }
+    if (!node || typeof IntersectionObserver === 'undefined') return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -526,6 +530,156 @@ function useReveal<T extends HTMLElement>() {
 
   return { ref, visible };
 }
+
+/* ---------------------------------- Hero revenue chart (inline SVG, zero deps) ---------------------------------- */
+
+type RevenuePoint = { day: string; value: number };
+
+const HERO_REVENUE_DATA: RevenuePoint[] = [
+  { day: 'Mon', value: 28400 },
+  { day: 'Tue', value: 33800 },
+  { day: 'Wed', value: 31200 },
+  { day: 'Thu', value: 42600 },
+  { day: 'Fri', value: 39900 },
+  { day: 'Sat', value: 47800 },
+  { day: 'Sun', value: 24860 },
+];
+
+const CHART_W = 300;
+const CHART_H = 150;
+const CHART_PAD = { left: 34, right: 8, top: 12, bottom: 24 };
+const CHART_Y_MAX = 60000;
+const CHART_Y_TICKS = [0, 20000, 40000, 60000];
+
+function scaleRevenueX(i: number, count: number) {
+  const innerW = CHART_W - CHART_PAD.left - CHART_PAD.right;
+  return CHART_PAD.left + (i * innerW) / (count - 1);
+}
+
+function scaleRevenueY(value: number) {
+  const innerH = CHART_H - CHART_PAD.top - CHART_PAD.bottom;
+  return CHART_H - CHART_PAD.bottom - (value / CHART_Y_MAX) * innerH;
+}
+
+function buildSmoothPath(points: { x: number; y: number }[]) {
+  if (points.length < 2) return '';
+  let d = `M ${points[0].x},${points[0].y}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i - 1] || points[i];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[i + 2] || p2;
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C ${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${p2.x},${p2.y}`;
+  }
+  return d;
+}
+
+const HeroRevenueChart: React.FC = () => {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+
+  const points = HERO_REVENUE_DATA.map((d, i) => ({
+    ...d,
+    x: scaleRevenueX(i, HERO_REVENUE_DATA.length),
+    y: scaleRevenueY(d.value),
+  }));
+
+  const linePath = buildSmoothPath(points);
+  const baseline = CHART_H - CHART_PAD.bottom;
+  const areaPath = `${linePath} L ${points[points.length - 1].x},${baseline} L ${points[0].x},${baseline} Z`;
+
+  return (
+    <div className="revenue-dash">
+      <div className="revenue-dash-head">
+        <div className="revenue-dash-heading">
+          <span className="revenue-dash-label">Weekly Revenue</span>
+          <strong className="revenue-dash-value">₹2,48,560</strong>
+        </div>
+        <span className="revenue-dash-badge">
+          <Icon.TrendingUp />
+          +18.4% vs last week
+        </span>
+      </div>
+
+      <div className="revenue-chart-wrap">
+        <svg
+          className="revenue-chart-svg"
+          viewBox={`0 0 ${CHART_W} ${CHART_H}`}
+          preserveAspectRatio="xMidYMid meet"
+          role="img"
+          aria-label="Weekly revenue trend from Monday to Sunday"
+        >
+          <defs>
+            <linearGradient id="revenueAreaGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#10B981" stopOpacity="0.32" />
+              <stop offset="100%" stopColor="#10B981" stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id="revenueLineGradient" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#34D399" />
+              <stop offset="100%" stopColor="#059669" />
+            </linearGradient>
+          </defs>
+
+          {CHART_Y_TICKS.map((tick) => (
+            <line
+              key={tick}
+              className="revenue-grid-line"
+              x1={CHART_PAD.left}
+              x2={CHART_W - CHART_PAD.right}
+              y1={scaleRevenueY(tick)}
+              y2={scaleRevenueY(tick)}
+            />
+          ))}
+
+          <path className="revenue-area" d={areaPath} />
+          <path className="revenue-line" d={linePath} />
+
+          {CHART_Y_TICKS.map((tick) => (
+            <text
+              key={tick}
+              className="revenue-axis-label revenue-axis-y"
+              x={CHART_PAD.left - 6}
+              y={scaleRevenueY(tick)}
+            >
+              {tick === 0 ? '₹0' : `₹${tick / 1000}K`}
+            </text>
+          ))}
+
+          {points.map((p) => (
+            <text key={p.day} className="revenue-axis-label revenue-axis-x" x={p.x} y={CHART_H - 6}>
+              {p.day}
+            </text>
+          ))}
+
+          {points.map((p, i) => (
+            <g
+              key={p.day}
+              onMouseEnter={() => setActiveIndex(i)}
+              onMouseLeave={() => setActiveIndex(null)}
+              onFocus={() => setActiveIndex(i)}
+              onBlur={() => setActiveIndex(null)}
+              tabIndex={0}
+              role="img"
+              aria-label={`${p.day}: ₹${p.value.toLocaleString('en-IN')}`}
+            >
+              <circle className="revenue-hit" cx={p.x} cy={p.y} r={11} />
+              <circle className={`revenue-dot${activeIndex === i ? ' is-active' : ''}`} cx={p.x} cy={p.y} r={activeIndex === i ? 5 : 3} />
+              {activeIndex === i && (
+                <g className="revenue-tooltip" transform={`translate(${p.x}, ${p.y})`}>
+                  <rect x={-28} y={-34} width={56} height={20} rx={6} />
+                  <text x={0} y={-20} textAnchor="middle">₹{(p.value / 1000).toFixed(1)}K</text>
+                </g>
+              )}
+            </g>
+          ))}
+        </svg>
+      </div>
+    </div>
+  );
+};
 
 const Reveal: React.FC<{ children: React.ReactNode; delay?: 0 | 1 | 2 | 3 | 4; className?: string }> = ({
   children,
@@ -1020,13 +1174,14 @@ const AboutContent: React.FC<AboutContentProps> = ({ onNavigateToBookDemo }) => 
 /* ---------------------------------- Component ---------------------------------- */
 
 const LandingPage: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeBranch, setActiveBranch] = useState(0);
   const [branches, setBranches] = useState<Branch[]>(INITIAL_BRANCHES);
   const [selectedWhyFeature, setSelectedWhyFeature] = useState<WhyFeature | null>(null);
-  const location = useLocation();
-  const navigate = useNavigate();
   const isTermsPage = location.pathname === '/terms';
   const isPrivacyPage = location.pathname === '/privacy';
   const isAboutPage = location.pathname === '/about';
@@ -1048,6 +1203,42 @@ const LandingPage: React.FC = () => {
     };
   }, []);
 
+  // The dashboard shell forces `overflow: hidden !important` + `height: 100%`
+  // on html/body/#root (src/index.css) so its own panes can own scrolling.
+  // That rule is global, so on this page it also clips #root to the viewport
+  // and disables window scrolling. Restore natural height/scrolling while
+  // this page is mounted, using `important` so it wins over the stylesheet
+  // rule, and put everything back on unmount so the dashboard is unaffected.
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const root = document.getElementById('root');
+    const targets = [html, body, root].filter((el): el is HTMLElement => !!el);
+
+    const prev = targets.map((el) => ({
+      el,
+      overflow: el.style.getPropertyValue('overflow'),
+      overflowPriority: el.style.getPropertyPriority('overflow'),
+      height: el.style.getPropertyValue('height'),
+      heightPriority: el.style.getPropertyPriority('height'),
+    }));
+
+    html.style.setProperty('overflow', 'auto', 'important');
+    body.style.setProperty('overflow', 'auto', 'important');
+    body.style.setProperty('height', 'auto', 'important');
+    root?.style.setProperty('overflow', 'visible', 'important');
+    root?.style.setProperty('height', 'auto', 'important');
+
+    return () => {
+      prev.forEach(({ el, overflow, overflowPriority, height, heightPriority }) => {
+        if (overflow) el.style.setProperty('overflow', overflow, overflowPriority);
+        else el.style.removeProperty('overflow');
+        if (height) el.style.setProperty('height', height, heightPriority);
+        else el.style.removeProperty('height');
+      });
+    };
+  }, []);
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
     onScroll();
@@ -1055,7 +1246,15 @@ const LandingPage: React.FC = () => {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  // Locks page scroll behind the mobile drawer / feature modal. Must keep the
+  // `important` priority from the effect above — a plain assignment here would
+  // drop it, letting the global stylesheet rule silently reclaim scroll lock.
   useEffect(() => {
+    document.body.style.setProperty(
+      'overflow',
+      mobileOpen || selectedWhyFeature ? 'hidden' : 'auto',
+      'important'
+    );
     if (isContentPage || !location.hash) return;
 
     window.requestAnimationFrame(() => {
@@ -1117,6 +1316,51 @@ const LandingPage: React.FC = () => {
     });
   }, []);
 
+  const scrollToId = useCallback((id: string) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    const nav = document.querySelector<HTMLElement>('.salonox-landing .nav');
+    const navOffset = nav ? nav.offsetHeight + 16 : 88;
+    const targetTop = el.getBoundingClientRect().top + window.scrollY - navOffset;
+
+    window.scrollTo({
+      top: Math.max(targetTop, 0),
+      behavior: 'smooth',
+    });
+
+    window.history.replaceState(null, '', `#${id}`);
+  }, []);
+
+  // Below-the-fold lazy images (e.g. the "how it works" showcase screenshots)
+  // can still be loading when a nav click fires, growing the page and shifting
+  // every section beneath them further down mid-animation. That leaves the
+  // target computed at click time stale, so the smooth scroll lands short —
+  // it looks like the scroll stopped "halfway" into the section. Re-issuing
+  // the scroll once things settle corrects for that. Guarded by id so a
+  // second, newer click isn't overridden by a stale correction.
+  const pendingScrollId = useRef<string | null>(null);
+  const scrollToIdSettled = useCallback(
+    (id: string) => {
+      pendingScrollId.current = id;
+      scrollToId(id);
+      window.setTimeout(() => {
+        if (pendingScrollId.current === id) scrollToId(id);
+      }, 550);
+    },
+    [scrollToId]
+  );
+
+  // Runs once per mount so a navbar link clicked from another route (e.g. the
+  // About or Terms pages) lands here, then scrolls to the requested section.
+  useEffect(() => {
+    if (!location.hash) return;
+    const id = location.hash.slice(1);
+    const t = setTimeout(() => scrollToIdSettled(id), 60);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const scrollToSection = useCallback(
     (id: string) => (e: React.MouseEvent<HTMLElement>) => {
       e.preventDefault();
@@ -1130,50 +1374,25 @@ const LandingPage: React.FC = () => {
         return;
       }
 
-      window.requestAnimationFrame(() => {
-        const el = document.getElementById(id);
-        if (!el) return;
-
-        const nav = document.querySelector<HTMLElement>('.salonox-landing .nav');
-        const navOffset = nav ? nav.offsetHeight + 16 : 88;
-        const targetTop = el.getBoundingClientRect().top + window.scrollY - navOffset;
-
-        window.scrollTo({
-          top: Math.max(targetTop, 0),
-          behavior: 'smooth',
-        });
-
-        window.history.replaceState(null, '', `#${id}`);
-      });
+      window.requestAnimationFrame(() => scrollToIdSettled(id));
     },
-    [isContentPage, navigate]
+    [isContentPage, navigate, scrollToIdSettled]
   );
 
-  const jumpToSection = useCallback((id: string) => {
-    setSelectedWhyFeature(null);
-    setMobileOpen(false);
+  const jumpToSection = useCallback(
+    (id: string) => {
+      setSelectedWhyFeature(null);
+      setMobileOpen(false);
 
-    if (isContentPage) {
-      navigate(`/#${id}`);
-      return;
-    }
+      if (isContentPage) {
+        navigate(`/#${id}`);
+        return;
+      }
 
-    window.requestAnimationFrame(() => {
-      const el = document.getElementById(id);
-      if (!el) return;
-
-      const nav = document.querySelector<HTMLElement>('.nav');
-      const navOffset = nav ? nav.offsetHeight + 16 : 88;
-      const targetTop = el.getBoundingClientRect().top + window.scrollY - navOffset;
-
-      window.scrollTo({
-        top: Math.max(targetTop, 0),
-        behavior: 'smooth',
-      });
-
-      window.history.replaceState(null, '', `#${id}`);
-    });
-  }, [isContentPage, navigate]);
+      window.requestAnimationFrame(() => scrollToIdSettled(id));
+    },
+    [isContentPage, navigate, scrollToIdSettled]
+  );
 
   const handleContentRouteClick = useCallback(
     (path: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -1239,16 +1458,21 @@ const LandingPage: React.FC = () => {
   const [demoForm, setDemoForm] = useState<DemoForm>({
     name: '',
     email: '',
+    phone: '',
     salon: '',
+    city: '',
     locations: '',
     agreed: false,
   });
   const [demoSubmitted, setDemoSubmitted] = useState(false);
   const [demoSubmitting, setDemoSubmitting] = useState(false);
   const [demoError, setDemoError] = useState('');
+  const [phoneCountry, setPhoneCountry] = useState<Country | undefined>(DEMO_PHONE_DEFAULT_COUNTRY);
+  const [phoneError, setPhoneError] = useState('');
+  const [phoneTouched, setPhoneTouched] = useState(false);
 
   const handleDemoChange = useCallback(
-    (field: keyof DemoForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    (field: keyof Omit<DemoForm, 'phone'>) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       const value = e.target instanceof HTMLInputElement && e.target.type === 'checkbox'
         ? e.target.checked
         : e.target.value;
@@ -1259,9 +1483,47 @@ const LandingPage: React.FC = () => {
     []
   );
 
+  const validatePhone = useCallback((value: string, country: Country | undefined) => {
+    if (!value) return 'Mobile number is required.';
+    if (!isPossiblePhoneNumber(value)) return 'Enter a complete mobile number.';
+    if (!isValidPhoneNumber(value, country)) {
+      return `Enter a valid mobile number for ${country ? countryName(country) : 'the selected country'}.`;
+    }
+    return '';
+  }, []);
+
+  // Re-runs off committed state (not handler closures) so a country switch —
+  // which renormalizes the stored E.164 value on its own render cycle — always
+  // gets validated against the pairing that actually lands, never a stale one.
+  useEffect(() => {
+    if (!phoneTouched) return;
+    setPhoneError(validatePhone(demoForm.phone, phoneCountry));
+  }, [demoForm.phone, phoneCountry, phoneTouched, validatePhone]);
+
+  const handlePhoneChange = useCallback((value?: string) => {
+    setDemoForm((prev) => ({ ...prev, phone: value || '' }));
+    setDemoError('');
+  }, []);
+
+  const handlePhoneBlur = useCallback(() => {
+    setPhoneTouched(true);
+  }, []);
+
+  const handlePhoneCountryChange = useCallback((country?: Country) => {
+    setPhoneCountry(country);
+  }, []);
+
   const handleDemoSubmit = useCallback(
     async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
+
+      const phoneValidationError = validatePhone(demoForm.phone, phoneCountry);
+      if (phoneValidationError) {
+        setPhoneTouched(true);
+        setPhoneError(phoneValidationError);
+        return;
+      }
+
       setDemoSubmitting(true);
       setDemoError('');
 
@@ -1279,7 +1541,9 @@ const LandingPage: React.FC = () => {
             _replyto: demoForm.email,
             name: demoForm.name,
             work_email: demoForm.email,
+            phone_number: demoForm.phone,
             salon_name: demoForm.salon,
+            city: demoForm.city,
             locations: demoForm.locations,
           }),
         });
@@ -1295,7 +1559,7 @@ const LandingPage: React.FC = () => {
         setDemoSubmitting(false);
       }
     },
-    [demoForm]
+    [demoForm, phoneCountry, validatePhone]
   );
 
   return (
@@ -1425,19 +1689,7 @@ const LandingPage: React.FC = () => {
                   <i /><i /><i />
                 </div>
                 <div className="mock-body">
-                  <div className="mock-row">
-                    <h5>Weekly revenue</h5>
-                    <span className="mock-chip">+18.4%</span>
-                  </div>
-                  <div className="mock-bars">
-                    <i className="mock-bar mock-bar--1" />
-                    <i className="mock-bar mock-bar--2" />
-                    <i className="mock-bar mock-bar--3" />
-                    <i className="mock-bar mock-bar--4" />
-                    <i className="mock-bar mock-bar--5" />
-                    <i className="mock-bar mock-bar--6" />
-                    <i className="mock-bar mock-bar--7" />
-                  </div>
+                  <HeroRevenueChart />
                   <div className="mock-list">
                     <div className="mock-list-item">
                       <span className="avatar" />
@@ -1457,7 +1709,7 @@ const LandingPage: React.FC = () => {
                 <span className="float-icon"><Icon.Card /></span>
                 <span>
                   <span className="float-label">Paid today</span>
-                  <span className="float-value">$4,210</span>
+                  <span className="float-value">₹4,210</span>
                 </span>
               </div>
             </div>
@@ -1663,7 +1915,7 @@ const LandingPage: React.FC = () => {
           </Reveal>
 
           <div className="showcase-grid">
-            {SHOWCASE.map((item, _i) => {
+            {SHOWCASE.map((item) => {
               const Cmp = Icon[item.icon];
               return (
                 <Reveal key={item.title} delay={0}>
@@ -1812,6 +2064,26 @@ const LandingPage: React.FC = () => {
                       />
                     </label>
                     <label className="demo-field">
+                      <span>Mobile Number</span>
+                      <PhoneInput
+                        addInternationalOption={false}
+                        defaultCountry={DEMO_PHONE_DEFAULT_COUNTRY}
+                        flags={flags}
+                        placeholder="9876543210"
+                        value={demoForm.phone}
+                        onChange={handlePhoneChange}
+                        onCountryChange={handlePhoneCountryChange}
+                        onBlur={handlePhoneBlur}
+                        numberInputProps={{ required: true }}
+                        className={phoneTouched && phoneError ? 'PhoneInput--invalid' : ''}
+                        aria-invalid={phoneTouched && !!phoneError}
+                        aria-describedby={phoneTouched && phoneError ? 'demo-phone-error' : undefined}
+                      />
+                      {phoneTouched && phoneError && (
+                        <span className="demo-field-error" id="demo-phone-error" role="alert">{phoneError}</span>
+                      )}
+                    </label>
+                    <label className="demo-field">
                       <span>Salon Name</span>
                       <input
                         type="text"
@@ -1819,6 +2091,16 @@ const LandingPage: React.FC = () => {
                         placeholder="e.g. The Glow Room"
                         value={demoForm.salon}
                         onChange={handleDemoChange('salon')}
+                      />
+                    </label>
+                    <label className="demo-field">
+                      <span>City</span>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Mumbai"
+                        value={demoForm.city}
+                        onChange={handleDemoChange('city')}
                       />
                     </label>
                     <label className="demo-field">
