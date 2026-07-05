@@ -20,8 +20,8 @@ export const fetchClientsThunk = createAsyncThunk<
   { rejectValue: string }
 >("client/fetchAll", async (_, { rejectWithValue }) => {
   try {
-    // Backend paginates (default page size 20) — page through until every client is fetched.
-    const pageSize = 500;
+    // Backend paginates (default 20, hard-capped at 200 per request) — page through until every client is fetched.
+    const pageSize = 200;
     let page = 1;
     let all: Client[] = [];
     while (true) {

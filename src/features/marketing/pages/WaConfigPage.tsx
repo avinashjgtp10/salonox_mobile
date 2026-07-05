@@ -4,8 +4,10 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
   saveWaConfigThunk,
   testWaConfigThunk,
+  deleteWaConfigThunk,
+  setAiReceptionistEnabledThunk,
 } from "../../../middleware/marketing/marketing.thunk";
-import { Button, Input } from "../../../components/ui";
+import { Button, Input, Modal } from "../../../components/ui";
 import { API_ORIGIN } from "../../../services/api/baseUrl";
 import type { SaveWaConfigPayload } from "../../../types/marketing.types";
 import "../styles/WaConfigPage.scss";
@@ -70,9 +72,11 @@ export default function WaConfigPage() {
     appSecret: "", accessToken: "", webhookVerifyToken: "",
   });
 
-  const [saving,   setSaving]   = useState(false);
-  const [testing,  setTesting]  = useState(false);
-  const [editMode, setEditMode] = useState(false);
+  const [saving,        setSaving]        = useState(false);
+  const [testing,       setTesting]       = useState(false);
+  const [editMode,      setEditMode]      = useState(false);
+  const [deleting,      setDeleting]      = useState(false);
+  const [confirmOpen,   setConfirmOpen]   = useState(false);
 
   const webhookUrl = `${API_ORIGIN}/api/v1/webhooks/whatsapp`;
 
@@ -108,6 +112,29 @@ export default function WaConfigPage() {
         toast.error((result.payload as string) ?? "Failed to save config");
       }
     } finally { setSaving(false); }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      const result = await dispatch(deleteWaConfigThunk());
+      if (deleteWaConfigThunk.fulfilled.match(result)) {
+        toast.success("WhatsApp connection removed");
+        setConfirmOpen(false);
+        setEditMode(true);
+      } else {
+        toast.error((result.payload as string) ?? "Failed to disconnect WhatsApp");
+      }
+    } finally { setDeleting(false); }
+  };
+
+  const handleToggleAi = async (enabled: boolean) => {
+    const result = await dispatch(setAiReceptionistEnabledThunk(enabled));
+    if (setAiReceptionistEnabledThunk.fulfilled.match(result)) {
+      toast.success(enabled ? "AI receptionist enabled" : "AI receptionist disabled");
+    } else {
+      toast.error((result.payload as string) ?? "Failed to update AI receptionist setting");
+    }
   };
 
   const handleTest = async () => {
@@ -157,6 +184,29 @@ export default function WaConfigPage() {
           </button>
         )}
       </div>
+
+      {/* ── AI Receptionist toggle ── */}
+      {config?.isVerified && (
+        <div className="wac-card">
+          <div className="wac-ai-row">
+            <div>
+              <div className="wac-card-title">🤖 AI Receptionist</div>
+              <p className="wac-ai-desc">
+                Automatically replies to customer WhatsApp messages using AI — answers questions,
+                checks availability, and can book appointments on your behalf.
+              </p>
+            </div>
+            <button
+              type="button"
+              className={`wac-toggle${config?.aiReceptionistEnabled ? " wac-toggle--on" : ""}`}
+              disabled={loading.setAiReceptionistEnabled}
+              onClick={() => handleToggleAi(!config?.aiReceptionistEnabled)}
+            >
+              <span className="wac-toggle-thumb" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Credentials form — only shown in edit mode ── */}
       {editMode && (
@@ -228,6 +278,56 @@ export default function WaConfigPage() {
           </div>
         </div>
       )}
+
+      {/* ── Danger zone ── */}
+      {config && (
+        <div className="wac-card wac-danger-zone">
+          <div className="wac-card-title">⚠️ Danger Zone</div>
+          <div className="wac-danger-row">
+            <div>
+              <div className="wac-danger-title">Disconnect WhatsApp</div>
+              <p className="wac-danger-desc">
+                Removes your Meta credentials from this salon. Templates, campaigns and message
+                history are kept — you can reconnect the same or a different WhatsApp number anytime.
+              </p>
+            </div>
+            <Button
+              variant="outline-danger"
+              size="sm"
+              onClick={() => setConfirmOpen(true)}
+            >
+              🗑 Disconnect
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <Modal
+        show={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        title="Disconnect WhatsApp?"
+        footer={
+          <div className="d-flex flex-column gap-2 w-100">
+            <Button
+              variant="danger"
+              fullWidth
+              loading={deleting}
+              disabled={deleting}
+              onClick={handleDelete}
+            >
+              Yes, disconnect
+            </Button>
+            <Button variant="ghost" fullWidth disabled={deleting} onClick={() => setConfirmOpen(false)}>
+              Cancel
+            </Button>
+          </div>
+        }
+      >
+        <p>
+          This removes your saved Meta credentials ({config?.displayPhone ?? "this WhatsApp number"}) from
+          your salon. You won't be able to send campaigns or messages until you reconnect.
+        </p>
+      </Modal>
     </div>
   );
 }

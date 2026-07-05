@@ -98,6 +98,7 @@
   border-radius: 20px; padding: 4px 12px; cursor: pointer; transition: all 0.15s;
   &:hover    { border-color: #9ca3af; color: #111827; }
   &--active  { background: #111827; color: #fff; border-color: #111827; }
+  &--active:hover { color: #fff; border-color: #111827; }
 }
 .mkt-filter-clear {
   font-size: 11px; color: #9ca3af; background: none;

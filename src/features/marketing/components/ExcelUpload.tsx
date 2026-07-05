@@ -83,21 +83,43 @@ export default function ExcelUpload({ onContactsLoaded }: Props) {
 
   const reset = () => { setFileName(null); setCount(null); setError(null); setPreview([]); };
 
+  const downloadSampleFormat = () => {
+    const ws = XLSX.utils.aoa_to_sheet([
+      ["Phone", "Name"],
+      ["+919876543210", "Rahul Sharma"],
+      ["+919876543211", "Priya Patel"],
+      ["9876543212", "Amit Kumar"],
+    ]);
+    ws["!cols"] = [{ wch: 16 }, { wch: 20 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Contacts");
+    XLSX.writeFile(wb, "campaign_contacts_sample.xlsx");
+  };
+
   return (
     <div className="eu-wrap">
       {/* ── Drop zone ── */}
       {count === null && (
-        <div
-          {...getRootProps()}
-          className={`eu-zone ${isDragActive ? "drag" : ""} ${error ? "has-error" : ""}`}
-        >
-          <input {...getInputProps()} />
-          <div className="eu-icon">{isDragActive ? "📂" : "📊"}</div>
-          <div className="eu-title">
-            {isDragActive ? "Drop it here!" : "Drag & drop Excel file here"}
+        <>
+          <div
+            {...getRootProps()}
+            className={`eu-zone ${isDragActive ? "drag" : ""} ${error ? "has-error" : ""}`}
+          >
+            <input {...getInputProps()} />
+            <div className="eu-icon">{isDragActive ? "📂" : "📊"}</div>
+            <div className="eu-title">
+              {isDragActive ? "Drop it here!" : "Drag & drop Excel file here"}
+            </div>
+            <div className="eu-sub">or click to browse · .xlsx · .xls · .csv</div>
           </div>
-          <div className="eu-sub">or click to browse · .xlsx · .xls · .csv</div>
-        </div>
+          <button
+            type="button"
+            className="eu-sample-btn"
+            onClick={(e) => { e.stopPropagation(); downloadSampleFormat(); }}
+          >
+            ⬇ Download sample format
+          </button>
+        </>
       )}
 
       {/* ── Error ── */}

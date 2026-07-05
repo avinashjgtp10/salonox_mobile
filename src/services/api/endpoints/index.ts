@@ -30,3 +30,4 @@ export * from "./attendance.endpoints";
 export * from "./device.endpoints";
 export * from "./superAdmin.endpoints";
 export * from "./notifications.endpoints";
+export * from "./wa-automation.endpoints";

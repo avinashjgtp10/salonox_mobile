@@ -6,6 +6,7 @@ export const MARKETING_ENDPOINTS = {
 
   CAMPAIGNS:         '/api/v1/campaigns',
   CAMPAIGN_BY_ID:    (id: string | number) => `/api/v1/campaigns/${id}`,
+  CAMPAIGN_RESEND:   (id: string | number) => `/api/v1/campaigns/${id}/resend`,
   CAMPAIGN_PAUSE:    (id: string | number) => `/api/v1/campaigns/${id}/pause`,
   CAMPAIGN_RESUME:   (id: string | number) => `/api/v1/campaigns/${id}/resume`,
   CAMPAIGN_CONTACTS: (id: string | number) => `/api/v1/campaigns/${id}/contacts`,
@@ -20,6 +21,7 @@ export const MARKETING_ENDPOINTS = {
   WA_CONFIG_VERIFY_APP:   '/api/v1/wa-config/verify-app',
   WA_CONFIG_VERIFY_TOKEN: '/api/v1/wa-config/verify-token',
   WA_CONFIG_VERIFY_ALL:   '/api/v1/wa-config/verify-all',
+  WA_CONFIG_AI_RECEPTIONIST: '/api/v1/wa-config/ai-receptionist',
 
   DASHBOARD_STATS: '/api/v1/marketing/dashboard/stats',
   ANALYTICS:       '/api/v1/marketing/analytics',
