@@ -62,6 +62,9 @@ const EditServicePage = lazy(
 const SoldMembershipsPage = lazy(
   () => import("../features/catalog/pages/SoldMembershipsPage"),
 );
+const StockReconciliationPage = lazy(
+  () => import("../features/catalog/pages/StockReconciliationPage"),
+);
 
 import { PageLoader } from "../components/ui";
 
@@ -111,6 +114,7 @@ export const CatalogRoutes = () => (
         <Route path="inventory/suppliers" element={<SuppliersListPage />} />
         <Route path="inventory/suppliers/new" element={<AddSupplierPage />} />
         <Route path="inventory/suppliers/edit/:id" element={<AddSupplierPage />} />
+        <Route path="inventory/stock-reconciliation" element={<StockReconciliationPage />} />
       </Route>
 
       {/* Catch-all → service menu */}
