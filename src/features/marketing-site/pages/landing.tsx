@@ -1182,8 +1182,6 @@ const LandingPage: React.FC = () => {
   const [activeBranch, setActiveBranch] = useState(0);
   const [branches, setBranches] = useState<Branch[]>(INITIAL_BRANCHES);
   const [selectedWhyFeature, setSelectedWhyFeature] = useState<WhyFeature | null>(null);
-  const location = useLocation();
-  const navigate = useNavigate();
   const isTermsPage = location.pathname === '/terms';
   const isPrivacyPage = location.pathname === '/privacy';
   const isAboutPage = location.pathname === '/about';
@@ -1376,59 +1374,25 @@ const LandingPage: React.FC = () => {
         return;
       }
 
-      window.requestAnimationFrame(() => {
-        const el = document.getElementById(id);
-        if (!el) return;
-
-        const nav = document.querySelector<HTMLElement>('.salonox-landing .nav');
-        const navOffset = nav ? nav.offsetHeight + 16 : 88;
-        const targetTop = el.getBoundingClientRect().top + window.scrollY - navOffset;
-
-      if (location.pathname !== '/') {
-        navigate(`/#${id}`);
-        return;
-      }
-
       window.requestAnimationFrame(() => scrollToIdSettled(id));
     },
-    [location.pathname, navigate, scrollToIdSettled]
+    [isContentPage, navigate, scrollToIdSettled]
   );
 
   const jumpToSection = useCallback(
     (id: string) => {
       setSelectedWhyFeature(null);
       setMobileOpen(false);
-    [isContentPage, navigate]
-  );
 
-  const jumpToSection = useCallback((id: string) => {
-    setSelectedWhyFeature(null);
-    setMobileOpen(false);
-
-    if (isContentPage) {
-      navigate(`/#${id}`);
-      return;
-    }
-
-    window.requestAnimationFrame(() => {
-      const el = document.getElementById(id);
-      if (!el) return;
-
-      const nav = document.querySelector<HTMLElement>('.nav');
-      const navOffset = nav ? nav.offsetHeight + 16 : 88;
-      const targetTop = el.getBoundingClientRect().top + window.scrollY - navOffset;
-
-      if (location.pathname !== '/') {
+      if (isContentPage) {
         navigate(`/#${id}`);
         return;
       }
 
       window.requestAnimationFrame(() => scrollToIdSettled(id));
     },
-    [location.pathname, navigate, scrollToIdSettled]
-      window.history.replaceState(null, '', `#${id}`);
-    });
-  }, [isContentPage, navigate]);
+    [isContentPage, navigate, scrollToIdSettled]
+  );
 
   const handleContentRouteClick = useCallback(
     (path: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
