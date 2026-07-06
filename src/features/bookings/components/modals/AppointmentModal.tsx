@@ -696,7 +696,6 @@ export const AppointmentModal: React.FC<Props> = ({
 
   const isCancelledBooking = existingBooking?.status?.toLowerCase() === "cancelled";
   const isPartialBooking   = existingBooking?.paymentStatus === "Partial";
-  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const isPaymentFrozen = existingBooking?.paymentStatus === "Paid"
     || (existingBooking?.paymentStatus !== "Partial"
         && alreadyPaidAmount > 0
