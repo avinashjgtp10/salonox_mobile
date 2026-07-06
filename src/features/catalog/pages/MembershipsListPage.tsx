@@ -5,7 +5,7 @@ import {
   Search, PlusLg, Sliders, ChevronDown,
   PencilSquare, Trash3, FileEarmarkPdf,
   FileEarmarkExcel, FiletypeCsv, CardList,
-  Award, CurrencyRupee, CheckCircleFill, Bag,
+  Award, CurrencyRupee, CheckCircleFill,
 } from "react-bootstrap-icons";
 import type { AppDispatch } from "../../../store/store";
 import type { Membership } from "../../../services/api/endpoints/memberships.endpoints";
@@ -24,8 +24,6 @@ import {
 } from "../../../store/selectors/membership.selectors";
 import MembershipFilterDrawer from "../components/MembershipFilterDrawer";
 import MembershipDetailsDrawer from "../components/MembershipDetailsDrawer";
-import MembershipPickerModal from "../components/MembershipPickerModal";
-import SellMembershipModal from "../components/SellMembershipModal";
 import "../styles/MembershipsListPage.scss";
 
 const PAGE_SIZE = 20;
@@ -73,8 +71,6 @@ const MembershipsListPage: React.FC = () => {
   const [optOpen,    setOptOpen]    = useState(false);
   const [exporting,  setExporting]  = useState<"csv" | "excel" | "pdf" | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
-  const [sellPickerOpen, setSellPickerOpen] = useState(false);
-  const [sellMembership, setSellMembership] = useState<Membership | null>(null);
 
   const [drawerId,   setDrawerId]   = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -171,9 +167,6 @@ const MembershipsListPage: React.FC = () => {
               </ul>
             )}
           </div>
-          <button className="msp__btn msp__btn--outline" onClick={() => setSellPickerOpen(true)}>
-            <Bag size={14} /> Sell to client
-          </button>
           <div className="msp__add-wrap">
             <button
               className="msp__btn msp__btn--dark"
@@ -361,17 +354,6 @@ const MembershipsListPage: React.FC = () => {
         onClose={() => setDrawerOpen(false)}
       />
 
-      {sellPickerOpen && (
-        <MembershipPickerModal
-          onClose={() => setSellPickerOpen(false)}
-          onSelect={m => { setSellPickerOpen(false); setSellMembership(m); }}
-        />
-      )}
-
-      <SellMembershipModal
-        membership={sellMembership}
-        onClose={() => setSellMembership(null)}
-      />
 
     </div>
   );

@@ -73,8 +73,6 @@ const MembershipDetailsDrawer: React.FC<MembershipDetailsDrawerProps> = ({
   })();
   const bonusCredit  = Number(descMeta.bonusCredit) || 0;
   const walletValue  = (Number(membership?.price) || 0) + bonusCredit;
-  const readableDesc = descMeta.description || (typeof descMeta === "string" ? descMeta : "");
-
   if (!isOpen) return null;
 
   return (
@@ -140,13 +138,6 @@ const MembershipDetailsDrawer: React.FC<MembershipDetailsDrawerProps> = ({
                     )}
                   </div>
                 </div>
-              </section>
-            )}
-
-            {readableDesc && (
-              <section className="mdd__section">
-                <h4 className="section-title">Description</h4>
-                <p className="description-text">{readableDesc}</p>
               </section>
             )}
 
