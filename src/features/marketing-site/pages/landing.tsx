@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo, useId } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FaWhatsapp } from 'react-icons/fa';
-import PhoneInput, { type Country } from 'react-phone-number-input';
+import PhoneInput, { getCountryCallingCode, type Country } from 'react-phone-number-input';
 import flags from 'react-phone-number-input/flags';
 import { isValidPhoneNumber, isPossiblePhoneNumber } from 'libphonenumber-js';
 // @ts-ignore
@@ -191,6 +191,9 @@ type WhyFeature = Feature & {
 type Branch = { name: string; bookings: string; revenue: string };
 type DemoForm = { name: string; email: string; phone: string; salon: string; city: string; locations: string; agreed: boolean };
 const DEMO_PHONE_DEFAULT_COUNTRY: Country = 'IN';
+// Allows international letters/marks (accents, Devanagari, Arabic, etc.), spaces,
+// hyphens, apostrophes, and periods — covers city names like "Mumbai", "Saint-Étienne", "St. Louis".
+const CITY_NAME_REGEX = /^[\p{L}\p{M}][\p{L}\p{M}\s'.-]*$/u;
 
 const countryDisplayNames = typeof Intl.DisplayNames === 'function'
   ? new Intl.DisplayNames(['en'], { type: 'region' })
@@ -1171,6 +1174,208 @@ const AboutContent: React.FC<AboutContentProps> = ({ onNavigateToBookDemo }) => 
   </main>
 );
 
+/* ---------------------------------- Searchable country select (Book Demo phone field) ---------------------------------- */
+
+type CountrySelectOption = { value?: Country; label: string; divider?: boolean };
+
+type CountrySelectSearchProps = {
+  value?: Country;
+  onChange: (value?: Country) => void;
+  options: CountrySelectOption[];
+  disabled?: boolean;
+  readOnly?: boolean;
+  'aria-label'?: string;
+};
+
+const CountrySelectSearch: React.FC<CountrySelectSearchProps> = ({
+  value,
+  onChange,
+  options,
+  disabled,
+  readOnly,
+  'aria-label': ariaLabel,
+}) => {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [activeIndex, setActiveIndex] = useState(0);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const searchRef = useRef<HTMLInputElement | null>(null);
+  const listRef = useRef<HTMLUListElement | null>(null);
+  const listboxId = useId();
+
+  const countryOptions = useMemo(
+    () => options.filter((option): option is CountrySelectOption & { value: Country } => !option.divider && !!option.value),
+    [options]
+  );
+
+  const selected = useMemo(
+    () => countryOptions.find((option) => option.value === value),
+    [countryOptions, value]
+  );
+
+  const filteredOptions = useMemo(() => {
+    const q = query.trim().toLowerCase().replace(/^\+/, '');
+    if (!q) return countryOptions;
+
+    // Ranks exact/prefix matches (e.g. typing "+91" surfaces India before
+    // Bolivia's "+591", which merely contains "91") above plain substring hits.
+    const ranked = countryOptions
+      .map((option) => {
+        const label = option.label.toLowerCase();
+        const callingCode = getCountryCallingCode(option.value);
+        let rank = -1;
+        if (label === q || callingCode === q) rank = 0;
+        else if (label.startsWith(q) || callingCode.startsWith(q)) rank = 1;
+        else if (label.includes(q) || option.value.toLowerCase().includes(q) || callingCode.includes(q)) rank = 2;
+        return { option, rank };
+      })
+      .filter((entry) => entry.rank !== -1);
+
+    ranked.sort((a, b) => a.rank - b.rank);
+    return ranked.map((entry) => entry.option);
+  }, [countryOptions, query]);
+
+  useEffect(() => {
+    if (!open) return;
+    const raf = requestAnimationFrame(() => searchRef.current?.focus());
+    return () => cancelAnimationFrame(raf);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
+    };
+
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    listRef.current?.querySelector<HTMLElement>('[data-active="true"]')?.scrollIntoView({ block: 'nearest' });
+  }, [activeIndex, open]);
+
+  const openDropdown = useCallback(() => {
+    setQuery('');
+    setActiveIndex(0);
+    setOpen(true);
+  }, []);
+
+  const commitSelection = useCallback(
+    (country?: Country) => {
+      onChange(country);
+      setOpen(false);
+    },
+    [onChange]
+  );
+
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setQuery(event.target.value);
+    setActiveIndex(0);
+  };
+
+  const handleTriggerKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (disabled || readOnly) return;
+    if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      openDropdown();
+    }
+  };
+
+  const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setActiveIndex((i) => Math.min(i + 1, filteredOptions.length - 1));
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setActiveIndex((i) => Math.max(i - 1, 0));
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      const option = filteredOptions[activeIndex];
+      if (option) commitSelection(option.value);
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      setOpen(false);
+    }
+  };
+
+  const SelectedFlag = selected ? flags[selected.value] : undefined;
+  const selectedCallingCode = selected ? getCountryCallingCode(selected.value) : '';
+
+  return (
+    <div className={`country-select-search${open ? ' is-open' : ''}`} ref={rootRef}>
+      <button
+        type="button"
+        className="country-select-trigger"
+        disabled={disabled || readOnly}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={ariaLabel ? `${ariaLabel}${selected ? `, ${selected.label}` : ''}` : 'Select country'}
+        onClick={() => (open ? setOpen(false) : openDropdown())}
+        onKeyDown={handleTriggerKeyDown}
+      >
+        <span className="country-select-flag" aria-hidden="true">
+          {SelectedFlag && <SelectedFlag title={selected?.label || ''} />}
+        </span>
+        {selectedCallingCode && <span className="country-select-code">+{selectedCallingCode}</span>}
+        <span className="country-select-chevron" aria-hidden="true" />
+      </button>
+
+      {open && (
+        <div className="country-select-popover">
+          <div className="country-select-search-box">
+            <input
+              ref={searchRef}
+              type="text"
+              inputMode="search"
+              autoComplete="off"
+              placeholder="Search country or code"
+              value={query}
+              onChange={handleSearchChange}
+              onKeyDown={handleSearchKeyDown}
+              role="combobox"
+              aria-expanded={open}
+              aria-controls={listboxId}
+              aria-autocomplete="list"
+            />
+          </div>
+          <ul className="country-select-list" role="listbox" id={listboxId} ref={listRef} aria-label="Countries">
+            {filteredOptions.length === 0 && (
+              <li className="country-select-empty">No countries found</li>
+            )}
+            {filteredOptions.map((option, index) => {
+              const OptionFlag = flags[option.value];
+              const optionCallingCode = getCountryCallingCode(option.value);
+              const isActive = index === activeIndex;
+              const isSelected = option.value === value;
+
+              return (
+                <li
+                  key={option.value}
+                  role="option"
+                  aria-selected={isSelected}
+                  data-active={isActive}
+                  className={`country-select-option${isActive ? ' is-active' : ''}${isSelected ? ' is-selected' : ''}`}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  onClick={() => commitSelection(option.value)}
+                >
+                  <span className="country-select-option-flag" aria-hidden="true">
+                    {OptionFlag && <OptionFlag title={option.label} />}
+                  </span>
+                  <span className="country-select-option-name">{option.label}</span>
+                  <span className="country-select-option-code">+{optionCallingCode}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+};
+
 /* ---------------------------------- Component ---------------------------------- */
 
 const LandingPage: React.FC = () => {
@@ -1332,21 +1537,66 @@ const LandingPage: React.FC = () => {
     window.history.replaceState(null, '', `#${id}`);
   }, []);
 
-  // Below-the-fold lazy images (e.g. the "how it works" showcase screenshots)
-  // can still be loading when a nav click fires, growing the page and shifting
-  // every section beneath them further down mid-animation. That leaves the
-  // target computed at click time stale, so the smooth scroll lands short —
-  // it looks like the scroll stopped "halfway" into the section. Re-issuing
-  // the scroll once things settle corrects for that. Guarded by id so a
-  // second, newer click isn't overridden by a stale correction.
+  // Below-the-fold content (e.g. lazy images) can still be loading when a nav
+  // click fires, growing the page and shifting the target section further
+  // down mid-animation, so the scroll can land short. This used to be
+  // corrected by blindly firing a second `smooth` scrollTo at a fixed 550ms
+  // delay — but that call interrupts the browser's in-flight smooth-scroll
+  // animation with a brand new one, which is visibly janky: the page
+  // decelerates as if it arrived, then lurches forward again. Long scrolls
+  // (e.g. to "Pricing", far down the page) hadn't even finished animating by
+  // 550ms, so the correction fired mid-flight on every click.
+  //
+  // Instead, poll for the scroll to actually stop moving (the animation has
+  // settled, whether that took 300ms or 1.2s), then silently snap-correct
+  // with an instant (non-smooth) jump if the target drifted — a few pixels
+  // of instant correction after the motion has already stopped is
+  // imperceptible, unlike a second animated scroll. Guarded by id so a
+  // newer click, or the user taking over the scroll themselves, cancels it.
   const pendingScrollId = useRef<string | null>(null);
   const scrollToIdSettled = useCallback(
     (id: string) => {
       pendingScrollId.current = id;
       scrollToId(id);
-      window.setTimeout(() => {
-        if (pendingScrollId.current === id) scrollToId(id);
-      }, 550);
+
+      const deadline = Date.now() + 2000;
+      let lastY = window.scrollY;
+      let stableFrames = 0;
+
+      const cancel = () => {
+        if (pendingScrollId.current === id) pendingScrollId.current = null;
+      };
+      window.addEventListener('wheel', cancel, { once: true, passive: true });
+      window.addEventListener('touchstart', cancel, { once: true, passive: true });
+
+      const checkSettled = () => {
+        if (pendingScrollId.current !== id) return;
+
+        const y = window.scrollY;
+        stableFrames = Math.abs(y - lastY) < 1 ? stableFrames + 1 : 0;
+        lastY = y;
+
+        if (stableFrames < 6 && Date.now() < deadline) {
+          requestAnimationFrame(checkSettled);
+          return;
+        }
+
+        window.removeEventListener('wheel', cancel);
+        window.removeEventListener('touchstart', cancel);
+
+        const el = document.getElementById(id);
+        if (!el) return;
+
+        const nav = document.querySelector<HTMLElement>('.salonox-landing .nav');
+        const navOffset = nav ? nav.offsetHeight + 16 : 88;
+        const targetTop = Math.max(el.getBoundingClientRect().top + window.scrollY - navOffset, 0);
+
+        if (Math.abs(targetTop - y) > 4) {
+          window.scrollTo({ top: targetTop, behavior: 'auto' });
+        }
+      };
+
+      requestAnimationFrame(checkSettled);
     },
     [scrollToId]
   );
@@ -1470,6 +1720,8 @@ const LandingPage: React.FC = () => {
   const [phoneCountry, setPhoneCountry] = useState<Country | undefined>(DEMO_PHONE_DEFAULT_COUNTRY);
   const [phoneError, setPhoneError] = useState('');
   const [phoneTouched, setPhoneTouched] = useState(false);
+  const [cityError, setCityError] = useState('');
+  const [cityTouched, setCityTouched] = useState(false);
 
   const handleDemoChange = useCallback(
     (field: keyof Omit<DemoForm, 'phone'>) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -1483,11 +1735,25 @@ const LandingPage: React.FC = () => {
     []
   );
 
+  const handleCityBlur = useCallback(() => {
+    setCityTouched(true);
+  }, []);
+
   const validatePhone = useCallback((value: string, country: Country | undefined) => {
     if (!value) return 'Mobile number is required.';
     if (!isPossiblePhoneNumber(value)) return 'Enter a complete mobile number.';
     if (!isValidPhoneNumber(value, country)) {
       return `Enter a valid mobile number for ${country ? countryName(country) : 'the selected country'}.`;
+    }
+    return '';
+  }, []);
+
+  const validateCity = useCallback((value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return 'City is required.';
+    if (trimmed.length < 2) return 'Enter a valid city name.';
+    if (!CITY_NAME_REGEX.test(trimmed)) {
+      return 'City name can only contain letters, spaces, hyphens, and apostrophes.';
     }
     return '';
   }, []);
@@ -1499,6 +1765,11 @@ const LandingPage: React.FC = () => {
     if (!phoneTouched) return;
     setPhoneError(validatePhone(demoForm.phone, phoneCountry));
   }, [demoForm.phone, phoneCountry, phoneTouched, validatePhone]);
+
+  useEffect(() => {
+    if (!cityTouched) return;
+    setCityError(validateCity(demoForm.city));
+  }, [demoForm.city, cityTouched, validateCity]);
 
   const handlePhoneChange = useCallback((value?: string) => {
     setDemoForm((prev) => ({ ...prev, phone: value || '' }));
@@ -1518,9 +1789,13 @@ const LandingPage: React.FC = () => {
       e.preventDefault();
 
       const phoneValidationError = validatePhone(demoForm.phone, phoneCountry);
-      if (phoneValidationError) {
+      const cityValidationError = validateCity(demoForm.city);
+
+      if (phoneValidationError || cityValidationError) {
         setPhoneTouched(true);
         setPhoneError(phoneValidationError);
+        setCityTouched(true);
+        setCityError(cityValidationError);
         return;
       }
 
@@ -1559,7 +1834,7 @@ const LandingPage: React.FC = () => {
         setDemoSubmitting(false);
       }
     },
-    [demoForm, phoneCountry, validatePhone]
+    [demoForm, phoneCountry, validatePhone, validateCity]
   );
 
   return (
@@ -2063,12 +2338,18 @@ const LandingPage: React.FC = () => {
                         onChange={handleDemoChange('email')}
                       />
                     </label>
-                    <label className="demo-field">
-                      <span>Mobile Number</span>
+                    {/* A `<div>`, not a `<label>` — the country dropdown below contains a
+                        search input and clickable options, and a wrapping `<label>` forwards
+                        clicks that bubble up to it from elsewhere inside onto its implicit
+                        associated control (the country trigger button), reopening the dropdown
+                        right after a selection. `aria-labelledby` keeps it accessibly labeled. */}
+                    <div className="demo-field">
+                      <span id="demo-phone-label">Mobile Number</span>
                       <PhoneInput
                         addInternationalOption={false}
                         defaultCountry={DEMO_PHONE_DEFAULT_COUNTRY}
                         flags={flags}
+                        countrySelectComponent={CountrySelectSearch}
                         placeholder="9876543210"
                         value={demoForm.phone}
                         onChange={handlePhoneChange}
@@ -2076,13 +2357,14 @@ const LandingPage: React.FC = () => {
                         onBlur={handlePhoneBlur}
                         numberInputProps={{ required: true }}
                         className={phoneTouched && phoneError ? 'PhoneInput--invalid' : ''}
+                        aria-labelledby="demo-phone-label"
                         aria-invalid={phoneTouched && !!phoneError}
                         aria-describedby={phoneTouched && phoneError ? 'demo-phone-error' : undefined}
                       />
                       {phoneTouched && phoneError && (
                         <span className="demo-field-error" id="demo-phone-error" role="alert">{phoneError}</span>
                       )}
-                    </label>
+                    </div>
                     <label className="demo-field">
                       <span>Salon Name</span>
                       <input
@@ -2101,7 +2383,14 @@ const LandingPage: React.FC = () => {
                         placeholder="e.g. Mumbai"
                         value={demoForm.city}
                         onChange={handleDemoChange('city')}
+                        onBlur={handleCityBlur}
+                        className={cityTouched && cityError ? 'is-invalid' : ''}
+                        aria-invalid={cityTouched && !!cityError}
+                        aria-describedby={cityTouched && cityError ? 'demo-city-error' : undefined}
                       />
+                      {cityTouched && cityError && (
+                        <span className="demo-field-error" id="demo-city-error" role="alert">{cityError}</span>
+                      )}
                     </label>
                     <label className="demo-field">
                       <span>Locations</span>
