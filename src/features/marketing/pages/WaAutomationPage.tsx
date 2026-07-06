@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import toast from "react-hot-toast";
+import { Info, X } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
   fetchPurchaseTemplatesThunk,
@@ -23,6 +24,55 @@ const EVENT_LABELS: Record<PurchaseEventType, { label: string; hint: string }> =
   sessions_remaining: { label: "Sessions Remaining", hint: "Sent once when a package or membership has 2 or fewer sessions left" },
 };
 
+// What each {{n}} placeholder actually turns into in the message the customer
+// receives — salon owners edit the wording but don't know what these mean
+// otherwise, since {{1}}/{{2}}/{{3}} are Meta's raw template variable syntax.
+const VARIABLE_EXPLANATIONS: Record<PurchaseEventType, Array<{ token: string; meaning: string }>> = {
+  service_purchased: [
+    { token: "{{1}}", meaning: "Customer's name" },
+    { token: "{{2}}", meaning: "Your salon's name" },
+    { token: "{{3}}", meaning: "The service they purchased" },
+  ],
+  product_purchased: [
+    { token: "{{1}}", meaning: "Customer's name" },
+    { token: "{{2}}", meaning: "Your salon's name" },
+    { token: "{{3}}", meaning: "The product they purchased" },
+  ],
+  membership_purchased: [
+    { token: "{{1}}", meaning: "Customer's name" },
+    { token: "{{2}}", meaning: "Your salon's name" },
+    { token: "{{3}}", meaning: "The membership plan name" },
+  ],
+  package_purchased: [
+    { token: "{{1}}", meaning: "Customer's name" },
+    { token: "{{2}}", meaning: "Your salon's name" },
+    { token: "{{3}}", meaning: "The package name" },
+  ],
+  appointment_reminder_1h: [
+    { token: "{{1}}", meaning: "Customer's name" },
+    { token: "{{2}}", meaning: "Your salon's name" },
+    { token: "{{3}}", meaning: "The appointment time" },
+  ],
+  thank_you: [
+    { token: "{{1}}", meaning: "Customer's name" },
+    { token: "{{2}}", meaning: "Your salon's name" },
+  ],
+  review_request: [
+    { token: "{{1}}", meaning: "Customer's name" },
+    { token: "{{2}}", meaning: "Your salon's name" },
+  ],
+  package_expiring_soon: [
+    { token: "{{1}}", meaning: "Customer's name" },
+    { token: "{{2}}", meaning: "The package name" },
+    { token: "{{3}}", meaning: "The expiry date" },
+  ],
+  sessions_remaining: [
+    { token: "{{1}}", meaning: "Customer's name" },
+    { token: "{{2}}", meaning: "The package or membership name" },
+    { token: "{{3}}", meaning: "How many sessions are left" },
+  ],
+};
+
 const STATUS_VARIANT: Record<string, "secondary" | "warning" | "success" | "danger"> = {
   DRAFT: "secondary",
   PENDING: "warning",
@@ -41,6 +91,7 @@ export default function WaAutomationPage() {
   const [savingType, setSavingType] = useState<string | null>(null);
   const [submittingType, setSubmittingType] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(POLL_INTERVAL / 1000);
+  const [openInfoFor, setOpenInfoFor] = useState<PurchaseEventType | null>(null);
 
   useEffect(() => {
     if (salonId) dispatch(fetchPurchaseTemplatesThunk(salonId));
@@ -150,11 +201,48 @@ export default function WaAutomationPage() {
               <div key={t.event_type} className="wa-auto-card">
                 <div className="wa-auto-card-head">
                   <div>
-                    <div className="wa-auto-card-label">{meta.label}</div>
+                    <div className="wa-auto-card-label">
+                      {meta.label}
+                      <button
+                        type="button"
+                        className="wa-auto-info-btn"
+                        aria-label={`What will the customer receive for ${meta.label}?`}
+                        onClick={() => setOpenInfoFor((prev) => (prev === t.event_type ? null : t.event_type))}
+                      >
+                        <Info size={13} />
+                      </button>
+                    </div>
                     <div className="wa-auto-card-hint">{meta.hint}</div>
                   </div>
                   <Badge variant={STATUS_VARIANT[t.status]}>{t.status}</Badge>
                 </div>
+
+                {openInfoFor === t.event_type && (
+                  <div className="wa-auto-info-panel">
+                    <div className="wa-auto-info-panel-head">
+                      <span>What the customer actually receives</span>
+                      <button
+                        type="button"
+                        className="wa-auto-info-close"
+                        aria-label="Close"
+                        onClick={() => setOpenInfoFor(null)}
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                    <p>
+                      The wording below is a template — the customer never sees <code>{"{{1}}"}</code>,{" "}
+                      <code>{"{{2}}"}</code>, etc. Each one is automatically replaced with real info when the message sends:
+                    </p>
+                    <ul>
+                      {VARIABLE_EXPLANATIONS[t.event_type].map((v) => (
+                        <li key={v.token}>
+                          <code>{v.token}</code> → {v.meaning}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 {t.status === "REJECTED" && t.rejection_reason && (
                   <div className="wa-auto-rejection">Rejected: {t.rejection_reason}</div>

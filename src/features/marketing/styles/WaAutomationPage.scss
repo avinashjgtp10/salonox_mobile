@@ -36,8 +36,43 @@
 .wa-auto-card-head {
   display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; gap: 8px;
 }
-.wa-auto-card-label { font-size: 13px; font-weight: 600; color: #111827; }
+.wa-auto-card-label {
+  font-size: 13px; font-weight: 600; color: #111827;
+  display: flex; align-items: center; gap: 5px;
+}
 .wa-auto-card-hint  { font-size: 11px; color: #6b7280; margin-top: 2px; }
+
+.wa-auto-info-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; padding: 0; border: none; border-radius: 50%;
+  background: #eff6ff; color: #2563eb; cursor: pointer; flex-shrink: 0;
+  &:hover { background: #dbeafe; }
+}
+
+.wa-auto-info-panel {
+  background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;
+  padding: 10px 12px; margin-bottom: 10px; font-size: 11px; color: #374151;
+
+  &-head {
+    display: flex; align-items: center; justify-content: space-between;
+    font-weight: 600; color: #111827; margin-bottom: 6px;
+  }
+
+  p { margin: 0 0 6px; line-height: 1.5; }
+  ul { margin: 0; padding-left: 16px; }
+  li { margin-bottom: 3px; }
+  code {
+    background: #eef2ff; color: #4338ca; border-radius: 4px;
+    padding: 1px 5px; font-size: 10.5px;
+  }
+}
+
+.wa-auto-info-close {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; padding: 0; border: none; background: transparent;
+  color: #6b7280; cursor: pointer;
+  &:hover { color: #111827; }
+}
 
 .wa-auto-rejection {
   font-size: 11px; color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca;
