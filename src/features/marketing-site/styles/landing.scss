@@ -306,21 +306,16 @@ body.landing-page-active,
     font-size: 21px;
     color: var(--navy);
 
+    // `.logo-mark` is now the app icon image itself (a self-contained
+    // gradient circle + mark), not a CSS-styled container around an inline
+    // icon, so it only needs sizing/shape/shadow — no background or padding.
     .logo-mark {
       width: 36px;
       height: 36px;
-      border-radius: 10px;
-      background: var(--gradient-emerald);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: var(--shadow-emerald);
+      border-radius: 50%;
+      box-shadow: 0 8px 20px rgba(88, 28, 235, 0.35);
       flex-shrink: 0;
-
-      svg {
-        width: 19px;
-        height: 19px;
-      }
+      display: block;
     }
 
     .logo-text .accent {
@@ -1720,12 +1715,29 @@ body.landing-page-active,
       background: linear-gradient(180deg, var(--emerald-light), var(--emerald-dark));
     }
 
-    i:nth-child(1) { height: 42%; }
-    i:nth-child(2) { height: 68%; }
-    i:nth-child(3) { height: 54%; }
-    i:nth-child(4) { height: 84%; }
-    i:nth-child(5) { height: 62%; }
-    i:nth-child(6) { height: 92%; }
+    i:nth-child(1) {
+      height: 42%;
+    }
+
+    i:nth-child(2) {
+      height: 68%;
+    }
+
+    i:nth-child(3) {
+      height: 54%;
+    }
+
+    i:nth-child(4) {
+      height: 84%;
+    }
+
+    i:nth-child(5) {
+      height: 62%;
+    }
+
+    i:nth-child(6) {
+      height: 92%;
+    }
   }
 
   .branch-mini-table,
@@ -2022,11 +2034,25 @@ body.landing-page-active,
       background: linear-gradient(180deg, var(--emerald-light), rgba(16, 185, 129, 0.18));
     }
 
-    i:nth-child(1) { height: 46%; }
-    i:nth-child(2) { height: 74%; }
-    i:nth-child(3) { height: 58%; }
-    i:nth-child(4) { height: 92%; }
-    i:nth-child(5) { height: 66%; }
+    i:nth-child(1) {
+      height: 46%;
+    }
+
+    i:nth-child(2) {
+      height: 74%;
+    }
+
+    i:nth-child(3) {
+      height: 58%;
+    }
+
+    i:nth-child(4) {
+      height: 92%;
+    }
+
+    i:nth-child(5) {
+      height: 66%;
+    }
   }
 
   .analytics-list {
@@ -2639,54 +2665,104 @@ body.landing-page-active,
     }
 
     .showcase-card {
+      position: relative;
       background: var(--white);
       border-radius: var(--radius-lg);
       border: 1px solid var(--gray-200);
       overflow: hidden;
       display: flex;
       flex-direction: column;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 16px 40px -12px rgba(15, 23, 42, 0.1);
       transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
         box-shadow 0.45s ease,
         border-color 0.45s ease;
 
+      // A hairline gradient ring that only shows itself on hover, drawn via
+      // padding-box/border-box background clipping rather than an extra DOM
+      // node, so the card gains a premium "lit edge" without new markup.
+      &::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        padding: 1px;
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.55), rgba(16, 185, 129, 0) 40%);
+        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        opacity: 0;
+        transition: opacity 0.45s ease;
+        pointer-events: none;
+        z-index: 1;
+      }
+
       &:hover {
         transform: translateY(-8px);
-        box-shadow: 0 30px 70px rgba(16, 185, 129, 0.15), var(--shadow-lg);
+        box-shadow: 0 30px 70px rgba(16, 185, 129, 0.16), var(--shadow-lg);
         border-color: rgba(16, 185, 129, 0.4);
+
+        &::before {
+          opacity: 1;
+        }
       }
     }
 
     .showcase-img-wrap {
       position: relative;
       overflow: hidden;
-      background: radial-gradient(circle at center, #ffffff 0%, #f1f5f9 100%);
+      background:
+        radial-gradient(circle at 18% 12%, rgba(16, 185, 129, 0.14), transparent 42%),
+        radial-gradient(circle at 84% 88%, rgba(5, 150, 105, 0.12), transparent 48%),
+        linear-gradient(160deg, #eef5f2 0%, #e4edf7 55%, #dde6f0 100%);
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 0;
+      padding: 36px;
       border-bottom: 1px solid var(--gray-200);
+
+      // Faint dot-grid texture beneath the floating mock for depth, capped
+      // with a soft vignette so it fades out toward the card edges.
+      &::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background-image: radial-gradient(rgba(15, 23, 42, 0.08) 1px, transparent 1px);
+        background-size: 18px 18px;
+        -webkit-mask-image: radial-gradient(ellipse at center, #000 45%, transparent 78%);
+        mask-image: radial-gradient(ellipse at center, #000 45%, transparent 78%);
+      }
     }
 
     .browser-mock {
+      position: relative;
       width: 100%;
       background: var(--white);
-      border-radius: 12px;
-      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.05);
-      border: 1px solid rgba(15, 23, 42, 0.08);
+      border-radius: 14px;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset,
+        0 30px 60px -18px rgba(15, 23, 42, 0.32),
+        0 8px 20px -6px rgba(15, 23, 42, 0.12),
+        0 0 0 1px rgba(15, 23, 42, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.8);
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+      transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.6s ease;
+      z-index: 1;
 
       .showcase-card:hover & {
         transform: scale(1.02) translateY(-4px);
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset,
+          0 40px 80px -18px rgba(16, 185, 129, 0.28),
+          0 8px 20px -6px rgba(15, 23, 42, 0.14),
+          0 0 0 1px rgba(15, 23, 42, 0.06);
       }
     }
 
     .browser-header {
-      height: 30px;
-      background: #f8fafc;
-      border-bottom: 1px solid #e2e8f0;
+      height: 32px;
+      background: linear-gradient(180deg, #fbfdfc 0%, #f3f6f5 100%);
+      border-bottom: 1px solid var(--gray-200);
       display: flex;
       align-items: center;
       padding: 0 14px;
@@ -2697,20 +2773,21 @@ body.landing-page-active,
         width: 8px;
         height: 8px;
         border-radius: 50%;
+        box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06);
 
         &:nth-child(1) {
           background: #ef4444;
-          opacity: 0.8;
+          opacity: 0.85;
         }
 
         &:nth-child(2) {
           background: #eab308;
-          opacity: 0.8;
+          opacity: 0.85;
         }
 
         &:nth-child(3) {
           background: #22c55e;
-          opacity: 0.8;
+          opacity: 0.85;
         }
       }
     }
@@ -3209,18 +3286,15 @@ body.landing-page-active,
       }
     }
 
-    .PhoneInputCountry {
-      margin-right: 10px;
-      padding-right: 10px;
+    // `countrySelectComponent` (below) fully replaces react-phone-number-input's
+    // default country control, so the library never renders its usual
+    // `.PhoneInputCountry` wrapper (or the flag/arrow inside it) — the divider
+    // and spacing between the country selector and the number must be applied
+    // directly to `.country-select-search` instead.
+    .country-select-search {
+      margin-right: 12px;
+      padding-right: 12px;
       border-right: 1.5px solid var(--gray-200);
-    }
-
-    /* The default flag + arrow rendered alongside the country `<select/>` are
-       hidden because `CountrySelectSearch` (below) renders its own flag,
-       calling code, and chevron as part of its trigger button. */
-    .PhoneInputCountry > .PhoneInputCountryIcon,
-    .PhoneInputCountry > .PhoneInputCountrySelectArrow {
-      display: none;
     }
 
     .PhoneInputInput {
@@ -4555,7 +4629,7 @@ body.landing-page-active,
       overflow: visible;
     }
 
-    .feature-modal-visual-card > * {
+    .feature-modal-visual-card>* {
       width: 100%;
       max-width: 100%;
       height: auto;
@@ -4711,7 +4785,7 @@ body.landing-page-active,
       gap: 9px;
     }
 
-    .analytics-grid > div {
+    .analytics-grid>div {
       padding: 12px;
       border-radius: 15px;
     }
@@ -4752,7 +4826,7 @@ body.landing-page-active,
       font-size: clamp(25px, 8vw, 34px);
     }
 
-    .feature-modal-copy > p {
+    .feature-modal-copy>p {
       font-size: 14.5px;
     }
 
@@ -4767,6 +4841,14 @@ body.landing-page-active,
 
     .feature-modal-actions .btn {
       width: 100%;
+    }
+
+    .how .showcase-img-wrap {
+      padding: 22px;
+    }
+
+    .how .browser-header {
+      height: 28px;
     }
   }
 
@@ -4996,6 +5078,10 @@ body.landing-page-active,
       font-size: 26px;
     }
 
+    .how .showcase-img-wrap {
+      padding: 14px;
+    }
+
     .stats .stats-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 1px;
@@ -5148,7 +5234,7 @@ body.landing-page-active,
     .nav-logo .logo-mark {
       width: 36px;
       height: 36px;
-      border-radius: 10px;
+      border-radius: 50%;
     }
 
     .nav-logo .logo-text {
@@ -5244,7 +5330,7 @@ body.landing-page-active,
     .mobile-drawer .nav-logo .logo-mark {
       width: 32px;
       height: 32px;
-      border-radius: 9px;
+      border-radius: 50%;
     }
 
     .mobile-close {

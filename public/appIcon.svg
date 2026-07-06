@@ -1,11 +1,32 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" id="tailor">
-  <g transform="translate(0 -1004.362)">
-    <circle cx="24" cy="1028.362" r="24" fill="#ef4c45" fill-rule="evenodd"></circle>
-    <path fill="#cad1d8" d="M23 1024.362v13l1 6 1-6v-13z"></path>
-    <path fill="#ffbc34" d="M30 1018.862a6 6 0 0 1-6 6 6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6z"></path>
-    <path fill="#ffe695" d="M24 1012.862a6 6 0 0 1 6 6c0 2.04-1.038 3.822-2.594 4.907.677-.972 1.094-2.133 1.094-3.407a6 6 0 0 0-6-6c-1.274 0-2.435.417-3.406 1.094 1.084-1.556 2.866-2.594 4.906-2.594z"></path>
-    <path fill="#fff" d="M28.5 1016.362a1 1 0 0 1-1 1 1 1 0 0 1-1-1 1 1 0 0 1 1-1 1 1 0 0 1 1 1z"></path>
-    <path fill="#e9eded" d="M23.976 1024.862v12.5l.04 4.203-.016 1.797 1-6v-12.586c-.238.063-.675.06-1.024.086z"></path>
-    <path fill="#b6bbc1" d="M23 1024.792v.57h2v-.586s-.666.078-1 .078c-.334 0-1-.062-1-.062z"></path>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="brandMarkBase" x1="10%" y1="4%" x2="86%" y2="98%">
+      <stop offset="0%" stop-color="#2b2090" />
+      <stop offset="33%" stop-color="#5b35c9" />
+      <stop offset="62%" stop-color="#9d3fe0" />
+      <stop offset="100%" stop-color="#7ec4f5" />
+    </linearGradient>
+    <clipPath id="brandMarkCircle">
+      <circle cx="100" cy="100" r="100" />
+    </clipPath>
+  </defs>
+
+  <circle cx="100" cy="100" r="100" fill="url(#brandMarkBase)" />
+
+  <g clip-path="url(#brandMarkCircle)">
+    <path
+      d="M -10 70 C 40 50, 60 90, 100 65 C 140 40, 160 75, 210 45 L 210 -10 L -10 -10 Z"
+      fill="#ffffff"
+      opacity="0.2"
+    />
   </g>
+
+  <path
+    d="M 109,57.6 L 141.2,113.4 Q 150.2,129 132.2,129 L 67.8,129 Q 49.8,129 58.8,113.4 L 91,57.6 Q 100,42 109,57.6 Z"
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="11"
+    stroke-linejoin="round"
+    stroke-linecap="round"
+  />
 </svg>
