@@ -34,6 +34,28 @@ $success:    #22c55e;
   animation: slideInRight 0.22s ease;
 }
 
+// Quick Sale is a standalone page (not an overlay on top of the Calendar) —
+// fill the dashboard's content area instead of drawing a right-anchored drawer.
+.appt-drawer-overlay--page {
+  position: static;
+  inset: auto;
+  background: none;
+  z-index: auto;
+  display: block;
+  height: 100%;
+}
+
+.appt-drawer-content--page {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  height: auto;
+  min-height: 100%;
+  box-shadow: none;
+  border-radius: 12px;
+  animation: none;
+}
+
 @keyframes client-spin {
   to { transform: rotate(360deg); }
 }

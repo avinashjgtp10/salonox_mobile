@@ -63,7 +63,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
           className="nav-btn"
           onClick={() => {
             onMenuChange(null);
-            navigate("/dashboard/calendar", { state: { openNewAppt: true } });
+            navigate("/dashboard/sales/quick");
           }}
         >
           <Lightning size={26} />

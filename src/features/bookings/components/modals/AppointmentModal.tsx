@@ -54,6 +54,8 @@ interface Props {
   onRefresh?: () => void;
   onCancelBooking?: (b: Booking) => void;
   onDeleteBooking?: (b: Booking) => void;
+  /** Quick Sale entry point: skip the "save only" step and go straight to payment. */
+  quickSale?: boolean;
 }
 
 function nextQuarterHour(): string {
@@ -78,7 +80,7 @@ export const AppointmentModal: React.FC<Props> = ({
   isOpen, onClose, salonId,
   existingBooking, defaultDate, defaultTime, defaultStaffId,
   defaultClientId, defaultClientName, defaultClientPhone,
-  onRefresh, onCancelBooking, onDeleteBooking,
+  onRefresh, onCancelBooking, onDeleteBooking, quickSale,
 }) => {
   const dispatch = useAppDispatch();
 
@@ -602,6 +604,41 @@ export const AppointmentModal: React.FC<Props> = ({
       discountType, discountValue, exCharges, tip, activeTaxes, totals,
       onRefresh, onClose]);
 
+  // Save (or update) the booking, then reveal the payment section — shared by
+  // "Continue to Payment" (existing booking) and Quick Sale (new booking, ₹0).
+  const handleContinueToPaymentZero = useCallback(async () => {
+    if (!validate()) return;
+    const id = await save(buildSavePayload());
+    if (!id) return;
+    setShowPaymentSection(true);
+    setTimeout(() => { paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 50);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [save, selectedClient, serviceRows, packageRows, productRows, membershipRows,
+      calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
+      discountType, discountValue, exCharges, tip, activeTaxes, totals]);
+
+  // Same as above but requires a real (non-walk-in) client — shared by
+  // "Continue to Payment" (existing booking) and Quick Sale (new booking, non-₹0).
+  const handleContinueToPayment = useCallback(async () => {
+    const isWalkIn = !selectedClient || selectedClient.id === "walk-in";
+    if (isWalkIn) {
+      setWalkInPayError("Add client details before proceeding to payment.");
+      setTriggerAddForm(true);
+      clientSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if (!validate()) return;
+    const id = await save(buildSavePayload());
+    if (!id) return;
+    setShowPaymentSection(true);
+    setTimeout(() => {
+      paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [save, selectedClient, serviceRows, packageRows, productRows, membershipRows,
+      calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
+      discountType, discountValue, exCharges, tip, activeTaxes, totals]);
+
   // ── Pay ──────────────────────────────────────────────────────────────────
   const handlePay = useCallback(async () => {
     // Validate payment method first — stop completely if not selected
@@ -696,7 +733,6 @@ export const AppointmentModal: React.FC<Props> = ({
 
   const isCancelledBooking = existingBooking?.status?.toLowerCase() === "cancelled";
   const isPartialBooking   = existingBooking?.paymentStatus === "Partial";
-  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const isPaymentFrozen = existingBooking?.paymentStatus === "Paid"
     || (existingBooking?.paymentStatus !== "Partial"
         && alreadyPaidAmount > 0
@@ -718,13 +754,13 @@ export const AppointmentModal: React.FC<Props> = ({
         : `Confirm & Pay — ${currencySymbol}${remainingDue.toFixed(2)}`;
 
   return (
-    <div className="appt-drawer-overlay" onClick={onClose}>
-      <div className="appt-drawer-content" onClick={(e) => e.stopPropagation()}>
+    <div className={`appt-drawer-overlay${quickSale ? " appt-drawer-overlay--page" : ""}`} onClick={quickSale ? undefined : onClose}>
+      <div className={`appt-drawer-content${quickSale ? " appt-drawer-content--page" : ""}`} onClick={(e) => e.stopPropagation()}>
 
         {/* ── Header ── */}
         <div className="appt-drawer-header">
           <button className="btn-close-drawer" onClick={onClose}>×</button>
-          <h2>{existingBooking ? "Edit Appointment" : "New Appointment"}</h2>
+          <h2>{existingBooking ? "Edit Appointment" : quickSale ? "Quick Sale" : "New Appointment"}</h2>
           {existingBooking && (
             isCancelledBooking ? (
               <span className="appt-header-status-badge" style={{ background: "#fee2e2", color: "#dc2626", border: "1px solid #fca5a5" }}>
@@ -1122,37 +1158,28 @@ export const AppointmentModal: React.FC<Props> = ({
                     totals.grandTotal === 0 ? (
                       <button className="btn btn-dark" disabled={isSaving}
                         style={{ background: "#16a34a", borderColor: "#16a34a" }}
-                        onClick={async () => {
-                          if (!validate()) return;
-                          const id = await save(buildSavePayload());
-                          if (!id) return;
-                          setShowPaymentSection(true);
-                          setTimeout(() => { paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 50);
-                        }}>
+                        onClick={handleContinueToPaymentZero}>
                         {isSaving ? "Saving…" : `Continue with Payment (${currencySymbol}0)`}
                       </button>
                     ) : (
-                      <button className="btn btn-dark" disabled={isSaving} onClick={async () => {
-                        const isWalkIn = !selectedClient || selectedClient.id === "walk-in";
-                        if (isWalkIn) {
-                          setWalkInPayError("Add client details before proceeding to payment.");
-                          setTriggerAddForm(true);
-                          clientSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                          return;
-                        }
-                        if (!validate()) return;
-                        const id = await save(buildSavePayload());
-                        if (!id) return;
-                        setShowPaymentSection(true);
-                        setTimeout(() => {
-                          paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                        }, 50);
-                      }}>
+                      <button className="btn btn-dark" disabled={isSaving} onClick={handleContinueToPayment}>
                         {isSaving ? "Saving…" : "Continue to Payment"}
                       </button>
                     )
                   )}
                 </>
+              ) : quickSale ? (
+                // Quick Sale: no "save only" step — go straight from item selection to payment
+                totals.grandTotal === 0 ? (
+                  <button className="btn btn-dark" style={{ width: "100%", background: "#16a34a", borderColor: "#16a34a" }}
+                    disabled={isSaving} onClick={handleContinueToPaymentZero}>
+                    {isSaving ? "Saving…" : `Continue with Payment (${currencySymbol}0)`}
+                  </button>
+                ) : (
+                  <button className="btn btn-dark" style={{ width: "100%" }} disabled={isSaving} onClick={handleContinueToPayment}>
+                    {isSaving ? "Saving…" : "Continue to Payment"}
+                  </button>
+                )
               ) : (
                 // New appointment (no existingBooking) — always save and close
                 <button className="btn btn-dark" style={{ width: "100%" }} onClick={handleSaveAndPay} disabled={isSaving}>
