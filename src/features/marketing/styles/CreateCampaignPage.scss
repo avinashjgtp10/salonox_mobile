@@ -556,3 +556,40 @@
   cursor: pointer;
   accent-color: #111827;
 }
+
+// ── Two-pane tabbed filter ──────────────────────────────────────────────────
+.cc-sf-panes {
+  display: flex; background: #fff; border: 1px solid #e5e7eb;
+  border-radius: 10px; overflow: hidden; margin-bottom: 12px;
+  min-height: 220px;
+}
+.cc-sf-tabs {
+  display: flex; flex-direction: column;
+  width: 168px; flex-shrink: 0;
+  background: #f9fafb; border-right: 1px solid #e5e7eb;
+  padding: 6px 0; overflow-y: auto;
+}
+.cc-sf-tab {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: #4b5563; font-weight: 500;
+  background: none; border: none; border-left: 2px solid transparent;
+  padding: 9px 14px; cursor: pointer; text-align: left; transition: all 0.15s;
+  i { font-size: 13px; opacity: 0.7; }
+  &:hover { background: #f3f4f6; color: #111827; }
+  &.active {
+    background: #fff; color: #111827; font-weight: 600;
+    border-left-color: #10b981;
+  }
+}
+.cc-sf-tab-content { flex: 1; padding: 16px 18px; }
+.cc-sf-empty-note { font-size: 12px; color: #9ca3af; margin: 4px 0 0; }
+
+.cc-sf-radios {
+  display: flex; flex-direction: column; gap: 8px; padding: 4px 0;
+}
+.cc-sf-radio-label {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12.5px; color: #374151; cursor: pointer;
+  input { width: 14px; height: 14px; cursor: pointer; accent-color: #111827; }
+  &:hover { color: #111827; }
+}

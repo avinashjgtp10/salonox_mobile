@@ -11,6 +11,10 @@ import type {
   Supplier,
   CreateSupplierPayload,
   UpdateSupplierPayload,
+  StockReconciliationRow,
+  StockReconciliationPayload,
+  StockReconciliationItemPayload,
+  ConsumableUsagePayload,
 } from "../../types/inventory.types";
 
 // ── Fetch all stocktakes ──────────────────────────────────────────────────────
@@ -196,5 +200,77 @@ export const deleteSupplierThunk = createAsyncThunk<
   } catch (err: any) {
     console.error("deleteSupplierThunk error:", err);
     return rejectWithValue(err?.response?.data?.error?.message || "Failed to delete supplier");
+  }
+});
+
+// ─── Fetch stock reconciliation data ─────────────────────────────────────────
+export const fetchStockReconciliationThunk = createAsyncThunk<
+  StockReconciliationRow[],
+  { branchId: string; search?: string; categoryId?: string },
+  { rejectValue: string }
+>("inventory/fetchStockReconciliation", async ({ branchId, search, categoryId }, { rejectWithValue }) => {
+  try {
+    const params: Record<string, string> = { branch_id: branchId };
+    if (search) params.search = search;
+    if (categoryId) params.category_id = categoryId;
+
+    const res = await api.get<InventoryResponse<StockReconciliationRow[]>>(
+      INVENTORY.STOCK_RECONCILIATION,
+      { params }
+    );
+    return res.data.data ?? [];
+  } catch (err: any) {
+    console.error("fetchStockReconciliationThunk error:", err?.response?.data || err?.message);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to fetch stock reconciliation data");
+  }
+});
+
+// ─── Save all reconciliation rows at once ────────────────────────────────────
+export const saveStockReconciliationThunk = createAsyncThunk<
+  { processed: number },
+  StockReconciliationPayload,
+  { rejectValue: string }
+>("inventory/saveStockReconciliation", async (payload, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<{ processed: number }>>(
+      INVENTORY.STOCK_RECONCILIATION,
+      payload
+    );
+    return res.data.data;
+  } catch (err: any) {
+    console.error("saveStockReconciliationThunk error:", err?.response?.data || err?.message);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to save stock reconciliation");
+  }
+});
+
+// ─── Save a single reconciliation row ────────────────────────────────────────
+export const saveReconciliationRowThunk = createAsyncThunk<
+  StockReconciliationRow,
+  { branchId: string; item: StockReconciliationItemPayload },
+  { rejectValue: string }
+>("inventory/saveReconciliationRow", async ({ branchId, item }, { rejectWithValue }) => {
+  try {
+    const res = await api.patch<InventoryResponse<StockReconciliationRow>>(
+      INVENTORY.STOCK_RECONCILIATION_ROW(item.product_id),
+      { branch_id: branchId, ...item }
+    );
+    return res.data.data;
+  } catch (err: any) {
+    console.error("saveReconciliationRowThunk error:", err?.response?.data || err?.message);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to save row");
+  }
+});
+
+// ─── Save consumable usage from calendar appointments ────────────────────────
+export const saveConsumableUsageThunk = createAsyncThunk<
+  void,
+  ConsumableUsagePayload,
+  { rejectValue: string }
+>("inventory/saveConsumableUsage", async (payload, { rejectWithValue }) => {
+  try {
+    await api.post(INVENTORY.CONSUMABLE_USAGE, payload);
+  } catch (err: any) {
+    console.error("saveConsumableUsageThunk error:", err?.response?.data || err?.message);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to save consumable usage");
   }
 });

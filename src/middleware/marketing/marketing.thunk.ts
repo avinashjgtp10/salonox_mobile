@@ -51,6 +51,7 @@ function normalizeWaConfig(cfg: WaConfig): WaConfig {
     isVerified:         cfg.is_verified,
     dailyLimit:         cfg.daily_limit,
     qualityRating:      cfg.quality_rating,
+    aiReceptionistEnabled: cfg.ai_receptionist_enabled,
   };
 }
 
@@ -185,6 +186,19 @@ export const createCampaignThunk = createAsyncThunk<Campaign, CreateCampaignPayl
   }
 );
 
+export const resendCampaignThunk = createAsyncThunk<Campaign, string | number, { rejectValue: string }>(
+  "marketing/resendCampaign",
+  async (id, { rejectWithValue }) => {
+    try {
+      const res = await api.post<CampaignResponse>(MARKETING.CAMPAIGN_RESEND(id));
+      return normalizeCampaign(res.data.data);
+    } catch (err: any) {
+      if (err instanceof ApiError) return rejectWithValue(err.message);
+      return rejectWithValue("Failed to resend campaign");
+    }
+  }
+);
+
 export const pauseCampaignThunk = createAsyncThunk<string | number, string | number, { rejectValue: string }>(
   "marketing/pauseCampaign",
   async (id, { rejectWithValue }) => {
@@ -213,12 +227,33 @@ export const resumeCampaignThunk = createAsyncThunk<string | number, string | nu
 
 // ── Webhook Events ────────────────────────────────────────────────────────────
 
-export const fetchWebhookEventsThunk = createAsyncThunk<any[], void, { rejectValue: string }>(
+export interface WebhookEventsQuery {
+  page?:   number;
+  limit?:  number;
+  status?: string;
+}
+
+export interface WebhookEventsResult {
+  events:       any[];
+  total:        number;
+  page:         number;
+  limit:        number;
+  statusCounts: Record<string, number>;
+}
+
+export const fetchWebhookEventsThunk = createAsyncThunk<WebhookEventsResult, WebhookEventsQuery | void, { rejectValue: string }>(
   "marketing/fetchWebhookEvents",
-  async (_, { rejectWithValue }) => {
+  async (query, { rejectWithValue }) => {
     try {
-      const res = await api.get<WebhookEventsResponse>(MARKETING.WEBHOOK_EVENTS);
-      return res.data.data ?? [];
+      const res = await api.get<WebhookEventsResponse>(MARKETING.WEBHOOK_EVENTS, { params: query ?? {} });
+      const data = (res.data.data ?? {}) as any;
+      return {
+        events:       Array.isArray(data) ? data : (data.events ?? []),
+        total:        data.total  ?? 0,
+        page:         data.page   ?? 1,
+        limit:        data.limit  ?? 10,
+        statusCounts: data.statusCounts ?? {},
+      };
     } catch (err: any) {
       if (err instanceof ApiError) return rejectWithValue(err.message);
       return rejectWithValue("Failed to fetch webhook events");
@@ -240,6 +275,34 @@ export const fetchWaConfigThunk = createAsyncThunk<WaConfig | null, void, { reje
     } catch (err: any) {
       if (err instanceof ApiError) return rejectWithValue(err.message);
       return rejectWithValue("Failed to fetch WhatsApp config");
+    }
+  }
+);
+
+export const deleteWaConfigThunk = createAsyncThunk<void, void, { rejectValue: string }>(
+  "marketing/deleteWaConfig",
+  async (_, { rejectWithValue }) => {
+    try {
+      await api.delete(MARKETING.WA_CONFIG);
+    } catch (err: any) {
+      if (err instanceof ApiError) return rejectWithValue(err.message);
+      return rejectWithValue("Failed to disconnect WhatsApp");
+    }
+  }
+);
+
+export const setAiReceptionistEnabledThunk = createAsyncThunk<boolean, boolean, { rejectValue: string }>(
+  "marketing/setAiReceptionistEnabled",
+  async (enabled, { rejectWithValue }) => {
+    try {
+      const res = await api.patch<{ data: { ai_receptionist_enabled: boolean } }>(
+        MARKETING.WA_CONFIG_AI_RECEPTIONIST,
+        { enabled }
+      );
+      return res.data.data.ai_receptionist_enabled;
+    } catch (err: any) {
+      if (err instanceof ApiError) return rejectWithValue(err.message);
+      return rejectWithValue("Failed to update AI receptionist setting");
     }
   }
 );

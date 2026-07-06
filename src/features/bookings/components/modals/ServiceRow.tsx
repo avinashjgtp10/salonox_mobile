@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useSelector } from "react-redux";
 import type { ServiceItem } from "../../types/scheduler-types";
 import { currencySymbol } from "../../utils/currency";
 import { useSchedulerContext } from "../../store/SchedulerContext";
@@ -7,7 +8,9 @@ import TimeSelect from "../shared/TimeSelect";
 import { Trash } from "react-bootstrap-icons";
 import api from "../../../../services/api/axios";
 import { SERVICES } from "../../../../services/api/endpoints/services.endpoints";
+import { INVENTORY } from "../../../../services/api/endpoints/inventory.endpoints";
 import { IconClock, IconBox, IconTag } from "../../../sales/components/QuickSaleIcons";
+import type { RootState } from "../../../../store/store";
 import "../../styles/AppointmentModal.scss";
 
 const MIN_SEARCH_LENGTH = 3;
@@ -139,6 +142,12 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   membershipWalletInfo,
 }) => {
   const schedulerContext = useSchedulerContext();
+  const salonBranches = useSelector((s: RootState) => s.salon?.branches ?? []);
+  const currentSalon = useSelector((s: RootState) => s.salon?.currentSalon ?? null);
+  const activeBranchId =
+    salonBranches.find((b: any) => b.is_main === true)?.id ??
+    salonBranches[0]?.id ??
+    "";
   const interval = schedulerContext.interval;
   const staffList = schedulerContext.staffList as StaffDto[] | undefined;
   const servicesList = schedulerContext.servicesList as RawServiceItem[] | undefined;
@@ -533,6 +542,27 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     }
     setConsumableError("");
     setSavedConsumableCount(consumableItems.filter((c) => c.name.trim()).length);
+
+    // Persist consumable usage to inventory (non-blocking)
+    const validItems = consumableItems.filter(
+      (c) => c.productId && c.name.trim() && parseInt(c.qty, 10) > 0
+    );
+    if (validItems.length > 0 && activeBranchId) {
+      api
+        .post(INVENTORY.CONSUMABLE_USAGE, {
+          branch_id: activeBranchId,
+          items: validItems.map((c) => ({
+            product_id: c.productId,
+            product_name: c.name,
+            qty: parseInt(c.qty, 10),
+            unit: c.unit || "pcs",
+          })),
+        })
+        .catch(() => {
+          // Non-blocking — consumable sync failure should not disrupt appointment flow
+        });
+    }
+
     closeConsumableModal();
   }
 

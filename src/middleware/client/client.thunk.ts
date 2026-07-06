@@ -20,12 +20,22 @@ export const fetchClientsThunk = createAsyncThunk<
   { rejectValue: string }
 >("client/fetchAll", async (_, { rejectWithValue }) => {
   try {
-    const res = await api.get(CLIENT.BASE);
-    const payload = res.data.data;
-    // Backend returns paginated { items: Client[], total, ... } — extract the array
-    if (payload && Array.isArray(payload.items)) return payload.items as Client[];
-    if (Array.isArray(payload)) return payload as Client[];
-    return [];
+    // Backend paginates (default 20, hard-capped at 200 per request) — page through until every client is fetched.
+    const pageSize = 200;
+    let page = 1;
+    let all: Client[] = [];
+    while (true) {
+      const res = await api.get(CLIENT.BASE, { params: { page, pageSize } });
+      const payload = res.data.data;
+      const items: Client[] = payload && Array.isArray(payload.items)
+        ? payload.items
+        : Array.isArray(payload) ? payload : [];
+      all = all.concat(items);
+      const total = payload?.totalRecords ?? payload?.total ?? all.length;
+      if (items.length < pageSize || all.length >= total) break;
+      page += 1;
+    }
+    return all;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to fetch clients");

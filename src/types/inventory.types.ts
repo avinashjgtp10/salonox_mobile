@@ -101,3 +101,54 @@ export interface CreateSupplierPayload {
 }
 
 export type UpdateSupplierPayload = Partial<CreateSupplierPayload>;
+
+// ─── Stock Reconciliation ─────────────────────────────────────────────────────
+
+export interface StockReconciliationRow {
+  product_id: string;
+  category_name: string;
+  item_name: string;
+  actual_stock: number;
+  adjust_stock: number;
+  stock_difference: number;
+  stock_value: number;
+  actual_consumable: number;
+  adjust_consumable: number;
+  unit: string;
+  consumable_difference: number;
+  remark: string;
+}
+
+export interface StockReconciliationItemPayload {
+  product_id: string;
+  adjust_stock: number;
+  adjust_consumable: number;
+  remark?: string;
+}
+
+export interface StockReconciliationPayload {
+  branch_id: string;
+  items: StockReconciliationItemPayload[];
+}
+
+export interface StockReconciliationResponse {
+  success: boolean;
+  message: string;
+  data: StockReconciliationRow[];
+}
+
+// ─── Consumable Usage (from Calendar/Appointments) ───────────────────────────
+
+export interface ConsumableUsageItem {
+  product_id: string;
+  product_name: string;
+  qty: number;
+  unit: string;
+}
+
+export interface ConsumableUsagePayload {
+  branch_id: string;
+  booking_id?: string;
+  service_id?: string;
+  items: ConsumableUsageItem[];
+}

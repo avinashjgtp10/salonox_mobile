@@ -5,6 +5,7 @@ import {
   fetchCampaignContactsThunk,
   pauseCampaignThunk,
   resumeCampaignThunk,
+  resendCampaignThunk,
 } from "../../../middleware/marketing/marketing.thunk";
 import { Button, Badge, Input } from "../../../components/ui";
 import toast from "react-hot-toast";
@@ -101,6 +102,7 @@ export default function CampaignHistoryPage() {
   // ── Pause / Resume (no useOnce — per-campaign loading state) ─────────────
   const [pausingId,    setPausingId]    = useState<string | null>(null);
   const [resumingId,   setResumingId]   = useState<string | null>(null);
+  const [resendingId,  setResendingId]  = useState<string | null>(null);
 
   useEffect(() => { dispatch(fetchCampaignsThunk()); }, [dispatch]);
   useEffect(() => { setPage(1); }, [search, statusFilter, dateStart, dateEnd]);
@@ -160,6 +162,17 @@ export default function CampaignHistoryPage() {
     if (resumeCampaignThunk.rejected.match(res)) toast.error("Failed to resume campaign");
     else toast.success("Campaign resumed");
     setResumingId(null);
+  };
+
+  const handleResend = async (id: string, name: string) => {
+    setResendingId(id);
+    const res = await dispatch(resendCampaignThunk(id));
+    if (resendCampaignThunk.rejected.match(res)) {
+      toast.error((res.payload as string) ?? "Failed to resend campaign");
+    } else {
+      toast.success(`"${name}" resent to all contacts`);
+    }
+    setResendingId(null);
   };
 
   const pct = (a: number, b: number) => b > 0 ? `${Math.round((a / b) * 100)}%` : "0%";
@@ -334,6 +347,17 @@ export default function CampaignHistoryPage() {
                             onClick={() => handleResume(String(c.id))}
                           >
                             ▶ Resume
+                          </Button>
+                        )}
+                        {(c.status === "COMPLETED" || c.status === "FAILED") && (
+                          <Button
+                            variant="outline-primary"
+                            size="sm"
+                            loading={resendingId === String(c.id)}
+                            disabled={!!resendingId}
+                            onClick={() => handleResend(String(c.id), c.name)}
+                          >
+                            ↻ Resend
                           </Button>
                         )}
                         {cd && (

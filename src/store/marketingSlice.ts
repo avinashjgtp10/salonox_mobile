@@ -1,5 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
-import type { Template, Campaign, WebhookEvent, WaConfig, DashboardStats } from "../types/marketing.types";
+import type { Template, Campaign, WebhookEvent, WaConfig, DashboardStats, PurchaseTemplate } from "../types/marketing.types";
 import {
   fetchTemplatesThunk,
   createTemplateThunk,
@@ -8,15 +8,24 @@ import {
   toggleTemplateFavoriteThunk,
   fetchCampaignsThunk,
   createCampaignThunk,
+  resendCampaignThunk,
   pauseCampaignThunk,
   resumeCampaignThunk,
   fetchWebhookEventsThunk,
   fetchWaConfigThunk,
   saveWaConfigThunk,
+  deleteWaConfigThunk,
+  setAiReceptionistEnabledThunk,
   testWaConfigThunk,
   syncWaLimitsThunk,
   fetchDashboardStatsThunk,
 } from "../middleware/marketing/marketing.thunk";
+import {
+  fetchPurchaseTemplatesThunk,
+  updatePurchaseTemplateThunk,
+  submitPurchaseTemplateThunk,
+  syncPurchaseTemplateThunk,
+} from "../middleware/marketing/wa-automation.thunk";
 import { fetchAnalytics } from "../middleware/marketing/analytics.thunk";
 import type { WAAnalyticsStats } from "../middleware/marketing/analytics.thunk";
 
@@ -24,10 +33,13 @@ interface MarketingState {
   templates:      Template[];
   campaigns:      Campaign[];
   webhookEvents:  WebhookEvent[];
+  webhookEventsTotal:        number;
+  webhookEventsStatusCounts: Record<string, number>;
   waConfig:       WaConfig | null;
   dashboardStats: DashboardStats | null;
   analyticsData:  WAAnalyticsStats | null;
   waConfigFetched: boolean;
+  purchaseTemplates: PurchaseTemplate[];
   loading: {
     fetchTemplates:        boolean;
     createTemplate:        boolean;
@@ -36,15 +48,22 @@ interface MarketingState {
     toggleFavorite:        boolean;
     fetchCampaigns:        boolean;
     createCampaign:        boolean;
+    resendCampaign:        boolean;
     pauseCampaign:         boolean;
     resumeCampaign:        boolean;
     fetchWebhookEvents:    boolean;
     fetchWaConfig:         boolean;
     saveWaConfig:          boolean;
+    deleteWaConfig:        boolean;
+    setAiReceptionistEnabled: boolean;
     testWaConfig:          boolean;
     syncWaLimits:          boolean;
     fetchDashboardStats:   boolean;
     fetchAnalytics:        boolean;
+    fetchPurchaseTemplates:  boolean;
+    updatePurchaseTemplate:  boolean;
+    submitPurchaseTemplate:  boolean;
+    syncPurchaseTemplate:    boolean;
   };
   error: string | null;
 }
@@ -53,10 +72,13 @@ const initialState: MarketingState = {
   templates:      [],
   campaigns:      [],
   webhookEvents:  [],
+  webhookEventsTotal:        0,
+  webhookEventsStatusCounts: {},
   waConfig:       null,
   dashboardStats: null,
   analyticsData:  null,
   waConfigFetched: false,
+  purchaseTemplates: [],
   loading: {
     fetchTemplates:        false,
     createTemplate:        false,
@@ -65,15 +87,22 @@ const initialState: MarketingState = {
     toggleFavorite:        false,
     fetchCampaigns:        false,
     createCampaign:        false,
+    resendCampaign:        false,
     pauseCampaign:         false,
     resumeCampaign:        false,
     fetchWebhookEvents:    false,
     fetchWaConfig:         false,
     saveWaConfig:          false,
+    deleteWaConfig:        false,
+    setAiReceptionistEnabled: false,
     testWaConfig:          false,
     syncWaLimits:          false,
     fetchDashboardStats:   false,
     fetchAnalytics:        false,
+    fetchPurchaseTemplates:  false,
+    updatePurchaseTemplate:  false,
+    submitPurchaseTemplate:  false,
+    syncPurchaseTemplate:    false,
   },
   error: null,
 };
@@ -200,6 +229,21 @@ const marketingSlice = createSlice({
         state.error = payload ?? "Failed to create campaign";
       });
 
+    // ── resendCampaign ────────────────────────────────────────────────────────
+    builder
+      .addCase(resendCampaignThunk.pending, (state) => {
+        state.loading.resendCampaign = true;
+        state.error = null;
+      })
+      .addCase(resendCampaignThunk.fulfilled, (state, { payload }) => {
+        state.loading.resendCampaign = false;
+        state.campaigns.unshift(payload);
+      })
+      .addCase(resendCampaignThunk.rejected, (state, { payload }) => {
+        state.loading.resendCampaign = false;
+        state.error = payload ?? "Failed to resend campaign";
+      });
+
     // ── pauseCampaign ─────────────────────────────────────────────────────────
     builder
       .addCase(pauseCampaignThunk.pending, (state) => {
@@ -240,7 +284,9 @@ const marketingSlice = createSlice({
       })
       .addCase(fetchWebhookEventsThunk.fulfilled, (state, { payload }) => {
         state.loading.fetchWebhookEvents = false;
-        state.webhookEvents = payload;
+        state.webhookEvents = payload.events;
+        state.webhookEventsTotal = payload.total;
+        state.webhookEventsStatusCounts = payload.statusCounts;
       })
       .addCase(fetchWebhookEventsThunk.rejected, (state, { payload }) => {
         state.loading.fetchWebhookEvents = false;
@@ -277,6 +323,39 @@ const marketingSlice = createSlice({
       .addCase(saveWaConfigThunk.rejected, (state, { payload }) => {
         state.loading.saveWaConfig = false;
         state.error = payload ?? "Failed to save WhatsApp config";
+      });
+
+    // ── deleteWaConfig ────────────────────────────────────────────────────────
+    builder
+      .addCase(deleteWaConfigThunk.pending, (state) => {
+        state.loading.deleteWaConfig = true;
+        state.error = null;
+      })
+      .addCase(deleteWaConfigThunk.fulfilled, (state) => {
+        state.loading.deleteWaConfig = false;
+        state.waConfig = null;
+      })
+      .addCase(deleteWaConfigThunk.rejected, (state, { payload }) => {
+        state.loading.deleteWaConfig = false;
+        state.error = payload ?? "Failed to disconnect WhatsApp";
+      });
+
+    // ── setAiReceptionistEnabled ──────────────────────────────────────────────
+    builder
+      .addCase(setAiReceptionistEnabledThunk.pending, (state) => {
+        state.loading.setAiReceptionistEnabled = true;
+        state.error = null;
+      })
+      .addCase(setAiReceptionistEnabledThunk.fulfilled, (state, { payload }) => {
+        state.loading.setAiReceptionistEnabled = false;
+        if (state.waConfig) {
+          state.waConfig.ai_receptionist_enabled = payload;
+          state.waConfig.aiReceptionistEnabled = payload;
+        }
+      })
+      .addCase(setAiReceptionistEnabledThunk.rejected, (state, { payload }) => {
+        state.loading.setAiReceptionistEnabled = false;
+        state.error = payload ?? "Failed to update AI receptionist setting";
       });
 
     // ── testWaConfig ──────────────────────────────────────────────────────────
@@ -322,6 +401,68 @@ const marketingSlice = createSlice({
       .addCase(fetchDashboardStatsThunk.rejected, (state, { payload }) => {
         state.loading.fetchDashboardStats = false;
         state.error = payload ?? "Failed to fetch dashboard stats";
+      });
+
+    // ── fetchPurchaseTemplates ────────────────────────────────────────────────
+    builder
+      .addCase(fetchPurchaseTemplatesThunk.pending, (state) => {
+        state.loading.fetchPurchaseTemplates = true;
+        state.error = null;
+      })
+      .addCase(fetchPurchaseTemplatesThunk.fulfilled, (state, { payload }) => {
+        state.loading.fetchPurchaseTemplates = false;
+        state.purchaseTemplates = payload;
+      })
+      .addCase(fetchPurchaseTemplatesThunk.rejected, (state, { payload }) => {
+        state.loading.fetchPurchaseTemplates = false;
+        state.error = payload ?? "Failed to fetch purchase templates";
+      });
+
+    // ── updatePurchaseTemplate ────────────────────────────────────────────────
+    builder
+      .addCase(updatePurchaseTemplateThunk.pending, (state) => {
+        state.loading.updatePurchaseTemplate = true;
+        state.error = null;
+      })
+      .addCase(updatePurchaseTemplateThunk.fulfilled, (state, { payload }) => {
+        state.loading.updatePurchaseTemplate = false;
+        const idx = state.purchaseTemplates.findIndex((t) => t.event_type === payload.event_type);
+        if (idx !== -1) state.purchaseTemplates[idx] = payload;
+      })
+      .addCase(updatePurchaseTemplateThunk.rejected, (state, { payload }) => {
+        state.loading.updatePurchaseTemplate = false;
+        state.error = payload ?? "Failed to save template wording";
+      });
+
+    // ── submitPurchaseTemplate ────────────────────────────────────────────────
+    builder
+      .addCase(submitPurchaseTemplateThunk.pending, (state) => {
+        state.loading.submitPurchaseTemplate = true;
+        state.error = null;
+      })
+      .addCase(submitPurchaseTemplateThunk.fulfilled, (state, { payload }) => {
+        state.loading.submitPurchaseTemplate = false;
+        const idx = state.purchaseTemplates.findIndex((t) => t.event_type === payload.event_type);
+        if (idx !== -1) state.purchaseTemplates[idx] = payload;
+      })
+      .addCase(submitPurchaseTemplateThunk.rejected, (state, { payload }) => {
+        state.loading.submitPurchaseTemplate = false;
+        state.error = payload ?? "Failed to submit template for approval";
+      });
+
+    // ── syncPurchaseTemplate ──────────────────────────────────────────────────
+    builder
+      .addCase(syncPurchaseTemplateThunk.pending, (state) => {
+        state.loading.syncPurchaseTemplate = true;
+      })
+      .addCase(syncPurchaseTemplateThunk.fulfilled, (state, { payload }) => {
+        state.loading.syncPurchaseTemplate = false;
+        const idx = state.purchaseTemplates.findIndex((t) => t.event_type === payload.event_type);
+        if (idx !== -1) state.purchaseTemplates[idx] = payload;
+      })
+      .addCase(syncPurchaseTemplateThunk.rejected, (state, { payload }) => {
+        state.loading.syncPurchaseTemplate = false;
+        state.error = payload ?? "Failed to sync template status";
       });
 
     // ── fetchAnalytics ────────────────────────────────────────────────────────

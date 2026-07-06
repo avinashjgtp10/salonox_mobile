@@ -15,6 +15,7 @@ const InboxPage              = lazy(() => import("../features/marketing/pages/In
 const QuickWhatsAppPage      = lazy(() => import("../features/marketing/pages/QuickWhatsAppPage"));
 const WebhooksPage           = lazy(() => import("../features/marketing/pages/WebhooksPage"));
 const WaConfigPage           = lazy(() => import("../features/marketing/pages/WaConfigPage"));
+const WaAutomationPage       = lazy(() => import("../features/marketing/pages/WaAutomationPage"));
 
 export const MarketingRoutes = () => {
   const dispatch = useAppDispatch();
@@ -63,6 +64,7 @@ export const MarketingRoutes = () => {
         <Route path="inbox"             element={<InboxPage />} />
         <Route path="quick-whatsapp"    element={<QuickWhatsAppPage />} />
         <Route path="webhooks"          element={<WebhooksPage />} />
+        <Route path="wa-automation"     element={<WaAutomationPage />} />
         <Route path="config"            element={<WaConfigPage />} />
         <Route path="*"                 element={<Navigate to="/dashboard/marketing" replace />} />
       </Routes>

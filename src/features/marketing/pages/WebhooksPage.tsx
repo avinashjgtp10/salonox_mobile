@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState, useMemo } from "react";
+import { useEffect, useCallback, useState } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchWebhookEventsThunk } from "../../../middleware/marketing/marketing.thunk";
 import { Button, Badge } from "../../../components/ui";
@@ -43,13 +43,19 @@ function SkeletonRow() {
 
 export default function WebhooksPage() {
   const dispatch  = useAppDispatch();
-  const { webhookEvents: events, loading } = useAppSelector((s) => s.marketing);
+  const { webhookEvents: pagedEvents, webhookEventsTotal: total, webhookEventsStatusCounts: counts, loading } = useAppSelector((s) => s.marketing);
   const isLoading = loading.fetchWebhookEvents;
 
   const [page,         setPage]         = useState(1);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
 
-  const refetch = useCallback(() => { dispatch(fetchWebhookEventsThunk()); }, [dispatch]);
+  const refetch = useCallback(() => {
+    dispatch(fetchWebhookEventsThunk({
+      page,
+      limit:  PAGE_SIZE,
+      status: statusFilter === "ALL" ? undefined : statusFilter,
+    }));
+  }, [dispatch, page, statusFilter]);
 
   useEffect(() => {
     refetch();
@@ -59,31 +65,17 @@ export default function WebhooksPage() {
 
   useEffect(() => { setPage(1); }, [statusFilter]);
 
-  const stats = {
-    total:     events.length,
-    sent:      events.filter(e => e.status === "SENT").length,
-    delivered: events.filter(e => e.status === "DELIVERED").length,
-    read:      events.filter(e => e.status === "READ").length,
-    failed:    events.filter(e => e.status === "FAILED").length,
-    blocked:   events.filter(e => e.status === "BLOCKED").length,
-  };
+  const grandTotal = (counts.SENT ?? 0) + (counts.DELIVERED ?? 0) + (counts.READ ?? 0) + (counts.FAILED ?? 0) + (counts.BLOCKED ?? 0);
 
-  const filteredEvents = useMemo(() =>
-    statusFilter === "ALL" ? events : events.filter(e => e.status === statusFilter),
-  [events, statusFilter]);
-
-  const totalPages  = Math.ceil(filteredEvents.length / PAGE_SIZE);
-  const pagedEvents = useMemo(() =>
-    filteredEvents.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
-  [filteredEvents, page]);
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   const STATUS_FILTERS: { label: string; value: StatusFilter }[] = [
-    { label: `All (${stats.total})`,           value: "ALL"       },
-    { label: `Sent (${stats.sent})`,           value: "SENT"      },
-    { label: `Delivered (${stats.delivered})`, value: "DELIVERED" },
-    { label: `Read (${stats.read})`,           value: "READ"      },
-    { label: `Failed (${stats.failed})`,       value: "FAILED"    },
-    { label: `Blocked (${stats.blocked})`,     value: "BLOCKED"   },
+    { label: `All (${grandTotal})`,                    value: "ALL"       },
+    { label: `Sent (${counts.SENT ?? 0})`,             value: "SENT"      },
+    { label: `Delivered (${counts.DELIVERED ?? 0})`,   value: "DELIVERED" },
+    { label: `Read (${counts.READ ?? 0})`,             value: "READ"      },
+    { label: `Failed (${counts.FAILED ?? 0})`,         value: "FAILED"    },
+    { label: `Blocked (${counts.BLOCKED ?? 0})`,       value: "BLOCKED"   },
   ];
 
   return (
@@ -108,12 +100,8 @@ export default function WebhooksPage() {
           <div className="wh-card-title-row">
             <span className="wh-live-dot" />
             <span className="wh-card-title">Incoming Events</span>
-            {events.length > 0 && (
-              <span className="wh-count">
-                {filteredEvents.length !== events.length
-                  ? `${filteredEvents.length} of ${events.length}`
-                  : events.length} events
-              </span>
+            {total > 0 && (
+              <span className="wh-count">{total} events</span>
             )}
           </div>
 
@@ -135,25 +123,25 @@ export default function WebhooksPage() {
         </div>
 
         {/* Table */}
-        {isLoading && events.length === 0 ? (
+        {isLoading && pagedEvents.length === 0 ? (
           <div className="wh-table-wrap">
             <table className="wh-table">
               <thead>
-                <tr><th>Time</th><th>Phone</th><th>Sent At</th><th>Delivered At</th><th>Read At</th></tr>
+                <tr><th>Time</th><th>Client</th><th>Sent At</th><th>Delivered At</th><th>Read At</th></tr>
               </thead>
               <tbody>
                 {Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)}
               </tbody>
             </table>
           </div>
-        ) : filteredEvents.length === 0 ? (
+        ) : pagedEvents.length === 0 ? (
           <div className="wh-empty">
             <div className="wh-empty-icon">📡</div>
             <div className="wh-empty-title">
-              {events.length === 0 ? "No events yet" : `No ${statusFilter.toLowerCase()} events`}
+              {total === 0 ? "No events yet" : `No ${statusFilter.toLowerCase()} events`}
             </div>
             <div className="wh-empty-sub">
-              {events.length === 0
+              {total === 0
                 ? "Send a campaign to see real-time delivery events here"
                 : "Try a different status filter"}
             </div>
@@ -165,7 +153,7 @@ export default function WebhooksPage() {
                 <thead>
                   <tr>
                     <th>Time</th>
-                    <th>Phone</th>
+                    <th>Client</th>
                     <th>Sent At</th>
                     <th>Delivered At</th>
                     <th>Read At</th>
@@ -179,7 +167,10 @@ export default function WebhooksPage() {
                       style={{ borderLeft: `3px solid ${STATUS_COLOR[ev.status] ?? "#e5e7eb"}` }}
                     >
                       <td className="wh-time">{formatTime(ev.updated_at ?? ev.updatedAt ?? null)}</td>
-                      <td className="wh-phone">{ev.phone}</td>
+                      <td className="wh-client">
+                        <span className="wh-client-name">{ev.name || ev.phone}</span>
+                        {ev.name && <span className="wh-client-phone">{ev.phone}</span>}
+                      </td>
                       <td className="wh-date">{formatTime(ev.sent_at      ?? ev.sentAt      ?? null)}</td>
                       <td className="wh-date">{formatTime(ev.delivered_at ?? ev.deliveredAt ?? null)}</td>
                       <td className="wh-date">{formatTime(ev.read_at      ?? ev.readAt      ?? null)}</td>
@@ -193,7 +184,7 @@ export default function WebhooksPage() {
             {totalPages > 1 && (
               <div className="wh-pagination">
                 <span className="wh-pagination-info">
-                  Showing {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, filteredEvents.length)} of {filteredEvents.length}
+                  Showing {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
                 </span>
                 <div className="wh-pagination-btns">
                   <button
