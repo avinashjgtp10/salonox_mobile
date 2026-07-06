@@ -228,6 +228,14 @@ body.landing-page-active,
     }
 
     .icon-arrow {
+      // Explicit size is required: as a flex child with no intrinsic pixel
+      // dimensions (only a viewBox-derived ratio), this SVG's rendered size
+      // otherwise depends on the surrounding flexbox layout — it collapsed to
+      // 0x0 on desktop and ballooned to 400px+ in the ~431-768px range,
+      // blowing up the whole button.
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
       transition: transform 0.3s ease;
     }
 
