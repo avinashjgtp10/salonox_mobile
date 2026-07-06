@@ -5,6 +5,7 @@ import { fetchBookingsThunk } from "../../../middleware/booking/booking.thunk";
 import { mapApiBooking, toLocalDateStr } from "../utils/bookingMapper";
 import { selectCurrentDate, selectViewMode, selectServicesList, selectClientsList } from "../../../store/selectors/scheduler.selectors";
 import { getWeekDays } from "../utils/timeUtils";
+import { getSocket } from "../../../services/socket/socket";
 
 function getViewRange(viewMode: string, date: string): { startDate: string; endDate: string } {
   if (viewMode === "Week" || viewMode === "List Week") {
@@ -91,6 +92,22 @@ export function useBookings(skip = false) {
     pendingRangesRef.current.delete(rangeKey);
     await fetchRange(startDate, endDate);
   }, [currentDate, viewMode, fetchRange]);
+
+  // Live calendar updates — appointments.service.ts already emits a socket
+  // "notification" event (type: "appointment") on every create/cancel,
+  // including LUNOX WhatsApp bookings. The socket connection itself is
+  // already established by DashboardTopbar for the notification bell; this
+  // just also refetches the visible range so the calendar doesn't require
+  // a manual page refresh to show bookings made from another channel.
+  useEffect(() => {
+    if (skip) return;
+    const socket = getSocket();
+    const onNotification = (notification: { type?: string }) => {
+      if (notification?.type === "appointment") refresh();
+    };
+    socket.on("notification", onNotification);
+    return () => { socket.off("notification", onNotification); };
+  }, [skip, refresh]);
 
   return { refresh };
 }

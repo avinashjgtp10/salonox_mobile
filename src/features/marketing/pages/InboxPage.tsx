@@ -281,7 +281,7 @@ export default function InboxPage() {
   const [sortMode,        setSortMode]        = useState<SortMode>('latest')
   const [filterMode,      setFilterMode]      = useState<FilterMode>('all')
 
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesListRef = useRef<HTMLDivElement>(null)
   const emojiPickerRef = useRef<HTMLDivElement>(null)
   const cannedRef      = useRef<HTMLDivElement>(null)
   const socketRef      = useRef<Socket | null>(null)
@@ -310,7 +310,10 @@ export default function InboxPage() {
     socket.on('disconnect', () => setConnected(false))
     socket.on('inbox:message', (payload: { contactPhone: string; contactName: string | null; message: WAMessage }) => {
       dispatch(receiveMessage({ contactPhone: payload.contactPhone, message: payload.message }))
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+      setTimeout(() => {
+        const el = messagesListRef.current
+        if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+      }, 50)
     })
     socket.on('inbox:conversations', (convs: WAConversation[]) => {
       dispatch(receiveConversations(convs))
@@ -319,7 +322,8 @@ export default function InboxPage() {
   }, [salonId, dispatch])
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const el = messagesListRef.current
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
   }, [displayMessages])
 
   const handleSelectConversation = useCallback((phone: string) => {
@@ -521,7 +525,7 @@ export default function InboxPage() {
             )}
 
             {/* Messages */}
-            <div className="inbox-messages">
+            <div className="inbox-messages" ref={messagesListRef}>
               {loading.fetchMessages ? (
                 <div className="inbox-messages-loading">Loading messages…</div>
               ) : displayMessages.length === 0 ? (
@@ -536,7 +540,6 @@ export default function InboxPage() {
                   </div>
                 ))
               )}
-              <div ref={messagesEndRef} />
             </div>
 
             {/* Char counter */}

@@ -44,6 +44,13 @@ export default function MarketingSubSidebar({ onClose }: Props) {
       </NavLink>
 
       <hr className="sub-divider" />
+      <div className="sub-category">Automation</div>
+
+      <NavLink to="/dashboard/marketing/wa-automation" className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
+        <i className="ti ti-robot" aria-hidden="true" /> WA Automation
+      </NavLink>
+
+      <hr className="sub-divider" />
       <div className="sub-category">Configuration</div>
 
       <NavLink to="/dashboard/marketing/config" className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>

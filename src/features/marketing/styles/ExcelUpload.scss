@@ -10,6 +10,13 @@
 .eu-title { font-size: 13px; font-weight: 500; color: $black; margin-bottom: 4px; }
 .eu-sub   { font-size: 11px; color: $gray-400; }
 
+.eu-sample-btn {
+  display: block; margin: 8px auto 0; font-size: 11.5px; font-weight: 500;
+  color: $green; background: none; border: none; cursor: pointer;
+  text-decoration: underline; padding: 4px;
+  &:hover { color: #15803d; }
+}
+
 .eu-preview { background: $gray-50; border: 0.5px solid $gray-200; border-radius: $radius-lg; overflow: hidden; margin-top: 8px; }
 .eu-preview-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 0.5px solid $gray-200; }
 .eu-preview-title { font-size: 12px; font-weight: 500; color: $black; }

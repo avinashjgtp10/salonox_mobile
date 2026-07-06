@@ -254,6 +254,14 @@ body {
   min-height: 0;
 }
 
+.main--inbox {
+  padding: 0;
+  overflow: hidden;
+  height: calc(100vh - 70px);
+  max-height: calc(100vh - 70px);
+  min-height: 0;
+}
+
 /* ================= DASHBOARD HOME ================= */
 .db-home {
   max-width: 1400px;

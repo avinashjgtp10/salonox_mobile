@@ -16,6 +16,7 @@
   cursor: pointer; transition: all 0.15s;
   &:hover { border-color: #9ca3af; color: #111827; }
   &--active { background: #111827; color: #fff; border-color: #111827; }
+  &--active:hover { color: #fff; border-color: #111827; }
 }
 
 .tl-toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 18px; }

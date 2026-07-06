@@ -37,6 +37,40 @@ export interface Template {
   createdAt?:       string;
 }
 
+// ── Purchase Automation Templates ──────────────────────────────────────────────
+export type PurchaseEventType =
+  | "service_purchased"
+  | "product_purchased"
+  | "membership_purchased"
+  | "package_purchased"
+  | "appointment_reminder_1h"
+  | "thank_you"
+  | "review_request"
+  | "package_expiring_soon"
+  | "sessions_remaining";
+export type TemplateSubmissionStatus = "DRAFT" | "PENDING" | "APPROVED" | "REJECTED";
+
+// Matches backend AutomationTemplate rows scoped to a salon (wa_automation_templates)
+export interface PurchaseTemplate {
+  id:               EntityId;
+  salon_id:         string;
+  event_type:       PurchaseEventType;
+  template_name:    string;
+  language:         string;
+  is_active:        boolean;
+  status:           TemplateSubmissionStatus;
+  category:         "UTILITY" | "MARKETING";
+  body_text:        string | null;
+  meta_template_id: string | null;
+  rejection_reason: string | null;
+  approved_at:      string | null;
+  created_at:       string;
+  updated_at:       string;
+}
+
+export interface PurchaseTemplatesListResponse { data: PurchaseTemplate[]; }
+export interface PurchaseTemplateResponse       { data: PurchaseTemplate;  }
+
 // ── Campaign ──────────────────────────────────────────────────────────────────
 // FIX: Added DRAFT and SENDING which backend actually uses
 export type CampaignStatus = "DRAFT" | "SCHEDULED" | "SENDING" | "RUNNING" | "PAUSED" | "COMPLETED" | "FAILED" | "PENDING";
@@ -114,6 +148,7 @@ export interface WaConfig {
   is_verified?:          boolean;
   daily_limit?:          number;
   quality_rating?:       QualityRating;
+  ai_receptionist_enabled?: boolean;
 
   // Convenience aliases used in UI
   phoneNumberId?:        string;
@@ -123,6 +158,7 @@ export interface WaConfig {
   isVerified?:           boolean;
   dailyLimit?:           number;
   qualityRating?:        QualityRating;
+  aiReceptionistEnabled?: boolean;
 }
 
 export interface SaveWaConfigPayload {

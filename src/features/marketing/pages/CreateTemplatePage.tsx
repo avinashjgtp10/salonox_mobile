@@ -31,6 +31,16 @@ const BODY_LIMIT   = 1024;
 const HEADER_LIMIT = 60;
 const FOOTER_LIMIT = 60;
 
+// Meta's WhatsApp template header media caps — exceeding these gets rejected at template submission
+const MAX_HEADER_FILE_SIZE: Record<"image" | "video" | "document", number> = {
+  image:    5  * 1024 * 1024,  // 5MB
+  video:    16 * 1024 * 1024,  // 16MB
+  document: 10 * 1024 * 1024,  // 10MB
+};
+const MAX_HEADER_FILE_LABEL: Record<"image" | "video" | "document", string> = {
+  image: "5MB", video: "16MB", document: "10MB",
+};
+
 // ← FIXED: normalize phone for Meta — strips spaces/dashes, ensures + prefix
 function normalizePhone(phone: string): string {
   const digits = phone.replace(/[\s\-().]/g, "");
@@ -69,6 +79,22 @@ export default function CreateTemplatePage() {
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (headerType === "image" || headerType === "video" || headerType === "document") {
+      const maxSize = MAX_HEADER_FILE_SIZE[headerType];
+      if (file.size > maxSize) {
+        setErrors(p => ({
+          ...p,
+          headerFile: `File is too large — max ${MAX_HEADER_FILE_LABEL[headerType]} for a ${headerType} header (yours: ${(file.size / (1024 * 1024)).toFixed(1)}MB)`,
+        }));
+        setHeaderFile(null);
+        setHeaderPreview("");
+        e.target.value = "";
+        return;
+      }
+    }
+
+    setErrors(p => ({ ...p, headerFile: "" }));
     setHeaderFile(file);
     if (headerType === "image") {
       const r = new FileReader();
@@ -259,7 +285,7 @@ export default function CreateTemplatePage() {
                   ) : (
                     <div className="ct-upload-placeholder">
                       {headerType === "video"    ? "🎬 Click to upload video (MP4, max 16MB)"
-                       : headerType === "document" ? "📄 Click to upload document (PDF)"
+                       : headerType === "document" ? "📄 Click to upload document (PDF, max 10MB)"
                        : "🖼 Click to upload image (JPG, PNG, WebP, max 5MB)"}
                     </div>
                   )}

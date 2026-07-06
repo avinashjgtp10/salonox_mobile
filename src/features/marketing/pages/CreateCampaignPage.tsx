@@ -29,22 +29,38 @@ const MONTHS = [
   { value: "12", label: "December"  },
 ];
 
+// Local calendar date (not toISOString(), which is UTC and rolls back a day
+// during early-morning IST hours since India is ahead of UTC)
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = (d.getMonth() + 1).toString().padStart(2, "0");
+  const day = d.getDate().toString().padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
-function defaultTime() {
+// Date + time suggested as the default schedule, computed together so they
+// stay consistent across an hour/day rollover (e.g. 11:56 PM -> next day).
+// Rounds up to the nearest 15 minutes to match TIME_OPTIONS' granularity —
+// otherwise the <select> has no matching <option> for the default value.
+function getDefaultSchedule(): { date: string; time: string } {
   const d = new Date(Date.now() + 10 * 60000);
-  const h = d.getHours().toString().padStart(2, "0");
-  const m = (Math.ceil(d.getMinutes() / 5) * 5 % 60).toString().padStart(2, "0");
-  return `${h}:${m}`;
+  d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15, 0, 0); // setMinutes rolls hour/day over automatically
+  const y   = d.getFullYear();
+  const mo  = (d.getMonth() + 1).toString().padStart(2, "0");
+  const day = d.getDate().toString().padStart(2, "0");
+  const h   = d.getHours().toString().padStart(2, "0");
+  const mi  = d.getMinutes().toString().padStart(2, "0");
+  return { date: `${y}-${mo}-${day}`, time: `${h}:${mi}` };
 }
 
 function buildIso(date: string, time: string): string {
   if (!date || !time) return "";
+  const [year, month, day] = date.split("-").map(Number);
   const [h, m] = time.split(":").map(Number);
-  const d = new Date(date);
-  d.setHours(h, m, 0, 0);
+  // Construct directly from local components — new Date(dateString) parses
+  // date-only strings as UTC midnight, which can land on the wrong local day.
+  const d = new Date(year, month - 1, day, h, m, 0, 0);
   return d.toISOString();
 }
 
@@ -64,18 +80,44 @@ function timeOptions() {
 const TIME_OPTIONS = timeOptions();
 
 interface SmartFilter {
-  birth_month:         string;
-  birth_day_month:     string;
+  birth_month:          string;
+  birth_day_month:      string;
   genders:              string[];
-  service_category_id: string;
+  service_category_ids: string[];
+  last_visit_from:      string;
+  last_visit_to:        string;
+  customer_type:        "" | "new" | "repetitive";
+  total_spend_min:      string;
+  total_spend_max:      string;
+  has_membership:       "" | "yes" | "no";
+  has_package:          "" | "yes" | "no";
 }
 
 const EMPTY_FILTER: SmartFilter = {
-  birth_month:         "",
-  birth_day_month:     "",
+  birth_month:          "",
+  birth_day_month:      "",
   genders:              [],
-  service_category_id: "",
+  service_category_ids: [],
+  last_visit_from:      "",
+  last_visit_to:        "",
+  customer_type:        "",
+  total_spend_min:      "",
+  total_spend_max:      "",
+  has_membership:       "",
+  has_package:          "",
 };
+
+const FILTER_TABS = [
+  { key: "birthday",     label: "Birthday",       icon: "ti-cake" },
+  { key: "details",      label: "Client Details", icon: "ti-users" },
+  { key: "category",     label: "Service Category", icon: "ti-scissors" },
+  { key: "last_visit",   label: "Last Visited",   icon: "ti-calendar-event" },
+  { key: "retention",    label: "Client Retention", icon: "ti-repeat" },
+  { key: "spend",        label: "Total Purchase Amount", icon: "ti-currency-rupee" },
+  { key: "membership",   label: "Membership",     icon: "ti-id-badge-2" },
+  { key: "package",      label: "Package",        icon: "ti-package" },
+] as const;
+type FilterTabKey = typeof FILTER_TABS[number]["key"];
 
 export default function CreateCampaignPage() {
   const navigate = useNavigate();
@@ -94,10 +136,11 @@ export default function CreateCampaignPage() {
   const [search,      setSearch]      = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [schedDate,   setSchedDate]   = useState("");
-  const [schedTime,   setSchedTime]   = useState(defaultTime());
+  const [schedTime,   setSchedTime]   = useState("");
   const [isScheduled, setIsScheduled] = useState(false);
 
   const [smartFilter,     setSmartFilter]     = useState<SmartFilter>(EMPTY_FILTER);
+  const [activeFilterTab, setActiveFilterTab] = useState<FilterTabKey>("birthday");
   const [categories,      setCategories]      = useState<{ id: string; name: string }[]>([]);
   const [filterContacts,  setFilterContacts]  = useState<any[]>([]);
   const [filterCount,     setFilterCount]     = useState<number | null>(null);
@@ -139,17 +182,28 @@ export default function CreateCampaignPage() {
   };
 
   const toggleAll = () => {
-    if (selectedIds.size === filteredClients.length) setSelectedIds(new Set());
-    else setSelectedIds(new Set(filteredClients.map(c => String(c.id))));
+    if (selectedIds.size > 0) { setSelectedIds(new Set()); return; }
+    const capped = dailyLimit > 0 ? filteredClients.slice(0, dailyLimit) : filteredClients;
+    if (dailyLimit > 0 && filteredClients.length > dailyLimit) {
+      toast.error(`Only selected the first ${dailyLimit.toLocaleString()} — your daily limit is ${dailyLimit.toLocaleString()} messages.`);
+    }
+    setSelectedIds(new Set(capped.map(c => String(c.id))));
   };
 
   const up = (k: string, v: any) => { setForm(p => ({ ...p, [k]: v })); setErrors(p => ({ ...p, [k]: "" })); };
 
-  const upFilter = (k: keyof SmartFilter, v: string) => {
+  const upFilter = (k: keyof SmartFilter, v: string | string[]) => {
     setSmartFilter(prev => ({ ...prev, [k]: v }));
     setFilterPreviewed(false);
     setFilterCount(null);
     setFilterContacts([]);
+  };
+
+  const toggleFilterCategory = (id: string) => {
+    const next = smartFilter.service_category_ids.includes(id)
+      ? smartFilter.service_category_ids.filter(c => c !== id)
+      : [...smartFilter.service_category_ids, id];
+    upFilter("service_category_ids", next);
   };
 
   const cleanPhone = (phone: string): string => {
@@ -161,10 +215,18 @@ export default function CreateCampaignPage() {
 
   const buildFilterParams = () => {
     const params = new URLSearchParams();
-    if (smartFilter.birth_month)         params.set("birth_month",         smartFilter.birth_month);
-    if (smartFilter.birth_day_month)     params.set("birth_day_month",     smartFilter.birth_day_month);
-    if (smartFilter.genders.length > 0) params.set("gender", smartFilter.genders.join(','));
-    if (smartFilter.service_category_id) params.set("service_category_id", smartFilter.service_category_id);
+    if (smartFilter.birth_month)              params.set("birth_month",         smartFilter.birth_month);
+    if (smartFilter.birth_day_month)          params.set("birth_day_month",     smartFilter.birth_day_month);
+    if (smartFilter.genders.length > 0)       params.set("gender",              smartFilter.genders.join(','));
+    if (smartFilter.service_category_ids.length > 0)
+      params.set("service_category_ids", smartFilter.service_category_ids.join(','));
+    if (smartFilter.last_visit_from)          params.set("last_visit_from",     smartFilter.last_visit_from);
+    if (smartFilter.last_visit_to)            params.set("last_visit_to",       smartFilter.last_visit_to);
+    if (smartFilter.customer_type)            params.set("customer_type",       smartFilter.customer_type);
+    if (smartFilter.total_spend_min)          params.set("total_spend_min",     smartFilter.total_spend_min);
+    if (smartFilter.total_spend_max)          params.set("total_spend_max",     smartFilter.total_spend_max);
+    if (smartFilter.has_membership)           params.set("has_membership",      smartFilter.has_membership === "yes" ? "true" : "false");
+    if (smartFilter.has_package)              params.set("has_package",         smartFilter.has_package === "yes" ? "true" : "false");
     return params;
   };
 
@@ -172,8 +234,15 @@ const hasAnyFilter =
   smartFilter.birth_month !== "" ||
   smartFilter.birth_day_month !== "" ||
   smartFilter.genders.length > 0 ||
-  smartFilter.service_category_id !== "";
-  
+  smartFilter.service_category_ids.length > 0 ||
+  smartFilter.last_visit_from !== "" ||
+  smartFilter.last_visit_to !== "" ||
+  smartFilter.customer_type !== "" ||
+  smartFilter.total_spend_min !== "" ||
+  smartFilter.total_spend_max !== "" ||
+  smartFilter.has_membership !== "" ||
+  smartFilter.has_package !== "";
+
   const handlePreviewFilter = async () => {
     if (!hasAnyFilter) { toast.error("Please set at least one filter"); return; }
     setFilterLoading(true);
@@ -400,7 +469,14 @@ const hasAnyFilter =
                     <button
                       type="button"
                       className={`cc-toggle${isScheduled ? " cc-toggle--on" : ""}`}
-                      onClick={() => { setIsScheduled(s => !s); if (!schedDate) setSchedDate(todayStr()); }}
+                      onClick={() => {
+                        setIsScheduled(s => !s);
+                        if (!schedDate) {
+                          const def = getDefaultSchedule();
+                          setSchedDate(def.date);
+                          setSchedTime(def.time);
+                        }
+                      }}
                     >
                       <span className="cc-toggle-thumb" />
                     </button>
@@ -498,7 +574,7 @@ const hasAnyFilter =
                       <div className="cc-client-toolbar-right">
                         <span className="cc-client-count">{normalizedClients.length} clients with phone</span>
                         <button className="cc-select-all" onClick={toggleAll}>
-                          {selectedIds.size > 0 && selectedIds.size === filteredClients.length ? "✗ Deselect All" : "✓ Select All"}
+                          {selectedIds.size > 0 ? "✗ Deselect All" : "✓ Select All"}
                         </button>
                       </div>
                     </div>
@@ -586,94 +662,225 @@ const hasAnyFilter =
                       )}
                     </div>
 
-                    {/* Birthday */}
-                    <div className="cc-sf-section">
-                      <div className="cc-sf-section-title">
-                        <i className="ti ti-cake" aria-hidden="true" />
-                        Birthday
-                      </div>
-                      <div className="cc-sf-row-2">
-                        <div className="cc-sf-field">
-                          <label className="cc-sf-label">Birth month</label>
-                          <select
-                            className="cc-sf-select"
-                            value={smartFilter.birth_month}
-                            onChange={e => upFilter("birth_month", e.target.value)}
+                    {/* ── Two-pane tabbed filter ── */}
+                    <div className="cc-sf-panes">
+                      <div className="cc-sf-tabs">
+                        {FILTER_TABS.map(t => (
+                          <button
+                            key={t.key}
+                            className={`cc-sf-tab${activeFilterTab === t.key ? " active" : ""}`}
+                            onClick={() => setActiveFilterTab(t.key)}
                           >
-                            <option value="">Any month</option>
-                            {MONTHS.map(m => (
-                              <option key={m.value} value={m.value}>{m.label}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="cc-sf-field">
-                          <label className="cc-sf-label">Exact date (MM-DD)</label>
-                          <input
-                            className="cc-sf-input"
-                            type="text"
-                            placeholder="e.g. 05-15"
-                            value={smartFilter.birth_day_month}
-                            maxLength={5}
-                            onChange={e => {
-                              let v = e.target.value.replace(/[^0-9-]/g, "");
-                              if (v.length === 2 && !v.includes("-")) v = v + "-";
-                              upFilter("birth_day_month", v);
-                            }}
-                          />
-                        </div>
+                            <i className={`ti ${t.icon}`} aria-hidden="true" />
+                            {t.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="cc-sf-tab-content">
+
+                        {activeFilterTab === "birthday" && (
+                          <div className="cc-sf-row-2">
+                            <div className="cc-sf-field">
+                              <label className="cc-sf-label">Birth month</label>
+                              <select
+                                className="cc-sf-select"
+                                value={smartFilter.birth_month}
+                                onChange={e => upFilter("birth_month", e.target.value)}
+                              >
+                                <option value="">Any month</option>
+                                {MONTHS.map(m => (
+                                  <option key={m.value} value={m.value}>{m.label}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="cc-sf-field">
+                              <label className="cc-sf-label">Exact date (MM-DD)</label>
+                              <input
+                                className="cc-sf-input"
+                                type="text"
+                                placeholder="e.g. 05-15"
+                                value={smartFilter.birth_day_month}
+                                maxLength={5}
+                                onChange={e => {
+                                  let v = e.target.value.replace(/[^0-9-]/g, "");
+                                  if (v.length === 2 && !v.includes("-")) v = v + "-";
+                                  upFilter("birth_day_month", v);
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {activeFilterTab === "details" && (
+                          <div className="cc-sf-field">
+                            <label className="cc-sf-label">Gender</label>
+                            <div className="cc-sf-checkboxes">
+                              {[
+                                { value: "female", label: "Female" },
+                                { value: "male",   label: "Male"   },
+                                { value: "other",  label: "Other"  },
+                              ].map(g => (
+                                <label key={g.value} className="cc-sf-checkbox-label">
+                                  <input
+                                    type="checkbox"
+                                    className="cc-sf-checkbox"
+                                    checked={smartFilter.genders.includes(g.value)}
+                                    onChange={e => {
+                                      const next = e.target.checked
+                                        ? [...smartFilter.genders, g.value]
+                                        : smartFilter.genders.filter(v => v !== g.value);
+                                      upFilter("genders", next);
+                                    }}
+                                  />
+                                  {g.label}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {activeFilterTab === "category" && (
+                          <div className="cc-sf-field">
+                            <label className="cc-sf-label">Service category</label>
+                            {categories.length === 0 ? (
+                              <p className="cc-sf-empty-note">No service categories set up yet.</p>
+                            ) : (
+                              <div className="cc-sf-checkboxes">
+                                {categories.map(cat => (
+                                  <label key={cat.id} className="cc-sf-checkbox-label">
+                                    <input
+                                      type="checkbox"
+                                      className="cc-sf-checkbox"
+                                      checked={smartFilter.service_category_ids.includes(cat.id)}
+                                      onChange={() => toggleFilterCategory(cat.id)}
+                                    />
+                                    {cat.name}
+                                  </label>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {activeFilterTab === "last_visit" && (
+                          <div className="cc-sf-row-2">
+                            <div className="cc-sf-field">
+                              <label className="cc-sf-label">From</label>
+                              <input
+                                type="date"
+                                className="cc-sf-input"
+                                value={smartFilter.last_visit_from}
+                                max={smartFilter.last_visit_to || undefined}
+                                onChange={e => upFilter("last_visit_from", e.target.value)}
+                              />
+                            </div>
+                            <div className="cc-sf-field">
+                              <label className="cc-sf-label">To</label>
+                              <input
+                                type="date"
+                                className="cc-sf-input"
+                                value={smartFilter.last_visit_to}
+                                min={smartFilter.last_visit_from || undefined}
+                                onChange={e => upFilter("last_visit_to", e.target.value)}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {activeFilterTab === "retention" && (
+                          <div className="cc-sf-field">
+                            <label className="cc-sf-label">Customer type</label>
+                            <div className="cc-sf-radios">
+                              {[
+                                { value: "",           label: "Any" },
+                                { value: "new",         label: "First-time (new) clients" },
+                                { value: "repetitive",  label: "Regular (returning) clients" },
+                              ].map(o => (
+                                <label key={o.value} className="cc-sf-radio-label">
+                                  <input
+                                    type="radio"
+                                    name="customer_type"
+                                    checked={smartFilter.customer_type === o.value}
+                                    onChange={() => upFilter("customer_type", o.value)}
+                                  />
+                                  {o.label}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {activeFilterTab === "spend" && (
+                          <div className="cc-sf-field">
+                            <label className="cc-sf-label">Total spending range (₹)</label>
+                            <div className="cc-sf-row-2">
+                              <input
+                                type="number"
+                                className="cc-sf-input"
+                                placeholder="Low"
+                                min={0}
+                                value={smartFilter.total_spend_min}
+                                onChange={e => upFilter("total_spend_min", e.target.value)}
+                              />
+                              <input
+                                type="number"
+                                className="cc-sf-input"
+                                placeholder="High"
+                                min={0}
+                                value={smartFilter.total_spend_max}
+                                onChange={e => upFilter("total_spend_max", e.target.value)}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {activeFilterTab === "membership" && (
+                          <div className="cc-sf-field">
+                            <div className="cc-sf-radios">
+                              {[
+                                { value: "",    label: "Any" },
+                                { value: "yes", label: "Has active membership" },
+                                { value: "no",  label: "No active membership" },
+                              ].map(o => (
+                                <label key={o.value} className="cc-sf-radio-label">
+                                  <input
+                                    type="radio"
+                                    name="has_membership"
+                                    checked={smartFilter.has_membership === o.value}
+                                    onChange={() => upFilter("has_membership", o.value)}
+                                  />
+                                  {o.label}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {activeFilterTab === "package" && (
+                          <div className="cc-sf-field">
+                            <div className="cc-sf-radios">
+                              {[
+                                { value: "",    label: "Any" },
+                                { value: "yes", label: "Has active package" },
+                                { value: "no",  label: "No active package" },
+                              ].map(o => (
+                                <label key={o.value} className="cc-sf-radio-label">
+                                  <input
+                                    type="radio"
+                                    name="has_package"
+                                    checked={smartFilter.has_package === o.value}
+                                    onChange={() => upFilter("has_package", o.value)}
+                                  />
+                                  {o.label}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                       </div>
                     </div>
-
-                    {/* Client details */}
-<div className="cc-sf-section">
-  <div className="cc-sf-section-title">
-    <i className="ti ti-users" aria-hidden="true" />
-    Client details
-  </div>
-  <div className="cc-sf-row-2">
-    <div className="cc-sf-field">
-      <label className="cc-sf-label">Gender</label>
-      <div className="cc-sf-checkboxes">
-        {[
-          { value: "female", label: "Female" },
-          { value: "male",   label: "Male"   },
-          { value: "other",  label: "Other"  },
-        ].map(g => (
-          <label key={g.value} className="cc-sf-checkbox-label">
-            <input
-              type="checkbox"
-              className="cc-sf-checkbox"
-              checked={smartFilter.genders.includes(g.value)}
-              onChange={e => {
-                const next = e.target.checked
-                  ? [...smartFilter.genders, g.value]
-                  : smartFilter.genders.filter(v => v !== g.value);
-                setSmartFilter(prev => ({ ...prev, genders: next }));
-                setFilterPreviewed(false);
-                setFilterCount(null);
-                setFilterContacts([]);
-              }}
-            />
-            {g.label}
-          </label>
-        ))}
-      </div>
-    </div>
-    <div className="cc-sf-field">
-      <label className="cc-sf-label">Service category</label>
-      <select
-        className="cc-sf-select"
-        value={smartFilter.service_category_id}
-        onChange={e => upFilter("service_category_id", e.target.value)}
-      >
-        <option value="">Any category</option>
-        {categories.map(cat => (
-          <option key={cat.id} value={cat.id}>{cat.name}</option>
-        ))}
-      </select>
-    </div>
-  </div>
-</div>
 
                     {/* Footer */}
                     <div className="cc-sf-footer">

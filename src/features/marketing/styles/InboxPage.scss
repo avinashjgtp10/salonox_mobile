@@ -64,7 +64,7 @@
 // ── Page ──────────────────────────────────────────────────────────────────────
 .inbox-page {
   display: flex;
-  height: calc(100vh - 60px);
+  height: calc(100vh - 70px); // matches .main--inbox's available height (70px topbar, no page padding)
   background: var(--wa-header-bg);
   overflow: hidden;
   font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
