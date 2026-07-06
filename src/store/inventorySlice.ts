@@ -8,13 +8,19 @@ import {
   createSupplierThunk,
   updateSupplierThunk,
   deleteSupplierThunk,
+  fetchStockReconciliationThunk,
+  saveStockReconciliationThunk,
+  saveReconciliationRowThunk,
 } from "../middleware/inventory/inventory.thunk";
-import type { Stocktake, Supplier } from "../types/inventory.types";
+import type { Stocktake, Supplier, StockReconciliationRow } from "../types/inventory.types";
 
 interface InventoryState {
   stocktakes: Stocktake[];
   suppliers: Supplier[];
   currentStocktake: Stocktake | null;
+  reconciliationRows: StockReconciliationRow[];
+  reconciliationLoading: boolean;
+  reconciliationSaving: boolean;
   loading: boolean;
   error: string | null;
 }
@@ -23,6 +29,9 @@ const initialState: InventoryState = {
   stocktakes: [],
   suppliers: [],
   currentStocktake: null,
+  reconciliationRows: [],
+  reconciliationLoading: false,
+  reconciliationSaving: false,
   loading: false,
   error: null,
 };
@@ -106,6 +115,42 @@ const inventorySlice = createSlice({
     // Delete Supplier
     builder.addCase(deleteSupplierThunk.fulfilled, (state, action) => {
       state.suppliers = state.suppliers.filter((s) => s.id !== action.payload);
+    });
+
+    // Fetch Stock Reconciliation
+    builder.addCase(fetchStockReconciliationThunk.pending, (state) => {
+      state.reconciliationLoading = true;
+      state.error = null;
+    });
+    builder.addCase(fetchStockReconciliationThunk.fulfilled, (state, action) => {
+      state.reconciliationLoading = false;
+      state.reconciliationRows = action.payload;
+    });
+    builder.addCase(fetchStockReconciliationThunk.rejected, (state, action) => {
+      state.reconciliationLoading = false;
+      state.error = action.payload as string;
+    });
+
+    // Save All Reconciliation
+    builder.addCase(saveStockReconciliationThunk.pending, (state) => {
+      state.reconciliationSaving = true;
+    });
+    builder.addCase(saveStockReconciliationThunk.fulfilled, (state) => {
+      state.reconciliationSaving = false;
+    });
+    builder.addCase(saveStockReconciliationThunk.rejected, (state, action) => {
+      state.reconciliationSaving = false;
+      state.error = action.payload as string;
+    });
+
+    // Save Single Reconciliation Row
+    builder.addCase(saveReconciliationRowThunk.fulfilled, (state, action) => {
+      const idx = state.reconciliationRows.findIndex(
+        (r) => r.product_id === action.payload.product_id
+      );
+      if (idx !== -1) {
+        state.reconciliationRows[idx] = action.payload;
+      }
     });
   },
 });
