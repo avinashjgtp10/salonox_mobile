@@ -367,6 +367,7 @@ const TESTIMONIALS = [
   { name: 'Rutuja Pagale', role: 'Founder, Studio Beauty', quote: 'Clients love the booking page and our front desk loves how little they have to manage manually.', initials: 'RP' },
   { name: 'Shivani Dhumal', role: 'Manager, Glow Wellness', quote: 'The multi-branch dashboard is a game-changer. Managing three locations has become incredibly easy.', initials: 'SD' },
   { name: 'Avinash Jagtap', role: 'Owner, Lakme Salon', quote: 'Customer retention improved significantly thanks to the marketing automation features.', initials: 'AJ' },
+  { name: 'Shravani Gaware', role: 'Owner, Elegance Salon', quote: 'SalonOX has made managing appointments, staff, and daily operations effortless. The booking experience is smooth, and our clients love how simple everything has become.', initials: 'SG' },
 ];
 
 const INITIAL_BRANCHES: Branch[] = [
@@ -1843,11 +1844,7 @@ const LandingPage: React.FC = () => {
       <nav className={`nav ${scrolled ? 'nav-scrolled' : ''}`}>
         <div className="container nav-inner">
           <a href="#top" className="nav-logo" onClick={scrollToSection('top')}>
-            <span className="logo-mark">
-              <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2c2 3 6 4 6 9a6 6 0 0 1-12 0c0-5 4-6 6-9Z" />
-              </svg>
-            </span>
+            <img src="/appIcon.svg" alt="" className="logo-mark" width="36" height="36" />
             <span className="logo-text">
               Salon<span className="accent">OX</span>
             </span>
@@ -1884,11 +1881,7 @@ const LandingPage: React.FC = () => {
         <div className="mobile-drawer-panel" onClick={(e) => e.stopPropagation()}>
           <div className="mobile-drawer-header">
             <a href="#top" className="nav-logo" onClick={scrollToSection('top')}>
-              <span className="logo-mark">
-                <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2c2 3 6 4 6 9a6 6 0 0 1-12 0c0-5 4-6 6-9Z" />
-                </svg>
-              </span>
+              <img src="/appIcon.svg" alt="" className="logo-mark" width="32" height="32" />
               <span className="logo-text">
                 Salon<span className="accent">OX</span>
               </span>
@@ -2431,11 +2424,7 @@ const LandingPage: React.FC = () => {
           <div className="footer-top">
             <div className="footer-brand">
               <a href="#top" className="nav-logo" onClick={scrollToSection('top')}>
-                <span className="logo-mark">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2c2 3 6 4 6 9a6 6 0 0 1-12 0c0-5 4-6 6-9Z" />
-                  </svg>
-                </span>
+                <img src="/appIcon.svg" alt="" className="logo-mark" width="36" height="36" />
                 <span className="logo-text">Salon<span className="accent">OX</span></span>
               </a>
               <p>The all-in-one platform for salons and spas to book, manage, and grow with confidence.</p>
