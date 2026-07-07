@@ -58,17 +58,14 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
       )}
 
       {can("view_sales") && can("create_sales") && (
-        <button
-          type="button"
-          className="nav-btn"
-          onClick={() => {
-            onMenuChange(null);
-            navigate("/dashboard/sales/quick");
-          }}
+        <NavLink
+          to="/dashboard/sales/quick"
+          className={({ isActive }) => navClass(isActive)}
+          onClick={() => onMenuChange(null)}
         >
           <Lightning size={26} />
           <span className="nav-label">Quick Sale</span>
-        </button>
+        </NavLink>
       )}
 
       {can("view_appointments") && (

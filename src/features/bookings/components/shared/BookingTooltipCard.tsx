@@ -78,8 +78,10 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
     )
   ).map(getStaffName).filter(Boolean);
 
-  const itemStaffSub = (staffId?: string) =>
-    staffId && staffId !== booking.staffId ? getStaffName(staffId) : "";
+  // Always show the assigned staff per item, even when it matches the
+  // appointment's main staff — with multi-staff bookings now common, hiding it
+  // in that one case made the display look inconsistent/incomplete.
+  const itemStaffSub = (staffId?: string) => (staffId ? getStaffName(staffId) : "");
 
   const isPackagePaid =
     (((booking as any).paymentMode || "").toLowerCase() === "package");
@@ -242,6 +244,12 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
                   <div className="btc__paid-row">
                     <span>Paid</span>
                     <span>{currencySymbol}{Number(booking.payingNow).toFixed(0)}</span>
+                  </div>
+                )}
+                {Number(booking.rewardPointsValue) > 0 && (
+                  <div className="btc__paid-row" style={{ color: "#7c3aed" }}>
+                    <span>🎁 Paid from Reward Points</span>
+                    <span>{currencySymbol}{Number(booking.rewardPointsValue).toFixed(0)}</span>
                   </div>
                 )}
               </>

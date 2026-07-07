@@ -289,8 +289,12 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   function handleServiceSearchChange(value: string) {
     const nextSearch = value.trim();
 
+    // Only update the local search query here — NOT row.service. The row's real
+    // service/id only gets committed via selectService() below, when the user
+    // actually picks a result from the dropdown. Otherwise free-typed text (that
+    // was never selected) would count as a "filled" service and let Save/Checkout
+    // through with garbage data.
     setServiceSearch(value);
-    onChange(row.tempId, "service", value);
 
     if (nextSearch) onClearError?.(row.tempId, "service");
 
@@ -315,8 +319,10 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     }, DEBOUNCE_MS);
   }
 
-  function calcTotal(price: number, qty: number, discount: number) {
-    return Math.max(0, price * qty - discount);
+  // Per-row discount is a PERCENTAGE (0–100) of price × qty, not a flat amount.
+  function calcTotal(price: number, qty: number, discountPct: number) {
+    const pct = Math.min(100, Math.max(0, discountPct));
+    return Math.max(0, price * qty * (1 - pct / 100));
   }
 
   function selectService(service: { id?: string; name: string; price: number; duration?: number }) {
@@ -392,17 +398,17 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   }
 
   function handleDiscountChange(value: string) {
-    const normalizedValue = value.slice(0, 5);
+    const normalizedValue = value.slice(0, 3);
     setDiscountInput(normalizedValue);
 
-    const discount = parseFloat(normalizedValue) || 0;
+    const discount = Math.min(100, parseFloat(normalizedValue) || 0);
     const qty = getSafeQty(row.qty);
     onChange(row.tempId, "discount", discount);
     onChange(row.tempId, "total", calcTotal(row.price || 0, qty, discount));
   }
 
   function handleDiscountBlur() {
-    const discount = Math.min(99999, Math.max(0, parseFloat(discountInput) || 0));
+    const discount = Math.min(100, Math.max(0, parseFloat(discountInput) || 0));
     const qty = getSafeQty(row.qty);
 
     setDiscountInput(discount > 0 ? String(discount) : "");
@@ -608,6 +614,12 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
               disabled={disabled}
               onChange={(e) => handleServiceSearchChange(e.target.value)}
               onFocus={() => setShowDrop(meetsMinSearchLength && (isSearching || apiResults !== null))}
+              onBlur={() => {
+                // Typed text that was never selected from the dropdown gets reverted
+                // back to the row's actual (last selected) service — selecting an item
+                // fires onMouseDown before this blur, so a real selection still sticks.
+                setServiceSearch(row.service || "");
+              }}
             />
             {showDrop && meetsMinSearchLength && inputRef.current && createPortal(
               <div
@@ -737,12 +749,12 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
         </div>
 
         <div className="svc-field">
-          <span className="svc-field__label">Disc</span>
+          <span className="svc-field__label">Disc %</span>
           <input
             type="text"
             disabled={disabled}
             inputMode="numeric"
-            maxLength={5}
+            maxLength={3}
             placeholder="0"
             value={discountInput}
             className="svc-field__input"

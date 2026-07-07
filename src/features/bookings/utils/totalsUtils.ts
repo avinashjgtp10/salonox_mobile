@@ -21,6 +21,7 @@ export interface TotalsInput {
   couponDiscount: number;
   eWalletUsed: number;
   membershipWalletUsed?: number;
+  rewardPointsUsed?: number; // ₹ value of redeemed reward points
 }
 
 export interface TaxBreakdownEntry {
@@ -96,7 +97,7 @@ export function computeTotals(input: TotalsInput): TotalsResult {
   const {
     serviceRows, packageRows, productRows, membershipRows,
     discountType, discountValue, taxes,
-    exCharges, couponDiscount, eWalletUsed, membershipWalletUsed = 0,
+    exCharges, couponDiscount, eWalletUsed, membershipWalletUsed = 0, rewardPointsUsed = 0,
   } = input;
 
   const serviceBase    = rowsTotal(serviceRows);
@@ -137,7 +138,7 @@ export function computeTotals(input: TotalsInput): TotalsResult {
 
   const taxBreakdown = mergeBreakdown(allBreakdown);
   const grandTotal = taxable + gstAmount + exCharges;
-  const effectiveTotal = Math.max(0, grandTotal - eWalletUsed - membershipWalletUsed);
+  const effectiveTotal = Math.max(0, grandTotal - eWalletUsed - membershipWalletUsed - rewardPointsUsed);
 
   return { subtotal, totalDisc, taxable, gstAmount, taxBreakdown, grandTotal, effectiveTotal };
 }

@@ -145,7 +145,10 @@ export function useAppointment() {
         ends_at:          new Date(bookingStartMs + durationMins * 60000).toISOString(),
         duration_minutes: durationMins,
         services:         apiServices,
-        package_items:    packageRows.map((p) => {
+        // Rows without a real catalog id were never actually selected from the
+        // dropdown (e.g. typed-but-abandoned search text, or a blank "+ Product"
+        // row) — filter them out instead of sending bogus line items.
+        package_items:    packageRows.filter((p) => (p as any).packageId).map((p) => {
           const t = (p as any).time;
           const startMs = t ? new Date(`${calDate}T${t}:00`).getTime() : bookingStartMs;
           const isPackageService = !!(p as any).isPackageService;
@@ -161,7 +164,7 @@ export function useAppointment() {
             ...(isPackageService ? { is_package_service: true } : {}),
           };
         }),
-        product_items:    productRows.map((p) => {
+        product_items:    productRows.filter((p) => (p as any).productId).map((p) => {
           const t = (p as any).time;
           const startMs = t ? new Date(`${calDate}T${t}:00`).getTime() : bookingStartMs;
           const staffMember = staffList.find((st: any) => String(st.id) === String((p as any).staffId ?? ""));
@@ -175,7 +178,7 @@ export function useAppointment() {
             start_time: new Date(startMs).toISOString(),
           };
         }),
-        membership_items: membershipRows.map((m) => {
+        membership_items: membershipRows.filter((m) => (m as any).membershipId).map((m) => {
           const t = (m as any).time;
           const startMs = t ? new Date(`${calDate}T${t}:00`).getTime() : bookingStartMs;
           const staffMember = staffList.find((st: any) => String(st.id) === String((m as any).staffId ?? ""));

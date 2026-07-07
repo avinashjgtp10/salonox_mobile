@@ -21,7 +21,6 @@ import ListWeekView  from "./ListWeekView";
 // ── NEW: AppointmentModal replaces NewAppointmentModal ────────────────────────
 import AppointmentModal from "../modals/AppointmentModal";
 import ViewBillModal    from "../modals/ViewBillModal";
-import PaymentModal     from "../modals/PaymentModal";
 import BlockTimeModal   from "../modals/BlockTimeModal";
 import "../../styles/Scheduler.scss";
 
@@ -51,8 +50,6 @@ const SchedulerContent: React.FC = () => {
   const [showBlockTime, setShowBlockTime]     = useState(false);
   const [viewingBooking, setViewingBooking]   = useState<Booking | null>(null);
   const [editingBooking, setEditingBooking]   = useState<Booking | null>(null);
-  const [paymentBooking, setPaymentBooking]   = useState<Booking | null>(null);
-  const [collectDueMode, setCollectDueMode]   = useState(false);
   const [apptDefaults, setApptDefaults]       = useState<{ staffId?: string; defaultTime?: string }>({});
   const [defaultClient, setDefaultClient]     = useState<{ id: string; name: string; phone: string } | null>(null);
   const [blockStaffId, setBlockStaffId]       = useState<string | undefined>(undefined);
@@ -168,11 +165,6 @@ const SchedulerContent: React.FC = () => {
     }
     setEditingBooking(booking);
     setShowNewAppt(true);
-  });
-
-  const handleCollectDue = useSingleClick((booking: Booking) => {
-    setPaymentBooking(booking);
-    setCollectDueMode(true);
   });
 
   const handleBlockTime = useSingleClick((staffId?: string) => {
@@ -365,14 +357,7 @@ const SchedulerContent: React.FC = () => {
           booking={viewingBooking}
           onClose={() => setViewingBooking(null)}
           onEdit={(b) => handleForceEdit(b)}
-          onCollectDue={handleCollectDue}
-        />
-      )}
-      {paymentBooking && (
-        <PaymentModal
-          booking={paymentBooking}
-          collectDue={collectDueMode}
-          onClose={() => { setPaymentBooking(null); setCollectDueMode(false); }}
+          onCollectDue={handleForceEdit}
         />
       )}
     </div>

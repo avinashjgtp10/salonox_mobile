@@ -9,6 +9,7 @@ import { formatTime12, getCurrentTime, addMinutes } from "../../utils/timeUtils"
 import Avatar from "../shared/Avatar";
 import BookingTooltipCard from "../shared/BookingTooltipCard";
 import BookingChip from "./BookingChip";
+import { computeOverlapLayout } from "../../utils/overlapLayout";
 import { useListClientPackagesQuery } from "../../../../services/api/endpoints/packages.endpoints";
 import "../../styles/DayView.scss";
 
@@ -27,6 +28,35 @@ function to24h(t: string): string {
   if (period === "PM" && h !== 12) h += 12;
   if (period === "AM" && h === 12) h = 0;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+interface StaffSegment { time: string; endTime: string; }
+
+// Every line item (service, package, product, membership) can be assigned to its
+// own staff member, independent of the appointment's top-level staffId — e.g. a
+// service done by Staff A alongside a product sold by Staff B on the same visit.
+// Returns the time ranges on THIS booking that belong to the given staff, across
+// all four item types (previously only `services` was checked here, so products/
+// packages/memberships assigned to a different staff than the main service never
+// showed up under their own staff's column at all).
+function getStaffSegments(b: any, staffId: string): StaffSegment[] {
+  const segs: StaffSegment[] = [];
+  (b.services || []).forEach((s: any) => {
+    if (String(s.staffId) !== String(staffId)) return;
+    const time = s.time || b.startTime;
+    segs.push({ time, endTime: s.endTime || addMinutes(time, s.duration || 30) });
+  });
+  const otherItems = [
+    ...(b.packageItems || []),
+    ...(b.productItems || []),
+    ...(b.membershipItems || []),
+  ];
+  otherItems.forEach((it: any) => {
+    if (String(it.staffId) !== String(staffId)) return;
+    const time = it.time || b.startTime;
+    segs.push({ time, endTime: addMinutes(time, 30) });
+  });
+  return segs;
 }
 
 interface DayViewProps {
@@ -305,21 +335,21 @@ const DayView: React.FC<DayViewProps> = ({
         const newStartMins = toMins(newStart);
         const deltaMins = newStartMins - oldStartMins;
 
-        const updatedServices = orig.services?.map((s: any) => {
-          const matchesDraggedStaff = s.staffId
-            ? String(s.staffId) === String(dragging.originalStaffId)
-            : String(orig.staffId) === String(dragging.originalStaffId);
+        const shiftMins = (t: string) => {
+          const mins = toMins(t) + deltaMins;
+          const h = Math.floor(mins / 60);
+          const m = Math.round(mins % 60);
+          return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+        };
 
+        const matchesDraggedStaff = (itemStaffId: any) => itemStaffId
+          ? String(itemStaffId) === String(dragging.originalStaffId)
+          : String(orig.staffId) === String(dragging.originalStaffId);
+
+        const updatedServices = orig.services?.map((s: any) => {
           // Only shift the time of the staff/service group actually being dragged —
           // other staff's services in the same multi-staff booking must stay put.
-          if (!matchesDraggedStaff) return s;
-
-          const shiftMins = (t: string) => {
-            const mins = toMins(t) + deltaMins;
-            const h = Math.floor(mins / 60);
-            const m = Math.round(mins % 60);
-            return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
-          };
+          if (!matchesDraggedStaff(s.staffId)) return s;
 
           const shiftedTime = shiftMins(s.time || dragging.originalStart);
           const existingEnd = s.endTime || s.end_time;
@@ -333,6 +363,19 @@ const DayView: React.FC<DayViewProps> = ({
           };
         }) || [];
 
+        // Packages/products/memberships can each be assigned to their own staff too —
+        // previously only `services` was shifted here, so dragging the chip instance
+        // that only existed because of a package/product/membership assignment (no
+        // service for that staff) silently updated nothing at all.
+        const shiftOtherItems = (items: any[] | undefined) =>
+          (items || []).map((it: any) => {
+            if (!matchesDraggedStaff(it.staffId)) return it;
+            return { ...it, time: shiftMins(it.time || dragging.originalStart), staffId: dragging.currentStaffId };
+          });
+        const updatedPackageItems    = shiftOtherItems(orig.packageItems);
+        const updatedProductItems    = shiftOtherItems(orig.productItems);
+        const updatedMembershipItems = shiftOtherItems(orig.membershipItems);
+
         const newPrimaryStaffId = String(orig.staffId) === String(dragging.originalStaffId)
           ? dragging.currentStaffId
           : orig.staffId;
@@ -343,6 +386,9 @@ const DayView: React.FC<DayViewProps> = ({
           endTime: newEnd,
           staffId: newPrimaryStaffId,
           services: updatedServices,
+          packageItems: updatedPackageItems,
+          productItems: updatedProductItems,
+          membershipItems: updatedMembershipItems,
         }).catch((err: any) => {
           console.error("Unable to reschedule appointment", err?.message);
         });
@@ -460,13 +506,9 @@ const DayView: React.FC<DayViewProps> = ({
     const slotMins = toMins(slotTime);
     return dayBookings.some((b) => {
       if ((b.status as string) === "Cancelled") return false;
-      const staffServices = (b.services || []).filter((s: any) => String(s.staffId) === String(staffId));
-      if (staffServices.length > 0) {
-        return staffServices.some((s: any) => {
-          const svcStart = s.time || b.startTime;
-          const svcEnd = (s as any).endTime || (s as any).end_time || addMinutes(svcStart, (s as any).duration || 30);
-          return slotMins >= toMins(svcStart) && slotMins < toMins(svcEnd);
-        });
+      const segs = getStaffSegments(b, staffId);
+      if (segs.length > 0) {
+        return segs.some((s) => slotMins >= toMins(s.time) && slotMins < toMins(s.endTime));
       }
       if (String(b.staffId) === String(staffId)) {
         return slotMins >= toMins(b.startTime) && slotMins < toMins(b.endTime);
@@ -695,41 +737,78 @@ const DayView: React.FC<DayViewProps> = ({
                     </div>
                   ))}
 
-                  {dayBookings
-                    .filter((b) => {
-                      if (dragging?.booking.id === b.id) return dragging.currentStaffId === staff.id;
-                      // Per-service staff: show chip under each service's staff column
-                      if ((b.services || []).some((s: any) => String(s.staffId) === String(staff.id))) return true;
-                      // Backward compat: if no service has a staffId, fall back to appointment-level staffId
-                      if (b.staffId && String(b.staffId) === String(staff.id) && !(b.services || []).some((s: any) => s.staffId)) return true;
-                      return false;
-                    })
-                    .map((b) => {
-                      const isDraggingThis = dragging?.booking.id === b.id;
-                      const isResizingThis = resizing?.booking.id === b.id;
-                      const staffServices = (b.services || []).filter((s: any) => String(s.staffId) === String(staff.id));
-                      const staffStart = staffServices.length > 0
-                        ? staffServices.reduce((min: string, s: any) =>
-                            toMinsLocal(s.time || b.startTime) < toMinsLocal(min) ? (s.time || b.startTime) : min,
-                            staffServices[0].time || b.startTime)
-                        : b.startTime;
-                      const staffEnd = staffServices.length > 0
-                        ? staffServices.reduce((max: string, s: any) => {
-                            const end = s.endTime || addMinutes(s.time || b.startTime, s.duration || 30);
-                            return toMinsLocal(end) > toMinsLocal(max) ? end : max;
-                          }, (() => { const s0 = staffServices[0] as any; return s0.endTime || addMinutes(s0.time || b.startTime, s0.duration || 30); })())
-                        : b.endTime;
-                      if (isTimeRangeUnavailable(staff.id, staffStart, staffEnd)) return null;
+                  {(() => {
+                    const staffBookings = dayBookings
+                      .filter((b) => {
+                        // Only the segment actually being dragged needs special handling —
+                        // hide it from its original column and show it only under the
+                        // current drag-target column. A multi-staff booking's OTHER
+                        // segments (e.g. a package on a different staff) are unrelated to
+                        // this drag and must keep rendering normally in their own columns.
+                        if (dragging?.booking.id === b.id
+                            && (staff.id === dragging.originalStaffId || staff.id === dragging.currentStaffId)) {
+                          return dragging.currentStaffId === staff.id;
+                        }
+                        // Per-item staff (service/package/product/membership): show chip
+                        // under each item's own staff column.
+                        if (getStaffSegments(b, staff.id).length > 0) return true;
+                        // Backward compat: if NO item anywhere carries its own staffId,
+                        // fall back to the appointment-level staffId.
+                        const anyItemHasStaff =
+                          (b.services || []).some((s: any) => s.staffId) ||
+                          (b.packageItems || []).some((p: any) => p.staffId) ||
+                          (b.productItems || []).some((p: any) => p.staffId) ||
+                          (b.membershipItems || []).some((m: any) => m.staffId);
+                        if (b.staffId && String(b.staffId) === String(staff.id) && !anyItemHasStaff) return true;
+                        return false;
+                      })
+                      .map((b) => {
+                        const segs = getStaffSegments(b, staff.id);
+                        const staffStart = segs.length > 0
+                          ? segs.reduce((min, s) => toMinsLocal(s.time) < toMinsLocal(min) ? s.time : min, segs[0].time)
+                          : b.startTime;
+                        const staffEnd = segs.length > 0
+                          ? segs.reduce((max, s) => toMinsLocal(s.endTime) > toMinsLocal(max) ? s.endTime : max, segs[0].endTime)
+                          : b.endTime;
+                        return { booking: b, staffStart, staffEnd };
+                      })
+                      .filter(({ staffStart, staffEnd }) => !isTimeRangeUnavailable(staff.id, staffStart, staffEnd));
+
+                    // Concurrent appointments for the same staff (e.g. hair-color processing
+                    // time) are allowed — lay them out side-by-side instead of stacking.
+                    const overlapLayout = computeOverlapLayout(
+                      staffBookings.map(({ booking: b, staffStart, staffEnd }) => ({
+                        id: `${b.id}-${staff.id}`,
+                        startMin: toMinsLocal(staffStart),
+                        endMin: toMinsLocal(staffEnd),
+                      }))
+                    );
+
+                    return staffBookings.map(({ booking: b, staffStart, staffEnd }) => {
+                      // Match by staff column too — the same booking can render in up to
+                      // one chip per staff it has items assigned to, and only the chip in
+                      // the column actually being dragged/resized should track the live
+                      // interaction. Matching by booking id alone made every column's chip
+                      // for this booking snap to the same dragged position together.
+                      const isDraggingThis = dragging?.booking.id === b.id && dragging.currentStaffId === staff.id;
+                      const isResizingThis = resizing?.booking.id === b.id && resizing.staffId === staff.id;
                       const chipTop    = isDraggingThis ? dragging!.currentTop : timeToPx(staffStart);
                       const chipHeight = isResizingThis ? resizing!.currentHeight : durationToPx(staffStart, staffEnd);
+                      const key = `${b.id}-${staff.id}`;
+                      // Full width while being dragged/resized so layout doesn't jump mid-interaction
+                      const { col, totalCols } = (isDraggingThis || isResizingThis)
+                        ? { col: 0, totalCols: 1 }
+                        : overlapLayout.get(key) ?? { col: 0, totalCols: 1 };
                       return (
                         <BookingChip
-                          key={`${b.id}-${staff.id}`}
+                          key={key}
                           booking={b}
                           staffStart={staffStart}
                           staffEnd={staffEnd}
                           chipTop={chipTop}
                           chipHeight={chipHeight}
+                          chipCol={col}
+                          chipTotalCols={totalCols}
                           slotHeight={SLOT_HEIGHT}
                           intervalMins={intervalMins}
                           isDraggingThis={isDraggingThis}
@@ -749,7 +828,8 @@ const DayView: React.FC<DayViewProps> = ({
                           onStartResize={handleStartResize}
                         />
                       );
-                    })}
+                    });
+                  })()}
 
                   {isToday && (
                     <div className="dv-now-line" style={{ top: nowPx }}>

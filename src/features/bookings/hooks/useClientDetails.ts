@@ -12,9 +12,10 @@ function formatDate(raw?: string | null): string {
 }
 
 function buildStats(d: ClientDetails): ClientStats {
-  const rp = d.reward_points ?? d.rewardPoints;
+  const rp = d.reward_points_balance ?? d.reward_points ?? d.rewardPoints;
   return {
     rewardPoints: (rp != null && Number(rp) > 0) ? String(rp) : "None",
+    rewardPointsBalance: Number(rp) || 0,
     ewalletAmt:   Number(d.wallet_balance ?? d.ewallet_balance ?? 0),
     unpaidAmt:    Number(d.unpaid_amount ?? d.total_due ?? d.outstanding_amount ?? d.due_amount ?? 0),
     assignDiscount: Number(d.assign_discount ?? 0),
@@ -199,5 +200,15 @@ export function useClientDetails(clientId: string | null | undefined) {
     });
   }, []);
 
-  return { details, stats, loading, error, patchUnpaidAmt };
+  /** Call after an eWallet top-up to reflect the new balance locally without re-fetching */
+  const patchEwalletAmt = useCallback((newBalance: number) => {
+    setDetails((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, ewallet_balance: newBalance };
+      setStats(buildStats(updated));
+      return updated;
+    });
+  }, []);
+
+  return { details, stats, loading, error, patchUnpaidAmt, patchEwalletAmt };
 }

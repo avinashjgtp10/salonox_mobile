@@ -21,6 +21,7 @@ interface CompletePaymentParams {
   eWalletAmt: number;
   couponDiscount: number;
   couponApplied: string;
+  rewardPointsRedeemed?: number;
   // Method
   paymentMode: "single" | "split";
   singleMethod: SingleMethod | null;
@@ -53,7 +54,7 @@ export function usePayment() {
       alreadyPaidAmount, eWalletAmt, couponDiscount, couponApplied,
       paymentMode, singleMethod, splitEntries, partialAmtInput,
       includeClearDue, priorDueAmt, useEWallet, applyMembershipWallet,
-      gstAmount, taxBreakdown,
+      gstAmount, taxBreakdown, rewardPointsRedeemed,
     } = params;
 
     // gross_amount = pre-discount subtotal so the backend can compute:
@@ -89,7 +90,6 @@ export function usePayment() {
       const totalPaid    = Object.values(methods).reduce((a, b) => a + b, 0);
       const currentCharge = Math.min(totalPaid, remainingDue);
       const newDue        = Math.max(0, parseFloat((remainingDue - currentCharge).toFixed(2)));
-      const payStatus     = newDue > 0 ? "Partial" : "Paid";
       const methodLabel   = buildMethodLabel(paymentMode, singleMethod, methods);
 
       // ── Post payment for current appointment ────────────────────────────
@@ -115,6 +115,8 @@ export function usePayment() {
         split_details:    paymentMode === "split" ? methods : { [singleMethod!]: currentCharge },
         status:           newDue > 0 ? "partial" : "completed",
         apply_membership_wallet: !!applyMembershipWallet,
+        reward_points_redeemed: rewardPointsRedeemed || undefined,
+        tax_breakdown: taxBreakdown && taxBreakdown.length > 0 ? taxBreakdown : undefined,
       }));
 
       // "already completed" is treated as success
@@ -125,12 +127,26 @@ export function usePayment() {
       }
 
       // ── Patch Redux for current booking ─────────────────────────────────
+      // Prefer the backend's own saved payment record over our local guess —
+      // payments.service.ts independently recomputes due/paid amounts server-side
+      // (e.g. after its own reward-points/membership-wallet deductions), and that
+      // recompute can legitimately differ from what we assumed here. Trusting our
+      // own numbers instead of the server's would show a due amount that doesn't
+      // match what was actually recorded (e.g. a redeemed-points shortfall showing
+      // up as unpaid "Due" even though the customer paid what they owed).
+      const savedPayment = result.payload?.data;
+      const finalDue     = savedPayment?.due_amount    != null ? Number(savedPayment.due_amount)    : newDue;
+      const finalPaid    = savedPayment?.paid_amount    != null ? Number(savedPayment.paid_amount)    : currentCharge;
+      const finalStatus: "Paid" | "Partial" = finalDue > 0 ? "Partial" : "Paid";
+      const rewardPointsValuePaid = savedPayment?.reward_points_value != null ? Number(savedPayment.reward_points_value) : 0;
+
       dispatch(patchPaymentStatus({
         id: String(appointmentId),
-        paymentStatus: payStatus as "Paid" | "Partial",
-        payingNow: alreadyPaidAmount + currentCharge,
-        dueAmount: newDue,
+        paymentStatus: finalStatus,
+        payingNow: alreadyPaidAmount + finalPaid,
+        dueAmount: finalDue,
         grandTotal: effectiveTotal,
+        rewardPointsValue: rewardPointsValuePaid,
         paymentMode: paymentMode === "split"
           ? Object.keys(methods).filter((k) => k !== "eWallet").join("+")
           : (singleMethod || "Cash"),

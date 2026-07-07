@@ -21,6 +21,14 @@ interface Props {
   membershipWalletUsed?: number;
   membershipWalletRemaining?: number;
 
+  // Reward points redemption
+  rewardPointsBalance?: number;
+  rewardPointsFullValue?: number;
+  useRewardPoints?: boolean;
+  onToggleRewardPoints?: (v: boolean) => void;
+  rewardPointsRedeemed?: number;
+  rewardPointsRedeemedValue?: number;
+
   // Coupon
   couponInput: string;
   onCouponInputChange: (v: string) => void;
@@ -65,6 +73,9 @@ export const PaymentPanel: React.FC<Props> = ({
   remainingDue, alreadyPaid,
   eWalletBalance, useEWallet, eWalletAmt, onToggleEWallet,
   membershipWalletUsed = 0, membershipWalletRemaining,
+  rewardPointsBalance = 0, rewardPointsFullValue = 0,
+  useRewardPoints = false, onToggleRewardPoints,
+  rewardPointsRedeemed = 0, rewardPointsRedeemedValue = 0,
   couponInput, onCouponInputChange, onApplyCoupon,
   couponMessage, couponError, couponLoading,
   paymentMode, onSetPaymentMode,
@@ -83,7 +94,7 @@ export const PaymentPanel: React.FC<Props> = ({
       {/* Rewards preview */}
       {previewPoints > 0 && (
         <div className="pay-rewards">
-          🎁 Earn <strong>{previewPoints} pts</strong> → {currencySymbol}{previewWalletCredit.toFixed(2)} eWallet credit
+          🎁 Earn <strong>{previewPoints} pts</strong> (worth {currencySymbol}{previewWalletCredit.toFixed(2)} when redeemed later)
         </div>
       )}
 
@@ -119,6 +130,22 @@ export const PaymentPanel: React.FC<Props> = ({
           <span>Use eWallet (Available: {currencySymbol}{eWalletBalance.toFixed(2)})</span>
           {useEWallet && eWalletAmt > 0 && (
             <span className="pay-ewallet__deducted">-{currencySymbol}{eWalletAmt.toFixed(2)}</span>
+          )}
+        </div>
+      )}
+
+      {/* Reward points redemption */}
+      {rewardPointsBalance > 0 && !frozen && onToggleRewardPoints && (
+        <div
+          className={`pay-ewallet${useRewardPoints ? " pay-ewallet--active" : ""}`}
+          onClick={() => onToggleRewardPoints(!useRewardPoints)}
+        >
+          <input type="checkbox" checked={useRewardPoints} readOnly />
+          <span>Redeem Points (Available: {rewardPointsBalance} pts = {currencySymbol}{rewardPointsFullValue.toFixed(2)})</span>
+          {useRewardPoints && rewardPointsRedeemedValue > 0 && (
+            <span className="pay-ewallet__deducted">
+              -{currencySymbol}{rewardPointsRedeemedValue.toFixed(2)} ({rewardPointsRedeemed} pts)
+            </span>
           )}
         </div>
       )}

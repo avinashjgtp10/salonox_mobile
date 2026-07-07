@@ -25,6 +25,8 @@ export interface PaymentPayload {
   status: "completed" | "partial";
   notes?: string;
   apply_membership_wallet?: boolean;
+  reward_points_redeemed?: number;
+  tax_breakdown?: { name: string; rate: number; amount: number; inclusive: boolean }[];
 }
 
 // ─── Result of clearing a prior due ─────────────────────────────────────────

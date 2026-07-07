@@ -5,6 +5,7 @@ import { useAppSelector } from "../../../../hooks/useAppRedux";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import { getWeekDays, DAYS_SHORT, formatTime12, getCurrentTime } from "../../utils/timeUtils";
 import BookingTooltipCard from "../shared/BookingTooltipCard";
+import { computeOverlapLayout } from "../../utils/overlapLayout";
 import { useListClientPackagesQuery } from "../../../../services/api/endpoints/packages.endpoints";
 import "../../styles/WeekView.scss";
 
@@ -198,32 +199,52 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({ onSlotClick, onViewBill })
                       </>
                     );
                   })()}
-                  {dayBookings.map((b: any) => {
-                    const ps = (b.paymentStatus || "").toLowerCase();
-                    const bs = (b.status || "").toLowerCase();
-                    const isPaid = ps === "paid" || ps === "completed";
-                    const isPartial = ps === "partial";
-                    const isConfirmed = bs === "confirmed" || bs === "completed";
-                    const isCancelled = bs === "cancelled";
-                    const statusClass = isCancelled ? "cancelled" : isPaid ? "confirmed" : isPartial ? "partial" : isConfirmed ? "confirmed" : "pending";
-                    const chipH = durationToPx(b.startTime, b.endTime);
-                    const primaryStaffName = staffById.get(b.staffId)?.name ?? "";
-                    return (
-                      <div
-                        key={b.id}
-                        className={`wv-chip wv-chip--${statusClass}`}
-                        style={{ top: timeToPx(b.startTime), height: chipH }}
-                        onMouseEnter={(e) => openTip(b, e.currentTarget)}
-                        onMouseLeave={closeTip}
-                        onClick={(e) => { e.stopPropagation(); onViewBill(b); }}
-                      >
-                        <div className="wv-chip__time">{formatTime12(b.startTime)}</div>
-                        <div className="wv-chip__client">{b.clientName}</div>
-                        {chipH > 44 && primaryStaffName && <div className="wv-chip__staff">{primaryStaffName}</div>}
-                        {chipH > 58 && <div className="wv-chip__service">{b.title || b.services[0]?.service || "Appointment"}</div>}
-                      </div>
+                  {(() => {
+                    // Concurrent appointments (same or different staff) render side-by-side
+                    // instead of stacking — overlaps are allowed, not blocked.
+                    const overlapLayout = computeOverlapLayout(
+                      dayBookings.map((b: any) => ({
+                        id: String(b.id),
+                        startMin: toMins(b.startTime),
+                        endMin: toMins(b.endTime),
+                      }))
                     );
-                  })}
+                    return dayBookings.map((b: any) => {
+                      const ps = (b.paymentStatus || "").toLowerCase();
+                      const bs = (b.status || "").toLowerCase();
+                      const isPaid = ps === "paid" || ps === "completed";
+                      const isPartial = ps === "partial";
+                      const isConfirmed = bs === "confirmed" || bs === "completed";
+                      const isCancelled = bs === "cancelled";
+                      const statusClass = isCancelled ? "cancelled" : isPaid ? "confirmed" : isPartial ? "partial" : isConfirmed ? "confirmed" : "pending";
+                      const chipH = durationToPx(b.startTime, b.endTime);
+                      const primaryStaffName = staffById.get(b.staffId)?.name ?? "";
+                      const { col, totalCols } = overlapLayout.get(String(b.id)) ?? { col: 0, totalCols: 1 };
+                      const isConcurrent = totalCols > 1;
+                      const overlapStyle: React.CSSProperties = isConcurrent
+                        ? {
+                            left: `calc(${(col / totalCols) * 100}% + 2px)`,
+                            right: "auto",
+                            width: `calc(${100 / totalCols}% - 4px)`,
+                          }
+                        : {};
+                      return (
+                        <div
+                          key={b.id}
+                          className={`wv-chip wv-chip--${statusClass}${isConcurrent ? " wv-chip--concurrent" : ""}`}
+                          style={{ top: timeToPx(b.startTime), height: chipH, ...overlapStyle }}
+                          onMouseEnter={(e) => openTip(b, e.currentTarget)}
+                          onMouseLeave={closeTip}
+                          onClick={(e) => { e.stopPropagation(); onViewBill(b); }}
+                        >
+                          <div className="wv-chip__time">{formatTime12(b.startTime)}</div>
+                          <div className="wv-chip__client">{b.clientName}</div>
+                          {chipH > 44 && primaryStaffName && <div className="wv-chip__staff">{primaryStaffName}</div>}
+                          {chipH > 58 && <div className="wv-chip__service">{b.title || b.services[0]?.service || "Appointment"}</div>}
+                        </div>
+                      );
+                    });
+                  })()}
                   {isToday2 && <div className="wv-now-line" style={{ top: nowPx }} />}
                 </div>
               );

@@ -73,7 +73,7 @@ interface Props {
   membershipWalletInfo?: Map<string, { walletUsed: number; payable: number }>;
 
   svcErrors?: Array<{ service?: boolean; staff?: boolean; time?: boolean }>;
-  pkgErrors?: boolean[];
+  pkgErrors?: Array<{ item?: boolean; staff?: boolean; time?: boolean }>;
   prodErrors?: Array<{ item?: boolean; staff?: boolean; time?: boolean }>;
   memErrors?: Array<{ item?: boolean; staff?: boolean; time?: boolean }>;
   onClearSvcError?: (index: number, field: string) => void;
@@ -127,8 +127,10 @@ function getDiscountValue(discount?: number) {
   return Number.isFinite(discount) && (discount ?? 0) > 0 ? String(discount) : "";
 }
 
-function calcTotal(price: number, qty: number, discount: number) {
-  return Math.max(0, price * qty - discount);
+// Per-row discount is a PERCENTAGE (0–100) of price × qty, not a flat amount.
+function calcTotal(price: number, qty: number, discountPct: number) {
+  const pct = Math.min(100, Math.max(0, discountPct));
+  return Math.max(0, price * qty * (1 - pct / 100));
 }
 
 function formatPriceForSearch(value: number) {
@@ -456,18 +458,13 @@ function SearchableItemRow(props: SearchableItemRowProps) {
   }, [frozen, isNumericPriceSearch, items, meetsMinSearchLength, trimmedSearch]);
 
   function handleSearchChange(value: string) {
-    const qty = getSafeQty(row.qty);
-    const discount = parseInt(discountInput, 10) || 0;
-
+    // Only track the local search query here — NOT the row itself. The row's real
+    // selectedId/selectedName only get committed via handleSelect() below, when the
+    // user actually picks a result from the dropdown. Otherwise free-typed text that
+    // was never selected would still show up in the row (and reach the save payload).
     userTypedRef.current = true;
     setScanMessage("");
     setSearch(value);
-    updateRow({
-      selectedId: "",
-      selectedName: value,
-      price: 0,
-      total: calcTotal(0, qty, discount),
-    });
   }
 
   function handleSelect(item: SearchableCatalogItem) {
@@ -620,10 +617,10 @@ function SearchableItemRow(props: SearchableItemRowProps) {
   }
 
   function handleDiscountChange(value: string) {
-    const normalizedValue = value.slice(0, 5);
+    const normalizedValue = value.slice(0, 3);
     setDiscountInput(normalizedValue);
 
-    const discount = parseInt(normalizedValue, 10) || 0;
+    const discount = Math.min(100, parseInt(normalizedValue, 10) || 0);
     const qty = getSafeQty(row.qty);
     updateRow({
       discount,
@@ -632,7 +629,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
   }
 
   function handleDiscountBlur() {
-    const discount = Math.min(99999, Math.max(0, parseInt(discountInput, 10) || 0));
+    const discount = Math.min(100, Math.max(0, parseInt(discountInput, 10) || 0));
     const qty = getSafeQty(row.qty);
 
     setDiscountInput(discount > 0 ? String(discount) : "");
@@ -654,6 +651,11 @@ function SearchableItemRow(props: SearchableItemRowProps) {
             disabled={frozen}
             onChange={(e) => handleSearchChange(e.target.value)}
             onFocus={() => setShowDrop(meetsMinSearchLength && (isSearching || results.length > 0))}
+            onBlur={() => {
+              // Typed text that was never selected from the dropdown (or matched by
+              // barcode) gets reverted back to the row's actual selected item.
+              setSearch(selectedName);
+            }}
             onKeyDown={(e) => {
               if (e.key !== "Enter" || kind !== "product") return;
 
@@ -775,7 +777,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
         className="svc-field__input"
         type="text"
         inputMode="numeric"
-        maxLength={5}
+        maxLength={3}
         disabled={frozen}
         placeholder="0"
         value={discountInput}
@@ -858,14 +860,16 @@ export const ServicesPanel: React.FC<Props> = ({
     {packageRows.length > 0 && (
       <>
         <div className="item-section-header item-section-header--package">
-          <span>Package</span><span>Staff</span><span>Time</span><span>Price</span><span>Qty</span><span>Disc</span><span>Total</span><span /><span />
+          <span>Package</span><span>Staff</span><span>Time</span><span>Price</span><span>Qty</span><span>Disc %</span><span>Total</span><span /><span />
         </div>
         {packageRows.map((row, i) => (
           <SearchableItemRow
             key={`pkg-${row.packageId || `new-${i}`}`}
             row={row}
             frozen={frozen}
-            error={pkgErrors?.[i]}
+            error={pkgErrors?.[i]?.item}
+            staffError={pkgErrors?.[i]?.staff}
+            timeError={pkgErrors?.[i]?.time}
             kind="package"
             items={stablePackageItems}
             placeholder="Search package..."
@@ -883,7 +887,7 @@ export const ServicesPanel: React.FC<Props> = ({
     {productRows.length > 0 && (
       <>
         <div className="item-section-header item-section-header--product">
-          <span>Product</span><span>Staff</span><span>Time</span><span>Price</span><span>Qty</span><span>Disc</span><span>Total</span><span /><span />
+          <span>Product</span><span>Staff</span><span>Time</span><span>Price</span><span>Qty</span><span>Disc %</span><span>Total</span><span /><span />
         </div>
         {productRows.map((row, i) => (
           <SearchableItemRow
@@ -916,7 +920,7 @@ export const ServicesPanel: React.FC<Props> = ({
     {membershipRows.length > 0 && (
       <>
         <div className="item-section-header item-section-header--membership">
-          <span>Membership</span><span>Staff</span><span>Time</span><span>Price</span><span>Qty</span><span>Disc</span><span>Total</span><span /><span />
+          <span>Membership</span><span>Staff</span><span>Time</span><span>Price</span><span>Qty</span><span>Disc %</span><span>Total</span><span /><span />
         </div>
         {membershipRows.map((row, i) => {
           const memDisc = row.discount || 0;
@@ -999,22 +1003,22 @@ export const ServicesPanel: React.FC<Props> = ({
                 value={row.qty || 1}
                 onChange={(e) => {
                   const qty = Math.max(1, parseInt(e.target.value, 10) || 1);
-                  onUpdateMembership(i, { ...row, qty, total: Math.max(0, row.price * qty - memDisc) });
+                  onUpdateMembership(i, { ...row, qty, total: calcTotal(row.price, qty, memDisc) });
                 }}
               />
 
-              {/* 6 — Discount */}
+              {/* 6 — Discount (%) */}
               <input
                 className="svc-field__input"
                 type="text"
                 inputMode="numeric"
-                maxLength={5}
+                maxLength={3}
                 disabled={frozen}
                 placeholder="0"
                 value={memDisc > 0 ? String(memDisc) : ""}
                 onChange={(e) => {
-                  const disc = Math.max(0, parseInt(e.target.value.replace(/\D/g, ""), 10) || 0);
-                  onUpdateMembership(i, { ...row, discount: disc, total: Math.max(0, row.price * (row.qty || 1) - disc) });
+                  const disc = Math.min(100, Math.max(0, parseInt(e.target.value.replace(/\D/g, ""), 10) || 0));
+                  onUpdateMembership(i, { ...row, discount: disc, total: calcTotal(row.price, row.qty || 1, disc) });
                 }}
               />
 

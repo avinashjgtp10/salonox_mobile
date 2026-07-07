@@ -15,6 +15,7 @@ export interface ClientDetails {
   ewallet_balance?: number;
 
   // Rewards
+  reward_points_balance?: string | number;
   reward_points?: string | number;
   rewardPoints?: string | number;
 
@@ -46,6 +47,7 @@ export interface ClientDetails {
 // ─── Derived stat card values (computed in useClientDetails) ──────────────────
 export interface ClientStats {
   rewardPoints: string;
+  rewardPointsBalance: number;
   ewalletAmt: number;
   unpaidAmt: number;
   assignDiscount: number;

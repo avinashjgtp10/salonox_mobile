@@ -8,6 +8,9 @@ import { formatTime12 } from "../../utils/timeUtils";
 import Badge from "../../../../components/ui/Badge";
 import { getActiveTaxes } from "../../../settings/utils/taxSettings";
 import { computeTotals } from "../../utils/totalsUtils";
+import { useClientDetails } from "../../hooks/useClientDetails";
+import { useClientMembershipWallet } from "../../hooks/useClientMembershipWallet";
+import { useListClientPackagesQuery } from "../../../../services/api/endpoints/packages.endpoints";
 import "../../styles/ViewBillModal.scss";
 
 interface Props { booking: Booking; onClose: () => void; onEdit?: (booking: Booking) => void; onCollectDue?: (booking: Booking) => void }
@@ -17,6 +20,7 @@ export function printReceipt(
   staffList: { id: string; name: string }[],
   salon: Salon | null,
   client?: { phone?: string; email?: string; [key: string]: any } | null,
+  opts?: { auto?: boolean },
 ) {
   const findStaffName = (id?: string | number | null) =>
     id ? staffList.find((s) => String(s.id) === String(id))?.name ?? "" : "";
@@ -40,6 +44,14 @@ export function printReceipt(
   const clientGst      = (booking as any).clientGst || (booking as any).client_gst || "";
   const membershipName = (booking as any).membershipName || (booking as any).membership_name || "";
   const loyaltyPoints  = (booking as any).loyaltyPoints ?? (booking as any).loyalty_points ?? null;
+
+  // Client's current reward points balance / active memberships / active packages —
+  // passed in via the `client` param since booking itself only ever carries the
+  // items purchased on THIS appointment, not the client's overall standing.
+  const rewardPointsBalance = (client as any)?.rewardPointsBalance ?? loyaltyPoints;
+  const activeMemberships: { membershipName: string; membershipWalletBalance: number }[] = (client as any)?.activeMemberships ?? [];
+  const activePackages: { packageName: string; remaining: number; total: number }[] = (client as any)?.activePackages ?? [];
+  const primaryMembershipName = activeMemberships[0]?.membershipName || membershipName;
 
   const now = new Date();
   const printDate = now.toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" });
@@ -129,6 +141,7 @@ export function printReceipt(
   const grandTotal  = Number(booking.grandTotal || 0);
   const paidAmt     = Number(booking.payingNow  || 0);
   const dueAmt      = Number(booking.dueAmount  || 0);
+  const rewardPointsValuePaid = Number((booking as any).rewardPointsValue || 0);
 
   const sumRow = (label: string, value: string, bold = false, color = "#111827", borderDouble = false) =>
     `<tr>
@@ -161,6 +174,7 @@ export function printReceipt(
         ]
       : [gstAmt > 0 ? sumRow(`GST${gstPct > 0 ? ` (${gstPct}%)` : ""}`, `+${fmt(gstAmt)}`) : ""]),
     sumRow("Grand Total", fmt(isPackagePaid ? 0 : grandTotal), true, "#111827", true),
+    rewardPointsValuePaid > 0 ? sumRow("Paid from Reward Points", fmt(rewardPointsValuePaid), false, "#7c3aed") : "",
     paidAmt > 0 ? sumRow("Amount Paid", fmt(paidAmt), false, "#15803d") : "",
     dueAmt  > 0 ? sumRow("Balance Due", fmt(dueAmt),  true,  "#dc2626") : "",
   ].filter(Boolean).join("");
@@ -336,8 +350,8 @@ export function printReceipt(
         ${infoCell("Phone",      clientPhone || "—")}
         ${infoCell("Email",      clientEmail         || "—")}
         ${clientGst              ? infoCell("GST No",     clientGst)                : ""}
-        ${membershipName         ? infoCell("Membership", membershipName)           : ""}
-        ${loyaltyPoints !== null ? infoCell("Loyalty Pts",String(loyaltyPoints))   : ""}
+        ${primaryMembershipName  ? infoCell("Membership", primaryMembershipName)     : ""}
+        ${rewardPointsBalance !== null ? infoCell("Reward Points", String(rewardPointsBalance)) : ""}
       </div>
     </div>
     <div class="inv-info-col">
@@ -387,6 +401,7 @@ export function printReceipt(
     <div>
       ${booking.notes ? `<div class="inv-notes"><div class="inv-notes-title">Notes</div>${booking.notes}</div>` : ""}
       ${(booking as any).staffAlert ? `<div class="inv-notes" style="margin-top:8px"><div class="inv-notes-title">Staff Alert</div>${(booking as any).staffAlert}</div>` : ""}
+      ${activePackages.length > 0 ? `<div class="inv-notes" style="margin-top:8px"><div class="inv-notes-title">Active Packages</div>${activePackages.map(p => `${p.packageName} — ${p.remaining}/${p.total} sessions left`).join("<br>")}</div>` : ""}
     </div>
     <div>
       <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#111827;margin-bottom:8px;padding-bottom:5px;border-bottom:2px solid #111827">Payment Summary</div>
@@ -417,6 +432,33 @@ export function printReceipt(
 </div>
 </body>
 </html>`;
+
+  // Auto-print (right after payment): window.open would be popup-blocked here,
+  // because the awaits before it consumed the user's click activation. A hidden
+  // same-page iframe needs no popup permission and opens the print dialog directly.
+  // The .print-toolbar is display:none under @media print, so the printout is clean.
+  if (opts?.auto) {
+    const iframe = document.createElement("iframe");
+    iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
+    document.body.appendChild(iframe);
+    const doc = iframe.contentWindow?.document;
+    if (!doc) { iframe.remove(); return; }
+    doc.open();
+    doc.write(html);
+    doc.close();
+    const triggerPrint = () => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch { /* printing unavailable — nothing else to try */ }
+      // The print dialog blocks script; remove the iframe well after it's dismissed
+      setTimeout(() => iframe.remove(), 60_000);
+    };
+    // Small delay lets the logo/images render before the dialog snapshots the page
+    if (doc.readyState === "complete") setTimeout(triggerPrint, 200);
+    else iframe.addEventListener("load", () => setTimeout(triggerPrint, 200));
+    return;
+  }
 
   const win = window.open("", "_blank", "width=960,height=860");
   if (!win) { alert("Please allow popups to print the receipt."); return; }
@@ -449,6 +491,27 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
   }, [showDotMenu]);
 
   const client = clientsList.find((c) => c.id === booking.clientId);
+
+  // ── Client's overall standing (reward points / active memberships / packages) ──
+  // Distinct from the items purchased on THIS booking — this reflects the client's
+  // current balance, shown "if had" on both the screen view and the printed receipt.
+  const clientIdForExtras = booking.clientId && booking.clientId !== "walk-in" ? booking.clientId : undefined;
+  const { stats: clientExtraStats } = useClientDetails(clientIdForExtras);
+  const { memberships: clientActiveMemberships } = useClientMembershipWallet(clientIdForExtras);
+  const { data: clientPkgsData } = useListClientPackagesQuery(
+    { clientId: clientIdForExtras, status: "Active", limit: 50 },
+    { skip: !clientIdForExtras },
+  );
+  const activePackagesForBill = (clientPkgsData?.items ?? [])
+    .filter((p) => p.status === "Active")
+    .map((p) => ({
+      packageName: p.packageName,
+      remaining: p.services.reduce((s, sv) => s + sv.remainingSessions, 0),
+      total: p.services.reduce((s, sv) => s + sv.totalSessions, 0),
+    }))
+    .filter((p) => p.remaining > 0);
+  const activeMembershipsForBill = clientActiveMemberships.filter((m) => m.status === "active");
+  const rewardPointsBalanceForBill = clientExtraStats?.rewardPointsBalance ?? 0;
 
   // Use String() coercion so number IDs from the API match string IDs from the form
   const findStaffName = (id?: string | number | null) =>
@@ -505,6 +568,30 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
             <div className="vbm-pay-mode mt-1">Mode: <strong>{booking.paymentMode || "—"}</strong></div>
           </div>
 
+          {(rewardPointsBalanceForBill > 0 || activeMembershipsForBill.length > 0 || activePackagesForBill.length > 0) && (
+            <div className="vbm-section">
+              <div className="vbm-section-label">🎁 Loyalty &amp; Memberships</div>
+              {rewardPointsBalanceForBill > 0 && (
+                <div className="vbm-info-row">
+                  <div className="vbm-info-row__label">Reward Points</div>
+                  <div className="vbm-info-row__value">{rewardPointsBalanceForBill} pts</div>
+                </div>
+              )}
+              {activeMembershipsForBill.map((m) => (
+                <div className="vbm-info-row" key={m.id}>
+                  <div className="vbm-info-row__label">Membership</div>
+                  <div className="vbm-info-row__value">{m.membershipName} ({currencySymbol}{m.membershipWalletBalance.toFixed(2)} left)</div>
+                </div>
+              ))}
+              {activePackagesForBill.map((p) => (
+                <div className="vbm-info-row" key={p.packageName}>
+                  <div className="vbm-info-row__label">Package</div>
+                  <div className="vbm-info-row__value">{p.packageName} ({p.remaining}/{p.total} left)</div>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="vbm-section">
             <div className="vbm-section-label">Appointment</div>
             {[
@@ -542,6 +629,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
               booking.exCharges      ? ["Extra Charges", `${currencySymbol}${booking.exCharges.toFixed(2)}`, "#374151", false] : null,
               booking.tipAmount      ? ["Tip", `${currencySymbol}${booking.tipAmount.toFixed(2)}`, "#374151", false] : null,
               ["Total", `${currencySymbol}${(isPackagePaid ? 0 : (booking.grandTotal || 0)).toFixed(2)}`, "#111827", true],
+              (booking.rewardPointsValue || 0) > 0 ? ["🎁 Paid from Reward Points", `${currencySymbol}${(booking.rewardPointsValue || 0).toFixed(2)}`, "#7c3aed", false] : null,
               ["Paid",  `${currencySymbol}${(booking.payingNow || 0).toFixed(2)}`, "#111827", false],
               (booking.dueAmount || 0) > 0 ? ["Due", `${currencySymbol}${(booking.dueAmount || 0).toFixed(2)}`, "#ef4444", false] : null,
             ].filter((row): row is [string, string, string, boolean] => row !== null).map(([l, v, c, bold]) => (
@@ -644,7 +732,12 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                         });
                         printBooking = { ...booking, taxBreakdown: totals.taxBreakdown, gstAmount: totals.gstAmount } as any;
                       }
-                      printReceipt(printBooking, staffList, currentSalon, client);
+                      printReceipt(printBooking, staffList, currentSalon, {
+                        ...client,
+                        rewardPointsBalance: rewardPointsBalanceForBill,
+                        activeMemberships: activeMembershipsForBill,
+                        activePackages: activePackagesForBill,
+                      });
                     }}
                     style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#111827", borderRadius: "0 0 10px 10px", textAlign: "left" }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
@@ -785,6 +878,9 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                     </div>
                   ))}
                   <div className="vbm-breakdown-row vbm-breakdown-row--grand"><span>Grand Total</span><span>{currencySymbol}{(isPackagePaid ? 0 : (booking.grandTotal || 0)).toFixed(2)}</span></div>
+                  {(booking.rewardPointsValue || 0) > 0 && (
+                    <div className="vbm-breakdown-row" style={{ color: "#7c3aed" }}><span>🎁 Paid from Reward Points</span><span>{currencySymbol}{(booking.rewardPointsValue || 0).toFixed(2)}</span></div>
+                  )}
                   <div className="vbm-breakdown-row vbm-breakdown-row--paid"><span>Paid</span><span>{currencySymbol}{(booking.payingNow || 0).toFixed(2)}</span></div>
                   {(booking.dueAmount || 0) > 0 && (
                     <div className="vbm-breakdown-row vbm-breakdown-row--due"><span>Balance Due</span><span>{currencySymbol}{(booking.dueAmount || 0).toFixed(2)}</span></div>
@@ -799,7 +895,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                   { icon: "👤", label: "Client", detail: [booking.clientName, booking.clientPhone, (booking as any).clientEmail].filter(Boolean).join(" · ") },
                   { icon: "💼", label: "Staff", detail: staffName },
                   { icon: "💳", label: "Payment Status", detail: booking.paymentStatus },
-                  { icon: "📋", label: "Booking Status", detail: status },
+                  { icon: "📋", label: "Booking Status", detail: bookingStatus },
                   { icon: "💰", label: "Grand Total", detail: `${currencySymbol}${(isPackagePaid ? 0 : (booking.grandTotal || 0)).toFixed(2)}` },
                   ...(booking.payingNow ? [{ icon: "✅", label: "Amount Paid", detail: `${currencySymbol}${(booking.payingNow || 0).toFixed(2)}` }] : []),
                   ...(booking.dueAmount ? [{ icon: "⏳", label: "Balance Due", detail: `${currencySymbol}${(booking.dueAmount || 0).toFixed(2)}` }] : []),
