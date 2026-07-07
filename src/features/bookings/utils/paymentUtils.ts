@@ -1,19 +1,20 @@
 import type { SingleMethod } from "../types";
+import { DEFAULT_REWARD_POINTS_CONFIG, type RewardPointsConfig } from "../../settings/utils/rewardPointsSettings";
 
 // ─── Reward / eWallet constants ───────────────────────────────────────────────
 export const MEMBERSHIP_TIERS = { Silver: 5000, Gold: 15000, Platinum: 30000 } as const;
 export const EWALLET_REDEEM_MINIMUM = 100;
-export const POINTS_PER_RUPEE = 0.1;    // 1 pt per ₹10
-export const WALLET_CREDIT_PER_POINT = 0.5; // ₹0.50 per point
 
-/** 1 point per ₹10 spent */
-export function computePointsEarned(billAmount: number): number {
-  return Math.floor(billAmount * POINTS_PER_RUPEE);
+/** Points earned for a bill amount, using the salon's configured rate (falls back to the default rate if omitted). */
+export function computePointsEarned(billAmount: number, config: RewardPointsConfig = DEFAULT_REWARD_POINTS_CONFIG): number {
+  if (!config.active || config.spend_amount <= 0) return 0;
+  return Math.floor((billAmount / config.spend_amount) * config.points_earned);
 }
 
-/** ₹0.50 eWallet credit per point */
-export function computeEWalletCredit(points: number): number {
-  return points * WALLET_CREDIT_PER_POINT;
+/** ₹ value of a given number of points, using the salon's configured redemption rate. */
+export function computeEWalletCredit(points: number, config: RewardPointsConfig = DEFAULT_REWARD_POINTS_CONFIG): number {
+  if (config.redeem_points <= 0) return 0;
+  return (points / config.redeem_points) * config.redeem_value;
 }
 
 /** Membership tier label from lifetime revenue */

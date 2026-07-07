@@ -14,9 +14,9 @@ import { setPackagesList, patchPaymentStatus } from "../../../../store/scheduler
 import { postPaymentThunk } from "../../../../middleware/booking/payment.thunk";
 import { fetchSettingsThunk } from "../../../../middleware/setting/setting.thunk";
 import { getActiveTaxes } from "../../../settings/utils/taxSettings";
+import { getRewardPointsConfig } from "../../../settings/utils/rewardPointsSettings";
 import { isRealId } from "../../utils/paymentUtils";
 import { computeTotals }     from "../../utils/totalsUtils";
-import { formatTime12 }      from "../../utils/timeUtils";
 import { computePointsEarned, computeEWalletCredit, EWALLET_REDEEM_MINIMUM } from "../../utils/paymentUtils";
 import {
   selectPackagesList, selectProductsList, selectMembershipsList,
@@ -54,6 +54,8 @@ interface Props {
   onRefresh?: () => void;
   onCancelBooking?: (b: Booking) => void;
   onDeleteBooking?: (b: Booking) => void;
+  /** Quick Sale entry point: skip the "save only" step and go straight to payment. */
+  quickSale?: boolean;
 }
 
 function nextQuarterHour(): string {
@@ -78,7 +80,7 @@ export const AppointmentModal: React.FC<Props> = ({
   isOpen, onClose, salonId,
   existingBooking, defaultDate, defaultTime, defaultStaffId,
   defaultClientId, defaultClientName, defaultClientPhone,
-  onRefresh, onCancelBooking, onDeleteBooking,
+  onRefresh, onCancelBooking, onDeleteBooking, quickSale,
 }) => {
   const dispatch = useAppDispatch();
 
@@ -89,6 +91,7 @@ export const AppointmentModal: React.FC<Props> = ({
   useEffect(() => { dispatch(fetchSettingsThunk()); }, [dispatch]);
   const settingItems = useAppSelector((s) => s.setting.items);
   const activeTaxes  = useMemo(() => getActiveTaxes(settingItems), [settingItems]);
+  const rewardPointsConfig = useMemo(() => getRewardPointsConfig(settingItems), [settingItems]);
 
   // ── Lazy on-demand fetching ───────────────────────────────────────────────
   const [triggerPackages, { data: packagesData }]       = useLazyListPackagesQuery();
@@ -134,7 +137,6 @@ export const AppointmentModal: React.FC<Props> = ({
   const availableMemberships = useAppSelector(selectMembershipsList);
   const blockedTimes   = useAppSelector((s: any) => s.scheduler?.blockedTimes ?? []);
   const schedulerStaff = useAppSelector((s: any) => s.scheduler?.staffList ?? []);
-  const existingBookings = useAppSelector((s: any) => s.scheduler?.bookings ?? []);
   const currentSalon  = useAppSelector((s: any) => s.salon?.currentSalon ?? null);
 
   // ── Client ───────────────────────────────────────────────────────────────
@@ -176,6 +178,8 @@ export const AppointmentModal: React.FC<Props> = ({
   // ── Payment state ────────────────────────────────────────────────────────
   const [useEWallet, setUseEWallet]             = useState(false);
   const [eWalletAmt, setEWalletAmt]             = useState(0);
+  const [useRewardPoints, setUseRewardPoints]   = useState(false);
+  const [rewardPointsRedeemed, setRewardPointsRedeemed] = useState(0);
   const [paymentMode, setPaymentMode]           = useState<"single" | "split">("single");
   const [singleMethod, setSingleMethod]         = useState<SingleMethod | null>(null);
   const [splitEntries, setSplitEntries]         = useState<SplitEntry[]>([
@@ -186,6 +190,31 @@ export const AppointmentModal: React.FC<Props> = ({
   const [printAfterPayment, setPrintAfterPayment] = useState(false);
   const [payMethodError, setPayMethodError]     = useState(false);
   const [showPaymentSection, setShowPaymentSection] = useState(false);
+  const [showPaidPopup, setShowPaidPopup] = useState(false);
+
+  // Shows a centered "Payment Completed" popup for 2s, then runs the actual
+  // close/refresh — the modal has to stay mounted for those 2s for the popup
+  // to be visible at all, so this replaces calling onRefresh/onClose directly.
+  const finishWithPaidPopup = useCallback(() => {
+    setShowPaidPopup(true);
+    setTimeout(() => {
+      setShowPaidPopup(false);
+      onRefresh?.();
+      onClose();
+    }, 2000);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onRefresh, onClose]);
+
+  // Selecting a method (or switching Single/Split) resolves the "no method selected"
+  // error immediately — otherwise the red outline lingers after a valid selection.
+  const handleSelectSingleMethod = useCallback((m: SingleMethod) => {
+    setSingleMethod(m);
+    setPayMethodError(false);
+  }, []);
+  const handleSetPaymentMode = useCallback((m: "single" | "split") => {
+    setPaymentMode(m);
+    setPayMethodError(false);
+  }, []);
   const paymentSectionRef = useRef<HTMLDivElement>(null);
 
   // ── Walk-in → Add Client gate ─────────────────────────────────────────────
@@ -323,8 +352,9 @@ export const AppointmentModal: React.FC<Props> = ({
   );
   const membershipWalletRemaining = Math.max(0, (primaryMembership?.membershipWalletBalance ?? 0) - membershipWalletUsedTotal);
 
-  // Marks package sessions as complete for each covered service row after appointment is done
-  async function markPackageSessions() {
+  // Marks package sessions as complete for each covered service row after appointment is done.
+  // appointmentId links each consumed session back to the sale that used it (for audit/reporting).
+  async function markPackageSessions(appointmentId?: string) {
     const pkgs = clientPkgsData?.items ?? [];
     for (const row of serviceRows) {
       const key = row.service.toLowerCase();
@@ -344,7 +374,7 @@ export const AppointmentModal: React.FC<Props> = ({
           try {
             await completePackageSession({
               id: pkg.id,
-              body: { serviceId: svc.serviceId, staffName: row.staff || "Staff" },
+              body: { serviceId: svc.serviceId, staffName: row.staff || "Staff", appointmentId },
             }).unwrap();
           } catch {
             // don't block the appointment flow on session-mark failure
@@ -356,12 +386,18 @@ export const AppointmentModal: React.FC<Props> = ({
   }
 
   // ── Totals ───────────────────────────────────────────────────────────────
+  const rewardPointsBalance = clientStats?.rewardPointsBalance ?? 0;
+  const rewardPointsRedeemedValue = useRewardPoints
+    ? computeEWalletCredit(rewardPointsRedeemed, rewardPointsConfig)
+    : 0;
+
   const totals = computeTotals({
     serviceRows, packageRows, productRows, membershipRows,
     discountType, discountValue, taxes: activeTaxes, exCharges, tip,
     couponDiscount: coupon.discount,
     eWalletUsed: useEWallet ? eWalletAmt : 0,
     membershipWalletUsed: membershipWalletUsedTotal,
+    rewardPointsUsed: rewardPointsRedeemedValue,
   });
 
   const alreadyPaidAmount   = existingBooking?.payingNow ?? 0;
@@ -371,8 +407,29 @@ export const AppointmentModal: React.FC<Props> = ({
     : Math.max(0, totals.effectiveTotal - alreadyPaidAmount);
   // Exclude current appointment's due so "Clear Pending Due" only shows OTHER unpaid appointments
   const priorDueAmt         = Math.max(0, (clientStats?.unpaidAmt ?? 0) - remainingDue);
-  const previewPoints       = computePointsEarned(totals.effectiveTotal);
-  const previewWalletCredit = computeEWalletCredit(previewPoints);
+  const previewPoints       = computePointsEarned(totals.effectiveTotal, rewardPointsConfig);
+  const previewWalletCredit = computeEWalletCredit(previewPoints, rewardPointsConfig);
+  // Full ₹ value of the client's ENTIRE available balance (for the checkbox label) —
+  // distinct from rewardPointsRedeemedValue, which is what's actually being applied.
+  const rewardPointsFullValue = computeEWalletCredit(rewardPointsBalance, rewardPointsConfig);
+
+  // Reward points / membership / package standing to show on the printed receipt —
+  // passed as the `client` param to printReceipt() since the appointment itself
+  // only carries items purchased on THIS booking, not the client's overall balance.
+  const printClientExtras = {
+    rewardPointsBalance,
+    activeMemberships: primaryMembership
+      ? [{ membershipName: primaryMembership.membershipName, membershipWalletBalance: primaryMembership.membershipWalletBalance }]
+      : [],
+    activePackages: (clientPkgsData?.items ?? [])
+      .filter((p) => p.status === "Active")
+      .map((p) => ({
+        packageName: p.packageName,
+        remaining: p.services.reduce((s, sv) => s + sv.remainingSessions, 0),
+        total: p.services.reduce((s, sv) => s + sv.totalSessions, 0),
+      }))
+      .filter((p) => p.remaining > 0),
+  };
 
   // ── Sync eWalletAmt ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -382,13 +439,27 @@ export const AppointmentModal: React.FC<Props> = ({
     setEWalletAmt(Math.min(balance, totals.grandTotal));
   }, [useEWallet, clientStats, totals.grandTotal]);
 
+  // ── Sync rewardPointsRedeemed ─────────────────────────────────────────────
+  // Redeems just enough points to cover the remaining bill (after eWallet/
+  // membership wallet), capped at the client's available balance — same
+  // "auto-fill up to what's needed" mechanic as eWallet above.
+  useEffect(() => {
+    if (!useRewardPoints) { setRewardPointsRedeemed(0); return; }
+    if (rewardPointsBalance <= 0 || rewardPointsConfig.redeem_points <= 0 || rewardPointsConfig.redeem_value <= 0) {
+      setUseRewardPoints(false); setRewardPointsRedeemed(0); return;
+    }
+    const billBeforePoints = Math.max(0, totals.grandTotal - (useEWallet ? eWalletAmt : 0) - membershipWalletUsedTotal);
+    const pointsNeeded = (billBeforePoints / rewardPointsConfig.redeem_value) * rewardPointsConfig.redeem_points;
+    setRewardPointsRedeemed(Math.floor(Math.min(rewardPointsBalance, pointsNeeded)));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [useRewardPoints, rewardPointsBalance, rewardPointsConfig, totals.grandTotal, useEWallet, eWalletAmt, membershipWalletUsedTotal]);
+
   // ── Inline validation errors ──────────────────────────────────────────────
   const [clientError,    setClientError]    = useState("");
   const [noItemsError,   setNoItemsError]   = useState(false);
   const [blockTimeError,      setBlockTimeError]      = useState("");
-  const [apptConflictError,   setApptConflictError]   = useState("");
   const [svcErrors,      setSvcErrors]      = useState<Array<{ service?: boolean; staff?: boolean; time?: boolean }>>([]);
-  const [pkgErrors,      setPkgErrors]      = useState<boolean[]>([]);
+  const [pkgErrors,      setPkgErrors]      = useState<Array<{ item?: boolean; staff?: boolean; time?: boolean }>>([]);
   const [prodErrors,     setProdErrors]     = useState<Array<{ item?: boolean; staff?: boolean; time?: boolean }>>([]);
   const [memErrors,      setMemErrors]      = useState<Array<{ item?: boolean; staff?: boolean; time?: boolean }>>([]);
 
@@ -420,8 +491,7 @@ export const AppointmentModal: React.FC<Props> = ({
   }, [serviceRows, packageRows, productRows, membershipRows, noItemsError]);
 
   useEffect(() => {
-    if (blockTimeError)    setBlockTimeError("");
-    if (apptConflictError) setApptConflictError("");
+    if (blockTimeError) setBlockTimeError("");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serviceRows, packageRows, membershipRows, productRows, calDate]);
 
@@ -430,7 +500,15 @@ export const AppointmentModal: React.FC<Props> = ({
     if (!selectedClient) { setClientError("Please select a client or choose Walk-In"); ok = false; }
     else setClientError("");
 
-    const filledSvc = serviceRows.filter((r) => r.service.trim());
+    // A service row only counts as "filled" once it's actually selected from the
+    // catalog dropdown, same as product/package/membership rows below. Freshly
+    // added rows record that as `id` (set to the catalog service's id at
+    // selection time — see ServiceRow.tsx), but existing bookings loaded back
+    // from the API never carry that field — their catalog reference is only
+    // persisted as `service_id`. Checking `id` alone made every previously-saved
+    // booking look "empty" and silently fail validation. Accept either.
+    const isRealServiceRow = (r: any) => !!r.service?.trim() && !!(r.id || r.service_id);
+    const filledSvc = serviceRows.filter(isRealServiceRow);
     const filledPkg = packageRows.filter((r) => (r as any).packageId);
     const filledPrd = productRows.filter((r) => (r as any).productId);
     const filledMem = membershipRows.filter((r) => (r as any).membershipId);
@@ -444,16 +522,20 @@ export const AppointmentModal: React.FC<Props> = ({
     setNoItemsError(false);
 
     const se = serviceRows.map((r) => ({
-      service: !r.service.trim(),
-      staff:   !!r.service.trim() && !r.staffId,
-      time:    !!r.service.trim() && !r.time,
+      service: !isRealServiceRow(r),
+      staff:   isRealServiceRow(r) && !r.staffId,
+      time:    isRealServiceRow(r) && !r.time,
     }));
     setSvcErrors(se);
     if (se.some((e) => e.service || e.staff || e.time)) ok = false;
 
-    const pe = packageRows.map((r) => !(r as any).packageId);
+    const pe = packageRows.map((r) => ({
+      item:  !(r as any).packageId,
+      staff: !!(r as any).packageId && !r.staffId,
+      time:  !!(r as any).packageId && !r.time,
+    }));
     setPkgErrors(pe);
-    if (pe.some(Boolean)) ok = false;
+    if (pe.some((e) => e.item || e.staff || e.time)) ok = false;
 
     const pre = productRows.map((r) => ({
       item:  !(r as any).productId,
@@ -506,34 +588,9 @@ export const AppointmentModal: React.FC<Props> = ({
       }
     }
 
-    // ── Existing appointment conflict check ───────────────────────────────
-    setApptConflictError("");
-    for (const row of rowsToCheck) {
-      const svcStart = timeToMins(row.time);
-      const svcEnd   = svcStart + (row.duration || 30);
-      const clash = (existingBookings as any[]).find((b) => {
-        if (existingBooking && String(b.id) === String(existingBooking.id)) return false;
-        if (b.date !== calDate) return false;
-        const bStaffId = String(b.staffId || "");
-        const rowStaffId = String(row.staffId);
-        const staffMatch = bStaffId === rowStaffId ||
-          (b.services || []).some((s: any) => String(s.staffId) === rowStaffId);
-        if (!staffMatch) return false;
-        const bStart = timeToMins(b.startTime);
-        const bEnd   = timeToMins(b.endTime);
-        return svcStart < bEnd && svcEnd > bStart;
-      });
-      if (clash) {
-        const staffName =
-          (schedulerStaff as any[]).find((s) => String(s.id) === String(row.staffId))?.name ||
-          "This staff member";
-        setApptConflictError(
-          `${staffName} already has an appointment at ${formatTime12(clash.startTime)} – ${formatTime12(clash.endTime)}. Please choose a different time or staff.`
-        );
-        ok = false;
-        break;
-      }
-    }
+    // Overlapping appointments for the same staff are allowed intentionally
+    // (e.g. hair color processing time) — the scheduler visualizes concurrent
+    // bookings side-by-side instead of blocking the save.
 
     return ok;
   }
@@ -602,6 +659,41 @@ export const AppointmentModal: React.FC<Props> = ({
       discountType, discountValue, exCharges, tip, activeTaxes, totals,
       onRefresh, onClose]);
 
+  // Save (or update) the booking, then reveal the payment section — shared by
+  // "Continue to Payment" (existing booking) and Quick Sale (new booking, ₹0).
+  const handleContinueToPaymentZero = useCallback(async () => {
+    if (!validate()) return;
+    const id = await save(buildSavePayload());
+    if (!id) return;
+    setShowPaymentSection(true);
+    setTimeout(() => { paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 50);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [save, selectedClient, serviceRows, packageRows, productRows, membershipRows,
+      calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
+      discountType, discountValue, exCharges, tip, activeTaxes, totals]);
+
+  // Same as above but requires a real (non-walk-in) client — shared by
+  // "Continue to Payment" (existing booking) and Quick Sale (new booking, non-₹0).
+  const handleContinueToPayment = useCallback(async () => {
+    const isWalkIn = !selectedClient || selectedClient.id === "walk-in";
+    if (isWalkIn) {
+      setWalkInPayError("Add client details before proceeding to payment.");
+      setTriggerAddForm(true);
+      clientSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if (!validate()) return;
+    const id = await save(buildSavePayload());
+    if (!id) return;
+    setShowPaymentSection(true);
+    setTimeout(() => {
+      paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [save, selectedClient, serviceRows, packageRows, productRows, membershipRows,
+      calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
+      discountType, discountValue, exCharges, tip, activeTaxes, totals]);
+
   // ── Pay ──────────────────────────────────────────────────────────────────
   const handlePay = useCallback(async () => {
     // Validate payment method first — stop completely if not selected
@@ -631,24 +723,24 @@ export const AppointmentModal: React.FC<Props> = ({
       applyMembershipWallet: applyMembership,
       gstAmount:         totals.gstAmount,
       taxBreakdown:      totals.taxBreakdown,
+      rewardPointsRedeemed: useRewardPoints ? rewardPointsRedeemed : 0,
     });
     if (ok) {
-      await markPackageSessions();
+      await markPackageSessions(String(apptId));
       if (printAfterPayment) {
         const freshBooking = store.getState().scheduler.bookings.find(
           (b: any) => String(b.id) === String(apptId)
         );
-        if (freshBooking) printReceipt(freshBooking as any, schedulerStaff, currentSalon);
+        if (freshBooking) printReceipt(freshBooking as any, schedulerStaff, currentSalon, printClientExtras, { auto: true });
       }
-      onRefresh?.();
-      onClose();
+      finishWithPaidPopup();
     }
   }, [
     completePayment, existingBooking, apiAppointmentId,
     selectedClient, salonId, totals, alreadyPaidAmount,
     eWalletAmt, coupon, paymentMode, singleMethod, splitEntries,
     partialAmtInput, includeClearDue, priorDueAmt, useEWallet, applyMembership,
-    onRefresh, onClose, printAfterPayment, schedulerStaff, currentSalon,
+    finishWithPaidPopup, printAfterPayment, schedulerStaff, currentSalon,
   ]);
 
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
@@ -685,12 +777,105 @@ export const AppointmentModal: React.FC<Props> = ({
         grandTotal: 0,
         paymentMode: "Package",
       }));
-      await markPackageSessions();
-      onRefresh?.();
+      await markPackageSessions(String(apptId));
+      finishWithPaidPopup();
+    } else {
+      onClose();
     }
-    onClose();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, existingBooking, apiAppointmentId, selectedClient, salonId, serviceRows, onRefresh, onClose]);
+  }, [dispatch, existingBooking, apiAppointmentId, selectedClient, salonId, serviceRows, finishWithPaidPopup, onClose]);
+
+  // ── Quick Sale: single "Checkout" click — saves the appointment and
+  // completes payment in one step, no separate "Continue to Payment" reveal.
+  const handleQuickSaleCheckout = useCallback(async () => {
+    const isZero = totals.grandTotal === 0;
+
+    const isWalkIn = !selectedClient || selectedClient.id === "walk-in";
+    if (isWalkIn) {
+      setWalkInPayError("Add client details before proceeding to payment.");
+      setTriggerAddForm(true);
+      clientSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    // Run form validation (service/staff/time) and the payment-method check
+    // together, so ALL errors surface on the first Checkout click — not the
+    // form errors only after the payment method has been fixed.
+    const formOk = validate();
+    const methodMissing = !isZero && paymentMode === "single" && !singleMethod;
+    setPayMethodError(methodMissing);
+    if (!formOk || methodMissing) return;
+
+    const id = await save(buildSavePayload());
+    if (!id) return;
+
+    if (isZero) {
+      const catalogTotal = serviceRows.reduce((s: number, r) => {
+        const p = Number((r as any).price) || 0;
+        const q = Number(r.qty) || 1;
+        return s + p * q;
+      }, 0);
+      const result: any = await dispatch(postPaymentThunk({
+        salon_id:       salonId || undefined,
+        appointment_id: id,
+        client_id:      (selectedClient?.id && isRealId(selectedClient.id)) ? selectedClient.id : undefined,
+        gross_amount:   catalogTotal,
+        net_amount:     0,
+        paid_amount:    0,
+        due_amount:     0,
+        payment_method: "Package",
+        split_details:  { Package: catalogTotal },
+        status:         "completed",
+      }));
+      if (!postPaymentThunk.rejected.match(result)) {
+        dispatch(patchPaymentStatus({
+          id: String(id),
+          paymentStatus: "Paid",
+          payingNow: 0,
+          dueAmount: 0,
+          grandTotal: 0,
+          paymentMode: "Package",
+        }));
+        await markPackageSessions(String(id));
+        finishWithPaidPopup();
+      }
+      return;
+    }
+
+    const ok = await completePayment({
+      appointmentId: id,
+      clientId:      selectedClient?.id,
+      salonId,
+      grandTotal:        totals.grandTotal,
+      effectiveTotal:    totals.effectiveTotal,
+      subtotal:          totals.subtotal,
+      manualDiscountAmt: totals.totalDisc,
+      alreadyPaidAmount: 0,
+      eWalletAmt,
+      couponDiscount:    coupon.discount,
+      couponApplied:     coupon.applied,
+      paymentMode, singleMethod, splitEntries, partialAmtInput,
+      includeClearDue, priorDueAmt, useEWallet,
+      applyMembershipWallet: applyMembership,
+      gstAmount:         totals.gstAmount,
+      taxBreakdown:      totals.taxBreakdown,
+      rewardPointsRedeemed: useRewardPoints ? rewardPointsRedeemed : 0,
+    });
+    if (ok) {
+      await markPackageSessions(String(id));
+      if (printAfterPayment) {
+        const freshBooking = store.getState().scheduler.bookings.find(
+          (b: any) => String(b.id) === String(id)
+        );
+        if (freshBooking) printReceipt(freshBooking as any, schedulerStaff, currentSalon, printClientExtras, { auto: true });
+      }
+      finishWithPaidPopup();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [save, completePayment, dispatch, selectedClient, salonId, serviceRows, totals,
+      eWalletAmt, coupon, paymentMode, singleMethod, splitEntries, partialAmtInput,
+      includeClearDue, priorDueAmt, useEWallet, applyMembership, printAfterPayment,
+      schedulerStaff, currentSalon, finishWithPaidPopup]);
 
   if (!isOpen) return null;
 
@@ -716,14 +901,215 @@ export const AppointmentModal: React.FC<Props> = ({
         ? `Confirm & Pay — ${currencySymbol}${(remainingDue + priorDueAmt).toFixed(2)} (incl. ${currencySymbol}${priorDueAmt.toFixed(2)} due)`
         : `Confirm & Pay — ${currencySymbol}${remainingDue.toFixed(2)}`;
 
+  // ── Reusable body sections — shared by the Calendar drawer layout and the Quick Sale two-column layout ──
+  const clientSectionEl = (
+    <div className="appt-section" ref={clientSectionRef}>
+      <div className="appt-section__title"><PersonFill size={15} /> Client</div>
+      <ClientPanel
+        salonId={salonId}
+        calDate={calDate}
+        onDateChange={setCalDate}
+        selectedClientId={selectedClient?.id ?? null}
+        initialName={existingBooking?.clientName}
+        fallbackUnpaidAmt={existingBooking?.dueAmount ?? 0}
+        onSelectClient={setSelectedClient}
+        onClearClient={() => { setSelectedClient(null); setClientStats(null); }}
+        onStatsLoaded={setClientStats}
+        historyUrlBase="/dashboard/clients"
+        error={clientError || walkInPayError}
+        defaultName={!existingBooking && !selectedClient ? defaultClientName : undefined}
+        defaultPhone={!existingBooking && !selectedClient ? defaultClientPhone : undefined}
+        openAddForm={triggerAddForm}
+      />
+    </div>
+  );
+
+  const servicesSectionEl = (
+    <>
+      <div className="appt-section" style={isPartialBooking ? { pointerEvents: "none", opacity: 0.7 } : undefined}>
+        <div className="appt-section__title"><Scissors size={15} /> Services &amp; Items</div>
+        {noItemsError && (
+          <div className="services-no-items-error">
+            Add at least one service, package, product or membership before saving.
+          </div>
+        )}
+        <ServicesPanel
+          serviceRows={serviceRows}
+          onUpdateService={(i, field, value) => setServiceRows((rows) => rows.map((x, idx) => idx === i ? { ...x, [field as string]: value } : x))}
+          onRemoveService={(i) => setServiceRows((rows) => rows.filter((_, idx) => idx !== i))}
+          onAddService={() => setServiceRows((rows) => {
+            const last = rows[rows.length - 1];
+            const nextTime = last?.time
+              ? (() => {
+                  const [h, m] = last.time.split(":").map(Number);
+                  const total = h * 60 + m + (last.duration || 30);
+                  return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+                })()
+              : rows[0]?.time;
+            return [...rows, emptyService("", nextTime)];
+          })}
+          packageRows={packageRows}
+          onUpdatePackage={(i, r) => setPackageRows((rows) => rows.map((x, idx) => idx === i ? r : x))}
+          onRemovePackage={(i) => setPackageRows((rows) => rows.filter((_, idx) => idx !== i))}
+          onAddPackage={() => {
+            if (!pkgRequested.current) {
+              pkgRequested.current = true;
+              triggerPackages({});
+              triggerTemplates();
+            }
+            setPackageRows((rows) => [...rows, { id: "", packageId: "", packageName: "", price: 0, qty: 1, discount: 0, total: 0, staffId: "", time: serviceRows[0]?.time || defaultTime || "" }]);
+          }}
+          productRows={productRows}
+          onUpdateProduct={(i, r) => setProductRows((rows) => rows.map((x, idx) => idx === i ? r : x))}
+          onRemoveProduct={(i) => setProductRows((rows) => rows.filter((_, idx) => idx !== i))}
+          onAddProduct={() => {
+            if (!prodRequested.current) {
+              prodRequested.current = true;
+              dispatch(fetchProductsThunk());
+            }
+            setProductRows((rows) => [...rows, { id: "", productId: "", productName: "", price: 0, qty: 1, discount: 0, total: 0, staffId: "", time: serviceRows[0]?.time || defaultTime || "" }]);
+          }}
+          membershipRows={membershipRows}
+          onUpdateMembership={(i, r) => setMembershipRows((rows) => rows.map((x, idx) => idx === i ? r : x))}
+          onRemoveMembership={(i) => setMembershipRows((rows) => rows.filter((_, idx) => idx !== i))}
+          onAddMembership={() => {
+            if (!memRequested.current) {
+              memRequested.current = true;
+              dispatch(fetchMembershipsThunk());
+            }
+            setMembershipRows((rows) => [...rows, { id: "", membershipId: "", membershipName: "", price: 0, qty: 1, total: 0, staffId: "", time: serviceRows[0]?.time || defaultTime || "" }]);
+          }}
+          availablePackages={availablePackages}
+          availableProducts={availableProducts}
+          availableMemberships={availableMemberships}
+          coveredServices={effectiveCoveredServices}
+          membershipWalletInfo={membershipWalletMap}
+          frozen={false}
+          svcErrors={svcErrors}
+          pkgErrors={pkgErrors}
+          prodErrors={prodErrors}
+          memErrors={memErrors}
+          onClearSvcError={(i: number, field: string) => setSvcErrors((prev) => {
+            const n = [...prev];
+            if (n[i]) n[i] = { ...n[i], [field]: false };
+            return n;
+          })}
+        />
+      </div>
+
+      {/* Apply Package — manual opt-in, same treatment as Apply Membership below */}
+      {coveredServices.size > 0 && (
+        <div
+          className={`pay-ewallet${applyPackage ? " pay-ewallet--active" : ""}`}
+          style={{ margin: "0 0 12px" }}
+          onClick={() => setApplyPackage(v => !v)}
+        >
+          <input type="checkbox" checked={applyPackage} readOnly />
+          <span>Apply Package ({coveredServices.size} service{coveredServices.size !== 1 ? "s" : ""} covered)</span>
+        </div>
+      )}
+
+      {/* Apply Membership — manual opt-in to draw from the client's membership wallet */}
+      {primaryMembership && (
+        <div
+          className={`pay-ewallet${applyMembership ? " pay-ewallet--active" : ""}`}
+          style={{ margin: "0 0 12px" }}
+          onClick={() => setApplyMembership(v => !v)}
+        >
+          <input type="checkbox" checked={applyMembership} readOnly />
+          <span>Apply Membership (Available: {currencySymbol}{primaryMembership.membershipWalletBalance.toFixed(2)})</span>
+          {applyMembership && membershipWalletUsedTotal > 0 && (
+            <span className="pay-ewallet__deducted">-{currencySymbol}{membershipWalletUsedTotal.toFixed(2)}</span>
+          )}
+        </div>
+      )}
+
+      {(saveError || payError) && (
+        <div style={{
+          margin: "0 0 4px", padding: "10px 14px",
+          background: "#fef2f2", border: "1px solid #fca5a5",
+          borderRadius: 8, color: "#dc2626", fontSize: 13,
+          display: "flex", alignItems: "flex-start", gap: 8,
+        }}>
+          <span style={{ flexShrink: 0 }}>⛔</span>
+          <span>{saveError || payError}</span>
+        </div>
+      )}
+    </>
+  );
+
+  const chargesSectionEl = (
+    <div className="appt-section">
+      <div className="appt-section__title"><TagFill size={15} /> Charges &amp; Discounts</div>
+      <div className="charges-grid">
+        <div className="field-group">
+          <label>Reward Points</label>
+          <select className="fg-input" value={clientStats?.rewardPoints ?? "None"} disabled>
+            <option>{clientStats?.rewardPoints ?? "None"}</option>
+          </select>
+        </div>
+        <div className="field-group">
+          <label>Ex Charges</label>
+          <input className="fg-input" type="number" min={0}
+            value={focusedField === "exCharges" && exCharges === 0 ? "" : exCharges}
+            onFocus={() => setFocusedField("exCharges")}
+            onBlur={() => setFocusedField(null)}
+            onWheel={(e) => e.currentTarget.blur()}
+            onChange={(e) => setExCharges(e.target.value === "" ? 0 : Number(e.target.value))} />
+        </div>
+        <div className="field-group">
+          <label>Tip</label>
+          <input className="fg-input" type="number" min={0}
+            value={focusedField === "tip" && tip === 0 ? "" : tip}
+            onFocus={() => setFocusedField("tip")}
+            onBlur={() => setFocusedField(null)}
+            onWheel={(e) => e.currentTarget.blur()}
+            onChange={(e) => setTip(e.target.value === "" ? 0 : Number(e.target.value))} />
+        </div>
+        <div className="field-group">
+          <label>Svc Discount</label>
+          <input className="fg-input" type="number" min={0}
+            value={focusedField === "discountValue" && discountValue === 0 ? "" : discountValue}
+            onFocus={() => setFocusedField("discountValue")}
+            onBlur={() => setFocusedField(null)}
+            onWheel={(e) => e.currentTarget.blur()}
+            onChange={(e) => setDiscountValue(e.target.value === "" ? 0 : Number(e.target.value))} />
+        </div>
+        <div className="field-group">
+          <label>Disc. Type</label>
+          <select className="fg-input" value={discountType}
+            onChange={(e) => setDiscountType(e.target.value as DiscountType)}>
+            <option value="Percentage (%)">Percentage (%)</option>
+            <option value="Flat (₹)">Flat</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  );
+
+  const notesFieldsEl = (
+    <>
+      <div className="field-group">
+        <label><BellFill size={13} /> Staff Alert</label>
+        <textarea className="fg-textarea" rows={2} placeholder="e.g. Client has allergy to chemicals"
+          value={staffAlert} onChange={(e) => setStaffAlert(e.target.value)} />
+      </div>
+      <div className="field-group" style={{ marginTop: 10 }}>
+        <label>Notes</label>
+        <textarea className="fg-textarea" rows={3} placeholder="Enter appointment notes"
+          value={notes} onChange={(e) => setNotes(e.target.value)} />
+      </div>
+    </>
+  );
+
   return (
-    <div className="appt-drawer-overlay" onClick={onClose}>
-      <div className="appt-drawer-content" onClick={(e) => e.stopPropagation()}>
+    <div className={`appt-drawer-overlay${quickSale ? " appt-drawer-overlay--page" : ""}`} onClick={quickSale ? undefined : onClose}>
+      <div className={`appt-drawer-content${quickSale ? " appt-drawer-content--page" : ""}`} onClick={(e) => e.stopPropagation()}>
 
         {/* ── Header ── */}
         <div className="appt-drawer-header">
-          <button className="btn-close-drawer" onClick={onClose}>×</button>
-          <h2>{existingBooking ? "Edit Appointment" : "New Appointment"}</h2>
+          {!quickSale && <button className="btn-close-drawer" onClick={onClose}>×</button>}
+          <h2>{existingBooking ? "Edit Appointment" : quickSale ? "Quick Sale" : "New Appointment"}</h2>
           {existingBooking && (
             isCancelledBooking ? (
               <span className="appt-header-status-badge" style={{ background: "#fee2e2", color: "#dc2626", border: "1px solid #fca5a5" }}>
@@ -789,303 +1175,211 @@ export const AppointmentModal: React.FC<Props> = ({
         {/* ── Body ── */}
         <div className="appt-drawer-body" style={isCancelledBooking ? { pointerEvents: "none", opacity: 0.55, userSelect: "none" } : undefined}>
 
-          {/* 1. Client */}
-          <div className="appt-section" ref={clientSectionRef}>
-            <div className="appt-section__title"><PersonFill size={15} /> Client</div>
-            <ClientPanel
-              salonId={salonId}
-              calDate={calDate}
-              onDateChange={setCalDate}
-              selectedClientId={selectedClient?.id ?? null}
-              initialName={existingBooking?.clientName}
-              fallbackUnpaidAmt={existingBooking?.dueAmount ?? 0}
-              onSelectClient={setSelectedClient}
-              onClearClient={() => { setSelectedClient(null); setClientStats(null); }}
-              onStatsLoaded={setClientStats}
-              historyUrlBase="/dashboard/clients"
-              error={clientError || walkInPayError}
-              defaultName={!existingBooking && !selectedClient ? defaultClientName : undefined}
-              defaultPhone={!existingBooking && !selectedClient ? defaultClientPhone : undefined}
-              openAddForm={triggerAddForm}
-            />
-          </div>
-
-          {/* 2. Services & Items */}
-          <div className="appt-section" style={isPartialBooking ? { pointerEvents: "none", opacity: 0.7 } : undefined}>
-            <div className="appt-section__title"><Scissors size={15} /> Services &amp; Items</div>
-            {noItemsError && (
-              <div className="services-no-items-error">
-                Add at least one service, package, product or membership before saving.
-              </div>
-            )}
-            <ServicesPanel
-              serviceRows={serviceRows}
-              onUpdateService={(i, field, value) => setServiceRows((rows) => rows.map((x, idx) => idx === i ? { ...x, [field as string]: value } : x))}
-              onRemoveService={(i) => setServiceRows((rows) => rows.filter((_, idx) => idx !== i))}
-              onAddService={() => setServiceRows((rows) => {
-                const last = rows[rows.length - 1];
-                const nextTime = last?.time
-                  ? (() => {
-                      const [h, m] = last.time.split(":").map(Number);
-                      const total = h * 60 + m + (last.duration || 30);
-                      return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
-                    })()
-                  : rows[0]?.time;
-                return [...rows, emptyService("", nextTime)];
-              })}
-              packageRows={packageRows}
-              onUpdatePackage={(i, r) => setPackageRows((rows) => rows.map((x, idx) => idx === i ? r : x))}
-              onRemovePackage={(i) => setPackageRows((rows) => rows.filter((_, idx) => idx !== i))}
-              onAddPackage={() => {
-                if (!pkgRequested.current) {
-                  pkgRequested.current = true;
-                  triggerPackages({});
-                  triggerTemplates();
-                }
-                setPackageRows((rows) => [...rows, { id: "", packageId: "", packageName: "", price: 0, qty: 1, discount: 0, total: 0, staffId: defaultStaffId || "", time: serviceRows[0]?.time || defaultTime || "" }]);
-              }}
-              productRows={productRows}
-              onUpdateProduct={(i, r) => setProductRows((rows) => rows.map((x, idx) => idx === i ? r : x))}
-              onRemoveProduct={(i) => setProductRows((rows) => rows.filter((_, idx) => idx !== i))}
-              onAddProduct={() => {
-                if (!prodRequested.current) {
-                  prodRequested.current = true;
-                  dispatch(fetchProductsThunk());
-                }
-                setProductRows((rows) => [...rows, { id: "", productId: "", productName: "", price: 0, qty: 1, discount: 0, total: 0, staffId: defaultStaffId || "", time: serviceRows[0]?.time || defaultTime || "" }]);
-              }}
-              membershipRows={membershipRows}
-              onUpdateMembership={(i, r) => setMembershipRows((rows) => rows.map((x, idx) => idx === i ? r : x))}
-              onRemoveMembership={(i) => setMembershipRows((rows) => rows.filter((_, idx) => idx !== i))}
-              onAddMembership={() => {
-                if (!memRequested.current) {
-                  memRequested.current = true;
-                  dispatch(fetchMembershipsThunk());
-                }
-                setMembershipRows((rows) => [...rows, { id: "", membershipId: "", membershipName: "", price: 0, qty: 1, total: 0, staffId: defaultStaffId || "", time: serviceRows[0]?.time || defaultTime || "" }]);
-              }}
-              availablePackages={availablePackages}
-              availableProducts={availableProducts}
-              availableMemberships={availableMemberships}
-              coveredServices={effectiveCoveredServices}
-              membershipWalletInfo={membershipWalletMap}
-              frozen={false}
-              svcErrors={svcErrors}
-              pkgErrors={pkgErrors}
-              prodErrors={prodErrors}
-              memErrors={memErrors}
-              onClearSvcError={(i: number, field: string) => setSvcErrors((prev) => {
-                const n = [...prev];
-                if (n[i]) n[i] = { ...n[i], [field]: false };
-                return n;
-              })}
-            />
-          </div>
-
-          {/* Apply Package — manual opt-in, same treatment as Apply Membership below */}
-          {coveredServices.size > 0 && (
-            <div
-              className={`pay-ewallet${applyPackage ? " pay-ewallet--active" : ""}`}
-              style={{ margin: "0 0 12px" }}
-              onClick={() => setApplyPackage(v => !v)}
-            >
-              <input type="checkbox" checked={applyPackage} readOnly />
-              <span>Apply Package ({coveredServices.size} service{coveredServices.size !== 1 ? "s" : ""} covered)</span>
-            </div>
-          )}
-
-          {/* Apply Membership — manual opt-in to draw from the client's membership wallet */}
-          {primaryMembership && (
-            <div
-              className={`pay-ewallet${applyMembership ? " pay-ewallet--active" : ""}`}
-              style={{ margin: "0 0 12px" }}
-              onClick={() => setApplyMembership(v => !v)}
-            >
-              <input type="checkbox" checked={applyMembership} readOnly />
-              <span>Apply Membership (Available: {currencySymbol}{primaryMembership.membershipWalletBalance.toFixed(2)})</span>
-              {applyMembership && membershipWalletUsedTotal > 0 && (
-                <span className="pay-ewallet__deducted">-{currencySymbol}{membershipWalletUsedTotal.toFixed(2)}</span>
-              )}
-            </div>
-          )}
-
-          {/* Staff conflict errors — shown immediately below Services & Items */}
-          {apptConflictError && (
-            <div style={{
-              margin: "0 0 4px", padding: "10px 14px",
-              background: "#fef2f2", border: "1px solid #fca5a5",
-              borderRadius: 8, color: "#dc2626", fontSize: 13,
-              display: "flex", alignItems: "flex-start", gap: 8,
-            }}>
-              <span style={{ flexShrink: 0 }}>⛔</span>
-              <span>{apptConflictError}</span>
-            </div>
-          )}
-          {(saveError || payError) && (
-            <div style={{
-              margin: "0 0 4px", padding: "10px 14px",
-              background: "#fef2f2", border: "1px solid #fca5a5",
-              borderRadius: 8, color: "#dc2626", fontSize: 13,
-              display: "flex", alignItems: "flex-start", gap: 8,
-            }}>
-              <span style={{ flexShrink: 0 }}>⛔</span>
-              <span>{saveError || payError}</span>
-            </div>
-          )}
-
-          {/* 3. Charges & Discounts */}
-          {!showPaymentSection && (
-            <div className="appt-section">
-              <div className="appt-section__title"><TagFill size={15} /> Charges &amp; Discounts</div>
-              <div className="charges-grid">
-                <div className="field-group">
-                  <label>Reward Points</label>
-                  <select className="fg-input" value={clientStats?.rewardPoints ?? "None"} disabled>
-                    <option>{clientStats?.rewardPoints ?? "None"}</option>
-                  </select>
-                </div>
-                <div className="field-group">
-                  <label>Ex Charges</label>
-                  <input className="fg-input" type="number" min={0}
-                    value={focusedField === "exCharges" && exCharges === 0 ? "" : exCharges}
-                    onFocus={() => setFocusedField("exCharges")}
-                    onBlur={() => setFocusedField(null)}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    onChange={(e) => setExCharges(e.target.value === "" ? 0 : Number(e.target.value))} />
-                </div>
-                <div className="field-group">
-                  <label>Tip</label>
-                  <input className="fg-input" type="number" min={0}
-                    value={focusedField === "tip" && tip === 0 ? "" : tip}
-                    onFocus={() => setFocusedField("tip")}
-                    onBlur={() => setFocusedField(null)}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    onChange={(e) => setTip(e.target.value === "" ? 0 : Number(e.target.value))} />
-                </div>
-                <div className="field-group">
-                  <label>Svc Discount</label>
-                  <input className="fg-input" type="number" min={0}
-                    value={focusedField === "discountValue" && discountValue === 0 ? "" : discountValue}
-                    onFocus={() => setFocusedField("discountValue")}
-                    onBlur={() => setFocusedField(null)}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    onChange={(e) => setDiscountValue(e.target.value === "" ? 0 : Number(e.target.value))} />
-                </div>
-                <div className="field-group">
-                  <label>Disc. Type</label>
-                  <select className="fg-input" value={discountType}
-                    onChange={(e) => setDiscountType(e.target.value as DiscountType)}>
-                    <option value="Percentage (%)">Percentage (%)</option>
-                    <option value="Flat (₹)">Flat</option>
-                  </select>
+          {quickSale && !showPaymentSection ? (
+            <div className="qs-layout">
+              <div className="qs-layout__left">
+                {clientSectionEl}
+                {servicesSectionEl}
+                {chargesSectionEl}
+                <div className="appt-section">
+                  <div className="appt-section__title"><FileText size={15} /> Payment &amp; Notes</div>
+                  {notesFieldsEl}
                 </div>
               </div>
-            </div>
-          )}
+              <div className="qs-layout__right">
+                <div className="qs-summary-card">
+                  <div className="qs-summary-card__title">Sale Summary</div>
+                  <div className="qs-summary-row"><span>Subtotal</span><span>{currencySymbol}{totals.subtotal.toFixed(2)}</span></div>
+                  <div className="qs-summary-row qs-summary-row--discount"><span>Discount</span><span>-{currencySymbol}{totals.totalDisc.toFixed(2)}</span></div>
+                  <div className="qs-summary-row"><span>Extra Charges</span><span>+{currencySymbol}{exCharges.toFixed(2)}</span></div>
+                  <div className="qs-summary-row qs-summary-row--total"><span>Grand Total</span><span>{currencySymbol}{totals.grandTotal.toFixed(2)}</span></div>
+                  {tip > 0 && (
+                    <div className="qs-summary-row"><span>Tip (Staff)</span><span>+{currencySymbol}{tip.toFixed(2)}</span></div>
+                  )}
+                  {useRewardPoints && rewardPointsRedeemedValue > 0 && (
+                    <div className="qs-summary-row qs-summary-row--discount"><span>Reward Points Redeemed</span><span>-{currencySymbol}{rewardPointsRedeemedValue.toFixed(2)}</span></div>
+                  )}
+                  {(useEWallet && eWalletAmt > 0) && (
+                    <div className="qs-summary-row qs-summary-row--discount"><span>eWallet Used</span><span>-{currencySymbol}{eWalletAmt.toFixed(2)}</span></div>
+                  )}
+                  <div className="qs-summary-row qs-summary-row--total"><span>Amount to Pay</span><span>{currencySymbol}{totals.effectiveTotal.toFixed(2)}</span></div>
+                </div>
 
-          {/* 4. Payment & Notes */}
-          {!showPaymentSection && (
-            <div className="appt-section">
-              <div className="appt-section__title"><FileText size={15} /> Payment &amp; Notes</div>
-              <div className="pn-layout">
-                <div className="pn-layout__left">
-                  <div className="field-group">
-                    <label><BellFill size={13} /> Staff Alert</label>
-                    <textarea className="fg-textarea" rows={2} placeholder="e.g. Client has allergy to chemicals"
-                      value={staffAlert} onChange={(e) => setStaffAlert(e.target.value)} />
+                {totals.grandTotal === 0 ? (
+                  <div style={{
+                    display: "flex", flexDirection: "column", alignItems: "center",
+                    gap: 8, padding: "18px 14px", background: "#f0fdf4",
+                    border: "1px solid #86efac", borderRadius: 10,
+                  }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: "#15803d" }}>Package Payment</div>
+                    <div style={{ fontSize: 12, color: "#166534", textAlign: "center" }}>
+                      Fully covered by the client's active package. No payment required.
+                    </div>
                   </div>
-                  <div className="field-group" style={{ marginTop: 10 }}>
-                    <label>Notes</label>
-                    <textarea className="fg-textarea" rows={3} placeholder="Enter appointment notes"
-                      value={notes} onChange={(e) => setNotes(e.target.value)} />
-                  </div>
-                </div>
-                <div className="pn-layout__right">
-                  <TotalsPanel
-                    subtotal={totals.subtotal}
-                    serviceTotal={serviceRows.filter(r => !r.isPackageService).reduce((s, r) => s + r.total, 0)}
-                    packageServiceCount={serviceRows.filter(r => r.isPackageService).length}
-                    packageTotal={packageRows.reduce((s, r) => s + r.total, 0)}
-                    productTotal={productRows.reduce((s, r) => s + r.total, 0)}
-                    membershipTotal={membershipRows.reduce((s, r) => s + r.total, 0)}
-                    exCharges={exCharges}
-                    discount={discountValue}
-                    discountType={discountType}
-                    totalDiscount={totals.totalDisc}
-                    gstAmount={totals.gstAmount}
-                    taxBreakdown={totals.taxBreakdown}
-                    tip={tip}
-                    alreadyPaid={alreadyPaidAmount}
-                    dueAmount={remainingDue}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 5. Payment section */}
-          {showPaymentSection && (
-            <div className="appt-section" ref={paymentSectionRef}>
-              <div className="appt-section__title" style={{ display: "flex", justifyContent: "space-between" }}>
-                <span>Amount to Pay</span>
-                {alreadyPaidAmount > 0 ? (
-                  <span>Paid {currencySymbol}{alreadyPaidAmount.toFixed(2)} &nbsp;·&nbsp; Remaining {currencySymbol}{remainingDue.toFixed(2)}</span>
                 ) : (
-                  <span>{currencySymbol}{totals.effectiveTotal.toFixed(2)}</span>
+                  <PaymentPanel
+                    effectiveTotal={totals.effectiveTotal}
+                    remainingDue={remainingDue}
+                    alreadyPaid={0}
+                    grandTotal={totals.grandTotal}
+                    eWalletBalance={clientStats?.ewalletAmt ?? 0}
+                    useEWallet={useEWallet}
+                    eWalletAmt={eWalletAmt}
+                    onToggleEWallet={setUseEWallet}
+                    membershipWalletUsed={membershipWalletUsedTotal}
+                    membershipWalletRemaining={membershipWalletRemaining}
+                    rewardPointsBalance={rewardPointsBalance}
+                    rewardPointsFullValue={rewardPointsFullValue}
+                    useRewardPoints={useRewardPoints}
+                    onToggleRewardPoints={setUseRewardPoints}
+                    rewardPointsRedeemed={rewardPointsRedeemed}
+                    rewardPointsRedeemedValue={rewardPointsRedeemedValue}
+                    couponInput={coupon.input}
+                    onCouponInputChange={coupon.setInput}
+                    onApplyCoupon={() => coupon.apply(totals.subtotal)}
+                    couponDiscount={coupon.discount}
+                    couponMessage={coupon.message}
+                    couponError={coupon.error}
+                    couponLoading={coupon.loading}
+                    paymentMode={paymentMode}
+                    onSetPaymentMode={handleSetPaymentMode}
+                    singleMethod={singleMethod}
+                    onSetSingleMethod={handleSelectSingleMethod}
+                    splitEntries={splitEntries}
+                    onSetSplitEntries={setSplitEntries}
+                    payMethodError={payMethodError}
+                    partialAmtInput={partialAmtInput}
+                    onSetPartialAmt={setPartialAmtInput}
+                    priorDueAmt={priorDueAmt}
+                    includeClearDue={includeClearDue}
+                    onToggleClearDue={setIncludeClearDue}
+                    printAfterPayment={printAfterPayment}
+                    onTogglePrint={setPrintAfterPayment}
+                    previewPoints={previewPoints}
+                    previewWalletCredit={previewWalletCredit}
+                    frozen={false}
+                  />
                 )}
+
+                <button className="btn btn-dark" style={{ width: "100%" }}
+                  disabled={isSaving || isProcessing} onClick={handleQuickSaleCheckout}>
+                  {isSaving ? "Saving…" : isProcessing ? "Processing…" : `Checkout (${currencySymbol}${totals.effectiveTotal.toFixed(2)})`}
+                </button>
               </div>
-              {totals.grandTotal === 0 ? (
-                <div style={{
-                  display: "flex", flexDirection: "column", alignItems: "center",
-                  gap: 10, padding: "24px 16px", background: "#f0fdf4",
-                  border: "1px solid #86efac", borderRadius: 10, marginTop: 8,
-                }}>
-                  <div style={{ fontSize: 32 }}>📦</div>
-                  <div style={{ fontWeight: 700, fontSize: 15, color: "#15803d" }}>Package Payment</div>
-                  <div style={{ fontSize: 28, fontWeight: 800, color: "#16a34a" }}>{currencySymbol}0.00</div>
-                  <div style={{ fontSize: 13, color: "#166534", textAlign: "center" }}>
-                    This appointment is fully covered by the client's active package. No payment required.
+            </div>
+          ) : (
+            <>
+              {/* 1. Client */}
+              {clientSectionEl}
+
+              {/* 2. Services & Items */}
+              {servicesSectionEl}
+
+              {/* 3. Charges & Discounts */}
+              {!showPaymentSection && chargesSectionEl}
+
+              {/* 4. Payment & Notes */}
+              {!showPaymentSection && (
+                <div className="appt-section">
+                  <div className="appt-section__title"><FileText size={15} /> Payment &amp; Notes</div>
+                  <div className="pn-layout">
+                    <div className="pn-layout__left">
+                      {notesFieldsEl}
+                    </div>
+                    <div className="pn-layout__right">
+                      <TotalsPanel
+                        subtotal={totals.subtotal}
+                        serviceTotal={serviceRows.filter(r => !r.isPackageService).reduce((s, r) => s + r.total, 0)}
+                        packageServiceCount={serviceRows.filter(r => r.isPackageService).length}
+                        packageTotal={packageRows.reduce((s, r) => s + r.total, 0)}
+                        productTotal={productRows.reduce((s, r) => s + r.total, 0)}
+                        membershipTotal={membershipRows.reduce((s, r) => s + r.total, 0)}
+                        exCharges={exCharges}
+                        discount={discountValue}
+                        discountType={discountType}
+                        totalDiscount={totals.totalDisc}
+                        gstAmount={totals.gstAmount}
+                        taxBreakdown={totals.taxBreakdown}
+                        tip={tip}
+                        alreadyPaid={alreadyPaidAmount}
+                        dueAmount={remainingDue}
+                      />
+                    </div>
                   </div>
                 </div>
-              ) : (
-              <PaymentPanel
-                effectiveTotal={totals.effectiveTotal}
-                remainingDue={remainingDue}
-                alreadyPaid={alreadyPaidAmount}
-                grandTotal={totals.grandTotal}
-                eWalletBalance={clientStats?.ewalletAmt ?? 0}
-                useEWallet={useEWallet}
-                eWalletAmt={eWalletAmt}
-                onToggleEWallet={setUseEWallet}
-                membershipWalletUsed={membershipWalletUsedTotal}
-                membershipWalletRemaining={membershipWalletRemaining}
-                couponInput={coupon.input}
-                onCouponInputChange={coupon.setInput}
-                onApplyCoupon={() => coupon.apply(totals.subtotal)}
-                couponDiscount={coupon.discount}
-                couponMessage={coupon.message}
-                couponError={coupon.error}
-                couponLoading={coupon.loading}
-                paymentMode={paymentMode}
-                onSetPaymentMode={setPaymentMode}
-                singleMethod={singleMethod}
-                onSetSingleMethod={setSingleMethod}
-                splitEntries={splitEntries}
-                onSetSplitEntries={setSplitEntries}
-                payMethodError={payMethodError}
-                partialAmtInput={partialAmtInput}
-                onSetPartialAmt={setPartialAmtInput}
-                priorDueAmt={priorDueAmt}
-                includeClearDue={includeClearDue}
-                onToggleClearDue={setIncludeClearDue}
-                printAfterPayment={printAfterPayment}
-                onTogglePrint={setPrintAfterPayment}
-                previewPoints={previewPoints}
-                previewWalletCredit={previewWalletCredit}
-                frozen={isPaymentFrozen}
-              />
               )}
-            </div>
+
+              {/* 5. Payment section */}
+              {showPaymentSection && (
+                <div className="appt-section" ref={paymentSectionRef}>
+                  <div className="appt-section__title" style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span>Amount to Pay</span>
+                    {alreadyPaidAmount > 0 ? (
+                      <span>Paid {currencySymbol}{alreadyPaidAmount.toFixed(2)} &nbsp;·&nbsp; Remaining {currencySymbol}{remainingDue.toFixed(2)}</span>
+                    ) : (
+                      <span>{currencySymbol}{totals.effectiveTotal.toFixed(2)}</span>
+                    )}
+                  </div>
+                  {totals.grandTotal === 0 ? (
+                    <div style={{
+                      display: "flex", flexDirection: "column", alignItems: "center",
+                      gap: 10, padding: "24px 16px", background: "#f0fdf4",
+                      border: "1px solid #86efac", borderRadius: 10, marginTop: 8,
+                    }}>
+                      <div style={{ fontSize: 32 }}>📦</div>
+                      <div style={{ fontWeight: 700, fontSize: 15, color: "#15803d" }}>Package Payment</div>
+                      <div style={{ fontSize: 28, fontWeight: 800, color: "#16a34a" }}>{currencySymbol}0.00</div>
+                      <div style={{ fontSize: 13, color: "#166534", textAlign: "center" }}>
+                        This appointment is fully covered by the client's active package. No payment required.
+                      </div>
+                    </div>
+                  ) : (
+                  <PaymentPanel
+                    effectiveTotal={totals.effectiveTotal}
+                    remainingDue={remainingDue}
+                    alreadyPaid={alreadyPaidAmount}
+                    grandTotal={totals.grandTotal}
+                    eWalletBalance={clientStats?.ewalletAmt ?? 0}
+                    useEWallet={useEWallet}
+                    eWalletAmt={eWalletAmt}
+                    onToggleEWallet={setUseEWallet}
+                    membershipWalletUsed={membershipWalletUsedTotal}
+                    membershipWalletRemaining={membershipWalletRemaining}
+                    rewardPointsBalance={rewardPointsBalance}
+                    rewardPointsFullValue={rewardPointsFullValue}
+                    useRewardPoints={useRewardPoints}
+                    onToggleRewardPoints={setUseRewardPoints}
+                    rewardPointsRedeemed={rewardPointsRedeemed}
+                    rewardPointsRedeemedValue={rewardPointsRedeemedValue}
+                    couponInput={coupon.input}
+                    onCouponInputChange={coupon.setInput}
+                    onApplyCoupon={() => coupon.apply(totals.subtotal)}
+                    couponDiscount={coupon.discount}
+                    couponMessage={coupon.message}
+                    couponError={coupon.error}
+                    couponLoading={coupon.loading}
+                    paymentMode={paymentMode}
+                    onSetPaymentMode={handleSetPaymentMode}
+                    singleMethod={singleMethod}
+                    onSetSingleMethod={handleSelectSingleMethod}
+                    splitEntries={splitEntries}
+                    onSetSplitEntries={setSplitEntries}
+                    payMethodError={payMethodError}
+                    partialAmtInput={partialAmtInput}
+                    onSetPartialAmt={setPartialAmtInput}
+                    priorDueAmt={priorDueAmt}
+                    includeClearDue={includeClearDue}
+                    onToggleClearDue={setIncludeClearDue}
+                    printAfterPayment={printAfterPayment}
+                    onTogglePrint={setPrintAfterPayment}
+                    previewPoints={previewPoints}
+                    previewWalletCredit={previewWalletCredit}
+                    frozen={isPaymentFrozen}
+                  />
+                  )}
+                </div>
+              )}
+            </>
           )}
 
           {blockTimeError && (
@@ -1101,7 +1395,8 @@ export const AppointmentModal: React.FC<Props> = ({
           )}
         </div>
 
-        {/* ── Footer ── */}
+        {/* ── Footer — hidden in the two-column Quick Sale layout, whose CTA lives in the sidebar ── */}
+        {!(quickSale && !showPaymentSection) && (
         <div className="appt-drawer-footer">
           {isCancelledBooking ? (
             <div style={{
@@ -1121,32 +1416,11 @@ export const AppointmentModal: React.FC<Props> = ({
                     totals.grandTotal === 0 ? (
                       <button className="btn btn-dark" disabled={isSaving}
                         style={{ background: "#16a34a", borderColor: "#16a34a" }}
-                        onClick={async () => {
-                          if (!validate()) return;
-                          const id = await save(buildSavePayload());
-                          if (!id) return;
-                          setShowPaymentSection(true);
-                          setTimeout(() => { paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 50);
-                        }}>
+                        onClick={handleContinueToPaymentZero}>
                         {isSaving ? "Saving…" : `Continue with Payment (${currencySymbol}0)`}
                       </button>
                     ) : (
-                      <button className="btn btn-dark" disabled={isSaving} onClick={async () => {
-                        const isWalkIn = !selectedClient || selectedClient.id === "walk-in";
-                        if (isWalkIn) {
-                          setWalkInPayError("Add client details before proceeding to payment.");
-                          setTriggerAddForm(true);
-                          clientSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                          return;
-                        }
-                        if (!validate()) return;
-                        const id = await save(buildSavePayload());
-                        if (!id) return;
-                        setShowPaymentSection(true);
-                        setTimeout(() => {
-                          paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                        }, 50);
-                      }}>
+                      <button className="btn btn-dark" disabled={isSaving} onClick={handleContinueToPayment}>
                         {isSaving ? "Saving…" : "Continue to Payment"}
                       </button>
                     )
@@ -1187,8 +1461,25 @@ export const AppointmentModal: React.FC<Props> = ({
             </>
           )}
         </div>
+        )}
 
       </div>
+
+      {showPaidPopup && (
+        <div
+          style={{
+            position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+            zIndex: 10000, background: "#111827", color: "#fff",
+            padding: "18px 32px", borderRadius: 12, display: "flex",
+            alignItems: "center", gap: 10, fontSize: 15, fontWeight: 600,
+            boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <span style={{ color: "#22c55e", fontSize: 20 }}>✓</span>
+          Payment Completed
+        </div>
+      )}
     </div>
   );
 };

@@ -298,6 +298,11 @@
     color: $dashboard-secondary;
     cursor: not-allowed;
   }
+
+  &--error {
+    border-color: $danger;
+    &:focus { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.08); }
+  }
 }
 
 .settings-textarea {
@@ -1159,6 +1164,7 @@
   border-top: 1px solid #f3f4f6;
   display: flex;
   justify-content: flex-end;
+  gap: 10px;
 }
 
 /* ============================================================

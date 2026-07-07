@@ -231,6 +231,7 @@ export interface UpdateClientPackageDTO {
 export interface CompleteSessionDTO {
   serviceId: string;
   staffName: string;
+  appointmentId?: string;
 }
 
 export const clientPackagesApi = createApi({

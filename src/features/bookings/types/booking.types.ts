@@ -113,7 +113,6 @@ export interface Booking {
   membershipItems?: MembershipItem[];
 
   status: BookingStatus;
-  _rawStatus?: string;
 
   // Payment — always Title Case ("Paid" / "Partial" / "Unpaid")
   paymentStatus: PaymentStatus;
@@ -121,6 +120,7 @@ export interface Booking {
   paymentMode?: PaymentMode;
 
   rewardPoints?: string;
+  rewardPointsValue?: number; // ₹ value of reward points redeemed against THIS bill (not the client's balance)
   exCharges?: number;
   discount?: number;
   discountAmount?: number; // computed monetary discount (₹), as opposed to discount which may be a raw %/flat input

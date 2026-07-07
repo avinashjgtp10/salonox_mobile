@@ -20,6 +20,9 @@ interface Props {
   staffEnd: string;
   chipTop: number;
   chipHeight: number;
+  /** Side-by-side column index/count for concurrent appointments on the same staff (0/1 = full width). */
+  chipCol?: number;
+  chipTotalCols?: number;
   slotHeight: number;
   intervalMins: number;
   isDraggingThis: boolean;
@@ -49,6 +52,8 @@ function arePropsEqual(prev: Props, next: Props): boolean {
   if (prev.booking !== next.booking) return false;
   if (prev.chipTop !== next.chipTop) return false;
   if (prev.chipHeight !== next.chipHeight) return false;
+  if (prev.chipCol !== next.chipCol) return false;
+  if (prev.chipTotalCols !== next.chipTotalCols) return false;
   if (prev.slotHeight !== next.slotHeight) return false;
   if (prev.staffStart !== next.staffStart) return false;
   if (prev.staffEnd !== next.staffEnd) return false;
@@ -72,7 +77,7 @@ function arePropsEqual(prev: Props, next: Props): boolean {
 
 const BookingChipComponent: React.FC<Props> = ({
   booking: b, staffStart, staffEnd,
-  chipTop, chipHeight, slotHeight, intervalMins,
+  chipTop, chipHeight, chipCol = 0, chipTotalCols = 1, slotHeight, intervalMins,
   isDraggingThis, isResizingThis,
   dragging, resizing,
   justDraggedRef, isInteracting,
@@ -81,14 +86,21 @@ const BookingChipComponent: React.FC<Props> = ({
   onStartDragCandidate, onStartResize,
 }) => {
   const ps = (b.paymentStatus || "").toLowerCase();
+  // b.status carries the raw backend appointment status through unchanged
+  // (booked/confirmed/in_progress/completed/cancelled/no_show) — this used to be
+  // checked via a separate `_rawStatus` field that was declared on the type but
+  // never actually populated anywhere, so "completed" appointments were never
+  // truly locked from dragging; only "cancelled" ones were.
   const bs = (b.status || "").toLowerCase();
-  const rawStatus = ((b as any)._rawStatus || "").toLowerCase();
 
   const isPaid      = ps === "paid" || ps === "completed";
   const isPartial   = ps === "partial";
   const isCancelled = bs === "cancelled";
-  const isCompleted = rawStatus === "completed" || rawStatus === "no_show";
-  const isReadOnly  = isCancelled || isCompleted;
+  const isCompleted = bs === "completed" || bs === "no_show";
+  // Only cancelled appointments are locked from dragging — completed/no-show
+  // ones keep their "confirmed" chip styling (via isCompleted below) but stay
+  // fully draggable, per explicit choice over the original locked-by-default design.
+  const isReadOnly  = isCancelled;
 
   const statusClass = isCancelled ? "cancelled"
     : isCompleted   ? "confirmed"
@@ -124,6 +136,16 @@ const BookingChipComponent: React.FC<Props> = ({
   const appointmentTitle = buildTitle(b);
   const originalBooking = (b as any)._originalBooking || b;
 
+  // Concurrent appointments for the same staff render side-by-side instead of stacking.
+  const isConcurrent = chipTotalCols > 1;
+  const overlapStyle: React.CSSProperties = isConcurrent
+    ? {
+        left: `calc(${(chipCol / chipTotalCols) * 100}% + 2px)`,
+        right: "auto",
+        width: `calc(${100 / chipTotalCols}% - 4px)`,
+      }
+    : {};
+
   return (
     <div
       key={`${b.id}-${staffId}`}
@@ -132,8 +154,9 @@ const BookingChipComponent: React.FC<Props> = ({
         `dv-chip--${statusClass}`,
         isDraggingThis ? "dv-chip--dragging" : "",
         isResizingThis ? "dv-chip--resizing" : "",
+        isConcurrent ? "dv-chip--concurrent" : "",
       ].filter(Boolean).join(" ")}
-      style={{ top: chipTop, height: chipHeight, cursor: isReadOnly ? "pointer" : undefined }}
+      style={{ top: chipTop, height: chipHeight, cursor: isReadOnly ? "pointer" : undefined, ...overlapStyle }}
       onMouseEnter={(e) => { if (!isInteracting) onOpenTip(originalBooking, e.currentTarget); }}
       onMouseLeave={onCloseTip}
       onMouseDown={(e) => {

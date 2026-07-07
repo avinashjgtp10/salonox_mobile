@@ -34,6 +34,88 @@ $success:    #22c55e;
   animation: slideInRight 0.22s ease;
 }
 
+// Quick Sale is a standalone page (not an overlay on top of the Calendar) —
+// fill the dashboard's content area instead of drawing a right-anchored drawer.
+.appt-drawer-overlay--page {
+  position: static;
+  inset: auto;
+  background: none;
+  z-index: auto;
+  display: block;
+  height: 100%;
+}
+
+.appt-drawer-content--page {
+  width: 100%;
+  max-width: 1300px;
+  margin: 0 auto;
+  height: auto;
+  min-height: 100%;
+  box-shadow: none;
+  border-radius: 12px;
+  animation: none;
+}
+
+// ── Quick Sale two-column layout (client/services/charges/notes + sticky summary sidebar) ──
+.qs-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  align-items: start;
+
+  @media (max-width: 860px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.qs-layout__left {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.qs-layout__right {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.qs-summary-card {
+  background: $white;
+  border: 1px solid $border;
+  border-radius: 10px;
+  padding: 16px;
+
+  &__title {
+    font-weight: 700;
+    font-size: 15px;
+    color: $primary;
+    margin-bottom: 12px;
+  }
+}
+
+.qs-summary-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: $secondary;
+  padding: 6px 0;
+
+  &--discount span:last-child { color: $success; }
+
+  &--total {
+    border-top: 1px solid $border;
+    margin-top: 6px;
+    padding-top: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    color: $primary;
+  }
+}
+
 @keyframes client-spin {
   to { transform: rotate(360deg); }
 }
@@ -146,7 +228,7 @@ $success:    #22c55e;
 // All section headers share the same grid as .svc-row so columns align
 .item-section-header {
   display: grid;
-  grid-template-columns: 2fr 1.8fr 1fr 0.85fr 0.65fr 0.75fr 0.85fr 96px 34px;
+  grid-template-columns: 2fr 1.4fr 1fr 0.85fr 0.6fr 0.6fr 1fr 96px 34px;
   gap: 6px;
   padding: 6px 14px;
   font-size: 10.5px;
@@ -163,7 +245,7 @@ $success:    #22c55e;
 // Same grid as .svc-row — 9 columns — so all rows align visually
 .item-row {
   display: grid;
-  grid-template-columns: 2fr 1.8fr 1fr 0.85fr 0.65fr 0.75fr 0.85fr 96px 34px;
+  grid-template-columns: 2fr 1.4fr 1fr 0.85fr 0.6fr 0.6fr 1fr 96px 34px;
   gap: 6px;
   padding: 8px 14px;
   border-bottom: 1px solid #f3f4f6;
@@ -966,7 +1048,7 @@ $success:    #22c55e;
 
 .service-row-header {
   display: grid;
-  grid-template-columns: 2fr 1.8fr 1fr 0.85fr 0.65fr 0.75fr 0.85fr 34px;
+  grid-template-columns: 2fr 1.4fr 1fr 0.85fr 0.6fr 0.6fr 1fr 34px;
   gap: 6px;
   padding: 6px 14px;
   background: #f9fafb;
@@ -1640,7 +1722,7 @@ $success:    #22c55e;
 // ── Service Row ───────────────────────────────────────────────────────────────
 .svc-row {
   display: grid;
-  grid-template-columns: 2fr 1.8fr 1fr 0.85fr 0.65fr 0.75fr 0.85fr 96px 34px;
+  grid-template-columns: 2fr 1.4fr 1fr 0.85fr 0.6fr 0.6fr 1fr 96px 34px;
   gap: 6px;
   padding: 10px 14px;
   border-bottom: 1px solid #f3f4f6;
@@ -1705,7 +1787,15 @@ $success:    #22c55e;
     }
   }
 
-  &__select { cursor: pointer; }
+  &__select {
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b7280'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    padding-right: 24px;
+  }
 
   &__err {
     font-size: 10px;

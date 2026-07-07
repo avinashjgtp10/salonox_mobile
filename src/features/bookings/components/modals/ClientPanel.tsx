@@ -92,7 +92,7 @@ export const ClientPanel: React.FC<Props> = ({
 
   useEffect(() => { if (openAddForm) setShowAddForm(true); }, [openAddForm]);
 
-  const { details, stats, loading: statsLoading } = useClientDetails(selectedClientId);
+  const { details, stats, loading: statsLoading, patchEwalletAmt } = useClientDetails(selectedClientId);
   const allBookings = useAppSelector(selectBookings);
 
   const clientIdForPkg = selectedClientId && selectedClientId !== "walk-in" ? selectedClientId : undefined;
@@ -458,6 +458,8 @@ export const ClientPanel: React.FC<Props> = ({
           packages={clientPkgsData?.items ?? []}
           memberships={clientMemberships}
           onViewHistory={onViewHistory}
+          clientId={selectedClientId ?? undefined}
+          onEwalletTopUp={patchEwalletAmt}
         />
       )}
       {statsLoading && <div style={{ padding: "8px 0", fontSize: 12, color: "#9ca3af" }}>Loading client details…</div>}

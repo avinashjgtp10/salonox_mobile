@@ -8,30 +8,6 @@ import type {
   Client,
 } from "../features/bookings/types/booking.types";
 
-// ── Loyalty / rewards helpers ─────────────────────────────────────────────────
-export const MEMBERSHIP_TIERS = {
-  Silver: 5000,
-  Gold: 15000,
-  Platinum: 30000,
-} as const;
-
-export const EWALLET_REDEEM_MINIMUM = 100;
-
-export function computePointsEarned(billAmount: number): number {
-  return Math.floor(billAmount / 10);
-}
-
-export function computeEWalletCredit(points: number): number {
-  return points * 0.5;
-}
-
-export function computeMembership(totalRevenue: number): string {
-  if (totalRevenue >= MEMBERSHIP_TIERS.Platinum) return "Platinum";
-  if (totalRevenue >= MEMBERSHIP_TIERS.Gold) return "Gold";
-  if (totalRevenue >= MEMBERSHIP_TIERS.Silver) return "Silver";
-  return "NA";
-}
-
 // ── ClientStat shape ──────────────────────────────────────────────────────────
 export interface ClientStat {
   clientId: string;
@@ -227,6 +203,7 @@ const schedulerSlice = createSlice({
         paymentMode?: string;
         gstAmount?: number;
         taxBreakdown?: Booking["taxBreakdown"];
+        rewardPointsValue?: number;
       }>
     ) {
       const booking = state.bookings.find((b) => String(b.id) === String(payload.id));
@@ -239,6 +216,7 @@ const schedulerSlice = createSlice({
         if (payload.paymentMode !== undefined) (booking as any).paymentMode = payload.paymentMode;
         if (payload.gstAmount !== undefined) (booking as any).gstAmount = payload.gstAmount;
         if (payload.taxBreakdown !== undefined) (booking as any).taxBreakdown = payload.taxBreakdown;
+        if (payload.rewardPointsValue !== undefined) (booking as any).rewardPointsValue = payload.rewardPointsValue;
       }
       state.paymentPatchCache[String(payload.id)] = {
         paymentStatus: payload.paymentStatus,
@@ -307,28 +285,6 @@ const schedulerSlice = createSlice({
       stat.notes = payload.notes;
       stat.staffAlert = payload.staffAlert;
     },
-    deductEWallet(
-      state,
-      { payload }: PayloadAction<{ clientId: string; amount: number }>
-    ) {
-      const stat = state.clientStats.find((c) => c.clientId === payload.clientId);
-      if (stat) stat.ewalletAmt = Math.max(0, stat.ewalletAmt - payload.amount);
-    },
-    processPaymentRewards(
-      state,
-      { payload }: PayloadAction<{ clientId: string; billAmount: number }>
-    ) {
-      let stat = state.clientStats.find((c) => c.clientId === payload.clientId);
-      if (!stat) {
-        stat = { clientId: payload.clientId, totalRevenue: 0, rewardPointsTotal: 0, ewalletAmt: 0, membership: "NA" };
-        state.clientStats.push(stat);
-      }
-      const pts = computePointsEarned(payload.billAmount);
-      stat.rewardPointsTotal += pts;
-      stat.ewalletAmt        += computeEWalletCredit(pts);
-      stat.totalRevenue      += payload.billAmount;
-      stat.membership         = computeMembership(stat.totalRevenue);
-    },
   },
 });
 
@@ -340,7 +296,7 @@ export const {
   addBooking, updateBooking, patchPaymentStatus, replaceBookingId, deleteBooking,
   setBlockedTimes, addBlockedTime, updateBlockedTime, replaceBlockedTimeId, deleteBlockedTime,
   setViewMode, setCurrentDate, setInterval, navigate,
-  updateClientNotes, deductEWallet, processPaymentRewards,
+  updateClientNotes,
 } = schedulerSlice.actions;
 
 export default schedulerSlice.reducer;

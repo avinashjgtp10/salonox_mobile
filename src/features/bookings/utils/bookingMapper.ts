@@ -96,6 +96,12 @@ export function mapApiBooking(
     (parseFloat(String(appt.paid_amount ?? appt.payingNow ?? 0)) || 0) === 0;
 
   // ── Map services ─────────────────────────────────────────────────────────
+  // Only fall back to the appointment-level staffId when NO service anywhere on
+  // this booking carries its own — that's the true legacy case (bookings saved
+  // before per-service staff assignment existed). Once per-service assignment is
+  // in use, a service left unassigned on purpose must stay unassigned, not
+  // silently inherit the appointment's main staff on next load.
+  const anyServiceHasOwnStaff = (appt.services || []).some((s: any) => s.staffId || s.staff_id);
   const services = (appt.services || []).map((s: any) => {
     const svcLookup = servicesList.find((rs: any) => String(rs.id) === String(s.service_id ?? s.id));
     const sName = s.name
@@ -109,8 +115,10 @@ export function mapApiBooking(
     const sPrice = parseFloat(String(s.price ?? 0)) || 0;
     const sQty   = Number(s.qty ?? s.quantity ?? 1) || 1;
     const sTotal = parseFloat(String(s.total ?? 0)) || 0;
+    // Per-row discount is a percentage of price × qty — derive it back from the
+    // stored total so the edit form shows the % that was originally applied.
     const derivedDiscount = (sTotal > 0 && sPrice * sQty > sTotal)
-      ? Math.round((sPrice * sQty - sTotal) * 100) / 100
+      ? Math.round(((sPrice * sQty - sTotal) / (sPrice * sQty)) * 100 * 100) / 100
       : (parseFloat(String(s.discount ?? 0)) || 0);
     const isServiceFromPackage = !!(s.is_package_service || (s as any).isPackageService);
     return {
@@ -120,7 +128,9 @@ export function mapApiBooking(
       name: sName,
       service: sName,
       staff: staffNameStr,
-      staffId: (s.staffId || s.staff_id || appt.staffId || appt.staff_id) ? String(s.staffId || s.staff_id || appt.staffId || appt.staff_id) : undefined,
+      staffId: anyServiceHasOwnStaff
+        ? ((s.staffId || s.staff_id) ? String(s.staffId || s.staff_id) : undefined)
+        : ((s.staffId || s.staff_id || appt.staffId || appt.staff_id) ? String(s.staffId || s.staff_id || appt.staffId || appt.staff_id) : undefined),
       time: mappedTime,
       duration,
       discount: derivedDiscount,
@@ -247,11 +257,17 @@ export function mapApiBooking(
 
   // Use API's due_amount directly if provided (most accurate); else compute.
   // Package payments always have due_amount=0 (client owes nothing — covered by package).
+  // A booking that's simply been booked — no payment attempted at all yet — is not
+  // "due" money; it's just an upcoming charge. `due_amount` only means something once
+  // a real (partial) payment has actually been made, i.e. paymentStatus === "Partial".
+  // Otherwise this fallback formula (grandTotal - payingNow, with payingNow=0) would
+  // show the FULL bill as "due" the instant an appointment is created.
   const apiDue = Number(appt.due_amount ?? appt.dueAmount ?? NaN);
+  const isPartialStatus = normalizedPaymentStatus === "Partial";
   const dueAmount = isPackagePaid ? 0
-    : hasPerServicePackage ? Math.max(0, parseFloat((grandTotalVal - payingNow).toFixed(2)))
+    : hasPerServicePackage ? (isPartialStatus ? Math.max(0, parseFloat((grandTotalVal - payingNow).toFixed(2))) : 0)
     : (!isNaN(apiDue) && apiDue > 0) ? apiDue
-    : Math.max(0, parseFloat((grandTotalVal - payingNow).toFixed(2)));
+    : isPartialStatus ? Math.max(0, parseFloat((grandTotalVal - payingNow).toFixed(2))) : 0;
 
   // ── Notes / staffAlert split ──────────────────────────────────────────────
   const rawNotes: string = appt.notes || "";
@@ -290,6 +306,10 @@ export function mapApiBooking(
   const staffPhone  = appt.staffPhone  || appt.staff_phone  || "";
   const staffEmail  = appt.staffEmail  || appt.staff_email  || "";
   const loyaltyPoints = appt.loyaltyPoints ?? appt.loyalty_points ?? appt.client?.loyalty_points ?? null;
+  const rewardPointsValue = Number(appt.rewardPointsValue ?? appt.reward_points_value ?? 0) || 0;
+  // Persisted snapshot from the payment that was actually made — preferred over
+  // recomputing live from today's tax settings (which may have since changed).
+  const taxBreakdown = appt.taxBreakdown ?? appt.tax_breakdown ?? undefined;
   const membershipName = (() => {
     if (appt.membershipName) return appt.membershipName;
     if (appt.membership_name) return appt.membership_name;
@@ -309,6 +329,8 @@ export function mapApiBooking(
     staffPhone,
     staffEmail,
     loyaltyPoints,
+    rewardPointsValue,
+    taxBreakdown,
     membershipName,
     staffId: (() => { const raw = appt.staffId || appt.staff_id || packageItems.find((p: any) => p.staffId)?.staffId; return raw ? String(raw) : undefined; })(),
     clientId: String(appt.clientId ?? appt.client_id ?? appt.client?.id ?? ""),

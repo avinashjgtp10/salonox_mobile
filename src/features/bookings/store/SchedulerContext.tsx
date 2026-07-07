@@ -23,8 +23,6 @@ import {
   setInterval,
   navigate,
   updateClientNotes,
-  deductEWallet,
-  processPaymentRewards,
   setSelectedStaffId,
   setDragPatch,
   clearDragPatch,
@@ -234,10 +232,6 @@ export function useSchedulerContext() {
     clientStats,
     updateClientNotes: (clientId: string, notes: string, staffAlert: string) =>
       dispatch(updateClientNotes({ clientId, notes, staffAlert })),
-    deductEWallet: (clientId: string, amount: number) =>
-      dispatch(deductEWallet({ clientId, amount })),
-    processPaymentRewards: (clientId: string, billAmount: number) =>
-      dispatch(processPaymentRewards({ clientId, billAmount })),
 
     // ── Lookup data ───────────────────────────────────────────────────────────
     staffList,
