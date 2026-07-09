@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { PlusCircle, ChevronDown, DashCircle, Eye, EyeSlash } from "react-bootstrap-icons";
+import Input from "../../../../components/ui/Input";
 import type { BasicDetailsData } from "../../types/catalog.types.ts";
 
 interface CategoryOption {
@@ -52,24 +53,18 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
       <div className="form-section mb-5">
         <div className="row g-3">
           <div className="col-12">
-            <div className="d-flex justify-content-between align-items-center mb-2">
-              <label className="form-label mb-0">Service name <span className="text-danger">*</span></label>
-              <span className="text-muted extra-small">
-                {data.name.length}/255
-              </span>
-            </div>
-            <input
+            <Input
+              label={<>Service name <span className="text-danger">*</span></>}
+              containerClass=""
+              className="premium-input"
               type="text"
-              className={`form-control premium-input ${hasError("name") ? "border-danger" : ""}`}
               placeholder="Add a service name, e.g. Men's Haircut"
               value={data.name}
               onChange={(e) => update("name", e.target.value)}
+              maxLength={255}
+              showCharCount
+              error={hasError("name") ? "Service name is required" : undefined}
             />
-            {hasError("name") && (
-              <div className="text-danger small mt-1">
-                Service name is required
-              </div>
-            )}
           </div>
 
           <div className="col-md-6">
@@ -117,21 +112,17 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
           </div>
 
           <div className="col-12">
-            <div className="d-flex justify-content-between align-items-center mb-2">
-              <label className="form-label mb-0">
-                Description{" "}
-                <span className="text-muted fw-normal">(Optional)</span>
-              </label>
-              <span className="text-muted extra-small">
-                {data.description.length}/1000
-              </span>
-            </div>
-            <textarea
-              className="form-control premium-input"
+            <Input
+              label={<>Description <span className="text-muted fw-normal">(Optional)</span></>}
+              containerClass=""
+              className="premium-input"
+              multiline
               rows={3}
+              maxLength={1000}
+              showCharCount
               placeholder="Add a short description"
               value={data.description}
-              onChange={(e) => update("description", e.target.value)}
+              onChange={(e) => update("description", e.target.value.slice(0, 1000))}
             />
           </div>
         </div>
@@ -173,11 +164,11 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
                 value={data.price || ""}
                 onChange={(e) => {
                   const parsed = parseFloat(e.target.value);
-                  update("price", Number.isFinite(parsed) ? parsed : 0);
+                  update("price", Number.isFinite(parsed) ? Math.max(0, parsed) : 0);
                 }}
                 onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
                 onKeyDown={(e) => {
-                  if (e.key === "ArrowUp" || e.key === "ArrowDown") e.preventDefault();
+                  if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault();
                 }}
               />
             </div>
@@ -208,11 +199,11 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
                 value={Number.isFinite(data.discountedPrice) && data.discountedPrice ? data.discountedPrice : ""}
                 onChange={(e) => {
                   const parsed = parseFloat(e.target.value);
-                  update("discountedPrice" as any, Number.isFinite(parsed) ? parsed : null);
+                  update("discountedPrice" as any, Number.isFinite(parsed) ? Math.max(0, parsed) : null);
                 }}
                 onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
                 onKeyDown={(e) => {
-                  if (e.key === "ArrowUp" || e.key === "ArrowDown") e.preventDefault();
+                  if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault();
                 }}
               />
             </div>

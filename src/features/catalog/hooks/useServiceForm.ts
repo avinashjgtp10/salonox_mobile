@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
 import type { AppDispatch } from "../../../store/store";
 import { createServiceThunk, fetchServicesThunk } from "../../../middleware/services/services.thunk";
@@ -117,6 +117,13 @@ export const useServiceForm = (_type: "single" | "bundle") => {
     return Object.keys(errors).length === 0;
   };
 
+  // Re-run validation live once the user has attempted a submit, so inline
+  // errors clear as soon as the user fixes the problem.
+  useEffect(() => {
+    if (isSubmitted) validate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData, isSubmitted]);
+
   const handleSubmit = async () => {
     setIsSubmitted(true);
     const isValid = validate();
@@ -140,9 +147,8 @@ export const useServiceForm = (_type: "single" | "bundle") => {
         online_booking: formData.onlineBooking.enabled,
         resource_required: formData.resources.requireResource,
         commission_enabled: formData.commission.defaultValue > 0,
-        all_members: formData.team.allMembers,
-        team_member_ids: formData.team.allMembers
-          ? undefined
+        staff_ids: formData.team.allMembers
+          ? []
           : formData.team.selectedMemberIds,
         gender_preference: formData.basic.genderPreference ?? null,
         image_url: formData.basic.imageUrl ?? null,

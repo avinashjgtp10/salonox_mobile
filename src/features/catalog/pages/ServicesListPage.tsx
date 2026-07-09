@@ -6,6 +6,7 @@ import api from "../../../services/api/axios";
 import { SERVICES } from "../../../services/api/endpoints/services.endpoints";
 import {
   deleteServiceThunk,
+  fetchServiceByIdThunk,
 } from "../../../middleware/services/services.thunk";
 import type { FetchServicesParams } from "../../../middleware/services/services.thunk";
 import { exportServicesPDF, exportServicesExcel, exportServicesCSV } from "../utils/serviceExport";
@@ -82,6 +83,12 @@ const buildFilterParams = (
   return p;
 };
 
+// The services LIST endpoint returns lean objects that omit the `staff`
+// relation — only the single GET-by-ID endpoint includes it, so the detail
+// panel needs a follow-up fetch to show accurate team member assignment.
+const hasFullServiceDetails = (svc: Service) =>
+  Object.prototype.hasOwnProperty.call(svc, "staff");
+
 const ServicesListPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
@@ -120,13 +127,20 @@ const ServicesListPage: React.FC = () => {
   const optMenuRef = useRef<HTMLDivElement>(null);
   const [showOptMenu, setShowOptMenu] = useState(false);
 
-  // Reset to page 1 whenever filters / search / category change
+  // Fetch from API on every dependency change. When search/category/filters
+  // change while not already on page 1, reset to page 1 without firing a
+  // second (stale-page) fetch in the same tick — the page-1 reset alone
+  // triggers this effect again on the next render.
+  const filtersKey = JSON.stringify({ selectedCategory, searchQuery, filters });
+  const prevFiltersKeyRef = useRef(filtersKey);
   useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, selectedCategory, filters]);
-
-  // Fetch from API on every dependency change
-  useEffect(() => {
+    if (prevFiltersKeyRef.current !== filtersKey) {
+      prevFiltersKeyRef.current = filtersKey;
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+        return;
+      }
+    }
     fetchServices({
       page: currentPage,
       limit: pageSize,
@@ -134,7 +148,7 @@ const ServicesListPage: React.FC = () => {
       categoryId: selectedCategory !== "all" ? selectedCategory : undefined,
       ...buildFilterParams(filters),
     });
-  }, [currentPage, pageSize, selectedCategory, searchQuery, filters, fetchServices]);
+  }, [currentPage, pageSize, selectedCategory, searchQuery, filters, fetchServices, filtersKey]);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -562,11 +576,18 @@ const ServicesListPage: React.FC = () => {
                         setOpenCardMenu(null);
                         setSelectedService(null);
                       }}
-                      onClick={(id) => {
+                      onClick={async (id) => {
                         const target = services.find(
                           (s: Service) => String(s.id) === String(id),
                         );
-                        if (target) setSelectedService(target);
+                        if (!target) return;
+                        setSelectedService(target);
+                        if (!hasFullServiceDetails(target)) {
+                          const result = await dispatch(fetchServiceByIdThunk(id));
+                          if (fetchServiceByIdThunk.fulfilled.match(result)) {
+                            setSelectedService(result.payload as Service);
+                          }
+                        }
                       }}
                     />
                   ))}

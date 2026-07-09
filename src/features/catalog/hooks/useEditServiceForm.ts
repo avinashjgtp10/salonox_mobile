@@ -19,8 +19,11 @@ const fromApiGenderPreference = (value?: string | null) => {
   return null;
 };
 
+// The LIST endpoint never includes `staff` (only the single GET-by-ID
+// endpoint does), so its presence tells us whether team assignment data
+// is actually available on this record.
 const hasFullServiceDetails = (svc: Service) =>
-  Object.prototype.hasOwnProperty.call(svc, "gender_preference");
+  Object.prototype.hasOwnProperty.call(svc, "staff");
 
 const mapServiceToFormData = (svc: Service): CatalogFormData => ({
   basic: {
@@ -37,8 +40,8 @@ const mapServiceToFormData = (svc: Service): CatalogFormData => ({
     imageUrl: svc.image_url ?? null,
   },
   team: {
-    allMembers: svc.all_members ?? true,
-    selectedMemberIds: svc.team_member_ids ?? [],
+    allMembers: (svc.staff ?? []).length === 0,
+    selectedMemberIds: (svc.staff ?? []).map((s) => String(s.staff_id)),
     availableMembers: [],
   },
   resources: {
@@ -175,7 +178,7 @@ export const useEditServiceForm = (serviceId: string | number) => {
         resource_required: formData.resources.requireResource,
         commission_enabled: formData.commission.defaultValue > 0,
         gender_preference: formData.basic.genderPreference ?? null,
-        team_member_ids: formData.team.allMembers
+        staff_ids: formData.team.allMembers
           ? []
           : formData.team.selectedMemberIds,
       };

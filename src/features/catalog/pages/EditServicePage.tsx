@@ -86,20 +86,8 @@ const EditServicePage: React.FC = () => {
     loading,
     error,
     validationErrors,
-    isSubmitted,
     serviceName,
   } = useEditServiceForm(id!);
-
-  // Show banner when new validation errors arrive, auto-dismiss after 4 s
-  useEffect(() => {
-    if (isSubmitted && Object.keys(validationErrors).length > 0) {
-      setShowBanner(true);
-      const t = setTimeout(() => setShowBanner(false), 4000);
-      return () => clearTimeout(t);
-    } else {
-      setShowBanner(false);
-    }
-  }, [validationErrors, isSubmitted]);
 
   const onSubmit = async () => {
     const success = await handleSubmit();
