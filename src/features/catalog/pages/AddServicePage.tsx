@@ -9,7 +9,6 @@ import { selectAllCategories, selectAllStaff, selectStaffLoading } from "../../.
 import { useServiceForm } from "../hooks/useServiceForm.ts";
 import BasicDetailsTab from "../components/tabs/BasicDetailsTab.tsx";
 import TeamMembersTab from "../components/tabs/TeamMembersTab.tsx";
-import ResourcesTab from "../components/tabs/ResourcesTab.tsx";
 import ServiceAddOnsTab from "../components/tabs/ServiceAddOnsTab.tsx";
 import OnlineBookingTab from "../components/tabs/OnlineBookingTab.tsx";
 import PortfolioImagesTab from "../components/tabs/PortfolioImagesTab.tsx";
@@ -21,7 +20,6 @@ import "../styles/AddServicePage.scss";
 type TabKey =
   | "basic"
   | "team"
-  | "resources"
   | "addons"
   | "online-booking"
   | "portfolio"
@@ -39,7 +37,6 @@ interface TabItem {
 const generalTabs: TabItem[] = [
   { key: "basic", label: "Basic details" },
   { key: "team", label: "Team members" },
-  { key: "resources", label: "Resources" },
   { key: "addons", label: "Service add-ons" },
 ];
 
@@ -174,12 +171,6 @@ const AddServicePage: React.FC = () => {
                   errors={validationErrors.team}
                   staffMembers={staffMembers}
                   staffLoading={staffLoading.fetchAll}
-                />
-              )}
-              {activeTab === "resources" && (
-                <ResourcesTab
-                  data={formData.resources}
-                  onChange={(v: any) => updateField("resources", v)}
                 />
               )}
               {activeTab === "addons" && (
