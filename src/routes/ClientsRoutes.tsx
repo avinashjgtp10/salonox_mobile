@@ -23,9 +23,6 @@ const ClientAddressesPage = lazy(
 const ClientEmergencyContactsPage = lazy(
   () => import("../features/clients/pages/ClientEmergencyContactsPage"),
 );
-const ClientSettingsPage = lazy(
-  () => import("../features/clients/pages/ClientSettingsPage"),
-);
 const ImportClientsPage = lazy(
   () => import("../features/clients/pages/ImportClientsPage"),
 );
@@ -54,7 +51,6 @@ export const ClientsRoutes = () => (
                 <Route path="add" element={<AddClientPage />} />
                 <Route path="addresses" element={<ClientAddressesPage />} />
                 <Route path="emergency" element={<ClientEmergencyContactsPage />} />
-                <Route path="settings" element={<ClientSettingsPage />} />
               </Routes>
             </ClientWizardProvider>
           }

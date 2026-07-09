@@ -49,6 +49,10 @@ interface AppointmentRecord {
   notes: string | null;
   cancel_reason: string | null;
   amount_paid: number;
+  payment_method?: string | null;
+  paymentMode?: string | null;
+  payment_mode?: string | null;
+  membership_wallet_used?: number;
   services: Array<{ name?: string; service_name?: string; price?: number }>;
   product_items: Array<{ name: string }>;
   package_items?: Array<{ name?: string; package_name?: string; price?: number; total?: number }>;
@@ -1026,6 +1030,10 @@ export default function ClientHistoryPage() {
                           const isPaid = linkedSale
                             ? linkedSale.status === "completed"
                             : appt.payment_status === "paid" || Number(appt.amount_paid) > 0;
+                          const isPackagePaid = linkedSale
+                            ? (linkedSale.payment_method || "").toLowerCase() === "package"
+                            : (appt.payment_method || appt.paymentMode || appt.payment_mode || "").toLowerCase() === "package";
+                          const isMembershipPaid = Number(appt.membership_wallet_used) > 0;
                           return (
                             <div key={appt.id} className="chp-visit-row">
                               <div className="chp-visit-dot" />
@@ -1048,6 +1056,12 @@ export default function ClientHistoryPage() {
                                 <div className={`chp-visit-badge ${isPaid ? "paid" : "unpaid"}`}>
                                   {isPaid ? "Paid" : appt.payment_status || "Unpaid"}
                                 </div>
+                                {isPaid && isPackagePaid && (
+                                  <div className="chp-visit-package-tag">via Package</div>
+                                )}
+                                {isPaid && isMembershipPaid && (
+                                  <div className="chp-visit-package-tag chp-visit-package-tag--membership">via Membership</div>
+                                )}
                               </div>
                               <button
                                 className="chp-print-btn"
@@ -1068,6 +1082,7 @@ export default function ClientHistoryPage() {
                             || (s.items ?? [])[0]?.name
                             || "Quick Sale";
                           const extraItems = (s.items?.length ?? 0) - 1;
+                          const isSalePackagePaid = (s.payment_method || "").toLowerCase() === "package";
                           return (
                             <div key={s.id} className="chp-visit-row">
                               <div className="chp-visit-dot" style={{ background: "#a78bfa" }} />
@@ -1090,6 +1105,9 @@ export default function ClientHistoryPage() {
                                 <div className={`chp-visit-badge ${s.status === "completed" ? "paid" : "unpaid"}`}>
                                   {s.status === "completed" ? "Paid" : s.status}
                                 </div>
+                                {s.status === "completed" && isSalePackagePaid && (
+                                  <div className="chp-visit-package-tag">via Package</div>
+                                )}
                               </div>
                               <button
                                 className="chp-print-btn"

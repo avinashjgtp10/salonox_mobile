@@ -147,7 +147,10 @@ export default function RewardsSettingsPage() {
       desc="Let customers earn points on every visit and redeem them for a discount at checkout."
       headerAction={<SettingsToggle checked={config.active} onChange={() => setConfig((c) => ({ ...c, active: !c.active }))} disabled={!isEditing} />}
     >
-      <div className="settings-form-grid">
+      <div
+        className="settings-form-grid"
+        style={!config.active ? { opacity: 0.5, pointerEvents: "none" } : undefined}
+      >
         {fields.map(({ key, label, min }) => (
           <div className="settings-form-group" key={key}>
             <label className="settings-label">{label}</label>
@@ -156,7 +159,7 @@ export default function RewardsSettingsPage() {
               type="text"
               inputMode="numeric"
               value={inputs[key]}
-              disabled={!isEditing}
+              disabled={!isEditing || !config.active}
               onChange={(e) => handleInputChange(key, e.target.value)}
               onBlur={() => handleInputBlur(key, min)}
             />
@@ -165,7 +168,7 @@ export default function RewardsSettingsPage() {
         ))}
       </div>
 
-      <p className="settings-section-desc" style={{ marginTop: 12 }}>
+      <p className="settings-section-desc" style={{ marginTop: 12, opacity: config.active ? 1 : 0.5 }}>
         Example: a customer spends <strong>₹{config.spend_amount}</strong> → earns{" "}
         <strong>{config.points_earned} points</strong> → later redeems them for{" "}
         <strong>

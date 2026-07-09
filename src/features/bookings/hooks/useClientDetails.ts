@@ -200,15 +200,5 @@ export function useClientDetails(clientId: string | null | undefined) {
     });
   }, []);
 
-  /** Call after an eWallet top-up to reflect the new balance locally without re-fetching */
-  const patchEwalletAmt = useCallback((newBalance: number) => {
-    setDetails((prev) => {
-      if (!prev) return prev;
-      const updated = { ...prev, ewallet_balance: newBalance };
-      setStats(buildStats(updated));
-      return updated;
-    });
-  }, []);
-
-  return { details, stats, loading, error, patchUnpaidAmt, patchEwalletAmt };
+  return { details, stats, loading, error, patchUnpaidAmt };
 }

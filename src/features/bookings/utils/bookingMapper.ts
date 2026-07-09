@@ -352,6 +352,8 @@ export function mapApiBooking(
     paymentStatus: (hasPerServicePackage && dueAmount === 0 && payingNow > 0) ? "Paid" : normalizedPaymentStatus,
     payment_status: (appt.payment_status ?? "unpaid") as any,
     paymentMode: appt.paymentMode || appt.payment_mode || appt.payment_method,
+    membershipWalletUsed: parseFloat(String(appt.membership_wallet_used ?? appt.membershipWalletUsed ?? 0)) || 0,
+    applyMembershipWallet: !!(appt.apply_membership_wallet ?? appt.applyMembershipWallet),
     payingNow,
     dueAmount,
     notes: parsedNotes,

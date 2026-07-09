@@ -225,6 +225,8 @@ function mapBooking(appt: any, servicesList?: any[]): Booking {
     memberships: membershipItems, membershipItems,
     payingNow, dueAmount,
     paymentMode: appt.paymentMode || appt.payment_method || undefined,
+    membershipWalletUsed: parseFloat(String(appt.membership_wallet_used ?? appt.membershipWalletUsed ?? 0)) || 0,
+    applyMembershipWallet: !!(appt.apply_membership_wallet ?? appt.applyMembershipWallet),
     notes: parsedNotes, staffAlert: parsedStaffAlert,
     discount: parseFloat(String(appt.discount_value ?? 0)) || 0,
     discountAmount: discountAmountVal,

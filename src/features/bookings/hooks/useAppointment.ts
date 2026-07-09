@@ -23,6 +23,7 @@ interface SavePayload {
   clientId?: string | null;
   existingBooking?: Booking | null;
   isPackageAppointment?: boolean;
+  applyMembershipWallet?: boolean;
 }
 
 function addMinutes(time: string, mins: number): string {
@@ -97,6 +98,7 @@ export function useAppointment() {
       booking, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, clientId, existingBooking,
       isPackageAppointment: _isPackageAppointment,
+      applyMembershipWallet,
     } = payload;
 
     setIsSaving(true);
@@ -200,6 +202,7 @@ export function useAppointment() {
         ex_charges:     (booking as any).exCharges ?? 0,
         tip_amount:     (booking as any).tipAmount ?? 0,
         gst_percent:    (booking as any).gst ?? 0,
+        apply_membership_wallet: applyMembershipWallet ?? false,
       };
 
       if (existingBooking) {

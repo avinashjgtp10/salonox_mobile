@@ -118,6 +118,8 @@ export interface Booking {
   paymentStatus: PaymentStatus;
   payment_status?: string | null; // snake_case alias from API
   paymentMode?: PaymentMode;
+  membershipWalletUsed?: number; // ₹ amount of this bill previously covered by the client's membership wallet
+  applyMembershipWallet?: boolean; // persisted "Apply Membership" checkbox state, independent of payment
 
   rewardPoints?: string;
   rewardPointsValue?: number; // ₹ value of reward points redeemed against THIS bill (not the client's balance)

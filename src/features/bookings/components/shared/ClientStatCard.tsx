@@ -5,7 +5,6 @@ import type { ClientPackage } from "../../../../services/api/endpoints/packages.
 import type { ClientMembership } from "../../../../services/api/endpoints/clientMemberships.endpoints";
 import { PackageInfoModal } from "./PackageInfoModal";
 import { MembershipInfoModal } from "./MembershipInfoModal";
-import { EwalletTopUpModal } from "./EwalletTopUpModal";
 
 interface Props {
   name: string;
@@ -16,8 +15,6 @@ interface Props {
   memberships?: ClientMembership[];
   onViewHistory?: () => void;
   historyUrl?: string;
-  clientId?: string;
-  onEwalletTopUp?: (newBalance: number) => void;
 }
 
 const STAT_ROWS: Array<{
@@ -49,18 +46,22 @@ function fmtExpiry(date: string | null | undefined): string {
 
 export const ClientStatCard: React.FC<Props> = ({
   name, phone, address, stats, packages = [], memberships = [], onViewHistory, historyUrl,
-  clientId, onEwalletTopUp,
 }) => {
   const initial = name?.charAt(0)?.toUpperCase() || "?";
   const [showPkgModal, setShowPkgModal] = useState(false);
   const [showMemModal, setShowMemModal] = useState(false);
-  const [showTopUpModal, setShowTopUpModal] = useState(false);
 
   const activePackages = packages.filter((p) => p.status === "Active");
   const firstPkg = activePackages[0];
 
   const activeMemberships = memberships.filter((m) => m.status === "active");
   const firstMembership = activeMemberships[0];
+
+  // Membership wallet balances are folded into the Ewallet Amt figure —
+  // there's no separate top-up flow anymore, so this is the client's full spendable balance.
+  const membershipWalletTotal = activeMemberships.reduce(
+    (sum, m) => sum + (Number(m.membershipWalletBalance) || 0), 0
+  );
 
   return (
     <>
@@ -82,26 +83,10 @@ export const ClientStatCard: React.FC<Props> = ({
         {/* Stats grid */}
         <div className="client-stats-panel__grid">
           {STAT_ROWS.map(({ label, key, format, danger, info, hideWhen }) => {
-            const raw = stats[key];
+            const raw = key === "ewalletAmt" ? (Number(stats[key]) || 0) + membershipWalletTotal : stats[key];
             if (hideWhen && hideWhen(raw)) return null;
             const display = format ? format(raw) : String(raw ?? "N/A");
             const isDanger = danger ? danger(raw) : false;
-            if (key === "ewalletAmt" && clientId) {
-              return (
-                <div key={label} className={`info-cell${isDanger ? " danger" : info ? " info" : ""}`}>
-                  <span className="info-cell__label">{label}</span>
-                  <span className="info-cell__value pkg-cell__value">
-                    <span className="pkg-cell__name">{display}</span>
-                    <button
-                      type="button"
-                      className="pkg-info-btn"
-                      title="Top up eWallet"
-                      onClick={() => setShowTopUpModal(true)}
-                    >+</button>
-                  </span>
-                </div>
-              );
-            }
             return (
               <div key={label} className={`info-cell${isDanger ? " danger" : info ? " info" : ""}`}>
                 <span className="info-cell__label">{label}</span>
@@ -110,12 +95,12 @@ export const ClientStatCard: React.FC<Props> = ({
             );
           })}
 
-          {/* Package cell — shown only when client has active packages */}
-          {firstPkg && (
-            <div className="info-cell info">
-              <span className="info-cell__label">
-                Package{activePackages.length > 1 ? ` (${activePackages.length})` : ""}
-              </span>
+          {/* Package cell */}
+          <div className="info-cell info">
+            <span className="info-cell__label">
+              Package{activePackages.length > 1 ? ` (${activePackages.length})` : ""}
+            </span>
+            {firstPkg ? (
               <span className="info-cell__value pkg-cell__value">
                 <span className="pkg-cell__name">
                   {firstPkg.packageName}
@@ -130,15 +115,17 @@ export const ClientStatCard: React.FC<Props> = ({
                   ℹ
                 </button>
               </span>
-            </div>
-          )}
+            ) : (
+              <span className="info-cell__value">N/A</span>
+            )}
+          </div>
 
-          {/* Membership cell — shown only when client has active memberships */}
-          {firstMembership && (
-            <div className="info-cell info">
-              <span className="info-cell__label">
-                Membership{activeMemberships.length > 1 ? ` (${activeMemberships.length})` : ""}
-              </span>
+          {/* Membership cell */}
+          <div className="info-cell info">
+            <span className="info-cell__label">
+              Membership{activeMemberships.length > 1 ? ` (${activeMemberships.length})` : ""}
+            </span>
+            {firstMembership ? (
               <span className="info-cell__value pkg-cell__value">
                 <span className="pkg-cell__name">
                   {firstMembership.membershipName}
@@ -153,8 +140,10 @@ export const ClientStatCard: React.FC<Props> = ({
                   ℹ
                 </button>
               </span>
-            </div>
-          )}
+            ) : (
+              <span className="info-cell__value">N/A</span>
+            )}
+          </div>
 
           {/* View History */}
           {(onViewHistory || historyUrl) && (
@@ -186,16 +175,6 @@ export const ClientStatCard: React.FC<Props> = ({
           clientName={name}
           memberships={activeMemberships}
           onClose={() => setShowMemModal(false)}
-        />
-      )}
-
-      {showTopUpModal && clientId && (
-        <EwalletTopUpModal
-          clientId={clientId}
-          clientName={name}
-          currentBalance={Number(stats.ewalletAmt) || 0}
-          onClose={() => setShowTopUpModal(false)}
-          onSuccess={(newBalance) => onEwalletTopUp?.(newBalance)}
         />
       )}
     </>
