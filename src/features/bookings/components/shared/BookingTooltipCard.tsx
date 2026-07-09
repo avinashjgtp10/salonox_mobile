@@ -9,7 +9,7 @@ import {
   autoUpdate,
 } from "@floating-ui/react";
 import { Scissors, AwardFill } from "react-bootstrap-icons";
-import { IconBox, IconTag } from "../../../sales/components/QuickSaleIcons";
+import { IconBox, IconTag } from "../../../../components/shared/QuickSaleIcons";
 import type { Booking, Staff } from "../../types/scheduler-types";
 import { formatTime12 } from "../../utils/timeUtils";
 import "../../styles/BookingTooltipCard.scss";

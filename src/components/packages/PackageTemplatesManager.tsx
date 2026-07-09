@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Plus, Trash, PencilSquare, CheckLg, X, TagFill, ClockFill, CreditCard2Front, Calendar3, ChevronLeft, ChevronRight } from "react-bootstrap-icons";
 import { Loader2, Search, Sparkles, Package } from "lucide-react";
 import styles from "./packages.module.scss";
-import "../../features/analytics/styles/MembershipsPage.scss";
+import "./PackageTemplatesManager.scss";
 import {
   useListPackageTemplatesQuery,
   useCreatePackageTemplateMutation,

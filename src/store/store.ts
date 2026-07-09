@@ -9,7 +9,6 @@ import salonReducer from "./salonSlice";
 import clientReducer from "./clientSlice";
 import userReducer from "./userSlice";
 import staffReducer from "./staffSlice";
-import saleReducer from "./saleSlice";
 import catalogReducer from "./catalogSlice";
 import calendarReducer from "./calendarSlice";
 import bookingReducer from "./bookingSlice";
@@ -66,7 +65,6 @@ export const store = configureStore({
     client: clientReducer,
     user: userReducer,
     staff: staffReducer,
-    sale: saleReducer,
     catalog: catalogReducer,
     calendar: calendarReducer,
     booking: bookingReducer,

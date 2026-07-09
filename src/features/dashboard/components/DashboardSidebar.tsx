@@ -1,9 +1,8 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import {
   House,
   Lightning,
   Calendar,
-  Tag,
   EmojiSmile,
   Book,
   Person,
@@ -19,7 +18,6 @@ import {
 import { usePermissions } from "../../../hooks/usePermissions";
 
 type MenuKey =
-  | "sales"
   | "clients"
   | "catalog"
   | "onlineBooking"
@@ -32,7 +30,6 @@ interface Props {
 }
 
 export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
-  const navigate = useNavigate();
   const { can } = usePermissions();
 
   function navClass(isActive: boolean) {
@@ -77,20 +74,6 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
           <Calendar size={26} />
           <span className="nav-label">Calendar</span>
         </NavLink>
-      )}
-
-      {can("view_sales") && (
-        <button
-          type="button"
-          className={menuClass("sales")}
-          onClick={() => {
-            onMenuChange("sales");
-            navigate("/dashboard/sales");
-          }}
-        >
-          <Tag size={26} />
-          <span className="nav-label">Sales</span>
-        </button>
       )}
 
       {can("view_clients") && (

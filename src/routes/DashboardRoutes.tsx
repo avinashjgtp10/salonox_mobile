@@ -7,7 +7,6 @@ import PermissionGuard from "../components/guards/PermissionGuard";
 import { DashboardProviders } from "../providers/DashboardProviders";
 
 import { AppsRoutes } from "./AppsRoutes";
-import { SalesRoutes } from "./SalesRoutes";
 import { CatalogRoutes } from "./CatalogRoutes";
 import { ClientsRoutes } from "./ClientsRoutes";
 import { TeamRoutes } from "./TeamRoutes";
@@ -32,6 +31,10 @@ const ReportsPage = lazy(() =>
 
 const CashManagementPage = lazy(() =>
   import("../features/cash-management/pages/CashManagementPage")
+);
+
+const QuickSalePage = lazy(() =>
+  import("../features/sales/pages/QuickSalePage")
 );
 
 const ProfilePage = lazy(() =>
@@ -67,10 +70,12 @@ export const DashboardRoutes = (
         <Route path="analytics" element={<ReportsPage />} />
       </Route>
 
-      {/* Sales — requires view_sales (sub-routes handle create_sales internally) */}
+      {/* Cash Management + Quick Sale — require view_sales (Quick Sale also needs create_sales) */}
       <Route element={<PermissionGuard permKey="view_sales" />}>
         <Route path="cash-management" element={<CashManagementPage />} />
-        <Route path="sales/*" element={<SalesRoutes />} />
+        <Route element={<PermissionGuard permKey="create_sales" />}>
+          <Route path="sales/quick" element={<QuickSalePage />} />
+        </Route>
       </Route>
 
       {/* Clients — requires view_clients */}

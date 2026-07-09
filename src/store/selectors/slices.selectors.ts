@@ -157,17 +157,6 @@ export const selectActiveCatalogItems = createSelector(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Sale
-// ─────────────────────────────────────────────────────────────────────────────
-const saleBase = createCRUDSelectors((s: RootState) => s.sale);
-
-export const selectAllSales = saleBase.selectItems;
-export const selectSelectedSale = saleBase.selectSelectedItem;
-export const selectSaleLoading = saleBase.selectLoading;
-export const selectSaleError = saleBase.selectError;
-export const selectSaleCount = saleBase.selectCount;
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Calendar
 // ─────────────────────────────────────────────────────────────────────────────
 const calendarBase = createCRUDSelectors((s: RootState) => s.calendar);

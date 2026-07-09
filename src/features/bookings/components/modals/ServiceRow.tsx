@@ -9,7 +9,7 @@ import { Trash } from "react-bootstrap-icons";
 import api from "../../../../services/api/axios";
 import { SERVICES } from "../../../../services/api/endpoints/services.endpoints";
 import { INVENTORY } from "../../../../services/api/endpoints/inventory.endpoints";
-import { IconClock, IconBox, IconTag } from "../../../sales/components/QuickSaleIcons";
+import { IconClock, IconBox, IconTag } from "../../../../components/shared/QuickSaleIcons";
 import type { RootState } from "../../../../store/store";
 import "../../styles/AppointmentModal.scss";
 
