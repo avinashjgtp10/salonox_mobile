@@ -9,7 +9,6 @@ import { selectAllCategories, selectAllStaff, selectStaffLoading } from "../../.
 import { useServiceForm } from "../hooks/useServiceForm.ts";
 import BasicDetailsTab from "../components/tabs/BasicDetailsTab.tsx";
 import TeamMembersTab from "../components/tabs/TeamMembersTab.tsx";
-import ResourcesTab from "../components/tabs/ResourcesTab.tsx";
 import ServiceAddOnsTab from "../components/tabs/ServiceAddOnsTab.tsx";
 import OnlineBookingTab from "../components/tabs/OnlineBookingTab.tsx";
 import PortfolioImagesTab from "../components/tabs/PortfolioImagesTab.tsx";
@@ -21,7 +20,6 @@ import "../styles/AddServicePage.scss";
 type TabKey =
   | "basic"
   | "team"
-  | "resources"
   | "addons"
   | "online-booking"
   | "portfolio"
@@ -39,14 +37,13 @@ interface TabItem {
 const generalTabs: TabItem[] = [
   { key: "basic", label: "Basic details" },
   { key: "team", label: "Team members" },
-  { key: "resources", label: "Resources" },
   { key: "addons", label: "Service add-ons" },
 ];
 
 const settingsTabs: TabItem[] = [
   { key: "online-booking", label: "Online booking" },
   { key: "portfolio", label: "Portfolio images" },
-  { key: "forms", label: "Forms" },
+  { key: "forms", label: "Consent forms" },
   { key: "commission", label: "Commissions" },
   { key: "settings", label: "Settings" },
 ];
@@ -142,16 +139,6 @@ const AddServicePage: React.FC = () => {
       <main className="add-service-page__layout">
         <div className="layout-container">
 
-          {isSubmitted && Object.keys(validationErrors).length > 0 && (
-            <div className="asp-error-banner">
-              <i className="bi bi-exclamation-triangle-fill" />
-              <div>
-                <strong>Check the form for errors</strong>
-                <p>Some required fields are missing or invalid. Please check the marked sections.</p>
-              </div>
-            </div>
-          )}
-
           <div className="layout-body">
             <aside className="add-service-page__sidebar">
               <nav>
@@ -186,12 +173,6 @@ const AddServicePage: React.FC = () => {
                   staffLoading={staffLoading.fetchAll}
                 />
               )}
-              {activeTab === "resources" && (
-                <ResourcesTab
-                  data={formData.resources}
-                  onChange={(v: any) => updateField("resources", v)}
-                />
-              )}
               {activeTab === "addons" && (
                 <ServiceAddOnsTab
                   data={formData.addons}
@@ -214,6 +195,7 @@ const AddServicePage: React.FC = () => {
                 <FormsTab
                   data={formData.forms}
                   onChange={(v: any) => updateField("forms", v)}
+                  staffMembers={staffMembers}
                 />
               )}
               {activeTab === "commission" && (

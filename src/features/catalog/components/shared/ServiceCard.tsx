@@ -15,11 +15,16 @@ interface ServiceCardProps {
   onEdit: (id: string | number) => void;
   onDelete: (id: string | number) => void;
   onClick: (id: string | number) => void;
+  highlighted?: boolean;
 }
 
 const ServiceCard: React.FC<ServiceCardProps> = React.memo(
-  ({ service, openMenuId, onMenuToggle, onEdit, onDelete, onClick }) => (
-    <div className="slp__service-card" onClick={() => onClick(service.id)}>
+  ({ service, openMenuId, onMenuToggle, onEdit, onDelete, onClick, highlighted = false }) => (
+    <div
+      id={`service-card-${service.id}`}
+      className={`slp__service-card ${highlighted ? "slp__service-card--highlighted" : ""}`}
+      onClick={() => onClick(service.id)}
+    >
       <div className="slp__svc-left">
         <div className="slp__svc-avatar">
           {(service.name ?? "S").charAt(0).toUpperCase()}

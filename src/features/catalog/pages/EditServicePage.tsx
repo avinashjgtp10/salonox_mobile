@@ -12,7 +12,6 @@ import {
 import { useEditServiceForm } from "../hooks/useEditServiceForm.ts";
 import BasicDetailsTab from "../components/tabs/BasicDetailsTab.tsx";
 import TeamMembersTab from "../components/tabs/TeamMembersTab.tsx";
-import ResourcesTab from "../components/tabs/ResourcesTab.tsx";
 import ServiceAddOnsTab from "../components/tabs/ServiceAddOnsTab.tsx";
 import OnlineBookingTab from "../components/tabs/OnlineBookingTab.tsx";
 import PortfolioImagesTab from "../components/tabs/PortfolioImagesTab.tsx";
@@ -24,7 +23,6 @@ import "../styles/AddServicePage.scss";
 type TabKey =
   | "basic"
   | "team"
-  | "resources"
   | "addons"
   | "online-booking"
   | "portfolio"
@@ -41,14 +39,13 @@ interface TabItem {
 const generalTabs: TabItem[] = [
   { key: "basic", label: "Basic details" },
   { key: "team", label: "Team members" },
-  { key: "resources", label: "Resources" },
   { key: "addons", label: "Service add-ons" },
 ];
 
 const settingsTabs: TabItem[] = [
   { key: "online-booking", label: "Online booking" },
   { key: "portfolio", label: "Portfolio images" },
-  { key: "forms", label: "Forms" },
+  { key: "forms", label: "Consent forms" },
   { key: "commission", label: "Commissions" },
   { key: "settings", label: "Settings" },
 ];
@@ -58,7 +55,6 @@ const EditServicePage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const [activeTab, setActiveTab] = useState<TabKey>("basic");
-  const [showBanner, setShowBanner] = useState(false);
 
   const rawCategories = useSelector(selectAllCategories);
   const categories = (Array.isArray(rawCategories) ? rawCategories : []).map(
@@ -87,20 +83,8 @@ const EditServicePage: React.FC = () => {
     loading,
     error,
     validationErrors,
-    isSubmitted,
     serviceName,
   } = useEditServiceForm(id!);
-
-  // Show banner when new validation errors arrive, auto-dismiss after 4 s
-  useEffect(() => {
-    if (isSubmitted && Object.keys(validationErrors).length > 0) {
-      setShowBanner(true);
-      const t = setTimeout(() => setShowBanner(false), 4000);
-      return () => clearTimeout(t);
-    } else {
-      setShowBanner(false);
-    }
-  }, [validationErrors, isSubmitted]);
 
   const onSubmit = async () => {
     const success = await handleSubmit();
@@ -194,29 +178,6 @@ const EditServicePage: React.FC = () => {
 
       <main className="add-service-page__layout">
         <div className="layout-container">
-        
-
-          {showBanner && (
-            <div
-              className="asp-error-banner"
-              role="alert"
-            >
-              <div className="asp-error-banner__icon">
-                <i className="bi bi-exclamation-triangle-fill" />
-              </div>
-              <div className="asp-error-banner__body">
-                <strong>Check the form for errors</strong>
-                <p>Some required fields are missing or invalid. Please check the marked sections.</p>
-              </div>
-              <button
-                className="asp-error-banner__close"
-                onClick={() => setShowBanner(false)}
-                aria-label="Dismiss"
-              >
-                ×
-              </button>
-            </div>
-          )}
 
           <div className="layout-body">
             <aside className="add-service-page__sidebar">
@@ -252,12 +213,6 @@ const EditServicePage: React.FC = () => {
                   staffLoading={staffLoading.fetchAll}
                 />
               )}
-              {activeTab === "resources" && (
-                <ResourcesTab
-                  data={formData.resources}
-                  onChange={(v: any) => updateField("resources", v)}
-                />
-              )}
               {activeTab === "addons" && (
                 <ServiceAddOnsTab
                   data={formData.addons}
@@ -279,7 +234,9 @@ const EditServicePage: React.FC = () => {
               {activeTab === "forms" && (
                 <FormsTab
                   data={formData.forms}
+                  serviceId={id}
                   onChange={(v: any) => updateField("forms", v)}
+                  staffMembers={staffMembers}
                 />
               )}
               {activeTab === "commission" && (

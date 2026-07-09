@@ -22,4 +22,10 @@ export const SERVICES = {
     `/api/v1/services/${serviceId}/add-on-groups/${groupId}/options`,
   ADD_ON_OPTION_BY_ID: (serviceId: string | number, groupId: string | number, optionId: string | number) =>
     `/api/v1/services/${serviceId}/add-on-groups/${groupId}/options/${optionId}`,
+
+  // ── Consultation Forms ─────────────────────────────────────────────────────
+  CONSULTATION_FORMS: (serviceId: string | number) =>
+    `/api/v1/services/${serviceId}/consultation-forms`,
+  CONSULTATION_FORM_BY_ID: (serviceId: string | number, formId: string | number) =>
+    `/api/v1/services/${serviceId}/consultation-forms/${formId}`,
 } as const;

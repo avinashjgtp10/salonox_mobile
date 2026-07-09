@@ -1,7 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
 import type { AppDispatch } from "../../../store/store";
-import { createServiceThunk, fetchServicesThunk } from "../../../middleware/services/services.thunk";
+import {
+  createConsultationFormThunk,
+  createServiceThunk,
+  fetchServicesThunk,
+  updateConsultationFormThunk,
+} from "../../../middleware/services/services.thunk";
 import { fetchCategoriesThunk } from "../../../middleware/services/categories.thunk";
 import type { CatalogFormData, Service } from "../types/catalog.types.ts";
 
@@ -96,7 +101,8 @@ export const useServiceForm = (_type: "single" | "bundle") => {
     if (
       formData.basic.price === undefined ||
       formData.basic.price === null ||
-      isNaN(formData.basic.price)
+      isNaN(formData.basic.price) ||
+      formData.basic.price <= 0
     ) {
       errors.basic = [...(errors.basic || []), "Price is required"];
     }
@@ -115,6 +121,13 @@ export const useServiceForm = (_type: "single" | "bundle") => {
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
+
+  // Re-run validation live once the user has attempted a submit, so inline
+  // errors clear as soon as the user fixes the problem.
+  useEffect(() => {
+    if (isSubmitted) validate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData, isSubmitted]);
 
   const handleSubmit = async () => {
     setIsSubmitted(true);
@@ -139,9 +152,8 @@ export const useServiceForm = (_type: "single" | "bundle") => {
         online_booking: formData.onlineBooking.enabled,
         resource_required: formData.resources.requireResource,
         commission_enabled: formData.commission.defaultValue > 0,
-        all_members: formData.team.allMembers,
-        team_member_ids: formData.team.allMembers
-          ? undefined
+        staff_ids: formData.team.allMembers
+          ? []
           : formData.team.selectedMemberIds,
         gender_preference: formData.basic.genderPreference ?? null,
         image_url: formData.basic.imageUrl ?? null,
@@ -149,6 +161,28 @@ export const useServiceForm = (_type: "single" | "bundle") => {
 
       const resultAction = await dispatch(createServiceThunk(payload));
       if (createServiceThunk.fulfilled.match(resultAction)) {
+        // Consultation forms are their own sub-resource on the backend and
+        // couldn't be created until the service itself had an id — push any
+        // that were filled in locally now that one exists.
+        const newServiceId = resultAction.payload.id;
+        for (const form of formData.forms.availableForms) {
+          const created = await dispatch(
+            createConsultationFormThunk({ serviceId: newServiceId, name: form.name }),
+          );
+          if (createConsultationFormThunk.fulfilled.match(created)) {
+            const isSelected = formData.forms.selectedFormIds.includes(form.id);
+            if (form.values || !isSelected) {
+              await dispatch(
+                updateConsultationFormThunk({
+                  serviceId: newServiceId,
+                  formId: created.payload.id,
+                  data: { is_selected: isSelected, values: form.values ?? null },
+                }),
+              );
+            }
+          }
+        }
+
         // Refresh the services list and categories in Redux state so the list
         // page shows up-to-date data immediately when the user navigates back.
         dispatch(fetchServicesThunk({ page: 1, limit: 25 }));

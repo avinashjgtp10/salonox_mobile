@@ -162,7 +162,9 @@ const ServiceDetailPanel: React.FC<ServiceDetailPanelProps> = ({
               <div className="sdp__detail-row">
                 <span className="sdp__detail-key"><People size={13} /> Team members</span>
                 <span className="sdp__detail-val">
-                  {service.all_members ? "All members" : `${(service.team_member_ids ?? []).length} selected`}
+                  {(service.staff ?? []).length === 0
+                    ? "All members"
+                    : `${(service.staff ?? []).length} selected`}
                 </span>
               </div>
               <div className="sdp__detail-row">
@@ -215,12 +217,6 @@ const ServiceDetailPanel: React.FC<ServiceDetailPanelProps> = ({
             onClick={() => onDelete(service)}
           >
             <Trash3 size={15} /> Delete
-          </button>
-          <button
-            className="sdp__action-btn sdp__action-btn--edit"
-            onClick={() => navigate(`/dashboard/catalog/services/${service.id}/edit`)}
-          >
-            <PencilSquare size={15} /> Edit service
           </button>
         </div>
       </aside>

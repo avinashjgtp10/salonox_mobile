@@ -667,6 +667,11 @@
 
     &:last-child { border-bottom: none; }
     &:hover { background: #fafbff; }
+
+    &--highlighted {
+      background: #eef2ff;
+      box-shadow: inset 3px 0 0 #6366f1;
+    }
   }
 
   &__svc-left {
