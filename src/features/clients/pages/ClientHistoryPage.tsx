@@ -19,6 +19,7 @@ import {
   Printer,
 } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
+import { printReceipt, buildPrintableBooking } from "../../bookings/utils/receipt";
 import "../styles/ClientHistoryPage.scss";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -563,134 +564,50 @@ export default function ClientHistoryPage() {
     navigate("/dashboard/calendar", { state: { prefillClientId: client.id } });
   };
 
-  const buildBillHtml = (
-    invoiceNum: string,
-    dateStr: string,
-    timeStr: string,
-    sections: { title: string; rows: { name: string; qty: number | string; price: string | number }[] }[],
-    paymentMethod: string,
-    rawStatus: string,
-    totalAmount: number
-  ) => {
-    const salonName = currentSalon?.business_name || "Salon";
-    const salonPhone = currentSalon?.phone || "";
-    const salonEmail = currentSalon?.email || "";
-    const salonAddress = currentSalon?.address || "";
-    const isPaid = rawStatus === "completed" || rawStatus === "paid";
-
-    const rowsHtml = (rows: { name: string; qty: number | string; price: string | number }[]) =>
-      rows.map(r => `<tr><td>${r.name}</td><td class="c">${r.qty}</td><td class="r">₹${Number(r.price).toLocaleString("en-IN")}</td></tr>`).join("");
-
-    const sectionHtml = sections
-      .filter(sec => sec.rows.length > 0)
-      .map(sec => `<p class="sec">${sec.title}</p>
-        <table><thead><tr><th>Item</th><th class="c">Qty</th><th class="r">Amount</th></tr></thead>
-        <tbody>${rowsHtml(sec.rows)}</tbody></table>`)
-      .join('<hr class="dash">');
-
-    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Bill</title><style>
-      *{margin:0;padding:0;box-sizing:border-box}
-      body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#111;padding:32px;max-width:480px;margin:auto}
-      .logo{text-align:center;margin-bottom:20px}
-      .salon{font-size:24px;font-weight:800;color:#6c5ce7}
-      .sub{font-size:11px;color:#9ca3af;margin-top:3px}
-      .inv{font-size:11px;color:#6b7280;margin-top:2px}
-      hr{border:none;margin:14px 0}
-      hr.solid{border-top:2px solid #111}
-      hr.dash{border-top:1px dashed #d1d5db}
-      .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
-      .lbl{font-size:10px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
-      .val{font-size:12px;font-weight:500;color:#111}
-      .sec{font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin:12px 0 6px}
-      table{width:100%;border-collapse:collapse;margin-bottom:4px}
-      th{font-size:10px;font-weight:600;color:#9ca3af;padding:4px 0;border-bottom:1px solid #f0f0f0;text-align:left}
-      td{font-size:12px;color:#374151;padding:6px 0;border-bottom:1px solid #f9f9f9}
-      .c{text-align:center}.r{text-align:right;font-weight:600}
-      .totrow{display:flex;justify-content:space-between;font-size:12px;color:#6b7280;padding:4px 0}
-      .grand{font-size:18px;font-weight:800;color:#111;padding:10px 0}
-      .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
-      .paid{background:#dcfce7;color:#16a34a}.unpaid{background:#fee2e2;color:#dc2626}.pending{background:#fef9c3;color:#a16207}
-      .footer{margin-top:24px;text-align:center}
-      .ty{font-size:15px;font-weight:700;color:#6c5ce7}
-      .fp{font-size:11px;color:#9ca3af;margin-top:3px}
-      @media print{body{padding:10px}@page{margin:8mm}}
-    </style></head><body>
-      <div class="logo">
-        <div class="salon">${salonName}</div>
-        ${salonAddress ? `<div class="sub">${salonAddress}</div>` : ""}
-        ${salonPhone || salonEmail ? `<div class="sub">${[salonPhone, salonEmail].filter(Boolean).join(" · ")}</div>` : ""}
-        <div class="inv">Receipt: ${invoiceNum}</div>
-      </div>
-      <hr class="solid">
-      <div class="grid">
-        <div><div class="lbl">Client</div><div class="val">${client?.full_name ?? "—"}</div></div>
-        <div><div class="lbl">Date</div><div class="val">${dateStr}</div></div>
-        <div><div class="lbl">Phone</div><div class="val">${[client?.phone_country_code, client?.phone_number].filter(Boolean).join(" ") || "—"}</div></div>
-        <div><div class="lbl">Time</div><div class="val">${timeStr}</div></div>
-      </div>
-      <hr class="dash">
-      ${sectionHtml}
-      <hr class="dash">
-      <div class="totrow"><span>Payment Method</span><span>${paymentMethod}</span></div>
-      <div class="totrow"><span>Status</span><span class="badge ${isPaid ? "paid" : rawStatus === "pending" ? "pending" : "unpaid"}">${rawStatus || "Unpaid"}</span></div>
-      <hr class="dash">
-      <div class="totrow grand"><span>Total</span><span>₹${totalAmount.toLocaleString("en-IN")}</span></div>
-      <div class="footer"><div class="ty">Thank you for visiting! 💜</div><p class="fp">We hope to see you again soon.</p></div>
-      <script>window.onload=function(){window.print()}</script>
-    </body></html>`;
-  };
-
-  const openPrintWindow = (html: string) => {
-    const blob = new Blob([html], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank", "width=600,height=850");
-  };
+  // Reuses the same invoice template/print flow as the calendar (ViewBillModal's
+  // printReceipt, via the shared buildPrintableBooking mapper) instead of
+  // maintaining a second, simpler bill layout here — one invoice design across
+  // the app instead of two diverging ones.
+  const printStaffList = staffList.map((s) => ({ id: s.id, name: s.full_name }));
+  const clientPhoneForPrint = [client?.phone_country_code, client?.phone_number].filter(Boolean).join(" ");
 
   const printAppointmentBill = (appt: AppointmentRecord, linkedSale: SaleRecord | undefined) => {
-    const d = new Date(appt.scheduled_at);
-    const saleItems = linkedSale?.items ?? [];
-    const serviceItems = saleItems.filter(it => it.item_type === "service");
-    const saleServiceNames = new Set(serviceItems.map(it => it.name));
-    const apptOnlyServices = (appt.services ?? [])
-      .map(s => ({ name: s.name || s.service_name || "", price: s.price ?? 0 }))
-      .filter(s => s.name && !saleServiceNames.has(s.name));
-
-    openPrintWindow(buildBillHtml(
-      linkedSale?.invoice_number ?? `APT-${appt.id.slice(-6).toUpperCase()}`,
-      d.toLocaleDateString("en-IN", { weekday: "long", day: "2-digit", month: "long", year: "numeric" }),
-      d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
-      [
-        { title: "Services", rows: [
-          ...serviceItems.map(it => ({ name: it.name, qty: it.quantity, price: it.total_price })),
-          ...apptOnlyServices.map(it => ({ name: it.name, qty: 1, price: it.price || 0 })),
-        ]},
-        { title: "Products",    rows: saleItems.filter(it => it.item_type === "product").map(it => ({ name: it.name, qty: it.quantity, price: it.total_price })) },
-        { title: "Memberships", rows: saleItems.filter(it => it.item_type === "membership").map(it => ({ name: it.name, qty: it.quantity, price: it.total_price })) },
-        { title: "Packages",    rows: saleItems.filter(it => it.item_type === "package").map(it => ({ name: it.name, qty: it.quantity, price: it.total_price })) },
-      ],
-      linkedSale?.payment_method ?? "—",
-      linkedSale?.status ?? appt.payment_status ?? "",
-      linkedSale ? Number(linkedSale.total_amount) : appt.amount_paid
-    ));
+    const booking = buildPrintableBooking({
+      id: appt.id,
+      clientId: client?.id,
+      clientName: client?.full_name,
+      clientPhone: clientPhoneForPrint,
+      clientEmail: client?.email,
+      staffId: appointmentStaffMap.get(appt.id),
+      dateIso: appt.scheduled_at,
+      items: linkedSale?.items ?? [],
+      extraServices: (appt.services ?? []).map((s) => ({ name: s.name || s.service_name || "", price: s.price ?? 0 })),
+      status: appt.status,
+      rawPaymentStatus: linkedSale?.status ?? appt.payment_status,
+      paymentMethod: linkedSale?.payment_method ?? (appt as any).payment_method,
+      invoiceNumber: linkedSale?.invoice_number,
+      grandTotalOverride: linkedSale ? Number(linkedSale.total_amount) : Number(appt.amount_paid || 0),
+      notes: appt.notes,
+    });
+    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email });
   };
 
   const printSaleBill = (s: SaleRecord) => {
-    const d = new Date(s.created_at);
-    const items = s.items ?? [];
-    openPrintWindow(buildBillHtml(
-      s.invoice_number ?? `QS-${s.id.slice(-6).toUpperCase()}`,
-      d.toLocaleDateString("en-IN", { weekday: "long", day: "2-digit", month: "long", year: "numeric" }),
-      d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
-      [
-        { title: "Services",    rows: items.filter(it => it.item_type === "service").map(it => ({ name: it.name, qty: it.quantity, price: it.total_price })) },
-        { title: "Products",    rows: items.filter(it => it.item_type === "product").map(it => ({ name: it.name, qty: it.quantity, price: it.total_price })) },
-        { title: "Memberships", rows: items.filter(it => it.item_type === "membership").map(it => ({ name: it.name, qty: it.quantity, price: it.total_price })) },
-        { title: "Packages",    rows: items.filter(it => it.item_type === "package").map(it => ({ name: it.name, qty: it.quantity, price: it.total_price })) },
-      ],
-      s.payment_method ?? "—",
-      s.status ?? "",
-      Number(s.total_amount)
-    ));
+    const booking = buildPrintableBooking({
+      id: s.id,
+      clientId: client?.id,
+      clientName: client?.full_name,
+      clientPhone: clientPhoneForPrint,
+      clientEmail: client?.email,
+      dateIso: s.created_at,
+      items: s.items ?? [],
+      status: s.status,
+      rawPaymentStatus: s.status,
+      paymentMethod: s.payment_method,
+      invoiceNumber: s.invoice_number,
+      grandTotalOverride: Number(s.total_amount) || 0,
+    });
+    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email });
   };
 
   return (
