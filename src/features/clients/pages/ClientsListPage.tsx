@@ -51,6 +51,7 @@ export default function ClientsListPage() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const sortMap: Record<string, { sort_by: string; sort_order: string }> = {
     "First name (A-Z)": { sort_by: "full_name", sort_order: "asc" },
@@ -68,6 +69,7 @@ export default function ClientsListPage() {
     sort = "Created at (newest first)",
     gender: string | null = null,
     ps?: number,
+    search?: string,
   ) => {
     setLoading(true);
     try {
@@ -81,6 +83,7 @@ export default function ClientsListPage() {
         sort_order,
       };
       if (gender && gender !== "All") params.gender = gender.toLowerCase();
+      if (search && search.trim()) params.search = search.trim();
       const res = await api.get(CLIENT.BASE, { params });
       const payload = res.data?.data;
       const items = payload?.items ?? [];
@@ -136,6 +139,17 @@ export default function ClientsListPage() {
   ];
 
   const [selectedSort, setSelectedSort] = useState("Created at (newest first)");
+
+  // Debounced live filter: typing in the search box re-fetches the table
+  // itself (page 1) instead of showing a separate floating results dropdown.
+  useEffect(() => {
+    if (!isMountedRef.current) return;
+    const t = setTimeout(() => {
+      fetchClients(1, selectedSort, selectedGender, pageSize, searchQuery);
+    }, 350);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
 
   /* ================= OPTIONS DROPDOWN ================= */
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -563,8 +577,11 @@ export default function ClientsListPage() {
         <div className="search-section d-flex align-items-center justify-content-between">
           <div className="search-left d-flex align-items-center gap-2 flex-grow-1 me-3">
             <ClientSearchInput
-              placeholder="Search by Name / Phone (min 3 chars)"
+              placeholder="Search by Name / Phone"
               highlight
+              hideDropdown
+              value={searchQuery}
+              onChange={setSearchQuery}
               onSelect={(client) => {
                 setSelectedClientId(client.id);
                 setIsDrawerOpen(true);

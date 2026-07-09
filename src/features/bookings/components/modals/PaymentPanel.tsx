@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import type { SingleMethod, SplitEntry } from "../../types";
 import "../../styles/AppointmentModal.scss";
 import { SINGLE_METHODS } from "../../types";
@@ -89,12 +89,18 @@ export const PaymentPanel: React.FC<Props> = ({
 }) => {
   const totalToCollect = includeClearDue ? remainingDue + priorDueAmt : remainingDue;
 
+  // Checked by default. Decoupled from partialAmtInput so unchecking can show a
+  // blank field (nothing typed yet) instead of forcing the field to always show
+  // some value — partialAmtInput stays "" (→ pay the full amount) until the user
+  // actually types a custom figure.
+  const [fullChecked, setFullChecked] = useState(true);
+
   return (
     <div className="payment-panel">
       {/* Rewards preview */}
       {previewPoints > 0 && (
         <div className="pay-rewards">
-          🎁 Earn <strong>{previewPoints} pts</strong> (worth {currencySymbol}{previewWalletCredit.toFixed(2)} when redeemed later)
+          Earn <strong>{previewPoints} pts</strong> ({currencySymbol}{previewWalletCredit.toFixed(2)})
         </div>
       )}
 
@@ -245,14 +251,21 @@ export const PaymentPanel: React.FC<Props> = ({
                     <input
                       type="number"
                       className="pay-due-row__input"
-                      min={0.01}
+                      min={0}
                       step={0.01}
                       placeholder={totalToCollect.toFixed(2)}
-                      value={partialAmtInput}
+                      value={fullChecked ? totalToCollect.toFixed(2) : partialAmtInput}
                       onChange={(e) => {
                         const raw = e.target.value;
-                        if (raw === "") { onSetPartialAmt(""); return; }
+                        if (raw === "") { setFullChecked(false); onSetPartialAmt(""); return; }
                         const val = parseFloat(raw);
+                        // Typing the full due amount back in re-checks "Full" automatically.
+                        if (!isNaN(val) && val === totalToCollect) {
+                          setFullChecked(true);
+                          onSetPartialAmt("");
+                          return;
+                        }
+                        setFullChecked(false);
                         onSetPartialAmt(!isNaN(val) && val > totalToCollect ? totalToCollect.toFixed(2) : raw);
                       }}
                     />
@@ -261,8 +274,14 @@ export const PaymentPanel: React.FC<Props> = ({
                     <input
                       type="checkbox"
                       className="pay-due-row__full-check"
-                      checked={partialAmtInput === ""}
-                      onChange={(e) => { if (e.target.checked) onSetPartialAmt(""); }}
+                      checked={fullChecked}
+                      onChange={(e) => {
+                        setFullChecked(e.target.checked);
+                        // Both "Full" (checked) and "not yet typed" (unchecked, blank)
+                        // map to "" internally → payment logic treats it as the full
+                        // amount until the user actually types a custom figure.
+                        onSetPartialAmt("");
+                      }}
                     />
                     Full
                   </label>

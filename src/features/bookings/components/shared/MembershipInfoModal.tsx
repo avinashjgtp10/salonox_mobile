@@ -39,6 +39,10 @@ export const MembershipInfoModal: React.FC<Props> = ({ clientName, memberships, 
                   <span className="pkg-card__val">{m.status.charAt(0).toUpperCase() + m.status.slice(1)}</span>
                 </div>
                 <div className="pkg-card__row">
+                  <span className="pkg-card__lbl">Price:</span>
+                  <span className="pkg-card__val">₹{Number(m.pricePaid ?? 0).toLocaleString("en-IN")}</span>
+                </div>
+                <div className="pkg-card__row">
                   <span className="pkg-card__lbl">Purchase Date:</span>
                   <span className="pkg-card__val">{fmtDate(m.purchasedAt)}</span>
                 </div>

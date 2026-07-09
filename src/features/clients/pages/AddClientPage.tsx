@@ -204,13 +204,6 @@ export default function AddClientPage() {
               >
                 Emergency contacts
               </button>
-
-              <button
-                className="list-group-item list-group-item-action"
-                onClick={() => navigate("/dashboard/clients/settings")}
-              >
-                Settings
-              </button>
             </div>
           </div>
         </div>

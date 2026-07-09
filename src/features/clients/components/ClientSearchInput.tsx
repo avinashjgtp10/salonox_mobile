@@ -21,6 +21,9 @@ interface Props {
   disabled?: boolean;
   hasError?: boolean;
   onNoResults?: (query: string) => void;
+  /** Suppress the floating results dropdown — use when the caller filters
+   *  its own list (e.g. a table) from `onChange` instead of picking from here. */
+  hideDropdown?: boolean;
 }
 
 const DEBOUNCE_MS = 350;
@@ -53,6 +56,7 @@ export default function ClientSearchInput({
   disabled,
   hasError,
   onNoResults,
+  hideDropdown,
 }: Props) {
   const [query, setQuery]       = useState(value ?? "");
   const [results, setResults]   = useState<ClientSearchResult[]>([]);
@@ -114,6 +118,7 @@ export default function ClientSearchInput({
   // ── Backend search ─────────────────────────────────────────────────────────
 
   const search = useCallback(async (term: string) => {
+    if (hideDropdown) return;
     if (term.length < 3 || /^walk.?in$/i.test(term)) {
       setResults([]);
       setLoading(false);
@@ -150,7 +155,7 @@ export default function ClientSearchInput({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [hideDropdown]);
 
   // ── Cancel pending work on unmount ─────────────────────────────────────────
   useEffect(() => () => cancelPending(), [cancelPending]);
@@ -213,7 +218,7 @@ export default function ClientSearchInput({
     inputRef.current?.focus();
   };
 
-  const showDropdown = open && query.length >= 3;
+  const showDropdown = !hideDropdown && open && query.length >= 3;
 
   // ── Render ─────────────────────────────────────────────────────────────────
 

@@ -9,6 +9,7 @@ import { selectBookings } from "../../../../store/selectors/scheduler.selectors"
 import { useListClientPackagesQuery } from "../../../../services/api/endpoints/packages.endpoints";
 import { useClientMembershipWallet } from "../../hooks/useClientMembershipWallet";
 import api from "../../../../services/api/axios";
+import { Button } from "../../../../components/ui";
 import "../../styles/AppointmentModal.scss";
 
 const AVATAR_COLORS = [
@@ -80,7 +81,6 @@ export const ClientPanel: React.FC<Props> = ({
   const [addLast, setAddLast] = useState("");
   const [addPhone, setAddPhone] = useState(defaultPhone ?? "");
   const [addGender, setAddGender] = useState("");
-  const [addSaving, setAddSaving] = useState(false);
   const [addErrors, setAddErrors] = useState<{ first?: string; phone?: string; gender?: string }>({});
   const [noResults, setNoResults] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -92,7 +92,7 @@ export const ClientPanel: React.FC<Props> = ({
 
   useEffect(() => { if (openAddForm) setShowAddForm(true); }, [openAddForm]);
 
-  const { details, stats, loading: statsLoading, patchEwalletAmt } = useClientDetails(selectedClientId);
+  const { details, stats, loading: statsLoading } = useClientDetails(selectedClientId);
   const allBookings = useAppSelector(selectBookings);
 
   const clientIdForPkg = selectedClientId && selectedClientId !== "walk-in" ? selectedClientId : undefined;
@@ -204,28 +204,32 @@ export const ClientPanel: React.FC<Props> = ({
     const errors: { first?: string; phone?: string; gender?: string } = {};
     if (!addFirst.trim()) errors.first = "First name is required";
     if (!addPhone.trim()) errors.phone = "Phone is required";
+    else if (addPhone.trim().length !== 10) errors.phone = "Please enter 10 digit number";
     if (!addGender) errors.gender = "Gender is required";
-    if (Object.keys(errors).length) { setAddErrors(errors); return; }
+    if (Object.keys(errors).length) {
+      setAddErrors(errors);
+      throw new Error("validation_failed");
+    }
 
     // Check if phone already exists before creating
     if (addPhone) {
+      let duplicate: any = null;
       try {
         const checkRes = await api.get(`/api/v1/clients/search?q=${encodeURIComponent(addPhone)}&salon_id=${salonId || ""}`);
         const raw = checkRes.data?.data ?? checkRes.data ?? [];
         const items: any[] = Array.isArray(raw) ? raw : (raw.items ?? raw.data ?? []);
-        const duplicate = items.find((c: any) => {
+        duplicate = items.find((c: any) => {
           const phone = (c.phone || c.phone_number || "").replace(/\D/g, "");
           return phone === addPhone || phone.endsWith(addPhone);
         });
-        if (duplicate) {
-          setAddErrors((prev) => ({ ...prev, phone: "Mobile number already exists" }));
-          return;
-        }
-      } catch { /* proceed to create */ }
+      } catch { /* search failed — proceed to create */ }
+      if (duplicate) {
+        setAddErrors((prev) => ({ ...prev, phone: "Mobile number already exists" }));
+        throw new Error("duplicate_phone");
+      }
     }
 
     setAddErrors({});
-    setAddSaving(true);
     try {
       const res = await api.post("/api/v1/clients", {
         salon_id: salonId,
@@ -249,8 +253,7 @@ export const ClientPanel: React.FC<Props> = ({
       if (err?.response?.status === 409 || /phone|mobile|already/i.test(msg)) {
         setAddErrors((prev) => ({ ...prev, phone: "Mobile number already exists" }));
       }
-    } finally {
-      setAddSaving(false);
+      throw err;
     }
   }
 
@@ -361,6 +364,9 @@ export const ClientPanel: React.FC<Props> = ({
             className="client-action-btn client-action-btn--primary"
             type="button"
             onClick={() => {
+              skipNextClear.current = true;
+              setSearch("");
+              setShowDrop(false);
               setNoResults(false);
               setShowAddForm(true);
             }}
@@ -420,7 +426,7 @@ export const ClientPanel: React.FC<Props> = ({
               onChange={(e) => {
                 const val = e.target.value.replace(/\D/g, "").slice(0, 10);
                 setAddPhone(val);
-                if (val.trim()) setAddErrors((prev) => ({ ...prev, phone: undefined }));
+                if (val.length === 10) setAddErrors((prev) => ({ ...prev, phone: undefined }));
               }}
             />
             {addErrors.phone && <span className="acf-error">{addErrors.phone}</span>}
@@ -442,9 +448,17 @@ export const ClientPanel: React.FC<Props> = ({
             </select>
             {addErrors.gender && <span className="acf-error">{addErrors.gender}</span>}
           </div>
-          <button className="acf-btn acf-btn--primary" onClick={handleCreateClient} disabled={addSaving}>
-            {addSaving ? "Saving…" : "Save"}
-          </button>
+          <Button
+            type="button"
+            variant="dark"
+            autoDisable
+            successLabel="Save"
+            onClick={handleCreateClient}
+            className="acf-btn acf-btn--primary"
+            style={{ height: 34, padding: "0 14px", fontSize: 12, fontWeight: 600, borderRadius: 6 }}
+          >
+            Save
+          </Button>
           <button className="acf-btn" onClick={() => { setShowAddForm(false); setAddErrors({}); }}>Cancel</button>
         </div>
       )}
@@ -458,8 +472,6 @@ export const ClientPanel: React.FC<Props> = ({
           packages={clientPkgsData?.items ?? []}
           memberships={clientMemberships}
           onViewHistory={onViewHistory}
-          clientId={selectedClientId ?? undefined}
-          onEwalletTopUp={patchEwalletAmt}
         />
       )}
       {statsLoading && <div style={{ padding: "8px 0", fontSize: 12, color: "#9ca3af" }}>Loading client details…</div>}

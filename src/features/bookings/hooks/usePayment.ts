@@ -79,12 +79,17 @@ export function usePayment() {
           if (a > 0) methods[e.method] = (methods[e.method] || 0) + a;
         });
       } else {
-        // In single mode, respect partialAmtInput if user entered a smaller amount
+        // In single mode, respect partialAmtInput if user entered a smaller amount.
+        // 0 is a valid entry — it means "collect nothing now, leave it all due" —
+        // so this must allow exactly 0, not just amounts strictly greater than 0.
         const parsedPartial = parseFloat(partialAmtInput);
-        const singleCharge = (!isNaN(parsedPartial) && parsedPartial > 0 && parsedPartial < amountToCharge)
+        const singleCharge = (!isNaN(parsedPartial) && parsedPartial >= 0 && parsedPartial < amountToCharge)
           ? parsedPartial
           : amountToCharge;
-        methods[singleMethod!] = singleCharge;
+        // singleMethod can be null when the bill was already fully covered by a
+        // wallet/membership/points deduction — nothing was ever collected via
+        // Cash/Card/UPI, so there was nothing to force the user to pick.
+        methods[singleMethod || "Cash"] = singleCharge;
       }
 
       const totalPaid    = Object.values(methods).reduce((a, b) => a + b, 0);

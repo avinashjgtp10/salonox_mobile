@@ -115,10 +115,6 @@ export default function ClientEmergencyContactsPage() {
               <button className="list-group-item list-group-item-action active">
                 Emergency contacts
               </button>
-
-              <button className="list-group-item list-group-item-action">
-                Settings
-              </button>
             </div>
           </div>
         </div>

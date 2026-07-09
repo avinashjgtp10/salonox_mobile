@@ -221,6 +221,14 @@ export const AppointmentModal: React.FC<Props> = ({
   const [triggerAddForm, setTriggerAddForm]   = useState(false);
   const [walkInPayError, setWalkInPayError]   = useState("");
   const clientSectionRef = useRef<HTMLDivElement>(null);
+  const servicesSectionRef = useRef<HTMLDivElement>(null);
+
+  // Scrolls the section that actually failed validation into view — no visual
+  // flash, just brings the existing inline error message on-screen.
+  const scrollToErrorSection = useCallback((which: "client" | "services") => {
+    const ref = which === "client" ? clientSectionRef : servicesSectionRef;
+    ref.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, []);
 
   // ── Hooks ────────────────────────────────────────────────────────────────
   const { save, isSaving, error: saveError, apiAppointmentId } = useAppointment();
@@ -250,10 +258,21 @@ export const AppointmentModal: React.FC<Props> = ({
   }, [clientPkgsData]);
 
   // Manual opt-in via the "Apply Package" checkbox below the services list —
-  // same treatment as "Apply Membership": unchecked by default, nothing is
-  // pre-paid/covered until staff explicitly applies it.
-  const [applyPackage, setApplyPackage] = useState(false);
-  useEffect(() => { setApplyPackage(false); }, [clientIdForPkg]);
+  // unchecked by default for a brand-new appointment, but restored to checked
+  // when reopening a booking that was already saved with package coverage
+  // (otherwise the reset-on-client-change effect below would immediately wipe
+  // the ₹0 pricing this booking was saved with, undoing it every time it's reopened).
+  const [applyPackage, setApplyPackage] = useState(() =>
+    !!existingBooking && (
+      (existingBooking.services ?? []).some((s: any) => s.isPackageService)
+      || (existingBooking.packageItems ?? []).some((p: any) => (p as any).isPackageService)
+    )
+  );
+  const applyPackageMounted = useRef(false);
+  useEffect(() => {
+    if (!applyPackageMounted.current) { applyPackageMounted.current = true; return; }
+    setApplyPackage(false);
+  }, [clientIdForPkg]);
   const EMPTY_COVERED = useMemo(() => new Map<string, number>(), []);
   const effectiveCoveredServices = applyPackage ? coveredServices : EMPTY_COVERED;
 
@@ -328,8 +347,18 @@ export const AppointmentModal: React.FC<Props> = ({
   // deduction at payment time (see payments.service.ts), gated on the same
   // flag sent with the payment — this is just a preview.
   const { primary: primaryMembership } = useClientMembershipWallet(clientIdForPkg);
-  const [applyMembership, setApplyMembership] = useState(false);
-  useEffect(() => { setApplyMembership(false); }, [clientIdForPkg]);
+  // Restored to checked when reopening a booking previously saved with membership
+  // wallet coverage applied — same reasoning as applyPackage above.
+  const [applyMembership, setApplyMembership] = useState(
+    () => !!existingBooking && (
+      !!existingBooking.applyMembershipWallet || Number(existingBooking.membershipWalletUsed) > 0
+    )
+  );
+  const applyMembershipMounted = useRef(false);
+  useEffect(() => {
+    if (!applyMembershipMounted.current) { applyMembershipMounted.current = true; return; }
+    setApplyMembership(false);
+  }, [clientIdForPkg]);
   const membershipWalletMap = useMemo(() => {
     const map = new Map<string, { walletUsed: number; payable: number }>();
     if (!applyMembership) return map;
@@ -412,6 +441,11 @@ export const AppointmentModal: React.FC<Props> = ({
   // Full ₹ value of the client's ENTIRE available balance (for the checkbox label) —
   // distinct from rewardPointsRedeemedValue, which is what's actually being applied.
   const rewardPointsFullValue = computeEWalletCredit(rewardPointsBalance, rewardPointsConfig);
+  // Nothing left to collect — either the appointment's items are fully package-covered
+  // (grandTotal itself is already 0) or a wallet/membership/points deduction brought
+  // an otherwise non-zero bill down to 0. Either way, there's no cash/card/UPI amount
+  // to take, so the coupon/redeem-points/payment-method UI is just noise here.
+  const isFullyCovered = totals.effectiveTotal === 0;
 
   // Reward points / membership / package standing to show on the printed receipt —
   // passed as the `client` param to printReceipt() since the appointment itself
@@ -497,7 +531,8 @@ export const AppointmentModal: React.FC<Props> = ({
 
   function validate(): boolean {
     let ok = true;
-    if (!selectedClient) { setClientError("Please select a client or choose Walk-In"); ok = false; }
+    let scrollTarget: "client" | "services" | null = null;
+    if (!selectedClient) { setClientError("Please select a client or choose Walk-In"); ok = false; scrollTarget = "client"; }
     else setClientError("");
 
     // A service row only counts as "filled" once it's actually selected from the
@@ -517,6 +552,7 @@ export const AppointmentModal: React.FC<Props> = ({
     if (!hasAnyFilled) {
       setNoItemsError(true);
       setSvcErrors([]); setPkgErrors([]); setProdErrors([]); setMemErrors([]);
+      scrollToErrorSection(scrollTarget ?? "services");
       return false;
     }
     setNoItemsError(false);
@@ -527,7 +563,7 @@ export const AppointmentModal: React.FC<Props> = ({
       time:    isRealServiceRow(r) && !r.time,
     }));
     setSvcErrors(se);
-    if (se.some((e) => e.service || e.staff || e.time)) ok = false;
+    if (se.some((e) => e.service || e.staff || e.time)) { ok = false; if (!scrollTarget) scrollTarget = "services"; }
 
     const pe = packageRows.map((r) => ({
       item:  !(r as any).packageId,
@@ -535,7 +571,7 @@ export const AppointmentModal: React.FC<Props> = ({
       time:  !!(r as any).packageId && !r.time,
     }));
     setPkgErrors(pe);
-    if (pe.some((e) => e.item || e.staff || e.time)) ok = false;
+    if (pe.some((e) => e.item || e.staff || e.time)) { ok = false; if (!scrollTarget) scrollTarget = "services"; }
 
     const pre = productRows.map((r) => ({
       item:  !(r as any).productId,
@@ -543,7 +579,7 @@ export const AppointmentModal: React.FC<Props> = ({
       time:  !!(r as any).productId && !r.time,
     }));
     setProdErrors(pre);
-    if (pre.some((e) => e.item || e.staff || e.time)) ok = false;
+    if (pre.some((e) => e.item || e.staff || e.time)) { ok = false; if (!scrollTarget) scrollTarget = "services"; }
 
     const me = membershipRows.map((r) => ({
       item:  !(r as any).membershipId,
@@ -551,7 +587,7 @@ export const AppointmentModal: React.FC<Props> = ({
       time:  !!(r as any).membershipId && !r.time,
     }));
     setMemErrors(me);
-    if (me.some((e) => e.item || e.staff || e.time)) ok = false;
+    if (me.some((e) => e.item || e.staff || e.time)) { ok = false; if (!scrollTarget) scrollTarget = "services"; }
 
     // ── Block time conflict check ─────────────────────────────────────────
     setBlockTimeError("");
@@ -584,6 +620,7 @@ export const AppointmentModal: React.FC<Props> = ({
           `${staffName} is blocked from ${conflict.startTime} to ${conflict.endTime} on this date${reasonPart}. Please choose a different time or staff.`
         );
         ok = false;
+        if (!scrollTarget) scrollTarget = "services";
         break;
       }
     }
@@ -592,6 +629,7 @@ export const AppointmentModal: React.FC<Props> = ({
     // (e.g. hair color processing time) — the scheduler visualizes concurrent
     // bookings side-by-side instead of blocking the save.
 
+    if (!ok && scrollTarget) scrollToErrorSection(scrollTarget);
     return ok;
   }
 
@@ -620,6 +658,7 @@ export const AppointmentModal: React.FC<Props> = ({
       clientId:             selectedClient?.id ?? null,
       existingBooking:      existingBooking ?? null,
       isPackageAppointment: totals.grandTotal === 0,
+      applyMembershipWallet: applyMembership,
     };
   }
 
@@ -696,8 +735,10 @@ export const AppointmentModal: React.FC<Props> = ({
 
   // ── Pay ──────────────────────────────────────────────────────────────────
   const handlePay = useCallback(async () => {
-    // Validate payment method first — stop completely if not selected
-    if (paymentMode === "single" && !singleMethod) {
+    // Validate payment method first — stop completely if not selected. Skipped
+    // once the bill is fully covered (package, or a wallet/membership/points
+    // deduction brought effectiveTotal to 0) — nothing to collect via a method.
+    if (totals.effectiveTotal > 0 && paymentMode === "single" && !singleMethod) {
       setPayMethodError(true);
       return; // ← hard stop, no processing
     }
@@ -802,7 +843,10 @@ export const AppointmentModal: React.FC<Props> = ({
     // together, so ALL errors surface on the first Checkout click — not the
     // form errors only after the payment method has been fixed.
     const formOk = validate();
-    const methodMissing = !isZero && paymentMode === "single" && !singleMethod;
+    // No payment method needed once the bill is fully covered (package, or a
+    // wallet/membership/points deduction brought effectiveTotal to 0) — there's
+    // nothing left to collect via Cash/Card/UPI.
+    const methodMissing = totals.effectiveTotal > 0 && paymentMode === "single" && !singleMethod;
     setPayMethodError(methodMissing);
     if (!formOk || methodMissing) return;
 
@@ -886,12 +930,14 @@ export const AppointmentModal: React.FC<Props> = ({
         && alreadyPaidAmount > 0
         && alreadyPaidAmount >= totals.effectiveTotal);
   const parsedPartial   = parseFloat(partialAmtInput);
-  const isPartialEntry  = !isNaN(parsedPartial) && parsedPartial > 0 && parsedPartial < remainingDue;
+  // 0 counts as a deliberate partial entry (pay nothing now, leave it all due) —
+  // matches the >= 0 check in usePayment.ts's actual charge calculation.
+  const isPartialEntry  = !isNaN(parsedPartial) && parsedPartial >= 0 && parsedPartial < remainingDue;
 
   // Disable pay button when no method selected in single mode
   const isPayDisabled = isPaymentFrozen
     || isProcessing
-    || (paymentMode === "single" && !singleMethod);
+    || (totals.effectiveTotal > 0 && paymentMode === "single" && !singleMethod);
 
   const confirmLabel = isPaymentFrozen
     ? "Already Paid"
@@ -926,7 +972,11 @@ export const AppointmentModal: React.FC<Props> = ({
 
   const servicesSectionEl = (
     <>
-      <div className="appt-section" style={isPartialBooking ? { pointerEvents: "none", opacity: 0.7 } : undefined}>
+      <div
+        className="appt-section"
+        style={isPartialBooking ? { pointerEvents: "none", opacity: 0.7 } : undefined}
+        ref={servicesSectionRef}
+      >
         <div className="appt-section__title"><Scissors size={15} /> Services &amp; Items</div>
         {noItemsError && (
           <div className="services-no-items-error">
@@ -1042,12 +1092,6 @@ export const AppointmentModal: React.FC<Props> = ({
     <div className="appt-section">
       <div className="appt-section__title"><TagFill size={15} /> Charges &amp; Discounts</div>
       <div className="charges-grid">
-        <div className="field-group">
-          <label>Reward Points</label>
-          <select className="fg-input" value={clientStats?.rewardPoints ?? "None"} disabled>
-            <option>{clientStats?.rewardPoints ?? "None"}</option>
-          </select>
-        </div>
         <div className="field-group">
           <label>Ex Charges</label>
           <input className="fg-input" type="number" min={0}
@@ -1205,15 +1249,19 @@ export const AppointmentModal: React.FC<Props> = ({
                   <div className="qs-summary-row qs-summary-row--total"><span>Amount to Pay</span><span>{currencySymbol}{totals.effectiveTotal.toFixed(2)}</span></div>
                 </div>
 
-                {totals.grandTotal === 0 ? (
+                {isFullyCovered ? (
                   <div style={{
                     display: "flex", flexDirection: "column", alignItems: "center",
                     gap: 8, padding: "18px 14px", background: "#f0fdf4",
                     border: "1px solid #86efac", borderRadius: 10,
                   }}>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: "#15803d" }}>Package Payment</div>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: "#15803d" }}>
+                      {totals.grandTotal === 0 ? "Package Payment" : "Fully Covered"}
+                    </div>
                     <div style={{ fontSize: 12, color: "#166534", textAlign: "center" }}>
-                      Fully covered by the client's active package. No payment required.
+                      {totals.grandTotal === 0
+                        ? "Fully covered by the client's active package. No payment required."
+                        : "Fully covered by the client's membership wallet / eWallet / reward points. No payment required."}
                     </div>
                   </div>
                 ) : (
@@ -1263,7 +1311,7 @@ export const AppointmentModal: React.FC<Props> = ({
 
                 <button className="btn btn-dark" style={{ width: "100%" }}
                   disabled={isSaving || isProcessing} onClick={handleQuickSaleCheckout}>
-                  {isSaving ? "Saving…" : isProcessing ? "Processing…" : `Checkout (${currencySymbol}${totals.effectiveTotal.toFixed(2)})`}
+                  {isSaving ? "Saving…" : isProcessing ? "Processing…" : `Checkout (${currencySymbol}${(isPartialEntry ? parsedPartial : totals.effectiveTotal).toFixed(2)})`}
                 </button>
               </div>
             </div>
@@ -1320,17 +1368,21 @@ export const AppointmentModal: React.FC<Props> = ({
                       <span>{currencySymbol}{totals.effectiveTotal.toFixed(2)}</span>
                     )}
                   </div>
-                  {totals.grandTotal === 0 ? (
+                  {isFullyCovered ? (
                     <div style={{
                       display: "flex", flexDirection: "column", alignItems: "center",
                       gap: 10, padding: "24px 16px", background: "#f0fdf4",
                       border: "1px solid #86efac", borderRadius: 10, marginTop: 8,
                     }}>
-                      <div style={{ fontSize: 32 }}>📦</div>
-                      <div style={{ fontWeight: 700, fontSize: 15, color: "#15803d" }}>Package Payment</div>
+                      <div style={{ fontSize: 32 }}>{totals.grandTotal === 0 ? "📦" : "✅"}</div>
+                      <div style={{ fontWeight: 700, fontSize: 15, color: "#15803d" }}>
+                        {totals.grandTotal === 0 ? "Package Payment" : "Fully Covered"}
+                      </div>
                       <div style={{ fontSize: 28, fontWeight: 800, color: "#16a34a" }}>{currencySymbol}0.00</div>
                       <div style={{ fontSize: 13, color: "#166534", textAlign: "center" }}>
-                        This appointment is fully covered by the client's active package. No payment required.
+                        {totals.grandTotal === 0
+                          ? "This appointment is fully covered by the client's active package. No payment required."
+                          : "This appointment is fully covered by the client's membership wallet / eWallet / reward points. No payment required."}
                       </div>
                     </div>
                   ) : (

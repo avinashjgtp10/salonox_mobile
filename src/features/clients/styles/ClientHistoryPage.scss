@@ -715,6 +715,22 @@
     &.unpaid { color: #dc2626; }
   }
 
+  .chp-visit-package-tag {
+    font-size: 10px;
+    font-weight: 600;
+    color: #7c3aed;
+    background: #f3e8ff;
+    border-radius: 10px;
+    padding: 1px 8px;
+    margin-top: 3px;
+    white-space: nowrap;
+
+    &--membership {
+      color: #b45309;
+      background: #fef3c7;
+    }
+  }
+
   // ════════════════════════════════════════════════
   // INSIGHTS CARD
   // ════════════════════════════════════════════════
