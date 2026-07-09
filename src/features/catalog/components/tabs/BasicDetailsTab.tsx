@@ -53,7 +53,7 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
         <div className="row g-3">
           <div className="col-12">
             <div className="d-flex justify-content-between align-items-center mb-2">
-              <label className="form-label mb-0">Service name</label>
+              <label className="form-label mb-0">Service name <span className="text-danger">*</span></label>
               <span className="text-muted extra-small">
                 {data.name.length}/255
               </span>
@@ -73,7 +73,7 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
           </div>
 
           <div className="col-md-6">
-            <label className="form-label">Menu category</label>
+            <label className="form-label">Menu category <span className="text-danger">*</span></label>
             <div className="custom-select-wrapper category-select">
               <select
                 className={`form-select ${hasError("category") ? "border-danger" : ""}`}
@@ -152,7 +152,7 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
           </div>
 
           <div className="col-md-4">
-            <label className="form-label">Price</label>
+            <label className="form-label">Price <span className="text-danger">*</span></label>
             <div
               className={`input-group premium-group ${hasError("price") ? "border-danger" : ""}`}
               style={{ height: "40px" }}

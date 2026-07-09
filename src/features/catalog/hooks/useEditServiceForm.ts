@@ -129,7 +129,7 @@ export const useEditServiceForm = (serviceId: string | number) => {
     if (!data.basic.categoryId) {
       errors.basic = [...(errors.basic || []), "Category is required"];
     }
-    if (data.basic.price === undefined || data.basic.price === null || isNaN(data.basic.price)) {
+    if (data.basic.price === undefined || data.basic.price === null || isNaN(data.basic.price) || data.basic.price <= 0) {
       errors.basic = [...(errors.basic || []), "Price is required"];
     }
     if (!data.team.allMembers && data.team.selectedMemberIds.length === 0) {

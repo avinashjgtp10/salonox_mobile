@@ -96,7 +96,8 @@ export const useServiceForm = (_type: "single" | "bundle") => {
     if (
       formData.basic.price === undefined ||
       formData.basic.price === null ||
-      isNaN(formData.basic.price)
+      isNaN(formData.basic.price) ||
+      formData.basic.price <= 0
     ) {
       errors.basic = [...(errors.basic || []), "Price is required"];
     }
