@@ -58,7 +58,6 @@ const EditServicePage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const [activeTab, setActiveTab] = useState<TabKey>("basic");
-  const [showBanner, setShowBanner] = useState(false);
 
   const rawCategories = useSelector(selectAllCategories);
   const categories = (Array.isArray(rawCategories) ? rawCategories : []).map(
@@ -194,29 +193,6 @@ const EditServicePage: React.FC = () => {
 
       <main className="add-service-page__layout">
         <div className="layout-container">
-        
-
-          {showBanner && (
-            <div
-              className="asp-error-banner"
-              role="alert"
-            >
-              <div className="asp-error-banner__icon">
-                <i className="bi bi-exclamation-triangle-fill" />
-              </div>
-              <div className="asp-error-banner__body">
-                <strong>Check the form for errors</strong>
-                <p>Some required fields are missing or invalid. Please check the marked sections.</p>
-              </div>
-              <button
-                className="asp-error-banner__close"
-                onClick={() => setShowBanner(false)}
-                aria-label="Dismiss"
-              >
-                ×
-              </button>
-            </div>
-          )}
 
           <div className="layout-body">
             <aside className="add-service-page__sidebar">

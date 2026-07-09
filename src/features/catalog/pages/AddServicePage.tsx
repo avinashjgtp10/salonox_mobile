@@ -142,16 +142,6 @@ const AddServicePage: React.FC = () => {
       <main className="add-service-page__layout">
         <div className="layout-container">
 
-          {isSubmitted && Object.keys(validationErrors).length > 0 && (
-            <div className="asp-error-banner">
-              <i className="bi bi-exclamation-triangle-fill" />
-              <div>
-                <strong>Check the form for errors</strong>
-                <p>Some required fields are missing or invalid. Please check the marked sections.</p>
-              </div>
-            </div>
-          )}
-
           <div className="layout-body">
             <aside className="add-service-page__sidebar">
               <nav>
