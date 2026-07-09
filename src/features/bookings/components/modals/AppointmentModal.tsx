@@ -30,7 +30,7 @@ import { ServicesPanel } from "./ServicesPanel";
 import { PaymentPanel }  from "./PaymentPanel";
 import TotalsPanel       from "./TotalsPanel";
 import PaymentButton     from "../shared/PaymentButton";
-import { printReceipt }  from "./ViewBillModal";
+import { printReceipt }  from "../../utils/receipt";
 import { store }         from "../../../../store/store";
 import "../../styles/AppointmentModal.scss";
 
