@@ -2,7 +2,17 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../services/api/axios";
 import { SERVICES } from "../../services/api/endpoints/services.endpoints";
 import { ApiError } from "../../services/api/interceptors";
-import type { Service } from "../../features/catalog/types/catalog.types";
+import type { Service, ServiceConsultationFormValues } from "../../features/catalog/types/catalog.types";
+
+export interface ConsultationFormApi {
+  id: string;
+  service_id: string;
+  name: string;
+  is_selected: boolean;
+  values: ServiceConsultationFormValues | null;
+  created_at: string;
+  updated_at: string;
+}
 
 /**
  * Backend wraps every response as:
@@ -115,6 +125,67 @@ export const updateServiceThunk = createAsyncThunk<
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
     return rejectWithValue("Failed to update service");
+  }
+});
+
+// ── Consultation forms ────────────────────────────────────────────────────────
+export const fetchConsultationFormsThunk = createAsyncThunk<
+  ConsultationFormApi[],
+  string | number,
+  { rejectValue: string }
+>("services/fetchConsultationForms", async (serviceId, { rejectWithValue }) => {
+  try {
+    const res = await api.get(SERVICES.CONSULTATION_FORMS(serviceId));
+    return (res.data as any).data as ConsultationFormApi[];
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to fetch consultation forms");
+  }
+});
+
+export const createConsultationFormThunk = createAsyncThunk<
+  ConsultationFormApi,
+  { serviceId: string | number; name: string },
+  { rejectValue: string }
+>("services/createConsultationForm", async ({ serviceId, name }, { rejectWithValue }) => {
+  try {
+    const res = await api.post(SERVICES.CONSULTATION_FORMS(serviceId), { name });
+    return (res.data as any).data as ConsultationFormApi;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to create consultation form");
+  }
+});
+
+export const updateConsultationFormThunk = createAsyncThunk<
+  ConsultationFormApi,
+  {
+    serviceId: string | number;
+    formId: string | number;
+    data: Partial<{ name: string; is_selected: boolean; values: ServiceConsultationFormValues | null }>;
+  },
+  { rejectValue: string }
+>("services/updateConsultationForm", async ({ serviceId, formId, data }, { rejectWithValue }) => {
+  try {
+    const res = await api.patch(SERVICES.CONSULTATION_FORM_BY_ID(serviceId, formId), data);
+    return (res.data as any).data as ConsultationFormApi;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to update consultation form");
+  }
+});
+
+export const deleteConsultationFormThunk = createAsyncThunk<
+  { serviceId: string | number; formId: string | number },
+  { serviceId: string | number; formId: string | number },
+  { rejectValue: string }
+>("services/deleteConsultationForm", async ({ serviceId, formId }, { rejectWithValue }) => {
+  try {
+    await api.delete(SERVICES.CONSULTATION_FORM_BY_ID(serviceId, formId));
+    return { serviceId, formId };
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to delete consultation form");
   }
 });
 

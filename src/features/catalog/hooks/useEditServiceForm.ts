@@ -65,7 +65,15 @@ const mapServiceToFormData = (svc: Service): CatalogFormData => ({
     depositAmount: 0,
   },
   portfolio: { images: [] },
-  forms: { selectedFormIds: [], availableForms: [] },
+  forms: {
+    selectedFormIds: (svc.consultation_forms ?? []).filter((f) => f.is_selected).map((f) => f.id),
+    availableForms: (svc.consultation_forms ?? []).map((f) => ({
+      id: f.id,
+      name: f.name,
+      createdAt: f.created_at,
+      values: f.values ?? undefined,
+    })),
+  },
   commission: {
     defaultType: "percentage",
     defaultValue: svc.commission_enabled ? 10 : 0,

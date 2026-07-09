@@ -43,7 +43,7 @@ const generalTabs: TabItem[] = [
 const settingsTabs: TabItem[] = [
   { key: "online-booking", label: "Online booking" },
   { key: "portfolio", label: "Portfolio images" },
-  { key: "forms", label: "Forms" },
+  { key: "forms", label: "Consent forms" },
   { key: "commission", label: "Commissions" },
   { key: "settings", label: "Settings" },
 ];
@@ -195,6 +195,7 @@ const AddServicePage: React.FC = () => {
                 <FormsTab
                   data={formData.forms}
                   onChange={(v: any) => updateField("forms", v)}
+                  staffMembers={staffMembers}
                 />
               )}
               {activeTab === "commission" && (

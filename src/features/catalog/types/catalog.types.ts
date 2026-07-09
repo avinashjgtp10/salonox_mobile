@@ -3,6 +3,16 @@ export interface ServiceStaffMember {
   name: string;
 }
 
+export interface ServiceConsultationFormEntry {
+  id: string;
+  service_id: string;
+  name: string;
+  is_selected: boolean;
+  values: ServiceConsultationFormValues | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Service {
   id: string | number;
   name: string;
@@ -21,6 +31,8 @@ export interface Service {
   // response). No staff rows = every team member can perform the service.
   staff?: ServiceStaffMember[];
   staff_ids?: string[]; // write-only: sent on create/update requests
+  // Also only present on the single-item GET-by-ID response, same as `staff`.
+  consultation_forms?: ServiceConsultationFormEntry[];
   online_booking?: boolean;
   commission_enabled?: boolean;
   resource_required?: boolean;
@@ -115,10 +127,46 @@ export interface PortfolioData {
   images: PortfolioImage[];
 }
 
+export interface ServiceConsultationFormValues {
+  customerName: string;
+  mobileNumber: string;
+  date: string;
+  consultantName: string;
+
+  serviceInterestedIn: string;
+  customerRequirement: string;
+  currentCondition: string;
+  recommendedService: string;
+  whyRecommended: string;
+
+  expectedResult: {
+    instantResult: boolean;
+    gradualImprovement: boolean;
+    multipleSessionsRequired: boolean;
+  };
+  expectedOutcome: string;
+
+  sessionsRecommended: string;
+  recommendedInterval: "weekly" | "every_15_days" | "monthly" | "other" | "";
+  recommendedIntervalOther: string;
+
+  homeCareProducts: string;
+  homeCareInstructions: string;
+
+  estimatedCost: string;
+  packageSuggested: string;
+
+  notes: string;
+
+  customerDecision: "accepted" | "booked_later" | "declined" | "";
+  decisionReason: string;
+}
+
 export interface ServiceForm {
   id: string;
   name: string;
   createdAt: string;
+  values?: ServiceConsultationFormValues;
 }
 
 export interface FormsData {

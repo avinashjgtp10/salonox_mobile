@@ -123,6 +123,7 @@ const ServicesListPage: React.FC = () => {
   const [selectedService, setSelectedService]   = useState<Service | null>(null);
   const [deletingService, setDeletingService]   = useState<Service | null>(null);
   const [deleteLoading, setDeleteLoading]       = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
   const optMenuRef = useRef<HTMLDivElement>(null);
   const [showOptMenu, setShowOptMenu] = useState(false);
@@ -264,6 +265,51 @@ const ServicesListPage: React.FC = () => {
     return Object.values(groups).filter((g) => g.services.length > 0);
   }, [services, categories]);
 
+  // Flat, visual-order list of every rendered service — powers arrow-key
+  // navigation across group boundaries.
+  const flatServices = useMemo(
+    () => groupedServices.flatMap((g) => g.services),
+    [groupedServices],
+  );
+
+  // Keep the highlighted card in view as the user arrows past the fold.
+  useEffect(() => {
+    if (highlightedIndex < 0) return;
+    const svc = flatServices[highlightedIndex];
+    if (!svc) return;
+    document
+      .getElementById(`service-card-${svc.id}`)
+      ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [highlightedIndex, flatServices]);
+
+  const openServiceDetail = async (svc: Service) => {
+    setSelectedService(svc);
+    if (!hasFullServiceDetails(svc)) {
+      const result = await dispatch(fetchServiceByIdThunk(svc.id));
+      if (fetchServiceByIdThunk.fulfilled.match(result)) {
+        setSelectedService(result.payload as Service);
+      }
+    }
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!flatServices.length) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedIndex((i) => (i + 1 >= flatServices.length ? 0 : i + 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedIndex((i) => (i - 1 < 0 ? flatServices.length - 1 : i - 1));
+    } else if (e.key === "Enter") {
+      if (highlightedIndex >= 0 && flatServices[highlightedIndex]) {
+        e.preventDefault();
+        openServiceDetail(flatServices[highlightedIndex]);
+      }
+    } else if (e.key === "Escape") {
+      setHighlightedIndex(-1);
+    }
+  };
+
   const resetCategoryForm = () => {
     setNewCategoryName("");
     setNewCategoryDesc("");
@@ -348,6 +394,7 @@ const ServicesListPage: React.FC = () => {
             placeholder="Search service name…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
           />
           {searchQuery && (
             <button className="slp__search-clear" onClick={() => setSearchQuery("")}>
@@ -576,19 +623,13 @@ const ServicesListPage: React.FC = () => {
                         setOpenCardMenu(null);
                         setSelectedService(null);
                       }}
-                      onClick={async (id) => {
+                      onClick={(id) => {
                         const target = services.find(
                           (s: Service) => String(s.id) === String(id),
                         );
-                        if (!target) return;
-                        setSelectedService(target);
-                        if (!hasFullServiceDetails(target)) {
-                          const result = await dispatch(fetchServiceByIdThunk(id));
-                          if (fetchServiceByIdThunk.fulfilled.match(result)) {
-                            setSelectedService(result.payload as Service);
-                          }
-                        }
+                        if (target) openServiceDetail(target);
                       }}
+                      highlighted={flatServices[highlightedIndex]?.id === svc.id}
                     />
                   ))}
                 </div>

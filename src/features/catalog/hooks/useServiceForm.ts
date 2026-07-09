@@ -1,7 +1,12 @@
 import { useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
 import type { AppDispatch } from "../../../store/store";
-import { createServiceThunk, fetchServicesThunk } from "../../../middleware/services/services.thunk";
+import {
+  createConsultationFormThunk,
+  createServiceThunk,
+  fetchServicesThunk,
+  updateConsultationFormThunk,
+} from "../../../middleware/services/services.thunk";
 import { fetchCategoriesThunk } from "../../../middleware/services/categories.thunk";
 import type { CatalogFormData, Service } from "../types/catalog.types.ts";
 
@@ -156,6 +161,28 @@ export const useServiceForm = (_type: "single" | "bundle") => {
 
       const resultAction = await dispatch(createServiceThunk(payload));
       if (createServiceThunk.fulfilled.match(resultAction)) {
+        // Consultation forms are their own sub-resource on the backend and
+        // couldn't be created until the service itself had an id — push any
+        // that were filled in locally now that one exists.
+        const newServiceId = resultAction.payload.id;
+        for (const form of formData.forms.availableForms) {
+          const created = await dispatch(
+            createConsultationFormThunk({ serviceId: newServiceId, name: form.name }),
+          );
+          if (createConsultationFormThunk.fulfilled.match(created)) {
+            const isSelected = formData.forms.selectedFormIds.includes(form.id);
+            if (form.values || !isSelected) {
+              await dispatch(
+                updateConsultationFormThunk({
+                  serviceId: newServiceId,
+                  formId: created.payload.id,
+                  data: { is_selected: isSelected, values: form.values ?? null },
+                }),
+              );
+            }
+          }
+        }
+
         // Refresh the services list and categories in Redux state so the list
         // page shows up-to-date data immediately when the user navigates back.
         dispatch(fetchServicesThunk({ page: 1, limit: 25 }));
