@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { COUNTRIES } from "../../../components/ui/countryData";
+import { COUNTRIES } from "../ui/countryData";
 
 export interface CountryOption {
   name: string;

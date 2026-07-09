@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { X } from "react-bootstrap-icons";
 import CountryDialPicker, { type CountryOption } from "./CountryDialPicker";
+import "./AddClientForm.scss";
 
 export interface ExtraClientInfo {
   title?: string;

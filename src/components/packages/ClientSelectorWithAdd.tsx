@@ -2,10 +2,10 @@
 import React, { useState } from "react";
 import { UserPlus, X } from "lucide-react";
 import ClientSearchInput, { type ClientSearchResult } from "../../features/clients/components/ClientSearchInput";
-import AddClientForm from "../../features/sales/components/AddClientForm";
-import { INDIA, type CountryOption } from "../../features/sales/components/CountryDialPicker";
+import AddClientForm from "../shared/AddClientForm";
+import { INDIA, type CountryOption } from "../shared/CountryDialPicker";
 import api from "../../services/api/axios";
-import "../../features/sales/styles/QuickSalePage.scss";
+import "../shared/AddClientForm.scss";
 
 interface Props {
   onSelect: (client: ClientSearchResult) => void;

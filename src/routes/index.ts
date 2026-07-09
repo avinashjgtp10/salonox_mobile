@@ -2,7 +2,6 @@ export * from "./AuthRoutes";
 export * from "./OnboardingRoutes";
 export * from "./DashboardRoutes";
 export * from "./AppsRoutes";
-export * from "./SalesRoutes";
 export * from "./CatalogRoutes";
 export * from "./ClientsRoutes";
 export * from "./TeamRoutes";

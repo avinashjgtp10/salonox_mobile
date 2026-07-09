@@ -11,13 +11,11 @@ import DashboardTopbar from "./DashboardTopbar";
 import DashboardSidebar from "./DashboardSidebar";
 import OnlineBookingSubSidebar from "./OnlineBookingSubSidebar";
 import CatalogSubSidebar from "./CatalogSubSidebar";
-import SalesSubSidebar from "./SalesSubSidebar";
 import ClientsSubSidebar from "./ClientsSubSidebar";
 import MarketingSubSidebar from "./MarketingSubSidebar";
 import TeamSubSidebar from "./TeamSubSidebar";
 
 function detectOpenMenu(pathname: string): string | null {
-  if (pathname.startsWith("/dashboard/sales") && !pathname.startsWith("/dashboard/sales/quick")) return "sales";
   if (pathname.startsWith("/dashboard/clients")) return "clients";
   if (pathname.startsWith("/dashboard/catalog")) return "catalog";
   if (pathname.startsWith("/dashboard/online-booking")) return "onlineBooking";
@@ -73,9 +71,6 @@ export default function DashboardLayout() {
       <div className="dashboard-body">
         <DashboardSidebar openMenu={openMenu} onMenuChange={setOpenMenu} />
 
-        {openMenu === "sales" && (
-          <SalesSubSidebar onClose={() => setOpenMenu(null)} />
-        )}
         {openMenu === "clients" && (
           <ClientsSubSidebar onClose={() => setOpenMenu(null)} />
         )}
