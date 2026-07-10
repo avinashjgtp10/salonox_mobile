@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
 import { Loader } from "../../../components/ui";
+import WalletBreakdownModal from "./WalletBreakdownModal";
 import "../styles/ClientDetailsDrawer.scss";
 
 interface ClientDetailsDrawerProps {
@@ -29,6 +30,7 @@ export default function ClientDetailsDrawer({
   const navigate = useNavigate();
   const [client, setClient] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [showWalletModal, setShowWalletModal] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -83,6 +85,11 @@ export default function ClientDetailsDrawer({
   const additionalEmail = client?.additional_email || null;
   const additionalPhone = client?.additional_phone_number || null;
 
+  const walletBalance = Number(client?.wallet_balance ?? client?.ewallet_balance ?? 0);
+  const referralCode = client?.referral_code || null;
+  const totalReferralEarnings = `₹${Number(client?.total_referral_earnings ?? 0).toLocaleString("en-IN")}`;
+  const totalSuccessfulReferrals = String(client?.total_successful_referrals ?? 0);
+
   return (
     <div
       className={`client-drawer-overlay ${isOpen ? "open" : ""}`}
@@ -126,6 +133,24 @@ export default function ClientDetailsDrawer({
               <InfoRow label="Occupation" value={occupation} />
               <InfoRow label="Country" value={country} />
 
+              <div className="cdd-section-title cdd-section-title--mt">Wallet</div>
+              <div className="cdd-wallet-row">
+                <span className="cdd-wallet-value">₹{walletBalance.toLocaleString("en-IN")}</span>
+                <button
+                  type="button"
+                  className="cdd-info-btn"
+                  title="View wallet breakdown"
+                  onClick={() => setShowWalletModal(true)}
+                >
+                  ⓘ
+                </button>
+              </div>
+
+              <div className="cdd-section-title cdd-section-title--mt">Referral</div>
+              <InfoRow label="Referral Code" value={referralCode} />
+              <InfoRow label="Total Referral Earnings" value={totalReferralEarnings} />
+              <InfoRow label="Total Successful Referrals" value={totalSuccessfulReferrals} />
+
               <div className="cdd-section-title cdd-section-title--mt">Additional info</div>
               <InfoRow label="Client source" value={clientSource} />
               <InfoRow label="Preferred language" value={preferredLanguage} />
@@ -136,6 +161,10 @@ export default function ClientDetailsDrawer({
           </>
         )}
       </div>
+
+      {showWalletModal && clientId && (
+        <WalletBreakdownModal clientId={clientId} onClose={() => setShowWalletModal(false)} />
+      )}
     </div>
   );
 }

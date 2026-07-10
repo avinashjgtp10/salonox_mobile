@@ -14,10 +14,13 @@ export interface ClientDetails {
   wallet_balance?: number;
   ewallet_balance?: number;
 
-  // Rewards
-  reward_points_balance?: string | number;
-  reward_points?: string | number;
-  rewardPoints?: string | number;
+  // Refer & Earn — every client gets a permanent referral_code at creation;
+  // referred_by_client_id/referral_reward_status are only set if THIS client
+  // was themselves referred by someone else's code.
+  referral_code?: string | null;
+  referred_by_client_id?: string | null;
+  referral_reward_status?: "pending" | "completed" | null;
+  total_referral_earnings?: number; // ₹ this client has earned from referring others
 
   // Membership
   membership_tier?: string;
@@ -46,9 +49,11 @@ export interface ClientDetails {
 
 // ─── Derived stat card values (computed in useClientDetails) ──────────────────
 export interface ClientStats {
-  rewardPoints: string;
-  rewardPointsBalance: number;
   ewalletAmt: number;
+  referralCode: string | null; // this client's own permanent referral code, for sharing
+  referredByClientId: string | null;
+  referralPending: boolean; // true if referred AND the reward hasn't been claimed yet
+  referralEarnings: number;
   unpaidAmt: number;
   assignDiscount: number;
   discountValidity: string;

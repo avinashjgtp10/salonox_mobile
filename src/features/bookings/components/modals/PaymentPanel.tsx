@@ -21,14 +21,6 @@ interface Props {
   membershipWalletUsed?: number;
   membershipWalletRemaining?: number;
 
-  // Reward points redemption
-  rewardPointsBalance?: number;
-  rewardPointsFullValue?: number;
-  useRewardPoints?: boolean;
-  onToggleRewardPoints?: (v: boolean) => void;
-  rewardPointsRedeemed?: number;
-  rewardPointsRedeemedValue?: number;
-
   // Coupon
   couponInput: string;
   onCouponInputChange: (v: string) => void;
@@ -37,6 +29,23 @@ interface Props {
   couponMessage: string;
   couponError: string;
   couponLoading: boolean;
+
+  // Referral code — only shown for a genuinely new client (no prior visits,
+  // no referrer already linked); can only ever be applied once.
+  showReferral?: boolean;
+  referralInput?: string;
+  onReferralInputChange?: (v: string) => void;
+  onApplyReferral?: () => void;
+  referralApplied?: boolean;
+  referralMessage?: string;
+  referralError?: string;
+  referralLoading?: boolean;
+  // Live preview of the actual ₹ discount this bill will get (0 if linked but
+  // the bill doesn't meet min_bill_amount yet) — lets the success message say
+  // whether a discount actually applied instead of just "code applied".
+  referralDiscount?: number;
+  referralMinBillAmount?: number;
+  referralRewardAmount?: number;
 
   // Payment method
   paymentMode: "single" | "split";
@@ -73,11 +82,11 @@ export const PaymentPanel: React.FC<Props> = ({
   remainingDue, alreadyPaid,
   eWalletBalance, useEWallet, eWalletAmt, onToggleEWallet,
   membershipWalletUsed = 0, membershipWalletRemaining,
-  rewardPointsBalance = 0, rewardPointsFullValue = 0,
-  useRewardPoints = false, onToggleRewardPoints,
-  rewardPointsRedeemed = 0, rewardPointsRedeemedValue = 0,
   couponInput, onCouponInputChange, onApplyCoupon,
   couponMessage, couponError, couponLoading,
+  showReferral = false, referralInput = "", onReferralInputChange, onApplyReferral,
+  referralApplied = false, referralMessage = "", referralError = "", referralLoading = false,
+  referralDiscount = 0, referralMinBillAmount = 0, referralRewardAmount = 0,
   paymentMode, onSetPaymentMode,
   singleMethod, onSetSingleMethod,
   splitEntries, onSetSplitEntries, payMethodError,
@@ -97,10 +106,10 @@ export const PaymentPanel: React.FC<Props> = ({
 
   return (
     <div className="payment-panel">
-      {/* Rewards preview */}
+      {/* Rewards preview — credited straight to eWallet, not a separate points balance */}
       {previewPoints > 0 && (
         <div className="pay-rewards">
-          Earn <strong>{previewPoints} pts</strong> ({currencySymbol}{previewWalletCredit.toFixed(2)})
+          Earn <strong>{currencySymbol}{previewWalletCredit.toFixed(2)}</strong> to wallet on this visit
         </div>
       )}
 
@@ -126,6 +135,40 @@ export const PaymentPanel: React.FC<Props> = ({
         </div>
       )}
 
+      {/* Referral code — new client, first visit only */}
+      {!frozen && alreadyPaid === 0 && showReferral && (
+        <div className="pay-coupon">
+          <label className="pay-coupon__label">REFERRAL CODE</label>
+          <div className="pay-coupon__row">
+            <input
+              className="form-control-custom"
+              placeholder="e.g. NIS1126"
+              value={referralInput}
+              onChange={(e) => onReferralInputChange?.(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && onApplyReferral?.()}
+              disabled={referralLoading || referralApplied}
+            />
+            <button className="btn btn-dark" onClick={onApplyReferral} disabled={referralLoading || referralApplied}>
+              {referralLoading ? "…" : referralApplied ? "Applied" : "Apply"}
+            </button>
+          </div>
+          {referralMessage && (
+            referralDiscount > 0 ? (
+              <div className="pay-coupon__msg success">
+                {currencySymbol}{referralDiscount.toFixed(2)} referral discount applied to this bill!
+              </div>
+            ) : referralMinBillAmount > 0 ? (
+              <div className="pay-coupon__msg warning">
+                Minimum bill for an instant discount is {currencySymbol}{referralMinBillAmount.toFixed(2)} — {currencySymbol}{referralRewardAmount.toFixed(2)} will be added to your eWallet instead.
+              </div>
+            ) : (
+              <div className="pay-coupon__msg success">{referralMessage}</div>
+            )
+          )}
+          {referralError   && <div className="pay-coupon__msg error">{referralError}</div>}
+        </div>
+      )}
+
       {/* eWallet */}
       {eWalletBalance >= EWALLET_MINIMUM && !frozen && (
         <div
@@ -136,22 +179,6 @@ export const PaymentPanel: React.FC<Props> = ({
           <span>Use eWallet (Available: {currencySymbol}{eWalletBalance.toFixed(2)})</span>
           {useEWallet && eWalletAmt > 0 && (
             <span className="pay-ewallet__deducted">-{currencySymbol}{eWalletAmt.toFixed(2)}</span>
-          )}
-        </div>
-      )}
-
-      {/* Reward points redemption */}
-      {rewardPointsBalance > 0 && !frozen && onToggleRewardPoints && (
-        <div
-          className={`pay-ewallet${useRewardPoints ? " pay-ewallet--active" : ""}`}
-          onClick={() => onToggleRewardPoints(!useRewardPoints)}
-        >
-          <input type="checkbox" checked={useRewardPoints} readOnly />
-          <span>Redeem Points (Available: {rewardPointsBalance} pts = {currencySymbol}{rewardPointsFullValue.toFixed(2)})</span>
-          {useRewardPoints && rewardPointsRedeemedValue > 0 && (
-            <span className="pay-ewallet__deducted">
-              -{currencySymbol}{rewardPointsRedeemedValue.toFixed(2)} ({rewardPointsRedeemed} pts)
-            </span>
           )}
         </div>
       )}

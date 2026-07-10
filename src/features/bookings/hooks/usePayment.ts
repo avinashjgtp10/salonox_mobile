@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import toast from "react-hot-toast";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { patchPaymentStatus } from "../../../store/schedulerSlice";
 import { postPaymentThunk, clearClientDuesThunk } from "../../../middleware/booking/payment.thunk";
@@ -14,14 +15,16 @@ interface CompletePaymentParams {
   grandTotal: number;       // post-discount net total (used for UI + net_amount)
   effectiveTotal: number;   // grandTotal - eWalletUsed
   subtotal?: number;        // pre-discount subtotal → sent as gross_amount to backend
-  manualDiscountAmt?: number; // monetary discount applied on services (from totals.totalDisc)
+  // Item-level manual discount ONLY (totals.manualDiscount) — must exclude
+  // coupon, since couponDiscount below is added separately; combining
+  // totals.totalDisc (which already has coupon baked in) here would double it.
+  manualDiscountAmt?: number;
   gstAmount?: number;         // add-on tax amount included in grandTotal, for receipt display
   taxBreakdown?: Booking["taxBreakdown"];
   alreadyPaidAmount: number;
   eWalletAmt: number;
   couponDiscount: number;
   couponApplied: string;
-  rewardPointsRedeemed?: number;
   // Method
   paymentMode: "single" | "split";
   singleMethod: SingleMethod | null;
@@ -54,7 +57,7 @@ export function usePayment() {
       alreadyPaidAmount, eWalletAmt, couponDiscount, couponApplied,
       paymentMode, singleMethod, splitEntries, partialAmtInput,
       includeClearDue, priorDueAmt, useEWallet, applyMembershipWallet,
-      gstAmount, taxBreakdown, rewardPointsRedeemed,
+      gstAmount, taxBreakdown,
     } = params;
 
     // gross_amount = pre-discount subtotal so the backend can compute:
@@ -120,7 +123,6 @@ export function usePayment() {
         split_details:    paymentMode === "split" ? methods : { [singleMethod!]: currentCharge },
         status:           newDue > 0 ? "partial" : "completed",
         apply_membership_wallet: !!applyMembershipWallet,
-        reward_points_redeemed: rewardPointsRedeemed || undefined,
         tax_breakdown: taxBreakdown && taxBreakdown.length > 0 ? taxBreakdown : undefined,
       }));
 
@@ -143,7 +145,20 @@ export function usePayment() {
       const finalDue     = savedPayment?.due_amount    != null ? Number(savedPayment.due_amount)    : newDue;
       const finalPaid    = savedPayment?.paid_amount    != null ? Number(savedPayment.paid_amount)    : currentCharge;
       const finalStatus: "Paid" | "Partial" = finalDue > 0 ? "Partial" : "Paid";
-      const rewardPointsValuePaid = savedPayment?.reward_points_value != null ? Number(savedPayment.reward_points_value) : 0;
+      // Server-computed, not a local guess — this is the whole point of the
+      // referral discount (payments.service.ts decides eligibility from the
+      // client's real referred_by_client_id/referral_reward_status, which the
+      // frontend's own preview can only approximate ahead of submission).
+      const referralDiscountApplied = savedPayment?.referral_discount_applied != null
+        ? Number(savedPayment.referral_discount_applied) : 0;
+      // Set only when the referee's welcome reward couldn't apply as an
+      // instant discount (bill below min_bill_amount) and was credited to
+      // their eWallet instead — see payments.service.ts.
+      const referralWalletCredited = savedPayment?.referral_wallet_credited != null
+        ? Number(savedPayment.referral_wallet_credited) : 0;
+      if (referralWalletCredited > 0) {
+        toast.success(`Referral reward of ₹${referralWalletCredited.toFixed(2)} added to client's eWallet`);
+      }
 
       dispatch(patchPaymentStatus({
         id: String(appointmentId),
@@ -151,12 +166,14 @@ export function usePayment() {
         payingNow: alreadyPaidAmount + finalPaid,
         dueAmount: finalDue,
         grandTotal: effectiveTotal,
-        rewardPointsValue: rewardPointsValuePaid,
         paymentMode: paymentMode === "split"
           ? Object.keys(methods).filter((k) => k !== "eWallet").join("+")
           : (singleMethod || "Cash"),
         gstAmount,
         taxBreakdown,
+        couponDiscount: couponDiscount > 0 ? couponDiscount : undefined,
+        couponCode: couponDiscount > 0 ? couponApplied : undefined,
+        referralDiscount: referralDiscountApplied > 0 ? referralDiscountApplied : undefined,
       }));
 
       // ── Clear prior dues if toggled ──────────────────────────────────────

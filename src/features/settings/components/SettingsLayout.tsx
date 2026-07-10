@@ -11,6 +11,8 @@ import {
   Settings,
   SlidersHorizontal,
   Gift,
+  Share2,
+  Tag,
 } from "lucide-react";
 import "../styles/SettingsPage.scss";
 
@@ -53,6 +55,8 @@ const navGroups: NavGroup[] = [
     items: [
       { label: "Tax Mapping", path: "tax-mapping", icon: <SlidersHorizontal size={15} /> },
       { label: "Reward Points", path: "reward-points", icon: <Gift size={15} /> },
+      { label: "Refer & Earn", path: "referral", icon: <Share2 size={15} /> },
+      { label: "Coupons", path: "coupons", icon: <Tag size={15} /> },
     ],
   },
   {

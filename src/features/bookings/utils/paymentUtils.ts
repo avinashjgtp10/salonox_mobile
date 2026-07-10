@@ -1,5 +1,6 @@
 import type { SingleMethod } from "../types";
 import { DEFAULT_REWARD_POINTS_CONFIG, type RewardPointsConfig } from "../../settings/utils/rewardPointsSettings";
+import { DEFAULT_REFERRAL_CONFIG, type ReferralConfig } from "../../settings/utils/referralSettings";
 
 // ─── Reward / eWallet constants ───────────────────────────────────────────────
 export const MEMBERSHIP_TIERS = { Silver: 5000, Gold: 15000, Platinum: 30000 } as const;
@@ -15,6 +16,12 @@ export function computePointsEarned(billAmount: number, config: RewardPointsConf
 export function computeEWalletCredit(points: number, config: RewardPointsConfig = DEFAULT_REWARD_POINTS_CONFIG): number {
   if (config.redeem_points <= 0) return 0;
   return (points / config.redeem_points) * config.redeem_value;
+}
+
+/** Max ₹ of a bill that wallet balance is allowed to cover, per the salon's configured cap. */
+export function computeMaxWalletUsable(grandTotal: number, config: ReferralConfig = DEFAULT_REFERRAL_CONFIG): number {
+  const pct = config.max_wallet_usage_pct > 0 ? config.max_wallet_usage_pct : 100;
+  return (grandTotal * pct) / 100;
 }
 
 /** Membership tier label from lifetime revenue */

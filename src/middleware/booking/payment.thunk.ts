@@ -1,6 +1,7 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../services/api/axios";
 import { PAYMENT } from "../../services/api/endpoints/payment.endpoints";
+import { COUPON } from "../../services/api/endpoints/coupon.endpoints";
 import { patchPaymentStatus } from "../../store/schedulerSlice";
 import type { PaymentPayload, ClearDueResult } from "../../features/bookings/types";
 
@@ -28,7 +29,10 @@ export const applyCouponThunk = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      const res = await api.post(PAYMENT.COUPON_APPLY, { code, subtotal, salon_id: salonId });
+      // Backend derives salon scoping from the JWT, not the body — salon_id
+      // here is accepted but ignored server-side; kept for parity with other
+      // payment-related calls that do send it explicitly.
+      const res = await api.post(COUPON.VALIDATE, { code, orderAmount: subtotal, salon_id: salonId });
       return res.data?.data ?? res.data;
     } catch (err: any) {
       return rejectWithValue(

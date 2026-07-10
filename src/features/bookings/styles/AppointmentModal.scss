@@ -1218,6 +1218,7 @@ $success:    #22c55e;
     font-size: 11px;
     font-weight: 600;
     &.success { color: #16a34a; }
+    &.warning { color: #b45309; }
     &.error   { color: $danger; }
   }
 }

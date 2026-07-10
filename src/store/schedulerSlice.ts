@@ -61,7 +61,7 @@ interface SchedulerState {
   staffSchedules: Record<string, Record<number, StaffDaySchedule>>;
   scheduleVersion: number;
   dragPatchCache: Record<string, { startTime: string; endTime: string; staffId?: string }>;
-  paymentPatchCache: Record<string, { paymentStatus: string; payingNow: number; dueAmount: number; grandTotal?: number; paymentMode?: string; gstAmount?: number; taxBreakdown?: Booking["taxBreakdown"] }>;
+  paymentPatchCache: Record<string, { paymentStatus: string; payingNow: number; dueAmount: number; grandTotal?: number; paymentMode?: string; gstAmount?: number; taxBreakdown?: Booking["taxBreakdown"]; couponDiscount?: number; couponCode?: string; referralDiscount?: number }>;
   serviceStaffCache: Record<string, Array<{ staffId: string; staff: string }>>;
 }
 
@@ -105,6 +105,9 @@ const schedulerSlice = createSlice({
           if (pay.paymentMode !== undefined) (merged as any).paymentMode = pay.paymentMode;
           if (pay.gstAmount !== undefined) (merged as any).gstAmount = pay.gstAmount;
           if (pay.taxBreakdown !== undefined) (merged as any).taxBreakdown = pay.taxBreakdown;
+          if (pay.couponDiscount !== undefined) (merged as any).couponDiscount = pay.couponDiscount;
+          if (pay.couponCode !== undefined) (merged as any).couponCode = pay.couponCode;
+          if (pay.referralDiscount !== undefined) (merged as any).referralDiscount = pay.referralDiscount;
         }
         // Restore per-service staff assignments that the list endpoint collapses to appointment-level.
         if (svcStaff?.length && (merged as any).services?.length) {
@@ -203,7 +206,9 @@ const schedulerSlice = createSlice({
         paymentMode?: string;
         gstAmount?: number;
         taxBreakdown?: Booking["taxBreakdown"];
-        rewardPointsValue?: number;
+        couponDiscount?: number;
+        couponCode?: string;
+        referralDiscount?: number;
       }>
     ) {
       const booking = state.bookings.find((b) => String(b.id) === String(payload.id));
@@ -216,7 +221,9 @@ const schedulerSlice = createSlice({
         if (payload.paymentMode !== undefined) (booking as any).paymentMode = payload.paymentMode;
         if (payload.gstAmount !== undefined) (booking as any).gstAmount = payload.gstAmount;
         if (payload.taxBreakdown !== undefined) (booking as any).taxBreakdown = payload.taxBreakdown;
-        if (payload.rewardPointsValue !== undefined) (booking as any).rewardPointsValue = payload.rewardPointsValue;
+        if (payload.couponDiscount !== undefined) (booking as any).couponDiscount = payload.couponDiscount;
+        if (payload.couponCode !== undefined) (booking as any).couponCode = payload.couponCode;
+        if (payload.referralDiscount !== undefined) (booking as any).referralDiscount = payload.referralDiscount;
       }
       state.paymentPatchCache[String(payload.id)] = {
         paymentStatus: payload.paymentStatus,
@@ -226,6 +233,9 @@ const schedulerSlice = createSlice({
         paymentMode:   payload.paymentMode,
         gstAmount:     payload.gstAmount,
         taxBreakdown:  payload.taxBreakdown,
+        couponDiscount: payload.couponDiscount,
+        couponCode:    payload.couponCode,
+        referralDiscount: payload.referralDiscount,
       };
     },
     replaceBookingId(state, { payload }: PayloadAction<{ localId: string; realId: string }>) {

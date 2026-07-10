@@ -132,15 +132,21 @@ export function printReceipt(
   const clientEmail    = client?.email || (booking as any).clientEmail || "";
   const clientGst      = (booking as any).clientGst || (booking as any).client_gst || "";
   const membershipName = (booking as any).membershipName || (booking as any).membership_name || "";
-  const loyaltyPoints  = (booking as any).loyaltyPoints ?? (booking as any).loyalty_points ?? null;
 
-  // Client's current reward points balance / active memberships / active packages —
-  // passed in via the `client` param since booking itself only ever carries the
-  // items purchased on THIS appointment, not the client's overall standing.
-  const rewardPointsBalance = (client as any)?.rewardPointsBalance ?? loyaltyPoints;
-  const activeMemberships: { membershipName: string; membershipWalletBalance: number }[] = (client as any)?.activeMemberships ?? [];
+  // Client's current referral earnings / active memberships / active
+  // packages — passed in via the `client` param since booking itself only
+  // ever carries the items purchased on THIS appointment, not the client's
+  // overall standing.
+  const referralCode = (client as any)?.referralCode ?? null;
+  const referralEarnings = (client as any)?.referralEarnings ?? null;
+  const activeMemberships: { membershipName: string; membershipWalletBalance: number; expiresAt?: string | null }[] = (client as any)?.activeMemberships ?? [];
   const activePackages: { packageName: string; remaining: number; total: number }[] = (client as any)?.activePackages ?? [];
   const primaryMembershipName = activeMemberships[0]?.membershipName || membershipName;
+  const fmtDate = (raw?: string | null) => {
+    if (!raw) return "";
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  };
 
   const now = new Date();
   const printDate = now.toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" });
@@ -222,6 +228,7 @@ export function printReceipt(
   const manualDisc  = Number((booking as any).discountAmount || 0);
   const couponDisc  = Number((booking as any).couponDiscount || 0);
   const couponCode  = (booking as any).couponCode || "";
+  const referralDisc = Number((booking as any).referralDiscount || 0);
   const exCharges   = Number((booking as any).exCharges     || 0);
   const tipAmt      = Number((booking as any).tipAmount     || 0);
   const gstPct      = Number((booking as any).gst           || 0);
@@ -242,6 +249,7 @@ export function printReceipt(
     subtotalAmt > 0 ? sumRow("Subtotal",        fmt(subtotalAmt)) : "",
     manualDisc  > 0 ? sumRow("Discount",         `−${fmt(manualDisc)}`, false, "#dc2626") : "",
     couponDisc  > 0 ? sumRow(`Coupon${couponCode ? ` (${couponCode})` : ""}`, `−${fmt(couponDisc)}`, false, "#dc2626") : "",
+    referralDisc > 0 ? sumRow("Referral Discount", `−${fmt(referralDisc)}`, false, "#dc2626") : "",
     exCharges   > 0 ? sumRow("Extra Charges",    `+${fmt(exCharges)}`) : "",
     tipAmt      > 0 ? sumRow("Tip (Staff)",       `+${fmt(tipAmt)}`) : "",
     // Itemized per-tax lines (CGST, SGST, etc.) + a "Total Tax" subtotal —
@@ -440,7 +448,8 @@ export function printReceipt(
         ${infoCell("Email",      clientEmail         || "—")}
         ${clientGst              ? infoCell("GST No",     clientGst)                : ""}
         ${primaryMembershipName  ? infoCell("Membership", primaryMembershipName)     : ""}
-        ${rewardPointsBalance !== null ? infoCell("Reward Points", String(rewardPointsBalance)) : ""}
+        ${referralCode           ? infoCell("Your Referral Code", referralCode)      : ""}
+        ${referralEarnings !== null ? infoCell("Referral Earnings", `${fmt(Number(referralEarnings))}`) : ""}
       </div>
     </div>
     <div class="inv-info-col">
@@ -491,6 +500,7 @@ export function printReceipt(
       ${booking.notes ? `<div class="inv-notes"><div class="inv-notes-title">Notes</div>${booking.notes}</div>` : ""}
       ${(booking as any).staffAlert ? `<div class="inv-notes" style="margin-top:8px"><div class="inv-notes-title">Staff Alert</div>${(booking as any).staffAlert}</div>` : ""}
       ${activePackages.length > 0 ? `<div class="inv-notes" style="margin-top:8px"><div class="inv-notes-title">Active Packages</div>${activePackages.map(p => `${p.packageName} — ${p.remaining}/${p.total} sessions left`).join("<br>")}</div>` : ""}
+      ${activeMemberships.length > 0 ? `<div class="inv-notes" style="margin-top:8px"><div class="inv-notes-title">Active Memberships</div>${activeMemberships.map(m => `${m.membershipName}${m.expiresAt ? ` — Expires: ${fmtDate(m.expiresAt)}` : ""}`).join("<br>")}</div>` : ""}
     </div>
     <div>
       <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#111827;margin-bottom:8px;padding-bottom:5px;border-bottom:2px solid #111827">Payment Summary</div>

@@ -21,7 +21,6 @@ export interface TotalsInput {
   couponDiscount: number;
   eWalletUsed: number;
   membershipWalletUsed?: number;
-  rewardPointsUsed?: number; // ₹ value of redeemed reward points
 }
 
 export interface TaxBreakdownEntry {
@@ -33,6 +32,13 @@ export interface TaxBreakdownEntry {
 
 export interface TotalsResult {
   subtotal: number;
+  // Item-level manual discount ONLY (the %/flat field on the booking) —
+  // excludes coupon/referral. Use this (not totalDisc) when sending a
+  // "manual discount" figure anywhere downstream that separately also sends
+  // couponDiscount — totalDisc already has coupon (and any other discount
+  // folded into the couponDiscount input) baked in, so combining both would
+  // double-count it.
+  manualDiscount: number;
   totalDisc: number;
   taxable: number;
   // Sum of exclusive (add-on-top) tax amounts only — this is the portion
@@ -97,7 +103,7 @@ export function computeTotals(input: TotalsInput): TotalsResult {
   const {
     serviceRows, packageRows, productRows, membershipRows,
     discountType, discountValue, taxes,
-    exCharges, couponDiscount, eWalletUsed, membershipWalletUsed = 0, rewardPointsUsed = 0,
+    exCharges, couponDiscount, eWalletUsed, membershipWalletUsed = 0,
   } = input;
 
   const serviceBase    = rowsTotal(serviceRows);
@@ -112,7 +118,8 @@ export function computeTotals(input: TotalsInput): TotalsResult {
       ? (serviceTotal * discountValue) / 100
       : discountValue;
 
-  const totalDisc = Math.max(0, itemDisc) + Math.max(0, couponDiscount);
+  const manualDiscount = Math.max(0, itemDisc);
+  const totalDisc = manualDiscount + Math.max(0, couponDiscount);
   const taxable   = Math.max(0, subtotal - totalDisc);
 
   // Allocate the total discount proportionally across item types (by share of
@@ -138,7 +145,7 @@ export function computeTotals(input: TotalsInput): TotalsResult {
 
   const taxBreakdown = mergeBreakdown(allBreakdown);
   const grandTotal = taxable + gstAmount + exCharges;
-  const effectiveTotal = Math.max(0, grandTotal - eWalletUsed - membershipWalletUsed - rewardPointsUsed);
+  const effectiveTotal = Math.max(0, grandTotal - eWalletUsed - membershipWalletUsed);
 
-  return { subtotal, totalDisc, taxable, gstAmount, taxBreakdown, grandTotal, effectiveTotal };
+  return { subtotal, manualDiscount, totalDisc, taxable, gstAmount, taxBreakdown, grandTotal, effectiveTotal };
 }

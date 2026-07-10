@@ -12,11 +12,12 @@ function formatDate(raw?: string | null): string {
 }
 
 function buildStats(d: ClientDetails): ClientStats {
-  const rp = d.reward_points_balance ?? d.reward_points ?? d.rewardPoints;
   return {
-    rewardPoints: (rp != null && Number(rp) > 0) ? String(rp) : "None",
-    rewardPointsBalance: Number(rp) || 0,
     ewalletAmt:   Number(d.wallet_balance ?? d.ewallet_balance ?? 0),
+    referralCode: d.referral_code ?? null,
+    referredByClientId: d.referred_by_client_id ?? null,
+    referralPending: !!d.referred_by_client_id && d.referral_reward_status === "pending",
+    referralEarnings: Number(d.total_referral_earnings ?? 0),
     unpaidAmt:    Number(d.unpaid_amount ?? d.total_due ?? d.outstanding_amount ?? d.due_amount ?? 0),
     assignDiscount: Number(d.assign_discount ?? 0),
     discountValidity: d.discount_validity || "N/A",

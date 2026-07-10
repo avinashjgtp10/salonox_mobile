@@ -29,9 +29,9 @@ export function useCoupon(salonId?: string) {
       const data = result.payload;
       setState((s) => ({
         ...s, loading: false,
-        applied: data.code || s.input,
-        discount: data.discount_amount || 0,
-        message: data.message || `Coupon applied! -${currencySymbol}${data.discount_amount}`,
+        applied: data.couponCode || s.input,
+        discount: data.discountAmount || 0,
+        message: data.message || `Coupon applied! -${currencySymbol}${data.discountAmount}`,
         error: "",
       }));
     } else {

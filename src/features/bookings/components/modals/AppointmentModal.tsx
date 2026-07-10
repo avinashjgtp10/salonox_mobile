@@ -4,6 +4,7 @@ import { useAppSelector, useAppDispatch } from "../../../../hooks/useAppRedux";
 import { useAppointment }    from "../../hooks/useAppointment";
 import { usePayment }        from "../../hooks/usePayment";
 import { useCoupon }         from "../../hooks/useCoupon";
+import { useReferral }       from "../../hooks/useReferral";
 import { usePackageSessions } from "../../hooks/usePackageSessions";
 import { useServices }       from "../../hooks/useServices";
 import { useLazyListPackagesQuery, useLazyListPackageTemplatesQuery, useListClientPackagesQuery, useCompleteClientPackageSessionMutation } from "../../../../services/api/endpoints/packages.endpoints";
@@ -15,9 +16,10 @@ import { postPaymentThunk } from "../../../../middleware/booking/payment.thunk";
 import { fetchSettingsThunk } from "../../../../middleware/setting/setting.thunk";
 import { getActiveTaxes } from "../../../settings/utils/taxSettings";
 import { getRewardPointsConfig } from "../../../settings/utils/rewardPointsSettings";
+import { getReferralConfig } from "../../../settings/utils/referralSettings";
 import { isRealId } from "../../utils/paymentUtils";
 import { computeTotals }     from "../../utils/totalsUtils";
-import { computePointsEarned, computeEWalletCredit, EWALLET_REDEEM_MINIMUM } from "../../utils/paymentUtils";
+import { computePointsEarned, computeEWalletCredit, computeMaxWalletUsable, EWALLET_REDEEM_MINIMUM } from "../../utils/paymentUtils";
 import {
   selectPackagesList, selectProductsList, selectMembershipsList,
 } from "../../../../store/selectors/scheduler.selectors";
@@ -92,6 +94,7 @@ export const AppointmentModal: React.FC<Props> = ({
   const settingItems = useAppSelector((s) => s.setting.items);
   const activeTaxes  = useMemo(() => getActiveTaxes(settingItems), [settingItems]);
   const rewardPointsConfig = useMemo(() => getRewardPointsConfig(settingItems), [settingItems]);
+  const referralConfig = useMemo(() => getReferralConfig(settingItems), [settingItems]);
 
   // ── Lazy on-demand fetching ───────────────────────────────────────────────
   const [triggerPackages, { data: packagesData }]       = useLazyListPackagesQuery();
@@ -178,8 +181,6 @@ export const AppointmentModal: React.FC<Props> = ({
   // ── Payment state ────────────────────────────────────────────────────────
   const [useEWallet, setUseEWallet]             = useState(false);
   const [eWalletAmt, setEWalletAmt]             = useState(0);
-  const [useRewardPoints, setUseRewardPoints]   = useState(false);
-  const [rewardPointsRedeemed, setRewardPointsRedeemed] = useState(0);
   const [paymentMode, setPaymentMode]           = useState<"single" | "split">("single");
   const [singleMethod, setSingleMethod]         = useState<SingleMethod | null>(null);
   const [splitEntries, setSplitEntries]         = useState<SplitEntry[]>([
@@ -234,6 +235,7 @@ export const AppointmentModal: React.FC<Props> = ({
   const { save, isSaving, error: saveError, apiAppointmentId } = useAppointment();
   const { completePayment, isProcessing, payError }            = usePayment();
   const coupon = useCoupon(salonId);
+  const referral = useReferral();
   usePackageSessions(selectedClient?.id ?? null);
   const [completePackageSession] = useCompleteClientPackageSessionMutation();
 
@@ -346,7 +348,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // Display-only: the backend independently recomputes and applies the real
   // deduction at payment time (see payments.service.ts), gated on the same
   // flag sent with the payment — this is just a preview.
-  const { primary: primaryMembership } = useClientMembershipWallet(clientIdForPkg);
+  const { memberships: clientMemberships, primary: primaryMembership } = useClientMembershipWallet(clientIdForPkg);
   // Restored to checked when reopening a booking previously saved with membership
   // wallet coverage applied — same reasoning as applyPackage above.
   const [applyMembership, setApplyMembership] = useState(
@@ -414,19 +416,38 @@ export const AppointmentModal: React.FC<Props> = ({
     }
   }
 
+  // Only offer referral-code entry for a genuinely new client: no referrer
+  // already linked, and no prior visits (backend still enforces "first
+  // payment only" independently — this is just UX gating).
+  const showReferralField = referralConfig.active
+    && !!selectedClient?.id && selectedClient.id !== "walk-in"
+    && !clientStats?.referredByClientId
+    && (clientStats?.totalVisit ?? 0) === 0;
+
   // ── Totals ───────────────────────────────────────────────────────────────
-  const rewardPointsBalance = clientStats?.rewardPointsBalance ?? 0;
-  const rewardPointsRedeemedValue = useRewardPoints
-    ? computeEWalletCredit(rewardPointsRedeemed, rewardPointsConfig)
+  // Referral discount preview — mirrors the backend's eligibility check
+  // (payments.service.ts) so staff see the reduced total BEFORE paying, not
+  // just after. Needs the raw subtotal first (unaffected by any discount
+  // inputs), so this is computed via a preliminary pass before the real one.
+  const prelimSubtotal = computeTotals({
+    serviceRows, packageRows, productRows, membershipRows,
+    discountType, discountValue, taxes: activeTaxes, exCharges, tip,
+    couponDiscount: coupon.discount,
+    eWalletUsed: 0, membershipWalletUsed: 0,
+  }).subtotal;
+  // True once linked, whether that happened earlier (existing client record)
+  // or just now via the "Apply" button on this same screen.
+  const isReferralLinked = (!!clientStats?.referredByClientId && clientStats.referralPending) || referral.applied;
+  const referralDiscountPreview = (referralConfig.active && isReferralLinked && prelimSubtotal >= referralConfig.min_bill_amount)
+    ? Math.min(referralConfig.referee_reward_amount, prelimSubtotal)
     : 0;
 
   const totals = computeTotals({
     serviceRows, packageRows, productRows, membershipRows,
     discountType, discountValue, taxes: activeTaxes, exCharges, tip,
-    couponDiscount: coupon.discount,
+    couponDiscount: coupon.discount + referralDiscountPreview,
     eWalletUsed: useEWallet ? eWalletAmt : 0,
     membershipWalletUsed: membershipWalletUsedTotal,
-    rewardPointsUsed: rewardPointsRedeemedValue,
   });
 
   const alreadyPaidAmount   = existingBooking?.payingNow ?? 0;
@@ -436,25 +457,51 @@ export const AppointmentModal: React.FC<Props> = ({
     : Math.max(0, totals.effectiveTotal - alreadyPaidAmount);
   // Exclude current appointment's due so "Clear Pending Due" only shows OTHER unpaid appointments
   const priorDueAmt         = Math.max(0, (clientStats?.unpaidAmt ?? 0) - remainingDue);
+  // Reward earnings are credited straight into eWallet at payment time (see
+  // payments.service.ts) — this is just a preview of that ₹ credit, not a
+  // separate redeemable balance.
   const previewPoints       = computePointsEarned(totals.effectiveTotal, rewardPointsConfig);
   const previewWalletCredit = computeEWalletCredit(previewPoints, rewardPointsConfig);
-  // Full ₹ value of the client's ENTIRE available balance (for the checkbox label) —
-  // distinct from rewardPointsRedeemedValue, which is what's actually being applied.
-  const rewardPointsFullValue = computeEWalletCredit(rewardPointsBalance, rewardPointsConfig);
   // Nothing left to collect — either the appointment's items are fully package-covered
-  // (grandTotal itself is already 0) or a wallet/membership/points deduction brought
+  // (grandTotal itself is already 0) or a wallet/membership deduction brought
   // an otherwise non-zero bill down to 0. Either way, there's no cash/card/UPI amount
-  // to take, so the coupon/redeem-points/payment-method UI is just noise here.
+  // to take, so the coupon/payment-method UI is just noise here.
   const isFullyCovered = totals.effectiveTotal === 0;
+  // True package coverage means the raw pre-discount subtotal is already ₹0
+  // (package-covered service rows are themselves priced at ₹0) — distinct from
+  // a coupon/wallet deduction bringing a non-zero subtotal down to zero.
+  // Conflating the two (checking grandTotal === 0 instead) mislabels a
+  // fully-coupon-discounted bill as a package payment, which then gets posted
+  // with payment_method: "Package" — silently skipping sale/revenue recording,
+  // reward earning, and coupon usage tracking server-side (all of which are
+  // gated off `isPackagePayment` in payments.service.ts).
+  const hasAnyRows = serviceRows.length + packageRows.length + productRows.length + membershipRows.length > 0;
+  const isPackageZero = hasAnyRows && totals.subtotal === 0;
 
-  // Reward points / membership / package standing to show on the printed receipt —
+  // Which source(s) actually brought the bill to ₹0 — shown in the "Fully
+  // Covered" message instead of a static guess, since any combination of
+  // coupon/eWallet/membership wallet can be the real reason. (eWallet already
+  // includes any reward/referral money the client has — there's no separate
+  // "reward points" balance anymore.)
+  const coveredBySources = [
+    coupon.discount > 0 ? `Coupon (${coupon.applied})` : "",
+    referralDiscountPreview > 0 ? "Referral Discount" : "",
+    useEWallet && eWalletAmt > 0 ? "eWallet" : "",
+    membershipWalletUsedTotal > 0 ? "Membership Wallet" : "",
+  ].filter(Boolean);
+  const fullyCoveredText = coveredBySources.length > 0
+    ? `Fully covered by ${coveredBySources.join(" + ")}. No payment required.`
+    : "Fully covered by the client's membership wallet or eWallet. No payment required.";
+
+  // Referral / membership / package standing to show on the printed receipt —
   // passed as the `client` param to printReceipt() since the appointment itself
   // only carries items purchased on THIS booking, not the client's overall balance.
   const printClientExtras = {
-    rewardPointsBalance,
-    activeMemberships: primaryMembership
-      ? [{ membershipName: primaryMembership.membershipName, membershipWalletBalance: primaryMembership.membershipWalletBalance }]
-      : [],
+    referralCode: clientStats?.referralCode ?? null,
+    referralEarnings: clientStats?.referralEarnings ?? 0,
+    activeMemberships: clientMemberships
+      .filter((m) => m.status === "active")
+      .map((m) => ({ membershipName: m.membershipName, membershipWalletBalance: m.membershipWalletBalance, expiresAt: m.expiresAt })),
     activePackages: (clientPkgsData?.items ?? [])
       .filter((p) => p.status === "Active")
       .map((p) => ({
@@ -470,23 +517,9 @@ export const AppointmentModal: React.FC<Props> = ({
     if (!useEWallet) { setEWalletAmt(0); return; }
     const balance = clientStats?.ewalletAmt ?? 0;
     if (balance < EWALLET_REDEEM_MINIMUM) { setUseEWallet(false); setEWalletAmt(0); return; }
-    setEWalletAmt(Math.min(balance, totals.grandTotal));
-  }, [useEWallet, clientStats, totals.grandTotal]);
-
-  // ── Sync rewardPointsRedeemed ─────────────────────────────────────────────
-  // Redeems just enough points to cover the remaining bill (after eWallet/
-  // membership wallet), capped at the client's available balance — same
-  // "auto-fill up to what's needed" mechanic as eWallet above.
-  useEffect(() => {
-    if (!useRewardPoints) { setRewardPointsRedeemed(0); return; }
-    if (rewardPointsBalance <= 0 || rewardPointsConfig.redeem_points <= 0 || rewardPointsConfig.redeem_value <= 0) {
-      setUseRewardPoints(false); setRewardPointsRedeemed(0); return;
-    }
-    const billBeforePoints = Math.max(0, totals.grandTotal - (useEWallet ? eWalletAmt : 0) - membershipWalletUsedTotal);
-    const pointsNeeded = (billBeforePoints / rewardPointsConfig.redeem_value) * rewardPointsConfig.redeem_points;
-    setRewardPointsRedeemed(Math.floor(Math.min(rewardPointsBalance, pointsNeeded)));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [useRewardPoints, rewardPointsBalance, rewardPointsConfig, totals.grandTotal, useEWallet, eWalletAmt, membershipWalletUsedTotal]);
+    const maxUsable = computeMaxWalletUsable(totals.grandTotal, referralConfig);
+    setEWalletAmt(Math.min(balance, totals.grandTotal, maxUsable));
+  }, [useEWallet, clientStats, totals.grandTotal, referralConfig]);
 
   // ── Inline validation errors ──────────────────────────────────────────────
   const [clientError,    setClientError]    = useState("");
@@ -657,7 +690,7 @@ export const AppointmentModal: React.FC<Props> = ({
       calDate, defaultTime, notes, staffAlert, salonId,
       clientId:             selectedClient?.id ?? null,
       existingBooking:      existingBooking ?? null,
-      isPackageAppointment: totals.grandTotal === 0,
+      isPackageAppointment: isPackageZero,
       applyMembershipWallet: applyMembership,
     };
   }
@@ -669,7 +702,7 @@ export const AppointmentModal: React.FC<Props> = ({
       // For package-covered appointments (grand total = ₹0), mark paymentMode in Redux BEFORE
       // onRefresh overwrites the booking from the API. The paymentPatchCache survives setBookings,
       // so the tooltip and bill correctly show ₹0 even while the appointment is still Unpaid.
-      if (totals.grandTotal === 0) {
+      if (isPackageZero) {
         dispatch(patchPaymentStatus({
           id: String(id),
           paymentStatus: "Unpaid",
@@ -754,7 +787,7 @@ export const AppointmentModal: React.FC<Props> = ({
       grandTotal:        totals.grandTotal,
       effectiveTotal:    totals.effectiveTotal,
       subtotal:          totals.subtotal,
-      manualDiscountAmt: totals.totalDisc,
+      manualDiscountAmt: totals.manualDiscount,
       alreadyPaidAmount,
       eWalletAmt,
       couponDiscount:    coupon.discount,
@@ -764,7 +797,6 @@ export const AppointmentModal: React.FC<Props> = ({
       applyMembershipWallet: applyMembership,
       gstAmount:         totals.gstAmount,
       taxBreakdown:      totals.taxBreakdown,
-      rewardPointsRedeemed: useRewardPoints ? rewardPointsRedeemed : 0,
     });
     if (ok) {
       await markPackageSessions(String(apptId));
@@ -829,8 +861,6 @@ export const AppointmentModal: React.FC<Props> = ({
   // ── Quick Sale: single "Checkout" click — saves the appointment and
   // completes payment in one step, no separate "Continue to Payment" reveal.
   const handleQuickSaleCheckout = useCallback(async () => {
-    const isZero = totals.grandTotal === 0;
-
     const isWalkIn = !selectedClient || selectedClient.id === "walk-in";
     if (isWalkIn) {
       setWalkInPayError("Add client details before proceeding to payment.");
@@ -853,7 +883,7 @@ export const AppointmentModal: React.FC<Props> = ({
     const id = await save(buildSavePayload());
     if (!id) return;
 
-    if (isZero) {
+    if (isPackageZero) {
       const catalogTotal = serviceRows.reduce((s: number, r) => {
         const p = Number((r as any).price) || 0;
         const q = Number(r.qty) || 1;
@@ -893,7 +923,7 @@ export const AppointmentModal: React.FC<Props> = ({
       grandTotal:        totals.grandTotal,
       effectiveTotal:    totals.effectiveTotal,
       subtotal:          totals.subtotal,
-      manualDiscountAmt: totals.totalDisc,
+      manualDiscountAmt: totals.manualDiscount,
       alreadyPaidAmount: 0,
       eWalletAmt,
       couponDiscount:    coupon.discount,
@@ -903,7 +933,6 @@ export const AppointmentModal: React.FC<Props> = ({
       applyMembershipWallet: applyMembership,
       gstAmount:         totals.gstAmount,
       taxBreakdown:      totals.taxBreakdown,
-      rewardPointsRedeemed: useRewardPoints ? rewardPointsRedeemed : 0,
     });
     if (ok) {
       await markPackageSessions(String(id));
@@ -1240,9 +1269,6 @@ export const AppointmentModal: React.FC<Props> = ({
                   {tip > 0 && (
                     <div className="qs-summary-row"><span>Tip (Staff)</span><span>+{currencySymbol}{tip.toFixed(2)}</span></div>
                   )}
-                  {useRewardPoints && rewardPointsRedeemedValue > 0 && (
-                    <div className="qs-summary-row qs-summary-row--discount"><span>Reward Points Redeemed</span><span>-{currencySymbol}{rewardPointsRedeemedValue.toFixed(2)}</span></div>
-                  )}
                   {(useEWallet && eWalletAmt > 0) && (
                     <div className="qs-summary-row qs-summary-row--discount"><span>eWallet Used</span><span>-{currencySymbol}{eWalletAmt.toFixed(2)}</span></div>
                   )}
@@ -1256,12 +1282,12 @@ export const AppointmentModal: React.FC<Props> = ({
                     border: "1px solid #86efac", borderRadius: 10,
                   }}>
                     <div style={{ fontWeight: 700, fontSize: 14, color: "#15803d" }}>
-                      {totals.grandTotal === 0 ? "Package Payment" : "Fully Covered"}
+                      {isPackageZero ? "Package Payment" : "Fully Covered"}
                     </div>
                     <div style={{ fontSize: 12, color: "#166534", textAlign: "center" }}>
-                      {totals.grandTotal === 0
+                      {isPackageZero
                         ? "Fully covered by the client's active package. No payment required."
-                        : "Fully covered by the client's membership wallet / eWallet / reward points. No payment required."}
+                        : fullyCoveredText}
                     </div>
                   </div>
                 ) : (
@@ -1276,12 +1302,6 @@ export const AppointmentModal: React.FC<Props> = ({
                     onToggleEWallet={setUseEWallet}
                     membershipWalletUsed={membershipWalletUsedTotal}
                     membershipWalletRemaining={membershipWalletRemaining}
-                    rewardPointsBalance={rewardPointsBalance}
-                    rewardPointsFullValue={rewardPointsFullValue}
-                    useRewardPoints={useRewardPoints}
-                    onToggleRewardPoints={setUseRewardPoints}
-                    rewardPointsRedeemed={rewardPointsRedeemed}
-                    rewardPointsRedeemedValue={rewardPointsRedeemedValue}
                     couponInput={coupon.input}
                     onCouponInputChange={coupon.setInput}
                     onApplyCoupon={() => coupon.apply(totals.subtotal)}
@@ -1289,6 +1309,17 @@ export const AppointmentModal: React.FC<Props> = ({
                     couponMessage={coupon.message}
                     couponError={coupon.error}
                     couponLoading={coupon.loading}
+                    showReferral={showReferralField}
+                    referralInput={referral.input}
+                    onReferralInputChange={referral.setInput}
+                    onApplyReferral={() => referral.apply(selectedClient?.id)}
+                    referralApplied={referral.applied}
+                    referralMessage={referral.message}
+                    referralError={referral.error}
+                    referralLoading={referral.loading}
+                    referralDiscount={referralDiscountPreview}
+                    referralMinBillAmount={referralConfig.min_bill_amount}
+                    referralRewardAmount={referralConfig.referee_reward_amount}
                     paymentMode={paymentMode}
                     onSetPaymentMode={handleSetPaymentMode}
                     singleMethod={singleMethod}
@@ -1374,15 +1405,15 @@ export const AppointmentModal: React.FC<Props> = ({
                       gap: 10, padding: "24px 16px", background: "#f0fdf4",
                       border: "1px solid #86efac", borderRadius: 10, marginTop: 8,
                     }}>
-                      <div style={{ fontSize: 32 }}>{totals.grandTotal === 0 ? "📦" : "✅"}</div>
+                      <div style={{ fontSize: 32 }}>{isPackageZero ? "📦" : "✅"}</div>
                       <div style={{ fontWeight: 700, fontSize: 15, color: "#15803d" }}>
-                        {totals.grandTotal === 0 ? "Package Payment" : "Fully Covered"}
+                        {isPackageZero ? "Package Payment" : "Fully Covered"}
                       </div>
                       <div style={{ fontSize: 28, fontWeight: 800, color: "#16a34a" }}>{currencySymbol}0.00</div>
                       <div style={{ fontSize: 13, color: "#166534", textAlign: "center" }}>
-                        {totals.grandTotal === 0
+                        {isPackageZero
                           ? "This appointment is fully covered by the client's active package. No payment required."
-                          : "This appointment is fully covered by the client's membership wallet / eWallet / reward points. No payment required."}
+                          : fullyCoveredText}
                       </div>
                     </div>
                   ) : (
@@ -1397,12 +1428,6 @@ export const AppointmentModal: React.FC<Props> = ({
                     onToggleEWallet={setUseEWallet}
                     membershipWalletUsed={membershipWalletUsedTotal}
                     membershipWalletRemaining={membershipWalletRemaining}
-                    rewardPointsBalance={rewardPointsBalance}
-                    rewardPointsFullValue={rewardPointsFullValue}
-                    useRewardPoints={useRewardPoints}
-                    onToggleRewardPoints={setUseRewardPoints}
-                    rewardPointsRedeemed={rewardPointsRedeemed}
-                    rewardPointsRedeemedValue={rewardPointsRedeemedValue}
                     couponInput={coupon.input}
                     onCouponInputChange={coupon.setInput}
                     onApplyCoupon={() => coupon.apply(totals.subtotal)}
@@ -1410,6 +1435,17 @@ export const AppointmentModal: React.FC<Props> = ({
                     couponMessage={coupon.message}
                     couponError={coupon.error}
                     couponLoading={coupon.loading}
+                    showReferral={showReferralField}
+                    referralInput={referral.input}
+                    onReferralInputChange={referral.setInput}
+                    onApplyReferral={() => referral.apply(selectedClient?.id)}
+                    referralApplied={referral.applied}
+                    referralMessage={referral.message}
+                    referralError={referral.error}
+                    referralLoading={referral.loading}
+                    referralDiscount={referralDiscountPreview}
+                    referralMinBillAmount={referralConfig.min_bill_amount}
+                    referralRewardAmount={referralConfig.referee_reward_amount}
                     paymentMode={paymentMode}
                     onSetPaymentMode={handleSetPaymentMode}
                     singleMethod={singleMethod}
@@ -1465,7 +1501,7 @@ export const AppointmentModal: React.FC<Props> = ({
                     {isSaving ? "Saving…" : "Update Appointment"}
                   </button>
                   {!isPaymentFrozen && (
-                    totals.grandTotal === 0 ? (
+                    isPackageZero ? (
                       <button className="btn btn-dark" disabled={isSaving}
                         style={{ background: "#16a34a", borderColor: "#16a34a" }}
                         onClick={handleContinueToPaymentZero}>
@@ -1492,7 +1528,7 @@ export const AppointmentModal: React.FC<Props> = ({
                   <PencilFill size={13} /> Update Appointment
                 </button>
               )}
-              {totals.grandTotal === 0 ? (
+              {isPackageZero ? (
                 <button
                   className="btn btn-dark"
                   style={{ background: "#16a34a", borderColor: "#16a34a", flex: 1 }}

@@ -41,6 +41,7 @@ export default function AddClientPage() {
   const [phoneCountryCode, setPhoneCountryCode] = useState("+91");
   const [additionalPhoneCountryCode, setAdditionalPhoneCountryCode] = useState("+91");
   const [clientSource, setClientSource] = useState("walk_in");
+  const [referredByCode, setReferredByCode] = useState("");
   const [preferredLanguage, setPreferredLanguage] = useState("en");
   const [country, setCountry] = useState("IN");
 
@@ -105,6 +106,9 @@ export default function AddClientPage() {
       client_source: clientSource || null,
       preferred_language: preferredLanguage || null,
       country: country || null,
+      // Only new customers can use a referral code, and only for this, their
+      // first visit — there is no edit flow for it once the client is created.
+      referred_by_code: referredByCode.trim() ? referredByCode.trim().toUpperCase() : null,
       addresses: [],
       emergency_contacts: [],
     };
@@ -396,9 +400,15 @@ export default function AddClientPage() {
                 <label className="form-label">Referred by</label>
                 <input
                   type="text"
-                  className="form-control"
-                  placeholder="Select a client"
+                  className="form-control text-uppercase"
+                  placeholder="e.g. NIS1126"
+                  value={referredByCode}
+                  onChange={(e) => setReferredByCode(e.target.value.toUpperCase())}
+                  maxLength={20}
                 />
+                <div className="form-text">
+                  Referral code of the existing customer who referred them, if any. Applies only to this client's first visit.
+                </div>
               </div>
 
               <div className="col-md-6">
