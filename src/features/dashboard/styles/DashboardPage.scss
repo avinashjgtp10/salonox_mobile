@@ -54,6 +54,15 @@ body {
   &:hover { background: $dashboard-bg; }
 }
 
+.topbar-date {
+  font-size: 15px;
+  font-weight: 500;
+  color: $dashboard-primary;
+  opacity: 1.27;
+  white-space: nowrap;
+
+}
+
 .activate-btn {
   background: $btn-primary;
   color: $white;

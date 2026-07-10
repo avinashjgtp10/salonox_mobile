@@ -4,6 +4,7 @@ import {
   CheckCircleFill,
   XCircleFill,
   DashCircleFill,
+  CircleHalf,
   ExclamationCircleFill,
   Plus,
   ArrowRepeat,
@@ -16,6 +17,11 @@ import {
 } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { ATTENDANCE, DEVICES } from "../../../services/api/endpoints";
+import {
+  DEFAULT_HALF_DAY_RULE_CONFIG,
+  parseHalfDayRuleValue,
+  isHalfDayCheckIn,
+} from "../../settings/utils/halfDayRuleSettings";
 import "../styles/AttendancePage.scss";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -156,6 +162,65 @@ function toISO(date: string, time: string): string {
   return `${date}T${time}:00+05:30`;
 }
 
+/** Look up a staff member's scheduled shift-start time (HH:MM, 24h) for a given date. */
+async function fetchShiftStartTime(staffId: string, date: string): Promise<string | null> {
+  try {
+    const res = await api.get(`/api/v1/staff/${staffId}/scheduled`);
+    const schedules = res.data?.data || res.data;
+    if (!Array.isArray(schedules)) return null;
+    const toYMD = (d: any) => (d && typeof d === "string" ? d.slice(0, 10) : "");
+    const dayOfWeek = new Date(date + "T12:00:00").getDay();
+    const daySched =
+      schedules.find((sch: any) => toYMD(sch.date) === date) ??
+      schedules.find((sch: any) => !sch.date && sch.day_of_week === dayOfWeek);
+    // staff_schedules.start_time is a Postgres TIME column ("HH:MM:SS") — truncate
+    // to "HH:MM" since toISO() appends its own ":00" seconds.
+    return daySched?.is_available && daySched?.start_time
+      ? String(daySched.start_time).slice(0, 5)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── 12-hour time picker (native <input type="time"> ignores the "lang" hint on
+// some Chromium/OS combos and falls back to 24h — this is locale-proof) ───────
+
+function to12hParts(time24: string): { hour: string; minute: string; period: "AM" | "PM" } {
+  const [hh, mm] = (time24 || "00:00").split(":").map(Number);
+  const period: "AM" | "PM" = hh < 12 ? "AM" : "PM";
+  const hour = hh === 0 ? 12 : hh > 12 ? hh - 12 : hh;
+  return { hour: String(hour).padStart(2, "0"), minute: String(mm || 0).padStart(2, "0"), period };
+}
+
+function from12hParts(hour: string, minute: string, period: "AM" | "PM"): string {
+  let h = parseInt(hour, 10) % 12;
+  if (period === "PM") h += 12;
+  return `${String(h).padStart(2, "0")}:${minute}`;
+}
+
+const HOUR_OPTS_12 = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0"));
+const MINUTE_OPTS_60 = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0"));
+
+function TimeField12h({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { hour, minute, period } = to12hParts(value);
+  return (
+    <div className="at-time12">
+      <select aria-label="Hour" value={hour} onChange={(e) => onChange(from12hParts(e.target.value, minute, period))}>
+        {HOUR_OPTS_12.map((h) => <option key={h} value={h}>{h}</option>)}
+      </select>
+      <span className="at-time12__sep">:</span>
+      <select aria-label="Minute" value={minute} onChange={(e) => onChange(from12hParts(hour, e.target.value, period))}>
+        {MINUTE_OPTS_60.map((m) => <option key={m} value={m}>{m}</option>)}
+      </select>
+      <select aria-label="AM or PM" value={period} onChange={(e) => onChange(from12hParts(hour, minute, e.target.value as "AM" | "PM"))}>
+        <option value="AM">AM</option>
+        <option value="PM">PM</option>
+      </select>
+    </div>
+  );
+}
+
 /** Row action based on check-in/check-out state */
 function rowAction(s: TodayStaffRecord): { label: string; variant: string; modalType: "check_in" | "check_out" | "edit" } {
   if (s.check_in && s.check_out) return { label: "Edit",      variant: "ap-row-btn",             modalType: "edit"      };
@@ -176,14 +241,50 @@ function CheckInModal({ record, date, isToday, onClose, onDone }: {
   const [note, setNote]   = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState("");
+  const [shiftStart, setShiftStart] = useState<string | null>(null);
+  const [salonShiftStart, setSalonShiftStart] = useState<string | null>(null);
+  const [halfDayRule, setHalfDayRule] = useState(DEFAULT_HALF_DAY_RULE_CONFIG);
+
+  // Half-day rule is evaluated client-side: compare the check-in time against
+  // (shift start + configured threshold hours). Backend just stores whatever
+  // status we send — it does not compute lateness itself.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [start, ruleRes] = await Promise.all([
+        fetchShiftStartTime(record.staff_id, date),
+        api.get(ATTENDANCE.SETTINGS).catch(() => null),
+      ]);
+      if (cancelled) return;
+      setShiftStart(start);
+      if (ruleRes) {
+        const settings = ruleRes.data?.data ?? ruleRes.data;
+        setHalfDayRule(parseHalfDayRuleValue(settings));
+        // Falls back to the salon's default shift start (attendance_settings.shift_start)
+        // when this staff member has no per-day shift scheduled — otherwise the rule
+        // would never apply to staff without an explicit Team > Schedule entry.
+        // Postgres TIME columns come back as "HH:MM:SS" — truncate to "HH:MM" since
+        // toISO() below appends its own ":00" seconds.
+        if (settings?.shift_start) setSalonShiftStart(String(settings.shift_start).slice(0, 5));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [record.staff_id, date]);
 
   async function save() {
     if (!time) { setError("Please enter a check-in time."); return; }
     setSaving(true); setError("");
     try {
+      const checkInISO = toISO(date, time);
+      const effectiveShiftStart = shiftStart ?? salonShiftStart;
+      const shiftStartISO = effectiveShiftStart ? toISO(date, effectiveShiftStart) : null;
+      const status: AttendanceStatus = isHalfDayCheckIn(halfDayRule, shiftStartISO, checkInISO)
+        ? "half_day"
+        : "present";
       await api.post(ATTENDANCE.CHECK_IN, {
         staff_id: record.staff_id,
-        check_in: toISO(date, time),
+        check_in: checkInISO,
+        status,
         note: note.trim() || undefined,
       });
       onDone();
@@ -201,10 +302,35 @@ function CheckInModal({ record, date, isToday, onClose, onDone }: {
         </div>
         <div className="at-modal-body">
           <p className="at-modal-meta">{record.staff_name} · {fmtDateLabel(date)}</p>
+          {(() => {
+            const effectiveShiftStart = shiftStart ?? salonShiftStart;
+            if (!effectiveShiftStart) return null;
+            return (
+              <div className="at-modal-info-row">
+                <span className="at-modal-info-label">
+                  {shiftStart ? "Shift starts at" : "Default shift starts at"}
+                </span>
+                <span className="at-modal-info-value">{fmtTime(toISO(date, effectiveShiftStart))}</span>
+              </div>
+            );
+          })()}
           <div className="at-modal-field">
             <label>Check-in Time</label>
-            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+            <TimeField12h value={time} onChange={setTime} />
           </div>
+          {(() => {
+            const effectiveShiftStart = shiftStart ?? salonShiftStart;
+            if (!halfDayRule.active || !effectiveShiftStart || !time) return null;
+            return isHalfDayCheckIn(halfDayRule, toISO(date, effectiveShiftStart), toISO(date, time)) ? (
+              <p className="at-modal-error" style={{ color: "#dc2626" }}>
+                Late by more than {halfDayRule.threshold_hours}h — this check-in will be marked Half Day.
+              </p>
+            ) : (
+              <p className="at-modal-meta" style={{ color: "#059669" }}>
+                This check-in will be marked Present.
+              </p>
+            );
+          })()}
           <div className="at-modal-field">
             <label>Note <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optional)</span></label>
             <input type="text" placeholder="e.g. Arrived from site" value={note} onChange={(e) => setNote(e.target.value)} />
@@ -266,7 +392,7 @@ function CheckOutModal({ record, date, isToday, onClose, onDone }: {
           </div>
           <div className="at-modal-field">
             <label>Check-out Time</label>
-            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+            <TimeField12h value={time} onChange={setTime} />
           </div>
           <div className="at-modal-field">
             <label>Note <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optional)</span></label>
@@ -343,11 +469,11 @@ function EditModal({ record, date, onClose, onDone }: {
           <div className="at-modal-row">
             <div className="at-modal-field">
               <label>Check-in Time</label>
-              <input type="time" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} />
+              <TimeField12h value={checkIn} onChange={setCheckIn} />
             </div>
             <div className="at-modal-field">
               <label>Check-out Time</label>
-              <input type="time" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} />
+              <TimeField12h value={checkOut} onChange={setCheckOut} />
             </div>
           </div>
           <div className="at-modal-field">
@@ -879,6 +1005,13 @@ export default function AttendancePage() {
           <div>
             <div className="ap-stat-num ap-stat-num--purple">{loading ? "—" : summary?.on_leave ?? 0}</div>
             <div className="ap-stat-label">On Leave</div>
+          </div>
+        </div>
+        <div className="ap-stat-card">
+          <div className="ap-stat-icon ap-stat-icon--blue"><CircleHalf size={18} /></div>
+          <div>
+            <div className="ap-stat-num ap-stat-num--blue">{loading ? "—" : summary?.half_day ?? 0}</div>
+            <div className="ap-stat-label">Half Day</div>
           </div>
         </div>
       </div>
