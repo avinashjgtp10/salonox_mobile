@@ -23,6 +23,15 @@ const PackageModule: React.FC = () => {
     setView("created");
   };
 
+  // A "Generic package" save creates a reusable Template instead of a client
+  // package — send the user to the Templates tab to see it, rather than the
+  // client-package "created" success screen.
+  const handleTemplateCreated = () => {
+    setTemplateToLoad(null);
+    setTab("templates");
+    setView("dashboard");
+  };
+
   const handleCreateNew = () => {
     setTemplateToLoad(null);
     setView("create");
@@ -85,6 +94,7 @@ const PackageModule: React.FC = () => {
             onClientChange={setSelectedClient}
             onCancel={handleCancel}
             onSaved={handlePackageCreated}
+            onTemplateSaved={handleTemplateCreated}
             templateToLoad={templateToLoad}
           />
         </div>

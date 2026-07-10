@@ -59,8 +59,6 @@ const PackageCreatedSuccess: React.FC<Props> = ({ pkg, onViewPackages, onCreateA
             {[
               ["Package Name", pkg.packageName],
               ["Package ID",   pkg.id],
-              ["Category",     pkg.category],
-              ["Branch",       pkg.branch],
             ].map(([label, value]) => (
               <div key={label} className={styles.formField}>
                 <span className={styles.formLabel}>{label}</span>
@@ -72,7 +70,7 @@ const PackageCreatedSuccess: React.FC<Props> = ({ pkg, onViewPackages, onCreateA
           <hr style={{ border: "none", borderTop: "1px solid #e5e7eb", margin: "0 0 18px" }} />
 
           {/* Services */}
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", marginBottom: 10 }}>Services included</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", marginBottom: 10 }}>Services Included</div>
           <table className={styles.table} style={{ marginBottom: 18 }}>
             <thead>
               <tr>

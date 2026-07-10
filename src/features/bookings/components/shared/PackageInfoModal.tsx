@@ -37,10 +37,7 @@ export const PackageInfoModal: React.FC<Props> = ({ clientName, packages, onClos
                     <span className="pkg-card__lbl">Active Package:</span>
                     <span className="pkg-card__val">{pkg.packageName}</span>
                   </div>
-                  <div className="pkg-card__row">
-                    <span className="pkg-card__lbl">Package Type:</span>
-                    <span className="pkg-card__val">{pkg.category || "Base"}</span>
-                  </div>
+                  
                   <div className="pkg-card__row">
                     <span className="pkg-card__lbl">Purchase Date:</span>
                     <span className="pkg-card__val">{fmtDate(pkg.createdDate)}</span>
@@ -60,7 +57,7 @@ export const PackageInfoModal: React.FC<Props> = ({ clientName, packages, onClos
                       <tr>
                         <th>Name</th>
                         <th>Avl</th>
-                        <th>Usec</th>
+                        <th>Usage</th>
                       </tr>
                     </thead>
                     <tbody>

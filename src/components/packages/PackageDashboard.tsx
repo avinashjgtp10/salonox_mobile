@@ -158,10 +158,8 @@ const PackageDashboard: React.FC<Props> = ({
         </div>
         <div className={styles.headerActions}>
           <button
-            onClick={() => selectedClient && setShowChoice(true)}
-            disabled={!selectedClient}
+            onClick={() => setShowChoice(true)}
             className={styles.btnPrimary}
-            title={!selectedClient ? "Select a client first" : ""}
           >
             + Create Package
           </button>

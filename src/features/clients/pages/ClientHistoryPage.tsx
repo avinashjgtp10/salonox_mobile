@@ -20,6 +20,7 @@ import {
 } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { printReceipt, buildPrintableBooking } from "../../bookings/utils/receipt";
+import Pagination from "../../../components/ui/Pagination";
 import "../styles/ClientHistoryPage.scss";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -234,8 +235,9 @@ export default function ClientHistoryPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("history");
 
-  // History tab show-all toggle
-  const [showAllHistory, setShowAllHistory] = useState(false);
+  // History tab pagination
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPageSize, setHistoryPageSize] = useState(10);
 
   // Global right-panel filter — applies across all tabs
   const [showGlobalFilter, setShowGlobalFilter] = useState(false);
@@ -245,6 +247,11 @@ export default function ClientHistoryPage() {
   const [globalServiceFilter, setGlobalServiceFilter] = useState("all");
   const [globalStaffFilter, setGlobalStaffFilter] = useState("all");
   const [showFilterCal, setShowFilterCal] = useState(false);
+
+  // Jump back to page 1 whenever the global filter changes the underlying result set
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [globalDatePreset, globalCalDay, globalServiceFilter, globalStaffFilter]);
 
   // Ensure services + staff are in Redux (calendar may have already loaded them)
   useEffect(() => {
@@ -294,7 +301,7 @@ export default function ClientHistoryPage() {
     setData(null);
     setHistoryLoading(true);
     setActiveTab("history");
-    setShowAllHistory(false);
+    setHistoryPage(1);
     setGlobalCalDay(null);
     setGlobalDatePreset("all");
     setGlobalServiceFilter("all");
@@ -550,6 +557,60 @@ export default function ClientHistoryPage() {
     return map;
   }, [appointments, quickSales]);
 
+  // A package purchase produces both a `sales` row and a `packages` (client-package)
+  // row for the same event — match them by name/amount/time so a package entry can
+  // reuse the sale's real invoice for printing, and any duplicate "Quick Sale" row for
+  // it can be dropped from Visit History. Matched on name/amount/time rather than the
+  // sale item's `item_type` field, since the backend sometimes mislabels a package
+  // line item as "service".
+  const packageSaleMatch = useMemo(() => {
+    const usedSaleIds = new Set<string>();
+    const map = new Map<string, SaleRecord>();
+    packages.forEach((pkg) => {
+      const pkgTime = new Date(pkg.created_date).getTime();
+      const pkgAmount = Number(pkg.total_amount) || 0;
+      const matchedSale = sales.find((sale) => {
+        if (usedSaleIds.has(sale.id)) return false;
+        const hasPkgItem = (sale.items ?? []).some((it) => it.name === pkg.package_name);
+        if (!hasPkgItem) return false;
+        if (Math.abs((Number(sale.total_amount) || 0) - pkgAmount) > 0.5) return false;
+        return Math.abs(new Date(sale.created_at).getTime() - pkgTime) < 10 * 60 * 1000;
+      });
+      if (matchedSale) {
+        usedSaleIds.add(matchedSale.id);
+        map.set(pkg.id, matchedSale);
+      }
+    });
+    return map;
+  }, [packages, sales]);
+
+  // Unified, date-sorted Visit History feed: appointments + quick sales + package purchases
+  type VisitEntry =
+    | { kind: "appointment"; date: string; appt: AppointmentRecord }
+    | { kind: "quickSale"; date: string; sale: SaleRecord }
+    | { kind: "package"; date: string; pkg: PackageRecord; sale?: SaleRecord };
+
+  const visitHistoryEntries: VisitEntry[] = useMemo(() => {
+    const packageEntries: VisitEntry[] = filteredPackages.map((pkg) => ({
+      kind: "package" as const,
+      date: pkg.created_date,
+      pkg,
+      sale: packageSaleMatch.get(pkg.id),
+    }));
+    const usedSaleIds = new Set(
+      packageEntries.map((e) => (e.kind === "package" ? e.sale?.id : undefined)).filter(Boolean)
+    );
+
+    const entries: VisitEntry[] = [
+      ...visibleAppointments.map((appt) => ({ kind: "appointment" as const, date: appt.scheduled_at, appt })),
+      ...visibleQuickSales
+        .filter((sale) => !usedSaleIds.has(sale.id))
+        .map((sale) => ({ kind: "quickSale" as const, date: sale.created_at, sale })),
+      ...packageEntries,
+    ];
+    return entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [visibleAppointments, visibleQuickSales, filteredPackages, packageSaleMatch]);
+
   const TABS: { key: TabKey; label: string }[] = [
     { key: "history", label: "History" },
     { key: "services", label: "Services" },
@@ -608,6 +669,38 @@ export default function ClientHistoryPage() {
       grandTotalOverride: Number(s.total_amount) || 0,
     });
     printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email, referralCode: (client as any)?.referral_code ?? null });
+  };
+
+  const printPackageBill = (pkg: PackageRecord, matchedSale: SaleRecord | undefined) => {
+    // The backend's sale-row materializer sometimes mislabels the package's own line
+    // item as item_type "service" — force it back to "package" here so the printed
+    // invoice always badges it correctly, regardless of the matched sale's raw data.
+    const items = matchedSale
+      ? (matchedSale.items ?? []).map((it) =>
+          it.name === pkg.package_name ? { ...it, item_type: "package" } : it
+        )
+      : [{
+          name: pkg.package_name,
+          item_type: "package",
+          quantity: 1,
+          unit_price: pkg.total_amount,
+          total_price: pkg.total_amount,
+        }];
+    const booking = buildPrintableBooking({
+      id: matchedSale?.id ?? pkg.id,
+      clientId: client?.id,
+      clientName: client?.full_name,
+      clientPhone: clientPhoneForPrint,
+      clientEmail: client?.email,
+      dateIso: matchedSale?.created_at ?? pkg.created_date,
+      items,
+      status: matchedSale?.status ?? pkg.status,
+      rawPaymentStatus: matchedSale?.status ?? pkg.payment_status,
+      paymentMethod: matchedSale?.payment_method ?? null,
+      invoiceNumber: matchedSale?.invoice_number,
+      grandTotalOverride: matchedSale ? Number(matchedSale.total_amount) : (Number(pkg.total_amount) || 0),
+    });
+    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email });
   };
 
   return (
@@ -921,18 +1014,99 @@ export default function ClientHistoryPage() {
                 <div className="chp-card">
                   <div className="chp-card-header">
                     <span className="chp-card-title">
-                      Visit History{hasGlobalFilter ? ` (${visibleAppointments.length + visibleQuickSales.length} filtered)` : ""}
+                      Visit History{hasGlobalFilter ? ` (${visitHistoryEntries.length} filtered)` : ""}
                     </span>
                   </div>
 
-                    {appointments.length === 0 && quickSales.length === 0 ? (
+                    {appointments.length === 0 && quickSales.length === 0 && packages.length === 0 ? (
                       <div className="chp-no-data">No visits found</div>
-                    ) : visibleAppointments.length === 0 && visibleQuickSales.length === 0 ? (
+                    ) : visitHistoryEntries.length === 0 ? (
                       <div className="chp-no-data">No visits match the current filter</div>
                     ) : (
                       <div className="chp-visit-list">
-                        {(hasGlobalFilter || showAllHistory ? visibleAppointments : visibleAppointments.slice(0, 10)
-                        ).map((appt) => {
+                        {visitHistoryEntries
+                          .slice((historyPage - 1) * historyPageSize, historyPage * historyPageSize)
+                          .map((entry) => {
+                          if (entry.kind === "package") {
+                            const pkg = entry.pkg;
+                            const isPkgPaid = pkg.payment_status === "paid";
+                            const d = fmtDate(pkg.created_date);
+                            return (
+                              <div key={`pkg-${pkg.id}`} className="chp-visit-row">
+                                <div className="chp-visit-dot" style={{ background: "#7c3aed" }} />
+                                <div className="chp-visit-date">
+                                  <div className="chp-visit-day">{d.day}</div>
+                                  <div className="chp-visit-mon">{d.month}</div>
+                                  <div className="chp-visit-yr">{d.year}</div>
+                                </div>
+                                <div className="chp-visit-info">
+                                  <div className="chp-visit-name">{pkg.package_name}</div>
+                                  <div className="chp-visit-staff">Package Sold</div>
+                                  <div className="chp-visit-time">
+                                    <Clock size={10} /> {d.time}
+                                  </div>
+                                </div>
+                                <div className="chp-visit-right">
+                                  <div className="chp-visit-amount">{fmtRupees(pkg.total_amount)}</div>
+                                  <div className={`chp-visit-badge ${isPkgPaid ? "paid" : "unpaid"}`}>
+                                    {isPkgPaid ? "Paid" : pkg.payment_status || "Unpaid"}
+                                  </div>
+                                </div>
+                                <button
+                                  className="chp-print-btn"
+                                  title="Print bill"
+                                  onClick={(e) => { e.stopPropagation(); printPackageBill(pkg, entry.sale); }}
+                                >
+                                  <Printer size={13} />
+                                </button>
+                              </div>
+                            );
+                          }
+                          if (entry.kind === "quickSale") {
+                            const s = entry.sale;
+                            const d = fmtDate(s.created_at);
+                            const firstName = (s.items ?? []).find((it) => it.item_type === "service")?.name
+                              || (s.items ?? [])[0]?.name
+                              || "Quick Sale";
+                            const extraItems = (s.items?.length ?? 0) - 1;
+                            const isSalePackagePaid = (s.payment_method || "").toLowerCase() === "package";
+                            return (
+                              <div key={s.id} className="chp-visit-row">
+                                <div className="chp-visit-dot" style={{ background: "#a78bfa" }} />
+                                <div className="chp-visit-date">
+                                  <div className="chp-visit-day">{d.day}</div>
+                                  <div className="chp-visit-mon">{d.month}</div>
+                                  <div className="chp-visit-yr">{d.year}</div>
+                                </div>
+                                <div className="chp-visit-info">
+                                  <div className="chp-visit-name">
+                                    {firstName}{extraItems > 0 ? ` +${extraItems} more` : ""}
+                                  </div>
+                                  <div className="chp-visit-staff">Quick Sale</div>
+                                  <div className="chp-visit-time">
+                                    <Clock size={10} /> {d.time}
+                                  </div>
+                                </div>
+                                <div className="chp-visit-right">
+                                  <div className="chp-visit-amount">{fmtRupees(s.total_amount)}</div>
+                                  <div className={`chp-visit-badge ${s.status === "completed" ? "paid" : "unpaid"}`}>
+                                    {s.status === "completed" ? "Paid" : s.status}
+                                  </div>
+                                  {s.status === "completed" && isSalePackagePaid && (
+                                    <div className="chp-visit-package-tag">via Package</div>
+                                  )}
+                                </div>
+                                <button
+                                  className="chp-print-btn"
+                                  title="Print bill"
+                                  onClick={(e) => { e.stopPropagation(); printSaleBill(s); }}
+                                >
+                                  <Printer size={13} />
+                                </button>
+                              </div>
+                            );
+                          }
+                          const appt = entry.appt;
                           const d = fmtDate(appt.scheduled_at);
                           const linkedSale = saleByAppointmentId.get(appt.id);
                           const displayAmount = linkedSale
@@ -990,63 +1164,17 @@ export default function ClientHistoryPage() {
                             </div>
                           );
                         })}
-
-                        {/* Quick Sell entries (no linked appointment) */}
-                        {(hasGlobalFilter || showAllHistory ? visibleQuickSales : visibleQuickSales.slice(0, 5)
-                        ).map((s) => {
-                          const d = fmtDate(s.created_at);
-                          const firstName = (s.items ?? []).find((it) => it.item_type === "service")?.name
-                            || (s.items ?? [])[0]?.name
-                            || "Quick Sale";
-                          const extraItems = (s.items?.length ?? 0) - 1;
-                          const isSalePackagePaid = (s.payment_method || "").toLowerCase() === "package";
-                          return (
-                            <div key={s.id} className="chp-visit-row">
-                              <div className="chp-visit-dot" style={{ background: "#a78bfa" }} />
-                              <div className="chp-visit-date">
-                                <div className="chp-visit-day">{d.day}</div>
-                                <div className="chp-visit-mon">{d.month}</div>
-                                <div className="chp-visit-yr">{d.year}</div>
-                              </div>
-                              <div className="chp-visit-info">
-                                <div className="chp-visit-name">
-                                  {firstName}{extraItems > 0 ? ` +${extraItems} more` : ""}
-                                </div>
-                                <div className="chp-visit-staff">Quick Sale</div>
-                                <div className="chp-visit-time">
-                                  <Clock size={10} /> {d.time}
-                                </div>
-                              </div>
-                              <div className="chp-visit-right">
-                                <div className="chp-visit-amount">{fmtRupees(s.total_amount)}</div>
-                                <div className={`chp-visit-badge ${s.status === "completed" ? "paid" : "unpaid"}`}>
-                                  {s.status === "completed" ? "Paid" : s.status}
-                                </div>
-                                {s.status === "completed" && isSalePackagePaid && (
-                                  <div className="chp-visit-package-tag">via Package</div>
-                                )}
-                              </div>
-                              <button
-                                className="chp-print-btn"
-                                title="Print bill"
-                                onClick={(e) => { e.stopPropagation(); printSaleBill(s); }}
-                              >
-                                <Printer size={13} />
-                              </button>
-                            </div>
-                          );
-                        })}
-                        {!hasGlobalFilter && (appointments.length > 10 || quickSales.length > 5) && (
-                          <button
-                            className="chp-show-all-btn"
-                            onClick={() => setShowAllHistory((v) => !v)}
-                          >
-                            {showAllHistory
-                              ? "Show less"
-                              : `Show all ${appointments.length + quickSales.length} visits`}
-                          </button>
-                        )}
                       </div>
+                    )}
+                    {visitHistoryEntries.length > 0 && (
+                      <Pagination
+                        currentPage={historyPage}
+                        pageSize={historyPageSize}
+                        totalItems={visitHistoryEntries.length}
+                        onPageChange={setHistoryPage}
+                        onPageSizeChange={(sz) => { setHistoryPageSize(sz); setHistoryPage(1); }}
+                        pageSizeOptions={[10, 25, 50, 100]}
+                      />
                     )}
                 </div>
               )}
@@ -1181,9 +1309,18 @@ export default function ClientHistoryPage() {
                             <span className={`chp-status-badge chp-status-badge--${pkg.payment_status}`}>
                               {pkg.payment_status}
                             </span>
-                            <span className="chp-pkg-amount">
-                              ₹{Number(pkg.total_amount).toLocaleString("en-IN")}
-                            </span>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span className="chp-pkg-amount">
+                                ₹{Number(pkg.total_amount).toLocaleString("en-IN")}
+                              </span>
+                              <button
+                                className="chp-print-btn"
+                                title="Print bill"
+                                onClick={(e) => { e.stopPropagation(); printPackageBill(pkg, packageSaleMatch.get(pkg.id)); }}
+                              >
+                                <Printer size={13} />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );

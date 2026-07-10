@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React from "react";
 import type { SingleMethod, SplitEntry } from "../../types";
 import "../../styles/AppointmentModal.scss";
 import { SINGLE_METHODS } from "../../types";
 import { currencySymbol } from "../../utils/currency";
+import { PaymentMethodPicker } from "../../../../components/shared/PaymentMethodPicker";
 
 interface Props {
   // Totals
@@ -97,12 +98,6 @@ export const PaymentPanel: React.FC<Props> = ({
   frozen,
 }) => {
   const totalToCollect = includeClearDue ? remainingDue + priorDueAmt : remainingDue;
-
-  // Checked by default. Decoupled from partialAmtInput so unchecking can show a
-  // blank field (nothing typed yet) instead of forcing the field to always show
-  // some value — partialAmtInput stays "" (→ pay the full amount) until the user
-  // actually types a custom figure.
-  const [fullChecked, setFullChecked] = useState(true);
 
   return (
     <div className="payment-panel">
@@ -237,155 +232,27 @@ export const PaymentPanel: React.FC<Props> = ({
 
       {/* Payment method */}
       {!frozen && (
-        <div className="pay-method">
-          <label className="pay-method__label">PAYMENT METHOD <span className="req">*</span></label>
-
-          {/* Single / Split toggle */}
-          <div className="pay-method__mode">
-            {(["single", "split"] as const).map((mode) => (
-              <button
-                key={mode}
-                className={paymentMode === mode ? "active" : ""}
-                onClick={() => onSetPaymentMode(mode)}
-              >
-                {mode === "single" ? "Single" : "Split"}
-              </button>
-            ))}
-          </div>
-
-          {paymentMode === "single" ? (
-            <>
-              <div className="pay-method__options">
-                {SINGLE_METHODS.map((m) => (
-                  <button
-                    key={m}
-                    className={`${singleMethod === m ? "active" : ""}${payMethodError ? " error" : ""}`}
-                    onClick={() => onSetSingleMethod(m)}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
-              {payMethodError && (
-                <div className="pay-method__error">Please select a payment method to continue.</div>
-              )}
-              {/* Due amount row */}
-              {totalToCollect > 0 && (
-                <div className="pay-due-row">
-                  <span className="pay-due-row__label">Due —</span>
-                  <div className="pay-due-row__field">
-                    <span className="pay-due-row__symbol">{currencySymbol}</span>
-                    <input
-                      type="number"
-                      className="pay-due-row__input"
-                      min={0}
-                      step={0.01}
-                      placeholder={totalToCollect.toFixed(2)}
-                      value={fullChecked ? totalToCollect.toFixed(2) : partialAmtInput}
-                      onChange={(e) => {
-                        const raw = e.target.value;
-                        if (raw === "") { setFullChecked(false); onSetPartialAmt(""); return; }
-                        const val = parseFloat(raw);
-                        // Typing the full due amount back in re-checks "Full" automatically.
-                        if (!isNaN(val) && val === totalToCollect) {
-                          setFullChecked(true);
-                          onSetPartialAmt("");
-                          return;
-                        }
-                        setFullChecked(false);
-                        onSetPartialAmt(!isNaN(val) && val > totalToCollect ? totalToCollect.toFixed(2) : raw);
-                      }}
-                    />
-                  </div>
-                  <label className="pay-due-row__full-label">
-                    <input
-                      type="checkbox"
-                      className="pay-due-row__full-check"
-                      checked={fullChecked}
-                      onChange={(e) => {
-                        setFullChecked(e.target.checked);
-                        // Both "Full" (checked) and "not yet typed" (unchecked, blank)
-                        // map to "" internally → payment logic treats it as the full
-                        // amount until the user actually types a custom figure.
-                        onSetPartialAmt("");
-                      }}
-                    />
-                    Full
-                  </label>
-                </div>
-              )}
-            </>
-          ) : (
-            /* Split entries */
-            <div className="pay-split">
-              {splitEntries.map((entry, i) => (
-                <div key={i} className="pay-split__row">
-                  <div className="pay-split__methods">
-                    {SINGLE_METHODS.map((m) => (
-                      <button
-                        key={m}
-                        type="button"
-                        className={`pay-split__method-btn${entry.method === m ? " active" : ""}`}
-                        onClick={() => {
-                          const updated = [...splitEntries];
-                          updated[i] = { ...entry, method: m };
-                          onSetSplitEntries(updated);
-                        }}
-                      >
-                        {m}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="pay-split__amt-field">
-                    <span className="pay-split__symbol">{currencySymbol}</span>
-                    <input
-                      type="number"
-                      className="pay-split__input"
-                      min={0}
-                      step={0.01}
-                      placeholder="Amount"
-                      value={entry.amount}
-                      onChange={(e) => {
-                        const updated = [...splitEntries];
-                        updated[i] = { ...entry, amount: e.target.value };
-                        onSetSplitEntries(updated);
-                      }}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    className="pay-split__remove"
-                    onClick={() => onSetSplitEntries(splitEntries.filter((_, idx) => idx !== i))}
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-              <div className="pay-split__footer">
-                <button
-                  type="button"
-                  className="pay-split__add"
-                  onClick={() => onSetSplitEntries([...splitEntries, { method: "Cash", amount: "" }])}
-                >
-                  + Add Method
-                </button>
-                {(() => {
-                  const splitTotal = splitEntries.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
-                  const rem = remainingDue - splitTotal;
-                  return (
-                    <div className="pay-split__totals">
-                      Total: <span className={rem <= 0 ? "ok" : "short"}>{currencySymbol}{splitTotal.toFixed(2)}</span>
-                      {rem > 0 && <span className="rem"> {currencySymbol}{rem.toFixed(2)} remaining</span>}
-                    </div>
-                  );
-                })()}
-              </div>
-            </div>
-          )}
-        </div>
+        <PaymentMethodPicker
+          methods={SINGLE_METHODS}
+          paymentMode={paymentMode}
+          onSetPaymentMode={onSetPaymentMode}
+          singleMethod={singleMethod}
+          onSetSingleMethod={(m) => onSetSingleMethod(m as SingleMethod)}
+          splitEntries={splitEntries}
+          onSetSplitEntries={(entries) => onSetSplitEntries(entries as SplitEntry[])}
+          payMethodError={payMethodError}
+          totalToCollect={totalToCollect}
+          splitCollectBase={remainingDue}
+          partialAmtInput={partialAmtInput}
+          onSetPartialAmt={onSetPartialAmt}
+          printAfterPayment={printAfterPayment}
+          onTogglePrint={onTogglePrint}
+          currencySymbol={currencySymbol}
+          showPrintOption={false}
+        />
       )}
 
-      {/* Print receipt */}
+      {/* Print receipt — kept outside the `!frozen` gate so it's always available */}
       <div className="pay-print">
         <input
           type="checkbox" id="print-receipt"
