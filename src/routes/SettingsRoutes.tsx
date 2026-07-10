@@ -13,6 +13,8 @@ const BillingPage           = lazy(() => import("../features/settings/pages/Bill
 const DataPrivacyPage       = lazy(() => import("../features/settings/pages/DataPrivacyPage"));
 const SettingsManagementPage = lazy(() => import("../features/settings/pages/SettingsManagementPage"));
 const RewardsSettingsPage    = lazy(() => import("../features/settings/pages/RewardsSettingsPage"));
+const ReferralSettingsPage   = lazy(() => import("../features/settings/pages/ReferralSettingsPage"));
+const CouponsSettingsPage    = lazy(() => import("../features/settings/pages/CouponsSettingsPage"));
 
 export const SettingsRoutes = () => (
   <Suspense fallback={<PageLoader />}>
@@ -30,6 +32,8 @@ export const SettingsRoutes = () => (
         <Route path="data-privacy"  element={<DataPrivacyPage />} />
         <Route path="tax-mapping"    element={<SettingsManagementPage />} />
         <Route path="reward-points" element={<RewardsSettingsPage />} />
+        <Route path="referral"      element={<ReferralSettingsPage />} />
+        <Route path="coupons"       element={<CouponsSettingsPage />} />
         {/* Catch-all → profile */}
         <Route path="*"             element={<Navigate to="profile" replace />} />
       </Route>

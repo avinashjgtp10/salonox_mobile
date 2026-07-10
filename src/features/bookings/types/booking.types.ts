@@ -132,6 +132,7 @@ export interface Booking {
   taxBreakdown?: { name: string; rate: number; amount: number; inclusive: boolean }[];
   couponCode?: string;
   couponDiscount?: number;
+  referralDiscount?: number; // ₹ instantly discounted off this bill for a referred client's first qualifying visit
   subtotal: number;
   tipAmount?: number;
   taxableAmount: number;

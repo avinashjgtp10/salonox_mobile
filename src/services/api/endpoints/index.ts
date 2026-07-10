@@ -26,6 +26,7 @@ export * from "./onlineBooking.endpoints";
 export * from "./packages.endpoints";
 export * from "./notifications.endpoints";
 export * from "./clientMemberships.endpoints";
+export * from "./ewallet.endpoints";
 export * from "./attendance.endpoints";
 export * from "./device.endpoints";
 export * from "./superAdmin.endpoints";

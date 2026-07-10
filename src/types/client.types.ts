@@ -7,6 +7,12 @@ export interface Client {
   email?: string;
   phone?: string;
   isBlocked?: boolean;
+  // ── Refer & Earn ──────────────────────────────────────────────────────────
+  referral_code?: string | null;                  // this client's own permanent referral code
+  referred_by_client_id?: string | null;          // set once, at creation, if a referral code was used
+  referral_reward_status?: "pending" | "completed" | null; // status of the reward tied to referred_by_client_id
+  total_referral_earnings?: number;               // ₹ this client has earned from referring others
+  total_successful_referrals?: number;            // count of referrals that reached a completed reward
   [key: string]: any; // allow extra fields from API
 }
 

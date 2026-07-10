@@ -123,7 +123,9 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
   const tipAmount     = Number((booking as any).tipAmount) || 0;
   const gstPercent    = Number(booking.gst) || 0;
   const discountAmt   = booking.discountType === "Flat (₹)" ? discountValue : (computedTotal * discountValue) / 100;
-  const taxable       = Math.max(0, computedTotal - discountAmt);
+  const couponDiscount = Number((booking as any).couponDiscount) || 0;
+  const referralDiscount = Number((booking as any).referralDiscount) || 0;
+  const taxable       = Math.max(0, computedTotal - discountAmt - couponDiscount - referralDiscount);
   // Prefer the persisted (accurate, per-tax) amount; fall back to the old
   // blended-rate estimate for bookings saved before tax breakdown existed.
   const gstAmount      = (booking as any).gstAmount != null
@@ -203,6 +205,18 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
               <div className="btc__paid-row">
                 <span>Discount</span>
                 <span>-{currencySymbol}{discountAmt.toFixed(0)}</span>
+              </div>
+            )}
+            {couponDiscount > 0 && (
+              <div className="btc__paid-row" style={{ color: "#dc2626" }}>
+                <span>Coupon{(booking as any).couponCode ? ` (${(booking as any).couponCode})` : ""}</span>
+                <span>-{currencySymbol}{couponDiscount.toFixed(0)}</span>
+              </div>
+            )}
+            {referralDiscount > 0 && (
+              <div className="btc__paid-row" style={{ color: "#dc2626" }}>
+                <span>Referral Discount</span>
+                <span>-{currencySymbol}{referralDiscount.toFixed(0)}</span>
               </div>
             )}
             {exCharges > 0 && (

@@ -589,7 +589,7 @@ export default function ClientHistoryPage() {
       grandTotalOverride: linkedSale ? Number(linkedSale.total_amount) : Number(appt.amount_paid || 0),
       notes: appt.notes,
     });
-    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email });
+    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email, referralCode: (client as any)?.referral_code ?? null });
   };
 
   const printSaleBill = (s: SaleRecord) => {
@@ -607,7 +607,7 @@ export default function ClientHistoryPage() {
       invoiceNumber: s.invoice_number,
       grandTotalOverride: Number(s.total_amount) || 0,
     });
-    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email });
+    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email, referralCode: (client as any)?.referral_code ?? null });
   };
 
   return (

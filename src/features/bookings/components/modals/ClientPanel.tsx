@@ -81,6 +81,7 @@ export const ClientPanel: React.FC<Props> = ({
   const [addLast, setAddLast] = useState("");
   const [addPhone, setAddPhone] = useState(defaultPhone ?? "");
   const [addGender, setAddGender] = useState("");
+  const [addReferredBy, setAddReferredBy] = useState("");
   const [addErrors, setAddErrors] = useState<{ first?: string; phone?: string; gender?: string }>({});
   const [noResults, setNoResults] = useState(false);
   const [searching, setSearching] = useState(false);

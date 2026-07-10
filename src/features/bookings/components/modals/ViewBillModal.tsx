@@ -59,7 +59,8 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
     }))
     .filter((p) => p.remaining > 0);
   const activeMembershipsForBill = clientActiveMemberships.filter((m) => m.status === "active");
-  const rewardPointsBalanceForBill = clientExtraStats?.rewardPointsBalance ?? 0;
+  const referralEarningsForBill = clientExtraStats?.referralEarnings ?? 0;
+  const referralCodeForBill = clientExtraStats?.referralCode ?? null;
 
   // Use String() coercion so number IDs from the API match string IDs from the form
   const findStaffName = (id?: string | number | null) =>
@@ -116,15 +117,9 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
             <div className="vbm-pay-mode mt-1">Mode: <strong>{booking.paymentMode || "—"}</strong></div>
           </div>
 
-          {(rewardPointsBalanceForBill > 0 || activeMembershipsForBill.length > 0 || activePackagesForBill.length > 0) && (
+          {(activeMembershipsForBill.length > 0 || activePackagesForBill.length > 0) && (
             <div className="vbm-section">
               <div className="vbm-section-label">🎁 Loyalty &amp; Memberships</div>
-              {rewardPointsBalanceForBill > 0 && (
-                <div className="vbm-info-row">
-                  <div className="vbm-info-row__label">Reward Points</div>
-                  <div className="vbm-info-row__value">{rewardPointsBalanceForBill} pts</div>
-                </div>
-              )}
               {activeMembershipsForBill.map((m) => (
                 <div className="vbm-info-row" key={m.id}>
                   <div className="vbm-info-row__label">Membership</div>
@@ -174,6 +169,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
               booking.subtotal       ? ["Subtotal", `${currencySymbol}${booking.subtotal.toFixed(2)}`, "#374151", false] : null,
               booking.discountAmount ? ["Discount", `−${currencySymbol}${booking.discountAmount.toFixed(2)}`, "#ef4444", false] : null,
               booking.couponDiscount ? [`Coupon (${booking.couponCode})`, `−${currencySymbol}${booking.couponDiscount.toFixed(2)}`, "#22c55e", false] : null,
+              booking.referralDiscount ? ["Referral Discount", `−${currencySymbol}${booking.referralDiscount.toFixed(2)}`, "#22c55e", false] : null,
               booking.exCharges      ? ["Extra Charges", `${currencySymbol}${booking.exCharges.toFixed(2)}`, "#374151", false] : null,
               booking.tipAmount      ? ["Tip", `${currencySymbol}${booking.tipAmount.toFixed(2)}`, "#374151", false] : null,
               ["Total", `${currencySymbol}${(isPackagePaid ? 0 : (booking.grandTotal || 0)).toFixed(2)}`, "#111827", true],
@@ -275,14 +271,15 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                           taxes:          activeTaxes,
                           exCharges:      Number((booking as any).exCharges || 0),
                           tip:            Number((booking as any).tipAmount || 0),
-                          couponDiscount: Number((booking as any).couponDiscount || 0),
+                          couponDiscount: Number((booking as any).couponDiscount || 0) + Number((booking as any).referralDiscount || 0),
                           eWalletUsed:    0,
                         });
                         printBooking = { ...booking, taxBreakdown: totals.taxBreakdown, gstAmount: totals.gstAmount } as any;
                       }
                       printReceipt(printBooking, staffList, currentSalon, {
                         ...client,
-                        rewardPointsBalance: rewardPointsBalanceForBill,
+                        referralCode: referralCodeForBill,
+                        referralEarnings: referralEarningsForBill,
                         activeMemberships: activeMembershipsForBill,
                         activePackages: activePackagesForBill,
                       });
@@ -404,6 +401,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                     booking.subtotal ? ["Subtotal", `${currencySymbol}${(booking.subtotal || 0).toFixed(2)}`, "#6b7280"] : null,
                     booking.discountAmount ? ["Discount", `−${currencySymbol}${(booking.discountAmount || 0).toFixed(2)}`, "#ef4444"] : null,
                     booking.couponDiscount ? [`Coupon (${booking.couponCode})`, `−${currencySymbol}${(booking.couponDiscount || 0).toFixed(2)}`, "#22c55e"] : null,
+                    booking.referralDiscount ? ["Referral Discount", `−${currencySymbol}${(booking.referralDiscount || 0).toFixed(2)}`, "#22c55e"] : null,
                     booking.exCharges ? ["Extra Charges", `${currencySymbol}${(booking.exCharges || 0).toFixed(2)}`, "#374151"] : null,
                     booking.tipAmount ? ["Tip", `${currencySymbol}${(booking.tipAmount || 0).toFixed(2)}`, "#374151"] : null,
                     ...((booking as any).taxBreakdown?.length
