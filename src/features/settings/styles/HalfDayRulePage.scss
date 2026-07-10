@@ -1,0 +1,252 @@
+@use "../../../styles/themes/variables" as *;
+
+$hd-primary: #6366f1;
+$hd-primary-dark: #4f46e5;
+$hd-blue-bg: #dbeafe;
+$hd-blue-text: #2563eb;
+
+.hd-page {
+  max-width: 100%;
+}
+
+/* ── Header ── */
+.hd-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  background: $white;
+  border: 1px solid $dashboard-border;
+  border-radius: 14px;
+  padding: 22px 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.hd-header__icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: $hd-blue-bg;
+  color: $hd-blue-text;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hd-header__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.hd-header__title {
+  font-size: 17px;
+  font-weight: 700;
+  color: $dashboard-primary;
+  margin: 0 0 4px;
+}
+
+.hd-header__desc {
+  font-size: 13px;
+  color: $dashboard-secondary;
+  margin: 0;
+  line-height: 1.5;
+  max-width: 520px;
+}
+
+.hd-header__toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  flex-shrink: 0;
+  user-select: none;
+
+  input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+}
+
+.hd-header__toggle-track {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: #d1d5db;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.hd-header__toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: $white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s;
+}
+
+.hd-header__toggle input:checked + .hd-header__toggle-track {
+  background: $hd-primary;
+}
+
+.hd-header__toggle input:checked + .hd-header__toggle-track .hd-header__toggle-thumb {
+  transform: translateX(18px);
+}
+
+.hd-header__toggle-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: $dashboard-primary;
+}
+
+/* ── Card ── */
+.hd-card {
+  background: $white;
+  border: 1px solid $dashboard-border;
+  border-radius: 14px;
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.hd-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.hd-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 280px;
+  margin-bottom: 18px;
+}
+
+.hd-field__label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: $dashboard-primary;
+}
+
+.hd-input-wrap {
+  display: flex;
+  align-items: stretch;
+  border: 1.5px solid $dashboard-border;
+  border-radius: 8px;
+  overflow: hidden;
+  background: $white;
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &:focus-within {
+    border-color: $hd-primary;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+  }
+
+  &--error {
+    border-color: $danger;
+  }
+
+  span {
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: $dashboard-secondary;
+    background: #f9fafb;
+    flex-shrink: 0;
+    white-space: nowrap;
+    border-left: 1px solid $dashboard-border;
+  }
+
+  input {
+    flex: 1;
+    min-width: 0;
+    height: 38px;
+    padding: 0 12px;
+    border: none;
+    outline: none;
+    font-size: 13.5px;
+    color: $dashboard-primary;
+    background: transparent;
+  }
+}
+
+.hd-error {
+  font-size: 12px;
+  color: $danger;
+}
+
+.hd-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 12.5px;
+  color: #4338ca;
+  line-height: 1.5;
+
+  svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+    color: $hd-primary;
+  }
+
+  strong {
+    font-weight: 700;
+  }
+}
+
+/* ── Footer ── */
+.hd-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.hd-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1.5px solid $dashboard-border;
+  background: $white;
+  color: $dashboard-primary;
+  transition: background 0.15s, border-color 0.15s;
+
+  &:hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+  }
+
+  &--primary {
+    background: $hd-primary;
+    border-color: $hd-primary;
+    color: $white;
+
+    &:hover {
+      background: $hd-primary-dark;
+      border-color: $hd-primary-dark;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+}

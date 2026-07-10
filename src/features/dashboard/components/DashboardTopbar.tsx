@@ -110,6 +110,9 @@ export default function DashboardTopbar({ onLogout }: Props) {
   const initials    = getInitials(userProfile?.fullName);
   const displayName = userProfile?.fullName ?? "Salon Owner";
   const email       = userProfile?.email    ?? "";
+  const todayLabel  = new Date().toLocaleDateString("en-IN", {
+    day: "numeric", month: "short", year: "numeric",
+  });
 
   // ── Toast helpers ─────────────────────────────────────────────────────────────
 
@@ -283,6 +286,9 @@ export default function DashboardTopbar({ onLogout }: Props) {
         <h2 className="brand">salonox</h2>
 
         <div className="topbar-right">
+
+          {/* Current date */}
+          <span className="topbar-date" title="Today's date">{todayLabel}</span>
 
           {/* Activate Plan */}
           <button
