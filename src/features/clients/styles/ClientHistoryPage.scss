@@ -559,22 +559,6 @@
     &:disabled { opacity: 0.6; cursor: default; }
   }
 
-  .chp-show-all-btn {
-    display: block;
-    width: 100%;
-    margin-top: 8px;
-    padding: 8px;
-    background: none;
-    border: 1px dashed #d1d5db;
-    border-radius: 6px;
-    color: #6c5ce7;
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-    text-align: center;
-    &:hover { background: #f5f3ff; border-color: #6c5ce7; }
-  }
-
   .chp-no-data {
     text-align: center;
     padding: 48px 20px;

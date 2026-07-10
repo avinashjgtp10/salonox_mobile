@@ -59,9 +59,12 @@ function emptyForm(): FormState {
   };
 }
 
-function monthsToDate(months: number | null): string {
+// `from` is the reference date these conversions are relative to — pass the SAME
+// reference on the way out (save) as was used on the way in (populate the form),
+// otherwise a round trip through the integer-months field silently shifts the date.
+function monthsToDate(months: number | null, from: Date = new Date()): string {
   if (!months) return "";
-  const d = new Date();
+  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
   d.setMonth(d.getMonth() + months);
   const y  = d.getFullYear();
   const mo = String(d.getMonth() + 1).padStart(2, "0");
@@ -69,19 +72,45 @@ function monthsToDate(months: number | null): string {
   return `${y}-${mo}-${dy}`;
 }
 
-function dateToMonths(dateStr: string): number | null {
+function dateToMonths(dateStr: string, from: Date = new Date()): number | null {
   if (!dateStr) return null;
-  const today = new Date();
-  const exp   = new Date(dateStr + "T12:00:00");
-  const m = (exp.getFullYear() - today.getFullYear()) * 12 + (exp.getMonth() - today.getMonth());
-  return Math.max(1, m);
+  const diffDays = dateToDays(dateStr, from) ?? 0;
+  // Rounded to the nearest whole month by actual elapsed days — used only as a
+  // human-friendly label (template list "Xmo" pill); expiryDays is the exact
+  // value actually used to reconstruct the date.
+  return Math.max(1, Math.round(diffDays / 30.4368));
+}
+
+// Exact day-count between `from` and the picked date — the real source of truth,
+// since expiryMonths alone can't represent a specific calendar day.
+function dateToDays(dateStr: string, from: Date = new Date()): number | null {
+  if (!dateStr) return null;
+  const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const exp = new Date(y, m - 1, d);
+  return Math.round((exp.getTime() - start.getTime()) / 86_400_000);
+}
+
+function daysToDate(days: number | null, from: Date = new Date()): string {
+  if (days == null) return "";
+  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  d.setDate(d.getDate() + days);
+  const y  = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const dy = String(d.getDate()).padStart(2, "0");
+  return `${y}-${mo}-${dy}`;
 }
 
 function templateToForm(t: PackageTemplate): FormState {
+  const anchor = new Date(t.createdAt);
   return {
     name:          t.name,
     neverExpires:  t.neverExpires,
-    expiryDate:    t.neverExpires ? "" : monthsToDate(t.expiryMonths),
+    // Anchored to the template's own creation date, not "today" — otherwise
+    // reopening the same template to edit it on a later day would shift the
+    // shown expiry date forward. expiryDays (exact) is preferred; older
+    // templates saved before this fix only have expiryMonths (approximate).
+    expiryDate:    t.neverExpires ? "" : (t.expiryDays != null ? daysToDate(t.expiryDays, anchor) : monthsToDate(t.expiryMonths, anchor)),
     basePrice:     String(t.basePrice),
     gstPercentage: String(t.gstPercentage),
     discount:      String(t.discount),
@@ -110,7 +139,7 @@ function SessionInput({ value, disabled, onCommit }: {
       type="number"
       className="pkg-sold-panel__edit-input"
       value={local}
-      onChange={e => setLocal(e.target.value)}
+      onChange={e => { setLocal(e.target.value); onCommit(e.target.value); }}
       onBlur={() => onCommit(local || "1")}
       disabled={disabled}
       min={1}
@@ -351,13 +380,16 @@ interface FormPanelProps {
   isEdit:          boolean;
   catalogServices: Service[];
   servicesLoading: boolean;
+  /** Reference date expiryMonths is computed relative to — today for a new
+   *  template, or the template's own creation date when editing an existing one. */
+  anchorDate:      Date;
   onChange:        (patch: Partial<FormState>) => void;
   onSave:          () => void;
   onClose:         () => void;
   onSearch:        (q: string) => void;
 }
 
-function FormPanel({ form, saving, error, isEdit, catalogServices, servicesLoading, onChange, onSave, onClose, onSearch }: FormPanelProps) {
+function FormPanel({ form, saving, error, isEdit, catalogServices, servicesLoading, anchorDate, onChange, onSave, onClose, onSearch }: FormPanelProps) {
   const servicesTotal = form.services.reduce((s, r) => s + (parseFloat(r.price) || 0), 0);
   const base   = parseFloat(form.basePrice)     || servicesTotal;
   const gst    = parseFloat(form.gstPercentage) || 0;
@@ -481,7 +513,7 @@ function FormPanel({ form, saving, error, isEdit, catalogServices, servicesLoadi
                 />
                 {form.expiryDate && (
                   <span style={{ fontSize: 11, color: "#7c3aed", fontWeight: 500 }}>
-                    ≈ {dateToMonths(form.expiryDate)} month{(dateToMonths(form.expiryDate) ?? 1) !== 1 ? "s" : ""} from today
+                    ≈ {dateToMonths(form.expiryDate, anchorDate)} month{(dateToMonths(form.expiryDate, anchorDate) ?? 1) !== 1 ? "s" : ""} {isEdit ? "from purchase" : "from today"}
                   </span>
                 )}
               </div>
@@ -728,10 +760,15 @@ const PackageTemplatesManager: React.FC = () => {
   const [saving,     setSaving]     = useState(false);
   const [formError,  setFormError]  = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Reference date the date<->months conversion is anchored to — "today" for a
+  // new template, or the template's own creation date when editing an existing
+  // one, so reopening and re-saving without touching the date is a no-op.
+  const anchorDateRef = useRef(new Date());
 
   useEffect(() => { fetchServices({ limit: 200 }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const openCreate = useCallback(() => {
+    anchorDateRef.current = new Date();
     setEditingId(null);
     setForm(emptyForm());
     setFormError(null);
@@ -739,6 +776,7 @@ const PackageTemplatesManager: React.FC = () => {
   }, []);
 
   const openEdit = useCallback((t: PackageTemplate) => {
+    anchorDateRef.current = new Date(t.createdAt);
     setEditingId(t.id);
     setForm(templateToForm(t));
     setFormError(null);
@@ -771,7 +809,8 @@ const PackageTemplatesManager: React.FC = () => {
       const payload: CreatePackageTemplateDTO = {
         name:          form.name.trim(),
         neverExpires:  form.neverExpires,
-        expiryMonths:  form.neverExpires ? null : dateToMonths(form.expiryDate),
+        expiryMonths:  form.neverExpires ? null : dateToMonths(form.expiryDate, anchorDateRef.current),
+        expiryDays:    form.neverExpires ? null : dateToDays(form.expiryDate, anchorDateRef.current),
         basePrice:     parseFloat(form.basePrice) || validServices.reduce((s, r) => s + (parseFloat(r.price) || 0), 0),
         gstPercentage: parseFloat(form.gstPercentage) || 0,
         discount:      parseFloat(form.discount) || 0,
@@ -898,6 +937,7 @@ const PackageTemplatesManager: React.FC = () => {
           isEdit={!!editingId}
           catalogServices={catalogServices}
           servicesLoading={servicesLoading}
+          anchorDate={anchorDateRef.current}
           onChange={handleChange}
           onSave={handleSave}
           onClose={closeModal}
