@@ -3,6 +3,7 @@ import type { Booking } from "../../types/scheduler-types";
 import { useScheduler } from "../../hooks/useScheduler";
 import { useAppSelector } from "../../../../hooks/useAppRedux";
 import { getWeekDays, formatTime12 } from "../../utils/timeUtils";
+import { computeChipStatusClass } from "../../utils/bookingStatusUtils";
 import Badge from "../../../../components/ui/Badge";
 import "../../styles/Scheduler.scss";
 
@@ -19,12 +20,16 @@ function payLabel(status: string) {
   return status;
 }
 
+const CHIP_BAR_COLOR: Record<string, string> = {
+  cancelled: "#ef4444",
+  confirmed: "#22c55e",
+  partial:   "#7c3aed",
+  "no-show": "#0891b2",
+  pending:   "#f59e0b",
+};
+
 function chipBarColor(b: any): string {
-  const ps = (b.paymentStatus || "").toLowerCase();
-  const bs = (b.status || "").toLowerCase();
-  const isPaid = ps === "paid" || ps === "completed" || bs === "confirmed";
-  const isCancelled = bs === "cancelled";
-  return isCancelled ? "#ef4444" : isPaid ? "#22c55e" : "#f59e0b";
+  return CHIP_BAR_COLOR[computeChipStatusClass(b)] ?? "#f59e0b";
 }
 
 interface ListWeekViewProps {

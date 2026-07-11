@@ -18,7 +18,7 @@ export const DEFAULT_REFERRAL_CONFIG: ReferralConfig = {
   referrer_reward_amount: 100,
   referee_reward_amount: 50,
   min_bill_amount: 1000,
-  max_wallet_usage_pct: 30,
+  max_wallet_usage_pct: 100,
 };
 
 export function parseReferralValue(raw: Setting["value"]): ReferralConfig {

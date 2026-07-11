@@ -516,6 +516,12 @@ $success:    #22c55e;
     flex-shrink: 0;
     min-width: 220px;
   }
+
+  // Quick Sale's summary card already shows totals elsewhere, so this section
+  // only ever renders the notes fields — collapse the unused right column.
+  &--single {
+    grid-template-columns: 1fr;
+  }
 }
 
 // ── Shared field group ────────────────────────────────────────────────────────
@@ -1581,6 +1587,7 @@ $success:    #22c55e;
   &--partial   { background: #7c3aed; color: #fff; }
   &--pending   { background: #f59e0b; color: #fff; }
   &--cancelled { background: #ef4444; color: #fff; opacity: 0.75; }
+  &--no-show   { background: #0891b2; color: #fff; }
   &--dragging  { opacity: 0.85; box-shadow: 0 8px 24px rgba(0,0,0,0.25); z-index: 50; transform: scale(1.02); }
   &--resizing  { opacity: 0.9; }
 

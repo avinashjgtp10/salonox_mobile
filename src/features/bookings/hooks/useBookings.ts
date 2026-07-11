@@ -105,8 +105,17 @@ export function useBookings(skip = false) {
     const onNotification = (notification: { type?: string }) => {
       if (notification?.type === "appointment") refresh();
     };
+    // payments.service.ts emits this directly (no bell-notification DB row,
+    // unlike "notification" above — a payment happens far more often than a
+    // create/cancel) so a Paid/Partial status change on another device also
+    // live-updates this calendar instead of needing a manual refresh.
+    const onPaymentUpdated = () => refresh();
     socket.on("notification", onNotification);
-    return () => { socket.off("notification", onNotification); };
+    socket.on("payment_updated", onPaymentUpdated);
+    return () => {
+      socket.off("notification", onNotification);
+      socket.off("payment_updated", onPaymentUpdated);
+    };
   }, [skip, refresh]);
 
   return { refresh };

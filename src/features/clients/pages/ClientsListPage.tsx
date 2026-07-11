@@ -196,8 +196,12 @@ export default function ClientsListPage() {
   const handleDeleteClients = async () => {
     setIsDeleting(true);
     try {
+      // Soft delete (default, no ?hard=true) — archives the client (is_active=false)
+      // instead of permanently removing the row, so their appointment/payment/
+      // wallet history stays intact and attributable instead of being lost or
+      // violating FK constraints on any linked records.
       await Promise.all(
-        selectedClients.map((id) => api.delete(CLIENT.BY_ID(id) + "?hard=true")),
+        selectedClients.map((id) => api.delete(CLIENT.BY_ID(id))),
       );
       toast.success(
         selectedClients.length > 1

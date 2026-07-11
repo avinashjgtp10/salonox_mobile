@@ -350,7 +350,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                       <div className="vbm-service-card__total">{currencySymbol}{(p.total || p.price || 0).toFixed(2)}</div>
                     </div>
                     <div className="vbm-service-card__pills">
-                      {[["Qty", p.qty || 1], ["Price", `${currencySymbol}${(p.price || 0).toFixed(2)}`]].map(([lbl, val]) => (
+                      {[["Qty", p.qty || 1], ["Price", `${currencySymbol}${(p.price || 0).toFixed(2)}`], ["Disc", `${currencySymbol}${((p as any).discount || 0).toFixed(2)}`]].map(([lbl, val]) => (
                         <span key={lbl as string} className="vbm-pill">{lbl}: {val}</span>
                       ))}
                     </div>
@@ -369,7 +369,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                       <div className="vbm-service-card__total">{currencySymbol}{(p.total || p.price || 0).toFixed(2)}</div>
                     </div>
                     <div className="vbm-service-card__pills">
-                      {[["Qty", p.qty || 1], ["Price", `${currencySymbol}${(p.price || 0).toFixed(2)}`]].map(([lbl, val]) => (
+                      {[["Qty", p.qty || 1], ["Price", `${currencySymbol}${(p.price || 0).toFixed(2)}`], ["Disc", `${currencySymbol}${((p as any).discount || 0).toFixed(2)}`]].map(([lbl, val]) => (
                         <span key={lbl as string} className="vbm-pill">{lbl}: {val}</span>
                       ))}
                     </div>
@@ -388,7 +388,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                       <div className="vbm-service-card__total">{currencySymbol}{(m.total || m.price || 0).toFixed(2)}</div>
                     </div>
                     <div className="vbm-service-card__pills">
-                      {[["Qty", m.qty || 1], ["Price", `${currencySymbol}${(m.price || 0).toFixed(2)}`]].map(([lbl, val]) => (
+                      {[["Qty", m.qty || 1], ["Price", `${currencySymbol}${(m.price || 0).toFixed(2)}`], ["Disc", `${currencySymbol}${((m as any).discount || 0).toFixed(2)}`]].map(([lbl, val]) => (
                         <span key={lbl as string} className="vbm-pill">{lbl}: {val}</span>
                       ))}
                     </div>

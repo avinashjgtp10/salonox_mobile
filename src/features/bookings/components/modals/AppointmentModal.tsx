@@ -21,7 +21,7 @@ import { isRealId } from "../../utils/paymentUtils";
 import { computeTotals }     from "../../utils/totalsUtils";
 import { computePointsEarned, computeEWalletCredit, computeMaxWalletUsable, EWALLET_REDEEM_MINIMUM } from "../../utils/paymentUtils";
 import {
-  selectPackagesList, selectProductsList, selectMembershipsList,
+  selectPackagesList, selectProductsList, selectMembershipsList, selectBookings,
 } from "../../../../store/selectors/scheduler.selectors";
 import {
   PersonFill, Scissors, TagFill, FileText,
@@ -138,6 +138,7 @@ export const AppointmentModal: React.FC<Props> = ({
   const availablePackages    = useAppSelector(selectPackagesList);
   const availableProducts    = useAppSelector(selectProductsList);
   const availableMemberships = useAppSelector(selectMembershipsList);
+  const allBookings          = useAppSelector(selectBookings);
   const blockedTimes   = useAppSelector((s: any) => s.scheduler?.blockedTimes ?? []);
   const schedulerStaff = useAppSelector((s: any) => s.scheduler?.staffList ?? []);
   const currentSalon  = useAppSelector((s: any) => s.salon?.currentSalon ?? null);
@@ -187,7 +188,11 @@ export const AppointmentModal: React.FC<Props> = ({
     { method: "Cash", amount: "" }, { method: "Card", amount: "" },
   ]);
   const [partialAmtInput, setPartialAmtInput]   = useState("");
-  const [includeClearDue, setIncludeClearDue]   = useState(false);
+  // Which specific prior unpaid/partial bookings (by id) are checked to be
+  // cleared alongside this payment — staff can pick individual dates rather
+  // than an all-or-nothing "clear everything outstanding". includeClearDue is
+  // just "is anything selected", derived below once priorDueBookings exists.
+  const [selectedDueIds, setSelectedDueIds]     = useState<Set<string>>(new Set());
   const [printAfterPayment, setPrintAfterPayment] = useState(false);
   const [payMethodError, setPayMethodError]     = useState(false);
   const [showPaymentSection, setShowPaymentSection] = useState(false);
@@ -361,10 +366,32 @@ export const AppointmentModal: React.FC<Props> = ({
     if (!applyMembershipMounted.current) { applyMembershipMounted.current = true; return; }
     setApplyMembership(false);
   }, [clientIdForPkg]);
+  // Most the membership wallet could ever usefully cover — capped by both the
+  // wallet's own balance and by how much eligible service value there is to
+  // apply it against (no point defaulting an input higher than that).
+  const membershipEligibleTotal = useMemo(() => serviceRows.reduce((s, row) => {
+    if (!row.service.trim() || (row as any).isPackageService) return s;
+    return s + (Number(row.total) || 0);
+  }, 0), [serviceRows]);
+  const membershipMaxUsable = Math.min(primaryMembership?.membershipWalletBalance ?? 0, membershipEligibleTotal);
+
+  // How much of the membership wallet staff has chosen to apply — defaults to
+  // the max usable on enable, but editable down (e.g. "only use ₹300, save the
+  // rest"), same pattern as the eWallet amount field above.
+  const [membershipWalletAmt, setMembershipWalletAmt] = useState(0);
+  useEffect(() => {
+    if (!applyMembership) { setMembershipWalletAmt(0); return; }
+    if (membershipMaxUsable <= 0) { setApplyMembership(false); setMembershipWalletAmt(0); return; }
+    setMembershipWalletAmt((prev) => (prev > 0 ? Math.min(prev, membershipMaxUsable) : membershipMaxUsable));
+  }, [applyMembership, membershipMaxUsable]);
+  const handleSetMembershipWalletAmt = useCallback((v: number) => {
+    setMembershipWalletAmt(Math.max(0, Math.min(v, membershipMaxUsable)));
+  }, [membershipMaxUsable]);
+
   const membershipWalletMap = useMemo(() => {
     const map = new Map<string, { walletUsed: number; payable: number }>();
     if (!applyMembership) return map;
-    let remaining = primaryMembership?.membershipWalletBalance ?? 0;
+    let remaining = Math.min(primaryMembership?.membershipWalletBalance ?? 0, membershipWalletAmt);
     if (remaining <= 0) return map;
     serviceRows.forEach((row, i) => {
       const tempId = (row as any).tempId || String(i);
@@ -376,7 +403,7 @@ export const AppointmentModal: React.FC<Props> = ({
       map.set(tempId, { walletUsed: used, payable: rowTotal - used });
     });
     return map;
-  }, [serviceRows, primaryMembership, applyMembership]);
+  }, [serviceRows, primaryMembership, applyMembership, membershipWalletAmt]);
   const membershipWalletUsedTotal = useMemo(
     () => Array.from(membershipWalletMap.values()).reduce((s, v) => s + v.walletUsed, 0),
     [membershipWalletMap],
@@ -455,8 +482,36 @@ export const AppointmentModal: React.FC<Props> = ({
   const remainingDue = (existingBooking?.paymentStatus === "Partial" && (existingBooking?.dueAmount ?? 0) > 0)
     ? existingBooking.dueAmount
     : Math.max(0, totals.effectiveTotal - alreadyPaidAmount);
-  // Exclude current appointment's due so "Clear Pending Due" only shows OTHER unpaid appointments
-  const priorDueAmt         = Math.max(0, (clientStats?.unpaidAmt ?? 0) - remainingDue);
+  // Exclude current appointment's due so "Clear Pending Due" only shows OTHER unpaid appointments —
+  // one row per prior booking (by date), so staff can pick specific ones instead of all-or-nothing.
+  const currentApptId = existingBooking?.id ?? apiAppointmentId;
+  const priorDueBookings = useMemo(() => {
+    if (!selectedClient?.id || selectedClient.id === "walk-in") return [];
+    return allBookings
+      .filter((b) =>
+        String(b.clientId) === String(selectedClient.id) &&
+        String(b.id) !== String(currentApptId) &&
+        (b.paymentStatus === "Partial" || b.paymentStatus === "Unpaid") &&
+        Number(b.dueAmount) > 0
+      )
+      .map((b) => ({ id: String(b.id), date: b.date, dueAmount: Number(b.dueAmount), grandTotal: Number(b.grandTotal) }))
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  }, [allBookings, selectedClient?.id, currentApptId]);
+  const priorDueAmt = priorDueBookings
+    .filter((b) => selectedDueIds.has(b.id))
+    .reduce((s, b) => s + b.dueAmount, 0);
+  const includeClearDue = selectedDueIds.size > 0;
+  const isAllDueSelected = priorDueBookings.length > 0 && priorDueBookings.every((b) => selectedDueIds.has(b.id));
+  const toggleAllDue = useCallback((checked: boolean) => {
+    setSelectedDueIds(checked ? new Set(priorDueBookings.map((b) => b.id)) : new Set());
+  }, [priorDueBookings]);
+  const toggleOneDue = useCallback((id: string) => {
+    setSelectedDueIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
   // Reward earnings are credited straight into eWallet at payment time (see
   // payments.service.ts) — this is just a preview of that ₹ credit, not a
   // separate redeemable balance.
@@ -467,6 +522,12 @@ export const AppointmentModal: React.FC<Props> = ({
   // an otherwise non-zero bill down to 0. Either way, there's no cash/card/UPI amount
   // to take, so the coupon/payment-method UI is just noise here.
   const isFullyCovered = totals.effectiveTotal === 0;
+  // Only swap in the static "Fully Covered" banner (which has no way to
+  // uncheck/edit anything) when eWallet isn't the reason for the ₹0 —
+  // eWallet is a user-editable choice (they may want to apply only part of
+  // it), so while useEWallet is on, keep the interactive PaymentPanel (with
+  // its checkbox + amount field) visible even if it currently zeroes the bill.
+  const showFullyCoveredBanner = isFullyCovered && !useEWallet;
   // True package coverage means the raw pre-discount subtotal is already ₹0
   // (package-covered service rows are themselves priced at ₹0) — distinct from
   // a coupon/wallet deduction bringing a non-zero subtotal down to zero.
@@ -512,14 +573,27 @@ export const AppointmentModal: React.FC<Props> = ({
       .filter((p) => p.remaining > 0),
   };
 
+  // ── eWallet cap: most the client is allowed to apply to this bill ──────────
+  const eWalletMaxAmt = useMemo(() => {
+    const balance = clientStats?.ewalletAmt ?? 0;
+    if (balance < EWALLET_REDEEM_MINIMUM) return 0;
+    const maxUsable = computeMaxWalletUsable(totals.grandTotal, referralConfig);
+    return Math.min(balance, totals.grandTotal, maxUsable);
+  }, [clientStats, totals.grandTotal, referralConfig]);
+
   // ── Sync eWalletAmt ──────────────────────────────────────────────────────
+  // Defaults to the max allowed on enable, but a user-typed custom amount
+  // (e.g. "just ₹500 from wallet, rest via cash") is preserved across
+  // re-renders and only clamped down if the cap itself shrinks.
   useEffect(() => {
     if (!useEWallet) { setEWalletAmt(0); return; }
-    const balance = clientStats?.ewalletAmt ?? 0;
-    if (balance < EWALLET_REDEEM_MINIMUM) { setUseEWallet(false); setEWalletAmt(0); return; }
-    const maxUsable = computeMaxWalletUsable(totals.grandTotal, referralConfig);
-    setEWalletAmt(Math.min(balance, totals.grandTotal, maxUsable));
-  }, [useEWallet, clientStats, totals.grandTotal, referralConfig]);
+    if (eWalletMaxAmt <= 0) { setUseEWallet(false); setEWalletAmt(0); return; }
+    setEWalletAmt((prev) => (prev > 0 ? Math.min(prev, eWalletMaxAmt) : eWalletMaxAmt));
+  }, [useEWallet, eWalletMaxAmt]);
+
+  const handleSetEWalletAmt = useCallback((v: number) => {
+    setEWalletAmt(Math.max(0, Math.min(v, eWalletMaxAmt)));
+  }, [eWalletMaxAmt]);
 
   // ── Inline validation errors ──────────────────────────────────────────────
   const [clientError,    setClientError]    = useState("");
@@ -794,6 +868,7 @@ export const AppointmentModal: React.FC<Props> = ({
       couponApplied:     coupon.applied,
       paymentMode, singleMethod, splitEntries, partialAmtInput,
       includeClearDue, priorDueAmt, useEWallet,
+      selectedDueIds: Array.from(selectedDueIds),
       applyMembershipWallet: applyMembership,
       gstAmount:         totals.gstAmount,
       taxBreakdown:      totals.taxBreakdown,
@@ -812,7 +887,7 @@ export const AppointmentModal: React.FC<Props> = ({
     completePayment, existingBooking, apiAppointmentId,
     selectedClient, salonId, totals, alreadyPaidAmount,
     eWalletAmt, coupon, paymentMode, singleMethod, splitEntries,
-    partialAmtInput, includeClearDue, priorDueAmt, useEWallet, applyMembership,
+    partialAmtInput, includeClearDue, priorDueAmt, useEWallet, selectedDueIds, applyMembership,
     finishWithPaidPopup, printAfterPayment, schedulerStaff, currentSalon,
   ]);
 
@@ -930,6 +1005,7 @@ export const AppointmentModal: React.FC<Props> = ({
       couponApplied:     coupon.applied,
       paymentMode, singleMethod, splitEntries, partialAmtInput,
       includeClearDue, priorDueAmt, useEWallet,
+      selectedDueIds: Array.from(selectedDueIds),
       applyMembershipWallet: applyMembership,
       gstAmount:         totals.gstAmount,
       taxBreakdown:      totals.taxBreakdown,
@@ -947,7 +1023,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [save, completePayment, dispatch, selectedClient, salonId, serviceRows, totals,
       eWalletAmt, coupon, paymentMode, singleMethod, splitEntries, partialAmtInput,
-      includeClearDue, priorDueAmt, useEWallet, applyMembership, printAfterPayment,
+      includeClearDue, priorDueAmt, useEWallet, selectedDueIds, applyMembership, printAfterPayment,
       schedulerStaff, currentSalon, finishWithPaidPopup]);
 
   if (!isOpen) return null;
@@ -1093,12 +1169,33 @@ export const AppointmentModal: React.FC<Props> = ({
         <div
           className={`pay-ewallet${applyMembership ? " pay-ewallet--active" : ""}`}
           style={{ margin: "0 0 12px" }}
-          onClick={() => setApplyMembership(v => !v)}
         >
-          <input type="checkbox" checked={applyMembership} readOnly />
-          <span>Apply Membership (Available: {currencySymbol}{primaryMembership.membershipWalletBalance.toFixed(2)})</span>
-          {applyMembership && membershipWalletUsedTotal > 0 && (
-            <span className="pay-ewallet__deducted">-{currencySymbol}{membershipWalletUsedTotal.toFixed(2)}</span>
+          <label
+            style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", flex: 1 }}
+            onClick={() => setApplyMembership(v => !v)}
+          >
+            <input type="checkbox" checked={applyMembership} readOnly />
+            <span>Apply Membership (Available: {currencySymbol}{primaryMembership.membershipWalletBalance.toFixed(2)})</span>
+          </label>
+          {applyMembership && (
+            <div className="pay-due-row__field" onClick={(e) => e.stopPropagation()}>
+              <span className="pay-due-row__symbol">{currencySymbol}</span>
+              <input
+                type="number"
+                className="pay-due-row__input"
+                min={0}
+                max={membershipMaxUsable}
+                step={0.01}
+                value={membershipWalletAmt || ""}
+                placeholder="0"
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === "") { handleSetMembershipWalletAmt(0); return; }
+                  const val = parseFloat(raw);
+                  if (!isNaN(val)) handleSetMembershipWalletAmt(val);
+                }}
+              />
+            </div>
           )}
         </div>
       )}
@@ -1256,14 +1353,30 @@ export const AppointmentModal: React.FC<Props> = ({
                 {chargesSectionEl}
                 <div className="appt-section">
                   <div className="appt-section__title"><FileText size={15} /> Payment &amp; Notes</div>
-                  {notesFieldsEl}
+                  <div className="pn-layout pn-layout--single">
+                    {notesFieldsEl}
+                  </div>
                 </div>
               </div>
               <div className="qs-layout__right">
                 <div className="qs-summary-card">
                   <div className="qs-summary-card__title">Sale Summary</div>
+                  {/* Item-level "Disc %" and the bill-level "Svc Discount" can both be
+                      active at once and stack — broken out explicitly (instead of one
+                      blended "Discount" line) so it's clear how much came from each. */}
+                  {totals.itemDiscountTotal > 0 && (
+                    <>
+                      <div className="qs-summary-row"><span>Items Total</span><span>{currencySymbol}{totals.catalogTotal.toFixed(2)}</span></div>
+                      <div className="qs-summary-row qs-summary-row--discount"><span>Item Discount</span><span>-{currencySymbol}{totals.itemDiscountTotal.toFixed(2)}</span></div>
+                    </>
+                  )}
                   <div className="qs-summary-row"><span>Subtotal</span><span>{currencySymbol}{totals.subtotal.toFixed(2)}</span></div>
-                  <div className="qs-summary-row qs-summary-row--discount"><span>Discount</span><span>-{currencySymbol}{totals.totalDisc.toFixed(2)}</span></div>
+                  {totals.manualDiscount > 0 && (
+                    <div className="qs-summary-row qs-summary-row--discount"><span>Svc Discount</span><span>-{currencySymbol}{totals.manualDiscount.toFixed(2)}</span></div>
+                  )}
+                  {coupon.discount > 0 && (
+                    <div className="qs-summary-row qs-summary-row--discount"><span>Coupon{coupon.applied ? ` (${coupon.applied})` : ""}</span><span>-{currencySymbol}{coupon.discount.toFixed(2)}</span></div>
+                  )}
                   <div className="qs-summary-row"><span>Extra Charges</span><span>+{currencySymbol}{exCharges.toFixed(2)}</span></div>
                   <div className="qs-summary-row qs-summary-row--total"><span>Grand Total</span><span>{currencySymbol}{totals.grandTotal.toFixed(2)}</span></div>
                   {tip > 0 && (
@@ -1275,7 +1388,7 @@ export const AppointmentModal: React.FC<Props> = ({
                   <div className="qs-summary-row qs-summary-row--total"><span>Amount to Pay</span><span>{currencySymbol}{totals.effectiveTotal.toFixed(2)}</span></div>
                 </div>
 
-                {isFullyCovered ? (
+                {showFullyCoveredBanner ? (
                   <div style={{
                     display: "flex", flexDirection: "column", alignItems: "center",
                     gap: 8, padding: "18px 14px", background: "#f0fdf4",
@@ -1299,7 +1412,9 @@ export const AppointmentModal: React.FC<Props> = ({
                     eWalletBalance={clientStats?.ewalletAmt ?? 0}
                     useEWallet={useEWallet}
                     eWalletAmt={eWalletAmt}
+                    eWalletMaxAmt={eWalletMaxAmt}
                     onToggleEWallet={setUseEWallet}
+                    onSetEWalletAmt={handleSetEWalletAmt}
                     membershipWalletUsed={membershipWalletUsedTotal}
                     membershipWalletRemaining={membershipWalletRemaining}
                     couponInput={coupon.input}
@@ -1330,8 +1445,11 @@ export const AppointmentModal: React.FC<Props> = ({
                     partialAmtInput={partialAmtInput}
                     onSetPartialAmt={setPartialAmtInput}
                     priorDueAmt={priorDueAmt}
-                    includeClearDue={includeClearDue}
-                    onToggleClearDue={setIncludeClearDue}
+                    priorDueBookings={priorDueBookings}
+                    selectedDueIds={selectedDueIds}
+                    isAllDueSelected={isAllDueSelected}
+                    onToggleAllDue={toggleAllDue}
+                    onToggleOneDue={toggleOneDue}
                     printAfterPayment={printAfterPayment}
                     onTogglePrint={setPrintAfterPayment}
                     previewPoints={previewPoints}
@@ -1368,6 +1486,8 @@ export const AppointmentModal: React.FC<Props> = ({
                     <div className="pn-layout__right">
                       <TotalsPanel
                         subtotal={totals.subtotal}
+                        catalogTotal={totals.catalogTotal}
+                        itemDiscountTotal={totals.itemDiscountTotal}
                         serviceTotal={serviceRows.filter(r => !r.isPackageService).reduce((s, r) => s + r.total, 0)}
                         packageServiceCount={serviceRows.filter(r => r.isPackageService).length}
                         packageTotal={packageRows.reduce((s, r) => s + r.total, 0)}
@@ -1376,6 +1496,9 @@ export const AppointmentModal: React.FC<Props> = ({
                         exCharges={exCharges}
                         discount={discountValue}
                         discountType={discountType}
+                        manualDiscount={totals.manualDiscount}
+                        couponDiscount={coupon.discount}
+                        couponCode={coupon.applied}
                         totalDiscount={totals.totalDisc}
                         gstAmount={totals.gstAmount}
                         taxBreakdown={totals.taxBreakdown}
@@ -1399,7 +1522,7 @@ export const AppointmentModal: React.FC<Props> = ({
                       <span>{currencySymbol}{totals.effectiveTotal.toFixed(2)}</span>
                     )}
                   </div>
-                  {isFullyCovered ? (
+                  {showFullyCoveredBanner ? (
                     <div style={{
                       display: "flex", flexDirection: "column", alignItems: "center",
                       gap: 10, padding: "24px 16px", background: "#f0fdf4",
@@ -1425,7 +1548,9 @@ export const AppointmentModal: React.FC<Props> = ({
                     eWalletBalance={clientStats?.ewalletAmt ?? 0}
                     useEWallet={useEWallet}
                     eWalletAmt={eWalletAmt}
+                    eWalletMaxAmt={eWalletMaxAmt}
                     onToggleEWallet={setUseEWallet}
+                    onSetEWalletAmt={handleSetEWalletAmt}
                     membershipWalletUsed={membershipWalletUsedTotal}
                     membershipWalletRemaining={membershipWalletRemaining}
                     couponInput={coupon.input}
@@ -1456,8 +1581,11 @@ export const AppointmentModal: React.FC<Props> = ({
                     partialAmtInput={partialAmtInput}
                     onSetPartialAmt={setPartialAmtInput}
                     priorDueAmt={priorDueAmt}
-                    includeClearDue={includeClearDue}
-                    onToggleClearDue={setIncludeClearDue}
+                    priorDueBookings={priorDueBookings}
+                    selectedDueIds={selectedDueIds}
+                    isAllDueSelected={isAllDueSelected}
+                    onToggleAllDue={toggleAllDue}
+                    onToggleOneDue={toggleOneDue}
                     printAfterPayment={printAfterPayment}
                     onTogglePrint={setPrintAfterPayment}
                     previewPoints={previewPoints}

@@ -73,6 +73,13 @@ function buildServiceApiItems(
         price,
         qty,
         total: apiTotal,
+        // Persist the discount % itself, not just its resulting total — total
+        // alone can't be redisplayed as a Disc % once the row's price/qty are
+        // no longer known ahead of time on reload, so the field silently
+        // showed 0 after reopening an appointment even though total was still
+        // correct (and any subsequent edit to that row would then recompute
+        // from a 0% discount, wiping the real one out).
+        discount: Number((s as any).discount) || 0,
         duration: s.duration || 30,
         ...(isPackageService ? { is_package_service: true } : {}),
       };
@@ -155,11 +162,22 @@ export function useAppointment() {
           const startMs = t ? new Date(`${calDate}T${t}:00`).getTime() : bookingStartMs;
           const isPackageService = !!(p as any).isPackageService;
           const staffMember = staffList.find((st: any) => String(st.id) === String((p as any).staffId ?? ""));
+          const price = p.price || 0;
+          const qty = p.qty || 1;
+          // Mirror buildServiceApiItems: send the row's own (possibly per-row-
+          // discounted) total, falling back to price × qty — without this the
+          // backend's payments.service.ts recomputes the bill from price × qty
+          // alone and silently drops any per-row discount, inflating net_amount
+          // above what the client was actually charged.
+          const rawTotal = (p as any).total;
+          const uiTotal = (rawTotal !== undefined && rawTotal !== null) ? (Number(rawTotal) || 0) : price * qty;
           return {
             package_id: (p as any).packageId || p.id || undefined,
             name: (p as any).packageName || (p as any).name || "",
-            price: isPackageService ? 0 : (p.price || 0),
-            quantity: p.qty || 1,
+            price: isPackageService ? 0 : price,
+            quantity: qty,
+            total: uiTotal > 0 ? uiTotal : price * qty,
+            discount: Number((p as any).discount) || 0,
             staff_id: (p as any).staffId ? toApiStaffId((p as any).staffId) : undefined,
             staff_name: staffMember?.name || staffMember?.full_name || staffMember?.fullName || undefined,
             start_time: new Date(startMs).toISOString(),
@@ -170,11 +188,17 @@ export function useAppointment() {
           const t = (p as any).time;
           const startMs = t ? new Date(`${calDate}T${t}:00`).getTime() : bookingStartMs;
           const staffMember = staffList.find((st: any) => String(st.id) === String((p as any).staffId ?? ""));
+          const price = p.price || 0;
+          const qty = p.qty || 1;
+          const rawTotal = (p as any).total;
+          const uiTotal = (rawTotal !== undefined && rawTotal !== null) ? (Number(rawTotal) || 0) : price * qty;
           return {
             product_id: (p as any).productId || p.id || undefined,
             name: (p as any).productName || (p as any).name || "",
-            price: p.price || 0,
-            quantity: p.qty || 1,
+            price,
+            quantity: qty,
+            total: uiTotal > 0 ? uiTotal : price * qty,
+            discount: Number((p as any).discount) || 0,
             staff_id: (p as any).staffId ? toApiStaffId((p as any).staffId) : undefined,
             staff_name: staffMember?.name || staffMember?.full_name || staffMember?.fullName || undefined,
             start_time: new Date(startMs).toISOString(),
@@ -184,11 +208,17 @@ export function useAppointment() {
           const t = (m as any).time;
           const startMs = t ? new Date(`${calDate}T${t}:00`).getTime() : bookingStartMs;
           const staffMember = staffList.find((st: any) => String(st.id) === String((m as any).staffId ?? ""));
+          const price = m.price || 0;
+          const qty = m.qty || 1;
+          const rawTotal = (m as any).total;
+          const uiTotal = (rawTotal !== undefined && rawTotal !== null) ? (Number(rawTotal) || 0) : price * qty;
           return {
             membership_id: (m as any).membershipId || m.id || undefined,
             name: (m as any).membershipName || (m as any).name || "",
-            price: m.price || 0,
-            quantity: m.qty || 1,
+            price,
+            quantity: qty,
+            total: uiTotal > 0 ? uiTotal : price * qty,
+            discount: Number((m as any).discount) || 0,
             staff_id: (m as any).staffId ? toApiStaffId((m as any).staffId) : undefined,
             staff_name: staffMember?.name || staffMember?.full_name || staffMember?.fullName || undefined,
             start_time: new Date(startMs).toISOString(),

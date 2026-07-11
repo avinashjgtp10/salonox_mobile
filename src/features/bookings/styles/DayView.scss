@@ -426,6 +426,12 @@
     background: linear-gradient(135deg, #ef4444, #dc2626);
   }
 
+  // Scheduled time has passed with no payment at all (still fully editable,
+  // same as confirmed/paid chips — this is a color cue only).
+  &--no-show {
+    background: linear-gradient(135deg, #22d3ee, #0891b2);
+  }
+
   &--dragging {
     z-index: 100;
     opacity: 0.92;

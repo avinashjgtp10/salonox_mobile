@@ -3,16 +3,21 @@ import type { Booking } from "../../types/scheduler-types";
 import { useScheduler } from "../../hooks/useScheduler";
 import { useAppSelector } from "../../../../hooks/useAppRedux";
 import { getMonthDays, DAYS_SHORT } from "../../utils/timeUtils";
+import { computeChipStatusClass } from "../../utils/bookingStatusUtils";
 import "../../styles/Scheduler.scss";
 
 const EMPTY_BOOKINGS: any[] = [];
 
+const CHIP_COLOR: Record<string, string> = {
+  cancelled: "#ef4444",
+  confirmed: "#22c55e",
+  partial:   "#7c3aed",
+  "no-show": "#0891b2",
+  pending:   "#f59e0b",
+};
+
 function chipColor(b: Booking) {
-  const ps = (b.paymentStatus || "").toLowerCase();
-  const bs = (b.status || "").toLowerCase();
-  const isPaid = ps === "paid" || ps === "completed" || bs === "confirmed";
-  const isCancelled = bs === "cancelled";
-  return isCancelled ? "#ef4444" : isPaid ? "#22c55e" : "#f59e0b";
+  return CHIP_COLOR[computeChipStatusClass(b)] ?? "#f59e0b";
 }
 
 interface MonthViewProps {
