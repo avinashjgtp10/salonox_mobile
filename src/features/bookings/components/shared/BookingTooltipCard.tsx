@@ -12,6 +12,7 @@ import { Scissors, AwardFill } from "react-bootstrap-icons";
 import { IconBox, IconTag } from "../../../../components/shared/QuickSaleIcons";
 import type { Booking, Staff } from "../../types/scheduler-types";
 import { formatTime12 } from "../../utils/timeUtils";
+import { computeChipStatusClass } from "../../utils/bookingStatusUtils";
 import "../../styles/BookingTooltipCard.scss";
 
 interface BookingTooltipCardProps {
@@ -23,9 +24,12 @@ interface BookingTooltipCardProps {
   coveredServices?: Map<string, number>;
 }
 
-const PAY_LABEL: Record<string, string> = { Paid: "Paid", Partial: "Due", Unpaid: "Unpaid", Cancelled: "Cancelled" };
-const PAY_COLOR: Record<string, string> = { Paid: "#16a34a", Partial: "#6d28d9", Unpaid: "#d97706", Cancelled: "#ef4444" };
-const PAY_BG:    Record<string, string> = { Paid: "#dcfce7", Partial: "#ede9fe", Unpaid: "#fef3c7", Cancelled: "#fee2e2" };
+// Mirrors the calendar chip's own color logic exactly (computeChipStatusClass) —
+// "Booked" for a plain upcoming unpaid appointment, "No Show" once its time has
+// passed with nothing paid, "Partial" (not "Due") for a partial payment.
+const STATUS_LABEL: Record<string, string> = { cancelled: "Cancelled", confirmed: "Paid", partial: "Partial", "no-show": "No Show", pending: "Booked" };
+const STATUS_COLOR: Record<string, string> = { cancelled: "#ef4444", confirmed: "#16a34a", partial: "#6d28d9", "no-show": "#0891b2", pending: "#d97706" };
+const STATUS_BG:    Record<string, string> = { cancelled: "#fee2e2", confirmed: "#dcfce7", partial: "#ede9fe", "no-show": "#cffafe", pending: "#fef3c7" };
 
 interface FlatItem {
   icon: React.ReactNode;
@@ -85,6 +89,12 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
 
   const isPackagePaid =
     (((booking as any).paymentMode || "").toLowerCase() === "package");
+  // Only true when eWallet was the SOLE method (buildMethodLabel only ever
+  // returns "eWallet" when there was no Cash/Card/UPI leg) — a mixed
+  // eWallet+Cash payment shows as "Cash" and falls into the generic "Paid"
+  // row below instead, same as it already did before eWallet existed.
+  const isEwalletPaid =
+    (((booking as any).paymentMode || "").toLowerCase() === "ewallet");
 
   const allItems: FlatItem[] = [
     ...services.map((svc: any) => {
@@ -141,12 +151,10 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
     ? adjustedTotal
     : (allItems.length > 0 ? adjustedTotal : (Number(booking.grandTotal) || 0));
 
-  const isCancelled = (booking.status || "").toLowerCase() === "cancelled";
-  const rawPs = isCancelled ? "Cancelled" : (booking.paymentStatus ?? "Unpaid");
-  const ps    = rawPs.charAt(0).toUpperCase() + rawPs.slice(1).toLowerCase();
-  const payColor = PAY_COLOR[ps] ?? "#d97706";
-  const payBg    = PAY_BG[ps]    ?? "#fef3c7";
-  const payLabel = PAY_LABEL[ps] ?? ps;
+  const chipStatus = computeChipStatusClass(booking);
+  const payColor = STATUS_COLOR[chipStatus];
+  const payBg    = STATUS_BG[chipStatus];
+  const payLabel = STATUS_LABEL[chipStatus];
 
   const clientInitials = (booking.clientName || "Walk-In")
     .split(" ").map((w) => w[0] ?? "").join("").toUpperCase().slice(0, 2) || "W";
@@ -254,9 +262,15 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
                     <span>{currencySymbol}0</span>
                   </div>
                 )}
+                {Number(booking.membershipWalletUsed) > 0 && (
+                  <div className="btc__paid-row" style={{ color: "#16a34a" }}>
+                    <span>🎗️ Paid via Membership</span>
+                    <span>{currencySymbol}{Number(booking.membershipWalletUsed).toFixed(0)}</span>
+                  </div>
+                )}
                 {booking.payingNow != null && Number(booking.payingNow) > 0 && (
-                  <div className="btc__paid-row">
-                    <span>Paid</span>
+                  <div className="btc__paid-row" style={isEwalletPaid ? { color: "#16a34a" } : undefined}>
+                    <span>{isEwalletPaid ? "💳 Paid via eWallet" : "Paid"}</span>
                     <span>{currencySymbol}{Number(booking.payingNow).toFixed(0)}</span>
                   </div>
                 )}

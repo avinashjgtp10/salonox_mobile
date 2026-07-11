@@ -149,45 +149,70 @@ export function mapApiBooking(
   }
 
   // ── Map line items ────────────────────────────────────────────────────────
-  const productItems = (appt.product_items || appt.productItems || appt.products || []).map((p: any) => ({
-    id: String(p.id ?? ""),
-    productId: String(p.product_id ?? p.productId ?? ""),
-    productName: p.product_name ?? p.productName ?? p.name ?? "",
-    name: p.product_name ?? p.productName ?? p.name ?? "",
-    price: parseFloat(String(p.price ?? 0)) || 0,
-    qty: Number(p.qty ?? p.quantity ?? 1) || 1,
-    total: parseFloat(String(p.total ?? p.price ?? 0)) || 0,
-    staffId: String(p.staff_id ?? p.staffId ?? ""),
-    time: sanitizeItemTime(p.time ?? p.start_time ?? p.startTime),
-  }));
+  // Same back-derivation as services above: the % itself isn't always stored
+  // (older rows saved before it was), but total vs price × qty always is, so
+  // recomputing from that ratio survives reload regardless of when the row
+  // was originally saved.
+  const deriveRowDiscount = (price: number, qty: number, total: number, rawDiscount: unknown) =>
+    (total > 0 && price * qty > total)
+      ? Math.round(((price * qty - total) / (price * qty)) * 100 * 100) / 100
+      : (parseFloat(String(rawDiscount ?? 0)) || 0);
 
-  const packageItems = (appt.package_items || appt.packageItems || appt.packages || []).map((p: any) => {
-    const isPkgService = !!(p.is_package_service || (p as any).isPackageService);
+  const productItems = (appt.product_items || appt.productItems || appt.products || []).map((p: any) => {
+    const pPrice = parseFloat(String(p.price ?? 0)) || 0;
+    const pQty   = Number(p.qty ?? p.quantity ?? 1) || 1;
+    const pTotal = parseFloat(String(p.total ?? p.price ?? 0)) || 0;
     return {
       id: String(p.id ?? ""),
-      packageId: String(p.package_id ?? p.packageId ?? ""),
-      packageName: p.package_name ?? p.packageName ?? p.name ?? "",
-      name: p.package_name ?? p.packageName ?? p.name ?? "",
-      price: parseFloat(String(p.price ?? 0)) || 0,
-      qty: Number(p.qty ?? p.quantity ?? 1) || 1,
-      isPackageService: isPkgService,
-      total: isPkgService ? 0 : (parseFloat(String(p.total ?? p.price ?? 0)) || 0),
+      productId: String(p.product_id ?? p.productId ?? ""),
+      productName: p.product_name ?? p.productName ?? p.name ?? "",
+      name: p.product_name ?? p.productName ?? p.name ?? "",
+      price: pPrice,
+      qty: pQty,
+      total: pTotal,
+      discount: deriveRowDiscount(pPrice, pQty, pTotal, p.discount),
       staffId: String(p.staff_id ?? p.staffId ?? ""),
       time: sanitizeItemTime(p.time ?? p.start_time ?? p.startTime),
     };
   });
 
-  const membershipItems = (appt.membership_items || appt.membershipItems || appt.memberships || []).map((m: any) => ({
-    id: String(m.id ?? ""),
-    membershipId: String(m.membership_id ?? m.membershipId ?? ""),
-    membershipName: m.membership_name ?? m.membershipName ?? m.name ?? "",
-    name: m.membership_name ?? m.membershipName ?? m.name ?? "",
-    price: parseFloat(String(m.price ?? 0)) || 0,
-    qty: Number(m.qty ?? m.quantity ?? 1) || 1,
-    total: parseFloat(String(m.total ?? m.price ?? 0)) || 0,
-    staffId: String(m.staff_id ?? m.staffId ?? ""),
-    time: sanitizeItemTime(m.time ?? m.start_time ?? m.startTime),
-  }));
+  const packageItems = (appt.package_items || appt.packageItems || appt.packages || []).map((p: any) => {
+    const isPkgService = !!(p.is_package_service || (p as any).isPackageService);
+    const pPrice = parseFloat(String(p.price ?? 0)) || 0;
+    const pQty   = Number(p.qty ?? p.quantity ?? 1) || 1;
+    const pTotal = parseFloat(String(p.total ?? p.price ?? 0)) || 0;
+    return {
+      id: String(p.id ?? ""),
+      packageId: String(p.package_id ?? p.packageId ?? ""),
+      packageName: p.package_name ?? p.packageName ?? p.name ?? "",
+      name: p.package_name ?? p.packageName ?? p.name ?? "",
+      price: pPrice,
+      qty: pQty,
+      isPackageService: isPkgService,
+      total: isPkgService ? 0 : pTotal,
+      discount: isPkgService ? 0 : deriveRowDiscount(pPrice, pQty, pTotal, p.discount),
+      staffId: String(p.staff_id ?? p.staffId ?? ""),
+      time: sanitizeItemTime(p.time ?? p.start_time ?? p.startTime),
+    };
+  });
+
+  const membershipItems = (appt.membership_items || appt.membershipItems || appt.memberships || []).map((m: any) => {
+    const mPrice = parseFloat(String(m.price ?? 0)) || 0;
+    const mQty   = Number(m.qty ?? m.quantity ?? 1) || 1;
+    const mTotal = parseFloat(String(m.total ?? m.price ?? 0)) || 0;
+    return {
+      id: String(m.id ?? ""),
+      membershipId: String(m.membership_id ?? m.membershipId ?? ""),
+      membershipName: m.membership_name ?? m.membershipName ?? m.name ?? "",
+      name: m.membership_name ?? m.membershipName ?? m.name ?? "",
+      price: mPrice,
+      qty: mQty,
+      total: mTotal,
+      discount: deriveRowDiscount(mPrice, mQty, mTotal, m.discount),
+      staffId: String(m.staff_id ?? m.staffId ?? ""),
+      time: sanitizeItemTime(m.time ?? m.start_time ?? m.startTime),
+    };
+  });
 
   // ── Compute grand total ───────────────────────────────────────────────────
   const computedTotal = [
@@ -354,6 +379,13 @@ export function mapApiBooking(
     paymentMode: appt.paymentMode || appt.payment_mode || appt.payment_method,
     membershipWalletUsed: parseFloat(String(appt.membership_wallet_used ?? appt.membershipWalletUsed ?? 0)) || 0,
     applyMembershipWallet: !!(appt.apply_membership_wallet ?? appt.applyMembershipWallet),
+    ewalletUsed: parseFloat(String(appt.ewallet_used ?? appt.ewalletUsed ?? 0)) || 0,
+    splitDetails: (() => {
+      const raw = appt.split_details ?? appt.splitDetails;
+      if (!raw) return undefined;
+      const obj = typeof raw === "string" ? (() => { try { return JSON.parse(raw); } catch { return null; } })() : raw;
+      return (obj && typeof obj === "object") ? obj : undefined;
+    })(),
     payingNow,
     dueAmount,
     notes: parsedNotes,

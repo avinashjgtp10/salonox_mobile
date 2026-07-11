@@ -123,8 +123,15 @@ export function useClientDetails(clientId: string | null | undefined) {
             const net = a.net_amount;
             return sum + ((net !== null && net !== undefined) ? Number(net) : apptTotal(a));
           }, 0);
-          const partialRevenue = partialAppts.reduce((sum: number, a: any) =>
-            sum + Number(a.amount_paid ?? a.paid_amount ?? 0), 0);
+          // amount_paid intentionally includes eWallet/membership-wallet money (it
+          // represents "how much of this bill is settled", used elsewhere for
+          // Paid/Partial status) — subtract those back out here since neither is
+          // new money for the salon, same reasoning as paidRevenue above.
+          const partialRevenue = partialAppts.reduce((sum: number, a: any) => {
+            const collected = Number(a.amount_paid ?? a.paid_amount ?? 0);
+            const walletPortion = Number(a.ewallet_used ?? 0) + Number(a.membership_wallet_used ?? 0);
+            return sum + Math.max(0, collected - walletPortion);
+          }, 0);
 
           // Package purchases: add paid amount (money actually collected for the package)
           const pkgItems: any[] = pkgRes.data?.data?.items ?? pkgRes.data?.items ?? pkgRes.data?.data ?? [];

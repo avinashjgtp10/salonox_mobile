@@ -61,7 +61,7 @@ interface SchedulerState {
   staffSchedules: Record<string, Record<number, StaffDaySchedule>>;
   scheduleVersion: number;
   dragPatchCache: Record<string, { startTime: string; endTime: string; staffId?: string }>;
-  paymentPatchCache: Record<string, { paymentStatus: string; payingNow: number; dueAmount: number; grandTotal?: number; paymentMode?: string; gstAmount?: number; taxBreakdown?: Booking["taxBreakdown"]; couponDiscount?: number; couponCode?: string; referralDiscount?: number }>;
+  paymentPatchCache: Record<string, { paymentStatus: string; payingNow: number; dueAmount: number; grandTotal?: number; paymentMode?: string; gstAmount?: number; taxBreakdown?: Booking["taxBreakdown"]; couponDiscount?: number; couponCode?: string; referralDiscount?: number; ewalletUsed?: number; membershipWalletUsed?: number; splitDetails?: Record<string, number> }>;
   serviceStaffCache: Record<string, Array<{ staffId: string; staff: string }>>;
 }
 
@@ -108,6 +108,9 @@ const schedulerSlice = createSlice({
           if (pay.couponDiscount !== undefined) (merged as any).couponDiscount = pay.couponDiscount;
           if (pay.couponCode !== undefined) (merged as any).couponCode = pay.couponCode;
           if (pay.referralDiscount !== undefined) (merged as any).referralDiscount = pay.referralDiscount;
+          if (pay.ewalletUsed !== undefined) (merged as any).ewalletUsed = pay.ewalletUsed;
+          if (pay.membershipWalletUsed !== undefined) (merged as any).membershipWalletUsed = pay.membershipWalletUsed;
+          if (pay.splitDetails !== undefined) (merged as any).splitDetails = pay.splitDetails;
         }
         // Restore per-service staff assignments that the list endpoint collapses to appointment-level.
         if (svcStaff?.length && (merged as any).services?.length) {
@@ -209,6 +212,9 @@ const schedulerSlice = createSlice({
         couponDiscount?: number;
         couponCode?: string;
         referralDiscount?: number;
+        ewalletUsed?: number;
+        membershipWalletUsed?: number;
+        splitDetails?: Record<string, number>;
       }>
     ) {
       const booking = state.bookings.find((b) => String(b.id) === String(payload.id));
@@ -224,6 +230,9 @@ const schedulerSlice = createSlice({
         if (payload.couponDiscount !== undefined) (booking as any).couponDiscount = payload.couponDiscount;
         if (payload.couponCode !== undefined) (booking as any).couponCode = payload.couponCode;
         if (payload.referralDiscount !== undefined) (booking as any).referralDiscount = payload.referralDiscount;
+        if (payload.ewalletUsed !== undefined) (booking as any).ewalletUsed = payload.ewalletUsed;
+        if (payload.membershipWalletUsed !== undefined) (booking as any).membershipWalletUsed = payload.membershipWalletUsed;
+        if (payload.splitDetails !== undefined) (booking as any).splitDetails = payload.splitDetails;
       }
       state.paymentPatchCache[String(payload.id)] = {
         paymentStatus: payload.paymentStatus,
@@ -236,6 +245,9 @@ const schedulerSlice = createSlice({
         couponDiscount: payload.couponDiscount,
         couponCode:    payload.couponCode,
         referralDiscount: payload.referralDiscount,
+        ewalletUsed: payload.ewalletUsed,
+        membershipWalletUsed: payload.membershipWalletUsed,
+        splitDetails: payload.splitDetails,
       };
     },
     replaceBookingId(state, { payload }: PayloadAction<{ localId: string; realId: string }>) {

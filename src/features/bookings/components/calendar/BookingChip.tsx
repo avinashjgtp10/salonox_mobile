@@ -3,6 +3,7 @@ import type { Booking } from "../../types";
 import type { DragCandidate, ResizeState } from "../../hooks/useDragDrop";
 import { currencySymbol } from "../../utils/currency";
 import { formatTime12, addMinutes } from "../../utils/timeUtils";
+import { computeChipStatusClass } from "../../utils/bookingStatusUtils";
 
 function buildTitle(b: Booking): string {
   if (b.title && b.title !== "Appointment" && b.title !== "appointment") return b.title;
@@ -93,20 +94,14 @@ const BookingChipComponent: React.FC<Props> = ({
   // truly locked from dragging; only "cancelled" ones were.
   const bs = (b.status || "").toLowerCase();
 
-  const isPaid      = ps === "paid" || ps === "completed";
   const isPartial   = ps === "partial";
   const isCancelled = bs === "cancelled";
-  const isCompleted = bs === "completed" || bs === "no_show";
   // Only cancelled appointments are locked from dragging — completed/no-show
-  // ones keep their "confirmed" chip styling (via isCompleted below) but stay
-  // fully draggable, per explicit choice over the original locked-by-default design.
+  // ones keep their normal chip styling but stay fully draggable, per explicit
+  // choice over the original locked-by-default design.
   const isReadOnly  = isCancelled;
 
-  const statusClass = isCancelled ? "cancelled"
-    : isCompleted   ? "confirmed"
-    : isPaid        ? "confirmed"
-    : isPartial     ? "partial"
-    : "pending";
+  const statusClass = computeChipStatusClass(b);
 
   // Preview times during drag/resize
   const previewStart = isDraggingThis && dragging

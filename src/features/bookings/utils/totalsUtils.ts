@@ -31,6 +31,17 @@ export interface TaxBreakdownEntry {
 }
 
 export interface TotalsResult {
+  // Pre-discount total: sum of price × qty across every row, before any
+  // per-row "Disc %" is applied. Compare against `subtotal` to see how much
+  // the per-row discounts saved (see itemDiscountTotal).
+  catalogTotal: number;
+  // catalogTotal − subtotal — the ₹ saved specifically by per-row "Disc %"
+  // fields (Services & Items section), as opposed to manualDiscount below
+  // which is the separate bill-level "Svc Discount" (Charges & Discounts
+  // section). Both can be active at once and stack — this field lets the UI
+  // show that breakdown explicitly instead of silently folding item-level
+  // discounts into subtotal with no visible trace.
+  itemDiscountTotal: number;
   subtotal: number;
   // Item-level manual discount ONLY (the %/flat field on the booking) —
   // excludes coupon/referral. Use this (not totalDisc) when sending a
@@ -52,6 +63,10 @@ export interface TotalsResult {
 
 function rowsTotal(rows: LineItem[]): number {
   return rows.reduce((s, r) => s + (r.total ?? r.price * (r.qty || 1)), 0);
+}
+
+function rowsCatalogTotal(rows: LineItem[]): number {
+  return rows.reduce((s, r) => s + r.price * (r.qty || 1), 0);
 }
 
 type BucketType = "service" | "product" | "membership" | "packages";
@@ -112,6 +127,10 @@ export function computeTotals(input: TotalsInput): TotalsResult {
   const membershipBase = rowsTotal(membershipRows);
   const subtotal = serviceBase + packageBase + productBase + membershipBase;
 
+  const catalogTotal = rowsCatalogTotal(serviceRows) + rowsCatalogTotal(packageRows)
+    + rowsCatalogTotal(productRows) + rowsCatalogTotal(membershipRows);
+  const itemDiscountTotal = Math.max(0, catalogTotal - subtotal);
+
   const serviceTotal = serviceBase + packageBase + membershipBase;
   const itemDisc =
     discountType === "Percentage (%)"
@@ -147,5 +166,5 @@ export function computeTotals(input: TotalsInput): TotalsResult {
   const grandTotal = taxable + gstAmount + exCharges;
   const effectiveTotal = Math.max(0, grandTotal - eWalletUsed - membershipWalletUsed);
 
-  return { subtotal, manualDiscount, totalDisc, taxable, gstAmount, taxBreakdown, grandTotal, effectiveTotal };
+  return { catalogTotal, itemDiscountTotal, subtotal, manualDiscount, totalDisc, taxable, gstAmount, taxBreakdown, grandTotal, effectiveTotal };
 }

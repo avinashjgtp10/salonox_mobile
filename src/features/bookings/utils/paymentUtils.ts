@@ -59,11 +59,14 @@ export function buildMethodLabel(
   methods: Record<string, number>,
 ): string {
   if (paymentMode === "split") {
-    return Object.keys(methods)
-      .filter((k) => k !== "eWallet" && methods[k] > 0)
-      .join("+") || "Split";
+    const cashLegs = Object.keys(methods).filter((k) => k !== "eWallet" && methods[k] > 0);
+    if (cashLegs.length > 0) return cashLegs.join("+");
+    return (methods["eWallet"] || 0) > 0 ? "eWallet" : "Split";
   }
-  return singleMethod || "Cash";
+  if (singleMethod) return singleMethod;
+  // No Cash/Card/UPI method was ever picked — the bill was fully covered by
+  // eWallet, so that's what actually paid for it, not "Cash".
+  return (methods["eWallet"] || 0) > 0 ? "eWallet" : "Cash";
 }
 
 /** Computes the total of a split entries map */

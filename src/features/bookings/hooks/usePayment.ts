@@ -33,6 +33,9 @@ interface CompletePaymentParams {
   // Clear due
   includeClearDue: boolean;
   priorDueAmt: number;
+  // Specific prior booking ids staff checked to clear alongside this payment —
+  // only these get cleared, not every outstanding partial/unpaid booking.
+  selectedDueIds?: string[];
   useEWallet: boolean;
   applyMembershipWallet?: boolean;
 }
@@ -56,7 +59,7 @@ export function usePayment() {
       grandTotal, effectiveTotal, subtotal, manualDiscountAmt,
       alreadyPaidAmount, eWalletAmt, couponDiscount, couponApplied,
       paymentMode, singleMethod, splitEntries, partialAmtInput,
-      includeClearDue, priorDueAmt, useEWallet, applyMembershipWallet,
+      includeClearDue, priorDueAmt, selectedDueIds, useEWallet, applyMembershipWallet,
       gstAmount, taxBreakdown,
     } = params;
 
@@ -91,13 +94,25 @@ export function usePayment() {
           : amountToCharge;
         // singleMethod can be null when the bill was already fully covered by a
         // wallet/membership/points deduction — nothing was ever collected via
-        // Cash/Card/UPI, so there was nothing to force the user to pick.
-        methods[singleMethod || "Cash"] = singleCharge;
+        // Cash/Card/UPI, so there's nothing to record here (don't invent a
+        // "Cash" leg for an amount that was never actually charged to Cash).
+        if (singleMethod && singleCharge > 0) {
+          methods[singleMethod] = (methods[singleMethod] || 0) + singleCharge;
+        }
       }
 
+      // remainingDue is already net of eWallet (effectiveTotal = grandTotal -
+      // eWalletUsed - membershipWalletUsed), but `methods` re-adds the eWallet
+      // leg on top of the Cash/Card/UPI legs — so capping totalPaid against
+      // remainingDue alone would silently drop the eWallet contribution from
+      // paid_amount (e.g. a bill fully covered by eWallet would post paid_amount
+      // ₹0 instead of the ₹ actually moved). Add it back for the real total owed.
+      const eWalletContribution = useEWallet ? eWalletAmt : 0;
+      const totalOwedThisTxn = remainingDue + eWalletContribution;
+
       const totalPaid    = Object.values(methods).reduce((a, b) => a + b, 0);
-      const currentCharge = Math.min(totalPaid, remainingDue);
-      const newDue        = Math.max(0, parseFloat((remainingDue - currentCharge).toFixed(2)));
+      const currentCharge = Math.min(totalPaid, totalOwedThisTxn);
+      const newDue        = Math.max(0, parseFloat((totalOwedThisTxn - currentCharge).toFixed(2)));
       const methodLabel   = buildMethodLabel(paymentMode, singleMethod, methods);
 
       // ── Post payment for current appointment ────────────────────────────
@@ -120,7 +135,7 @@ export function usePayment() {
         due_amount:       newDue,
         coupon_code:      alreadyPaidAmount > 0 ? undefined : (couponApplied || undefined),
         payment_method:   methodLabel,
-        split_details:    paymentMode === "split" ? methods : { [singleMethod!]: currentCharge },
+        split_details:    methods,
         status:           newDue > 0 ? "partial" : "completed",
         apply_membership_wallet: !!applyMembershipWallet,
         tax_breakdown: taxBreakdown && taxBreakdown.length > 0 ? taxBreakdown : undefined,
@@ -166,24 +181,34 @@ export function usePayment() {
         payingNow: alreadyPaidAmount + finalPaid,
         dueAmount: finalDue,
         grandTotal: effectiveTotal,
-        paymentMode: paymentMode === "split"
-          ? Object.keys(methods).filter((k) => k !== "eWallet").join("+")
-          : (singleMethod || "Cash"),
+        paymentMode: methodLabel,
         gstAmount,
         taxBreakdown,
         couponDiscount: couponDiscount > 0 ? couponDiscount : undefined,
         couponCode: couponDiscount > 0 ? couponApplied : undefined,
         referralDiscount: referralDiscountApplied > 0 ? referralDiscountApplied : undefined,
+        // So an immediate auto-print (before any refetch) can already show the
+        // eWallet/membership-wallet/split breakdown — prefer the server's own
+        // saved figures over our local guess, same reasoning as finalPaid/finalDue above.
+        ewalletUsed: savedPayment?.ewallet_used != null ? Number(savedPayment.ewallet_used) : (useEWallet ? eWalletAmt : 0),
+        membershipWalletUsed: savedPayment?.membership_wallet_used != null ? Number(savedPayment.membership_wallet_used) : undefined,
+        splitDetails: savedPayment?.split_details ?? methods,
       }));
 
       // ── Clear prior dues if toggled ──────────────────────────────────────
-      if (includeClearDue && priorDueAmt > 0 && clientId && isRealId(clientId)) {
+      // Only the specific bookings staff checked — not every outstanding
+      // partial/unpaid booking for this client — so falls through to "clear
+      // nothing" if the caller never sent a selection (old behavior would
+      // have cleared everything, which is no longer what's wanted).
+      const dueIdSet = new Set((selectedDueIds ?? []).map(String));
+      if (includeClearDue && priorDueAmt > 0 && dueIdSet.size > 0 && clientId && isRealId(clientId)) {
         const partialBookings = allBookings
           .filter((b) =>
             String(b.clientId) === String(clientId) &&
             String(b.id) !== String(appointmentId) &&
             (b.paymentStatus === "Partial" || b.paymentStatus === "Unpaid") &&
-            Number(b.dueAmount) > 0
+            Number(b.dueAmount) > 0 &&
+            dueIdSet.has(String(b.id))
           )
           .map((b) => ({
             id: b.id,
@@ -195,7 +220,7 @@ export function usePayment() {
           await dispatch(clearClientDuesThunk({
             clientId: String(clientId),
             salonId,
-            paymentMethod: singleMethod || "Cash",
+            paymentMethod: methodLabel,
             partialBookings,
           }));
         }

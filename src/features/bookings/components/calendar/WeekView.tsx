@@ -3,6 +3,7 @@ import type { Booking } from "../../types/scheduler-types";
 import { useScheduler, SLOT_HEIGHT } from "../../hooks/useScheduler";
 import { useAppSelector } from "../../../../hooks/useAppRedux";
 import { useSchedulerContext } from "../../store/SchedulerContext";
+import { computeChipStatusClass } from "../../utils/bookingStatusUtils";
 import { getWeekDays, DAYS_SHORT, formatTime12, getCurrentTime } from "../../utils/timeUtils";
 import BookingTooltipCard from "../shared/BookingTooltipCard";
 import { computeOverlapLayout } from "../../utils/overlapLayout";
@@ -210,13 +211,7 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({ onSlotClick, onViewBill })
                       }))
                     );
                     return dayBookings.map((b: any) => {
-                      const ps = (b.paymentStatus || "").toLowerCase();
-                      const bs = (b.status || "").toLowerCase();
-                      const isPaid = ps === "paid" || ps === "completed";
-                      const isPartial = ps === "partial";
-                      const isConfirmed = bs === "confirmed" || bs === "completed";
-                      const isCancelled = bs === "cancelled";
-                      const statusClass = isCancelled ? "cancelled" : isPaid ? "confirmed" : isPartial ? "partial" : isConfirmed ? "confirmed" : "pending";
+                      const statusClass = computeChipStatusClass(b);
                       const chipH = durationToPx(b.startTime, b.endTime);
                       const primaryStaffName = staffById.get(b.staffId)?.name ?? "";
                       const { col, totalCols } = overlapLayout.get(String(b.id)) ?? { col: 0, totalCols: 1 };

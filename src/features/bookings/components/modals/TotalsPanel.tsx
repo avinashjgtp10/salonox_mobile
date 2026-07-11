@@ -5,6 +5,8 @@ import "../../styles/AppointmentModal.scss";
 
 interface TotalsPanelProps {
   subtotal: number;
+  catalogTotal?: number; // pre-item-discount total — compare to subtotal for itemDiscountTotal
+  itemDiscountTotal?: number; // ₹ saved by per-row "Disc %" (Services & Items), separate from the bill-level discount below
   serviceTotal: number;
   packageTotal: number;
   productTotal: number;
@@ -12,6 +14,9 @@ interface TotalsPanelProps {
   exCharges: number;
   discount: number;
   discountType: string;
+  manualDiscount?: number; // bill-level "Svc Discount" only, excludes coupon
+  couponDiscount?: number;
+  couponCode?: string;
   totalDiscount?: number;
   gstAmount?: number;
   taxBreakdown?: TaxBreakdownEntry[];
@@ -22,8 +27,10 @@ interface TotalsPanelProps {
 }
 
 const TotalsPanel: React.FC<TotalsPanelProps> = ({
-  subtotal, serviceTotal, packageTotal, productTotal, membershipTotal,
-  exCharges, discount, discountType, totalDiscount: totalDiscountProp,
+  subtotal, catalogTotal, itemDiscountTotal = 0,
+  serviceTotal, packageTotal, productTotal, membershipTotal,
+  exCharges, discount, discountType, manualDiscount, couponDiscount = 0, couponCode,
+  totalDiscount: totalDiscountProp,
   gstAmount = 0, taxBreakdown = [], tip = 0,
   alreadyPaid = 0, dueAmount = 0, packageServiceCount = 0,
 }) => {
@@ -31,6 +38,9 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
   const totalDiscount = totalDiscountProp !== undefined ? totalDiscountProp : Math.min(discountVal, serviceTotal);
   const taxable = Math.max(0, subtotal - totalDiscount);
   const grandTotal = taxable + gstAmount + exCharges;
+  // Prefer the granular manual/coupon split when the caller provides it — falls
+  // back to the single blended totalDiscount line for older callers.
+  const hasGranularDiscount = manualDiscount !== undefined;
 
   // Only exclusive taxes add to the amount due — inclusive ones are already
   // inside the item price, shown here just as a breakdown of what it contains.
@@ -43,8 +53,21 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
     ...(packageTotal    > 0 ? [{ label: "Package",    value: `${currencySymbol}${packageTotal.toFixed(2)}`,    color: "" }] : []),
     ...(productTotal    > 0 ? [{ label: "Product",    value: `${currencySymbol}${productTotal.toFixed(2)}`,    color: "" }] : []),
     ...(membershipTotal > 0 ? [{ label: "Membership", value: `${currencySymbol}${membershipTotal.toFixed(2)}`, color: "" }] : []),
+    // Item-level "Disc %" and the bill-level "Svc Discount"/coupon can both be
+    // active at once and stack — broken out so it's clear how much came from each.
+    ...(itemDiscountTotal > 0 && catalogTotal !== undefined
+      ? [
+          { label: "Items Total",   value: `${currencySymbol}${catalogTotal.toFixed(2)}`, color: "" },
+          { label: "Item Discount", value: `-${currencySymbol}${itemDiscountTotal.toFixed(2)}`, color: "text-danger" },
+        ]
+      : []),
     { label: "Subtotal", value: `${currencySymbol}${subtotal.toFixed(2)}`, color: "" },
-    ...(totalDiscount > 0 ? [{ label: "Discount",   value: `-${currencySymbol}${totalDiscount.toFixed(2)}`, color: "text-danger" }] : []),
+    ...(hasGranularDiscount
+      ? [
+          ...((manualDiscount ?? 0) > 0 ? [{ label: "Svc Discount", value: `-${currencySymbol}${(manualDiscount ?? 0).toFixed(2)}`, color: "text-danger" }] : []),
+          ...(couponDiscount > 0 ? [{ label: `Coupon${couponCode ? ` (${couponCode})` : ""}`, value: `-${currencySymbol}${couponDiscount.toFixed(2)}`, color: "text-danger" }] : []),
+        ]
+      : (totalDiscount > 0 ? [{ label: "Discount", value: `-${currencySymbol}${totalDiscount.toFixed(2)}`, color: "text-danger" }] : [])),
     ...exclusiveTaxRows.map((t) => ({ label: `${t.name} (${t.rate}%)`, value: `${currencySymbol}${t.amount.toFixed(2)}`, color: "" })),
     ...inclusiveTaxRows.map((t) => ({ label: `${t.name} (${t.rate}%, incl.)`, value: `${currencySymbol}${t.amount.toFixed(2)}`, color: "text-secondary" })),
     ...(exCharges     > 0 ? [{ label: "Ex Charges", value: `${currencySymbol}${exCharges.toFixed(2)}`,      color: "" }] : []),

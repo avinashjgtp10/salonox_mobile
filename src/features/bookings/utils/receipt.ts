@@ -224,6 +224,13 @@ export function printReceipt(
   const allItemRows = svcRows + pkgRows + memRows + prodRows;
 
   // ── Payment summary ───────────────────────────────────────────────────────
+  // Item-level "Disc %" and the bill-level discount below can both be active
+  // at once and stack — broken out explicitly so the printed bill shows how
+  // much came from each, same reasoning as the live AppointmentModal summary.
+  const allBillItems = [...services, ...packageItems, ...productItems, ...membershipItems];
+  const itemsCatalogTotal = allBillItems.reduce((s: number, i: any) => s + (Number(i.price) || 0) * (Number(i.qty ?? i.quantity ?? 1) || 1), 0);
+  const itemsNetTotal = allBillItems.reduce((s: number, i: any) => s + (Number(i.total ?? i.price) || 0), 0);
+  const itemDiscountAmt = Math.max(0, itemsCatalogTotal - itemsNetTotal);
   const subtotalAmt = Number((booking as any).subtotal      || 0);
   const manualDisc  = Number((booking as any).discountAmount || 0);
   const couponDisc  = Number((booking as any).couponDiscount || 0);
@@ -238,6 +245,19 @@ export function printReceipt(
   const paidAmt     = Number(booking.payingNow  || 0);
   const dueAmt      = Number(booking.dueAmount  || 0);
   const rewardPointsValuePaid = Number((booking as any).rewardPointsValue || 0);
+  const membershipWalletUsedAmt = Number((booking as any).membershipWalletUsed || 0);
+  // Per-method breakdown of the actual payment (Cash/Card/UPI/eWallet/Package —
+  // membership wallet isn't part of this map, it's tracked separately above).
+  const splitEntries = Object.entries((booking as any).splitDetails || {})
+    .map(([k, v]) => [k, Number(v) || 0] as [string, number])
+    .filter(([, v]) => v > 0);
+  // Only call out the breakdown when it's genuinely mixed, or the sole method
+  // is something other than plain Cash/Card/UPI (eWallet/Package) — a plain
+  // single-method Cash payment already has "Amount Paid" + the Payment Method
+  // field above, so a "Paid via Cash" line would just be noise there.
+  const showPaymentBreakdown = splitEntries.length > 1
+    || splitEntries.some(([k]) => !["cash", "card", "upi"].includes(k.toLowerCase()));
+  const METHOD_COLOR: Record<string, string> = { ewallet: "#2563eb", package: "#92400e" };
 
   const sumRow = (label: string, value: string, bold = false, color = "#111827", borderDouble = false) =>
     `<tr>
@@ -246,8 +266,10 @@ export function printReceipt(
     </tr>`;
 
   const summaryRows = [
+    itemDiscountAmt > 0 ? sumRow("Items Total",   fmt(itemsCatalogTotal)) : "",
+    itemDiscountAmt > 0 ? sumRow("Item Discount", `−${fmt(itemDiscountAmt)}`, false, "#dc2626") : "",
     subtotalAmt > 0 ? sumRow("Subtotal",        fmt(subtotalAmt)) : "",
-    manualDisc  > 0 ? sumRow("Discount",         `−${fmt(manualDisc)}`, false, "#dc2626") : "",
+    manualDisc  > 0 ? sumRow("Svc Discount",     `−${fmt(manualDisc)}`, false, "#dc2626") : "",
     couponDisc  > 0 ? sumRow(`Coupon${couponCode ? ` (${couponCode})` : ""}`, `−${fmt(couponDisc)}`, false, "#dc2626") : "",
     referralDisc > 0 ? sumRow("Referral Discount", `−${fmt(referralDisc)}`, false, "#dc2626") : "",
     exCharges   > 0 ? sumRow("Extra Charges",    `+${fmt(exCharges)}`) : "",
@@ -272,6 +294,12 @@ export function printReceipt(
       : [gstAmt > 0 ? sumRow(`GST${gstPct > 0 ? ` (${gstPct}%)` : ""}`, `+${fmt(gstAmt)}`) : ""]),
     sumRow("Grand Total", fmt(isPackagePaid ? 0 : grandTotal), true, "#111827", true),
     rewardPointsValuePaid > 0 ? sumRow("Paid from Reward Points", fmt(rewardPointsValuePaid), false, "#7c3aed") : "",
+    membershipWalletUsedAmt > 0 ? sumRow("Paid via Membership Wallet", fmt(membershipWalletUsedAmt), false, "#15803d") : "",
+    showPaymentBreakdown
+      ? splitEntries.map(([method, amt]) =>
+          sumRow(`Paid via ${method}`, fmt(amt), false, METHOD_COLOR[method.toLowerCase()] ?? "#111827")
+        ).join("")
+      : "",
     paidAmt > 0 ? sumRow("Amount Paid", fmt(paidAmt), false, "#15803d") : "",
     dueAmt  > 0 ? sumRow("Balance Due", fmt(dueAmt),  true,  "#dc2626") : "",
   ].filter(Boolean).join("");
@@ -292,7 +320,8 @@ export function printReceipt(
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:#111827;background:#d1d5db;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .page{width:210mm;min-height:297mm;margin:12mm auto;background:#ffffff;box-shadow:0 4px 24px rgba(0,0,0,.18);display:flex;flex-direction:column}
+  .page{position:relative;width:210mm;min-height:297mm;margin:12mm auto;background:#ffffff;box-shadow:0 4px 24px rgba(0,0,0,.18);display:flex;flex-direction:column}
+  .inv-duplicate-watermark{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);font-size:90px;font-weight:900;letter-spacing:10px;color:rgba(220,38,38,0.14);pointer-events:none;z-index:1;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 
   /* ── Top bar: logo left, invoice title right ── */
   .inv-topbar{display:flex;justify-content:space-between;align-items:flex-start;padding:28px 32px 20px;border-bottom:2px solid #111827}
@@ -409,6 +438,7 @@ export function printReceipt(
 </div>
 
 <div class="page">
+  ${!opts?.auto ? '<div class="inv-duplicate-watermark">DUPLICATE</div>' : ""}
 
   <!-- ═══ TOP BAR: Salon info left · Invoice title right ═══ -->
   <div class="inv-topbar">

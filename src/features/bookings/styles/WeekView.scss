@@ -124,6 +124,7 @@
   &--pending   { background: linear-gradient(135deg, #f59e0b, #d97706); }
   &--partial   { background: linear-gradient(135deg, #7c3aed, #6d28d9); }
   &--cancelled { background: linear-gradient(135deg, #ef4444, #dc2626); }
+  &--no-show   { background: linear-gradient(135deg, #22d3ee, #0891b2); }
 
   // Two or more concurrent appointments at the same time slot
   &--concurrent { border: 1px solid rgba(255, 255, 255, 0.8); }
