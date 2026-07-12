@@ -234,9 +234,11 @@ const EditContent: React.FC<EditContentProps> = ({
           <span className="pkgpanel__price-prefix">₹</span>
           <input
             type="number"
+            min="0"
             className="pkgpanel__edit-input pkgpanel__edit-input--price"
             value={form.basePrice}
             onChange={(e) => onChange("basePrice", e.target.value)}
+            onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
             disabled={saving}
           />
         </div>

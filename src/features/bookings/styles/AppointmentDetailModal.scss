@@ -1,0 +1,45 @@
+// src/features/bookings/styles/AppointmentDetailModal.scss
+
+// Lifts whatever this wrapper renders (loading state, or the real
+// ViewBillModal/AppointmentModal drawers, both z-index 1000) into their own
+// stacking context above any host overlay this component happens to be
+// nested inside (e.g. ClientHistoryModal's z-index 1100 popup chrome).
+.adm-stack-lift {
+  position: relative;
+  z-index: 1200;
+}
+
+// Loading state only — shown briefly while AppointmentDetailModal fetches the
+// booking before handing off to the real ViewBillModal/AppointmentModal
+// drawers, which bring their own (matching) right-docked chrome.
+.adm-loading-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.adm-loading-drawer {
+  width: min(740px, 100vw);
+  height: 100vh;
+  background: #f8fafc;
+  box-shadow: -8px 0 40px rgba(0, 0, 0, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.adm-spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid #e2e8f0;
+  border-top-color: #6366f1;
+  animation: adm-spin 0.7s linear infinite;
+}
+
+@keyframes adm-spin {
+  to { transform: rotate(360deg); }
+}

@@ -39,6 +39,11 @@ export function useClientDetails(clientId: string | null | undefined) {
   const [details, setDetails]   = useState<ClientDetails | null>(null);
   const [stats, setStats]       = useState<ClientStats | null>(null);
   const [loading, setLoading]   = useState(false);
+  // True from when Phase 2 (history/packages/memberships — total visits, last
+  // visit, total revenue) kicks off until it resolves. Separate from `loading`
+  // (Phase 1 only) so callers can show a skeleton for just those fields
+  // instead of quietly popping them in once the background fetch finishes.
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [error, setError]       = useState<string | null>(null);
 
   const fetch = useCallback(async (id: string) => {
@@ -70,6 +75,7 @@ export function useClientDetails(clientId: string | null | undefined) {
       setStats(buildStats(enriched));
 
       // ── Phase 2: history stats (background, non-blocking) ────────────────
+      setHistoryLoading(true);
       Promise.all([
         api.get(`/api/v1/clients/${id}/history`),
         api.get(`/api/v1/client-packages?clientId=${id}&limit=500`).catch(() => ({ data: null })),
@@ -177,7 +183,8 @@ export function useClientDetails(clientId: string | null | undefined) {
             return updated;
           });
         })
-        .catch(() => { /* history is best-effort */ });
+        .catch(() => { /* history is best-effort */ })
+        .finally(() => { if (!cancelled) setHistoryLoading(false); });
 
     } catch (err: any) {
       if (!cancelled) setError(err?.message || "Failed to load client");
@@ -193,6 +200,7 @@ export function useClientDetails(clientId: string | null | undefined) {
       setDetails(null);
       setStats(null);
       setError(null);
+      setHistoryLoading(false);
       return;
     }
     fetch(clientId);
@@ -208,5 +216,5 @@ export function useClientDetails(clientId: string | null | undefined) {
     });
   }, []);
 
-  return { details, stats, loading, error, patchUnpaidAmt };
+  return { details, stats, loading, historyLoading, error, patchUnpaidAmt };
 }

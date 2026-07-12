@@ -25,6 +25,7 @@ const CHIP_BAR_COLOR: Record<string, string> = {
   confirmed: "#22c55e",
   partial:   "#7c3aed",
   "no-show": "#0891b2",
+  deleted:   "#9ca3af",
   pending:   "#f59e0b",
 };
 
@@ -69,7 +70,7 @@ const ListWeekViewComponent: React.FC<ListWeekViewProps> = ({ onViewBill }) => {
               <div className="lwv__empty">No appointments</div>
             ) : (
               dayBk.map((b: any) => (
-                <div key={b.id} className="lwv__card" onClick={() => onViewBill(b)}>
+                <div key={b.id} className="lwv__card" onClick={() => { if (!b.isDeleted) onViewBill(b); }}>
                   <div className="lwv__bar" style={{ background: chipBarColor(b) }} />
                   <div className="lwv__info">
                     <div className="lwv__title">

@@ -113,6 +113,15 @@ export interface Booking {
   membershipItems?: MembershipItem[];
 
   status: BookingStatus;
+  // Soft-deleted ("Delete Appointment") — the row still exists server-side
+  // (deleted_at is set, not removed), so it keeps showing on the calendar,
+  // greyed out, instead of vanishing without a trace.
+  isDeleted?: boolean;
+
+  // Client's service check-in/check-out (tooltip toggle) — purely
+  // informational timestamps, independent of `status`/`paymentStatus`.
+  serviceStartedAt?: string | null;
+  serviceEndedAt?: string | null;
 
   // Payment — always Title Case ("Paid" / "Partial" / "Unpaid")
   paymentStatus: PaymentStatus;

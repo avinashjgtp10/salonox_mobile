@@ -96,10 +96,10 @@ const BookingChipComponent: React.FC<Props> = ({
 
   const isPartial   = ps === "partial";
   const isCancelled = bs === "cancelled";
-  // Only cancelled appointments are locked from dragging — completed/no-show
-  // ones keep their normal chip styling but stay fully draggable, per explicit
-  // choice over the original locked-by-default design.
-  const isReadOnly  = isCancelled;
+  // Cancelled and deleted appointments are locked from dragging — completed/
+  // no-show ones keep their normal chip styling but stay fully draggable, per
+  // explicit choice over the original locked-by-default design.
+  const isReadOnly  = isCancelled || !!b.isDeleted;
 
   const statusClass = computeChipStatusClass(b);
 
@@ -175,7 +175,7 @@ const BookingChipComponent: React.FC<Props> = ({
       }}
       onClick={(e) => {
         e.stopPropagation();
-        if (justDraggedRef.current || isInteracting) return;
+        if (justDraggedRef.current || isInteracting || b.isDeleted) return;
         onEdit(originalBooking);
       }}
     >

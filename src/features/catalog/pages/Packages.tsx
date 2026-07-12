@@ -642,7 +642,7 @@ const CreateView: React.FC<NavProps> = ({ onNavigate }) => {
                     <label className="pkg-create__label">BASE PRICE (₹) <span className="text-danger">*</span></label>
                     <div className="position-relative">
                       <span className="pkg-create__currency">₹</span>
-                      <input type="number" className="form-control pkg-create__input pkg-create__input--price" value={basePrice} onChange={(e) => setBasePrice(e.target.value)} />
+                      <input type="number" min="0" className="form-control pkg-create__input pkg-create__input--price" value={basePrice} onChange={(e) => setBasePrice(e.target.value)} onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }} />
                     </div>
                   </div>
                   <div className="col-md-4">

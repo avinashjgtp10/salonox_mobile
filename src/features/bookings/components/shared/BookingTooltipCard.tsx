@@ -8,12 +8,25 @@ import {
   FloatingPortal,
   autoUpdate,
 } from "@floating-ui/react";
-import { Scissors, AwardFill } from "react-bootstrap-icons";
+import { Scissors, AwardFill, PlayFill, StopFill } from "react-bootstrap-icons";
 import { IconBox, IconTag } from "../../../../components/shared/QuickSaleIcons";
 import type { Booking, Staff } from "../../types/scheduler-types";
 import { formatTime12 } from "../../utils/timeUtils";
 import { computeChipStatusClass } from "../../utils/bookingStatusUtils";
+import { useAppDispatch } from "../../../../hooks/useAppRedux";
+import { updateBooking } from "../../../../store/schedulerSlice";
+import { serviceCheckInBookingThunk, serviceCheckOutBookingThunk } from "../../../../middleware/booking/booking.thunk";
 import "../../styles/BookingTooltipCard.scss";
+
+// ISO timestamp (service_started_at/service_ended_at) → local 12h clock time.
+// Unlike formatTime12 (which expects an "HH:MM" slot string), these come
+// straight from the server as full UTC timestamps.
+function formatIsoTime12(iso?: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
+}
 
 interface BookingTooltipCardProps {
   booking: Booking;
@@ -27,9 +40,9 @@ interface BookingTooltipCardProps {
 // Mirrors the calendar chip's own color logic exactly (computeChipStatusClass) —
 // "Booked" for a plain upcoming unpaid appointment, "No Show" once its time has
 // passed with nothing paid, "Partial" (not "Due") for a partial payment.
-const STATUS_LABEL: Record<string, string> = { cancelled: "Cancelled", confirmed: "Paid", partial: "Partial", "no-show": "No Show", pending: "Booked" };
-const STATUS_COLOR: Record<string, string> = { cancelled: "#ef4444", confirmed: "#16a34a", partial: "#6d28d9", "no-show": "#0891b2", pending: "#d97706" };
-const STATUS_BG:    Record<string, string> = { cancelled: "#fee2e2", confirmed: "#dcfce7", partial: "#ede9fe", "no-show": "#cffafe", pending: "#fef3c7" };
+const STATUS_LABEL: Record<string, string> = { deleted: "Deleted", cancelled: "Cancelled", confirmed: "Paid", partial: "Partial", "no-show": "No Show", pending: "Booked" };
+const STATUS_COLOR: Record<string, string> = { deleted: "#6b7280", cancelled: "#ef4444", confirmed: "#16a34a", partial: "#6d28d9", "no-show": "#0891b2", pending: "#d97706" };
+const STATUS_BG:    Record<string, string> = { deleted: "#f3f4f6", cancelled: "#fee2e2", confirmed: "#dcfce7", partial: "#ede9fe", "no-show": "#cffafe", pending: "#fef3c7" };
 
 interface FlatItem {
   icon: React.ReactNode;
@@ -58,6 +71,38 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
     const id = requestAnimationFrame(() => setVisible(true));
     return () => cancelAnimationFrame(id);
   }, []);
+
+  // ── Client service check-in/check-out toggle ──────────────────────────────
+  const dispatch = useAppDispatch();
+  const [serviceActionBusy, setServiceActionBusy] = useState(false);
+
+  const handleServiceCheckIn = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (serviceActionBusy) return;
+    setServiceActionBusy(true);
+    try {
+      const action = await (dispatch(serviceCheckInBookingThunk(booking.id)) as any);
+      if (serviceCheckInBookingThunk.fulfilled.match(action)) {
+        dispatch(updateBooking(action.payload as any));
+      }
+    } finally {
+      setServiceActionBusy(false);
+    }
+  };
+
+  const handleServiceCheckOut = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (serviceActionBusy) return;
+    setServiceActionBusy(true);
+    try {
+      const action = await (dispatch(serviceCheckOutBookingThunk(booking.id)) as any);
+      if (serviceCheckOutBookingThunk.fulfilled.match(action)) {
+        dispatch(updateBooking(action.payload as any));
+      }
+    } finally {
+      setServiceActionBusy(false);
+    }
+  };
 
   // ── Data helpers ──────────────────────────────────────────────────────────
   const getStaffName = (staffId?: string | number) =>
@@ -180,6 +225,38 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
             </div>
             <span className="btc__pay-badge" style={{ background: payBg, color: payColor }}>{payLabel}</span>
           </div>
+
+          {/* ── Client service check-in/check-out ── */}
+          {chipStatus !== "deleted" && chipStatus !== "cancelled" && (
+            <div className="btc__service-row">
+              {!booking.serviceStartedAt ? (
+                <button
+                  type="button"
+                  className="btc__service-btn btc__service-btn--start"
+                  disabled={serviceActionBusy}
+                  onClick={handleServiceCheckIn}
+                >
+                  <PlayFill size={11} /> Service Started
+                </button>
+              ) : !booking.serviceEndedAt ? (
+                <>
+                  <span className="btc__service-note">Started {formatIsoTime12(booking.serviceStartedAt)}</span>
+                  <button
+                    type="button"
+                    className="btc__service-btn btc__service-btn--end"
+                    disabled={serviceActionBusy}
+                    onClick={handleServiceCheckOut}
+                  >
+                    <StopFill size={11} /> Service Ended
+                  </button>
+                </>
+              ) : (
+                <span className="btc__service-note">
+                  Started {formatIsoTime12(booking.serviceStartedAt)} · Ended {formatIsoTime12(booking.serviceEndedAt)}
+                </span>
+              )}
+            </div>
+          )}
 
           {/* ── Staff row ── */}
           {staffNames.length > 0 && (

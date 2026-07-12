@@ -157,6 +157,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   const [discountInput, setDiscountInput] = useState(String(row.discount || ""));
   const [apiResults, setApiResults] = useState<SearchServiceResult[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
 
   // Tracks catalog price & package remaining for this row so qty changes recalculate correctly
   const catalogPriceRef = useRef<number>(0);
@@ -323,6 +324,29 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   function calcTotal(price: number, qty: number, discountPct: number) {
     const pct = Math.min(100, Math.max(0, discountPct));
     return Math.max(0, price * qty * (1 - pct / 100));
+  }
+
+  // Reset the keyboard-highlighted result whenever the result set changes.
+  useEffect(() => { setActiveIndex(-1); }, [apiResults]);
+
+  function handleServiceSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!showDrop || !apiResults || apiResults.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((i) => (i + 1) % apiResults.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((i) => (i <= 0 ? apiResults.length - 1 : i - 1));
+    } else if (e.key === "Enter" && activeIndex >= 0 && activeIndex < apiResults.length) {
+      e.preventDefault();
+      selectService(apiResults[activeIndex]);
+    } else if (e.key === "Escape") {
+      // Capture-phase: stop here so a lone Escape only closes the suggestion
+      // list, not the whole appointment drawer (its own focus-trap Escape
+      // handler would otherwise also see this same keydown).
+      e.stopPropagation();
+      setShowDrop(false);
+    }
   }
 
   function selectService(service: { id?: string; name: string; price: number; duration?: number }) {
@@ -620,11 +644,19 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
                 // fires onMouseDown before this blur, so a real selection still sticks.
                 setServiceSearch(row.service || "");
               }}
+              onKeyDownCapture={handleServiceSearchKeyDown}
+              role="combobox"
+              aria-expanded={showDrop && !!apiResults && apiResults.length > 0}
+              aria-haspopup="listbox"
+              aria-controls={`service-search-listbox-${row.tempId}`}
+              aria-activedescendant={activeIndex >= 0 ? `service-search-option-${row.tempId}-${activeIndex}` : undefined}
             />
             {showDrop && meetsMinSearchLength && inputRef.current && createPortal(
               <div
                 ref={portalDropRef}
                 className="svc-dropdown"
+                role="listbox"
+                id={`service-search-listbox-${row.tempId}`}
                 style={(() => {
                   const r = inputRef.current!.getBoundingClientRect();
                   return { position: "fixed" as const, top: r.bottom + 2, left: r.left, width: r.width, zIndex: 9999 };
@@ -633,12 +665,16 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
                 {isSearching ? (
                   <div className="svc-dropdown__searching">Searching...</div>
                 ) : apiResults && apiResults.length > 0 ? (
-                  apiResults.map((service) => (
+                  apiResults.map((service, i) => (
                     <button
                       type="button"
                       key={service.id || service.name}
-                      className="svc-dropdown__item"
+                      id={`service-search-option-${row.tempId}-${i}`}
+                      role="option"
+                      aria-selected={i === activeIndex}
+                      className={`svc-dropdown__item${i === activeIndex ? " svc-dropdown__item--active" : ""}`}
                       onMouseDown={() => selectService(service)}
+                      onMouseEnter={() => setActiveIndex(i)}
                     >
                       <span className="svc-dropdown__name">{service.name}</span>
                       <span className="svc-dropdown__price">{currencySymbol}{service.price}</span>

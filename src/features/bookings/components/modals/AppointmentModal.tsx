@@ -34,6 +34,7 @@ import TotalsPanel       from "./TotalsPanel";
 import PaymentButton     from "../shared/PaymentButton";
 import { printReceipt }  from "../../utils/receipt";
 import { store }         from "../../../../store/store";
+import { useFocusTrap }  from "../../../../hooks/useFocusTrap";
 import "../../styles/AppointmentModal.scss";
 
 import type {
@@ -85,6 +86,12 @@ export const AppointmentModal: React.FC<Props> = ({
   onRefresh, onCancelBooking, onDeleteBooking, quickSale,
 }) => {
   const dispatch = useAppDispatch();
+
+  // Keyboard accessibility: trap Tab inside the drawer, Escape closes it,
+  // focus returns to whatever triggered it. Not a modal when embedded as a
+  // full page (quickSale), so skip the trap there.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, isOpen && !quickSale, onClose);
 
   // Always fetch services + clients when modal opens
   useServices(salonId);
@@ -1159,7 +1166,12 @@ export const AppointmentModal: React.FC<Props> = ({
           style={{ margin: "0 0 12px" }}
           onClick={() => setApplyPackage(v => !v)}
         >
-          <input type="checkbox" checked={applyPackage} readOnly />
+          <input
+            type="checkbox"
+            checked={applyPackage}
+            onChange={(e) => setApplyPackage(e.target.checked)}
+            onClick={(e) => e.stopPropagation()}
+          />
           <span>Apply Package ({coveredServices.size} service{coveredServices.size !== 1 ? "s" : ""} covered)</span>
         </div>
       )}
@@ -1174,7 +1186,12 @@ export const AppointmentModal: React.FC<Props> = ({
             style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", flex: 1 }}
             onClick={() => setApplyMembership(v => !v)}
           >
-            <input type="checkbox" checked={applyMembership} readOnly />
+            <input
+              type="checkbox"
+              checked={applyMembership}
+              onChange={(e) => setApplyMembership(e.target.checked)}
+              onClick={(e) => e.stopPropagation()}
+            />
             <span>Apply Membership (Available: {currencySymbol}{primaryMembership.membershipWalletBalance.toFixed(2)})</span>
           </label>
           {applyMembership && (
@@ -1274,7 +1291,13 @@ export const AppointmentModal: React.FC<Props> = ({
 
   return (
     <div className={`appt-drawer-overlay${quickSale ? " appt-drawer-overlay--page" : ""}`} onClick={quickSale ? undefined : onClose}>
-      <div className={`appt-drawer-content${quickSale ? " appt-drawer-content--page" : ""}`} onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        className={`appt-drawer-content${quickSale ? " appt-drawer-content--page" : ""}`}
+        onClick={(e) => e.stopPropagation()}
+        tabIndex={-1}
+        {...(quickSale ? {} : { role: "dialog", "aria-modal": true, "aria-label": existingBooking ? "Edit Appointment" : "New Appointment" })}
+      >
 
         {/* ── Header ── */}
         <div className="appt-drawer-header">
@@ -1378,6 +1401,9 @@ export const AppointmentModal: React.FC<Props> = ({
                     <div className="qs-summary-row qs-summary-row--discount"><span>Coupon{coupon.applied ? ` (${coupon.applied})` : ""}</span><span>-{currencySymbol}{coupon.discount.toFixed(2)}</span></div>
                   )}
                   <div className="qs-summary-row"><span>Extra Charges</span><span>+{currencySymbol}{exCharges.toFixed(2)}</span></div>
+                  {Math.abs(totals.roundOff) >= 0.005 && (
+                    <div className="qs-summary-row"><span>Round Off</span><span>{totals.roundOff >= 0 ? "+" : "-"}{currencySymbol}{Math.abs(totals.roundOff).toFixed(2)}</span></div>
+                  )}
                   <div className="qs-summary-row qs-summary-row--total"><span>Grand Total</span><span>{currencySymbol}{totals.grandTotal.toFixed(2)}</span></div>
                   {tip > 0 && (
                     <div className="qs-summary-row"><span>Tip (Staff)</span><span>+{currencySymbol}{tip.toFixed(2)}</span></div>
@@ -1505,6 +1531,8 @@ export const AppointmentModal: React.FC<Props> = ({
                         tip={tip}
                         alreadyPaid={alreadyPaidAmount}
                         dueAmount={remainingDue}
+                        grandTotal={totals.grandTotal}
+                        roundOff={totals.roundOff}
                       />
                     </div>
                   </div>

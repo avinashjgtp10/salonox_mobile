@@ -42,6 +42,7 @@ import {
   ThreeDots,
 } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import Skeleton from "../../../components/ui/Skeleton";
 import {
   fetchDashboardAll,
   fetchRevenueChart,
@@ -177,12 +178,72 @@ const SectionError = memo(function SectionError({
   );
 });
 
-const SectionSpinner = memo(function SectionSpinner() {
+// ─── Skeleton placeholders (shaped like each section's real content) ─────────
+
+const KpiSkeleton = memo(function KpiSkeleton() {
   return (
-    <div className="db-section-spinner">
-      <div className="spinner-border spinner-border-sm text-secondary" role="status">
-        <span className="visually-hidden">Loading…</span>
+    <>
+      <Skeleton width={36} height={36} borderRadius={10} style={{ marginBottom: 14 }} />
+      <Skeleton width="55%" height={22} style={{ marginBottom: 8 }} />
+      <Skeleton width="70%" height={12} style={{ marginBottom: 6 }} />
+      <Skeleton width="45%" height={11} />
+    </>
+  );
+});
+
+const ChartSkeleton = memo(function ChartSkeleton({ height = 240 }: { height?: number }) {
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height, padding: "0 4px 8px" }}>
+      {[45, 70, 55, 85, 60, 75, 50, 90, 65].map((h, i) => (
+        <Skeleton key={i} width="100%" height={`${h}%`} borderRadius="4px 4px 0 0" />
+      ))}
+    </div>
+  );
+});
+
+const TableRowsSkeleton = memo(function TableRowsSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14, padding: "10px 4px" }}>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <Skeleton width={28} height={28} borderRadius="50%" />
+          <Skeleton width="18%" height={12} />
+          <Skeleton width="16%" height={12} />
+          <Skeleton width="14%" height={12} />
+          <Skeleton width="10%" height={12} />
+          <Skeleton width="10%" height={12} />
+        </div>
+      ))}
+    </div>
+  );
+});
+
+const DonutSkeleton = memo(function DonutSkeleton() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 24, padding: "10px 4px" }}>
+      <Skeleton width={140} height={140} borderRadius="50%" />
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12 }}>
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} width={i === 3 ? "50%" : "85%"} height={13} />
+        ))}
       </div>
+    </div>
+  );
+});
+
+const StaffListSkeleton = memo(function StaffListSkeleton() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "6px 4px" }}>
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <Skeleton width={36} height={36} borderRadius="50%" />
+          <div style={{ flex: 1 }}>
+            <Skeleton width="55%" height={13} style={{ marginBottom: 6 }} />
+            <Skeleton width="35%" height={11} />
+          </div>
+          <Skeleton width={50} height={13} />
+        </div>
+      ))}
     </div>
   );
 });
@@ -296,7 +357,7 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
       {cards.map((card) => (
         <div className="db-kpi-card" key={card.label}>
           {loading ? (
-            <SectionSpinner />
+            <KpiSkeleton />
           ) : error ? (
             <SectionError message={error} onRetry={onRetry} />
           ) : (
@@ -368,7 +429,7 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
       </div>
 
       {chartLoading ? (
-        <SectionSpinner />
+        <ChartSkeleton />
       ) : error ? (
         <SectionError message={error} onRetry={onRetry} />
       ) : (
@@ -432,7 +493,7 @@ const AppointmentSummaryPanel = memo(function AppointmentSummaryPanel({
         </div>
       </div>
       {loading ? (
-        <SectionSpinner />
+        <ChartSkeleton />
       ) : (
         <>
           <ResponsiveContainer width="100%" height={240}>
@@ -512,7 +573,7 @@ const AppointmentsTable = memo(function AppointmentsTable({
       </div>
 
       {loading ? (
-        <SectionSpinner />
+        <TableRowsSkeleton />
       ) : error ? (
         <SectionError message={error} onRetry={onRetry} />
       ) : normAppts.length === 0 ? (
@@ -646,7 +707,7 @@ const ServicesCard = memo(function ServicesCard({
       </div>
 
       {loading ? (
-        <SectionSpinner />
+        <DonutSkeleton />
       ) : error ? (
         <SectionError message={error} onRetry={onRetry} />
       ) : svcChartData.length === 0 ? (
@@ -753,7 +814,7 @@ const TopStaffCard = memo(function TopStaffCard({
         </button>
       </div>
       {loading ? (
-        <SectionSpinner />
+        <StaffListSkeleton />
       ) : error ? (
         <SectionError message={error} onRetry={onRetry} />
       ) : topStaff.length === 0 ? (

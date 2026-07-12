@@ -22,6 +22,7 @@ import ListWeekView  from "./ListWeekView";
 import AppointmentModal from "../modals/AppointmentModal";
 import ViewBillModal    from "../modals/ViewBillModal";
 import BlockTimeModal   from "../modals/BlockTimeModal";
+import CalendarSkeleton from "./CalendarSkeleton";
 import "../../styles/Scheduler.scss";
 
 // Stable fallbacks — prevent new [] reference on every selector call when slice is undefined
@@ -43,7 +44,11 @@ const SchedulerContent: React.FC = () => {
   // Fetch bookings as soon as salonId is known — parallel with staff, no more serial dependency.
   // Waiting for hasStaff caused appointments to vanish on page refresh when Redux state is empty
   // and the auth → salon → staff chain took 3-4 s (or broke silently).
-  useBookings(!salonId);
+  const { loading: bookingsLoading } = useBookings(!salonId);
+  // Skeleton instead of a blank page/spinner for: staff not ready yet, or staff
+  // is ready but this specific date/view's bookings haven't loaded yet (first
+  // visit to that range — see useBookings.ts's `loading`).
+  const showSkeleton = !staffReady || (hasStaff && bookingsLoading);
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [showNewAppt, setShowNewAppt]         = useState(false);
@@ -290,8 +295,10 @@ const SchedulerContent: React.FC = () => {
       )}
 
       <div className={`scheduler__body${viewMode === "Month" || viewMode === "List Week" ? " scheduler__body--scrollable" : ""}`}>
-        {/* ── No-staff empty state ── */}
-        {staffReady && !hasStaff ? (
+        {/* ── Skeleton while staff/bookings for this view haven't loaded yet ── */}
+        {showSkeleton ? (
+          <CalendarSkeleton viewMode={viewMode} />
+        ) : staffReady && !hasStaff ? (
           <div className="scheduler__empty-state">
             <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
