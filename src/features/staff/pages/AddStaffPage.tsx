@@ -76,7 +76,7 @@ const AddStaffPage: React.FC = () => {
     showErrorPopup: false,
     showUnsavedDialog: false,
     isLoading: false,
-    isDuplicateEmail: false,
+    duplicateEmailMessage: null as string | null,
   });
   // Synchronous guard — prevents double-submission before React re-renders the disabled button
   const isSubmittingRef = useRef(false);
@@ -148,8 +148,8 @@ const AddStaffPage: React.FC = () => {
   const isFirstNameInvalid =
     ui.attemptedSubmit && formData.firstName.trim() === "";
   const isEmailInvalid =
-    ui.attemptedSubmit && formData.email.trim() === "";
-  const emailErrorMessage = "Email is required";
+    !!ui.duplicateEmailMessage || (ui.attemptedSubmit && formData.email.trim() === "");
+  const emailErrorMessage = ui.duplicateEmailMessage || "Email is required";
   const isPhoneInvalid =
     ui.attemptedSubmit &&
     (formData.phone.trim() === "" || !/^\d{10}$/.test(formData.phone.trim()));
@@ -171,7 +171,7 @@ const AddStaffPage: React.FC = () => {
 
   const handleAddClick = async () => {
     // Clear stale duplicate-email flag whenever user tries to submit again
-    setUi((prev) => ({ ...prev, attemptedSubmit: true, isDuplicateEmail: false }));
+    setUi((prev) => ({ ...prev, attemptedSubmit: true, duplicateEmailMessage: null }));
     if (formData.firstName.trim() === "" || formData.email.trim() === "" || formData.phone.trim() === "" || isPhoneInvalid || isAdditionalPhoneInvalid || isPasswordInvalid || isConfirmPasswordInvalid) {
       setUi((prev) => ({ ...prev, showErrorPopup: true }));
       return;
@@ -252,14 +252,16 @@ const AddStaffPage: React.FC = () => {
         error?.message;
 
       if (status === 409) {
-        // Duplicate email — highlight the field and jump to profile tab
+        // Duplicate email (staff, or a salon_owner/admin account) — highlight the
+        // field inline with the specific reason and jump to the profile tab.
+        // No toast here: the inline message under the Email field is enough.
+        const message = serverMessage || "A staff member with this email already exists.";
         setUi((prev) => ({
           ...prev,
-          isDuplicateEmail: true,
+          duplicateEmailMessage: message,
           showErrorPopup: true,
         }));
         setActiveSection("profile");
-        toast.error("A staff member with this email already exists.");
       } else if (status === 401) {
         toast.error("Your session has expired. Please log in again.");
       } else if (status === 400) {
@@ -323,8 +325,8 @@ const AddStaffPage: React.FC = () => {
     // Override setEmail so editing the field clears the duplicate-email backend error
     componentProps.setEmail = (val: string) => {
       setFormData((prev) => ({ ...prev, email: val }));
-      if (ui.isDuplicateEmail) {
-        setUi((prev) => ({ ...prev, isDuplicateEmail: false }));
+      if (ui.duplicateEmailMessage) {
+        setUi((prev) => ({ ...prev, duplicateEmailMessage: null }));
       }
     };
   } else if (activeSection === "settings") {
