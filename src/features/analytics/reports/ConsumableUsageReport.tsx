@@ -6,7 +6,7 @@ import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
 import { fetchBranchesThunk } from "../../../middleware/salon/salon.thunk";
 import type { AppDispatch, RootState } from "../../../store/store";
 import Button from "../../../components/ui/Button";
-import { PageLoader } from "../../../components/ui/PageLoader";
+import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import "./ConsumableUsageReport.scss";
@@ -138,11 +138,13 @@ export default function ConsumableUsageReport({ onBack }: { onBack: () => void }
         </div>
       </div>
 
-      <div className="rp-sra-summary-row">
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{rows.length}</div><div className="rp-sra-summary-label">Products Used</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{totalConsumed.toLocaleString()}</div><div className="rp-sra-summary-label">Total Quantity Consumed</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{uniqueCategories}</div><div className="rp-sra-summary-label">Categories</div></div>
-      </div>
+      {loading ? <SkeletonStatCards count={3} /> : (
+        <div className="rp-sra-summary-row">
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{rows.length}</div><div className="rp-sra-summary-label">Products Used</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{totalConsumed.toLocaleString()}</div><div className="rp-sra-summary-label">Total Quantity Consumed</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{uniqueCategories}</div><div className="rp-sra-summary-label">Categories</div></div>
+        </div>
+      )}
 
       <div className="rp-detail-drag-hint">
         Products used up by staff during services (back-bar stock) — logged separately from client sales, all-time totals for the main branch. Not date-range filterable yet.
@@ -168,7 +170,7 @@ export default function ConsumableUsageReport({ onBack }: { onBack: () => void }
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+              <SkeletonTableRows columns={7} />
             ) : paged.length === 0 ? (
               <tr><td colSpan={7} className="rp-detail-empty-cell">No consumable usage recorded</td></tr>
             ) : paged.map(r => (

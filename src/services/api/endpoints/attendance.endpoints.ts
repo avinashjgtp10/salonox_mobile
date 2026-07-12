@@ -1,6 +1,7 @@
 export const ATTENDANCE = {
   TODAY:        "/api/v1/attendance/today",
   MONTHLY:      "/api/v1/attendance/monthly",
+  RANGE:        "/api/v1/attendance/range",
   SUMMARY:      "/api/v1/attendance/summary",
   CHECK_IN:     "/api/v1/attendance/check-in",
   CHECK_OUT:    "/api/v1/attendance/check-out",

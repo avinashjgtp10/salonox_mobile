@@ -6,14 +6,14 @@ import { BOOKING } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch } from "../../../store/store";
 import Button from "../../../components/ui/Button";
-import { PageLoader } from "../../../components/ui/PageLoader";
+import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import "./StaffItemSalesReport.scss";
 
-const REPORT_NAME = "Service, Product & Membership Sold by Staff";
+const REPORT_NAME = "Service, Product, Membership & Package Sold by Staff";
 
-type ItemType = "service" | "product" | "membership";
+type ItemType = "service" | "product" | "membership" | "package";
 
 interface ItemRow {
   staffName: string;
@@ -39,6 +39,7 @@ export default function StaffItemSalesReport({ onBack }: { onBack: () => void })
   const [serviceRows,    setServiceRows]    = useState<ItemRow[]>([]);
   const [productRows,    setProductRows]    = useState<ItemRow[]>([]);
   const [membershipRows, setMembershipRows] = useState<ItemRow[]>([]);
+  const [packageRows,    setPackageRows]    = useState<ItemRow[]>([]);
   const [currentPage,   setCurrentPage]   = useState(1);
   const [pageSize,      setPageSize]      = useState(10);
   const abortRef = useRef<AbortController | null>(null);
@@ -85,6 +86,7 @@ export default function StaffItemSalesReport({ onBack }: { onBack: () => void })
       const svc: ItemRow[] = [];
       const prod: ItemRow[] = [];
       const mem: ItemRow[] = [];
+      const pkg: ItemRow[] = [];
 
       appts.forEach((appt: any) => {
         const sid = String(appt.staff_id ?? appt.staffId ?? "");
@@ -109,17 +111,25 @@ export default function StaffItemSalesReport({ onBack }: { onBack: () => void })
           const price = parseFloat(String(it.price ?? it.pricePaid ?? 0)) || 0;
           mem.push({ staffName, itemName: String(it.name ?? it.membership_name ?? "Membership"), quantity: 1, revenue: Math.round(price), date });
         });
+
+        (Array.isArray(appt.package_items) ? appt.package_items : []).forEach((it: any) => {
+          const qty = Number(it.quantity ?? 1) || 1;
+          const price = parseFloat(String(it.price ?? 0)) || 0;
+          pkg.push({ staffName, itemName: String(it.name ?? it.package_name ?? "Package"), quantity: qty, revenue: Math.round(price * qty), date });
+        });
       });
 
       svc.sort((a, b) => b.revenue - a.revenue);
       prod.sort((a, b) => b.revenue - a.revenue);
       mem.sort((a, b) => b.revenue - a.revenue);
+      pkg.sort((a, b) => b.revenue - a.revenue);
       setServiceRows(svc);
       setProductRows(prod);
       setMembershipRows(mem);
+      setPackageRows(pkg);
     } catch (e: any) {
       if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") {
-        setServiceRows([]); setProductRows([]); setMembershipRows([]);
+        setServiceRows([]); setProductRows([]); setMembershipRows([]); setPackageRows([]);
       }
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
@@ -127,7 +137,7 @@ export default function StaffItemSalesReport({ onBack }: { onBack: () => void })
   }, [dateFrom, dateTo, staffFilter, dispatch]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setCurrentPage(1); }, [itemType, serviceRows, productRows, membershipRows]);
+  useEffect(() => { setCurrentPage(1); }, [itemType, serviceRows, productRows, membershipRows, packageRows]);
 
   useEffect(() => {
     const close = () => setShowStaffDrop(false);
@@ -135,8 +145,16 @@ export default function StaffItemSalesReport({ onBack }: { onBack: () => void })
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  const rows = itemType === "service" ? serviceRows : itemType === "product" ? productRows : membershipRows;
-  const itemColLabel = itemType === "service" ? "Service Name" : itemType === "product" ? "Product Name" : "Membership Name";
+  const rows =
+    itemType === "service"    ? serviceRows :
+    itemType === "product"    ? productRows :
+    itemType === "membership" ? membershipRows :
+    packageRows;
+  const itemColLabel =
+    itemType === "service"    ? "Service Name" :
+    itemType === "product"    ? "Product Name" :
+    itemType === "membership" ? "Membership Name" :
+    "Package Name";
 
   const totalQty = rows.reduce((s, r) => s + r.quantity, 0);
   const totalRev = rows.reduce((s, r) => s + r.revenue, 0);
@@ -163,7 +181,7 @@ export default function StaffItemSalesReport({ onBack }: { onBack: () => void })
           </div>
         </div>
         <div className="rp-detail-tab-bar">
-          {(["service", "product", "membership"] as ItemType[]).map(t => (
+          {(["service", "product", "membership", "package"] as ItemType[]).map(t => (
             <span key={t} className={`rp-detail-tab rp-sis-type-tab ${itemType === t ? "active" : ""}`}
               onClick={() => setItemType(t)}>
               {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -203,19 +221,21 @@ export default function StaffItemSalesReport({ onBack }: { onBack: () => void })
         </div>
       </div>
 
-      <div className="rp-sra-summary-row">
-        {[
-          { label: "Total Quantity Sold", value: totalQty.toString() },
-          { label: "Total Revenue",       value: `₹${totalRev.toLocaleString()}` },
-          { label: "Top Item",            value: topItem },
-          { label: "Top Staff",           value: topStaff },
-        ].map(c => (
-          <div key={c.label} className="rp-sra-summary-card">
-            <div className="rp-sra-summary-val rp-sis-val">{c.value}</div>
-            <div className="rp-sra-summary-label">{c.label}</div>
-          </div>
-        ))}
-      </div>
+      {loading ? <SkeletonStatCards count={4} /> : (
+        <div className="rp-sra-summary-row">
+          {[
+            { label: "Total Quantity Sold", value: totalQty.toString() },
+            { label: "Total Revenue",       value: `₹${totalRev.toLocaleString()}` },
+            { label: "Top Item",            value: topItem },
+            { label: "Top Staff",           value: topStaff },
+          ].map(c => (
+            <div key={c.label} className="rp-sra-summary-card">
+              <div className="rp-sra-summary-val rp-sis-val">{c.value}</div>
+              <div className="rp-sra-summary-label">{c.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
@@ -231,7 +251,7 @@ export default function StaffItemSalesReport({ onBack }: { onBack: () => void })
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+              <SkeletonTableRows columns={6} />
             ) : paged.length === 0 ? (
               <tr><td colSpan={6} className="rp-detail-empty-cell">No {itemType} sales data available</td></tr>
             ) : paged.map((r, i) => (

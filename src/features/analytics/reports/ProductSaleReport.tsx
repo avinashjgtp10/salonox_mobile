@@ -3,9 +3,10 @@ import { ChevronLeft, Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { BOOKING } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
-import { PageLoader } from "../../../components/ui/PageLoader";
+import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import "./ProductSaleReport.scss";
 
 const REPORT_NAME = "Product Retail";
@@ -14,6 +15,7 @@ interface ProductSaleRow {
   date: string;
   invoiceNo: string;
   client: string;
+  clientId: string;
   productName: string;
   quantity: number;
   price: number;
@@ -30,6 +32,7 @@ export default function ProductSaleReport({ onBack }: { onBack: () => void }) {
   const [loading,     setLoading]     = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(25);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -51,10 +54,11 @@ export default function ProductSaleReport({ onBack }: { onBack: () => void }) {
         const date = String(appt.scheduled_at ?? appt.created_at ?? "").slice(0, 10);
         const invoiceNo = appt.invoice_number != null ? String(appt.invoice_number) : String(appt.id ?? "—");
         const client = appt.client_name ?? "Walk-in";
+        const clientId = appt.client_id ? String(appt.client_id) : "";
         (Array.isArray(appt.product_items) ? appt.product_items : []).forEach((it: any) => {
           const quantity = Number(it.quantity ?? 1) || 1;
           const price = Number(it.price) || 0;
-          rows.push({ date, invoiceNo, client, productName: String(it.name ?? "Product"), quantity, price, total: Math.round(price * quantity) });
+          rows.push({ date, invoiceNo, client, clientId, productName: String(it.name ?? "Product"), quantity, price, total: Math.round(price * quantity) });
         });
       });
       rows.sort((a, b) => (a.date < b.date ? 1 : -1));
@@ -113,12 +117,14 @@ export default function ProductSaleReport({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      <div className="rp-sra-summary-row">
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{totalQty}</div><div className="rp-sra-summary-label">Total Quantity Sold</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalRev.toLocaleString()}</div><div className="rp-sra-summary-label">Total Revenue</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{uniqueProducts}</div><div className="rp-sra-summary-label">Unique Products</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{rows.length}</div><div className="rp-sra-summary-label">Line Items</div></div>
-      </div>
+      {loading ? <SkeletonStatCards count={4} /> : (
+        <div className="rp-sra-summary-row">
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{totalQty}</div><div className="rp-sra-summary-label">Total Quantity Sold</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalRev.toLocaleString()}</div><div className="rp-sra-summary-label">Total Revenue</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{uniqueProducts}</div><div className="rp-sra-summary-label">Unique Products</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{rows.length}</div><div className="rp-sra-summary-label">Line Items</div></div>
+        </div>
+      )}
 
       <div className="rp-detail-toolbar">
         <div className="rp-detail-show-n">
@@ -142,11 +148,15 @@ export default function ProductSaleReport({ onBack }: { onBack: () => void }) {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+              <SkeletonTableRows columns={7} />
             ) : paged.length === 0 ? (
               <tr><td colSpan={7} className="rp-detail-empty-cell">No product sales found</td></tr>
             ) : paged.map((r, i) => (
-              <tr key={i}>
+              <tr
+                key={i}
+                className={r.clientId ? "rp-appt-row" : undefined}
+                onClick={() => r.clientId && setSelectedClientId(r.clientId)}
+              >
                 <td>{r.date}</td>
                 <td><span className="rp-detail-link">{r.invoiceNo}</span></td>
                 <td>{r.client}</td>
@@ -162,6 +172,10 @@ export default function ProductSaleReport({ onBack }: { onBack: () => void }) {
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+
+      {selectedClientId && (
+        <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="products" />
+      )}
     </div>
   );
 }

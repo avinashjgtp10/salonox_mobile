@@ -9,8 +9,8 @@ import { BOOKING } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch } from "../../../store/store";
 import Button from "../../../components/ui/Button";
-import { PageLoader } from "../../../components/ui/PageLoader";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import { SkeletonStatCards, SkeletonTableRows, SkeletonChartBlock } from "./ReportSkeleton";
 import "./StaffSalesReport.scss";
 
 const REPORT_NAME = "Staff Sales";
@@ -159,20 +159,41 @@ export default function StaffSalesReport({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      <div className="rp-sra-summary-row">
-        {[
-          { label: "Service Revenue", value: `₹${totalSvc.toLocaleString()}`, cls: "svc" },
-          { label: "Product Revenue", value: `₹${totalProd.toLocaleString()}`, cls: "prod" },
-          { label: "Total Revenue",   value: `₹${totalRev.toLocaleString()}`,  cls: "total" },
-        ].map(c => (
-          <div key={c.label} className="rp-sra-summary-card">
-            <div className={`rp-sra-summary-val rp-ss-val--${c.cls}`}>{c.value}</div>
-            <div className="rp-sra-summary-label">{c.label}</div>
-          </div>
-        ))}
-      </div>
+      {loading ? <SkeletonStatCards count={3} /> : (
+        <div className="rp-sra-summary-row">
+          {[
+            { label: "Service Revenue", value: `₹${totalSvc.toLocaleString()}`, cls: "svc" },
+            { label: "Product Revenue", value: `₹${totalProd.toLocaleString()}`, cls: "prod" },
+            { label: "Total Revenue",   value: `₹${totalRev.toLocaleString()}`,  cls: "total" },
+          ].map(c => (
+            <div key={c.label} className="rp-sra-summary-card">
+              <div className={`rp-sra-summary-val rp-ss-val--${c.cls}`}>{c.value}</div>
+              <div className="rp-sra-summary-label">{c.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
-      {loading ? <div className="rp-detail-loading-cell"><PageLoader /></div> : rows.length === 0 ? (
+      {loading ? (
+        <>
+          <SkeletonChartBlock />
+          <div className="rp-detail-table-wrap">
+            <table className="rp-detail-table">
+              <thead>
+                <tr>
+                  <th>Period</th>
+                  <th>Service Revenue (₹)</th>
+                  <th>Product Revenue (₹)</th>
+                  <th>Total Revenue (₹)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <SkeletonTableRows columns={4} />
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : rows.length === 0 ? (
         <div className="rp-detail-empty-cell">No revenue data found for selected range</div>
       ) : (
         <>

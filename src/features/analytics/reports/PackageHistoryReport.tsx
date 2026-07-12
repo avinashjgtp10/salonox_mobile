@@ -2,9 +2,10 @@ import { useState, useMemo } from "react";
 import { ChevronLeft, Search } from "react-bootstrap-icons";
 import { useListClientPackagesQuery } from "../../../services/api/endpoints/packages.endpoints";
 import Button from "../../../components/ui/Button";
-import { PageLoader } from "../../../components/ui/PageLoader";
+import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import "./PackageHistoryReport.scss";
 
 const REPORT_NAME = "Package History";
@@ -12,6 +13,7 @@ const REPORT_NAME = "Package History";
 interface HistoryRow {
   date: string;
   client: string;
+  clientId: string;
   packageName: string;
   serviceName: string;
   sessionNo: number;
@@ -27,6 +29,7 @@ export default function PackageHistoryReport({ onBack }: { onBack: () => void })
   const [search,   setSearch]   = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(25);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
 
   const { data, isFetching, refetch } = useListClientPackagesQuery({ page: 1, limit: 500 });
 
@@ -43,6 +46,7 @@ export default function PackageHistoryReport({ onBack }: { onBack: () => void })
           rows.push({
             date: isoDate,
             client: pkg.clientName,
+            clientId: pkg.clientId ? String(pkg.clientId) : "",
             packageName: pkg.packageName,
             serviceName: svc.serviceName,
             sessionNo: sh.sessionNo,
@@ -103,12 +107,14 @@ export default function PackageHistoryReport({ onBack }: { onBack: () => void })
         </div>
       </div>
 
-      <div className="rp-sra-summary-row">
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{rows.length}</div><div className="rp-sra-summary-label">Total Sessions</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{completedCount}</div><div className="rp-sra-summary-label">Completed Sessions</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{uniqueClients}</div><div className="rp-sra-summary-label">Unique Clients</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{uniquePackages}</div><div className="rp-sra-summary-label">Unique Packages</div></div>
-      </div>
+      {isFetching ? <SkeletonStatCards count={4} /> : (
+        <div className="rp-sra-summary-row">
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{rows.length}</div><div className="rp-sra-summary-label">Total Sessions</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{completedCount}</div><div className="rp-sra-summary-label">Completed Sessions</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{uniqueClients}</div><div className="rp-sra-summary-label">Unique Clients</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{uniquePackages}</div><div className="rp-sra-summary-label">Unique Packages</div></div>
+        </div>
+      )}
 
       <div className="rp-detail-toolbar">
         <div className="rp-detail-show-n">
@@ -130,11 +136,15 @@ export default function PackageHistoryReport({ onBack }: { onBack: () => void })
           </thead>
           <tbody>
             {isFetching ? (
-              <tr><td colSpan={7} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+              <SkeletonTableRows columns={7} />
             ) : paged.length === 0 ? (
               <tr><td colSpan={7} className="rp-detail-empty-cell">No package session history found</td></tr>
             ) : paged.map((r, i) => (
-              <tr key={i}>
+              <tr
+                key={i}
+                className={r.clientId ? "rp-appt-row" : undefined}
+                onClick={() => r.clientId && setSelectedClientId(r.clientId)}
+              >
                 <td>{r.date || "—"}</td>
                 <td className="fw-semibold">{r.client}</td>
                 <td>{r.packageName}</td>
@@ -150,6 +160,10 @@ export default function PackageHistoryReport({ onBack }: { onBack: () => void })
 
       <Pagination currentPage={safePage} pageSize={pageSize} totalItems={rows.length}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+
+      {selectedClientId && (
+        <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="packages" />
+      )}
     </div>
   );
 }

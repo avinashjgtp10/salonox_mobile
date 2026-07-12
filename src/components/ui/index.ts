@@ -27,3 +27,5 @@ export { default as PhoneInput } from "./PhoneInput";
 export type { PhoneInputProps } from "./PhoneInput";
 export { default as CountryPhoneSelect } from "./CountryPhoneSelect";
 export type { CountryOption } from "./CountryPhoneSelect";
+export { default as DateRangePicker } from "./DateRangePicker";
+export type { DateRangePickerProps } from "./DateRangePicker";

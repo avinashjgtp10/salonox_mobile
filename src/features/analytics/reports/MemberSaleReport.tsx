@@ -3,9 +3,10 @@ import { ChevronLeft, Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { CLIENT_MEMBERSHIPS, type ClientMembership } from "../../../services/api/endpoints/clientMemberships.endpoints";
 import Button from "../../../components/ui/Button";
-import { PageLoader } from "../../../components/ui/PageLoader";
+import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import "./MemberSaleReport.scss";
 
 const REPORT_NAME = "Member Sale";
@@ -20,6 +21,7 @@ export default function MemberSaleReport({ onBack }: { onBack: () => void }) {
   const [loading,     setLoading]     = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(25);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -84,11 +86,13 @@ export default function MemberSaleReport({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      <div className="rp-sra-summary-row">
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{rows.length}</div><div className="rp-sra-summary-label">Memberships Sold</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalRevenue.toLocaleString()}</div><div className="rp-sra-summary-label">Total Revenue</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{activeCount}</div><div className="rp-sra-summary-label">Active Memberships</div></div>
-      </div>
+      {loading ? <SkeletonStatCards count={3} /> : (
+        <div className="rp-sra-summary-row">
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{rows.length}</div><div className="rp-sra-summary-label">Memberships Sold</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalRevenue.toLocaleString()}</div><div className="rp-sra-summary-label">Total Revenue</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{activeCount}</div><div className="rp-sra-summary-label">Active Memberships</div></div>
+        </div>
+      )}
 
       <div className="rp-detail-toolbar">
         <div className="rp-detail-show-n">
@@ -110,11 +114,15 @@ export default function MemberSaleReport({ onBack }: { onBack: () => void }) {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+              <SkeletonTableRows columns={6} />
             ) : paged.length === 0 ? (
               <tr><td colSpan={6} className="rp-detail-empty-cell">No membership sales found</td></tr>
             ) : paged.map((r) => (
-              <tr key={r.id}>
+              <tr
+                key={r.id}
+                className={r.clientId ? "rp-appt-row" : undefined}
+                onClick={() => r.clientId && setSelectedClientId(String(r.clientId))}
+              >
                 <td>{String(r.purchasedAt ?? "").slice(0, 10)}</td>
                 <td className="fw-semibold">{r.clientName}</td>
                 <td>{r.membershipName}</td>
@@ -129,6 +137,10 @@ export default function MemberSaleReport({ onBack }: { onBack: () => void }) {
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+
+      {selectedClientId && (
+        <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="memberships" />
+      )}
     </div>
   );
 }

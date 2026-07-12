@@ -3,7 +3,7 @@ import { ChevronLeft } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { BOOKING, PRODUCTS } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
-import { PageLoader } from "../../../components/ui/PageLoader";
+import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import "./ProductMarginReport.scss";
@@ -128,12 +128,14 @@ export default function ProductMarginReport({ onBack }: { onBack: () => void }) 
         </div>
       </div>
 
-      <div className="rp-sra-summary-row">
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalRevenue.toLocaleString()}</div><div className="rp-sra-summary-label">Total Revenue</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalCost.toLocaleString()}</div><div className="rp-sra-summary-label">Total Cost</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val rp-pm-profit">₹{totalProfit.toLocaleString()}</div><div className="rp-sra-summary-label">Total Profit</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{avgMargin}%</div><div className="rp-sra-summary-label">Avg Margin</div></div>
-      </div>
+      {loading ? <SkeletonStatCards count={4} /> : (
+        <div className="rp-sra-summary-row">
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalRevenue.toLocaleString()}</div><div className="rp-sra-summary-label">Total Revenue</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalCost.toLocaleString()}</div><div className="rp-sra-summary-label">Total Cost</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val rp-pm-profit">₹{totalProfit.toLocaleString()}</div><div className="rp-sra-summary-label">Total Profit</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{avgMargin}%</div><div className="rp-sra-summary-label">Avg Margin</div></div>
+        </div>
+      )}
 
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
@@ -142,7 +144,7 @@ export default function ProductMarginReport({ onBack }: { onBack: () => void }) 
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+              <SkeletonTableRows columns={6} />
             ) : paged.length === 0 ? (
               <tr><td colSpan={6} className="rp-detail-empty-cell">No product margin data found</td></tr>
             ) : paged.map((r, i) => (

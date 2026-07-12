@@ -3,15 +3,17 @@ import { ChevronLeft, Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { BOOKING } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
-import { PageLoader } from "../../../components/ui/PageLoader";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
+import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import "./ClientRevenueReport.scss";
 
 const REPORT_NAME = "Client Revenue";
 
 interface ClientRevenueRow {
   client: string;
+  clientId: string;
   contact: string;
   visits: number;
   totalSpend: number;
@@ -29,6 +31,7 @@ export default function ClientRevenueReport({ onBack }: { onBack: () => void }) 
   const [loading,     setLoading]     = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(25);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -43,9 +46,10 @@ export default function ClientRevenueReport({ onBack }: { onBack: () => void }) 
         Array.isArray(raw?.items) ? raw.items :
         Array.isArray(raw?.data)  ? raw.data  :
         Array.isArray(raw)        ? raw        : [];
-      const map = new Map<string, { client: string; contact: string; visits: number; totalSpend: number; lastVisit: string }>();
+      const map = new Map<string, { client: string; clientId: string; contact: string; visits: number; totalSpend: number; lastVisit: string }>();
       appts.forEach((appt: any) => {
         const client = appt.client_name ?? "Walk-in";
+        const clientId = appt.client_id ? String(appt.client_id) : "";
         const contact = appt.client_phone ?? "—";
         const key = `${client}||${contact}`;
         // Prefer the real, server-computed paid amount (sum of actual payments — the same
@@ -66,7 +70,7 @@ export default function ClientRevenueReport({ onBack }: { onBack: () => void }) 
           total = Math.max(itemsTotal - discount, 0) + (Number(appt.tip_amount) || 0);
         }
         const date = String(appt.scheduled_at ?? appt.created_at ?? "").slice(0, 10);
-        const e = map.get(key) ?? { client, contact, visits: 0, totalSpend: 0, lastVisit: "" };
+        const e = map.get(key) ?? { client, clientId, contact, visits: 0, totalSpend: 0, lastVisit: "" };
         e.visits += 1;
         e.totalSpend += total;
         if (date > e.lastVisit) e.lastVisit = date;
@@ -131,12 +135,14 @@ export default function ClientRevenueReport({ onBack }: { onBack: () => void }) 
         </div>
       </div>
 
-      <div className="rp-sra-summary-row">
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{totalClients}</div><div className="rp-sra-summary-label">Total Clients</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalRevenue.toLocaleString()}</div><div className="rp-sra-summary-label">Total Revenue</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{avgSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div><div className="rp-sra-summary-label">Avg Spend / Client</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val rp-cr-top">{topClient}</div><div className="rp-sra-summary-label">Top Client</div></div>
-      </div>
+      {loading ? <SkeletonStatCards count={4} /> : (
+        <div className="rp-sra-summary-row">
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{totalClients}</div><div className="rp-sra-summary-label">Total Clients</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalRevenue.toLocaleString()}</div><div className="rp-sra-summary-label">Total Revenue</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{avgSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div><div className="rp-sra-summary-label">Avg Spend / Client</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val rp-cr-top">{topClient}</div><div className="rp-sra-summary-label">Top Client</div></div>
+        </div>
+      )}
 
       <div className="rp-detail-toolbar">
         <div className="rp-detail-show-n">
@@ -158,11 +164,15 @@ export default function ClientRevenueReport({ onBack }: { onBack: () => void }) 
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+              <SkeletonTableRows columns={6} />
             ) : paged.length === 0 ? (
               <tr><td colSpan={6} className="rp-detail-empty-cell">No client revenue data found</td></tr>
             ) : paged.map((r, i) => (
-              <tr key={i}>
+              <tr
+                key={i}
+                className={r.clientId ? "rp-appt-row" : undefined}
+                onClick={() => r.clientId && setSelectedClientId(r.clientId)}
+              >
                 <td className="fw-semibold">{r.client}</td>
                 <td>{r.contact}</td>
                 <td>{r.visits}</td>
@@ -177,6 +187,10 @@ export default function ClientRevenueReport({ onBack }: { onBack: () => void }) 
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+
+      {selectedClientId && (
+        <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="history" />
+      )}
     </div>
   );
 }

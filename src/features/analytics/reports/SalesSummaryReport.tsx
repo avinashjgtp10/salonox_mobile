@@ -6,14 +6,16 @@ import { BOOKING } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch } from "../../../store/store";
 import Button from "../../../components/ui/Button";
-import { PageLoader } from "../../../components/ui/PageLoader";
+import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
 import "./SalesSummaryReport.scss";
 
 const REPORT_NAME = "Sales Summary";
 
 interface SaleRow {
+  id: string;
   invoiceNo: string;
   name: string;
   contact: string;
@@ -57,6 +59,7 @@ function mapAppointment(appt: any): SaleRow {
   const paid = Number(appt.paid_amount) || 0;
 
   return {
+    id: String(appt.id ?? ""),
     invoiceNo: appt.invoice_number != null ? String(appt.invoice_number) : String(appt.id ?? "—"),
     name: appt.client_name ?? "Walk-in",
     contact: appt.client_phone ?? "—",
@@ -87,6 +90,7 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
   const [loading,       setLoading]       = useState(false);
   const [currentPage,   setCurrentPage]   = useState(1);
   const [pageSize,      setPageSize]      = useState(25);
+  const [selectedId,    setSelectedId]    = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -203,22 +207,24 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      <div className="rp-sra-summary-row rp-sales-stat-row">
-        {[
-          { label: "Total Bill",        value: stats.totalBill.toString() },
-          { label: "Bill Average",      value: money(stats.billAverage) },
-          { label: "Total Sale",        value: money(stats.totalSale) },
-          { label: "Received Amount",   value: money(stats.received) },
-          { label: "Pending Amount",    value: money(stats.pending) },
-          { label: "Return Sales",      value: money(stats.returnSales) },
-          { label: "Total Tip",         value: money(stats.totalTip) },
-        ].map(c => (
-          <div key={c.label} className="rp-sra-summary-card">
-            <div className="rp-sra-summary-val">{c.value}</div>
-            <div className="rp-sra-summary-label">{c.label}</div>
-          </div>
-        ))}
-      </div>
+      {loading ? <SkeletonStatCards count={7} className="rp-sales-stat-row" /> : (
+        <div className="rp-sra-summary-row rp-sales-stat-row">
+          {[
+            { label: "Total Bill",        value: stats.totalBill.toString() },
+            { label: "Bill Average",      value: money(stats.billAverage) },
+            { label: "Total Sale",        value: money(stats.totalSale) },
+            { label: "Received Amount",   value: money(stats.received) },
+            { label: "Pending Amount",    value: money(stats.pending) },
+            { label: "Return Sales",      value: money(stats.returnSales) },
+            { label: "Total Tip",         value: money(stats.totalTip) },
+          ].map(c => (
+            <div key={c.label} className="rp-sra-summary-card">
+              <div className="rp-sra-summary-val">{c.value}</div>
+              <div className="rp-sra-summary-label">{c.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="rp-detail-toolbar">
         <div className="rp-detail-show-n">
@@ -259,11 +265,11 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={12} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+              <SkeletonTableRows columns={12} />
             ) : paged.length === 0 ? (
               <tr><td colSpan={12} className="rp-detail-empty-cell">No sales found</td></tr>
             ) : paged.map((r, i) => (
-              <tr key={i}>
+              <tr key={i} className="rp-appt-row" onClick={() => r.id && setSelectedId(r.id)}>
                 <td><span className="rp-detail-link">{r.invoiceNo}</span></td>
                 <td className="fw-semibold">{r.name}</td>
                 <td>{r.contact}</td>
@@ -287,6 +293,14 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
         onPageChange={setCurrentPage}
         onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
       />
+
+      {selectedId && (
+        <AppointmentDetailModal
+          appointmentId={selectedId}
+          onClose={() => setSelectedId(null)}
+          onChanged={fetchData}
+        />
+      )}
     </div>
   );
 }

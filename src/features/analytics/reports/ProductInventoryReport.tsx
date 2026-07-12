@@ -3,7 +3,7 @@ import { ChevronLeft, Grid3x3Gap, InfoCircle } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { PRODUCTS, CATEGORIES } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
-import { PageLoader } from "../../../components/ui/PageLoader";
+import { SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import "./ProductInventoryReport.scss";
@@ -143,10 +143,12 @@ export default function ProductInventoryReport({ onBack }: { onBack: () => void 
         </div>
       </div>
 
-      <div className="rp-detail-drag-hint">
-        {rows.length} product{rows.length !== 1 ? "s" : ""}
-        {rows.length > 0 && <>&nbsp;·&nbsp;Total Value: <strong>₹{rows.reduce((s, r) => s + r.totalValue, 0).toLocaleString()}</strong></>}
-      </div>
+      {!loading && (
+        <div className="rp-detail-drag-hint">
+          {rows.length} product{rows.length !== 1 ? "s" : ""}
+          {rows.length > 0 && <>&nbsp;·&nbsp;Total Value: <strong>₹{rows.reduce((s, r) => s + r.totalValue, 0).toLocaleString()}</strong></>}
+        </div>
+      )}
 
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
@@ -164,7 +166,7 @@ export default function ProductInventoryReport({ onBack }: { onBack: () => void 
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+              <SkeletonTableRows columns={8} />
             ) : rows.length === 0 ? (
               <tr><td colSpan={8} className="rp-detail-empty-cell">No data available</td></tr>
             ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (

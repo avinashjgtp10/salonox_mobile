@@ -3,7 +3,7 @@ import { ChevronLeft } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { BOOKING } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
-import { PageLoader } from "../../../components/ui/PageLoader";
+import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import "./RewardReport.scss";
@@ -101,10 +101,12 @@ export default function RewardReport({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      <div className="rp-sra-summary-row">
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{rows.length}</div><div className="rp-sra-summary-label">Redemptions</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalValue.toLocaleString()}</div><div className="rp-sra-summary-label">Total Redeemed Value</div></div>
-      </div>
+      {loading ? <SkeletonStatCards count={2} /> : (
+        <div className="rp-sra-summary-row">
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{rows.length}</div><div className="rp-sra-summary-label">Redemptions</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalValue.toLocaleString()}</div><div className="rp-sra-summary-label">Total Redeemed Value</div></div>
+        </div>
+      )}
 
       <div className="rp-detail-drag-hint">Reward points redeemed as payment — points earned aren't tracked by the backend yet.</div>
 
@@ -115,7 +117,7 @@ export default function RewardReport({ onBack }: { onBack: () => void }) {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={4} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+              <SkeletonTableRows columns={4} />
             ) : paged.length === 0 ? (
               <tr><td colSpan={4} className="rp-detail-empty-cell">No reward redemptions found</td></tr>
             ) : paged.map((r, i) => (

@@ -3,7 +3,7 @@ import { ChevronLeft } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { BOOKING } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
-import { PageLoader } from "../../../components/ui/PageLoader";
+import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import "./TaxesReport.scss";
@@ -124,13 +124,15 @@ export default function TaxesReport({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
+      {loading ? <SkeletonStatCards count={3} /> : (
       <div className="rp-sra-summary-row">
         <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{invoiceCount}</div><div className="rp-sra-summary-label">Invoices with Tax</div></div>
         <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalTaxable.toLocaleString()}</div><div className="rp-sra-summary-label">Total Taxable Amount</div></div>
         <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalTax.toLocaleString()}</div><div className="rp-sra-summary-label">Total Tax Collected</div></div>
       </div>
+      )}
 
-      <div className="rp-detail-drag-hint">{rows.length} tax line{rows.length !== 1 ? "s" : ""}</div>
+      {!loading && <div className="rp-detail-drag-hint">{rows.length} tax line{rows.length !== 1 ? "s" : ""}</div>}
 
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
@@ -139,7 +141,7 @@ export default function TaxesReport({ onBack }: { onBack: () => void }) {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={8} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+              <SkeletonTableRows columns={8} />
             ) : paged.length === 0 ? (
               <tr><td colSpan={8} className="rp-detail-empty-cell">No tax data found</td></tr>
             ) : paged.map((r, i) => (

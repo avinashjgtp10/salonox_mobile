@@ -6,7 +6,7 @@ import { REPORT, SERVICES } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch } from "../../../store/store";
 import Button from "../../../components/ui/Button";
-import { PageLoader } from "../../../components/ui/PageLoader";
+import { SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import "./DailySheetReport.scss";
@@ -161,10 +161,12 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      <div className="rp-detail-drag-hint">
-        Daily Total: <strong style={{ color: "#111827", marginLeft: 6 }}>₹{totalRevenue.toLocaleString()}</strong>
-        &nbsp;· {rows.length} transactions
-      </div>
+      {!loading && (
+        <div className="rp-detail-drag-hint">
+          Daily Total: <strong style={{ color: "#111827", marginLeft: 6 }}>₹{totalRevenue.toLocaleString()}</strong>
+          &nbsp;· {rows.length} transactions
+        </div>
+      )}
 
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
@@ -181,7 +183,7 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+              <SkeletonTableRows columns={7} />
             ) : rows.length === 0 ? (
               <tr><td colSpan={7} className="rp-detail-empty-cell">No data available</td></tr>
             ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (

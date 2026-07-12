@@ -3,9 +3,9 @@ import { ChevronLeft, Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { CLIENT, EWALLET } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
-import { PageLoader } from "../../../components/ui/PageLoader";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import "./EwalletReport.scss";
 
 const REPORT_NAME = "Ewallet";
@@ -152,12 +152,14 @@ export default function EwalletReport({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      <div className="rp-sra-summary-row">
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{totalClients}</div><div className="rp-sra-summary-label">Total Clients</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{withBalance}</div><div className="rp-sra-summary-label">With Wallet Balance</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalValue.toLocaleString("en-IN")}</div><div className="rp-sra-summary-label">Total Wallet Value</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{avgBalance.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div><div className="rp-sra-summary-label">Avg Balance</div></div>
-      </div>
+      {loading ? <SkeletonStatCards count={4} /> : (
+        <div className="rp-sra-summary-row">
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{totalClients}</div><div className="rp-sra-summary-label">Total Clients</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{withBalance}</div><div className="rp-sra-summary-label">With Wallet Balance</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalValue.toLocaleString("en-IN")}</div><div className="rp-sra-summary-label">Total Wallet Value</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{avgBalance.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div><div className="rp-sra-summary-label">Avg Balance</div></div>
+        </div>
+      )}
 
       <div className="rp-detail-toolbar">
         <div className="rp-detail-show-n">
@@ -185,7 +187,7 @@ export default function EwalletReport({ onBack }: { onBack: () => void }) {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={4} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+              <SkeletonTableRows columns={4} />
             ) : paged.length === 0 ? (
               <tr><td colSpan={4} className="rp-detail-empty-cell">No clients found</td></tr>
             ) : paged.map(r => (
@@ -218,7 +220,24 @@ export default function EwalletReport({ onBack }: { onBack: () => void }) {
 
             <div className="rp-appt-drawer-body">
               {drawerLoading ? (
-                <div className="rp-detail-loading-cell"><PageLoader /></div>
+                <>
+                  <div className="rp-appt-drawer-section-title">Wallet Breakdown</div>
+                  <div className="rp-ew-drawer-stats">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="rp-ew-drawer-stat">
+                        <div className="rp-skel-bar rp-ew-skel-val" />
+                        <div className="rp-skel-bar rp-ew-skel-label" />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="rp-appt-drawer-section-title rp-ew-drawer-ledger-title">Transaction History</div>
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="rp-appt-drawer-meta-row">
+                      <div className="rp-skel-bar rp-ew-skel-meta" />
+                      <div className="rp-skel-bar rp-ew-skel-amount" />
+                    </div>
+                  ))}
+                </>
               ) : (
                 <>
                   <div className="rp-appt-drawer-section-title">Wallet Breakdown</div>

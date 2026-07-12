@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { ChevronLeft, Grid3x3Gap, InfoCircle, Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import Button from "../../../components/ui/Button";
-import { PageLoader } from "../../../components/ui/PageLoader";
+import { SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import "./WaCampaignReport.scss";
@@ -138,13 +138,15 @@ export default function WaCampaignReport({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      <div className="rp-detail-drag-hint">
-        {rows.length} campaign{rows.length !== 1 ? "s" : ""}
-        {rows.length > 0 && (
-          <>&nbsp;·&nbsp;Total Sent: <strong>{totalSent.toLocaleString()}</strong>
-          &nbsp;·&nbsp;Avg Delivery: <strong>{pct(totalDelivered, totalSent)}</strong></>
-        )}
-      </div>
+      {!loading && (
+        <div className="rp-detail-drag-hint">
+          {rows.length} campaign{rows.length !== 1 ? "s" : ""}
+          {rows.length > 0 && (
+            <>&nbsp;·&nbsp;Total Sent: <strong>{totalSent.toLocaleString()}</strong>
+            &nbsp;·&nbsp;Avg Delivery: <strong>{pct(totalDelivered, totalSent)}</strong></>
+          )}
+        </div>
+      )}
 
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
@@ -164,7 +166,7 @@ export default function WaCampaignReport({ onBack }: { onBack: () => void }) {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={10} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+              <SkeletonTableRows columns={10} />
             ) : rows.length === 0 ? (
               <tr><td colSpan={10} className="rp-detail-empty-cell">No data available</td></tr>
             ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
