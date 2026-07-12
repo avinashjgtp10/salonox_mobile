@@ -115,7 +115,7 @@ export default function StaffSalesReport({ onBack }: { onBack: () => void }) {
             <ChevronLeft size={15} /> {REPORT_NAME}
           </Button>
           <div className="rp-detail-view-icons">
-            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`staff-sales-${dateFrom}-${dateTo}`} csv print />
+            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`staff-sales-${dateFrom}-${dateTo}`} csv />
           </div>
         </div>
         <div className="rp-detail-tab-bar">

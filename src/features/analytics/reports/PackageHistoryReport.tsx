@@ -86,7 +86,7 @@ export default function PackageHistoryReport({ onBack }: { onBack: () => void })
             <ChevronLeft size={15} /> {REPORT_NAME}
           </Button>
           <div className="rp-detail-view-icons">
-            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`package-history-${dateFrom}-${dateTo}`} variant="button" csv print />
+            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`package-history-${dateFrom}-${dateTo}`} variant="button" csv />
           </div>
         </div>
       </div>

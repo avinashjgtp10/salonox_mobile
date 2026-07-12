@@ -111,7 +111,7 @@ export default function ConsumableUsageReport({ onBack }: { onBack: () => void }
             <ChevronLeft size={15} /> {REPORT_NAME}
           </Button>
           <div className="rp-detail-view-icons">
-            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename="consumable-usage" variant="button" csv print />
+            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename="consumable-usage" variant="button" csv />
           </div>
         </div>
       </div>

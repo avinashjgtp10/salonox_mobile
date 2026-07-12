@@ -115,7 +115,7 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
           </Button>
           <div className="rp-detail-view-icons">
             <button className="rp-detail-icon-btn" title="Column view"><Grid3x3Gap size={16} /></button>
-            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`${REPORT_NAME}-${date}`} csv print />
+            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`${REPORT_NAME}-${date}`} csv />
             <button className="rp-detail-icon-btn" title="Info"><InfoCircle size={16} /></button>
           </div>
         </div>
