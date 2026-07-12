@@ -305,6 +305,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
   const [scanMessage, setScanMessage] = useState("");
   const [qtyInput, setQtyInput] = useState(String(getSafeQty(row.qty)));
   const [discountInput, setDiscountInput] = useState(getDiscountValue(row.discount));
+  const [activeIndex, setActiveIndex] = useState(-1);
   const dropRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -465,6 +466,41 @@ function SearchableItemRow(props: SearchableItemRowProps) {
     userTypedRef.current = true;
     setScanMessage("");
     setSearch(value);
+  }
+
+  // Reset the keyboard-highlighted result whenever the result set changes.
+  useEffect(() => { setActiveIndex(-1); }, [results]);
+
+  function handleSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (showDrop && results.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActiveIndex((i) => (i + 1) % results.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActiveIndex((i) => (i <= 0 ? results.length - 1 : i - 1));
+        return;
+      }
+      if (e.key === "Enter" && activeIndex >= 0 && activeIndex < results.length) {
+        e.preventDefault();
+        handleSelect(results[activeIndex]);
+        return;
+      }
+      if (e.key === "Escape") {
+        // Close the suggestion list first — stopPropagation here (this handler
+        // runs on the capture phase) keeps a lone Escape from also closing the
+        // whole appointment drawer via its own focus-trap Escape handler.
+        e.stopPropagation();
+        setShowDrop(false);
+        return;
+      }
+    }
+    if (e.key === "Enter" && kind === "product") {
+      e.preventDefault();
+      handleBarcodeSubmit();
+    }
   }
 
   function handleSelect(item: SearchableCatalogItem) {
@@ -656,17 +692,19 @@ function SearchableItemRow(props: SearchableItemRowProps) {
               // barcode) gets reverted back to the row's actual selected item.
               setSearch(selectedName);
             }}
-            onKeyDown={(e) => {
-              if (e.key !== "Enter" || kind !== "product") return;
-
-              e.preventDefault();
-              handleBarcodeSubmit();
-            }}
+            onKeyDownCapture={handleSearchKeyDown}
+            role="combobox"
+            aria-expanded={showDrop && results.length > 0}
+            aria-haspopup="listbox"
+            aria-controls={`${kind}-search-listbox`}
+            aria-activedescendant={activeIndex >= 0 ? `${kind}-search-option-${results[activeIndex]?.id}` : undefined}
           />
           {showDrop && meetsMinSearchLength && inputRef.current && createPortal(
             <div
               ref={portalDropRef}
               className="svc-dropdown"
+              role="listbox"
+              id={`${kind}-search-listbox`}
               style={(() => {
                 const r = inputRef.current!.getBoundingClientRect();
                 return { position: "fixed" as const, top: r.bottom + 2, left: r.left, width: r.width, zIndex: 9999 };
@@ -675,15 +713,19 @@ function SearchableItemRow(props: SearchableItemRowProps) {
               {isSearching ? (
                 <div className="svc-dropdown__searching">Searching...</div>
               ) : results.length > 0 ? (
-                results.map((item) => {
+                results.map((item, i) => {
                   const isOutOfStock = kind === "product" && item.stock !== undefined && item.stock <= 0;
 
                   return (
                     <button
                       type="button"
                       key={`${kind}-${item.id}`}
-                      className="svc-dropdown__item"
+                      id={`${kind}-search-option-${item.id}`}
+                      role="option"
+                      aria-selected={i === activeIndex}
+                      className={`svc-dropdown__item${i === activeIndex ? " svc-dropdown__item--active" : ""}`}
                       onMouseDown={() => handleSelect(item)}
+                      onMouseEnter={() => setActiveIndex(i)}
                       disabled={isOutOfStock}
                       style={isOutOfStock ? { cursor: "not-allowed", opacity: 0.6 } : undefined}
                       title={isOutOfStock ? "Out of stock" : undefined}

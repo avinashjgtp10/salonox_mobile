@@ -372,6 +372,9 @@ export function mapApiBooking(
     membershipItems,
     memberships: membershipItems,
     grandTotal: grandTotalVal,
+    isDeleted: !!(appt.deleted_at ?? appt.deletedAt),
+    serviceStartedAt: appt.service_started_at ?? appt.serviceStartedAt ?? null,
+    serviceEndedAt: appt.service_ended_at ?? appt.serviceEndedAt ?? null,
     // When package-covered items bring our recomputed due to 0, the backend's payments table may still
     // show "partial" (it used the old grand_total that included catalog prices). Override to "Paid".
     paymentStatus: (hasPerServicePackage && dueAmount === 0 && payingNow > 0) ? "Paid" : normalizedPaymentStatus,

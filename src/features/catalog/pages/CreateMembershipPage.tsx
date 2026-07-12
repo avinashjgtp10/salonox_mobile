@@ -285,6 +285,7 @@ const CreateMembershipPage: React.FC = () => {
                         placeholder="0"
                         value={price}
                         onChange={e => { setPrice(e.target.value); setErrors(p => ({ ...p, price: "" })); }}
+                        onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
                       />
                     </div>
                     {errors.price && <p className="cmp__err">{errors.price}</p>}

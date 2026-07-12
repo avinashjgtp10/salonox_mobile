@@ -242,6 +242,14 @@ export function printReceipt(
   const gstAmt      = Number((booking as any).gstAmount     || 0);
   const taxBreakdown = ((booking as any).taxBreakdown || []) as { name: string; rate: number; amount: number; inclusive: boolean }[];
   const grandTotal  = Number(booking.grandTotal || 0);
+  // grandTotal is already rounded to a whole rupee (see computeTotals()) — the
+  // receipt shows the small adjustment that produced it, same as the on-screen
+  // totals panel/summary the client saw moments earlier at checkout.
+  const exclusiveTaxTotal = taxBreakdown.length > 0
+    ? taxBreakdown.filter((t) => !t.inclusive && t.amount > 0).reduce((s, t) => s + t.amount, 0)
+    : gstAmt;
+  const rawGrandTotal = subtotalAmt - manualDisc - couponDisc - referralDisc + exCharges + exclusiveTaxTotal;
+  const roundOff = grandTotal - rawGrandTotal;
   const paidAmt     = Number(booking.payingNow  || 0);
   const dueAmt      = Number(booking.dueAmount  || 0);
   const rewardPointsValuePaid = Number((booking as any).rewardPointsValue || 0);
@@ -292,6 +300,9 @@ export function printReceipt(
           ),
         ]
       : [gstAmt > 0 ? sumRow(`GST${gstPct > 0 ? ` (${gstPct}%)` : ""}`, `+${fmt(gstAmt)}`) : ""]),
+    !isPackagePaid && Math.abs(roundOff) >= 0.005
+      ? sumRow("Round Off", `${roundOff >= 0 ? "+" : "−"}${fmt(Math.abs(roundOff))}`)
+      : "",
     sumRow("Grand Total", fmt(isPackagePaid ? 0 : grandTotal), true, "#111827", true),
     rewardPointsValuePaid > 0 ? sumRow("Paid from Reward Points", fmt(rewardPointsValuePaid), false, "#7c3aed") : "",
     membershipWalletUsedAmt > 0 ? sumRow("Paid via Membership Wallet", fmt(membershipWalletUsedAmt), false, "#15803d") : "",

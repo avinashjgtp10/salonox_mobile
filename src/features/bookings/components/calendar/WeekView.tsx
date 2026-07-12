@@ -230,7 +230,7 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({ onSlotClick, onViewBill })
                           style={{ top: timeToPx(b.startTime), height: chipH, ...overlapStyle }}
                           onMouseEnter={(e) => openTip(b, e.currentTarget)}
                           onMouseLeave={closeTip}
-                          onClick={(e) => { e.stopPropagation(); onViewBill(b); }}
+                          onClick={(e) => { e.stopPropagation(); if (!b.isDeleted) onViewBill(b); }}
                         >
                           <div className="wv-chip__time">{formatTime12(b.startTime)}</div>
                           <div className="wv-chip__client">{b.clientName}</div>

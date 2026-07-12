@@ -1,4 +1,4 @@
-export type ChipStatusClass = "confirmed" | "partial" | "pending" | "cancelled" | "no-show";
+export type ChipStatusClass = "deleted" | "confirmed" | "partial" | "pending" | "cancelled" | "no-show";
 
 /**
  * Single source of truth for how a booking's raw status/paymentStatus map to
@@ -8,13 +8,20 @@ export type ChipStatusClass = "confirmed" | "partial" | "pending" | "cancelled" 
  * "no-show" is a display-only auto-detection (scheduled end time has passed
  * with nothing paid at all) — it never writes back to the booking's real
  * status, so the booking stays exactly as editable as any other.
+ *
+ * "deleted" outranks everything else — "Delete Appointment" is a soft delete
+ * server-side (deleted_at, not a row removal) specifically so it can still
+ * show here, greyed out, instead of vanishing without a trace.
  */
 export function computeChipStatusClass(booking: {
   status?: string | null;
   paymentStatus?: string | null;
   date?: string | null;
   endTime?: string | null;
+  isDeleted?: boolean;
 }): ChipStatusClass {
+  if (booking.isDeleted) return "deleted";
+
   const ps = (booking.paymentStatus || "").toLowerCase();
   const bs = (booking.status || "").toLowerCase();
   const isPaid = ps === "paid" || ps === "completed";

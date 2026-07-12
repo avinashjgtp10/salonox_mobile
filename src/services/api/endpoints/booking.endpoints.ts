@@ -9,6 +9,10 @@ export const BOOKING = {
   NO_SHOW:  (id: string | number) => `/api/v1/appointments/${id}/no-show`,
   CHECKOUT: (id: string | number) => `/api/v1/appointments/${id}/checkout`,
 
+  // ── Client service check-in/check-out (calendar tooltip toggle) ───────────
+  SERVICE_CHECKIN:  (id: string | number) => `/api/v1/appointments/${id}/service-checkin`,
+  SERVICE_CHECKOUT: (id: string | number) => `/api/v1/appointments/${id}/service-checkout`,
+
   EXPORT: (
     format: "excel" | "csv" | "pdf",
     filters?: { salon_id?: string; status?: string; start_date?: string; end_date?: string }

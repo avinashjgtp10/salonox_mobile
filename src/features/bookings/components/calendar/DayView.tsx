@@ -536,18 +536,6 @@ const DayView: React.FC<DayViewProps> = ({
     setStaffMenu(null);
   }
 
-  if (staffList.length === 0) {
-    // Scheduler.tsx already handles the confirmed "no staff" case (staffReady && !hasStaff).
-    // When DayView is rendered but staffList is empty we are still in the loading phase,
-    // so always show the loader — never show "Add Staff" here.
-    return (
-      <div className="dv-loading">
-        <div className="dv-loading__spinner" />
-        <span className="dv-loading__text">Loading calendar…</span>
-      </div>
-    );
-  }
-
   return (
     <div
       ref={containerRef}

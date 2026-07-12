@@ -57,7 +57,12 @@ export interface TotalsResult {
   // item price, so they don't add anything here (see taxBreakdown for both).
   gstAmount: number;
   taxBreakdown: TaxBreakdownEntry[];
+  // Rounded to the nearest whole rupee — the actual amount the client is
+  // billed. roundOff is the (small, +/-) adjustment that got folded in to
+  // reach that whole number, shown as its own line wherever the bill breaks
+  // down its total (TotalsPanel, quick-sale summary, printed receipt).
   grandTotal: number;
+  roundOff: number;
   effectiveTotal: number; // grandTotal - eWalletUsed
 }
 
@@ -163,8 +168,10 @@ export function computeTotals(input: TotalsInput): TotalsResult {
   });
 
   const taxBreakdown = mergeBreakdown(allBreakdown);
-  const grandTotal = taxable + gstAmount + exCharges;
+  const rawGrandTotal = taxable + gstAmount + exCharges;
+  const grandTotal = Math.round(rawGrandTotal);
+  const roundOff = grandTotal - rawGrandTotal;
   const effectiveTotal = Math.max(0, grandTotal - eWalletUsed - membershipWalletUsed);
 
-  return { catalogTotal, itemDiscountTotal, subtotal, manualDiscount, totalDisc, taxable, gstAmount, taxBreakdown, grandTotal, effectiveTotal };
+  return { catalogTotal, itemDiscountTotal, subtotal, manualDiscount, totalDisc, taxable, gstAmount, taxBreakdown, grandTotal, roundOff, effectiveTotal };
 }

@@ -221,6 +221,9 @@ function mapBooking(appt: any, servicesList?: any[]): Booking {
   return {
     ...appt, title,
     invoiceNumber: appt.invoice_number ? Number(appt.invoice_number) : undefined,
+    isDeleted: !!(appt.deleted_at ?? appt.deletedAt),
+    serviceStartedAt: appt.service_started_at ?? appt.serviceStartedAt ?? null,
+    serviceEndedAt: appt.service_ended_at ?? appt.serviceEndedAt ?? null,
     payment_status: (appt.payment_status ?? "unpaid") as any,
     // When package-covered items bring our recomputed due to 0, the backend's payments table may still
     // show "partial" (it used the old grand_total that included catalog prices). Override to "Paid".
@@ -377,6 +380,38 @@ export const startBookingThunk = createAsyncThunk<Booking, string | number, { re
   "booking/start", async (id, { rejectWithValue }) => {
     try { const res = await api.post<BookingResponse>(BOOKING.START(id)); return res.data.data; }
     catch (err: any) { if (err instanceof ApiError) return rejectWithValue(err.message); return rejectWithValue("Failed to start booking"); }
+  }
+);
+
+// Client service check-in/check-out (calendar tooltip toggle). Mapped through
+// mapBooking (unlike the plain status-transition thunks above) because
+// check-in reschedules the appointment server-side — the caller needs
+// startTime/endTime/date already resolved to local values so it can patch the
+// booking into Redux and have the calendar block visually slide to the live
+// time slot.
+export const serviceCheckInBookingThunk = createAsyncThunk<Booking, string | number, { rejectValue: string }>(
+  "booking/serviceCheckIn", async (id, { rejectWithValue, getState }) => {
+    try {
+      const res = await api.post<BookingResponse>(BOOKING.SERVICE_CHECKIN(id));
+      const state = getState() as any;
+      return mapBooking(res.data.data, state.scheduler?.servicesList || []);
+    } catch (err: any) {
+      if (err instanceof ApiError) return rejectWithValue(err.message);
+      return rejectWithValue("Failed to check in");
+    }
+  }
+);
+
+export const serviceCheckOutBookingThunk = createAsyncThunk<Booking, string | number, { rejectValue: string }>(
+  "booking/serviceCheckOut", async (id, { rejectWithValue, getState }) => {
+    try {
+      const res = await api.post<BookingResponse>(BOOKING.SERVICE_CHECKOUT(id));
+      const state = getState() as any;
+      return mapBooking(res.data.data, state.scheduler?.servicesList || []);
+    } catch (err: any) {
+      if (err instanceof ApiError) return rejectWithValue(err.message);
+      return rejectWithValue("Failed to check out");
+    }
   }
 );
 

@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import type { BlockedTime } from "../../types/scheduler-types";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import MiniCalendar from "../shared/MiniCalendar.tsx";
 import TimeSelect from "../shared/TimeSelect";
 import Button from "../../../../components/ui/Button";
 import Input from "../../../../components/ui/Input";
+import { useFocusTrap } from "../../../../hooks/useFocusTrap";
 import "../../styles/Scheduler.scss";
 
 interface Props {
@@ -15,6 +16,8 @@ interface Props {
 
 const BlockTimeModal: React.FC<Props> = ({ onClose, defaultStaffId, editingBlock }) => {
   const { addBlockedTime, updateBlockedTime, deleteBlockedTime, currentDate, interval, staffList, bookings } = useSchedulerContext();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, true, onClose);
 
   const isEdit = !!editingBlock;
 
@@ -64,7 +67,7 @@ const BlockTimeModal: React.FC<Props> = ({ onClose, defaultStaffId, editingBlock
       className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-end btm-backdrop"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="d-flex flex-column bg-white h-100 btm-drawer">
+      <div className="d-flex flex-column bg-white h-100 btm-drawer" ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={isEdit ? "Edit Blocked Time" : "New Blocked Time"}>
 
         {/* Header */}
         <div className="d-flex align-items-center gap-2 px-4 py-3 border-bottom sticky-top bg-white btm-sticky-hdr">
