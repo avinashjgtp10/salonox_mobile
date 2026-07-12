@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import * as XLSX from "xlsx";
-import { BoxArrowUp, FileEarmarkSpreadsheet, FiletypePdf, FileEarmarkText, Printer, ChevronDown } from "react-bootstrap-icons";
+import { BoxArrowUp, FileEarmarkSpreadsheet, FiletypePdf, FileEarmarkText, ChevronDown } from "react-bootstrap-icons";
 
 interface ReportExportButtonProps {
   /** PDF title / Excel sheet header */
@@ -15,11 +15,9 @@ interface ReportExportButtonProps {
   variant?: "icon" | "button";
   /** Show a CSV export option in the dropdown */
   csv?: boolean;
-  /** Show a Print option in the dropdown (opens the browser print dialog) */
-  print?: boolean;
 }
 
-const ReportExportButton = ({ title, headers, rows, filename, variant = "icon", csv = false, print = false }: ReportExportButtonProps) => {
+const ReportExportButton = ({ title, headers, rows, filename, variant = "icon", csv = false }: ReportExportButtonProps) => {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -117,11 +115,6 @@ const ReportExportButton = ({ title, headers, rows, filename, variant = "icon", 
           <div className="rp-detail-export-item" onClick={exportPdf}>
             <FiletypePdf size={14} /> PDF (.pdf)
           </div>
-          {print && (
-            <div className="rp-detail-export-item" onClick={() => { setOpen(false); window.print(); }}>
-              <Printer size={14} /> Print
-            </div>
-          )}
         </div>
       )}
     </div>
