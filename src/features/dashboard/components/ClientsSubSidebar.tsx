@@ -27,7 +27,7 @@ export default function ClientsSubSidebar({ onClose }: Props) {
         to="/dashboard/clients/loyalty"
         className={({ isActive }) => isActive ? "sub-link active" : "sub-link"}
       >
-        Client loyalty
+        Referral &amp; rewards
       </NavLink>
 
       <NavLink
