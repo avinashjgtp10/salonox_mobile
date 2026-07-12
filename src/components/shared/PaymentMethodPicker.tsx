@@ -63,12 +63,24 @@ export const PaymentMethodPicker: React.FC<PaymentMethodPickerProps> = ({
   // actually types a custom figure.
   const [fullChecked, setFullChecked] = useState(true);
 
+  // The amount actually being collected right now — "Full" (checked) or
+  // nothing typed yet both mean "the full due amount"; a blank/zero partial
+  // entry means the user is deliberately paying nothing this time and
+  // deferring the whole bill to due. No method is needed to collect ₹0.
+  const parsedPartialAmt = parseFloat(partialAmtInput);
+  const currentAmount = (fullChecked || partialAmtInput === "")
+    ? totalToCollect
+    : (isNaN(parsedPartialAmt) ? totalToCollect : parsedPartialAmt);
+  const needsMethod = paymentMode === "single" ? currentAmount > 0 : true;
+
   return (
     <div className="pmp">
       <div className="pay-method">
-        <label className="pay-method__label">PAYMENT METHOD <span className="req">*</span></label>
+        {needsMethod && (
+          <label className="pay-method__label">PAYMENT METHOD <span className="req">*</span></label>
+        )}
 
-        {showSplitMode && (
+        {showSplitMode && needsMethod && (
           <div className="pay-method__mode">
             {(["single", "split"] as const).map((mode) => (
               <button
@@ -84,23 +96,27 @@ export const PaymentMethodPicker: React.FC<PaymentMethodPickerProps> = ({
 
         {paymentMode === "single" ? (
           <>
-            <div className="pay-method__options">
-              {methods.map((m) => (
-                <button
-                  key={m}
-                  className={`${singleMethod === m ? "active" : ""}${payMethodError ? " error" : ""}`}
-                  onClick={() => onSetSingleMethod(m)}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
-            {payMethodError && (
-              <div className="pay-method__error">Please select a payment method to continue.</div>
+            {needsMethod && (
+              <>
+                <div className="pay-method__options">
+                  {methods.map((m) => (
+                    <button
+                      key={m}
+                      className={`${singleMethod === m ? "active" : ""}${payMethodError ? " error" : ""}`}
+                      onClick={() => onSetSingleMethod(m)}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+                {payMethodError && (
+                  <div className="pay-method__error">Please select a payment method to continue.</div>
+                )}
+              </>
             )}
             {showDueRow && totalToCollect > 0 && (
               <div className="pay-due-row">
-                <span className="pay-due-row__label">Due —</span>
+                <span className="pay-due-row__label">Pay —</span>
                 <div className="pay-due-row__field">
                   <span className="pay-due-row__symbol">{currencySymbol}</span>
                   <input

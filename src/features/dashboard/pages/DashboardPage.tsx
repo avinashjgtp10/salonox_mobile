@@ -50,6 +50,7 @@ import {
   fetchStaffRevenue,
 } from "../../../middleware/dashboard/dashboard.thunk";
 import type { TodayAppointment } from "../../../types/dashboard.types";
+import type { DashboardAllResponse } from "../../../middleware/dashboard/dashboard.thunk";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -57,6 +58,16 @@ const SVC_CHART_COLORS = [
   "#7c6cf2", "#4f46e5", "#10b981", "#f97316",
   "#60a5fa", "#f472b6", "#eab308", "#ef4444",
 ];
+
+// Stable empty-array fallbacks for the selectors below. `?? []` inline would
+// create a brand-new array reference every time the selector runs, which
+// defeats useAppSelector's reference-equality check and forces the whole
+// page to re-render on any unrelated dashboard-slice update (e.g. the staff
+// revenue filter changing) for as long as `data` stays null.
+const EMPTY_APPOINTMENTS: TodayAppointment[] = [];
+const EMPTY_REVENUE_CHART: DashboardAllResponse["revenueChart"] = [];
+const EMPTY_TOP_STAFF: TopStaffEntry[] = [];
+const EMPTY_ACTIVITY: DashboardAllResponse["recentActivity"] = [];
 
 
 const PAGE_SIZE = 5;
@@ -1140,15 +1151,15 @@ export default function DashboardPage() {
 
   // ── Granular selectors — each section only re-renders when its own slice changes
   const summary      = useAppSelector((s) => s.dashboard.data?.summary);
-  const appointments = useAppSelector((s) => s.dashboard.data?.todayAppointments ?? []) as TodayAppointment[];
-  const revenueChart = useAppSelector((s) => s.dashboard.data?.revenueChart ?? []);
-  const topStaff     = useAppSelector((s) => s.dashboard.data?.topStaff ?? []) as TopStaffEntry[];
+  const appointments = useAppSelector((s) => s.dashboard.data?.todayAppointments ?? EMPTY_APPOINTMENTS) as TodayAppointment[];
+  const revenueChart = useAppSelector((s) => s.dashboard.data?.revenueChart ?? EMPTY_REVENUE_CHART);
+  const topStaff     = useAppSelector((s) => s.dashboard.data?.topStaff ?? EMPTY_TOP_STAFF) as TopStaffEntry[];
   const staffRevenue        = useAppSelector((s) => s.dashboard.staffRevenue);
   const staffRevenueLoading = useAppSelector((s) => s.dashboard.staffRevenueLoading);
   const staffRevenueError   = useAppSelector((s) => s.dashboard.staffRevenueError);
   const pendingPayments = useAppSelector((s) => s.dashboard.data?.pendingPayments);
   const todaysBirthdays = useAppSelector((s) => s.dashboard.data?.todaysBirthdays);
-  const recentActivity  = useAppSelector((s) => s.dashboard.data?.recentActivity ?? []);
+  const recentActivity  = useAppSelector((s) => s.dashboard.data?.recentActivity ?? EMPTY_ACTIVITY);
   const dashLoading  = useAppSelector((s) => s.dashboard.loading);
   const chartLoading = useAppSelector((s) => s.dashboard.chartLoading);
   const chartError   = useAppSelector((s) => s.dashboard.chartError);

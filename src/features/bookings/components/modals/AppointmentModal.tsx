@@ -489,6 +489,14 @@ export const AppointmentModal: React.FC<Props> = ({
   const remainingDue = (existingBooking?.paymentStatus === "Partial" && (existingBooking?.dueAmount ?? 0) > 0)
     ? existingBooking.dueAmount
     : Math.max(0, totals.effectiveTotal - alreadyPaidAmount);
+  const parsedPartial   = parseFloat(partialAmtInput);
+  // 0 counts as a deliberate partial entry (pay nothing now, leave it all due) —
+  // matches the >= 0 check in usePayment.ts's actual charge calculation.
+  const isPartialEntry  = !isNaN(parsedPartial) && parsedPartial >= 0 && parsedPartial < remainingDue;
+  // The amount actually being collected THIS transaction — not the whole bill.
+  // A partial entry of 0 (deferring everything to due) needs no payment method,
+  // even though the bill itself (effectiveTotal) is still > 0.
+  const amountThisTxn   = isPartialEntry ? parsedPartial : totals.effectiveTotal;
   // Exclude current appointment's due so "Clear Pending Due" only shows OTHER unpaid appointments —
   // one row per prior booking (by date), so staff can pick specific ones instead of all-or-nothing.
   const currentApptId = existingBooking?.id ?? apiAppointmentId;
@@ -851,8 +859,10 @@ export const AppointmentModal: React.FC<Props> = ({
   const handlePay = useCallback(async () => {
     // Validate payment method first — stop completely if not selected. Skipped
     // once the bill is fully covered (package, or a wallet/membership/points
-    // deduction brought effectiveTotal to 0) — nothing to collect via a method.
-    if (totals.effectiveTotal > 0 && paymentMode === "single" && !singleMethod) {
+    // deduction brought effectiveTotal to 0), or when this transaction's own
+    // amount is a deliberate 0 (partial entry deferring everything to due) —
+    // nothing to collect via a method either way.
+    if (amountThisTxn > 0 && paymentMode === "single" && !singleMethod) {
       setPayMethodError(true);
       return; // ← hard stop, no processing
     }
@@ -892,7 +902,7 @@ export const AppointmentModal: React.FC<Props> = ({
     }
   }, [
     completePayment, existingBooking, apiAppointmentId,
-    selectedClient, salonId, totals, alreadyPaidAmount,
+    selectedClient, salonId, totals, alreadyPaidAmount, amountThisTxn,
     eWalletAmt, coupon, paymentMode, singleMethod, splitEntries,
     partialAmtInput, includeClearDue, priorDueAmt, useEWallet, selectedDueIds, applyMembership,
     finishWithPaidPopup, printAfterPayment, schedulerStaff, currentSalon,
@@ -1041,15 +1051,11 @@ export const AppointmentModal: React.FC<Props> = ({
     || (existingBooking?.paymentStatus !== "Partial"
         && alreadyPaidAmount > 0
         && alreadyPaidAmount >= totals.effectiveTotal);
-  const parsedPartial   = parseFloat(partialAmtInput);
-  // 0 counts as a deliberate partial entry (pay nothing now, leave it all due) —
-  // matches the >= 0 check in usePayment.ts's actual charge calculation.
-  const isPartialEntry  = !isNaN(parsedPartial) && parsedPartial >= 0 && parsedPartial < remainingDue;
 
   // Disable pay button when no method selected in single mode
   const isPayDisabled = isPaymentFrozen
     || isProcessing
-    || (totals.effectiveTotal > 0 && paymentMode === "single" && !singleMethod);
+    || (amountThisTxn > 0 && paymentMode === "single" && !singleMethod);
 
   const confirmLabel = isPaymentFrozen
     ? "Already Paid"
