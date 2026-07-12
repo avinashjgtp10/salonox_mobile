@@ -22,4 +22,6 @@ export const SUPER_ADMIN = {
   USER_CREATE:       "/api/v1/super-admin/users/create",
   SUBSCRIPTIONS: "/api/v1/super-admin/subscriptions",
   PLANS:         "/api/v1/super-admin/plans",
+  DEMO_REQUESTS:        "/api/v1/super-admin/demo-requests",
+  DEMO_REQUEST_STATUS:  (id: string) => `/api/v1/super-admin/demo-requests/${id}/status`,
 } as const;
