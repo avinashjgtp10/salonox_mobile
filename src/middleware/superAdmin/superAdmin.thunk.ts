@@ -1,7 +1,7 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../services/api/axios";
 import { SUPER_ADMIN } from "../../services/api/endpoints/superAdmin.endpoints";
-import type { SuperAdminStats, SuperAdminSalon, SuperAdminPayment, SuperAdminUser } from "../../store/superAdminSlice";
+import type { SuperAdminStats, SuperAdminSalon, SuperAdminPayment, SuperAdminUser, SuperAdminDemoRequest } from "../../store/superAdminSlice";
 
 // ── RECENT / FREQUENT LOGINS ──────────────────────────────────────────────────
 
@@ -275,6 +275,35 @@ export const fetchSuperAdminSubscriptionsThunk = createAsyncThunk<any[], string 
       return Array.isArray(data) ? data : [];
     } catch (err: any) {
       return rejectWithValue(err?.message ?? "Failed");
+    }
+  }
+);
+
+// ── DEMO INQUIRIES ────────────────────────────────────────────────────────────
+
+export const fetchSuperAdminDemoRequestsThunk = createAsyncThunk<SuperAdminDemoRequest[], { search?: string } | undefined, { rejectValue: string }>(
+  "superAdmin/fetchDemoRequests",
+  async (filters, { rejectWithValue }) => {
+    try {
+      const params: Record<string, string> = {};
+      if (filters?.search) params.search = filters.search;
+      const res = await api.get(SUPER_ADMIN.DEMO_REQUESTS, { params });
+      const data = res.data?.data ?? res.data;
+      return Array.isArray(data) ? data : [];
+    } catch (err: any) {
+      return rejectWithValue(err?.message ?? "Failed to fetch demo requests");
+    }
+  }
+);
+
+export const setDemoRequestStatusThunk = createAsyncThunk<SuperAdminDemoRequest, { id: string; status: string }, { rejectValue: string }>(
+  "superAdmin/setDemoRequestStatus",
+  async ({ id, status }, { rejectWithValue }) => {
+    try {
+      const res = await api.patch(SUPER_ADMIN.DEMO_REQUEST_STATUS(id), { status });
+      return res.data?.data ?? res.data;
+    } catch (err: any) {
+      return rejectWithValue(err?.message ?? "Failed to update status");
     }
   }
 );

@@ -4,6 +4,8 @@ import { FaWhatsapp } from 'react-icons/fa';
 import PhoneInput, { getCountryCallingCode, type Country } from 'react-phone-number-input';
 import flags from 'react-phone-number-input/flags';
 import { isValidPhoneNumber, isPossiblePhoneNumber } from 'libphonenumber-js';
+import api from '../../../services/api/axios';
+import { DEMO_REQUESTS } from '../../../services/api/endpoints';
 // @ts-ignore
 import 'react-phone-number-input/style.css';
 // @ts-ignore
@@ -1827,6 +1829,18 @@ const LandingPage: React.FC = () => {
         if (!response.ok) {
           throw new Error('Demo request failed');
         }
+
+        // Persist to our own DB so it shows up in Super Admin > Demo Inquiries.
+        // Best-effort: the email above is already sent, so a failure here
+        // shouldn't block the visitor-facing success state.
+        api.post(DEMO_REQUESTS.CREATE, {
+          name: demoForm.name,
+          email: demoForm.email,
+          phone: demoForm.phone,
+          salonName: demoForm.salon,
+          city: demoForm.city,
+          locationsCount: demoForm.locations,
+        }).catch(() => {});
 
         setDemoSubmitted(true);
       } catch {

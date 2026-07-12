@@ -9,6 +9,8 @@ import {
   fetchRecentLoginsThunk,
   fetchFrequentLoginsThunk,
   fetchUsersNoPlanThunk,
+  fetchSuperAdminDemoRequestsThunk,
+  setDemoRequestStatusThunk,
 } from "../middleware/superAdmin/superAdmin.thunk";
 
 export interface SuperAdminSalon {
@@ -50,6 +52,19 @@ export interface SuperAdminUser {
   is_active: boolean;
   last_login?: string;
   login_count?: number;
+}
+
+export interface SuperAdminDemoRequest {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  salon_name: string | null;
+  city: string | null;
+  locations_count: string | null;
+  status: "new" | "contacted" | "converted" | "closed";
+  created_at: string;
+  updated_at: string;
 }
 
 export interface RecentLogin {
@@ -94,6 +109,7 @@ interface SuperAdminState {
   recentLogins: RecentLogin[];
   frequentLogins: RecentLogin[];
   usersNoPlan: RecentLogin[];
+  demoRequests: SuperAdminDemoRequest[];
   loading: {
     stats: boolean;
     salons: boolean;
@@ -104,6 +120,7 @@ interface SuperAdminState {
     recentLogins: boolean;
     frequentLogins: boolean;
     usersNoPlan: boolean;
+    demoRequests: boolean;
   };
   error: string | null;
 }
@@ -118,7 +135,8 @@ const initialState: SuperAdminState = {
   recentLogins: [],
   frequentLogins: [],
   usersNoPlan: [],
-  loading: { stats: false, salons: false, payments: false, users: false, subscriptions: false, plans: false, recentLogins: false, frequentLogins: false, usersNoPlan: false },
+  demoRequests: [],
+  loading: { stats: false, salons: false, payments: false, users: false, subscriptions: false, plans: false, recentLogins: false, frequentLogins: false, usersNoPlan: false, demoRequests: false },
   error: null,
 };
 
@@ -173,6 +191,17 @@ const superAdminSlice = createSlice({
       .addCase(fetchUsersNoPlanThunk.pending,   (state) => { state.loading.usersNoPlan = true; })
       .addCase(fetchUsersNoPlanThunk.fulfilled, (state, { payload }) => { state.loading.usersNoPlan = false; state.usersNoPlan = payload; })
       .addCase(fetchUsersNoPlanThunk.rejected,  (state, { payload }) => { state.loading.usersNoPlan = false; state.error = payload ?? null; });
+
+    builder
+      .addCase(fetchSuperAdminDemoRequestsThunk.pending,   (state) => { state.loading.demoRequests = true; })
+      .addCase(fetchSuperAdminDemoRequestsThunk.fulfilled, (state, { payload }) => { state.loading.demoRequests = false; state.demoRequests = payload; })
+      .addCase(fetchSuperAdminDemoRequestsThunk.rejected,  (state, { payload }) => { state.loading.demoRequests = false; state.error = payload ?? null; });
+
+    builder
+      .addCase(setDemoRequestStatusThunk.fulfilled, (state, { payload }) => {
+        const idx = state.demoRequests.findIndex((r) => r.id === payload.id);
+        if (idx !== -1) state.demoRequests[idx] = payload;
+      });
   },
 });
 

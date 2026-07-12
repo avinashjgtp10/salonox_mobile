@@ -11,6 +11,7 @@ const PaymentsPage        = lazy(() => import("../features/super-admin/pages/Pay
 const BillingPage         = lazy(() => import("../features/super-admin/pages/BillingPage"));
 const PermissionsPage     = lazy(() => import("../features/super-admin/pages/PermissionsPage"));
 const SupportPage         = lazy(() => import("../features/super-admin/pages/SupportPage"));
+const DemoInquiriesPage   = lazy(() => import("../features/super-admin/pages/DemoInquiriesPage"));
 
 export const SuperAdminRoutes = (
   <>
@@ -25,6 +26,7 @@ export const SuperAdminRoutes = (
         <Route path="billing"      element={<BillingPage />} />
         <Route path="permissions"  element={<PermissionsPage />} />
         <Route path="support"      element={<SupportPage />} />
+        <Route path="demo-inquiries" element={<DemoInquiriesPage />} />
       </Route>
     </Route>
   </>
