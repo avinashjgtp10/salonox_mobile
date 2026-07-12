@@ -1,0 +1,49 @@
+@use "../styles/reportDetailBase" as *;
+
+@keyframes rpSkelShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.rp-skel-bar {
+  height: 13px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: rpSkelShimmer 1.4s ease infinite;
+}
+
+/* ── Stat cards ── */
+.rp-skel-card { pointer-events: none; }
+
+.rp-skel-bar--val {
+  width: 55%;
+  height: 20px;
+  margin-bottom: 8px;
+}
+
+.rp-skel-bar--label {
+  width: 75%;
+  height: 11px;
+}
+
+/* ── Table rows ── */
+.rp-skel-row td {
+  padding: 11px 14px;
+}
+
+.rp-skel-row .rp-skel-bar {
+  width: 70%;
+}
+
+.rp-skel-row td:first-child .rp-skel-bar { width: 85%; }
+
+/* ── Chart placeholder ── */
+.rp-skel-chart {
+  border-radius: 12px;
+  margin-bottom: 16px;
+  background: linear-gradient(90deg, #f9fafb 25%, #f3f4f6 50%, #f9fafb 75%);
+  background-size: 200% 100%;
+  animation: rpSkelShimmer 1.6s ease infinite;
+  border: 1px solid #e5e7eb;
+}

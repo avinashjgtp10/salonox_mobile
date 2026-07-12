@@ -3,16 +3,18 @@
 // Pops the client history view up as an overlay instead of navigating away —
 // used by the calendar's "View History" button so staff stay on the calendar.
 import { useEffect } from "react";
-import ClientHistoryDetail from "./ClientHistoryDetail";
+import ClientHistoryDetail, { type TabKey } from "./ClientHistoryDetail";
 import "../styles/ClientHistoryPage.scss";
 import "../styles/ClientHistoryModal.scss";
 
 interface ClientHistoryModalProps {
   clientId: string;
   onClose: () => void;
+  /** Which tab to land on when opened — defaults to "history" (Visit History). */
+  initialTab?: TabKey;
 }
 
-export default function ClientHistoryModal({ clientId, onClose }: ClientHistoryModalProps) {
+export default function ClientHistoryModal({ clientId, onClose, initialTab }: ClientHistoryModalProps) {
   // Close on Escape, same convention as the app's other modals/drawers.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -27,7 +29,7 @@ export default function ClientHistoryModal({ clientId, onClose }: ClientHistoryM
             all SCSS-nested under it) — the --modal modifier just drops the
             sidebar-flex layout the full page uses, nothing else changes. */}
         <div className="chp-root chp-root--modal">
-          <ClientHistoryDetail clientId={clientId} onClose={onClose} />
+          <ClientHistoryDetail clientId={clientId} onClose={onClose} initialTab={initialTab} />
         </div>
       </div>
     </div>

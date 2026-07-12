@@ -190,7 +190,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
           {(booking.dueAmount || 0) > 0 && booking.paymentStatus === "Partial" && onCollectDue && (
             <div className="vbm-section">
               <button
-                onClick={() => { onClose(); onCollectDue(booking); }}
+                onClick={() => onCollectDue(booking)}
                 style={{
                   width: "100%", background: "#f59e0b", color: "#fff",
                   border: "none", borderRadius: 8, padding: "10px 0",
@@ -243,7 +243,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
               {showDotMenu && (
                 <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, boxShadow: "0 6px 24px rgba(0,0,0,0.13)", minWidth: 190, zIndex: 9999 }}>
                   <button
-                    onClick={() => { setShowDotMenu(false); onClose(); onEdit?.(booking); }}
+                    onClick={() => { setShowDotMenu(false); onEdit?.(booking); }}
                     style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#111827", borderRadius: "10px 10px 0 0", textAlign: "left" }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "none")}

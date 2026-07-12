@@ -1,0 +1,16 @@
+@use "../styles/reportDetailBase" as *;
+
+.rp-wac-search-ic { color: #9ca3af; flex-shrink: 0; }
+.rp-wac-pct { font-size: 11px; color: #9ca3af; margin-left: 4px; }
+.rp-wac-warn { color: #ef4444; }
+
+.rp-wac-status {
+  font-weight: 600;
+  font-size: 12px;
+
+  &--ok      { color: #10b981; }
+  &--run     { color: #3b82f6; }
+  &--warn    { color: #f59e0b; }
+  &--fail    { color: #ef4444; }
+  &--neutral { color: #9ca3af; }
+}

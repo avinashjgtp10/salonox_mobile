@@ -5,7 +5,7 @@
 // both as that page's right-hand detail panel AND inside a standalone popup
 // (see ClientHistoryModal.tsx) opened straight from the calendar's "View
 // History" button, instead of navigating away from the calendar entirely.
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppSelector } from "../../../hooks/useAppRedux";
 import {
@@ -117,7 +117,7 @@ interface HistoryData {
   packages: PackageRecord[];
 }
 
-type TabKey =
+export type TabKey =
   | "history"
   | "services"
   | "memberships"
@@ -185,9 +185,12 @@ export interface ClientHistoryDetailProps {
   // deselects the client (back to the idle "select a customer" state); in the
   // modal this closes the popup.
   onClose: () => void;
+  /** Which tab to land on when first opened — defaults to "history" (Visit History).
+   *  Only applied on the very first load; switching clientId afterwards still resets to "history". */
+  initialTab?: TabKey;
 }
 
-export default function ClientHistoryDetail({ clientId, onClose }: ClientHistoryDetailProps) {
+export default function ClientHistoryDetail({ clientId, onClose, initialTab }: ClientHistoryDetailProps) {
   const navigate = useNavigate();
   const currentSalon = useAppSelector((s: any) => s.salon.currentSalon);
   const reduxStaff = useAppSelector((s: any) => s.staff.items ?? []);
@@ -198,7 +201,11 @@ export default function ClientHistoryDetail({ clientId, onClose }: ClientHistory
 
   const [data, setData] = useState<HistoryData | null>(null);
   const [historyLoading, setHistoryLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabKey>("history");
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab ?? "history");
+  // loadHistory() unconditionally lands on "history" — that's the right default when the
+  // full Client History page switches between clients, but the very first load should
+  // honor initialTab (e.g. a report deep-linking straight into the Products tab).
+  const initialTabAppliedRef = useRef(false);
 
   // Appointment id currently open in the reusable View Bill drawer (Visit
   // History rows only — quick sales/packages aren't appointments, they keep
@@ -226,7 +233,12 @@ export default function ClientHistoryDetail({ clientId, onClose }: ClientHistory
   const loadHistory = useCallback(async (id: string) => {
     setData(null);
     setHistoryLoading(true);
-    setActiveTab("history");
+    if (initialTabAppliedRef.current) {
+      setActiveTab("history");
+    } else {
+      setActiveTab(initialTab ?? "history");
+      initialTabAppliedRef.current = true;
+    }
     setHistoryPage(1);
     setGlobalCalDay(null);
     setGlobalDatePreset("all");
@@ -241,7 +253,7 @@ export default function ClientHistoryDetail({ clientId, onClose }: ClientHistory
     } finally {
       setHistoryLoading(false);
     }
-  }, []);
+  }, [initialTab]);
 
   useEffect(() => { loadHistory(clientId); }, [clientId, loadHistory]);
 

@@ -1,0 +1,10 @@
+@use "../styles/reportDetailBase" as *;
+
+.rp-inv-status {
+  font-weight: 600;
+  font-size: 12px;
+
+  &--ok  { color: #10b981; }
+  &--low { color: #f59e0b; }
+  &--out { color: #ef4444; }
+}

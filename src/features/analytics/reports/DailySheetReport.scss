@@ -1,0 +1,11 @@
+@use "../styles/reportDetailBase" as *;
+
+.rp-detail-date-input--boxed {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 7px 10px;
+}
+
+.rp-ds-payment {
+  text-transform: capitalize;
+}
