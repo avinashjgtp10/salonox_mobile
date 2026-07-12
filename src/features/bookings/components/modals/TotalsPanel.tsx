@@ -24,6 +24,13 @@ interface TotalsPanelProps {
   alreadyPaid?: number;
   dueAmount?: number;
   packageServiceCount?: number;
+  // Authoritative rounded total + the adjustment that produced it, straight
+  // from computeTotals() — passed by callers that already ran it (avoids this
+  // panel re-deriving its own grandTotal and risking drift from the figure
+  // actually used for payment). Falls back to a local (unrounded) calc for
+  // any older caller that doesn't pass these yet.
+  grandTotal?: number;
+  roundOff?: number;
 }
 
 const TotalsPanel: React.FC<TotalsPanelProps> = ({
@@ -33,11 +40,14 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
   totalDiscount: totalDiscountProp,
   gstAmount = 0, taxBreakdown = [], tip = 0,
   alreadyPaid = 0, dueAmount = 0, packageServiceCount = 0,
+  grandTotal: grandTotalProp, roundOff: roundOffProp,
 }) => {
   const discountVal = discountType === "Percentage (%)" ? (serviceTotal * discount) / 100 : discount;
   const totalDiscount = totalDiscountProp !== undefined ? totalDiscountProp : Math.min(discountVal, serviceTotal);
   const taxable = Math.max(0, subtotal - totalDiscount);
-  const grandTotal = taxable + gstAmount + exCharges;
+  const rawGrandTotal = taxable + gstAmount + exCharges;
+  const grandTotal = grandTotalProp !== undefined ? grandTotalProp : Math.round(rawGrandTotal);
+  const roundOff = roundOffProp !== undefined ? roundOffProp : grandTotal - rawGrandTotal;
   // Prefer the granular manual/coupon split when the caller provides it — falls
   // back to the single blended totalDiscount line for older callers.
   const hasGranularDiscount = manualDiscount !== undefined;
@@ -71,6 +81,9 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
     ...exclusiveTaxRows.map((t) => ({ label: `${t.name} (${t.rate}%)`, value: `${currencySymbol}${t.amount.toFixed(2)}`, color: "" })),
     ...inclusiveTaxRows.map((t) => ({ label: `${t.name} (${t.rate}%, incl.)`, value: `${currencySymbol}${t.amount.toFixed(2)}`, color: "text-secondary" })),
     ...(exCharges     > 0 ? [{ label: "Ex Charges", value: `${currencySymbol}${exCharges.toFixed(2)}`,      color: "" }] : []),
+    ...(Math.abs(roundOff) >= 0.005
+      ? [{ label: "Round Off", value: `${roundOff >= 0 ? "+" : "-"}${currencySymbol}${Math.abs(roundOff).toFixed(2)}`, color: "text-secondary" }]
+      : []),
     { label: "Grand Total", value: `${currencySymbol}${grandTotal.toFixed(2)}`, color: "", bold: true },
     ...(tip         > 0 ? [{ label: "Tip (Staff)", value: `${currencySymbol}${tip.toFixed(2)}`,        color: "text-secondary" }] : []),
     ...(alreadyPaid > 0 ? [{ label: "Paid",        value: `${currencySymbol}${alreadyPaid.toFixed(2)}`, color: "text-success",   bold: false }] : []),

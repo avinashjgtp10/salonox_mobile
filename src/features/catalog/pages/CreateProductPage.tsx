@@ -353,6 +353,7 @@ const CreateProductPage: React.FC = () => {
               value={form.supplyPrice}
               onChange={(e) => { setField("supplyPrice", e.target.value); touch("supplyPrice"); }}
               onBlur={() => touch("supplyPrice")}
+              onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
               iconLeft={<span>INR</span>}
               containerClass="mt-1"
             />
@@ -392,6 +393,7 @@ const CreateProductPage: React.FC = () => {
                     placeholder="0.00"
                     value={form.retailPrice}
                     onChange={(e) => setField("retailPrice", e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
                     iconLeft={<span>INR</span>}
                     containerClass=""
                   />

@@ -13,6 +13,7 @@ const CHIP_COLOR: Record<string, string> = {
   confirmed: "#22c55e",
   partial:   "#7c3aed",
   "no-show": "#0891b2",
+  deleted:   "#9ca3af",
   pending:   "#f59e0b",
 };
 
@@ -72,7 +73,7 @@ const MonthViewComponent: React.FC<MonthViewProps> = ({ onDayClick, onViewBill }
                   {dayBk.slice(0, 3).map((b: any) => (
                     <div
                       key={b.id}
-                      onClick={(e) => { e.stopPropagation(); onViewBill(b); }}
+                      onClick={(e) => { e.stopPropagation(); if (!b.isDeleted) onViewBill(b); }}
                       className="month-view__chip"
                       style={{ background: chipColor(b) }}
                     >

@@ -38,6 +38,12 @@ export function useBookings(skip = false) {
   const [rawApiBookings, setRawApiBookings] = useState<any[]>([]);
   const fetchedRangesRef = useRef<Set<string>>(new Set());
   const pendingRangesRef = useRef<Set<string>>(new Set());
+  // True only while the CURRENTLY-VIEWED range has never been fetched before —
+  // i.e. first load of a date/view the user hasn't visited yet. Manual
+  // refresh() and socket-triggered refetches always run silently (the range
+  // is already cached, so there's real content on screen already) so a live
+  // update from another device never blanks the calendar back to a skeleton.
+  const [loading, setLoading] = useState(true);
 
   // Re-map only when raw items change — lookup lists are secondary and cause flicker
   // payment_status comes directly from API now so lookup lists don't affect color correctness
@@ -51,9 +57,12 @@ export function useBookings(skip = false) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawApiBookings, dispatch]);
 
-  const fetchRange = useCallback(async (startDate: string, endDate: string) => {
+  const fetchRange = useCallback(async (startDate: string, endDate: string, opts?: { silent?: boolean }) => {
     const rangeKey = `${startDate}|${endDate}`;
-    if (fetchedRangesRef.current.has(rangeKey) || pendingRangesRef.current.has(rangeKey)) return;
+    if (fetchedRangesRef.current.has(rangeKey) || pendingRangesRef.current.has(rangeKey)) {
+      if (!opts?.silent) setLoading(false);
+      return;
+    }
     pendingRangesRef.current.add(rangeKey);
     try {
       const action = await (dispatch(
@@ -76,12 +85,19 @@ export function useBookings(skip = false) {
       }
     } finally {
       pendingRangesRef.current.delete(rangeKey);
+      if (!opts?.silent) setLoading(false);
     }
   }, [dispatch]);
 
   useEffect(() => {
     if (skip) return;
     const { startDate, endDate } = getViewRange(viewMode, currentDate);
+    const rangeKey = `${startDate}|${endDate}`;
+    if (fetchedRangesRef.current.has(rangeKey)) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     fetchRange(startDate, endDate);
   }, [currentDate, viewMode, fetchRange, skip]);
 
@@ -90,7 +106,7 @@ export function useBookings(skip = false) {
     const rangeKey = `${startDate}|${endDate}`;
     fetchedRangesRef.current.delete(rangeKey);
     pendingRangesRef.current.delete(rangeKey);
-    await fetchRange(startDate, endDate);
+    await fetchRange(startDate, endDate, { silent: true });
   }, [currentDate, viewMode, fetchRange]);
 
   // Live calendar updates — appointments.service.ts already emits a socket
@@ -118,5 +134,5 @@ export function useBookings(skip = false) {
     };
   }, [skip, refresh]);
 
-  return { refresh };
+  return { refresh, loading };
 }

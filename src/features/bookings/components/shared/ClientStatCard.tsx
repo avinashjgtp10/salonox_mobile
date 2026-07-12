@@ -5,6 +5,7 @@ import type { ClientPackage } from "../../../../services/api/endpoints/packages.
 import type { ClientMembership } from "../../../../services/api/endpoints/clientMemberships.endpoints";
 import { PackageInfoModal } from "./PackageInfoModal";
 import { MembershipInfoModal } from "./MembershipInfoModal";
+import Skeleton from "../../../../components/ui/Skeleton";
 
 interface Props {
   name: string;
@@ -15,7 +16,17 @@ interface Props {
   memberships?: ClientMembership[];
   onViewHistory?: () => void;
   historyUrl?: string;
+  // True while the background history/packages/memberships fetch (which is
+  // what actually populates totalVisit/lastVisit/totalRevenue) is still in
+  // flight — shows those 3 cells as skeleton placeholders instead of quietly
+  // hiding the whole row until the number arrives.
+  historyLoading?: boolean;
 }
+
+// Fields sourced from the slower "Phase 2" background fetch (useClientDetails.ts)
+// rather than the fast initial profile fetch — these are the ones that get a
+// skeleton placeholder while historyLoading is true.
+const HISTORY_KEYS = new Set<keyof ClientStats>(["totalVisit", "lastVisit", "totalRevenue"]);
 
 const STAT_ROWS: Array<{
   label: string;
@@ -45,6 +56,7 @@ function fmtExpiry(date: string | null | undefined): string {
 
 export const ClientStatCard: React.FC<Props> = ({
   name, phone, address, stats, packages = [], memberships = [], onViewHistory, historyUrl,
+  historyLoading = false,
 }) => {
   const initial = name?.charAt(0)?.toUpperCase() || "?";
   const [showPkgModal, setShowPkgModal] = useState(false);
@@ -83,6 +95,15 @@ export const ClientStatCard: React.FC<Props> = ({
         <div className="client-stats-panel__grid">
           {STAT_ROWS.map(({ label, key, format, danger, info, hideWhen }) => {
             const raw = key === "ewalletAmt" ? (Number(stats[key]) || 0) + membershipWalletTotal : stats[key];
+            const isHistoryField = HISTORY_KEYS.has(key);
+            if (isHistoryField && historyLoading) {
+              return (
+                <div key={label} className={`info-cell${info ? " info" : ""}`}>
+                  <span className="info-cell__label">{label}</span>
+                  <Skeleton width={48} height={14} style={{ marginTop: 3 }} />
+                </div>
+              );
+            }
             if (hideWhen && hideWhen(raw)) return null;
             const display = format ? format(raw) : String(raw ?? "N/A");
             const isDanger = danger ? danger(raw) : false;

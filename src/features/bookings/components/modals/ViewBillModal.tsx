@@ -11,6 +11,7 @@ import { useClientDetails } from "../../hooks/useClientDetails";
 import { useClientMembershipWallet } from "../../hooks/useClientMembershipWallet";
 import { useListClientPackagesQuery } from "../../../../services/api/endpoints/packages.endpoints";
 import { printReceipt } from "../../utils/receipt";
+import { useFocusTrap } from "../../../../hooks/useFocusTrap";
 import "../../styles/ViewBillModal.scss";
 
 interface Props { booking: Booking; onClose: () => void; onEdit?: (booking: Booking) => void; onCollectDue?: (booking: Booking) => void }
@@ -18,6 +19,8 @@ interface Props { booking: Booking; onClose: () => void; onEdit?: (booking: Book
 const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue }) => {
   const { staffList, clientsList } = useSchedulerContext();
   const currentSalon = useAppSelector((s) => s.salon.currentSalon);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, true, onClose);
   const settingItems = useAppSelector((s) => s.setting.items);
   const activeTaxes  = useMemo(() => getActiveTaxes(settingItems), [settingItems]);
   const [tab, setTab] = useState<"Booking Details" | "Activity Log">("Booking Details");
@@ -94,7 +97,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
 
   return (
     <div className="vbm-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="vbm-drawer">
+      <div className="vbm-drawer" ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="View Appointment">
         <style>{`@keyframes vbmSlideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}`}</style>
 
         {/* ── Left panel ── */}

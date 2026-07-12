@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
 import type { Client } from "../../types";
 import type { ClientStats } from "../../types";
 import { ClientStatCard } from "../shared/ClientStatCard";
@@ -10,6 +9,8 @@ import { useListClientPackagesQuery } from "../../../../services/api/endpoints/p
 import { useClientMembershipWallet } from "../../hooks/useClientMembershipWallet";
 import api from "../../../../services/api/axios";
 import { Button } from "../../../../components/ui";
+import Skeleton from "../../../../components/ui/Skeleton";
+import ClientHistoryModal from "../../../clients/components/ClientHistoryModal";
 import "../../styles/AppointmentModal.scss";
 
 const AVATAR_COLORS = [
@@ -71,7 +72,6 @@ export const ClientPanel: React.FC<Props> = ({
   fallbackUnpaidAmt,
   onSelectClient, onClearClient, onStatsLoaded, error, defaultName, defaultPhone, openAddForm,
 }) => {
-  const navigate = useNavigate();
   const [search, setSearch] = useState(selectedClientId === "walk-in" ? "Walk In" : "");
   const [suggestions, setSuggestions] = useState<Client[]>([]);
   const [totalFound, setTotalFound] = useState(0);
@@ -85,6 +85,7 @@ export const ClientPanel: React.FC<Props> = ({
   const [addErrors, setAddErrors] = useState<{ first?: string; phone?: string; gender?: string }>({});
   const [noResults, setNoResults] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const dropRef = useRef<HTMLDivElement>(null);
   const skipNextSearch = useRef(false);
   const skipNextClear = useRef(false);
@@ -93,7 +94,7 @@ export const ClientPanel: React.FC<Props> = ({
 
   useEffect(() => { if (openAddForm) setShowAddForm(true); }, [openAddForm]);
 
-  const { details, stats, loading: statsLoading } = useClientDetails(selectedClientId);
+  const { details, stats, loading: statsLoading, historyLoading } = useClientDetails(selectedClientId);
   const allBookings = useAppSelector(selectBookings);
 
   const clientIdForPkg = selectedClientId && selectedClientId !== "walk-in" ? selectedClientId : undefined;
@@ -191,6 +192,31 @@ export const ClientPanel: React.FC<Props> = ({
     setSuggestions([]);
   }
 
+  // Reset the keyboard-highlighted row whenever the result set changes, so a
+  // stale index from a previous search never lands on the wrong client.
+  useEffect(() => { setActiveIndex(-1); }, [suggestions]);
+
+  function handleSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!showDrop || suggestions.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((i) => (i + 1) % suggestions.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
+    } else if (e.key === "Enter") {
+      if (activeIndex >= 0 && activeIndex < suggestions.length) {
+        e.preventDefault();
+        selectClient(suggestions[activeIndex]);
+      }
+    } else if (e.key === "Escape") {
+      // Close the suggestion list first; only closes the whole modal (via the
+      // drawer's own Escape handler) on a second press once the dropdown's gone.
+      e.stopPropagation();
+      setShowDrop(false);
+    }
+  }
+
   function handleWalkIn() {
     const walkIn: Client = { id: "walk-in", name: "Walk In", phone: "", eWallet: 0 };
     onSelectClient(walkIn);
@@ -258,8 +284,11 @@ export const ClientPanel: React.FC<Props> = ({
     }
   }
 
+  // Opens as a popup over the calendar instead of navigating away to the
+  // clients section — staff stay on the appointment they were working on.
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const onViewHistory = (selectedClientId && selectedClientId !== "walk-in")
-    ? () => navigate("/dashboard/clients/history", { state: { openClientId: selectedClientId } })
+    ? () => setShowHistoryModal(true)
     : undefined;
 
   return (
@@ -279,6 +308,12 @@ export const ClientPanel: React.FC<Props> = ({
                 if (!sanitized) { onClearClient(); setTotalFound(0); setNoResults(false); clearPrefill(); }
               }}
               onFocus={() => suggestions.length > 0 && setShowDrop(true)}
+              onKeyDownCapture={handleSearchKeyDown}
+              role="combobox"
+              aria-expanded={showDrop && suggestions.length > 0}
+              aria-haspopup="listbox"
+              aria-controls="client-suggestions-listbox"
+              aria-activedescendant={activeIndex >= 0 ? `client-option-${suggestions[activeIndex]?.id}` : undefined}
             />
             {searching
               ? <span className="client-search-spinner" />
@@ -286,7 +321,7 @@ export const ClientPanel: React.FC<Props> = ({
                   <button
                     className="client-search-clear"
                     type="button"
-                    tabIndex={-1}
+                    aria-label="Clear client search"
                     onMouseDown={(e) => { e.preventDefault(); setSearch(""); onClearClient(); setSuggestions([]); setTotalFound(0); setShowDrop(false); setNoResults(false); clearPrefill(); }}
                   >×</button>
                 )
@@ -328,15 +363,19 @@ export const ClientPanel: React.FC<Props> = ({
             </div>
           )}
           {showDrop && !searching && suggestions.length > 0 && (
-            <div className="client-dropdown">
+            <div className="client-dropdown" role="listbox" id="client-suggestions-listbox">
               <div className="client-dropdown__count">
                 {totalFound} CLIENT{totalFound !== 1 ? "S" : ""} FOUND
               </div>
-              {suggestions.map((c) => (
+              {suggestions.map((c, i) => (
                 <div
                   key={c.id}
-                  className="client-dropdown__item"
+                  id={`client-option-${c.id}`}
+                  role="option"
+                  aria-selected={i === activeIndex}
+                  className={`client-dropdown__item${i === activeIndex ? " client-dropdown__item--active" : ""}`}
                   onMouseDown={(e) => { e.preventDefault(); selectClient(c); }}
+                  onMouseEnter={() => setActiveIndex(i)}
                 >
                   <span
                     className="client-dropdown__avatar"
@@ -465,17 +504,44 @@ export const ClientPanel: React.FC<Props> = ({
       )}
 
       {/* ── Stat card ── */}
-      {selectedClientId && selectedClientId !== "walk-in" && details && stats && (
-        <ClientStatCard
-          name={details.full_name || `${details.first_name || ""} ${details.last_name || ""}`.trim() || search}
-          phone={details.phone_number || details.phone || ""}
-          stats={{ ...stats, unpaidAmt }}
-          packages={clientPkgsData?.items ?? []}
-          memberships={clientMemberships}
-          onViewHistory={onViewHistory}
+      {selectedClientId && selectedClientId !== "walk-in" && (
+        statsLoading || !details || !stats ? (
+          <div className="client-stats-panel mt-3">
+            <div className="client-stats-panel__header">
+              <Skeleton width={42} height={42} borderRadius={10} />
+              <div className="info" style={{ flex: 1 }}>
+                <Skeleton width="40%" height={15} style={{ marginBottom: 6 }} />
+                <Skeleton width="30%" height={12} />
+              </div>
+            </div>
+            <div className="client-stats-panel__grid">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="info-cell">
+                  <Skeleton width="60%" height={10} style={{ marginBottom: 5 }} />
+                  <Skeleton width="45%" height={14} />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <ClientStatCard
+            name={details.full_name || `${details.first_name || ""} ${details.last_name || ""}`.trim() || search}
+            phone={details.phone_number || details.phone || ""}
+            stats={{ ...stats, unpaidAmt }}
+            packages={clientPkgsData?.items ?? []}
+            memberships={clientMemberships}
+            onViewHistory={onViewHistory}
+            historyLoading={historyLoading}
+          />
+        )
+      )}
+
+      {showHistoryModal && selectedClientId && selectedClientId !== "walk-in" && (
+        <ClientHistoryModal
+          clientId={selectedClientId}
+          onClose={() => setShowHistoryModal(false)}
         />
       )}
-      {statsLoading && <div style={{ padding: "8px 0", fontSize: 12, color: "#9ca3af" }}>Loading client details…</div>}
     </div>
   );
 };

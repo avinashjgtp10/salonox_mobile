@@ -1,0 +1,54 @@
+// src/features/clients/styles/ClientHistoryModal.scss
+//
+// The popup shell around ClientHistoryDetail. All the actual content styling
+// (.chp-content-wrap, .chp-profile-header, tabs, tables, etc.) lives in
+// ClientHistoryPage.scss, nested under .chp-root — this file only adds the
+// overlay/panel chrome and the .chp-root--modal layout override.
+
+.chm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.5);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: chm-fade-in 0.15s ease;
+}
+
+.chm-panel {
+  width: min(1200px, 100%);
+  height: min(860px, 100%);
+  background: #fff;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: chm-pop-in 0.18s ease;
+}
+
+@keyframes chm-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes chm-pop-in {
+  from { opacity: 0; transform: scale(0.97) translateY(6px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+
+// The page's .chp-root is a sidebar + detail flex row at 100vh — the modal
+// renders ClientHistoryDetail directly (no sidebar, no .chp-detail wrapper),
+// so this just gives its two possible direct children (.chp-idle while
+// loading, .chp-content-wrap once loaded) the full panel height to work with.
+.chp-root.chp-root--modal {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+
+  > .chp-idle,
+  > .chp-content-wrap {
+    flex: 1;
+    min-height: 0;
+  }
+}

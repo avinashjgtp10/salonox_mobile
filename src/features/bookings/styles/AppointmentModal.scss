@@ -736,6 +736,8 @@ $success:    #22c55e;
     transition: background 0.12s;
     &:hover { background: #f9fafb; }
     &:last-child { border-bottom: none; }
+
+    &--active { background: #eef2ff; }
   }
 
   &__avatar {
@@ -1304,6 +1306,7 @@ $success:    #22c55e;
   &--pending   { background: #f59e0b; color: #fff; }
   &--cancelled { background: #ef4444; color: #fff; opacity: 0.75; }
   &--no-show   { background: #0891b2; color: #fff; }
+  &--deleted   { background: #9ca3af; color: #fff; opacity: 0.7; }
   &--dragging  { opacity: 0.85; box-shadow: 0 8px 24px rgba(0,0,0,0.25); z-index: 50; transform: scale(1.02); }
   &--resizing  { opacity: 0.9; }
 
@@ -1585,6 +1588,8 @@ $success:    #22c55e;
     font-size: 13px;
     font-family: inherit;
     &:hover { background: #f3f4f6; }
+
+    &--active { background: #eef2ff; }
   }
 
   &__name { font-weight: 500; color: #111827; }

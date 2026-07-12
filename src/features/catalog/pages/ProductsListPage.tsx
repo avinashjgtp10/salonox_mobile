@@ -17,6 +17,7 @@ import { useProducts } from "../hooks/useProducts";
 import ProductDrawer from "../components/ProductDrawer";
 import Pagination from "../../../components/ui/Pagination";
 import Button from "../../../components/ui/Button";
+import Skeleton from "../../../components/ui/Skeleton";
 import "../styles/ProductsListPage.scss";
 
 interface FilterState {
@@ -266,9 +267,36 @@ const ProductsListPage: React.FC = () => {
 
       <main className="products-list-page__content">
         {loading.fetchAll ? (
-          <div className="text-center py-5">
-            <div className="spinner-border text-dark" />
-          </div>
+          <table className="product-table">
+            <thead>
+              <tr>
+                <th className="checkbox-cell" style={{ width: "48px", paddingRight: 0 }} />
+                <th>Product name & SKU</th>
+                <th>Category</th>
+                <th>Stock  Left</th>
+                <th>Retail price</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <tr key={i}>
+                  <td className="checkbox-cell" />
+                  <td>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <Skeleton width={36} height={36} borderRadius={6} />
+                      <div style={{ flex: 1 }}>
+                        <Skeleton width="70%" height={13} style={{ marginBottom: 5 }} />
+                        <Skeleton width="40%" height={11} />
+                      </div>
+                    </div>
+                  </td>
+                  <td><Skeleton width="60%" height={12} /></td>
+                  <td><Skeleton width="40%" height={12} /></td>
+                  <td><Skeleton width="50%" height={12} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         ) : error ? (
           <div className="alert alert-danger">{error}</div>
         ) : (

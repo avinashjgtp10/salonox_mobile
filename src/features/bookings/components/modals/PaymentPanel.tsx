@@ -179,7 +179,12 @@ export const PaymentPanel: React.FC<Props> = ({
             style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", flex: 1 }}
             onClick={() => onToggleEWallet(!useEWallet)}
           >
-            <input type="checkbox" checked={useEWallet} readOnly />
+            <input
+              type="checkbox"
+              checked={useEWallet}
+              onChange={(e) => onToggleEWallet(e.target.checked)}
+              onClick={(e) => e.stopPropagation()}
+            />
             <span>Use eWallet (Available: {currencySymbol}{eWalletBalance.toFixed(2)})</span>
           </label>
           {useEWallet && (
