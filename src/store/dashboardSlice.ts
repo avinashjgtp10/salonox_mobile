@@ -2,8 +2,9 @@ import { createSlice } from "@reduxjs/toolkit";
 import {
   fetchDashboardAll,
   fetchRevenueChart,
+  fetchStaffRevenue,
 } from "../middleware/dashboard/dashboard.thunk";
-import type { DashboardAllResponse } from "../middleware/dashboard/dashboard.thunk";
+import type { DashboardAllResponse, StaffRevenueEntry } from "../middleware/dashboard/dashboard.thunk";
 
 interface DashboardState {
   data: DashboardAllResponse | null;
@@ -11,6 +12,11 @@ interface DashboardState {
   chartLoading: boolean;  // chart-only reload on period change
   error: string | null;
   chartError: string | null;
+  // Staff Revenue card — its own period filter, independent of the Revenue
+  // Trend chart above, so it gets its own slice of state.
+  staffRevenue: StaffRevenueEntry[];
+  staffRevenueLoading: boolean;
+  staffRevenueError: string | null;
 }
 
 const initialState: DashboardState = {
@@ -19,6 +25,9 @@ const initialState: DashboardState = {
   chartLoading: false,
   error: null,
   chartError: null,
+  staffRevenue: [],
+  staffRevenueLoading: false,
+  staffRevenueError: null,
 };
 
 const dashboardSlice = createSlice({
@@ -63,6 +72,21 @@ const dashboardSlice = createSlice({
       .addCase(fetchRevenueChart.rejected, (state, action) => {
         state.chartLoading = false;
         state.chartError = action.payload as string;
+      });
+
+    // ── Staff Revenue card (own period filter) ─────────────────────────────────
+    builder
+      .addCase(fetchStaffRevenue.pending, (state) => {
+        state.staffRevenueLoading = true;
+        state.staffRevenueError = null;
+      })
+      .addCase(fetchStaffRevenue.fulfilled, (state, action) => {
+        state.staffRevenueLoading = false;
+        state.staffRevenue = action.payload;
+      })
+      .addCase(fetchStaffRevenue.rejected, (state, action) => {
+        state.staffRevenueLoading = false;
+        state.staffRevenueError = action.payload as string;
       });
   },
 });

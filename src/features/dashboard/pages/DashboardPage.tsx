@@ -21,15 +21,13 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  ReferenceDot,
 } from "recharts";
 import {
   CalendarCheck,
   CurrencyRupee,
-  People,
-  Scissors,
   ArrowUpRight,
   ArrowDownRight,
-  Lightning,
   ClockHistory,
   PersonPlus,
   CartPlus,
@@ -39,13 +37,17 @@ import {
   CircleFill,
   ExclamationTriangleFill,
   ArrowRepeat,
-  ThreeDots,
+  CashStack,
+  Cake2,
+  BellFill,
+  CreditCard2Front,
 } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import Skeleton from "../../../components/ui/Skeleton";
 import {
   fetchDashboardAll,
   fetchRevenueChart,
+  fetchStaffRevenue,
 } from "../../../middleware/dashboard/dashboard.thunk";
 import type { TodayAppointment } from "../../../types/dashboard.types";
 
@@ -182,18 +184,18 @@ const SectionError = memo(function SectionError({
 
 const KpiSkeleton = memo(function KpiSkeleton() {
   return (
-    <>
-      <Skeleton width={36} height={36} borderRadius={10} style={{ marginBottom: 14 }} />
-      <Skeleton width="55%" height={22} style={{ marginBottom: 8 }} />
-      <Skeleton width="70%" height={12} style={{ marginBottom: 6 }} />
+    <div className="db-skel-kpi">
+      <Skeleton width={36} height={36} borderRadius={10} />
+      <Skeleton width="55%" height={22} />
+      <Skeleton width="70%" height={12} />
       <Skeleton width="45%" height={11} />
-    </>
+    </div>
   );
 });
 
 const ChartSkeleton = memo(function ChartSkeleton({ height = 240 }: { height?: number }) {
   return (
-    <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height, padding: "0 4px 8px" }}>
+    <div className="db-skel-chart" style={{ "--skel-chart-height": `${height}px` } as React.CSSProperties}>
       {[45, 70, 55, 85, 60, 75, 50, 90, 65].map((h, i) => (
         <Skeleton key={i} width="100%" height={`${h}%`} borderRadius="4px 4px 0 0" />
       ))}
@@ -203,9 +205,9 @@ const ChartSkeleton = memo(function ChartSkeleton({ height = 240 }: { height?: n
 
 const TableRowsSkeleton = memo(function TableRowsSkeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14, padding: "10px 4px" }}>
+    <div className="db-skel-rows">
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <div key={i} className="db-skel-rows__row">
           <Skeleton width={28} height={28} borderRadius="50%" />
           <Skeleton width="18%" height={12} />
           <Skeleton width="16%" height={12} />
@@ -220,9 +222,9 @@ const TableRowsSkeleton = memo(function TableRowsSkeleton({ rows = 5 }: { rows?:
 
 const DonutSkeleton = memo(function DonutSkeleton() {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 24, padding: "10px 4px" }}>
+    <div className="db-skel-donut">
       <Skeleton width={140} height={140} borderRadius="50%" />
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12 }}>
+      <div className="db-skel-donut__list">
         {Array.from({ length: 4 }).map((_, i) => (
           <Skeleton key={i} width={i === 3 ? "50%" : "85%"} height={13} />
         ))}
@@ -233,12 +235,12 @@ const DonutSkeleton = memo(function DonutSkeleton() {
 
 const StaffListSkeleton = memo(function StaffListSkeleton() {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "6px 4px" }}>
+    <div className="db-skel-staff-list">
       {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div key={i} className="db-skel-staff-list__row">
           <Skeleton width={36} height={36} borderRadius="50%" />
-          <div style={{ flex: 1 }}>
-            <Skeleton width="55%" height={13} style={{ marginBottom: 6 }} />
+          <div className="db-skel-staff-list__info">
+            <Skeleton width="55%" height={13} />
             <Skeleton width="35%" height={11} />
           </div>
           <Skeleton width={50} height={13} />
@@ -254,6 +256,8 @@ const StatusBadge = memo(function StatusBadge({ status }: { status: string }) {
     "in-progress": { label: "In Progress", cls: "db-badge-info"    },
     upcoming:      { label: "Upcoming",    cls: "db-badge-warning" },
     cancelled:     { label: "Cancelled",   cls: "db-badge-danger"  },
+    "no-show":     { label: "No Show",     cls: "db-badge-noshow"  },
+    deleted:       { label: "Deleted",     cls: "db-badge-neutral" },
   };
   const { label, cls } = map[status] ?? { label: status, cls: "" };
   return <span className={`db-badge ${cls}`}>{label}</span>;
@@ -294,6 +298,7 @@ const ApptTooltip = memo(function ApptTooltip({ active, payload, label }: any) {
 
 type NormSummary = {
   totalRevenue?: number;
+  allTimeRevenue?: number;
   todayRevenue?: number;
   totalAppointments?: number;
   totalClients?: number;
@@ -302,7 +307,103 @@ type NormSummary = {
   appointmentsChange?: number | null;
   clientsChange?: number | null;
   todayAppointmentsCount?: number;
+  avgBillValue?: number;
+  avgBillValueChange?: number | null;
+  lastMonthRevenue?: number;
+  yesterdayRevenue?: number;
+  newClientsToday?: number;
+  newClientsThisMonth?: number;
 };
+
+interface KpiFace {
+  label: string;
+  value: string;
+  change: { label: string; up: boolean } | null;
+  sub: string;
+}
+
+const FLIP_INTERVAL_MS = 10_000;
+
+const FlipKpiCard = memo(function FlipKpiCard({
+  theme, icon, front, back, loading, error, onRetry,
+}: {
+  theme: string;
+  icon: React.ReactNode;
+  front: KpiFace;
+  back: KpiFace;
+  loading: boolean;
+  error: string | null;
+  onRetry: () => void;
+}) {
+  // An ever-incrementing count rather than a boolean — toggling true/false
+  // makes the CSS transition interpolate back through the angle it just came
+  // from (180deg → 0deg), which reads as flipping the opposite direction
+  // every other time. Always adding one more half-turn (0 → 180 → 360 → 540…)
+  // keeps every flip spinning the same way.
+  const [flipCount, setFlipCount] = useState(0);
+
+  // Auto-flip every 10s, paused while loading/erroring (nothing useful to flip to yet).
+  useEffect(() => {
+    if (loading || error) return;
+    const id = setInterval(() => setFlipCount((c) => c + 1), FLIP_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [loading, error]);
+
+  if (loading) {
+    return (
+      <div className="db-kpi-card">
+        <KpiSkeleton />
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="db-kpi-card">
+        <SectionError message={error} onRetry={onRetry} />
+      </div>
+    );
+  }
+
+  const renderFace = (f: KpiFace) => (
+    <>
+      <div className="db-kpi-top">
+        <span className={`db-kpi-icon db-kpi-icon--${theme}`}>{icon}</span>
+        {f.change && (
+          <span className={`db-kpi-change ${f.change.up ? "up" : "down"}`}>
+            {f.change.up ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+            {f.change.label}
+          </span>
+        )}
+      </div>
+      <div className="db-kpi-value">{f.value}</div>
+      <div className="db-kpi-label">{f.label}</div>
+      <div className="db-kpi-sub">{f.sub}</div>
+    </>
+  );
+
+  const toggleFlip = () => setFlipCount((c) => c + 1);
+
+  return (
+    <div
+      className="db-kpi-card db-kpi-card--flip"
+      onClick={toggleFlip}
+      role="button"
+      tabIndex={0}
+      title="Click to flip"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFlip(); }
+      }}
+    >
+      <div
+        className="db-kpi-card__inner"
+        style={{ "--flip-deg": `${flipCount * 180}deg` } as React.CSSProperties}
+      >
+        <div className="db-kpi-card__face db-kpi-card__face--front">{renderFace(front)}</div>
+        <div className="db-kpi-card__face db-kpi-card__face--back">{renderFace(back)}</div>
+      </div>
+    </div>
+  );
+});
 
 const KpiCardsGrid = memo(function KpiCardsGrid({
   summary,
@@ -319,65 +420,193 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
 }) {
   const cards = [
     {
-      theme:  "revenue",
-      label:  "Total Revenue",
-      value:  fmt(summary?.totalRevenue),
-      change: fmtChange(summary?.revenueChange ?? undefined),
-      sub:    "vs last month",
-      icon:   <CurrencyRupee size={20} />,
+      theme: "revenue",
+      icon:  <CurrencyRupee size={20} />,
+      front: {
+        label:  "Total Revenue",
+        value:  fmt(summary?.allTimeRevenue),
+        change: null,
+        sub:    "",
+      },
+      back: {
+        label:  "This Month's Revenue",
+        value:  fmt(summary?.totalRevenue),
+        change: null,
+        sub:    "",
+      },
     },
     {
-      theme:  "appointments",
-      label:  "Appointments",
-      value:  summary?.totalAppointments?.toLocaleString("en-IN") ?? "—",
-      change: fmtChange(summary?.appointmentsChange ?? undefined),
-      sub:    "this month",
-      icon:   <CalendarCheck size={20} />,
+      theme: "appointments",
+      icon:  <CalendarCheck size={20} />,
+      front: {
+        label:  "Appointments",
+        value:  summary?.totalAppointments?.toLocaleString("en-IN") ?? "—",
+        change: fmtChange(summary?.appointmentsChange ?? undefined),
+        sub:    "this month",
+      },
+      back: {
+        label:  "Appointments Today",
+        value:  String(summary?.todayAppointmentsCount ?? normApptCount),
+        change: null,
+        sub:    "today",
+      },
     },
     {
-      theme:  "clients",
-      label:  "Active Clients",
-      value:  summary?.totalClients?.toLocaleString("en-IN") ?? "—",
-      change: fmtChange(summary?.clientsChange ?? undefined),
-      sub:    "total clients",
-      icon:   <People size={20} />,
+      theme: "today-revenue",
+      icon:  <CurrencyRupee size={20} />,
+      front: {
+        label:  "Today's Revenue",
+        value:  fmt(summary?.todayRevenue),
+        change: fmtChange(summary?.todayRevenueChange ?? undefined),
+        sub:    `from ${summary?.todayAppointmentsCount ?? normApptCount} appointments`,
+      },
+      back: {
+        label:  "Yesterday's Revenue",
+        value:  fmt(summary?.yesterdayRevenue),
+        change: null,
+        sub:    "previous day",
+      },
     },
     {
-      theme:  "today-revenue",
-      label:  "Today's Revenue",
-      value:  fmt(summary?.todayRevenue),
-      change: fmtChange(summary?.todayRevenueChange ?? undefined),
-      sub:    `from ${summary?.todayAppointmentsCount ?? normApptCount} appointments`,
-      icon:   <CurrencyRupee size={20} />,
+      theme: "new-clients",
+      icon:  <PersonPlus size={20} />,
+      front: {
+        label:  "New Clients Today",
+        value:  String(summary?.newClientsToday ?? 0),
+        change: null,
+        sub:    "first visit today",
+      },
+      back: {
+        label:  "New Clients This Month",
+        value:  String(summary?.newClientsThisMonth ?? 0),
+        change: null,
+        sub:    "first visit this month",
+      },
     },
   ];
 
   return (
     <div className="db-kpi-row">
       {cards.map((card) => (
-        <div className="db-kpi-card" key={card.label}>
-          {loading ? (
-            <KpiSkeleton />
-          ) : error ? (
-            <SectionError message={error} onRetry={onRetry} />
-          ) : (
-            <>
-              <div className="db-kpi-top">
-                <span className={`db-kpi-icon db-kpi-icon--${card.theme}`}>
-                  {card.icon}
-                </span>
-                {card.change && (
-                  <span className={`db-kpi-change ${card.change.up ? "up" : "down"}`}>
-                    {card.change.up ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-                    {card.change.label}
-                  </span>
-                )}
+        <FlipKpiCard
+          key={card.theme}
+          theme={card.theme}
+          icon={card.icon}
+          front={card.front}
+          back={card.back}
+          loading={loading}
+          error={error}
+          onRetry={onRetry}
+        />
+      ))}
+    </div>
+  );
+});
+
+// ─── Section: Recent Activity ──────────────────────────────────────────────────
+
+function timeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hour${hrs !== 1 ? "s" : ""} ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days} day${days !== 1 ? "s" : ""} ago`;
+}
+
+const ACTIVITY_ICON: Record<string, React.ReactNode> = {
+  appointment: <CalendarCheck size={14} color="#4f46e5" />,
+  payment:     <CashStack size={14} color="#16a34a" />,
+  client:      <PersonPlus size={14} color="#2563eb" />,
+  campaign:    <Megaphone size={14} color="#d97706" />,
+};
+
+const RecentActivityCard = memo(function RecentActivityCard({
+  activity, loading, error,
+}: {
+  activity: Array<{ id: string; type: string; title: string; body: string | null; createdAt: string }>;
+  loading: boolean;
+  error: string | null;
+}) {
+  return (
+    <div className="db-card">
+      <div className="db-card-header">
+        <h3 className="db-card-title">Recent Activity</h3>
+      </div>
+      {loading ? (
+        <TableRowsSkeleton rows={4} />
+      ) : error ? (
+        <div className="db-empty">Couldn't load recent activity.</div>
+      ) : activity.length === 0 ? (
+        <div className="db-empty">No recent activity yet.</div>
+      ) : (
+        <div className="db-activity-list">
+          {activity.map((a) => (
+            <div key={a.id} className="db-activity-row">
+              <span className="db-activity-row__icon">{ACTIVITY_ICON[a.type] ?? <BellFill size={14} color="#6b7280" />}</span>
+              <div className="db-activity-row__body">
+                <div className="db-activity-row__title">{a.title}</div>
+                {a.body && <div className="db-activity-row__sub">{a.body}</div>}
               </div>
-              <div className="db-kpi-value">{card.value}</div>
-              <div className="db-kpi-label">{card.label}</div>
-              <div className="db-kpi-sub">{card.sub}</div>
-            </>
+              <span className="db-activity-row__time">{timeAgo(a.createdAt)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+});
+
+// ─── Section: Bottom Stat Cards (Pending Payments / Birthdays / Inactive Clients) ──
+
+const BottomStatCards = memo(function BottomStatCards({
+  pendingPayments, birthdays, loading, onNavigateWhatsApp, onNavigateSalesSummary,
+}: {
+  pendingPayments: { count: number; amount: number } | undefined;
+  birthdays: { count: number; clients: Array<{ id: string; name: string }> } | undefined;
+  loading: boolean;
+  onNavigateWhatsApp: () => void;
+  onNavigateSalesSummary: () => void;
+}) {
+  const cards = [
+    {
+      label: "Pending Payments",
+      value: fmt(pendingPayments?.amount),
+      sub: `${pendingPayments?.count ?? 0} client${(pendingPayments?.count ?? 0) !== 1 ? "s" : ""}`,
+      icon: <CreditCard2Front size={18} />,
+      tone: "danger",
+      cta: "Collect Now",
+      onClick: onNavigateSalesSummary,
+    },
+    {
+      label: "Today's Birthdays",
+      value: String(birthdays?.count ?? 0),
+      sub: (birthdays?.count ?? 0) > 0 ? "Clients" : "None today",
+      icon: <Cake2 size={18} />,
+      tone: "pink",
+      cta: "Send Wishes",
+      onClick: onNavigateWhatsApp,
+    },
+  ];
+  return (
+    <div className="db-mini-stats-row">
+      {cards.map((c) => (
+        <div key={c.label} className={`db-mini-stat-card db-mini-stat-card--${c.tone}`}>
+          <div className="db-mini-stat-card__top">
+            <span className="db-mini-stat-card__label">{c.label}</span>
+            <span className="db-mini-stat-card__icon">{c.icon}</span>
+          </div>
+          {loading ? (
+            <Skeleton width="50%" height={26} className="db-mini-stat-card__value-skel" />
+          ) : (
+            <div className="db-mini-stat-card__value">{c.value}</div>
           )}
+          <div className="db-mini-stat-card__sub">{c.sub}</div>
+          <button className="db-mini-stat-card__cta" onClick={c.onClick}>
+            {c.cta} <ChevronRight size={11} />
+          </button>
         </div>
       ))}
     </div>
@@ -403,6 +632,22 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
 }) {
   const localRevenue = revenue;
 
+  const periodTotal = useMemo(
+    () => localRevenue.reduce((sum, r) => sum + (Number(r.revenue) || 0), 0),
+    [localRevenue]
+  );
+
+  // Highlight the single best-performing point on the chart instead of
+  // leaving the line to speak for itself.
+  const peak = useMemo(() => {
+    if (!localRevenue.length) return null;
+    return localRevenue.reduce((best, r) => (r.revenue > best.revenue ? r : best), localRevenue[0]);
+  }, [localRevenue]);
+
+  // Hourly/daily buckets can run past a couple dozen points — thin the
+  // x-axis ticks out so labels don't collide.
+  const tickInterval = localRevenue.length > 10 ? Math.ceil(localRevenue.length / 8) - 1 : 0;
+
   return (
     <div className="db-card db-card-lg">
       <div className="db-card-header">
@@ -415,16 +660,22 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
             {revPeriod === "yearly"  && "Monthly revenue — last 12 months"}
           </p>
         </div>
-        <div className="db-rev-filters">
-          {(["today", "weekly", "monthly", "yearly"] as const).map((p) => (
-            <button
-              key={p}
-              className={`db-rev-filter-btn${revPeriod === p ? " active" : ""}`}
-              onClick={() => onPeriodChange(p)}
-            >
-              {p.charAt(0).toUpperCase() + p.slice(1)}
-            </button>
-          ))}
+        <div className="db-rev-header-right">
+          <div className="db-rev-total">
+            <span className="db-rev-total__value">{fmt(periodTotal)}</span>
+            <span className="db-rev-total__label">total</span>
+          </div>
+          <div className="db-rev-filters">
+            {(["today", "weekly", "monthly", "yearly"] as const).map((p) => (
+              <button
+                key={p}
+                className={`db-rev-filter-btn${revPeriod === p ? " active" : ""}`}
+                onClick={() => onPeriodChange(p)}
+              >
+                {p.charAt(0).toUpperCase() + p.slice(1)}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -434,11 +685,11 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
         <SectionError message={error} onRetry={onRetry} />
       ) : (
         <ResponsiveContainer width="100%" height={240}>
-          <AreaChart data={localRevenue} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+          <AreaChart data={localRevenue} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor="#111827" stopOpacity={0.12} />
-                <stop offset="95%" stopColor="#111827" stopOpacity={0} />
+                <stop offset="5%"  stopColor="#4f46e5" stopOpacity={0.25} />
+                <stop offset="95%" stopColor="#4f46e5" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
@@ -447,7 +698,7 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
               tick={{ fontSize: 11, fill: "#9ca3af" }}
               axisLine={false}
               tickLine={false}
-              interval={revPeriod === "monthly" ? 2 : 0}
+              interval={tickInterval}
             />
             <YAxis
               tick={{ fontSize: 12, fill: "#9ca3af" }}
@@ -460,12 +711,29 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
               type="monotone"
               dataKey="revenue"
               name="Revenue"
-              stroke="#111827"
+              stroke="#4f46e5"
               strokeWidth={2.5}
               fill="url(#revGrad)"
-              dot={{ r: 3, fill: "#111827", strokeWidth: 0 }}
-              activeDot={{ r: 5, fill: "#111827" }}
+              dot={false}
+              activeDot={{ r: 5, fill: "#4f46e5", stroke: "#fff", strokeWidth: 2 }}
             />
+            {peak && peak.revenue > 0 && (
+              <ReferenceDot
+                x={peak.month}
+                y={peak.revenue}
+                r={5}
+                fill="#4f46e5"
+                stroke="#fff"
+                strokeWidth={2}
+                label={{
+                  value: fmt(peak.revenue),
+                  position: "top",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  fill: "#4f46e5",
+                }}
+              />
+            )}
           </AreaChart>
         </ResponsiveContainer>
       )}
@@ -475,7 +743,7 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
 
 // ─── Section: Appointment Summary Bar Chart ───────────────────────────────────
 
-type ApptChartEntry = { label: string; completed: number; pending: number; cancelled: number };
+type ApptChartEntry = { label: string; completed: number; pending: number; cancelled: number; noShow: number };
 
 const AppointmentSummaryPanel = memo(function AppointmentSummaryPanel({
   apptChartData,
@@ -510,12 +778,14 @@ const AppointmentSummaryPanel = memo(function AppointmentSummaryPanel({
               <Bar dataKey="completed" name="Completed" fill="#111827" radius={[4, 4, 0, 0]} />
               <Bar dataKey="pending"   name="Upcoming"  fill="#d1d5db" radius={[4, 4, 0, 0]} />
               <Bar dataKey="cancelled" name="Cancelled" fill="#fecaca" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="noShow"    name="No Show"   fill="#c4b5fd" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
           <div className="db-bar-legend">
             <span><CircleFill size={8} color="#111827" /> Completed</span>
             <span><CircleFill size={8} color="#d1d5db" /> Upcoming</span>
             <span><CircleFill size={8} color="#fecaca" /> Cancelled</span>
+            <span><CircleFill size={8} color="#c4b5fd" /> No Show</span>
           </div>
         </>
       )}
@@ -569,6 +839,12 @@ const AppointmentsTable = memo(function AppointmentsTable({
           <span className="db-appt-chip db-appt-chip-danger">
             {normAppts.filter(a => a.status === "cancelled").length} Cancelled
           </span>
+          <span className="db-appt-chip db-appt-chip-noshow">
+            {normAppts.filter(a => a.status === "no-show").length} No Show
+          </span>
+          <span className="db-appt-chip db-appt-chip-neutral">
+            {normAppts.filter(a => a.status === "deleted").length} Deleted
+          </span>
         </div>
       </div>
 
@@ -591,7 +867,10 @@ const AppointmentsTable = memo(function AppointmentsTable({
                 <span>Status</span>
               </div>
               {pagedAppts.map((appt) => (
-                <div className="db-appt-row" key={appt.id}>
+                <div
+                  className={`db-appt-row${appt.status === "deleted" ? " db-appt-row--deleted" : ""}`}
+                  key={appt.id}
+                >
                   <span className="db-appt-client">
                     <span className="db-avatar">{appt.client.charAt(0)}</span>
                     {appt.client}
@@ -656,53 +935,66 @@ const AppointmentsTable = memo(function AppointmentsTable({
   );
 });
 
-// ─── Section: Services Donut Card ─────────────────────────────────────────────
+// ─── Section: Staff Revenue Donut Card ────────────────────────────────────────
+// Replaces the old Services donut — same visual layout, but shows how much
+// revenue each staff member generated, with its own period filter (independent
+// of the Revenue Trend chart above).
 
-type SvcEntry = {
+type StaffRevSlice = {
+  id: string;
   name: string;
+  role: string;
   value: number;
   color: string;
-  duration: number;
-  category: string;
-  priceType: "fixed" | "from" | "free" | undefined;
+  colorIndex: number;
 };
 
-const ServicesCard = memo(function ServicesCard({
-  svcChartData,
-  allServicesCount,
+const StaffRevenueCard = memo(function StaffRevenueCard({
+  entries,
+  period,
+  onPeriodChange,
   loading,
   error,
-  onNavigate,
   onRetry,
 }: {
-  svcChartData: SvcEntry[];
-  allServicesCount: number;
+  entries: Array<{ id: string; name: string; role: string; revenue: number }>;
+  period: RevPeriod;
+  onPeriodChange: (p: RevPeriod) => void;
   loading: boolean;
   error: string | null;
-  onNavigate: () => void;
   onRetry: () => void;
 }) {
-  const totalSvcValue = useMemo(
-    () => svcChartData.reduce((sum, s) => sum + s.value, 0),
-    [svcChartData]
+  const slices: StaffRevSlice[] = useMemo(
+    () => entries.map((e, i) => ({
+      id: e.id, name: e.name, role: e.role, value: e.revenue,
+      color: SVC_CHART_COLORS[i % SVC_CHART_COLORS.length],
+      colorIndex: i % SVC_CHART_COLORS.length,
+    })),
+    [entries]
+  );
+
+  const totalValue = useMemo(
+    () => slices.reduce((sum, s) => sum + s.value, 0),
+    [slices]
   );
 
   return (
     <div className="db-card db-svc-card">
       <div className="db-card-header">
         <div>
-          <h3 className="db-card-title">Services</h3>
-          <p className="db-card-sub">
-            {loading ? "Loading…" : `${allServicesCount} active services`}
-          </p>
+          <h3 className="db-card-title">Staff Revenue</h3>
+          <p className="db-card-sub">How much revenue each staff member generated</p>
         </div>
-        <div className="db-svc-header-actions">
-          <button type="button" className="db-svc-more-btn" aria-label="More service options">
-            <ThreeDots size={16} />
-          </button>
-          <button className="db-svc-view-all-btn" onClick={onNavigate}>
-            View all <ArrowUpRight size={13} />
-          </button>
+        <div className="db-rev-filters">
+          {(["today", "weekly", "monthly", "yearly"] as const).map((p) => (
+            <button
+              key={p}
+              className={`db-rev-filter-btn${period === p ? " active" : ""}`}
+              onClick={() => onPeriodChange(p)}
+            >
+              {p.charAt(0).toUpperCase() + p.slice(1)}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -710,15 +1002,15 @@ const ServicesCard = memo(function ServicesCard({
         <DonutSkeleton />
       ) : error ? (
         <SectionError message={error} onRetry={onRetry} />
-      ) : svcChartData.length === 0 ? (
-        <div className="db-empty">No services found. Add your first service.</div>
+      ) : slices.length === 0 ? (
+        <div className="db-empty">No staff revenue in this period yet.</div>
       ) : (
         <div className="db-svc-donut-layout">
           <div className="db-svc-donut-wrap">
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
                 <Pie
-                  data={svcChartData}
+                  data={slices}
                   cx="50%"
                   cy="50%"
                   innerRadius={58}
@@ -727,8 +1019,8 @@ const ServicesCard = memo(function ServicesCard({
                   dataKey="value"
                   stroke="none"
                 >
-                  {svcChartData.map((entry, idx) => (
-                    <Cell key={`svc-${idx}`} fill={entry.color} />
+                  {slices.map((entry, idx) => (
+                    <Cell key={`staff-${idx}`} fill={entry.color} />
                   ))}
                 </Pie>
                 <Tooltip
@@ -738,33 +1030,23 @@ const ServicesCard = memo(function ServicesCard({
               </PieChart>
             </ResponsiveContainer>
             <div className="db-svc-donut-center">
-              <span className="db-svc-donut-total">₹{totalSvcValue.toLocaleString("en-IN")}</span>
-              <span className="db-svc-donut-label">total value</span>
+              <span className="db-svc-donut-total">₹{totalValue.toLocaleString("en-IN")}</span>
+              <span className="db-svc-donut-label">total revenue</span>
             </div>
           </div>
 
           <div className="db-svc-donut-list">
-            {svcChartData.map((svc, i) => {
-              const pct = totalSvcValue > 0
-                ? ((svc.value / totalSvcValue) * 100).toFixed(1)
-                : "0.0";
-              const dur = svc.duration;
-              const durStr = dur >= 60
-                ? `${Math.floor(dur / 60)}h${dur % 60 ? ` ${dur % 60}m` : ""}`
-                : `${dur}m`;
+            {slices.map((s) => {
+              const pct = totalValue > 0 ? ((s.value / totalValue) * 100).toFixed(1) : "0.0";
               return (
-                <div className="db-svc-donut-row" key={i}>
-                  <span className={`db-svc-donut-dot db-svc-donut-dot--${i % SVC_CHART_COLORS.length}`} />
+                <div className="db-svc-donut-row" key={s.id}>
+                  <span className={`db-svc-donut-dot db-svc-donut-dot--${s.colorIndex}`} />
                   <div className="db-svc-donut-info">
-                    <span className="db-svc-donut-name">{svc.name}</span>
-                    <span className="db-svc-donut-meta">
-                      {durStr}{svc.category ? ` · ${svc.category}` : ""}
-                    </span>
+                    <span className="db-svc-donut-name">{s.name}</span>
+                    <span className="db-svc-donut-meta">{s.role}</span>
                   </div>
                   <div className="db-svc-donut-right">
-                    <span className="db-svc-donut-price">
-                      {svc.priceType === "free" ? "Free" : `₹${svc.value.toLocaleString("en-IN")}`}
-                    </span>
+                    <span className="db-svc-donut-price">₹{s.value.toLocaleString("en-IN")}</span>
                     <span className="db-svc-donut-pct">{pct}%</span>
                   </div>
                 </div>
@@ -846,58 +1128,6 @@ const TopStaffCard = memo(function TopStaffCard({
   );
 });
 
-// ─── Section: Quick Stats Strip ───────────────────────────────────────────────
-
-const QuickStatsStrip = memo(function QuickStatsStrip({
-  summary,
-  topServiceName,
-  activeServicesCount,
-  normApptCount,
-}: {
-  summary: NormSummary | undefined;
-  topServiceName: string;
-  activeServicesCount: number;
-  normApptCount: number;
-}) {
-  return (
-    <div className="db-stats-strip">
-      <div className="db-stat-item">
-        <Lightning size={16} color="#f59e0b" />
-        <span className="db-stat-label">Top service</span>
-        <span className="db-stat-val">{topServiceName}</span>
-      </div>
-      <div className="db-stat-divider" />
-      <div className="db-stat-item">
-        <Scissors size={16} color="#10b981" />
-        <span className="db-stat-label">Active services</span>
-        <span className="db-stat-val">{activeServicesCount}</span>
-      </div>
-      <div className="db-stat-divider" />
-      <div className="db-stat-item">
-        <People size={16} color="#3b82f6" />
-        <span className="db-stat-label">Active clients</span>
-        <span className="db-stat-val">
-          {summary?.totalClients != null
-            ? summary.totalClients.toLocaleString("en-IN")
-            : "—"}
-        </span>
-      </div>
-      <div className="db-stat-divider" />
-      <div className="db-stat-item">
-        <CalendarCheck size={16} color="#8b5cf6" />
-        <span className="db-stat-label">Today's appointments</span>
-        <span className="db-stat-val">{normApptCount}</span>
-      </div>
-      <div className="db-stat-divider" />
-      <div className="db-stat-item">
-        <CurrencyRupee size={16} color="#ef4444" />
-        <span className="db-stat-label">Today's revenue</span>
-        <span className="db-stat-val">{fmt(summary?.todayRevenue)}</span>
-      </div>
-    </div>
-  );
-});
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
@@ -906,13 +1136,19 @@ export default function DashboardPage() {
 
   const [apptPage,  setApptPage]  = useState(1);
   const [revPeriod, setRevPeriod] = useState<RevPeriod>("monthly");
+  const [staffRevPeriod, setStaffRevPeriod] = useState<RevPeriod>("monthly");
 
   // ── Granular selectors — each section only re-renders when its own slice changes
   const summary      = useAppSelector((s) => s.dashboard.data?.summary);
   const appointments = useAppSelector((s) => s.dashboard.data?.todayAppointments ?? []) as TodayAppointment[];
   const revenueChart = useAppSelector((s) => s.dashboard.data?.revenueChart ?? []);
   const topStaff     = useAppSelector((s) => s.dashboard.data?.topStaff ?? []) as TopStaffEntry[];
-  const allServices  = useAppSelector((s) => s.dashboard.data?.services ?? []);
+  const staffRevenue        = useAppSelector((s) => s.dashboard.staffRevenue);
+  const staffRevenueLoading = useAppSelector((s) => s.dashboard.staffRevenueLoading);
+  const staffRevenueError   = useAppSelector((s) => s.dashboard.staffRevenueError);
+  const pendingPayments = useAppSelector((s) => s.dashboard.data?.pendingPayments);
+  const todaysBirthdays = useAppSelector((s) => s.dashboard.data?.todaysBirthdays);
+  const recentActivity  = useAppSelector((s) => s.dashboard.data?.recentActivity ?? []);
   const dashLoading  = useAppSelector((s) => s.dashboard.loading);
   const chartLoading = useAppSelector((s) => s.dashboard.chartLoading);
   const chartError   = useAppSelector((s) => s.dashboard.chartError);
@@ -922,6 +1158,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
     dispatch(fetchDashboardAll({ period: revPeriod, date: today }));
+    dispatch(fetchStaffRevenue({ period: staffRevPeriod }));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset appointment page when list changes
@@ -938,6 +1175,19 @@ export default function DashboardPage() {
     [dispatch]
   );
 
+  // Staff Revenue card's period filter is independent of the Revenue Trend chart's.
+  const handleStaffRevPeriodChange = useCallback(
+    (p: RevPeriod) => {
+      setStaffRevPeriod(p);
+      dispatch(fetchStaffRevenue({ period: p }));
+    },
+    [dispatch]
+  );
+
+  const retryStaffRevenue = useCallback(() => {
+    dispatch(fetchStaffRevenue({ period: staffRevPeriod }));
+  }, [dispatch, staffRevPeriod]);
+
   // ── Retry callbacks ────────────────────────────────────────────────────────
   const retryFull = useCallback(() => {
     const today = new Date().toISOString().split("T")[0];
@@ -948,7 +1198,8 @@ export default function DashboardPage() {
     const today = new Date().toISOString().split("T")[0];
     dispatch(fetchDashboardAll({ period: revPeriod, date: today }));
     dispatch(fetchRevenueChart({ period: revPeriod }));
-  }, [dispatch, revPeriod]);
+    dispatch(fetchStaffRevenue({ period: staffRevPeriod }));
+  }, [dispatch, revPeriod, staffRevPeriod]);
 
   const retryChart = useCallback(() => {
     dispatch(fetchRevenueChart({ period: revPeriod }));
@@ -983,7 +1234,7 @@ export default function DashboardPage() {
     };
 
     if (normAppts.length === 0) {
-      return [{ label: "Today", completed: 0, pending: 0, cancelled: 0 }];
+      return [{ label: "Today", completed: 0, pending: 0, cancelled: 0, noShow: 0 }];
     }
 
     const hourSet = new Set<number>();
@@ -995,6 +1246,7 @@ export default function DashboardPage() {
         completed: normAppts.filter(a => a.status === "completed").length,
         pending:   normAppts.filter(a => a.status === "upcoming" || a.status === "in-progress").length,
         cancelled: normAppts.filter(a => a.status === "cancelled").length,
+        noShow:    normAppts.filter(a => a.status === "no-show").length,
       }];
     }
 
@@ -1009,62 +1261,19 @@ export default function DashboardPage() {
         completed: slot.filter(a => a.status === "completed").length,
         pending:   slot.filter(a => a.status === "upcoming" || a.status === "in-progress").length,
         cancelled: slot.filter(a => a.status === "cancelled").length,
+        noShow:    slot.filter(a => a.status === "no-show").length,
       };
     });
   }, [normAppts]);
 
-  // Compute today's hourly revenue from actual appointments (local time, correct amounts).
-  // Used instead of the backend's UTC-based revenueChart when period is "today".
-  const todayHourlyRevenue = useMemo(() => {
-    const parseHour = (ts: string): number | null => {
-      if (!ts || ts === "—") return null;
-      const match = ts.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-      if (!match) return null;
-      let h = parseInt(match[1], 10);
-      const p = match[3].toUpperCase();
-      if (p === "PM" && h !== 12) h += 12;
-      if (p === "AM" && h === 12) h = 0;
-      return h;
-    };
-    if (!normAppts.length) return [] as Array<{ month: string; revenue: number; expenses: number }>;
-    const hourSet = new Set<number>();
-    normAppts.forEach(a => { const h = parseHour(a.time); if (h !== null) hourSet.add(h); });
-    if (!hourSet.size) return [] as Array<{ month: string; revenue: number; expenses: number }>;
-    const minH = Math.min(...hourSet);
-    const maxH = Math.max(...hourSet);
-    return Array.from({ length: maxH - minH + 1 }, (_, i) => {
-      const h = minH + i;
-      const label = h === 0 ? "12AM" : h < 12 ? `${h}AM` : h === 12 ? "12PM" : `${h - 12}PM`;
-      const slot = normAppts.filter(a => parseHour(a.time) === h);
-      return {
-        month:    label,
-        revenue:  slot.reduce((s, a) => s + (Number(a.amount) || 0), 0),
-        expenses: 0,
-      };
-    });
-  }, [normAppts]);
-
-  const activeServices = useMemo(
-    () => allServices.filter((s) => s.is_active).slice(0, 6),
-    [allServices]
-  );
-
-  const svcChartData = useMemo<SvcEntry[]>(
-    () => activeServices.map((svc, i) => ({
-      name:      svc.name,
-      value:     parseFloat(String(svc.price ?? 0)),
-      color:     SVC_CHART_COLORS[i % SVC_CHART_COLORS.length],
-      duration:  svc.duration ?? 0,
-      category:  svc.category_name ?? "",
-      priceType: svc.price_type,
-    })),
-    [activeServices]
-  );
-
-  const topServiceName = useMemo(
-    () => activeServices.length > 0 ? activeServices[0].name : "—",
-    [activeServices]
-  );
+  // Revenue Overview must reflect actual completed sales, not quoted/booked
+  // appointment amounts (which include upcoming and cancelled appointments
+  // and don't match the final billed total). The backend's "today" chart is
+  // bucketed by UTC hour, so only the label needs shifting to local time.
+  const displayRevenueChart = useMemo(() => {
+    if (revPeriod !== "today") return revenueChart;
+    return revenueChart.map((pt) => ({ ...pt, month: utcHourLabelToLocal(pt.month) }));
+  }, [revenueChart, revPeriod]);
 
   const today = useMemo(
     () => new Date().toLocaleDateString("en-IN", {
@@ -1078,8 +1287,12 @@ export default function DashboardPage() {
   const goToClients   = useCallback(() => navigate("/dashboard/clients/add"),     [navigate]);
   const goToSales     = useCallback(() => navigate("/dashboard/sales/quick"),      [navigate]);
   const goToMarketing = useCallback(() => navigate("/dashboard/marketing"),        [navigate]);
-  const goToServices  = useCallback(() => navigate("/dashboard/catalog/services"), [navigate]);
   const goToStaff     = useCallback(() => navigate("/dashboard/team/staff"),       [navigate]);
+  const goToQuickWhatsApp = useCallback(() => navigate("/dashboard/marketing/quick-whatsapp"), [navigate]);
+  const goToSalesSummary = useCallback(
+    () => navigate("/dashboard/analytics?report=sales_summary"),
+    [navigate]
+  );
 
   const quickActionsWithHandlers = useMemo(() => [
     { label: "New Appointment", icon: <CalendarCheck size={22} />, onClick: goToCalendar,  tone: "neutral" },
@@ -1132,12 +1345,12 @@ export default function DashboardPage() {
         onRetry={retryFull}
       />
 
-      {/* ── CHARTS ROW ── */}
-      <div className="db-charts-row">
+      {/* ── REVENUE OVERVIEW + TODAY'S SUMMARY ── */}
+      <div className="db-overview-row">
 
         {/* Revenue chart — only re-renders when chart data or chartLoading changes */}
         <RevenueChartPanel
-          revenue={revPeriod === "today" ? todayHourlyRevenue : revenueChart}
+          revenue={displayRevenueChart}
           chartLoading={dashLoading || chartLoading}
           error={chartError ?? dashError}
           revPeriod={revPeriod}
@@ -1145,7 +1358,6 @@ export default function DashboardPage() {
           onRetry={retryChart}
         />
 
-        {/* Appointments summary — only re-renders when appointments change */}
         <AppointmentSummaryPanel
           apptChartData={apptChartData}
           loading={dashLoading}
@@ -1165,15 +1377,24 @@ export default function DashboardPage() {
         onRetry={retryFull}
       />
 
-      {/* ── BOTTOM ROW ── */}
-      <div className="db-bottom-row">
-        <ServicesCard
-          svcChartData={svcChartData}
-          allServicesCount={allServices.filter(s => s.is_active).length}
-          loading={dashLoading}
-          error={dashError}
-          onNavigate={goToServices}
-          onRetry={retryFull}
+      {/* ── PENDING PAYMENTS / BIRTHDAYS ── */}
+      <BottomStatCards
+        pendingPayments={pendingPayments}
+        birthdays={todaysBirthdays}
+        loading={dashLoading}
+        onNavigateWhatsApp={goToQuickWhatsApp}
+        onNavigateSalesSummary={goToSalesSummary}
+      />
+
+      {/* ── STAFF REVENUE / TOP STAFF / RECENT ACTIVITY ── */}
+      <div className="db-bottom-row db-bottom-row--triple">
+        <StaffRevenueCard
+          entries={staffRevenue}
+          period={staffRevPeriod}
+          onPeriodChange={handleStaffRevPeriodChange}
+          loading={staffRevenueLoading}
+          error={staffRevenueError}
+          onRetry={retryStaffRevenue}
         />
         <TopStaffCard
           topStaff={topStaff}
@@ -1182,15 +1403,12 @@ export default function DashboardPage() {
           onNavigate={goToStaff}
           onRetry={retryFull}
         />
+        <RecentActivityCard
+          activity={recentActivity}
+          loading={dashLoading}
+          error={dashError}
+        />
       </div>
-
-      {/* ── QUICK STATS STRIP ── */}
-      <QuickStatsStrip
-        summary={summary}
-        topServiceName={topServiceName}
-        activeServicesCount={allServices.filter(s => s.is_active).length}
-        normApptCount={normAppts.length}
-      />
 
     </div>
   );
