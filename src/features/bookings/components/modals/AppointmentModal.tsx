@@ -966,9 +966,10 @@ export const AppointmentModal: React.FC<Props> = ({
     // form errors only after the payment method has been fixed.
     const formOk = validate();
     // No payment method needed once the bill is fully covered (package, or a
-    // wallet/membership/points deduction brought effectiveTotal to 0) — there's
-    // nothing left to collect via Cash/Card/UPI.
-    const methodMissing = totals.effectiveTotal > 0 && paymentMode === "single" && !singleMethod;
+    // wallet/membership/points deduction brought effectiveTotal to 0), or when
+    // this transaction's own amount is a deliberate 0 (partial entry deferring
+    // everything to due) — nothing to collect via a method either way.
+    const methodMissing = amountThisTxn > 0 && paymentMode === "single" && !singleMethod;
     setPayMethodError(methodMissing);
     if (!formOk || methodMissing) return;
 
@@ -1038,7 +1039,7 @@ export const AppointmentModal: React.FC<Props> = ({
       finishWithPaidPopup();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [save, completePayment, dispatch, selectedClient, salonId, serviceRows, totals,
+  }, [save, completePayment, dispatch, selectedClient, salonId, serviceRows, totals, amountThisTxn,
       eWalletAmt, coupon, paymentMode, singleMethod, splitEntries, partialAmtInput,
       includeClearDue, priorDueAmt, useEWallet, selectedDueIds, applyMembership, printAfterPayment,
       schedulerStaff, currentSalon, finishWithPaidPopup]);

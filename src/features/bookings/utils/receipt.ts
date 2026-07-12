@@ -332,7 +332,7 @@ export function printReceipt(
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;color:#111827;background:#d1d5db;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .page{position:relative;width:210mm;min-height:297mm;margin:12mm auto;background:#ffffff;box-shadow:0 4px 24px rgba(0,0,0,.18);display:flex;flex-direction:column}
-  .inv-duplicate-watermark{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);font-size:90px;font-weight:900;letter-spacing:10px;color:rgba(220,38,38,0.14);pointer-events:none;z-index:1;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .inv-watermark{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);font-size:52px;font-weight:800;letter-spacing:2px;color:rgba(107,114,128,0.14);pointer-events:none;z-index:1;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 
   /* ── Top bar: logo left, invoice title right ── */
   .inv-topbar{display:flex;justify-content:space-between;align-items:flex-start;padding:28px 32px 20px;border-bottom:2px solid #111827}
@@ -449,7 +449,7 @@ export function printReceipt(
 </div>
 
 <div class="page">
-  ${!opts?.auto ? '<div class="inv-duplicate-watermark">DUPLICATE</div>' : ""}
+  ${!opts?.auto ? `<div class="inv-watermark">${salonName}</div>` : ""}
 
   <!-- ═══ TOP BAR: Salon info left · Invoice title right ═══ -->
   <div class="inv-topbar">
