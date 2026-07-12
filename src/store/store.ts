@@ -17,7 +17,6 @@ import appReducer from "./appSlice";
 import schedulerReducer from "./schedulerSlice";
 import marketingReducer from "./marketingSlice";
 import inboxReducer from "./inboxSlice";
-import reportReducer from "./reportSlice";
 import servicesReducer from "./servicesSlice";
 import categoriesReducer from "./categoriesSlice";
 import serviceFiltersReducer from "./serviceFiltersSlice";
@@ -73,7 +72,6 @@ export const store = configureStore({
     scheduler: persistReducer(schedulerPersistConfig, schedulerReducer) as unknown as Reducer<ReturnType<typeof schedulerReducer>>,
     marketing: marketingReducer,
     inbox: inboxReducer,
-    report: reportReducer,
     services: servicesReducer,
     categories: categoriesReducer,
     serviceFilters: serviceFiltersReducer,

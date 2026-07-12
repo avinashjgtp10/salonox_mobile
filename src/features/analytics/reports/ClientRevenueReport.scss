@@ -1,0 +1,8 @@
+@use "../styles/reportDetailBase" as *;
+
+.rp-cr-top {
+  font-size: 15px !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

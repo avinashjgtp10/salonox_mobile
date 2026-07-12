@@ -1,0 +1,256 @@
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { ChevronLeft, Search } from "react-bootstrap-icons";
+import api from "../../../services/api/axios";
+import { CLIENT, EWALLET } from "../../../services/api/endpoints";
+import Button from "../../../components/ui/Button";
+import { PageLoader } from "../../../components/ui/PageLoader";
+import { Pagination } from "../../../components/ui";
+import ReportExportButton from "../../../components/ui/ReportExportButton";
+import "./EwalletReport.scss";
+
+const REPORT_NAME = "Ewallet";
+
+interface ClientRow {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  balance: number;
+}
+
+interface Breakdown {
+  balance: number;
+  referral_rewards: number;
+  reward_credits: number;
+  other_credits: number;
+  wallet_debits: number;
+}
+
+interface LedgerRow {
+  date: string;
+  type: string;
+  amount: number;
+  balanceAfter: number;
+  source: string;
+  note: string;
+}
+
+const EMPTY_BREAKDOWN: Breakdown = { balance: 0, referral_rewards: 0, reward_credits: 0, other_credits: 0, wallet_debits: 0 };
+
+export default function EwalletReport({ onBack }: { onBack: () => void }) {
+  const [allRows,     setAllRows]     = useState<ClientRow[]>([]);
+  const [loading,     setLoading]     = useState(false);
+  const [search,      setSearch]      = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize,    setPageSize]    = useState(25);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const [selected,     setSelected]     = useState<ClientRow | null>(null);
+  const [breakdown,    setBreakdown]    = useState<Breakdown>(EMPTY_BREAKDOWN);
+  const [ledger,       setLedger]       = useState<LedgerRow[]>([]);
+  const [drawerLoading, setDrawerLoading] = useState(false);
+  const drawerAbortRef = useRef<AbortController | null>(null);
+
+  const fetchData = useCallback(async () => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setLoading(true);
+    try {
+      const res = await api.get(CLIENT.BASE, { params: { limit: 200 }, signal: ctrl.signal });
+      const raw = res.data?.data;
+      const list: any[] = Array.isArray(raw?.items) ? raw.items : Array.isArray(raw) ? raw : [];
+      const rows: ClientRow[] = list.map((c: any) => ({
+        id: String(c.id),
+        name: c.full_name || `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim() || "—",
+        phone: c.phone_number ? `${c.phone_country_code ?? ""} ${c.phone_number}`.trim() : "—",
+        email: c.email ?? "—",
+        balance: Number(c.ewallet_balance ?? c.wallet_balance ?? 0) || 0,
+      }));
+      rows.sort((a, b) => b.balance - a.balance);
+      setAllRows(rows);
+    } catch (e: any) {
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setAllRows([]);
+    } finally {
+      if (!ctrl.signal.aborted) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const rows = useMemo(() => {
+    if (!search.trim()) return allRows;
+    const q = search.toLowerCase();
+    return allRows.filter(r => r.name.toLowerCase().includes(q) || r.phone.includes(q) || r.email.toLowerCase().includes(q));
+  }, [allRows, search]);
+
+  useEffect(() => { setCurrentPage(1); }, [rows]);
+
+  const totalClients = rows.length;
+  const withBalance = rows.filter(r => r.balance > 0).length;
+  const totalValue = rows.reduce((s, r) => s + r.balance, 0);
+  const avgBalance = withBalance > 0 ? totalValue / withBalance : 0;
+
+  const openDrawer = useCallback(async (row: ClientRow) => {
+    setSelected(row);
+    drawerAbortRef.current?.abort();
+    const ctrl = new AbortController();
+    drawerAbortRef.current = ctrl;
+    setDrawerLoading(true);
+    try {
+      const [breakdownRes, ledgerRes] = await Promise.all([
+        api.get(EWALLET.BREAKDOWN(row.id), { signal: ctrl.signal }),
+        api.get(EWALLET.LEDGER(row.id), { signal: ctrl.signal }),
+      ]);
+      const b = breakdownRes.data?.data ?? breakdownRes.data ?? {};
+      setBreakdown({
+        balance: Number(b.balance ?? row.balance) || 0,
+        referral_rewards: Number(b.referral_rewards) || 0,
+        reward_credits: Number(b.reward_credits) || 0,
+        other_credits: Number(b.other_credits) || 0,
+        wallet_debits: Number(b.wallet_debits) || 0,
+      });
+      const rawLedger = ledgerRes.data?.data ?? ledgerRes.data ?? [];
+      const list: any[] = Array.isArray(rawLedger) ? rawLedger : [];
+      setLedger(list.map((l: any) => ({
+        date: String(l.created_at ?? "").slice(0, 10),
+        type: l.type ?? (Number(l.amount ?? 0) >= 0 ? "topup" : "redeem"),
+        amount: Number(l.amount) || 0,
+        balanceAfter: Number(l.balance_after) || 0,
+        source: l.source_type ?? "—",
+        note: l.note ?? "—",
+      })));
+    } catch (e: any) {
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") { setBreakdown(EMPTY_BREAKDOWN); setLedger([]); }
+    } finally {
+      if (!ctrl.signal.aborted) setDrawerLoading(false);
+    }
+  }, []);
+
+  const HEADERS = ["Client", "Phone", "Email", "Wallet Balance (₹)"];
+  const exportRows = () => rows.map(r => [r.name, r.phone, r.email, r.balance]);
+  const paged = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  return (
+    <div className="rp-detail-view">
+      <div className="rp-detail-header">
+        <div className="rp-detail-back-row">
+          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
+            <ChevronLeft size={15} /> {REPORT_NAME}
+          </Button>
+          <div className="rp-detail-view-icons">
+            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename="ewallet-balances" variant="button" csv print />
+          </div>
+        </div>
+      </div>
+
+      <div className="rp-detail-filters">
+        <div className="rp-detail-filter-actions">
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      <div className="rp-sra-summary-row">
+        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{totalClients}</div><div className="rp-sra-summary-label">Total Clients</div></div>
+        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{withBalance}</div><div className="rp-sra-summary-label">With Wallet Balance</div></div>
+        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalValue.toLocaleString("en-IN")}</div><div className="rp-sra-summary-label">Total Wallet Value</div></div>
+        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{avgBalance.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div><div className="rp-sra-summary-label">Avg Balance</div></div>
+      </div>
+
+      <div className="rp-detail-toolbar">
+        <div className="rp-detail-show-n">
+          <span>Show</span>
+          <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}>
+            {[10, 25, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </div>
+        <div className="rp-detail-search-wrap">
+          <Search size={13} className="rp-detail-search-ic" />
+          <input
+            type="text"
+            className="rp-detail-search-input"
+            placeholder="Client name, phone or email"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="rp-detail-table-wrap">
+        <table className="rp-detail-table">
+          <thead>
+            <tr><th>Client</th><th>Phone</th><th>Email</th><th>Wallet Balance (₹)</th></tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={4} className="rp-detail-loading-cell"><PageLoader /></td></tr>
+            ) : paged.length === 0 ? (
+              <tr><td colSpan={4} className="rp-detail-empty-cell">No clients found</td></tr>
+            ) : paged.map(r => (
+              <tr key={r.id} className="rp-appt-row" onClick={() => openDrawer(r)}>
+                <td className="fw-semibold"><span className="rp-detail-link">{r.name}</span></td>
+                <td>{r.phone}</td>
+                <td>{r.email}</td>
+                <td className={r.balance > 0 ? "rp-ew-credit fw-semibold" : "fw-semibold"}>₹{r.balance.toLocaleString("en-IN")}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+
+      {selected && (
+        <div className="rp-appt-drawer-overlay" onClick={() => setSelected(null)}>
+          <div className="rp-appt-drawer rp-ew-drawer" onClick={e => e.stopPropagation()}>
+            <button className="rp-appt-drawer-close" onClick={() => setSelected(null)}>✕</button>
+
+            <div className="rp-appt-drawer-hero">
+              <div className="rp-appt-drawer-avatar">{selected.name.charAt(0).toUpperCase()}</div>
+              <div className="rp-appt-drawer-hero-info">
+                <div className="rp-appt-drawer-client">{selected.name}</div>
+                <span className="rp-ew-drawer-phone">{selected.phone}</span>
+              </div>
+            </div>
+
+            <div className="rp-appt-drawer-body">
+              {drawerLoading ? (
+                <div className="rp-detail-loading-cell"><PageLoader /></div>
+              ) : (
+                <>
+                  <div className="rp-appt-drawer-section-title">Wallet Breakdown</div>
+                  <div className="rp-ew-drawer-stats">
+                    <div className="rp-ew-drawer-stat"><span>₹{breakdown.balance.toLocaleString("en-IN")}</span><label>Balance</label></div>
+                    <div className="rp-ew-drawer-stat"><span>₹{breakdown.referral_rewards.toLocaleString("en-IN")}</span><label>Referral</label></div>
+                    <div className="rp-ew-drawer-stat"><span>₹{breakdown.reward_credits.toLocaleString("en-IN")}</span><label>Rewards</label></div>
+                    <div className="rp-ew-drawer-stat"><span>₹{breakdown.other_credits.toLocaleString("en-IN")}</span><label>Other</label></div>
+                    <div className="rp-ew-drawer-stat"><span className="rp-ew-debit">₹{breakdown.wallet_debits.toLocaleString("en-IN")}</span><label>Debits</label></div>
+                  </div>
+
+                  <div className="rp-appt-drawer-section-title rp-ew-drawer-ledger-title">Transaction History</div>
+                  {ledger.length === 0 ? (
+                    <div className="rp-detail-empty-cell">No wallet transactions found</div>
+                  ) : (
+                    <div className="rp-ew-drawer-ledger">
+                      {ledger.map((l, i) => (
+                        <div key={i} className="rp-appt-drawer-meta-row">
+                          <span className="rp-appt-drawer-meta-label">{l.date || "—"} · <span className="rp-ew-type">{l.type}</span></span>
+                          <span className={`rp-appt-drawer-meta-val ${l.amount >= 0 ? "rp-ew-credit" : "rp-ew-debit"}`}>
+                            {l.amount >= 0 ? "+" : ""}₹{l.amount.toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
