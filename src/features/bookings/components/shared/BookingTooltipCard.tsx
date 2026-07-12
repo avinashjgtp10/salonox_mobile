@@ -8,10 +8,10 @@ import {
   FloatingPortal,
   autoUpdate,
 } from "@floating-ui/react";
-import { Scissors, AwardFill, PlayFill, StopFill } from "react-bootstrap-icons";
+import { Scissors, AwardFill, PlayFill, StopwatchFill, CheckCircleFill, Check2, XLg } from "react-bootstrap-icons";
 import { IconBox, IconTag } from "../../../../components/shared/QuickSaleIcons";
 import type { Booking, Staff } from "../../types/scheduler-types";
-import { formatTime12 } from "../../utils/timeUtils";
+import { formatTime12, getCurrentTime } from "../../utils/timeUtils";
 import { computeChipStatusClass } from "../../utils/bookingStatusUtils";
 import { useAppDispatch } from "../../../../hooks/useAppRedux";
 import { updateBooking } from "../../../../store/schedulerSlice";
@@ -26,6 +26,16 @@ function formatIsoTime12(iso?: string | null): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
   return d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
+}
+
+// Combines the booking's own date with a picked "HH:MM" clock time (both
+// interpreted in the browser's local time — staff are physically at the
+// salon) into a full ISO timestamp for the backend's TIMESTAMPTZ columns.
+function toIsoTimestamp(dateStr: string, hhmm: string): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  const d = new Date(`${dateStr}T00:00:00`);
+  d.setHours(h || 0, m || 0, 0, 0);
+  return d.toISOString();
 }
 
 interface BookingTooltipCardProps {
@@ -72,37 +82,63 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
     return () => cancelAnimationFrame(id);
   }, []);
 
-  // ── Client service check-in/check-out toggle ──────────────────────────────
+  // ── Service timing (optional — Started → Running → Finished) ──────────────
+  // Purely informational for the bill; staff can skip it entirely.
   const dispatch = useAppDispatch();
   const [serviceActionBusy, setServiceActionBusy] = useState(false);
+  // Which action's inline time-entry is currently open — null when neither.
+  const [editingStage, setEditingStage] = useState<"start" | "end" | null>(null);
+  const [timeInput, setTimeInput] = useState("");
 
-  const handleServiceCheckIn = async (e: React.MouseEvent) => {
+  const openStartEntry = (e: React.MouseEvent) => {
     e.stopPropagation();
+    setTimeInput(getCurrentTime());
+    setEditingStage("start");
+  };
+  const openEndEntry = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTimeInput(getCurrentTime());
+    setEditingStage("end");
+  };
+  const cancelEntry = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingStage(null);
+  };
+
+  const confirmStart = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (serviceActionBusy) return;
     setServiceActionBusy(true);
     try {
-      const action = await (dispatch(serviceCheckInBookingThunk(booking.id)) as any);
+      const startedAt = toIsoTimestamp(booking.date, timeInput);
+      const action = await (dispatch(serviceCheckInBookingThunk({ id: booking.id, startedAt })) as any);
       if (serviceCheckInBookingThunk.fulfilled.match(action)) {
         dispatch(updateBooking(action.payload as any));
+        setEditingStage(null);
       }
     } finally {
       setServiceActionBusy(false);
     }
   };
 
-  const handleServiceCheckOut = async (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const confirmEnd = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (serviceActionBusy) return;
     setServiceActionBusy(true);
     try {
-      const action = await (dispatch(serviceCheckOutBookingThunk(booking.id)) as any);
+      const endedAt = toIsoTimestamp(booking.date, timeInput);
+      const action = await (dispatch(serviceCheckOutBookingThunk({ id: booking.id, endedAt })) as any);
       if (serviceCheckOutBookingThunk.fulfilled.match(action)) {
         dispatch(updateBooking(action.payload as any));
+        setEditingStage(null);
       }
     } finally {
       setServiceActionBusy(false);
     }
   };
+
+  const serviceStage: "not-started" | "running" | "finished" =
+    !booking.serviceStartedAt ? "not-started" : !booking.serviceEndedAt ? "running" : "finished";
 
   // ── Data helpers ──────────────────────────────────────────────────────────
   const getStaffName = (staffId?: string | number) =>
@@ -226,34 +262,80 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
             <span className="btc__pay-badge" style={{ background: payBg, color: payColor }}>{payLabel}</span>
           </div>
 
-          {/* ── Client service check-in/check-out ── */}
+          {/* ── Service timing (optional) ── */}
           {chipStatus !== "deleted" && chipStatus !== "cancelled" && (
             <div className="btc__service-row">
-              {!booking.serviceStartedAt ? (
-                <button
-                  type="button"
-                  className="btc__service-btn btc__service-btn--start"
-                  disabled={serviceActionBusy}
-                  onClick={handleServiceCheckIn}
-                >
-                  <PlayFill size={11} /> Service Started
-                </button>
-              ) : !booking.serviceEndedAt ? (
-                <>
-                  <span className="btc__service-note">Started {formatIsoTime12(booking.serviceStartedAt)}</span>
+              {serviceStage === "not-started" && (
+                editingStage === "start" ? (
+                  <form className="btc__service-time-form" onClick={(e) => e.stopPropagation()} onSubmit={confirmStart}>
+                    <input
+                      type="time"
+                      className="btc__service-time-input"
+                      value={timeInput}
+                      onChange={(e) => setTimeInput(e.target.value)}
+                      autoFocus
+                    />
+                    <button type="submit" className="btc__service-confirm" disabled={serviceActionBusy} title="Confirm">
+                      <Check2 size={13} />
+                    </button>
+                    <button type="button" className="btc__service-cancel" onClick={cancelEntry} title="Cancel">
+                      <XLg size={11} />
+                    </button>
+                  </form>
+                ) : (
                   <button
                     type="button"
-                    className="btc__service-btn btc__service-btn--end"
-                    disabled={serviceActionBusy}
-                    onClick={handleServiceCheckOut}
+                    className="btc__service-btn btc__service-btn--start"
+                    onClick={openStartEntry}
                   >
-                    <StopFill size={11} /> Service Ended
+                    <PlayFill size={11} /> Started
                   </button>
+                )
+              )}
+
+              {serviceStage === "running" && (
+                <>
+                  <span className="btc__service-badge btc__service-badge--running">
+                    <StopwatchFill size={11} /> Running
+                  </span>
+                  <span className="btc__service-note">Started {formatIsoTime12(booking.serviceStartedAt)}</span>
+                  {editingStage === "end" ? (
+                    <form className="btc__service-time-form" onClick={(e) => e.stopPropagation()} onSubmit={confirmEnd}>
+                      <input
+                        type="time"
+                        className="btc__service-time-input"
+                        value={timeInput}
+                        onChange={(e) => setTimeInput(e.target.value)}
+                        autoFocus
+                      />
+                      <button type="submit" className="btc__service-confirm" disabled={serviceActionBusy} title="Confirm">
+                        <Check2 size={13} />
+                      </button>
+                      <button type="button" className="btc__service-cancel" onClick={cancelEntry} title="Cancel">
+                        <XLg size={11} />
+                      </button>
+                    </form>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btc__service-btn btc__service-btn--end"
+                      onClick={openEndEntry}
+                    >
+                      Ended
+                    </button>
+                  )}
                 </>
-              ) : (
-                <span className="btc__service-note">
-                  Started {formatIsoTime12(booking.serviceStartedAt)} · Ended {formatIsoTime12(booking.serviceEndedAt)}
-                </span>
+              )}
+
+              {serviceStage === "finished" && (
+                <>
+                  <span className="btc__service-badge btc__service-badge--finished">
+                    <CheckCircleFill size={11} /> Finished
+                  </span>
+                  <span className="btc__service-note">
+                    Started {formatIsoTime12(booking.serviceStartedAt)} · Ended {formatIsoTime12(booking.serviceEndedAt)}
+                  </span>
+                </>
               )}
             </div>
           )}

@@ -159,6 +159,19 @@ export function printReceipt(
   const apptDate = (booking as any).billDate || (booking as any).date || "—";
   const apptTime = `${formatTime12(booking.startTime)} – ${formatTime12(booking.endTime)}`;
 
+  // Service Started/Ended — optional, only shown when staff actually logged
+  // them via the calendar tooltip (not required for every booking).
+  const isoTime12 = (iso?: string | null) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? "" : d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
+  };
+  const serviceStarted = isoTime12((booking as any).serviceStartedAt);
+  const serviceEnded   = isoTime12((booking as any).serviceEndedAt);
+  const serviceTiming = serviceStarted
+    ? (serviceEnded ? `${serviceStarted} – ${serviceEnded}` : `${serviceStarted} (in progress)`)
+    : "";
+
   const isCancelled = ((booking as any).status || "").toLowerCase() === "cancelled";
   const rawPs = isCancelled ? "Cancelled" : (booking.paymentStatus ?? "Unpaid");
   const PAY_COLOR: Record<string, string> = { Paid: "#15803d", Partial: "#7c3aed", Unpaid: "#b45309", Cancelled: "#dc2626" };
@@ -192,6 +205,20 @@ export function printReceipt(
     Product:    ["#dbeafe", "#1d4ed8"],
   };
 
+  // Tax breakdown is a bill-level figure (per-tax-name, not per line item —
+  // buckets get merged together upstream in computeTotals()), so each row's
+  // own "Tax" column is a proportional share: row total × the combined rate.
+  // Accurate whenever one tax configuration applies uniformly across the
+  // items on the bill (the common case); falls back to the older blended
+  // gst% field for bookings saved before per-tax breakdown existed.
+  const taxBreakdownEarly = ((booking as any).taxBreakdown || []) as { name: string; rate: number; amount: number; inclusive: boolean }[];
+  const taxRatePct = taxBreakdownEarly.length > 0
+    ? taxBreakdownEarly.reduce((s, t) => s + (Number(t.rate) || 0), 0)
+    : Number((booking as any).gst || 0);
+  const taxLabel = taxBreakdownEarly.length > 0
+    ? taxBreakdownEarly.map((t) => `${t.name} ${t.rate}%`).join(" + ")
+    : (taxRatePct > 0 ? `${taxRatePct}%` : "");
+
   const makeRow = (
     name: string, type: string, staff: string, time: string,
     qty: number, price: number, discount: number, total: number,
@@ -200,6 +227,7 @@ export function printReceipt(
     srNo++;
     const [badgeBg, badgeColor] = BADGE[type] ?? ["#f3f4f6", "#374151"];
     const rowBg = isEven ? "#f9fafb" : "#ffffff";
+    const rowTax = taxRatePct > 0 ? (total * taxRatePct) / 100 : 0;
     return `
     <tr style="background:${rowBg};-webkit-print-color-adjust:exact;print-color-adjust:exact">
       <td style="padding:8px 8px;border:1px solid #e5e7eb;text-align:center;color:#6b7280;font-size:11px">${srNo}</td>
@@ -212,6 +240,9 @@ export function printReceipt(
       <td style="padding:8px 8px;border:1px solid #e5e7eb;text-align:center;font-size:12px;color:#111827">${qty}</td>
       <td style="padding:8px 8px;border:1px solid #e5e7eb;text-align:right;font-size:12px;color:#111827">${fmt(price)}</td>
       <td style="padding:8px 8px;border:1px solid #e5e7eb;text-align:right;font-size:12px;color:${discount > 0 ? "#dc2626" : "#9ca3af"}">${discount > 0 ? `−${fmt(discount)}` : "—"}</td>
+      <td style="padding:8px 8px;border:1px solid #e5e7eb;text-align:right;font-size:11px;color:#374151">
+        ${rowTax > 0 ? `${fmt(rowTax)}<div style="font-size:9px;color:#9ca3af;margin-top:1px">${taxLabel}</div>` : "—"}
+      </td>
       <td style="padding:8px 10px;border:1px solid #e5e7eb;text-align:right;font-weight:700;font-size:12px;color:#111827">${fmt(total)}</td>
     </tr>`;
   };
@@ -498,6 +529,7 @@ export function printReceipt(
       <div class="inv-info-grid">
         ${infoCell("Date",           apptDate)}
         ${infoCell("Time",           apptTime)}
+        ${serviceTiming ? infoCell("Service Timing", serviceTiming) : ""}
         ${infoCell("Staff",          allStaffDisplay)}
         ${infoCell("Payment Method", (booking as any).paymentMode || "—")}
         ${infoCell("Booking Status", (booking as any).status       || "Confirmed")}
@@ -520,11 +552,12 @@ export function printReceipt(
           <th>Qty</th>
           <th>Rate</th>
           <th>Disc.</th>
+          <th>Tax</th>
           <th>Amount</th>
         </tr>
       </thead>
       <tbody>
-        ${allItemRows || `<tr><td colspan="9" style="text-align:center;padding:20px;color:#9ca3af;border:1px solid #e5e7eb">No items</td></tr>`}
+        ${allItemRows || `<tr><td colspan="10" style="text-align:center;padding:20px;color:#9ca3af;border:1px solid #e5e7eb">No items</td></tr>`}
       </tbody>
       <tfoot>
         <tr>
