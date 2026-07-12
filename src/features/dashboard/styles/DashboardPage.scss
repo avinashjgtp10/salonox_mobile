@@ -373,6 +373,68 @@ body {
   color: var(--db-quick-accent);
 }
 
+/* ── SKELETON PLACEHOLDERS ── */
+.db-skel-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.db-skel-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  height: var(--skel-chart-height, 240px);
+  padding: 0 4px 8px;
+}
+
+.db-skel-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 10px 4px;
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+}
+
+.db-skel-donut {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 10px 4px;
+
+  &__list {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
+.db-skel-staff-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 6px 4px;
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  &__info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+}
+
 /* ── KPI CARDS ── */
 .db-kpi-row {
   display: grid;
@@ -391,11 +453,71 @@ body {
   padding: 20px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);
   transition: box-shadow 0.2s, transform 0.2s;
+  min-height: 152px;
 
   &:hover {
     box-shadow: 0 6px 20px rgba(0,0,0,0.08);
     transform: translateY(-2px);
   }
+
+  /* Flip variant — the card itself becomes a bare perspective container;
+     background/border/padding move onto each .db-kpi-card__face instead so
+     both faces can be laid out independently and rotated in 3D. */
+  &--flip {
+    background: none;
+    border: none;
+    padding: 0;
+    box-shadow: none;
+    height: 152px;
+    min-height: 0;
+    position: relative;
+    perspective: 1200px;
+    cursor: pointer;
+
+    &:hover {
+      box-shadow: none;
+      transform: none;
+    }
+
+    &:focus-visible {
+      outline: 2px solid #4f46e5;
+      outline-offset: 3px;
+      border-radius: 14px;
+    }
+  }
+}
+
+.db-kpi-card__inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+  transform-style: preserve-3d;
+  // Always rotates FORWARD by another 180deg each flip (0 → 180 → 360 → 540…)
+  // instead of toggling 0/180, so it never visibly "unwinds" backward.
+  transform: rotateY(var(--flip-deg, 0deg));
+}
+
+.db-kpi-card__face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  background: $white;
+  border: 1px solid $dashboard-border;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.2s;
+
+  &--back {
+    transform: rotateY(180deg);
+  }
+}
+
+.db-kpi-card--flip:hover .db-kpi-card__face {
+  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
 }
 
 .db-kpi-top {
@@ -432,6 +554,11 @@ body {
 .db-kpi-icon--today-revenue {
   background: #fffbeb;
   color: #f59e0b;
+}
+
+.db-kpi-icon--new-clients {
+  background: #eef2ff;
+  color: #4f46e5;
 }
 
 .db-kpi-change {
@@ -521,6 +648,33 @@ body {
 }
 
 /* ── REVENUE PERIOD FILTERS ── */
+.db-rev-header-right {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.db-rev-total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.2;
+
+  &__value {
+    font-size: 18px;
+    font-weight: 700;
+    color: $dashboard-primary;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__label {
+    font-size: 11px;
+    color: $dashboard-secondary;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+}
+
 .db-rev-filters {
   display: flex;
   gap: 4px;
@@ -589,6 +743,10 @@ body {
   color: #fecaca;
 }
 
+.db-tooltip-series--noShow {
+  color: #7c3aed;
+}
+
 /* ── BAR LEGEND ── */
 .db-bar-legend {
   display: flex;
@@ -614,6 +772,310 @@ body {
   margin-bottom: 24px;
 
   @media (max-width: 900px) { grid-template-columns: 1fr; }
+
+  &--triple {
+    grid-template-columns: 1fr 1fr 1fr;
+    @media (max-width: 1200px) { grid-template-columns: 1fr 1fr; }
+    @media (max-width: 700px)  { grid-template-columns: 1fr; }
+  }
+}
+
+/* ── OVERVIEW ROW (Today's Overview / Revenue Trend) ── */
+.db-overview-row {
+  display: grid;
+  grid-template-columns: 65fr 35fr;
+  gap: 16px;
+  margin-bottom: 24px;
+
+  @media (max-width: 900px) { grid-template-columns: 1fr; }
+}
+
+/* ── Today's Overview tiles ── */
+.db-overview-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.db-overview-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 8px;
+  border-radius: 10px;
+  background: #f9fafb;
+
+  &__icon { display: flex; }
+  &__value { font-size: 20px; font-weight: 700; color: $dashboard-primary; }
+  &__label { font-size: 11px; color: $dashboard-secondary; font-weight: 500; }
+
+  &--neutral .db-overview-tile__icon { color: #6b7280; }
+  &--warning { background: #fffbeb; }
+  &--warning .db-overview-tile__icon { color: #d97706; }
+  &--danger  { background: #fef2f2; }
+  &--danger  .db-overview-tile__icon { color: #dc2626; }
+  &--info    { background: #eff6ff; }
+  &--info    .db-overview-tile__icon { color: #2563eb; }
+}
+
+.db-late-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: #fef2f2;
+  color: #dc2626;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+
+  span { flex: 1; }
+}
+
+/* ── Today's Timeline ── */
+.db-timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.db-timeline-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  &__hour {
+    width: 52px;
+    flex-shrink: 0;
+    font-size: 11.5px;
+    color: $dashboard-secondary;
+  }
+
+  &__track {
+    flex: 1;
+    height: 8px;
+    background: #f3f4f6;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  &__bar {
+    height: 100%;
+    background: linear-gradient(90deg, #7c6cf2, #4f46e5);
+    border-radius: 4px;
+    min-width: 4px;
+  }
+
+  &__count {
+    width: 18px;
+    flex-shrink: 0;
+    text-align: right;
+    font-size: 12px;
+    font-weight: 600;
+    color: $dashboard-primary;
+  }
+}
+
+/* ── Quick Actions grid ── */
+.db-quick-actions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.db-quick-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px 6px;
+  border: 1px solid $dashboard-border;
+  border-radius: 10px;
+  background: $white;
+  color: $dashboard-primary;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s, border-color 0.15s;
+
+  &:hover {
+    background: #f9fafb;
+    border-color: #c7d2fe;
+  }
+
+  &__icon {
+    color: #4f46e5;
+  }
+}
+
+/* ── Needs Attention ── */
+.db-needs-attention {
+  .db-card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__badge {
+    background: #dc2626;
+    color: $white;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 1px 8px;
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 4px;
+    border-bottom: 1px solid #f3f4f6;
+    cursor: pointer;
+
+    &:last-child { border-bottom: none; }
+  }
+
+  &__text {
+    flex: 1;
+    font-size: 13px;
+    color: $dashboard-primary;
+  }
+
+  &__value {
+    font-size: 13px;
+    font-weight: 700;
+    color: $dashboard-primary;
+  }
+}
+
+/* ── Recent Activity ── */
+.db-activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.db-activity-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 4px;
+  border-bottom: 1px solid #f3f4f6;
+
+  &:last-child { border-bottom: none; }
+
+  &__icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #f9fafb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  &__body { flex: 1; min-width: 0; }
+
+  &__title {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: $dashboard-primary;
+  }
+
+  &__sub {
+    font-size: 11.5px;
+    color: $dashboard-secondary;
+    margin-top: 1px;
+  }
+
+  &__time {
+    font-size: 11px;
+    color: $dashboard-secondary;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+}
+
+/* ── Mini stat cards (Pending Payments / Birthdays / Inactive Clients) ── */
+.db-mini-stats-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+
+  @media (max-width: 700px) { grid-template-columns: 1fr; }
+}
+
+.db-mini-stat-card {
+  background: $white;
+  border: 1px solid $dashboard-border;
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+
+  &__top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  &__label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: $dashboard-secondary;
+  }
+
+  &__icon {
+    display: flex;
+  }
+
+  &__value {
+    font-size: 22px;
+    font-weight: 700;
+    color: $dashboard-primary;
+    margin-bottom: 2px;
+  }
+
+  &__value-skel {
+    margin: 4px 0;
+  }
+
+  &__sub {
+    font-size: 11.5px;
+    color: $dashboard-secondary;
+    margin-bottom: 10px;
+  }
+
+  &__cta {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: #4f46e5;
+    cursor: pointer;
+  }
+
+  &--danger  .db-mini-stat-card__icon { color: #dc2626; }
+  &--pink    .db-mini-stat-card__icon { color: #ec4899; }
+  &--warning .db-mini-stat-card__icon { color: #d97706; }
 }
 
 .db-right-col {
@@ -677,6 +1139,18 @@ body {
 
   &:last-child { border-bottom: none; }
   &:hover { background: #f9fafb; border-radius: 8px; }
+
+  &--deleted {
+    opacity: 0.55;
+
+    .db-appt-client,
+    .db-appt-service,
+    .db-appt-staff,
+    .db-appt-amount {
+      text-decoration: line-through;
+      text-decoration-color: $dashboard-secondary;
+    }
+  }
 }
 
 .db-appt-client {
@@ -720,6 +1194,8 @@ body {
 .db-badge-info    { background: #eff6ff; color: #2563eb; }
 .db-badge-warning { background: #fffbeb; color: #d97706; }
 .db-badge-danger  { background: #fef2f2; color: #dc2626; }
+.db-badge-noshow  { background: #f5f3ff; color: #7c3aed; }
+.db-badge-neutral { background: #f3f4f6; color: #6b7280; }
 
 /* ── PIE LEGEND ── */
 .db-pie-legend {
@@ -1388,6 +1864,8 @@ body {
   &.db-appt-chip-info    { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
   &.db-appt-chip-warning { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
   &.db-appt-chip-danger  { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+  &.db-appt-chip-noshow  { background: #f5f3ff; color: #7c3aed; border: 1px solid #ddd6fe; }
+  &.db-appt-chip-neutral { background: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb; }
 }
 
 /* ── Table Wrapper (overrides overflow-x inside section) ── */

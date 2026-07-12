@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Search, StarFill, Star, ChevronRight, ChevronDown, ClockHistory,
   GraphUpArrow, People, PersonBadge, CalendarCheck, BoxSeam, Tag, Megaphone,
@@ -113,6 +114,7 @@ export default function ReportsPage() {
   const [expanded, setExpanded]     = useState<Set<CategoryKey>>(new Set());
   const [showAllRecents, setShowAllRecents] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -152,6 +154,13 @@ export default function ReportsPage() {
       return next;
     });
   };
+
+  // Deep-link support: /dashboard/analytics?report=<id> opens that report directly
+  // (used by the dashboard's "Collect Now" → Sales Summary shortcut, for example).
+  useEffect(() => {
+    const id = searchParams.get("report");
+    if (id && byId.has(id)) openReport(id);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const favoriteReports = favorites.map(id => byId.get(id)).filter((r): r is ReportDef => !!r);
   const recentReports = recents.map(r => ({ ...r, report: byId.get(r.id) })).filter(r => r.report);

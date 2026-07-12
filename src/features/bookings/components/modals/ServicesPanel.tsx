@@ -274,6 +274,171 @@ async function fetchProductSearchItems(searchValue: string, isNumericPriceSearch
   return collected;
 }
 
+// Extracted so qty/discount can use the same local-buffer pattern as
+// SearchableItemRow (package/product) — the inline version previously bound
+// the Qty input straight to `row.qty` with `Math.max(1, parseInt(...) || 1)`
+// on every keystroke, which snapped the field back to "1" the instant it was
+// cleared to type a new number, making it feel impossible to edit.
+interface MembershipRowProps {
+  row: MembershipItem;
+  index: number;
+  frozen?: boolean;
+  interval: IntervalOption;
+  staffList: { id: string; name: string }[];
+  availableMemberships: any[];
+  memError?: { item?: boolean; staff?: boolean; time?: boolean };
+  onUpdateMembership: (index: number, row: MembershipItem) => void;
+  onRemoveMembership: (index: number) => void;
+}
+
+function MembershipRow({
+  row, index, frozen, interval, staffList, availableMemberships, memError,
+  onUpdateMembership, onRemoveMembership,
+}: MembershipRowProps) {
+  const [qtyInput, setQtyInput] = useState(String(getSafeQty(row.qty)));
+  const [discountInput, setDiscountInput] = useState(getDiscountValue(row.discount));
+
+  useEffect(() => { setQtyInput(String(getSafeQty(row.qty))); }, [row.qty]);
+  useEffect(() => { setDiscountInput(getDiscountValue(row.discount)); }, [row.discount]);
+
+  function handleQtyChange(value: string) {
+    const normalizedValue = value.slice(0, 2);
+    setQtyInput(normalizedValue);
+    if (!normalizedValue) return;
+    const qty = parseInt(normalizedValue, 10);
+    if (Number.isInteger(qty) && qty > 0) {
+      onUpdateMembership(index, { ...row, qty, total: calcTotal(row.price, qty, row.discount || 0) });
+    }
+  }
+
+  function handleQtyBlur() {
+    const qty = parseInt(qtyInput, 10);
+    const clampedQty = Number.isInteger(qty) && qty > 0 ? Math.min(qty, 99) : 1;
+    setQtyInput(String(clampedQty));
+    onUpdateMembership(index, { ...row, qty: clampedQty, total: calcTotal(row.price, clampedQty, row.discount || 0) });
+  }
+
+  function handleDiscountChange(value: string) {
+    const normalizedValue = value.slice(0, 3);
+    setDiscountInput(normalizedValue);
+    const discount = Math.min(100, parseInt(normalizedValue, 10) || 0);
+    onUpdateMembership(index, { ...row, discount, total: calcTotal(row.price, getSafeQty(row.qty), discount) });
+  }
+
+  function handleDiscountBlur() {
+    const discount = Math.min(100, Math.max(0, parseInt(discountInput, 10) || 0));
+    setDiscountInput(discount > 0 ? String(discount) : "");
+    onUpdateMembership(index, { ...row, discount, total: calcTotal(row.price, getSafeQty(row.qty), discount) });
+  }
+
+  return (
+    <div className="item-row item-row--membership">
+      {/* 1 — Name */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <select
+          className={`svc-field__input${memError?.item ? " svc-field__input--error" : ""}`}
+          disabled={frozen}
+          value={(row as any).membershipId || ""}
+          onChange={(e) => {
+            const m = availableMemberships.find((mb: any) => String(mb.id) === e.target.value);
+            if (m) onUpdateMembership(index, { ...row, membershipId: m.id, membershipName: m.name, price: m.price, qty: 1, discount: 0, total: m.price });
+          }}
+        >
+          <option value="">Select membership...</option>
+          {availableMemberships.map((m: any) => (
+            <option key={m.id} value={m.id}>{m.name}</option>
+          ))}
+        </select>
+        {memError?.item && <span className="svc-field__err">Please select a membership</span>}
+      </div>
+
+      {/* 2 — Staff */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <div className={`svc-staff-pill${memError?.staff ? " svc-staff-pill--error" : ""}`}>
+          <button
+            type="button"
+            disabled={frozen}
+            className="svc-staff-pill__clear"
+            onClick={() => !frozen && onUpdateMembership(index, { ...row, staffId: "" })}
+          >
+            ×
+          </button>
+          <select
+            disabled={frozen}
+            value={row.staffId || ""}
+            onChange={(e) => onUpdateMembership(index, { ...row, staffId: e.target.value })}
+            className="svc-staff-pill__select"
+            style={{ color: row.staffId ? "#111827" : "#6b7280" }}
+          >
+            <option value="" disabled style={{ color: "#000", background: "#fff" }}>
+              Select Staff
+            </option>
+            {staffList.map((s) => (
+              <option key={s.id} value={s.id} style={{ color: "#000", background: "#fff" }}>
+                {fmtName(s.name)}
+              </option>
+            ))}
+          </select>
+        </div>
+        {memError?.staff && <span className="svc-field__err">Select staff</span>}
+      </div>
+
+      {/* 3 — Time */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <TimeSelect
+          disabled={frozen}
+          value={row.time || ""}
+          onChange={(value) => onUpdateMembership(index, { ...row, time: value })}
+          interval={interval}
+          className={`svc-field__input svc-field__select${memError?.time ? " svc-field__input--error" : ""}`}
+          placeholder="Time"
+        />
+        {memError?.time && <span className="svc-field__err">Select time</span>}
+      </div>
+
+      {/* 4 — Price (readonly) */}
+      <input className="svc-field__input svc-field__input--readonly" readOnly value={row.price ? `${currencySymbol}${row.price}` : "—"} />
+
+      {/* 5 — Qty */}
+      <input
+        className="svc-field__input"
+        type="text"
+        inputMode="numeric"
+        maxLength={2}
+        disabled={frozen}
+        placeholder="1"
+        value={qtyInput}
+        onChange={(e) => handleQtyChange(e.target.value.replace(/\D/g, ""))}
+        onBlur={handleQtyBlur}
+      />
+
+      {/* 6 — Discount (%) */}
+      <input
+        className="svc-field__input"
+        type="text"
+        inputMode="numeric"
+        maxLength={3}
+        disabled={frozen}
+        placeholder="0"
+        value={discountInput}
+        onChange={(e) => handleDiscountChange(e.target.value.replace(/\D/g, ""))}
+        onBlur={handleDiscountBlur}
+      />
+
+      {/* 7 — Total (readonly) */}
+      <input className="svc-field__input svc-field__input--readonly" readOnly value={`${currencySymbol}${row.total.toFixed(2)}`} />
+
+      {/* 8 — Placeholder (quick-actions column) */}
+      <span />
+
+      {/* 9 — Delete */}
+      {!frozen
+        ? <button className="svc-del-btn" onClick={() => onRemoveMembership(index)}><Trash size={13} /></button>
+        : <span />}
+    </div>
+  );
+}
+
 function SearchableItemRow(props: SearchableItemRowProps) {
   const {
     row,
@@ -964,119 +1129,20 @@ export const ServicesPanel: React.FC<Props> = ({
         <div className="item-section-header item-section-header--membership">
           <span>Membership</span><span>Staff</span><span>Time</span><span>Price</span><span>Qty</span><span>Disc %</span><span>Total</span><span /><span />
         </div>
-        {membershipRows.map((row, i) => {
-          const memDisc = row.discount || 0;
-          return (
-            <div key={`mem-${i}`} className="item-row item-row--membership">
-              {/* 1 — Name */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <select
-                  className={`svc-field__input${memErrors?.[i]?.item ? " svc-field__input--error" : ""}`}
-                  disabled={frozen}
-                  value={(row as any).membershipId || ""}
-                  onChange={(e) => {
-                    const m = availableMemberships.find((mb: any) => String(mb.id) === e.target.value);
-                    if (m) onUpdateMembership(i, { ...row, membershipId: m.id, membershipName: m.name, price: m.price, qty: 1, discount: 0, total: m.price });
-                  }}
-                >
-                  <option value="">Select membership...</option>
-                  {availableMemberships.map((m: any) => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </select>
-                {memErrors?.[i]?.item && <span className="svc-field__err">Please select a membership</span>}
-              </div>
-
-              {/* 2 — Staff */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <div className={`svc-staff-pill${memErrors?.[i]?.staff ? " svc-staff-pill--error" : ""}`}>
-                  <button
-                    type="button"
-                    disabled={frozen}
-                    className="svc-staff-pill__clear"
-                    onClick={() => !frozen && onUpdateMembership(i, { ...row, staffId: "" })}
-                  >
-                    ×
-                  </button>
-                  <select
-                    disabled={frozen}
-                    value={row.staffId || ""}
-                    onChange={(e) => onUpdateMembership(i, { ...row, staffId: e.target.value })}
-                    className="svc-staff-pill__select"
-                    style={{ color: row.staffId ? "#111827" : "#6b7280" }}
-                  >
-                    <option value="" disabled style={{ color: "#000", background: "#fff" }}>
-                      Select Staff
-                    </option>
-                    {staffList.map((s) => (
-                      <option key={s.id} value={s.id} style={{ color: "#000", background: "#fff" }}>
-                        {fmtName(s.name)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {memErrors?.[i]?.staff && <span className="svc-field__err">Select staff</span>}
-              </div>
-
-              {/* 3 — Time */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <TimeSelect
-                  disabled={frozen}
-                  value={row.time || ""}
-                  onChange={(value) => onUpdateMembership(i, { ...row, time: value })}
-                  interval={interval}
-                  className={`svc-field__input svc-field__select${memErrors?.[i]?.time ? " svc-field__input--error" : ""}`}
-                  placeholder="Time"
-                />
-                {memErrors?.[i]?.time && <span className="svc-field__err">Select time</span>}
-              </div>
-
-              {/* 4 — Price (readonly) */}
-              <input className="svc-field__input svc-field__input--readonly" readOnly value={row.price ? `${currencySymbol}${row.price}` : "—"} />
-
-              {/* 5 — Qty */}
-              <input
-                className="svc-field__input"
-                type="text"
-                inputMode="numeric"
-                maxLength={2}
-                disabled={frozen}
-                placeholder="1"
-                value={row.qty || 1}
-                onChange={(e) => {
-                  const qty = Math.max(1, parseInt(e.target.value, 10) || 1);
-                  onUpdateMembership(i, { ...row, qty, total: calcTotal(row.price, qty, memDisc) });
-                }}
-              />
-
-              {/* 6 — Discount (%) */}
-              <input
-                className="svc-field__input"
-                type="text"
-                inputMode="numeric"
-                maxLength={3}
-                disabled={frozen}
-                placeholder="0"
-                value={memDisc > 0 ? String(memDisc) : ""}
-                onChange={(e) => {
-                  const disc = Math.min(100, Math.max(0, parseInt(e.target.value.replace(/\D/g, ""), 10) || 0));
-                  onUpdateMembership(i, { ...row, discount: disc, total: calcTotal(row.price, row.qty || 1, disc) });
-                }}
-              />
-
-              {/* 7 — Total (readonly) */}
-              <input className="svc-field__input svc-field__input--readonly" readOnly value={`${currencySymbol}${row.total.toFixed(2)}`} />
-
-              {/* 8 — Placeholder (quick-actions column) */}
-              <span />
-
-              {/* 9 — Delete */}
-              {!frozen
-                ? <button className="svc-del-btn" onClick={() => onRemoveMembership(i)}><Trash size={13} /></button>
-                : <span />}
-            </div>
-          );
-        })}
+        {membershipRows.map((row, i) => (
+          <MembershipRow
+            key={`mem-${i}`}
+            row={row}
+            index={i}
+            frozen={frozen}
+            interval={interval}
+            staffList={staffList}
+            availableMemberships={availableMemberships}
+            memError={memErrors?.[i]}
+            onUpdateMembership={onUpdateMembership}
+            onRemoveMembership={onRemoveMembership}
+          />
+        ))}
       </>
     )}
 
