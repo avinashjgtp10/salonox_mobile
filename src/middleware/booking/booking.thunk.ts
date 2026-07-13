@@ -389,10 +389,14 @@ export const startBookingThunk = createAsyncThunk<Booking, string | number, { re
 // startTime/endTime/date already resolved to local values so it can patch the
 // booking into Redux and have the calendar block visually slide to the live
 // time slot.
-export const serviceCheckInBookingThunk = createAsyncThunk<Booking, string | number, { rejectValue: string }>(
-  "booking/serviceCheckIn", async (id, { rejectWithValue, getState }) => {
+export const serviceCheckInBookingThunk = createAsyncThunk<
+  Booking,
+  { id: string | number; startedAt?: string },
+  { rejectValue: string }
+>(
+  "booking/serviceCheckIn", async ({ id, startedAt }, { rejectWithValue, getState }) => {
     try {
-      const res = await api.post<BookingResponse>(BOOKING.SERVICE_CHECKIN(id));
+      const res = await api.post<BookingResponse>(BOOKING.SERVICE_CHECKIN(id), { started_at: startedAt });
       const state = getState() as any;
       return mapBooking(res.data.data, state.scheduler?.servicesList || []);
     } catch (err: any) {
@@ -402,10 +406,14 @@ export const serviceCheckInBookingThunk = createAsyncThunk<Booking, string | num
   }
 );
 
-export const serviceCheckOutBookingThunk = createAsyncThunk<Booking, string | number, { rejectValue: string }>(
-  "booking/serviceCheckOut", async (id, { rejectWithValue, getState }) => {
+export const serviceCheckOutBookingThunk = createAsyncThunk<
+  Booking,
+  { id: string | number; endedAt?: string },
+  { rejectValue: string }
+>(
+  "booking/serviceCheckOut", async ({ id, endedAt }, { rejectWithValue, getState }) => {
     try {
-      const res = await api.post<BookingResponse>(BOOKING.SERVICE_CHECKOUT(id));
+      const res = await api.post<BookingResponse>(BOOKING.SERVICE_CHECKOUT(id), { ended_at: endedAt });
       const state = getState() as any;
       return mapBooking(res.data.data, state.scheduler?.servicesList || []);
     } catch (err: any) {
