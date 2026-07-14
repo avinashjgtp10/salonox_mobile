@@ -83,7 +83,12 @@ const ShiftCell: React.FC<ShiftCellProps> = ({
       {open && (
         <div
           className="shift-cell__popover"
-          style={{ top: pos.top, left: pos.left }}
+          style={
+            {
+              "--shift-cell-popover-top": `${pos.top}px`,
+              "--shift-cell-popover-left": `${pos.left}px`,
+            } as React.CSSProperties
+          }
         >
           {shift ? (
             <>

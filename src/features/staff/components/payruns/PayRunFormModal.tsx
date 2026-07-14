@@ -114,8 +114,7 @@ const PayRunFormModal: React.FC<PayRunFormModalProps> = ({
               <label className="form-label fw-bold text-dark mb-2">Select Employee</label>
               <select
                 name="staffId"
-                className="form-select border rounded-3 py-2 px-3 shadow-sm"
-                style={{ height: '45px', fontSize: '14px' }}
+                className="pay-run-form-modal__select form-select border rounded-3 py-2 px-3 shadow-sm"
                 value={formData.staffId}
                 onChange={handleChange}
                 required
@@ -161,8 +160,7 @@ const PayRunFormModal: React.FC<PayRunFormModalProps> = ({
               <label className="form-label fw-bold text-dark mb-2">Payment Method</label>
               <select
                 name="paymentMethod"
-                className="form-select border rounded-3 py-2 px-3 shadow-sm focus-ring"
-                style={{ height: '45px', fontSize: '14px' }}
+                className="pay-run-form-modal__select form-select border rounded-3 py-2 px-3 shadow-sm focus-ring"
                 value={formData.paymentMethod}
                 onChange={handleChange}
               >
@@ -227,9 +225,8 @@ const PayRunFormModal: React.FC<PayRunFormModalProps> = ({
           <textarea
             name="notes"
             rows={2}
-            className="form-control border rounded-3 p-3 shadow-sm"
+            className="pay-run-form-modal__textarea form-control border rounded-3 p-3 shadow-sm"
             placeholder="Add any specific instructions or notes..."
-            style={{ fontSize: '14px', resize: 'none' }}
             value={formData.notes}
             onChange={handleChange}
           />

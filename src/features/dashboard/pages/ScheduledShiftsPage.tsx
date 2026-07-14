@@ -40,7 +40,7 @@ interface DrawerState {
 
 const INITIAL_DRAWER: DrawerState = { mode: null, staffId: null, date: null };
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 8;
 
 const ScheduledShiftsPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();

@@ -274,7 +274,7 @@ export default function StaffDashboardPage() {
                   >
                     <div
                       className="sdb__member-avatar"
-                      style={{ background: bg }}
+                      style={{ "--avatar-bg": bg } as React.CSSProperties}
                     >
                       {initials || "?"}
                     </div>

@@ -277,6 +277,7 @@ $bg-field: #f9fafb;
     box-shadow: 0 1px 3px rgba(0,0,0,.15);
     border: 2px solid #fff;
     outline: 1px solid $border;
+    background: var(--swatch-bg);
   }
 
   &__label {
@@ -305,6 +306,7 @@ $bg-field: #f9fafb;
   transition: transform 0.12s, box-shadow 0.12s;
   padding: 0;
   flex-shrink: 0;
+  background: var(--swatch-bg);
 
   &:hover { transform: scale(1.18); }
 

@@ -187,7 +187,7 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
               className={`radio-circle ${!settings.services.use_default_calculation ? "active" : ""}`}
             ></div>
             <div className="radio-content">
-              <div className="radio-title" style={{ fontWeight: 400 }}>
+              <div className="radio-title radio-title--regular">
                 Custom settings
               </div>
               <div className="radio-subtitle">
@@ -345,7 +345,7 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
               className={`radio-circle ${!settings.gift_cards.use_default_calculation ? "active" : ""}`}
             ></div>
             <div className="radio-content">
-              <div className="radio-title" style={{ fontWeight: 400 }}>
+              <div className="radio-title radio-title--regular">
                 Custom settings
               </div>
               <div className="radio-subtitle">
@@ -392,31 +392,15 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
             <input
               type="checkbox"
               id="late-cancel"
-              style={{
-                width: 16,
-                height: 16,
-                marginTop: 3,
-                cursor: "pointer",
-                accentColor: "#6c3ce1",
-              }}
+              className="cancellation-checkbox"
               checked={settings.cancellation.pass_cancellation_fee_late}
               onChange={(e) => updateCategory("cancellation", { pass_cancellation_fee_late: e.target.checked })}
             />
             <div>
-              <label
-                htmlFor="late-cancel"
-                style={{
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: "#111827",
-                  cursor: "pointer",
-                  display: "block",
-                  marginBottom: 2,
-                }}
-              >
+              <label htmlFor="late-cancel" className="cancellation-label">
                 Pass on the cancellation fee for late cancellations
               </label>
-              <span style={{ fontSize: 12, color: "#6b7280" }}>
+              <span className="cancellation-hint">
                 When the client cancels late, the team member earns a portion of
                 the cancellation fee
               </span>
@@ -428,31 +412,15 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
             <input
               type="checkbox"
               id="no-show"
-              style={{
-                width: 16,
-                height: 16,
-                marginTop: 3,
-                cursor: "pointer",
-                accentColor: "#6c3ce1",
-              }}
+              className="cancellation-checkbox"
               checked={settings.cancellation.pass_cancellation_fee_noshow}
               onChange={(e) => updateCategory("cancellation", { pass_cancellation_fee_noshow: e.target.checked })}
             />
             <div>
-              <label
-                htmlFor="no-show"
-                style={{
-                  fontSize: 14,
-                  fontWeight: 500,
-                  color: "#111827",
-                  cursor: "pointer",
-                  display: "block",
-                  marginBottom: 2,
-                }}
-              >
+              <label htmlFor="no-show" className="cancellation-label">
                 Pass on the cancellation fee for no-shows
               </label>
-              <span style={{ fontSize: 12, color: "#6b7280" }}>
+              <span className="cancellation-hint">
                 When the client is a no-show, the team member earns a portion of
                 the fee
               </span>
@@ -464,16 +432,10 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
       <div className="divider mt-4"></div>
       
       <div className="d-flex justify-content-end mt-4">
-        <button 
-          className="btn btn-primary px-4 py-2" 
+        <button
+          className="btn btn-primary px-4 py-2 save-btn"
           onClick={handleSave}
           disabled={isSaving}
-          style={{
-            backgroundColor: "#6c3ce1",
-            borderColor: "#6c3ce1",
-            borderRadius: "8px",
-            fontWeight: 500
-          }}
         >
           {isSaving ? "Saving..." : "Save changes"}
         </button>

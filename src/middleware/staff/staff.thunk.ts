@@ -16,12 +16,24 @@ export const fetchStaffThunk = createAsyncThunk<
   void,
   { rejectValue: string }
 >("staff/fetchAll", async (_, { rejectWithValue, getState }) => {
+  const state = getState() as any;
+  const salonId = state.salon?.currentSalon?.id;
+  const params = new URLSearchParams();
+  if (salonId) params.set("salon_id", String(salonId));
+  const url = `${STAFF.BASE}?${params.toString()}`;
+
+  // Auto-retry twice — this is the primary Team Members list, and a single
+  // failed attempt (the DB connection has occasional transient blips) would
+  // otherwise show "No team members yet" for a salon that actually has staff,
+  // with no automatic recovery since the next poll is 30s away.
+  const attempt = (n: number): Promise<any> =>
+    api.get<any>(url).catch((e: any) => {
+      if (n <= 0) throw e;
+      return new Promise((resolve) => setTimeout(resolve, 600)).then(() => attempt(n - 1));
+    });
+
   try {
-    const state = getState() as any;
-    const salonId = state.salon?.currentSalon?.id;
-    const params = new URLSearchParams();
-    if (salonId) params.set("salon_id", String(salonId));
-    const res = await api.get<any>(`${STAFF.BASE}?${params.toString()}`);
+    const res = await attempt(2);
     const data = res.data?.data;
     return Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
   } catch (err: any) {

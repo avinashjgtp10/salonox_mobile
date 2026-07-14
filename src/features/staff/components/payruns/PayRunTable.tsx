@@ -27,32 +27,29 @@ const PayRunTable: React.FC<PayRunTableProps> = ({ data, loading, onRowClick, on
         
         return (
           <div className="d-flex align-items-center gap-3 py-1">
-            <div 
-              className="rounded-circle d-flex align-items-center justify-content-center fw-bold text-primary bg-light border shadow-sm"
-              style={{ width: '38px', height: '38px', fontSize: '11px' }}
+            <div
+              className="pay-run-table__avatar rounded-circle d-flex align-items-center justify-content-center fw-bold text-primary bg-light border shadow-sm"
             >
               {initials}
             </div>
             <div className="d-flex flex-column">
               <span className="fw-bold text-dark">{name}</span>
               <div className="d-flex align-items-center gap-2 mt-1">
-                <button 
-                  className="btn btn-link p-0 text-decoration-none text-muted small hover-primary transition-colors"
-                  style={{ fontSize: '10px', fontWeight: 600 }}
+                <button
+                  className="pay-run-table__edit-btn btn btn-link p-0 text-decoration-none text-muted small hover-primary transition-colors"
                   onClick={(e) => onEdit(e, item)}
                 >
                   Edit
                 </button>
-              <span className="text-light" style={{ opacity: 0.5 }}>|</span>
-              <button 
-                className="btn btn-link p-0 text-decoration-none text-danger small transition-colors"
-                style={{ fontSize: '11px' }}
-                onClick={(e) => onDelete(e, item)}
-              >
-                Delete
-              </button>
+                <span className="pay-run-table__divider text-light">|</span>
+                <button
+                  className="pay-run-table__delete-btn btn btn-link p-0 text-decoration-none text-danger small transition-colors"
+                  onClick={(e) => onDelete(e, item)}
+                >
+                  Delete
+                </button>
+              </div>
             </div>
-          </div>
           </div>
         );
       },

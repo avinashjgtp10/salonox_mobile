@@ -19,7 +19,6 @@ import {
   FileEarmarkExcel,
   FiletypeCsv,
   Pencil,
-  People,
   Trash,
   ThreeDots,
   TelephoneFill,
@@ -30,7 +29,7 @@ import {
 import "../styles/StaffListPage.scss";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
-import { Button, Input, DownloadButton } from "../../../components/ui";
+import { Button, Input, DownloadButton, SuccessOverlay } from "../../../components/ui";
 import StaffImportModal from "../components/StaffImportModal";
 
 interface StaffMember {
@@ -111,6 +110,7 @@ export default function StaffListPage() {
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
 
   // Filter state
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
@@ -197,7 +197,7 @@ export default function StaffListPage() {
     setDeletingId(id);
     try {
       await dispatch(deleteStaffThunk(id)).unwrap();
-      showToast("Team member deleted successfully");
+      setShowDeleteSuccess(true);
       setSelectedIds((prev) => prev.filter((x) => x !== id));
       // Refetch to sync with server (handles edge cases where backend may have cascade effects)
       fetchStaff();
@@ -266,6 +266,11 @@ export default function StaffListPage() {
 
   return (
     <div className="staff-list-page">
+      {/* ===== DELETE SUCCESS ===== */}
+      {showDeleteSuccess && (
+        <SuccessOverlay message="Staff deleted successfully" onDone={() => setShowDeleteSuccess(false)} />
+      )}
+
       {/* ===== TOAST ===== */}
       {toast && (
         <div className={`sl-toast ${toast.type === "error" ? "sl-toast--error" : ""}`}>
@@ -445,27 +450,6 @@ export default function StaffListPage() {
         </div>
       </div>
 
-      {/* ===== INVITE BANNER ===== */}
-      <div className="slp-invite-banner">
-        <div className="slp-banner-content">
-          <div className="slp-banner-icon-wrap">
-            <People size={28} />
-          </div>
-          <div>
-            <h3 className="slp-banner-title">Invite your team members</h3>
-            <p className="slp-banner-desc">
-              Invite your staff to use the app and manage their schedules, services, and performance.
-            </p>
-          </div>
-        </div>
-        <div className="slp-banner-actions">
-          <button className="slp-banner-btn" onClick={() => navigate("/dashboard/team/add")}>
-            Start inviting
-          </button>
-          <span className="slp-banner-link">Learn more</span>
-        </div>
-      </div>
-
       {/* ===== SEARCH + FILTER + SORT ===== */}
       <div className="slp-toolbar">
         <div className="slp-toolbar__left">
@@ -626,15 +610,9 @@ export default function StaffListPage() {
                 <div className="slp-col-member">
                   <div
                     className="slp-avatar"
-                    style={{ background: member.calendar_color ? undefined : getGradient(member.id) }}
+                    style={{ "--avatar-bg": member.calendar_color ? resolveColor(member.calendar_color) : getGradient(member.id) } as React.CSSProperties}
                   >
-                    {member.calendar_color ? (
-                      <span className="slp-avatar-initials" style={{ background: resolveColor(member.calendar_color) }}>
-                        {initials}
-                      </span>
-                    ) : (
-                      <span className="slp-avatar-initials">{initials}</span>
-                    )}
+                    <span className="slp-avatar-initials">{initials}</span>
                   </div>
                   <div className="slp-member-info">
                     <div className="slp-member-name">{fullName || "Unknown"}</div>

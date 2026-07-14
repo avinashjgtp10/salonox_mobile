@@ -46,11 +46,11 @@ const StaffEmergencyContactsSection: React.FC<StaffEmergencyContactsProps> = ({
   };
 
   return (
-    <div className="section staff-form">
-      <h5 className="fw-bold mb-1 section__title" style={{ fontSize: "18px" }}>
+    <div className="section staff-form emergency-contacts-section">
+      <h5 className="fw-bold mb-1 section__title">
         Emergency Contacts
       </h5>
-      <p className="text-muted mb-4 section__subtitle" style={{ fontSize: "13px" }}>
+      <p className="text-muted mb-4 section__subtitle">
         Manage your team members' emergency contacts.
       </p>
 
@@ -80,11 +80,10 @@ const StaffEmergencyContactsSection: React.FC<StaffEmergencyContactsProps> = ({
       ))}
 
       <button
-        className="btn btn-outline-primary d-inline-flex align-items-center gap-1 mt-3"
-        style={{ borderRadius: "8px", padding: "6px 16px", fontSize: "14px", fontWeight: "500" }}
+        className="btn btn-outline-primary d-inline-flex align-items-center gap-1 mt-3 add-contact-btn"
         onClick={() => setOpenContactModal(true)}
       >
-        <span style={{ fontSize: "18px", lineHeight: 1 }}>+</span>
+        <span className="add-contact-btn__plus">+</span>
         Add an emergency contact
       </button>
 

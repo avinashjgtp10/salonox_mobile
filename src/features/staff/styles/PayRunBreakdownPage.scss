@@ -4,6 +4,13 @@
   margin: 0 auto;
   font-family: inherit;
 
+  &__loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 80vh;
+  }
+
   // ── Header ──────────────────────────────────────────────────────────────────
   &__header {
     display: flex;

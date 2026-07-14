@@ -244,16 +244,10 @@ const StaffWagesSection: React.FC<StaffWagesSectionProps> = ({ staffId, salonId,
         <div className="divider mt-4"></div>
         
         <div className="d-flex justify-content-end mt-4">
-          <button 
-            className="btn btn-primary px-4 py-2" 
+          <button
+            className="btn btn-primary px-4 py-2 save-btn"
             onClick={handleSave}
             disabled={isSaving || !settings.wages_enabled}
-            style={{
-              backgroundColor: "#6c3ce1",
-              borderColor: "#6c3ce1",
-              borderRadius: "8px",
-              fontWeight: 500
-            }}
           >
             {isSaving ? "Saving..." : "Save changes"}
           </button>

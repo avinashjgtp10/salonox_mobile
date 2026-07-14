@@ -1,505 +1,334 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
-import { ExclamationTriangle } from "react-bootstrap-icons";
-import { selectCurrentSalon } from "../../../store/selectors/slices.selectors";
+import { Country } from "country-state-city";
+import { Camera, ChevronDown, Eye, EyeSlash } from "react-bootstrap-icons";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/AddStaffPage.scss";
-import StaffProfileSection from "../sections/StaffProfileSection";
-import StaffAddressesSection from "../sections/StaffAddressesSection";
-import StaffEmergencyContactsSection from "../sections/StaffEmergencyContactsSection";
-import StaffServicesSection from "../sections/StaffServicesSection";
-import StaffSettingsSection from "../sections/StaffSettingsSection";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
+import {
+  defaultPermissions,
+  PERM_CATEGORIES,
+  buildPermissions,
+  permsToRecord,
+  type Permission,
+} from "../../settings/data/permissionMatrix";
 
-type SectionKey =
-  | "profile"
-  | "addresses"
-  | "emergency"
-  | "services"
-  | "settings";
-
-const sectionComponents: Record<SectionKey, React.FC<any>> = {
-  profile: StaffProfileSection,
-  addresses: StaffAddressesSection,
-  emergency: StaffEmergencyContactsSection,
-  services: StaffServicesSection,
-  settings: StaffSettingsSection,
+const ROLE_OPTIONS = ["No access", "Basic", "Low", "Medium", "High", "Manager"];
+const ROLE_TO_LEVEL: Record<string, string> = {
+  "No access": "no_access", Basic: "basic", Low: "low", Medium: "medium", High: "high", Manager: "manager",
 };
+const LEVEL_TO_ROLE: Record<string, string> = {
+  no_access: "No access", basic: "Basic", low: "Low", medium: "Medium", high: "High", manager: "Manager",
+};
+
+const PHONE_CODES = Country.getAllCountries()
+  .map((c) => ({
+    code: c.phonecode.startsWith("+") ? c.phonecode : `+${c.phonecode}`,
+    label: `${c.isoCode} (${c.phonecode.startsWith("+") ? c.phonecode : `+${c.phonecode}`})`,
+  }))
+  .filter((v, i, a) => a.findIndex((t) => t.label === v.label) === i)
+  .sort((a, b) => a.label.localeCompare(b.label));
+
+const DOB_PLACEHOLDER_YEAR = 2000;
 
 const AddStaffPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const currentSalon = useSelector(selectCurrentSalon);
-  const salonId = currentSalon?.id;
-  const [activeSection, setActiveSection] = useState<SectionKey>("profile");
+  const isEdit = !!id && id !== "undefined" && id !== "add";
 
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    additionalPhone: "",
-    country: "India",
-    birthdayDayMonth: "",
-    birthdayYear: "",
-    calendarColor: "light_blue",
-    jobTitle: "",
-    startDateDayMonth: "",
-    startDateYear: "2026",
-    endDateDayMonth: "",
-    endDateYear: "",
-    employmentType: "",
-    memberId: "",
-    notes: "",
-    phoneCountryCode: "+91",
-    additionalPhoneCountryCode: "+91",
-    specialization: [] as string[],
-    password: "",
-    confirmPassword: "",
+  const [form, setForm] = useState({
+    name: "", email: "", dob: "", doj: "",
+    phone: "", phoneCountryCode: "+91",
+    address: "", gender: "", designation: "",
+    hourlyRate: "", fixedSalary: "", workingHoursPerDay: "", holidays: "",
+    password: "", confirmPassword: "",
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const [settings, setSettings] = useState({
-    allowCalendarBookings: true,
-    permissionLevel: "Low",
-  });
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarPreview, setAvatarPreview] = useState("");
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [lists, setLists] = useState({
-    addresses: [] as any[],
-    contacts: [] as any[],
-  });
+  const [permissionLevel, setPermissionLevel] = useState("Low");
+  const [permissionsEnabled, setPermissionsEnabled] = useState(false);
+  const [perms, setPerms] = useState<Permission[]>(() => buildPermissions(defaultPermissions, null));
+  const [roleMenuOpen, setRoleMenuOpen] = useState(false);
 
-  const [ui, setUi] = useState({
-    attemptedSubmit: false,
-    showErrorPopup: false,
-    showUnsavedDialog: false,
-    isLoading: false,
-    duplicateEmailMessage: null as string | null,
-  });
-  // Synchronous guard — prevents double-submission before React re-renders the disabled button
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+  const [duplicateEmailMessage, setDuplicateEmailMessage] = useState<string | null>(null);
   const isSubmittingRef = useRef(false);
 
-
+  // ── Load existing staff (edit mode) ─────────────────────────────────────────
   useEffect(() => {
-    if (!id || id === "undefined" || id === "add") return;
+    if (!isEdit) return;
 
-    const fetchStaff = async () => {
+    const load = async () => {
       try {
-        setUi((prev) => ({ ...prev, isLoading: true }));
-        const response = await api.get(STAFF.BY_ID(id));
-        const staff = response.data.data;
+        setIsLoading(true);
+        const [staffRes, wagesRes] = await Promise.all([
+          api.get(STAFF.BY_ID(id!)),
+          api.get(STAFF.WAGES(id!)).catch(() => null),
+        ]);
+        const staff = staffRes.data?.data || staffRes.data;
 
-        const permissionLevelMapReverse: Record<string, string> = {
-          no_access: "No access",
-          basic: "Basic",
-          low: "Low",
-          medium: "Medium",
-          high: "High",
-          manager: "Manager",
-        };
-
-        setFormData((prev) => ({
-          ...prev,
-          firstName: staff.first_name || "",
-          lastName: staff.last_name || "",
+        setForm({
+          name: [staff.first_name, staff.last_name].filter(Boolean).join(" "),
           email: staff.email || "",
+          dob: staff.birthday_day && staff.birthday_month
+            ? `${DOB_PLACEHOLDER_YEAR}-${String(staff.birthday_month).padStart(2, "0")}-${String(staff.birthday_day).padStart(2, "0")}`
+            : "",
+          doj: staff.joined_date ? String(staff.joined_date).slice(0, 10) : "",
           phone: staff.phone_number || staff.phone || "",
-          additionalPhone: staff.additional_phone || staff.additional_phone_number || "",
-          country: staff.country || "India",
-          birthdayDayMonth: staff.birthday || staff.birth_day_month || "",
-          birthdayYear: staff.birth_year || "",
-          calendarColor: staff.calendar_color || "light_blue",
-          jobTitle: staff.job_title || "",
-          startDateDayMonth: staff.start_date_day_month || staff.start_date || "",
-          startDateYear: staff.start_year || "2026",
-          endDateDayMonth: staff.end_date_day_month || staff.end_date || "",
-          endDateYear: staff.end_year || "",
-          employmentType: staff.employment_type || "",
-          memberId: staff.staff_member_id || staff.member_id || "",
-          notes: staff.notes || "",
           phoneCountryCode: staff.phone_country_code || "+91",
-          additionalPhoneCountryCode: staff.additional_phone_country_code || "+91",
-          specialization: staff.specialization || [],
-        }));
-
-        setSettings({
-          allowCalendarBookings: staff.allow_calendar_bookings ?? true,
-          permissionLevel: permissionLevelMapReverse[staff.permission_level] || "Low",
+          address: staff.address || "",
+          gender: staff.gender || "",
+          designation: staff.designation || staff.job_title || "",
+          hourlyRate: "", fixedSalary: "", workingHoursPerDay: staff.working_hours_per_day ?? "", holidays: staff.holidays ?? "",
+          password: "", confirmPassword: "",
         });
+        setAvatarUrl(staff.avatar_url || "");
+        setPermissionLevel(LEVEL_TO_ROLE[staff.permission_level] || "Low");
 
-        if (staff.addresses) setLists((prev) => ({ ...prev, addresses: staff.addresses }));
-        if (staff.emergency_contacts) setLists((prev) => ({ ...prev, contacts: staff.emergency_contacts }));
+        if (staff.custom_permissions) {
+          setPermissionsEnabled(true);
+          setPerms(buildPermissions(defaultPermissions, staff.custom_permissions));
+        } else {
+          setPerms(buildPermissions(defaultPermissions, null));
+        }
 
-      } catch (error: any) {
+        const wages = wagesRes?.data?.data;
+        if (wages) {
+          setForm((prev) => ({
+            ...prev,
+            hourlyRate: wages.hourly_rate ?? "",
+            fixedSalary: wages.salary_amount ?? "",
+          }));
+        }
+      } catch (error) {
         console.error("Error fetching staff:", error);
         toast.error("Failed to load staff data. Please try again.");
-        setUi((prev) => ({ ...prev, isLoading: false }));
-        return;
+      } finally {
+        setIsLoading(false);
       }
-
-      setUi((prev) => ({ ...prev, isLoading: false }));
     };
 
-    fetchStaff();
-  }, [id, salonId]);
+    load();
+  }, [id, isEdit]);
 
-  const isFirstNameInvalid =
-    ui.attemptedSubmit && formData.firstName.trim() === "";
+  // ── Field validation ─────────────────────────────────────────────────────────
+  const today = new Date().toISOString().slice(0, 10);
+
+  const isNameInvalid = attemptedSubmit && form.name.trim() === "";
+
+  const emailFormatValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
   const isEmailInvalid =
-    !!ui.duplicateEmailMessage || (ui.attemptedSubmit && formData.email.trim() === "");
-  const emailErrorMessage = ui.duplicateEmailMessage || "Email is required";
-  const isPhoneInvalid =
-    ui.attemptedSubmit &&
-    (formData.phone.trim() === "" || !/^\d{10}$/.test(formData.phone.trim()));
+    !!duplicateEmailMessage ||
+    (attemptedSubmit && (form.email.trim() === "" || !emailFormatValid));
+  const emailErrorMessage =
+    duplicateEmailMessage || (form.email.trim() === "" ? "Email is required" : "Enter a valid email address");
 
-  const isAdditionalPhoneInvalid =
-    ui.attemptedSubmit &&
-    formData.additionalPhone.trim() !== "" &&
-    !/^\d{10}$/.test(formData.additionalPhone.trim());
+  const isDobInvalid = attemptedSubmit && !!form.dob && form.dob > today;
 
-  const isPasswordInvalid =
-    ui.attemptedSubmit &&
-    formData.password.trim().length < 8;
+  const isDojInvalid = attemptedSubmit && form.doj.trim() === "";
 
-  const isConfirmPasswordInvalid =
-    ui.attemptedSubmit &&
-    formData.confirmPassword !== formData.password;
+  const isPhoneInvalid = attemptedSubmit && (form.phone.trim() === "" || !/^\d{10}$/.test(form.phone.trim()));
+  const phoneErrorMessage = form.phone.trim() === "" ? "Contact is required" : "Enter a valid 10-digit phone number";
 
-  const hasErrors = isFirstNameInvalid || isEmailInvalid || isPhoneInvalid || isAdditionalPhoneInvalid || isPasswordInvalid || isConfirmPasswordInvalid;
+  const isGenderInvalid = attemptedSubmit && form.gender.trim() === "";
 
-  const handleAddClick = async () => {
-    // Clear stale duplicate-email flag whenever user tries to submit again
-    setUi((prev) => ({ ...prev, attemptedSubmit: true, duplicateEmailMessage: null }));
-    if (formData.firstName.trim() === "" || formData.email.trim() === "" || formData.phone.trim() === "" || isPhoneInvalid || isAdditionalPhoneInvalid || isPasswordInvalid || isConfirmPasswordInvalid) {
-      setUi((prev) => ({ ...prev, showErrorPopup: true }));
+  const isHourlyRateInvalid = attemptedSubmit && form.hourlyRate !== "" && Number(form.hourlyRate) <= 0;
+  const isFixedSalaryInvalid = attemptedSubmit && form.fixedSalary !== "" && Number(form.fixedSalary) <= 0;
+  const isCompensationConflict = attemptedSubmit && form.hourlyRate !== "" && form.fixedSalary !== "";
+
+  const isWorkingHoursInvalid =
+    attemptedSubmit && form.workingHoursPerDay !== "" &&
+    (Number(form.workingHoursPerDay) < 0 || Number(form.workingHoursPerDay) > 24);
+
+  const isHolidaysInvalid = attemptedSubmit && form.holidays !== "" && Number(form.holidays) < 0;
+
+  const isPasswordInvalid = attemptedSubmit && form.password.trim() !== "" && form.password.trim().length < 8;
+  const isConfirmPasswordInvalid = attemptedSubmit && form.password.trim() !== "" && form.confirmPassword !== form.password;
+
+  const setField = (key: keyof typeof form) => (val: string) => {
+    setForm((prev) => ({ ...prev, [key]: val }));
+    if (key === "email" && duplicateEmailMessage) setDuplicateEmailMessage(null);
+  };
+
+  // ── Avatar upload ────────────────────────────────────────────────────────────
+  const handleAvatarPick = () => fileInputRef.current?.click();
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const localUrl = URL.createObjectURL(file);
+    setAvatarPreview(localUrl);
+    setAvatarUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("avatar", file);
+      const res = await api.post(STAFF.UPLOAD_AVATAR, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      const url = res.data?.data?.url || res.data?.url;
+      if (url) setAvatarUrl(url);
+    } catch (error) {
+      console.error("Error uploading avatar:", error);
+      toast.error("Failed to upload profile image");
+      setAvatarPreview("");
+    } finally {
+      setAvatarUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  // ── Permissions ──────────────────────────────────────────────────────────────
+  const togglePerm = (key: string) => {
+    setPerms((prev) => prev.map((p) => (p.key === key ? { ...p, staff: !p.staff } : p)));
+    setPermissionsEnabled(true);
+  };
+
+  // ── Submit ───────────────────────────────────────────────────────────────────
+  const handleSave = async () => {
+    setAttemptedSubmit(true);
+    setDuplicateEmailMessage(null);
+
+    if (
+      form.name.trim() === "" || form.email.trim() === "" || !emailFormatValid || form.phone.trim() === "" || isPhoneInvalid ||
+      form.doj.trim() === "" || form.gender.trim() === "" || isDobInvalid ||
+      isHourlyRateInvalid || isFixedSalaryInvalid || isCompensationConflict || isWorkingHoursInvalid || isHolidaysInvalid ||
+      isPasswordInvalid || isConfirmPasswordInvalid
+    ) {
+      toast.error("Please fix the highlighted fields");
       return;
     }
 
-    // Synchronous guard: ref is set/read in the same JS tick — prevents duplicate
-    // submissions that sneak through before React re-renders the disabled button.
     if (isSubmittingRef.current) return;
     isSubmittingRef.current = true;
 
     try {
-      setUi((prev) => ({ ...prev, isLoading: true }));
-      const permissionLevelMap: Record<string, string> = {
-        "No access": "no_access",
-        "Basic": "basic",
-        "Low": "low",
-        "Medium": "medium",
-        "High": "high",
-        "Manager": "manager",
-      };
+      setIsLoading(true);
+
+      const nameParts = form.name.trim().split(/\s+/);
+      const first_name = nameParts[0];
+      const last_name = nameParts.slice(1).join(" ") || undefined;
+
+      let birthday_day: number | undefined;
+      let birthday_month: number | undefined;
+      if (form.dob) {
+        const [, month, day] = form.dob.split("-").map(Number);
+        birthday_day = day;
+        birthday_month = month;
+      }
 
       const payload: Record<string, any> = {
-        first_name: formData.firstName,
-        email: formData.email,
-        calendar_color: formData.calendarColor,
-        allow_calendar_bookings: settings.allowCalendarBookings,
-        permission_level: permissionLevelMap[settings.permissionLevel] || "low",
+        first_name,
+        last_name,
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        phone_country_code: form.phoneCountryCode,
+        job_title: form.designation || undefined,
+        joined_date: form.doj || undefined,
+        birthday_day,
+        birthday_month,
+        permission_level: ROLE_TO_LEVEL[permissionLevel] || "low",
+        allow_calendar_bookings: true,
+        // Pending DB migration — accepted by the API but not yet persisted server-side.
+        gender: form.gender || undefined,
+        address: form.address || undefined,
+        avatar_url: avatarUrl || undefined,
+        working_hours_per_day: form.workingHoursPerDay ? Number(form.workingHoursPerDay) : undefined,
+        holidays: form.holidays ? Number(form.holidays) : undefined,
       };
 
-      if (lists.addresses.length > 0) payload.addresses = lists.addresses;
-      if (lists.contacts.length > 0) payload.emergency_contacts = lists.contacts;
-
-      if (formData.lastName) payload.last_name = formData.lastName;
-      if (formData.phone) payload.phone = formData.phone;
-      if (formData.phoneCountryCode) payload.phone_country_code = formData.phoneCountryCode;
-      if (formData.additionalPhone) {
-        payload.additional_phone = formData.additionalPhone;
-        if (formData.additionalPhoneCountryCode)
-          payload.additional_phone_country_code = formData.additionalPhoneCountryCode;
+      if (form.password.trim()) {
+        payload.password = form.password.trim();
       }
-      if (formData.country) payload.country = formData.country;
-      if (formData.jobTitle) payload.job_title = formData.jobTitle;
-      if (formData.memberId) payload.staff_member_id = formData.memberId;
-      if (formData.notes) payload.notes = formData.notes;
-      if (formData.employmentType) payload.employment_type = formData.employmentType;
-      if (formData.specialization && formData.specialization.length > 0) payload.specialization = formData.specialization;
-      if (formData.birthdayDayMonth) payload.birthday = formData.birthdayDayMonth;
-      if (formData.birthdayYear) payload.birth_year = formData.birthdayYear;
-      if (formData.startDateDayMonth) payload.start_date = formData.startDateDayMonth;
-      if (formData.startDateDayMonth && formData.startDateYear)
-        payload.start_year = formData.startDateYear;
-      if (formData.endDateDayMonth) payload.end_date = formData.endDateDayMonth;
-      if (formData.endDateDayMonth && formData.endDateYear)
-        payload.end_year = formData.endDateYear;
-      payload.password = formData.password.trim();
-      if (id && id !== "undefined") {
-        await api.patch(STAFF.BY_ID(id), payload);
-        toast.success("Staff updated successfully");
-        navigate("/dashboard/team/members");
+
+      if (permissionsEnabled) {
+        payload.custom_permissions = permsToRecord(perms);
+      } else if (isEdit) {
+        payload.custom_permissions = null;
+      }
+
+      let staffId = id;
+      if (isEdit) {
+        await api.patch(STAFF.BY_ID(id!), payload);
       } else {
-        const response = await api.post(STAFF.BASE, payload);
-        const newStaffId = response.data?.data?.staffId || response.data?.staffId || response.data?.data?.id || response.data?.id;
-
-        if (!newStaffId) {
-          throw new Error("Failed to retrieve new staff ID from server");
-        }
-
-        toast.success("Invitation sent successfully");
-        navigate("/dashboard/team/members");
+        const res = await api.post(STAFF.BASE, payload);
+        staffId = res.data?.data?.staffId || res.data?.staffId || res.data?.data?.id || res.data?.id;
+        if (!staffId) throw new Error("Failed to retrieve new staff ID from server");
       }
+
+      if (staffId && (form.hourlyRate || form.fixedSalary)) {
+        try {
+          await api.put(STAFF.WAGES(staffId), {
+            wages_enabled: true,
+            compensation_type: form.hourlyRate ? "hourly" : "salary",
+            hourly_rate: form.hourlyRate ? Number(form.hourlyRate) : null,
+            salary_amount: !form.hourlyRate && form.fixedSalary ? Number(form.fixedSalary) : null,
+          });
+        } catch (wageError) {
+          console.error("Error saving wage settings:", wageError);
+        }
+      }
+
+      toast.success(isEdit ? "Staff updated successfully" : "Invitation sent successfully");
+      navigate("/dashboard/team/members");
     } catch (error: any) {
       console.error("Error saving staff:", error);
-      // Axios wraps the HTTP status inside error.response.status
       const status = error?.response?.status ?? error?.status;
       const serverMessage =
-        error?.response?.data?.message ||
-        error?.response?.data?.error?.message ||
-        error?.message;
+        error?.response?.data?.message || error?.response?.data?.error?.message || error?.message;
 
       if (status === 409) {
-        // Duplicate email (staff, or a salon_owner/admin account) — highlight the
-        // field inline with the specific reason and jump to the profile tab.
-        // No toast here: the inline message under the Email field is enough.
-        const message = serverMessage || "A staff member with this email already exists.";
-        setUi((prev) => ({
-          ...prev,
-          duplicateEmailMessage: message,
-          showErrorPopup: true,
-        }));
-        setActiveSection("profile");
+        setDuplicateEmailMessage(serverMessage || "A staff member with this email already exists.");
       } else if (status === 401) {
         toast.error("Your session has expired. Please log in again.");
-      } else if (status === 400) {
-        toast.error(serverMessage || "Invalid data. Please check the form and try again.");
       } else {
         toast.error(serverMessage || "Failed to save staff member");
       }
     } finally {
-      setUi((prev) => ({ ...prev, isLoading: false }));
+      setIsLoading(false);
       isSubmittingRef.current = false;
     }
   };
 
-  const navItem = (
-    key: SectionKey,
-    label: string,
-    badge?: number,
-    hasError?: boolean,
-  ) => (
-    <li
-      key={key}
-      className={`add-staff__nav-item ${activeSection === key ? "add-staff__nav-item--active" : ""}`}
-      onClick={() => setActiveSection(key)}
-    >
-      <span className="add-staff__nav-label">{label}</span>
-      {badge !== undefined && (
-        <span className="add-staff__nav-badge">{badge}</span>
-      )}
-      {hasError && <div className="add-staff__nav-dot" />}
-    </li>
-  );
-
-  const ActiveComponent = sectionComponents[activeSection];
-
-  const componentProps: any = {
-    staffId: id,
-    salonId: salonId,
-  };
-  if (activeSection === "profile") {
-    // Spread all formData and provide individual update handlers if needed
-    // or provide the entire object and a setter.
-    // For now, mapping individual ones to avoid breaking child sections if they expect them.
-    Object.keys(formData).forEach((key) => {
-      componentProps[key] = (formData as any)[key];
-      componentProps[`set${key.charAt(0).toUpperCase() + key.slice(1)}`] = (
-        val: any,
-      ) => {
-        setFormData((prev) => ({
-          ...prev,
-          [key]: typeof val === "function" ? val((prev as any)[key]) : val,
-        }));
-      };
-    });
-    componentProps.isFirstNameInvalid = isFirstNameInvalid;
-    componentProps.isEmailInvalid = isEmailInvalid;
-    componentProps.emailErrorMessage = emailErrorMessage;
-    componentProps.isPhoneInvalid = isPhoneInvalid;
-    componentProps.isAdditionalPhoneInvalid = isAdditionalPhoneInvalid;
-    componentProps.isPasswordInvalid = isPasswordInvalid;
-    componentProps.isConfirmPasswordInvalid = isConfirmPasswordInvalid;
-    // Override setEmail so editing the field clears the duplicate-email backend error
-    componentProps.setEmail = (val: string) => {
-      setFormData((prev) => ({ ...prev, email: val }));
-      if (ui.duplicateEmailMessage) {
-        setUi((prev) => ({ ...prev, duplicateEmailMessage: null }));
-      }
-    };
-  } else if (activeSection === "settings") {
-    componentProps.allowCalendarBookings = settings.allowCalendarBookings;
-    componentProps.setAllowCalendarBookings = (val: any) =>
-      setSettings((prev) => ({ ...prev, allowCalendarBookings: val }));
-    componentProps.permissionLevel = settings.permissionLevel;
-    componentProps.setPermissionLevel = (val: any) =>
-      setSettings((prev) => ({ ...prev, permissionLevel: val }));
-  } else if (activeSection === "addresses") {
-    componentProps.addresses = lists.addresses;
-    componentProps.setAddresses = (val: any) =>
-      setLists((prev) => ({
-        ...prev,
-        addresses: typeof val === "function" ? val(prev.addresses) : val,
-      }));
-  } else if (activeSection === "emergency") {
-    componentProps.contacts = lists.contacts;
-    componentProps.setContacts = (val: any) =>
-      setLists((prev) => ({
-        ...prev,
-        contacts: typeof val === "function" ? val(prev.contacts) : val,
-      }));
-  } else if (activeSection === "services") {
-    componentProps.specialization = formData.specialization || [];
-    componentProps.setSpecialization = (val: string[]) => {
-      setFormData((prev: any) => ({ ...prev, specialization: val }));
-    };
-  }
+  const displayInitials = form.name.trim() ? form.name.trim()[0].toUpperCase() : "?";
 
   return (
     <div className="add-staff">
       <div className="add-staff__header">
-        <h5 className="add-staff__header-title">{id ? "Edit team member" : "Add team member"}</h5>
-        <div className="add-staff__header-actions position-relative">
-          {hasErrors && (
-            <button
-              className="btn add-staff__btn-warning"
-              onClick={() =>
-                setUi((prev) => ({
-                  ...prev,
-                  showErrorPopup: !ui.showErrorPopup,
-                }))
-              }
-            >
-              <ExclamationTriangle color="#e53935" size={18} />
-            </button>
-          )}
-
-
-          <button
-            className="btn add-staff__btn-close"
-            onClick={() =>
-              setUi((prev) => ({ ...prev, showUnsavedDialog: true }))
-            }
-          >
+        <h5 className="add-staff__header-title">{isEdit ? "Edit Employee" : "Create Employee"}</h5>
+        <div className="add-staff__header-actions">
+          <button className="btn add-staff__btn-close" onClick={() => setShowUnsavedDialog(true)}>
             Close
           </button>
-          <button
-            className="btn add-staff__btn-add"
-            onClick={handleAddClick}
-            disabled={ui.isLoading || (activeSection === "addresses" && lists.addresses.length === 0)}
-            title={activeSection === "addresses" && lists.addresses.length === 0 ? "Add at least one address before saving" : undefined}
-          >
-            {ui.isLoading && (
-              <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
-            )}
-            {ui.isLoading ? (id ? "Saving..." : "Adding...") : (id ? "Save" : "Add")}
+          <button className="btn add-staff__btn-add" onClick={handleSave} disabled={isLoading}>
+            {isLoading && <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />}
+            {isLoading ? "Saving..." : "Save"}
           </button>
         </div>
       </div>
 
-      {/* Unsaved Changes Dialog */}
-      {ui.showUnsavedDialog && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            backgroundColor: "rgba(0,0,0,0.35)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 2000,
-          }}
-        >
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: "12px",
-              padding: "28px",
-              width: "400px",
-              position: "relative",
-              boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
-            }}
-          >
-            {/* Close X */}
-            <button
-              onClick={() =>
-                setUi((prev) => ({ ...prev, showUnsavedDialog: false }))
-              }
-              style={{
-                position: "absolute",
-                top: "16px",
-                right: "16px",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                fontSize: "18px",
-                color: "#6b7280",
-                lineHeight: 1,
-                padding: 0,
-              }}
-            >
-              &times;
-            </button>
-
-            <h5
-              style={{
-                fontWeight: 700,
-                fontSize: "16px",
-                color: "#111827",
-                marginBottom: "12px",
-              }}
-            >
-              Unsaved changes
-            </h5>
-            <p
-              style={{
-                fontSize: "14px",
-                color: "#374151",
-                marginBottom: "28px",
-                lineHeight: 1.6,
-              }}
-            >
-              You have unsaved changes. Are you sure you want to leave?
-            </p>
-
-            <div
-              style={{
-                display: "flex",
-                gap: "12px",
-                justifyContent: "flex-end",
-              }}
-            >
-              <button
-                className="btn"
-                style={{
-                  borderRadius: "20px",
-                  border: "1px solid #e5e7eb",
-                  padding: "8px 20px",
-                  fontSize: "14px",
-                  fontWeight: 500,
-                  color: "#374151",
-                }}
-                onClick={() =>
-                  setUi((prev) => ({ ...prev, showUnsavedDialog: false }))
-                }
-              >
+      {showUnsavedDialog && (
+        <div className="add-staff__dialog-overlay">
+          <div className="add-staff__dialog">
+            <button className="add-staff__dialog-close" onClick={() => setShowUnsavedDialog(false)}>&times;</button>
+            <h5 className="add-staff__dialog-title">Unsaved changes</h5>
+            <p className="add-staff__dialog-desc">You have unsaved changes. Are you sure you want to leave?</p>
+            <div className="add-staff__dialog-actions">
+              <button className="btn add-staff__dialog-btn add-staff__dialog-btn--cancel" onClick={() => setShowUnsavedDialog(false)}>
                 Cancel
               </button>
-              <button
-                className="btn"
-                style={{
-                  borderRadius: "20px",
-                  background: "#111827",
-                  color: "#fff",
-                  padding: "8px 20px",
-                  fontSize: "14px",
-                  fontWeight: 500,
-                  border: "none",
-                }}
-                onClick={() => navigate("/dashboard/team/members")}
-              >
+              <button className="btn add-staff__dialog-btn add-staff__dialog-btn--discard" onClick={() => navigate("/dashboard/team/members")}>
                 Discard changes
               </button>
             </div>
@@ -507,35 +336,274 @@ const AddStaffPage: React.FC = () => {
         </div>
       )}
 
-      <div className="add-staff__body container-fluid">
-        <div className="row g-0 h-100">
-          <aside className="col-auto add-staff__sidebar">
-            <nav className="add-staff__nav">
-              <div className="add-staff__nav-group">
-                <p className="add-staff__nav-group-title">Personal</p>
-                <ul className="add-staff__nav-list">
-                  {navItem("profile", "Profile", undefined, hasErrors)}
-                  {navItem("addresses", "Addresses")}
-                  {navItem("emergency", "Emergency contacts")}
-                </ul>
+      <div className="emp-page">
+        {/* ── Details + Profile Image ── */}
+        <div className="emp-top-row">
+          <div className="emp-card emp-details-card">
+            <h6 className="emp-card__title">Details</h6>
+            <div className="emp-details-grid">
+              <div className="emp-field">
+                <input
+                  className={`emp-input ${isNameInvalid ? "emp-input--invalid" : ""}`}
+                  placeholder="Name*"
+                  value={form.name}
+                  onChange={(e) => setField("name")(e.target.value)}
+                />
+                {isNameInvalid && <span className="emp-field__error">Name is required</span>}
+              </div>
+              <div className="emp-field">
+                <input
+                  className={`emp-input ${isEmailInvalid ? "emp-input--invalid" : ""}`}
+                  placeholder="Email*"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setField("email")(e.target.value)}
+                />
+                {isEmailInvalid && <span className="emp-field__error">{emailErrorMessage}</span>}
               </div>
 
-              <hr className="add-staff__nav-divider" />
-
-              <div className="add-staff__nav-group">
-                <p className="add-staff__nav-group-title">Workspace</p>
-                <ul className="add-staff__nav-list">
-                  {navItem("services", "Services", 2)}
-                  {navItem("settings", "Settings")}
-                </ul>
+              <div className="emp-field">
+                <label className="emp-field__label">Date of Birth</label>
+                <input
+                  className={`emp-input ${isDobInvalid ? "emp-input--invalid" : ""}`}
+                  type="date"
+                  max={today}
+                  value={form.dob}
+                  onChange={(e) => setField("dob")(e.target.value)}
+                />
+                {isDobInvalid && <span className="emp-field__error">Date of birth cannot be in the future</span>}
+              </div>
+              <div className="emp-field">
+                <label className="emp-field__label">Date of Joining*</label>
+                <input
+                  className={`emp-input ${isDojInvalid ? "emp-input--invalid" : ""}`}
+                  type="date"
+                  value={form.doj}
+                  onChange={(e) => setField("doj")(e.target.value)}
+                />
+                {isDojInvalid && <span className="emp-field__error">Date of joining is required</span>}
               </div>
 
-            </nav>
-          </aside>
+              <div className="emp-field">
+                <div className={`emp-phone-group ${isPhoneInvalid ? "emp-input--invalid" : ""}`}>
+                  <select
+                    className="emp-phone-code"
+                    value={form.phoneCountryCode}
+                    onChange={(e) => setField("phoneCountryCode")(e.target.value)}
+                  >
+                    {PHONE_CODES.map((c) => (
+                      <option key={c.label} value={c.code}>{c.code}</option>
+                    ))}
+                  </select>
+                  <input
+                    className="emp-input emp-phone-input"
+                    placeholder="Contact*"
+                    value={form.phone}
+                    onChange={(e) => setField("phone")(e.target.value.replace(/\D/g, ""))}
+                    maxLength={10}
+                  />
+                </div>
+                {isPhoneInvalid && <span className="emp-field__error">{phoneErrorMessage}</span>}
+              </div>
+              <div className="emp-field">
+                <input
+                  className="emp-input"
+                  placeholder="Address"
+                  value={form.address}
+                  onChange={(e) => setField("address")(e.target.value)}
+                />
+              </div>
 
-          <main className="col add-staff__content">
-            <ActiveComponent {...componentProps} />
-          </main>
+              <div className="emp-field">
+                <select
+                  className={`emp-input emp-select ${isGenderInvalid ? "emp-input--invalid" : ""}`}
+                  value={form.gender}
+                  onChange={(e) => setField("gender")(e.target.value)}
+                >
+                  <option value="">Gender*</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+                {isGenderInvalid && <span className="emp-field__error">Gender is required</span>}
+              </div>
+              <div className="emp-field">
+                <input
+                  className="emp-input"
+                  placeholder="Designation"
+                  value={form.designation}
+                  onChange={(e) => setField("designation")(e.target.value)}
+                />
+              </div>
+
+              <div className="emp-field">
+                <input
+                  className={`emp-input ${isHourlyRateInvalid || isCompensationConflict ? "emp-input--invalid" : ""}`}
+                  placeholder="Hourly Rate"
+                  type="number"
+                  min={0}
+                  value={form.hourlyRate}
+                  onChange={(e) => setField("hourlyRate")(e.target.value)}
+                />
+                {isHourlyRateInvalid && <span className="emp-field__error">Hourly rate must be greater than 0</span>}
+                {!isHourlyRateInvalid && isCompensationConflict && (
+                  <span className="emp-field__error">Provide either Hourly Rate or Fixed Salary, not both</span>
+                )}
+              </div>
+              <div className="emp-field">
+                <input
+                  className={`emp-input ${isFixedSalaryInvalid || isCompensationConflict ? "emp-input--invalid" : ""}`}
+                  placeholder="Fixed Salary"
+                  type="number"
+                  min={0}
+                  value={form.fixedSalary}
+                  onChange={(e) => setField("fixedSalary")(e.target.value)}
+                />
+                {isFixedSalaryInvalid && <span className="emp-field__error">Fixed salary must be greater than 0</span>}
+              </div>
+
+              <div className="emp-field">
+                <input
+                  className={`emp-input ${isWorkingHoursInvalid ? "emp-input--invalid" : ""}`}
+                  placeholder="Working Hours/Day"
+                  type="number"
+                  min={0}
+                  max={24}
+                  value={form.workingHoursPerDay}
+                  onChange={(e) => setField("workingHoursPerDay")(e.target.value)}
+                />
+                {isWorkingHoursInvalid && <span className="emp-field__error">Must be between 0 and 24</span>}
+              </div>
+              <div className="emp-field">
+                <input
+                  className={`emp-input ${isHolidaysInvalid ? "emp-input--invalid" : ""}`}
+                  placeholder="Holidays"
+                  type="number"
+                  min={0}
+                  value={form.holidays}
+                  onChange={(e) => setField("holidays")(e.target.value)}
+                />
+                {isHolidaysInvalid && <span className="emp-field__error">Holidays cannot be negative</span>}
+              </div>
+            </div>
+          </div>
+
+          <div className="emp-card emp-photo-card">
+            <h6 className="emp-card__title">Profile Image</h6>
+            <div className="emp-photo-box" onClick={handleAvatarPick}>
+              {avatarPreview || avatarUrl ? (
+                <img src={avatarPreview || avatarUrl} alt="Profile" className="emp-photo-preview" />
+              ) : (
+                <span className="emp-photo-placeholder">{displayInitials}</span>
+              )}
+              <div className="emp-photo-camera">
+                <Camera size={16} />
+              </div>
+              {avatarUploading && <div className="emp-photo-uploading">Uploading...</div>}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/gif"
+              className="emp-hidden-input"
+              onChange={handleAvatarChange}
+            />
+            <p className="emp-photo-hint">Accepted formats: PNG, GIF or JPG. Maximum file size is 2.0MB.</p>
+          </div>
+        </div>
+
+        {/* ── Staff Login ── */}
+        <div className="emp-card">
+          <h6 className="emp-card__title">Staff Login</h6>
+          <div className="emp-login-grid">
+            <div className="emp-field">
+              <div className={`emp-password-group ${isPasswordInvalid ? "emp-input--invalid" : ""}`}>
+                <input
+                  className="emp-input emp-password-input"
+                  placeholder="Password"
+                  type={showPassword ? "text" : "password"}
+                  value={form.password}
+                  onChange={(e) => setField("password")(e.target.value)}
+                />
+                <button type="button" className="emp-password-eye" onClick={() => setShowPassword(!showPassword)}>
+                  {showPassword ? <EyeSlash size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+              {isPasswordInvalid && <span className="emp-field__error">Password must be at least 8 characters</span>}
+            </div>
+            <div className="emp-field">
+              <div className={`emp-password-group ${isConfirmPasswordInvalid ? "emp-input--invalid" : ""}`}>
+                <input
+                  className="emp-input emp-password-input"
+                  placeholder="Confirm Password"
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={form.confirmPassword}
+                  onChange={(e) => setField("confirmPassword")(e.target.value)}
+                />
+                <button type="button" className="emp-password-eye" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                  {showConfirmPassword ? <EyeSlash size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+              {isConfirmPasswordInvalid && <span className="emp-field__error">Passwords do not match</span>}
+            </div>
+          </div>
+          <p className="emp-field__hint">
+            Set a password so this employee can log in with their email above right away. Leave blank to send an email invite instead — they'll set their own password and get the same permissions once they accept it.
+          </p>
+        </div>
+
+        {/* ── Staff Permissions ── */}
+        <div className="emp-card">
+          <div className="emp-permissions-header">
+            <div className="emp-permissions-header__left">
+              <span className="emp-card__title emp-card__title--inline">Staff Permissions</span>
+              <label className="emp-toggle">
+                <input
+                  type="checkbox"
+                  checked={permissionsEnabled}
+                  onChange={(e) => setPermissionsEnabled(e.target.checked)}
+                />
+                <span className="emp-toggle__slider" />
+              </label>
+            </div>
+            <div className="emp-role-select" onClick={(e) => e.stopPropagation()}>
+              <button className="emp-role-btn" onClick={() => setRoleMenuOpen(!roleMenuOpen)}>
+                {permissionLevel} <ChevronDown size={12} />
+              </button>
+              {roleMenuOpen && (
+                <div className="emp-role-menu">
+                  {ROLE_OPTIONS.map((role) => (
+                    <div
+                      key={role}
+                      className={`emp-role-item ${permissionLevel === role ? "active" : ""}`}
+                      onClick={() => { setPermissionLevel(role); setRoleMenuOpen(false); }}
+                    >
+                      {role}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className={`emp-permissions-grid ${!permissionsEnabled ? "emp-permissions-grid--disabled" : ""}`}>
+            {PERM_CATEGORIES.map((cat) => (
+              <div key={cat} className="emp-perm-category">
+                <p className="emp-perm-category__title">{cat}</p>
+                {perms.filter((p) => p.category === cat).map((perm) => (
+                  <label key={perm.key} className="emp-checkbox-row emp-checkbox-row--perm">
+                    <input
+                      type="checkbox"
+                      checked={perm.staff}
+                      disabled={!permissionsEnabled}
+                      onChange={() => togglePerm(perm.key)}
+                    />
+                    <span>{perm.label}</span>
+                  </label>
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

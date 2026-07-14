@@ -109,7 +109,7 @@ function PayrollRow({
     <>
       <div className={`pr-row ${open ? "pr-row--open" : ""}`} onClick={() => setOpen(!open)}>
         <div className="pr-col pr-col--member">
-          <div className="pr-avatar" style={{ background: member.color }}>{member.avatar}</div>
+          <div className="pr-avatar" style={{ "--avatar-bg": member.color } as React.CSSProperties}>{member.avatar}</div>
           <div>
             <div className="pr-name">{member.name}</div>
             <div className="pr-role">{member.role}</div>
@@ -134,7 +134,7 @@ function PayrollRow({
           )}
         </div>
         <div className="pr-col pr-col--expand">
-          {open ? <ChevronDown size={14} style={{ transform: "rotate(180deg)" }} /> : <ChevronDown size={14} />}
+          <ChevronDown size={14} className={open ? "pr-chevron--open" : ""} />
         </div>
       </div>
 

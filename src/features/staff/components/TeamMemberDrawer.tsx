@@ -164,7 +164,7 @@ const TeamMemberDrawer: React.FC<TeamMemberDrawerProps> = ({
                 )}
               </div>
             </div>
-            <div className="avatar" style={{ background: member.avatarColor }}>
+            <div className="avatar" style={{ "--avatar-bg": member.avatarColor } as React.CSSProperties}>
               {member.initials}
             </div>
           </div>
@@ -232,11 +232,11 @@ const TeamMemberDrawer: React.FC<TeamMemberDrawerProps> = ({
                 <div className="chart-preview-section">
                   <div className="chart-placeholder">
                     <div className="chart-bars">
-                      <div className="bar" style={{ height: "20%" }}></div>
-                      <div className="bar" style={{ height: "40%" }}></div>
-                      <div className="bar" style={{ height: "30%" }}></div>
-                      <div className="bar" style={{ height: "60%" }}></div>
-                      <div className="bar" style={{ height: "45%" }}></div>
+                      <div className="bar"></div>
+                      <div className="bar"></div>
+                      <div className="bar"></div>
+                      <div className="bar"></div>
+                      <div className="bar"></div>
                     </div>
                     <div className="chart-labels">
                       <span>Mar 23</span>
@@ -289,7 +289,7 @@ const TeamMemberDrawer: React.FC<TeamMemberDrawerProps> = ({
                       <div className="color-preview">
                         <span
                           className="color-dot"
-                          style={{ background: member.avatarColor }}
+                          style={{ "--avatar-bg": member.avatarColor } as React.CSSProperties}
                         ></span>
                         <p>Blue</p>
                       </div>

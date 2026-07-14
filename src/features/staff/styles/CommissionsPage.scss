@@ -23,6 +23,7 @@ $radius:  12px;
 }
 .cm-title   { font-size: 22px; font-weight: 700; color: $primary; margin: 0 0 4px; }
 .cm-subtitle{ font-size: 13px; color: $muted; margin: 0; }
+.cm-header-actions { display: flex; gap: 10px; }
 
 .cm-add-btn {
   display: inline-flex; align-items: center; gap: 7px;
@@ -79,6 +80,10 @@ $radius:  12px;
 .cm-ov-card-icon {
   width: 38px; height: 38px; border-radius: 9px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
+  &--purple { background: #ede9fe; color: #7c3aed; }
+  &--blue   { background: #dbeafe; color: #2563eb; }
+  &--green  { background: #dcfce7; color: #16a34a; }
+  &--amber  { background: #fef3c7; color: #d97706; }
 }
 .cm-ov-val   { font-size: 20px; font-weight: 700; color: $primary; line-height: 1.1; }
 .cm-ov-label { font-size: 11px; color: $muted; margin-top: 2px; font-weight: 500; }
@@ -96,10 +101,18 @@ $radius:  12px;
 .cm-ov-earn-icon {
   width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center; margin-top: 2px;
+  &--purple { background: #ede9fe; color: #7c3aed; }
+  &--blue   { background: #dbeafe; color: #2563eb; }
+  &--green  { background: #dcfce7; color: #16a34a; }
+  &--amber  { background: #fef3c7; color: #d97706; }
 }
 .cm-ov-earn-label { font-size: 11px; color: $muted; font-weight: 500; margin-bottom: 4px; }
 .cm-ov-earn-val   { font-size: 20px; font-weight: 700; color: $primary; line-height: 1.1; }
-.cm-ov-earn-sub   { font-size: 10px; color: #9ca3af; margin-top: 3px; }
+.cm-ov-earn-sub   {
+  font-size: 10px; color: #9ca3af; margin-top: 3px;
+  &--green { color: #16a34a; }
+  &--amber { color: #d97706; }
+}
 
 // Bottom two cols
 .cm-ov-bottom {
@@ -154,6 +167,7 @@ $radius:  12px;
   display: flex; align-items: center; gap: 5px;
   font-size: 11px; font-weight: 700; color: $muted; text-transform: uppercase;
   letter-spacing: .05em; padding: 10px 18px 6px;
+  &--spaced { margin-top: 14px; }
 }
 .cm-ov-staff-row {
   display: flex; align-items: center; gap: 10px;
@@ -166,6 +180,7 @@ $radius:  12px;
   width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 700; color: #fff;
+  background: var(--avatar-bg);
 }
 .cm-ov-staff-info { flex: 1; min-width: 0; }
 .cm-ov-staff-name { font-size: 13px; font-weight: 600; color: $primary; }
@@ -176,6 +191,7 @@ $radius:  12px;
 .cm-cat-dot {
   width: 20px; height: 20px; border-radius: 5px;
   display: flex; align-items: center; justify-content: center; font-size: 11px;
+  background: var(--icon-bg); color: var(--icon-color);
 }
 .cm-ov-staff-count {
   font-size: 11px; color: $muted; margin-left: 2px;
@@ -222,6 +238,7 @@ $radius:  12px;
 .cm-rule-icon {
   width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
+  background: var(--icon-bg); color: var(--icon-color);
 }
 .cm-rule-info { flex: 1; min-width: 0; }
 .cm-rule-name { font-size: 13px; font-weight: 600; color: $primary; margin-bottom: 2px; }
@@ -235,14 +252,17 @@ $radius:  12px;
   width: 20px; height: 20px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-size: 9px; font-weight: 700; color: #fff;
+  background: var(--avatar-bg);
 }
 .cm-rule-meta { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .cm-rule-tag {
   display: flex; flex-direction: column; align-items: center;
   padding: 6px 12px; border-radius: 8px; min-width: 76px;
+  background: var(--icon-bg);
+  &--type { background: #f3f4f6; }
 }
 .cm-tag-label { font-size: 10px; font-weight: 600; color: $muted; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
-.cm-tag-val   { font-size: 13px; font-weight: 700; color: $primary; }
+.cm-tag-val   { font-size: 13px; font-weight: 700; color: var(--icon-color, #{$primary}); }
 .cm-rule-arrow{ color: $muted; flex-shrink: 0; }
 .cm-rule-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
@@ -292,6 +312,7 @@ $radius:  12px;
 .cm-step-icon {
   width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
+  background: var(--icon-bg); color: var(--icon-color);
 }
 .cm-step-title { font-size: 13px; font-weight: 600; color: $primary; margin-bottom: 2px; }
 .cm-step-desc  { font-size: 11px; color: $muted; line-height: 1.4; }
@@ -353,6 +374,7 @@ $radius:  12px;
 .cm-cat-opt-icon {
   width: 32px; height: 32px; border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
+  background: var(--icon-bg); color: var(--icon-color);
 }
 .cm-checks { display: flex; flex-direction: column; gap: 10px; }
 .cm-check-row {
@@ -541,6 +563,7 @@ $radius:  12px;
   width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 700; color: #fff;
+  background: var(--avatar-bg);
 }
 
 .cm-staff-info { flex: 1; min-width: 0; }
@@ -646,6 +669,7 @@ $radius:  12px;
   padding: 14px 18px;
   border-bottom: 1px solid #f3f4f6;
   transition: background .1s;
+  cursor: pointer;
 
   &:last-child { border-bottom: none; }
   &:hover { background: #fafafa; }
@@ -657,6 +681,7 @@ $radius:  12px;
   width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   font-size: 13px; font-weight: 700; color: #fff;
+  background: var(--avatar-bg);
 }
 
 .cm-earned-info { flex: 1; min-width: 0; }
@@ -680,6 +705,7 @@ $radius:  12px;
   width: 20px; height: 20px; border-radius: 5px;
   display: flex; align-items: center; justify-content: center;
   font-size: 11px;
+  background: var(--icon-bg); color: var(--icon-color);
 }
 
 .cm-earned-txn {
@@ -827,10 +853,13 @@ $radius:  12px;
 .cm-history-sum-div {
   width: 1px; height: 32px; background: #e5e7eb; flex-shrink: 0;
 }
+.cm-history-sum-accent { color: $purple; }
 
 .cm-history-body {
   flex: 1; overflow-y: auto; padding: 8px 0;
 }
+
+.cm-loading--history { padding: 20px; }
 
 .cm-history-row {
   display: flex; align-items: center; gap: 12px;
@@ -843,6 +872,7 @@ $radius:  12px;
 .cm-history-cat-icon {
   width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center; font-size: 16px;
+  background: var(--icon-bg); color: var(--icon-color);
 }
 
 .cm-history-info { min-width: 80px; }

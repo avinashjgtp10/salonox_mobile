@@ -9,6 +9,9 @@ export const STAFF = {
   // ── Import ─────────────────────────────────────────────────────────────────
   IMPORT: "/api/v1/staff/import",
 
+  // ── Avatar ─────────────────────────────────────────────────────────────────
+  UPLOAD_AVATAR: "/api/v1/staff/upload-avatar",
+
   // ── Invitation ─────────────────────────────────────────────────────────────
   VERIFY_TOKEN: (token: string) => `/api/v1/staff/invite/${token}/verify`,
   ACCEPT_INVITATION: "/api/v1/staff/invite/accept",

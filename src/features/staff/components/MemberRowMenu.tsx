@@ -64,7 +64,7 @@ const MemberRowMenu: React.FC<MemberRowMenuProps> = ({
       {open && (
         <div
           className="member-row-menu__dropdown"
-          style={{ top: pos.top, left: pos.left }}
+          style={{ "--menu-top": `${pos.top}px`, "--menu-left": `${pos.left}px` } as React.CSSProperties}
         >
           <p className="member-row-menu__section">Schedule</p>
           <button

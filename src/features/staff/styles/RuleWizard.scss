@@ -1,0 +1,291 @@
+.rw-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 20px;
+}
+
+.rw-modal {
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
+}
+
+.rw-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #f3f4f6;
+
+  h3 { margin: 0; font-size: 16px; font-weight: 700; color: #111827; }
+}
+
+.rw-close {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 0;
+  &:hover { color: #111827; }
+}
+
+.rw-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.rw-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rw-field-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #374151;
+}
+
+.rw-optional {
+  font-weight: 400;
+  color: #9ca3af;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.rw-error {
+  font-size: 11.5px;
+  color: #dc2626;
+}
+
+.rw-invalid {
+  border-color: #dc2626 !important;
+}
+
+// ── Name / rate inputs ──
+.rw-name-input {
+  width: 100%;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  outline: none;
+
+  &:focus { border-color: #6c3ce1; }
+}
+
+.rw-rate-input-wrap {
+  display: flex;
+  align-items: center;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  max-width: 240px;
+
+  &:focus-within { border-color: #6c3ce1; }
+}
+
+.rw-rate-prefix {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  color: #9ca3af;
+  background: #f9fafb;
+  align-self: stretch;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.rw-rate-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  padding: 10px 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+}
+
+// ── Radio grid (Source, Frequency) ──
+.rw-radio-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+
+  &--2col { grid-template-columns: repeat(2, 1fr); }
+}
+
+.rw-radio-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+
+  input { accent-color: #6c3ce1; }
+  &:hover { border-color: #c7c3f7; }
+  &.active { border-color: #6c3ce1; background: #f7f5ff; color: #111827; }
+}
+
+// ── Radio list (Type, Scope, Status) ──
+.rw-radio-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rw-radio-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+
+  input { accent-color: #6c3ce1; }
+  &:hover { border-color: #c7c3f7; }
+  &.active { border-color: #6c3ce1; background: #f7f5ff; color: #111827; }
+}
+
+.rw-select {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12.5px;
+  outline: none;
+  background: #fff;
+  color: #374151;
+
+  &:focus { border-color: #6c3ce1; }
+}
+
+.rw-staff-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid #f3f4f6;
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.rw-staff-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  font-size: 12.5px;
+  color: #374151;
+  border-radius: 6px;
+  cursor: pointer;
+
+  &:hover { background: #f9fafb; }
+  input { accent-color: #6c3ce1; }
+}
+
+.rw-scope-empty { font-size: 12px; color: #9ca3af; padding: 8px; }
+
+// ── Condition sentence ──
+.rw-condition-sentence {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+  color: #4b5563;
+  background: #f9fafb;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.rw-condition-value {
+  color: #6c3ce1;
+  font-weight: 700;
+}
+
+.rw-condition-input-wrap {
+  display: flex;
+  align-items: center;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+
+  span {
+    padding: 0 8px;
+    color: #9ca3af;
+    background: #f3f4f6;
+    font-size: 12px;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+  }
+
+  input {
+    width: 100px;
+    border: none;
+    outline: none;
+    padding: 7px 8px;
+    font-size: 12.5px;
+  }
+}
+
+// ── Footer ──
+.rw-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.rw-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  border-radius: 99px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.15s;
+
+  &--ghost { background: #f3f4f6; color: #374151; margin-right: auto; }
+  &--secondary { background: #fff; color: #374151; border: 1.5px solid #e5e7eb; }
+  &--primary { background: #111827; color: #fff; }
+
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}

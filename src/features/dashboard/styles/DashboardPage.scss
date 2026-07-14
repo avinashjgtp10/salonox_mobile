@@ -198,6 +198,11 @@ body {
   padding: 28px 24px;
   z-index: 90;
   box-shadow: $card-shadow;
+
+  &--team {
+    width: 260px;
+    padding: 24px 18px;
+  }
 }
 
 .sub-header {
@@ -269,6 +274,7 @@ body {
   overflow-y: auto;
   transition: margin 0.25s ease;
   &.shifted { margin-left: 410px; }
+  &.shifted--team { margin-left: 350px; }
 }
 
 .main--calendar {
