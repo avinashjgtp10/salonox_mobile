@@ -117,7 +117,7 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
         Array.isArray(raw?.items) ? raw.items :
         Array.isArray(raw?.data)  ? raw.data  :
         Array.isArray(raw)        ? raw        : [];
-      setAllRows(list.map(mapAppointment));
+      setAllRows(list.map(mapAppointment).filter(r => r.status.toLowerCase() !== "unpaid"));
     } catch (e: any) {
       if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setAllRows([]);
     } finally {
@@ -147,13 +147,12 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
     const totalBill = rows.length;
     const totalSale = rows.reduce((s, r) => s + r.price, 0);
     const received  = rows.reduce((s, r) => s + r.paid, 0);
-    const pending   = rows.reduce((s, r) => s + r.balance, 0);
     const returnSales = rows.filter(r => r.status === "refunded").reduce((s, r) => s + r.price, 0);
     const totalTip  = rows.reduce((s, r) => s + r.tip, 0);
     return {
       totalBill,
       billAverage: totalBill > 0 ? totalSale / totalBill : 0,
-      totalSale, received, pending, returnSales, totalTip,
+      totalSale, received, returnSales, totalTip,
     };
   }, [rows]);
 
@@ -207,14 +206,13 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      {loading ? <SkeletonStatCards count={7} className="rp-sales-stat-row" /> : (
+      {loading ? <SkeletonStatCards count={6} className="rp-sales-stat-row" /> : (
         <div className="rp-sra-summary-row rp-sales-stat-row">
           {[
             { label: "Total Bill",        value: stats.totalBill.toString() },
             { label: "Bill Average",      value: money(stats.billAverage) },
             { label: "Total Sale",        value: money(stats.totalSale) },
             { label: "Received Amount",   value: money(stats.received) },
-            { label: "Pending Amount",    value: money(stats.pending) },
             { label: "Return Sales",      value: money(stats.returnSales) },
             { label: "Total Tip",         value: money(stats.totalTip) },
           ].map(c => (

@@ -55,6 +55,7 @@ export default function ProductMarginReport({ onBack }: { onBack: () => void }) 
         Array.isArray(raw)        ? raw        : [];
       const agg = new Map<string, { quantity: number; revenue: number; cost: number }>();
       appts.forEach((appt: any) => {
+        if (String(appt.payment_status ?? "unpaid").toLowerCase() === "unpaid") return;
         (Array.isArray(appt.product_items) ? appt.product_items : []).forEach((it: any) => {
           const name = String(it.name ?? "Product");
           const qty = Number(it.quantity ?? 1) || 1;

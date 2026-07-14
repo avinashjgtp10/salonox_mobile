@@ -51,6 +51,7 @@ export default function ProductSaleReport({ onBack }: { onBack: () => void }) {
         Array.isArray(raw)        ? raw        : [];
       const rows: ProductSaleRow[] = [];
       appts.forEach((appt: any) => {
+        if (String(appt.payment_status ?? "unpaid").toLowerCase() === "unpaid") return;
         const date = String(appt.scheduled_at ?? appt.created_at ?? "").slice(0, 10);
         const invoiceNo = appt.invoice_number != null ? String(appt.invoice_number) : String(appt.id ?? "—");
         const client = appt.client_name ?? "Walk-in";
