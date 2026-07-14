@@ -5,11 +5,21 @@ import type { SupportTicket, SupportStats } from "../../store/supportSlice";
 
 export const submitTicketThunk = createAsyncThunk<
   SupportTicket,
-  { subject: string; category: string; message: string; priority: string },
+  { subject: string; category: string; message: string; priority: string; attachments?: File[] },
   { rejectValue: string }
->("support/submitTicket", async (data, { rejectWithValue }) => {
+>("support/submitTicket", async ({ attachments, ...fields }, { rejectWithValue }) => {
   try {
-    const res = await api.post(SUPPORT.SUBMIT, data);
+    let res;
+    if (attachments && attachments.length > 0) {
+      const formData = new FormData();
+      Object.entries(fields).forEach(([key, value]) => formData.append(key, value));
+      attachments.forEach((file) => formData.append("attachments", file));
+      res = await api.post(SUPPORT.SUBMIT, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+    } else {
+      res = await api.post(SUPPORT.SUBMIT, fields);
+    }
     return res.data?.data ?? res.data;
   } catch (err: any) {
     return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Failed to submit ticket");

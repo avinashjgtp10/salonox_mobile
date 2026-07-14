@@ -1,26 +1,37 @@
 import { useState, useEffect } from "react";
+import {
+  LifePreserver,
+  Clock,
+  ClockHistory,
+  BoxArrowUpRight,
+  Envelope,
+  Telephone,
+  Whatsapp,
+  Megaphone,
+  FileEarmark,
+  ArrowClockwise,
+  ExclamationCircle,
+  InboxFill,
+  CheckCircleFill,
+} from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { submitTicketThunk, fetchMyTicketsThunk } from "../../../middleware/support/support.thunk";
 import { clearSubmitSuccess } from "../../../store/supportSlice";
+import "../styles/HelpPage.scss";
 
 const CATEGORIES = ["General", "Billing", "Technical", "Feature Request", "Account", "Other"];
 const PRIORITIES = [
-  { value: "low",    label: "Low",    color: "#10b981" },
-  { value: "medium", label: "Medium", color: "#f59e0b" },
-  { value: "high",   label: "High",   color: "#ef4444" },
+  { value: "low",    label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high",   label: "High" },
 ];
+const MESSAGE_MAX = 1000;
 
-const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }> = {
-  open:        { bg: "#eff6ff", color: "#2563eb", label: "Open" },
-  in_progress: { bg: "#fffbeb", color: "#d97706", label: "In Progress" },
-  resolved:    { bg: "#f0fdf4", color: "#16a34a", label: "Resolved" },
-  closed:      { bg: "#f8fafc", color: "#64748b", label: "Closed" },
-};
-
-const PRI_STYLE: Record<string, { color: string }> = {
-  low:    { color: "#10b981" },
-  medium: { color: "#f59e0b" },
-  high:   { color: "#ef4444" },
+const STATUS_LABEL: Record<string, string> = {
+  open:        "Open",
+  in_progress: "In Progress",
+  resolved:    "Resolved",
+  closed:      "Closed",
 };
 
 function timeAgo(iso: string) {
@@ -60,160 +71,282 @@ export default function HelpPage() {
     dispatch(submitTicketThunk({ subject, category, message, priority }));
   }
 
-  return (
-    <div style={{ padding: "28px 28px 60px", fontFamily: "'Inter','Segoe UI',system-ui,sans-serif", maxWidth: 760 }}>
+  function handleCancel() {
+    setSubject(""); setCategory("General"); setPriority("medium"); setMessage("");
+  }
 
+  const messageLength = message.length;
+  const isNearLimit = messageLength > MESSAGE_MAX * 0.9;
+
+  return (
+    <div className="hs-page">
       {/* Header */}
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.3px" }}>Help & Support</h1>
-        <p style={{ margin: "4px 0 0", color: "#94a3b8", fontSize: 13 }}>
-          Submit a support request or track your existing tickets
-        </p>
+      <div className="hs-header">
+        <div className="hs-header-icon"><LifePreserver size={22} /></div>
+        <div>
+          <h1 className="hs-title">Help &amp; Support</h1>
+          <p className="hs-subtitle">
+            Need assistance? Submit a support request or track your existing tickets.
+          </p>
+        </div>
       </div>
 
       {/* Tabs */}
-      <div style={{ display: "inline-flex", background: "#f1f5f9", borderRadius: 10, padding: 3, gap: 2, marginBottom: 24 }}>
-        {(["submit", "tickets"] as const).map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{
-            padding: "8px 22px", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer",
-            background: tab === t ? "#6366f1" : "transparent",
-            color:      tab === t ? "#fff"    : "#64748b",
-            transition: "background 0.15s",
-          }}>
-            {t === "submit" ? "Submit a Request" : `My Tickets${myTickets.length ? ` (${myTickets.length})` : ""}`}
+      <div className="hs-tabs">
+        {(["submit", "tickets"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            className={`hs-tab ${tab === t ? "hs-tab--active" : ""}`}
+            onClick={() => setTab(t)}
+          >
+            {t === "submit" ? "Submit a Request" : "My Tickets"}
+            {t === "tickets" && myTickets.length > 0 && (
+              <span className="hs-tab-count">{myTickets.length}</span>
+            )}
           </button>
         ))}
       </div>
 
-      {/* ── Submit Form ── */}
-      {tab === "submit" && (
-        <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e2e8f0", overflow: "hidden", boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}>
-          <div style={{ padding: "18px 24px", borderBottom: "1px solid #f1f5f9", background: "#f8fafc" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>New Support Request</div>
-            <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>Our team typically responds within 24 hours</div>
-          </div>
-
-          <form onSubmit={handleSubmit} style={{ padding: "24px" }}>
-            {/* Subject */}
-            <div style={{ marginBottom: 18 }}>
-              <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: "#374151", marginBottom: 6 }}>Subject *</label>
-              <input
-                type="text" value={subject} onChange={e => setSubject(e.target.value)}
-                placeholder="Briefly describe your issue…"
-                style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 9, padding: "10px 13px", fontSize: 13.5, fontFamily: "inherit", outline: "none", boxSizing: "border-box", color: "#0f172a" }}
-                onFocus={e => (e.target.style.borderColor = "#6366f1")}
-                onBlur={e  => (e.target.style.borderColor = "#e2e8f0")}
-              />
-            </div>
-
-            {/* Category + Priority row */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 18 }}>
-              <div>
-                <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: "#374151", marginBottom: 6 }}>Category</label>
-                <select value={category} onChange={e => setCategory(e.target.value)}
-                  style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 9, padding: "10px 13px", fontSize: 13.5, fontFamily: "inherit", outline: "none", background: "#fff", color: "#0f172a", cursor: "pointer" }}>
-                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
+      <div className="hs-layout">
+        <div>
+          {/* ── Submit Form ── */}
+          {tab === "submit" && (
+            <div className="hs-card">
+              <div className="hs-card-header">
+                <div className="hs-card-title">New Support Request</div>
+                <div className="hs-card-sub">Our team typically responds within 24 hours</div>
               </div>
-              <div>
-                <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: "#374151", marginBottom: 6 }}>Priority</label>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {PRIORITIES.map(p => (
-                    <button key={p.value} type="button" onClick={() => setPriority(p.value)} style={{
-                      flex: 1, padding: "9px 0", border: `1.5px solid ${priority === p.value ? p.color : "#e2e8f0"}`,
-                      borderRadius: 8, fontSize: 12.5, fontWeight: 700, cursor: "pointer",
-                      background: priority === p.value ? `${p.color}15` : "#fff",
-                      color: priority === p.value ? p.color : "#94a3b8",
-                      transition: "all 0.15s",
-                    }}>{p.label}</button>
-                  ))}
+
+              <form onSubmit={handleSubmit} className="hs-form">
+                <div className="hs-field">
+                  <label className="hs-label">Subject <span className="hs-req">*</span></label>
+                  <input
+                    type="text"
+                    className="hs-input"
+                    value={subject}
+                    onChange={(e) => setSubject(e.target.value)}
+                    placeholder="Briefly describe your issue…"
+                  />
                 </div>
-              </div>
-            </div>
 
-            {/* Message */}
-            <div style={{ marginBottom: 22 }}>
-              <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: "#374151", marginBottom: 6 }}>Message *</label>
-              <textarea
-                value={message} onChange={e => setMessage(e.target.value)} rows={5}
-                placeholder="Describe your issue in detail — include any error messages, steps you've already tried, etc."
-                style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 9, padding: "10px 13px", fontSize: 13.5, fontFamily: "inherit", outline: "none", resize: "vertical", boxSizing: "border-box", color: "#0f172a", minHeight: 120 }}
-                onFocus={e => (e.target.style.borderColor = "#6366f1")}
-                onBlur={e  => (e.target.style.borderColor = "#e2e8f0")}
-              />
-            </div>
-
-            {error && (
-              <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 9, padding: "10px 14px", marginBottom: 14, color: "#dc2626", fontSize: 13 }}>{error}</div>
-            )}
-
-            <button type="submit" disabled={loading.submit || !subject.trim() || !message.trim()} style={{
-              padding: "11px 32px", background: loading.submit ? "#a5b4fc" : "#6366f1", color: "#fff",
-              border: "none", borderRadius: 9, fontSize: 14, fontWeight: 700,
-              cursor: loading.submit ? "not-allowed" : "pointer",
-              display: "flex", alignItems: "center", gap: 8,
-            }}>
-              {loading.submit
-                ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ animation: "sp-spin 0.8s linear infinite" }}><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg> Submitting…</>
-                : "Submit Request"}
-            </button>
-          </form>
-        </div>
-      )}
-
-      {/* ── My Tickets ── */}
-      {tab === "tickets" && (
-        <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e2e8f0", overflow: "hidden", boxShadow: "0 1px 6px rgba(0,0,0,0.04)" }}>
-          <div style={{ padding: "18px 24px", borderBottom: "1px solid #f1f5f9", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>Your Support Tickets</div>
-              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>{myTickets.length} ticket{myTickets.length !== 1 ? "s" : ""} found</div>
-            </div>
-            <button onClick={() => dispatch(fetchMyTicketsThunk())} style={{ padding: "7px 14px", background: "#f1f5f9", border: "none", borderRadius: 8, fontSize: 12.5, fontWeight: 600, color: "#64748b", cursor: "pointer" }}>
-              Refresh
-            </button>
-          </div>
-
-          {loading.myTickets ? (
-            <div style={{ padding: 40, textAlign: "center", color: "#94a3b8" }}>Loading…</div>
-          ) : myTickets.length === 0 ? (
-            <div style={{ padding: "48px 24px", textAlign: "center" }}>
-              <div style={{ color: "#64748b", fontSize: 14, fontWeight: 600 }}>No tickets yet</div>
-              <div style={{ color: "#94a3b8", fontSize: 13, marginTop: 4 }}>
-                <button onClick={() => setTab("submit")} style={{ color: "#6366f1", fontWeight: 600, background: "none", border: "none", cursor: "pointer", fontSize: 13 }}>Submit your first request</button>
-              </div>
-            </div>
-          ) : (
-            myTickets.map((ticket, i) => {
-              const s = STATUS_STYLE[ticket.status] ?? STATUS_STYLE.open;
-              const p = PRI_STYLE[ticket.priority] ?? PRI_STYLE.medium;
-              return (
-                <div key={ticket.id} style={{ padding: "18px 24px", borderBottom: i < myTickets.length - 1 ? "1px solid #f8fafc" : "none" }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 6 }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>{ticket.subject}</div>
-                      <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>{ticket.category} · {timeAgo(ticket.created_at)}</div>
-                    </div>
-                    <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: p.color, background: `${p.color}15`, padding: "3px 9px", borderRadius: 20, textTransform: "capitalize" }}>{ticket.priority}</span>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: s.color, background: s.bg, padding: "3px 9px", borderRadius: 20 }}>{s.label}</span>
+                <div className="hs-field-row">
+                  <div>
+                    <label className="hs-label">Category</label>
+                    <select className="hs-select" value={category} onChange={(e) => setCategory(e.target.value)}>
+                      {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="hs-label">Priority</label>
+                    <div className="hs-priority-group">
+                      {PRIORITIES.map((p) => (
+                        <button
+                          key={p.value}
+                          type="button"
+                          className={`hs-priority-chip hs-priority-chip--${p.value} ${priority === p.value ? "hs-priority-chip--active" : ""}`}
+                          onClick={() => setPriority(p.value)}
+                        >
+                          <span className="hs-priority-dot" />
+                          {p.label}
+                        </button>
+                      ))}
                     </div>
                   </div>
-                  <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.5 }}>{ticket.message}</div>
-                  {ticket.admin_reply && (
-                    <div style={{ marginTop: 12, padding: "12px 14px", background: "#f0fdf4", borderRadius: 10, border: "1px solid #bbf7d0" }}>
-                      <div style={{ fontSize: 11.5, fontWeight: 700, color: "#16a34a", marginBottom: 4 }}>✓ Support Team Reply · {ticket.replied_at ? timeAgo(ticket.replied_at) : ""}</div>
-                      <div style={{ fontSize: 13, color: "#166534" }}>{ticket.admin_reply}</div>
-                    </div>
-                  )}
                 </div>
-              );
-            })
+
+                <div className="hs-field">
+                  <label className="hs-label">Message <span className="hs-req">*</span></label>
+                  <textarea
+                    className="hs-textarea"
+                    rows={5}
+                    value={message}
+                    maxLength={MESSAGE_MAX}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="Describe your issue in detail — include any error messages, steps you've already tried, etc."
+                  />
+                  <span className={`hs-char-count ${isNearLimit ? "hs-char-count--warn" : ""}`}>
+                    {messageLength} / {MESSAGE_MAX}
+                  </span>
+                </div>
+
+                {error && (
+                  <div className="hs-alert hs-alert--error">
+                    <ExclamationCircle size={14} />
+                    {error}
+                  </div>
+                )}
+
+                <div className="hs-actions">
+                  <button
+                    type="submit"
+                    className="hs-btn hs-btn--primary"
+                    disabled={loading.submit || !subject.trim() || !message.trim()}
+                  >
+                    {loading.submit ? (
+                      <>
+                        <ArrowClockwise size={14} className="hs-spin" />
+                        Submitting…
+                      </>
+                    ) : (
+                      "Submit Request"
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className="hs-btn hs-btn--ghost"
+                    onClick={handleCancel}
+                    disabled={loading.submit}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* ── My Tickets ── */}
+          {tab === "tickets" && (
+            <div className="hs-card">
+              <div className="hs-card-header hs-tickets-header">
+                <div>
+                  <div className="hs-card-title">Your Support Tickets</div>
+                  <div className="hs-card-sub">{myTickets.length} ticket{myTickets.length !== 1 ? "s" : ""} found</div>
+                </div>
+                <button className="hs-refresh-btn" onClick={() => dispatch(fetchMyTicketsThunk())}>
+                  <ArrowClockwise size={12} />
+                  Refresh
+                </button>
+              </div>
+
+              {loading.myTickets ? (
+                <div className="hs-ticket-loading">Loading…</div>
+              ) : myTickets.length === 0 ? (
+                <div className="hs-ticket-empty">
+                  <div className="hs-ticket-empty-icon"><InboxFill size={20} /></div>
+                  <div className="hs-ticket-empty-title">No tickets yet</div>
+                  <div className="hs-ticket-empty-sub">
+                    <button className="hs-link-btn" onClick={() => setTab("submit")}>Submit your first request</button>
+                  </div>
+                </div>
+              ) : (
+                myTickets.map((ticket) => {
+                  const statusLabel = STATUS_LABEL[ticket.status] ?? ticket.status;
+                  return (
+                    <div key={ticket.id} className="hs-ticket-row">
+                      <div className="hs-ticket-top">
+                        <div>
+                          <div className="hs-ticket-subject">{ticket.subject}</div>
+                          <div className="hs-ticket-meta">{ticket.category} · {timeAgo(ticket.created_at)}</div>
+                        </div>
+                        <div className="hs-ticket-badges">
+                          <span className={`hs-badge hs-badge--priority-${ticket.priority}`}>{ticket.priority}</span>
+                          <span className={`hs-badge hs-badge--status-${ticket.status}`}>{statusLabel}</span>
+                        </div>
+                      </div>
+                      <div className="hs-ticket-message">{ticket.message}</div>
+                      {ticket.attachments && ticket.attachments.length > 0 && (
+                        <div className="hs-ticket-attachments">
+                          {ticket.attachments.map((url, i) => (
+                            <a key={url} href={url} target="_blank" rel="noreferrer" className="hs-ticket-attachment-link">
+                              <FileEarmark size={12} />
+                              Attachment {i + 1}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                      {ticket.admin_reply && (
+                        <div className="hs-ticket-reply">
+                          <div className="hs-ticket-reply-head">
+                            <CheckCircleFill size={11} />
+                            Support Team Reply · {ticket.replied_at ? timeAgo(ticket.replied_at) : ""}
+                          </div>
+                          <div className="hs-ticket-reply-body">{ticket.admin_reply}</div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
           )}
         </div>
-      )}
 
-      <style>{`@keyframes sp-spin { to { transform: rotate(360deg); } }`}</style>
+        {/* ── Info sidebar ── */}
+        <div className="hs-sidebar">
+          <div className="hs-side-card">
+            <div className="hs-side-title"><Clock size={14} /> Support Hours</div>
+            <div className="hs-side-row">
+              <span className="hs-side-row-label">Monday – Friday</span>
+              <span className="hs-side-row-value">9:00 AM – 8:00 PM</span>
+            </div>
+            <div className="hs-side-row">
+              <span className="hs-side-row-label">Saturday</span>
+              <span className="hs-side-row-value">10:00 AM – 5:00 PM</span>
+            </div>
+            <div className="hs-side-row">
+              <span className="hs-side-row-label">Sunday</span>
+              <span className="hs-side-row-value">Closed</span>
+            </div>
+          </div>
+
+          <div className="hs-side-card">
+            <div className="hs-side-title"><ClockHistory size={14} /> Average Response Time</div>
+            <div className="hs-side-row">
+              <span className="hs-side-row-label">High priority</span>
+              <span className="hs-side-row-value">~2 hours</span>
+            </div>
+            <div className="hs-side-row">
+              <span className="hs-side-row-label">Medium priority</span>
+              <span className="hs-side-row-value">~8 hours</span>
+            </div>
+            <div className="hs-side-row">
+              <span className="hs-side-row-label">Low priority</span>
+              <span className="hs-side-row-value">~24 hours</span>
+            </div>
+          </div>
+
+          <div className="hs-side-card">
+            <div className="hs-side-title"><Megaphone size={14} /> Recent Updates</div>
+            <div className="hs-update-row">
+              <span className="hs-update-dot" />
+              <div>
+                <div className="hs-update-text">Faster ticket response times for high-priority issues.</div>
+                <div className="hs-update-date">2 days ago</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="hs-side-card">
+            <div className="hs-side-title">Contact Us</div>
+            <div className="hs-contact-row">
+              <div className="hs-contact-icon"><Envelope size={14} /></div>
+              <div className="hs-contact-info">
+                <div className="hs-contact-label">Email</div>
+                <div className="hs-contact-value">support@salonox.com</div>
+              </div>
+            </div>
+            <div className="hs-contact-row">
+              <div className="hs-contact-icon"><Telephone size={14} /></div>
+              <div className="hs-contact-info">
+                <div className="hs-contact-label">Phone</div>
+                <div className="hs-contact-value">+91 9503302647</div>
+              </div>
+            </div>
+            <div className="hs-contact-row">
+              <div className="hs-contact-icon"><Whatsapp size={14} /></div>
+              <div className="hs-contact-info">
+                <div className="hs-contact-label">WhatsApp</div>
+                <div className="hs-contact-value">+91 9503302647</div>
+              </div>
+            </div>
+            <button type="button" className="hs-side-link">
+              Visit Help Center
+              <BoxArrowUpRight size={12} />
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

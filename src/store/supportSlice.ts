@@ -24,6 +24,7 @@ export interface SupportTicket {
   submitter_name?: string;
   submitter_email?: string;
   salon_name?: string;
+  attachments?: string[];
 }
 
 export interface SupportStats {
