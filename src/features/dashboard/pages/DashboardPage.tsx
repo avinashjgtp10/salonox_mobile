@@ -51,6 +51,8 @@ import {
 } from "../../../middleware/dashboard/dashboard.thunk";
 import type { TodayAppointment } from "../../../types/dashboard.types";
 import type { DashboardAllResponse } from "../../../middleware/dashboard/dashboard.thunk";
+import { usePendingPayments } from "../hooks/usePendingPayments";
+import { useTodayAppointments } from "../hooks/useTodayAppointments";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -64,7 +66,6 @@ const SVC_CHART_COLORS = [
 // defeats useAppSelector's reference-equality check and forces the whole
 // page to re-render on any unrelated dashboard-slice update (e.g. the staff
 // revenue filter changing) for as long as `data` stays null.
-const EMPTY_APPOINTMENTS: TodayAppointment[] = [];
 const EMPTY_REVENUE_CHART: DashboardAllResponse["revenueChart"] = [];
 const EMPTY_TOP_STAFF: TopStaffEntry[] = [];
 const EMPTY_ACTIVITY: DashboardAllResponse["recentActivity"] = [];
@@ -573,11 +574,12 @@ const RecentActivityCard = memo(function RecentActivityCard({
 // ─── Section: Bottom Stat Cards (Pending Payments / Birthdays / Inactive Clients) ──
 
 const BottomStatCards = memo(function BottomStatCards({
-  pendingPayments, birthdays, loading, onNavigateWhatsApp, onNavigateSalesSummary,
+  pendingPayments, birthdays, loading, pendingLoading, onNavigateWhatsApp, onNavigateSalesSummary,
 }: {
   pendingPayments: { count: number; amount: number } | undefined;
   birthdays: { count: number; clients: Array<{ id: string; name: string }> } | undefined;
   loading: boolean;
+  pendingLoading: boolean;
   onNavigateWhatsApp: () => void;
   onNavigateSalesSummary: () => void;
 }) {
@@ -590,6 +592,7 @@ const BottomStatCards = memo(function BottomStatCards({
       tone: "danger",
       cta: "Collect Now",
       onClick: onNavigateSalesSummary,
+      loading: pendingLoading,
     },
     {
       label: "Today's Birthdays",
@@ -599,6 +602,7 @@ const BottomStatCards = memo(function BottomStatCards({
       tone: "pink",
       cta: "Send Wishes",
       onClick: onNavigateWhatsApp,
+      loading,
     },
   ];
   return (
@@ -609,7 +613,7 @@ const BottomStatCards = memo(function BottomStatCards({
             <span className="db-mini-stat-card__label">{c.label}</span>
             <span className="db-mini-stat-card__icon">{c.icon}</span>
           </div>
-          {loading ? (
+          {c.loading ? (
             <Skeleton width="50%" height={26} className="db-mini-stat-card__value-skel" />
           ) : (
             <div className="db-mini-stat-card__value">{c.value}</div>
@@ -694,6 +698,13 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
         <ChartSkeleton />
       ) : error ? (
         <SectionError message={error} onRetry={onRetry} />
+      ) : periodTotal === 0 ? (
+        <div className="db-empty">
+          {revPeriod === "today"   && "No revenue for today."}
+          {revPeriod === "weekly"  && "No revenue in the last 7 days."}
+          {revPeriod === "monthly" && "No revenue this month."}
+          {revPeriod === "yearly"  && "No revenue in the last 12 months."}
+        </div>
       ) : (
         <ResponsiveContainer width="100%" height={240}>
           <AreaChart data={localRevenue} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}>
@@ -1151,13 +1162,13 @@ export default function DashboardPage() {
 
   // ── Granular selectors — each section only re-renders when its own slice changes
   const summary      = useAppSelector((s) => s.dashboard.data?.summary);
-  const appointments = useAppSelector((s) => s.dashboard.data?.todayAppointments ?? EMPTY_APPOINTMENTS) as TodayAppointment[];
+  const { appointments, loading: apptsLoading, error: apptsError, refetch: refetchAppts } = useTodayAppointments();
   const revenueChart = useAppSelector((s) => s.dashboard.data?.revenueChart ?? EMPTY_REVENUE_CHART);
   const topStaff     = useAppSelector((s) => s.dashboard.data?.topStaff ?? EMPTY_TOP_STAFF) as TopStaffEntry[];
   const staffRevenue        = useAppSelector((s) => s.dashboard.staffRevenue);
   const staffRevenueLoading = useAppSelector((s) => s.dashboard.staffRevenueLoading);
   const staffRevenueError   = useAppSelector((s) => s.dashboard.staffRevenueError);
-  const pendingPayments = useAppSelector((s) => s.dashboard.data?.pendingPayments);
+  const { pendingPayments, pendingLoading, refetchPending } = usePendingPayments();
   const todaysBirthdays = useAppSelector((s) => s.dashboard.data?.todaysBirthdays);
   const recentActivity  = useAppSelector((s) => s.dashboard.data?.recentActivity ?? EMPTY_ACTIVITY);
   const dashLoading  = useAppSelector((s) => s.dashboard.loading);
@@ -1203,14 +1214,18 @@ export default function DashboardPage() {
   const retryFull = useCallback(() => {
     const today = new Date().toISOString().split("T")[0];
     dispatch(fetchDashboardAll({ period: revPeriod, date: today }));
-  }, [dispatch, revPeriod]);
+    refetchAppts();
+    refetchPending();
+  }, [dispatch, revPeriod, refetchAppts, refetchPending]);
 
   const handleRefresh = useCallback(() => {
     const today = new Date().toISOString().split("T")[0];
     dispatch(fetchDashboardAll({ period: revPeriod, date: today }));
     dispatch(fetchRevenueChart({ period: revPeriod }));
     dispatch(fetchStaffRevenue({ period: staffRevPeriod }));
-  }, [dispatch, revPeriod, staffRevPeriod]);
+    refetchAppts();
+    refetchPending();
+  }, [dispatch, revPeriod, staffRevPeriod, refetchAppts, refetchPending]);
 
   const retryChart = useCallback(() => {
     dispatch(fetchRevenueChart({ period: revPeriod }));
@@ -1382,8 +1397,8 @@ export default function DashboardPage() {
         pagedAppts={pagedAppts}
         apptPage={apptPage}
         totalApptPages={totalApptPages}
-        loading={dashLoading}
-        error={dashError}
+        loading={dashLoading || apptsLoading}
+        error={apptsError || dashError}
         onPageChange={setApptPage}
         onRetry={retryFull}
       />
@@ -1393,6 +1408,7 @@ export default function DashboardPage() {
         pendingPayments={pendingPayments}
         birthdays={todaysBirthdays}
         loading={dashLoading}
+        pendingLoading={pendingLoading}
         onNavigateWhatsApp={goToQuickWhatsApp}
         onNavigateSalesSummary={goToSalesSummary}
       />

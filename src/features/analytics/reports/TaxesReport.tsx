@@ -62,13 +62,18 @@ export default function TaxesReport({ onBack }: { onBack: () => void }) {
           ? itemsTotal * ((Number(appt.discount_value) || 0) / 100)
           : (Number(appt.discount_value) || 0);
         const taxableAmount = Math.max(itemsTotal - discount, 0);
-        const totalTaxForAppt = breakdown.reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
-        const total = taxableAmount + totalTaxForAppt + (Number(appt.tip_amount) || 0);
+        // Inclusive tax is already baked into taxableAmount, so it must not be
+        // added again here — only exclusive (add-on-top) tax increases the
+        // total. Same distinction the printed receipt's Payment Summary makes.
+        const exclusiveTaxForAppt = breakdown
+          .filter((t: any) => !t.inclusive)
+          .reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0);
+        const total = taxableAmount + exclusiveTaxForAppt + (Number(appt.tip_amount) || 0);
 
         breakdown.forEach((t: any) => {
           result.push({
             date, invoiceNo, client, taxableAmount,
-            taxName: t.name ?? "Tax",
+            taxName: `${t.name ?? "Tax"} ${t.inclusive ? "(incl.)" : "(excluded)"}`,
             taxRate: Number(t.rate) || 0,
             taxAmount: Number(t.amount) || 0,
             total,
@@ -87,9 +92,13 @@ export default function TaxesReport({ onBack }: { onBack: () => void }) {
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setCurrentPage(1); }, [rows]);
 
-  const totalTaxable = rows.reduce((s, r) => s + r.taxableAmount, 0);
   const totalTax = rows.reduce((s, r) => s + r.taxAmount, 0);
   const invoiceCount = new Set(rows.map(r => r.invoiceNo)).size;
+  // Each invoice can have more than one tax line (e.g. CGST + SGST) sharing the
+  // same `total`, so summing r.total directly would double-count that invoice —
+  // collapse to one total per invoice first.
+  const totalCollected = [...new Map(rows.map(r => [r.invoiceNo, r.total])).values()]
+    .reduce((s, t) => s + t, 0);
 
   const HEADERS = ["Date", "Invoice No", "Client", "Taxable Amount (₹)", "Tax Name", "Rate (%)", "Tax Amount (₹)", "Total (₹)"];
   const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.client, r.taxableAmount, r.taxName, r.taxRate, r.taxAmount, r.total]);
@@ -127,8 +136,8 @@ export default function TaxesReport({ onBack }: { onBack: () => void }) {
       {loading ? <SkeletonStatCards count={3} /> : (
       <div className="rp-sra-summary-row">
         <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{invoiceCount}</div><div className="rp-sra-summary-label">Invoices with Tax</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalTaxable.toLocaleString()}</div><div className="rp-sra-summary-label">Total Taxable Amount</div></div>
         <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalTax.toLocaleString()}</div><div className="rp-sra-summary-label">Total Tax Collected</div></div>
+        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalCollected.toLocaleString()}</div><div className="rp-sra-summary-label">Total Amount Collected</div></div>
       </div>
       )}
 

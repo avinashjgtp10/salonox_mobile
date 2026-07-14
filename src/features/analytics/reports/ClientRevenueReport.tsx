@@ -48,31 +48,18 @@ export default function ClientRevenueReport({ onBack }: { onBack: () => void }) 
         Array.isArray(raw)        ? raw        : [];
       const map = new Map<string, { client: string; clientId: string; contact: string; visits: number; totalSpend: number; lastVisit: string }>();
       appts.forEach((appt: any) => {
+        // Only count money actually collected — an appointment with nothing paid
+        // shouldn't contribute revenue or even appear for a client in this report.
+        const paidAmount = Number(appt.paid_amount) || 0;
+        if (paidAmount <= 0) return;
         const client = appt.client_name ?? "Walk-in";
         const clientId = appt.client_id ? String(appt.client_id) : "";
         const contact = appt.client_phone ?? "—";
         const key = `${client}||${contact}`;
-        // Prefer the real, server-computed paid amount (sum of actual payments — the same
-        // field Sales Summary uses for "Paid") over an estimated ticket total, since it
-        // reflects money actually collected rather than a reconstruction from line items.
-        const paidAmount = Number(appt.paid_amount) || 0;
-        let total = paidAmount;
-        if (total <= 0) {
-          const itemsTotal = [
-            ...(Array.isArray(appt.services) ? appt.services : []),
-            ...(Array.isArray(appt.package_items) ? appt.package_items : []),
-            ...(Array.isArray(appt.product_items) ? appt.product_items : []),
-            ...(Array.isArray(appt.membership_items) ? appt.membership_items : []),
-          ].reduce((s: number, it: any) => s + (Number(it.price) || 0) * (Number(it.quantity) || 1), 0);
-          const discount = appt.discount_type === "percentage"
-            ? itemsTotal * ((Number(appt.discount_value) || 0) / 100)
-            : (Number(appt.discount_value) || 0);
-          total = Math.max(itemsTotal - discount, 0) + (Number(appt.tip_amount) || 0);
-        }
         const date = String(appt.scheduled_at ?? appt.created_at ?? "").slice(0, 10);
         const e = map.get(key) ?? { client, clientId, contact, visits: 0, totalSpend: 0, lastVisit: "" };
         e.visits += 1;
-        e.totalSpend += total;
+        e.totalSpend += paidAmount;
         if (date > e.lastVisit) e.lastVisit = date;
         map.set(key, e);
       });

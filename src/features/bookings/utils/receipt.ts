@@ -218,6 +218,14 @@ export function printReceipt(
   const taxLabel = taxBreakdownEarly.length > 0
     ? taxBreakdownEarly.map((t) => `${t.name} ${t.rate}%`).join(" + ")
     : (taxRatePct > 0 ? `${taxRatePct}%` : "");
+  // Inclusive taxes are already baked into the row's price and must be backed
+  // out (same math as computeBucketTax in totalsUtils.ts), not added on top
+  // like an exclusive tax — otherwise this column disagrees with the Payment
+  // Summary below, which does compute it correctly.
+  const inclusiveRatePct = taxBreakdownEarly.filter((t) => t.inclusive).reduce((s, t) => s + (Number(t.rate) || 0), 0);
+  const exclusiveRatePct = taxBreakdownEarly.length > 0
+    ? taxBreakdownEarly.filter((t) => !t.inclusive).reduce((s, t) => s + (Number(t.rate) || 0), 0)
+    : taxRatePct;
 
   const makeRow = (
     name: string, type: string, staff: string, time: string,
@@ -227,7 +235,9 @@ export function printReceipt(
     srNo++;
     const [badgeBg, badgeColor] = BADGE[type] ?? ["#f3f4f6", "#374151"];
     const rowBg = isEven ? "#f9fafb" : "#ffffff";
-    const rowTax = taxRatePct > 0 ? (total * taxRatePct) / 100 : 0;
+    const rowInclusiveTax = inclusiveRatePct > 0 ? (total * inclusiveRatePct) / (100 + inclusiveRatePct) : 0;
+    const rowExclusiveTax = exclusiveRatePct > 0 ? (total * exclusiveRatePct) / 100 : 0;
+    const rowTax = rowInclusiveTax + rowExclusiveTax;
     return `
     <tr style="background:${rowBg};-webkit-print-color-adjust:exact;print-color-adjust:exact">
       <td style="padding:8px 8px;border:1px solid #e5e7eb;text-align:center;color:#6b7280;font-size:11px">${srNo}</td>

@@ -293,13 +293,38 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   const saleByAppointmentId = new Map<string, SaleRecord>();
   sales.forEach((s) => { if (s.appointment_id) saleByAppointmentId.set(s.appointment_id, s); });
 
+  // An appointment only counts as paid if its linked sale is completed, or —
+  // when there's no linked sale — its own payment fields say so. Shared by every
+  // tab (History, Services, Products, Memberships) so unpaid visits stay hidden
+  // consistently everywhere, not just in the Visit History feed.
+  const isApptPaid = (appt: AppointmentRecord) => {
+    const linkedSale = saleByAppointmentId.get(appt.id);
+    return linkedSale
+      ? linkedSale.status === "completed"
+      : appt.payment_status === "paid" || Number(appt.amount_paid) > 0;
+  };
+
   // Quick Sell entries: sales with no linked appointment
   const quickSales = sales.filter((s) => !s.appointment_id);
 
-  const servicesFromSales = sales.flatMap((s) =>
-    (s.items ?? []).filter((it) => it.item_type === "service")
-      .map((it) => ({ ...it, sale_date: s.created_at, sale_id: s.id }))
-  );
+  // stats.lifetime_spend (from the backend) doesn't reliably include every completed
+  // sale — e.g. a completed package purchase can be left out — so it can under-report
+  // "Total Spend" even when Payment History correctly lists the payment. Compute it
+  // here instead from the same completed sales/appointments already driving those tabs:
+  // completed sales' total_amount, plus any paid appointment that has no linked sale
+  // at all (so its amount isn't double-counted with a sale total).
+  const computedLifetimeSpend =
+    sales.filter((s) => s.status === "completed").reduce((sum, s) => sum + (Number(s.total_amount) || 0), 0) +
+    appointments
+      .filter((a) => !saleByAppointmentId.has(a.id) && isApptPaid(a))
+      .reduce((sum, a) => sum + (Number(a.amount_paid) || 0), 0);
+
+  const servicesFromSales = sales
+    .filter((s) => s.status === "completed")
+    .flatMap((s) =>
+      (s.items ?? []).filter((it) => it.item_type === "service")
+        .map((it) => ({ ...it, sale_date: s.created_at, sale_id: s.id }))
+    );
 
   // Packages from sale line items
   const packagesFromSales = sales.flatMap((s) =>
@@ -328,7 +353,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
 
   // Services from appointments (not captured in sales items; exclude items that are actually packages)
   const saleServiceNames = new Set(servicesFromSales.map((it) => it.name));
-  const servicesFromAppointments = appointments.flatMap((a) =>
+  const servicesFromAppointments = appointments.filter(isApptPaid).flatMap((a) =>
     (a.services ?? [])
       .map((s) => ({ ...s, resolvedName: s.name || s.service_name || "" }))
       .filter((s) => s.resolvedName && !saleServiceNames.has(s.resolvedName) && !apptPackageNames.has(s.resolvedName))
@@ -356,10 +381,10 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   const completedSalesCount = sales.filter((s) => s.status === "completed").length;
   const avgTicket =
     completedSalesCount > 0
-      ? Math.round(stats ? stats.lifetime_spend / completedSalesCount : 0)
+      ? Math.round(computedLifetimeSpend / completedSalesCount)
       : 0;
 
-  const isGoldMember = stats ? stats.lifetime_spend > 5000 : false;
+  const isGoldMember = computedLifetimeSpend > 5000;
 
   // appointment id → staff id (from the history API response)
   const appointmentStaffMap = useMemo(() => {
@@ -502,25 +527,27 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
     | { kind: "package"; date: string; pkg: PackageRecord; sale?: SaleRecord };
 
   const visitHistoryEntries: VisitEntry[] = useMemo(() => {
-    const packageEntries: VisitEntry[] = filteredPackages.map((pkg) => ({
-      kind: "package" as const,
-      date: pkg.created_date,
-      pkg,
-      sale: packageSaleMatch.get(pkg.id),
-    }));
+    const packageEntries: VisitEntry[] = filteredPackages
+      .filter((pkg) => pkg.payment_status === "paid")
+      .map((pkg) => ({
+        kind: "package" as const,
+        date: pkg.created_date,
+        pkg,
+        sale: packageSaleMatch.get(pkg.id),
+      }));
     const usedSaleIds = new Set(
       packageEntries.map((e) => (e.kind === "package" ? e.sale?.id : undefined)).filter(Boolean)
     );
 
     const entries: VisitEntry[] = [
-      ...visibleAppointments.map((appt) => ({ kind: "appointment" as const, date: appt.scheduled_at, appt })),
+      ...visibleAppointments.filter(isApptPaid).map((appt) => ({ kind: "appointment" as const, date: appt.scheduled_at, appt })),
       ...visibleQuickSales
-        .filter((sale) => !usedSaleIds.has(sale.id))
+        .filter((sale) => !usedSaleIds.has(sale.id) && sale.status === "completed")
         .map((sale) => ({ kind: "quickSale" as const, date: sale.created_at, sale })),
       ...packageEntries,
     ];
     return entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [visibleAppointments, visibleQuickSales, filteredPackages, packageSaleMatch]);
+  }, [visibleAppointments, visibleQuickSales, filteredPackages, packageSaleMatch, saleByAppointmentId]);
 
   const handleBookAppointment = () => {
     if (!client) return;
@@ -747,7 +774,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
               <div className="chp-stat-lbl">Total Visits</div>
             </div>
             <div className="chp-stat-item">
-              <div className="chp-stat-val">{fmtRupees(stats.lifetime_spend)}</div>
+              <div className="chp-stat-val">{fmtRupees(computedLifetimeSpend)}</div>
               <div className="chp-stat-lbl">Total Spend</div>
             </div>
             <div className="chp-stat-item">
