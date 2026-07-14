@@ -108,6 +108,7 @@
                     font-size: 18px;
                     font-weight: 800;
                     color: white;
+                    background: var(--avatar-bg);
                 }
             }
         }
@@ -202,7 +203,7 @@
                                 
                                 .color-preview {
                                     display: flex; align-items: center; gap: 8px;
-                                    .color-dot { width: 12px; height: 12px; border-radius: 50%; }
+                                    .color-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--avatar-bg); }
                                 }
                             }
                         }
@@ -334,6 +335,12 @@
                                     flex: 1; max-width: 60px; background: #eef2ff; border-radius: 8px;
                                     transition: 0.5s; cursor: pointer;
                                     &:hover { background: #6366f1; }
+
+                                    &:nth-child(1) { height: 20%; }
+                                    &:nth-child(2) { height: 40%; }
+                                    &:nth-child(3) { height: 30%; }
+                                    &:nth-child(4) { height: 60%; }
+                                    &:nth-child(5) { height: 45%; }
                                 }
                             }
 

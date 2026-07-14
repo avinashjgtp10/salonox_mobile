@@ -3,6 +3,7 @@ import { CloudUpload, FiletypeCsv, FileEarmarkExcel, CheckCircleFill, Exclamatio
 import { Modal } from "../../../components/ui";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
+import "../styles/StaffImportModal.scss";
 
 interface ImportError {
   row: number;
@@ -166,7 +167,7 @@ export default function StaffImportModal({ show, onClose, onSuccess }: Props) {
               ref={fileRef}
               type="file"
               accept=".csv,.xlsx,.xls"
-              style={{ display: "none" }}
+              className="sim-hidden-input"
               onChange={(e) => e.target.files?.[0] && pickFile(e.target.files[0])}
             />
             {file ? (
@@ -242,65 +243,6 @@ export default function StaffImportModal({ show, onClose, onSuccess }: Props) {
           </div>
         )}
       </div>
-
-      <style>{`
-        .staff-import-modal { display:flex; flex-direction:column; gap:16px; }
-
-        .sim-template-row { display:flex; align-items:center; justify-content:space-between; }
-        .sim-template-label { font-size:13px; color:#6b7280; }
-        .sim-template-btn { display:flex; align-items:center; gap:5px; font-size:13px; font-weight:500; color:#4f46e5; background:none; border:none; cursor:pointer; padding:0; }
-        .sim-template-btn:hover { text-decoration:underline; }
-
-        .sim-columns-wrap { background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:12px; }
-        .sim-columns-title { font-size:12px; font-weight:600; color:#374151; margin:0 0 8px; }
-        .sim-columns-list { display:flex; flex-wrap:wrap; gap:6px; }
-        .sim-col-chip { background:#e0e7ff; color:#4338ca; font-size:11px; font-weight:500; padding:2px 8px; border-radius:999px; }
-
-        .sim-dropzone { border:2px dashed #d1d5db; border-radius:12px; padding:32px; display:flex; flex-direction:column; align-items:center; gap:10px; cursor:pointer; transition:border-color .2s,background .2s; }
-        .sim-dropzone:hover, .sim-dropzone--dragging { border-color:#4f46e5; background:#f5f3ff; }
-        .sim-dropzone--has-file { cursor:default; padding:20px 24px; }
-        .sim-upload-icon { color:#9ca3af; }
-        .sim-drop-text { font-size:14px; color:#374151; margin:0; text-align:center; }
-        .sim-browse-link { color:#4f46e5; font-weight:500; }
-        .sim-drop-hint { font-size:12px; color:#9ca3af; margin:0; }
-
-        .sim-selected-file { display:flex; align-items:center; gap:12px; width:100%; }
-        .sim-file-icon--csv { color:#22c55e; }
-        .sim-file-icon--xlsx { color:#16a34a; }
-        .sim-file-info { flex:1; display:flex; flex-direction:column; }
-        .sim-file-name { font-size:14px; font-weight:500; color:#111827; }
-        .sim-file-size { font-size:12px; color:#9ca3af; }
-        .sim-remove-file { background:none; border:none; color:#9ca3af; cursor:pointer; display:flex; align-items:center; padding:4px; border-radius:4px; }
-        .sim-remove-file:hover { color:#ef4444; background:#fee2e2; }
-
-        .sim-alert { display:flex; align-items:center; gap:8px; padding:10px 14px; border-radius:8px; font-size:13px; }
-        .sim-alert--error { background:#fef2f2; color:#dc2626; border:1px solid #fecaca; }
-
-        .sim-result { background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:20px; }
-        .sim-result-header { display:flex; align-items:center; gap:8px; margin-bottom:16px; }
-        .sim-result-icon { color:#16a34a; }
-        .sim-result-title { font-size:15px; font-weight:600; color:#15803d; }
-        .sim-result-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:12px; }
-        .sim-stat { background:#fff; border-radius:8px; padding:12px; text-align:center; border:1px solid #e5e7eb; display:flex; flex-direction:column; gap:4px; }
-        .sim-stat-value { font-size:22px; font-weight:700; color:#111827; }
-        .sim-stat-label { font-size:11px; color:#6b7280; }
-        .sim-stat--success .sim-stat-value { color:#16a34a; }
-        .sim-stat--info .sim-stat-value { color:#4f46e5; }
-        .sim-stat--warn .sim-stat-value { color:#d97706; }
-
-        .sim-errors-wrap { background:#fef9c3; border:1px solid #fde68a; border-radius:8px; padding:12px; }
-        .sim-errors-title { font-size:12px; font-weight:600; color:#92400e; margin:0 0 8px; }
-        .sim-errors-list { margin:0; padding-left:16px; }
-        .sim-error-item { font-size:12px; color:#92400e; margin-bottom:4px; }
-
-        .sim-footer-btns { display:flex; gap:10px; justify-content:flex-end; width:100%; }
-        .sim-btn { padding:9px 20px; border-radius:8px; font-size:14px; font-weight:500; cursor:pointer; border:none; transition:background .15s; }
-        .sim-btn--primary { background:#111827; color:#fff; }
-        .sim-btn--primary:hover:not(:disabled) { background:#1f2937; }
-        .sim-btn--primary:disabled { opacity:.5; cursor:not-allowed; }
-        .sim-btn--ghost { background:transparent; color:#374151; border:1px solid #d1d5db; }
-        .sim-btn--ghost:hover:not(:disabled) { background:#f3f4f6; }
-      `}</style>
     </Modal>
   );
 }

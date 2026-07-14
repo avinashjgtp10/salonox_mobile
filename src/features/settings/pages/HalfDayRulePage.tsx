@@ -19,25 +19,36 @@ export default function HalfDayRulePage() {
   const [input, setInput] = useState(String(DEFAULT_HALF_DAY_RULE_CONFIG.threshold_hours));
   const [error, setError] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [retryTick, setRetryTick] = useState(0);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        const res = await api.get(ATTENDANCE.SETTINGS);
+    setLoading(true);
+    setLoadError(false);
+
+    // Auto-retry twice — a failed fetch here previously fell back to silently
+    // showing DEFAULT values indistinguishable from "no rule saved yet", which
+    // risked overwriting a real saved rule with defaults on the next Save.
+    const attempt = (n: number): Promise<any> =>
+      api.get(ATTENDANCE.SETTINGS).catch((e: any) => {
+        if (n <= 0) throw e;
+        return new Promise((resolve) => setTimeout(resolve, 600)).then(() => attempt(n - 1));
+      });
+
+    attempt(2)
+      .then((res) => {
         if (cancelled) return;
         const parsed = parseHalfDayRuleValue(unwrap(res.data));
         setConfig(parsed);
         setInput(String(parsed.threshold_hours));
-      } catch {
-        // No rule saved yet — keep defaults.
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
+      })
+      .catch(() => { if (!cancelled) setLoadError(true); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
     return () => { cancelled = true; };
-  }, []);
+  }, [retryTick]);
 
   function handleInputChange(raw: string) {
     const digits = raw.replace(/[^0-9]/g, "");
@@ -72,7 +83,29 @@ export default function HalfDayRulePage() {
     setError(undefined);
   }
 
-  if (loading) return null;
+  if (loading) {
+    return (
+      <div className="hd-page">
+        <div className="hd-loading">
+          <div className="hd-loading__spinner" />
+          <p>Loading half day rule…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="hd-page">
+        <div className="hd-loading">
+          <p>Couldn't load half day rule — connection issue.</p>
+          <button className="hd-btn hd-btn--primary" onClick={() => setRetryTick((t) => t + 1)}>
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="hd-page">

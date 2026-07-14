@@ -8,6 +8,7 @@ export const ATTENDANCE = {
   PUSH:         "/api/v1/attendance/push",
   MARK:         "/api/v1/attendance/mark",
   BY_ID:        (id: string) => `/api/v1/attendance/${id}`,
+  FOR_STAFF:    (staffId: string) => `/api/v1/attendance/staff/${staffId}`,
   SETTINGS:     "/api/v1/attendance/settings",
   EXPORT:       "/api/v1/attendance/export",
 } as const;

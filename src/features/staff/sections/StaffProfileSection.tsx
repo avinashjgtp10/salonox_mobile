@@ -367,7 +367,7 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
         <div className="sp-color-preview">
           <span
             className="sp-color-preview__swatch"
-            style={{ background: selectedColorHex }}
+            style={{ "--swatch-bg": selectedColorHex } as React.CSSProperties}
           />
           <span className="sp-color-preview__label">{selectedColorLabel}</span>
         </div>
@@ -378,7 +378,7 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
               type="button"
               title={label}
               className={`sp-color-swatch${calendarColor === key ? " sp-color-swatch--selected" : ""}`}
-              style={{ background: hex }}
+              style={{ "--swatch-bg": hex } as React.CSSProperties}
               onClick={() => setCalendarColor(key)}
               aria-label={label}
             />

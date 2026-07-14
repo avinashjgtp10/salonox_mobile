@@ -51,8 +51,7 @@ const PayRunSettingsModal: React.FC<PayRunSettingsModalProps> = ({ isOpen, onClo
             <label className="form-label fw-bold text-dark mb-2">Pay Period</label>
             <select
               name="payPeriod"
-              className="form-select border rounded-3 py-2 px-3 shadow-sm"
-              style={{ height: 45, fontSize: 14 }}
+              className="pay-run-settings-modal__select form-select border rounded-3 py-2 px-3 shadow-sm"
               value={settings.payPeriod}
               onChange={handleChange}
             >
@@ -70,8 +69,7 @@ const PayRunSettingsModal: React.FC<PayRunSettingsModalProps> = ({ isOpen, onClo
             <label className="form-label fw-bold text-dark mb-2">Week Starts On</label>
             <select
               name="weekStartDay"
-              className="form-select border rounded-3 py-2 px-3 shadow-sm"
-              style={{ height: 45, fontSize: 14 }}
+              className="pay-run-settings-modal__select form-select border rounded-3 py-2 px-3 shadow-sm"
               value={settings.weekStartDay}
               onChange={handleChange}
             >
@@ -90,8 +88,7 @@ const PayRunSettingsModal: React.FC<PayRunSettingsModalProps> = ({ isOpen, onClo
             <label className="form-label fw-bold text-dark mb-2">Default Payment Method</label>
             <select
               name="defaultPaymentMethod"
-              className="form-select border rounded-3 py-2 px-3 shadow-sm"
-              style={{ height: 45, fontSize: 14 }}
+              className="pay-run-settings-modal__select form-select border rounded-3 py-2 px-3 shadow-sm"
               value={settings.defaultPaymentMethod}
               onChange={handleChange}
             >
@@ -106,8 +103,7 @@ const PayRunSettingsModal: React.FC<PayRunSettingsModalProps> = ({ isOpen, onClo
             <label className="form-label fw-bold text-dark mb-2">Currency</label>
             <select
               name="currency"
-              className="form-select border rounded-3 py-2 px-3 shadow-sm"
-              style={{ height: 45, fontSize: 14 }}
+              className="pay-run-settings-modal__select form-select border rounded-3 py-2 px-3 shadow-sm"
               value={settings.currency}
               onChange={handleChange}
             >
@@ -121,26 +117,24 @@ const PayRunSettingsModal: React.FC<PayRunSettingsModalProps> = ({ isOpen, onClo
           {/* Auto Calculate */}
           <div className="col-12">
             <div
-              className="d-flex align-items-center justify-content-between p-3 rounded-3 border"
-              style={{ background: "#f8fafc" }}
+              className="pay-run-settings-modal__toggle-row d-flex align-items-center justify-content-between p-3 rounded-3 border"
             >
               <div>
-                <div className="fw-bold text-dark" style={{ fontSize: 14 }}>
+                <div className="pay-run-settings-modal__toggle-label fw-bold text-dark">
                   Auto-calculate totals
                 </div>
-                <div className="text-muted" style={{ fontSize: 12 }}>
+                <div className="pay-run-settings-modal__toggle-desc text-muted">
                   Automatically compute earnings, deductions, and net pay.
                 </div>
               </div>
               <div className="form-check form-switch mb-0">
                 <input
-                  className="form-check-input"
+                  className="pay-run-settings-modal__switch-input form-check-input"
                   type="checkbox"
                   name="autoCalculate"
                   role="switch"
                   checked={settings.autoCalculate}
                   onChange={handleChange}
-                  style={{ width: 44, height: 24, cursor: "pointer" }}
                 />
               </div>
             </div>

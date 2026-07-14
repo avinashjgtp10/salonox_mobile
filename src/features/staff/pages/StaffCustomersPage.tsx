@@ -190,7 +190,7 @@ export default function StaffCustomersPage() {
                   <div className="cust-table__col cust-table__col--client">
                     <div
                       className="cust-avatar"
-                      style={{ background: getAvatarColor(client.id) }}
+                      style={{ "--avatar-bg": getAvatarColor(client.id) } as React.CSSProperties}
                     >
                       {getInitials(client.first_name, client.last_name)}
                     </div>

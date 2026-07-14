@@ -13,7 +13,6 @@ import {
   Gift,
   Share2,
   Tag,
-  Clock,
 } from "lucide-react";
 import "../styles/SettingsPage.scss";
 
@@ -58,7 +57,6 @@ const navGroups: NavGroup[] = [
       { label: "Reward Points", path: "reward-points", icon: <Gift size={15} /> },
       { label: "Refer & Earn", path: "referral", icon: <Share2 size={15} /> },
       { label: "Coupons", path: "coupons", icon: <Tag size={15} /> },
-      { label: "Half Day Rule", path: "half-day-rule", icon: <Clock size={15} /> },
     ],
   },
   {

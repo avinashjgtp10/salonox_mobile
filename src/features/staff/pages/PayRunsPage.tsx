@@ -184,82 +184,35 @@ const PayRunsPage: React.FC = () => {
 
         {/* ── Pagination ── */}
         {payRuns.length > 0 && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "14px 20px",
-              borderTop: "1px solid #f0f0f0",
-              background: "#fff",
-              borderRadius: "0 0 12px 12px",
-            }}
-          >
+          <div className="pagination-bar">
             {/* Left: record range */}
-            <span style={{ fontSize: 13, color: "#6b7280" }}>
+            <span className="pagination-bar__range">
               Showing{" "}
-              <strong style={{ color: "#111827" }}>{rangeStart}–{rangeEnd}</strong>
+              <strong>{rangeStart}–{rangeEnd}</strong>
               {" "}of{" "}
-              <strong style={{ color: "#111827" }}>{payRuns.length}</strong>
+              <strong>{payRuns.length}</strong>
             </span>
 
             {/* Right: Previous / Next */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div className="pagination-bar__controls">
               <button
+                className="pagination-bar__btn"
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "7px 16px",
-                  borderRadius: 8,
-                  border: "1px solid #e5e7eb",
-                  background: currentPage === 1 ? "#f9fafb" : "#fff",
-                  color: currentPage === 1 ? "#d1d5db" : "#374151",
-                  fontWeight: 600,
-                  fontSize: 13,
-                  cursor: currentPage === 1 ? "not-allowed" : "pointer",
-                  transition: "all 0.15s",
-                }}
               >
                 <ChevronLeft size={14} />
                 Previous
               </button>
 
               {/* Current page indicator */}
-              <span
-                style={{
-                  minWidth: 32,
-                  textAlign: "center",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  color: "#111827",
-                  background: "#f3f4f6",
-                  borderRadius: 6,
-                  padding: "4px 10px",
-                }}
-              >
+              <span className="pagination-bar__page-indicator">
                 {currentPage} / {totalPages}
               </span>
 
               <button
+                className="pagination-bar__btn"
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "7px 16px",
-                  borderRadius: 8,
-                  border: "1px solid #e5e7eb",
-                  background: currentPage === totalPages ? "#f9fafb" : "#fff",
-                  color: currentPage === totalPages ? "#d1d5db" : "#374151",
-                  fontWeight: 600,
-                  fontSize: 13,
-                  cursor: currentPage === totalPages ? "not-allowed" : "pointer",
-                  transition: "all 0.15s",
-                }}
               >
                 Next
                 <ChevronRight size={14} />

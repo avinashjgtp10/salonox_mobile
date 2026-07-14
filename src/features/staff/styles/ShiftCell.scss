@@ -60,6 +60,8 @@
 
   &__popover {
     position: fixed;
+    top: var(--shift-cell-popover-top);
+    left: var(--shift-cell-popover-left);
     z-index: 9999;
     background: #fff;
     border: 1px solid #e2e4e9;

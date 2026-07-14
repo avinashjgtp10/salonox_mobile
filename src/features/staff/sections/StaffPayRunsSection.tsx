@@ -140,7 +140,6 @@ const StaffPayRunsSection: React.FC<StaffPayRunsSectionProps> = ({ staffId, salo
             <a
               className="payment-card-action"
               onClick={() => setShowPaymentModal(true)}
-              style={{ cursor: "pointer" }}
             >
               Change
             </a>
@@ -149,140 +148,44 @@ const StaffPayRunsSection: React.FC<StaffPayRunsSectionProps> = ({ staffId, salo
           {/* Change Payment Method Modal */}
           {showPaymentModal && (
             <div
-              style={{
-                position: "fixed",
-                inset: 0,
-                backgroundColor: "rgba(0,0,0,0.35)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                zIndex: 2000,
-              }}
+              className="payment-modal-overlay"
               onClick={() => setShowPaymentModal(false)}
             >
-              <div
-                style={{
-                  background: "#fff",
-                  borderRadius: "12px",
-                  padding: "28px",
-                  width: "420px",
-                  position: "relative",
-                  boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
+              <div className="payment-modal" onClick={(e) => e.stopPropagation()}>
                 {/* Close X */}
                 <button
+                  className="payment-modal-close"
                   onClick={() => setShowPaymentModal(false)}
-                  style={{
-                    position: "absolute",
-                    top: "16px",
-                    right: "16px",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    fontSize: "18px",
-                    color: "#6b7280",
-                    lineHeight: 1,
-                    padding: 0,
-                  }}
                 >
                   &times;
                 </button>
 
-                <h5
-                  style={{
-                    fontWeight: 700,
-                    fontSize: "16px",
-                    color: "#111827",
-                    marginBottom: "6px",
-                  }}
-                >
-                  Preferred payment method
-                </h5>
-                <p
-                  style={{
-                    fontSize: "13px",
-                    color: "#6b7280",
-                    marginBottom: "20px",
-                    lineHeight: 1.5,
-                  }}
-                >
+                <h5 className="payment-modal-title">Preferred payment method</h5>
+                <p className="payment-modal-desc">
                   Choose how you would prefer to pay this team member. A
                   processing fee may apply for bank transfers.
                 </p>
 
                 {/* Option: Pay manually */}
                 <div
+                  className={`payment-option ${settings.payment_method === "pay_manually" ? "payment-option--selected" : ""}`}
                   onClick={() => setSettings({ ...settings, payment_method: "pay_manually" })}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "14px",
-                    padding: "14px 16px",
-                    border: `2px solid ${settings.payment_method === "pay_manually" ? "#6c3ce1" : "#e5e7eb"}`,
-                    borderRadius: "10px",
-                    cursor: "pointer",
-                    marginBottom: "12px",
-                    background: settings.payment_method === "pay_manually" ? "#f5f3ff" : "#fff",
-                    transition: "all 0.2s",
-                  }}
                 >
-                  <div
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 8,
-                      background: "#f3f4f6",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <i
-                      className="bi bi-credit-card-2-front"
-                      style={{ fontSize: 18, color: "#6b7280" }}
-                    />
+                  <div className="payment-option-icon">
+                    <i className="bi bi-credit-card-2-front" />
                   </div>
-                  <div>
-                    <div
-                      style={{
-                        fontWeight: 600,
-                        fontSize: 14,
-                        color: "#111827",
-                      }}
-                    >
-                      Pay manually
-                    </div>
-                    <div style={{ fontSize: 12, color: "#6b7280" }}>
+                  <div className="payment-option-info">
+                    <div className="payment-option-title">Pay manually</div>
+                    <div className="payment-option-subtitle">
                       Mark as paid outside of salonox
                     </div>
                   </div>
-                  <div style={{ marginLeft: "auto" }}>
+                  <div className="payment-option-radio-wrap">
                     <div
-                      style={{
-                        width: 18,
-                        height: 18,
-                        borderRadius: "50%",
-                        border: `2px solid ${settings.payment_method === "pay_manually" ? "#6c3ce1" : "#d1d5db"}`,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        background:
-                          settings.payment_method === "pay_manually"
-                            ? "#6c3ce1"
-                            : "transparent",
-                      }}
+                      className={`payment-option-radio ${settings.payment_method === "pay_manually" ? "payment-option-radio--selected" : ""}`}
                     >
                       {settings.payment_method === "pay_manually" && (
-                        <div
-                          style={{
-                            width: 7,
-                            height: 7,
-                            borderRadius: "50%",
-                            background: "#fff",
-                          }}
-                        />
+                        <div className="payment-option-radio-dot" />
                       )}
                     </div>
                   </div>
@@ -290,110 +193,38 @@ const StaffPayRunsSection: React.FC<StaffPayRunsSectionProps> = ({ staffId, salo
 
                 {/* Option: Bank transfer */}
                 <div
+                  className={`payment-option payment-option--last ${settings.payment_method === "bank_transfer" ? "payment-option--selected" : ""}`}
                   onClick={() => setSettings({ ...settings, payment_method: "bank_transfer" })}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "14px",
-                    padding: "14px 16px",
-                    border: `2px solid ${settings.payment_method === "bank_transfer" ? "#6c3ce1" : "#e5e7eb"}`,
-                    borderRadius: "10px",
-                    cursor: "pointer",
-                    marginBottom: "24px",
-                    background: settings.payment_method === "bank_transfer" ? "#f5f3ff" : "#fff",
-                    transition: "all 0.2s",
-                  }}
                 >
-                  <div
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 8,
-                      background: "#f3f4f6",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <i
-                      className="bi bi-bank"
-                      style={{ fontSize: 18, color: "#6b7280" }}
-                    />
+                  <div className="payment-option-icon">
+                    <i className="bi bi-bank" />
                   </div>
-                  <div>
-                    <div
-                      style={{
-                        fontWeight: 600,
-                        fontSize: 14,
-                        color: "#111827",
-                      }}
-                    >
-                      Bank transfer
-                    </div>
-                    <div style={{ fontSize: 12, color: "#6b7280" }}>
+                  <div className="payment-option-info">
+                    <div className="payment-option-title">Bank transfer</div>
+                    <div className="payment-option-subtitle">
                       Transfer to bank account. Processing fees may apply.
                     </div>
                   </div>
-                  <div style={{ marginLeft: "auto" }}>
+                  <div className="payment-option-radio-wrap">
                     <div
-                      style={{
-                        width: 18,
-                        height: 18,
-                        borderRadius: "50%",
-                        border: `2px solid ${settings.payment_method === "bank_transfer" ? "#6c3ce1" : "#d1d5db"}`,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        background:
-                          settings.payment_method === "bank_transfer" ? "#6c3ce1" : "transparent",
-                      }}
+                      className={`payment-option-radio ${settings.payment_method === "bank_transfer" ? "payment-option-radio--selected" : ""}`}
                     >
                       {settings.payment_method === "bank_transfer" && (
-                        <div
-                          style={{
-                            width: 7,
-                            height: 7,
-                            borderRadius: "50%",
-                            background: "#fff",
-                          }}
-                        />
+                        <div className="payment-option-radio-dot" />
                       )}
                     </div>
                   </div>
                 </div>
 
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "12px",
-                    justifyContent: "flex-end",
-                  }}
-                >
+                <div className="payment-modal-actions">
                   <button
-                    className="btn"
-                    style={{
-                      borderRadius: "20px",
-                      border: "1px solid #e5e7eb",
-                      padding: "8px 20px",
-                      fontSize: "14px",
-                      fontWeight: 500,
-                      color: "#374151",
-                    }}
+                    className="btn payment-modal-btn payment-modal-btn--cancel"
                     onClick={() => setShowPaymentModal(false)}
                   >
                     Cancel
                   </button>
                   <button
-                    className="btn"
-                    style={{
-                      borderRadius: "20px",
-                      background: "#111827",
-                      color: "#fff",
-                      padding: "8px 20px",
-                      fontSize: "14px",
-                      fontWeight: 500,
-                      border: "none",
-                    }}
+                    className="btn payment-modal-btn payment-modal-btn--save"
                     onClick={() => setShowPaymentModal(false)}
                   >
                     Save
@@ -421,14 +252,7 @@ const StaffPayRunsSection: React.FC<StaffPayRunsSectionProps> = ({ staffId, salo
 
           {settings.calculation_type === "automatic" && (
             <div className="calc-info-box mb-4">
-              <InfoCircle
-                style={{
-                  color: "#6c3ce1",
-                  fontSize: 16,
-                  flexShrink: 0,
-                  marginTop: 1,
-                }}
-              />
+              <InfoCircle className="calc-info-icon" />
               <div className="calc-info-content">
                 <div className="calc-info-title">Automatic calculation</div>
                 <div className="calc-info-desc">
@@ -514,16 +338,10 @@ const StaffPayRunsSection: React.FC<StaffPayRunsSectionProps> = ({ staffId, salo
           <div className="divider mt-4"></div>
           
           <div className="d-flex justify-content-end mt-4">
-            <button 
-              className="btn btn-primary px-4 py-2" 
+            <button
+              className="btn btn-primary px-4 py-2 save-btn"
               onClick={handleSave}
               disabled={isSaving}
-              style={{
-                backgroundColor: "#6c3ce1",
-                borderColor: "#6c3ce1",
-                borderRadius: "8px",
-                fontWeight: 500
-              }}
             >
               {isSaving ? "Saving..." : "Save changes"}
             </button>

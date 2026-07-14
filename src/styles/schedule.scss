@@ -5,17 +5,17 @@
   background: #f8f9fb;
 
   &__content {
-    padding: 24px 28px;
+    padding: 14px 24px;
     max-width: 1600px;
     margin: 0 auto;
   }
 
   &__title {
-    font-size: 1.125rem;
+    font-size: 1rem;
     font-weight: 700;
     color: #111827;
-    margin: 0 0 18px;
-    padding-bottom: 14px;
+    margin: 0 0 10px;
+    padding-bottom: 8px;
     border-bottom: 1px solid #e5e7eb;
   }
 
@@ -25,7 +25,7 @@
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 12px;
-    margin-bottom: 16px;
+    margin-bottom: 10px;
   }
 
   // ── Legend ──────────────────────────────────────────────────────────────────
@@ -39,10 +39,10 @@
   &__legend-item {
     display: flex;
     align-items: center;
-    gap: 7px;
-    padding: 5px 12px;
+    gap: 6px;
+    padding: 3px 10px;
     border-radius: 999px;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 600;
     border: 1px solid transparent;
 
@@ -86,8 +86,8 @@
   &__nav-btn {
     all: unset;
     box-sizing: border-box;
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -107,22 +107,22 @@
     }
 
     &--today {
-      padding: 0 14px;
+      padding: 0 12px;
       width: auto;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       font-weight: 600;
       color: #374151;
     }
 
     &--date {
       width: auto;
-      padding: 0 14px;
-      font-size: 0.8rem;
+      padding: 0 12px;
+      font-size: 0.78rem;
       font-weight: 600;
       color: #1f2937;
       background: #fff;
       cursor: default;
-      min-width: 130px;
+      min-width: 120px;
       justify-content: center;
 
       &:hover {
@@ -140,7 +140,7 @@
     gap: 6px;
     font-size: 0.75rem;
     color: #6366f1;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
 
     svg {
       display: block;
@@ -161,7 +161,7 @@
   &__el {
     width: 100%;
     border-collapse: collapse;
-    min-width: 900px;
+    min-width: 720px;
     font-size: 0.875rem;
   }
 
@@ -176,22 +176,22 @@
     z-index: 20;
     background: #1e293b;
     text-align: left;
-    padding: 12px 16px;
-    font-size: 0.78rem;
+    padding: 8px 14px;
+    font-size: 0.75rem;
     font-weight: 700;
     color: #94a3b8;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     border-right: 1px solid #334155;
-    min-width: 200px;
+    min-width: 150px;
     border-radius: 10px 0 0 0;   // round top-left of the table
   }
 
   &__th-date {
     text-align: center;
-    padding: 10px 8px;
+    padding: 7px 6px;
     border-right: 1px solid #334155;
-    min-width: 120px;
+    min-width: 92px;
     vertical-align: middle;
   }
 
@@ -210,7 +210,7 @@
   }
 
   &__th-copy {
-    min-width: 90px;
+    min-width: 74px;
     border: none;
     border-radius: 0 10px 0 0;  // round top-right of the table
   }
@@ -235,8 +235,8 @@
     z-index: 10;
     background: #fff;
     border-right: 1px solid #e5e7eb;
-    min-width: 200px;
-    max-width: 200px;
+    min-width: 150px;
+    max-width: 150px;
     padding: 0;
     transition: background 0.12s;
   }
@@ -244,19 +244,19 @@
   &__staff {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 14px;
+    gap: 8px;
+    padding: 6px 12px;
   }
 
   &__avatar {
-    width: 34px;
-    height: 34px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #fff;
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     font-weight: 700;
     flex-shrink: 0;
     text-transform: uppercase;
@@ -298,12 +298,12 @@
     border-right: 1px solid #f1f5f9;
     padding: 0;
     vertical-align: top;
-    width: 128px;
-    min-width: 120px;
+    width: 92px;
+    min-width: 92px;
   }
 
   &__td-copy {
-    padding: 10px 12px 10px 8px;
+    padding: 8px 10px 8px 6px;
     text-align: right;
     vertical-align: middle;
   }
@@ -313,9 +313,9 @@
     box-sizing: border-box;
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 5px 12px;
-    font-size: 0.75rem;
+    gap: 4px;
+    padding: 4px 8px;
+    font-size: 0.7rem;
     font-weight: 600;
     color: #475569;
     background: #fff;
@@ -371,7 +371,7 @@
 .sched-cell {
   position: relative;
   width: 100%;
-  min-height: 76px;
+  min-height: 50px;
   cursor: pointer;
   transition: filter 0.12s;
 
@@ -405,7 +405,7 @@
     all: unset;
     box-sizing: border-box;
     width: 100%;
-    min-height: 76px;
+    min-height: 50px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -413,18 +413,17 @@
   }
 
   &__add-icon {
-    width: 26px;
-    height: 26px;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
     border: 1.5px solid #cbd5e1;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #94a3b8;
-    font-size: 1rem;
-    font-weight: 700;
-    line-height: 1;
     transition: border-color 0.15s, color 0.15s, background 0.15s;
+
+    svg { display: block; pointer-events: none; }
 
     .sched-cell--empty:hover & {
       border-color: #64748b;
@@ -461,13 +460,13 @@
 
   // ── Time info ─────────────────────────────────────────────────────────────────
   &__info {
-    padding: 8px 10px 8px;
+    padding: 6px 8px;
   }
 
   &__time {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 700;
-    line-height: 1.4;
+    line-height: 1.3;
 
     .sched-cell--working  & { color: #166534; }
     .sched-cell--blocked  & { color: #9f1239; }
@@ -475,9 +474,9 @@
   }
 
   &__hours {
-    font-size: 0.68rem;
+    font-size: 0.66rem;
     font-weight: 500;
-    margin-top: 3px;
+    margin-top: 2px;
 
     .sched-cell--working  & { color: #16a34a; }
     .sched-cell--blocked  & { color: #e11d48; }
@@ -523,8 +522,8 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
-  margin-top: 16px;
-  padding: 12px 4px;
+  margin-top: 8px;
+  padding: 8px 4px;
   border-top: 1px solid #e5e7eb;
 
   &__info {
@@ -546,13 +545,13 @@
   &__btn {
     all: unset;
     box-sizing: border-box;
-    min-width: 34px;
-    height: 34px;
+    min-width: 30px;
+    height: 30px;
     padding: 0 8px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     font-weight: 500;
     color: #374151;
     background: #fff;
@@ -591,7 +590,7 @@
   &__ellipsis {
     min-width: 28px;
     text-align: center;
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     color: #9ca3af;
     user-select: none;
   }

@@ -1,5 +1,5 @@
 // ============================================================
-// AddStaffPage.scss
+// AddStaffPage.scss — Create/Edit Employee page
 // Bootstrap + SCSS — Salon Management Frontend
 // ============================================================
 
@@ -8,26 +8,18 @@
 // ── Variables ──────────────────────────────────────────────
 $primary:         #1a1a1a;
 $accent:          #6c3ce1;
-$accent-light:    #ede8fb;
 $danger:          #e53935;
 $text-primary:    #1a1a1a;
 $text-muted:      #6b7280;
 $border:          #e5e7eb;
-$sidebar-width:   220px;
-$header-height:   60px;
-$bg-page:         #f9fafb;
-$bg-sidebar:      #ffffff;
-$bg-content:      #ffffff;
 $radius-sm:       6px;
 $radius-md:       10px;
 $transition:      0.18s ease;
 
-// ── Layout ─────────────────────────────────────────────────
+// ── Layout Shell ───────────────────────────────────────────
 .add-staff {
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
   background: #ffffff;
   font-family: 'Inter', -apple-system, sans-serif;
 
@@ -40,6 +32,8 @@ $transition:      0.18s ease;
     padding: 0 24px;
     background: #ffffff;
     border-bottom: 1px solid #eee;
+    position: sticky;
+    top: 0;
     z-index: 100;
 
     &-title {
@@ -95,311 +89,446 @@ $transition:      0.18s ease;
       transform: none;
     }
   }
-
-  &__body {
-    flex: 1;
-    min-height: 0;          // critical: lets flex children shrink below content size
-    overflow: hidden;
-    padding: 0 !important;
-    > .row { height: 100%; flex-wrap: nowrap; }
-  }
-
-  &__sidebar {
-    width: 240px;
-    min-width: 240px;
-    background: #ffffff;
-    border-right: 1px solid #eee;
-    padding: 24px 12px;
-    overflow-y: auto;
-    height: 100%;
-  }
-
-  &__nav { padding: 0; }
-
-  &__nav-group { margin-bottom: 4px; }
-
-  &__nav-group-title {
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
-    color: #6b7280;
-    margin: 24px 0 12px 16px;
-    letter-spacing: 0.05em;
-  }
-
-  &__nav-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 2px; }
-
-  &__nav-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 16px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    color: #4b5563;
-    transition: all 0.15s ease;
-    margin-bottom: 2px;
-
-    &:hover { background: #f9fafb; }
-
-    &--active {
-      background: #f4f2ff;
-      color: #7a5cff !important;
-      font-weight: 600;
-    }
-  }
-
-  &__nav-label { flex: 1; }
-
-  &__nav-badge {
-    background: #f3f4f6;
-    color: #6b7280;
-    font-size: 11px;
-    font-weight: 600;
-    border-radius: 10px;
-    padding: 1px 7px;
-    margin-left: 6px;
-  }
-
-  &__nav-divider { margin: 16px 12px; border-color: #eee; }
-
-  &__content {
-    background: #ffffff;
-    flex: 1;
-    overflow-y: auto;
-    height: 100%;
-    padding: 60px 40px 100px;
-    display: flex;
-    justify-content: center;
-
-    @media (max-width: 768px) { padding: 40px 20px; }
-  }
 }
 
-// ── Shared Section Styles ─────────────────────────────────
-.section {
-  max-width: 640px;
-
-  &__title {
-    font-size: 20px;
-    font-weight: 700;
-    color: #000;
-    margin-bottom: 4px;
-  }
-
-  &__subtitle {
-    font-size: 13px;
-    color: $text-muted;
-    margin-bottom: 28px;
-  }
-
-  &__divider { border-color: $border; margin: 28px 0; }
-
-  &__block-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: $text-primary;
-    margin-bottom: 4px;
-  }
-
-  &__block-subtitle {
-    font-size: 12px;
-    color: $text-muted;
-    margin-bottom: 20px;
-  }
-}
-
-// ── Form Controls ─────────────────────────────────────────
-.staff-form {
-  .form-label {
-    font-size: 13px;
-    font-weight: 600;
-    color: #111;
-    margin-bottom: 8px;
-    display: block;
-  }
-
-  .form-control,
-  .form-select {
-    font-size: 14px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    height: 44px;
-    padding: 0 12px;
-    color: #111;
-    background-color: #fff;
-    transition: all 0.2s ease;
-    
-    &::placeholder { color: #9ca3af; }
-    
-    &:hover {
-      border-color: #9ca3af;
-    }
-    
-    &:focus {
-      border-color: #000;
-      box-shadow: 0 0 0 1px #000;
-      outline: none;
-    }
-    
-    &.is-invalid {
-      border-color: #ef4444;
-      &:focus { box-shadow: 0 0 0 1px #ef4444; }
-    }
-  }
-
-  textarea.form-control { height: auto; min-height: 120px; padding: 12px; resize: vertical; }
-  .invalid-feedback { font-size: 12px; color: #ef4444; margin-top: 4px; }
-  .form-hint { font-size: 12px; color: #6b7280; margin-top: 6px; }
-
-  .phone-group {
-    display: flex;
-    gap: 8px;
-    
-    .phone-code-select {
-      width: 110px !important;
-      flex-shrink: 0;
-      background-color: #f9fafb;
-      cursor: pointer;
-    }
-    
-    .form-control {
-      flex: 1;
-    }
-  }
-}
-
-// ── Color Picker ──────────────────────────────────────────
-.color-picker {
+// ── Unsaved Changes Dialog ─────────────────────────────────
+.add-staff__dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.35);
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 6px;
-
-  &__swatch {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    border: 2px solid transparent;
-    cursor: pointer;
-    transition: border-color $transition, transform $transition;
-    &:hover { transform: scale(1.15); }
-    &--selected {
-      border-color: $primary;
-      box-shadow: 0 0 0 2px #fff, 0 0 0 4px $primary;
-    }
-  }
-}
-
-// ── Empty State ───────────────────────────────────────────
-.staff-empty {
-  display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60px 0 40px;
-  text-align: center;
+  z-index: 2000;
+}
 
-  &__icon { font-size: 44px; color: #d1d5db; margin-bottom: 16px; }
-  &__title { font-size: 16px; font-weight: 600; color: $text-primary; margin-bottom: 6px; }
-  &__desc { font-size: 13px; color: $text-muted; margin-bottom: 20px; }
+.add-staff__dialog {
+  background: #fff;
+  border-radius: 12px;
+  padding: 28px;
+  width: 400px;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
 
-  &__btn {
-    height: 38px;
-    padding: 0 20px;
-    border: none;
-    border-radius: 20px;
-    background: $primary;
+.add-staff__dialog-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  color: $text-muted;
+  line-height: 1;
+  padding: 0;
+}
+
+.add-staff__dialog-title {
+  font-weight: 700;
+  font-size: 16px;
+  color: #111827;
+  margin-bottom: 12px;
+}
+
+.add-staff__dialog-desc {
+  font-size: 14px;
+  color: #374151;
+  margin-bottom: 28px;
+  line-height: 1.6;
+}
+
+.add-staff__dialog-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.add-staff__dialog-btn {
+  border-radius: 20px;
+  padding: 8px 20px;
+  font-size: 14px;
+  font-weight: 500;
+
+  &--cancel {
+    border: 1px solid $border;
+    color: #374151;
+  }
+
+  &--discard {
+    background: #111827;
     color: #fff;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background $transition;
-    &:hover { background: #333; }
+    border: none;
   }
 }
 
-// ── List Items ────────────────────────────────────────────
-.staff-list-item {
+// ── Create Employee page body ─────────────────────────────
+.emp-page {
+  padding: 24px 32px 60px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px;
+  flex-direction: column;
+  gap: 20px;
+
+  @media (max-width: 900px) { padding: 16px; }
+}
+
+.emp-card {
+  background: #fff;
   border: 1px solid $border;
   border-radius: $radius-md;
-  background: #fff;
+  padding: 20px 24px;
+
+  &__title {
+    font-size: 14px;
+    font-weight: 700;
+    color: $text-primary;
+    margin: 0 0 16px;
+
+    &--inline { margin: 0; }
+  }
+}
+
+.emp-top-row {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 20px;
+  align-items: start;
+
+  @media (max-width: 900px) { grid-template-columns: 1fr; }
+}
+
+// ── Details grid ───────────────────────────────────────────
+.emp-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px 16px;
+}
+
+.emp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+
+  &__label {
+    font-size: 11px;
+    font-weight: 600;
+    color: $text-muted;
+  }
+
+  &__error {
+    font-size: 11px;
+    color: $danger;
+  }
+
+  &__hint {
+    font-size: 11px;
+    color: $text-muted;
+    line-height: 1.5;
+    margin: 2px 0 0;
+  }
+}
+
+.emp-login-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px 16px;
+  max-width: 520px;
   margin-bottom: 10px;
-  transition: box-shadow $transition;
-  &:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+}
 
-  &__info { flex: 1; }
-  &__label { font-size: 13.5px; font-weight: 500; color: $text-primary; margin-bottom: 2px; }
-  &__sub { font-size: 12px; color: $text-muted; }
-  &__actions { display: flex; gap: 6px; }
+.emp-input {
+  height: 40px;
+  border: 1px solid $border;
+  border-radius: $radius-sm;
+  padding: 0 12px;
+  font-size: 13px;
+  color: $text-primary;
+  background: #f9fafb;
+  transition: border-color $transition, background $transition;
+  width: 100%;
 
-  &__action-btn {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    border: 1px solid $border;
+  &::placeholder { color: #9ca3af; }
+
+  &:hover { border-color: #c7cbd1; }
+
+  &:focus {
+    outline: none;
+    border-color: #000;
+    background: #fff;
+    box-shadow: 0 0 0 1px #000;
+  }
+
+  &--invalid {
+    border-color: $danger;
+    &:focus { box-shadow: 0 0 0 1px $danger; }
+  }
+}
+
+.emp-select { cursor: pointer; }
+
+.emp-password-group {
+  display: flex;
+  align-items: center;
+  border: 1px solid $border;
+  border-radius: $radius-sm;
+  background: #f9fafb;
+  overflow: hidden;
+
+  &.emp-input--invalid { border-color: $danger; }
+
+  .emp-password-input {
+    border: none;
+    background: transparent;
+    border-radius: 0;
+    &:focus { box-shadow: none; }
+  }
+
+  .emp-password-eye {
+    border: none;
     background: transparent;
     color: $text-muted;
-    font-size: 13px;
+    padding: 0 12px;
+    height: 40px;
     display: flex;
     align-items: center;
-    justify-content: center;
     cursor: pointer;
-    transition: background $transition, color $transition;
-    &:hover { background: #f3f4f6; color: $text-primary; }
-    &--danger:hover { background: #fee2e2; color: $danger; border-color: #fca5a5; }
+    flex-shrink: 0;
+
+    &:hover { color: $text-primary; }
   }
 }
 
-// ── Toggle ────────────────────────────────────────────────
-.staff-toggle {
+.emp-phone-group {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 0;
-  border-bottom: 1px solid $border;
-  &:last-child { border-bottom: none; }
+  border: 1px solid $border;
+  border-radius: $radius-sm;
+  overflow: hidden;
+  background: #f9fafb;
 
-  &__info { flex: 1; padding-right: 16px; }
-  &__label { font-size: 13.5px; font-weight: 500; color: $text-primary; margin-bottom: 2px; }
-  &__hint { font-size: 12px; color: $text-muted; }
+  &.emp-input--invalid { border-color: $danger; }
 
-  .form-check-input {
-    width: 40px;
-    height: 22px;
-    cursor: pointer;
-    &:checked { background-color: $accent; border-color: $accent; }
-    &:focus { box-shadow: 0 0 0 3px rgba($accent, 0.2); }
-  }
-}
-
-// ── Commission Row ────────────────────────────────────────
-.commission-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 0;
-  border-bottom: 1px solid $border;
-  &:last-child { border-bottom: none; }
-
-  &__label { font-size: 13.5px; color: $text-primary; font-weight: 500; }
-
-  &__input {
+  .emp-phone-code {
+    border: none;
+    border-right: 1px solid $border;
+    background: transparent;
+    font-size: 13px;
+    padding: 0 8px;
     width: 90px;
-    height: 36px;
-    border: 1px solid $border;
-    border-radius: $radius-sm;
-    padding: 0 10px;
-    font-size: 13.5px;
-    text-align: right;
-    outline: none;
-    transition: border-color $transition;
-    &:focus { border-color: $accent; box-shadow: 0 0 0 3px rgba($accent, 0.12); }
+    flex-shrink: 0;
+    cursor: pointer;
+    &:focus { outline: none; }
+  }
+
+  .emp-phone-input {
+    border: none;
+    background: transparent;
+    border-radius: 0;
+    &:focus { box-shadow: none; }
+  }
+}
+
+// ── Profile image ──────────────────────────────────────────
+.emp-photo-card { text-align: left; }
+
+.emp-photo-box {
+  width: 100%;
+  aspect-ratio: 1.4;
+  border: 1px dashed $border;
+  border-radius: $radius-md;
+  background: #f9fafb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color $transition;
+
+  &:hover { border-color: #9ca3af; }
+}
+
+.emp-photo-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.emp-photo-placeholder {
+  font-size: 28px;
+  font-weight: 700;
+  color: #c7cbd1;
+}
+
+.emp-photo-camera {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid $border;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: $text-muted;
+}
+
+.emp-photo-uploading {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: $text-primary;
+}
+
+.emp-hidden-input { display: none; }
+
+.emp-photo-hint {
+  font-size: 11px;
+  color: $text-muted;
+  margin: 10px 0 0;
+  text-align: center;
+}
+
+// ── Checkboxes ──────────────────────────────────────────────
+.emp-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: $text-primary;
+  cursor: pointer;
+
+  input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+    accent-color: $accent;
+  }
+
+  &--perm {
+    padding: 5px 0;
+    font-size: 12.5px;
+  }
+}
+
+// ── Staff permissions header ───────────────────────────────
+.emp-permissions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+
+  &__left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+}
+
+.emp-toggle {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+
+  input { opacity: 0; width: 0; height: 0; }
+
+  &__slider {
+    position: absolute;
+    inset: 0;
+    background: #d1d5db;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background $transition;
+
+    &::before {
+      content: "";
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      left: 2px;
+      top: 2px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform $transition;
+    }
+  }
+
+  input:checked + .emp-toggle__slider {
+    background: $accent;
+    &::before { transform: translateX(16px); }
+  }
+}
+
+.emp-role-select {
+  position: relative;
+}
+
+.emp-role-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid $border;
+  background: #fff;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: $text-primary;
+  cursor: pointer;
+
+  &:hover { background: #f9fafb; }
+}
+
+.emp-role-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: #fff;
+  border: 1px solid $border;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  padding: 6px;
+  min-width: 140px;
+  z-index: 50;
+}
+
+.emp-role-item {
+  padding: 8px 10px;
+  font-size: 13px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: $text-primary;
+
+  &:hover { background: #f3f4f6; }
+  &.active { background: #f4f2ff; color: $accent; font-weight: 600; }
+}
+
+// ── Permissions grid ────────────────────────────────────────
+.emp-permissions-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px 24px;
+  transition: opacity $transition;
+
+  &--disabled { opacity: 0.55; }
+
+  @media (max-width: 1200px) { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 640px) { grid-template-columns: 1fr; }
+}
+
+.emp-perm-category {
+  &__title {
+    font-size: 13px;
+    font-weight: 700;
+    color: $text-primary;
+    margin: 0 0 8px;
   }
 }

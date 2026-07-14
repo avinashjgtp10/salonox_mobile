@@ -51,7 +51,7 @@ const PayRunBreakdownPage: React.FC = () => {
 
   if (loading && !payRun) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "80vh" }}>
+      <div className="prb-page__loading">
         <Loader size="lg" />
       </div>
     );

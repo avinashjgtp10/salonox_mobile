@@ -263,6 +263,8 @@ $radius:  12px;
   p { margin: 0; }
 }
 
+.ap-error-retry-btn { margin-top: 12px; }
+
 // ── Table ─────────────────────────────────────────────────────────────────────
 
 .ap-table-wrap { overflow-x: auto; }
@@ -318,6 +320,7 @@ $radius:  12px;
   font-weight: 700;
   color: #fff;
   flex-shrink: 0;
+  background: var(--avatar-bg);
 }
 
 .ap-member-name { font-size: 13px; font-weight: 600; color: $primary; }
@@ -653,6 +656,8 @@ $radius:  12px;
   border-top: 1px solid $border;
   padding-top: 14px;
   margin-top: 4px;
+
+  &__submit { margin-top: 10px; }
 }
 
 .at-modal--wide { width: 520px; max-width: 95vw; }
@@ -837,8 +842,14 @@ $radius:  12px;
   gap: 8px;
   padding: 0 20px 18px;
 }
-.at-modal-meta  { font-size: 12px; color: $muted; margin: 0 0 14px; }
+.at-modal-meta  {
+  font-size: 12px; color: $muted; margin: 0 0 14px;
+  &--success { color: #059669; }
+  &--tight   { margin-top: 0; }
+}
 .at-modal-error { color: #dc2626; font-size: 12px; margin: 8px 0 0; }
+
+.at-optional-label { font-weight: 400; color: #9ca3af; }
 
 .at-modal-info-row {
   display: flex;
@@ -862,6 +873,8 @@ $radius:  12px;
 .at-modal-field {
   margin-bottom: 14px;
 
+  &--flush { margin: 0; }
+
   label {
     display: block;
     font-size: 12px;
@@ -884,6 +897,8 @@ $radius:  12px;
     &:focus { border-color: $accent; }
   }
 }
+
+.at-input--upper { text-transform: uppercase; }
 
 // ── 12-hour time picker (hour / minute / AM-PM selects) ───────────────────────
 

@@ -157,6 +157,13 @@
             margin-top: 1px;
         }
 
+        .calc-info-icon {
+            color: #6c3ce1;
+            font-size: 16px;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
         .calc-info-content {
             .calc-info-title {
                 font-size: 13px;
@@ -220,5 +227,163 @@
             border-color: #6c3ce1;
             box-shadow: 0 0 0 1px #6c3ce1;
         }
+    }
+
+    /* Save Button */
+    .save-btn {
+        background-color: #6c3ce1;
+        border-color: #6c3ce1;
+        border-radius: 8px;
+        font-weight: 500;
+    }
+}
+
+/* Change Payment Method Modal */
+.payment-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.payment-modal {
+    background: #fff;
+    border-radius: 12px;
+    padding: 28px;
+    width: 420px;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.payment-modal-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    color: #6b7280;
+    line-height: 1;
+    padding: 0;
+}
+
+.payment-modal-title {
+    font-weight: 700;
+    font-size: 16px;
+    color: #111827;
+    margin-bottom: 6px;
+}
+
+.payment-modal-desc {
+    font-size: 13px;
+    color: #6b7280;
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+
+.payment-option {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    cursor: pointer;
+    margin-bottom: 12px;
+    background: #fff;
+    transition: all 0.2s;
+
+    &--last {
+        margin-bottom: 24px;
+    }
+
+    &--selected {
+        border-color: #6c3ce1;
+        background: #f5f3ff;
+    }
+
+    .payment-option-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        background: #f3f4f6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+
+        i {
+            font-size: 18px;
+            color: #6b7280;
+        }
+    }
+
+    .payment-option-info {
+        .payment-option-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: #111827;
+        }
+
+        .payment-option-subtitle {
+            font-size: 12px;
+            color: #6b7280;
+        }
+    }
+
+    .payment-option-radio-wrap {
+        margin-left: auto;
+    }
+
+    .payment-option-radio {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        border: 2px solid #d1d5db;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+
+        &--selected {
+            border-color: #6c3ce1;
+            background: #6c3ce1;
+        }
+
+        .payment-option-radio-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #fff;
+        }
+    }
+}
+
+.payment-modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+.payment-modal-btn {
+    border-radius: 20px;
+    padding: 8px 20px;
+    font-size: 14px;
+    font-weight: 500;
+
+    &--cancel {
+        border: 1px solid #e5e7eb;
+        color: #374151;
+        background: transparent;
+    }
+
+    &--save {
+        background: #111827;
+        color: #fff;
+        border: none;
     }
 }

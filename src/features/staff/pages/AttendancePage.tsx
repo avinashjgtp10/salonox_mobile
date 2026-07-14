@@ -14,6 +14,7 @@ import {
   Trash3,
   PencilSquare,
   GearFill,
+  Clock,
 } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { ATTENDANCE, DEVICES } from "../../../services/api/endpoints";
@@ -22,6 +23,7 @@ import {
   parseHalfDayRuleValue,
   isHalfDayCheckIn,
 } from "../../settings/utils/halfDayRuleSettings";
+import HalfDayRulePage from "../../settings/pages/HalfDayRulePage";
 import "../styles/AttendancePage.scss";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -322,17 +324,17 @@ function CheckInModal({ record, date, isToday, onClose, onDone }: {
             const effectiveShiftStart = shiftStart ?? salonShiftStart;
             if (!halfDayRule.active || !effectiveShiftStart || !time) return null;
             return isHalfDayCheckIn(halfDayRule, toISO(date, effectiveShiftStart), toISO(date, time)) ? (
-              <p className="at-modal-error" style={{ color: "#dc2626" }}>
+              <p className="at-modal-error">
                 Late by more than {halfDayRule.threshold_hours}h — this check-in will be marked Half Day.
               </p>
             ) : (
-              <p className="at-modal-meta" style={{ color: "#059669" }}>
+              <p className="at-modal-meta at-modal-meta--success">
                 This check-in will be marked Present.
               </p>
             );
           })()}
           <div className="at-modal-field">
-            <label>Note <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optional)</span></label>
+            <label>Note <span className="at-optional-label">(optional)</span></label>
             <input type="text" placeholder="e.g. Arrived from site" value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
           {error && <p className="at-modal-error">{error}</p>}
@@ -395,7 +397,7 @@ function CheckOutModal({ record, date, isToday, onClose, onDone }: {
             <TimeField12h value={time} onChange={setTime} />
           </div>
           <div className="at-modal-field">
-            <label>Note <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optional)</span></label>
+            <label>Note <span className="at-optional-label">(optional)</span></label>
             <input type="text" placeholder="e.g. Left early" value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
           {error && <p className="at-modal-error">{error}</p>}
@@ -477,7 +479,7 @@ function EditModal({ record, date, onClose, onDone }: {
             </div>
           </div>
           <div className="at-modal-field">
-            <label>Note <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optional)</span></label>
+            <label>Note <span className="at-optional-label">(optional)</span></label>
             <input type="text" placeholder="Add a note…" value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
           {error && <p className="at-modal-error">{error}</p>}
@@ -554,7 +556,7 @@ function QuickMarkModal({ staff, date, onClose, onDone }: {
             </select>
           </div>
           {selected && selected.status !== "not_marked" && (
-            <p className="at-modal-meta" style={{ marginTop: 0 }}>
+            <p className="at-modal-meta at-modal-meta--tight">
               Currently: <strong>{STATUS_CFG[selected.status]?.label}</strong>
               {selected.check_in  ? ` · In ${fmtTime(selected.check_in)}`  : ""}
               {selected.check_out ? ` · Out ${fmtTime(selected.check_out)}` : ""}
@@ -611,10 +613,10 @@ function AddDeviceModal({ onClose, onDone }: { onClose: () => void; onDone: () =
             <label>Serial Number</label>
             <input
               type="text"
+              className="at-input--upper"
               placeholder="e.g. ABRV1234567"
               value={serialNo}
               onChange={(e) => setSerialNo(e.target.value)}
-              style={{ textTransform: "uppercase" }}
             />
           </div>
           <div className="at-modal-field">
@@ -622,7 +624,7 @@ function AddDeviceModal({ onClose, onDone }: { onClose: () => void; onDone: () =
             <input type="text" placeholder="e.g. Main Entrance" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="at-modal-field">
-            <label>Location <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optional)</span></label>
+            <label>Location <span className="at-optional-label">(optional)</span></label>
             <input type="text" placeholder="e.g. Reception" value={location} onChange={(e) => setLocation(e.target.value)} />
           </div>
           {error && <p className="at-modal-error">{error}</p>}
@@ -682,7 +684,7 @@ function ConnectDeviceModal({ pending, onClose, onDone }: {
             <input type="text" placeholder="e.g. Main Entrance" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
           </div>
           <div className="at-modal-field">
-            <label>Location <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optional)</span></label>
+            <label>Location <span className="at-optional-label">(optional)</span></label>
             <input type="text" placeholder="e.g. Reception" value={location} onChange={(e) => setLocation(e.target.value)} />
           </div>
           {error && <p className="at-modal-error">{error}</p>}
@@ -738,7 +740,7 @@ function EditDeviceModal({ device, onClose, onDone }: {
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="at-modal-field">
-            <label>Location <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optional)</span></label>
+            <label>Location <span className="at-optional-label">(optional)</span></label>
             <input type="text" placeholder="e.g. Reception" value={location} onChange={(e) => setLocation(e.target.value)} />
           </div>
           {error && <p className="at-modal-error">{error}</p>}
@@ -843,7 +845,7 @@ function ManagePinsModal({
           {unmapped.length > 0 && (
             <div className="ap-pin-add">
               <div className="at-modal-row">
-                <div className="at-modal-field" style={{ margin: 0 }}>
+                <div className="at-modal-field at-modal-field--flush">
                   <label>Staff Member</label>
                   <select value={staffId} onChange={(e) => setStaffId(e.target.value)}>
                     <option value="">Select staff…</option>
@@ -852,13 +854,13 @@ function ManagePinsModal({
                     ))}
                   </select>
                 </div>
-                <div className="at-modal-field" style={{ margin: 0 }}>
+                <div className="at-modal-field at-modal-field--flush">
                   <label>Device PIN</label>
                   <input type="text" placeholder="e.g. 3" value={pin} onChange={(e) => setPin(e.target.value)} />
                 </div>
               </div>
               {error && <p className="at-modal-error">{error}</p>}
-              <button className="at-btn at-btn--primary" style={{ marginTop: 10 }} disabled={saving} onClick={addMapping}>
+              <button className="at-btn at-btn--primary ap-pin-add__submit" disabled={saving} onClick={addMapping}>
                 {saving ? "Adding…" : "Add Mapping"}
               </button>
             </div>
@@ -883,6 +885,16 @@ export default function AttendancePage() {
   const [search, setSearch]     = useState("");
   const [modal, setModal]       = useState<ModalState>(null);
   const [quickMark, setQuickMark] = useState(false);
+  const [showHalfDayRule, setShowHalfDayRule] = useState(false);
+
+  // Lock background scroll while the modal is open — otherwise the page's own
+  // scrollbar (e.g. the wide attendance table) stays interactive underneath
+  // the fixed overlay, visible right below the modal's footer buttons.
+  useEffect(() => {
+    if (!showHalfDayRule) return;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, [showHalfDayRule]);
 
   // ── Devices ──
   const [devices,       setDevices]       = useState<Device[]>([]);
@@ -924,8 +936,16 @@ export default function AttendancePage() {
     if (silent) setRefreshing(true);
     else setLoading(true);
     setError("");
+    // Auto-retry twice with a short backoff before surfacing an error —
+    // the DB connection is prone to transient blips, and a single failed
+    // attempt would otherwise force a manual page reload every time.
+    const attempt = (n: number): Promise<any> =>
+      api.get(ATTENDANCE.TODAY, { params: { date } }).catch((e: any) => {
+        if (n <= 0) throw e;
+        return new Promise((resolve) => setTimeout(resolve, 600)).then(() => attempt(n - 1));
+      });
     try {
-      const res = await api.get(ATTENDANCE.TODAY, { params: { date } });
+      const res = await attempt(2);
       setData(res.data.data);
     } catch (e: any) {
       setError(e?.response?.data?.error?.message || "Failed to load attendance data.");
@@ -968,6 +988,13 @@ export default function AttendancePage() {
           </button>
           <button
             className="ap-btn ap-btn--primary"
+            onClick={() => setShowHalfDayRule(true)}
+          >
+            <Clock size={15} />
+            Half Day Rule
+          </button>
+          <button
+            className="ap-btn ap-btn--primary"
             onClick={() => setQuickMark(true)}
             disabled={loading || staff.length === 0}
           >
@@ -976,6 +1003,15 @@ export default function AttendancePage() {
           </button>
         </div>
       </div>
+
+      {showHalfDayRule && (
+        <div className="hd-modal-overlay" onClick={() => setShowHalfDayRule(false)}>
+          <div className="hd-modal-panel" onClick={(e) => e.stopPropagation()}>
+            <button className="hd-modal-close" onClick={() => setShowHalfDayRule(false)}>×</button>
+            <HalfDayRulePage />
+          </div>
+        </div>
+      )}
 
       {/* ── Summary Cards ── */}
       <div className="ap-summary-grid">
@@ -1065,7 +1101,7 @@ export default function AttendancePage() {
         ) : error ? (
           <div className="ap-error">
             <p>{error}</p>
-            <button className="at-btn at-btn--ghost" style={{ marginTop: 12 }} onClick={() => load(selectedDate)}>
+            <button className="at-btn at-btn--ghost ap-error-retry-btn" onClick={() => load(selectedDate)}>
               Retry
             </button>
           </div>
@@ -1098,7 +1134,7 @@ export default function AttendancePage() {
                       <tr key={s.staff_id}>
                         <td>
                           <div className="ap-member">
-                            <div className="ap-avatar" style={{ background: avatarColor(s.staff_name) }}>
+                            <div className="ap-avatar" style={{ "--avatar-bg": avatarColor(s.staff_name) } as React.CSSProperties}>
                               {initials(s.staff_name)}
                             </div>
                             <div>

@@ -3,6 +3,7 @@ import toast from "react-hot-toast";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { patchPaymentStatus } from "../../../store/schedulerSlice";
 import { postPaymentThunk, clearClientDuesThunk } from "../../../middleware/booking/payment.thunk";
+import { checkoutBookingThunk } from "../../../middleware/booking/booking.thunk";
 import { selectBookings } from "../../../store/selectors/scheduler.selectors";
 import { buildMethodLabel, isRealId } from "../utils/paymentUtils";
 import type { SingleMethod, SplitEntry, Booking } from "../types";
@@ -194,6 +195,19 @@ export function usePayment() {
         membershipWalletUsed: savedPayment?.membership_wallet_used != null ? Number(savedPayment.membership_wallet_used) : undefined,
         splitDetails: savedPayment?.split_details ?? methods,
       }));
+
+      // ── Checkout the appointment so commission fires ─────────────────────
+      // payments.service.ts (server-side) auto-creates a `sales` row when this
+      // payment fully completes it, but deliberately stops short of marking the
+      // appointment "completed" or calculating commission — that's left to the
+      // separate checkout step below, which picks up that pre-existing sale,
+      // fires commissionCalculationService on it, and completes the appointment.
+      // Best-effort: never block/fail the payment itself on this — errors (e.g.
+      // "already completed" from a duplicate call) are swallowed, matching the
+      // rejected-action result RTK thunks resolve to rather than throw.
+      if (finalDue === 0) {
+        dispatch(checkoutBookingThunk({ id: appointmentId, data: {} }));
+      }
 
       // ── Clear prior dues if toggled ──────────────────────────────────────
       // Only the specific bookings staff checked — not every outstanding

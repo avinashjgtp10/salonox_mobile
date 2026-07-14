@@ -424,7 +424,10 @@ export default function ImportStaffPage() {
             <button className="isp-back-btn" onClick={handleBack}>‹</button>
           )}
           <div className="isp-progress-track flex-grow-1">
-            <div className="isp-progress-fill" style={{ width: `${progressPct}%` }} />
+            <div
+              className="isp-progress-fill"
+              style={{ "--progress-pct": `${progressPct}%` } as React.CSSProperties}
+            />
           </div>
         </div>
         <div className="d-flex gap-2 ms-3">

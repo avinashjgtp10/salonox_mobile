@@ -2,23 +2,28 @@ import { useEffect, useState, useCallback } from "react";
 import { useSelector } from "react-redux";
 import { selectCurrentSalon } from "../../../store/selectors/slices.selectors";
 import api from "../../../services/api/axios";
-import { STAFF } from "../../../services/api/endpoints";
+import { STAFF, COMMISSION_RULES } from "../../../services/api/endpoints";
 import { toast } from "react-hot-toast";
 import {
-  Plus, Pencil, Trash, ArrowRight, X,
+  Plus, X,
   SquareFill, ListCheck,
   CurrencyRupee, People, Wallet, GraphUpArrow,
-  PersonCheck, PersonX, Tools, Bag, Tag, Gift,
+  PersonCheck, PersonX, Tools, Bag, Tag, Gift, BoxSeam,
   StarFill, Gear, CheckCircleFill, XCircleFill,
   Calculator, CreditCard2Front,
   ChevronLeft, ChevronRight, ClockHistory, Download,
 } from "react-bootstrap-icons";
 import "../styles/CommissionsPage.scss";
+import { SuccessOverlay } from "../../../components/ui";
+import RuleCard from "../components/commission/RuleCard";
+import RuleWizard from "../components/commission/RuleWizard";
+import RuleDetailModal from "../components/commission/RuleDetailModal";
+import { SOURCE_META, groupCommissionRules } from "../components/commission/commissionRuleMeta";
+import type { CommissionRule, CommissionRuleFormData, CommissionRuleSource, RuleGroup } from "../types/commissionRules.types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type CommissionKind     = "percentage" | "fixed_rate";
-type CommissionCategory = "services" | "products" | "memberships" | "gift_cards" | "cancellation";
+type CommissionCategory = "services" | "products" | "memberships" | "gift_cards" | "cancellation" | "packages";
 type TabKey             = "overview" | "rules";
 
 interface StaffMember {
@@ -29,43 +34,6 @@ interface StaffMember {
   calendar_color?: string;
   designation?: string;
   is_active?: boolean;
-}
-
-interface CommissionSetting {
-  id: string;
-  staff_id: string;
-  category: CommissionCategory;
-  is_enabled: boolean;
-  commission_kind: CommissionKind;
-  default_rate: number | string;
-  use_default_calculation: boolean | string;
-  pass_cancellation_fee_late: boolean | string;
-  pass_cancellation_fee_noshow: boolean | string;
-}
-
-interface FlatRule extends CommissionSetting {
-  staff: StaffMember;
-}
-
-// Tier slab: "if staff generates X revenue → they get Y commission"
-interface CommissionTier {
-  id: string;
-  revenue_target: number;
-  commission_kind: CommissionKind;
-  commission_value: number;
-}
-
-type CommissionPeriod = "daily" | "monthly";
-
-interface AddFormState {
-  staff_ids: string[];
-  category: CommissionCategory;
-  is_enabled: boolean;
-  period: CommissionPeriod;
-  pass_cancellation_fee_late: boolean;
-  pass_cancellation_fee_noshow: boolean;
-  min_monthly_revenue: number;
-  tiers: CommissionTier[];
 }
 
 // ─── Types (earnings summary) ────────────────────────────────────────────────
@@ -110,6 +78,7 @@ const CATEGORIES: {
   { key: "services",     label: "Services",     icon: <Tools    size={16} />, bg: "#ede9fe", color: "#7c3aed" },
   { key: "products",     label: "Products",     icon: <Bag      size={16} />, bg: "#dcfce7", color: "#16a34a" },
   { key: "memberships",  label: "Memberships",  icon: <Tag      size={16} />, bg: "#dbeafe", color: "#2563eb" },
+  { key: "packages",     label: "Packages",     icon: <BoxSeam  size={16} />, bg: "#ffe4e6", color: "#e11d48" },
   { key: "gift_cards",   label: "Gift Cards",   icon: <Gift     size={16} />, bg: "#fce7f3", color: "#db2777" },
   { key: "cancellation", label: "Cancellation", icon: <StarFill size={16} />, bg: "#fef3c7", color: "#d97706" },
 ];
@@ -150,448 +119,12 @@ function fmt(n: number) {
   return `₹${n.toLocaleString("en-IN")}`;
 }
 
-function newTier(): CommissionTier {
-  return { id: crypto.randomUUID(), revenue_target: 0, commission_kind: "fixed_rate", commission_value: 0 };
-}
-
-
-// ─── Staff Multi-Select ───────────────────────────────────────────────────────
-
-function StaffMultiSelect({
-  staffList,
-  selected,
-  onChange,
-  disabled,
-}: {
-  staffList: StaffMember[];
-  selected: string[];
-  onChange: (ids: string[]) => void;
-  disabled?: boolean;
-}) {
-  const [search, setSearch] = useState("");
-
-  const filtered = staffList.filter((s) =>
-    `${s.first_name} ${s.last_name ?? ""} ${s.designation ?? ""} ${s.email}`
-      .toLowerCase()
-      .includes(search.toLowerCase())
-  );
-
-  const allSelected = filtered.length > 0 && filtered.every((s) => selected.includes(s.id));
-
-  const toggleAll = () => {
-    if (allSelected) {
-      onChange(selected.filter((id) => !filtered.some((s) => s.id === id)));
-    } else {
-      const newIds = [...new Set([...selected, ...filtered.map((s) => s.id)])];
-      onChange(newIds);
-    }
-  };
-
-  const toggle = (id: string) => {
-    if (disabled) return;
-    onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
-  };
-
-  return (
-    <div className="cm-field">
-      <label className="cm-label">
-        Team members <span className="cm-optional">(leave empty to apply to all staff)</span>
-        {selected.length > 0 && (
-          <span className="cm-staff-count-badge">{selected.length} selected</span>
-        )}
-      </label>
-
-      <div className="cm-staff-picker">
-        {/* Search */}
-        <div className="cm-staff-search-wrap">
-          <input
-            className="cm-staff-search"
-            placeholder="Search staff…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            disabled={disabled}
-          />
-        </div>
-
-        {/* Select all row */}
-        {!disabled && filtered.length > 0 && (
-          <label className="cm-staff-row cm-staff-row--all" onClick={toggleAll}>
-            <input
-              type="checkbox"
-              className="cm-staff-cb"
-              checked={allSelected}
-              onChange={toggleAll}
-              onClick={(e) => e.stopPropagation()}
-            />
-            <span className="cm-staff-all-label">Select all{search ? " matching" : ""} ({filtered.length}) — or leave empty to apply to all</span>
-          </label>
-        )}
-
-        {/* Staff list */}
-        <div className="cm-staff-list">
-          {filtered.length === 0 ? (
-            <div className="cm-staff-empty">No staff found</div>
-          ) : (
-            filtered.map((s) => {
-              const av      = getAvatar(s);
-              const checked = selected.includes(s.id);
-              return (
-                <label
-                  key={s.id}
-                  className={`cm-staff-row ${checked ? "cm-staff-row--checked" : ""} ${disabled ? "cm-staff-row--disabled" : ""}`}
-                  onClick={() => toggle(s.id)}
-                >
-                  <input
-                    type="checkbox"
-                    className="cm-staff-cb"
-                    checked={checked}
-                    disabled={disabled}
-                    onChange={() => toggle(s.id)}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                  <div className="cm-staff-av" style={{ background: av.bg }}>{av.initials}</div>
-                  <div className="cm-staff-info">
-                    <div className="cm-staff-name">{s.first_name} {s.last_name ?? ""}</div>
-                    <div className="cm-staff-role">{s.designation ?? s.email}</div>
-                  </div>
-                  {checked && <CheckCircleFill size={14} color="#6c3ce1" />}
-                </label>
-              );
-            })
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Add / Edit Modal ─────────────────────────────────────────────────────────
-
-const EMPTY_FORM: AddFormState = {
-  staff_ids: [],
-  category: "services",
-  is_enabled: true,
-  period: "monthly",
-  pass_cancellation_fee_late: false,
-  pass_cancellation_fee_noshow: false,
-  min_monthly_revenue: 0,
-  tiers: [newTier()],
-};
-
-function AddRuleModal({
-  staffList, onClose, onSaved, editing,
-}: {
-  staffList: StaffMember[];
-  onClose: () => void;
-  onSaved: () => void;
-  editing?: FlatRule | null;
-  salonId: string;
-}) {
-  const [form, setForm] = useState<AddFormState>(
-    editing
-      ? {
-          staff_ids: [editing.staff_id],
-          category: editing.category,
-          is_enabled: editing.is_enabled,
-          period: ((editing as any).period ?? "monthly") as CommissionPeriod,
-          pass_cancellation_fee_late: Boolean(editing.pass_cancellation_fee_late),
-          pass_cancellation_fee_noshow: Boolean(editing.pass_cancellation_fee_noshow),
-          min_monthly_revenue: Number((editing as any).min_monthly_revenue ?? 0),
-          tiers: [{ id: crypto.randomUUID(), revenue_target: 0, commission_kind: editing.commission_kind, commission_value: Number(editing.default_rate) }],
-        }
-      : EMPTY_FORM
-  );
-  const [saving, setSaving] = useState(false);
-
-  const setField = (k: keyof Omit<AddFormState, "tiers">, v: any) =>
-    setForm((p) => ({ ...p, [k]: v }));
-
-  const updateTier = (id: string, key: keyof CommissionTier, val: any) =>
-    setForm((p) => ({
-      ...p,
-      tiers: p.tiers.map((t) => (t.id === id ? { ...t, [key]: val } : t)),
-    }));
-
-  const addTier    = () => setForm((p) => ({ ...p, tiers: [...p.tiers, newTier()] }));
-  const removeTier = (id: string) =>
-    setForm((p) => ({ ...p, tiers: p.tiers.filter((t) => t.id !== id) }));
-
-  const handleSave = async () => {
-    const targetIds = form.staff_ids.length > 0 ? form.staff_ids : staffList.map((s) => s.id);
-    if (form.tiers.length === 0) { toast.error("Add at least one commission slab"); return; }
-
-    const invalidTier = form.tiers.find((t) => t.commission_value <= 0);
-    if (invalidTier) { toast.error("All slabs must have a commission value greater than 0"); return; }
-
-    setSaving(true);
-    try {
-      const slabs = form.tiers
-        .filter((t) => t.commission_value > 0)
-        .map((t) => ({
-          revenue_target:   t.revenue_target,
-          commission_kind:  t.commission_kind,
-          commission_value: t.commission_value,
-        }));
-
-      const payload = {
-        staff_ids:                    targetIds,
-        category:                     form.category,
-        is_enabled:                   form.is_enabled,
-        period:                       form.period,
-        commission_kind:              form.tiers[0]?.commission_kind ?? "fixed_rate",
-        default_rate:                 form.tiers[0]?.commission_value ?? 0,
-        revenue_target:               form.tiers[0]?.revenue_target ?? 0,
-        min_monthly_revenue:          form.min_monthly_revenue,
-        use_default_calculation:      false,
-        pass_cancellation_fee_late:   form.pass_cancellation_fee_late,
-        pass_cancellation_fee_noshow: form.pass_cancellation_fee_noshow,
-        slabs,
-      };
-
-      const res = await api.post(STAFF.COMMISSIONS_BULK, payload);
-      const { saved, failed } = res.data?.data ?? { saved: targetIds, failed: [] };
-
-      if (failed.length > 0) {
-        toast.error(`${failed.length} staff could not be configured`);
-      }
-      toast.success(editing ? "Commission rule updated" : `Commission rule added for ${saved.length} staff member${saved.length !== 1 ? "s" : ""}`);
-      onSaved();
-      onClose();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? "Failed to save");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const selCat = getCatMeta(form.category);
-
-  return (
-    <div className="cm-modal-overlay" onClick={onClose}>
-      <div className="cm-modal" onClick={(e) => e.stopPropagation()}>
-
-        {/* Header */}
-        <div className="cm-modal-header">
-          <h3>{editing ? "Edit Commission Rule" : "Add Commission Rule"}</h3>
-          <button className="cm-modal-close" onClick={onClose}><X size={18} /></button>
-        </div>
-
-        <div className="cm-modal-body">
-
-          {/* Staff multi-select */}
-          <StaffMultiSelect
-            staffList={staffList}
-            selected={form.staff_ids}
-            onChange={(ids) => setForm((p) => ({ ...p, staff_ids: ids }))}
-            disabled={!!editing}
-          />
-
-          {/* Category */}
-          <div className="cm-field">
-            <label className="cm-label">Category <span className="cm-req">*</span></label>
-            <div className="cm-cat-grid">
-              {CATEGORIES.map((c) => (
-                <button key={c.key} type="button"
-                  className={`cm-cat-opt ${form.category === c.key ? "cm-cat-opt--active" : ""}`}
-                  onClick={() => setField("category", c.key)}>
-                  <span className="cm-cat-opt-icon" style={{ background: c.bg, color: c.color }}>{c.icon}</span>
-                  <span>{c.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Commission Slabs */}
-          <div className="cm-field">
-            <div className="cm-slabs-header">
-              <div>
-                <label className="cm-label">Commission Slabs <span className="cm-req">*</span></label>
-                <div className="cm-slabs-hint">
-                  Set revenue targets and what the staff member earns when they hit each target.
-                </div>
-              </div>
-              <button className="cm-add-slab-btn" type="button" onClick={addTier}>
-                <Plus size={13} /> Add Slab
-              </button>
-            </div>
-
-            {/* Column headers */}
-            <div className="cm-slab-cols-header">
-              <span>If staff generates</span>
-              <span>They receive</span>
-              <span>Type</span>
-              <span />
-            </div>
-
-            <div className="cm-slabs">
-              {form.tiers.map((tier, idx) => (
-                <div key={tier.id} className="cm-slab-row">
-                  <div className="cm-slab-index">{idx + 1}</div>
-
-                  {/* Revenue target */}
-                  <div className="cm-slab-input-wrap">
-                    <span className="cm-slab-prefix">₹</span>
-                    <input
-                      type="number"
-                      className="cm-slab-input"
-                      placeholder="0 = always apply"
-                      min={0}
-                      value={tier.revenue_target || ""}
-                      onChange={(e) => updateTier(tier.id, "revenue_target", Number(e.target.value))}
-                    />
-                  </div>
-
-                  <ArrowRight size={14} className="cm-slab-arrow" />
-
-                  {/* Commission value */}
-                  <div className="cm-slab-input-wrap">
-                    <span className="cm-slab-prefix">
-                      {tier.commission_kind === "percentage" ? "%" : "₹"}
-                    </span>
-                    <input
-                      type="number"
-                      className="cm-slab-input"
-                      placeholder="e.g. 200"
-                      min={0}
-                      value={tier.commission_value || ""}
-                      onChange={(e) => updateTier(tier.id, "commission_value", Number(e.target.value))}
-                    />
-                  </div>
-
-                  {/* Kind toggle */}
-                  <div className="cm-slab-kind">
-                    <button
-                      type="button"
-                      className={`cm-kind-btn ${tier.commission_kind === "fixed_rate" ? "cm-kind-btn--active" : ""}`}
-                      onClick={() => updateTier(tier.id, "commission_kind", "fixed_rate")}
-                      title="Fixed amount"
-                    >
-                      ₹
-                    </button>
-                    <button
-                      type="button"
-                      className={`cm-kind-btn ${tier.commission_kind === "percentage" ? "cm-kind-btn--active" : ""}`}
-                      onClick={() => updateTier(tier.id, "commission_kind", "percentage")}
-                      title="Percentage"
-                    >
-                      %
-                    </button>
-                  </div>
-
-                  {/* Remove */}
-                  {form.tiers.length > 1 && (
-                    <button type="button" className="cm-slab-remove" onClick={() => removeTier(tier.id)}>
-                      <X size={13} />
-                    </button>
-                  )}
-
-                  {/* Preview sentence */}
-                  {tier.commission_value > 0 && (
-                    <div className="cm-slab-preview">
-                      {tier.revenue_target > 0
-                        ? <>If <strong>{selCat.label.toLowerCase()}</strong> revenue reaches <strong>{fmt(tier.revenue_target)}</strong>, staff gets </>
-                        : <>Staff always gets </>
-                      }
-                      <strong>
-                        {tier.commission_kind === "percentage"
-                          ? `${tier.commission_value}%`
-                          : fmt(tier.commission_value)}
-                      </strong>
-                      {tier.revenue_target === 0 && <> from {selCat.label.toLowerCase()}</>}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Minimum monthly revenue threshold */}
-          <div className="cm-field">
-            <label className="cm-label">
-              Minimum Monthly Revenue <span className="cm-optional">(optional — commission only applies if staff hits this)</span>
-            </label>
-            <div className="cm-input-group">
-              <span className="cm-input-prefix">₹</span>
-              <input
-                type="number"
-                className="cm-input cm-input--prefixed"
-                placeholder="e.g. 20000 — leave 0 to always apply"
-                min={0}
-                value={form.min_monthly_revenue || ""}
-                onChange={(e) => setForm((p) => ({ ...p, min_monthly_revenue: Number(e.target.value) }))}
-              />
-            </div>
-          </div>
-
-          {/* Cancellation options */}
-          {form.category === "cancellation" && (
-            <div className="cm-field">
-              <label className="cm-label">Cancellation options</label>
-              <div className="cm-checks">
-                <label className="cm-check-row">
-                  <input type="checkbox" checked={form.pass_cancellation_fee_late}
-                    onChange={(e) => setField("pass_cancellation_fee_late", e.target.checked)} />
-                  <span>Pass late cancellation fee to staff</span>
-                </label>
-                <label className="cm-check-row">
-                  <input type="checkbox" checked={form.pass_cancellation_fee_noshow}
-                    onChange={(e) => setField("pass_cancellation_fee_noshow", e.target.checked)} />
-                  <span>Pass no-show fee to staff</span>
-                </label>
-              </div>
-            </div>
-          )}
-
-          {/* Period — daily vs monthly */}
-          <div className="cm-field">
-            <label className="cm-label">Commission Period</label>
-            <div className="cm-period-toggle">
-              <button
-                type="button"
-                className={`cm-period-btn ${form.period === "daily" ? "cm-period-btn--active" : ""}`}
-                onClick={() => setField("period", "daily")}
-              >
-                Daily
-                <span className="cm-period-hint">Revenue measured per day</span>
-              </button>
-              <button
-                type="button"
-                className={`cm-period-btn ${form.period === "monthly" ? "cm-period-btn--active" : ""}`}
-                onClick={() => setField("period", "monthly")}
-              >
-                Monthly
-                <span className="cm-period-hint">Revenue measured per month</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Enable toggle */}
-          <div className="cm-field">
-            <label className="cm-check-row">
-              <input type="checkbox" checked={form.is_enabled}
-                onChange={(e) => setField("is_enabled", e.target.checked)} />
-              <span>Enable this rule immediately</span>
-            </label>
-          </div>
-        </div>
-
-        <div className="cm-modal-footer">
-          <button className="cm-btn cm-btn--ghost" onClick={onClose} disabled={saving}>Cancel</button>
-          <button className="cm-btn cm-btn--primary" onClick={handleSave} disabled={saving}>
-            {saving ? "Saving…" : editing ? "Update Rule" : "Add Rule"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
 
 function OverviewTab({
-  rules, staffList, onAddRule, commsFetching, earnSummary, earnedByStaff, summaryMonth, onMonthChange, onSettle, settlingId, onOpenHistory,
+  commissionRules, staffList, onAddRule, commsFetching, earnSummary, earnedByStaff, summaryMonth, onMonthChange, onSettle, settlingId, onOpenHistory,
 }: {
-  rules: FlatRule[];
+  commissionRules: CommissionRule[];
   staffList: StaffMember[];
   onAddRule: (staff?: StaffMember) => void;
   commsFetching: boolean;
@@ -603,7 +136,9 @@ function OverviewTab({
   settlingId: string | null;
   onOpenHistory: (staffId: string) => void;
 }): JSX.Element {
-  const staffWithComm     = new Set(rules.map((r) => r.staff_id));
+  // "Configured" = staff directly targeted by a rule (scope_type='staff', scope_id=their id).
+  // Salon-wide/role-scoped rules aren't attributed to individual staff here yet.
+  const staffWithComm     = new Set(commissionRules.filter((r) => r.scope_type === "staff").map((r) => r.scope_id));
   const configuredStaff   = staffList.filter((s) => staffWithComm.has(s.id));
   const unconfiguredStaff = staffList.filter((s) => !staffWithComm.has(s.id));
 
@@ -627,7 +162,7 @@ function OverviewTab({
             <ListCheck size={18} />
           </div>
           <div>
-            <div className="cm-ov-val">{rules.length}</div>
+            <div className="cm-ov-val">{groupCommissionRules(commissionRules).length}</div>
             <div className="cm-ov-label">Total Rules</div>
           </div>
         </div>
@@ -787,10 +322,11 @@ function OverviewTab({
                         <span className="cm-earned-sep">·</span>
                         <span className="cm-earned-total">Earned <strong>{fmt(e.total_earned)}</strong></span>
                       </div>
-                      {e.pending_payout > 0 && (
+                      {/* Pending amount already shown in the badge beside "Settle" — only
+                          add this line when there's paid-so-far info not shown elsewhere. */}
+                      {e.pending_payout > 0 && e.paid_out > 0 && (
                         <div className="cm-earned-pending">
-                          Pending: <strong>{fmt(e.pending_payout)}</strong>
-                          {e.paid_out > 0 && <span> · Paid: {fmt(e.paid_out)}</span>}
+                          Paid so far: <strong>{fmt(e.paid_out)}</strong>
                         </div>
                       )}
                     </div>
@@ -841,19 +377,19 @@ function OverviewTab({
               </div>
               {pagedConfigured.map((s) => {
                 const av       = getAvatar(s);
-                const sRules   = rules.filter((r) => r.staff_id === s.id);
-                const active   = sRules.filter((r) => r.is_enabled).length;
-                const catKeys  = [...new Set(sRules.map((r) => r.category))];
+                const sRules   = commissionRules.filter((r) => r.scope_type === "staff" && r.scope_id === s.id);
+                const active   = sRules.filter((r) => r.status === "active").length;
+                const sources  = [...new Set(sRules.map((r) => r.source))];
                 return (
                   <div key={s.id} className="cm-ov-staff-row cm-ov-staff-row--has">
                     <div className="cm-ov-av" style={{ background: av.bg }}>{av.initials}</div>
                     <div className="cm-ov-staff-info">
                       <div className="cm-ov-staff-name">{s.first_name} {s.last_name ?? ""}</div>
                       <div className="cm-ov-staff-meta">
-                        {catKeys.map((cat) => {
-                          const m = getCatMeta(cat);
+                        {sources.map((src) => {
+                          const m = SOURCE_META[src];
                           return (
-                            <span key={cat} className="cm-cat-dot"
+                            <span key={src} className="cm-cat-dot"
                               style={{ background: m.bg, color: m.color }} title={m.label}>
                               {m.icon}
                             </span>
@@ -933,65 +469,6 @@ function OverviewTab({
   );
 }
 
-// ─── Rule Row (Commission Rules tab) ─────────────────────────────────────────
-
-function RuleRow({
-  rule, onToggle, onEdit, onDelete, toggling,
-}: {
-  rule: FlatRule;
-  onToggle: (r: FlatRule) => void;
-  onEdit:   (r: FlatRule) => void;
-  onDelete: (r: FlatRule) => void;
-  toggling: boolean;
-}) {
-  const cat    = getCatMeta(rule.category);
-  const avatar = getAvatar(rule.staff);
-  const name   = `${rule.staff.first_name} ${rule.staff.last_name ?? ""}`.trim();
-
-  return (
-    <div className="cm-rule-row">
-      <div className="cm-rule-icon" style={{ background: cat.bg, color: cat.color }}>{cat.icon}</div>
-      <div className="cm-rule-info">
-        <div className="cm-rule-name">{cat.label} Commission</div>
-        <div className="cm-rule-desc">
-          <strong>{name}</strong> earns{" "}
-          <strong>
-            {rule.commission_kind === "percentage" ? `${Number(rule.default_rate)}%` : fmt(Number(rule.default_rate))}
-          </strong>{" "}
-          from {cat.label.toLowerCase()} transactions.
-        </div>
-        <div className="cm-rule-staff-chip">
-          <div className="cm-rule-staff-dot" style={{ background: avatar.bg }}>{avatar.initials}</div>
-          <span>{name}</span>
-        </div>
-      </div>
-      <div className="cm-rule-meta">
-        <div className="cm-rule-tag" style={{ background: "#f3f4f6" }}>
-          <span className="cm-tag-label">Type</span>
-          <span className="cm-tag-val">{rule.commission_kind === "percentage" ? "%" : "₹ Fixed"}</span>
-        </div>
-        <ArrowRight size={13} className="cm-rule-arrow" />
-        <div className="cm-rule-tag" style={{ background: cat.bg }}>
-          <span className="cm-tag-label">Rate</span>
-          <span className="cm-tag-val" style={{ color: cat.color }}>
-            {rule.commission_kind === "percentage" ? `${Number(rule.default_rate)}%` : fmt(Number(rule.default_rate))}
-          </span>
-        </div>
-      </div>
-      <div className="cm-rule-actions">
-        <label className="cm-toggle" title={rule.is_enabled ? "Disable" : "Enable"}>
-          <input type="checkbox" checked={rule.is_enabled} disabled={toggling}
-            onChange={() => onToggle(rule)} />
-          <span className="cm-slider" />
-        </label>
-        <button className="cm-icon-btn cm-icon-btn--edit"  onClick={() => onEdit(rule)}   title="Edit"><Pencil size={13} /></button>
-        <button className="cm-icon-btn cm-icon-btn--delete" onClick={() => onDelete(rule)} title="Delete"><Trash size={13} /></button>
-      </div>
-    </div>
-  );
-}
-
-
 // ─── Commission History Drawer ────────────────────────────────────────────────
 
 function CommissionHistoryDrawer({
@@ -1004,14 +481,27 @@ function CommissionHistoryDrawer({
 }): JSX.Element {
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [retryTick, setRetryTick] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
-    api.get(`${STAFF.BY_ID(staffId)}/commissions/history?month=${summaryMonth}`)
-      .then((r) => setHistory(r.data?.data ?? []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [staffId, summaryMonth]);
+    setLoadError(false);
+
+    const fetchOnce = () => api.get(`${STAFF.BY_ID(staffId)}/commissions/history?month=${summaryMonth}`);
+
+    // One silent auto-retry — the DB connection is prone to occasional
+    // transient timeouts, and a single failed attempt would otherwise leave
+    // this panel stuck empty even though the data is actually there.
+    fetchOnce()
+      .catch(() => fetchOnce())
+      .then((r) => { if (!cancelled) setHistory(r.data?.data ?? []); })
+      .catch(() => { if (!cancelled) setLoadError(true); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [staffId, summaryMonth, retryTick]);
 
   const totalEarned  = history.reduce((s, h) => s + parseFloat(h.commission_amount), 0);
   const totalRevenue = history.reduce((s, h) => s + parseFloat(h.revenue_amount), 0);
@@ -1038,7 +528,7 @@ function CommissionHistoryDrawer({
           <div className="cm-history-sum-div" />
           <div className="cm-history-sum-item">
             <span>Total Earned</span>
-            <strong style={{ color: "#6c3ce1" }}>{fmt(totalEarned)}</strong>
+            <strong className="cm-history-sum-accent">{fmt(totalEarned)}</strong>
           </div>
           <div className="cm-history-sum-div" />
           <div className="cm-history-sum-item">
@@ -1050,7 +540,7 @@ function CommissionHistoryDrawer({
         {/* History list */}
         <div className="cm-history-body">
           {loading ? (
-            <div className="cm-loading" style={{ padding: "20px" }}>
+            <div className="cm-loading cm-loading--history">
               {[...Array(4)].map((_, i) => (
                 <div key={i} className="cm-skeleton-row">
                   <div className="cm-skel cm-skel--icon" />
@@ -1060,6 +550,14 @@ function CommissionHistoryDrawer({
                   </div>
                 </div>
               ))}
+            </div>
+          ) : loadError ? (
+            <div className="cm-ov-empty">
+              <ClockHistory size={28} />
+              <p>Couldn't load commission history — connection issue.</p>
+              <button className="cm-btn cm-btn--ghost" onClick={() => setRetryTick((t) => t + 1)}>
+                Retry
+              </button>
             </div>
           ) : history.length === 0 ? (
             <div className="cm-ov-empty">
@@ -1073,7 +571,7 @@ function CommissionHistoryDrawer({
               const date    = new Date(h.earned_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
               return (
                 <div key={h.id} className="cm-history-row">
-                  <div className="cm-history-cat-icon" style={{ background: cat.bg, color: cat.color }}>
+                  <div className="cm-history-cat-icon" style={{ "--icon-bg": cat.bg, "--icon-color": cat.color } as React.CSSProperties}>
                     {cat.icon}
                   </div>
                   <div className="cm-history-info">
@@ -1085,7 +583,7 @@ function CommissionHistoryDrawer({
                     <div className="cm-history-earned">
                       {h.commission_kind === "percentage"
                         ? `${h.commission_rate}%`
-                        : `₹${h.commission_rate} per ₹${h.commission_rate}`}
+                        : `Fixed ₹${h.commission_rate}`}
                       {" → "}
                       <strong>{fmt(parseFloat(h.commission_amount))}</strong>
                     </div>
@@ -1110,30 +608,31 @@ export default function CommissionsPage() {
   const salonId      = currentSalon?.id;
 
   const [activeTab,   setActiveTab]   = useState<TabKey>("overview");
-  const [catFilter,   setCatFilter]   = useState("all");
   const [staffList,   setStaffList]   = useState<StaffMember[]>([]);
-  const [rules,       setRules]       = useState<FlatRule[]>([]);
   const [loading,          setLoading]          = useState(true);
   const [commsFetching,    setCommsFetching]    = useState(false);
   const [earnSummary,      setEarnSummary]      = useState<EarningSummary | null>(null);
   const [earnedByStaff,    setEarnedByStaff]    = useState<EarnedByStaff[]>([]);
   const [summaryMonth,     setSummaryMonth]     = useState(() => new Date().toISOString().slice(0, 7)); // YYYY-MM
   const [historyStaffId,   setHistoryStaffId]   = useState<string | null>(null);
-  const [showModal,   setShowModal]   = useState(false);
-  const [editingRule, setEditingRule] = useState<FlatRule | null>(null);
-  const [togglingId,  setTogglingId]  = useState<string | null>(null);
   const [settlingId,  setSettlingId]  = useState<string | null>(null);
+
+  // ── New commission rules engine ─────────────────────────────────────────────
+  const [commissionRules, setCommissionRules] = useState<CommissionRule[]>([]);
+  const [rulesLoading,    setRulesLoading]    = useState(true);
+  const [sourceFilter,    setSourceFilter]    = useState<CommissionRuleSource | "all">("all");
+  const [showWizard,      setShowWizard]      = useState(false);
+  const [editingGroup,    setEditingGroup]    = useState<RuleGroup | null>(null);
+  const [detailGroup,     setDetailGroup]     = useState<RuleGroup | null>(null);
+  const [togglingRuleId,  setTogglingRuleId]  = useState<string | null>(null);
+  const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
 
   const fetchAll = useCallback(async () => {
     if (!salonId) return;
     setLoading(true);
 
     try {
-      // Fire all 3 requests in parallel
-      const [staffRes, commissionsRes] = await Promise.all([
-        api.get(`${STAFF.BASE}?limit=200&salon_id=${salonId}`),
-        api.get(`${STAFF.BASE}/commissions/all?salon_id=${salonId}`),
-      ]);
+      const staffRes = await api.get(`${STAFF.BASE}?limit=200&salon_id=${salonId}`);
 
       // Fetch earning summary + per-staff breakdown (non-blocking)
       Promise.all([
@@ -1147,29 +646,6 @@ export default function CommissionsPage() {
       const allStaff: StaffMember[] = staffRes.data?.data?.items ?? [];
       const staff = allStaff.filter((s) => s.is_active !== false);
       setStaffList(staff);
-
-      // Build staff lookup map for O(1) join — uses the unfiltered list so
-      // existing commission rules for now-deactivated staff still resolve names
-      const staffMap = new Map(allStaff.map((s) => [s.id, s]));
-
-      const rawCommissions = commissionsRes.data?.data ?? [];
-      const flat: FlatRule[] = rawCommissions
-        .map((c: any) => {
-          // API returns joined staff fields — map them back
-          const staffMember: StaffMember = staffMap.get(c.staff_id) ?? {
-            id:             c.staff_id,
-            first_name:     c.staff_first_name,
-            last_name:      c.staff_last_name,
-            email:          c.staff_email,
-            calendar_color: c.staff_calendar_color,
-            designation:    c.staff_designation,
-          };
-          return { ...c, staff: staffMember } as FlatRule;
-        })
-        // Only show rules that have a meaningful rate configured
-        .filter((r: FlatRule) => Number(r.default_rate) > 0);
-
-      setRules(flat);
     } catch (err: any) {
       toast.error(err?.message ?? "Failed to load commissions");
     } finally {
@@ -1179,6 +655,91 @@ export default function CommissionsPage() {
   }, [salonId]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  // ── New commission rules engine ─────────────────────────────────────────────
+  const fetchCommissionRules = useCallback(async () => {
+    setRulesLoading(true);
+    try {
+      const res = await api.get(COMMISSION_RULES.BASE);
+      setCommissionRules(res.data?.data?.items ?? []);
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to load commission rules");
+    } finally {
+      setRulesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchCommissionRules(); }, [fetchCommissionRules]);
+
+  const handleSaveRule = async (data: CommissionRuleFormData) => {
+    try {
+      if (editingGroup) {
+        // Editing a group = delete the old rows and fan out fresh ones with the new
+        // values. Simpler and more correct than a bulk-PATCH endpoint: staff added/
+        // removed from the selection are handled automatically by the recreate.
+        // A row that's already gone (404 — e.g. a stale re-click) is treated as
+        // success, not failure: the end goal ("this old row no longer exists") is
+        // already true. Only a genuine error (500, network, etc.) should abort.
+        await Promise.all(editingGroup.rules.map((r) =>
+          api.delete(COMMISSION_RULES.BY_ID(r.id)).catch((err: any) => {
+            if (err?.response?.status !== 404) throw err;
+          })
+        ));
+        await api.post(COMMISSION_RULES.BASE, data);
+        toast.success("Commission rule updated");
+      } else {
+        const res = await api.post(COMMISSION_RULES.BASE, data);
+        toast.success(res.data?.message ?? "Commission rule created");
+      }
+      setShowWizard(false);
+      setEditingGroup(null);
+      fetchCommissionRules();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? "Failed to save commission rule");
+    }
+  };
+
+  const handleToggleRuleStatus = async (group: RuleGroup) => {
+    setTogglingRuleId(group.key);
+    try {
+      const nextStatus = group.primary.status === "active" ? "draft" : "active";
+      await Promise.all(group.rules.map((r) => api.patch(COMMISSION_RULES.STATUS(r.id), { status: nextStatus })));
+      const idsInGroup = new Set(group.rules.map((r) => r.id));
+      setCommissionRules((prev) => prev.map((r) => (idsInGroup.has(r.id) ? { ...r, status: nextStatus } : r)));
+      setDetailGroup((prev) => (prev?.key === group.key ? null : prev));
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to update rule status");
+    } finally {
+      setTogglingRuleId(null);
+    }
+  };
+
+  const handleDeleteRule = async (group: RuleGroup) => {
+    try {
+      await Promise.all(group.rules.map((r) => api.delete(COMMISSION_RULES.BY_ID(r.id))));
+      const idsInGroup = new Set(group.rules.map((r) => r.id));
+      setCommissionRules((prev) => prev.filter((r) => !idsInGroup.has(r.id)));
+      setDetailGroup((prev) => (prev?.key === group.key ? null : prev));
+      setShowDeleteSuccess(true);
+    } catch (err: any) {
+      toast.error(err?.message ?? "Failed to delete commission rule");
+    }
+  };
+
+  const staffOptions = staffList.map((s) => ({ id: s.id, name: `${s.first_name} ${s.last_name ?? ""}`.trim() }));
+
+  const staffNamesForGroup = (group: RuleGroup): string[] =>
+    group.staffIds.map((id) => {
+      const staff = staffList.find((s) => s.id === id);
+      return staff ? `${staff.first_name} ${staff.last_name ?? ""}`.trim() : "Staff member";
+    });
+
+  const ruleGroups = groupCommissionRules(commissionRules);
+  const filteredGroups = ruleGroups.filter((g) => sourceFilter === "all" || g.primary.source === sourceFilter);
+  const sourceCounts = (Object.keys(SOURCE_META) as CommissionRuleSource[]).reduce((acc, key) => {
+    acc[key] = ruleGroups.filter((g) => g.primary.source === key).length;
+    return acc;
+  }, {} as Record<CommissionRuleSource, number>);
 
   // Refetch summary when month picker changes
   useEffect(() => {
@@ -1191,46 +752,6 @@ export default function CommissionsPage() {
       setEarnedByStaff(earnedRes.data?.data ?? []);
     }).catch(() => {});
   }, [summaryMonth, salonId]);
-
-  const handleToggle = async (rule: FlatRule) => {
-    setTogglingId(rule.id);
-    try {
-      await api.put(STAFF.COMMISSIONS(rule.staff_id), {
-        category:                     rule.category,
-        is_enabled:                   !rule.is_enabled,
-        commission_kind:              rule.commission_kind,
-        default_rate:                 Number(rule.default_rate),
-        revenue_target:               Number((rule as any).revenue_target ?? 0),
-        use_default_calculation:      Boolean(rule.use_default_calculation),
-        pass_cancellation_fee_late:   Boolean(rule.pass_cancellation_fee_late),
-        pass_cancellation_fee_noshow: Boolean(rule.pass_cancellation_fee_noshow),
-      });
-      setRules((prev) => prev.map((r) => r.id === rule.id ? { ...r, is_enabled: !r.is_enabled } : r));
-    } catch (err: any) {
-      toast.error(err?.message ?? "Failed to update");
-    } finally {
-      setTogglingId(null);
-    }
-  };
-
-  const handleDelete = async (rule: FlatRule) => {
-    if (!window.confirm(`Remove ${getCatMeta(rule.category).label} commission for ${rule.staff.first_name}?`)) return;
-    try {
-      await api.put(STAFF.COMMISSIONS(rule.staff_id), {
-        category:                     rule.category,
-        is_enabled:                   false,
-        commission_kind:              rule.commission_kind,
-        default_rate:                 0,
-        use_default_calculation:      true,
-        pass_cancellation_fee_late:   false,
-        pass_cancellation_fee_noshow: false,
-      }); // default_rate: 0 is already a number, no cast needed
-      setRules((prev) => prev.filter((r) => r.id !== rule.id));
-      toast.success("Rule removed");
-    } catch (err: any) {
-      toast.error(err?.message ?? "Failed to remove");
-    }
-  };
 
   const handleSettle = async (staffId: string, name: string, amount: number) => {
     setSettlingId(staffId);
@@ -1250,20 +771,18 @@ export default function CommissionsPage() {
     }
   };
 
-  const filtered  = rules.filter((r) => catFilter === "all" || r.category === catFilter);
-  const catCounts = CATEGORIES.reduce((acc, c) => {
-    acc[c.key] = rules.filter((r) => r.category === c.key && Number(r.default_rate) > 0).length;
-    return acc;
-  }, {} as Record<string, number>);
-
   return (
     <div className="commissions-page">
+      {showDeleteSuccess && (
+        <SuccessOverlay message="Commission rule deleted successfully" onDone={() => setShowDeleteSuccess(false)} />
+      )}
+
       <div className="cm-header">
         <div>
           <h2 className="cm-title">Commission Management</h2>
           <p className="cm-subtitle">Create and manage commission rules for your team</p>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div className="cm-header-actions">
           <button className="cm-export-btn" onClick={async () => {
             try {
               const res = await api.get(`${STAFF.BASE}/commissions/export?salon_id=${salonId}&month=${summaryMonth}`, { responseType: "blob" });
@@ -1277,7 +796,7 @@ export default function CommissionsPage() {
           }}>
             <Download size={14} /> Export CSV
           </button>
-          <button className="cm-add-btn" onClick={() => { setEditingRule(null); setShowModal(true); }}>
+          <button className="cm-add-btn" onClick={() => { setEditingGroup(null); setShowWizard(true); }}>
             <Plus size={15} /> Add Commission Rule
           </button>
         </div>
@@ -1308,9 +827,9 @@ export default function CommissionsPage() {
         </div>
       ) : activeTab === "overview" ? (
         <OverviewTab
-          rules={rules}
+          commissionRules={commissionRules}
           staffList={staffList}
-          onAddRule={() => { setEditingRule(null); setShowModal(true); }}
+          onAddRule={() => { setEditingGroup(null); setShowWizard(true); }}
           commsFetching={commsFetching}
           earnSummary={earnSummary}
           earnedByStaff={earnedByStaff}
@@ -1325,37 +844,52 @@ export default function CommissionsPage() {
           <div className="cm-main">
             <div className="cm-section-header">
               <h3 className="cm-section-title">Commission Rules</h3>
-              <p className="cm-section-sub">Set rules for services, products and other earnings</p>
+              <p className="cm-section-sub">Set rules for services, products, memberships and packages</p>
             </div>
             <div className="cm-cat-pills">
-              <button className={`cm-pill ${catFilter === "all" ? "cm-pill--active" : ""}`}
-                onClick={() => setCatFilter("all")}>
-                All Rules <span className="cm-pill-count">({rules.length})</span>
+              <button className={`cm-pill ${sourceFilter === "all" ? "cm-pill--active" : ""}`}
+                onClick={() => setSourceFilter("all")}>
+                All Rules <span className="cm-pill-count">({ruleGroups.length})</span>
               </button>
-              {CATEGORIES.map(({ key, label }) => (
+              {(Object.keys(SOURCE_META) as CommissionRuleSource[]).map((key) => (
                 <button key={key}
-                  className={`cm-pill ${catFilter === key ? "cm-pill--active" : ""}`}
-                  onClick={() => setCatFilter(key)}>
-                  {label} <span className="cm-pill-count">({catCounts[key] ?? 0})</span>
+                  className={`cm-pill ${sourceFilter === key ? "cm-pill--active" : ""}`}
+                  onClick={() => setSourceFilter(key)}>
+                  {SOURCE_META[key].label} <span className="cm-pill-count">({sourceCounts[key] ?? 0})</span>
                 </button>
               ))}
             </div>
-            {filtered.length === 0 ? (
+            {rulesLoading ? (
+              <div className="cm-loading">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="cm-skeleton-row">
+                    <div className="cm-skel cm-skel--icon" />
+                    <div className="cm-skel-info">
+                      <div className="cm-skel cm-skel--title" />
+                      <div className="cm-skel cm-skel--sub" />
+                    </div>
+                    <div className="cm-skel cm-skel--tag" />
+                  </div>
+                ))}
+              </div>
+            ) : filteredGroups.length === 0 ? (
               <div className="cm-empty">
                 <Gear size={28} />
                 <p>No commission rules found</p>
-                <button className="cm-add-btn" onClick={() => { setEditingRule(null); setShowModal(true); }}>
+                <button className="cm-add-btn" onClick={() => { setEditingGroup(null); setShowWizard(true); }}>
                   <Plus size={14} /> Add your first rule
                 </button>
               </div>
             ) : (
-              <div className="cm-rules-list">
-                {filtered.map((rule) => (
-                  <RuleRow key={rule.id} rule={rule}
-                    onToggle={handleToggle}
-                    onEdit={(r) => { setEditingRule(r); setShowModal(true); }}
-                    onDelete={handleDelete}
-                    toggling={togglingId === rule.id} />
+              <div className="rc-grid">
+                {filteredGroups.map((group) => (
+                  <RuleCard key={group.key} group={group}
+                    staffNames={staffNamesForGroup(group)}
+                    onOpenDetail={setDetailGroup}
+                    onEdit={(g) => { setEditingGroup(g); setShowWizard(true); }}
+                    onDelete={handleDeleteRule}
+                    onToggleStatus={handleToggleRuleStatus}
+                    toggling={togglingRuleId === group.key} />
                 ))}
               </div>
             )}
@@ -1364,13 +898,13 @@ export default function CommissionsPage() {
             <div className="cm-sidebar-block">
               <div className="cm-sidebar-title"><CheckCircleFill size={13} /> How it works?</div>
               {[
-                { icon: <Tools size={14} />,           bg: "#ede9fe", ic: "#7c3aed", t: "Set Rules",      d: "Create slab-based rules for each category." },
+                { icon: <Tools size={14} />,           bg: "#ede9fe", ic: "#7c3aed", t: "Set Rules",      d: "Create commission rules per staff member." },
                 { icon: <CurrencyRupee size={14} />,    bg: "#dcfce7", ic: "#16a34a", t: "Earn",           d: "Staff earns commission when they hit targets." },
                 { icon: <Calculator size={14} />,       bg: "#dbeafe", ic: "#2563eb", t: "Auto Calculate", d: "Commission is calculated automatically." },
                 { icon: <CreditCard2Front size={14} />, bg: "#fef3c7", ic: "#d97706", t: "Payout",         d: "Pay commissions with one click." },
               ].map((s, i) => (
                 <div key={i} className="cm-step">
-                  <div className="cm-step-icon" style={{ background: s.bg, color: s.ic }}>{s.icon}</div>
+                  <div className="cm-step-icon" style={{ "--icon-bg": s.bg, "--icon-color": s.ic } as React.CSSProperties}>{s.icon}</div>
                   <div>
                     <div className="cm-step-title">{s.t}</div>
                     <div className="cm-step-desc">{s.d}</div>
@@ -1394,13 +928,26 @@ export default function CommissionsPage() {
         />
       )}
 
-      {showModal && (
-        <AddRuleModal
-          staffList={staffList}
-          onClose={() => { setShowModal(false); setEditingRule(null); }}
-          onSaved={fetchAll}
-          editing={editingRule}
-          salonId={salonId ?? ""}
+      {detailGroup && (
+        <RuleDetailModal
+          group={detailGroup}
+          staffNames={staffNamesForGroup(detailGroup)}
+          onClose={() => setDetailGroup(null)}
+          onEdit={(g) => { setDetailGroup(null); setEditingGroup(g); setShowWizard(true); }}
+          onDelete={handleDeleteRule}
+          onToggleStatus={handleToggleRuleStatus}
+          toggling={togglingRuleId === detailGroup.key}
+        />
+      )}
+
+      {showWizard && (
+        <RuleWizard
+          staffOptions={staffOptions}
+          staffLoading={loading}
+          editing={editingGroup?.primary ?? null}
+          initialStaffIds={editingGroup?.staffIds}
+          onClose={() => { setShowWizard(false); setEditingGroup(null); }}
+          onSave={handleSaveRule}
         />
       )}
     </div>

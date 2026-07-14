@@ -1,6 +1,5 @@
 import React from "react";
 import type { PayRunSummary } from "../../../../types/payRun.types";
-import Card from "../../../../components/ui/Card";
 
 interface PayRunSummaryCardsProps {
   summary: PayRunSummary;

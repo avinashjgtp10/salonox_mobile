@@ -22,6 +22,9 @@ const CommissionsPage = lazy(() => import("../features/staff/pages/CommissionsPa
 const AttendancePage  = lazy(() => import("../features/staff/pages/AttendancePage"));
 const PayrollPage     = lazy(() => import("../features/staff/pages/PayrollPage"));
 
+const StaffHistoryListPage   = lazy(() => import("../features/staff/pages/StaffHistoryListPage"));
+const StaffHistoryDetailPage = lazy(() => import("../features/staff/pages/StaffHistoryDetailPage"));
+
 export const TeamRoutes = () => (
   <Suspense fallback={<PageLoader />}>
     <Routes>
@@ -39,6 +42,8 @@ export const TeamRoutes = () => (
       <Route path="commissions" element={<CommissionsPage />} />
       <Route path="attendance"  element={<AttendancePage />} />
       <Route path="payroll"     element={<PayrollPage />} />
+      <Route path="history"           element={<StaffHistoryListPage />} />
+      <Route path="history/:staffId"  element={<StaffHistoryDetailPage />} />
 
       {/* manage_team required to add/edit/import staff */}
       <Route element={<PermissionGuard permKey="manage_team" />}>

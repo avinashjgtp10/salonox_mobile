@@ -15,7 +15,6 @@ const SettingsManagementPage = lazy(() => import("../features/settings/pages/Set
 const RewardsSettingsPage    = lazy(() => import("../features/settings/pages/RewardsSettingsPage"));
 const ReferralSettingsPage   = lazy(() => import("../features/settings/pages/ReferralSettingsPage"));
 const CouponsSettingsPage    = lazy(() => import("../features/settings/pages/CouponsSettingsPage"));
-const HalfDayRulePage        = lazy(() => import("../features/settings/pages/HalfDayRulePage"));
 
 export const SettingsRoutes = () => (
   <Suspense fallback={<PageLoader />}>
@@ -35,7 +34,6 @@ export const SettingsRoutes = () => (
         <Route path="reward-points" element={<RewardsSettingsPage />} />
         <Route path="referral"      element={<ReferralSettingsPage />} />
         <Route path="coupons"       element={<CouponsSettingsPage />} />
-        <Route path="half-day-rule" element={<HalfDayRulePage />} />
         {/* Catch-all → profile */}
         <Route path="*"             element={<Navigate to="profile" replace />} />
       </Route>

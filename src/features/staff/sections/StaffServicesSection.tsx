@@ -82,10 +82,7 @@ const StaffServicesSection: React.FC<StaffServicesSectionProps> = ({
       <div className="service-list">
         {/* ALL SERVICES HEADER */}
         {availableServices.length > 0 && (
-          <div
-            className="service-item pb-3"
-            style={{ borderBottom: "1px solid #f3f4f6" }}
-          >
+          <div className="service-item pb-3">
             <div
               className={`custom-checkbox ${isAllSelected ? "checked" : ""}`}
               onClick={toggleAll}
@@ -112,15 +109,14 @@ const StaffServicesSection: React.FC<StaffServicesSectionProps> = ({
           return (
             <div
               key={service.id}
-              className="service-item"
+              className="service-item service-item--clickable"
               onClick={() => toggle(service.id)}
-              style={{ cursor: "pointer" }}
             >
               <div className={`custom-checkbox ${isSelected ? "checked" : ""}`}>
                 {isSelected && <i className="bi bi-check" />}
               </div>
               <div className="service-content">
-                <div className="service-name" style={{ fontWeight: 400 }}>
+                <div className="service-name service-name--regular">
                   {service.name}
                 </div>
                 <div className="service-duration">{service.duration_minutes} min</div>

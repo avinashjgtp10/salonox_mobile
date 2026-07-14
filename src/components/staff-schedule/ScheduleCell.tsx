@@ -49,7 +49,11 @@ const ScheduleCell: React.FC<ScheduleCellProps> = ({
           onClick={() => setOpen((p) => !p)}
           aria-label="Add shift"
         >
-          <span className="sched-cell__add-icon">+</span>
+          <span className="sched-cell__add-icon">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </span>
         </button>
         {open && (
           <CellDropdown
@@ -75,7 +79,11 @@ const ScheduleCell: React.FC<ScheduleCellProps> = ({
           onClick={() => setOpen((p) => !p)}
           aria-label="Manage day off"
         >
-          <span className="sched-cell__add-icon" style={{ borderColor: "#a16207", color: "#a16207" }}>+</span>
+          <span className="sched-cell__add-icon" style={{ borderColor: "#a16207", color: "#a16207" }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </span>
         </button>
         {open && (
           <CellDropdown

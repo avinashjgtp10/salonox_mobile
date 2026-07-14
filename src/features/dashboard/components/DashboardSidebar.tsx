@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import {
   House,
   Lightning,
@@ -31,6 +31,8 @@ interface Props {
 
 export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
   const { can } = usePermissions();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   function navClass(isActive: boolean) {
     return isActive ? "nav-btn route-active" : "nav-btn";
@@ -142,7 +144,17 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         <button
           type="button"
           className={menuClass("team")}
-          onClick={() => onMenuChange(openMenu === "team" ? null : "team")}
+          onClick={() => {
+            const opening = openMenu !== "team";
+            onMenuChange(opening ? "team" : null);
+            // Only jump to the default Team page when entering the section
+            // from elsewhere (e.g. Calendar) — re-toggling the flyout while
+            // already on a Team page (Attendance, Commissions, …) shouldn't
+            // reset navigation back to Team members.
+            if (opening && !location.pathname.startsWith("/dashboard/team")) {
+              navigate("/dashboard/team/members");
+            }
+          }}
         >
           <People size={26} />
           <span className="nav-label">Team</span>
