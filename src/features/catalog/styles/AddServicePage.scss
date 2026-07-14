@@ -199,7 +199,8 @@
 
 // ── Add Service Page ──────────────────────────────────────────────────────────
 .add-service-page {
-  min-height: 100vh;
+  height: 100%;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   font-family: 'Inter', -apple-system, sans-serif;
@@ -299,6 +300,7 @@
   // ── Main layout ──────────────────────────────────────────────────────────────
   &__layout {
     flex: 1;
+    min-height: 0;
     display: flex;
     justify-content: center;
     padding: 36px 32px 80px;
