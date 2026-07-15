@@ -159,21 +159,8 @@ export function printReceipt(
   const apptDate = (booking as any).billDate || (booking as any).date || "—";
   const apptTime = `${formatTime12(booking.startTime)} – ${formatTime12(booking.endTime)}`;
 
-  // Service Started/Ended — optional, only shown when staff actually logged
-  // them via the calendar tooltip (not required for every booking).
-  const isoTime12 = (iso?: string | null) => {
-    if (!iso) return "";
-    const d = new Date(iso);
-    return isNaN(d.getTime()) ? "" : d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
-  };
-  const serviceStarted = isoTime12((booking as any).serviceStartedAt);
-  const serviceEnded   = isoTime12((booking as any).serviceEndedAt);
-  const serviceTiming = serviceStarted
-    ? (serviceEnded ? `${serviceStarted} – ${serviceEnded}` : `${serviceStarted} (in progress)`)
-    : "";
-
   const isCancelled = ((booking as any).status || "").toLowerCase() === "cancelled";
-  const rawPs = isCancelled ? "Cancelled" : (booking.paymentStatus ?? "Unpaid");
+  const rawPs = isCancelled ? "Cancelled" : normalizePaymentStatus(booking.status);
   const PAY_COLOR: Record<string, string> = { Paid: "#15803d", Partial: "#7c3aed", Unpaid: "#b45309", Cancelled: "#dc2626" };
   const PAY_BG:    Record<string, string> = { Paid: "#dcfce7", Partial: "#ede9fe", Unpaid: "#fef3c7", Cancelled: "#fee2e2" };
   const payColor = PAY_COLOR[rawPs] ?? "#b45309";
@@ -181,7 +168,7 @@ export function printReceipt(
   const _printGt = (booking as any).grandTotal;
   const isPackagePaid = (booking as any).paymentMode === "Package" ||
     (_printGt !== null && _printGt !== undefined && Number(_printGt) === 0) ||
-    (booking.paymentStatus === "Paid" && Number(booking.payingNow) === 0 && Number(booking.dueAmount) === 0);
+    (booking.status === "paid" && Number(booking.payingNow) === 0 && Number(booking.dueAmount) === 0);
 
   const allStaffIds = Array.from(new Set(
     [booking.staffId, ...(booking.services || []).map((s: any) => s.staffId)].filter(Boolean)
@@ -539,7 +526,6 @@ export function printReceipt(
       <div class="inv-info-grid">
         ${infoCell("Date",           apptDate)}
         ${infoCell("Time",           apptTime)}
-        ${serviceTiming ? infoCell("Service Timing", serviceTiming) : ""}
         ${infoCell("Staff",          allStaffDisplay)}
         ${infoCell("Payment Method", (booking as any).paymentMode || "—")}
         ${infoCell("Booking Status", (booking as any).status       || "Confirmed")}

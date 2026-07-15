@@ -160,7 +160,7 @@ export function usePayment() {
       const savedPayment = result.payload?.data;
       const finalDue     = savedPayment?.due_amount    != null ? Number(savedPayment.due_amount)    : newDue;
       const finalPaid    = savedPayment?.paid_amount    != null ? Number(savedPayment.paid_amount)    : currentCharge;
-      const finalStatus: "Paid" | "Partial" = finalDue > 0 ? "Partial" : "Paid";
+      const finalStatus: "paid" | "partial" = finalDue > 0 ? "partial" : "paid";
       // Server-computed, not a local guess — this is the whole point of the
       // referral discount (payments.service.ts decides eligibility from the
       // client's real referred_by_client_id/referral_reward_status, which the
@@ -178,7 +178,7 @@ export function usePayment() {
 
       dispatch(patchPaymentStatus({
         id: String(appointmentId),
-        paymentStatus: finalStatus,
+        status: finalStatus,
         payingNow: alreadyPaidAmount + finalPaid,
         dueAmount: finalDue,
         grandTotal: effectiveTotal,
@@ -220,7 +220,7 @@ export function usePayment() {
           .filter((b) =>
             String(b.clientId) === String(clientId) &&
             String(b.id) !== String(appointmentId) &&
-            (b.paymentStatus === "Partial" || b.paymentStatus === "Unpaid") &&
+            b.status !== "paid" &&
             Number(b.dueAmount) > 0 &&
             dueIdSet.has(String(b.id))
           )

@@ -88,7 +88,7 @@ const SchedulerContent: React.FC = () => {
   });
 
   const handleEditBooking = useSingleClick(async (booking: Booking) => {
-    if (booking.paymentStatus === "Paid") {
+    if (booking.status === "paid") {
       setViewingBooking(booking);
       return;
     }
@@ -126,7 +126,7 @@ const SchedulerContent: React.FC = () => {
             ...booking,
             ...enriched,
             services: mergedServices,
-            paymentStatus: booking.paymentStatus,
+            status: booking.status,
             payingNow: booking.payingNow != null ? booking.payingNow : enriched.payingNow,
             dueAmount: booking.dueAmount != null ? booking.dueAmount : enriched.dueAmount,
             grandTotal: (booking.grandTotal || 0) > 0 ? booking.grandTotal : enriched.grandTotal,
@@ -162,7 +162,7 @@ const SchedulerContent: React.FC = () => {
                 return { ...svc, staffId: resolvedStaffId, staff: resolvedStaff };
               })
             : booking.services;
-          setEditingBooking({ ...booking, ...enriched, services: mergedServices, paymentStatus: booking.paymentStatus });
+          setEditingBooking({ ...booking, ...enriched, services: mergedServices, status: booking.status });
           setShowNewAppt(true);
           return;
         }
@@ -236,8 +236,8 @@ const SchedulerContent: React.FC = () => {
 
       const pay = payCache[String(fb.id)];
       if (pay) {
-        merged.paymentStatus = pay.paymentStatus;
-        merged.dueAmount = pay.paymentStatus === "Paid" ? 0 : pay.dueAmount;
+        merged.status = pay.status;
+        merged.dueAmount = pay.status === "paid" ? 0 : pay.dueAmount;
         merged.payingNow = pay.payingNow;
         if (pay.grandTotal !== undefined) (merged as any).grandTotal = pay.grandTotal;
         if (local) (merged as any).paymentMode = (local as any).paymentMode || (fb as any).paymentMode;

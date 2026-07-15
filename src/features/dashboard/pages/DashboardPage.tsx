@@ -265,7 +265,6 @@ const StaffListSkeleton = memo(function StaffListSkeleton() {
 const StatusBadge = memo(function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
     completed:     { label: "Completed",   cls: "db-badge-success" },
-    "in-progress": { label: "In Progress", cls: "db-badge-info"    },
     upcoming:      { label: "Upcoming",    cls: "db-badge-warning" },
     cancelled:     { label: "Cancelled",   cls: "db-badge-danger"  },
     "no-show":     { label: "No Show",     cls: "db-badge-noshow"  },
@@ -852,9 +851,6 @@ const AppointmentsTable = memo(function AppointmentsTable({
           <span className="db-appt-chip db-appt-chip-success">
             {normAppts.filter(a => a.status === "completed").length} Completed
           </span>
-          <span className="db-appt-chip db-appt-chip-info">
-            {normAppts.filter(a => a.status === "in-progress").length} In Progress
-          </span>
           <span className="db-appt-chip db-appt-chip-warning">
             {normAppts.filter(a => a.status === "upcoming").length} Upcoming
           </span>
@@ -1270,7 +1266,7 @@ export default function DashboardPage() {
       return [{
         label: "Today",
         completed: normAppts.filter(a => a.status === "completed").length,
-        pending:   normAppts.filter(a => a.status === "upcoming" || a.status === "in-progress").length,
+        pending:   normAppts.filter(a => a.status === "upcoming").length,
         cancelled: normAppts.filter(a => a.status === "cancelled").length,
         noShow:    normAppts.filter(a => a.status === "no-show").length,
       }];
@@ -1285,7 +1281,7 @@ export default function DashboardPage() {
       return {
         label,
         completed: slot.filter(a => a.status === "completed").length,
-        pending:   slot.filter(a => a.status === "upcoming" || a.status === "in-progress").length,
+        pending:   slot.filter(a => a.status === "upcoming").length,
         cancelled: slot.filter(a => a.status === "cancelled").length,
         noShow:    slot.filter(a => a.status === "no-show").length,
       };

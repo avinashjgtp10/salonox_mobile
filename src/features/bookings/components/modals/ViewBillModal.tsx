@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { currencySymbol } from "../../utils/currency";
-import type { Booking, BookingStatus } from "../../types/scheduler-types";
+import type { Booking } from "../../types/scheduler-types";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import { useAppSelector } from "../../../../hooks/useAppRedux";
 import { formatTime12 } from "../../utils/timeUtils";
@@ -11,6 +11,7 @@ import { useClientDetails } from "../../hooks/useClientDetails";
 import { useClientMembershipWallet } from "../../hooks/useClientMembershipWallet";
 import { useListClientPackagesQuery } from "../../../../services/api/endpoints/packages.endpoints";
 import { printReceipt } from "../../utils/receipt";
+import { normalizePaymentStatus } from "../../utils/bookingMapper";
 import { useFocusTrap } from "../../../../hooks/useFocusTrap";
 import "../../styles/ViewBillModal.scss";
 
@@ -26,9 +27,9 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
   const [tab, setTab] = useState<"Booking Details" | "Activity Log">("Booking Details");
   const [showDotMenu, setShowDotMenu] = useState(false);
 
-  const isPaid    = booking.paymentStatus === "Paid";
-  const isPartial = booking.paymentStatus === "Partial" || (booking.dueAmount ?? 0) > 0;
-  const bookingStatus: BookingStatus = isPaid && !isPartial ? "Completed" : "Due";
+  const isPaid    = booking.status === "paid";
+  const isPartial = booking.status === "partial" || (booking.dueAmount ?? 0) > 0;
+  const bookingStatus: "Completed" | "Due" = isPaid && !isPartial ? "Completed" : "Due";
   const dotMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -89,11 +90,11 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
   })();
 
   const staffName = allStaffNames.join(", ") || "—";
-  const payVariant = booking.paymentStatus === "Paid" ? ("success" as const) : booking.paymentStatus === "Partial" ? ("warning" as const) : ("danger" as const);
+  const payVariant = booking.status === "paid" ? ("success" as const) : booking.status === "partial" ? ("warning" as const) : ("danger" as const);
   const _vbmGt = (booking as any).grandTotal;
   const isPackagePaid = (booking as any).paymentMode === "Package" ||
     (_vbmGt !== null && _vbmGt !== undefined && Number(_vbmGt) === 0) ||
-    (booking.paymentStatus === "Paid" && Number(booking.payingNow) === 0 && Number(booking.dueAmount) === 0);
+    (booking.status === "paid" && Number(booking.payingNow) === 0 && Number(booking.dueAmount) === 0);
 
   return (
     <div className="vbm-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -116,7 +117,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
 
           <div className="vbm-section">
             <div className="vbm-section-label">Payment</div>
-            <Badge variant={payVariant}>{booking.paymentStatus}</Badge>
+            <Badge variant={payVariant}>{normalizePaymentStatus(booking.status)}</Badge>
             <div className="vbm-pay-mode mt-1">Mode: <strong>{booking.paymentMode || "—"}</strong></div>
           </div>
 
@@ -187,7 +188,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
             ))}
           </div>
 
-          {(booking.dueAmount || 0) > 0 && booking.paymentStatus === "Partial" && onCollectDue && (
+          {(booking.dueAmount || 0) > 0 && booking.status === "partial" && onCollectDue && (
             <div className="vbm-section">
               <button
                 onClick={() => onCollectDue(booking)}
@@ -443,7 +444,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                   { icon: "📅", label: "Appointment Created", detail: `${booking.billDate || booking.date} · ${formatTime12(booking.startTime)} – ${formatTime12(booking.endTime)}` },
                   { icon: "👤", label: "Client", detail: [booking.clientName, booking.clientPhone, (booking as any).clientEmail].filter(Boolean).join(" · ") },
                   { icon: "💼", label: "Staff", detail: staffName },
-                  { icon: "💳", label: "Payment Status", detail: booking.paymentStatus },
+                  { icon: "💳", label: "Payment Status", detail: normalizePaymentStatus(booking.status) },
                   { icon: "📋", label: "Booking Status", detail: bookingStatus },
                   { icon: "💰", label: "Grand Total", detail: `${currencySymbol}${(isPackagePaid ? 0 : (booking.grandTotal || 0)).toFixed(2)}` },
                   ...(booking.payingNow ? [{ icon: "✅", label: "Amount Paid", detail: `${currencySymbol}${(booking.payingNow || 0).toFixed(2)}` }] : []),

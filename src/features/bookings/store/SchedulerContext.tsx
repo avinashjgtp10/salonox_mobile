@@ -104,6 +104,10 @@ export function useSchedulerContext() {
         // be empty even for bookings that have them. Sending them as `[]` previously
         // wiped real data server-side on every drag. Omitting the keys keeps this a true
         // partial update — staff/time (and per-service time/staff) only.
+        // status is intentionally omitted — a reschedule never changes payment/
+        // lifecycle state itself. The one exception (a no-show booking getting
+        // dragged/resized) is handled server-side in appointments.service.ts's
+        // update(), which detects the reschedule and resets status to "booked".
         const apiPayload = {
           id: b.id,
           data: {
@@ -113,9 +117,6 @@ export function useSchedulerContext() {
             staff_id: toApiStaffId(b.staffId),
             notes: b.notes || undefined,
             staff_alert: (b as any).staffAlert || undefined,
-            status: b.status === "Cancelled" ? "cancelled"
-              : b.status === "Pending" ? "booked"
-                : "confirmed",
             title: (b as any).title,
             services: serviceItems,
           },

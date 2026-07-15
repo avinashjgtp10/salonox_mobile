@@ -2,6 +2,7 @@ import React from "react";
 import type { Booking } from "../../types/booking.types";
 import { formatTime12 } from "../../utils/timeUtils";
 import { currencySymbol } from "../../utils/currency";
+import { normalizePaymentStatus } from "../../utils/bookingMapper";
 
 interface BookingCardProps {
   booking: Booking;
@@ -14,10 +15,9 @@ interface BookingCardProps {
 const BookingCard: React.FC<BookingCardProps> = ({
   booking, onEdit, onPayment, onClose, style,
 }) => {
-  const ps = (booking.paymentStatus || "").toLowerCase();
   const bs = (booking.status || "").toLowerCase();
-  const isPaid = ps === "paid" || ps === "completed";
-  const isPartial = ps === "partial";
+  const isPaid = bs === "paid";
+  const isPartial = bs === "partial";
   const isCancelled = bs === "cancelled";
 
   const statusLabel = isCancelled ? "Cancelled" : isPaid ? "Completed" : isPartial ? "Due" : "Pending";
@@ -71,9 +71,9 @@ const BookingCard: React.FC<BookingCardProps> = ({
       {/* Payment + Bill */}
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginTop: 8 }}>
         <span>Payment: <span style={{
-          color: booking.paymentStatus === "Paid" ? "#22c55e" : booking.paymentStatus === "Partial" ? "#7c3aed" : "#ef4444",
+          color: isPaid ? "#22c55e" : isPartial ? "#7c3aed" : "#ef4444",
           fontWeight: 600,
-        }}>{booking.paymentStatus}</span></span>
+        }}>{normalizePaymentStatus(booking.status)}</span></span>
         <span>Bill: <strong>{currencySymbol}{(booking.grandTotal || 0).toFixed(2)}</strong></span>
       </div>
 
