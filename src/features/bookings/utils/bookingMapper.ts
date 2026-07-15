@@ -232,11 +232,20 @@ export function mapApiBooking(
   // For mixed appointments, recompute from mapped items (package services already have total=0)
   const hasPerServicePackage = services.some((s: any) => s.isPackageService)
     || packageItems.some((p: any) => p.isPackageService);
+  // Persisted snapshot from the payment that was actually made (see taxBreakdown
+  // below, hoisted here) — appointments.grand_total doesn't exist as a column,
+  // so the raw item-price sum below never included tax. Without this, Calendar
+  // showed a pre-tax total that permanently disagreed with what Reports/
+  // Dashboard show (payments.net_amount / sales.total_amount, both tax-inclusive).
+  const taxBreakdownVal = appt.taxBreakdown ?? appt.tax_breakdown ?? undefined;
+  const taxFromBreakdown = Array.isArray(taxBreakdownVal)
+    ? taxBreakdownVal.reduce((s: number, t: any) => s + (Number(t?.amount) || 0), 0)
+    : 0;
   const grandTotalVal = isPackagePaid ? 0
     : hasPerServicePackage
       ? Math.max(0, [...services, ...productItems, ...packageItems, ...membershipItems]
-          .reduce((sum, item: any) => sum + (Number(item.total) || 0), 0))
-      : (parseFloat(String(appt.grand_total ?? appt.grandTotal ?? appt.total_amount ?? 0)) || computedTotal);
+          .reduce((sum, item: any) => sum + (Number(item.total) || 0), 0)) + taxFromBreakdown
+      : (parseFloat(String(appt.grand_total ?? appt.grandTotal ?? appt.total_amount ?? 0)) || (computedTotal + taxFromBreakdown));
 
   // ── Subtotal / discount / taxable amount ──────────────────────────────────
   const subtotalVal = parseFloat(String(appt.subtotal ?? 0)) || computedTotal;
@@ -334,9 +343,8 @@ export function mapApiBooking(
   const staffEmail  = appt.staffEmail  || appt.staff_email  || "";
   const loyaltyPoints = appt.loyaltyPoints ?? appt.loyalty_points ?? appt.client?.loyalty_points ?? null;
   const rewardPointsValue = Number(appt.rewardPointsValue ?? appt.reward_points_value ?? 0) || 0;
-  // Persisted snapshot from the payment that was actually made — preferred over
-  // recomputing live from today's tax settings (which may have since changed).
-  const taxBreakdown = appt.taxBreakdown ?? appt.tax_breakdown ?? undefined;
+  // Hoisted above (as taxBreakdownVal) so grandTotalVal can include it too.
+  const taxBreakdown = taxBreakdownVal;
   const membershipName = (() => {
     if (appt.membershipName) return appt.membershipName;
     if (appt.membership_name) return appt.membership_name;

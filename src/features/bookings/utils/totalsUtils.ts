@@ -123,7 +123,7 @@ export function computeTotals(input: TotalsInput): TotalsResult {
   const {
     serviceRows, packageRows, productRows, membershipRows,
     discountType, discountValue, taxes,
-    exCharges, couponDiscount, eWalletUsed, membershipWalletUsed = 0,
+    exCharges, tip, couponDiscount, eWalletUsed, membershipWalletUsed = 0,
   } = input;
 
   const serviceBase    = rowsTotal(serviceRows);
@@ -168,7 +168,10 @@ export function computeTotals(input: TotalsInput): TotalsResult {
   });
 
   const taxBreakdown = mergeBreakdown(allBreakdown);
-  const rawGrandTotal = taxable + gstAmount + exCharges;
+  // Tip is collected from the client alongside the bill, but passed straight
+  // through to staff — it must be part of what's actually charged here, even
+  // though it's excluded from salon revenue further downstream (sales.total_amount).
+  const rawGrandTotal = taxable + gstAmount + exCharges + tip;
   const grandTotal = Math.round(rawGrandTotal);
   const roundOff = grandTotal - rawGrandTotal;
   const effectiveTotal = Math.max(0, grandTotal - eWalletUsed - membershipWalletUsed);

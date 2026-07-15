@@ -54,6 +54,9 @@ export interface CreateClientMembershipDTO {
   totalSessions: number;
   expiresAt?: string;
   pricePaid?: number;
+  paymentMethod: string;
+  /** Method -> amount breakdown, present only when paymentMethod is a split combo. */
+  splitDetails?: Record<string, number>;
 }
 
 export interface ConsumeSessionDTO {

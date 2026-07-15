@@ -7,7 +7,12 @@ import type { Membership } from "../../../services/api/endpoints/memberships.end
 import ClientSelectorWithAdd from "../../../components/packages/ClientSelectorWithAdd";
 import type { ClientSearchResult } from "../../clients/components/ClientSearchInput";
 import { purchaseClientMembershipThunk } from "../../../middleware/clientMembership/clientMembership.thunk";
+import { PaymentMethodPicker, type PaymentSplitEntry } from "../../../components/shared/PaymentMethodPicker";
+import { buildMethodLabel } from "../../bookings/utils/paymentUtils";
+import type { SingleMethod } from "../../bookings/types/payment.types";
 import "./SellMembershipModal.scss";
+
+const SINGLE_METHODS: SingleMethod[] = ["Cash", "Card", "UPI"];
 
 interface Props {
   membership: Membership | null;
@@ -22,27 +27,64 @@ const SellMembershipModal: React.FC<Props> = ({ membership, onClose }) => {
   const [sellSuccess, setSellSuccess] = useState(false);
   const [sellError,   setSellError]   = useState<string | null>(null);
 
+  const [paymentMode,    setPaymentMode]    = useState<"single" | "split">("single");
+  const [singleMethod,   setSingleMethod]   = useState<SingleMethod | null>(null);
+  const [splitEntries,   setSplitEntries]   = useState<PaymentSplitEntry[]>([]);
+  const [payMethodError, setPayMethodError] = useState(false);
+  const [partialAmtInput, setPartialAmtInput] = useState("");
+  const [printAfterPayment, setPrintAfterPayment] = useState(false);
+
   // Reset form state when membership changes
   useEffect(() => {
     setClient(null);
     setSellSuccess(false);
     setSellError(null);
     setSelling(false);
+    setPaymentMode("single");
+    setSingleMethod(null);
+    setSplitEntries([]);
+    setPayMethodError(false);
+    setPartialAmtInput("");
   }, [membership?.id]);
 
   if (!membership) return null;
 
+  const price = Number(membership.price) || 0;
+
   const handleSell = async () => {
     if (!client || selling) return;
+
+    if (paymentMode === "single" && !singleMethod) {
+      setPayMethodError(true);
+      return;
+    }
+    const splitTotal = splitEntries.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+    if (paymentMode === "split" && splitTotal < price) {
+      setPayMethodError(true);
+      return;
+    }
+
+    const methodsMap: Record<string, number> = paymentMode === "split"
+      ? splitEntries.reduce((acc, e) => {
+          const amt = parseFloat(e.amount) || 0;
+          if (amt > 0) acc[e.method] = (acc[e.method] || 0) + amt;
+          return acc;
+        }, {} as Record<string, number>)
+      : {};
+    const methodLabel = buildMethodLabel(paymentMode, singleMethod, methodsMap);
+
     setSelling(true);
     setSellError(null);
+    setPayMethodError(false);
     const result = await dispatch(purchaseClientMembershipThunk({
       clientId:       String(client.id),
       membershipId:   String(membership.id),
       membershipName: membership.name,
       colour:         membership.colour,
       totalSessions:  membership.sessionType === "unlimited" ? 0 : (membership.numberOfSessions ?? 0),
-      pricePaid:      Number(membership.price) || 0,
+      pricePaid:      price,
+      paymentMethod:  methodLabel,
+      splitDetails:   paymentMode === "split" ? methodsMap : undefined,
     }));
     setSelling(false);
     if (purchaseClientMembershipThunk.fulfilled.match(result)) {
@@ -67,6 +109,8 @@ const SellMembershipModal: React.FC<Props> = ({ membership, onClose }) => {
         if (!idx.includes(ref)) { idx.push(ref); localStorage.setItem(indexKey, JSON.stringify(idx)); }
       } catch { /* ignore */ }
       setClient(null);
+      setSingleMethod(null);
+      setSplitEntries([]);
     } else {
       setSellError((result.payload as string) ?? "Failed to sell membership");
     }
@@ -112,15 +156,34 @@ const SellMembershipModal: React.FC<Props> = ({ membership, onClose }) => {
           />
 
           {client && (
-            <button
-              className="smm__sell-btn"
-              onClick={handleSell}
-              disabled={selling}
-            >
-              {selling
-                ? "Selling…"
-                : `Sell ₹${Number(membership.price).toLocaleString("en-IN")} to ${client.first_name} ${client.last_name ?? ""}`.trim()}
-            </button>
+            <>
+              <PaymentMethodPicker
+                methods={SINGLE_METHODS}
+                paymentMode={paymentMode}
+                onSetPaymentMode={setPaymentMode}
+                singleMethod={singleMethod}
+                onSetSingleMethod={(m) => { setSingleMethod(m as SingleMethod); setPayMethodError(false); }}
+                splitEntries={splitEntries}
+                onSetSplitEntries={setSplitEntries}
+                payMethodError={payMethodError}
+                totalToCollect={price}
+                partialAmtInput={partialAmtInput}
+                onSetPartialAmt={setPartialAmtInput}
+                printAfterPayment={printAfterPayment}
+                onTogglePrint={setPrintAfterPayment}
+                showDueRow={false}
+                showPrintOption={false}
+              />
+              <button
+                className="smm__sell-btn"
+                onClick={handleSell}
+                disabled={selling}
+              >
+                {selling
+                  ? "Selling…"
+                  : `Sell ₹${Number(membership.price).toLocaleString("en-IN")} to ${client.first_name} ${client.last_name ?? ""}`.trim()}
+              </button>
+            </>
           )}
         </div>
 
