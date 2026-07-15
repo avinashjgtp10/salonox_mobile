@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import { Country } from "country-state-city";
-import { Camera, ChevronDown, Eye, EyeSlash } from "react-bootstrap-icons";
+import { Camera, Eye, EyeSlash } from "react-bootstrap-icons";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/AddStaffPage.scss";
 import api from "../../../services/api/axios";
@@ -15,7 +15,6 @@ import {
   type Permission,
 } from "../../settings/data/permissionMatrix";
 
-const ROLE_OPTIONS = ["No access", "Basic", "Low", "Medium", "High", "Manager"];
 const ROLE_TO_LEVEL: Record<string, string> = {
   "No access": "no_access", Basic: "basic", Low: "low", Medium: "medium", High: "high", Manager: "manager",
 };
@@ -57,7 +56,6 @@ const AddStaffPage: React.FC = () => {
   const [permissionLevel, setPermissionLevel] = useState("Low");
   const [permissionsEnabled, setPermissionsEnabled] = useState(false);
   const [perms, setPerms] = useState<Permission[]>(() => buildPermissions(defaultPermissions, null));
-  const [roleMenuOpen, setRoleMenuOpen] = useState(false);
 
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -583,24 +581,6 @@ const AddStaffPage: React.FC = () => {
                 />
                 <span className="emp-toggle__slider" />
               </label>
-            </div>
-            <div className="emp-role-select" onClick={(e) => e.stopPropagation()}>
-              <button className="emp-role-btn" onClick={() => setRoleMenuOpen(!roleMenuOpen)}>
-                {permissionLevel} <ChevronDown size={12} />
-              </button>
-              {roleMenuOpen && (
-                <div className="emp-role-menu">
-                  {ROLE_OPTIONS.map((role) => (
-                    <div
-                      key={role}
-                      className={`emp-role-item ${permissionLevel === role ? "active" : ""}`}
-                      onClick={() => { setPermissionLevel(role); setRoleMenuOpen(false); }}
-                    >
-                      {role}
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
 
