@@ -9,7 +9,12 @@ import { clearMembershipError } from "../../../store/membershipSlice";
 import { purchaseClientMembershipThunk } from "../../../middleware/clientMembership/clientMembership.thunk";
 import type { ClientSearchResult } from "../../clients/components/ClientSearchInput";
 import api from "../../../services/api/axios";
+import { PaymentMethodPicker, type PaymentSplitEntry } from "../../../components/shared/PaymentMethodPicker";
+import { buildMethodLabel } from "../../bookings/utils/paymentUtils";
+import type { SingleMethod } from "../../bookings/types/payment.types";
 import "../styles/CreateMembershipPage.scss";
+
+const SINGLE_METHODS: SingleMethod[] = ["Cash", "Card", "UPI"];
 
 const VALIDITY_OPTIONS = [
   { label: "1 Month",   value: "1 month"  },
@@ -62,6 +67,14 @@ const CreateMembershipPage: React.FC = () => {
   const [description,  setDescription]  = useState("");
   const [errors,       setErrors]       = useState<Record<string, string>>({});
 
+  // Only relevant for the immediate-purchase flow (pageClient set, creating not editing).
+  const [paymentMode,    setPaymentMode]    = useState<"single" | "split">("single");
+  const [singleMethod,   setSingleMethod]   = useState<SingleMethod | null>(null);
+  const [splitEntries,   setSplitEntries]   = useState<PaymentSplitEntry[]>([]);
+  const [payMethodError, setPayMethodError] = useState(false);
+  const [partialAmtInput, setPartialAmtInput] = useState("");
+  const [printAfterPayment, setPrintAfterPayment] = useState(false);
+
   const priceNum       = parseFloat(price)       || 0;
   const bonusCreditNum = parseFloat(bonusCredit) || 0;
   const walletValue    = useMemo(() => priceNum + bonusCreditNum, [priceNum, bonusCreditNum]);
@@ -111,6 +124,22 @@ const CreateMembershipPage: React.FC = () => {
 
   const handleSave = async () => {
     if (!validate()) return;
+
+    // Immediate-purchase flow (create + pre-selected client) needs a payment
+    // method before we can record the sale — same requirement as SellMembershipModal.
+    const isImmediatePurchase = !id && !!pageClient;
+    if (isImmediatePurchase) {
+      if (paymentMode === "single" && !singleMethod) {
+        setPayMethodError(true);
+        return;
+      }
+      const splitTotal = splitEntries.reduce((sum, ent) => sum + (parseFloat(ent.amount) || 0), 0);
+      if (paymentMode === "split" && splitTotal < walletValue) {
+        setPayMethodError(true);
+        return;
+      }
+      setPayMethodError(false);
+    }
     const metaDescription = JSON.stringify({
       description,
       bonusCredit: bonusCreditNum,
@@ -158,6 +187,14 @@ const CreateMembershipPage: React.FC = () => {
         //    New Appointment modal and client history can find it via the API.
         //    Only do this on CREATE (not on update, to avoid duplicate records).
         if (!id) {
+          const splitMap: Record<string, number> = paymentMode === "split"
+            ? splitEntries.reduce((acc, ent) => {
+                const amt = parseFloat(ent.amount) || 0;
+                if (amt > 0) acc[ent.method] = (acc[ent.method] || 0) + amt;
+                return acc;
+              }, {} as Record<string, number>)
+            : {};
+          const methodLabel = buildMethodLabel(paymentMode, singleMethod, splitMap);
           await dispatch(purchaseClientMembershipThunk({
             clientId:       String(pageClient.id),
             membershipId:   String(membershipId),
@@ -165,6 +202,8 @@ const CreateMembershipPage: React.FC = () => {
             colour:         tierColor,
             totalSessions:  0,        // 0 = unlimited (wallet-based)
             pricePaid:      walletValue,
+            paymentMethod:  methodLabel,
+            splitDetails:   paymentMode === "split" ? splitMap : undefined,
           }));
 
           // Also write a mem2:P: localStorage record so the calendar shows this
@@ -246,6 +285,25 @@ const CreateMembershipPage: React.FC = () => {
               )}
             </div>
           </div>
+          {!id && (
+            <PaymentMethodPicker
+              methods={SINGLE_METHODS}
+              paymentMode={paymentMode}
+              onSetPaymentMode={setPaymentMode}
+              singleMethod={singleMethod}
+              onSetSingleMethod={(m) => { setSingleMethod(m as SingleMethod); setPayMethodError(false); }}
+              splitEntries={splitEntries}
+              onSetSplitEntries={setSplitEntries}
+              payMethodError={payMethodError}
+              totalToCollect={walletValue}
+              partialAmtInput={partialAmtInput}
+              onSetPartialAmt={setPartialAmtInput}
+              printAfterPayment={printAfterPayment}
+              onTogglePrint={setPrintAfterPayment}
+              showDueRow={false}
+              showPrintOption={false}
+            />
+          )}
         </div>
       )}
 
