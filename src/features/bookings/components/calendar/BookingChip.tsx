@@ -86,17 +86,14 @@ const BookingChipComponent: React.FC<Props> = ({
   onEdit, onOpenTip, onCloseTip,
   onStartDragCandidate, onStartResize,
 }) => {
-  const ps = (b.paymentStatus || "").toLowerCase();
   // b.status carries the raw backend appointment status through unchanged
-  // (booked/confirmed/in_progress/completed/cancelled/no_show) — this used to be
-  // checked via a separate `_rawStatus` field that was declared on the type but
-  // never actually populated anywhere, so "completed" appointments were never
-  // truly locked from dragging; only "cancelled" ones were.
+  // (booked/paid/partial/cancelled/no-show/deleted) — payment state and
+  // lifecycle state are the same field now, no separate paymentStatus.
   const bs = (b.status || "").toLowerCase();
 
-  const isPartial   = ps === "partial";
+  const isPartial   = bs === "partial";
   const isCancelled = bs === "cancelled";
-  // Cancelled and deleted appointments are locked from dragging — completed/
+  // Cancelled and deleted appointments are locked from dragging — paid/
   // no-show ones keep their normal chip styling but stay fully draggable, per
   // explicit choice over the original locked-by-default design.
   const isReadOnly  = isCancelled || !!b.isDeleted;

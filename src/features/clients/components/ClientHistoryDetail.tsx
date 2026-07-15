@@ -265,11 +265,11 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
 
   const now = new Date();
 
-  const completed = appointments.filter((a) => a.status === "completed");
+  const completed = appointments.filter((a) => a.status === "paid");
 
   // Sort upcoming ascending → first element is the nearest future appointment
   const upcoming = [...appointments]
-    .filter((a) => ["booked", "confirmed"].includes(a.status) && new Date(a.scheduled_at) >= now)
+    .filter((a) => ["booked", "partial"].includes(a.status) && new Date(a.scheduled_at) >= now)
     .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
 
   // Last visit = most recent completed appointment OR most recent completed sale only
@@ -480,9 +480,9 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
     appointments.forEach((a) => {
       const key = toKey(a.scheduled_at);
       const existing = map.get(key);
-      if (a.status === "completed") {
+      if (a.status === "paid") {
         map.set(key, "completed");
-      } else if (["booked", "confirmed"].includes(a.status) && existing !== "completed") {
+      } else if (["booked", "partial"].includes(a.status) && existing !== "completed") {
         map.set(key, "booked");
       }
     });

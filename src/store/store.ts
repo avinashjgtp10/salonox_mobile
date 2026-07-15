@@ -10,8 +10,6 @@ import clientReducer from "./clientSlice";
 import userReducer from "./userSlice";
 import staffReducer from "./staffSlice";
 import catalogReducer from "./catalogSlice";
-import calendarReducer from "./calendarSlice";
-import bookingReducer from "./bookingSlice";
 import settingReducer from "./settingSlice";
 import appReducer from "./appSlice";
 import schedulerReducer from "./schedulerSlice";
@@ -65,8 +63,6 @@ export const store = configureStore({
     user: userReducer,
     staff: staffReducer,
     catalog: catalogReducer,
-    calendar: calendarReducer,
-    booking: bookingReducer,
     setting: settingReducer,
     app: appReducer,
     scheduler: persistReducer(schedulerPersistConfig, schedulerReducer) as unknown as Reducer<ReturnType<typeof schedulerReducer>>,

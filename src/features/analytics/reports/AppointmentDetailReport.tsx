@@ -27,9 +27,9 @@ interface AppointmentRow {
 }
 
 const DATE_TYPE_OPTIONS = ["Appointment Date", "Booking Date"];
-const APPT_STATUSES     = ["All", "booked", "confirmed", "in_progress", "completed", "cancelled", "no_show"];
+const APPT_STATUSES     = ["All", "booked", "paid", "partial", "cancelled", "no-show", "deleted"];
 const fmtStatusLabel = (s: string) =>
-  s === "All" ? "All" : s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  s === "All" ? "All" : s.replace(/[_-]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 
 export default function AppointmentDetailReport({ onBack }: { onBack: () => void }) {
   const today     = new Date().toISOString().slice(0, 10);

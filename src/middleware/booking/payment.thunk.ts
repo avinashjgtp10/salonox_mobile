@@ -83,7 +83,7 @@ export const clearClientDuesThunk = createAsyncThunk(
           // Patch Redux immediately — chip turns green before next refresh
           dispatch(patchPaymentStatus({
             id: String(pb.id),
-            paymentStatus: "Paid",
+            status: "paid",
             payingNow: pb.grandTotal,
             dueAmount: 0,
             grandTotal: pb.grandTotal,

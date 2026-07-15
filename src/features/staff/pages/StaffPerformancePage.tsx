@@ -101,10 +101,12 @@ function fmtCurrency(val: number) {
 }
 
 const STATUS_CLASS: Record<string, string> = {
-  confirmed: "spp-badge--blue",
-  pending: "spp-badge--amber",
-  completed: "spp-badge--green",
+  booked: "spp-badge--amber",
+  partial: "spp-badge--blue",
+  paid: "spp-badge--green",
   cancelled: "spp-badge--red",
+  "no-show": "spp-badge--gray",
+  deleted: "spp-badge--gray",
 };
 
 const TYPE_LABEL: Record<string, string> = {

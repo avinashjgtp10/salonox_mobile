@@ -1,4 +1,4 @@
-import type { Booking, PaymentStatus } from "../types";
+import type { Booking } from "../types";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -11,9 +11,10 @@ export function toLocalDateStr(iso: string): string {
   ].join("-");
 }
 
-/** Normalise API payment_status to consistent Title Case so PAY_RANK
- *  comparisons, patchPaymentStatus dispatches, and chip colour lookups all match. */
-export function normalizePaymentStatus(raw?: string | null): PaymentStatus {
+/** Display-only Title Case label derived from a booking's unified `status`
+ *  (or a Sale's own status string, for the receipt/print callers) — used
+ *  wherever the UI needs "Paid"/"Partial"/"Unpaid" text/badges. */
+export function normalizePaymentStatus(raw?: string | null): "Paid" | "Partial" | "Unpaid" {
   const s = (raw ?? "").toLowerCase();
   if (s === "paid" || s === "completed") return "Paid";
   if (s === "partial")                   return "Partial";
@@ -261,9 +262,10 @@ export function mapApiBooking(
   const taxableAmountVal = parseFloat(String(appt.taxable_amount ?? appt.taxableAmount ?? 0))
     || Math.max(0, subtotalVal - discountAmountVal);
 
-  // ── Normalise paymentStatus (always Title Case) ───────────────────────────
-  const normalizedPaymentStatus = normalizePaymentStatus(appt.payment_status ?? appt.paymentStatus);
-
+  // ── Booking status is unified — appt.status carries the payment state too,
+  //    no separate payment_status field anymore. ────────────────────────────
+  const rawStatus = String(appt.status ?? "booked").toLowerCase();
+  const isPaidStatus = rawStatus === "paid";
 
   // ── Compute payingNow / dueAmount ─────────────────────────────────────────
   const paidAmountVal = Number(appt.paid_amount ?? 0) || 0;
@@ -274,7 +276,7 @@ export function mapApiBooking(
     payingNow = paidAmountVal;
   } else if (appt.payingNow != null && Number(appt.payingNow) > 0) {
     payingNow = Number(appt.payingNow);
-  } else if (normalizedPaymentStatus === "Paid") {
+  } else if (isPaidStatus) {
     payingNow = grandTotalVal;
   } else {
     payingNow = 0;
@@ -284,11 +286,11 @@ export function mapApiBooking(
   // Package payments always have due_amount=0 (client owes nothing — covered by package).
   // A booking that's simply been booked — no payment attempted at all yet — is not
   // "due" money; it's just an upcoming charge. `due_amount` only means something once
-  // a real (partial) payment has actually been made, i.e. paymentStatus === "Partial".
+  // a real (partial) payment has actually been made, i.e. status === "partial".
   // Otherwise this fallback formula (grandTotal - payingNow, with payingNow=0) would
   // show the FULL bill as "due" the instant an appointment is created.
   const apiDue = Number(appt.due_amount ?? appt.dueAmount ?? NaN);
-  const isPartialStatus = normalizedPaymentStatus === "Partial";
+  const isPartialStatus = rawStatus === "partial";
   const dueAmount = isPackagePaid ? 0
     : hasPerServicePackage ? (isPartialStatus ? Math.max(0, parseFloat((grandTotalVal - payingNow).toFixed(2))) : 0)
     : (!isNaN(apiDue) && apiDue > 0) ? apiDue
@@ -373,12 +375,13 @@ export function mapApiBooking(
     memberships: membershipItems,
     grandTotal: grandTotalVal,
     isDeleted: !!(appt.deleted_at ?? appt.deletedAt),
-    serviceStartedAt: appt.service_started_at ?? appt.serviceStartedAt ?? null,
-    serviceEndedAt: appt.service_ended_at ?? appt.serviceEndedAt ?? null,
-    // When package-covered items bring our recomputed due to 0, the backend's payments table may still
-    // show "partial" (it used the old grand_total that included catalog prices). Override to "Paid".
-    paymentStatus: (hasPerServicePackage && dueAmount === 0 && payingNow > 0) ? "Paid" : normalizedPaymentStatus,
-    payment_status: (appt.payment_status ?? "unpaid") as any,
+    // When package-covered items bring our recomputed due to 0, the backend may still
+    // have sent "partial" (it used the old grand_total that included catalog prices). Override to "paid".
+    // Gated on rawStatus === "partial" specifically — without this, a cancelled/
+    // deleted/no-show package booking that had any prior payment recorded (paid_amount
+    // persists after cancellation) would satisfy dueAmount===0 && payingNow>0 too and
+    // get silently overwritten to "paid", turning it back into a draggable/active chip.
+    status: ((rawStatus === "partial" && hasPerServicePackage && dueAmount === 0 && payingNow > 0) ? "paid" : rawStatus) as Booking["status"],
     paymentMode: appt.paymentMode || appt.payment_mode || appt.payment_method,
     membershipWalletUsed: parseFloat(String(appt.membership_wallet_used ?? appt.membershipWalletUsed ?? 0)) || 0,
     applyMembershipWallet: !!(appt.apply_membership_wallet ?? appt.applyMembershipWallet),
