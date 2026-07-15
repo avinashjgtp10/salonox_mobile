@@ -116,30 +116,6 @@ export const selectStaffCount = staffBase.selectCount;
 export const selectIsStaffEmpty = staffBase.selectIsEmpty;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Booking
-// ─────────────────────────────────────────────────────────────────────────────
-const bookingBase = createCRUDSelectors((s: RootState) => s.booking);
-
-export const selectAllBookings = bookingBase.selectItems;
-export const selectSelectedBooking = bookingBase.selectSelectedItem;
-export const selectBookingLoading = bookingBase.selectLoading;
-export const selectBookingError = bookingBase.selectError;
-export const selectBookingCount = bookingBase.selectCount;
-
-export const selectPendingBookings = createSelector(selectAllBookings, (bs) =>
-  bs.filter((b) => b.status === "pending"),
-);
-export const selectConfirmedBookings = createSelector(selectAllBookings, (bs) =>
-  bs.filter((b) => b.status === "confirmed"),
-);
-export const selectCompletedBookings = createSelector(selectAllBookings, (bs) =>
-  bs.filter((b) => b.status === "completed"),
-);
-export const selectCancelledBookings = createSelector(selectAllBookings, (bs) =>
-  bs.filter((b) => b.status === "cancelled"),
-);
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Catalog
 // ─────────────────────────────────────────────────────────────────────────────
 const catalogBase = createCRUDSelectors((s: RootState) => s.catalog);
@@ -155,17 +131,6 @@ export const selectActiveCatalogItems = createSelector(
   selectAllCatalogItems,
   (items) => items.filter((i) => i.active !== false),
 );
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Calendar
-// ─────────────────────────────────────────────────────────────────────────────
-const calendarBase = createCRUDSelectors((s: RootState) => s.calendar);
-
-export const selectAllCalendarEvents = calendarBase.selectItems;
-export const selectSelectedCalendarEvent = calendarBase.selectSelectedItem;
-export const selectCalendarLoading = calendarBase.selectLoading;
-export const selectCalendarError = calendarBase.selectError;
-export const selectCalendarCount = calendarBase.selectCount;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Setting

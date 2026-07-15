@@ -18,6 +18,7 @@ import { getActiveTaxes } from "../../../settings/utils/taxSettings";
 import { getRewardPointsConfig } from "../../../settings/utils/rewardPointsSettings";
 import { getReferralConfig } from "../../../settings/utils/referralSettings";
 import { isRealId } from "../../utils/paymentUtils";
+import { normalizePaymentStatus } from "../../utils/bookingMapper";
 import { computeTotals }     from "../../utils/totalsUtils";
 import { computePointsEarned, computeEWalletCredit, computeMaxWalletUsable, EWALLET_REDEEM_MINIMUM } from "../../utils/paymentUtils";
 import {
@@ -486,7 +487,7 @@ export const AppointmentModal: React.FC<Props> = ({
 
   const alreadyPaidAmount   = existingBooking?.payingNow ?? 0;
   // For partial bookings, trust the API's dueAmount directly — payingNow can be unreliable
-  const remainingDue = (existingBooking?.paymentStatus === "Partial" && (existingBooking?.dueAmount ?? 0) > 0)
+  const remainingDue = (existingBooking?.status === "partial" && (existingBooking?.dueAmount ?? 0) > 0)
     ? existingBooking.dueAmount
     : Math.max(0, totals.effectiveTotal - alreadyPaidAmount);
   const parsedPartial   = parseFloat(partialAmtInput);
@@ -506,7 +507,7 @@ export const AppointmentModal: React.FC<Props> = ({
       .filter((b) =>
         String(b.clientId) === String(selectedClient.id) &&
         String(b.id) !== String(currentApptId) &&
-        (b.paymentStatus === "Partial" || b.paymentStatus === "Unpaid") &&
+        b.status !== "paid" &&
         Number(b.dueAmount) > 0
       )
       .map((b) => ({ id: String(b.id), date: b.date, dueAmount: Number(b.dueAmount), grandTotal: Number(b.grandTotal) }))
@@ -629,12 +630,12 @@ export const AppointmentModal: React.FC<Props> = ({
 
   // Auto-open payment section for partial-paid appointments so user can pay the remaining due
   useEffect(() => {
-    if (isOpen && existingBooking?.paymentStatus === "Partial") {
+    if (isOpen && existingBooking?.status === "partial") {
       setShowPaymentSection(true);
     } else if (!isOpen) {
       setShowPaymentSection(false);
     }
-  }, [isOpen, existingBooking?.id, existingBooking?.paymentStatus]);
+  }, [isOpen, existingBooking?.id, existingBooking?.status]);
 
   useEffect(() => {
     if (!noItemsError) return;
@@ -765,7 +766,7 @@ export const AppointmentModal: React.FC<Props> = ({
         staffId:       serviceRows[0]?.staffId || defaultStaffId || "",
         date:          calDate,
         startTime:     serviceRows[0]?.time || defaultTime || "10:00",
-        paymentStatus: (existingBooking?.paymentStatus || "Unpaid") as any,
+        status:        (existingBooking?.status || "booked") as any,
         grandTotal:    totals.grandTotal,
         discount:      discountValue,
         discountType,
@@ -794,7 +795,7 @@ export const AppointmentModal: React.FC<Props> = ({
       if (isPackageZero) {
         dispatch(patchPaymentStatus({
           id: String(id),
-          paymentStatus: "Unpaid",
+          status: "booked",
           payingNow: 0,
           dueAmount: 0,
           grandTotal: 0,
@@ -936,7 +937,7 @@ export const AppointmentModal: React.FC<Props> = ({
     if (!postPaymentThunk.rejected.match(result)) {
       dispatch(patchPaymentStatus({
         id: String(apptId),
-        paymentStatus: "Paid",
+        status: "paid",
         payingNow: 0,
         dueAmount: 0,
         grandTotal: 0,
@@ -997,7 +998,7 @@ export const AppointmentModal: React.FC<Props> = ({
       if (!postPaymentThunk.rejected.match(result)) {
         dispatch(patchPaymentStatus({
           id: String(id),
-          paymentStatus: "Paid",
+          status: "paid",
           payingNow: 0,
           dueAmount: 0,
           grandTotal: 0,
@@ -1047,9 +1048,9 @@ export const AppointmentModal: React.FC<Props> = ({
   if (!isOpen) return null;
 
   const isCancelledBooking = existingBooking?.status?.toLowerCase() === "cancelled";
-  const isPartialBooking   = existingBooking?.paymentStatus === "Partial";
-  const isPaymentFrozen = existingBooking?.paymentStatus === "Paid"
-    || (existingBooking?.paymentStatus !== "Partial"
+  const isPartialBooking   = existingBooking?.status === "partial";
+  const isPaymentFrozen = existingBooking?.status === "paid"
+    || (existingBooking?.status !== "partial"
         && alreadyPaidAmount > 0
         && alreadyPaidAmount >= totals.effectiveTotal);
 
@@ -1317,11 +1318,11 @@ export const AppointmentModal: React.FC<Props> = ({
               </span>
             ) : (
               <span className={`appt-header-status-badge appt-header-status-badge--${
-                existingBooking.paymentStatus === "Paid" ? "paid"
-                : existingBooking.paymentStatus === "Partial" ? "partial"
+                existingBooking.status === "paid" ? "paid"
+                : existingBooking.status === "partial" ? "partial"
                 : "unpaid"
               }`}>
-                {existingBooking.paymentStatus}
+                {normalizePaymentStatus(existingBooking.status)}
               </span>
             )
           )}
@@ -1349,7 +1350,7 @@ export const AppointmentModal: React.FC<Props> = ({
                     borderRadius: 8, boxShadow: "0 4px 20px rgba(0,0,0,0.13)",
                     zIndex: 9999, minWidth: 190, padding: "4px 0",
                   }}>
-                    {!isCancelledBooking && existingBooking?.paymentStatus !== "Partial" && onCancelBooking && (
+                    {!isCancelledBooking && existingBooking?.status !== "partial" && onCancelBooking && (
                       <button
                         style={apptMenuItemStyle}
                         onClick={() => { setHeaderMenuOpen(false); onCancelBooking(existingBooking); onClose(); }}

@@ -81,8 +81,9 @@ export interface GroupItem {
 }
 
 // ─── Booking status enums ─────────────────────────────────────────────────────
-export type BookingStatus   = "Completed" | "Pending" | "Cancelled" | "Confirmed" | "Due";
-export type PaymentStatus   = "Paid" | "Unpaid" | "Partial";
+// Matches the backend's unified appointments.status column exactly — one field,
+// no separate payment_status. "paid"/"partial" ARE the payment state.
+export type BookingStatus   = "booked" | "paid" | "partial" | "cancelled" | "no-show" | "deleted";
 export type PaymentMode     = "Cash" | "Card" | "UPI" | "Ewallet";
 export type DiscountType    = "Percentage (%)" | "Flat (₹)";
 export type ViewMode        = "Day" | "Week" | "Month" | "List Week";
@@ -115,17 +116,11 @@ export interface Booking {
   status: BookingStatus;
   // Soft-deleted ("Delete Appointment") — the row still exists server-side
   // (deleted_at is set, not removed), so it keeps showing on the calendar,
-  // greyed out, instead of vanishing without a trace.
+  // greyed out, instead of vanishing without a trace. Redundant with
+  // `status === "deleted"` but kept as its own flag since the backend still
+  // tracks deleted_at as a separate audit timestamp alongside status.
   isDeleted?: boolean;
 
-  // Client's service check-in/check-out (tooltip toggle) — purely
-  // informational timestamps, independent of `status`/`paymentStatus`.
-  serviceStartedAt?: string | null;
-  serviceEndedAt?: string | null;
-
-  // Payment — always Title Case ("Paid" / "Partial" / "Unpaid")
-  paymentStatus: PaymentStatus;
-  payment_status?: string | null; // snake_case alias from API
   paymentMode?: PaymentMode;
   membershipWalletUsed?: number; // ₹ amount of this bill previously covered by the client's membership wallet
   applyMembershipWallet?: boolean; // persisted "Apply Membership" checkbox state, independent of payment

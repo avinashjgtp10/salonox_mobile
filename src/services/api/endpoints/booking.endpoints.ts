@@ -3,15 +3,8 @@ export const BOOKING = {
   BY_ID: (id: string | number) => `/api/v1/appointments/${id}`,
 
   // ── Status transitions ─────────────────────────────────────────────────────
-  CONFIRM:  (id: string | number) => `/api/v1/appointments/${id}/confirm`,
-  START:    (id: string | number) => `/api/v1/appointments/${id}/start`,
   CANCEL:   (id: string | number) => `/api/v1/appointments/${id}/cancel`,
-  NO_SHOW:  (id: string | number) => `/api/v1/appointments/${id}/no-show`,
   CHECKOUT: (id: string | number) => `/api/v1/appointments/${id}/checkout`,
-
-  // ── Client service check-in/check-out (calendar tooltip toggle) ───────────
-  SERVICE_CHECKIN:  (id: string | number) => `/api/v1/appointments/${id}/service-checkin`,
-  SERVICE_CHECKOUT: (id: string | number) => `/api/v1/appointments/${id}/service-checkout`,
 
   EXPORT: (
     format: "excel" | "csv" | "pdf",

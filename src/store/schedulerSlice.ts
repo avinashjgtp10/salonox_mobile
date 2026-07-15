@@ -61,7 +61,7 @@ interface SchedulerState {
   staffSchedules: Record<string, Record<number, StaffDaySchedule>>;
   scheduleVersion: number;
   dragPatchCache: Record<string, { startTime: string; endTime: string; staffId?: string }>;
-  paymentPatchCache: Record<string, { paymentStatus: string; payingNow: number; dueAmount: number; grandTotal?: number; paymentMode?: string; gstAmount?: number; taxBreakdown?: Booking["taxBreakdown"]; couponDiscount?: number; couponCode?: string; referralDiscount?: number; ewalletUsed?: number; membershipWalletUsed?: number; splitDetails?: Record<string, number> }>;
+  paymentPatchCache: Record<string, { status: string; payingNow: number; dueAmount: number; grandTotal?: number; paymentMode?: string; gstAmount?: number; taxBreakdown?: Booking["taxBreakdown"]; couponDiscount?: number; couponCode?: string; referralDiscount?: number; ewalletUsed?: number; membershipWalletUsed?: number; splitDetails?: Record<string, number> }>;
   serviceStaffCache: Record<string, Array<{ staffId: string; staff: string }>>;
 }
 
@@ -97,10 +97,9 @@ const schedulerSlice = createSlice({
         const svcStaff = state.serviceStaffCache[String(b.id)];
         const merged  = drag ? { ...b, ...drag } : { ...b };
         if (pay) {
-          (merged as any).paymentStatus  = pay.paymentStatus;
-          (merged as any).payment_status = pay.paymentStatus.toLowerCase();
-          (merged as any).payingNow      = pay.payingNow;
-          (merged as any).dueAmount      = pay.paymentStatus === "Paid" ? 0 : pay.dueAmount;
+          (merged as any).status    = pay.status;
+          (merged as any).payingNow = pay.payingNow;
+          (merged as any).dueAmount = pay.status === "paid" ? 0 : pay.dueAmount;
           if (pay.grandTotal !== undefined) (merged as any).grandTotal = pay.grandTotal;
           if (pay.paymentMode !== undefined) (merged as any).paymentMode = pay.paymentMode;
           if (pay.gstAmount !== undefined) (merged as any).gstAmount = pay.gstAmount;
@@ -202,7 +201,7 @@ const schedulerSlice = createSlice({
       state,
       { payload }: PayloadAction<{
         id: string;
-        paymentStatus: string;
+        status: string;
         payingNow?: number;
         dueAmount?: number;
         grandTotal?: number;
@@ -219,10 +218,9 @@ const schedulerSlice = createSlice({
     ) {
       const booking = state.bookings.find((b) => String(b.id) === String(payload.id));
       if (booking) {
-        (booking as any).paymentStatus  = payload.paymentStatus;
-        (booking as any).payment_status = payload.paymentStatus.toLowerCase();
+        (booking as any).status = payload.status;
         if (payload.payingNow  !== undefined) (booking as any).payingNow  = payload.payingNow;
-        if (payload.dueAmount  !== undefined) (booking as any).dueAmount  = payload.paymentStatus === "Paid" ? 0 : payload.dueAmount;
+        if (payload.dueAmount  !== undefined) (booking as any).dueAmount  = payload.status === "paid" ? 0 : payload.dueAmount;
         if (payload.grandTotal !== undefined) (booking as any).grandTotal = payload.grandTotal;
         if (payload.paymentMode !== undefined) (booking as any).paymentMode = payload.paymentMode;
         if (payload.gstAmount !== undefined) (booking as any).gstAmount = payload.gstAmount;
@@ -235,9 +233,9 @@ const schedulerSlice = createSlice({
         if (payload.splitDetails !== undefined) (booking as any).splitDetails = payload.splitDetails;
       }
       state.paymentPatchCache[String(payload.id)] = {
-        paymentStatus: payload.paymentStatus,
+        status:        payload.status,
         payingNow:     payload.payingNow ?? 0,
-        dueAmount:     payload.paymentStatus === "Paid" ? 0 : (payload.dueAmount ?? 0),
+        dueAmount:     payload.status === "paid" ? 0 : (payload.dueAmount ?? 0),
         grandTotal:    payload.grandTotal,
         paymentMode:   payload.paymentMode,
         gstAmount:     payload.gstAmount,

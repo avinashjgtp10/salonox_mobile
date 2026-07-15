@@ -70,7 +70,10 @@ function mapAppointment(appt: any): SaleRow {
     paid,
     balance: Math.max(price - paid, 0),
     modes: appt.payment_method ?? "—",
-    status: appt.payment_status ?? "unpaid",
+    // appt.payment_status never actually existed on the API response (that
+    // column was never created on the live DB) — appt.status now carries
+    // payment state directly (booked/paid/partial/...), same field.
+    status: appt.status ?? "booked",
     date: String(appt.scheduled_at ?? appt.created_at ?? "").slice(0, 10),
     tip,
   };

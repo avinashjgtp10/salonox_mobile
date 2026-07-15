@@ -4,6 +4,7 @@ import { useScheduler } from "../../hooks/useScheduler";
 import { useAppSelector } from "../../../../hooks/useAppRedux";
 import { getWeekDays, formatTime12 } from "../../utils/timeUtils";
 import { computeChipStatusClass } from "../../utils/bookingStatusUtils";
+import { normalizePaymentStatus } from "../../utils/bookingMapper";
 import Badge from "../../../../components/ui/Badge";
 import "../../styles/Scheduler.scss";
 
@@ -80,8 +81,8 @@ const ListWeekViewComponent: React.FC<ListWeekViewProps> = ({ onViewBill }) => {
                       {b.clientName} · {formatTime12(b.startTime)}
                     </div>
                   </div>
-                  <Badge variant={payVariant(b.paymentStatus)}>
-                    {payLabel(b.paymentStatus)}
+                  <Badge variant={payVariant(normalizePaymentStatus(b.status))}>
+                    {payLabel(normalizePaymentStatus(b.status))}
                   </Badge>
                 </div>
               ))

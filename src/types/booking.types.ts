@@ -3,13 +3,11 @@ import type { EntityId } from "./common.types";
 
 export type AppointmentStatus =
   | "booked"
-  | "confirmed"
-  | "in_progress"
-  | "completed"
+  | "paid"
+  | "partial"
   | "cancelled"
-  | "no_show";
-
-export type PaymentStatus = "unpaid" | "paid" | "partial" | "refunded";
+  | "no-show"
+  | "deleted";
 
 export interface Booking {
   id: EntityId;
@@ -21,7 +19,6 @@ export interface Booking {
   title?: string | null;
   notes?: string | null;
   status: AppointmentStatus | string;
-  payment_status?: PaymentStatus | null;  // ✅ DB-level payment status (snake_case)
   scheduled_at: string;      // ISO timestamp
   duration_minutes: number;
   ends_at?: string | null;   // ISO timestamp

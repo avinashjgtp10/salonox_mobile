@@ -25,21 +25,25 @@ interface Appointment {
   notes?: string;
 }
 
-const STATUS_OPTIONS = ["all", "confirmed", "pending", "completed", "cancelled"] as const;
+const STATUS_OPTIONS = ["all", "booked", "paid", "partial", "cancelled", "no-show", "deleted"] as const;
 type StatusFilter = (typeof STATUS_OPTIONS)[number];
 
 const STATUS_LABELS: Record<string, string> = {
-  confirmed: "Confirmed",
-  pending: "Pending",
-  completed: "Completed",
+  booked: "Booked",
+  paid: "Paid",
+  partial: "Partial",
   cancelled: "Cancelled",
+  "no-show": "No Show",
+  deleted: "Deleted",
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  confirmed: "app-badge--blue",
-  pending: "app-badge--amber",
-  completed: "app-badge--green",
+  booked: "app-badge--amber",
+  paid: "app-badge--green",
+  partial: "app-badge--blue",
   cancelled: "app-badge--red",
+  "no-show": "app-badge--gray",
+  deleted: "app-badge--gray",
 };
 
 function formatTime(val?: string) {
