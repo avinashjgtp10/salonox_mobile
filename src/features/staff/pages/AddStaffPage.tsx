@@ -47,6 +47,7 @@ const AddStaffPage: React.FC = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [staffLoginEnabled, setStaffLoginEnabled] = useState(false);
 
   const [avatarUrl, setAvatarUrl] = useState("");
   const [avatarPreview, setAvatarPreview] = useState("");
@@ -152,8 +153,8 @@ const AddStaffPage: React.FC = () => {
 
   const isHolidaysInvalid = attemptedSubmit && form.holidays !== "" && Number(form.holidays) < 0;
 
-  const isPasswordInvalid = attemptedSubmit && form.password.trim() !== "" && form.password.trim().length < 8;
-  const isConfirmPasswordInvalid = attemptedSubmit && form.password.trim() !== "" && form.confirmPassword !== form.password;
+  const isPasswordInvalid = attemptedSubmit && staffLoginEnabled && form.password.trim() !== "" && form.password.trim().length < 8;
+  const isConfirmPasswordInvalid = attemptedSubmit && staffLoginEnabled && form.password.trim() !== "" && form.confirmPassword !== form.password;
 
   const setField = (key: keyof typeof form) => (val: string) => {
     setForm((prev) => ({ ...prev, [key]: val }));
@@ -248,7 +249,7 @@ const AddStaffPage: React.FC = () => {
         holidays: form.holidays ? Number(form.holidays) : undefined,
       };
 
-      if (form.password.trim()) {
+      if (staffLoginEnabled && form.password.trim()) {
         payload.password = form.password.trim();
       }
 
@@ -514,42 +515,59 @@ const AddStaffPage: React.FC = () => {
 
         {/* ── Staff Login ── */}
         <div className="emp-card">
-          <h6 className="emp-card__title">Staff Login</h6>
-          <div className="emp-login-grid">
-            <div className="emp-field">
-              <div className={`emp-password-group ${isPasswordInvalid ? "emp-input--invalid" : ""}`}>
+          <div className="emp-permissions-header">
+            <div className="emp-permissions-header__left">
+              <span className="emp-card__title emp-card__title--inline">Staff Login</span>
+              <label className="emp-toggle">
                 <input
-                  className="emp-input emp-password-input"
-                  placeholder="Password"
-                  type={showPassword ? "text" : "password"}
-                  value={form.password}
-                  onChange={(e) => setField("password")(e.target.value)}
+                  type="checkbox"
+                  checked={staffLoginEnabled}
+                  onChange={(e) => setStaffLoginEnabled(e.target.checked)}
                 />
-                <button type="button" className="emp-password-eye" onClick={() => setShowPassword(!showPassword)}>
-                  {showPassword ? <EyeSlash size={14} /> : <Eye size={14} />}
-                </button>
-              </div>
-              {isPasswordInvalid && <span className="emp-field__error">Password must be at least 8 characters</span>}
-            </div>
-            <div className="emp-field">
-              <div className={`emp-password-group ${isConfirmPasswordInvalid ? "emp-input--invalid" : ""}`}>
-                <input
-                  className="emp-input emp-password-input"
-                  placeholder="Confirm Password"
-                  type={showConfirmPassword ? "text" : "password"}
-                  value={form.confirmPassword}
-                  onChange={(e) => setField("confirmPassword")(e.target.value)}
-                />
-                <button type="button" className="emp-password-eye" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
-                  {showConfirmPassword ? <EyeSlash size={14} /> : <Eye size={14} />}
-                </button>
-              </div>
-              {isConfirmPasswordInvalid && <span className="emp-field__error">Passwords do not match</span>}
+                <span className="emp-toggle__slider" />
+              </label>
             </div>
           </div>
-          <p className="emp-field__hint">
-            Set a password so this employee can log in with their email above right away. Leave blank to send an email invite instead — they'll set their own password and get the same permissions once they accept it.
-          </p>
+
+          {staffLoginEnabled && (
+            <>
+              <div className="emp-login-grid">
+                <div className="emp-field">
+                  <div className={`emp-password-group ${isPasswordInvalid ? "emp-input--invalid" : ""}`}>
+                    <input
+                      className="emp-input emp-password-input"
+                      placeholder="Password"
+                      type={showPassword ? "text" : "password"}
+                      value={form.password}
+                      onChange={(e) => setField("password")(e.target.value)}
+                    />
+                    <button type="button" className="emp-password-eye" onClick={() => setShowPassword(!showPassword)}>
+                      {showPassword ? <EyeSlash size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
+                  {isPasswordInvalid && <span className="emp-field__error">Password must be at least 8 characters</span>}
+                </div>
+                <div className="emp-field">
+                  <div className={`emp-password-group ${isConfirmPasswordInvalid ? "emp-input--invalid" : ""}`}>
+                    <input
+                      className="emp-input emp-password-input"
+                      placeholder="Confirm Password"
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={form.confirmPassword}
+                      onChange={(e) => setField("confirmPassword")(e.target.value)}
+                    />
+                    <button type="button" className="emp-password-eye" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                      {showConfirmPassword ? <EyeSlash size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
+                  {isConfirmPasswordInvalid && <span className="emp-field__error">Passwords do not match</span>}
+                </div>
+              </div>
+              <p className="emp-field__hint">
+                Set a password so this employee can log in with their email above right away. Leave blank to send an email invite instead — they'll set their own password and get the same permissions once they accept it.
+              </p>
+            </>
+          )}
         </div>
 
         {/* ── Staff Permissions ── */}

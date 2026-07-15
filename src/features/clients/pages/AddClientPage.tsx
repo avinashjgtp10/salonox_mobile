@@ -4,7 +4,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/AddClientPage.scss";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
-import { Person, Pencil, X } from "react-bootstrap-icons";
+import { Person, Pencil, X, Eye, EyeSlash } from "react-bootstrap-icons";
 import { Country } from "country-state-city";
 import { Button } from "../../../components/ui";
 
@@ -45,6 +45,12 @@ export default function AddClientPage() {
   const [preferredLanguage, setPreferredLanguage] = useState("en");
   const [country, setCountry] = useState("IN");
 
+  const [enableClientLogin, setEnableClientLogin] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -64,13 +70,25 @@ export default function AddClientPage() {
     attemptedSubmit &&
     additionalPhone.trim() !== "" &&
     !/^\d{10}$/.test(additionalPhone.trim());
+  const isPasswordInvalid =
+    attemptedSubmit &&
+    enableClientLogin &&
+    password.trim() !== "" &&
+    password.trim().length < 8;
+  const isConfirmPasswordInvalid =
+    attemptedSubmit &&
+    enableClientLogin &&
+    password.trim() !== "" &&
+    confirmPassword !== password;
 
   const hasErrors =
     isFirstNameInvalid ||
     isEmailInvalid ||
     isPhoneInvalid ||
     isAdditionalEmailInvalid ||
-    isAdditionalPhoneInvalid;
+    isAdditionalPhoneInvalid ||
+    isPasswordInvalid ||
+    isConfirmPasswordInvalid;
 
   const handleSave = async () => {
     if (saving) return;
@@ -83,13 +101,15 @@ export default function AddClientPage() {
       phone.trim() === "" ||
       !/^\d{10}$/.test(phone.trim()) ||
       (additionalEmail.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(additionalEmail.trim())) ||
-      (additionalPhone.trim() !== "" && !/^\d{10}$/.test(additionalPhone.trim()))
+      (additionalPhone.trim() !== "" && !/^\d{10}$/.test(additionalPhone.trim())) ||
+      (enableClientLogin && password.trim() !== "" && password.trim().length < 8) ||
+      (enableClientLogin && password.trim() !== "" && confirmPassword !== password)
     ) {
       return;
     }
 
     setSaving(true);
-    const payload = {
+    const payload: Record<string, unknown> = {
       first_name: firstName,
       last_name: lastName || null,
       email: email || null,
@@ -112,6 +132,10 @@ export default function AddClientPage() {
       addresses: [],
       emergency_contacts: [],
     };
+
+    if (enableClientLogin && password.trim()) {
+      payload.password = password.trim();
+    }
 
     try {
       await api.post(CLIENT.BASE, payload);
@@ -371,6 +395,81 @@ export default function AddClientPage() {
                 <option value="Prefer not to say">Prefer not to say</option>
               </select>
             </div>
+          </div>
+
+          {/* ================= CLIENT LOGIN ================= */}
+
+          <div className="mt-5">
+            <div className="form-check form-switch d-flex align-items-center gap-3">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                id="enableClientLogin"
+                checked={enableClientLogin}
+                onChange={(e) => setEnableClientLogin(e.target.checked)}
+              />
+              <label className="form-check-label fw-bold" htmlFor="enableClientLogin">
+                Enable client login
+              </label>
+            </div>
+
+            {enableClientLogin && (
+              <div className="row g-3 mt-2">
+                <div className="col-md-6">
+                  <label className="form-label">Password</label>
+                  <div className="input-group">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      className={`form-control ${isPasswordInvalid ? "is-invalid" : ""}`}
+                      placeholder="Min. 8 characters"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary"
+                      tabIndex={-1}
+                      onClick={() => setShowPassword((v) => !v)}
+                    >
+                      {showPassword ? <EyeSlash size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
+                  {isPasswordInvalid && (
+                    <div className="invalid-feedback d-block">Password must be at least 8 characters</div>
+                  )}
+                </div>
+
+                <div className="col-md-6">
+                  <label className="form-label">Confirm password</label>
+                  <div className="input-group">
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      className={`form-control ${isConfirmPasswordInvalid ? "is-invalid" : ""}`}
+                      placeholder="Re-enter password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary"
+                      tabIndex={-1}
+                      onClick={() => setShowConfirmPassword((v) => !v)}
+                    >
+                      {showConfirmPassword ? <EyeSlash size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
+                  {isConfirmPasswordInvalid && (
+                    <div className="invalid-feedback d-block">Passwords do not match</div>
+                  )}
+                </div>
+
+                <div className="col-12">
+                  <div className="form-text">
+                    Set a password so this client can log in with their email above right away. Leave blank to send an email invite instead — they'll set their own password once they accept it.
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ================= ADDITIONAL INFO ================= */}
