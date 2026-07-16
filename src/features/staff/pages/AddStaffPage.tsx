@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import { Country } from "country-state-city";
-import { Camera, ChevronDown, Eye, EyeSlash } from "react-bootstrap-icons";
+import { Camera, Eye, EyeSlash } from "react-bootstrap-icons";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/AddStaffPage.scss";
 import api from "../../../services/api/axios";
@@ -15,7 +15,6 @@ import {
   type Permission,
 } from "../../settings/data/permissionMatrix";
 
-const ROLE_OPTIONS = ["No access", "Basic", "Low", "Medium", "High", "Manager"];
 const ROLE_TO_LEVEL: Record<string, string> = {
   "No access": "no_access", Basic: "basic", Low: "low", Medium: "medium", High: "high", Manager: "manager",
 };
@@ -47,6 +46,7 @@ const AddStaffPage: React.FC = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [staffLoginEnabled, setStaffLoginEnabled] = useState(false);
 
   const [avatarUrl, setAvatarUrl] = useState("");
   const [avatarPreview, setAvatarPreview] = useState("");
@@ -56,7 +56,6 @@ const AddStaffPage: React.FC = () => {
   const [permissionLevel, setPermissionLevel] = useState("Low");
   const [permissionsEnabled, setPermissionsEnabled] = useState(false);
   const [perms, setPerms] = useState<Permission[]>(() => buildPermissions(defaultPermissions, null));
-  const [roleMenuOpen, setRoleMenuOpen] = useState(false);
 
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -152,8 +151,8 @@ const AddStaffPage: React.FC = () => {
 
   const isHolidaysInvalid = attemptedSubmit && form.holidays !== "" && Number(form.holidays) < 0;
 
-  const isPasswordInvalid = attemptedSubmit && form.password.trim() !== "" && form.password.trim().length < 8;
-  const isConfirmPasswordInvalid = attemptedSubmit && form.password.trim() !== "" && form.confirmPassword !== form.password;
+  const isPasswordInvalid = attemptedSubmit && staffLoginEnabled && form.password.trim() !== "" && form.password.trim().length < 8;
+  const isConfirmPasswordInvalid = attemptedSubmit && staffLoginEnabled && form.password.trim() !== "" && form.confirmPassword !== form.password;
 
   const setField = (key: keyof typeof form) => (val: string) => {
     setForm((prev) => ({ ...prev, [key]: val }));
@@ -248,7 +247,7 @@ const AddStaffPage: React.FC = () => {
         holidays: form.holidays ? Number(form.holidays) : undefined,
       };
 
-      if (form.password.trim()) {
+      if (staffLoginEnabled && form.password.trim()) {
         payload.password = form.password.trim();
       }
 
@@ -447,7 +446,7 @@ const AddStaffPage: React.FC = () => {
                 />
                 {isHourlyRateInvalid && <span className="emp-field__error">Hourly rate must be greater than 0</span>}
                 {!isHourlyRateInvalid && isCompensationConflict && (
-                  <span className="emp-field__error">Provide either Hourly Rate or Fixed Salary, not both</span>
+                  <span className="emp-field__error">A Fixed Salary is already set below — clear it to switch this employee to an Hourly Rate</span>
                 )}
               </div>
               <div className="emp-field">
@@ -460,6 +459,9 @@ const AddStaffPage: React.FC = () => {
                   onChange={(e) => setField("fixedSalary")(e.target.value)}
                 />
                 {isFixedSalaryInvalid && <span className="emp-field__error">Fixed salary must be greater than 0</span>}
+                {!isFixedSalaryInvalid && isCompensationConflict && (
+                  <span className="emp-field__error">An Hourly Rate is already set above — clear it to switch this employee to a Fixed Salary</span>
+                )}
               </div>
 
               <div className="emp-field">
@@ -514,42 +516,59 @@ const AddStaffPage: React.FC = () => {
 
         {/* ── Staff Login ── */}
         <div className="emp-card">
-          <h6 className="emp-card__title">Staff Login</h6>
-          <div className="emp-login-grid">
-            <div className="emp-field">
-              <div className={`emp-password-group ${isPasswordInvalid ? "emp-input--invalid" : ""}`}>
+          <div className="emp-permissions-header">
+            <div className="emp-permissions-header__left">
+              <span className="emp-card__title emp-card__title--inline">Staff Login</span>
+              <label className="emp-toggle">
                 <input
-                  className="emp-input emp-password-input"
-                  placeholder="Password"
-                  type={showPassword ? "text" : "password"}
-                  value={form.password}
-                  onChange={(e) => setField("password")(e.target.value)}
+                  type="checkbox"
+                  checked={staffLoginEnabled}
+                  onChange={(e) => setStaffLoginEnabled(e.target.checked)}
                 />
-                <button type="button" className="emp-password-eye" onClick={() => setShowPassword(!showPassword)}>
-                  {showPassword ? <EyeSlash size={14} /> : <Eye size={14} />}
-                </button>
-              </div>
-              {isPasswordInvalid && <span className="emp-field__error">Password must be at least 8 characters</span>}
-            </div>
-            <div className="emp-field">
-              <div className={`emp-password-group ${isConfirmPasswordInvalid ? "emp-input--invalid" : ""}`}>
-                <input
-                  className="emp-input emp-password-input"
-                  placeholder="Confirm Password"
-                  type={showConfirmPassword ? "text" : "password"}
-                  value={form.confirmPassword}
-                  onChange={(e) => setField("confirmPassword")(e.target.value)}
-                />
-                <button type="button" className="emp-password-eye" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
-                  {showConfirmPassword ? <EyeSlash size={14} /> : <Eye size={14} />}
-                </button>
-              </div>
-              {isConfirmPasswordInvalid && <span className="emp-field__error">Passwords do not match</span>}
+                <span className="emp-toggle__slider" />
+              </label>
             </div>
           </div>
-          <p className="emp-field__hint">
-            Set a password so this employee can log in with their email above right away. Leave blank to send an email invite instead — they'll set their own password and get the same permissions once they accept it.
-          </p>
+
+          {staffLoginEnabled && (
+            <>
+              <div className="emp-login-grid">
+                <div className="emp-field">
+                  <div className={`emp-password-group ${isPasswordInvalid ? "emp-input--invalid" : ""}`}>
+                    <input
+                      className="emp-input emp-password-input"
+                      placeholder="Password"
+                      type={showPassword ? "text" : "password"}
+                      value={form.password}
+                      onChange={(e) => setField("password")(e.target.value)}
+                    />
+                    <button type="button" className="emp-password-eye" onClick={() => setShowPassword(!showPassword)}>
+                      {showPassword ? <EyeSlash size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
+                  {isPasswordInvalid && <span className="emp-field__error">Password must be at least 8 characters</span>}
+                </div>
+                <div className="emp-field">
+                  <div className={`emp-password-group ${isConfirmPasswordInvalid ? "emp-input--invalid" : ""}`}>
+                    <input
+                      className="emp-input emp-password-input"
+                      placeholder="Confirm Password"
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={form.confirmPassword}
+                      onChange={(e) => setField("confirmPassword")(e.target.value)}
+                    />
+                    <button type="button" className="emp-password-eye" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                      {showConfirmPassword ? <EyeSlash size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
+                  {isConfirmPasswordInvalid && <span className="emp-field__error">Passwords do not match</span>}
+                </div>
+              </div>
+              <p className="emp-field__hint">
+                Set a password so this employee can log in with their email above right away. Leave blank to send an email invite instead — they'll set their own password and get the same permissions once they accept it.
+              </p>
+            </>
+          )}
         </div>
 
         {/* ── Staff Permissions ── */}
@@ -565,24 +584,6 @@ const AddStaffPage: React.FC = () => {
                 />
                 <span className="emp-toggle__slider" />
               </label>
-            </div>
-            <div className="emp-role-select" onClick={(e) => e.stopPropagation()}>
-              <button className="emp-role-btn" onClick={() => setRoleMenuOpen(!roleMenuOpen)}>
-                {permissionLevel} <ChevronDown size={12} />
-              </button>
-              {roleMenuOpen && (
-                <div className="emp-role-menu">
-                  {ROLE_OPTIONS.map((role) => (
-                    <div
-                      key={role}
-                      className={`emp-role-item ${permissionLevel === role ? "active" : ""}`}
-                      onClick={() => { setPermissionLevel(role); setRoleMenuOpen(false); }}
-                    >
-                      {role}
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
 

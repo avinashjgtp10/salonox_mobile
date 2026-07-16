@@ -56,7 +56,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         </NavLink>
       )}
 
-      {can("view_sales") && can("create_sales") && (
+      {can("create_quick_sale") && (
         <NavLink
           to="/dashboard/sales/quick"
           className={({ isActive }) => navClass(isActive)}
@@ -67,7 +67,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         </NavLink>
       )}
 
-      {can("view_appointments") && (
+      {can("view_calendar") && (
         <NavLink
           to="calendar"
           className={({ isActive }) => navClass(isActive)}
@@ -100,7 +100,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         </button>
       )}
 
-      {can("view_appointments") && (
+      {can("view_booking") && (
         <button
           type="button"
           className={menuClass("onlineBooking")}
@@ -127,7 +127,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         </NavLink>
       )}
 
-      {can("view_marketing") && (
+      {can("view_campaigns") && (
         <button
           type="button"
           className={menuClass("marketing")}
@@ -161,7 +161,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         </button>
       )}
 
-      {can("view_analytics") && (
+      {can("view_reports") && (
         <NavLink
           to="analytics"
           className={({ isActive }) => navClass(isActive)}
@@ -183,7 +183,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
 
       <div className="nav-spacer" />
 
-      {can("view_settings") && (
+      {can("general_settings") && (
         <NavLink
           to="settings"
           className={({ isActive }) => navClass(isActive)}

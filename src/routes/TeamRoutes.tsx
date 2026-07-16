@@ -41,15 +41,18 @@ export const TeamRoutes = () => (
       {/* New pages */}
       <Route path="commissions" element={<CommissionsPage />} />
       <Route path="attendance"  element={<AttendancePage />} />
-      <Route path="payroll"     element={<PayrollPage />} />
       <Route path="history"           element={<StaffHistoryListPage />} />
       <Route path="history/:staffId"  element={<StaffHistoryDetailPage />} />
 
-      {/* manage_team required to add/edit/import staff */}
-      <Route element={<PermissionGuard permKey="manage_team" />}>
+      {/* add_team_member required to import/invite new staff */}
+      <Route element={<PermissionGuard permKey="add_team_member" />}>
         <Route path="import" element={<ImportStaffPage />} />
         <Route path="add"    element={<AddStaffPage />} />
-        <Route path=":id"    element={<AddStaffPage />} />
+      </Route>
+
+      {/* edit_team_member required to edit an existing staff member */}
+      <Route element={<PermissionGuard permKey="edit_team_member" />}>
+        <Route path=":id" element={<AddStaffPage />} />
       </Route>
 
       {/* manage_shifts required for schedule management */}
@@ -58,8 +61,9 @@ export const TeamRoutes = () => (
         <Route path="repeating-shifts/:id" element={<RepeatingShiftsPage />} />
       </Route>
 
-      {/* view_payroll required for pay run access */}
+      {/* view_payroll required for pay run / payroll access */}
       <Route element={<PermissionGuard permKey="view_payroll" />}>
+        <Route path="payroll"     element={<PayrollPage />} />
         <Route path="payruns"     element={<PayRunsPage />} />
         <Route path="payruns/:id" element={<PayRunBreakdownPage />} />
       </Route>
