@@ -60,22 +60,24 @@ export const DashboardRoutes = (
         <Route index element={<DashboardPage />} />
       </Route>
 
-      {/* Calendar — requires view_appointments */}
-      <Route element={<PermissionGuard permKey="view_appointments" />}>
+      {/* Calendar — requires view_calendar */}
+      <Route element={<PermissionGuard permKey="view_calendar" />}>
         <Route path="calendar" element={<Scheduler />} />
       </Route>
 
-      {/* Analytics / Reports — requires view_analytics */}
-      <Route element={<PermissionGuard permKey="view_analytics" />}>
+      {/* Analytics / Reports — requires view_reports */}
+      <Route element={<PermissionGuard permKey="view_reports" />}>
         <Route path="analytics" element={<ReportsPage />} />
       </Route>
 
-      {/* Cash Management + Quick Sale — require view_sales (Quick Sale also needs create_sales) */}
+      {/* Cash Management — requires view_sales */}
       <Route element={<PermissionGuard permKey="view_sales" />}>
         <Route path="cash-management" element={<CashManagementPage />} />
-        <Route element={<PermissionGuard permKey="create_sales" />}>
-          <Route path="sales/quick" element={<QuickSalePage />} />
-        </Route>
+      </Route>
+
+      {/* Quick Sale — requires create_quick_sale */}
+      <Route element={<PermissionGuard permKey="create_quick_sale" />}>
+        <Route path="sales/quick" element={<QuickSalePage />} />
       </Route>
 
       {/* Clients — requires view_clients */}
@@ -93,18 +95,18 @@ export const DashboardRoutes = (
         <Route path="team/*" element={<TeamRoutes />} />
       </Route>
 
-      {/* Marketing — requires view_marketing */}
-      <Route element={<PermissionGuard permKey="view_marketing" />}>
+      {/* Marketing — requires view_campaigns */}
+      <Route element={<PermissionGuard permKey="view_campaigns" />}>
         <Route path="marketing/*" element={<MarketingRoutes />} />
       </Route>
 
-      {/* Settings — requires view_settings */}
-      <Route element={<PermissionGuard permKey="view_settings" />}>
+      {/* Settings — requires general_settings */}
+      <Route element={<PermissionGuard permKey="general_settings" />}>
         <Route path="settings/*" element={<SettingsRoutes />} />
       </Route>
 
-      {/* Online booking — requires view_appointments */}
-      <Route element={<PermissionGuard permKey="view_appointments" />}>
+      {/* Online booking — requires view_booking */}
+      <Route element={<PermissionGuard permKey="view_booking" />}>
         <Route path="online-booking/*" element={<OnlineBookingRoutes />} />
       </Route>
 

@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { Outlet } from "react-router-dom";
 import { ShieldOff, Loader2 } from "lucide-react";
 import { usePermissions } from "../../hooks/usePermissions";
@@ -12,17 +13,29 @@ export default function PermissionGuard({ permKey }: Props) {
   const settingsLoading = useAppSelector((s) => s.setting.loading.fetchAll);
   const profileLoading = useAppSelector((s) => s.user.loading.fetch);
 
+  // `state.setting.loading.fetchAll` is a global flag shared by every feature
+  // that dispatches fetchSettingsThunk (e.g. AppointmentModal refetches tax
+  // settings on its own mount). Gating on it unconditionally created a loop:
+  // guard shows spinner -> unmounts the routed page -> its effects re-run on
+  // next mount -> re-dispatches fetchSettingsThunk -> flag flips again -> guard
+  // shows spinner again, forever. Only wait for the *initial* load; once we've
+  // resolved a permission decision once, later background refetches elsewhere
+  // in the app shouldn't tear the guarded page back down.
+  const hasResolvedOnce = useRef(false);
+
   // Owners bypass immediately — no need to wait for settings
   if (role === "salon_owner" || role === "admin") return <Outlet />;
 
-  // While settings or profile are loading, show a spinner instead of a premature 403
-  if (settingsLoading || profileLoading) {
+  // While settings or profile are loading for the first time, show a spinner
+  // instead of a premature 403
+  if (!hasResolvedOnce.current && (settingsLoading || profileLoading)) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
         <Loader2 size={28} style={{ animation: "perm-spin 0.75s linear infinite", color: "#9ca3af" }} />
       </div>
     );
   }
+  hasResolvedOnce.current = true;
 
   if (can(permKey)) return <Outlet />;
 

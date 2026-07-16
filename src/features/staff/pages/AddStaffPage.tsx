@@ -446,7 +446,7 @@ const AddStaffPage: React.FC = () => {
                 />
                 {isHourlyRateInvalid && <span className="emp-field__error">Hourly rate must be greater than 0</span>}
                 {!isHourlyRateInvalid && isCompensationConflict && (
-                  <span className="emp-field__error">Provide either Hourly Rate or Fixed Salary, not both</span>
+                  <span className="emp-field__error">A Fixed Salary is already set below — clear it to switch this employee to an Hourly Rate</span>
                 )}
               </div>
               <div className="emp-field">
@@ -459,6 +459,9 @@ const AddStaffPage: React.FC = () => {
                   onChange={(e) => setField("fixedSalary")(e.target.value)}
                 />
                 {isFixedSalaryInvalid && <span className="emp-field__error">Fixed salary must be greater than 0</span>}
+                {!isFixedSalaryInvalid && isCompensationConflict && (
+                  <span className="emp-field__error">An Hourly Rate is already set above — clear it to switch this employee to a Fixed Salary</span>
+                )}
               </div>
 
               <div className="emp-field">

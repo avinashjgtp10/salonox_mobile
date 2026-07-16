@@ -29,15 +29,19 @@ export default function DashboardLayout() {
   const [openMenu, setOpenMenu] = useState<string | null>(() => detectOpenMenu(location.pathname));
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const role = useAppSelector((s) => s.auth.role);
 
   useEffect(() => {
     dispatch(getMySalonThunk());
     dispatch(fetchSettingsThunk());
 
-    // Fetch user profile; for staff, sync custom_permissions into auth state
+    // Fetch user profile; for staff, sync custom_permissions into auth state.
+    // Check role from the thunk's own fresh payload, not an outer selector —
+    // this effect only runs once on mount ([dispatch] deps), so closing over
+    // the outer `role` would capture a stale value (e.g. still null/undefined
+    // if this runs before session-restore resolves on a hard refresh) and
+    // silently skip the sync even though the fetch succeeded.
     dispatch(fetchMeThunk()).then((result) => {
-      if (fetchMeThunk.fulfilled.match(result) && role === "staff") {
+      if (fetchMeThunk.fulfilled.match(result) && result.payload.role === "staff") {
         const cp = result.payload.custom_permissions ?? null;
         dispatch(setCustomPermissions(cp));
         if (import.meta.env.DEV) {
@@ -45,7 +49,7 @@ export default function DashboardLayout() {
         }
       }
     });
-  }, [dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dispatch]);
 
   useEffect(() => {
     setOpenMenu(detectOpenMenu(location.pathname));
