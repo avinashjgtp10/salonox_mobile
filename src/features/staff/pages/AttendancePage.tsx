@@ -527,7 +527,6 @@ function EditModal({ record, date, onClose, onDone }: {
   );
   const [checkIn,  setCheckIn]  = useState(isoToTimeIST(record.check_in));
   const [checkOut, setCheckOut] = useState(isoToTimeIST(record.check_out));
-  const [note,     setNote]     = useState("");
   const [saving,   setSaving]   = useState(false);
   const [error,    setError]    = useState("");
 
@@ -537,7 +536,6 @@ function EditModal({ record, date, onClose, onDone }: {
       const patch: Record<string, any> = { status };
       if (checkIn)  patch.check_in  = toISO(date, checkIn);
       if (checkOut) patch.check_out = toISO(date, checkOut);
-      if (note.trim()) patch.note = note.trim();
 
       if (record.attendance_id) {
         await api.patch(ATTENDANCE.BY_ID(record.attendance_id), patch);
@@ -578,10 +576,6 @@ function EditModal({ record, date, onClose, onDone }: {
               <label>Check-out Time</label>
               <TimeField12h value={checkOut} onChange={setCheckOut} />
             </div>
-          </div>
-          <div className="at-modal-field">
-            <label>Note <span className="at-optional-label">(optional)</span></label>
-            <input type="text" placeholder="Add a note…" value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
           {error && <p className="at-modal-error">{error}</p>}
         </div>
