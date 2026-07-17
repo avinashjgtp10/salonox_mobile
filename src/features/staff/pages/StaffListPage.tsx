@@ -226,6 +226,14 @@ export default function StaffListPage() {
     setActionMenuId(null);
   };
 
+  // CSV/Excel exports hit the backend directly rather than exporting the
+  // already-loaded `staff` array, so the current search/status filters have
+  // to be forwarded explicitly or the server just returns every record.
+  const exportQueryParams = () => ({
+    search: searchTerm.trim() || undefined,
+    is_active: selectedStatus === "all" ? undefined : selectedStatus === "active",
+  });
+
   const filtered = staff.filter((s) => {
     const name = `${s.first_name || ""} ${s.last_name || ""}`.toLowerCase();
     const matchesSearch =
@@ -386,7 +394,10 @@ export default function StaffListPage() {
                 <DownloadButton
                   filename="staff.csv"
                   fetcher={async () => {
-                    const res = await api.get(STAFF.EXPORT("csv"), { responseType: "blob" });
+                    const res = await api.get(STAFF.EXPORT("csv"), {
+                      responseType: "blob",
+                      params: exportQueryParams(),
+                    });
                     setOptionsOpen(false);
                     return res.data;
                   }}
@@ -400,7 +411,10 @@ export default function StaffListPage() {
                 <DownloadButton
                   filename="staff.xlsx"
                   fetcher={async () => {
-                    const res = await api.get(STAFF.EXPORT("excel"), { responseType: "blob" });
+                    const res = await api.get(STAFF.EXPORT("excel"), {
+                      responseType: "blob",
+                      params: exportQueryParams(),
+                    });
                     setOptionsOpen(false);
                     return res.data;
                   }}
