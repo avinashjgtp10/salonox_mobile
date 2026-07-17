@@ -90,6 +90,10 @@ const PackageCreateForm: React.FC<Props> = ({
   const [gstPct,            setGstPct]           = useState(0);
   const [discount,          setDiscount]         = useState(0);
   const [discountStr,       setDiscountStr]      = useState("");
+  // "flat" = ₹ off the package price, "percent" = % of the package price.
+  // The DTO still receives the resolved ₹ figure either way (discountVal) —
+  // percent is purely an input convenience, no backend change involved.
+  const [discountType,      setDiscountType]     = useState<"flat" | "percent">("flat");
   const [pkgPrice,          setPkgPrice]         = useState(0);
   const [pkgPriceStr,       setPkgPriceStr]      = useState("");
   const [pkgPriceManual,    setPkgPriceManual]   = useState(false);
@@ -137,7 +141,9 @@ const PackageCreateForm: React.FC<Props> = ({
   }, [servicesTotal, pkgPriceManual]);
 
   // Live pricing calculations
-  const discountVal = Math.min(discount, pkgPrice);
+  const discountVal = discountType === "percent"
+    ? parseFloat(((pkgPrice * Math.min(Math.max(discount, 0), 100)) / 100).toFixed(2))
+    : Math.min(discount, pkgPrice);
   const afterDisc   = Math.max(0, pkgPrice - discountVal);
   const gstAmount   = parseFloat((afterDisc * gstPct / 100).toFixed(2));
   const totalAmount = parseFloat((afterDisc + gstAmount).toFixed(2));
@@ -254,6 +260,9 @@ const PackageCreateForm: React.FC<Props> = ({
     setGstPct(t.gstPercentage);
     setDiscount(t.discount);
     setDiscountStr(t.discount > 0 ? String(t.discount) : "");
+    // Templates persist the discount as a flat ₹ figure — a leftover "%"
+    // toggle from earlier typing must not reinterpret it as a percentage.
+    setDiscountType("flat");
     setPaymentMode("single");
     setSingleMethod(fromBackendPaymentMethod(t.paymentMethod));
     setShowTemplatePicker(false);
@@ -630,20 +639,34 @@ const PackageCreateForm: React.FC<Props> = ({
               </select>
             </div>
             <div className={styles.formField}>
-              <label className={styles.formLabel}>Discount (₹)</label>
-              <div className={styles.inputPrefix}>
-                <span className={styles.inputPrefixSymbol}>₹</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={discountStr}
-                  placeholder="0"
-                  onChange={e => { setDiscountStr(e.target.value); setDiscount(parseFloat(e.target.value) || 0); }}
-                  style={frozenStyle}
+              <label className={styles.formLabel}>Discount</label>
+              <div style={{ display: "flex", gap: 6 }}>
+                <div className={styles.inputPrefix} style={{ flex: 1 }}>
+                  <span className={styles.inputPrefixSymbol}>{discountType === "percent" ? "%" : "₹"}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={discountType === "percent" ? 100 : undefined}
+                    value={discountStr}
+                    placeholder="0"
+                    onChange={e => { setDiscountStr(e.target.value); setDiscount(parseFloat(e.target.value) || 0); }}
+                    style={frozenStyle}
+                    disabled={isFromTemplate}
+                    onFocus={e => e.target.select()}
+                    className={styles.input}
+                  />
+                </div>
+                <select
+                  value={discountType}
+                  onChange={e => setDiscountType(e.target.value as "flat" | "percent")}
+                  className={styles.select}
+                  style={{ width: 64, flexShrink: 0, ...(frozenStyle ?? {}) }}
                   disabled={isFromTemplate}
-                  onFocus={e => e.target.select()}
-                  className={styles.input}
-                />
+                  aria-label="Discount type"
+                >
+                  <option value="flat">₹</option>
+                  <option value="percent">%</option>
+                </select>
               </div>
             </div>
           </div>
@@ -656,7 +679,7 @@ const PackageCreateForm: React.FC<Props> = ({
             </div>
             {discountVal > 0 && (
               <div className={`${styles.priceRow} ${styles["priceRow--accent"]}`}>
-                <span>Discount</span>
+                <span>Discount{discountType === "percent" ? ` (${Math.min(Math.max(discount, 0), 100)}%)` : ""}</span>
                 <span>− ₹{discountVal.toFixed(2)}</span>
               </div>
             )}

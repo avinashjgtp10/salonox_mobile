@@ -21,6 +21,14 @@ interface TotalsPanelProps {
   gstAmount?: number;
   taxBreakdown?: TaxBreakdownEntry[];
   tip?: number;
+  // ₹ drawn from the client's balances for this bill — each shown as its own
+  // deduction line so the discount is visible in the summary itself, not just
+  // implied by a smaller "Due" figure with no line item explaining where it
+  // went. rewardPointsValue is the ₹ equivalent of the points being redeemed.
+  membershipWalletUsed?: number;
+  ewalletUsed?: number;
+  rewardPointsValue?: number;
+  referralCreditUsed?: number;
   alreadyPaid?: number;
   dueAmount?: number;
   packageServiceCount?: number;
@@ -38,7 +46,8 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
   serviceTotal, packageTotal, productTotal, membershipTotal,
   exCharges, discount, discountType, manualDiscount, couponDiscount = 0, couponCode,
   totalDiscount: totalDiscountProp,
-  gstAmount = 0, taxBreakdown = [], tip = 0,
+  gstAmount = 0, taxBreakdown = [], tip = 0, membershipWalletUsed = 0,
+  ewalletUsed = 0, rewardPointsValue = 0, referralCreditUsed = 0,
   alreadyPaid = 0, dueAmount = 0, packageServiceCount = 0,
   grandTotal: grandTotalProp, roundOff: roundOffProp,
 }) => {
@@ -85,6 +94,10 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
       ? [{ label: "Round Off", value: `${roundOff >= 0 ? "+" : "-"}${currencySymbol}${Math.abs(roundOff).toFixed(2)}`, color: "text-secondary" }]
       : []),
     { label: "Grand Total", value: `${currencySymbol}${grandTotal.toFixed(2)}`, color: "", bold: true },
+    ...(membershipWalletUsed > 0 ? [{ label: "Membership Wallet Applied", value: `-${currencySymbol}${membershipWalletUsed.toFixed(2)}`, color: "text-success" }] : []),
+    ...(ewalletUsed        > 0 ? [{ label: "eWallet Applied",         value: `-${currencySymbol}${ewalletUsed.toFixed(2)}`,        color: "text-success" }] : []),
+    ...(rewardPointsValue  > 0 ? [{ label: "Reward Points Applied",   value: `-${currencySymbol}${rewardPointsValue.toFixed(2)}`,  color: "text-success" }] : []),
+    ...(referralCreditUsed > 0 ? [{ label: "Referral Credit Applied", value: `-${currencySymbol}${referralCreditUsed.toFixed(2)}`, color: "text-success" }] : []),
     ...(tip         > 0 ? [{ label: "Tip (Staff)", value: `${currencySymbol}${tip.toFixed(2)}`,        color: "text-secondary" }] : []),
     ...(alreadyPaid > 0 ? [{ label: "Paid",        value: `${currencySymbol}${alreadyPaid.toFixed(2)}`, color: "text-success",   bold: false }] : []),
     ...(dueAmount   > 0 ? [{ label: "Due",          value: `${currencySymbol}${dueAmount.toFixed(2)}`,  color: "text-danger",    bold: false }] : []),

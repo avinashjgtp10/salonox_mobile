@@ -52,6 +52,10 @@ interface ServiceRowProps {
   onChange: (id: string, field: string, value: string | number | boolean) => void;
   onRemove: (id: string) => void;
   onClearError?: (tempId: string, field: string) => void;
+  /** Called before applying a picked service to THIS row. Return true if the
+   *  parent merged the pick into an existing row with the same service
+   *  (qty +1 there, this row removed) — the row then skips its own update. */
+  onSelectDuplicate?: (tempId: string, service: { id?: string; name: string; price: number; duration?: number }) => boolean;
   hasError?: boolean;
   errorFields?: { service?: boolean; staff?: boolean; time?: boolean; price?: boolean; qty?: boolean };
   disabled?: boolean;
@@ -136,6 +140,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   onChange,
   onRemove,
   onClearError,
+  onSelectDuplicate,
   errorFields = {},
   disabled,
   coveredServices,
@@ -387,6 +392,14 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   }
 
   function selectService(service: { id?: string; name: string; price: number; duration?: number }) {
+    // Same service already on the bill? Let the parent bump that row's qty
+    // instead of creating a duplicate row — two rows of one service each
+    // independently saw the package pool's full remaining count and could
+    // both mark themselves covered (double free session).
+    if (onSelectDuplicate?.(row.tempId, service)) {
+      setShowDrop(false);
+      return;
+    }
     const remaining = getCoveredRemaining(service.id, service.name);
     catalogPriceRef.current = service.price;
     pkgRemainingRef.current = remaining;

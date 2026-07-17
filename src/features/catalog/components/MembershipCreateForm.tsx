@@ -63,6 +63,10 @@ const MembershipCreateForm: React.FC<Props> = ({
   const [rpMultiplier, setRpMultiplier] = useState("0");
   const [tierColor,    setTierColor]    = useState(TIER_COLORS[0]);
   const [description,  setDescription]  = useState("");
+  // Wallet redemption is services-only by default — this opts the membership's
+  // pooled wallet balance into also covering products at checkout, the same
+  // generic pooled-credit mechanism already used for services.
+  const [appliesToProducts, setAppliesToProducts] = useState(false);
   const [errors,       setErrors]       = useState<Record<string, string>>({});
 
   // Only relevant for the immediate-purchase flow (selectedClient set, creating not editing).
@@ -99,6 +103,7 @@ const MembershipCreateForm: React.FC<Props> = ({
       setDescription(d.description ?? "");
       const matchedColor = TIER_COLORS.includes(d.colour) ? d.colour : TIER_COLORS[1];
       setTierColor(matchedColor);
+      setAppliesToProducts(!!d.appliesToProducts);
       try {
         const meta = JSON.parse(d.description ?? "{}");
         if (meta.bonusCredit)  setBonusCredit(String(meta.bonusCredit));
@@ -155,6 +160,7 @@ const MembershipCreateForm: React.FC<Props> = ({
       enableOnlineSales: true,
       enableOnlineRedemption: true,
       termsAndConditions: undefined,
+      appliesToProducts,
       // Persist client association so the drawer can display who this was created for
       ...(selectedClient ? {
         clientId:    String(selectedClient.id),
@@ -428,6 +434,18 @@ const MembershipCreateForm: React.FC<Props> = ({
                       />
                       <span className="cmp__sfx">%</span>
                     </div>
+                  </div>
+
+                  <div className="cmp__field">
+                    <label className="cmp__label" style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={appliesToProducts}
+                        onChange={e => setAppliesToProducts(e.target.checked)}
+                      />
+                      Redeem Wallet on Products
+                    </label>
+                    <p className="cmp__hint">Allow this membership's wallet balance to also be used for product purchases, not just services</p>
                   </div>
 
                   <div className="cmp__field">

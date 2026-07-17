@@ -49,6 +49,9 @@ interface Props {
   onUpdateService: (index: number, field: string, value: any) => void;
   onRemoveService: (index: number) => void;
   onAddService: () => void;
+  /** Return true if the picked service was merged into an existing row
+   *  (qty +1 there, row at `index` removed) — see ServiceRow.onSelectDuplicate. */
+  onServiceDuplicate?: (index: number, service: { id?: string; name: string; price: number; duration?: number }) => boolean;
 
   packageRows: PackageItem[];
   onUpdatePackage: (index: number, row: PackageItem) => void;
@@ -125,6 +128,7 @@ type SearchableItemRowProps =
       autoFocusSearch?: boolean;
       onAutoFocusHandled?: () => void;
       onRemove: () => void;
+      membershipWalletInfo?: { walletUsed: number; payable: number };
     };
 
 function getSafeQty(qty?: number) {
@@ -470,6 +474,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
   const requestNextProductFocus = kind === "product" ? props.requestNextProductFocus : undefined;
   const autoFocusSearch = kind === "product" ? props.autoFocusSearch : undefined;
   const onAutoFocusHandled = kind === "product" ? props.onAutoFocusHandled : undefined;
+  const membershipWalletInfo = kind === "product" ? props.membershipWalletInfo : undefined;
   const selectedName = kind === "package" ? row.packageName : row.productName;
   const [search, setSearch] = useState(selectedName);
   const [showDrop, setShowDrop] = useState(false);
@@ -491,6 +496,28 @@ function SearchableItemRow(props: SearchableItemRowProps) {
   const isNumericPriceSearch = kind === "product" && /^\d+(\.\d+)?$/.test(trimmedSearch);
   const meetsMinSearchLength = trimmedSearch.length >= MIN_SEARCH_LENGTH;
   const showSearchHelper = !frozen && !meetsMinSearchLength;
+
+  // Same fix as ServiceRow.tsx: the dropdown is a document.body portal with
+  // `position: fixed`, so a position computed once at render time leaves it
+  // visually stuck while the input scrolls away underneath it. Recompute on
+  // every scroll (capture phase — catches the modal's inner scroll container,
+  // not just window) and resize while open.
+  const [dropPos, setDropPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  useEffect(() => {
+    if (!showDrop || !meetsMinSearchLength) { setDropPos(null); return; }
+    function updateDropPos() {
+      if (!inputRef.current) return;
+      const r = inputRef.current.getBoundingClientRect();
+      setDropPos({ top: r.bottom + 2, left: r.left, width: r.width });
+    }
+    updateDropPos();
+    window.addEventListener("scroll", updateDropPos, true);
+    window.addEventListener("resize", updateDropPos);
+    return () => {
+      window.removeEventListener("scroll", updateDropPos, true);
+      window.removeEventListener("resize", updateDropPos);
+    };
+  }, [showDrop, meetsMinSearchLength]);
 
   useEffect(() => {
     setSearch(selectedName);
@@ -872,16 +899,13 @@ function SearchableItemRow(props: SearchableItemRowProps) {
             aria-controls={`${kind}-search-listbox`}
             aria-activedescendant={activeIndex >= 0 ? `${kind}-search-option-${results[activeIndex]?.id}` : undefined}
           />
-          {showDrop && meetsMinSearchLength && inputRef.current && createPortal(
+          {showDrop && meetsMinSearchLength && dropPos && createPortal(
             <div
               ref={portalDropRef}
               className="svc-dropdown"
               role="listbox"
               id={`${kind}-search-listbox`}
-              style={(() => {
-                const r = inputRef.current!.getBoundingClientRect();
-                return { position: "fixed" as const, top: r.bottom + 2, left: r.left, width: r.width, zIndex: 9999 };
-              })()}
+              style={{ position: "fixed" as const, top: dropPos.top, left: dropPos.left, width: dropPos.width, zIndex: 9999 }}
             >
               {isSearching ? (
                 <div className="svc-dropdown__searching">Searching...</div>
@@ -924,6 +948,11 @@ function SearchableItemRow(props: SearchableItemRowProps) {
           <span className="svc-field__hint">{helperText}</span>
         ) : null}
         {error && <span className="svc-field__err">Please select a {kind}</span>}
+        {membershipWalletInfo && membershipWalletInfo.walletUsed > 0 && (
+          <span className="svc-field__pkg-badge" title={`You pay ${currencySymbol}${membershipWalletInfo.payable.toFixed(2)}`}>
+            ✓ Membership Applied −{currencySymbol}{membershipWalletInfo.walletUsed.toFixed(2)}
+          </span>
+        )}
       </div>
 
       {/* Staff — wrapped to show error below */}
@@ -1003,7 +1032,16 @@ function SearchableItemRow(props: SearchableItemRowProps) {
       <input
         className="svc-field__input svc-field__input--readonly"
         readOnly
-        value={`${currencySymbol}${row.total.toFixed(2)}`}
+        value={
+          membershipWalletInfo && membershipWalletInfo.walletUsed > 0
+            ? `${currencySymbol}${membershipWalletInfo.payable.toFixed(2)}`
+            : `${currencySymbol}${row.total.toFixed(2)}`
+        }
+        title={
+          membershipWalletInfo && membershipWalletInfo.walletUsed > 0
+            ? `Full price ${currencySymbol}${row.total.toFixed(2)} — ${currencySymbol}${membershipWalletInfo.walletUsed.toFixed(2)} covered by membership`
+            : undefined
+        }
       />
 
       {/* Placeholder for quick-actions column so columns align with service rows */}
@@ -1017,7 +1055,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
 }
 
 export const ServicesPanel: React.FC<Props> = ({
-  serviceRows, onUpdateService, onRemoveService, onAddService,
+  serviceRows, onUpdateService, onRemoveService, onAddService, onServiceDuplicate,
   packageRows, onUpdatePackage, onRemovePackage, onAddPackage,
   productRows, onUpdateProduct, onRemoveProduct, onAddProduct,
   membershipRows, onUpdateMembership, onRemoveMembership, onAddMembership,
@@ -1068,6 +1106,7 @@ export const ServicesPanel: React.FC<Props> = ({
           onUpdateService(i, field, value);
         }}
         onRemove={() => onRemoveService(i)}
+        onSelectDuplicate={onServiceDuplicate ? (_id, svc) => onServiceDuplicate(i, svc) : undefined}
         coveredServices={coveredServices}
         membershipWalletInfo={membershipWalletInfo?.get((row as any).tempId || String(i))}
       />
@@ -1128,6 +1167,7 @@ export const ServicesPanel: React.FC<Props> = ({
             autoFocusSearch={pendingProductFocusIndex === i}
             onAutoFocusHandled={() => setPendingProductFocusIndex((prev) => prev === i ? null : prev)}
             onRemove={() => onRemoveProduct(i)}
+            membershipWalletInfo={membershipWalletInfo?.get(`product:${(row as any).tempId || String(i)}`)}
           />
         ))}
       </>
