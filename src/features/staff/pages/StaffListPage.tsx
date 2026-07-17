@@ -665,13 +665,6 @@ export default function StaffListPage() {
                 </div>
 
                 <div className="slp-col-actions" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    className="slp-edit-btn"
-                    onClick={(e) => { e.stopPropagation(); member.id && navigate(`/dashboard/team/${member.id}`); }}
-                    title="Edit"
-                  >
-                    <Pencil size={13} />
-                  </button>
                   <div className="slp-action-wrap">
                     <button
                       className="slp-more-btn"
