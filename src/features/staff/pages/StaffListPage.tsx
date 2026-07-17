@@ -13,7 +13,6 @@ import {
   X,
   PersonBadge,
   PersonPlus,
-  GeoAlt,
   Calendar2Check,
   ToggleOn,
   FileEarmarkExcel,
@@ -44,7 +43,6 @@ interface StaffMember {
   invitation_status?: string;
   job_title?: string;
   calendar_color?: string;
-  location?: string;
   allow_calendar_bookings?: boolean;
   permission_level?: string;
   is_active?: boolean;
@@ -116,12 +114,10 @@ export default function StaffListPage() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // Filter state
-  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
   const [bookable, setBookable] = useState(false);
   const [nonBookable, setNonBookable] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<"all" | "active" | "archived">("all");
 
-  const locations = ["Main Branch", "Branch 2", "Branch 3"];
   const sortOptions = [
     "Custom order",
     "Name (A-Z)",
@@ -164,21 +160,12 @@ export default function StaffListPage() {
     return () => document.removeEventListener("click", handler);
   }, []);
 
-  const toggleLocation = (loc: string) =>
-    setSelectedLocations((prev) =>
-      prev.includes(loc) ? prev.filter((l) => l !== loc) : [...prev, loc]
-    );
-  const toggleAllLocations = () =>
-    setSelectedLocations((prev) => (prev.length === locations.length ? [] : [...locations]));
-
   const totalFilterBadge =
-    selectedLocations.length +
     (bookable ? 1 : 0) +
     (nonBookable ? 1 : 0) +
     (selectedStatus !== "all" ? 1 : 0);
 
   const clearFilters = () => {
-    setSelectedLocations([]);
     setBookable(false);
     setNonBookable(false);
     setSelectedStatus("all");
@@ -232,8 +219,6 @@ export default function StaffListPage() {
       name.includes(searchTerm.toLowerCase()) ||
       (s.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (s.phone_number || s.phone || "").includes(searchTerm);
-    const matchesLocation =
-      selectedLocations.length === 0 || selectedLocations.includes(s.location || "");
     const matchesStatus =
       selectedStatus === "all" ||
       (selectedStatus === "active" && (s.is_active !== false)) ||
@@ -243,7 +228,7 @@ export default function StaffListPage() {
         ? true
         : (bookable && s.allow_calendar_bookings) ||
         (nonBookable && !s.allow_calendar_bookings);
-    return matchesSearch && matchesLocation && matchesStatus && matchesBookable;
+    return matchesSearch && matchesStatus && matchesBookable;
   });
 
   const sorted = [...filtered].sort((a, b) => {
@@ -266,7 +251,7 @@ export default function StaffListPage() {
   );
 
   // Reset to page 1 when search / filter / sort changes
-  useEffect(() => { setCurrentPage(1); }, [searchTerm, selectedSort, selectedLocations, bookable, nonBookable, selectedStatus]);
+  useEffect(() => { setCurrentPage(1); }, [searchTerm, selectedSort, bookable, nonBookable, selectedStatus]);
 
   const rangeFrom = sorted.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
   const rangeTo = Math.min(currentPage * PAGE_SIZE, sorted.length);
@@ -304,35 +289,6 @@ export default function StaffListPage() {
               <h4>All filters</h4>
             </div>
             <div className="sl-filter-body">
-              <FilterSection
-                title="Locations"
-                icon={<GeoAlt size={15} />}
-                badge={selectedLocations.length || undefined}
-                onClear={() => setSelectedLocations([])}
-              >
-                <label className="fs-checkbox-row fs-select-all">
-                  <input
-                    type="checkbox"
-                    checked={selectedLocations.length === locations.length}
-                    onChange={toggleAllLocations}
-                  />
-                  <span>Select all</span>
-                </label>
-                {locations.map((loc) => (
-                  <label key={loc} className="fs-checkbox-row">
-                    <input
-                      type="checkbox"
-                      checked={selectedLocations.includes(loc)}
-                      onChange={() => toggleLocation(loc)}
-                    />
-                    <span className="fs-loc-info">
-                      <span className="fs-loc-icon">🏢</span>
-                      <span>{loc}</span>
-                    </span>
-                  </label>
-                ))}
-              </FilterSection>
-
               <FilterSection
                 title="Type"
                 icon={<Calendar2Check size={15} />}
