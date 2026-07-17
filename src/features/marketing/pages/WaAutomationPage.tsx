@@ -22,6 +22,9 @@ const EVENT_LABELS: Record<PurchaseEventType, { label: string; hint: string }> =
   review_request: { label: "Review Request", hint: "Sent right after an appointment is marked completed, asking for a review" },
   package_expiring_soon: { label: "Package Expiring (7 Days)", hint: "Sent 7 days before a client's package expires" },
   sessions_remaining: { label: "Sessions Remaining", hint: "Sent once when a package or membership has 2 or fewer sessions left" },
+  appointment_confirmation: { label: "Appointment Confirmation", hint: "Sent right after a new appointment is booked" },
+  appointment_reminder_24h: { label: "Appointment Reminder (24 Hours Before)", hint: "Sent 24 hours before a booked appointment" },
+  appointment_rescheduled: { label: "Appointment Rescheduled", hint: "Sent when an appointment's date, time, or staff changes" },
 };
 
 // What each {{n}} placeholder actually turns into in the message the customer
@@ -70,6 +73,25 @@ const VARIABLE_EXPLANATIONS: Record<PurchaseEventType, Array<{ token: string; me
     { token: "{{1}}", meaning: "Customer's name" },
     { token: "{{2}}", meaning: "The package or membership name" },
     { token: "{{3}}", meaning: "How many sessions are left" },
+  ],
+  appointment_confirmation: [
+    { token: "{{1}}", meaning: "Customer's name" },
+    { token: "{{2}}", meaning: "Your salon's name" },
+    { token: "{{3}}", meaning: "The service booked" },
+    { token: "{{4}}", meaning: "The appointment date" },
+    { token: "{{5}}", meaning: "The appointment time" },
+  ],
+  appointment_reminder_24h: [
+    { token: "{{1}}", meaning: "Customer's name" },
+    { token: "{{2}}", meaning: "Your salon's name" },
+    { token: "{{3}}", meaning: "The appointment date" },
+    { token: "{{4}}", meaning: "The appointment time" },
+  ],
+  appointment_rescheduled: [
+    { token: "{{1}}", meaning: "Customer's name" },
+    { token: "{{2}}", meaning: "Your salon's name" },
+    { token: "{{3}}", meaning: "The new appointment date" },
+    { token: "{{4}}", meaning: "The new appointment time" },
   ],
 };
 
