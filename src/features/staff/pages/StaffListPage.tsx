@@ -128,7 +128,6 @@ export default function StaffListPage() {
     "Name (Z-A)",
     "Started at (oldest first)",
     "Started at (newest first)",
-    "Rating (highest first)",
   ];
 
   const showToast = useCallback((msg: string, type: "success" | "error" = "success") => {
@@ -252,6 +251,11 @@ export default function StaffListPage() {
     const nameB = `${b.first_name} ${b.last_name}`.toLowerCase();
     if (selectedSort === "Name (A-Z)") return nameA.localeCompare(nameB);
     if (selectedSort === "Name (Z-A)") return nameB.localeCompare(nameA);
+    if (selectedSort === "Started at (oldest first)" || selectedSort === "Started at (newest first)") {
+      const startedA = new Date((a as any).joined_date || a.created_at || 0).getTime();
+      const startedB = new Date((b as any).joined_date || b.created_at || 0).getTime();
+      return selectedSort === "Started at (oldest first)" ? startedA - startedB : startedB - startedA;
+    }
     return 0;
   });
 

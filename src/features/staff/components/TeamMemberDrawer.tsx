@@ -3,38 +3,38 @@ import { useNavigate } from "react-router-dom";
 import {
   X,
   ChevronDown,
-  InfoCircle,
-  GraphUp,
 } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
 import "../styles/TeamMemberDrawer.scss";
 
-interface PerformanceCardProps {
-  title: string;
-  value: string;
-  change: string;
-  icon?: React.ReactNode;
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+function ordinal(n: number): string {
+  const suffixes = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return `${n}${suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]}`;
 }
 
-const PerformanceCard: React.FC<PerformanceCardProps> = ({
-  title,
-  value,
-  change,
-  icon,
-}) => (
-  <div className="perf-card">
-    <div className="perf-card__header">
-      <span className="title-with-icon">
-        {title} {icon || <InfoCircle size={14} />}
-      </span>
-    </div>
-    <div className="perf-card__value">{value}</div>
-    <div className="perf-card__change">
-      <GraphUp size={12} /> {change} vs prev period
-    </div>
-  </div>
-);
+function formatDob(day?: number | null, month?: number | null): string | null {
+  if (!day || !month || month < 1 || month > 12) return null;
+  return `${day} ${MONTH_NAMES[month - 1]}`;
+}
+
+function formatJoined(dateStr?: string | null): string | null {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return null;
+  return `${MONTH_NAMES[d.getMonth()]} ${ordinal(d.getDate())}, ${d.getFullYear()} – present`;
+}
+
+function formatColorLabel(key?: string | null): string | null {
+  if (!key || key.startsWith("#")) return null;
+  return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 interface TeamMemberDrawerProps {
   isOpen: boolean;
@@ -54,8 +54,6 @@ const TeamMemberDrawer: React.FC<TeamMemberDrawerProps> = ({
   onAddTimeOff,
 }) => {
   const navigate = useNavigate();
-  const [timeRange, setTimeRange] = useState("Week to date");
-  const [showRangeMenu, setShowRangeMenu] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const [member, setMember] = useState<any>(null);
 
@@ -66,11 +64,23 @@ const TeamMemberDrawer: React.FC<TeamMemberDrawerProps> = ({
           const res = await api.get(STAFF.BY_ID(memberId));
           const data = res.data?.data || res.data;
           if (data) {
+            const name = [data.first_name, data.last_name].filter(Boolean).join(" ") || "Unknown";
             setMember({
               id: data.id,
-              name: `${data.first_name} ${data.last_name}`,
+              name,
               initials: (data.first_name?.[0] || "").toUpperCase(),
               avatarColor: data.calendar_color || "#111827",
+              email: data.email || "–",
+              phoneDisplay: (data.phone || data.phone_number)
+                ? `${data.phone_country_code || ""} ${data.phone || data.phone_number}`.trim()
+                : "–",
+              dob: formatDob(data.birthday_day, data.birthday_month) || "–",
+              country: data.country || "–",
+              colorLabel: formatColorLabel(data.calendar_color) || "–",
+              jobTitle: data.designation || data.job_title || "–",
+              employment: formatJoined(data.joined_date) || "–",
+              employmentType: data.employment_type || "–",
+              teamMemberId: data.employee_code || data.id || "–",
             });
           }
         } catch (error) {
@@ -84,8 +94,6 @@ const TeamMemberDrawer: React.FC<TeamMemberDrawerProps> = ({
   }, [isOpen, memberId]);
 
   if (!isOpen || !member) return null;
-
-  const ranges = ["Today", "Week to date", "Last 7 days", "Month to date"];
 
   return (
     <div
@@ -160,50 +168,6 @@ const TeamMemberDrawer: React.FC<TeamMemberDrawerProps> = ({
 
         <div className="tm-drawer__body">
           <main className="tm-drawer__content">
-            <div className="overview-tab">
-              <div className="overview-header">
-                <h3>Overview</h3>
-                <div className="perf-controls">
-                  <div className="perf-link">
-                    <span>Performance dashboard</span>
-                    <button className="view-full">View full dashboard</button>
-                  </div>
-                  <div className="perf-selector">
-                    <button
-                      className="range-btn"
-                      onClick={() => setShowRangeMenu(!showRangeMenu)}
-                    >
-                      {timeRange} <ChevronDown size={14} />
-                    </button>
-                    {showRangeMenu && (
-                      <div className="range-menu">
-                        {ranges.map((r) => (
-                          <div
-                            key={r}
-                            className={`range-item ${timeRange === r ? "active" : ""}`}
-                            onClick={() => {
-                              setTimeRange(r);
-                              setShowRangeMenu(false);
-                            }}
-                          >
-                            {r} {timeRange === r && <span>✓</span>}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="metrics-grid">
-                <PerformanceCard title="Sales" value="₹0.00" change="0%" />
-                <PerformanceCard title="Appointments" value="0" change="0%" />
-                <PerformanceCard title="Clients" value="0" change="0%" />
-                <PerformanceCard title="Occupancy" value="0%" change="0%" />
-                <PerformanceCard title="Retention" value="0%" change="0%" />
-              </div>
-            </div>
-
             <div className="personal-tab">
               <div className="tab-header">
                 <h3>Personal information</h3>
@@ -224,19 +188,19 @@ const TeamMemberDrawer: React.FC<TeamMemberDrawerProps> = ({
                   </div>
                   <div className="detail-item">
                     <label>Email</label>
-                    <p>shivani21@gmail.com</p>
+                    <p>{member.email}</p>
                   </div>
                   <div className="detail-item">
                     <label>Phone number</label>
-                    <p>+91 89997 23694</p>
+                    <p>{member.phoneDisplay}</p>
                   </div>
                   <div className="detail-item">
                     <label>Date of birth</label>
-                    <p>–</p>
+                    <p>{member.dob}</p>
                   </div>
                   <div className="detail-item">
                     <label>Country</label>
-                    <p>–</p>
+                    <p>{member.country}</p>
                   </div>
                   <div className="detail-item">
                     <label>Calendar color</label>
@@ -245,12 +209,12 @@ const TeamMemberDrawer: React.FC<TeamMemberDrawerProps> = ({
                         className="color-dot"
                         style={{ "--avatar-bg": member.avatarColor } as React.CSSProperties}
                       ></span>
-                      <p>Blue</p>
+                      <p>{member.colorLabel}</p>
                     </div>
                   </div>
                   <div className="detail-item">
                     <label>Job title</label>
-                    <p>–</p>
+                    <p>{member.jobTitle}</p>
                   </div>
                 </div>
               </div>
@@ -260,15 +224,15 @@ const TeamMemberDrawer: React.FC<TeamMemberDrawerProps> = ({
                 <div className="details-grid">
                   <div className="detail-item">
                     <label>Employment</label>
-                    <p>March 26th, 2026 – present</p>
+                    <p>{member.employment}</p>
                   </div>
                   <div className="detail-item">
                     <label>Employment type</label>
-                    <p>–</p>
+                    <p>{member.employmentType}</p>
                   </div>
                   <div className="detail-item">
                     <label>Team member ID</label>
-                    <p>–</p>
+                    <p>{member.teamMemberId}</p>
                   </div>
                 </div>
               </div>
