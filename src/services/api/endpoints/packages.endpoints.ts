@@ -146,6 +146,11 @@ export const {
 
 export interface ClientPackageService {
   serviceId: string;
+  // Real catalog services.id — used to match this package coverage against
+  // a booked service exactly, even when two catalog services share a
+  // display name (e.g. two "Hair Cut" entries at different prices). Null on
+  // packages sold before this existed; consumers fall back to name-matching.
+  catalogServiceId: string | null;
   serviceName: string;
   totalSessions: number;
   completedSessions: number;
@@ -194,6 +199,8 @@ export interface CreateClientPackageDTO {
   discount: number;
   paymentMethod: string;
   services: Array<{
+    /** Real catalog services.id, when picked from the catalog search. */
+    serviceId?: string;
     serviceName: string;
     totalSessions: number;
     price: number;

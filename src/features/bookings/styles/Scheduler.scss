@@ -170,6 +170,15 @@
 
   &__cell {
     min-height: 90px;
+    // CSS Grid items default to min-width:auto — without this override, a
+    // long event chip's white-space:nowrap content (needed for its own
+    // text-overflow:ellipsis to work) forces this cell wider than its 1fr
+    // share instead of ever shrinking to it, distorting every column's width
+    // and pushing the whole grid past the viewport. overflow:hidden is a
+    // second line of defense so nothing can visually escape the cell box
+    // even if something inside it still miscalculates its own width.
+    min-width: 0;
+    overflow: hidden;
     border: 1px solid $color-border-light;
     padding: 6px 8px;
     cursor: pointer;

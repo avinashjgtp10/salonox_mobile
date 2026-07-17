@@ -8,7 +8,12 @@ $green-darker: #085041;
   position: fixed;
   bottom: 28px;
   right: 28px;
-  z-index: 9999;
+  // Below every modal/drawer in the app (which run 1000-2000+) so an open
+  // modal's own buttons are never covered by this floating widget — it was
+  // previously 9999, higher than any modal, which let it sit on top of and
+  // intercept clicks meant for e.g. Block Time's Save button in the
+  // bottom-right corner. Still above ordinary in-page UI (≤300).
+  z-index: 900;
   width: 52px;
   height: 52px;
   border-radius: 50%;
@@ -45,7 +50,7 @@ $green-darker: #085041;
   position: fixed;
   bottom: 92px;
   right: 28px;
-  z-index: 9998;
+  z-index: 899; // see .sbot-fab above — kept below all modals
   width: 380px;
   height: 570px;
   border-radius: 20px;

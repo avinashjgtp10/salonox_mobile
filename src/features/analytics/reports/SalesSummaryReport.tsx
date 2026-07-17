@@ -29,6 +29,7 @@ interface SaleRow {
   status: string;
   date: string;
   tip: number;
+  ewalletUsed: number;
 }
 
 function mapAppointment(appt: any): SaleRow {
@@ -57,6 +58,11 @@ function mapAppointment(appt: any): SaleRow {
   const tip = Number(appt.tip_amount) || 0;
   const price = Math.round(taxableAmount + taxAmount + tip);
   const paid = Number(appt.paid_amount) || 0;
+  // appt.ewallet_used is already summed server-side across this appointment's
+  // payments (appointments.repository.ts) — the API had it all along, this
+  // report just never read it, so eWallet-covered bills looked like they were
+  // paid entirely via whatever the "primary" payment_method happened to be.
+  const ewalletUsed = Number(appt.ewallet_used) || 0;
 
   return {
     id: String(appt.id ?? ""),
@@ -76,6 +82,7 @@ function mapAppointment(appt: any): SaleRow {
     status: appt.status ?? "booked",
     date: String(appt.scheduled_at ?? appt.created_at ?? "").slice(0, 10),
     tip,
+    ewalletUsed,
   };
 }
 
@@ -152,15 +159,16 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
     const received  = rows.reduce((s, r) => s + r.paid, 0);
     const returnSales = rows.filter(r => r.status === "refunded").reduce((s, r) => s + r.price, 0);
     const totalTip  = rows.reduce((s, r) => s + r.tip, 0);
+    const totalEwallet = rows.reduce((s, r) => s + r.ewalletUsed, 0);
     return {
       totalBill,
       billAverage: totalBill > 0 ? totalSale / totalBill : 0,
-      totalSale, received, returnSales, totalTip,
+      totalSale, received, returnSales, totalTip, totalEwallet,
     };
   }, [rows]);
 
-  const HEADERS = ["Invoice No", "Name", "Contact", "Item Description", "Item Types", "Actual Price", "Price", "Paid", "Balance", "Modes", "Status", "Date"];
-  const exportRows = () => rows.map(r => [r.invoiceNo, r.name, r.contact, r.itemDescription, r.itemTypes, r.actualPrice, r.price, r.paid, r.balance, r.modes, r.status, r.date]);
+  const HEADERS = ["Invoice No", "Name", "Contact", "Item Description", "Item Types", "Actual Price", "Price", "Paid", "E-Wallet", "Balance", "Modes", "Status", "Date"];
+  const exportRows = () => rows.map(r => [r.invoiceNo, r.name, r.contact, r.itemDescription, r.itemTypes, r.actualPrice, r.price, r.paid, r.ewalletUsed, r.balance, r.modes, r.status, r.date]);
   const paged = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const money = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
@@ -218,6 +226,7 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
             { label: "Received Amount",   value: money(stats.received) },
             { label: "Return Sales",      value: money(stats.returnSales) },
             { label: "Total Tip",         value: money(stats.totalTip) },
+            { label: "Total E-Wallet",    value: money(stats.totalEwallet) },
           ].map(c => (
             <div key={c.label} className="rp-sra-summary-card">
               <div className="rp-sra-summary-val">{c.value}</div>
@@ -258,6 +267,7 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
               <th>Actual Price</th>
               <th>Price</th>
               <th>Paid</th>
+              <th>E-Wallet</th>
               <th>Balance</th>
               <th>Modes</th>
               <th>Status</th>
@@ -266,9 +276,9 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={12} />
+              <SkeletonTableRows columns={13} />
             ) : paged.length === 0 ? (
-              <tr><td colSpan={12} className="rp-detail-empty-cell">No sales found</td></tr>
+              <tr><td colSpan={13} className="rp-detail-empty-cell">No sales found</td></tr>
             ) : paged.map((r, i) => (
               <tr key={i} className="rp-appt-row" onClick={() => r.id && setSelectedId(r.id)}>
                 <td><span className="rp-detail-link">{r.invoiceNo}</span></td>
@@ -279,6 +289,7 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
                 <td>{money(r.actualPrice)}</td>
                 <td className="fw-semibold">{money(r.price)}</td>
                 <td>{money(r.paid)}</td>
+                <td>{r.ewalletUsed > 0 ? money(r.ewalletUsed) : "—"}</td>
                 <td>{money(r.balance)}</td>
                 <td className="rp-ss-mode">{r.modes}</td>
                 <td><span className={`rp-status-badge rp-status-${r.status}`}>{r.status}</span></td>

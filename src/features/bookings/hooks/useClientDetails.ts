@@ -14,13 +14,13 @@ function formatDate(raw?: string | null): string {
 function buildStats(d: ClientDetails): ClientStats {
   return {
     ewalletAmt:   Number(d.wallet_balance ?? d.ewallet_balance ?? 0),
+    rewardPoints: Number(d.reward_points_balance ?? 0),
+    referralBalance: Number(d.referral_balance ?? 0),
     referralCode: d.referral_code ?? null,
     referredByClientId: d.referred_by_client_id ?? null,
     referralPending: !!d.referred_by_client_id && d.referral_reward_status === "pending",
     referralEarnings: Number(d.total_referral_earnings ?? 0),
     unpaidAmt:    Number(d.unpaid_amount ?? d.total_due ?? d.outstanding_amount ?? d.due_amount ?? 0),
-    assignDiscount: Number(d.assign_discount ?? 0),
-    discountValidity: d.discount_validity || "N/A",
     membership:   d.membership_tier || d.membership || "NA",
     cancelled:    Number(d.cancelled_count ?? 0),
     totalVisit:   Number(d.total_visits ?? 0),
@@ -35,7 +35,7 @@ function buildStats(d: ClientDetails): ClientStats {
  * Phase 1: fast profile fetch (profile API) → sets stat card immediately.
  * Phase 2: background history fetch → enriches total_visits, cancelled, total_revenue.
  */
-export function useClientDetails(clientId: string | null | undefined) {
+export function useClientDetails(clientId: string | null | undefined, refreshKey?: number) {
   const [details, setDetails]   = useState<ClientDetails | null>(null);
   const [stats, setStats]       = useState<ClientStats | null>(null);
   const [loading, setLoading]   = useState(false);
@@ -204,7 +204,7 @@ export function useClientDetails(clientId: string | null | undefined) {
       return;
     }
     fetch(clientId);
-  }, [clientId, fetch]);
+  }, [clientId, fetch, refreshKey]);
 
   /** Call after a payment to bump unpaidAmt locally without re-fetching */
   const patchUnpaidAmt = useCallback((newAmt: number) => {

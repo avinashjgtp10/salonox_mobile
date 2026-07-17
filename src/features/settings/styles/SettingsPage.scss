@@ -1977,6 +1977,59 @@
 }
 
 /* ============================================================
+   GST MODULE CONFIG — master toggle + invoice settings, sits above
+   the Tax Mappings split panel below.
+   ============================================================ */
+
+.gst-module {
+  border: 1px solid $dashboard-border;
+  border-radius: 12px;
+  background: $white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  padding: 16px 20px;
+  margin-bottom: 16px;
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid $dashboard-border;
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__check {
+    align-self: center;
+  }
+
+  &__gstin {
+    font-size: 13px;
+    color: $dashboard-primary;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  &__gstin-sep {
+    color: $dashboard-secondary;
+  }
+
+  &__gstin-link {
+    font-size: 12px;
+    color: #2563eb;
+    text-decoration: none;
+    &:hover { text-decoration: underline; }
+  }
+}
+
+/* ============================================================
    SETTINGS MANAGEMENT — SPLIT LIST + DETAIL PANEL
    (Mirrors the Tax Mapping UI pattern)
    ============================================================ */
@@ -1987,9 +2040,10 @@
   border-radius: 12px;
   overflow: hidden;
   background: $white;
-  /* Fixed height so the inner list's overflow-y: auto activates */
-  height: calc(100vh - 260px);
-  max-height: calc(100vh - 260px);
+  /* Fixed height so the inner list's overflow-y: auto activates — reduced
+     from the page viewport to make room for .gst-module above it. */
+  height: calc(100vh - 400px);
+  max-height: calc(100vh - 400px);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
@@ -2401,6 +2455,47 @@
     margin: 0;
     flex-shrink: 0;
   }
+}
+
+/* ── Tax status: Active / Inactive / Included ── */
+.sm-split__status-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.sm-split__status-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1.5px solid $dashboard-border;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: $dashboard-secondary;
+  user-select: none;
+  transition: all 0.15s;
+
+  input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  &.active {
+    border-color: #2563eb;
+    background: #eff6ff;
+    color: #2563eb;
+  }
+}
+
+.sm-split__status-hint {
+  font-size: 12px;
+  color: $dashboard-secondary;
+  margin: 0 0 20px;
 }
 
 /* ── Applicable For section ── */

@@ -7,7 +7,9 @@
 // History" button, instead of navigating away from the calendar entirely.
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAppSelector } from "../../../hooks/useAppRedux";
+import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
+import { getTaxModuleConfig } from "../../settings/utils/taxModuleSettings";
 import {
   Telephone,
   Whatsapp,
@@ -44,6 +46,7 @@ interface AppointmentRecord {
   paymentMode?: string | null;
   payment_mode?: string | null;
   membership_wallet_used?: number;
+  ewallet_used?: number;
   services: Array<{ name?: string; service_name?: string; price?: number }>;
   product_items: Array<{ name: string }>;
   package_items?: Array<{ name?: string; package_name?: string; price?: number; total?: number }>;
@@ -192,8 +195,12 @@ export interface ClientHistoryDetailProps {
 
 export default function ClientHistoryDetail({ clientId, onClose, initialTab }: ClientHistoryDetailProps) {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const currentSalon = useAppSelector((s: any) => s.salon.currentSalon);
   const reduxStaff = useAppSelector((s: any) => s.staff.items ?? []);
+  const settingItems = useAppSelector((s: any) => s.setting.items);
+  useEffect(() => { dispatch(fetchSettingsThunk()); }, [dispatch]);
+  const showTaxBreakupOnInvoice = useMemo(() => getTaxModuleConfig(settingItems).show_breakup_on_invoice, [settingItems]);
   const staffList: StaffOption[] = reduxStaff.map((s: any) => ({
     id: s.id,
     full_name: s.full_name || `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim(),
@@ -578,8 +585,10 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       invoiceNumber: linkedSale?.invoice_number,
       grandTotalOverride: linkedSale ? Number(linkedSale.total_amount) : Number(appt.amount_paid || 0),
       notes: appt.notes,
+      ewalletUsed: appt.ewallet_used,
+      membershipWalletUsed: appt.membership_wallet_used,
     });
-    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email, referralCode: (client as any)?.referral_code ?? null });
+    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email, referralCode: (client as any)?.referral_code ?? null }, { showTaxBreakup: showTaxBreakupOnInvoice });
   };
 
   const printSaleBill = (s: SaleRecord) => {
@@ -597,7 +606,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       invoiceNumber: s.invoice_number,
       grandTotalOverride: Number(s.total_amount) || 0,
     });
-    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email, referralCode: (client as any)?.referral_code ?? null });
+    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email, referralCode: (client as any)?.referral_code ?? null }, { showTaxBreakup: showTaxBreakupOnInvoice });
   };
 
   const printPackageBill = (pkg: PackageRecord, matchedSale: SaleRecord | undefined) => {
@@ -629,7 +638,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       invoiceNumber: matchedSale?.invoice_number,
       grandTotalOverride: matchedSale ? Number(matchedSale.total_amount) : (Number(pkg.total_amount) || 0),
     });
-    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email });
+    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email }, { showTaxBreakup: showTaxBreakupOnInvoice });
   };
 
   if (historyLoading) {

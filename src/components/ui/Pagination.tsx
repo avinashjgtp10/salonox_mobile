@@ -18,7 +18,12 @@ export const Pagination: React.FC<PaginationProps> = ({
   totalItems,
   onPageChange,
   onPageSizeChange,
-  pageSizeOptions = [10, 25, 50, 100],
+  // Covers both initial-pageSize conventions used across the app (20 and 25) —
+  // a controlled <select> whose value has no matching <option> silently falls
+  // back to displaying the first option instead, which made several pages'
+  // page-size dropdown show a value that didn't match what was actually
+  // being fetched until the user picked an option that genuinely existed.
+  pageSizeOptions = [10, 20, 25, 50, 100],
   className = "",
 }) => {
   const totalPages = Math.ceil(totalItems / pageSize);

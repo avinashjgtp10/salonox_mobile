@@ -23,7 +23,7 @@ export default function ClientHistoryModal({ clientId, onClose, initialTab }: Cl
   }, [onClose]);
 
   return (
-    <div className="chm-overlay" onClick={onClose}>
+    <div className="chm-overlay" onClick={(e) => { e.stopPropagation(); onClose(); }}>
       <div className="chm-panel" onClick={(e) => e.stopPropagation()}>
         {/* Reuses .chp-root's own CSS cascade (chp-content-wrap/chp-idle/etc. are
             all SCSS-nested under it) — the --modal modifier just drops the
