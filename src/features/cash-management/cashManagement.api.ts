@@ -3,7 +3,6 @@ import type {
   CashDashboardSummary,
   CashExpensePayload,
   CashExpenseRecord,
-  CashRevenueRecord,
   CashTransactionRecord,
   CloseCounterPayload,
   OpenCounterPayload,
@@ -20,58 +19,6 @@ const asNumber = (value: unknown) => {
 const asString = (value: unknown, fallback = "") => {
   if (value === null || value === undefined) return fallback;
   return String(value);
-};
-
-const pickNumber = (...values: unknown[]) => {
-  for (const value of values) {
-    if (value === null || value === undefined || value === "") continue;
-    const next = Number(value);
-    if (Number.isFinite(next)) return next;
-  }
-  return 0;
-};
-
-const parseSplitDetails = (value: unknown) => {
-  if (!value) return null;
-  if (typeof value === "string") {
-    try {
-      return JSON.parse(value);
-    } catch {
-      return null;
-    }
-  }
-  if (typeof value === "object") return value as Record<string, unknown> | unknown[];
-  return null;
-};
-
-const getSplitCashAmount = (value: unknown) => {
-  const splitDetails = parseSplitDetails(value);
-  if (!splitDetails) return null;
-
-  if (Array.isArray(splitDetails)) {
-    for (const item of splitDetails) {
-      const method = asString(
-        (item as any)?.payment_method ??
-          (item as any)?.method ??
-          (item as any)?.type ??
-          (item as any)?.name,
-      ).toLowerCase();
-      if (method === "cash") {
-        return pickNumber(
-          (item as any)?.amount,
-          (item as any)?.paid_amount,
-          (item as any)?.value,
-        );
-      }
-    }
-    return null;
-  }
-
-  return pickNumber(
-    (splitDetails as any)?.Cash,
-    (splitDetails as any)?.cash,
-    (splitDetails as any)?.CASH,
-  );
 };
 
 const unwrapData = <T,>(payload: any): T => {
@@ -126,68 +73,6 @@ const normalizeTransaction = (raw: any): CashTransactionRecord => ({
   remarks: raw?.remarks ?? null,
 });
 
-const normalizeRevenue = (raw: any): CashRevenueRecord => ({
-  id: asString(
-    raw?.id ?? raw?.payment_id ?? raw?.paymentId ?? raw?.invoice_number ?? raw?.invoiceNo,
-  ),
-  updatedAt: asString(
-    raw?.updated_at ?? raw?.updatedAt ?? raw?.time ?? raw?.created_at ?? raw?.createdAt,
-  ),
-  paymentId: asString(
-    raw?.payment_id ??
-      raw?.paymentId ??
-      raw?.invoice_number ??
-      raw?.invoiceNo ??
-      raw?.invoice_id,
-    "-",
-  ),
-  invoiceId: asString(
-    raw?.invoice_id ??
-      raw?.invoiceId ??
-      raw?.invoice_number ??
-      raw?.invoiceNo ??
-      raw?.payment_id ??
-      raw?.paymentId,
-    "-",
-  ),
-  client: asString(raw?.client_name ?? raw?.client ?? raw?.clientName, "Walk-in"),
-  staff: asString(raw?.staff_name ?? raw?.staff ?? raw?.staffName, "-"),
-  service: asString(
-    raw?.service_name ??
-      raw?.service ??
-      raw?.serviceName ??
-      raw?.service_title ??
-      raw?.serviceTitle,
-    "-",
-  ),
-  paymentMethod: asString(
-    raw?.payment_method ?? raw?.paymentMethod ?? raw?.payment_mode ?? raw?.paymentMode,
-    "-",
-  ),
-  cashReceived:
-    getSplitCashAmount(raw?.split_details ?? raw?.splitDetails) ??
-    (asString(raw?.payment_method ?? raw?.paymentMethod).toLowerCase().includes("cash")
-      ? pickNumber(
-          raw?.cash_received,
-          raw?.cashReceived,
-          raw?.cash_amount,
-          raw?.cashAmount,
-          raw?.paid_amount,
-          raw?.paidAmount,
-          raw?.total_paid,
-          raw?.totalPaid,
-          raw?.amount,
-        )
-      : pickNumber(raw?.cash_received, raw?.cashReceived, raw?.cash_amount, raw?.cashAmount)),
-  totalPaid: pickNumber(
-    raw?.paid_amount,
-    raw?.paidAmount,
-    raw?.total_paid,
-    raw?.totalPaid,
-    raw?.amount,
-  ),
-});
-
 const normalizeExpense = (raw: any): CashExpenseRecord => ({
   id: asString(raw?.id),
   cashManagementId: asString(raw?.cash_management_id ?? raw?.cashManagementId),
@@ -236,11 +121,6 @@ export async function fetchCashDashboard() {
 export async function fetchCashTransactions() {
   const response = await api.get(BASE);
   return unwrapList<any>(response).map(normalizeTransaction);
-}
-
-export async function fetchCashRevenue() {
-  const response = await api.get(`${BASE}/revenue`);
-  return unwrapList<any>(response).map(normalizeRevenue);
 }
 
 export async function fetchCashExpenses() {

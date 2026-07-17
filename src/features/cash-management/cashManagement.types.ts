@@ -53,19 +53,6 @@ export interface CashTransactionRecord {
   remarks: string | null;
 }
 
-export interface CashRevenueRecord {
-  id: string;
-  updatedAt: string;
-  invoiceId: string;
-  paymentId: string;
-  client: string;
-  staff: string;
-  service: string;
-  paymentMethod: string;
-  cashReceived: number;
-  totalPaid: number;
-}
-
 export interface CashExpenseRecord {
   id: string;
   cashManagementId: string;

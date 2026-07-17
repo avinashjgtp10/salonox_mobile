@@ -98,6 +98,12 @@ const logBackgroundRefreshError = (label: string, error: unknown) => {
   console.error(`[cash-management] ${label} refresh failed`, error);
 };
 
+const shouldSuppressCashCounterNotification = (message: string | null | undefined) => {
+  if (!message) return false;
+
+  return message.trim().toLowerCase() === "no cash counter found for this salon";
+};
+
 export function useCashManagement() {
   const [dashboard, setDashboard] = useState<CashDashboardSummary | null>(null);
   const [transactions, setTransactions] = useState<CashTransactionRecord[]>([]);
@@ -161,7 +167,7 @@ export function useCashManagement() {
     } catch (err: any) {
       const message =
         err?.response?.data?.message ?? err?.message ?? "Failed to load cash management data";
-      setError(message);
+      setError(shouldSuppressCashCounterNotification(message) ? null : message);
     }
   }, [loadDashboard, loadExpenses, loadTransactions]);
 
@@ -172,7 +178,7 @@ export function useCashManagement() {
     } catch (err: any) {
       const message =
         err?.response?.data?.message ?? err?.message ?? "Failed to load cash management dashboard";
-      setError(message);
+      setError(shouldSuppressCashCounterNotification(message) ? null : message);
       throw err;
     }
   }, [loadDashboard]);
@@ -184,7 +190,7 @@ export function useCashManagement() {
     } catch (err: any) {
       const message =
         err?.response?.data?.message ?? err?.message ?? "Failed to load cash transactions";
-      setError(message);
+      setError(shouldSuppressCashCounterNotification(message) ? null : message);
       throw err;
     }
   }, [loadTransactions]);
@@ -196,7 +202,7 @@ export function useCashManagement() {
     } catch (err: any) {
       const message =
         err?.response?.data?.message ?? err?.message ?? "Failed to load cash expenses";
-      setError(message);
+      setError(shouldSuppressCashCounterNotification(message) ? null : message);
       throw err;
     }
   }, [loadExpenses]);
