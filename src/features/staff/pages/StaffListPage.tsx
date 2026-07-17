@@ -17,6 +17,7 @@ import {
   ToggleOn,
   FileEarmarkExcel,
   FiletypeCsv,
+  FiletypePdf,
   Pencil,
   Trash,
   ThreeDots,
@@ -31,6 +32,7 @@ import { STAFF } from "../../../services/api/endpoints";
 import { Button, Input, DownloadButton, SuccessOverlay, Modal } from "../../../components/ui";
 import StaffImportModal from "../components/StaffImportModal";
 import TeamMemberDrawer from "../components/TeamMemberDrawer";
+import { exportStaffPDF } from "../utils/staffExport";
 
 interface StaffMember {
   id: string;
@@ -408,6 +410,21 @@ export default function StaffListPage() {
                   className="slp-option-item w-100 text-start"
                 >
                   Export Excel
+                </DownloadButton>
+                <DownloadButton
+                  filename="staff.pdf"
+                  mimeType="application/pdf"
+                  fetcher={async () => {
+                    const blob = exportStaffPDF(sorted);
+                    setOptionsOpen(false);
+                    return blob;
+                  }}
+                  variant="ghost"
+                  size="sm"
+                  iconLeft={<FiletypePdf size={14} />}
+                  className="slp-option-item w-100 text-start"
+                >
+                  Export PDF
                 </DownloadButton>
               </div>
             )}
