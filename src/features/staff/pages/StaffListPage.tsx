@@ -362,7 +362,7 @@ export default function StaffListPage() {
                     onClick={() => setSelectedStatus(s)}
                   >
                     <span>
-                      {s === "all" ? "All team members" : s === "active" ? "Active" : "Archived"}
+                      {s === "all" ? "All team members" : s === "active" ? "Active" : "Inactive"}
                     </span>
                     {selectedStatus === s && <span className="fs-radio-check">✓</span>}
                   </div>
