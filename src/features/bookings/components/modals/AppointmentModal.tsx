@@ -434,13 +434,30 @@ export const AppointmentModal: React.FC<Props> = ({
     if (!applyMembershipMounted.current) { applyMembershipMounted.current = true; return; }
     setApplyMembership(false);
   }, [clientIdForPkg]);
+  // Per-membership toggle — products only become wallet-eligible once at least
+  // one of the client's active, spendable memberships opted in
+  // (memberships.applies_to_products). Mirrors the backend gate in
+  // payments.service.ts (isProductEligible) so the UI preview matches what
+  // checkout will actually deduct.
+  const membershipCoversProducts = useMemo(
+    () => clientMemberships.some((m) => m.appliesToProducts && Number(m.membershipWalletBalance) > 0),
+    [clientMemberships],
+  );
+
   // Most the membership wallet could ever usefully cover — capped by both the
-  // wallet's own balance and by how much eligible service value there is to
-  // apply it against (no point defaulting an input higher than that).
-  const membershipEligibleTotal = useMemo(() => serviceRows.reduce((s, row) => {
-    if (!row.service.trim() || (row as any).isPackageService) return s;
-    return s + (Number(row.total) || 0);
-  }, 0), [serviceRows]);
+  // wallet's own balance and by how much eligible service (+ product, when
+  // enabled) value there is to apply it against (no point defaulting an
+  // input higher than that).
+  const membershipEligibleTotal = useMemo(() => {
+    const serviceTotal = serviceRows.reduce((s, row) => {
+      if (!row.service.trim() || (row as any).isPackageService) return s;
+      return s + (Number(row.total) || 0);
+    }, 0);
+    const productTotal = membershipCoversProducts
+      ? productRows.reduce((s, row) => s + (Number(row.total) || 0), 0)
+      : 0;
+    return serviceTotal + productTotal;
+  }, [serviceRows, productRows, membershipCoversProducts]);
   const membershipMaxUsable = Math.min(membershipTotalBalance, membershipEligibleTotal);
 
   // How much of the membership wallet staff has chosen to apply — defaults to
@@ -470,8 +487,19 @@ export const AppointmentModal: React.FC<Props> = ({
       remaining -= used;
       map.set(tempId, { walletUsed: used, payable: rowTotal - used });
     });
+    if (membershipCoversProducts) {
+      productRows.forEach((row, i) => {
+        const tempId = (row as any).tempId || String(i);
+        if (!row.productId || remaining <= 0) return;
+        const rowTotal = Number(row.total) || 0;
+        if (rowTotal <= 0) return;
+        const used = Math.min(remaining, rowTotal);
+        remaining -= used;
+        map.set(`product:${tempId}`, { walletUsed: used, payable: rowTotal - used });
+      });
+    }
     return map;
-  }, [serviceRows, membershipTotalBalance, applyMembership, membershipWalletAmt]);
+  }, [serviceRows, productRows, membershipTotalBalance, applyMembership, membershipWalletAmt, membershipCoversProducts]);
   const membershipWalletUsedTotal = useMemo(
     () => Array.from(membershipWalletMap.values()).reduce((s, v) => s + v.walletUsed, 0),
     [membershipWalletMap],
@@ -1233,6 +1261,38 @@ export const AppointmentModal: React.FC<Props> = ({
           serviceRows={serviceRows}
           onUpdateService={(i, field, value) => setServiceRows((rows) => rows.map((x, idx) => idx === i ? { ...x, [field as string]: value } : x))}
           onRemoveService={(i) => setServiceRows((rows) => rows.filter((_, idx) => idx !== i))}
+          onServiceDuplicate={(i, svc) => {
+            // Picking a service that's already on the bill merges into that
+            // row (qty +1) instead of creating a duplicate row. Coverage is
+            // recomputed against the package pool ONCE for the merged row, so
+            // two rows of the same service can no longer each claim the same
+            // remaining session (double free) — anything beyond the remaining
+            // sessions is charged at the normal price.
+            const nameKey = svc.name.trim().toLowerCase();
+            const targetIdx = serviceRows.findIndex((r, idx) =>
+              idx !== i && r.service.trim() && (
+                (svc.id && r.id && String(r.id) === String(svc.id)) ||
+                r.service.trim().toLowerCase() === nameKey
+              ));
+            if (targetIdx === -1) return false;
+            setServiceRows((rows) => {
+              const target = rows[targetIdx];
+              if (!target) return rows;
+              const newQty = Math.min(99, (Number(target.qty) || 1) + 1);
+              const remaining = (svc.id ? effectiveCoveredServices.get(String(svc.id)) : undefined)
+                ?? effectiveCoveredServices.get(`name:${nameKey}`) ?? 0;
+              const price = Number(target.price) || Number(svc.price) || 0;
+              const discountPct = Math.min(100, Math.max(0, Number(target.discount) || 0));
+              const paidQty = Math.max(0, newQty - remaining);
+              const total = Math.max(0, price * paidQty * (1 - discountPct / 100));
+              return rows
+                .map((r, idx) => idx === targetIdx
+                  ? { ...r, qty: newQty, total, isPackageService: paidQty === 0 }
+                  : r)
+                .filter((_, idx) => idx !== i);
+            });
+            return true;
+          }}
           onAddService={() => setServiceRows((rows) => {
             const last = rows[rows.length - 1];
             const nextTime = last?.time
@@ -1297,8 +1357,8 @@ export const AppointmentModal: React.FC<Props> = ({
       </div>
 
       {/* Apply Package / Apply Membership toggles now live in
-          availableBenefitsSectionEl (rendered right after this section),
-          alongside eWallet/Reward Points/Referral Credit as a unified card grid. */}
+          availableBenefitsSectionEl (payment step only), alongside
+          eWallet/Reward Points/Referral Credit as a unified card grid. */}
 
       {(saveError || payError) && (
         <div style={{
@@ -1316,16 +1376,21 @@ export const AppointmentModal: React.FC<Props> = ({
 
   // Applying a benefit (package/membership/eWallet/etc.) to a bill with no
   // service, package, product, or membership line item on it yet is
-  // meaningless — there's nothing for the benefit to discount. Gates the
-  // Available Benefits panel below with a plain-language message instead of
-  // letting staff toggle a benefit that then errors out (or silently does
-  // nothing) once they actually try to check out.
+  // meaningless — there's nothing for the benefit to discount. The cards stay
+  // visible (staff should still see the client's balances), but toggling one
+  // on with an empty bill is blocked with a plain-language message — shown
+  // only on that attempt, not preemptively.
   const hasAnyFilledItems = useMemo(() => (
     serviceRows.some(isRealServiceRow) ||
     packageRows.some((r: any) => r.packageId) ||
     productRows.some((r: any) => r.productId) ||
     membershipRows.some((r: any) => r.membershipId)
   ), [serviceRows, packageRows, productRows, membershipRows]);
+
+  const [benefitsGateError, setBenefitsGateError] = useState(false);
+  useEffect(() => {
+    if (hasAnyFilledItems) setBenefitsGateError(false);
+  }, [hasAnyFilledItems]);
 
   // ── Available Benefits — one card per spendable balance (Package,
   // Membership, eWallet, Reward Points, Referral Credit). AppointmentModal
@@ -1446,12 +1511,25 @@ export const AppointmentModal: React.FC<Props> = ({
     useReferralCredit, referralCreditAmt, referralCreditMaxAmt, handleSetReferralCreditAmt,
   ]);
 
+  // Turning a benefit ON with nothing on the bill is what gets blocked (and
+  // surfaces the message); turning one OFF is always allowed.
+  const gatedBenefitCards: BenefitCardConfig[] = useMemo(
+    () => availableBenefitCards.map((c) => ({
+      ...c,
+      onToggle: (v: boolean) => {
+        if (v && !hasAnyFilledItems) { setBenefitsGateError(true); return; }
+        setBenefitsGateError(false);
+        c.onToggle(v);
+      },
+    })),
+    [availableBenefitCards, hasAnyFilledItems],
+  );
+
   const availableBenefitsSectionEl = availableBenefitCards.length > 0 ? (
     <div className="appt-section">
       <div className="appt-section__title"><GiftFill size={15} /> Available Benefits</div>
-      {hasAnyFilledItems ? (
-        <AvailableBenefitsPanel cards={availableBenefitCards} />
-      ) : (
+      <AvailableBenefitsPanel cards={gatedBenefitCards} />
+      {benefitsGateError && (
         <div className="services-no-items-error">
           Please add or select a service or item before applying benefits.
         </div>
@@ -1601,6 +1679,10 @@ export const AppointmentModal: React.FC<Props> = ({
               <div className="qs-layout__left">
                 {clientSectionEl}
                 {servicesSectionEl}
+                {/* Quick Sale is a one-screen direct checkout (no separate
+                    payment step), so benefits DO belong here — this screen is
+                    the payment step, unlike the regular booking flow where
+                    they're deferred to showPaymentSection. */}
                 {availableBenefitsSectionEl}
                 {chargesSectionEl}
                 <div className="appt-section">
@@ -1637,8 +1719,17 @@ export const AppointmentModal: React.FC<Props> = ({
                   {tip > 0 && (
                     <div className="qs-summary-row"><span>Tip (Staff)</span><span>+{currencySymbol}{tip.toFixed(2)}</span></div>
                   )}
+                  {membershipWalletUsedTotal > 0 && (
+                    <div className="qs-summary-row qs-summary-row--discount"><span>Membership Wallet Used</span><span>-{currencySymbol}{membershipWalletUsedTotal.toFixed(2)}</span></div>
+                  )}
                   {(useEWallet && eWalletAmt > 0) && (
                     <div className="qs-summary-row qs-summary-row--discount"><span>eWallet Used</span><span>-{currencySymbol}{eWalletAmt.toFixed(2)}</span></div>
+                  )}
+                  {rewardPointsRedeemedValue > 0 && (
+                    <div className="qs-summary-row qs-summary-row--discount"><span>Reward Points Used</span><span>-{currencySymbol}{rewardPointsRedeemedValue.toFixed(2)}</span></div>
+                  )}
+                  {(useReferralCredit && referralCreditAmt > 0) && (
+                    <div className="qs-summary-row qs-summary-row--discount"><span>Referral Credit Used</span><span>-{currencySymbol}{referralCreditAmt.toFixed(2)}</span></div>
                   )}
                   <div className="qs-summary-row qs-summary-row--total"><span>Amount to Pay</span><span>{currencySymbol}{totals.effectiveTotal.toFixed(2)}</span></div>
                 </div>
@@ -1724,11 +1815,13 @@ export const AppointmentModal: React.FC<Props> = ({
               {/* 2. Services & Items */}
               {servicesSectionEl}
 
-              {/* Available Benefits — stays visible in both steps (unlike
-                  Charges & Discounts below) since these toggles directly
-                  affect the payable total and previously stayed editable
-                  all the way through the payment step too. */}
-              {availableBenefitsSectionEl}
+              {/* Available Benefits — payment step only. Wallet deductions
+                  only actually happen at payment time (payments.service.ts),
+                  so a benefit toggled during booking was a preview that
+                  silently evaporated: nothing deducted, nothing on the
+                  calendar chip. Keeping the toggles next to the Pay action
+                  means what staff applies is what actually gets deducted. */}
+              {showPaymentSection && availableBenefitsSectionEl}
 
               {/* 3. Charges & Discounts */}
               {!showPaymentSection && chargesSectionEl}
@@ -1761,6 +1854,10 @@ export const AppointmentModal: React.FC<Props> = ({
                         gstAmount={totals.gstAmount}
                         taxBreakdown={totals.taxBreakdown}
                         tip={tip}
+                        membershipWalletUsed={membershipWalletUsedTotal}
+                        ewalletUsed={useEWallet ? eWalletAmt : 0}
+                        rewardPointsValue={rewardPointsRedeemedValue}
+                        referralCreditUsed={useReferralCredit ? referralCreditAmt : 0}
                         alreadyPaid={alreadyPaidAmount}
                         dueAmount={remainingDue}
                         grandTotal={totals.grandTotal}
@@ -1811,6 +1908,10 @@ export const AppointmentModal: React.FC<Props> = ({
                         gstAmount={totals.gstAmount}
                         taxBreakdown={totals.taxBreakdown}
                         tip={tip}
+                        membershipWalletUsed={membershipWalletUsedTotal}
+                        ewalletUsed={useEWallet ? eWalletAmt : 0}
+                        rewardPointsValue={rewardPointsRedeemedValue}
+                        referralCreditUsed={useReferralCredit ? referralCreditAmt : 0}
                         alreadyPaid={livePaidAmount}
                         dueAmount={liveDueAmount}
                         grandTotal={totals.grandTotal}
@@ -1994,7 +2095,7 @@ export const AppointmentModal: React.FC<Props> = ({
         <SellPackageModal
           initialClient={sellInitialClient}
           onClose={() => setShowSellPackageModal(false)}
-          onSaved={() => setShowSellPackageModal(false)}
+          onSaved={() => { setShowSellPackageModal(false); setClientRefreshKey((k) => k + 1); }}
         />
       )}
 

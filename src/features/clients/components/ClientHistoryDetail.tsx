@@ -587,6 +587,8 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       notes: appt.notes,
       ewalletUsed: appt.ewallet_used,
       membershipWalletUsed: appt.membership_wallet_used,
+      rewardPointsValue: (appt as any).reward_points_value,
+      referralCreditUsed: (appt as any).referral_credit_used,
     });
     printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email, referralCode: (client as any)?.referral_code ?? null }, { showTaxBreakup: showTaxBreakupOnInvoice });
   };

@@ -50,6 +50,10 @@ export interface BuildPrintableBookingParams {
    *  the payment genuinely used the wallet. */
   ewalletUsed?: number;
   membershipWalletUsed?: number;
+  /** ₹ value of reward points redeemed on this bill. */
+  rewardPointsValue?: number;
+  /** ₹ referral credit balance spent on this bill. */
+  referralCreditUsed?: number;
 }
 
 /**
@@ -113,6 +117,9 @@ export function buildPrintableBooking(params: BuildPrintableBookingParams): any 
     notes: params.notes || undefined,
     splitDetails,
     membershipWalletUsed: Number(params.membershipWalletUsed) || 0,
+    ewalletUsed,
+    rewardPointsValue: Number(params.rewardPointsValue) || 0,
+    referralCreditUsed: Number(params.referralCreditUsed) || 0,
   };
 }
 
@@ -300,17 +307,29 @@ export function printReceipt(
   const dueAmt      = Number(booking.dueAmount  || 0);
   const rewardPointsValuePaid = Number((booking as any).rewardPointsValue || 0);
   const membershipWalletUsedAmt = Number((booking as any).membershipWalletUsed || 0);
-  // Per-method breakdown of the actual payment (Cash/Card/UPI/eWallet/Package —
-  // membership wallet isn't part of this map, it's tracked separately above).
-  const splitEntries = Object.entries((booking as any).splitDetails || {})
+  const referralCreditUsedAmt = Number((booking as any).referralCreditUsed || 0);
+  // eWallet can arrive either as its own field (calendar prints patch it from
+  // the saved payment) or as a leg inside splitDetails (older records) — show
+  // one dedicated line either way, and drop the splitDetails leg below so the
+  // same amount is never printed twice.
+  const splitDetailsRaw = ((booking as any).splitDetails || {}) as Record<string, unknown>;
+  const splitEwallet = Number(Object.entries(splitDetailsRaw).find(([k]) => k.toLowerCase() === "ewallet")?.[1]) || 0;
+  const ewalletUsedAmt = Number((booking as any).ewalletUsed || 0) || splitEwallet;
+  // Per-method breakdown of the actual payment (Cash/Card/UPI/Package —
+  // eWallet/membership wallet aren't part of this map, they're tracked
+  // separately above).
+  const splitEntries = Object.entries(splitDetailsRaw)
     .map(([k, v]) => [k, Number(v) || 0] as [string, number])
-    .filter(([, v]) => v > 0);
+    .filter(([k, v]) => v > 0 && k.toLowerCase() !== "ewallet");
   // Only call out the breakdown when it's genuinely mixed, or the sole method
   // is something other than plain Cash/Card/UPI (eWallet/Package) — a plain
   // single-method Cash payment already has "Amount Paid" + the Payment Method
   // field above, so a "Paid via Cash" line would just be noise there.
   const showPaymentBreakdown = splitEntries.length > 1
-    || splitEntries.some(([k]) => !["cash", "card", "upi"].includes(k.toLowerCase()));
+    || splitEntries.some(([k]) => !["cash", "card", "upi"].includes(k.toLowerCase()))
+    // A mixed wallet + cash/card payment is genuinely split even when the
+    // splitDetails map itself only has the single cash/card leg left in it.
+    || (splitEntries.length === 1 && (ewalletUsedAmt > 0 || membershipWalletUsedAmt > 0 || rewardPointsValuePaid > 0 || referralCreditUsedAmt > 0));
   const METHOD_COLOR: Record<string, string> = { ewallet: "#2563eb", package: "#92400e" };
 
   const sumRow = (label: string, value: string, bold = false, color = "#111827", borderDouble = false) =>
@@ -356,6 +375,8 @@ export function printReceipt(
     sumRow("Grand Total", fmt(isPackagePaid ? 0 : grandTotal), true, "#111827", true),
     rewardPointsValuePaid > 0 ? sumRow("Paid from Reward Points", fmt(rewardPointsValuePaid), false, "#7c3aed") : "",
     membershipWalletUsedAmt > 0 ? sumRow("Paid via Membership Wallet", fmt(membershipWalletUsedAmt), false, "#15803d") : "",
+    ewalletUsedAmt > 0 ? sumRow("Paid via eWallet", fmt(ewalletUsedAmt), false, "#2563eb") : "",
+    referralCreditUsedAmt > 0 ? sumRow("Paid via Referral Credit", fmt(referralCreditUsedAmt), false, "#0891b2") : "",
     showPaymentBreakdown
       ? splitEntries.map(([method, amt]) =>
           sumRow(`Paid via ${method}`, fmt(amt), false, METHOD_COLOR[method.toLowerCase()] ?? "#111827")

@@ -9,6 +9,7 @@
 // method picker) — this is a new entry point into it, not a second
 // implementation of package creation.
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import PackageCreateForm from "./PackageCreateForm";
 import type { ClientSearchResult } from "../../features/clients/components/ClientSearchInput";
 import type { ClientPackage } from "../../services/api/endpoints/packages.endpoints";
@@ -40,6 +41,14 @@ export default function SellPackageModal({ initialClient, onClose, onSaved }: Se
             onClientChange={setSelectedClient}
             onCancel={onClose}
             onSaved={(pkg) => { onSaved?.(pkg); onClose(); }}
+            // A generic package saves a reusable TEMPLATE (no client purchase,
+            // so nothing changes in the client's history — that's expected).
+            // Without this handler the modal silently stayed open after a
+            // successful save, looking like the save had failed.
+            onTemplateSaved={(tmpl) => {
+              toast.success(`Template "${tmpl.name}" saved — find it under Catalog → Packages → Templates`);
+              onClose();
+            }}
           />
         </div>
       </div>

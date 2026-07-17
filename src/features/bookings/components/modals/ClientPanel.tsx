@@ -110,7 +110,10 @@ export const ClientPanel: React.FC<Props> = ({
     { skip: !clientIdForPkg },
   );
 
-  const { memberships: clientMemberships } = useClientMembershipWallet(clientIdForPkg);
+  // refreshKey makes the Membership cell update live after a sale from this
+  // same modal — without it only useClientDetails' stats refetched, while the
+  // membership list (this hook) stayed stale until the modal was reopened.
+  const { memberships: clientMemberships } = useClientMembershipWallet(clientIdForPkg, refreshKey);
 
   // Calculate real unpaid amount from Redux — API always returns 0.
   // Falls back to the existingBooking's dueAmount when Redux doesn't have the booking yet.

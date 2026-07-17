@@ -44,9 +44,12 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
   useEffect(() => {
     function handleOutside(e: MouseEvent) {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        // Hide the dropdown but KEEP the typed query and results — clicks
+        // inside the portaled ClientHistoryModal land "outside" this ref, and
+        // wiping the query here forced staff to retype the same search after
+        // merely viewing a client's history. Refocusing the input reopens the
+        // dropdown with the kept results; the × button still clears fully.
         setShowClientDrop(false);
-        setClientQuery("");
-        setClientResults([]);
       }
     }
     document.addEventListener("mousedown", handleOutside);
@@ -280,7 +283,9 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
                     onMouseDown={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      closeSearch();
+                      // Keep the query/results so the search survives the
+                      // history popup — only the dropdown itself hides.
+                      setShowClientDrop(false);
                       setHistoryClientId(c.id);
                     }}
                   >
@@ -451,7 +456,12 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
       {historyClientId && ReactDOM.createPortal(
         <ClientHistoryModal
           clientId={historyClientId}
-          onClose={() => setHistoryClientId(null)}
+          onClose={() => {
+            setHistoryClientId(null);
+            // Bring the still-loaded results straight back so staff can pick
+            // (or view another) without retyping the search.
+            if (clientQuery.trim().length >= 3 && clientResults.length > 0) setShowClientDrop(true);
+          }}
         />,
         document.body,
       )}

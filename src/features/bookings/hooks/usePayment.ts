@@ -197,6 +197,8 @@ export function usePayment() {
         // saved figures over our local guess, same reasoning as finalPaid/finalDue above.
         ewalletUsed: savedPayment?.ewallet_used != null ? Number(savedPayment.ewallet_used) : (useEWallet ? eWalletAmt : 0),
         membershipWalletUsed: savedPayment?.membership_wallet_used != null ? Number(savedPayment.membership_wallet_used) : undefined,
+        rewardPointsValue: savedPayment?.reward_points_value != null ? Number(savedPayment.reward_points_value) : undefined,
+        referralCreditUsed: savedPayment?.referral_credit_used != null ? Number(savedPayment.referral_credit_used) : (referralCreditAmt || undefined),
         splitDetails: savedPayment?.split_details ?? methods,
       }));
 
