@@ -478,7 +478,6 @@ export default function StaffListPage() {
             </button>
           </div>
           <div className="slp-bulk-actions">
-            <button className="slp-bulk-btn slp-bulk-btn--outline">Bulk edit</button>
             <button
               className="slp-bulk-btn slp-bulk-btn--danger"
               onClick={() => selectedIds.forEach((id) => handleDeleteStaff(id))}
