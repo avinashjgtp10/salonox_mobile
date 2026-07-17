@@ -31,6 +31,7 @@ import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
 import { Button, Input, DownloadButton, SuccessOverlay } from "../../../components/ui";
 import StaffImportModal from "../components/StaffImportModal";
+import TeamMemberDrawer from "../components/TeamMemberDrawer";
 
 interface StaffMember {
   id: string;
@@ -111,6 +112,8 @@ export default function StaffListPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // Filter state
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
@@ -595,7 +598,11 @@ export default function StaffListPage() {
               <div
                 key={member.id}
                 className={`slp-table-row ${isChecked ? "slp-table-row--selected" : ""} ${deletingId === member.id ? "slp-table-row--deleting" : ""}`}
-                onClick={() => member.id && navigate(`/dashboard/team/${member.id}`)}
+                onClick={() => {
+                  if (!member.id) return;
+                  setSelectedMemberId(member.id);
+                  setIsDrawerOpen(true);
+                }}
               >
                 <div className="slp-col-check" onClick={(e) => e.stopPropagation()}>
                   <input
@@ -709,6 +716,13 @@ export default function StaffListPage() {
         show={showImport}
         onClose={() => setShowImport(false)}
         onSuccess={fetchStaff}
+      />
+
+      {/* ===== TEAM MEMBER DETAILS DRAWER ===== */}
+      <TeamMemberDrawer
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        memberId={selectedMemberId}
       />
 
       {/* ===== FOOTER / PAGINATION ===== */}

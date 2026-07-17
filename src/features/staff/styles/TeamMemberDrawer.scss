@@ -118,49 +118,21 @@
             display: flex;
             overflow: hidden;
 
-            .tm-drawer__sidebar {
-                width: 250px;
-                background: #fff;
-                border-right: 1.5px solid #f3f4f6;
-                padding: 24px 16px;
-                display: flex;
-                flex-direction: column;
-                gap: 8px;
-
-                .sidebar-item {
-                    text-align: left;
-                    padding: 12px 18px;
-                    border-radius: 10px;
-                    background: none;
-                    border: none;
-                    font-size: 14px;
-                    font-weight: 650;
-                    color: #4b5563;
-                    cursor: pointer;
-                    transition: 0.2s;
-                    display: flex;
-                    align-items: center;
-                    gap: 12px;
-
-                    .item-icon { 
-                        width: 20px; font-size: 18px; display: flex; 
-                        align-items: center; justify-content: center; 
-                    }
-
-                    &:hover { background: #f9fafb; color: #111827; }
-                    &.active { background: #eef2ff; color: #6366f1; }
-                }
-            }
-
             .tm-drawer__content {
                 flex: 1;
                 padding: 44px;
                 overflow-y: auto;
                 background: #fdfdfe;
 
-                .overview-tab, .personal-tab, .workspace-tab, .pay-tab {
+                .personal-tab {
+                    padding-top: 40px;
+                    margin-top: 8px;
+                    border-top: 1.5px solid #f3f4f6;
+                }
+
+                .overview-tab, .personal-tab {
                     h3 { font-size: 24px; font-weight: 800; color: #111827; margin: 0; }
-                    
+
                     .tab-header {
                         display: flex;
                         justify-content: space-between;
@@ -180,11 +152,11 @@
                         }
                     }
 
-                    .personal-section, .workspace-section, .pay-section {
+                    .personal-section {
                         margin-bottom: 48px;
-                        
-                        h4 { 
-                            font-size: 16px; font-weight: 800; color: #111827; 
+
+                        h4 {
+                            font-size: 16px; font-weight: 800; color: #111827;
                             margin-bottom: 24px; padding-bottom: 12px;
                             border-bottom: 1px solid #f3f4f6;
                         }
@@ -195,65 +167,17 @@
                             gap: 24px 40px;
 
                             .detail-item {
-                                label { 
-                                    display: block; font-size: 11px; font-weight: 700; 
-                                    color: #9ca3af; text-transform: uppercase; margin-bottom: 6px; 
+                                label {
+                                    display: block; font-size: 11px; font-weight: 700;
+                                    color: #9ca3af; text-transform: uppercase; margin-bottom: 6px;
                                 }
                                 p { font-size: 14px; font-weight: 500; color: #111827; margin: 0; }
-                                
+
                                 .color-preview {
                                     display: flex; align-items: center; gap: 8px;
                                     .color-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--avatar-bg); }
                                 }
                             }
-                        }
-
-                        .sec-header-with-badge {
-                            display: flex;
-                            align-items: center;
-                            gap: 12px;
-                            margin-bottom: 24px;
-                            padding-bottom: 12px;
-                            border-bottom: 1px solid #f3f4f6;
-                            
-                            h4 { border: none; margin-bottom: 0; padding-bottom: 0; flex-shrink: 0; }
-                            
-                            .status-badge-inline {
-                                background: #f3f4f6;
-                                color: #6b7280;
-                                font-size: 11px;
-                                font-weight: 700;
-                                text-transform: uppercase;
-                                padding: 4px 10px;
-                                border-radius: 12px;
-                            }
-                        }
-                    }
-
-                    .location-card-mini {
-                        display: flex;
-                        gap: 16px;
-                        background: #fff;
-                        border: 1.5px solid #eef0f3;
-                        border-radius: 12px;
-                        padding: 16px;
-                        align-items: center;
-
-                        .location-icon {
-                            width: 44px;
-                            height: 44px;
-                            background: #f8f9fe;
-                            border-radius: 10px;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            color: #6366f1;
-                            flex-shrink: 0;
-                        }
-
-                        .location-info {
-                            strong { display: block; font-size: 14px; color: #111827; margin-bottom: 2px; }
-                            p { font-size: 13px; color: #6b7280; line-height: 1.5; margin: 0; }
                         }
                     }
 
@@ -321,39 +245,6 @@
                             }
                         }
                     }
-
-                    .chart-preview-section {
-                        .chart-placeholder {
-                            background: #fff; border: 1.5px solid #eef0f3; border-radius: 16px; 
-                            padding: 32px; height: 300px; display: flex; flex-direction: column;
-                            
-                            .chart-bars {
-                                flex: 1; display: flex; align-items: flex-end; justify-content: space-around;
-                                padding-bottom: 20px; border-bottom: 1.5px dashed #f3f4f6; gap: 40px;
-                                
-                                .bar {
-                                    flex: 1; max-width: 60px; background: #eef2ff; border-radius: 8px;
-                                    transition: 0.5s; cursor: pointer;
-                                    &:hover { background: #6366f1; }
-
-                                    &:nth-child(1) { height: 20%; }
-                                    &:nth-child(2) { height: 40%; }
-                                    &:nth-child(3) { height: 30%; }
-                                    &:nth-child(4) { height: 60%; }
-                                    &:nth-child(5) { height: 45%; }
-                                }
-                            }
-
-                            .chart-labels {
-                                display: flex; justify-content: space-around; margin-top: 16px;
-                                span { font-size: 12px; font-weight: 600; color: #9ca3af; }
-                            }
-                        }
-                    }
-                }
-
-                .tab-placeholder {
-                    text-align: center; margin-top: 100px; color: #9ca3af; font-weight: 500;
                 }
             }
         }
