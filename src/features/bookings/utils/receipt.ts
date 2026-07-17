@@ -44,6 +44,12 @@ export interface BuildPrintableBookingParams {
    *  with no linked sale yet, priced from amount_paid instead). */
   grandTotalOverride?: number;
   notes?: string | null;
+  /** Amount of `grandTotal` paid from the client's eWallet — printReceipt only
+   *  shows a "Paid via eWallet" line when this (or membershipWalletUsed) is
+   *  wired through, otherwise the breakdown silently disappears even though
+   *  the payment genuinely used the wallet. */
+  ewalletUsed?: number;
+  membershipWalletUsed?: number;
 }
 
 /**
@@ -74,6 +80,12 @@ export function buildPrintableBooking(params: BuildPrintableBookingParams): any 
   const grandTotal = params.grandTotalOverride
     ?? params.items.reduce((s, it) => s + (Number(it.total_price) || 0), 0);
 
+  const ewalletUsed = Number(params.ewalletUsed) || 0;
+  // Only the eWallet leg is known precisely here (the appointment/sale record
+  // doesn't carry a full cash/card/upi split) — still strictly more accurate
+  // than showing no wallet usage at all, which is the bug this fixes.
+  const splitDetails = ewalletUsed > 0 ? { eWallet: ewalletUsed } : undefined;
+
   return {
     id: params.id,
     clientId: params.clientId,
@@ -99,6 +111,8 @@ export function buildPrintableBooking(params: BuildPrintableBookingParams): any 
     payingNow: isPaid ? grandTotal : 0,
     dueAmount: isPaid ? 0 : grandTotal,
     notes: params.notes || undefined,
+    splitDetails,
+    membershipWalletUsed: Number(params.membershipWalletUsed) || 0,
   };
 }
 
@@ -109,8 +123,12 @@ export function printReceipt(
   staffList: { id: string; name: string }[],
   salon: Salon | null,
   client?: { phone?: string | null; email?: string | null; [key: string]: any } | null,
-  opts?: { auto?: boolean },
+  opts?: { auto?: boolean; showTaxBreakup?: boolean },
 ) {
+  // Defaults to true (itemized) when the caller doesn't pass it, so existing
+  // call sites that haven't wired the Tax Settings toggle through yet keep
+  // their current behavior unchanged.
+  const showTaxBreakup = opts?.showTaxBreakup ?? true;
   const findStaffName = (id?: string | number | null) =>
     id ? staffList.find((s) => String(s.id) === String(id))?.name ?? "" : "";
 
@@ -312,15 +330,19 @@ export function printReceipt(
     tipAmt      > 0 ? sumRow("Tip (Staff)",       `+${fmt(tipAmt)}`) : "",
     // Itemized per-tax lines (CGST, SGST, etc.) + a "Total Tax" subtotal —
     // e.g. "CGST 9%" / "SGST/UTGST 9%" / "Total Tax". Falls back to the old
-    // single blended "GST" line for bookings saved before this.
+    // single blended "GST" line for bookings saved before this. When "Show
+    // GST breakup on invoice" is off, collapse straight to just the total —
+    // tax is still charged and shown, just not itemized per component.
     ...(taxBreakdown.length > 0
       ? [
-          ...taxBreakdown
-            .filter((t) => t.amount > 0)
-            .map((t) => sumRow(
-              `${t.name} ${t.rate}%${t.inclusive ? " (incl.)" : ""}`,
-              `${t.inclusive ? "" : "+"}${fmt(t.amount)}`,
-            )),
+          ...(showTaxBreakup
+            ? taxBreakdown
+                .filter((t) => t.amount > 0)
+                .map((t) => sumRow(
+                  `${t.name} ${t.rate}%${t.inclusive ? " (incl.)" : ""}`,
+                  `${t.inclusive ? "" : "+"}${fmt(t.amount)}`,
+                ))
+            : []),
           sumRow(
             "Total Tax",
             fmt(taxBreakdown.reduce((s, t) => s + (t.amount > 0 ? t.amount : 0), 0)),

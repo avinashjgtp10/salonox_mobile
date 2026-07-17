@@ -39,6 +39,9 @@ interface CompletePaymentParams {
   selectedDueIds?: string[];
   useEWallet: boolean;
   applyMembershipWallet?: boolean;
+  // Own dedicated, spendable balances now — not folded into eWallet.
+  rewardPointsToRedeem?: number; // points count
+  referralCreditAmt?: number;    // ₹
 }
 
 /**
@@ -61,7 +64,7 @@ export function usePayment() {
       alreadyPaidAmount, eWalletAmt, couponDiscount, couponApplied,
       paymentMode, singleMethod, splitEntries, partialAmtInput,
       includeClearDue, priorDueAmt, selectedDueIds, useEWallet, applyMembershipWallet,
-      gstAmount, taxBreakdown,
+      gstAmount, taxBreakdown, rewardPointsToRedeem, referralCreditAmt,
     } = params;
 
     // gross_amount = pre-discount subtotal so the backend can compute:
@@ -117,13 +120,12 @@ export function usePayment() {
       const methodLabel   = buildMethodLabel(paymentMode, singleMethod, methods);
 
       // ── Post payment for current appointment ────────────────────────────
-      // KNOWN GAP: the backend (payments.service.ts `create()`) recomputes
-      // gross_amount/net_amount server-side from raw appointment item prices
-      // and ignores whatever we send here — it does not add tax. So the
-      // receipt below correctly displays tax (gstAmount/taxBreakdown), but
-      // the amount actually required to mark the appointment "Paid" excludes
-      // it. Fixing that requires updating payments.service.ts to add the
-      // same active/applicable tax from salon_settings into its recompute.
+      // The backend (payments.service.ts `create()`) recomputes gross_amount/
+      // net_amount/due_amount server-side from raw item prices plus the
+      // salon's own active/applicable tax config — it doesn't trust whatever
+      // tax figure we send here, it derives its own. What we send (net_amount,
+      // tax_breakdown) is for the receipt/audit trail, not the authoritative
+      // due-amount source.
       const result: any = await dispatch(postPaymentThunk({
         salon_id:         salonId || undefined,
         appointment_id:   appointmentId,
@@ -140,6 +142,8 @@ export function usePayment() {
         status:           newDue > 0 ? "partial" : "completed",
         apply_membership_wallet: !!applyMembershipWallet,
         tax_breakdown: taxBreakdown && taxBreakdown.length > 0 ? taxBreakdown : undefined,
+        reward_points_used: rewardPointsToRedeem || undefined,
+        referral_credit_used: referralCreditAmt || undefined,
       }));
 
       // "already completed" is treated as success

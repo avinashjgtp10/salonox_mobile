@@ -1,1 +1,17 @@
 @use "../styles/reportDetailBase" as *;
+
+.rp-gst-portal-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s;
+  &:hover { background: #f9fafb; }
+}

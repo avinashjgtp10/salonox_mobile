@@ -7,7 +7,12 @@ import type { ClientMembership } from "../../../services/api/endpoints/clientMem
  * `primary` is the single membership with the highest wallet balance — the one
  * the backend will actually draw from at checkout (see deductWalletForBooking).
  */
-export function useClientMembershipWallet(clientId: string | null | undefined) {
+// `refreshKey` lets a caller force a refetch (e.g. after selling a new
+// membership from the same modal) without waiting on `clientId` to change —
+// bump it and this effect re-runs. Purchasing a membership only updated a
+// separate Redux slice this hook never read, so the newly bought membership
+// used to stay invisible here until the whole modal was closed and reopened.
+export function useClientMembershipWallet(clientId: string | null | undefined, refreshKey: number = 0) {
   const [memberships, setMemberships] = useState<ClientMembership[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -20,7 +25,7 @@ export function useClientMembershipWallet(clientId: string | null | undefined) {
       .catch(() => { if (!cancelled) setMemberships([]); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [clientId]);
+  }, [clientId, refreshKey]);
 
   const primary = memberships.reduce<ClientMembership | null>((best, m) => {
     if (m.membershipWalletBalance <= 0) return best;

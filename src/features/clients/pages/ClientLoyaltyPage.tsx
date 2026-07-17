@@ -193,6 +193,12 @@ export default function ClientLoyaltyPage() {
         currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage}
         onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
+        // Must include the initial pageSize (20) below — a controlled <select>
+        // whose value has no matching <option> falls back to visually
+        // showing the first option instead, which made the dropdown
+        // misleadingly display "10" while the page was still fetching 20
+        // rows, until the user picked an option that actually existed.
+        pageSizeOptions={[10, 20, 50, 100]}
       />
 
       {selectedClientId && (

@@ -291,3 +291,21 @@ $danger:     #ef4444;
     flex-shrink: 0;
   }
 }
+
+// GST include/exclude checkbox
+.pay-gst {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #374151;
+  padding: 10px 0;
+
+  input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: $primary;
+    flex-shrink: 0;
+  }
+}

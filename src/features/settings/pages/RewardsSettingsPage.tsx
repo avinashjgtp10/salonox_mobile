@@ -133,7 +133,7 @@ export default function RewardsSettingsPage() {
   const effectiveCashbackPct = config.spend_amount > 0
     ? (config.points_earned / config.spend_amount) * redeemValuePerPoint * 100
     : 0;
-  const cashbackPer100 = (effectiveCashbackPct / 100) * 100;
+  const cashbackPer100 = effectiveCashbackPct;
 
   const previewPointsEarned = config.spend_amount > 0
     ? Math.floor((PREVIEW_SPEND / config.spend_amount) * config.points_earned)
@@ -307,8 +307,12 @@ export default function RewardsSettingsPage() {
             <div className="rp-cashback__label">
               Effective Cashback <Info size={12} />
             </div>
-            <div className="rp-cashback__value">{effectiveCashbackPct.toFixed(0)}%</div>
-            <div className="rp-cashback__note">(₹{cashbackPer100.toFixed(0)} on every ₹100 spent)</div>
+            {/* toFixed(0) previously rounded a true 0.5% up to a displayed
+                "1%" — literally double what the configured rates actually
+                pay out. One decimal place is enough to show sub-1% rates
+                accurately without being noisy for whole-number rates. */}
+            <div className="rp-cashback__value">{effectiveCashbackPct.toFixed(1)}%</div>
+            <div className="rp-cashback__note">(₹{cashbackPer100.toFixed(2)} on every ₹100 spent)</div>
           </div>
         </div>
       </div>

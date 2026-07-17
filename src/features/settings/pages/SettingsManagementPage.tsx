@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Search } from "lucide-react";
+import { Search } from "react-bootstrap-icons";
 import toast from "react-hot-toast";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
@@ -17,6 +17,13 @@ import {
   isTaxSetting,
   type TaxValuePayload,
 } from "../utils/taxSettings";
+import {
+  TAX_MODULE_SETTING_KEY,
+  DEFAULT_TAX_MODULE_CONFIG,
+  findTaxModuleSetting,
+  parseTaxModuleValue,
+  type TaxModuleConfig,
+} from "../utils/taxModuleSettings";
 
 interface TaxForm {
   tax_type: string;
@@ -46,6 +53,32 @@ const EMPTY_FORM: TaxForm = {
   applicable_membership: false,
   applicable_packages: false,
 };
+
+// The form still stores the same two underlying booleans (active,
+// inclusive_taxes) — this just maps them to one mutually-exclusive choice
+// instead of two independent checkboxes, since "inactive but inclusive"
+// was a meaningless combination anyway.
+type TaxStatus = "active" | "inactive" | "included";
+
+const TAX_STATUS_INFO: Record<TaxStatus, { label: string; hint: string }> = {
+  active:   { label: "Active",   hint: "Added on top of the bill and included in GST reports." },
+  inactive: { label: "Inactive", hint: "No tax calculated — excluded from bills and reports." },
+  included: { label: "Included", hint: "Already built into the item price (inclusive) — still shown on the bill and included in reports." },
+};
+
+function statusFromForm(f: Pick<TaxForm, "active" | "inclusive_taxes">): TaxStatus {
+  if (!f.active) return "inactive";
+  return f.inclusive_taxes ? "included" : "active";
+}
+
+function applyStatus<T extends { active: boolean; inclusive_taxes: boolean }>(f: T, status: TaxStatus): T {
+  switch (status) {
+    case "inactive": return { ...f, active: false, inclusive_taxes: false };
+    case "included": return { ...f, active: true, inclusive_taxes: true };
+    case "active":
+    default:          return { ...f, active: true, inclusive_taxes: false };
+  }
+}
 
 function taxFormToPayload(f: TaxForm): CreateSettingPayload {
   const value: TaxValuePayload = {
@@ -96,6 +129,7 @@ function listLabel(s: Setting): string {
 export default function SettingsManagementPage() {
   const dispatch = useAppDispatch();
   const { items, loading, error } = useAppSelector((s) => s.setting);
+  const currentSalon = useAppSelector((s) => s.salon?.currentSalon);
 
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | number | null>(null);
@@ -103,6 +137,11 @@ export default function SettingsManagementPage() {
   const [form, setForm] = useState<TaxForm>(EMPTY_FORM);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const listRef = useRef<HTMLDivElement>(null);
+
+  // ── GST module config (master toggle, invoice prefix, etc.) ────────────────
+  const [moduleConfig, setModuleConfig] = useState<TaxModuleConfig>(DEFAULT_TAX_MODULE_CONFIG);
+  const [moduleSettingId, setModuleSettingId] = useState<string | number | null>(null);
+  const [moduleSaving, setModuleSaving] = useState(false);
 
   useEffect(() => {
     dispatch(fetchSettingsThunk());
@@ -114,6 +153,41 @@ export default function SettingsManagementPage() {
       dispatch(clearSettingError());
     }
   }, [error, dispatch]);
+
+  // Loads the saved module config from Redux exactly once — same reasoning as
+  // RewardsSettingsPage.tsx (must not resync unconditionally on every items change,
+  // or in-progress edits would get clobbered by the next background refetch).
+  useEffect(() => {
+    if (moduleSettingId) return;
+    const found = findTaxModuleSetting(items);
+    if (!found) return;
+    setModuleSettingId(found.id);
+    setModuleConfig(parseTaxModuleValue(found.value));
+  }, [items, moduleSettingId]);
+
+  async function saveModuleConfig(next: TaxModuleConfig) {
+    setModuleConfig(next);
+    setModuleSaving(true);
+    const value = JSON.stringify(next);
+
+    let ok = false;
+    if (moduleSettingId) {
+      const result = await dispatch(updateSettingThunk({ id: moduleSettingId, data: { key: TAX_MODULE_SETTING_KEY, value } }));
+      ok = updateSettingThunk.fulfilled.match(result);
+    } else {
+      const result = await dispatch(createSettingThunk({
+        key: TAX_MODULE_SETTING_KEY, value, description: "GST module configuration",
+      }));
+      if (createSettingThunk.fulfilled.match(result)) {
+        setModuleSettingId(result.payload.id);
+        ok = true;
+      }
+    }
+
+    setModuleSaving(false);
+    if (ok) toast.success("Tax settings saved");
+    else toast.error("Failed to save tax settings");
+  }
 
   const taxSettings = useMemo(() => items.filter(isTaxSetting), [items]);
 
@@ -229,7 +303,80 @@ export default function SettingsManagementPage() {
   const panelTitle = isCreating ? "Create Tax" : "Tax Details";
 
   return (
-    <div className="sm-split">
+    <>
+      {/* ── GST module config ── */}
+      <div className="gst-module">
+        <div className="settings-toggle-row">
+          <div className="settings-toggle-info">
+            <p className="settings-toggle-title">Enable GST</p>
+            <p className="settings-toggle-desc">
+              {moduleConfig.enabled
+                ? "GST is calculated on eligible bills using the Tax Mappings below."
+                : "GST is off — no tax is calculated or shown anywhere in the app."}
+            </p>
+          </div>
+          <label className="settings-toggle">
+            <input
+              type="checkbox"
+              checked={moduleConfig.enabled}
+              onChange={(e) => saveModuleConfig({ ...moduleConfig, enabled: e.target.checked })}
+              disabled={moduleSaving}
+            />
+            <span className="settings-toggle-slider" />
+          </label>
+        </div>
+
+        {moduleConfig.enabled && (
+          <div className="gst-module__grid">
+            <div className="gst-module__field">
+              <label className="sm-split__label">Invoice Number Prefix</label>
+              <input
+                type="text"
+                className="sm-split__input"
+                value={moduleConfig.invoice_prefix}
+                onChange={(e) => setModuleConfig((c) => ({ ...c, invoice_prefix: e.target.value.toUpperCase() }))}
+                onBlur={() => saveModuleConfig({ ...moduleConfig, invoice_prefix: moduleConfig.invoice_prefix || "INV" })}
+                placeholder="INV"
+                disabled={moduleSaving}
+              />
+            </div>
+
+            <label className="sm-split__check-item gst-module__check">
+              <input
+                type="checkbox"
+                checked={moduleConfig.show_breakup_on_invoice}
+                onChange={(e) => saveModuleConfig({ ...moduleConfig, show_breakup_on_invoice: e.target.checked })}
+                disabled={moduleSaving}
+              />
+              Show GST breakup on invoice
+            </label>
+
+            <label className="sm-split__check-item gst-module__check">
+              <input
+                type="checkbox"
+                checked={moduleConfig.enable_gst_reports}
+                onChange={(e) => saveModuleConfig({ ...moduleConfig, enable_gst_reports: e.target.checked })}
+                disabled={moduleSaving}
+              />
+              Enable GST Reports
+            </label>
+
+            <div className="gst-module__field">
+              <label className="sm-split__label">GSTIN / Business Legal Name</label>
+              <div className="gst-module__gstin">
+                <span>{currentSalon?.gst_number || "Not set"}</span>
+                <span className="gst-module__gstin-sep">·</span>
+                <span>{currentSalon?.business_name || "Not set"}</span>
+                <a href="/dashboard/settings/business" className="gst-module__gstin-link">
+                  Edit in Business Settings
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="sm-split">
       {/* ── Left: List Panel ── */}
       <div className="sm-split__list">
         {/* Search */}
@@ -344,25 +491,25 @@ export default function SettingsManagementPage() {
               </div>
             </div>
 
-            {/* Active + Inclusive Taxes */}
-            <div className="sm-split__check-row">
-              <label className="sm-split__check-item">
-                <input
-                  type="checkbox"
-                  checked={form.active}
-                  onChange={(e) => setCheck("active", e.target.checked)}
-                />
-                Active
-              </label>
-              <label className="sm-split__check-item">
-                <input
-                  type="checkbox"
-                  checked={form.inclusive_taxes}
-                  onChange={(e) => setCheck("inclusive_taxes", e.target.checked)}
-                />
-                Inclusive Taxes
-              </label>
+            {/* Status: Active / Inactive / Included */}
+            <p className="sm-split__applicable-label">Status</p>
+            <div className="sm-split__status-row">
+              {(Object.keys(TAX_STATUS_INFO) as TaxStatus[]).map((status) => (
+                <label
+                  key={status}
+                  className={`sm-split__status-pill${statusFromForm(form) === status ? " active" : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name="tax-status"
+                    checked={statusFromForm(form) === status}
+                    onChange={() => setForm((f) => applyStatus(f, status))}
+                  />
+                  {TAX_STATUS_INFO[status].label}
+                </label>
+              ))}
             </div>
+            <p className="sm-split__status-hint">{TAX_STATUS_INFO[statusFromForm(form)].hint}</p>
 
             {/* Applicable For */}
             <p className="sm-split__applicable-label">Applicable For</p>
@@ -432,6 +579,7 @@ export default function SettingsManagementPage() {
           </>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }

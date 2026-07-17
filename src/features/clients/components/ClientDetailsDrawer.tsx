@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { X, Pencil } from "react-bootstrap-icons";
+import { X, Pencil, Clipboard } from "react-bootstrap-icons";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
 import { Loader } from "../../../components/ui";
@@ -13,11 +14,26 @@ interface ClientDetailsDrawerProps {
   onClose: () => void;
 }
 
-function InfoRow({ label, value }: { label: string; value?: string | null }) {
+function InfoRow({ label, value, copyable }: { label: string; value?: string | null; copyable?: boolean }) {
   return (
     <div className="cdd-info-row">
       <span className="cdd-info-label">{label}</span>
-      <span className="cdd-info-value">{value || "–"}</span>
+      <span className="cdd-info-value cdd-info-value--with-copy">
+        {value || "–"}
+        {copyable && value && (
+          <button
+            type="button"
+            className="cdd-copy-btn"
+            title="Copy referral code"
+            onClick={() => {
+              navigator.clipboard.writeText(value);
+              toast.success("Referral code copied!");
+            }}
+          >
+            <Clipboard size={12} />
+          </button>
+        )}
+      </span>
     </div>
   );
 }
@@ -147,7 +163,7 @@ export default function ClientDetailsDrawer({
               </div>
 
               <div className="cdd-section-title cdd-section-title--mt">Referral</div>
-              <InfoRow label="Referral Code" value={referralCode} />
+              <InfoRow label="Referral Code" value={referralCode} copyable />
               <InfoRow label="Total Referral Earnings" value={totalReferralEarnings} />
               <InfoRow label="Total Successful Referrals" value={totalSuccessfulReferrals} />
 

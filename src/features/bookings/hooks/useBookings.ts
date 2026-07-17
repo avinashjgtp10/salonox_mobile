@@ -65,24 +65,37 @@ export function useBookings(skip = false) {
     }
     pendingRangesRef.current.add(rangeKey);
     try {
-      const action = await (dispatch(
-        fetchBookingsThunk({ startDate, endDate })
-      ) as any);
-      if (fetchBookingsThunk.fulfilled.match(action)) {
+      // Calendar views need every booking in the visible range, not a
+      // paginated slice — without an explicit limit the backend defaults to
+      // 50, so a busy month (or week) silently lost whichever days' bookings
+      // fell past the first page until that specific day was opened directly.
+      // 200/page is the backend's own hard cap (appointments.controller.ts),
+      // so a month can still exceed one page — keep requesting subsequent
+      // pages until the server reports there are none left. Capped at 10
+      // pages (2000 records) as a sanity limit against a runaway loop.
+      let allItems: any[] = [];
+      for (let page = 1; page <= 10; page++) {
+        const action = await (dispatch(
+          fetchBookingsThunk({ startDate, endDate, limit: 200, page })
+        ) as any);
+        if (!fetchBookingsThunk.fulfilled.match(action)) break;
         const raw = action.payload as any;
         const items: any[] = raw?.data ?? raw ?? [];
-        fetchedRangesRef.current.add(rangeKey);
-        setRawApiBookings((prev) => {
-          // Replace items for dates within this range; keep everything outside it
-          const filtered = prev.filter((p: any) => {
-            const pDate = p.scheduled_at
-              ? toLocalDateStr(p.scheduled_at)
-              : String(p.date || "").slice(0, 10);
-            return pDate < startDate || pDate > endDate;
-          });
-          return [...filtered, ...items];
-        });
+        allItems = allItems.concat(items);
+        const totalPages = raw?.totalPages ?? 1;
+        if (page >= totalPages || items.length === 0) break;
       }
+      fetchedRangesRef.current.add(rangeKey);
+      setRawApiBookings((prev) => {
+        // Replace items for dates within this range; keep everything outside it
+        const filtered = prev.filter((p: any) => {
+          const pDate = p.scheduled_at
+            ? toLocalDateStr(p.scheduled_at)
+            : String(p.date || "").slice(0, 10);
+          return pDate < startDate || pDate > endDate;
+        });
+        return [...filtered, ...allItems];
+      });
     } finally {
       pendingRangesRef.current.delete(rangeKey);
       if (!opts?.silent) setLoading(false);
