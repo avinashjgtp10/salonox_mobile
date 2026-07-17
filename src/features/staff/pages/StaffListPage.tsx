@@ -28,7 +28,7 @@ import {
 import "../styles/StaffListPage.scss";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
-import { Button, Input, DownloadButton, SuccessOverlay } from "../../../components/ui";
+import { Button, Input, DownloadButton, SuccessOverlay, Modal } from "../../../components/ui";
 import StaffImportModal from "../components/StaffImportModal";
 import TeamMemberDrawer from "../components/TeamMemberDrawer";
 
@@ -112,6 +112,7 @@ export default function StaffListPage() {
   const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ mode: "single"; id: string } | { mode: "bulk" } | null>(null);
 
   // Filter state
   const [bookable, setBookable] = useState(false);
@@ -196,6 +197,16 @@ export default function StaffListPage() {
       setDeletingId(null);
       setActionMenuId(null);
     }
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deleteConfirm) return;
+    if (deleteConfirm.mode === "single") {
+      handleDeleteStaff(deleteConfirm.id);
+    } else {
+      selectedIds.forEach((id) => handleDeleteStaff(id));
+    }
+    setDeleteConfirm(null);
   };
 
   const handleToggleStatus = async (member: StaffMember) => {
@@ -480,7 +491,7 @@ export default function StaffListPage() {
           <div className="slp-bulk-actions">
             <button
               className="slp-bulk-btn slp-bulk-btn--danger"
-              onClick={() => selectedIds.forEach((id) => handleDeleteStaff(id))}
+              onClick={() => setDeleteConfirm({ mode: "bulk" })}
             >
               <Trash size={13} /> Delete selected
             </button>
@@ -648,7 +659,7 @@ export default function StaffListPage() {
                         <div className="slp-action-divider" />
                         <button
                           className="slp-action-item slp-action-item--danger"
-                          onClick={() => handleDeleteStaff(member.id)}
+                          onClick={() => { setDeleteConfirm({ mode: "single", id: member.id }); setActionMenuId(null); }}
                           disabled={deletingId === member.id}
                         >
                           <Trash size={13} /> {deletingId === member.id ? "Deleting..." : "Delete"}
@@ -676,6 +687,28 @@ export default function StaffListPage() {
         onClose={() => setIsDrawerOpen(false)}
         memberId={selectedMemberId}
       />
+
+      {/* ===== DELETE CONFIRMATION ===== */}
+      <Modal
+        show={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        title={deleteConfirm?.mode === "bulk" ? "Delete team members?" : "Delete team member?"}
+        size="sm"
+      >
+        <p className="mb-0">
+          {deleteConfirm?.mode === "bulk"
+            ? `Are you sure you want to delete ${selectedIds.length} selected team member${selectedIds.length === 1 ? "" : "s"}?`
+            : "Are you sure you want to delete this team member?"}
+        </p>
+        <div className="d-flex justify-content-end gap-2 mt-3">
+          <button className="btn btn-outline-secondary" onClick={() => setDeleteConfirm(null)}>
+            Cancel
+          </button>
+          <button className="btn btn-danger" onClick={handleConfirmDelete}>
+            Delete
+          </button>
+        </div>
+      </Modal>
 
       {/* ===== FOOTER / PAGINATION ===== */}
       {!loading && sorted.length > 0 && (
