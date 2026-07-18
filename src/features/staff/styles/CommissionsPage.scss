@@ -23,7 +23,7 @@ $radius:  12px;
 }
 .cm-title   { font-size: 22px; font-weight: 700; color: $primary; margin: 0 0 4px; }
 .cm-subtitle{ font-size: 13px; color: $muted; margin: 0; }
-.cm-header-actions { display: flex; gap: 10px; }
+.cm-header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
 .cm-add-btn {
   display: inline-flex; align-items: center; gap: 7px;
@@ -818,6 +818,48 @@ $radius:  12px;
   color: #374151; border-radius: 8px; font-size: 13px; font-weight: 600;
   font-family: 'Inter', sans-serif; cursor: pointer; transition: all .15s;
   &:hover { background: #f9fafb; border-color: #6c3ce1; color: #6c3ce1; }
+}
+
+.cm-options-dropdown { position: relative; }
+
+.cm-options-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  background: $white;
+  border: 1px solid $border;
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.1);
+  z-index: 500;
+  min-width: 190px;
+  padding: 6px;
+}
+
+.cm-option-label {
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: #9ca3af;
+}
+
+.cm-option-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: $font;
+  color: #374151;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s;
+  &:hover { background: #f9fafb; }
 }
 
 // ── History Drawer ────────────────────────────────────────────────────────────
