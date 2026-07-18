@@ -1,7 +1,6 @@
 // src/routes/ClientsRoutes.tsx
 import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import { ClientWizardProvider } from "../features/clients/context/ClientWizardContext";
 import PermissionGuard from "../components/guards/PermissionGuard";
 import { PageLoader } from "../components/ui";
 
@@ -17,17 +16,8 @@ const ClientHistoryPage = lazy(
 const AddClientPage = lazy(
   () => import("../features/clients/pages/AddClientPage"),
 );
-const ClientAddressesPage = lazy(
-  () => import("../features/clients/pages/ClientAddressesPage"),
-);
-const ClientEmergencyContactsPage = lazy(
-  () => import("../features/clients/pages/ClientEmergencyContactsPage"),
-);
 const ImportClientsPage = lazy(
   () => import("../features/clients/pages/ImportClientsPage"),
-);
-const EditClientPage = lazy(
-  () => import("../features/clients/pages/EditClientPage"),
 );
 
 export const ClientsRoutes = () => (
@@ -39,22 +29,12 @@ export const ClientsRoutes = () => (
       <Route path="loyalty" element={<ClientLoyaltyPage />} />
       <Route path="history" element={<ClientHistoryPage />} />
 
-      {/* edit_clients required for all write operations */}
+      {/* edit_clients required for all write operations — Add and Edit share
+          one component (AddClientPage), same pattern as AddStaffPage/TeamRoutes. */}
       <Route element={<PermissionGuard permKey="edit_clients" />}>
         <Route path="import" element={<ImportClientsPage />} />
-        <Route path="edit/:id" element={<EditClientPage />} />
-        <Route
-          path="*"
-          element={
-            <ClientWizardProvider>
-              <Routes>
-                <Route path="add" element={<AddClientPage />} />
-                <Route path="addresses" element={<ClientAddressesPage />} />
-                <Route path="emergency" element={<ClientEmergencyContactsPage />} />
-              </Routes>
-            </ClientWizardProvider>
-          }
-        />
+        <Route path="add" element={<AddClientPage />} />
+        <Route path="edit/:id" element={<AddClientPage />} />
       </Route>
     </Routes>
   </Suspense>

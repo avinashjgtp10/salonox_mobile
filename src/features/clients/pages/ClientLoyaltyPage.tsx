@@ -135,12 +135,6 @@ export default function ClientLoyaltyPage() {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <div className="loyalty-show-n">
-          <span>Show</span>
-          <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}>
-            {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
-          </select>
-        </div>
       </div>
 
       <div className="loyalty-table-wrap">

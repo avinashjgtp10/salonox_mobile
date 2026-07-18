@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { SuccessOverlay } from "../../../../components/ui";
 import { currencySymbol } from "../../utils/currency";
 import { useAppSelector, useAppDispatch } from "../../../../hooks/useAppRedux";
 import { useAppointment }    from "../../hooks/useAppointment";
@@ -247,16 +248,16 @@ export const AppointmentModal: React.FC<Props> = ({
   const [showPaymentSection, setShowPaymentSection] = useState(false);
   const [showPaidPopup, setShowPaidPopup] = useState(false);
 
-  // Shows a centered "Payment Completed" popup for 2s, then runs the actual
-  // close/refresh — the modal has to stay mounted for those 2s for the popup
-  // to be visible at all, so this replaces calling onRefresh/onClose directly.
+  // Shows a centered "Payment Completed" popup (SuccessOverlay), then runs the
+  // actual close/refresh once it auto-dismisses — the modal has to stay
+  // mounted while it's visible, so this replaces calling onRefresh/onClose directly.
   const finishWithPaidPopup = useCallback(() => {
     setShowPaidPopup(true);
-    setTimeout(() => {
-      setShowPaidPopup(false);
-      onRefresh?.();
-      onClose();
-    }, 2000);
+  }, []);
+  const handlePaidPopupDone = useCallback(() => {
+    setShowPaidPopup(false);
+    onRefresh?.();
+    onClose();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onRefresh, onClose]);
 
@@ -287,7 +288,7 @@ export const AppointmentModal: React.FC<Props> = ({
 
   // ── Hooks ────────────────────────────────────────────────────────────────
   const { save, isSaving, error: saveError, apiAppointmentId } = useAppointment();
-  const { completePayment, isProcessing, payError }            = usePayment();
+  const { completePayment, isProcessing, payError, paymentOverlay } = usePayment();
   const coupon = useCoupon(salonId);
   const referral = useReferral();
   usePackageSessions(selectedClient?.id ?? null);
@@ -2076,20 +2077,10 @@ export const AppointmentModal: React.FC<Props> = ({
       </div>
 
       {showPaidPopup && (
-        <div
-          style={{
-            position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-            zIndex: 10000, background: "#111827", color: "#fff",
-            padding: "18px 32px", borderRadius: 12, display: "flex",
-            alignItems: "center", gap: 10, fontSize: 15, fontWeight: 600,
-            boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <span style={{ color: "#22c55e", fontSize: 20 }}>✓</span>
-          Payment Completed
-        </div>
+        <SuccessOverlay message="Payment Completed" duration={2000} onDone={handlePaidPopupDone} />
       )}
+
+      {paymentOverlay}
 
       {showSellPackageModal && sellInitialClient && (
         <SellPackageModal

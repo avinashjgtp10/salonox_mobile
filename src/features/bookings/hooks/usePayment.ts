@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { patchPaymentStatus } from "../../../store/schedulerSlice";
 import { postPaymentThunk, clearClientDuesThunk } from "../../../middleware/booking/payment.thunk";
@@ -56,6 +56,7 @@ export function usePayment() {
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [payError, setPayError]         = useState<string | null>(null);
+  const { showSuccess, overlay } = useStatusOverlay();
 
   const completePayment = useCallback(async (params: CompletePaymentParams): Promise<boolean> => {
     const {
@@ -177,7 +178,7 @@ export function usePayment() {
       const referralWalletCredited = savedPayment?.referral_wallet_credited != null
         ? Number(savedPayment.referral_wallet_credited) : 0;
       if (referralWalletCredited > 0) {
-        toast.success(`Referral reward of ₹${referralWalletCredited.toFixed(2)} added to client's eWallet`);
+        showSuccess(`Referral reward of ₹${referralWalletCredited.toFixed(2)} added to client's eWallet`);
       }
 
       dispatch(patchPaymentStatus({
@@ -255,5 +256,5 @@ export function usePayment() {
     }
   }, [dispatch, allBookings]);
 
-  return { completePayment, isProcessing, payError, setPayError };
+  return { completePayment, isProcessing, payError, setPayError, paymentOverlay: overlay };
 }

@@ -3,7 +3,7 @@ import { InfoCircle } from "react-bootstrap-icons";
 import "../styles/StaffWagesSection.scss";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
-import { toast } from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 
 interface WageSettings {
   wages_enabled: boolean;
@@ -41,6 +41,7 @@ const StaffWagesSection: React.FC<StaffWagesSectionProps> = ({ staffId, salonId,
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   useEffect(() => {
     if (staffId && !wages && staffId !== "undefined") {
@@ -63,20 +64,20 @@ const StaffWagesSection: React.FC<StaffWagesSectionProps> = ({ staffId, salonId,
 
   const handleSave = async () => {
     if (!staffId || staffId === "undefined") {
-      toast("Please save the team member profile first");
+      showError("Please save the team member profile first");
       return;
     }
     try {
       setIsSaving(true);
       await api.put(STAFF.WAGES(staffId), settings);
-      toast.success("Wage settings saved successfully");
+      showSuccess("Wage settings saved successfully");
     } catch (error: any) {
       console.error("Error saving wages:", error);
       const msg =
         error?.response?.data?.message ||
         error?.message ||
         "Failed to save wage settings";
-      toast.error(msg);
+      showError(msg);
     } finally {
       setIsSaving(false);
     }
@@ -86,6 +87,7 @@ const StaffWagesSection: React.FC<StaffWagesSectionProps> = ({ staffId, salonId,
 
   return (
     <div className="section wages-section mt-1">
+      {overlay}
       {/* Main Header / Switch */}
       <div className="custom-switch-container">
         <div className="switch-info">

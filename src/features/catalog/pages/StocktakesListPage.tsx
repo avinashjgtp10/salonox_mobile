@@ -12,7 +12,7 @@ import {
 } from "react-bootstrap-icons";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import type { AppDispatch, RootState } from "../../../store/store";
 import { fetchStocktakesThunk, deleteStocktakeThunk } from "../../../middleware/inventory/inventory.thunk";
 import { fetchBranchesThunk } from "../../../middleware/salon/salon.thunk";
@@ -41,6 +41,7 @@ const StocktakesListPage: React.FC = () => {
   const [stocktakeToDelete, setStocktakeToDelete] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   // Close menu on click outside
   useEffect(() => {
@@ -132,6 +133,7 @@ const StocktakesListPage: React.FC = () => {
 
   return (
     <div className="stocktakes-page">
+      {overlay}
       {/* HEADER */}
       <header className="stocktakes-page__header">
         <div className="title-area">
@@ -340,10 +342,10 @@ const StocktakesListPage: React.FC = () => {
                   setIsDeleting(true);
                   try {
                     await dispatch(deleteStocktakeThunk(stocktakeToDelete.id)).unwrap();
-                    toast.success("Stocktake deleted successfully");
+                    showSuccess("Stocktake deleted successfully");
                     setStocktakeToDelete(null);
                   } catch (err: any) {
-                    toast.error(err || "Failed to delete stocktake");
+                    showError(err || "Failed to delete stocktake");
                   } finally {
                     setIsDeleting(false);
                   }

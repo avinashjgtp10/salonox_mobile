@@ -82,7 +82,17 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         <button
           type="button"
           className={menuClass("clients")}
-          onClick={() => onMenuChange(openMenu === "clients" ? null : "clients")}
+          onClick={() => {
+            const opening = openMenu !== "clients";
+            onMenuChange(opening ? "clients" : null);
+            // Same pattern as Team below — jump to the section's default page
+            // when entering it from elsewhere (e.g. Calendar). Without this,
+            // clicking Clients from another page only opened the flyout
+            // submenu and left the underlying page unchanged.
+            if (opening && !location.pathname.startsWith("/dashboard/clients")) {
+              navigate("/dashboard/clients/list");
+            }
+          }}
         >
           <EmojiSmile size={26} />
           <span className="nav-label">Clients</span>

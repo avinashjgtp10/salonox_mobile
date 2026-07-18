@@ -9,7 +9,7 @@
 // method picker) — this is a new entry point into it, not a second
 // implementation of package creation.
 import { useEffect, useState } from "react";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../hooks/useStatusOverlay";
 import PackageCreateForm from "./PackageCreateForm";
 import type { ClientSearchResult } from "../../features/clients/components/ClientSearchInput";
 import type { ClientPackage } from "../../services/api/endpoints/packages.endpoints";
@@ -25,6 +25,7 @@ interface SellPackageModalProps {
 
 export default function SellPackageModal({ initialClient, onClose, onSaved }: SellPackageModalProps) {
   const [selectedClient, setSelectedClient] = useState<ClientSearchResult | null>(initialClient);
+  const { showSuccess, overlay } = useStatusOverlay();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -34,6 +35,7 @@ export default function SellPackageModal({ initialClient, onClose, onSaved }: Se
 
   return (
     <div className="chm-overlay" onClick={(e) => { e.stopPropagation(); onClose(); }}>
+      {overlay}
       <div className="chm-panel spm-panel" onClick={(e) => e.stopPropagation()}>
         <div className="spm-scroll">
           <PackageCreateForm
@@ -46,7 +48,7 @@ export default function SellPackageModal({ initialClient, onClose, onSaved }: Se
             // Without this handler the modal silently stayed open after a
             // successful save, looking like the save had failed.
             onTemplateSaved={(tmpl) => {
-              toast.success(`Template "${tmpl.name}" saved — find it under Catalog → Packages → Templates`);
+              showSuccess(`Template "${tmpl.name}" saved — find it under Catalog → Packages → Templates`);
               onClose();
             }}
           />

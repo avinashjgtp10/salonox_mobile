@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo } from "react";  // ← add useMemo
 import { useNavigate } from "react-router-dom";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { createTemplateThunk } from "../../../middleware/marketing/marketing.thunk";
 import { Button, Input, Select } from "../../../components/ui";
@@ -64,6 +64,7 @@ export default function CreateTemplatePage() {
   const [headerPreview, setHeaderPreview] = useState("");
   const [buttons,       setButtons]       = useState<TemplateButton[]>([]);
   const [errors,        setErrors]        = useState<Record<string, string>>({});
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   // ← FIXED: memoize video URL so it doesn't reset every keystroke
   const videoUrl = useMemo(() => {
@@ -146,10 +147,10 @@ export default function CreateTemplatePage() {
 
     const result = await dispatch(createTemplateThunk(fd));
     if (createTemplateThunk.fulfilled.match(result)) {
-      toast.success("Template submitted for Meta approval!");
+      showSuccess("Template submitted for Meta approval!");
       navigate("/dashboard/marketing/templates");
     } else {
-      toast.error((result.payload as string) ?? "Failed to submit template");
+      showError((result.payload as string) ?? "Failed to submit template");
     }
   });
 
@@ -163,6 +164,7 @@ export default function CreateTemplatePage() {
 
   return (
     <div className="ct-page">
+      {overlay}
       <div className="ct-topbar">
         <div>
           <h1 className="ct-title">Create Template</h1>
