@@ -14,6 +14,10 @@ import { PaymentMethodPicker, type PaymentSplitEntry } from "../shared/PaymentMe
 interface NewService {
   id: number;
   name: string;
+  /** Real catalog services.id, when picked from the search dropdown — lets
+   *  redemption match this exact service even if another catalog entry
+   *  shares its display name. Null when hand-typed or template-loaded. */
+  catalogServiceId: string | null;
   sessions: number;
   sessionsStr: string;
   price: number;
@@ -69,7 +73,7 @@ function initials(name: string) {
 
 function newServiceRow(): NewService {
   return {
-    id: Date.now(), name: "", sessions: 1, sessionsStr: "1", price: 0, priceStr: "",
+    id: Date.now(), name: "", catalogServiceId: null, sessions: 1, sessionsStr: "1", price: 0, priceStr: "",
     unitPrice: 0, priceManual: false,
   };
 }
@@ -86,6 +90,10 @@ const PackageCreateForm: React.FC<Props> = ({
   const [gstPct,            setGstPct]           = useState(0);
   const [discount,          setDiscount]         = useState(0);
   const [discountStr,       setDiscountStr]      = useState("");
+  // "flat" = ₹ off the package price, "percent" = % of the package price.
+  // The DTO still receives the resolved ₹ figure either way (discountVal) —
+  // percent is purely an input convenience, no backend change involved.
+  const [discountType,      setDiscountType]     = useState<"flat" | "percent">("flat");
   const [pkgPrice,          setPkgPrice]         = useState(0);
   const [pkgPriceStr,       setPkgPriceStr]      = useState("");
   const [pkgPriceManual,    setPkgPriceManual]   = useState(false);
@@ -95,6 +103,9 @@ const PackageCreateForm: React.FC<Props> = ({
   const [payMethodError,    setPayMethodError]   = useState(false);
   const [apiError,          setApiError]         = useState<string | null>(null);
   const [services,          setServices]         = useState<NewService[]>([newServiceRow()]);
+  // Same service picked twice would silently double-count it in the package
+  // total — point staff at the existing row's Sessions field instead.
+  const [duplicateServiceError, setDuplicateServiceError] = useState<string | null>(null);
   // A generic package is a reusable Package Template (same as the Templates tab)
   // rather than a package sold to one specific client — no client is required,
   // but services are still selected the same way as a normal custom package.
@@ -115,7 +126,10 @@ const PackageCreateForm: React.FC<Props> = ({
     setServices(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s));
 
   const addService    = () => setServices(p => [...p, newServiceRow()]);
-  const removeService = (id: number) => setServices(p => p.filter(s => s.id !== id));
+  const removeService = (id: number) => {
+    setServices(p => p.filter(s => s.id !== id));
+    setDuplicateServiceError(null);
+  };
 
   // Auto-sync package price from services total unless user manually set it
   const servicesTotal = services.reduce((sum, s) => sum + (s.price || 0), 0);
@@ -127,7 +141,9 @@ const PackageCreateForm: React.FC<Props> = ({
   }, [servicesTotal, pkgPriceManual]);
 
   // Live pricing calculations
-  const discountVal = Math.min(discount, pkgPrice);
+  const discountVal = discountType === "percent"
+    ? parseFloat(((pkgPrice * Math.min(Math.max(discount, 0), 100)) / 100).toFixed(2))
+    : Math.min(discount, pkgPrice);
   const afterDisc   = Math.max(0, pkgPrice - discountVal);
   const gstAmount   = parseFloat((afterDisc * gstPct / 100).toFixed(2));
   const totalAmount = parseFloat((afterDisc + gstAmount).toFixed(2));
@@ -191,6 +207,7 @@ const PackageCreateForm: React.FC<Props> = ({
         discount:      discountVal,
         paymentMethod: paymentMode === "split" ? "split" : toBackendPaymentMethod(singleMethod!),
         services: validServices.map(s => ({
+          serviceId:     s.catalogServiceId ?? undefined,
           serviceName:   s.name,
           totalSessions: s.sessions || 1,
           price:         s.price,
@@ -228,6 +245,7 @@ const PackageCreateForm: React.FC<Props> = ({
     const rows = t.services.map((s, i) => ({
       id:         Date.now() + i,
       name:       s.serviceName,
+      catalogServiceId: null,
       sessions:   s.totalSessions,
       sessionsStr: String(s.totalSessions),
       price:      s.price,
@@ -242,6 +260,9 @@ const PackageCreateForm: React.FC<Props> = ({
     setGstPct(t.gstPercentage);
     setDiscount(t.discount);
     setDiscountStr(t.discount > 0 ? String(t.discount) : "");
+    // Templates persist the discount as a flat ₹ figure — a leftover "%"
+    // toggle from earlier typing must not reinterpret it as a percentage.
+    setDiscountType("flat");
     setPaymentMode("single");
     setSingleMethod(fromBackendPaymentMethod(t.paymentMethod));
     setShowTemplatePicker(false);
@@ -480,6 +501,11 @@ const PackageCreateForm: React.FC<Props> = ({
           )}
         </div>
         <div className={styles.cardBody}>
+          {duplicateServiceError && (
+            <div style={{ fontSize: 12.5, color: "#dc2626", fontWeight: 500, marginBottom: 8, padding: "7px 10px", background: "#fef2f2", borderRadius: 6, border: "1px solid #fecaca" }}>
+              {duplicateServiceError}
+            </div>
+          )}
           <div style={{ display: "grid", gridTemplateColumns: isFromTemplate ? "1fr 80px 110px" : "1fr 80px 110px 32px", gap: 8, marginBottom: 6 }}>
             {["Service name", "Sessions", "Price (₹)", ...(isFromTemplate ? [] : [""])].map(h => (
               <div key={h} style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", textTransform: "uppercase" as const, letterSpacing: ".04em" }}>{h}</div>
@@ -494,10 +520,26 @@ const PackageCreateForm: React.FC<Props> = ({
                   loading={servicesLoading}
                   disabled={isFromTemplate}
                   onChange={picked => {
+                    const pickedId = picked.id != null ? String(picked.id) : null;
+                    // Same catalog ID picked twice is always a duplicate. Two
+                    // different catalog entries sharing a display name (e.g. two
+                    // "Hair Cut" rows at different prices) are NOT duplicates —
+                    // that's the whole point of matching by ID.
+                    const isDuplicate = services.some(s => {
+                      if (s.id === svc.id) return false;
+                      if (pickedId && s.catalogServiceId) return s.catalogServiceId === pickedId;
+                      return s.name.trim().toLowerCase() === picked.name.trim().toLowerCase();
+                    });
+                    if (isDuplicate) {
+                      setDuplicateServiceError(`"${picked.name}" is already added below — increase its Sessions instead of adding it again.`);
+                      return;
+                    }
+                    setDuplicateServiceError(null);
                     const unitPrice = picked.price != null ? parseFloat(String(picked.price)) || 0 : svc.unitPrice;
                     const total = unitPrice * svc.sessions;
                     updateService(svc.id, {
                       name:      picked.name,
+                      catalogServiceId: pickedId,
                       unitPrice,
                       priceManual: false,
                       priceStr:  total > 0 ? String(total) : "",
@@ -597,20 +639,34 @@ const PackageCreateForm: React.FC<Props> = ({
               </select>
             </div>
             <div className={styles.formField}>
-              <label className={styles.formLabel}>Discount (₹)</label>
-              <div className={styles.inputPrefix}>
-                <span className={styles.inputPrefixSymbol}>₹</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={discountStr}
-                  placeholder="0"
-                  onChange={e => { setDiscountStr(e.target.value); setDiscount(parseFloat(e.target.value) || 0); }}
-                  style={frozenStyle}
+              <label className={styles.formLabel}>Discount</label>
+              <div style={{ display: "flex", gap: 6 }}>
+                <div className={styles.inputPrefix} style={{ flex: 1 }}>
+                  <span className={styles.inputPrefixSymbol}>{discountType === "percent" ? "%" : "₹"}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={discountType === "percent" ? 100 : undefined}
+                    value={discountStr}
+                    placeholder="0"
+                    onChange={e => { setDiscountStr(e.target.value); setDiscount(parseFloat(e.target.value) || 0); }}
+                    style={frozenStyle}
+                    disabled={isFromTemplate}
+                    onFocus={e => e.target.select()}
+                    className={styles.input}
+                  />
+                </div>
+                <select
+                  value={discountType}
+                  onChange={e => setDiscountType(e.target.value as "flat" | "percent")}
+                  className={styles.select}
+                  style={{ width: 64, flexShrink: 0, ...(frozenStyle ?? {}) }}
                   disabled={isFromTemplate}
-                  onFocus={e => e.target.select()}
-                  className={styles.input}
-                />
+                  aria-label="Discount type"
+                >
+                  <option value="flat">₹</option>
+                  <option value="percent">%</option>
+                </select>
               </div>
             </div>
           </div>
@@ -623,7 +679,7 @@ const PackageCreateForm: React.FC<Props> = ({
             </div>
             {discountVal > 0 && (
               <div className={`${styles.priceRow} ${styles["priceRow--accent"]}`}>
-                <span>Discount</span>
+                <span>Discount{discountType === "percent" ? ` (${Math.min(Math.max(discount, 0), 100)}%)` : ""}</span>
                 <span>− ₹{discountVal.toFixed(2)}</span>
               </div>
             )}
@@ -748,7 +804,11 @@ const ServiceSearchInput: React.FC<{
             return (
               <div
                 key={String(svc.id)}
-                onMouseDown={() => { onChange(svc); setQuery(name); setOpen(false); }}
+                // Don't force the display text here — let the `value` prop's own
+                // useEffect below be the single source of truth. If the parent
+                // rejects this pick (e.g. a duplicate service), `value` won't
+                // change, so the box correctly doesn't show a pick that never applied.
+                onMouseDown={() => { onChange(svc); setOpen(false); }}
                 style={{ padding: "9px 12px", fontSize: 13, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", background: isSelected ? "#f5f3ff" : undefined }}
                 onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = "#f9fafb"; }}
                 onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = isSelected ? "#f5f3ff" : ""; }}

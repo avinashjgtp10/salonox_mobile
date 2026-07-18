@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { toast } from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { Country } from "country-state-city";
 import { Camera, Eye, EyeSlash } from "react-bootstrap-icons";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -62,6 +62,7 @@ const AddStaffPage: React.FC = () => {
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
   const [duplicateEmailMessage, setDuplicateEmailMessage] = useState<string | null>(null);
   const isSubmittingRef = useRef(false);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   // ── Load existing staff (edit mode) ─────────────────────────────────────────
   useEffect(() => {
@@ -111,7 +112,7 @@ const AddStaffPage: React.FC = () => {
         }
       } catch (error) {
         console.error("Error fetching staff:", error);
-        toast.error("Failed to load staff data. Please try again.");
+        showError("Failed to load staff data. Please try again.");
       } finally {
         setIsLoading(false);
       }
@@ -180,7 +181,7 @@ const AddStaffPage: React.FC = () => {
       if (url) setAvatarUrl(url);
     } catch (error) {
       console.error("Error uploading avatar:", error);
-      toast.error("Failed to upload profile image");
+      showError("Failed to upload profile image");
       setAvatarPreview("");
     } finally {
       setAvatarUploading(false);
@@ -205,7 +206,7 @@ const AddStaffPage: React.FC = () => {
       isHourlyRateInvalid || isFixedSalaryInvalid || isCompensationConflict || isWorkingHoursInvalid || isHolidaysInvalid ||
       isPasswordInvalid || isConfirmPasswordInvalid
     ) {
-      toast.error("Please fix the highlighted fields");
+      showError("Please fix the highlighted fields");
       return;
     }
 
@@ -279,7 +280,7 @@ const AddStaffPage: React.FC = () => {
         }
       }
 
-      toast.success(isEdit ? "Staff updated successfully" : "Invitation sent successfully");
+      showSuccess(isEdit ? "Staff updated successfully" : "Invitation sent successfully");
       navigate("/dashboard/team/members");
     } catch (error: any) {
       console.error("Error saving staff:", error);
@@ -290,9 +291,9 @@ const AddStaffPage: React.FC = () => {
       if (status === 409) {
         setDuplicateEmailMessage(serverMessage || "A staff member with this email already exists.");
       } else if (status === 401) {
-        toast.error("Your session has expired. Please log in again.");
+        showError("Your session has expired. Please log in again.");
       } else {
-        toast.error(serverMessage || "Failed to save staff member");
+        showError(serverMessage || "Failed to save staff member");
       }
     } finally {
       setIsLoading(false);
@@ -304,6 +305,7 @@ const AddStaffPage: React.FC = () => {
 
   return (
     <div className="add-staff">
+      {overlay}
       <div className="add-staff__header">
         <h5 className="add-staff__header-title">{isEdit ? "Edit Employee" : "Create Employee"}</h5>
         <div className="add-staff__header-actions">

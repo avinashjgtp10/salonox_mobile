@@ -9,7 +9,7 @@ import {
 } from "../../../middleware/payRun/payRun.thunk";
 import { clearPayRunError, clearPayRunSuccess } from "../../../store/payRunSlice";
 import type { PayRun } from "../../../types/payRun.types";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 
 import PayRunSummaryCards from "../components/payruns/PayRunSummaryCards";
 import PayRunTable from "../components/payruns/PayRunTable";
@@ -36,6 +36,7 @@ const PayRunsPage: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [selectedPayRun, setSelectedPayRun] = useState<PayRun | null>(null);
   const [, setSearchTerm] = useState("");
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   // ── Pagination state ────────────────────────────────────────────────────────
   const [currentPage, setCurrentPage] = useState(1);
@@ -64,11 +65,11 @@ const PayRunsPage: React.FC = () => {
   // ── Toast feedback ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (error) {
-      toast.error(error);
+      showError(error);
       dispatch(clearPayRunError());
     }
     if (success) {
-      toast.success(
+      showSuccess(
         selectedPayRun?.id
           ? "Pay run updated successfully"
           : "Pay adjustment added successfully"
@@ -98,7 +99,7 @@ const PayRunsPage: React.FC = () => {
       const staffId = selectedPayRun.staffId || selectedPayRun.staff_id;
       dispatch(deletePayRunThunk({ id: selectedPayRun.id, staffId })).then((res) => {
         if (res.meta.requestStatus === "fulfilled") {
-          toast.success("Pay run deleted successfully");
+          showSuccess("Pay run deleted successfully");
           setIsDeleteOpen(false);
           setSelectedPayRun(null);
         }
@@ -120,10 +121,10 @@ const PayRunsPage: React.FC = () => {
 
   const handlePayTeam = () => {
     if (summary.toPay <= 0) {
-      toast.error("There are no pending amounts to pay.");
+      showError("There are no pending amounts to pay.");
       return;
     }
-    toast.success(
+    showSuccess(
       `Processing payment of ₹${summary.toPay.toLocaleString()} for the team...`
     );
   };
@@ -134,6 +135,7 @@ const PayRunsPage: React.FC = () => {
 
   return (
     <div className="pay-runs-container">
+      {overlay}
       {/* ── Header ── */}
       <div className="page-header d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
         <div>

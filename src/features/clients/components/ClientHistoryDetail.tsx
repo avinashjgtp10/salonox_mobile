@@ -7,7 +7,9 @@
 // History" button, instead of navigating away from the calendar entirely.
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAppSelector } from "../../../hooks/useAppRedux";
+import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
+import { getTaxModuleConfig } from "../../settings/utils/taxModuleSettings";
 import {
   Telephone,
   Whatsapp,
@@ -44,6 +46,7 @@ interface AppointmentRecord {
   paymentMode?: string | null;
   payment_mode?: string | null;
   membership_wallet_used?: number;
+  ewallet_used?: number;
   services: Array<{ name?: string; service_name?: string; price?: number }>;
   product_items: Array<{ name: string }>;
   package_items?: Array<{ name?: string; package_name?: string; price?: number; total?: number }>;
@@ -192,8 +195,12 @@ export interface ClientHistoryDetailProps {
 
 export default function ClientHistoryDetail({ clientId, onClose, initialTab }: ClientHistoryDetailProps) {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const currentSalon = useAppSelector((s: any) => s.salon.currentSalon);
   const reduxStaff = useAppSelector((s: any) => s.staff.items ?? []);
+  const settingItems = useAppSelector((s: any) => s.setting.items);
+  useEffect(() => { dispatch(fetchSettingsThunk()); }, [dispatch]);
+  const showTaxBreakupOnInvoice = useMemo(() => getTaxModuleConfig(settingItems).show_breakup_on_invoice, [settingItems]);
   const staffList: StaffOption[] = reduxStaff.map((s: any) => ({
     id: s.id,
     full_name: s.full_name || `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim(),
@@ -216,6 +223,16 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   const [historyPage, setHistoryPage] = useState(1);
   const [historyPageSize, setHistoryPageSize] = useState(10);
 
+  // Services/Memberships/Products/Payments tabs — each paginated independently.
+  const [servicesPage, setServicesPage] = useState(1);
+  const [servicesPageSize, setServicesPageSize] = useState(10);
+  const [membershipsPage, setMembershipsPage] = useState(1);
+  const [membershipsPageSize, setMembershipsPageSize] = useState(10);
+  const [productsPage, setProductsPage] = useState(1);
+  const [productsPageSize, setProductsPageSize] = useState(10);
+  const [paymentsPage, setPaymentsPage] = useState(1);
+  const [paymentsPageSize, setPaymentsPageSize] = useState(10);
+
   // Global filter — applies across all tabs
   const [showGlobalFilter, setShowGlobalFilter] = useState(false);
   const [globalDatePreset, setGlobalDatePreset] = useState("all");
@@ -228,6 +245,10 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   // Jump back to page 1 whenever the global filter changes the underlying result set
   useEffect(() => {
     setHistoryPage(1);
+    setServicesPage(1);
+    setMembershipsPage(1);
+    setProductsPage(1);
+    setPaymentsPage(1);
   }, [globalDatePreset, globalCalDay, globalServiceFilter, globalStaffFilter]);
 
   const loadHistory = useCallback(async (id: string) => {
@@ -240,6 +261,10 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       initialTabAppliedRef.current = true;
     }
     setHistoryPage(1);
+    setServicesPage(1);
+    setMembershipsPage(1);
+    setProductsPage(1);
+    setPaymentsPage(1);
     setGlobalCalDay(null);
     setGlobalDatePreset("all");
     setGlobalServiceFilter("all");
@@ -578,8 +603,12 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       invoiceNumber: linkedSale?.invoice_number,
       grandTotalOverride: linkedSale ? Number(linkedSale.total_amount) : Number(appt.amount_paid || 0),
       notes: appt.notes,
+      ewalletUsed: appt.ewallet_used,
+      membershipWalletUsed: appt.membership_wallet_used,
+      rewardPointsValue: (appt as any).reward_points_value,
+      referralCreditUsed: (appt as any).referral_credit_used,
     });
-    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email, referralCode: (client as any)?.referral_code ?? null });
+    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email, referralCode: (client as any)?.referral_code ?? null }, { showTaxBreakup: showTaxBreakupOnInvoice });
   };
 
   const printSaleBill = (s: SaleRecord) => {
@@ -597,7 +626,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       invoiceNumber: s.invoice_number,
       grandTotalOverride: Number(s.total_amount) || 0,
     });
-    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email, referralCode: (client as any)?.referral_code ?? null });
+    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email, referralCode: (client as any)?.referral_code ?? null }, { showTaxBreakup: showTaxBreakupOnInvoice });
   };
 
   const printPackageBill = (pkg: PackageRecord, matchedSale: SaleRecord | undefined) => {
@@ -629,7 +658,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       invoiceNumber: matchedSale?.invoice_number,
       grandTotalOverride: matchedSale ? Number(matchedSale.total_amount) : (Number(pkg.total_amount) || 0),
     });
-    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email });
+    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email }, { showTaxBreakup: showTaxBreakupOnInvoice });
   };
 
   if (historyLoading) {
@@ -1023,7 +1052,9 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredAllServices.map((it, i) => (
+                  {filteredAllServices
+                    .slice((servicesPage - 1) * servicesPageSize, servicesPage * servicesPageSize)
+                    .map((it, i) => (
                     <tr key={i}>
                       <td className="chp-inv">{it.name}</td>
                       <td>{fmtDateShort(it.sale_date)}</td>
@@ -1034,6 +1065,16 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                   ))}
                 </tbody>
               </table>
+            )}
+            {filteredAllServices.length > 0 && (
+              <Pagination
+                currentPage={servicesPage}
+                pageSize={servicesPageSize}
+                totalItems={filteredAllServices.length}
+                onPageChange={setServicesPage}
+                onPageSizeChange={(sz) => { setServicesPageSize(sz); setServicesPage(1); }}
+                pageSizeOptions={[10, 25, 50, 100]}
+              />
             )}
           </div>
         )}
@@ -1058,7 +1099,9 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredMembershipsFromSales.map((it, i) => (
+                  {filteredMembershipsFromSales
+                    .slice((membershipsPage - 1) * membershipsPageSize, membershipsPage * membershipsPageSize)
+                    .map((it, i) => (
                     <tr key={i}>
                       <td className="chp-inv">{it.name}</td>
                       <td>{fmtDateShort(it.sale_date)}</td>
@@ -1067,6 +1110,16 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                   ))}
                 </tbody>
               </table>
+            )}
+            {filteredMembershipsFromSales.length > 0 && (
+              <Pagination
+                currentPage={membershipsPage}
+                pageSize={membershipsPageSize}
+                totalItems={filteredMembershipsFromSales.length}
+                onPageChange={setMembershipsPage}
+                onPageSizeChange={(sz) => { setMembershipsPageSize(sz); setMembershipsPage(1); }}
+                pageSizeOptions={[10, 25, 50, 100]}
+              />
             )}
           </div>
         )}
@@ -1173,7 +1226,9 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredProductsFromSales.map((it, i) => (
+                  {filteredProductsFromSales
+                    .slice((productsPage - 1) * productsPageSize, productsPage * productsPageSize)
+                    .map((it, i) => (
                     <tr key={i}>
                       <td className="chp-inv">{it.name}</td>
                       <td>{fmtDateShort(it.sale_date)}</td>
@@ -1184,6 +1239,16 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                   ))}
                 </tbody>
               </table>
+            )}
+            {filteredProductsFromSales.length > 0 && (
+              <Pagination
+                currentPage={productsPage}
+                pageSize={productsPageSize}
+                totalItems={filteredProductsFromSales.length}
+                onPageChange={setProductsPage}
+                onPageSizeChange={(sz) => { setProductsPageSize(sz); setProductsPage(1); }}
+                pageSizeOptions={[10, 25, 50, 100]}
+              />
             )}
           </div>
         )}
@@ -1213,7 +1278,9 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredSales.map((s) => (
+                  {filteredSales
+                    .slice((paymentsPage - 1) * paymentsPageSize, paymentsPage * paymentsPageSize)
+                    .map((s) => (
                     <tr key={s.id}>
                       <td className="chp-inv">
                         {s.invoice_number ?? `#${s.id.slice(-6).toUpperCase()}`}
@@ -1241,6 +1308,16 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                   ))}
                 </tbody>
               </table>
+            )}
+            {filteredSales.length > 0 && (
+              <Pagination
+                currentPage={paymentsPage}
+                pageSize={paymentsPageSize}
+                totalItems={filteredSales.length}
+                onPageChange={setPaymentsPage}
+                onPageSizeChange={(sz) => { setPaymentsPageSize(sz); setPaymentsPage(1); }}
+                pageSizeOptions={[10, 25, 50, 100]}
+              />
             )}
           </div>
         )}

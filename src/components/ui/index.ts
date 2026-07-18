@@ -30,3 +30,4 @@ export type { CountryOption } from "./CountryPhoneSelect";
 export { default as DateRangePicker } from "./DateRangePicker";
 export type { DateRangePickerProps } from "./DateRangePicker";
 export { default as SuccessOverlay } from "./SuccessOverlay";
+export { default as ErrorOverlay } from "./ErrorOverlay";

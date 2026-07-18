@@ -345,6 +345,11 @@ export function mapApiBooking(
   const rewardPointsValue = Number(appt.rewardPointsValue ?? appt.reward_points_value ?? 0) || 0;
   // Hoisted above (as taxBreakdownVal) so grandTotalVal can include it too.
   const taxBreakdown = taxBreakdownVal;
+  // Persisted ₹ tax figure for consumers that show a single GST line (tooltip,
+  // bill views). Without this, gstAmount only existed transiently via the
+  // post-payment Redux patch — after any refetch a partially-paid bill's GST
+  // silently vanished from displays even though its due_amount still included it.
+  const gstAmountVal = taxFromBreakdown > 0 ? taxFromBreakdown : undefined;
   const membershipName = (() => {
     if (appt.membershipName) return appt.membershipName;
     if (appt.membership_name) return appt.membership_name;
@@ -366,6 +371,7 @@ export function mapApiBooking(
     loyaltyPoints,
     rewardPointsValue,
     taxBreakdown,
+    gstAmount: gstAmountVal,
     membershipName,
     staffId: (() => { const raw = appt.staffId || appt.staff_id || packageItems.find((p: any) => p.staffId)?.staffId; return raw ? String(raw) : undefined; })(),
     clientId: String(appt.clientId ?? appt.client_id ?? appt.client?.id ?? ""),
@@ -394,6 +400,7 @@ export function mapApiBooking(
     membershipWalletUsed: parseFloat(String(appt.membership_wallet_used ?? appt.membershipWalletUsed ?? 0)) || 0,
     applyMembershipWallet: !!(appt.apply_membership_wallet ?? appt.applyMembershipWallet),
     ewalletUsed: parseFloat(String(appt.ewallet_used ?? appt.ewalletUsed ?? 0)) || 0,
+    referralCreditUsed: parseFloat(String(appt.referral_credit_used ?? appt.referralCreditUsed ?? 0)) || 0,
     splitDetails: (() => {
       const raw = appt.split_details ?? appt.splitDetails;
       if (!raw) return undefined;

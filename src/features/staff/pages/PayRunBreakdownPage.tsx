@@ -4,7 +4,7 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchPayRunByIdThunk, updatePayRunThunk } from "../../../middleware/payRun/payRun.thunk";
 import { ChevronLeft, Printer, Download, ClockHistory, CashStack } from "react-bootstrap-icons";
 import Loader from "../../../components/ui/Loader";
-import { toast } from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import "../styles/PayRunBreakdownPage.scss";
 
 const fmt = (val: any) =>
@@ -21,6 +21,7 @@ const PayRunBreakdownPage: React.FC = () => {
   const [payRun, setPayRun] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("Overview");
   const [isPaying, setIsPaying] = useState(false);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   useEffect(() => {
     if (id) {
@@ -105,22 +106,23 @@ const PayRunBreakdownPage: React.FC = () => {
 
   const handlePayNow = async () => {
     if (status.toLowerCase() === "paid") {
-      toast("This pay run is already marked as paid.");
+      showError("This pay run is already marked as paid.");
       return;
     }
     setIsPaying(true);
     const res = await dispatch(updatePayRunThunk({ id: payRun.id, data: { status: "paid", paid: total, toPay: 0 } }));
     if (res.meta.requestStatus === "fulfilled") {
       setPayRun((prev: any) => ({ ...prev, status: "paid", paid: total, toPay: 0 }));
-      toast.success("Pay run marked as paid!");
+      showSuccess("Pay run marked as paid!");
     } else {
-      toast.error("Failed to update pay run status.");
+      showError("Failed to update pay run status.");
     }
     setIsPaying(false);
   };
 
   return (
     <div className="prb-page">
+      {overlay}
       {/* Header */}
       <div className="prb-page__header">
         <div className="prb-page__header-left">

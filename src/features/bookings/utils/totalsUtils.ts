@@ -21,6 +21,9 @@ export interface TotalsInput {
   couponDiscount: number;
   eWalletUsed: number;
   membershipWalletUsed?: number;
+  // Own dedicated, spendable balances now — not folded into eWallet.
+  rewardPointsRedeemedValue?: number; // ₹ value of the points being redeemed
+  referralCreditUsed?: number;        // ₹
 }
 
 export interface TaxBreakdownEntry {
@@ -124,6 +127,7 @@ export function computeTotals(input: TotalsInput): TotalsResult {
     serviceRows, packageRows, productRows, membershipRows,
     discountType, discountValue, taxes,
     exCharges, tip, couponDiscount, eWalletUsed, membershipWalletUsed = 0,
+    rewardPointsRedeemedValue = 0, referralCreditUsed = 0,
   } = input;
 
   const serviceBase    = rowsTotal(serviceRows);
@@ -174,7 +178,7 @@ export function computeTotals(input: TotalsInput): TotalsResult {
   const rawGrandTotal = taxable + gstAmount + exCharges + tip;
   const grandTotal = Math.round(rawGrandTotal);
   const roundOff = grandTotal - rawGrandTotal;
-  const effectiveTotal = Math.max(0, grandTotal - eWalletUsed - membershipWalletUsed);
+  const effectiveTotal = Math.max(0, grandTotal - eWalletUsed - membershipWalletUsed - rewardPointsRedeemedValue - referralCreditUsed);
 
   return { catalogTotal, itemDiscountTotal, subtotal, manualDiscount, totalDisc, taxable, gstAmount, taxBreakdown, grandTotal, roundOff, effectiveTotal };
 }

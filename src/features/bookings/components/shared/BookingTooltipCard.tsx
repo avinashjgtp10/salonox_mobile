@@ -136,11 +136,18 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
   const couponDiscount = Number((booking as any).couponDiscount) || 0;
   const referralDiscount = Number((booking as any).referralDiscount) || 0;
   const taxable       = Math.max(0, computedTotal - discountAmt - couponDiscount - referralDiscount);
-  // Prefer the persisted (accurate, per-tax) amount; fall back to the old
-  // blended-rate estimate for bookings saved before tax breakdown existed.
+  // Prefer the persisted (accurate, per-tax) amount, then the payment's stored
+  // tax breakdown; only fall back to the blended-rate estimate for bookings
+  // saved before tax breakdown existed. The breakdown fallback matters for
+  // partially-paid bills after a refetch: the due amount still includes GST,
+  // so the GST line must not vanish just because item totals recompute to 0
+  // (e.g. package-covered rows).
+  const taxFromBreakdown = Array.isArray((booking as any).taxBreakdown)
+    ? ((booking as any).taxBreakdown as any[]).reduce((s, t) => s + (Number(t?.amount) || 0), 0)
+    : 0;
   const gstAmount      = (booking as any).gstAmount != null
     ? Number((booking as any).gstAmount) || 0
-    : (taxable * gstPercent) / 100;
+    : (taxFromBreakdown > 0 ? taxFromBreakdown : (taxable * gstPercent) / 100);
   const adjustedTotal = taxable + gstAmount + exCharges + tipAmount;
   const hasAnyCovered = services.some((svc: any) =>
     svc.isPackageService || svc.is_package_service
@@ -241,7 +248,7 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
             )}
             {gstAmount > 0 && (
               <div className="btc__paid-row">
-                <span>GST ({gstPercent}%)</span>
+                <span>GST{gstPercent > 0 ? ` (${gstPercent}%)` : ""}</span>
                 <span>{currencySymbol}{gstAmount.toFixed(0)}</span>
               </div>
             )}
@@ -268,6 +275,16 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
                     <span>{currencySymbol}{Number(booking.membershipWalletUsed).toFixed(0)}</span>
                   </div>
                 )}
+                {/* Mixed payments (eWallet + Cash/Card/UPI) keep the generic
+                    "Paid" total row below but also get their own eWallet leg
+                    here — previously the eWallet share was invisible unless
+                    eWallet was the sole method. */}
+                {!isEwalletPaid && Number((booking as any).ewalletUsed) > 0 && (
+                  <div className="btc__paid-row" style={{ color: "#2563eb" }}>
+                    <span>💳 Paid via eWallet</span>
+                    <span>{currencySymbol}{Number((booking as any).ewalletUsed).toFixed(0)}</span>
+                  </div>
+                )}
                 {booking.payingNow != null && Number(booking.payingNow) > 0 && (
                   <div className="btc__paid-row" style={isEwalletPaid ? { color: "#16a34a" } : undefined}>
                     <span>{isEwalletPaid ? "💳 Paid via eWallet" : "Paid"}</span>
@@ -278,6 +295,12 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
                   <div className="btc__paid-row" style={{ color: "#7c3aed" }}>
                     <span>🎁 Paid from Reward Points</span>
                     <span>{currencySymbol}{Number(booking.rewardPointsValue).toFixed(0)}</span>
+                  </div>
+                )}
+                {Number((booking as any).referralCreditUsed) > 0 && (
+                  <div className="btc__paid-row" style={{ color: "#0891b2" }}>
+                    <span>🤝 Paid via Referral Credit</span>
+                    <span>{currencySymbol}{Number((booking as any).referralCreditUsed).toFixed(0)}</span>
                   </div>
                 )}
               </>

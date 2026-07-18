@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { patchPaymentStatus } from "../../../store/schedulerSlice";
 import { postPaymentThunk, clearClientDuesThunk } from "../../../middleware/booking/payment.thunk";
@@ -39,6 +39,9 @@ interface CompletePaymentParams {
   selectedDueIds?: string[];
   useEWallet: boolean;
   applyMembershipWallet?: boolean;
+  // Own dedicated, spendable balances now — not folded into eWallet.
+  rewardPointsToRedeem?: number; // points count
+  referralCreditAmt?: number;    // ₹
 }
 
 /**
@@ -53,6 +56,7 @@ export function usePayment() {
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [payError, setPayError]         = useState<string | null>(null);
+  const { showSuccess, overlay } = useStatusOverlay();
 
   const completePayment = useCallback(async (params: CompletePaymentParams): Promise<boolean> => {
     const {
@@ -61,7 +65,7 @@ export function usePayment() {
       alreadyPaidAmount, eWalletAmt, couponDiscount, couponApplied,
       paymentMode, singleMethod, splitEntries, partialAmtInput,
       includeClearDue, priorDueAmt, selectedDueIds, useEWallet, applyMembershipWallet,
-      gstAmount, taxBreakdown,
+      gstAmount, taxBreakdown, rewardPointsToRedeem, referralCreditAmt,
     } = params;
 
     // gross_amount = pre-discount subtotal so the backend can compute:
@@ -117,13 +121,12 @@ export function usePayment() {
       const methodLabel   = buildMethodLabel(paymentMode, singleMethod, methods);
 
       // ── Post payment for current appointment ────────────────────────────
-      // KNOWN GAP: the backend (payments.service.ts `create()`) recomputes
-      // gross_amount/net_amount server-side from raw appointment item prices
-      // and ignores whatever we send here — it does not add tax. So the
-      // receipt below correctly displays tax (gstAmount/taxBreakdown), but
-      // the amount actually required to mark the appointment "Paid" excludes
-      // it. Fixing that requires updating payments.service.ts to add the
-      // same active/applicable tax from salon_settings into its recompute.
+      // The backend (payments.service.ts `create()`) recomputes gross_amount/
+      // net_amount/due_amount server-side from raw item prices plus the
+      // salon's own active/applicable tax config — it doesn't trust whatever
+      // tax figure we send here, it derives its own. What we send (net_amount,
+      // tax_breakdown) is for the receipt/audit trail, not the authoritative
+      // due-amount source.
       const result: any = await dispatch(postPaymentThunk({
         salon_id:         salonId || undefined,
         appointment_id:   appointmentId,
@@ -140,6 +143,8 @@ export function usePayment() {
         status:           newDue > 0 ? "partial" : "completed",
         apply_membership_wallet: !!applyMembershipWallet,
         tax_breakdown: taxBreakdown && taxBreakdown.length > 0 ? taxBreakdown : undefined,
+        reward_points_used: rewardPointsToRedeem || undefined,
+        referral_credit_used: referralCreditAmt || undefined,
       }));
 
       // "already completed" is treated as success
@@ -173,7 +178,7 @@ export function usePayment() {
       const referralWalletCredited = savedPayment?.referral_wallet_credited != null
         ? Number(savedPayment.referral_wallet_credited) : 0;
       if (referralWalletCredited > 0) {
-        toast.success(`Referral reward of ₹${referralWalletCredited.toFixed(2)} added to client's eWallet`);
+        showSuccess(`Referral reward of ₹${referralWalletCredited.toFixed(2)} added to client's eWallet`);
       }
 
       dispatch(patchPaymentStatus({
@@ -193,6 +198,8 @@ export function usePayment() {
         // saved figures over our local guess, same reasoning as finalPaid/finalDue above.
         ewalletUsed: savedPayment?.ewallet_used != null ? Number(savedPayment.ewallet_used) : (useEWallet ? eWalletAmt : 0),
         membershipWalletUsed: savedPayment?.membership_wallet_used != null ? Number(savedPayment.membership_wallet_used) : undefined,
+        rewardPointsValue: savedPayment?.reward_points_value != null ? Number(savedPayment.reward_points_value) : undefined,
+        referralCreditUsed: savedPayment?.referral_credit_used != null ? Number(savedPayment.referral_credit_used) : (referralCreditAmt || undefined),
         splitDetails: savedPayment?.split_details ?? methods,
       }));
 
@@ -249,5 +256,5 @@ export function usePayment() {
     }
   }, [dispatch, allBookings]);
 
-  return { completePayment, isProcessing, payError, setPayError };
+  return { completePayment, isProcessing, payError, setPayError, paymentOverlay: overlay };
 }

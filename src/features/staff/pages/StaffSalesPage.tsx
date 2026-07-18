@@ -9,7 +9,7 @@ import {
   CheckCircleFill,
   CurrencyDollar,
 } from "react-bootstrap-icons";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import api from "../../../services/api/axios";
 import { SALE } from "../../../services/api/endpoints";
 import { DownloadButton } from "../../../components/ui";
@@ -77,6 +77,7 @@ export default function StaffSalesPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const limit = 20;
+  const { showError, overlay } = useStatusOverlay();
 
 
   const fetchSummary = useCallback(async () => {
@@ -108,7 +109,7 @@ export default function StaffSalesPage() {
       setSales(arr);
       setTotal(res.data?.data?.pagination?.total ?? arr.length);
     } catch {
-      toast.error("Failed to load sales");
+      showError("Failed to load sales");
     } finally {
       setLoading(false);
     }
@@ -133,6 +134,7 @@ export default function StaffSalesPage() {
 
   return (
     <div className="sale-page">
+      {overlay}
       {/* ── Header ── */}
       <div className="sale-page__header">
         <div>

@@ -8,7 +8,7 @@ import {
   CheckCircleFill, ArrowClockwise,
   PersonBadge, Hash, MapFill, CreditCard, Tag, Clock, FileText,
 } from "react-bootstrap-icons";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import type { AppDispatch, RootState } from "../../../store/store";
 import {
   fetchMeThunk, updateUserThunk, uploadAvatarThunk, changePasswordThunk,
@@ -199,6 +199,7 @@ export default function ProfilePage() {
   const [showPwConf, setShowPwConf] = useState(false);
   const [pwError,    setPwError]    = useState<string | null>(null);
   const [pwSuccess,  setPwSuccess]  = useState(false);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -279,11 +280,11 @@ export default function ProfilePage() {
     if (updateUserThunk.fulfilled.match(result)) {
       setSaved(true);
       setEditing(false);
-      toast.success("Profile updated successfully!");
+      showSuccess("Profile updated successfully!");
     } else {
       const msg = String(result.payload ?? "Failed to save changes.");
       setFormError(msg);
-      toast.error(msg);
+      showError(msg);
     }
   };
 
@@ -310,11 +311,11 @@ export default function ProfilePage() {
     if (updateSalonThunk.fulfilled.match(result)) {
       setSalonSaved(true);
       setSalonEditing(false);
-      toast.success("Salon updated successfully!");
+      showSuccess("Salon updated successfully!");
     } else {
       const msg = String(result.payload ?? "Failed to save salon.");
       setSalonError(msg);
-      toast.error(msg);
+      showError(msg);
     }
   };
 
@@ -339,13 +340,13 @@ export default function ProfilePage() {
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) { toast.error("Please select an image file."); return; }
-    if (file.size > 5 * 1024 * 1024) { toast.error("Image must be under 5 MB."); return; }
+    if (!file.type.startsWith("image/")) { showError("Please select an image file."); return; }
+    if (file.size > 5 * 1024 * 1024) { showError("Image must be under 5 MB."); return; }
     const result = await dispatch(uploadAvatarThunk(file));
     if (uploadAvatarThunk.fulfilled.match(result)) {
-      toast.success("Profile photo updated!");
+      showSuccess("Profile photo updated!");
     } else {
-      toast.error(String(result.payload ?? "Failed to upload photo."));
+      showError(String(result.payload ?? "Failed to upload photo."));
     }
     if (fileRef.current) fileRef.current.value = "";
   };
@@ -362,11 +363,11 @@ export default function ProfilePage() {
     if (changePasswordThunk.fulfilled.match(result)) {
       setPwSuccess(true);
       setPwCurrent(""); setPwNew(""); setPwConfirm("");
-      toast.success("Password changed successfully!");
+      showSuccess("Password changed successfully!");
       setTimeout(() => { setPwSuccess(false); setPwSection(false); }, 2000);
     } else {
       const msg = String(result.payload ?? "Failed to change password.");
-      setPwError(msg); toast.error(msg);
+      setPwError(msg); showError(msg);
     }
   };
 
@@ -418,6 +419,7 @@ export default function ProfilePage() {
 
   return (
     <div className="pp-page">
+      {overlay}
 
       {/* ── PAGE HEADER ── */}
       <div className="pp-page-header">

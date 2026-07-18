@@ -65,12 +65,19 @@ interface Props {
   defaultName?: string;
   defaultPhone?: string;
   openAddForm?: boolean;
+  // Bump this (e.g. after an external eWallet top-up) to force a refetch of
+  // this client's stats without needing selectedClientId to change.
+  refreshKey?: number;
+  // Ratio for showing reward points' ₹ equivalent on the stat card — omit to
+  // hide that info button entirely.
+  rewardPointsConfig?: { redeem_points: number; redeem_value: number };
 }
 
 export const ClientPanel: React.FC<Props> = ({
   salonId, calDate, onDateChange, selectedClientId,
   fallbackUnpaidAmt,
   onSelectClient, onClearClient, onStatsLoaded, error, defaultName, defaultPhone, openAddForm,
+  refreshKey, rewardPointsConfig,
 }) => {
   const [search, setSearch] = useState(selectedClientId === "walk-in" ? "Walk In" : "");
   const [suggestions, setSuggestions] = useState<Client[]>([]);
@@ -94,7 +101,7 @@ export const ClientPanel: React.FC<Props> = ({
 
   useEffect(() => { if (openAddForm) setShowAddForm(true); }, [openAddForm]);
 
-  const { details, stats, loading: statsLoading, historyLoading } = useClientDetails(selectedClientId);
+  const { details, stats, loading: statsLoading, historyLoading } = useClientDetails(selectedClientId, refreshKey);
   const allBookings = useAppSelector(selectBookings);
 
   const clientIdForPkg = selectedClientId && selectedClientId !== "walk-in" ? selectedClientId : undefined;
@@ -103,7 +110,10 @@ export const ClientPanel: React.FC<Props> = ({
     { skip: !clientIdForPkg },
   );
 
-  const { memberships: clientMemberships } = useClientMembershipWallet(clientIdForPkg);
+  // refreshKey makes the Membership cell update live after a sale from this
+  // same modal — without it only useClientDetails' stats refetched, while the
+  // membership list (this hook) stayed stale until the modal was reopened.
+  const { memberships: clientMemberships } = useClientMembershipWallet(clientIdForPkg, refreshKey);
 
   // Calculate real unpaid amount from Redux — API always returns 0.
   // Falls back to the existingBooking's dueAmount when Redux doesn't have the booking yet.
@@ -532,6 +542,7 @@ export const ClientPanel: React.FC<Props> = ({
             memberships={clientMemberships}
             onViewHistory={onViewHistory}
             historyLoading={historyLoading}
+            rewardPointsConfig={rewardPointsConfig}
           />
         )
       )}

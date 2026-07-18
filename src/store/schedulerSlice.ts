@@ -65,7 +65,7 @@ interface SchedulerState {
   staffSchedules: Record<string, Record<string, StaffDaySchedule>>;
   scheduleVersion: number;
   dragPatchCache: Record<string, { startTime: string; endTime: string; staffId?: string }>;
-  paymentPatchCache: Record<string, { status: string; payingNow: number; dueAmount: number; grandTotal?: number; paymentMode?: string; gstAmount?: number; taxBreakdown?: Booking["taxBreakdown"]; couponDiscount?: number; couponCode?: string; referralDiscount?: number; ewalletUsed?: number; membershipWalletUsed?: number; splitDetails?: Record<string, number> }>;
+  paymentPatchCache: Record<string, { status: string; payingNow: number; dueAmount: number; grandTotal?: number; paymentMode?: string; gstAmount?: number; taxBreakdown?: Booking["taxBreakdown"]; couponDiscount?: number; couponCode?: string; referralDiscount?: number; ewalletUsed?: number; membershipWalletUsed?: number; rewardPointsValue?: number; referralCreditUsed?: number; splitDetails?: Record<string, number> }>;
   serviceStaffCache: Record<string, Array<{ staffId: string; staff: string }>>;
 }
 
@@ -113,6 +113,8 @@ const schedulerSlice = createSlice({
           if (pay.referralDiscount !== undefined) (merged as any).referralDiscount = pay.referralDiscount;
           if (pay.ewalletUsed !== undefined) (merged as any).ewalletUsed = pay.ewalletUsed;
           if (pay.membershipWalletUsed !== undefined) (merged as any).membershipWalletUsed = pay.membershipWalletUsed;
+          if (pay.rewardPointsValue !== undefined) (merged as any).rewardPointsValue = pay.rewardPointsValue;
+          if (pay.referralCreditUsed !== undefined) (merged as any).referralCreditUsed = pay.referralCreditUsed;
           if (pay.splitDetails !== undefined) (merged as any).splitDetails = pay.splitDetails;
         }
         // Restore per-service staff assignments that the list endpoint collapses to appointment-level.
@@ -217,6 +219,8 @@ const schedulerSlice = createSlice({
         referralDiscount?: number;
         ewalletUsed?: number;
         membershipWalletUsed?: number;
+        rewardPointsValue?: number;
+        referralCreditUsed?: number;
         splitDetails?: Record<string, number>;
       }>
     ) {
@@ -234,6 +238,8 @@ const schedulerSlice = createSlice({
         if (payload.referralDiscount !== undefined) (booking as any).referralDiscount = payload.referralDiscount;
         if (payload.ewalletUsed !== undefined) (booking as any).ewalletUsed = payload.ewalletUsed;
         if (payload.membershipWalletUsed !== undefined) (booking as any).membershipWalletUsed = payload.membershipWalletUsed;
+        if (payload.rewardPointsValue !== undefined) (booking as any).rewardPointsValue = payload.rewardPointsValue;
+        if (payload.referralCreditUsed !== undefined) (booking as any).referralCreditUsed = payload.referralCreditUsed;
         if (payload.splitDetails !== undefined) (booking as any).splitDetails = payload.splitDetails;
       }
       state.paymentPatchCache[String(payload.id)] = {
@@ -249,6 +255,8 @@ const schedulerSlice = createSlice({
         referralDiscount: payload.referralDiscount,
         ewalletUsed: payload.ewalletUsed,
         membershipWalletUsed: payload.membershipWalletUsed,
+        rewardPointsValue: payload.rewardPointsValue,
+        referralCreditUsed: payload.referralCreditUsed,
         splitDetails: payload.splitDetails,
       };
     },

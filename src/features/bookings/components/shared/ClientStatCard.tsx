@@ -1,10 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { currencySymbol } from "../../utils/currency";
 import type { ClientStats } from "../../types";
 import type { ClientPackage } from "../../../../services/api/endpoints/packages.endpoints";
 import type { ClientMembership } from "../../../../services/api/endpoints/clientMemberships.endpoints";
-import { PackageInfoModal } from "./PackageInfoModal";
-import { MembershipInfoModal } from "./MembershipInfoModal";
 import Skeleton from "../../../../components/ui/Skeleton";
 
 interface Props {
@@ -21,12 +19,17 @@ interface Props {
   // flight — shows those 3 cells as skeleton placeholders instead of quietly
   // hiding the whole row until the number arrives.
   historyLoading?: boolean;
+  // Ratio used to show the reward points' ₹ equivalent in the "ℹ" popover —
+  // e.g. {redeem_points: 100, redeem_value: 50} means 100 pts = ₹50. Omit to
+  // hide the info button entirely.
+  rewardPointsConfig?: { redeem_points: number; redeem_value: number };
 }
 
 // Fields sourced from the slower "Phase 2" background fetch (useClientDetails.ts)
 // rather than the fast initial profile fetch — these are the ones that get a
-// skeleton placeholder while historyLoading is true.
-const HISTORY_KEYS = new Set<keyof ClientStats>(["totalVisit", "lastVisit", "totalRevenue"]);
+// skeleton placeholder while historyLoading is true. (totalRevenue is also a
+// Phase 2 field but lives in the second row now, handled separately below.)
+const HISTORY_KEYS = new Set<keyof ClientStats>(["totalVisit", "lastVisit"]);
 
 const STAT_ROWS: Array<{
   label: string;
@@ -36,14 +39,13 @@ const STAT_ROWS: Array<{
   info?: boolean;
   hideWhen?: (v: any) => boolean;
 }> = [
-  { label: "Ewallet Amt",     key: "ewalletAmt",     format: (v) => `${currencySymbol}${Number(v).toLocaleString("en-IN")}` },
-  { label: "Unpaid Amt",      key: "unpaidAmt",       format: (v) => `${currencySymbol}${Number(v).toLocaleString("en-IN")}`, danger: (v) => v > 0 },
-  { label: "Assign Discount", key: "assignDiscount",  format: (v) => `${v}%` },
-  { label: "Disc. Validity",  key: "discountValidity" },
-  { label: "Cancelled",       key: "cancelled",       danger: (v) => v > 0 },
-  { label: "Total Visits",    key: "totalVisit",      hideWhen: (v) => !v || Number(v) === 0 },
-  { label: "Last Visit",      key: "lastVisit",       hideWhen: (v) => !v || v === "N/A" },
-  { label: "Total Revenue",   key: "totalRevenue",    format: (v) => `${currencySymbol}${Number(v).toLocaleString("en-IN")}`, info: true, hideWhen: (v) => !v || Number(v) === 0 },
+  { label: "E-Wallet",      key: "ewalletAmt",      format: (v) => `${currencySymbol}${Number(v).toLocaleString("en-IN")}` },
+  { label: "Unpaid",        key: "unpaidAmt",        format: (v) => `${currencySymbol}${Number(v).toLocaleString("en-IN")}`, danger: (v) => v > 0 },
+  { label: "Reward",        key: "rewardPoints",     format: (v) => `${Number(v).toLocaleString("en-IN")} pts` },
+  { label: "Referral",      key: "referralBalance",  format: (v) => `${currencySymbol}${Number(v).toLocaleString("en-IN")}` },
+  { label: "Visits",        key: "totalVisit",       hideWhen: (v) => !v || Number(v) === 0 },
+  { label: "Last Visit",    key: "lastVisit",        hideWhen: (v) => !v || v === "N/A" },
+  { label: "Cancelled",     key: "cancelled",        danger: (v) => v > 0 },
 ];
 
 function fmtExpiry(date: string | null | undefined): string {
@@ -54,25 +56,59 @@ function fmtExpiry(date: string | null | undefined): string {
   } catch { return date; }
 }
 
+function fmtDate(raw: string | null | undefined): string {
+  if (!raw) return "N/A";
+  try {
+    return new Date(raw).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  } catch { return raw; }
+}
+
+// Hover shows the popover as a quick preview; clicking "pins" it open so it
+// survives the mouse leaving (needed on touch devices, and lets you read a
+// long package/membership list without the mouse hovering the exact spot).
+// Outside click un-pins and closes it.
+function usePopover() {
+  const [hovered, setHovered] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const visible = hovered || pinned;
+
+  useEffect(() => {
+    if (!pinned) return;
+    function onOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setPinned(false);
+    }
+    document.addEventListener("mousedown", onOutside);
+    return () => document.removeEventListener("mousedown", onOutside);
+  }, [pinned]);
+
+  return {
+    ref,
+    visible,
+    onMouseEnter: () => setHovered(true),
+    onMouseLeave: () => setHovered(false),
+    toggle: () => setPinned((p) => !p),
+  };
+}
+
 export const ClientStatCard: React.FC<Props> = ({
   name, phone, address, stats, packages = [], memberships = [], onViewHistory, historyUrl,
-  historyLoading = false,
+  historyLoading = false, rewardPointsConfig,
 }) => {
   const initial = name?.charAt(0)?.toUpperCase() || "?";
-  const [showPkgModal, setShowPkgModal] = useState(false);
-  const [showMemModal, setShowMemModal] = useState(false);
+  const rewardPopover = usePopover();
+  const pkgPopover = usePopover();
+  const memPopover = usePopover();
+
+  const rewardMoneyValue = rewardPointsConfig && rewardPointsConfig.redeem_points > 0
+    ? (Number(stats.rewardPoints) / rewardPointsConfig.redeem_points) * rewardPointsConfig.redeem_value
+    : 0;
 
   const activePackages = packages.filter((p) => p.status === "Active");
   const firstPkg = activePackages[0];
 
   const activeMemberships = memberships.filter((m) => m.status === "active");
   const firstMembership = activeMemberships[0];
-
-  // Membership wallet balances are folded into the Ewallet Amt figure —
-  // there's no separate top-up flow anymore, so this is the client's full spendable balance.
-  const membershipWalletTotal = activeMemberships.reduce(
-    (sum, m) => sum + (Number(m.membershipWalletBalance) || 0), 0
-  );
 
   return (
     <>
@@ -94,7 +130,11 @@ export const ClientStatCard: React.FC<Props> = ({
         {/* Stats grid */}
         <div className="client-stats-panel__grid">
           {STAT_ROWS.map(({ label, key, format, danger, info, hideWhen }) => {
-            const raw = key === "ewalletAmt" ? (Number(stats[key]) || 0) + membershipWalletTotal : stats[key];
+            // Pure eWallet balance only — membership wallet has its own
+            // dedicated "Membership" cell below, and this must match the
+            // eWallet figure shown in the Add Appointment benefits card, which
+            // is also eWallet-only (membership is a separate benefit there too).
+            const raw = stats[key];
             const isHistoryField = HISTORY_KEYS.has(key);
             if (isHistoryField && historyLoading) {
               return (
@@ -107,16 +147,59 @@ export const ClientStatCard: React.FC<Props> = ({
             if (hideWhen && hideWhen(raw)) return null;
             const display = format ? format(raw) : String(raw ?? "N/A");
             const isDanger = danger ? danger(raw) : false;
+            const isReward = key === "rewardPoints";
             return (
-              <div key={label} className={`info-cell${isDanger ? " danger" : info ? " info" : ""}`}>
+              <div
+                key={label}
+                className={`info-cell${isDanger ? " danger" : info ? " info" : ""}`}
+                ref={isReward ? rewardPopover.ref : undefined}
+              >
                 <span className="info-cell__label">{label}</span>
-                <span className="info-cell__value">{display}</span>
+                <span className="info-cell__value">
+                  {display}
+                  {isReward && rewardPointsConfig && (
+                    <button
+                      type="button"
+                      className="pkg-info-btn reward-info-btn"
+                      title="View ₹ value"
+                      onMouseEnter={rewardPopover.onMouseEnter}
+                      onMouseLeave={rewardPopover.onMouseLeave}
+                      onClick={rewardPopover.toggle}
+                    >
+                      ℹ
+                    </button>
+                  )}
+                </span>
+                {isReward && rewardPopover.visible && (
+                  <div className="info-popover">
+                    ≈ {currencySymbol}{rewardMoneyValue.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                  </div>
+                )}
               </div>
             );
           })}
 
+        </div>
+
+        {/* Second row: Total Revenue, Package, Membership, View History */}
+        <div className="client-stats-panel__grid client-stats-panel__grid--second-row">
+          {/* Total Revenue cell */}
+          {historyLoading ? (
+            <div className="info-cell info">
+              <span className="info-cell__label">Total Revenue</span>
+              <Skeleton width={48} height={14} style={{ marginTop: 3 }} />
+            </div>
+          ) : Number(stats.totalRevenue) > 0 ? (
+            <div className="info-cell info">
+              <span className="info-cell__label">Total Revenue</span>
+              <span className="info-cell__value">
+                {currencySymbol}{Number(stats.totalRevenue).toLocaleString("en-IN")}
+              </span>
+            </div>
+          ) : null}
+
           {/* Package cell */}
-          <div className="info-cell info">
+          <div className="info-cell info" ref={pkgPopover.ref}>
             <span className="info-cell__label">
               Package{activePackages.length > 1 ? ` (${activePackages.length})` : ""}
             </span>
@@ -130,7 +213,9 @@ export const ClientStatCard: React.FC<Props> = ({
                   type="button"
                   className="pkg-info-btn"
                   title="View package details"
-                  onClick={() => setShowPkgModal(true)}
+                  onMouseEnter={pkgPopover.onMouseEnter}
+                  onMouseLeave={pkgPopover.onMouseLeave}
+                  onClick={pkgPopover.toggle}
                 >
                   ℹ
                 </button>
@@ -138,10 +223,61 @@ export const ClientStatCard: React.FC<Props> = ({
             ) : (
               <span className="info-cell__value">N/A</span>
             )}
+            {pkgPopover.visible && activePackages.length > 0 && (
+              <div className="info-popover info-popover--wide">
+                <div className="pkg-modal__cards">
+                  {activePackages.map((pkg) => {
+                    const totalSessions = pkg.services.reduce((s, svc) => s + svc.totalSessions, 0);
+                    const usedSessions  = pkg.services.reduce((s, svc) => s + svc.completedSessions, 0);
+                    return (
+                      <div key={pkg.id} className="pkg-card">
+                        <div className="pkg-card__row">
+                          <span className="pkg-card__lbl">Active Package:</span>
+                          <span className="pkg-card__val">{pkg.packageName}</span>
+                        </div>
+                        <div className="pkg-card__row">
+                          <span className="pkg-card__lbl">Purchase Date:</span>
+                          <span className="pkg-card__val">{fmtDate(pkg.createdDate)}</span>
+                        </div>
+                        <div className="pkg-card__row">
+                          <span className="pkg-card__lbl">Expiry Date:</span>
+                          <span className="pkg-card__val">{fmtDate(pkg.expiryDate)}</span>
+                        </div>
+                        <div className="pkg-card__row">
+                          <span className="pkg-card__lbl">Sessions:</span>
+                          <span className="pkg-card__val">{usedSessions} used / {totalSessions} total</span>
+                        </div>
+                        <div className="pkg-card__svc-title">Services</div>
+                        <table className="pkg-card__svc-table">
+                          <thead>
+                            <tr>
+                              <th>Name</th>
+                              <th>Avl</th>
+                              <th>Usage</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {pkg.services.map((svc) => (
+                              <tr key={svc.serviceId}>
+                                <td>- {svc.serviceName}</td>
+                                <td className={svc.remainingSessions === 0 ? "pkg-card__svc-done" : "pkg-card__svc-avl"}>
+                                  {svc.remainingSessions}
+                                </td>
+                                <td>{svc.completedSessions}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Membership cell */}
-          <div className="info-cell info">
+          <div className="info-cell info" ref={memPopover.ref}>
             <span className="info-cell__label">
               Membership{activeMemberships.length > 1 ? ` (${activeMemberships.length})` : ""}
             </span>
@@ -155,13 +291,55 @@ export const ClientStatCard: React.FC<Props> = ({
                   type="button"
                   className="pkg-info-btn"
                   title="View membership details"
-                  onClick={() => setShowMemModal(true)}
+                  onMouseEnter={memPopover.onMouseEnter}
+                  onMouseLeave={memPopover.onMouseLeave}
+                  onClick={memPopover.toggle}
                 >
                   ℹ
                 </button>
               </span>
             ) : (
               <span className="info-cell__value">N/A</span>
+            )}
+            {memPopover.visible && activeMemberships.length > 0 && (
+              <div className="info-popover info-popover--wide">
+                <div className="pkg-modal__cards">
+                  {activeMemberships.map((m) => (
+                    <div key={m.id} className="pkg-card">
+                      <div className="pkg-card__row">
+                        <span className="pkg-card__lbl">Active Membership:</span>
+                        <span className="pkg-card__val">{m.membershipName}</span>
+                      </div>
+                      <div className="pkg-card__row">
+                        <span className="pkg-card__lbl">Status:</span>
+                        <span className="pkg-card__val">{m.status.charAt(0).toUpperCase() + m.status.slice(1)}</span>
+                      </div>
+                      <div className="pkg-card__row">
+                        <span className="pkg-card__lbl">Price:</span>
+                        <span className="pkg-card__val">₹{Number(m.pricePaid ?? 0).toLocaleString("en-IN")}</span>
+                      </div>
+                      <div className="pkg-card__row">
+                        <span className="pkg-card__lbl">Purchase Date:</span>
+                        <span className="pkg-card__val">{fmtDate(m.purchasedAt)}</span>
+                      </div>
+                      <div className="pkg-card__row">
+                        <span className="pkg-card__lbl">Expiry Date:</span>
+                        <span className="pkg-card__val">{fmtDate(m.expiresAt)}</span>
+                      </div>
+                      <div className="pkg-card__row">
+                        <span className="pkg-card__lbl">Sessions:</span>
+                        <span className="pkg-card__val">
+                          {m.totalSessions === 0 ? "Unlimited" : `${m.usedSessions} used / ${m.totalSessions} total`}
+                        </span>
+                      </div>
+                      <div className="pkg-card__row">
+                        <span className="pkg-card__lbl">Balance Amount:</span>
+                        <span className="pkg-card__val">₹{Number(m.membershipWalletBalance ?? 0).toLocaleString("en-IN")}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
 
@@ -181,22 +359,6 @@ export const ClientStatCard: React.FC<Props> = ({
           )}
         </div>
       </div>
-
-      {showPkgModal && activePackages.length > 0 && (
-        <PackageInfoModal
-          clientName={name}
-          packages={activePackages}
-          onClose={() => setShowPkgModal(false)}
-        />
-      )}
-
-      {showMemModal && activeMemberships.length > 0 && (
-        <MembershipInfoModal
-          clientName={name}
-          memberships={activeMemberships}
-          onClose={() => setShowMemModal(false)}
-        />
-      )}
     </>
   );
 };

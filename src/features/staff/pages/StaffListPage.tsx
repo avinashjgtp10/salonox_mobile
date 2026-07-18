@@ -23,13 +23,12 @@ import {
   ThreeDots,
   TelephoneFill,
   EnvelopeFill,
-  CheckCircleFill,
-  ExclamationCircleFill,
 } from "react-bootstrap-icons";
 import "../styles/StaffListPage.scss";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
-import { Button, Input, DownloadButton, SuccessOverlay, Modal } from "../../../components/ui";
+import { Button, Input, DownloadButton, Modal } from "../../../components/ui";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import StaffImportModal from "../components/StaffImportModal";
 import TeamMemberDrawer from "../components/TeamMemberDrawer";
 import { exportStaffPDF } from "../utils/staffExport";
@@ -107,11 +106,10 @@ export default function StaffListPage() {
   const [selectedSort, setSelectedSort] = useState("Custom order");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [optionsOpen, setOptionsOpen] = useState(false);
-  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
-  const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ mode: "single"; id: string } | { mode: "bulk" } | null>(null);
@@ -130,10 +128,9 @@ export default function StaffListPage() {
   ];
 
   const showToast = useCallback((msg: string, type: "success" | "error" = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3500);
-  }, []);
-
+    if (type === "error") showError(msg);
+    else showSuccess(msg);
+  }, [showSuccess, showError]);
 
   const fetchStaff = useCallback(async () => {
     try {
@@ -189,7 +186,7 @@ export default function StaffListPage() {
     setDeletingId(id);
     try {
       await dispatch(deleteStaffThunk(id)).unwrap();
-      setShowDeleteSuccess(true);
+      showSuccess("Staff deleted successfully");
       setSelectedIds((prev) => prev.filter((x) => x !== id));
       // Refetch to sync with server (handles edge cases where backend may have cascade effects)
       fetchStaff();
@@ -279,25 +276,7 @@ export default function StaffListPage() {
 
   return (
     <div className="staff-list-page">
-      {/* ===== DELETE SUCCESS ===== */}
-      {showDeleteSuccess && (
-        <SuccessOverlay message="Staff deleted successfully" onDone={() => setShowDeleteSuccess(false)} />
-      )}
-
-      {/* ===== TOAST ===== */}
-      {toast && (
-        <div className={`sl-toast ${toast.type === "error" ? "sl-toast--error" : ""}`}>
-          {toast.type === "success" ? (
-            <CheckCircleFill size={16} className="sl-toast-icon" />
-          ) : (
-            <ExclamationCircleFill size={16} className="sl-toast-icon" />
-          )}
-          <span>{toast.msg}</span>
-          <button className="sl-toast-close" onClick={() => setToast(null)}>
-            <X size={14} />
-          </button>
-        </div>
-      )}
+      {overlay}
 
       {/* ===== FILTER DRAWER ===== */}
       {showFilter && (

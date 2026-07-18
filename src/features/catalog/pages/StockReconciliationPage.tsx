@@ -7,7 +7,6 @@ import {
   ArrowClockwise,
 } from "react-bootstrap-icons";
 import { useDispatch, useSelector } from "react-redux";
-import toast from "react-hot-toast";
 import type { AppDispatch, RootState } from "../../../store/store";
 import {
   fetchStockReconciliationThunk,
@@ -16,6 +15,7 @@ import {
 } from "../../../middleware/inventory/inventory.thunk";
 import { fetchBranchesThunk } from "../../../middleware/salon/salon.thunk";
 import { Pagination } from "../../../components/ui";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import "../styles/StockReconciliationPage.scss";
 
 // ─── Local row shape ──────────────────────────────────────────────────────────
@@ -54,6 +54,7 @@ const StockReconciliationPage: React.FC = () => {
   const [page, setPage]                         = useState(1);
   const [pageSize, setPageSize]                 = useState(20);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   // ── Branch (always use the main branch) ─────────────────────────────────────
   const branchId = useMemo(() => {
@@ -136,7 +137,7 @@ const StockReconciliationPage: React.FC = () => {
   // ── 4a. Save a single row ────────────────────────────────────────────────────
   const saveSingleRow = useCallback(
     async (row: LocalRow) => {
-      if (!branchId) { toast.error("Branch not found"); return; }
+      if (!branchId) { showError("Branch not found"); return; }
 
       setRows((prev) =>
         prev.map((r) =>
@@ -164,14 +165,14 @@ const StockReconciliationPage: React.FC = () => {
               : r
           )
         );
-        toast.success(`${row.item_name} saved`);
+        showSuccess(`${row.item_name} saved`);
       } catch (err: any) {
         setRows((prev) =>
           prev.map((r) =>
             r.product_id === row.product_id ? { ...r, isSaving: false } : r
           )
         );
-        toast.error(err || "Failed to save");
+        showError(err || "Failed to save");
       }
     },
     [dispatch, branchId]
@@ -179,10 +180,10 @@ const StockReconciliationPage: React.FC = () => {
 
   // ── 4b. Update All (batch save) ──────────────────────────────────────────────
   const handleUpdateAll = useCallback(async () => {
-    if (!branchId) { toast.error("Branch not found"); return; }
+    if (!branchId) { showError("Branch not found"); return; }
 
     const dirtyRows = rows.filter((r) => r.isDirty);
-    if (dirtyRows.length === 0) { toast("No changes to save"); return; }
+    if (dirtyRows.length === 0) { showError("No changes to save"); return; }
 
     try {
       await dispatch(
@@ -198,9 +199,9 @@ const StockReconciliationPage: React.FC = () => {
       ).unwrap();
 
       setRows((prev) => prev.map((r) => ({ ...r, isDirty: false })));
-      toast.success(`${dirtyRows.length} item(s) updated`);
+      showSuccess(`${dirtyRows.length} item(s) updated`);
     } catch (err: any) {
-      toast.error(err || "Failed to update all");
+      showError(err || "Failed to update all");
     }
   }, [dispatch, branchId, rows]);
 
@@ -281,9 +282,9 @@ const StockReconciliationPage: React.FC = () => {
             });
             return Array.from(rowMap.values());
           });
-          toast.success("Import applied — review and click Update All or save each row");
+          showSuccess("Import applied — review and click Update All or save each row");
         } catch {
-          toast.error("Failed to parse CSV");
+          showError("Failed to parse CSV");
         }
       };
       reader.readAsText(file);
@@ -320,6 +321,7 @@ const StockReconciliationPage: React.FC = () => {
   // ─────────────────────────────────────────────────────────────────────────────
   return (
     <div className="stock-recon-page">
+      {overlay}
       {/* ── Header: Search + Category filter + Import / Export ── */}
       <div className="stock-recon-page__header">
         <div className="stock-recon-page__filters">

@@ -30,14 +30,14 @@ const SALONOX_COLUMNS = [
   {
     key: "mobile",
     label: "Mobile number",
-    required: false,
-    hint: "The mobile number of the client.",
+    required: true,
+    hint: "The mobile number of the client. Required for import.",
   },
   {
     key: "gender",
     label: "Gender",
-    required: false,
-    hint: "Gender of the client.",
+    required: true,
+    hint: "Gender of the client. Required for import.",
   },
   {
     key: "birthday",
@@ -260,12 +260,32 @@ function StepColumnMatch({
 }
 
 // ─── Step 3 – Preview ─────────────────────────────────────────────────────────
+// Required-field check for the sampled preview rows below — the authoritative,
+// exhaustive check for the full file still happens server-side on actual
+// import (see clients.service.ts importClients), since this preview only
+// ever holds the first 5 data rows. This just surfaces the same missing-field
+// problems early, before the user spends a round trip finding out.
+interface PreviewError { row: number; field: string; message: string }
+function validatePreviewRows(rows: Record<string, string>[]): PreviewError[] {
+  const requiredCols = SALONOX_COLUMNS.filter((c) => c.required);
+  const errors: PreviewError[] = [];
+  rows.forEach((row, i) => {
+    requiredCols.forEach((c) => {
+      if (!row[c.key]?.trim()) {
+        errors.push({ row: i + 1, field: c.label, message: `${c.label} is required` });
+      }
+    });
+  });
+  return errors;
+}
+
 function StepPreview({
   previewRows,
 }: {
   previewRows: Record<string, string>[];
 }) {
   const [activeTab, setActiveTab] = useState<"import" | "errors">("import");
+  const previewErrors = validatePreviewRows(previewRows);
 
   return (
     <div className="col-md-10 mx-auto">
@@ -287,7 +307,7 @@ function StepPreview({
           className={`preview-tab ${activeTab === "errors" ? "active" : ""}`}
           onClick={() => setActiveTab("errors")}
         >
-          Errors (0)
+          Errors ({previewErrors.length})
         </button>
       </div>
 
@@ -323,10 +343,33 @@ function StepPreview({
         ))}
 
       {activeTab === "errors" && (
-        <div className="preview-empty text-center py-5">
-          <p className="empty-title">No errors</p>
-          <p className="empty-sub text-muted">All rows passed validation.</p>
-        </div>
+        previewErrors.length === 0 ? (
+          <div className="preview-empty text-center py-5">
+            <p className="empty-title">No errors</p>
+            <p className="empty-sub text-muted">All previewed rows passed validation.</p>
+          </div>
+        ) : (
+          <div className="table-responsive">
+            <table className="table preview-table">
+              <thead>
+                <tr>
+                  <th>Row</th>
+                  <th>Field</th>
+                  <th>Error</th>
+                </tr>
+              </thead>
+              <tbody>
+                {previewErrors.map((e, i) => (
+                  <tr key={i}>
+                    <td>{e.row}</td>
+                    <td>{e.field}</td>
+                    <td className="text-danger">{e.message}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
       )}
     </div>
   );

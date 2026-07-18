@@ -612,48 +612,6 @@ $radius: 12px;
   user-select: none;
 }
 
-// ── TOAST ──
-.sl-toast {
-  position: fixed;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #111827;
-  color: $white;
-  padding: 12px 20px;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 500;
-  font-family: $font;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  box-shadow: 0 8px 28px rgba(0,0,0,.18);
-  z-index: 99999;
-  animation: sl-toastIn .25s ease;
-  white-space: nowrap;
-
-  &--error { background: #991b1b; }
-}
-
-.sl-toast-icon { flex-shrink: 0; }
-
-.sl-toast-close {
-  background: transparent;
-  border: none;
-  color: rgba(255,255,255,.7);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  padding: 0;
-  &:hover { color: $white; }
-}
-
-@keyframes sl-toastIn {
-  from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0); }
-}
-
 // ── FILTER DRAWER ──
 .sl-filter-overlay {
   position: fixed;

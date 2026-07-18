@@ -11,7 +11,7 @@ import {
   AlertCircle,
   Save,
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
   fetchSettingsThunk,
@@ -275,6 +275,7 @@ export default function NotificationsPage() {
   const [whatsappPrefs, setWhatsappPrefs] = useState<WhatsAppPrefs>(defaultWhatsAppPrefs);
   const [savingWhatsapp, setSavingWhatsapp] = useState(false);
   const [whatsappSettingId, setWhatsappSettingId] = useState<EntityId | null>(null);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   useEffect(() => {
     dispatch(fetchSettingsThunk());
@@ -355,8 +356,8 @@ export default function NotificationsPage() {
     }
 
     setSaving(false);
-    if (ok) toast.success("Notification preferences saved");
-    else toast.error("Failed to save preferences");
+    if (ok) showSuccess("Notification preferences saved");
+    else showError("Failed to save preferences");
   };
 
   const handleSaveWhatsapp = async () => {
@@ -380,12 +381,13 @@ export default function NotificationsPage() {
     }
 
     setSavingWhatsapp(false);
-    if (ok) toast.success("WhatsApp notification preferences saved");
-    else toast.error("Failed to save WhatsApp preferences");
+    if (ok) showSuccess("WhatsApp notification preferences saved");
+    else showError("Failed to save WhatsApp preferences");
   };
 
   return (
     <>
+      {overlay}
       {/* Page Header */}
       <div className="settings-page-header">
         <h2 className="settings-page-title">Notifications</h2>

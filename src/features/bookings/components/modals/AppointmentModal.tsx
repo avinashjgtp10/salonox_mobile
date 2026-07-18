@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { SuccessOverlay } from "../../../../components/ui";
 import { currencySymbol } from "../../utils/currency";
 import { useAppSelector, useAppDispatch } from "../../../../hooks/useAppRedux";
 import { useAppointment }    from "../../hooks/useAppointment";
@@ -15,6 +16,7 @@ import { setPackagesList, patchPaymentStatus } from "../../../../store/scheduler
 import { postPaymentThunk } from "../../../../middleware/booking/payment.thunk";
 import { fetchSettingsThunk } from "../../../../middleware/setting/setting.thunk";
 import { getActiveTaxes } from "../../../settings/utils/taxSettings";
+import { getTaxModuleConfig } from "../../../settings/utils/taxModuleSettings";
 import { getRewardPointsConfig } from "../../../settings/utils/rewardPointsSettings";
 import { getReferralConfig } from "../../../settings/utils/referralSettings";
 import { isRealId } from "../../utils/paymentUtils";
@@ -26,10 +28,16 @@ import {
 } from "../../../../store/selectors/scheduler.selectors";
 import {
   PersonFill, Scissors, TagFill, FileText,
-  BellFill, PencilFill,
+  BellFill, PencilFill, BoxSeamFill, AwardFill,
+  WalletFill, StarFill, PeopleFill, GiftFill,
 } from "react-bootstrap-icons";
 import { ClientPanel }   from "./ClientPanel";
 import { ServicesPanel } from "./ServicesPanel";
+import { AvailableBenefitsPanel, type BenefitCardConfig } from "./AvailableBenefitsPanel";
+import SellPackageModal from "../../../../components/packages/SellPackageModal";
+import SellMembershipCalendarModal from "../../../catalog/components/SellMembershipCalendarModal";
+import EwalletTopupModal from "../../../clients/components/EwalletTopupModal";
+import type { ClientSearchResult } from "../../../clients/components/ClientSearchInput";
 import { PaymentPanel }  from "./PaymentPanel";
 import TotalsPanel       from "./TotalsPanel";
 import PaymentButton     from "../shared/PaymentButton";
@@ -80,6 +88,17 @@ function timeToMins(t: string): number {
   return (h || 0) * 60 + (m || 0);
 }
 
+// A service row only counts as "filled" once it's actually selected from the
+// catalog dropdown, same as product/package/membership rows. Freshly added
+// rows record that as `id` (set to the catalog service's id at selection time
+// — see ServiceRow.tsx), but existing bookings loaded back from the API never
+// carry that field — their catalog reference is only persisted as
+// `service_id`. Checking `id` alone made every previously-saved booking look
+// "empty". Accept either.
+function isRealServiceRow(r: any): boolean {
+  return !!r.service?.trim() && !!(r.id || r.service_id);
+}
+
 export const AppointmentModal: React.FC<Props> = ({
   isOpen, onClose, salonId,
   existingBooking, defaultDate, defaultTime, defaultStaffId,
@@ -101,6 +120,7 @@ export const AppointmentModal: React.FC<Props> = ({
   useEffect(() => { dispatch(fetchSettingsThunk()); }, [dispatch]);
   const settingItems = useAppSelector((s) => s.setting.items);
   const activeTaxes  = useMemo(() => getActiveTaxes(settingItems), [settingItems]);
+  const showTaxBreakupOnInvoice = useMemo(() => getTaxModuleConfig(settingItems).show_breakup_on_invoice, [settingItems]);
   const rewardPointsConfig = useMemo(() => getRewardPointsConfig(settingItems), [settingItems]);
   const referralConfig = useMemo(() => getReferralConfig(settingItems), [settingItems]);
 
@@ -163,6 +183,20 @@ export const AppointmentModal: React.FC<Props> = ({
   );
   const [clientStats, setClientStats]       = useState<ClientStats | null>(null);
 
+  // Sell a brand-new package/membership as a popup over the calendar instead
+  // of navigating away to the Catalog page — same pattern as ClientHistoryModal.
+  const [showSellPackageModal, setShowSellPackageModal] = useState(false);
+  const [showSellMembershipModal, setShowSellMembershipModal] = useState(false);
+  const [showTopupModal, setShowTopupModal] = useState(false);
+  // Bumped after a successful top-up to force ClientPanel to refetch this
+  // client's real balance from the backend — the eWallet figure on the card
+  // is driven by ClientPanel's own useClientDetails() fetch, not clientStats.
+  const [clientRefreshKey, setClientRefreshKey] = useState(0);
+  const isSellableClient = !!selectedClient && selectedClient.id !== "walk-in";
+  const sellInitialClient: ClientSearchResult | null = isSellableClient
+    ? { id: selectedClient!.id, first_name: selectedClient!.name, phone_number: selectedClient!.phone }
+    : null;
+
   // ── Date ─────────────────────────────────────────────────────────────────
   const [calDate, setCalDate] = useState(defaultDate || new Date().toISOString().slice(0, 10));
 
@@ -190,6 +224,10 @@ export const AppointmentModal: React.FC<Props> = ({
   // ── Payment state ────────────────────────────────────────────────────────
   const [useEWallet, setUseEWallet]             = useState(false);
   const [eWalletAmt, setEWalletAmt]             = useState(0);
+  const [useRewardPoints, setUseRewardPoints]   = useState(false);
+  const [rewardPointsToRedeem, setRewardPointsToRedeem] = useState(0);
+  const [useReferralCredit, setUseReferralCredit] = useState(false);
+  const [referralCreditAmt, setReferralCreditAmt] = useState(0);
   const [paymentMode, setPaymentMode]           = useState<"single" | "split">("single");
   const [singleMethod, setSingleMethod]         = useState<SingleMethod | null>(null);
   const [splitEntries, setSplitEntries]         = useState<SplitEntry[]>([
@@ -202,20 +240,24 @@ export const AppointmentModal: React.FC<Props> = ({
   // just "is anything selected", derived below once priorDueBookings exists.
   const [selectedDueIds, setSelectedDueIds]     = useState<Set<string>>(new Set());
   const [printAfterPayment, setPrintAfterPayment] = useState(false);
+  // Lets staff exclude GST from this specific bill even when Tax Mapping is
+  // configured (e.g. a client requesting a no-GST cash bill) — defaults to
+  // on so behavior is unchanged unless staff explicitly opts out.
+  const [includeGst, setIncludeGst] = useState(true);
   const [payMethodError, setPayMethodError]     = useState(false);
   const [showPaymentSection, setShowPaymentSection] = useState(false);
   const [showPaidPopup, setShowPaidPopup] = useState(false);
 
-  // Shows a centered "Payment Completed" popup for 2s, then runs the actual
-  // close/refresh — the modal has to stay mounted for those 2s for the popup
-  // to be visible at all, so this replaces calling onRefresh/onClose directly.
+  // Shows a centered "Payment Completed" popup (SuccessOverlay), then runs the
+  // actual close/refresh once it auto-dismisses — the modal has to stay
+  // mounted while it's visible, so this replaces calling onRefresh/onClose directly.
   const finishWithPaidPopup = useCallback(() => {
     setShowPaidPopup(true);
-    setTimeout(() => {
-      setShowPaidPopup(false);
-      onRefresh?.();
-      onClose();
-    }, 2000);
+  }, []);
+  const handlePaidPopupDone = useCallback(() => {
+    setShowPaidPopup(false);
+    onRefresh?.();
+    onClose();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onRefresh, onClose]);
 
@@ -246,7 +288,7 @@ export const AppointmentModal: React.FC<Props> = ({
 
   // ── Hooks ────────────────────────────────────────────────────────────────
   const { save, isSaving, error: saveError, apiAppointmentId } = useAppointment();
-  const { completePayment, isProcessing, payError }            = usePayment();
+  const { completePayment, isProcessing, payError, paymentOverlay } = usePayment();
   const coupon = useCoupon(salonId);
   const referral = useReferral();
   usePackageSessions(selectedClient?.id ?? null);
@@ -258,13 +300,18 @@ export const AppointmentModal: React.FC<Props> = ({
     { clientId: clientIdForPkg, status: "Active", limit: 50 },
     { skip: !clientIdForPkg },
   );
-  // Map of lower-cased service name → remaining sessions from active packages (memoized for stable reference)
+  // Map of coverage key → remaining sessions from active packages (memoized for
+  // stable reference). Keyed by the real catalog service id when the package
+  // has one (exact match, so two same-named services at different prices
+  // can't cross-consume each other's sessions); packages sold before that id
+  // existed fall back to a name-prefixed key, matched only by rows that also
+  // lack a catalog id — see ServiceRow.tsx's lookups.
   const coveredServices = useMemo(() => {
     const map = new Map<string, number>();
     (clientPkgsData?.items ?? []).forEach((pkg) => {
       pkg.services.forEach((svc) => {
         if (svc.remainingSessions > 0) {
-          const key = svc.serviceName.toLowerCase();
+          const key = svc.catalogServiceId ?? `name:${svc.serviceName.toLowerCase()}`;
           map.set(key, (map.get(key) ?? 0) + svc.remainingSessions);
         }
       });
@@ -314,7 +361,13 @@ export const AppointmentModal: React.FC<Props> = ({
     setServiceRows((prev) =>
       prev.map((row) => {
         if (!row.service.trim()) return row;
-        const remaining = effectiveCoveredServices.get(row.service.toLowerCase()) ?? 0;
+        // Exact catalog-id key first, then the name-prefixed fallback key —
+        // must match coveredServices' actual key format (see the useMemo
+        // above), or this always misses and leaves the row untouched.
+        const rowCatalogId = (row as any).id || null;
+        const remaining = (rowCatalogId ? effectiveCoveredServices.get(rowCatalogId) : undefined)
+          ?? effectiveCoveredServices.get(`name:${row.service.toLowerCase()}`)
+          ?? 0;
         if (remaining <= 0) return row;
         const qty = Number(row.qty) || 1;
         const paidQty = Math.max(0, qty - remaining);
@@ -354,14 +407,22 @@ export const AppointmentModal: React.FC<Props> = ({
 
   // ── Membership wallet: preview allocation across service rows ──────────────
   // Amount-based running pool (not per-name matching like packages) — draws
-  // from the client's single highest-balance active membership, in row order.
+  // from the combined balance across ALL of the client's active memberships
+  // (highest-balance first), in row order.
   // Manual opt-in via the "Apply Membership" checkbox below the services list —
   // unchecked by default, so a client with balance isn't billed from their
   // wallet unless staff explicitly chooses to.
   // Display-only: the backend independently recomputes and applies the real
   // deduction at payment time (see payments.service.ts), gated on the same
   // flag sent with the payment — this is just a preview.
-  const { memberships: clientMemberships, primary: primaryMembership } = useClientMembershipWallet(clientIdForPkg);
+  const { memberships: clientMemberships, primary: primaryMembership } = useClientMembershipWallet(clientIdForPkg, clientRefreshKey);
+  // Combined balance across ALL active memberships (not just the single
+  // highest-balance one) — checkout now draws from multiple in sequence, see
+  // deductWalletAcrossMemberships in client-memberships.repository.ts.
+  const membershipTotalBalance = useMemo(
+    () => clientMemberships.reduce((sum, m) => sum + (Number(m.membershipWalletBalance) > 0 ? Number(m.membershipWalletBalance) : 0), 0),
+    [clientMemberships],
+  );
   // Restored to checked when reopening a booking previously saved with membership
   // wallet coverage applied — same reasoning as applyPackage above.
   const [applyMembership, setApplyMembership] = useState(
@@ -374,14 +435,31 @@ export const AppointmentModal: React.FC<Props> = ({
     if (!applyMembershipMounted.current) { applyMembershipMounted.current = true; return; }
     setApplyMembership(false);
   }, [clientIdForPkg]);
+  // Per-membership toggle — products only become wallet-eligible once at least
+  // one of the client's active, spendable memberships opted in
+  // (memberships.applies_to_products). Mirrors the backend gate in
+  // payments.service.ts (isProductEligible) so the UI preview matches what
+  // checkout will actually deduct.
+  const membershipCoversProducts = useMemo(
+    () => clientMemberships.some((m) => m.appliesToProducts && Number(m.membershipWalletBalance) > 0),
+    [clientMemberships],
+  );
+
   // Most the membership wallet could ever usefully cover — capped by both the
-  // wallet's own balance and by how much eligible service value there is to
-  // apply it against (no point defaulting an input higher than that).
-  const membershipEligibleTotal = useMemo(() => serviceRows.reduce((s, row) => {
-    if (!row.service.trim() || (row as any).isPackageService) return s;
-    return s + (Number(row.total) || 0);
-  }, 0), [serviceRows]);
-  const membershipMaxUsable = Math.min(primaryMembership?.membershipWalletBalance ?? 0, membershipEligibleTotal);
+  // wallet's own balance and by how much eligible service (+ product, when
+  // enabled) value there is to apply it against (no point defaulting an
+  // input higher than that).
+  const membershipEligibleTotal = useMemo(() => {
+    const serviceTotal = serviceRows.reduce((s, row) => {
+      if (!row.service.trim() || (row as any).isPackageService) return s;
+      return s + (Number(row.total) || 0);
+    }, 0);
+    const productTotal = membershipCoversProducts
+      ? productRows.reduce((s, row) => s + (Number(row.total) || 0), 0)
+      : 0;
+    return serviceTotal + productTotal;
+  }, [serviceRows, productRows, membershipCoversProducts]);
+  const membershipMaxUsable = Math.min(membershipTotalBalance, membershipEligibleTotal);
 
   // How much of the membership wallet staff has chosen to apply — defaults to
   // the max usable on enable, but editable down (e.g. "only use ₹300, save the
@@ -399,7 +477,7 @@ export const AppointmentModal: React.FC<Props> = ({
   const membershipWalletMap = useMemo(() => {
     const map = new Map<string, { walletUsed: number; payable: number }>();
     if (!applyMembership) return map;
-    let remaining = Math.min(primaryMembership?.membershipWalletBalance ?? 0, membershipWalletAmt);
+    let remaining = Math.min(membershipTotalBalance, membershipWalletAmt);
     if (remaining <= 0) return map;
     serviceRows.forEach((row, i) => {
       const tempId = (row as any).tempId || String(i);
@@ -410,33 +488,60 @@ export const AppointmentModal: React.FC<Props> = ({
       remaining -= used;
       map.set(tempId, { walletUsed: used, payable: rowTotal - used });
     });
+    if (membershipCoversProducts) {
+      productRows.forEach((row, i) => {
+        const tempId = (row as any).tempId || String(i);
+        if (!row.productId || remaining <= 0) return;
+        const rowTotal = Number(row.total) || 0;
+        if (rowTotal <= 0) return;
+        const used = Math.min(remaining, rowTotal);
+        remaining -= used;
+        map.set(`product:${tempId}`, { walletUsed: used, payable: rowTotal - used });
+      });
+    }
     return map;
-  }, [serviceRows, primaryMembership, applyMembership, membershipWalletAmt]);
+  }, [serviceRows, productRows, membershipTotalBalance, applyMembership, membershipWalletAmt, membershipCoversProducts]);
   const membershipWalletUsedTotal = useMemo(
     () => Array.from(membershipWalletMap.values()).reduce((s, v) => s + v.walletUsed, 0),
     [membershipWalletMap],
   );
-  const membershipWalletRemaining = Math.max(0, (primaryMembership?.membershipWalletBalance ?? 0) - membershipWalletUsedTotal);
+  const membershipWalletRemaining = Math.max(0, membershipTotalBalance - membershipWalletUsedTotal);
 
   // Marks package sessions as complete for each covered service row after appointment is done.
   // appointmentId links each consumed session back to the sale that used it (for audit/reporting).
   async function markPackageSessions(appointmentId?: string) {
     const pkgs = clientPkgsData?.items ?? [];
     for (const row of serviceRows) {
-      const key = row.service.toLowerCase();
-      const remaining = effectiveCoveredServices.get(key) ?? 0;
+      const rowCatalogId = row.id || null;
+      const nameKey = row.service.toLowerCase();
+      // Try the exact catalog-id key first, then fall back to the
+      // name-prefixed key (covers legacy packages with no catalog id).
+      const remaining = (rowCatalogId ? effectiveCoveredServices.get(rowCatalogId) : undefined)
+        ?? effectiveCoveredServices.get(`name:${nameKey}`)
+        ?? 0;
       if (remaining <= 0) continue;
 
-      // Find the package + service that covers this row
+      // Find the package(s) that cover this row — exact catalog id match when
+      // this row has one, otherwise (legacy data on both sides) fall back to
+      // name. A client can own more than one active package covering the
+      // same service (e.g. two separate 1-session packages) — the
+      // coverage/pricing preview above already pools their remaining
+      // sessions together, so consumption here must draw from each matching
+      // package in turn too, not just the first one it finds, or sessions
+      // beyond that first package's own balance are silently never marked.
       const qty = Number(row.qty) || 1;
-      const sessionsToMark = Math.min(qty, remaining);
+      let sessionsLeftToMark = Math.min(qty, remaining);
 
       for (const pkg of pkgs) {
-        const svc = pkg.services.find(
-          (s) => s.serviceName.toLowerCase() === key && s.remainingSessions > 0
-        );
+        if (sessionsLeftToMark <= 0) break;
+        const svc = pkg.services.find((s) => {
+          if (s.remainingSessions <= 0) return false;
+          if (rowCatalogId && s.catalogServiceId) return s.catalogServiceId === rowCatalogId;
+          return s.serviceName.toLowerCase() === nameKey;
+        });
         if (!svc) continue;
-        for (let i = 0; i < sessionsToMark; i++) {
+        const sessionsFromThisPkg = Math.min(sessionsLeftToMark, svc.remainingSessions);
+        for (let i = 0; i < sessionsFromThisPkg; i++) {
           try {
             await completePackageSession({
               id: pkg.id,
@@ -446,7 +551,7 @@ export const AppointmentModal: React.FC<Props> = ({
             // don't block the appointment flow on session-mark failure
           }
         }
-        break; // one package is enough per service row
+        sessionsLeftToMark -= sessionsFromThisPkg;
       }
     }
   }
@@ -477,12 +582,19 @@ export const AppointmentModal: React.FC<Props> = ({
     ? Math.min(referralConfig.referee_reward_amount, prelimSubtotal)
     : 0;
 
+  const rewardPointsRedeemedValue = (useRewardPoints && rewardPointsConfig.redeem_points > 0)
+    ? (rewardPointsToRedeem / rewardPointsConfig.redeem_points) * rewardPointsConfig.redeem_value
+    : 0;
+
+  const billTaxes = includeGst ? activeTaxes : [];
   const totals = computeTotals({
     serviceRows, packageRows, productRows, membershipRows,
-    discountType, discountValue, taxes: activeTaxes, exCharges, tip,
+    discountType, discountValue, taxes: billTaxes, exCharges, tip,
     couponDiscount: coupon.discount + referralDiscountPreview,
     eWalletUsed: useEWallet ? eWalletAmt : 0,
     membershipWalletUsed: membershipWalletUsedTotal,
+    rewardPointsRedeemedValue,
+    referralCreditUsed: useReferralCredit ? referralCreditAmt : 0,
   });
 
   const alreadyPaidAmount   = existingBooking?.payingNow ?? 0;
@@ -498,6 +610,13 @@ export const AppointmentModal: React.FC<Props> = ({
   // A partial entry of 0 (deferring everything to due) needs no payment method,
   // even though the bill itself (effectiveTotal) is still > 0.
   const amountThisTxn   = isPartialEntry ? parsedPartial : totals.effectiveTotal;
+  // Live preview for the payment-step summary: as staff types a partial
+  // amount, Paid/Due (and therefore the still-visible GST line above it)
+  // should update immediately instead of only reflecting a prior, already-
+  // completed transaction — otherwise the GST-inclusive balance due looks
+  // frozen/wrong while a partial payment is being entered.
+  const livePaidAmount = alreadyPaidAmount + amountThisTxn;
+  const liveDueAmount  = Math.max(0, remainingDue - amountThisTxn);
   // Exclude current appointment's due so "Clear Pending Due" only shows OTHER unpaid appointments —
   // one row per prior booking (by date), so staff can pick specific ones instead of all-or-nothing.
   const currentApptId = existingBooking?.id ?? apiAppointmentId;
@@ -611,6 +730,42 @@ export const AppointmentModal: React.FC<Props> = ({
     setEWalletAmt(Math.max(0, Math.min(v, eWalletMaxAmt)));
   }, [eWalletMaxAmt]);
 
+  // ── Reward points cap: most points the client can redeem on this bill ──────
+  // Own dedicated balance now (not folded into eWallet) — capped by the real
+  // points balance and by not letting the redeemed ₹ value exceed the bill.
+  const rewardPointsMaxRedeem = useMemo(() => {
+    const balance = clientStats?.rewardPoints ?? 0;
+    if (balance <= 0 || rewardPointsConfig.redeem_points <= 0) return 0;
+    const maxByBill = Math.floor((totals.grandTotal / rewardPointsConfig.redeem_value) * rewardPointsConfig.redeem_points);
+    return Math.max(0, Math.min(balance, maxByBill));
+  }, [clientStats, totals.grandTotal, rewardPointsConfig]);
+
+  useEffect(() => {
+    if (!useRewardPoints) { setRewardPointsToRedeem(0); return; }
+    if (rewardPointsMaxRedeem <= 0) { setUseRewardPoints(false); setRewardPointsToRedeem(0); return; }
+    setRewardPointsToRedeem((prev) => (prev > 0 ? Math.min(prev, rewardPointsMaxRedeem) : rewardPointsMaxRedeem));
+  }, [useRewardPoints, rewardPointsMaxRedeem]);
+
+  const handleSetRewardPointsToRedeem = useCallback((v: number) => {
+    setRewardPointsToRedeem(Math.max(0, Math.min(v, rewardPointsMaxRedeem)));
+  }, [rewardPointsMaxRedeem]);
+
+  // ── Referral credit cap: most ₹ the client can redeem on this bill ─────────
+  const referralCreditMaxAmt = useMemo(() => {
+    const balance = clientStats?.referralBalance ?? 0;
+    return Math.max(0, Math.min(balance, totals.grandTotal));
+  }, [clientStats, totals.grandTotal]);
+
+  useEffect(() => {
+    if (!useReferralCredit) { setReferralCreditAmt(0); return; }
+    if (referralCreditMaxAmt <= 0) { setUseReferralCredit(false); setReferralCreditAmt(0); return; }
+    setReferralCreditAmt((prev) => (prev > 0 ? Math.min(prev, referralCreditMaxAmt) : referralCreditMaxAmt));
+  }, [useReferralCredit, referralCreditMaxAmt]);
+
+  const handleSetReferralCreditAmt = useCallback((v: number) => {
+    setReferralCreditAmt(Math.max(0, Math.min(v, referralCreditMaxAmt)));
+  }, [referralCreditMaxAmt]);
+
   // ── Inline validation errors ──────────────────────────────────────────────
   const [clientError,    setClientError]    = useState("");
   const [noItemsError,   setNoItemsError]   = useState(false);
@@ -658,14 +813,6 @@ export const AppointmentModal: React.FC<Props> = ({
     if (!selectedClient) { setClientError("Please select a client or choose Walk-In"); ok = false; scrollTarget = "client"; }
     else setClientError("");
 
-    // A service row only counts as "filled" once it's actually selected from the
-    // catalog dropdown, same as product/package/membership rows below. Freshly
-    // added rows record that as `id` (set to the catalog service's id at
-    // selection time — see ServiceRow.tsx), but existing bookings loaded back
-    // from the API never carry that field — their catalog reference is only
-    // persisted as `service_id`. Checking `id` alone made every previously-saved
-    // booking look "empty" and silently fail validation. Accept either.
-    const isRealServiceRow = (r: any) => !!r.service?.trim() && !!(r.id || r.service_id);
     const filledSvc = serviceRows.filter(isRealServiceRow);
     const filledPkg = packageRows.filter((r) => (r as any).packageId);
     const filledPrd = productRows.filter((r) => (r as any).productId);
@@ -886,6 +1033,8 @@ export const AppointmentModal: React.FC<Props> = ({
       couponApplied:     coupon.applied,
       paymentMode, singleMethod, splitEntries, partialAmtInput,
       includeClearDue, priorDueAmt, useEWallet,
+      rewardPointsToRedeem: useRewardPoints ? rewardPointsToRedeem : 0,
+      referralCreditAmt:    useReferralCredit ? referralCreditAmt : 0,
       selectedDueIds: Array.from(selectedDueIds),
       applyMembershipWallet: applyMembership,
       gstAmount:         totals.gstAmount,
@@ -897,7 +1046,7 @@ export const AppointmentModal: React.FC<Props> = ({
         const freshBooking = store.getState().scheduler.bookings.find(
           (b: any) => String(b.id) === String(apptId)
         );
-        if (freshBooking) printReceipt(freshBooking as any, schedulerStaff, currentSalon, printClientExtras, { auto: true });
+        if (freshBooking) printReceipt(freshBooking as any, schedulerStaff, currentSalon, printClientExtras, { auto: true, showTaxBreakup: showTaxBreakupOnInvoice });
       }
       finishWithPaidPopup();
     }
@@ -906,6 +1055,7 @@ export const AppointmentModal: React.FC<Props> = ({
     selectedClient, salonId, totals, alreadyPaidAmount, amountThisTxn,
     eWalletAmt, coupon, paymentMode, singleMethod, splitEntries,
     partialAmtInput, includeClearDue, priorDueAmt, useEWallet, selectedDueIds, applyMembership,
+    useRewardPoints, rewardPointsToRedeem, useReferralCredit, referralCreditAmt,
     finishWithPaidPopup, printAfterPayment, schedulerStaff, currentSalon,
   ]);
 
@@ -1024,6 +1174,8 @@ export const AppointmentModal: React.FC<Props> = ({
       couponApplied:     coupon.applied,
       paymentMode, singleMethod, splitEntries, partialAmtInput,
       includeClearDue, priorDueAmt, useEWallet,
+      rewardPointsToRedeem: useRewardPoints ? rewardPointsToRedeem : 0,
+      referralCreditAmt:    useReferralCredit ? referralCreditAmt : 0,
       selectedDueIds: Array.from(selectedDueIds),
       applyMembershipWallet: applyMembership,
       gstAmount:         totals.gstAmount,
@@ -1035,7 +1187,7 @@ export const AppointmentModal: React.FC<Props> = ({
         const freshBooking = store.getState().scheduler.bookings.find(
           (b: any) => String(b.id) === String(id)
         );
-        if (freshBooking) printReceipt(freshBooking as any, schedulerStaff, currentSalon, printClientExtras, { auto: true });
+        if (freshBooking) printReceipt(freshBooking as any, schedulerStaff, currentSalon, printClientExtras, { auto: true, showTaxBreakup: showTaxBreakupOnInvoice });
       }
       finishWithPaidPopup();
     }
@@ -1043,6 +1195,7 @@ export const AppointmentModal: React.FC<Props> = ({
   }, [save, completePayment, dispatch, selectedClient, salonId, serviceRows, totals, amountThisTxn,
       eWalletAmt, coupon, paymentMode, singleMethod, splitEntries, partialAmtInput,
       includeClearDue, priorDueAmt, useEWallet, selectedDueIds, applyMembership, printAfterPayment,
+      useRewardPoints, rewardPointsToRedeem, useReferralCredit, referralCreditAmt,
       schedulerStaff, currentSalon, finishWithPaidPopup]);
 
   if (!isOpen) return null;
@@ -1086,6 +1239,8 @@ export const AppointmentModal: React.FC<Props> = ({
         defaultName={!existingBooking && !selectedClient ? defaultClientName : undefined}
         defaultPhone={!existingBooking && !selectedClient ? defaultClientPhone : undefined}
         openAddForm={triggerAddForm}
+        refreshKey={clientRefreshKey}
+        rewardPointsConfig={rewardPointsConfig}
       />
     </div>
   );
@@ -1107,6 +1262,38 @@ export const AppointmentModal: React.FC<Props> = ({
           serviceRows={serviceRows}
           onUpdateService={(i, field, value) => setServiceRows((rows) => rows.map((x, idx) => idx === i ? { ...x, [field as string]: value } : x))}
           onRemoveService={(i) => setServiceRows((rows) => rows.filter((_, idx) => idx !== i))}
+          onServiceDuplicate={(i, svc) => {
+            // Picking a service that's already on the bill merges into that
+            // row (qty +1) instead of creating a duplicate row. Coverage is
+            // recomputed against the package pool ONCE for the merged row, so
+            // two rows of the same service can no longer each claim the same
+            // remaining session (double free) — anything beyond the remaining
+            // sessions is charged at the normal price.
+            const nameKey = svc.name.trim().toLowerCase();
+            const targetIdx = serviceRows.findIndex((r, idx) =>
+              idx !== i && r.service.trim() && (
+                (svc.id && r.id && String(r.id) === String(svc.id)) ||
+                r.service.trim().toLowerCase() === nameKey
+              ));
+            if (targetIdx === -1) return false;
+            setServiceRows((rows) => {
+              const target = rows[targetIdx];
+              if (!target) return rows;
+              const newQty = Math.min(99, (Number(target.qty) || 1) + 1);
+              const remaining = (svc.id ? effectiveCoveredServices.get(String(svc.id)) : undefined)
+                ?? effectiveCoveredServices.get(`name:${nameKey}`) ?? 0;
+              const price = Number(target.price) || Number(svc.price) || 0;
+              const discountPct = Math.min(100, Math.max(0, Number(target.discount) || 0));
+              const paidQty = Math.max(0, newQty - remaining);
+              const total = Math.max(0, price * paidQty * (1 - discountPct / 100));
+              return rows
+                .map((r, idx) => idx === targetIdx
+                  ? { ...r, qty: newQty, total, isPackageService: paidQty === 0 }
+                  : r)
+                .filter((_, idx) => idx !== i);
+            });
+            return true;
+          }}
           onAddService={() => setServiceRows((rows) => {
             const last = rows[rows.length - 1];
             const nextTime = last?.time
@@ -1149,6 +1336,9 @@ export const AppointmentModal: React.FC<Props> = ({
             }
             setMembershipRows((rows) => [...rows, { id: "", membershipId: "", membershipName: "", price: 0, qty: 1, total: 0, staffId: "", time: serviceRows[0]?.time || defaultTime || "" }]);
           }}
+          onSellPackage={isSellableClient ? () => setShowSellPackageModal(true) : undefined}
+          onSellMembership={isSellableClient ? () => setShowSellMembershipModal(true) : undefined}
+          onTopupEwallet={isSellableClient ? () => setShowTopupModal(true) : undefined}
           availablePackages={availablePackages}
           availableProducts={availableProducts}
           availableMemberships={availableMemberships}
@@ -1167,63 +1357,9 @@ export const AppointmentModal: React.FC<Props> = ({
         />
       </div>
 
-      {/* Apply Package — manual opt-in, same treatment as Apply Membership below */}
-      {coveredServices.size > 0 && (
-        <div
-          className={`pay-ewallet${applyPackage ? " pay-ewallet--active" : ""}`}
-          style={{ margin: "0 0 12px" }}
-          onClick={() => setApplyPackage(v => !v)}
-        >
-          <input
-            type="checkbox"
-            checked={applyPackage}
-            onChange={(e) => setApplyPackage(e.target.checked)}
-            onClick={(e) => e.stopPropagation()}
-          />
-          <span>Apply Package ({coveredServices.size} service{coveredServices.size !== 1 ? "s" : ""} covered)</span>
-        </div>
-      )}
-
-      {/* Apply Membership — manual opt-in to draw from the client's membership wallet */}
-      {primaryMembership && (
-        <div
-          className={`pay-ewallet${applyMembership ? " pay-ewallet--active" : ""}`}
-          style={{ margin: "0 0 12px" }}
-        >
-          <label
-            style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", flex: 1 }}
-            onClick={() => setApplyMembership(v => !v)}
-          >
-            <input
-              type="checkbox"
-              checked={applyMembership}
-              onChange={(e) => setApplyMembership(e.target.checked)}
-              onClick={(e) => e.stopPropagation()}
-            />
-            <span>Apply Membership (Available: {currencySymbol}{primaryMembership.membershipWalletBalance.toFixed(2)})</span>
-          </label>
-          {applyMembership && (
-            <div className="pay-due-row__field" onClick={(e) => e.stopPropagation()}>
-              <span className="pay-due-row__symbol">{currencySymbol}</span>
-              <input
-                type="number"
-                className="pay-due-row__input"
-                min={0}
-                max={membershipMaxUsable}
-                step={0.01}
-                value={membershipWalletAmt || ""}
-                placeholder="0"
-                onChange={(e) => {
-                  const raw = e.target.value;
-                  if (raw === "") { handleSetMembershipWalletAmt(0); return; }
-                  const val = parseFloat(raw);
-                  if (!isNaN(val)) handleSetMembershipWalletAmt(val);
-                }}
-              />
-            </div>
-          )}
-        </div>
-      )}
+      {/* Apply Package / Apply Membership toggles now live in
+          availableBenefitsSectionEl (payment step only), alongside
+          eWallet/Reward Points/Referral Credit as a unified card grid. */}
 
       {(saveError || payError) && (
         <div style={{
@@ -1238,6 +1374,169 @@ export const AppointmentModal: React.FC<Props> = ({
       )}
     </>
   );
+
+  // Applying a benefit (package/membership/eWallet/etc.) to a bill with no
+  // service, package, product, or membership line item on it yet is
+  // meaningless — there's nothing for the benefit to discount. The cards stay
+  // visible (staff should still see the client's balances), but toggling one
+  // on with an empty bill is blocked with a plain-language message — shown
+  // only on that attempt, not preemptively.
+  const hasAnyFilledItems = useMemo(() => (
+    serviceRows.some(isRealServiceRow) ||
+    packageRows.some((r: any) => r.packageId) ||
+    productRows.some((r: any) => r.productId) ||
+    membershipRows.some((r: any) => r.membershipId)
+  ), [serviceRows, packageRows, productRows, membershipRows]);
+
+  const [benefitsGateError, setBenefitsGateError] = useState(false);
+  useEffect(() => {
+    if (hasAnyFilledItems) setBenefitsGateError(false);
+  }, [hasAnyFilledItems]);
+
+  // ── Available Benefits — one card per spendable balance (Package,
+  // Membership, eWallet, Reward Points, Referral Credit). AppointmentModal
+  // owns all the underlying state; the panel itself is purely presentational.
+  const firstActivePkg = (clientPkgsData?.items ?? [])[0];
+  const availableBenefitCards: BenefitCardConfig[] = useMemo(() => {
+    const cards: BenefitCardConfig[] = [];
+
+    if (coveredServices.size > 0 && firstActivePkg) {
+      const pkgRemaining = firstActivePkg.services.reduce((s, svc) => s + svc.remainingSessions, 0);
+      const pkgTotal = firstActivePkg.services.reduce((s, svc) => s + svc.totalSessions, 0);
+      cards.push({
+        key: "package",
+        icon: BoxSeamFill,
+        variantClass: "benefit-card--package",
+        title: "Package",
+        value: `${pkgRemaining}/${pkgTotal} Remaining`,
+        subtitle: firstActivePkg.packageName,
+        checked: applyPackage,
+        onToggle: setApplyPackage,
+      });
+    }
+
+    const activeMembershipsWithBalance = clientMemberships.filter((m) => Number(m.membershipWalletBalance) > 0);
+    if (membershipTotalBalance > 0) {
+      cards.push({
+        key: "membership",
+        icon: AwardFill,
+        variantClass: "benefit-card--membership",
+        title: activeMembershipsWithBalance.length > 1 ? `Membership (${activeMembershipsWithBalance.length})` : "Membership",
+        value: `${currencySymbol}${membershipTotalBalance.toLocaleString("en-IN")} Remaining`,
+        subtitle: activeMembershipsWithBalance.length > 1
+          ? activeMembershipsWithBalance.map((m) => m.membershipName).join(", ")
+          : (activeMembershipsWithBalance[0]?.membershipName ?? primaryMembership?.membershipName ?? ""),
+        checked: applyMembership,
+        onToggle: setApplyMembership,
+        input: {
+          value: membershipWalletAmt,
+          max: membershipMaxUsable,
+          step: 0.01,
+          prefix: currencySymbol,
+          onChange: handleSetMembershipWalletAmt,
+        },
+      });
+    }
+
+    const eWalletBal = clientStats?.ewalletAmt ?? 0;
+    if (eWalletBal >= 100) {
+      cards.push({
+        key: "ewallet",
+        icon: WalletFill,
+        variantClass: "benefit-card--ewallet",
+        title: "eWallet",
+        value: `${currencySymbol}${eWalletBal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        subtitle: "Available Balance",
+        checked: useEWallet,
+        onToggle: setUseEWallet,
+        input: {
+          value: eWalletAmt,
+          max: eWalletMaxAmt,
+          step: 0.01,
+          prefix: currencySymbol,
+          onChange: handleSetEWalletAmt,
+        },
+      });
+    }
+
+    const rewardBal = clientStats?.rewardPoints ?? 0;
+    if (rewardBal > 0) {
+      cards.push({
+        key: "reward",
+        icon: StarFill,
+        variantClass: "benefit-card--reward",
+        title: "Reward Points",
+        value: `${rewardBal.toLocaleString("en-IN")} pts`,
+        subtitle: "Available Points",
+        checked: useRewardPoints,
+        onToggle: setUseRewardPoints,
+        input: {
+          value: rewardPointsToRedeem,
+          max: rewardBal,
+          step: 1,
+          suffix: "pts",
+          placeholder: "0 pts",
+          onChange: handleSetRewardPointsToRedeem,
+        },
+      });
+    }
+
+    const referralBal = clientStats?.referralBalance ?? 0;
+    if (referralBal > 0) {
+      cards.push({
+        key: "referral",
+        icon: PeopleFill,
+        variantClass: "benefit-card--referral",
+        title: "Referral Credit",
+        value: `${currencySymbol}${referralBal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        subtitle: "Available Credit",
+        checked: useReferralCredit,
+        onToggle: setUseReferralCredit,
+        input: {
+          value: referralCreditAmt,
+          max: referralCreditMaxAmt,
+          step: 0.01,
+          prefix: currencySymbol,
+          onChange: handleSetReferralCreditAmt,
+        },
+      });
+    }
+
+    return cards;
+  }, [
+    coveredServices, firstActivePkg, applyPackage,
+    clientMemberships, membershipTotalBalance, primaryMembership, applyMembership,
+    membershipWalletAmt, membershipMaxUsable, handleSetMembershipWalletAmt,
+    clientStats, useEWallet, eWalletAmt, eWalletMaxAmt, handleSetEWalletAmt,
+    useRewardPoints, rewardPointsToRedeem, handleSetRewardPointsToRedeem,
+    useReferralCredit, referralCreditAmt, referralCreditMaxAmt, handleSetReferralCreditAmt,
+  ]);
+
+  // Turning a benefit ON with nothing on the bill is what gets blocked (and
+  // surfaces the message); turning one OFF is always allowed.
+  const gatedBenefitCards: BenefitCardConfig[] = useMemo(
+    () => availableBenefitCards.map((c) => ({
+      ...c,
+      onToggle: (v: boolean) => {
+        if (v && !hasAnyFilledItems) { setBenefitsGateError(true); return; }
+        setBenefitsGateError(false);
+        c.onToggle(v);
+      },
+    })),
+    [availableBenefitCards, hasAnyFilledItems],
+  );
+
+  const availableBenefitsSectionEl = availableBenefitCards.length > 0 ? (
+    <div className="appt-section">
+      <div className="appt-section__title"><GiftFill size={15} /> Available Benefits</div>
+      <AvailableBenefitsPanel cards={gatedBenefitCards} />
+      {benefitsGateError && (
+        <div className="services-no-items-error">
+          Please add or select a service or item before applying benefits.
+        </div>
+      )}
+    </div>
+  ) : null;
 
   const chargesSectionEl = (
     <div className="appt-section">
@@ -1381,6 +1680,11 @@ export const AppointmentModal: React.FC<Props> = ({
               <div className="qs-layout__left">
                 {clientSectionEl}
                 {servicesSectionEl}
+                {/* Quick Sale is a one-screen direct checkout (no separate
+                    payment step), so benefits DO belong here — this screen is
+                    the payment step, unlike the regular booking flow where
+                    they're deferred to showPaymentSection. */}
+                {availableBenefitsSectionEl}
                 {chargesSectionEl}
                 <div className="appt-section">
                   <div className="appt-section__title"><FileText size={15} /> Payment &amp; Notes</div>
@@ -1416,8 +1720,17 @@ export const AppointmentModal: React.FC<Props> = ({
                   {tip > 0 && (
                     <div className="qs-summary-row"><span>Tip (Staff)</span><span>+{currencySymbol}{tip.toFixed(2)}</span></div>
                   )}
+                  {membershipWalletUsedTotal > 0 && (
+                    <div className="qs-summary-row qs-summary-row--discount"><span>Membership Wallet Used</span><span>-{currencySymbol}{membershipWalletUsedTotal.toFixed(2)}</span></div>
+                  )}
                   {(useEWallet && eWalletAmt > 0) && (
                     <div className="qs-summary-row qs-summary-row--discount"><span>eWallet Used</span><span>-{currencySymbol}{eWalletAmt.toFixed(2)}</span></div>
+                  )}
+                  {rewardPointsRedeemedValue > 0 && (
+                    <div className="qs-summary-row qs-summary-row--discount"><span>Reward Points Used</span><span>-{currencySymbol}{rewardPointsRedeemedValue.toFixed(2)}</span></div>
+                  )}
+                  {(useReferralCredit && referralCreditAmt > 0) && (
+                    <div className="qs-summary-row qs-summary-row--discount"><span>Referral Credit Used</span><span>-{currencySymbol}{referralCreditAmt.toFixed(2)}</span></div>
                   )}
                   <div className="qs-summary-row qs-summary-row--total"><span>Amount to Pay</span><span>{currencySymbol}{totals.effectiveTotal.toFixed(2)}</span></div>
                 </div>
@@ -1443,12 +1756,6 @@ export const AppointmentModal: React.FC<Props> = ({
                     remainingDue={remainingDue}
                     alreadyPaid={0}
                     grandTotal={totals.grandTotal}
-                    eWalletBalance={clientStats?.ewalletAmt ?? 0}
-                    useEWallet={useEWallet}
-                    eWalletAmt={eWalletAmt}
-                    eWalletMaxAmt={eWalletMaxAmt}
-                    onToggleEWallet={setUseEWallet}
-                    onSetEWalletAmt={handleSetEWalletAmt}
                     membershipWalletUsed={membershipWalletUsedTotal}
                     membershipWalletRemaining={membershipWalletRemaining}
                     couponInput={coupon.input}
@@ -1486,6 +1793,9 @@ export const AppointmentModal: React.FC<Props> = ({
                     onToggleOneDue={toggleOneDue}
                     printAfterPayment={printAfterPayment}
                     onTogglePrint={setPrintAfterPayment}
+                    includeGst={includeGst}
+                    onToggleIncludeGst={setIncludeGst}
+                    hasActiveTaxes={activeTaxes.length > 0}
                     previewPoints={previewPoints}
                     previewWalletCredit={previewWalletCredit}
                     frozen={false}
@@ -1505,6 +1815,14 @@ export const AppointmentModal: React.FC<Props> = ({
 
               {/* 2. Services & Items */}
               {servicesSectionEl}
+
+              {/* Available Benefits — payment step only. Wallet deductions
+                  only actually happen at payment time (payments.service.ts),
+                  so a benefit toggled during booking was a preview that
+                  silently evaporated: nothing deducted, nothing on the
+                  calendar chip. Keeping the toggles next to the Pay action
+                  means what staff applies is what actually gets deducted. */}
+              {showPaymentSection && availableBenefitsSectionEl}
 
               {/* 3. Charges & Discounts */}
               {!showPaymentSection && chargesSectionEl}
@@ -1537,6 +1855,10 @@ export const AppointmentModal: React.FC<Props> = ({
                         gstAmount={totals.gstAmount}
                         taxBreakdown={totals.taxBreakdown}
                         tip={tip}
+                        membershipWalletUsed={membershipWalletUsedTotal}
+                        ewalletUsed={useEWallet ? eWalletAmt : 0}
+                        rewardPointsValue={rewardPointsRedeemedValue}
+                        referralCreditUsed={useReferralCredit ? referralCreditAmt : 0}
                         alreadyPaid={alreadyPaidAmount}
                         dueAmount={remainingDue}
                         grandTotal={totals.grandTotal}
@@ -1558,6 +1880,46 @@ export const AppointmentModal: React.FC<Props> = ({
                       <span>{currencySymbol}{totals.effectiveTotal.toFixed(2)}</span>
                     )}
                   </div>
+                  {/* Subtotal/Discount/GST/Grand Total breakdown must stay
+                      visible here too — this used to only render before
+                      "Continue to Payment", so once actual checkout (partial
+                      or full) began, the GST line disappeared entirely and
+                      only a single lump "Amount to Pay" figure remained.
+                      Paid/Due here live-update with whatever partial amount
+                      is currently typed, so the GST-inclusive balance due is
+                      accurate at every step, not just after submitting. */}
+                  {!showFullyCoveredBanner && (
+                    <div style={{ marginBottom: 12 }}>
+                      <TotalsPanel
+                        subtotal={totals.subtotal}
+                        catalogTotal={totals.catalogTotal}
+                        itemDiscountTotal={totals.itemDiscountTotal}
+                        serviceTotal={serviceRows.filter(r => !r.isPackageService).reduce((s, r) => s + r.total, 0)}
+                        packageServiceCount={serviceRows.filter(r => r.isPackageService).length}
+                        packageTotal={packageRows.reduce((s, r) => s + r.total, 0)}
+                        productTotal={productRows.reduce((s, r) => s + r.total, 0)}
+                        membershipTotal={membershipRows.reduce((s, r) => s + r.total, 0)}
+                        exCharges={exCharges}
+                        discount={discountValue}
+                        discountType={discountType}
+                        manualDiscount={totals.manualDiscount}
+                        couponDiscount={coupon.discount}
+                        couponCode={coupon.applied}
+                        totalDiscount={totals.totalDisc}
+                        gstAmount={totals.gstAmount}
+                        taxBreakdown={totals.taxBreakdown}
+                        tip={tip}
+                        membershipWalletUsed={membershipWalletUsedTotal}
+                        ewalletUsed={useEWallet ? eWalletAmt : 0}
+                        rewardPointsValue={rewardPointsRedeemedValue}
+                        referralCreditUsed={useReferralCredit ? referralCreditAmt : 0}
+                        alreadyPaid={livePaidAmount}
+                        dueAmount={liveDueAmount}
+                        grandTotal={totals.grandTotal}
+                        roundOff={totals.roundOff}
+                      />
+                    </div>
+                  )}
                   {showFullyCoveredBanner ? (
                     <div style={{
                       display: "flex", flexDirection: "column", alignItems: "center",
@@ -1581,12 +1943,6 @@ export const AppointmentModal: React.FC<Props> = ({
                     remainingDue={remainingDue}
                     alreadyPaid={alreadyPaidAmount}
                     grandTotal={totals.grandTotal}
-                    eWalletBalance={clientStats?.ewalletAmt ?? 0}
-                    useEWallet={useEWallet}
-                    eWalletAmt={eWalletAmt}
-                    eWalletMaxAmt={eWalletMaxAmt}
-                    onToggleEWallet={setUseEWallet}
-                    onSetEWalletAmt={handleSetEWalletAmt}
                     membershipWalletUsed={membershipWalletUsedTotal}
                     membershipWalletRemaining={membershipWalletRemaining}
                     couponInput={coupon.input}
@@ -1624,6 +1980,9 @@ export const AppointmentModal: React.FC<Props> = ({
                     onToggleOneDue={toggleOneDue}
                     printAfterPayment={printAfterPayment}
                     onTogglePrint={setPrintAfterPayment}
+                    includeGst={includeGst}
+                    onToggleIncludeGst={setIncludeGst}
+                    hasActiveTaxes={activeTaxes.length > 0}
                     previewPoints={previewPoints}
                     previewWalletCredit={previewWalletCredit}
                     frozen={isPaymentFrozen}
@@ -1718,19 +2077,34 @@ export const AppointmentModal: React.FC<Props> = ({
       </div>
 
       {showPaidPopup && (
-        <div
-          style={{
-            position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-            zIndex: 10000, background: "#111827", color: "#fff",
-            padding: "18px 32px", borderRadius: 12, display: "flex",
-            alignItems: "center", gap: 10, fontSize: 15, fontWeight: 600,
-            boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <span style={{ color: "#22c55e", fontSize: 20 }}>✓</span>
-          Payment Completed
-        </div>
+        <SuccessOverlay message="Payment Completed" duration={2000} onDone={handlePaidPopupDone} />
+      )}
+
+      {paymentOverlay}
+
+      {showSellPackageModal && sellInitialClient && (
+        <SellPackageModal
+          initialClient={sellInitialClient}
+          onClose={() => setShowSellPackageModal(false)}
+          onSaved={() => { setShowSellPackageModal(false); setClientRefreshKey((k) => k + 1); }}
+        />
+      )}
+
+      {showSellMembershipModal && sellInitialClient && (
+        <SellMembershipCalendarModal
+          initialClient={sellInitialClient}
+          onClose={() => setShowSellMembershipModal(false)}
+          onSaved={() => { setShowSellMembershipModal(false); setClientRefreshKey((k) => k + 1); }}
+        />
+      )}
+
+      {showTopupModal && isSellableClient && (
+        <EwalletTopupModal
+          clientId={selectedClient!.id}
+          clientName={selectedClient!.name}
+          onClose={() => setShowTopupModal(false)}
+          onSuccess={() => setClientRefreshKey((k) => k + 1)}
+        />
       )}
     </div>
   );

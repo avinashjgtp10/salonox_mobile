@@ -8,7 +8,7 @@ import {
   X,
   PersonBadge,
 } from "react-bootstrap-icons";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
 import "../styles/StaffCustomersPage.scss";
@@ -64,6 +64,7 @@ export default function StaffCustomersPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const limit = 20;
+  const { showError, overlay } = useStatusOverlay();
 
   const fetchClients = useCallback(async () => {
     if (!salonId) return;
@@ -80,7 +81,7 @@ export default function StaffCustomersPage() {
       setClients(arr);
       setTotal(res.data?.data?.pagination?.total ?? arr.length);
     } catch {
-      toast.error("Failed to load customers");
+      showError("Failed to load customers");
     } finally {
       setLoading(false);
     }
@@ -94,6 +95,7 @@ export default function StaffCustomersPage() {
 
   return (
     <div className="cust-page">
+      {overlay}
       {/* ── Header ── */}
       <div className="cust-page__header">
         <div>

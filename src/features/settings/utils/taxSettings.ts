@@ -1,4 +1,5 @@
 import type { Setting } from "../../../types/setting.types";
+import { getTaxModuleConfig } from "./taxModuleSettings";
 
 export const TAX_TYPES = ["CGST", "SGST", "IGST", "GST", "VAT", "CESS", "Other"];
 
@@ -61,8 +62,13 @@ export interface TaxRow {
   applicable_for: TaxApplicableFor;
 }
 
-// Active, applicable taxes for use in bill/total calculations.
+// Active, applicable taxes for use in bill/total calculations. Returns none
+// at all when the master "Enable GST" toggle is off, regardless of what
+// individual tax mapping rows have their own `active` flag set to — this is
+// the single place that enforcement lives, so every caller (totals, receipt,
+// reports) automatically goes tax-free without needing its own check.
 export function getActiveTaxes(items: Setting[]): TaxRow[] {
+  if (!getTaxModuleConfig(items).enabled) return [];
   return items
     .filter((s) => isTaxSetting(s) && parseTaxValue(s.value).active)
     .map((s) => {

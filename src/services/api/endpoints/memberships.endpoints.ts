@@ -21,6 +21,7 @@ export interface Membership {
   enableOnlineSales: boolean;
   enableOnlineRedemption: boolean;
   termsAndConditions?: string;
+  appliesToProducts?: boolean;
   createdAt: Date;
   updatedAt: Date;
   // Optional client association (if backend supports it)
@@ -43,6 +44,7 @@ export interface CreateMembershipDTO {
   enableOnlineSales: boolean;
   enableOnlineRedemption: boolean;
   termsAndConditions?: string;
+  appliesToProducts?: boolean;
   clientId?: string;
   clientName?: string;
   clientPhone?: string;

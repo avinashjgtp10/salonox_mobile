@@ -11,7 +11,7 @@ import {
   LogOut,
   Save,
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { logout } from "../../../store/authSlice";
 import { changePasswordThunk } from "../../../middleware/user/user.thunk";
@@ -98,6 +98,7 @@ export default function AccountSettingsPage() {
 
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   const strength = passwordStrength(pwForm.newPassword);
 
@@ -107,15 +108,15 @@ export default function AccountSettingsPage() {
 
   const handleSavePassword = async () => {
     if (!pwForm.currentPassword || !pwForm.newPassword || !pwForm.confirmPassword) {
-      toast.error("Please fill in all password fields");
+      showError("Please fill in all password fields");
       return;
     }
     if (pwForm.newPassword !== pwForm.confirmPassword) {
-      toast.error("New passwords do not match");
+      showError("New passwords do not match");
       return;
     }
     if (pwForm.newPassword.length < 8) {
-      toast.error("Password must be at least 8 characters");
+      showError("Password must be at least 8 characters");
       return;
     }
 
@@ -126,37 +127,37 @@ export default function AccountSettingsPage() {
       })
     );
     if (changePasswordThunk.fulfilled.match(result)) {
-      toast.success("Password changed successfully");
+      showSuccess("Password changed successfully");
       setPwForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
     } else {
-      toast.error((result.payload as string) || "Failed to change password. Check your current password.");
+      showError((result.payload as string) || "Failed to change password. Check your current password.");
     }
   };
 
   const handleLogoutAllDevices = async () => {
     try {
       await api.post("/api/v1/auth/logout-all");
-      toast.success("Logged out of all devices");
+      showSuccess("Logged out of all devices");
       dispatch(logout());
       navigate("/login");
     } catch {
-      toast.error("Failed to log out all devices");
+      showError("Failed to log out all devices");
     }
   };
 
   const handleDeleteAccount = async () => {
     if (deleteConfirm !== "DELETE") {
-      toast.error('Type "DELETE" to confirm');
+      showError('Type "DELETE" to confirm');
       return;
     }
     setDeleteLoading(true);
     try {
       await api.delete("/api/v1/auth/account");
-      toast.success("Account deletion requested");
+      showSuccess("Account deletion requested");
       dispatch(logout());
       navigate("/login");
     } catch {
-      toast.error("Failed to delete account. Contact support.");
+      showError("Failed to delete account. Contact support.");
     } finally {
       setDeleteLoading(false);
     }
@@ -164,6 +165,7 @@ export default function AccountSettingsPage() {
 
   return (
     <>
+      {overlay}
       {/* Page Header */}
       <div className="settings-page-header">
         <h2 className="settings-page-title">Account & Security</h2>
@@ -303,9 +305,8 @@ export default function AccountSettingsPage() {
               variant={twoFAEnabled ? "outline-danger" : "outline-secondary"}
               onClick={() => {
                 setTwoFAEnabled((v) => !v);
-                toast(
-                  twoFAEnabled ? "2FA disabled (demo)" : "2FA setup coming soon",
-                  { icon: "🔐" }
+                showError(
+                  twoFAEnabled ? "2FA disabled (demo)" : "2FA setup coming soon"
                 );
               }}
             >
@@ -329,7 +330,7 @@ export default function AccountSettingsPage() {
             <Button
               size="sm"
               variant="outline-secondary"
-              onClick={() => void toast("SMS 2FA coming soon", { icon: "📱" })}
+              onClick={() => void showError("SMS 2FA coming soon")}
             >
               Set up
             </Button>

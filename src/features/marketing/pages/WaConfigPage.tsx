@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
   saveWaConfigThunk,
@@ -77,6 +77,7 @@ export default function WaConfigPage() {
   const [editMode,      setEditMode]      = useState(false);
   const [deleting,      setDeleting]      = useState(false);
   const [confirmOpen,   setConfirmOpen]   = useState(false);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   const webhookUrl = `${API_ORIGIN}/api/v1/webhooks/whatsapp`;
 
@@ -106,10 +107,10 @@ export default function WaConfigPage() {
     try {
       const result = await dispatch(saveWaConfigThunk(form));
       if (saveWaConfigThunk.fulfilled.match(result)) {
-        toast.success("WhatsApp config saved!");
+        showSuccess("WhatsApp config saved!");
         setEditMode(false);
       } else {
-        toast.error((result.payload as string) ?? "Failed to save config");
+        showError((result.payload as string) ?? "Failed to save config");
       }
     } finally { setSaving(false); }
   };
@@ -119,11 +120,11 @@ export default function WaConfigPage() {
     try {
       const result = await dispatch(deleteWaConfigThunk());
       if (deleteWaConfigThunk.fulfilled.match(result)) {
-        toast.success("WhatsApp connection removed");
+        showSuccess("WhatsApp connection removed");
         setConfirmOpen(false);
         setEditMode(true);
       } else {
-        toast.error((result.payload as string) ?? "Failed to disconnect WhatsApp");
+        showError((result.payload as string) ?? "Failed to disconnect WhatsApp");
       }
     } finally { setDeleting(false); }
   };
@@ -131,9 +132,9 @@ export default function WaConfigPage() {
   const handleToggleAi = async (enabled: boolean) => {
     const result = await dispatch(setAiReceptionistEnabledThunk(enabled));
     if (setAiReceptionistEnabledThunk.fulfilled.match(result)) {
-      toast.success(enabled ? "AI receptionist enabled" : "AI receptionist disabled");
+      showSuccess(enabled ? "AI receptionist enabled" : "AI receptionist disabled");
     } else {
-      toast.error((result.payload as string) ?? "Failed to update AI receptionist setting");
+      showError((result.payload as string) ?? "Failed to update AI receptionist setting");
     }
   };
 
@@ -142,9 +143,9 @@ export default function WaConfigPage() {
     try {
       const result = await dispatch(testWaConfigThunk());
       if (testWaConfigThunk.fulfilled.match(result)) {
-        toast.success("✅ Connection successful!");
+        showSuccess("✅ Connection successful!");
       } else {
-        toast.error((result.payload as string) ?? "Connection failed. Check your credentials.");
+        showError((result.payload as string) ?? "Connection failed. Check your credentials.");
       }
     } finally { setTesting(false); }
   };
@@ -155,6 +156,7 @@ export default function WaConfigPage() {
 
   return (
     <div className="wac-page">
+      {overlay}
       <div className="wac-page-header">
         <h1 className="wac-page-title">WhatsApp Configuration</h1>
         <p className="wac-page-sub">Connect your Meta Cloud API credentials to enable WhatsApp messaging</p>
@@ -236,7 +238,7 @@ export default function WaConfigPage() {
                   className="wac-copy-btn"
                   onClick={() => {
                     navigator.clipboard.writeText(webhookUrl);
-                    toast.success("Copied!");
+                    showSuccess("Copied!");
                   }}
                 >
                   📋 Copy

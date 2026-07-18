@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowUp,
+  ArrowDown,
   ArrowDownUp,
   X,
   Person,
@@ -16,6 +17,7 @@ import {
   ArrowLeftRight,
   FileEarmarkExcel,
   FiletypeCsv,
+  FiletypePdf,
   DashCircleFill,
   PersonPlus,
   ThreeDotsVertical,
@@ -27,7 +29,7 @@ import {
 import ClientDetailsDrawer from "../components/ClientDetailsDrawer";
 import ClientSearchInput from "../components/ClientSearchInput";
 import ClientImportModal from "../components/ClientImportModal";
-import { toast } from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 
 // UI Components
 import {
@@ -52,6 +54,16 @@ export default function ClientsListPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [searchQuery, setSearchQuery] = useState("");
+  const { showSuccess, showError, overlay } = useStatusOverlay();
+
+  // fetchClients is a stable-identity useCallback (deps: []), so it can't
+  // read the `pageSize` state directly without going stale — mirrored into a
+  // ref instead. Every call site that omits the `ps` argument (initial load,
+  // sort/filter changes, the refresh after delete/block/merge) now falls back
+  // to whatever the user actually last selected, instead of a hardcoded 20
+  // that silently overwrote their choice.
+  const pageSizeRef = useRef(pageSize);
+  useEffect(() => { pageSizeRef.current = pageSize; }, [pageSize]);
 
   const sortMap: Record<string, { sort_by: string; sort_order: string }> = {
     "First name (A-Z)": { sort_by: "full_name", sort_order: "asc" },
@@ -74,11 +86,16 @@ export default function ClientsListPage() {
     setLoading(true);
     try {
       const { sort_by, sort_order } = sortMap[sort] ?? { sort_by: "created_at", sort_order: "desc" };
-      const resolvedPageSize = ps ?? 20;
+      const resolvedPageSize = ps ?? pageSizeRef.current;
+      // Deleted/blocked clients are soft-archived (is_active=false) so their
+      // appointment/payment history stays intact for reporting — but that
+      // means "delete" must also stop them appearing here, or it looks like
+      // deletion did nothing. Omitting `inactive` lets the backend's default
+      // (active-only) apply; there's no "show archived" toggle in this UI to
+      // preserve.
       const params: Record<string, any> = {
         page,
         pageSize: resolvedPageSize,
-        inactive: true,
         sort_by,
         sort_order,
       };
@@ -93,10 +110,13 @@ export default function ClientsListPage() {
       setClients(mapped);
       setTotal(payload?.totalRecords ?? payload?.total ?? 0);
       setCurrentPage(page);
-      if (ps !== undefined) setPageSize(ps);
+      // Always resync — not just when `ps` was explicitly passed — so the
+      // dropdown and the "Showing X–Y" text can never drift from what was
+      // actually requested from the server.
+      setPageSize(resolvedPageSize);
     } catch (error) {
       console.error("Error fetching clients", error);
-      toast.error("Failed to load clients");
+      showError("Failed to load clients");
     } finally {
       setLoading(false);
     }
@@ -128,6 +148,18 @@ export default function ClientsListPage() {
 
   /* ================= SORT STATE ================= */
   const [sortOpen, setSortOpen] = useState(false);
+  const sortRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!sortOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
+        setSortOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [sortOpen]);
 
   const sortOptions = [
     "First name (A-Z)",
@@ -139,6 +171,16 @@ export default function ClientsListPage() {
   ];
 
   const [selectedSort, setSelectedSort] = useState("Created at (newest first)");
+
+  // Shared by the Excel/CSV/PDF export buttons so the exported file always
+  // reflects whatever filters/search/sort are currently applied on screen.
+  const getExportParams = useCallback(() => {
+    const { sort_by, sort_order } = sortMap[selectedSort] ?? { sort_by: "created_at", sort_order: "desc" };
+    const params: Record<string, any> = { sort_by, sort_order };
+    if (selectedGender && selectedGender !== "All") params.gender = selectedGender.toLowerCase();
+    if (searchQuery && searchQuery.trim()) params.search = searchQuery.trim();
+    return params;
+  }, [selectedSort, selectedGender, searchQuery]);
 
   // Debounced live filter: typing in the search box re-fetches the table
   // itself (page 1) instead of showing a separate floating results dropdown.
@@ -153,6 +195,18 @@ export default function ClientsListPage() {
 
   /* ================= OPTIONS DROPDOWN ================= */
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const optionsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!optionsOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (optionsRef.current && !optionsRef.current.contains(e.target as Node)) {
+        setOptionsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [optionsOpen]);
 
   /* ================= CLIENTS STATE ================= */
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
@@ -203,7 +257,7 @@ export default function ClientsListPage() {
       await Promise.all(
         selectedClients.map((id) => api.delete(CLIENT.BY_ID(id))),
       );
-      toast.success(
+      showSuccess(
         selectedClients.length > 1
           ? "Clients deleted successfully"
           : "Client deleted successfully"
@@ -212,7 +266,7 @@ export default function ClientsListPage() {
       await fetchClients();
     } catch (error) {
       console.error("Error deleting clients", error);
-      toast.error("Failed to delete client(s)");
+      showError("Failed to delete client(s)");
     } finally {
       setIsDeleting(false);
     }
@@ -225,12 +279,12 @@ export default function ClientsListPage() {
         client_ids: selectedClients,
         reason: blockReason,
       });
-      toast.success("Clients blocked successfully");
+      showSuccess("Clients blocked successfully");
       setSelectedClients([]);
       await fetchClients();
     } catch (error) {
       console.error("Block error:", error);
-      toast.error("Failed to block clients");
+      showError("Failed to block clients");
     }
   };
 
@@ -238,12 +292,12 @@ export default function ClientsListPage() {
     if (selectedClients.length === 0) return;
     try {
       await api.post(CLIENT.UNBLOCK, { client_ids: selectedClients });
-      toast.success("Clients unblocked successfully");
+      showSuccess("Clients unblocked successfully");
       setSelectedClients([]);
       await fetchClients();
     } catch (error) {
       console.error("Unblock error:", error);
-      toast.error("Failed to unblock clients");
+      showError("Failed to unblock clients");
     }
   };
 
@@ -256,7 +310,7 @@ export default function ClientsListPage() {
     );
     try {
       await api.post(CLIENT.UNBLOCK, { client_ids: [clientId] });
-      toast.success("Client unblocked successfully");
+      showSuccess("Client unblocked successfully");
     } catch (error: any) {
       // Revert on failure
       setClients((prev) =>
@@ -265,7 +319,7 @@ export default function ClientsListPage() {
         )
       );
       console.error("Unblock error:", error?.response?.data || error);
-      toast.error("Failed to unblock client");
+      showError("Failed to unblock client");
     }
   };
 
@@ -278,7 +332,7 @@ export default function ClientsListPage() {
     );
     try {
       await api.post(CLIENT.BLOCK, { client_ids: [clientId], reason: "Blocked by admin" });
-      toast.success("Client blocked successfully");
+      showSuccess("Client blocked successfully");
     } catch (error: any) {
       // Revert on failure
       setClients((prev) =>
@@ -287,7 +341,7 @@ export default function ClientsListPage() {
         )
       );
       console.error("Block error:", error?.response?.data || error);
-      toast.error("Failed to block client");
+      showError("Failed to block client");
     }
   };
 
@@ -297,10 +351,10 @@ export default function ClientsListPage() {
       await api.post(CLIENT.MERGE_DUPLICATES, { merge_by: "phone" });
       await fetchClients();
       setOptionsOpen(false);
-      toast.success("Duplicate clients merged successfully");
+      showSuccess("Duplicate clients merged successfully");
     } catch (error) {
       console.error("Merge error:", error);
-      toast.error("Failed to merge duplicate clients");
+      showError("Failed to merge duplicate clients");
     } finally {
       setLoading(false);
     }
@@ -321,10 +375,10 @@ export default function ClientsListPage() {
       setMergeModalOpen(false);
       setPrimaryClientId(null);
       await fetchClients();
-      toast.success("Clients merged successfully");
+      showSuccess("Clients merged successfully");
     } catch (error) {
       console.error("Merge error:", error);
-      toast.error("Failed to merge clients");
+      showError("Failed to merge clients");
     } finally {
       setLoading(false);
     }
@@ -332,10 +386,11 @@ export default function ClientsListPage() {
 
   return (
     <div className="clients-page">
+      {overlay}
       {/* ================= FILTER DRAWER ================= */}
       {showFilter && (
-        <div className="filter-overlay">
-          <div className="filter-drawer">
+        <div className="filter-overlay" onClick={() => setShowFilter(false)}>
+          <div className="filter-drawer" onClick={(e) => e.stopPropagation()}>
             <div className="filter-header">
               <button
                 className="close-btn"
@@ -462,7 +517,7 @@ export default function ClientsListPage() {
 
         <div className="header-actions">
           {/* OPTIONS DROPDOWN */}
-          <div className="options-dropdown position-relative">
+          <div className="options-dropdown position-relative" ref={optionsRef}>
             <Button
               variant="outline-dark"
               pill
@@ -507,6 +562,7 @@ export default function ClientsListPage() {
                   filename="clients.xlsx"
                   fetcher={async () => {
                     const res = await api.get(CLIENT.EXPORT("excel"), {
+                      params: getExportParams(),
                       responseType: "blob",
                     });
                     setOptionsOpen(false);
@@ -523,6 +579,7 @@ export default function ClientsListPage() {
                   filename="clients.csv"
                   fetcher={async () => {
                     const res = await api.get(CLIENT.EXPORT("csv"), {
+                      params: getExportParams(),
                       responseType: "blob",
                     });
                     setOptionsOpen(false);
@@ -534,6 +591,23 @@ export default function ClientsListPage() {
                   className="option-item w-100 text-start p-2 small"
                 >
                   CSV
+                </DownloadButton>
+                <DownloadButton
+                  filename="clients.pdf"
+                  fetcher={async () => {
+                    const res = await api.get(CLIENT.EXPORT("pdf"), {
+                      params: getExportParams(),
+                      responseType: "blob",
+                    });
+                    setOptionsOpen(false);
+                    return res.data;
+                  }}
+                  variant="ghost"
+                  size="sm"
+                  iconLeft={<FiletypePdf size={14} className="me-2" />}
+                  className="option-item w-100 text-start p-2 small"
+                >
+                  PDF
                 </DownloadButton>
               </div>
             )}
@@ -551,30 +625,6 @@ export default function ClientsListPage() {
         </div>
       </div>
 
-
-      {/* ================= ADD CLIENT BANNER ================= */}
-      <div className="clp-invite-banner">
-        <div className="clp-banner-content">
-          <div className="clp-banner-icon-wrap">
-            <People size={28} />
-          </div>
-          <div>
-            <h3 className="clp-banner-title">Add your clients</h3>
-            <p className="clp-banner-desc">
-              Add clients to keep track of their appointments, preferences, and history.
-            </p>
-          </div>
-        </div>
-        <div className="clp-banner-actions">
-          <button
-            className="clp-banner-btn"
-            onClick={() => navigate("/dashboard/clients/add")}
-          >
-            Add client
-          </button>
-          <span className="clp-banner-link">Learn more</span>
-        </div>
-      </div>
 
       {/* ================= SEARCH + SORT ================= */}
       <div className="search-container mb-4">
@@ -607,7 +657,7 @@ export default function ClientsListPage() {
             </Button>
           </div>
 
-          <div className="sort-dropdown position-relative">
+          <div className="sort-dropdown position-relative" ref={sortRef}>
             <Button
               className="clients-sort-btn"
               variant="outline-dark"
@@ -629,7 +679,7 @@ export default function ClientsListPage() {
                     onClick={() => {
                       setSelectedSort(option);
                       setSortOpen(false);
-                      fetchClients(1, option, selectedGender);
+                      fetchClients(1, option, selectedGender, pageSize, searchQuery);
                     }}
                   >
                     {option}
@@ -733,8 +783,20 @@ export default function ClientsListPage() {
                     checked={false}
                   />
                 </div>
-                <div className="col-name">
-                  Client name <ArrowUp size={12} />
+                <div
+                  className="col-name cursor-pointer"
+                  onClick={() => {
+                    const nextSort = selectedSort === "First name (A-Z)" ? "First name (Z-A)" : "First name (A-Z)";
+                    setSelectedSort(nextSort);
+                    fetchClients(1, nextSort, selectedGender, pageSize, searchQuery);
+                  }}
+                >
+                  Client name{" "}
+                  {selectedSort === "First name (Z-A)" ? (
+                    <ArrowDown size={12} />
+                  ) : (
+                    <ArrowUp size={12} className={selectedSort === "First name (A-Z)" ? "text-dark" : "text-muted"} />
+                  )}
                 </div>
                 <div className="col-mobile">Mobile number</div>
                 <div className="col-reviews">Reviews</div>

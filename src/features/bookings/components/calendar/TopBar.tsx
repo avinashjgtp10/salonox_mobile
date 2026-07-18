@@ -7,6 +7,7 @@ import { formatDateLabel } from "../../utils/timeUtils";
 import MiniCalendar from "../shared/MiniCalendar.tsx";
 import { useAppSelector } from "../../../../hooks/useAppRedux";
 import api from "../../../../services/api/axios";
+import ClientHistoryModal from "../../../clients/components/ClientHistoryModal";
 import "../../styles/TopBar.scss";
 
 const AVATAR_COLORS = ["#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981","#3b82f6","#ef4444","#14b8a6"];
@@ -36,15 +37,19 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
   const [showClientDrop, setShowClientDrop]   = useState(false);
   const [clientSearching, setClientSearching] = useState(false);
   const [searchDone, setSearchDone]           = useState(false);
+  const [historyClientId, setHistoryClientId] = useState<string | null>(null);
   const searchRef   = useRef<HTMLDivElement>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     function handleOutside(e: MouseEvent) {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        // Hide the dropdown but KEEP the typed query and results — clicks
+        // inside the portaled ClientHistoryModal land "outside" this ref, and
+        // wiping the query here forced staff to retype the same search after
+        // merely viewing a client's history. Refocusing the input reopens the
+        // dropdown with the kept results; the × button still clears fully.
         setShowClientDrop(false);
-        setClientQuery("");
-        setClientResults([]);
       }
     }
     document.addEventListener("mousedown", handleOutside);
@@ -267,6 +272,25 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
                     <span className="topbar-client-drop__name">{c.name}</span>
                     {c.phone && <span className="topbar-client-drop__phone">{c.phone}</span>}
                   </span>
+                  {/* Same "View History" action/popup as the client card on the
+                      booking drawer — pops up in place instead of navigating
+                      away, so staff stay on the calendar. Separate click
+                      target from the row itself, which opens a new
+                      appointment for this client. */}
+                  <button
+                    type="button"
+                    className="topbar-client-drop__history-btn"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      // Keep the query/results so the search survives the
+                      // history popup — only the dropdown itself hides.
+                      setShowClientDrop(false);
+                      setHistoryClientId(c.id);
+                    }}
+                  >
+                    View History
+                  </button>
                 </div>
               ))}
 
@@ -420,6 +444,25 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
             </button>
           ))}
         </div>,
+        document.body,
+      )}
+
+      {/* Portaled to document.body like the dropdowns above — this component
+          is deep inside the Calendar's DOM tree, which has ancestor elements
+          using CSS transforms (drag/scroll). Without a portal, the modal's
+          position:fixed overlay gets scoped to that ancestor's box instead of
+          the true viewport, making it appear to start below the dashboard's
+          global header instead of covering the whole screen. */}
+      {historyClientId && ReactDOM.createPortal(
+        <ClientHistoryModal
+          clientId={historyClientId}
+          onClose={() => {
+            setHistoryClientId(null);
+            // Bring the still-loaded results straight back so staff can pick
+            // (or view another) without retyping the search.
+            if (clientQuery.trim().length >= 3 && clientResults.length > 0) setShowClientDrop(true);
+          }}
+        />,
         document.body,
       )}
     </>

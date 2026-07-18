@@ -14,7 +14,7 @@ import {
   saveSingleShiftThunk,
   deleteSingleShiftThunk,
 } from "../../../middleware/shift/shiftThunk";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import {
   ScheduleTable,
   ShiftDrawer,
@@ -53,6 +53,7 @@ const ScheduledShiftsPage: React.FC = () => {
   const [deleteTarget, setDeleteTarget] = useState<{ staffId: string; date: string } | null>(null);
   const [copyStaffId, setCopyStaffId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   const weekDates = getWeekDates(sunday).map((d) => {
     const { date, day } = formatColHeader(d);
@@ -138,7 +139,7 @@ const ScheduledShiftsPage: React.FC = () => {
       })
       .catch((err) => {
         console.error("[DEBUG] Delete failed:", err);
-        toast.error("Failed to delete time block");
+        showError("Failed to delete time block");
       });
 
     setDeleteTarget(null);
@@ -184,12 +185,12 @@ const ScheduledShiftsPage: React.FC = () => {
       .unwrap()
       .then((res) => {
         console.log("[DEBUG] API response:", res);
-        toast.success("Availability updated");
+        showSuccess("Availability updated");
         // No full-week repaint
       })
       .catch((err) => {
         console.error("[DEBUG] Save failed:", err);
-        toast.error("Failed to save changes");
+        showError("Failed to save changes");
       });
   };
 
@@ -203,12 +204,12 @@ const ScheduledShiftsPage: React.FC = () => {
     dispatch(applyCopySchedule({ staffId, fromDate, toDates, type }))
       .unwrap()
       .then(() => {
-        toast.success("Schedule copied successfully");
+        showSuccess("Schedule copied successfully");
         dispatch(fetchDailyShifts(weekStartKey));
         dispatch(bumpScheduleVersion());
       })
       .catch(() => {
-        toast.error("Failed to copy schedule");
+        showError("Failed to copy schedule");
       });
   };
 
@@ -222,6 +223,7 @@ const ScheduledShiftsPage: React.FC = () => {
 
   return (
     <div className="sched-page">
+      {overlay}
       <div className="sched-page__content" style={deleteTarget ? { pointerEvents: "none" } : undefined}>
 
         <h1 className="sched-page__title">Staff Schedule</h1>

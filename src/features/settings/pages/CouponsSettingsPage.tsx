@@ -17,7 +17,7 @@ import {
   Layers,
   ChevronRight,
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import api from "../../../services/api/axios";
 import { useAppSelector } from "../../../hooks/useAppRedux";
 import { COUPON, type Coupon, type CreateCouponPayload, type CreateBulkCouponsPayload } from "../../../services/api/endpoints/coupon.endpoints";
@@ -144,6 +144,7 @@ export default function CouponsSettingsPage() {
   const [bulkErrors, setBulkErrors] = useState<BulkFormErrors>({});
   const [bulkSaving, setBulkSaving] = useState(false);
   const [lastBulkBatch, setLastBulkBatch] = useState<Coupon[] | null>(null);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   async function fetchCoupons() {
     setLoading(true);
@@ -151,7 +152,7 @@ export default function CouponsSettingsPage() {
       const res = await api.get(COUPON.MINE);
       setItems(res.data?.data ?? res.data ?? []);
     } catch {
-      toast.error("Failed to load coupons");
+      showError("Failed to load coupons");
     } finally {
       setLoading(false);
     }
@@ -254,17 +255,17 @@ export default function CouponsSettingsPage() {
         await fetchCoupons();
         setSelectedId(created.id);
         setIsCreating(false);
-        toast.success("Coupon created");
+        showSuccess("Coupon created");
       } else if (selectedId) {
         const res = await api.patch(COUPON.BY_ID(selectedId), payload);
         const updated: Coupon = res.data?.data ?? res.data;
         await fetchCoupons();
         setForm(couponToForm(updated));
-        toast.success("Coupon saved");
+        showSuccess("Coupon saved");
       }
     } catch (err: any) {
       const msg = err?.response?.data?.error?.message || err?.response?.data?.message || "Failed to save coupon";
-      toast.error(msg);
+      showError(msg);
     } finally {
       setSaving(false);
     }
@@ -279,10 +280,10 @@ export default function CouponsSettingsPage() {
       setIsCreating(false);
       setForm(EMPTY_FORM);
       await fetchCoupons();
-      toast.success("Coupon deleted");
+      showSuccess("Coupon deleted");
     } catch (err: any) {
       const msg = err?.response?.data?.error?.message || err?.response?.data?.message || "Failed to delete coupon";
-      toast.error(msg);
+      showError(msg);
     } finally {
       setDeleting(false);
     }
@@ -299,10 +300,10 @@ export default function CouponsSettingsPage() {
         setForm(EMPTY_FORM);
       }
       await fetchCoupons();
-      toast.success(`${count} coupons deleted`);
+      showSuccess(`${count} coupons deleted`);
     } catch (err: any) {
       const msg = err?.response?.data?.error?.message || err?.response?.data?.message || "Failed to delete batch";
-      toast.error(msg);
+      showError(msg);
     } finally {
       setDeletingBatchId(null);
     }
@@ -349,10 +350,10 @@ export default function CouponsSettingsPage() {
       const created: Coupon[] = res.data?.data ?? res.data ?? [];
       await fetchCoupons();
       setLastBulkBatch(created);
-      toast.success(`${created.length} coupons created`);
+      showSuccess(`${created.length} coupons created`);
     } catch (err: any) {
       const msg = err?.response?.data?.error?.message || err?.response?.data?.message || "Failed to create coupons";
-      toast.error(msg);
+      showError(msg);
     } finally {
       setBulkSaving(false);
     }
@@ -363,7 +364,7 @@ export default function CouponsSettingsPage() {
   }
 
   function handlePrintAll() {
-    if (filtered.length === 0) { toast.error("No coupons to print"); return; }
+    if (filtered.length === 0) { showError("No coupons to print"); return; }
     printCoupons(filtered, currentSalon);
   }
 
@@ -378,6 +379,7 @@ export default function CouponsSettingsPage() {
 
   return (
     <div className="cp-page">
+      {overlay}
       {/* ── Page header ── */}
       <div className="cp-header">
         <div className="cp-header__icon"><Tag size={20} /></div>

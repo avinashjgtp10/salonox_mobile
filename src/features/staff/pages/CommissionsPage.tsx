@@ -3,7 +3,7 @@ import { useSelector } from "react-redux";
 import { selectCurrentSalon } from "../../../store/selectors/slices.selectors";
 import api from "../../../services/api/axios";
 import { STAFF, COMMISSION_RULES } from "../../../services/api/endpoints";
-import { toast } from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import {
   Plus, X,
   SquareFill, ListCheck,
@@ -629,6 +629,7 @@ export default function CommissionsPage() {
   const [togglingRuleId,  setTogglingRuleId]  = useState<string | null>(null);
   const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   useEffect(() => {
     const handler = () => setOptionsOpen(false);
@@ -656,7 +657,7 @@ export default function CommissionsPage() {
       const staff = allStaff.filter((s) => s.is_active !== false);
       setStaffList(staff);
     } catch (err: any) {
-      toast.error(err?.message ?? "Failed to load commissions");
+      showError(err?.message ?? "Failed to load commissions");
     } finally {
       setLoading(false);
       setCommsFetching(false);
@@ -672,7 +673,7 @@ export default function CommissionsPage() {
       const res = await api.get(COMMISSION_RULES.BASE);
       setCommissionRules(res.data?.data?.items ?? []);
     } catch (err: any) {
-      toast.error(err?.message ?? "Failed to load commission rules");
+      showError(err?.message ?? "Failed to load commission rules");
     } finally {
       setRulesLoading(false);
     }
@@ -695,16 +696,16 @@ export default function CommissionsPage() {
           })
         ));
         await api.post(COMMISSION_RULES.BASE, data);
-        toast.success("Commission rule updated");
+        showSuccess("Commission rule updated");
       } else {
         const res = await api.post(COMMISSION_RULES.BASE, data);
-        toast.success(res.data?.message ?? "Commission rule created");
+        showSuccess(res.data?.message ?? "Commission rule created");
       }
       setShowWizard(false);
       setEditingGroup(null);
       fetchCommissionRules();
     } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? "Failed to save commission rule");
+      showError(err?.response?.data?.message ?? "Failed to save commission rule");
     }
   };
 
@@ -717,7 +718,7 @@ export default function CommissionsPage() {
       setCommissionRules((prev) => prev.map((r) => (idsInGroup.has(r.id) ? { ...r, status: nextStatus } : r)));
       setDetailGroup((prev) => (prev?.key === group.key ? null : prev));
     } catch (err: any) {
-      toast.error(err?.message ?? "Failed to update rule status");
+      showError(err?.message ?? "Failed to update rule status");
     } finally {
       setTogglingRuleId(null);
     }
@@ -731,7 +732,7 @@ export default function CommissionsPage() {
       setDetailGroup((prev) => (prev?.key === group.key ? null : prev));
       setShowDeleteSuccess(true);
     } catch (err: any) {
-      toast.error(err?.message ?? "Failed to delete commission rule");
+      showError(err?.message ?? "Failed to delete commission rule");
     }
   };
 
@@ -766,7 +767,7 @@ export default function CommissionsPage() {
     setSettlingId(staffId);
     try {
       await api.post(STAFF.SETTLE_COMMISSION(staffId));
-      toast.success(`₹${amount.toLocaleString("en-IN")} settled for ${name}`);
+      showSuccess(`₹${amount.toLocaleString("en-IN")} settled for ${name}`);
       const [summaryRes, earnedRes] = await Promise.all([
         api.get(`${STAFF.BASE}/commissions/summary?salon_id=${salonId}&month=${summaryMonth}`),
         api.get(`${STAFF.BASE}/commissions/earned?salon_id=${salonId}&month=${summaryMonth}`),
@@ -774,7 +775,7 @@ export default function CommissionsPage() {
       setEarnSummary(summaryRes.data?.data ?? null);
       setEarnedByStaff(earnedRes.data?.data ?? []);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? "Failed to settle commission");
+      showError(err?.response?.data?.message ?? "Failed to settle commission");
     } finally {
       setSettlingId(null);
     }
@@ -782,6 +783,7 @@ export default function CommissionsPage() {
 
   return (
     <div className="commissions-page">
+      {overlay}
       {showDeleteSuccess && (
         <SuccessOverlay message="Commission rule deleted successfully" onDone={() => setShowDeleteSuccess(false)} />
       )}
@@ -809,7 +811,7 @@ export default function CommissionsPage() {
                     a.download = `commissions_${summaryMonth}.csv`;
                     a.click();
                     URL.revokeObjectURL(url);
-                  } catch { toast.error("Export failed"); }
+                  } catch { showError("Export failed"); }
                 }}>
                   <Download size={14} /> Export CSV
                 </button>
@@ -823,7 +825,7 @@ export default function CommissionsPage() {
                     a.download = `commissions_${summaryMonth}.xlsx`;
                     a.click();
                     URL.revokeObjectURL(url);
-                  } catch { toast.error("Export failed"); }
+                  } catch { showError("Export failed"); }
                 }}>
                   <FileEarmarkExcel size={14} /> Export Excel
                 </button>
@@ -839,7 +841,7 @@ export default function CommissionsPage() {
                     a.download = `commissions_${summaryMonth}.pdf`;
                     a.click();
                     URL.revokeObjectURL(url);
-                  } catch { toast.error("Export failed"); }
+                  } catch { showError("Export failed"); }
                 }}>
                   <FiletypePdf size={14} /> Export PDF
                 </button>
