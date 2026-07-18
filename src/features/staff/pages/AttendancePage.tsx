@@ -608,86 +608,6 @@ function EditModal({ record, date, onClose, onDone }: {
   );
 }
 
-// ─── Quick Mark Modal (header button) ─────────────────────────────────────────
-
-function QuickMarkModal({ staff, date, onClose, onDone }: {
-  staff: TodayStaffRecord[];
-  date: string;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const [staffId, setStaffId] = useState("");
-  const [status,  setStatus]  = useState<AttendanceStatus>("present");
-  const [saving,  setSaving]  = useState(false);
-  const [error,   setError]   = useState("");
-
-  const selected = staff.find((s) => s.staff_id === staffId) ?? null;
-
-  async function save() {
-    if (!staffId) { setError("Please select a staff member."); return; }
-    setSaving(true); setError("");
-    try {
-      if (selected?.attendance_id) {
-        await api.patch(ATTENDANCE.BY_ID(selected.attendance_id), { status });
-      } else {
-        await api.post(ATTENDANCE.MARK, { staff_id: staffId, date, status });
-      }
-      onDone();
-    } catch (e: any) {
-      setError(e?.response?.data?.error?.message || "Failed to mark attendance.");
-    } finally { setSaving(false); }
-  }
-
-  return (
-    <div className="at-modal-overlay" onClick={onClose}>
-      <div className="at-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="at-modal-header">
-          <span className="at-modal-title">Mark Attendance</span>
-          <button className="at-modal-close" onClick={onClose}>×</button>
-        </div>
-        <div className="at-modal-body">
-          <p className="at-modal-meta">{fmtDateLabel(date)}</p>
-          <div className="at-modal-field">
-            <label>Staff Member</label>
-            <select value={staffId} onChange={(e) => setStaffId(e.target.value)}>
-              <option value="">Select staff…</option>
-              {staff.map((s) => (
-                <option key={s.staff_id} value={s.staff_id}>
-                  {s.staff_name}{s.staff_role ? ` — ${s.staff_role}` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="at-modal-field">
-            <label>Status</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value as AttendanceStatus)}>
-              <option value="present">Present</option>
-              <option value="absent">Absent</option>
-              <option value="late">Late</option>
-              <option value="half_day">Half Day</option>
-              <option value="on_leave">On Leave</option>
-            </select>
-          </div>
-          {selected && selected.status !== "not_marked" && (
-            <p className="at-modal-meta at-modal-meta--tight">
-              Currently: <strong>{STATUS_CFG[selected.status]?.label}</strong>
-              {selected.check_in  ? ` · In ${fmtTime(selected.check_in)}`  : ""}
-              {selected.check_out ? ` · Out ${fmtTime(selected.check_out)}` : ""}
-            </p>
-          )}
-          {error && <p className="at-modal-error">{error}</p>}
-        </div>
-        <div className="at-modal-footer">
-          <button className="at-btn at-btn--ghost" onClick={onClose}>Cancel</button>
-          <button className="at-btn at-btn--primary" disabled={saving || !staffId} onClick={save}>
-            {saving ? "Saving…" : "Save"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Add Device Modal ─────────────────────────────────────────────────────────
 
 function AddDeviceModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
@@ -997,7 +917,6 @@ export default function AttendancePage() {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch]     = useState("");
   const [modal, setModal]       = useState<ModalState>(null);
-  const [quickMark, setQuickMark] = useState(false);
   const [showHalfDayRule, setShowHalfDayRule] = useState(false);
 
   // staffId -> schedule[], fetched once from the staff list (which now embeds
@@ -1123,14 +1042,6 @@ export default function AttendancePage() {
           >
             <Clock size={15} />
             Half Day Rule
-          </button>
-          <button
-            className="ap-btn ap-btn--primary"
-            onClick={() => setQuickMark(true)}
-            disabled={loading || staff.length === 0}
-          >
-            <Plus size={15} />
-            Mark Attendance
           </button>
         </div>
       </div>
@@ -1403,15 +1314,6 @@ export default function AttendancePage() {
       {modal?.type === "check_in"  && <CheckInModal  record={modal.record} date={selectedDate} isToday={isToday} schedule={staffSchedules[modal.record.staff_id]} onClose={closeModal} onDone={doneModal} />}
       {modal?.type === "check_out" && <CheckOutModal record={modal.record} date={selectedDate} isToday={isToday} onClose={closeModal} onDone={doneModal} />}
       {modal?.type === "edit"      && <EditModal     record={modal.record} date={selectedDate} onClose={closeModal} onDone={doneModal} />}
-
-      {quickMark && (
-        <QuickMarkModal
-          staff={staff}
-          date={selectedDate}
-          onClose={() => setQuickMark(false)}
-          onDone={() => { setQuickMark(false); load(selectedDate, true); }}
-        />
-      )}
 
       {/* ── Device Modals ── */}
       {connectTarget && (
