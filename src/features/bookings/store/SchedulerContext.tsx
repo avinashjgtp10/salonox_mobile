@@ -24,6 +24,7 @@ import {
   navigate,
   updateClientNotes,
   setSelectedStaffId,
+  setHighlightedBookingId,
   setDragPatch,
   clearDragPatch,
 } from "../../../store/schedulerSlice";
@@ -50,6 +51,7 @@ export function useSchedulerContext() {
   const clientStats = useAppSelector((s) => s.scheduler.clientStats);
   const staffList = useAppSelector((s) => s.scheduler.staffList);
   const selectedStaffId = useAppSelector((s) => s.scheduler.selectedStaffId);
+  const highlightedBookingId = useAppSelector((s) => s.scheduler.highlightedBookingId);
   const clientsList = useAppSelector((s) => s.scheduler.clientsList);
   const servicesList = useAppSelector((s) => s.scheduler.servicesList);
   const packagesList = useAppSelector((s) => s.scheduler.packagesList);
@@ -238,6 +240,8 @@ export function useSchedulerContext() {
     staffList,
     selectedStaffId,
     setSelectedStaffId: (id: string | null) => dispatch(setSelectedStaffId(id)),
+    highlightedBookingId,
+    setHighlightedBookingId: (id: string | null) => dispatch(setHighlightedBookingId(id)),
     clientsList,
     servicesList,
     packagesList,

@@ -53,6 +53,7 @@ interface SchedulerState {
   clientStats: ClientStat[];
   staffList: Staff[];
   selectedStaffId: string | null;
+  highlightedBookingId: string | null;
   clientsList: Client[];
   servicesList: SchedulerService[];
   packagesList: SchedulerPackage[];
@@ -78,6 +79,7 @@ const initialState: SchedulerState = {
   clientStats: [],
   staffList: [],
   selectedStaffId: null,
+  highlightedBookingId: null,
   clientsList: [],
   servicesList: [],
   packagesList: [],
@@ -148,6 +150,9 @@ const schedulerSlice = createSlice({
     },
     setSelectedStaffId(state, { payload }: PayloadAction<string | null>) {
       state.selectedStaffId = payload;
+    },
+    setHighlightedBookingId(state, { payload }: PayloadAction<string | null>) {
+      state.highlightedBookingId = payload;
     },
     setClientsList(state, { payload }: PayloadAction<Client[]>) {
       state.clientsList = payload;
@@ -334,7 +339,7 @@ const schedulerSlice = createSlice({
 
 export const {
   setBookings, setDragPatch, clearDragPatch,
-  setStaffList, setSelectedStaffId, setClientsList,
+  setStaffList, setSelectedStaffId, setHighlightedBookingId, setClientsList,
   setServicesList, setPackagesList, setMembershipsList, setProductsList,
   setStaffSchedules, bumpScheduleVersion,
   addBooking, updateBooking, patchPaymentStatus, replaceBookingId, deleteBooking,

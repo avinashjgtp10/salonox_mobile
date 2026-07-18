@@ -3,11 +3,13 @@ import { Camera, User, Mail, Phone, MapPin, Globe, Save } from "lucide-react";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchMeThunk, updateUserThunk } from "../../../middleware/user/user.thunk";
+import { getMySalonThunk } from "../../../middleware/salon/salon.thunk";
 import Button from "../../../components/ui/Button";
 
 export default function ProfileSettingsPage() {
   const dispatch = useAppDispatch();
   const { profile, loading } = useAppSelector((s) => s.user);
+  const { currentSalon } = useAppSelector((s) => s.salon);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -24,6 +26,7 @@ export default function ProfileSettingsPage() {
 
   useEffect(() => {
     dispatch(fetchMeThunk());
+    dispatch(getMySalonThunk());
   }, [dispatch]);
 
   useEffect(() => {
@@ -122,7 +125,7 @@ export default function ProfileSettingsPage() {
               </p>
               <p className="settings-avatar-meta">
                 {profile?.email} &nbsp;·&nbsp;{" "}
-                {profile?.businessName || "No business set"}
+                {currentSalon?.business_name || profile?.businessName || "No business set"}
               </p>
               <div className="settings-avatar-actions">
                 <Button

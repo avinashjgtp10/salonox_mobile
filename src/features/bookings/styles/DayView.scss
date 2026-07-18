@@ -459,6 +459,16 @@
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
   }
 
+  // Newly created appointment, jumped to from outside the calendar (e.g. the
+  // public booking success screen's "Add to Calendar" button) — pulses
+  // briefly so it's unmistakable, then Scheduler.tsx clears the flag.
+  &--highlighted {
+    z-index: 50;
+    outline: 3px solid #7c3aed;
+    outline-offset: 2px;
+    animation: dv-chip-pulse 1.2s ease-in-out 3;
+  }
+
   &--disabled {
     opacity: 0.6;
     cursor: not-allowed !important;
@@ -531,6 +541,11 @@
     background: rgba(255, 255, 255, 0.6);
     border-radius: 2px;
   }
+}
+
+@keyframes dv-chip-pulse {
+  0%, 100% { outline-color: rgba(124, 58, 237, 1); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); }
+  50%      { outline-color: rgba(124, 58, 237, 0.35); box-shadow: 0 0 0 6px rgba(124, 58, 237, 0.25); }
 }
 
 /* ── Now line ──

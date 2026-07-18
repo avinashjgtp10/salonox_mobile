@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Link45deg,
   Clipboard,
@@ -9,11 +9,15 @@ import {
   PersonCircle,
   Tag,
 } from "react-bootstrap-icons";
+import api from "../../../services/api/axios";
+import { SERVICES } from "../../../services/api/endpoints/services.endpoints";
+import { STAFF } from "../../../services/api/endpoints/staff.endpoints";
+import { LINK_BUILDER } from "../../../services/api/endpoints/linkBuilder.endpoints";
 import "../styles/OnlineBooking.scss";
 
 const PRESETS = [
   {
-    id: "all",
+    id: "any",
     icon: <Globe size={20} />,
     label: "Any service",
     desc: "Clients pick their own service & staff",
@@ -32,26 +36,100 @@ const PRESETS = [
   },
 ];
 
-const MOCK_SERVICES = ["Haircut", "Color & Highlights", "Blowdry", "Beard Trim", "Facial"];
-const MOCK_STAFF    = ["Alice Johnson", "Ben Carter", "Chloe Kim", "David Lee"];
+type ServiceOption = { id: string; name: string };
+type StaffOption = { id: string; name: string };
 
 export default function LinkBuilderPage() {
-  const [preset, setPreset]       = useState("all");
-  const [service, setService]     = useState(MOCK_SERVICES[0]);
-  const [staff, setStaff]         = useState(MOCK_STAFF[0]);
-  const [copied, setCopied]       = useState(false);
-  const [showQR, setShowQR]       = useState(false);
+  const [preset, setPreset]         = useState<"any" | "service" | "staff">("any");
+  const [services, setServices]     = useState<ServiceOption[]>([]);
+  const [staff, setStaff]           = useState<StaffOption[]>([]);
+  const [serviceId, setServiceId]   = useState<string>("");
+  const [staffId, setStaffId]       = useState<string>("");
+  const [loadingData, setLoadingData] = useState(true);
 
-  const buildLink = () => {
-    const base = "https://book.salonox.com/my-salon";
-    if (preset === "service") return `${base}?service=${encodeURIComponent(service)}`;
-    if (preset === "staff")   return `${base}?staff=${encodeURIComponent(staff)}`;
-    return base;
-  };
+  const [link, setLink]             = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError]     = useState<string | null>(null);
 
-  const link = buildLink();
+  const [copied, setCopied]         = useState(false);
+  const [showQR, setShowQR]         = useState(false);
+
+  // ── Load salon's real services & staff ──────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadData() {
+      setLoadingData(true);
+      try {
+        const [svcRes, staffRes] = await Promise.allSettled([
+          api.get(SERVICES.LIST("status=active")),
+          api.get(`${STAFF.BASE}?is_active=true`),
+        ]);
+
+        if (!cancelled && svcRes.status === "fulfilled") {
+          const rows = svcRes.value.data?.data?.data ?? [];
+          setServices(Array.isArray(rows) ? rows.map((s: any) => ({ id: s.id, name: s.name })) : []);
+        }
+        if (!cancelled && staffRes.status === "fulfilled") {
+          const rows = staffRes.value.data?.data?.items ?? [];
+          setStaff(
+            Array.isArray(rows)
+              ? rows.map((s: any) => ({
+                  id: s.id,
+                  name: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || "Staff",
+                }))
+              : []
+          );
+        }
+      } finally {
+        if (!cancelled) setLoadingData(false);
+      }
+    }
+
+    loadData();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Default the pickers once options arrive
+  useEffect(() => {
+    if (!serviceId && services.length > 0) setServiceId(services[0].id);
+  }, [services, serviceId]);
+  useEffect(() => {
+    if (!staffId && staff.length > 0) setStaffId(staff[0].id);
+  }, [staff, staffId]);
+
+  // ── Generate the real booking link whenever the selection changes ──────────
+  useEffect(() => {
+    if (preset === "service" && !serviceId) return;
+    if (preset === "staff" && !staffId) return;
+
+    let cancelled = false;
+    async function generate() {
+      setGenerating(true);
+      setGenError(null);
+      try {
+        const body =
+          preset === "service" ? { type: "service", serviceId } :
+          preset === "staff"   ? { type: "staff", staffId } :
+          { type: "any" };
+        const res = await api.post(LINK_BUILDER.GENERATE, body);
+        if (!cancelled) setLink(res.data?.data?.bookingUrl ?? null);
+      } catch (err: any) {
+        if (!cancelled) {
+          setLink(null);
+          setGenError(err?.message || "Failed to generate booking link");
+        }
+      } finally {
+        if (!cancelled) setGenerating(false);
+      }
+    }
+
+    generate();
+    return () => { cancelled = true; };
+  }, [preset, serviceId, staffId]);
 
   const handleCopy = () => {
+    if (!link) return;
     navigator.clipboard.writeText(link).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -80,7 +158,7 @@ export default function LinkBuilderPage() {
             <div
               key={p.id}
               className={`ob-preset-card ${preset === p.id ? "ob-preset-card--active" : ""}`}
-              onClick={() => setPreset(p.id)}
+              onClick={() => setPreset(p.id as typeof preset)}
             >
               <div className="ob-preset-icon">{p.icon}</div>
               <p className="ob-preset-label">{p.label}</p>
@@ -91,7 +169,7 @@ export default function LinkBuilderPage() {
       </div>
 
       {/* ── Filters (conditional) ── */}
-      {preset !== "all" && (
+      {preset !== "any" && (
         <div className="ob-card">
           <p className="ob-card-title" style={{ marginBottom: 16 }}>
             {preset === "service" ? "Select service" : "Select staff member"}
@@ -99,29 +177,41 @@ export default function LinkBuilderPage() {
           {preset === "service" && (
             <div className="ob-form-group">
               <label className="ob-label">Service</label>
-              <select
-                className="ob-select"
-                value={service}
-                onChange={(e) => setService(e.target.value)}
-              >
-                {MOCK_SERVICES.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
+              {loadingData ? (
+                <p className="ob-card-sub">Loading services…</p>
+              ) : services.length === 0 ? (
+                <p className="ob-card-sub">No active services found. Add one in Catalog first.</p>
+              ) : (
+                <select
+                  className="ob-select"
+                  value={serviceId}
+                  onChange={(e) => setServiceId(e.target.value)}
+                >
+                  {services.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              )}
             </div>
           )}
           {preset === "staff" && (
             <div className="ob-form-group">
               <label className="ob-label">Staff member</label>
-              <select
-                className="ob-select"
-                value={staff}
-                onChange={(e) => setStaff(e.target.value)}
-              >
-                {MOCK_STAFF.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
+              {loadingData ? (
+                <p className="ob-card-sub">Loading staff…</p>
+              ) : staff.length === 0 ? (
+                <p className="ob-card-sub">No active staff found. Add one in Team first.</p>
+              ) : (
+                <select
+                  className="ob-select"
+                  value={staffId}
+                  onChange={(e) => setStaffId(e.target.value)}
+                >
+                  {staff.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              )}
             </div>
           )}
         </div>
@@ -135,28 +225,40 @@ export default function LinkBuilderPage() {
         </p>
         <div className="ob-link-display">
           <Link45deg size={15} style={{ color: "#6b7280", flexShrink: 0 }} />
-          <span className="ob-link-url">{link}</span>
+          <span className="ob-link-url">
+            {generating ? "Generating…" : genError ? genError : link ?? "—"}
+          </span>
           <button
             className={`ob-copy-btn ${copied ? "ob-copy-btn--copied" : ""}`}
             onClick={handleCopy}
+            disabled={!link || generating}
           >
             {copied ? <><ClipboardCheck size={13} /> Copied!</> : <><Clipboard size={13} /> Copy</>}
           </button>
         </div>
 
         <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
-          <button className="ob-btn-outline">
+          <button
+            className="ob-btn-outline"
+            disabled={!link}
+            onClick={() => link && window.open(`https://wa.me/?text=${encodeURIComponent(link)}`, "_blank")}
+          >
             <Share size={14} /> Share via WhatsApp
           </button>
-          <button className="ob-btn-outline" onClick={() => setShowQR(!showQR)}>
+          <button className="ob-btn-outline" disabled={!link} onClick={() => setShowQR(!showQR)}>
             <QrCode size={14} /> {showQR ? "Hide QR code" : "Generate QR code"}
           </button>
         </div>
 
-        {showQR && (
+        {showQR && link && (
           <div className="ob-qr-area" style={{ marginTop: 20 }}>
             <div className="ob-qr-placeholder">
-              <QrCode size={48} color="#111827" />
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(link)}`}
+                alt="Booking link QR code"
+                width={140}
+                height={140}
+              />
             </div>
             <p className="ob-qr-label">
               Scan to open the booking page.
@@ -165,9 +267,16 @@ export default function LinkBuilderPage() {
                 Print or embed on flyers, menus, or your website.
               </span>
             </p>
-            <button className="ob-btn-outline" style={{ fontSize: 12.5 }}>
+            <a
+              className="ob-btn-outline"
+              style={{ fontSize: 12.5, textDecoration: "none" }}
+              href={`https://api.qrserver.com/v1/create-qr-code/?size=512x512&data=${encodeURIComponent(link)}`}
+              download="booking-qr-code.png"
+              target="_blank"
+              rel="noreferrer"
+            >
               Download PNG
-            </button>
+            </a>
           </div>
         )}
       </div>

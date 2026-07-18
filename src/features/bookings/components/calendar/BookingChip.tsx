@@ -32,6 +32,7 @@ interface Props {
   resizing: ResizeState | null;
   justDraggedRef: React.MutableRefObject<boolean>;
   isInteracting: boolean;
+  isHighlighted?: boolean;
   staffId: string;
   visibleStaffIndex: number;
   onEdit: (b: Booking) => void;
@@ -72,6 +73,8 @@ function arePropsEqual(prev: Props, next: Props): boolean {
     return prev.resizing?.currentHeight === next.resizing?.currentHeight;
   }
 
+  if (prev.isHighlighted !== next.isHighlighted) return false;
+
   // Idle chip: dragging/resizing props don't affect its render output
   return true;
 }
@@ -81,7 +84,7 @@ const BookingChipComponent: React.FC<Props> = ({
   chipTop, chipHeight, chipCol = 0, chipTotalCols = 1, slotHeight, intervalMins,
   isDraggingThis, isResizingThis,
   dragging, resizing,
-  justDraggedRef, isInteracting,
+  justDraggedRef, isInteracting, isHighlighted,
   staffId, visibleStaffIndex,
   onEdit, onOpenTip, onCloseTip,
   onStartDragCandidate, onStartResize,
@@ -141,12 +144,14 @@ const BookingChipComponent: React.FC<Props> = ({
   return (
     <div
       key={`${b.id}-${staffId}`}
+      data-booking-id={b.id}
       className={[
         "dv-chip",
         `dv-chip--${statusClass}`,
         isDraggingThis ? "dv-chip--dragging" : "",
         isResizingThis ? "dv-chip--resizing" : "",
         isConcurrent ? "dv-chip--concurrent" : "",
+        isHighlighted ? "dv-chip--highlighted" : "",
       ].filter(Boolean).join(" ")}
       style={{ top: chipTop, height: chipHeight, cursor: isReadOnly ? "pointer" : undefined, ...overlapStyle }}
       onMouseEnter={(e) => { if (!isInteracting) onOpenTip(originalBooking, e.currentTarget); }}

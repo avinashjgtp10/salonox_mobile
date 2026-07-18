@@ -24,6 +24,7 @@ export * from "./billing.endpoints";
 export * from "./gallery.endpoints";
 export * from "./marketplace.endpoints";
 export * from "./onlineBooking.endpoints";
+export * from "./linkBuilder.endpoints";
 export * from "./packages.endpoints";
 export * from "./notifications.endpoints";
 export * from "./clientMemberships.endpoints";
