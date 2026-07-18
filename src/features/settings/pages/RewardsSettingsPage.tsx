@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Gift, Save, X, ArrowRight, BarChart3, ShoppingCart, Star, Wallet, Info, Eye } from "lucide-react";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
   fetchSettingsThunk,
@@ -51,6 +51,7 @@ export default function RewardsSettingsPage() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [settingId, setSettingId] = useState<EntityId | null>(null);
   const [saving, setSaving] = useState(false);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   useEffect(() => {
     dispatch(fetchSettingsThunk());
@@ -124,8 +125,8 @@ export default function RewardsSettingsPage() {
     }
 
     setSaving(false);
-    if (ok) toast.success("Reward points settings saved");
-    else toast.error("Failed to save reward points settings");
+    if (ok) showSuccess("Reward points settings saved");
+    else showError("Failed to save reward points settings");
   }
 
   // ── Derived preview numbers ─────────────────────────────────────────────
@@ -143,6 +144,7 @@ export default function RewardsSettingsPage() {
 
   return (
     <div className="rp-page">
+      {overlay}
       {/* ── Header ── */}
       <div className="rp-header">
         <div className="rp-header__icon"><Gift size={24} /></div>

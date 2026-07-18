@@ -12,7 +12,7 @@ import {
   Receipt,
   Clock,
 } from "react-bootstrap-icons";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import api from "../../../services/api/axios";
 import { STAFF, BOOKING, SALE } from "../../../services/api/endpoints";
 import "../styles/StaffPerformancePage.scss";
@@ -101,12 +101,10 @@ function fmtCurrency(val: number) {
 }
 
 const STATUS_CLASS: Record<string, string> = {
-  booked: "spp-badge--amber",
-  partial: "spp-badge--blue",
-  paid: "spp-badge--green",
+  confirmed: "spp-badge--blue",
+  pending: "spp-badge--amber",
+  completed: "spp-badge--green",
   cancelled: "spp-badge--red",
-  "no-show": "spp-badge--gray",
-  deleted: "spp-badge--gray",
 };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -138,6 +136,7 @@ export default function StaffPerformancePage() {
   const [dayData, setDayData] = useState<DaySummary | null>(null);
   const [dayLoading, setDayLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const { showError, overlay } = useStatusOverlay();
 
   // ── Load staff list ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -152,7 +151,7 @@ export default function StaffPerformancePage() {
           setSelectedStaffId(String(arr[0].id));
         }
       })
-      .catch(() => toast.error("Failed to load staff"))
+      .catch(() => showError("Failed to load staff"))
       .finally(() => setStaffLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [salonId]);
@@ -258,7 +257,7 @@ export default function StaffPerformancePage() {
       setDayData({ bookings, servicesSold, productsSold, revenue, appointments: appts, saleItems });
     } catch (err: any) {
       if (err?.name === "CanceledError" || err?.name === "AbortError") return;
-      toast.error("Failed to load data for selected date");
+      showError("Failed to load data for selected date");
     } finally {
       if (!ctrl.signal.aborted) setDayLoading(false);
     }
@@ -294,6 +293,7 @@ export default function StaffPerformancePage() {
 
   return (
     <div className="spp">
+      {overlay}
       {/* ── Page header ── */}
       <div className="spp__header">
         <div>

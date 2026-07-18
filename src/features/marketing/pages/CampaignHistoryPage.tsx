@@ -8,7 +8,7 @@ import {
   resendCampaignThunk,
 } from "../../../middleware/marketing/marketing.thunk";
 import { Button, Badge, Input } from "../../../components/ui";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import "../styles/CampaignHistoryPage.scss";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -104,6 +104,8 @@ export default function CampaignHistoryPage() {
   const [resumingId,   setResumingId]   = useState<string | null>(null);
   const [resendingId,  setResendingId]  = useState<string | null>(null);
 
+  const { showSuccess, showError, overlay } = useStatusOverlay();
+
   useEffect(() => { dispatch(fetchCampaignsThunk()); }, [dispatch]);
   useEffect(() => { setPage(1); }, [search, statusFilter, dateStart, dateEnd]);
 
@@ -151,16 +153,16 @@ export default function CampaignHistoryPage() {
   const handlePause = async (id: string) => {
     setPausingId(id);
     const res = await dispatch(pauseCampaignThunk(id));
-    if (pauseCampaignThunk.rejected.match(res)) toast.error("Failed to pause campaign");
-    else toast.success("Campaign paused");
+    if (pauseCampaignThunk.rejected.match(res)) showError("Failed to pause campaign");
+    else showSuccess("Campaign paused");
     setPausingId(null);
   };
 
   const handleResume = async (id: string) => {
     setResumingId(id);
     const res = await dispatch(resumeCampaignThunk(id));
-    if (resumeCampaignThunk.rejected.match(res)) toast.error("Failed to resume campaign");
-    else toast.success("Campaign resumed");
+    if (resumeCampaignThunk.rejected.match(res)) showError("Failed to resume campaign");
+    else showSuccess("Campaign resumed");
     setResumingId(null);
   };
 
@@ -168,9 +170,9 @@ export default function CampaignHistoryPage() {
     setResendingId(id);
     const res = await dispatch(resendCampaignThunk(id));
     if (resendCampaignThunk.rejected.match(res)) {
-      toast.error((res.payload as string) ?? "Failed to resend campaign");
+      showError((res.payload as string) ?? "Failed to resend campaign");
     } else {
-      toast.success(`"${name}" resent to all contacts`);
+      showSuccess(`"${name}" resent to all contacts`);
     }
     setResendingId(null);
   };
@@ -205,6 +207,7 @@ export default function CampaignHistoryPage() {
 
   return (
     <div className="ch-page">
+      {overlay}
 
       {/* Header */}
       <div className="ch-header">

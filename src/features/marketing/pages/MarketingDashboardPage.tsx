@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
   fetchDashboardStatsThunk,
@@ -88,6 +88,7 @@ export default function MarketingDashboardPage() {
   const [dateEnd,     setDateEnd]     = useState("");
   const [campFilter,  setCampFilter]  = useState<CampaignStatusFilter>("ALL");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   // ── ALL useEffect hooks ───────────────────────────────────────────────────
   useEffect(() => {
@@ -107,8 +108,8 @@ export default function MarketingDashboardPage() {
           const updated = res.payload;
           const prev    = prevStatuses.current[String(t.id)];
           if (prev && prev !== updated.status) {
-            if (updated.status === "APPROVED") toast.success(`✅ Template "${t.name}" approved!`);
-            else if (updated.status === "REJECTED") toast.error(`❌ Template "${t.name}" rejected.`);
+            if (updated.status === "APPROVED") showSuccess(`✅ Template "${t.name}" approved!`);
+            else if (updated.status === "REJECTED") showError(`❌ Template "${t.name}" rejected.`);
           }
           prevStatuses.current[String(t.id)] = updated.status;
         }
@@ -233,6 +234,7 @@ export default function MarketingDashboardPage() {
   if (!isLoading && !hasData && !hasActiveFilters) {
     return (
       <div className="mkt-page">
+        {overlay}
         <div className="mkt-page-header">
           <div>
             <h1 className="mkt-page-title">WhatsApp Marketing</h1>
@@ -273,6 +275,7 @@ export default function MarketingDashboardPage() {
   // Main dashboard
   return (
     <div className="mkt-page">
+      {overlay}
 
       {/* Header */}
       <div className="mkt-page-header">

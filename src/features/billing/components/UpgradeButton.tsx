@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import Button from "../../../components/ui/Button";
 import { useAppSelector } from "../../../hooks/useAppRedux";
 import api from "../../../services/api/axios";
@@ -20,10 +20,11 @@ interface CreateSubResp {
 export default function UpgradeButton({ plan }: Props) {
   const [loading, setLoading] = useState(false);
   const { currentSalon } = useAppSelector((s) => s.salon);
+  const { showError, overlay } = useStatusOverlay();
 
   const handleUpgrade = useCallback(async () => {
     if (!currentSalon?.id) {
-      toast.error("No salon context found");
+      showError("No salon context found");
       return;
     }
 
@@ -39,7 +40,7 @@ export default function UpgradeButton({ plan }: Props) {
       const { short_url } = res.data.data;
 
       if (!short_url) {
-        toast.error("Could not get payment link. Please try again.");
+        showError("Could not get payment link. Please try again.");
         return;
       }
 
@@ -50,7 +51,7 @@ export default function UpgradeButton({ plan }: Props) {
       window.location.href = finalUrl;
 
     } catch (err: any) {
-      toast.error(err?.message || "Failed to initiate payment");
+      showError(err?.message || "Failed to initiate payment");
       throw err; // let Button's autoDisable reset the click-lock on failure
     } finally {
       setLoading(false);
@@ -58,16 +59,19 @@ export default function UpgradeButton({ plan }: Props) {
   }, [plan, currentSalon]);
 
   return (
-    <Button
-      fullWidth
-      size="sm"
-      variant="primary"
-      loading={loading}
-      disabled={loading}
-      autoDisable
-      onClick={handleUpgrade}
-    >
-      Upgrade
-    </Button>
+    <>
+      {overlay}
+      <Button
+        fullWidth
+        size="sm"
+        variant="primary"
+        loading={loading}
+        disabled={loading}
+        autoDisable
+        onClick={handleUpgrade}
+      >
+        Upgrade
+      </Button>
+    </>
   );
 }

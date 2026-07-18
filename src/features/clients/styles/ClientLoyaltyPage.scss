@@ -101,23 +101,6 @@
   &:focus { border-color: #6366f1; }
 }
 
-.loyalty-show-n {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #6b7280;
-
-  select {
-    padding: 7px 10px;
-    border-radius: 8px;
-    border: 1px solid #d1d5db;
-    background: #fff;
-    font-size: 13px;
-    cursor: pointer;
-  }
-}
-
 .loyalty-table-wrap {
   background: #fff;
   border: 1px solid #e5e7eb;

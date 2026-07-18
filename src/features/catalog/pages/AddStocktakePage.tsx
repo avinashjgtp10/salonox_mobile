@@ -16,7 +16,7 @@ import type { AppDispatch, RootState } from "../../../store/store";
 import { fetchBranchesThunk, createBranchThunk } from "../../../middleware/salon/salon.thunk";
 import { fetchCatalogThunk } from "../../../middleware/catalog/catalog.thunk";
 import { createStocktakeThunk, processStockTakeThunk } from "../../../middleware/inventory/inventory.thunk";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import "../styles/AddStocktakePage.scss";
 
 // Removing MOCK_PRODUCTS as we'll use state
@@ -48,6 +48,7 @@ const AddStocktakePage: React.FC = () => {
   const [creatingBranch, setCreatingBranch] = useState(false);
   const [locationErrors, setLocationErrors] = useState<Record<string, string>>({});
   const [step1Errors, setStep1Errors] = useState<Record<string, string>>({});
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   // Initialize selectedBranchId once branches are loaded
   useEffect(() => {
@@ -110,7 +111,7 @@ const AddStocktakePage: React.FC = () => {
 
       if (Object.keys(errors).length > 0) {
         setStep1Errors(errors);
-        toast.error("Please fill in the required fields");
+        showError("Please fill in the required fields");
         return;
       }
       setStep1Errors({});
@@ -119,7 +120,7 @@ const AddStocktakePage: React.FC = () => {
     if (currentStep === 2) {
       if (!selectionType) {
         setStep2Errors({ selection: "Please select what you would like to count" });
-        toast.error("Please select a counting method");
+        showError("Please select a counting method");
         return;
       }
       setStep2Errors({});
@@ -128,7 +129,7 @@ const AddStocktakePage: React.FC = () => {
     if (currentStep === 3) {
       if (selectedProductIds.length === 0) {
         setStep3Errors({ products: "Please select at least one product" });
-        toast.error("No products selected");
+        showError("No products selected");
         return;
       }
       setStep3Errors({});
@@ -157,7 +158,7 @@ const AddStocktakePage: React.FC = () => {
       const activeBranchId = selectedBranchId;
       
       if (!activeBranchId) {
-        toast.error("Please select a location first.");
+        showError("Please select a location first.");
         return;
       }
 
@@ -187,11 +188,11 @@ const AddStocktakePage: React.FC = () => {
         items: itemsToProcess
       })).unwrap();
 
-      toast.success("Stocktake started successfully");
+      showSuccess("Stocktake started successfully");
       navigate("/dashboard/catalog/inventory/stocktakes");
     } catch (error: any) {
       console.error("Failed to process stocktake:", error);
-      toast.error(error?.message || "Failed to start stocktake. Please check your network connection.");
+      showError(error?.message || "Failed to start stocktake. Please check your network connection.");
     }
   };
 
@@ -226,7 +227,7 @@ const AddStocktakePage: React.FC = () => {
 
     if (Object.keys(errors).length > 0) {
       setLocationErrors(errors);
-      toast.error("Please correct the errors before proceeding");
+      showError("Please correct the errors before proceeding");
       return;
     }
 
@@ -243,7 +244,7 @@ const AddStocktakePage: React.FC = () => {
         is_main: branches.length === 0 // Make main if it's the first one
       })).unwrap();
 
-      toast.success("Location added successfully");
+      showSuccess("Location added successfully");
       setSelectedBranchId(newBranch.id);
       setIsAddingLocation(false);
       setIsLocationModalOpen(false);
@@ -255,7 +256,7 @@ const AddStocktakePage: React.FC = () => {
       setNewBranchState("");
       setNewBranchPincode("");
     } catch (error: any) {
-      toast.error(error || "Failed to add location");
+      showError(error || "Failed to add location");
     } finally {
       setCreatingBranch(false);
     }
@@ -263,6 +264,7 @@ const AddStocktakePage: React.FC = () => {
 
   return (
     <div className="add-stocktake-page">
+      {overlay}
       {/* HEADER */}
       <header className="add-stocktake-page__header">
         <div className="header-content">

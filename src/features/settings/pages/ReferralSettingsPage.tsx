@@ -18,7 +18,7 @@ import {
   Heart,
   BarChart3,
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
   fetchSettingsThunk,
@@ -65,6 +65,7 @@ export default function ReferralSettingsPage() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [settingId, setSettingId] = useState<EntityId | null>(null);
   const [saving, setSaving] = useState(false);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   useEffect(() => {
     dispatch(fetchSettingsThunk());
@@ -145,12 +146,13 @@ export default function ReferralSettingsPage() {
     }
 
     setSaving(false);
-    if (ok) toast.success("Referral settings saved");
-    else toast.error("Failed to save referral settings");
+    if (ok) showSuccess("Referral settings saved");
+    else showError("Failed to save referral settings");
   }
 
   return (
     <div className="rf-page">
+      {overlay}
       {/* ── Header ── */}
       <div className="rf-header">
         <div className="rf-header__icon"><Share2 size={24} /></div>

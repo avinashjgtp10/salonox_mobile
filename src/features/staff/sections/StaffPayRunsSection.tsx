@@ -3,7 +3,7 @@ import { InfoCircle } from "react-bootstrap-icons";
 import "../styles/StaffPayRunsSection.scss";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
-import { toast } from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 
 interface PayRunSettings {
   pay_runs_enabled: boolean;
@@ -37,6 +37,7 @@ const StaffPayRunsSection: React.FC<StaffPayRunsSectionProps> = ({ staffId, salo
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   useEffect(() => {
     if (staffId && !payRuns && staffId !== "undefined") {
@@ -59,20 +60,20 @@ const StaffPayRunsSection: React.FC<StaffPayRunsSectionProps> = ({ staffId, salo
 
   const handleSave = async () => {
     if (!staffId || staffId === "undefined") {
-      toast("Please save the team member profile first");
+      showError("Please save the team member profile first");
       return;
     }
     try {
       setIsSaving(true);
       await api.put(STAFF.PAY_RUNS(staffId), settings);
-      toast.success("Pay run settings saved successfully");
+      showSuccess("Pay run settings saved successfully");
     } catch (error: any) {
       console.error("Error saving pay runs:", error);
       const msg =
         error?.response?.data?.message ||
         error?.message ||
         "Failed to save pay run settings";
-      toast.error(msg);
+      showError(msg);
     } finally {
       setIsSaving(false);
     }
@@ -82,6 +83,7 @@ const StaffPayRunsSection: React.FC<StaffPayRunsSectionProps> = ({ staffId, salo
 
   return (
     <div className="section payruns-section mt-1">
+      {overlay}
       {/* Main Toggle Header */}
       <div className="custom-switch-container">
         <div className="switch-info">

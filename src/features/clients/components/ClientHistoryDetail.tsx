@@ -223,6 +223,16 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   const [historyPage, setHistoryPage] = useState(1);
   const [historyPageSize, setHistoryPageSize] = useState(10);
 
+  // Services/Memberships/Products/Payments tabs — each paginated independently.
+  const [servicesPage, setServicesPage] = useState(1);
+  const [servicesPageSize, setServicesPageSize] = useState(10);
+  const [membershipsPage, setMembershipsPage] = useState(1);
+  const [membershipsPageSize, setMembershipsPageSize] = useState(10);
+  const [productsPage, setProductsPage] = useState(1);
+  const [productsPageSize, setProductsPageSize] = useState(10);
+  const [paymentsPage, setPaymentsPage] = useState(1);
+  const [paymentsPageSize, setPaymentsPageSize] = useState(10);
+
   // Global filter — applies across all tabs
   const [showGlobalFilter, setShowGlobalFilter] = useState(false);
   const [globalDatePreset, setGlobalDatePreset] = useState("all");
@@ -235,6 +245,10 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   // Jump back to page 1 whenever the global filter changes the underlying result set
   useEffect(() => {
     setHistoryPage(1);
+    setServicesPage(1);
+    setMembershipsPage(1);
+    setProductsPage(1);
+    setPaymentsPage(1);
   }, [globalDatePreset, globalCalDay, globalServiceFilter, globalStaffFilter]);
 
   const loadHistory = useCallback(async (id: string) => {
@@ -247,6 +261,10 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       initialTabAppliedRef.current = true;
     }
     setHistoryPage(1);
+    setServicesPage(1);
+    setMembershipsPage(1);
+    setProductsPage(1);
+    setPaymentsPage(1);
     setGlobalCalDay(null);
     setGlobalDatePreset("all");
     setGlobalServiceFilter("all");
@@ -1034,7 +1052,9 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredAllServices.map((it, i) => (
+                  {filteredAllServices
+                    .slice((servicesPage - 1) * servicesPageSize, servicesPage * servicesPageSize)
+                    .map((it, i) => (
                     <tr key={i}>
                       <td className="chp-inv">{it.name}</td>
                       <td>{fmtDateShort(it.sale_date)}</td>
@@ -1045,6 +1065,16 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                   ))}
                 </tbody>
               </table>
+            )}
+            {filteredAllServices.length > 0 && (
+              <Pagination
+                currentPage={servicesPage}
+                pageSize={servicesPageSize}
+                totalItems={filteredAllServices.length}
+                onPageChange={setServicesPage}
+                onPageSizeChange={(sz) => { setServicesPageSize(sz); setServicesPage(1); }}
+                pageSizeOptions={[10, 25, 50, 100]}
+              />
             )}
           </div>
         )}
@@ -1069,7 +1099,9 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredMembershipsFromSales.map((it, i) => (
+                  {filteredMembershipsFromSales
+                    .slice((membershipsPage - 1) * membershipsPageSize, membershipsPage * membershipsPageSize)
+                    .map((it, i) => (
                     <tr key={i}>
                       <td className="chp-inv">{it.name}</td>
                       <td>{fmtDateShort(it.sale_date)}</td>
@@ -1078,6 +1110,16 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                   ))}
                 </tbody>
               </table>
+            )}
+            {filteredMembershipsFromSales.length > 0 && (
+              <Pagination
+                currentPage={membershipsPage}
+                pageSize={membershipsPageSize}
+                totalItems={filteredMembershipsFromSales.length}
+                onPageChange={setMembershipsPage}
+                onPageSizeChange={(sz) => { setMembershipsPageSize(sz); setMembershipsPage(1); }}
+                pageSizeOptions={[10, 25, 50, 100]}
+              />
             )}
           </div>
         )}
@@ -1184,7 +1226,9 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredProductsFromSales.map((it, i) => (
+                  {filteredProductsFromSales
+                    .slice((productsPage - 1) * productsPageSize, productsPage * productsPageSize)
+                    .map((it, i) => (
                     <tr key={i}>
                       <td className="chp-inv">{it.name}</td>
                       <td>{fmtDateShort(it.sale_date)}</td>
@@ -1195,6 +1239,16 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                   ))}
                 </tbody>
               </table>
+            )}
+            {filteredProductsFromSales.length > 0 && (
+              <Pagination
+                currentPage={productsPage}
+                pageSize={productsPageSize}
+                totalItems={filteredProductsFromSales.length}
+                onPageChange={setProductsPage}
+                onPageSizeChange={(sz) => { setProductsPageSize(sz); setProductsPage(1); }}
+                pageSizeOptions={[10, 25, 50, 100]}
+              />
             )}
           </div>
         )}
@@ -1224,7 +1278,9 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredSales.map((s) => (
+                  {filteredSales
+                    .slice((paymentsPage - 1) * paymentsPageSize, paymentsPage * paymentsPageSize)
+                    .map((s) => (
                     <tr key={s.id}>
                       <td className="chp-inv">
                         {s.invoice_number ?? `#${s.id.slice(-6).toUpperCase()}`}
@@ -1252,6 +1308,16 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                   ))}
                 </tbody>
               </table>
+            )}
+            {filteredSales.length > 0 && (
+              <Pagination
+                currentPage={paymentsPage}
+                pageSize={paymentsPageSize}
+                totalItems={filteredSales.length}
+                onPageChange={setPaymentsPage}
+                onPageSizeChange={(sz) => { setPaymentsPageSize(sz); setPaymentsPage(1); }}
+                pageSizeOptions={[10, 25, 50, 100]}
+              />
             )}
           </div>
         )}

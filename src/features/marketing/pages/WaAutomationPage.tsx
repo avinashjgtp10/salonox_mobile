@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
-import toast from "react-hot-toast";
 import { Info, X } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import {
   fetchPurchaseTemplatesThunk,
   updatePurchaseTemplateThunk,
@@ -114,6 +114,7 @@ export default function WaAutomationPage() {
   const [submittingType, setSubmittingType] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(POLL_INTERVAL / 1000);
   const [openInfoFor, setOpenInfoFor] = useState<PurchaseEventType | null>(null);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   useEffect(() => {
     if (salonId) dispatch(fetchPurchaseTemplatesThunk(salonId));
@@ -136,8 +137,8 @@ export default function WaAutomationPage() {
       const res = await dispatch(syncPurchaseTemplateThunk({ salonId, eventType: t.event_type }));
       if (syncPurchaseTemplateThunk.fulfilled.match(res)) {
         const updated = res.payload;
-        if (updated.status === "APPROVED") toast.success(`✅ "${EVENT_LABELS[updated.event_type].label}" approved by Meta!`);
-        else if (updated.status === "REJECTED") toast.error(`❌ "${EVENT_LABELS[updated.event_type].label}" was rejected by Meta.`);
+        if (updated.status === "APPROVED") showSuccess(`✅ "${EVENT_LABELS[updated.event_type].label}" approved by Meta!`);
+        else if (updated.status === "REJECTED") showError(`❌ "${EVENT_LABELS[updated.event_type].label}" was rejected by Meta.`);
       }
     }
   }, [salonId, purchaseTemplates, dispatch]);
@@ -156,8 +157,8 @@ export default function WaAutomationPage() {
     setSavingType(eventType);
     try {
       const res = await dispatch(updatePurchaseTemplateThunk({ salonId, eventType, bodyText: drafts[eventType] ?? "" }));
-      if (updatePurchaseTemplateThunk.fulfilled.match(res)) toast.success("Wording saved");
-      else toast.error((res.payload as string) ?? "Failed to save wording");
+      if (updatePurchaseTemplateThunk.fulfilled.match(res)) showSuccess("Wording saved");
+      else showError((res.payload as string) ?? "Failed to save wording");
     } finally {
       setSavingType(null);
     }
@@ -169,9 +170,9 @@ export default function WaAutomationPage() {
     try {
       const res = await dispatch(submitPurchaseTemplateThunk({ salonId, eventType }));
       if (submitPurchaseTemplateThunk.fulfilled.match(res)) {
-        toast.success("Submitted to Meta for approval — this can take anywhere from a few hours to a couple of days.");
+        showSuccess("Submitted to Meta for approval — this can take anywhere from a few hours to a couple of days.");
       } else {
-        toast.error((res.payload as string) ?? "Failed to submit for approval");
+        showError((res.payload as string) ?? "Failed to submit for approval");
       }
     } finally {
       setSubmittingType(null);
@@ -183,6 +184,7 @@ export default function WaAutomationPage() {
 
   return (
     <div className="wa-auto-page">
+      {overlay}
       <div className="wa-auto-header">
         <div>
           <h1 className="wa-auto-title">WA Automation</h1>

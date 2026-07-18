@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Search } from "react-bootstrap-icons";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
   fetchSettingsThunk,
@@ -137,6 +137,7 @@ export default function SettingsManagementPage() {
   const [form, setForm] = useState<TaxForm>(EMPTY_FORM);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const listRef = useRef<HTMLDivElement>(null);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   // ── GST module config (master toggle, invoice prefix, etc.) ────────────────
   const [moduleConfig, setModuleConfig] = useState<TaxModuleConfig>(DEFAULT_TAX_MODULE_CONFIG);
@@ -149,7 +150,7 @@ export default function SettingsManagementPage() {
 
   useEffect(() => {
     if (error) {
-      toast.error(error);
+      showError(error);
       dispatch(clearSettingError());
     }
   }, [error, dispatch]);
@@ -185,8 +186,8 @@ export default function SettingsManagementPage() {
     }
 
     setModuleSaving(false);
-    if (ok) toast.success("Tax settings saved");
-    else toast.error("Failed to save tax settings");
+    if (ok) showSuccess("Tax settings saved");
+    else showError("Failed to save tax settings");
   }
 
   const taxSettings = useMemo(() => items.filter(isTaxSetting), [items]);
@@ -304,6 +305,7 @@ export default function SettingsManagementPage() {
 
   return (
     <>
+      {overlay}
       {/* ── GST module config ── */}
       <div className="gst-module">
         <div className="settings-toggle-row">

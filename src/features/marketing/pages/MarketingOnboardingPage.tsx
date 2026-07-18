@@ -6,7 +6,7 @@ import {
 } from "../../../middleware/marketing/marketing.thunk";
 import { API_ORIGIN } from "../../../services/api/baseUrl";
 import api from "../../../services/api/axios";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import "../styles/MarketingOnboardingPage.scss";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -360,6 +360,7 @@ function SetupStage({ onBack }: { onBack: () => void }) {
   const [generalError,   setGeneralError]   = useState<string | null>(null);
   const [hasUnchecked,   setHasUnchecked]   = useState(false);
   const [suggestedToken, setSuggestedToken] = useState(() => generateSuggestedToken());
+  const { showSuccess, overlay } = useStatusOverlay();
 
   const step       = SETUP_STEPS[currentStep];
   const isLastStep = currentStep === SETUP_STEPS.length - 1;
@@ -377,7 +378,7 @@ const webhookUrl = `${API_ORIGIN}/api/v1/webhooks/whatsapp`
     navigator.clipboard.writeText(webhookUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-    toast.success("Webhook URL copied!");
+    showSuccess("Webhook URL copied!");
   };
 
   const handleNext = () => {
@@ -482,7 +483,7 @@ const webhookUrl = `${API_ORIGIN}/api/v1/webhooks/whatsapp`
       // ✅ All passed — save config
       const saveRes = await dispatch(saveWaConfigThunk(form) as any);
       if (saveRes?.payload && !saveRes?.error) {
-        toast.success("✅ WhatsApp configured successfully!");
+        showSuccess("✅ WhatsApp configured successfully!");
         await dispatch(fetchWaConfigThunk());
       } else {
         setGeneralError(
@@ -504,6 +505,7 @@ const webhookUrl = `${API_ORIGIN}/api/v1/webhooks/whatsapp`
 
   return (
     <div className="mob-stage">
+      {overlay}
       <div className="mob-stage-header">
         <button className="mob-back-btn" onClick={handleBack}>← Back</button>
         <div className="mob-progress">

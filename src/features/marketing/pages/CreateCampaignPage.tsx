@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchTemplatesThunk, createCampaignThunk } from "../../../middleware/marketing/marketing.thunk";
 import { fetchClientsThunk } from "../../../middleware/client/client.thunk";
@@ -146,6 +146,7 @@ export default function CreateCampaignPage() {
   const [filterCount,     setFilterCount]     = useState<number | null>(null);
   const [filterLoading,   setFilterLoading]   = useState(false);
   const [filterPreviewed, setFilterPreviewed] = useState(false);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   const scheduledAt = isScheduled && schedDate ? buildIso(schedDate, schedTime) : "";
   const dailyLimit  = waConfig?.dailyLimit ?? (waConfig as any)?.daily_limit ?? 0;
@@ -157,7 +158,7 @@ export default function CreateCampaignPage() {
       api.get("/api/v1/categories").then(res => {
         const data = res.data?.data ?? res.data ?? [];
         setCategories(Array.isArray(data) ? data : []);
-      }).catch(() => { toast.error("Failed to load service categories"); });
+      }).catch(() => { showError("Failed to load service categories"); });
     }
   }, [step, source, categories.length]);
 
@@ -185,7 +186,7 @@ export default function CreateCampaignPage() {
     if (selectedIds.size > 0) { setSelectedIds(new Set()); return; }
     const capped = dailyLimit > 0 ? filteredClients.slice(0, dailyLimit) : filteredClients;
     if (dailyLimit > 0 && filteredClients.length > dailyLimit) {
-      toast.error(`Only selected the first ${dailyLimit.toLocaleString()} — your daily limit is ${dailyLimit.toLocaleString()} messages.`);
+      showError(`Only selected the first ${dailyLimit.toLocaleString()} — your daily limit is ${dailyLimit.toLocaleString()} messages.`);
     }
     setSelectedIds(new Set(capped.map(c => String(c.id))));
   };
@@ -244,7 +245,7 @@ const hasAnyFilter =
   smartFilter.has_package !== "";
 
   const handlePreviewFilter = async () => {
-    if (!hasAnyFilter) { toast.error("Please set at least one filter"); return; }
+    if (!hasAnyFilter) { showError("Please set at least one filter"); return; }
     setFilterLoading(true);
     try {
       const params = buildFilterParams();
@@ -254,14 +255,14 @@ const hasAnyFilter =
       setFilterCount(total);
       setFilterPreviewed(true);
     } catch {
-      toast.error("Failed to preview filter");
+      showError("Failed to preview filter");
     } finally {
       setFilterLoading(false);
     }
   };
 
   const handleApplyFilter = async () => {
-    if (!hasAnyFilter) { toast.error("Please set at least one filter"); return; }
+    if (!hasAnyFilter) { showError("Please set at least one filter"); return; }
     setFilterLoading(true);
     try {
       const params = buildFilterParams();
@@ -275,10 +276,10 @@ const hasAnyFilter =
       setFilterContacts(mapped);
       setFilterCount(mapped.length);
       setFilterPreviewed(true);
-      if (mapped.length === 0) toast.error("No clients match these filters");
-      else toast.success(`${mapped.length} clients loaded`);
+      if (mapped.length === 0) showError("No clients match these filters");
+      else showSuccess(`${mapped.length} clients loaded`);
     } catch {
-      toast.error("Failed to load filtered clients");
+      showError("Failed to load filtered clients");
     } finally {
       setFilterLoading(false);
     }
@@ -330,7 +331,7 @@ const hasAnyFilter =
 
   const [handleLaunch, launching] = useOnce(async () => {
     if (dailyLimit > 0 && contacts.length > dailyLimit) {
-      toast.error(`Contact list exceeds your daily limit of ${dailyLimit.toLocaleString()} messages.`);
+      showError(`Contact list exceeds your daily limit of ${dailyLimit.toLocaleString()} messages.`);
       return;
     }
     const result = await dispatch(createCampaignThunk({
@@ -341,10 +342,10 @@ const hasAnyFilter =
       contacts:     contacts.map(c => ({ phone: c.phone, name: c.name, variables: c.variables ?? {} })),
     }));
     if (createCampaignThunk.fulfilled.match(result)) {
-      toast.success(scheduledAt ? "Campaign scheduled!" : "Campaign launched!");
+      showSuccess(scheduledAt ? "Campaign scheduled!" : "Campaign launched!");
       navigate("/dashboard/marketing/campaigns/history");
     } else {
-      toast.error((result.payload as string) ?? "Failed to launch campaign");
+      showError((result.payload as string) ?? "Failed to launch campaign");
     }
   });
 
@@ -355,6 +356,7 @@ const hasAnyFilter =
 
   return (
     <div className="cc-page cc-page--split">
+      {overlay}
       <div className="cc-header">
         <div>
           <h1 className="cc-title">New Campaign</h1>
