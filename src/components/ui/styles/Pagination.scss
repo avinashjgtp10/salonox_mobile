@@ -81,9 +81,15 @@
     transition: all 0.15s;
     font-family: 'Inter', sans-serif;
 
+    // Text color set explicitly (not just background) — some pages in this
+    // app import a global stylesheet (e.g. raw Bootstrap CSS) as a page-level
+    // side effect, which then leaks across the whole SPA session and can win
+    // a hover-state specificity tie, turning this text invisible against a
+    // near-white hover background if only `background` were overridden here.
     &:hover:not(:disabled) {
       background: #f7f8fa;
       border-color: #b0b5bf;
+      color: #11141a;
     }
 
     &--active {
@@ -91,6 +97,11 @@
       color: #fff;
       border-color: #11141a;
       font-weight: 700;
+
+      &:hover:not(:disabled) {
+        background: #11141a;
+        color: #fff;
+      }
     }
 
     &:disabled {

@@ -356,7 +356,11 @@ const SchedulerContent: React.FC = () => {
           onRefresh={handleRefresh}
           defaultStaffId={apptDefaults.staffId}
           defaultTime={apptDefaults.defaultTime}
-          defaultDate={editingBooking?.date || undefined}
+          /* Falls back to the currently-viewed calendar date, not today —
+             otherwise "Add Appointment" (or clicking an empty slot) after
+             navigating to a different day always opened the form on today's
+             date instead of the date actually being viewed. */
+          defaultDate={editingBooking?.date || currentDate || undefined}
           existingBooking={editingBooking || undefined}
           defaultClientId={defaultClient?.id}
           defaultClientName={defaultClient?.name}

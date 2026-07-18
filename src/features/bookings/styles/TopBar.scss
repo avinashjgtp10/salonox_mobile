@@ -511,6 +511,7 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
+    flex: 1;
   }
 
   &__name {
@@ -525,6 +526,26 @@
   &__phone {
     font-size: 11px;
     color: #6b7280;
+  }
+
+  // Same action/label as ClientStatCard's "View History" button on the
+  // booking drawer's client card — a separate click target from the row
+  // itself, which opens a new appointment for this client.
+  &__history-btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    background: #6366f1;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+
+    &:hover { background: #4f46e5; }
   }
 
   &__no-results {
@@ -573,3 +594,4 @@
     }
   }
 }
+

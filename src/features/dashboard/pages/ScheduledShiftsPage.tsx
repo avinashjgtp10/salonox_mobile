@@ -14,7 +14,7 @@ import {
   saveSingleShiftThunk,
   deleteSingleShiftThunk,
 } from "../../../middleware/shift/shiftThunk";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import {
   ScheduleTable,
   ShiftDrawer,
@@ -53,6 +53,7 @@ const ScheduledShiftsPage: React.FC = () => {
   const [deleteTarget, setDeleteTarget] = useState<{ staffId: string; date: string } | null>(null);
   const [copyStaffId, setCopyStaffId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   const weekDates = getWeekDates(sunday).map((d) => {
     const { date, day } = formatColHeader(d);
@@ -138,7 +139,7 @@ const ScheduledShiftsPage: React.FC = () => {
       })
       .catch((err) => {
         console.error("[DEBUG] Delete failed:", err);
-        toast.error("Failed to delete time block");
+        showError("Failed to delete time block");
       });
 
     setDeleteTarget(null);
@@ -150,17 +151,18 @@ const ScheduledShiftsPage: React.FC = () => {
     date: string,
     isAvailable: boolean,
     startTime: string,
-    endTime: string
+    endTime: string,
+    breaks: { start: string; end: string }[]
   ) => {
     // 8. Add Temporary Debug Logs
     console.log("[DEBUG] selectedDate:", date);
-    
+
     if (drawer.mode === "dayoff" || !isAvailable) {
       dispatch(setDayOff({ staffId, date }));
     } else if (drawer.mode === "blocked") {
       dispatch(setBlocked({ staffId, date, startTime, endTime }));
     } else {
-      dispatch(updateAvailability({ staffId, date, isAvailable, startTime, endTime }));
+      dispatch(updateAvailability({ staffId, date, isAvailable, startTime, endTime, breaks }));
     }
 
     const isDayOff = drawer.mode === "dayoff" || !isAvailable;
@@ -169,7 +171,11 @@ const ScheduledShiftsPage: React.FC = () => {
       staff_id: staffId,
       date: date,
       start_time: isDayOff ? "" : convertTo24h(startTime),
-      end_time: isDayOff ? "" : convertTo24h(endTime)
+      end_time: isDayOff ? "" : convertTo24h(endTime),
+      breaks: isDayOff ? [] : breaks.map((b) => ({
+        start_time: convertTo24h(b.start),
+        end_time: convertTo24h(b.end),
+      })),
     };
 
     console.log("[DEBUG] save payload:", payload);
@@ -179,12 +185,12 @@ const ScheduledShiftsPage: React.FC = () => {
       .unwrap()
       .then((res) => {
         console.log("[DEBUG] API response:", res);
-        toast.success("Availability updated");
+        showSuccess("Availability updated");
         // No full-week repaint
       })
       .catch((err) => {
         console.error("[DEBUG] Save failed:", err);
-        toast.error("Failed to save changes");
+        showError("Failed to save changes");
       });
   };
 
@@ -198,12 +204,12 @@ const ScheduledShiftsPage: React.FC = () => {
     dispatch(applyCopySchedule({ staffId, fromDate, toDates, type }))
       .unwrap()
       .then(() => {
-        toast.success("Schedule copied successfully");
+        showSuccess("Schedule copied successfully");
         dispatch(fetchDailyShifts(weekStartKey));
         dispatch(bumpScheduleVersion());
       })
       .catch(() => {
-        toast.error("Failed to copy schedule");
+        showError("Failed to copy schedule");
       });
   };
 
@@ -217,6 +223,7 @@ const ScheduledShiftsPage: React.FC = () => {
 
   return (
     <div className="sched-page">
+      {overlay}
       <div className="sched-page__content" style={deleteTarget ? { pointerEvents: "none" } : undefined}>
 
         <h1 className="sched-page__title">Staff Schedule</h1>

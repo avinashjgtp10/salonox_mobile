@@ -47,7 +47,10 @@ export type PurchaseEventType =
   | "thank_you"
   | "review_request"
   | "package_expiring_soon"
-  | "sessions_remaining";
+  | "sessions_remaining"
+  | "appointment_confirmation"
+  | "appointment_reminder_24h"
+  | "appointment_rescheduled";
 export type TemplateSubmissionStatus = "DRAFT" | "PENDING" | "APPROVED" | "REJECTED";
 
 // Matches backend AutomationTemplate rows scoped to a salon (wa_automation_templates)

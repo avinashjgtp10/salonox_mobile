@@ -8,7 +8,7 @@ import {
   Clock,
   CurrencyDollar,
 } from "react-bootstrap-icons";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import api from "../../../services/api/axios";
 import { SERVICES } from "../../../services/api/endpoints";
 import "../styles/StaffServicesPage.scss";
@@ -59,6 +59,7 @@ export default function StaffServicesPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const limit = 20;
+  const { showError, overlay } = useStatusOverlay();
 
 
   const fetchServices = useCallback(async () => {
@@ -83,7 +84,7 @@ export default function StaffServicesPage() {
         setCategories(cats);
       }
     } catch {
-      toast.error("Failed to load services");
+      showError("Failed to load services");
     } finally {
       setLoading(false);
     }
@@ -97,6 +98,7 @@ export default function StaffServicesPage() {
 
   return (
     <div className="svc-page">
+      {overlay}
       {/* ── Header ── */}
       <div className="svc-page__header">
         <div>

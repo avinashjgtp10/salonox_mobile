@@ -14,6 +14,7 @@ import {
 import { setSubscriptionExpired } from "../../../store/billingSlice";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import Button from "../../../components/ui/Button";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import SettingsSection from "../components/SettingsSection";
 import UpgradeButton from "../../billing/components/UpgradeButton";
 import api from "../../../services/api/axios";
@@ -36,6 +37,7 @@ export default function BillingPage() {
   const [plansLoading, setPlansLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   // ── Detect redirect back from Razorpay after payment ─────────────────────
   useEffect(() => {
@@ -51,13 +53,16 @@ export default function BillingPage() {
             dispatch(setSubscriptionExpired(false));
             dispatch(fetchSubscriptionThunk(currentSalon.id));
             dispatch(fetchInvoicesThunk(currentSalon.id));
-            toast.success("🎉 Subscription activated!", { id: "verify" });
+            toast.dismiss("verify");
+            showSuccess("🎉 Subscription activated!");
           } else {
-            toast.error(`Payment received but status is: ${status}. Contact support.`, { id: "verify" });
+            toast.dismiss("verify");
+            showError(`Payment received but status is: ${status}. Contact support.`);
           }
         })
         .catch(() => {
-          toast.error("Could not verify payment. Please contact support.", { id: "verify" });
+          toast.dismiss("verify");
+          showError("Could not verify payment. Please contact support.");
         })
         .finally(() => {
           setVerifying(false);
@@ -73,7 +78,7 @@ export default function BillingPage() {
     setPlansLoading(true);
     api.get<{ success: boolean; data: SubscriptionPlan[] }>("/api/v1/subscriptions/plans")
       .then((res) => setPlans(res.data.data))
-      .catch(() => toast.error("Failed to load plans"))
+      .catch(() => showError("Failed to load plans"))
       .finally(() => setPlansLoading(false));
   }, []);
 
@@ -103,9 +108,9 @@ export default function BillingPage() {
     const result = await dispatch(cancelSubscriptionThunk({ id: subscription.id }));
     setCancelLoading(false);
     if (cancelSubscriptionThunk.fulfilled.match(result)) {
-      toast.success("Subscription cancelled");
+      showSuccess("Subscription cancelled");
     } else {
-      toast.error((result.payload as string) || "Failed to cancel subscription");
+      showError((result.payload as string) || "Failed to cancel subscription");
     }
   };
 
@@ -127,6 +132,7 @@ export default function BillingPage() {
 
   return (
     <>
+      {overlay}
       {verifying && (
         <div style={{
           background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10,
@@ -284,7 +290,7 @@ export default function BillingPage() {
                   <td style={{ fontWeight: 700 }}>₹{parseFloat(inv.total_amount).toLocaleString()}</td>
                   <td>{invoiceStatusBadge(inv.status)}</td>
                   <td>
-                    <button className="settings-billing-dl-btn" onClick={() => { toast("Invoice PDF coming soon", { icon: "📄" }); }}>
+                    <button className="settings-billing-dl-btn" onClick={() => { showError("Invoice PDF coming soon"); }}>
                       <Download size={13} /> PDF
                     </button>
                   </td>
@@ -301,7 +307,7 @@ export default function BillingPage() {
           <p className="settings-billing-cta-sub">Contact our sales team for volume pricing or custom integrations.</p>
         </div>
         <Button size="sm" variant="outline-secondary" iconRight={<ArrowUpRight size={14} />}
-          onClick={() => { toast("Contact sales coming soon", { icon: "📞" }); }}>
+          onClick={() => { showError("Contact sales coming soon"); }}>
           Contact sales
         </Button>
       </div>

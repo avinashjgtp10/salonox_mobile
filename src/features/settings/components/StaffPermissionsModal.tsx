@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { X, Loader2, RotateCcw, ShieldCheck, Shield } from "lucide-react";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { updateStaffThunk } from "../../../middleware/staff/staff.thunk";
 import {
@@ -48,6 +48,7 @@ export default function StaffPermissionsModal({
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
   const [isCustom, setIsCustom] = useState(hasCustom);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   // Re-seed if the staff prop changes (e.g. parent reloads data)
   useEffect(() => {
@@ -94,10 +95,10 @@ export default function StaffPermissionsModal({
     setSavingKey(null);
 
     if (ok) {
-      toast.success(`${label} ${newVal ? "enabled" : "disabled"} for ${displayName}`);
+      showSuccess(`${label} ${newVal ? "enabled" : "disabled"} for ${displayName}`);
     } else {
       setPerms(perms); // rollback
-      toast.error("Failed to update permission");
+      showError("Failed to update permission");
     }
   };
 
@@ -111,15 +112,16 @@ export default function StaffPermissionsModal({
     if (ok) {
       setPerms(buildPermissions(globalPermissions, null));
       setIsCustom(false);
-      toast.success(`${displayName} reset to role defaults`);
+      showSuccess(`${displayName} reset to role defaults`);
     } else {
-      toast.error("Failed to reset permissions");
+      showError("Failed to reset permissions");
     }
     setResetting(false);
   };
 
   return (
     <div className="spm-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      {overlay}
       <div className="spm-panel">
         {/* Header */}
         <div className="spm-header">

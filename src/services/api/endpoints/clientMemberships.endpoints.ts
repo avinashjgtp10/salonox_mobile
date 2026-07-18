@@ -23,6 +23,8 @@ export interface ClientMembership {
   status: 'active' | 'expired' | 'exhausted' | 'cancelled';
   pricePaid?: number;
   membershipWalletBalance: number;
+  /** Denormalized from the membership plan — true when its wallet may also cover products. */
+  appliesToProducts?: boolean;
   usageLog?: UsageLogEntry[];
   createdAt: string;
   updatedAt: string;

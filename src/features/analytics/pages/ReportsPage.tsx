@@ -8,6 +8,9 @@ import {
   CashCoin, PersonCheckFill,
 } from "react-bootstrap-icons";
 import "../styles/ReportsPage.scss";
+import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
+import { getTaxModuleConfig } from "../../settings/utils/taxModuleSettings";
 
 import SalesSummaryReport from "../reports/SalesSummaryReport";
 import ProductSaleReport from "../reports/ProductSaleReport";
@@ -56,7 +59,7 @@ const REPORTS: ReportDef[] = [
   { id: "daily_sheet",            name: "Daily Sheet",                                 description: "A single day's transactions — tickets, services, staff and collections.",                           category: "sales",        icon: BarChartLine,   Component: DailySheetReport },
   { id: "product_sale",           name: "Product Retail",                              description: "Products sold directly to clients — quantity, price and the staff/client attached to the sale.", category: "sales",        icon: Bag,            Component: ProductSaleReport },
   { id: "service_sale",           name: "Service Sale",                                description: "Every service sold, with count, revenue and average ticket per service.",                          category: "sales",        icon: Scissors,       Component: ServiceSaleReport },
-  { id: "taxes",                  name: "Taxes",                                       description: "Tax collected per bill, broken down by tax component and rate.",                                   category: "sales",        icon: Receipt,        Component: TaxesReport },
+  { id: "taxes",                  name: "GST Report",                                  description: "Tax collected per invoice — CGST/SGST/IGST breakdown, taxable value and total.",                 category: "sales",        icon: Receipt,        Component: TaxesReport },
   { id: "product_margin",         name: "Product Margin",                              description: "Profit margin per product — sale price against cost price.",                                       category: "sales",        icon: GraphUpArrow,   Component: ProductMarginReport },
   { id: "reward",                 name: "Reward",                                      description: "Reward points earned and redeemed by clients over a period.",                                      category: "sales",        icon: Award,          Component: RewardReport },
   { id: "ewallet",                name: "Ewallet",                                     description: "Client e-wallet top-ups, deductions and running balance.",                                         category: "sales",        icon: Wallet2,        Component: EwalletReport },
@@ -107,6 +110,8 @@ function timeAgo(ts: number): string {
 }
 
 export default function ReportsPage() {
+  const dispatch = useAppDispatch();
+  const { items: settingItems } = useAppSelector((s) => s.setting);
   const [search, setSearch]         = useState("");
   const [activeId, setActiveId]     = useState<string | null>(null);
   const [favorites, setFavorites]   = useState<string[]>(loadFavorites);
@@ -115,6 +120,10 @@ export default function ReportsPage() {
   const [showAllRecents, setShowAllRecents] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    dispatch(fetchSettingsThunk());
+  }, [dispatch]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -127,7 +136,15 @@ export default function ReportsPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const byId = useMemo(() => new Map(REPORTS.map(r => [r.id, r])), []);
+  // Hide the GST/Taxes report entirely when GST is off or GST reports are
+  // disabled in Tax Settings — no tax data to report either way.
+  const taxModuleConfig = useMemo(() => getTaxModuleConfig(settingItems), [settingItems]);
+  const visibleReports = useMemo(
+    () => REPORTS.filter((r) => r.id !== "taxes" || (taxModuleConfig.enabled && taxModuleConfig.enable_gst_reports)),
+    [taxModuleConfig],
+  );
+
+  const byId = useMemo(() => new Map(visibleReports.map(r => [r.id, r])), [visibleReports]);
 
   const toggleFavorite = (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -169,8 +186,8 @@ export default function ReportsPage() {
   const isSearching = query.length > 0;
   const searchResults = useMemo(() => {
     if (!isSearching) return [];
-    return REPORTS.filter(r => r.name.toLowerCase().includes(query) || r.description.toLowerCase().includes(query));
-  }, [query, isSearching]);
+    return visibleReports.filter(r => r.name.toLowerCase().includes(query) || r.description.toLowerCase().includes(query));
+  }, [query, isSearching, visibleReports]);
 
   const active = byId.get(activeId ?? "") ?? null;
 
@@ -295,7 +312,7 @@ export default function ReportsPage() {
                     <h2 className="rp-section-title">All Report Categories</h2>
                     <div className="rp-cat-list">
                       {CATEGORIES.map(cat => {
-                        const reports = REPORTS.filter(r => r.category === cat.key);
+                        const reports = visibleReports.filter(r => r.category === cat.key);
                         const isOpen = expanded.has(cat.key);
                         return (
                           <div key={cat.key} className={`rp-cat-block ${isOpen ? "open" : ""}`}>

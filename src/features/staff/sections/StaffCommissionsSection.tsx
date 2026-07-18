@@ -3,7 +3,7 @@ import { Clipboard, Tag } from "react-bootstrap-icons";
 import "../styles/StaffCommissionsSection.scss";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
-import { toast } from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 
 interface CommissionSetting {
   category: "services" | "products" | "memberships" | "gift_cards" | "cancellation";
@@ -36,6 +36,7 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   useEffect(() => {
     if (staffId && salonId && !commissions && staffId !== "undefined") {
@@ -71,7 +72,7 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
 
   const handleSave = async () => {
     if (!staffId || !salonId || staffId === "undefined") {
-      toast("Please save the team member profile first");
+      showError("Please save the team member profile first");
       return;
     }
     try {
@@ -80,10 +81,10 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
         api.put(STAFF.COMMISSIONS(staffId), s)
       );
       await Promise.all(promises);
-      toast.success("Commission settings saved successfully");
+      showSuccess("Commission settings saved successfully");
     } catch (error) {
       console.error("Error saving commissions:", error);
-      toast.error("Failed to save commission settings");
+      showError("Failed to save commission settings");
     } finally {
       setIsSaving(false);
     }
@@ -93,6 +94,7 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
 
   return (
     <div className="section commissions-section mt-1">
+      {overlay}
       {/* Services Commission */}
       <div className="custom-switch-container">
         <div className="switch-info">

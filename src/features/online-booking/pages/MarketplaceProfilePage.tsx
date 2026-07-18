@@ -3,7 +3,7 @@ import {
   Globe, Upload, Clock, Eye, CheckCircle, InfoCircle, ImageFill,
   Images, Trash3, ArrowRepeat, CloudArrowUp, PlusLg, XCircleFill,
 } from "react-bootstrap-icons";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import "../styles/OnlineBooking.scss";
 import BookingPreviewModal from "../components/BookingPreviewModal";
 import api from "../../../services/api/axios";
@@ -77,6 +77,7 @@ export default function MarketplaceProfilePage() {
   const [hours,        setHours]        = useState(defaultHours);
   const [saved,        setSaved]        = useState(false);
   const [showPreview,  setShowPreview]  = useState(false);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   // Load profile from Redux
   useEffect(() => {
@@ -122,7 +123,7 @@ export default function MarketplaceProfilePage() {
 
   const handleSave = async () => {
     if (phone && phone.replace(/\D/g, "").length !== 10) {
-      toast.error("Phone number must be exactly 10 digits");
+      showError("Phone number must be exactly 10 digits");
       return;
     }
 
@@ -143,10 +144,10 @@ export default function MarketplaceProfilePage() {
       }
 
       setSaved(true);
-      toast.success("Profile saved!");
+      showSuccess("Profile saved!");
       setTimeout(() => setSaved(false), 2500);
     } catch (err: any) {
-      toast.error(err || "Failed to save profile");
+      showError(err || "Failed to save profile");
     }
   };
 
@@ -189,7 +190,7 @@ export default function MarketplaceProfilePage() {
     const valid: File[] = [];
     Array.from(files).forEach((f) => {
       const err = validateFile(f);
-      if (err) { toast.error(err); }
+      if (err) { showError(err); }
       else       valid.push(f);
     });
     if (!valid.length) return;
@@ -234,7 +235,7 @@ export default function MarketplaceProfilePage() {
               : g
           )
         );
-        toast.success(`"${file.name}" uploaded!`);
+        showSuccess(`"${file.name}" uploaded!`);
       } catch (err: unknown) {
         const msg =
           (err as { response?: { data?: { message?: string } } })?.response?.data?.message
@@ -242,7 +243,7 @@ export default function MarketplaceProfilePage() {
         setGallery((p) =>
           p.map((g) => g.id === local.id ? { ...g, uploading: false, error: msg } : g)
         );
-        toast.error(msg);
+        showError(msg);
       }
     }
   }, []);
@@ -255,10 +256,10 @@ export default function MarketplaceProfilePage() {
 
     try {
       await api.delete(GALLERY.BY_ID(photo.id));
-      toast.success("Photo deleted.");
+      showSuccess("Photo deleted.");
     } catch {
       setGallery((p) => [...p, photo]); // restore on failure
-      toast.error("Could not delete photo. Please try again.");
+      showError("Could not delete photo. Please try again.");
     }
   }, []);
 
@@ -266,7 +267,7 @@ export default function MarketplaceProfilePage() {
   const replacePhoto = useCallback(
     async (photo: GalleryPhoto, file: File) => {
       const err = validateFile(file);
-      if (err) { toast.error(err); return; }
+      if (err) { showError(err); return; }
 
       const newUrl = URL.createObjectURL(file);
       setGallery((p) =>
@@ -299,7 +300,7 @@ export default function MarketplaceProfilePage() {
               : g
           )
         );
-        toast.success("Photo replaced!");
+        showSuccess("Photo replaced!");
       } catch (err: unknown) {
         const msg =
           (err as { response?: { data?: { message?: string } } })?.response?.data?.message
@@ -307,7 +308,7 @@ export default function MarketplaceProfilePage() {
         setGallery((p) =>
           p.map((g) => g.id === photo.id ? { ...g, uploading: false, error: msg } : g)
         );
-        toast.error(msg);
+        showError(msg);
       }
     },
     []
@@ -316,7 +317,7 @@ export default function MarketplaceProfilePage() {
   // ── Logo & Cover upload handlers ────────────────────────────────────────────
   const handleLogoUpload = async (file: File) => {
     const err = validateFile(file);
-    if (err) { toast.error(err); return; }
+    if (err) { showError(err); return; }
     setLogoUrl(URL.createObjectURL(file));
     setLogoUploading(true);
     const formData = new FormData();
@@ -327,10 +328,10 @@ export default function MarketplaceProfilePage() {
       });
       const saved = res.data?.data ?? res.data ?? {};
       setLogoUrl(toRelativeUrl(saved.logo_url) || URL.createObjectURL(file));
-      toast.success("Logo uploaded!");
+      showSuccess("Logo uploaded!");
     } catch (err: unknown) {
       const msg = (err as any)?.response?.data?.message ?? "Logo upload failed.";
-      toast.error(msg);
+      showError(msg);
     } finally {
       setLogoUploading(false);
     }
@@ -338,7 +339,7 @@ export default function MarketplaceProfilePage() {
 
   const handleCoverUpload = async (file: File) => {
     const err = validateFile(file);
-    if (err) { toast.error(err); return; }
+    if (err) { showError(err); return; }
     setCoverUrl(URL.createObjectURL(file));
     setCoverUploading(true);
     const formData = new FormData();
@@ -349,10 +350,10 @@ export default function MarketplaceProfilePage() {
       });
       const saved = res.data?.data ?? res.data ?? {};
       setCoverUrl(toRelativeUrl(saved.cover_url) || URL.createObjectURL(file));
-      toast.success("Cover photo uploaded!");
+      showSuccess("Cover photo uploaded!");
     } catch (err: unknown) {
       const msg = (err as any)?.response?.data?.message ?? "Cover upload failed.";
-      toast.error(msg);
+      showError(msg);
     } finally {
       setCoverUploading(false);
     }
@@ -369,6 +370,7 @@ export default function MarketplaceProfilePage() {
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="ob-page">
+      {overlay}
 
       {/* ════════════════════════════════════════════════════════════════════════
           EXISTING — Page Header

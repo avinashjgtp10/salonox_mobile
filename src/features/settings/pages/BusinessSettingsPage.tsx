@@ -12,8 +12,8 @@ import {
   Store,
   Users,
 } from "lucide-react";
-import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { getMySalonThunk, updateSalonThunk } from "../../../middleware/salon/salon.thunk";
 import Button from "../../../components/ui/Button";
@@ -41,6 +41,7 @@ export default function BusinessSettingsPage() {
   });
 
   const [isDirty, setIsDirty] = useState(false);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   useEffect(() => {
     dispatch(getMySalonThunk());
@@ -72,7 +73,7 @@ export default function BusinessSettingsPage() {
 
   const handleSave = async () => {
     if (!currentSalon?.id) {
-      toast.error("Salon information not found");
+      showError("Salon information not found");
       return;
     }
 
@@ -81,10 +82,10 @@ export default function BusinessSettingsPage() {
     );
 
     if (updateSalonThunk.fulfilled.match(result)) {
-      toast.success("Business settings saved");
+      showSuccess("Business settings saved");
       setIsDirty(false);
     } else {
-      toast.error((result.payload as string) || "Failed to save business settings");
+      showError((result.payload as string) || "Failed to save business settings");
     }
   };
 
@@ -116,6 +117,7 @@ export default function BusinessSettingsPage() {
 
   return (
     <>
+      {overlay}
       {/* Page Header */}
       <div className="settings-page-header">
         <h2 className="settings-page-title">Business Settings</h2>
@@ -157,7 +159,7 @@ export default function BusinessSettingsPage() {
                 <Button
                   size="sm"
                   variant="outline-secondary"
-                  onClick={() => toast("Logo upload coming soon", { icon: "ℹ️" })}
+                  onClick={() => showError("Logo upload coming soon")}
                 >
                   Upload logo
                 </Button>

@@ -8,7 +8,7 @@ import {
   RefreshCw,
   Trash2,
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
   fetchSettingsThunk,
@@ -126,6 +126,7 @@ export default function IntegrationsPage() {
   const [saving, setSaving] = useState<string | null>(null);
   const [testing, setTesting] = useState<string | null>(null);
   const [settingId, setSettingId] = useState<EntityId | null>(null);
+  const { showSuccess, overlay } = useStatusOverlay();
 
   // Load persisted integration state on mount
   useEffect(() => {
@@ -201,7 +202,7 @@ export default function IntegrationsPage() {
     setIntegrations(updated);
     await persistIntegrations(updated);
     setSaving(null);
-    toast.success("Integration connected successfully");
+    showSuccess("Integration connected successfully");
     setExpandedId(null);
   };
 
@@ -213,14 +214,14 @@ export default function IntegrationsPage() {
     );
     setIntegrations(updated);
     await persistIntegrations(updated);
-    toast.success("Integration disconnected");
+    showSuccess("Integration disconnected");
   };
 
   const handleTest = async (integId: string) => {
     setTesting(integId);
     await new Promise((r) => setTimeout(r, 1000));
     setTesting(null);
-    toast.success("Connection test passed");
+    showSuccess("Connection test passed");
   };
 
   const groupedIntegrations = categoryOrder
@@ -241,6 +242,7 @@ export default function IntegrationsPage() {
 
   return (
     <>
+      {overlay}
       {/* Page Header */}
       <div className="settings-page-header">
         <h2 className="settings-page-title">Integrations</h2>

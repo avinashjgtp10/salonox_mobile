@@ -39,6 +39,28 @@ export function formatNavDate(date: Date): string {
   return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).replace(/ /g, " ");
 }
 
+// A schedule row's `date` column is stored as local midnight for the
+// scheduled day, but travels over the wire as a UTC ISO timestamp — e.g. the
+// intended date "2026-07-18" (IST) round-trips as "2026-07-17T18:30:00.000Z"
+// (confirmed via the actual GET /staff/:id/scheduled response). Slicing the
+// first 10 chars of that string gives the UTC calendar date ("2026-07-17"),
+// one day EARLIER than the date the shift was actually saved for — this is
+// why a saved shift appeared to save, then showed up under the wrong (prior)
+// day, or vanished entirely after a refresh once the columns stopped lining
+// up. Parsing into a Date and reading its LOCAL components recovers the
+// calendar date the user actually picked, for both a full timestamp and a
+// bare "YYYY-MM-DD" string (which the Date constructor parses as UTC
+// midnight — still safe here since IST is ahead of UTC).
+export function scheduleDateToYMD(d: unknown): string {
+  if (!d) return "";
+  const date = d instanceof Date ? d : new Date(d as string);
+  if (isNaN(date.getTime())) return "";
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 // ── Time helpers ─────────────────────────────────────────────────────────────
 
 export function calcTotalHours(start: string, end: string): string {

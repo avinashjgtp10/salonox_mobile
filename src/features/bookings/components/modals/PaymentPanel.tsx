@@ -12,14 +12,6 @@ interface Props {
   alreadyPaid: number;
   grandTotal: number;
 
-  // eWallet
-  eWalletBalance: number;
-  useEWallet: boolean;
-  eWalletAmt: number;
-  eWalletMaxAmt: number;
-  onToggleEWallet: (v: boolean) => void;
-  onSetEWalletAmt: (v: number) => void;
-
   // Membership wallet (automatic, not a toggle)
   membershipWalletUsed?: number;
   membershipWalletRemaining?: number;
@@ -76,6 +68,13 @@ interface Props {
   printAfterPayment: boolean;
   onTogglePrint: (v: boolean) => void;
 
+  // GST — lets staff exclude tax from this specific bill even when Tax
+  // Mapping is configured (e.g. a client requesting a no-GST cash bill).
+  // Hidden entirely when the salon has no active taxes to begin with.
+  includeGst?: boolean;
+  onToggleIncludeGst?: (v: boolean) => void;
+  hasActiveTaxes?: boolean;
+
   // Rewards preview
   previewPoints: number;
   previewWalletCredit: number;
@@ -83,11 +82,8 @@ interface Props {
   frozen?: boolean;
 }
 
-const EWALLET_MINIMUM = 100;
-
 export const PaymentPanel: React.FC<Props> = ({
   remainingDue, alreadyPaid,
-  eWalletBalance, useEWallet, eWalletAmt, eWalletMaxAmt, onToggleEWallet, onSetEWalletAmt,
   membershipWalletUsed = 0, membershipWalletRemaining,
   couponInput, onCouponInputChange, onApplyCoupon,
   couponMessage, couponError, couponLoading,
@@ -100,6 +96,7 @@ export const PaymentPanel: React.FC<Props> = ({
   partialAmtInput, onSetPartialAmt,
   priorDueAmt, priorDueBookings, selectedDueIds, isAllDueSelected, onToggleAllDue, onToggleOneDue,
   printAfterPayment, onTogglePrint,
+  includeGst = true, onToggleIncludeGst, hasActiveTaxes = false,
   previewPoints, previewWalletCredit,
   frozen,
 }) => {
@@ -109,10 +106,10 @@ export const PaymentPanel: React.FC<Props> = ({
 
   return (
     <div className="payment-panel">
-      {/* Rewards preview — credited straight to eWallet, not a separate points balance */}
+      {/* Rewards preview — earned as raw points to their own dedicated balance, not converted to ₹/eWallet at earn time anymore */}
       {previewPoints > 0 && (
         <div className="pay-rewards">
-          Earn <strong>{currencySymbol}{previewWalletCredit.toFixed(2)}</strong> to wallet on this visit
+          Earn <strong>{previewPoints} points</strong> (worth {currencySymbol}{previewWalletCredit.toFixed(2)}) on this visit
         </div>
       )}
 
@@ -172,43 +169,10 @@ export const PaymentPanel: React.FC<Props> = ({
         </div>
       )}
 
-      {/* eWallet */}
-      {eWalletBalance >= EWALLET_MINIMUM && !frozen && (
-        <div className={`pay-ewallet${useEWallet ? " pay-ewallet--active" : ""}`}>
-          <label
-            style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", flex: 1 }}
-            onClick={() => onToggleEWallet(!useEWallet)}
-          >
-            <input
-              type="checkbox"
-              checked={useEWallet}
-              onChange={(e) => onToggleEWallet(e.target.checked)}
-              onClick={(e) => e.stopPropagation()}
-            />
-            <span>Use eWallet (Available: {currencySymbol}{eWalletBalance.toFixed(2)})</span>
-          </label>
-          {useEWallet && (
-            <div className="pay-due-row__field" onClick={(e) => e.stopPropagation()}>
-              <span className="pay-due-row__symbol">{currencySymbol}</span>
-              <input
-                type="number"
-                className="pay-due-row__input"
-                min={0}
-                max={eWalletMaxAmt}
-                step={0.01}
-                value={eWalletAmt || ""}
-                placeholder="0"
-                onChange={(e) => {
-                  const raw = e.target.value;
-                  if (raw === "") { onSetEWalletAmt(0); return; }
-                  const val = parseFloat(raw);
-                  if (!isNaN(val)) onSetEWalletAmt(val);
-                }}
-              />
-            </div>
-          )}
-        </div>
-      )}
+      {/* eWallet / Reward Points / Referral Credit toggles now live in
+          AvailableBenefitsPanel (rendered earlier in the flow, alongside
+          Package/Membership) — this panel just displays the automatic
+          Membership Wallet confirmation and handles payment method/coupon. */}
 
       {/* Membership wallet — automatic, informational only */}
       {membershipWalletUsed > 0 && (
@@ -283,6 +247,19 @@ export const PaymentPanel: React.FC<Props> = ({
               </label>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* GST include/exclude — only shown when the salon actually has active
+          taxes configured; lets staff bill this specific client without GST. */}
+      {!frozen && hasActiveTaxes && (
+        <div className="pay-gst">
+          <input
+            type="checkbox" id="include-gst"
+            checked={includeGst}
+            onChange={(e) => onToggleIncludeGst?.(e.target.checked)}
+          />
+          <label htmlFor="include-gst">Include GST in this bill</label>
         </div>
       )}
 

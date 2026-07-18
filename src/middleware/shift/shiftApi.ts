@@ -15,12 +15,10 @@ export interface UpdateShiftPayload {
 }
 
 const shiftApi = {
-  // Fetch all staff for the salon (uses existing staff endpoint)
+  // Fetch all staff for the salon (uses existing staff endpoint) — each staff
+  // record already carries its own `schedule` array, so there's no separate
+  // per-staff schedule fetch anymore.
   getStaffMembers: () => api.get("/api/v1/staff"),
-
-  // Fetch schedules for a specific staff member
-  getStaffSchedules: (staffId: string) =>
-    api.get(`/api/v1/staff/${staffId}/scheduled`),
 
   // Bulk update schedules for a specific staff member
   upsertStaffSchedules: (staffId: string, items: any[]) =>
@@ -76,6 +74,7 @@ const shiftApi = {
     date: string;
     start_time: string;
     end_time: string;
+    breaks?: { start_time: string; end_time: string }[];
   }) => {
     const dateObj = new Date(payload.date + "T12:00:00");
     const dayOfWeek = dateObj.getDay();
@@ -88,6 +87,7 @@ const shiftApi = {
           is_available: isAvailable,
           start_time: isAvailable ? payload.start_time : null,
           end_time: isAvailable ? payload.end_time : null,
+          breaks: isAvailable ? (payload.breaks ?? []) : [],
         }
       ]
     });

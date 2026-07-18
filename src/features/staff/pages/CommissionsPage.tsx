@@ -3,7 +3,7 @@ import { useSelector } from "react-redux";
 import { selectCurrentSalon } from "../../../store/selectors/slices.selectors";
 import api from "../../../services/api/axios";
 import { STAFF, COMMISSION_RULES } from "../../../services/api/endpoints";
-import { toast } from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import {
   Plus, X,
   SquareFill, ListCheck,
@@ -11,7 +11,8 @@ import {
   PersonCheck, PersonX, Tools, Bag, Tag, Gift, BoxSeam,
   StarFill, Gear, CheckCircleFill, XCircleFill,
   Calculator, CreditCard2Front,
-  ChevronLeft, ChevronRight, ClockHistory, Download,
+  ChevronLeft, ChevronRight, ChevronDown, ClockHistory, Download,
+  FileEarmarkExcel, FiletypePdf,
 } from "react-bootstrap-icons";
 import "../styles/CommissionsPage.scss";
 import { SuccessOverlay } from "../../../components/ui";
@@ -19,6 +20,7 @@ import RuleCard from "../components/commission/RuleCard";
 import RuleWizard from "../components/commission/RuleWizard";
 import RuleDetailModal from "../components/commission/RuleDetailModal";
 import { SOURCE_META, groupCommissionRules } from "../components/commission/commissionRuleMeta";
+import { exportCommissionsPDF } from "../utils/commissionExport";
 import type { CommissionRule, CommissionRuleFormData, CommissionRuleSource, RuleGroup } from "../types/commissionRules.types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -626,6 +628,14 @@ export default function CommissionsPage() {
   const [detailGroup,     setDetailGroup]     = useState<RuleGroup | null>(null);
   const [togglingRuleId,  setTogglingRuleId]  = useState<string | null>(null);
   const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
+
+  useEffect(() => {
+    const handler = () => setOptionsOpen(false);
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, []);
 
   const fetchAll = useCallback(async () => {
     if (!salonId) return;
@@ -647,7 +657,7 @@ export default function CommissionsPage() {
       const staff = allStaff.filter((s) => s.is_active !== false);
       setStaffList(staff);
     } catch (err: any) {
-      toast.error(err?.message ?? "Failed to load commissions");
+      showError(err?.message ?? "Failed to load commissions");
     } finally {
       setLoading(false);
       setCommsFetching(false);
@@ -663,7 +673,7 @@ export default function CommissionsPage() {
       const res = await api.get(COMMISSION_RULES.BASE);
       setCommissionRules(res.data?.data?.items ?? []);
     } catch (err: any) {
-      toast.error(err?.message ?? "Failed to load commission rules");
+      showError(err?.message ?? "Failed to load commission rules");
     } finally {
       setRulesLoading(false);
     }
@@ -686,16 +696,16 @@ export default function CommissionsPage() {
           })
         ));
         await api.post(COMMISSION_RULES.BASE, data);
-        toast.success("Commission rule updated");
+        showSuccess("Commission rule updated");
       } else {
         const res = await api.post(COMMISSION_RULES.BASE, data);
-        toast.success(res.data?.message ?? "Commission rule created");
+        showSuccess(res.data?.message ?? "Commission rule created");
       }
       setShowWizard(false);
       setEditingGroup(null);
       fetchCommissionRules();
     } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? "Failed to save commission rule");
+      showError(err?.response?.data?.message ?? "Failed to save commission rule");
     }
   };
 
@@ -708,7 +718,7 @@ export default function CommissionsPage() {
       setCommissionRules((prev) => prev.map((r) => (idsInGroup.has(r.id) ? { ...r, status: nextStatus } : r)));
       setDetailGroup((prev) => (prev?.key === group.key ? null : prev));
     } catch (err: any) {
-      toast.error(err?.message ?? "Failed to update rule status");
+      showError(err?.message ?? "Failed to update rule status");
     } finally {
       setTogglingRuleId(null);
     }
@@ -722,7 +732,7 @@ export default function CommissionsPage() {
       setDetailGroup((prev) => (prev?.key === group.key ? null : prev));
       setShowDeleteSuccess(true);
     } catch (err: any) {
-      toast.error(err?.message ?? "Failed to delete commission rule");
+      showError(err?.message ?? "Failed to delete commission rule");
     }
   };
 
@@ -757,7 +767,7 @@ export default function CommissionsPage() {
     setSettlingId(staffId);
     try {
       await api.post(STAFF.SETTLE_COMMISSION(staffId));
-      toast.success(`₹${amount.toLocaleString("en-IN")} settled for ${name}`);
+      showSuccess(`₹${amount.toLocaleString("en-IN")} settled for ${name}`);
       const [summaryRes, earnedRes] = await Promise.all([
         api.get(`${STAFF.BASE}/commissions/summary?salon_id=${salonId}&month=${summaryMonth}`),
         api.get(`${STAFF.BASE}/commissions/earned?salon_id=${salonId}&month=${summaryMonth}`),
@@ -765,7 +775,7 @@ export default function CommissionsPage() {
       setEarnSummary(summaryRes.data?.data ?? null);
       setEarnedByStaff(earnedRes.data?.data ?? []);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? "Failed to settle commission");
+      showError(err?.response?.data?.message ?? "Failed to settle commission");
     } finally {
       setSettlingId(null);
     }
@@ -773,6 +783,7 @@ export default function CommissionsPage() {
 
   return (
     <div className="commissions-page">
+      {overlay}
       {showDeleteSuccess && (
         <SuccessOverlay message="Commission rule deleted successfully" onDone={() => setShowDeleteSuccess(false)} />
       )}
@@ -783,19 +794,60 @@ export default function CommissionsPage() {
           <p className="cm-subtitle">Create and manage commission rules for your team</p>
         </div>
         <div className="cm-header-actions">
-          <button className="cm-export-btn" onClick={async () => {
-            try {
-              const res = await api.get(`${STAFF.BASE}/commissions/export?salon_id=${salonId}&month=${summaryMonth}`, { responseType: "blob" });
-              const url = URL.createObjectURL(new Blob([res.data]));
-              const a   = document.createElement("a");
-              a.href    = url;
-              a.download = `commissions_${summaryMonth}.csv`;
-              a.click();
-              URL.revokeObjectURL(url);
-            } catch { toast.error("Export failed"); }
-          }}>
-            <Download size={14} /> Export CSV
-          </button>
+          <div className="cm-options-dropdown" onClick={(e) => e.stopPropagation()}>
+            <button className="cm-export-btn" onClick={() => setOptionsOpen((v) => !v)}>
+              Options <ChevronDown size={13} />
+            </button>
+            {optionsOpen && (
+              <div className="cm-options-menu">
+                <div className="cm-option-label">Export</div>
+                <button className="cm-option-item" onClick={async () => {
+                  setOptionsOpen(false);
+                  try {
+                    const res = await api.get(`${STAFF.BASE}/commissions/export?salon_id=${salonId}&month=${summaryMonth}`, { responseType: "blob" });
+                    const url = URL.createObjectURL(new Blob([res.data]));
+                    const a   = document.createElement("a");
+                    a.href    = url;
+                    a.download = `commissions_${summaryMonth}.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  } catch { showError("Export failed"); }
+                }}>
+                  <Download size={14} /> Export CSV
+                </button>
+                <button className="cm-option-item" onClick={async () => {
+                  setOptionsOpen(false);
+                  try {
+                    const res = await api.get(`${STAFF.BASE}/commissions/export?salon_id=${salonId}&month=${summaryMonth}&format=excel`, { responseType: "blob" });
+                    const url = URL.createObjectURL(new Blob([res.data]));
+                    const a   = document.createElement("a");
+                    a.href    = url;
+                    a.download = `commissions_${summaryMonth}.xlsx`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  } catch { showError("Export failed"); }
+                }}>
+                  <FileEarmarkExcel size={14} /> Export Excel
+                </button>
+                <button className="cm-option-item" onClick={async () => {
+                  setOptionsOpen(false);
+                  try {
+                    const res = await api.get(`${STAFF.BASE}/commissions/export?salon_id=${salonId}&month=${summaryMonth}&format=json`);
+                    const rows = res.data?.data ?? [];
+                    const blob = exportCommissionsPDF(rows, summaryMonth);
+                    const url  = URL.createObjectURL(blob);
+                    const a    = document.createElement("a");
+                    a.href     = url;
+                    a.download = `commissions_${summaryMonth}.pdf`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  } catch { showError("Export failed"); }
+                }}>
+                  <FiletypePdf size={14} /> Export PDF
+                </button>
+              </div>
+            )}
+          </div>
           <button className="cm-add-btn" onClick={() => { setEditingGroup(null); setShowWizard(true); }}>
             <Plus size={15} /> Add Commission Rule
           </button>

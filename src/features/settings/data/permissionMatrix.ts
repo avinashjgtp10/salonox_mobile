@@ -70,6 +70,8 @@ export const defaultPermissions: Permission[] = [
   { key: "view_team",           label: "View Team",           desc: "See team members and schedules",       category: "Team",           owner: true, staff: true,  manager: true },
   { key: "add_team_member",     label: "Add Team Member",     desc: "Invite and add new staff",             category: "Team",           owner: true, staff: false, manager: true },
   { key: "edit_team_member",    label: "Edit Team Member",    desc: "Update team member details",           category: "Team",           owner: true, staff: false, manager: true },
+  { key: "manage_shifts",       label: "Manage Shifts",       desc: "Create and edit scheduled shifts",     category: "Team",           owner: true, staff: false, manager: true },
+  { key: "view_payroll",        label: "View Payroll",        desc: "Access pay runs and payroll data",     category: "Team",           owner: true, staff: false, manager: true },
 
   // ── Reports ───────────────────────────────────────────────────────────────
   { key: "view_reports",        label: "View Reports",        desc: "Access business reports",              category: "Reports",        owner: true, staff: false, manager: true },

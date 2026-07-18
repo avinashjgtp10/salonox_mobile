@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import Modal from "../../../../components/ui/Modal";
 import Button from "../../../../components/ui/Button";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../../hooks/useStatusOverlay";
 
 interface PayRunSettings {
   payPeriod: "weekly" | "biweekly" | "monthly";
@@ -26,6 +26,7 @@ const DEFAULT_SETTINGS: PayRunSettings = {
 
 const PayRunSettingsModal: React.FC<PayRunSettingsModalProps> = ({ isOpen, onClose }) => {
   const [settings, setSettings] = useState<PayRunSettings>(DEFAULT_SETTINGS);
+  const { showSuccess, overlay } = useStatusOverlay();
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -38,12 +39,13 @@ const PayRunSettingsModal: React.FC<PayRunSettingsModalProps> = ({ isOpen, onClo
   };
 
   const handleSave = () => {
-    toast.success("Pay run settings saved");
+    showSuccess("Pay run settings saved");
     onClose();
   };
 
   return (
     <Modal show={isOpen} onClose={onClose} title="Pay Run Settings">
+      {overlay}
       <div className="p-1">
         <div className="row g-4">
           {/* Pay Period */}

@@ -13,24 +13,25 @@ import {
   X,
   PersonBadge,
   PersonPlus,
-  GeoAlt,
   Calendar2Check,
   ToggleOn,
   FileEarmarkExcel,
   FiletypeCsv,
+  FiletypePdf,
   Pencil,
   Trash,
   ThreeDots,
   TelephoneFill,
   EnvelopeFill,
-  CheckCircleFill,
-  ExclamationCircleFill,
 } from "react-bootstrap-icons";
 import "../styles/StaffListPage.scss";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
-import { Button, Input, DownloadButton, SuccessOverlay } from "../../../components/ui";
+import { Button, Input, DownloadButton, Modal } from "../../../components/ui";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import StaffImportModal from "../components/StaffImportModal";
+import TeamMemberDrawer from "../components/TeamMemberDrawer";
+import { exportStaffPDF } from "../utils/staffExport";
 
 interface StaffMember {
   id: string;
@@ -43,7 +44,6 @@ interface StaffMember {
   invitation_status?: string;
   job_title?: string;
   calendar_color?: string;
-  location?: string;
   allow_calendar_bookings?: boolean;
   permission_level?: string;
   is_active?: boolean;
@@ -106,33 +106,31 @@ export default function StaffListPage() {
   const [selectedSort, setSelectedSort] = useState("Custom order");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [optionsOpen, setOptionsOpen] = useState(false);
-  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
-  const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ mode: "single"; id: string } | { mode: "bulk" } | null>(null);
 
   // Filter state
-  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
   const [bookable, setBookable] = useState(false);
   const [nonBookable, setNonBookable] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<"all" | "active" | "archived">("all");
 
-  const locations = ["Main Branch", "Branch 2", "Branch 3"];
   const sortOptions = [
     "Custom order",
     "Name (A-Z)",
     "Name (Z-A)",
     "Started at (oldest first)",
     "Started at (newest first)",
-    "Rating (highest first)",
   ];
 
   const showToast = useCallback((msg: string, type: "success" | "error" = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3500);
-  }, []);
-
+    if (type === "error") showError(msg);
+    else showSuccess(msg);
+  }, [showSuccess, showError]);
 
   const fetchStaff = useCallback(async () => {
     try {
@@ -162,21 +160,12 @@ export default function StaffListPage() {
     return () => document.removeEventListener("click", handler);
   }, []);
 
-  const toggleLocation = (loc: string) =>
-    setSelectedLocations((prev) =>
-      prev.includes(loc) ? prev.filter((l) => l !== loc) : [...prev, loc]
-    );
-  const toggleAllLocations = () =>
-    setSelectedLocations((prev) => (prev.length === locations.length ? [] : [...locations]));
-
   const totalFilterBadge =
-    selectedLocations.length +
     (bookable ? 1 : 0) +
     (nonBookable ? 1 : 0) +
     (selectedStatus !== "all" ? 1 : 0);
 
   const clearFilters = () => {
-    setSelectedLocations([]);
     setBookable(false);
     setNonBookable(false);
     setSelectedStatus("all");
@@ -197,7 +186,7 @@ export default function StaffListPage() {
     setDeletingId(id);
     try {
       await dispatch(deleteStaffThunk(id)).unwrap();
-      setShowDeleteSuccess(true);
+      showSuccess("Staff deleted successfully");
       setSelectedIds((prev) => prev.filter((x) => x !== id));
       // Refetch to sync with server (handles edge cases where backend may have cascade effects)
       fetchStaff();
@@ -207,6 +196,16 @@ export default function StaffListPage() {
       setDeletingId(null);
       setActionMenuId(null);
     }
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deleteConfirm) return;
+    if (deleteConfirm.mode === "single") {
+      handleDeleteStaff(deleteConfirm.id);
+    } else {
+      selectedIds.forEach((id) => handleDeleteStaff(id));
+    }
+    setDeleteConfirm(null);
   };
 
   const handleToggleStatus = async (member: StaffMember) => {
@@ -224,14 +223,20 @@ export default function StaffListPage() {
     setActionMenuId(null);
   };
 
+  // CSV/Excel exports hit the backend directly rather than exporting the
+  // already-loaded `staff` array, so the current search/status filters have
+  // to be forwarded explicitly or the server just returns every record.
+  const exportQueryParams = () => ({
+    search: searchTerm.trim() || undefined,
+    is_active: selectedStatus === "all" ? undefined : selectedStatus === "active",
+  });
+
   const filtered = staff.filter((s) => {
     const name = `${s.first_name || ""} ${s.last_name || ""}`.toLowerCase();
     const matchesSearch =
       name.includes(searchTerm.toLowerCase()) ||
       (s.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (s.phone_number || s.phone || "").includes(searchTerm);
-    const matchesLocation =
-      selectedLocations.length === 0 || selectedLocations.includes(s.location || "");
     const matchesStatus =
       selectedStatus === "all" ||
       (selectedStatus === "active" && (s.is_active !== false)) ||
@@ -241,7 +246,7 @@ export default function StaffListPage() {
         ? true
         : (bookable && s.allow_calendar_bookings) ||
         (nonBookable && !s.allow_calendar_bookings);
-    return matchesSearch && matchesLocation && matchesStatus && matchesBookable;
+    return matchesSearch && matchesStatus && matchesBookable;
   });
 
   const sorted = [...filtered].sort((a, b) => {
@@ -249,6 +254,11 @@ export default function StaffListPage() {
     const nameB = `${b.first_name} ${b.last_name}`.toLowerCase();
     if (selectedSort === "Name (A-Z)") return nameA.localeCompare(nameB);
     if (selectedSort === "Name (Z-A)") return nameB.localeCompare(nameA);
+    if (selectedSort === "Started at (oldest first)" || selectedSort === "Started at (newest first)") {
+      const startedA = new Date((a as any).joined_date || a.created_at || 0).getTime();
+      const startedB = new Date((b as any).joined_date || b.created_at || 0).getTime();
+      return selectedSort === "Started at (oldest first)" ? startedA - startedB : startedB - startedA;
+    }
     return 0;
   });
 
@@ -259,32 +269,14 @@ export default function StaffListPage() {
   );
 
   // Reset to page 1 when search / filter / sort changes
-  useEffect(() => { setCurrentPage(1); }, [searchTerm, selectedSort, selectedLocations, bookable, nonBookable, selectedStatus]);
+  useEffect(() => { setCurrentPage(1); }, [searchTerm, selectedSort, bookable, nonBookable, selectedStatus]);
 
   const rangeFrom = sorted.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
   const rangeTo = Math.min(currentPage * PAGE_SIZE, sorted.length);
 
   return (
     <div className="staff-list-page">
-      {/* ===== DELETE SUCCESS ===== */}
-      {showDeleteSuccess && (
-        <SuccessOverlay message="Staff deleted successfully" onDone={() => setShowDeleteSuccess(false)} />
-      )}
-
-      {/* ===== TOAST ===== */}
-      {toast && (
-        <div className={`sl-toast ${toast.type === "error" ? "sl-toast--error" : ""}`}>
-          {toast.type === "success" ? (
-            <CheckCircleFill size={16} className="sl-toast-icon" />
-          ) : (
-            <ExclamationCircleFill size={16} className="sl-toast-icon" />
-          )}
-          <span>{toast.msg}</span>
-          <button className="sl-toast-close" onClick={() => setToast(null)}>
-            <X size={14} />
-          </button>
-        </div>
-      )}
+      {overlay}
 
       {/* ===== FILTER DRAWER ===== */}
       {showFilter && (
@@ -297,35 +289,6 @@ export default function StaffListPage() {
               <h4>All filters</h4>
             </div>
             <div className="sl-filter-body">
-              <FilterSection
-                title="Locations"
-                icon={<GeoAlt size={15} />}
-                badge={selectedLocations.length || undefined}
-                onClear={() => setSelectedLocations([])}
-              >
-                <label className="fs-checkbox-row fs-select-all">
-                  <input
-                    type="checkbox"
-                    checked={selectedLocations.length === locations.length}
-                    onChange={toggleAllLocations}
-                  />
-                  <span>Select all</span>
-                </label>
-                {locations.map((loc) => (
-                  <label key={loc} className="fs-checkbox-row">
-                    <input
-                      type="checkbox"
-                      checked={selectedLocations.includes(loc)}
-                      onChange={() => toggleLocation(loc)}
-                    />
-                    <span className="fs-loc-info">
-                      <span className="fs-loc-icon">🏢</span>
-                      <span>{loc}</span>
-                    </span>
-                  </label>
-                ))}
-              </FilterSection>
-
               <FilterSection
                 title="Type"
                 icon={<Calendar2Check size={15} />}
@@ -355,7 +318,7 @@ export default function StaffListPage() {
                     onClick={() => setSelectedStatus(s)}
                   >
                     <span>
-                      {s === "all" ? "All team members" : s === "active" ? "Active" : "Archived"}
+                      {s === "all" ? "All team members" : s === "active" ? "Active" : "Inactive"}
                     </span>
                     {selectedStatus === s && <span className="fs-radio-check">✓</span>}
                   </div>
@@ -410,7 +373,10 @@ export default function StaffListPage() {
                 <DownloadButton
                   filename="staff.csv"
                   fetcher={async () => {
-                    const res = await api.get(STAFF.EXPORT("csv"), { responseType: "blob" });
+                    const res = await api.get(STAFF.EXPORT("csv"), {
+                      responseType: "blob",
+                      params: exportQueryParams(),
+                    });
                     setOptionsOpen(false);
                     return res.data;
                   }}
@@ -424,7 +390,10 @@ export default function StaffListPage() {
                 <DownloadButton
                   filename="staff.xlsx"
                   fetcher={async () => {
-                    const res = await api.get(STAFF.EXPORT("excel"), { responseType: "blob" });
+                    const res = await api.get(STAFF.EXPORT("excel"), {
+                      responseType: "blob",
+                      params: exportQueryParams(),
+                    });
                     setOptionsOpen(false);
                     return res.data;
                   }}
@@ -434,6 +403,21 @@ export default function StaffListPage() {
                   className="slp-option-item w-100 text-start"
                 >
                   Export Excel
+                </DownloadButton>
+                <DownloadButton
+                  filename="staff.pdf"
+                  mimeType="application/pdf"
+                  fetcher={async () => {
+                    const blob = exportStaffPDF(sorted);
+                    setOptionsOpen(false);
+                    return blob;
+                  }}
+                  variant="ghost"
+                  size="sm"
+                  iconLeft={<FiletypePdf size={14} />}
+                  className="slp-option-item w-100 text-start"
+                >
+                  Export PDF
                 </DownloadButton>
               </div>
             )}
@@ -515,10 +499,9 @@ export default function StaffListPage() {
             </button>
           </div>
           <div className="slp-bulk-actions">
-            <button className="slp-bulk-btn slp-bulk-btn--outline">Bulk edit</button>
             <button
               className="slp-bulk-btn slp-bulk-btn--danger"
-              onClick={() => selectedIds.forEach((id) => handleDeleteStaff(id))}
+              onClick={() => setDeleteConfirm({ mode: "bulk" })}
             >
               <Trash size={13} /> Delete selected
             </button>
@@ -595,7 +578,11 @@ export default function StaffListPage() {
               <div
                 key={member.id}
                 className={`slp-table-row ${isChecked ? "slp-table-row--selected" : ""} ${deletingId === member.id ? "slp-table-row--deleting" : ""}`}
-                onClick={() => member.id && navigate(`/dashboard/team/${member.id}`)}
+                onClick={() => {
+                  if (!member.id) return;
+                  setSelectedMemberId(member.id);
+                  setIsDrawerOpen(true);
+                }}
               >
                 <div className="slp-col-check" onClick={(e) => e.stopPropagation()}>
                   <input
@@ -654,13 +641,6 @@ export default function StaffListPage() {
                 </div>
 
                 <div className="slp-col-actions" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    className="slp-edit-btn"
-                    onClick={(e) => { e.stopPropagation(); member.id && navigate(`/dashboard/team/${member.id}`); }}
-                    title="Edit"
-                  >
-                    <Pencil size={13} />
-                  </button>
                   <div className="slp-action-wrap">
                     <button
                       className="slp-more-btn"
@@ -689,7 +669,7 @@ export default function StaffListPage() {
                         <div className="slp-action-divider" />
                         <button
                           className="slp-action-item slp-action-item--danger"
-                          onClick={() => handleDeleteStaff(member.id)}
+                          onClick={() => { setDeleteConfirm({ mode: "single", id: member.id }); setActionMenuId(null); }}
                           disabled={deletingId === member.id}
                         >
                           <Trash size={13} /> {deletingId === member.id ? "Deleting..." : "Delete"}
@@ -710,6 +690,35 @@ export default function StaffListPage() {
         onClose={() => setShowImport(false)}
         onSuccess={fetchStaff}
       />
+
+      {/* ===== TEAM MEMBER DETAILS DRAWER ===== */}
+      <TeamMemberDrawer
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        memberId={selectedMemberId}
+      />
+
+      {/* ===== DELETE CONFIRMATION ===== */}
+      <Modal
+        show={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        title={deleteConfirm?.mode === "bulk" ? "Delete team members?" : "Delete team member?"}
+        size="sm"
+      >
+        <p className="mb-0">
+          {deleteConfirm?.mode === "bulk"
+            ? `Are you sure you want to delete ${selectedIds.length} selected team member${selectedIds.length === 1 ? "" : "s"}?`
+            : "Are you sure you want to delete this team member?"}
+        </p>
+        <div className="d-flex justify-content-end gap-2 mt-3">
+          <button className="btn btn-outline-secondary" onClick={() => setDeleteConfirm(null)}>
+            Cancel
+          </button>
+          <button className="btn btn-danger" onClick={handleConfirmDelete}>
+            Delete
+          </button>
+        </div>
+      </Modal>
 
       {/* ===== FOOTER / PAGINATION ===== */}
       {!loading && sorted.length > 0 && (

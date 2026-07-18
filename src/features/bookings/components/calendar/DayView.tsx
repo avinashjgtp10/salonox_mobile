@@ -1,6 +1,4 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
-import { useSelector } from "react-redux";
-import type { RootState } from "../../../../store/store";
 import type { Booking, BlockedTime } from "../../types/booking.types";
 import { useScheduler, SLOT_HEIGHT } from "../../hooks/useScheduler";
 import { useSchedulerContext } from "../../store/SchedulerContext";
@@ -19,16 +17,6 @@ const EMPTY_BLOCKS: BlockedTime[] = [];
 // Must match .dv-gutter width and .dv-header-row height in DayView.scss
 const GUTTER_WIDTH = 72;
 const HEADER_HEIGHT = 56;
-
-// Moved outside component — pure function, no closure needed
-function to24h(t: string): string {
-  if (!t || (!t.includes("AM") && !t.includes("PM"))) return t;
-  const [timePart, period] = t.split(" ");
-  let [h, m] = timePart.split(":").map(Number);
-  if (period === "PM" && h !== 12) h += 12;
-  if (period === "AM" && h === 12) h = 0;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-}
 
 interface StaffSegment { time: string; endTime: string; }
 
@@ -72,7 +60,7 @@ const DayView: React.FC<DayViewProps> = ({
   onSlotClick, onEditBooking, onCancelBooking, onDeleteBooking, onBlockTime, onEditBlockTime,
 }) => {
   const { currentDate, slots, timeToPx, durationToPx, intervalMins } = useScheduler();
-  const { blockedTimes, deleteBlockedTime, updateBooking, staffList, selectedStaffId, bookings, highlightedBookingId } = useSchedulerContext();
+  const { blockedTimes, deleteBlockedTime, updateBooking, staffList, selectedStaffId, bookings, highlightedBookingId, staffSchedules } = useSchedulerContext();
 
   const visibleStaff = useMemo(
     () => selectedStaffId ? staffList.filter((s) => s.id === selectedStaffId) : staffList,
@@ -159,6 +147,18 @@ const DayView: React.FC<DayViewProps> = ({
   const [resizing, setResizing] = useState<{
     booking: Booking; startY: number; originalHeight: number; currentHeight: number; staffId: string;
   } | null>(null);
+  const resizingRef = useRef(resizing);
+  resizingRef.current = resizing;
+
+  // Mirrors of dragging/dragCandidate for the window mousemove/mouseup listeners
+  // below — read fresh on every render (no extra effect needed, since a render
+  // always happens before the next native event can be handled). Kept separate
+  // from the state itself so the listener-attaching effect can key off a stable
+  // boolean instead of the drag object, which changes on every mousemove tick.
+  const draggingRef = useRef(dragging);
+  draggingRef.current = dragging;
+  const dragCandidateRef = useRef(dragCandidate);
+  dragCandidateRef.current = dragCandidate;
 
   // Stable handlers for BookingChip — useCallback(fn,[]) since setters are stable
   const handleStartDragCandidate = useCallback((candidate: DragCandidate) => {
@@ -188,17 +188,20 @@ const DayView: React.FC<DayViewProps> = ({
     return map;
   }, [dayBlocked]);
 
-  // Date-specific shift schedules
-  const dateShifts = useSelector((s: RootState) => (s as any).shift?.shifts ?? {});
-
+  // Date-specific shift schedules — same source WeekView uses (populated by
+  // useStaffSchedule()), keyed by the exact date with a day-of-week fallback
+  // for a genuinely recurring (date-less) entry. This used to read from
+  // state.shift.shifts instead, which is only ever populated by the separate
+  // Scheduled Shifts admin page's fetchDailyShifts — never dispatched from
+  // the booking calendar itself, so work-hours blocking silently did nothing
+  // here unless that other page happened to already be visited this session.
   function getStaffWorkHours(staffId: string) {
-    const shift = dateShifts[staffId]?.[currentDate];
-    if (shift === undefined) return null;
-    if (!shift.isAvailable) return { startTime: "", endTime: "", isAvailable: false };
-    const startTime = to24h(shift.startTime || "");
-    const endTime   = to24h(shift.endTime   || "");
-    if (!startTime || !endTime) return null;
-    return { startTime, endTime, isAvailable: true };
+    const dayOfWeek = new Date(currentDate + "T12:00:00").getDay();
+    const sch = staffSchedules?.[staffId]?.[currentDate] ?? staffSchedules?.[staffId]?.[`dow-${dayOfWeek}`];
+    if (!sch) return null;
+    if (!sch.isAvailable) return { startTime: "", endTime: "", isAvailable: false };
+    if (!sch.startTime || !sch.endTime) return null;
+    return { startTime: sch.startTime, endTime: sch.endTime, isAvailable: true };
   }
 
   function isTimeRangeUnavailable(staffId: string, startTime: string, endTime: string): boolean {
@@ -273,10 +276,21 @@ const DayView: React.FC<DayViewProps> = ({
     return () => clearInterval(t);
   }, []);
 
+  // Listens only while a drag/candidate is active, but keyed on the *presence*
+  // of one (a boolean), not the drag object itself. The object's currentTop/
+  // currentStaffId change on every mousemove, and previously sat in this
+  // effect's dependency array — so every mousemove tore down and re-added
+  // these window listeners. Under fast mouse movement the teardown/re-add
+  // cycle could lose a mouseup that landed in the gap, leaving `dragging`
+  // stuck non-null forever (chip visually glued to the cursor, no more drops
+  // ever registering). Reading current values from refs instead lets the
+  // listeners stay attached for the whole drag session.
+  const isDragActive = !!dragging || !!dragCandidate;
   useEffect(() => {
-    if (!dragging && !dragCandidate) return;
+    if (!isDragActive) return;
 
     function onMouseMove(e: MouseEvent) {
+      const dragging = draggingRef.current;
       if (dragging) {
         e.preventDefault();
         setDragging((prev) => {
@@ -298,6 +312,7 @@ const DayView: React.FC<DayViewProps> = ({
         return;
       }
 
+      const dragCandidate = dragCandidateRef.current;
       if (dragCandidate) {
         const deltaY = e.clientY - dragCandidate.initialY;
         const deltaX = e.clientX - dragCandidate.initialX;
@@ -324,99 +339,123 @@ const DayView: React.FC<DayViewProps> = ({
     }
 
     function onMouseUp() {
+      const dragging = draggingRef.current;
       if (dragging) {
-        const totalMins = (dragging.currentTop / SLOT_HEIGHT) * intervalMins;
-        const h = Math.floor(totalMins / 60);
-        const m = Math.round(totalMins % 60);
-        const newStart = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
-        const [sh, sm] = dragging.originalStart.split(":").map(Number);
-        const [eh, em] = dragging.booking.endTime.split(":").map(Number);
-        const duration = eh * 60 + em - (sh * 60 + sm);
-        const newEnd = addMinutes(newStart, duration);
-        const orig = (dragging.booking as any)._originalBooking || dragging.booking;
+        // A thrown error anywhere in here (e.g. a booking missing an expected
+        // field) used to abort this handler before reaching setDragging(null)
+        // below, leaving the chip permanently glued to the cursor with no way
+        // to drop it — the try/finally guarantees the drag always ends.
+        try {
+          const totalMins = (dragging.currentTop / SLOT_HEIGHT) * intervalMins;
+          const h = Math.floor(totalMins / 60);
+          const m = Math.round(totalMins % 60);
+          const newStart = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+          const [sh, sm] = dragging.originalStart.split(":").map(Number);
+          const [eh, em] = dragging.booking.endTime.split(":").map(Number);
+          const duration = eh * 60 + em - (sh * 60 + sm);
+          const newEnd = addMinutes(newStart, duration);
+          const orig = (dragging.booking as any)._originalBooking || dragging.booking;
 
-        if (isTimeRangeUnavailable(dragging.currentStaffId, newStart, newEnd)) {
-          setDragging(null);
-          return;
-        }
+          if (isTimeRangeUnavailable(dragging.currentStaffId, newStart, newEnd)) {
+            return;
+          }
 
-        const toMins = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
-        const oldStartMins = toMins(dragging.originalStart);
-        const newStartMins = toMins(newStart);
-        const deltaMins = newStartMins - oldStartMins;
+          const toMins = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+          const oldStartMins = toMins(dragging.originalStart);
+          const newStartMins = toMins(newStart);
+          const deltaMins = newStartMins - oldStartMins;
 
-        const shiftMins = (t: string) => {
-          const mins = toMins(t) + deltaMins;
-          const h = Math.floor(mins / 60);
-          const m = Math.round(mins % 60);
-          return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
-        };
-
-        const matchesDraggedStaff = (itemStaffId: any) => itemStaffId
-          ? String(itemStaffId) === String(dragging.originalStaffId)
-          : String(orig.staffId) === String(dragging.originalStaffId);
-
-        const updatedServices = orig.services?.map((s: any) => {
-          // Only shift the time of the staff/service group actually being dragged —
-          // other staff's services in the same multi-staff booking must stay put.
-          if (!matchesDraggedStaff(s.staffId)) return s;
-
-          const shiftedTime = shiftMins(s.time || dragging.originalStart);
-          const existingEnd = s.endTime || s.end_time;
-          const shiftedEnd = existingEnd ? shiftMins(existingEnd) : undefined;
-
-          return {
-            ...s,
-            time: shiftedTime,
-            ...(shiftedEnd ? { endTime: shiftedEnd, end_time: shiftedEnd } : {}),
-            staffId: dragging.currentStaffId,
+          const shiftMins = (t: string) => {
+            const mins = toMins(t) + deltaMins;
+            const h = Math.floor(mins / 60);
+            const m = Math.round(mins % 60);
+            return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
           };
-        }) || [];
 
-        // Packages/products/memberships can each be assigned to their own staff too —
-        // previously only `services` was shifted here, so dragging the chip instance
-        // that only existed because of a package/product/membership assignment (no
-        // service for that staff) silently updated nothing at all.
-        const shiftOtherItems = (items: any[] | undefined) =>
-          (items || []).map((it: any) => {
-            if (!matchesDraggedStaff(it.staffId)) return it;
-            return { ...it, time: shiftMins(it.time || dragging.originalStart), staffId: dragging.currentStaffId };
+          const matchesDraggedStaff = (itemStaffId: any) => itemStaffId
+            ? String(itemStaffId) === String(dragging.originalStaffId)
+            : String(orig.staffId) === String(dragging.originalStaffId);
+
+          const updatedServices = orig.services?.map((s: any) => {
+            // Only shift the time of the staff/service group actually being dragged —
+            // other staff's services in the same multi-staff booking must stay put.
+            if (!matchesDraggedStaff(s.staffId)) return s;
+
+            const shiftedTime = shiftMins(s.time || dragging.originalStart);
+            const existingEnd = s.endTime || s.end_time;
+            const shiftedEnd = existingEnd ? shiftMins(existingEnd) : undefined;
+
+            return {
+              ...s,
+              time: shiftedTime,
+              ...(shiftedEnd ? { endTime: shiftedEnd, end_time: shiftedEnd } : {}),
+              staffId: dragging.currentStaffId,
+            };
+          }) || [];
+
+          // Packages/products/memberships can each be assigned to their own staff too —
+          // previously only `services` was shifted here, so dragging the chip instance
+          // that only existed because of a package/product/membership assignment (no
+          // service for that staff) silently updated nothing at all.
+          const shiftOtherItems = (items: any[] | undefined) =>
+            (items || []).map((it: any) => {
+              if (!matchesDraggedStaff(it.staffId)) return it;
+              return { ...it, time: shiftMins(it.time || dragging.originalStart), staffId: dragging.currentStaffId };
+            });
+          const updatedPackageItems    = shiftOtherItems(orig.packageItems);
+          const updatedProductItems    = shiftOtherItems(orig.productItems);
+          const updatedMembershipItems = shiftOtherItems(orig.membershipItems);
+
+          const newPrimaryStaffId = String(orig.staffId) === String(dragging.originalStaffId)
+            ? dragging.currentStaffId
+            : orig.staffId;
+
+          updateBooking({
+            ...orig,
+            startTime: newStart,
+            endTime: newEnd,
+            staffId: newPrimaryStaffId,
+            services: updatedServices,
+            packageItems: updatedPackageItems,
+            productItems: updatedProductItems,
+            membershipItems: updatedMembershipItems,
+          }).catch((err: any) => {
+            console.error("Unable to reschedule appointment", err?.message);
           });
-        const updatedPackageItems    = shiftOtherItems(orig.packageItems);
-        const updatedProductItems    = shiftOtherItems(orig.productItems);
-        const updatedMembershipItems = shiftOtherItems(orig.membershipItems);
-
-        const newPrimaryStaffId = String(orig.staffId) === String(dragging.originalStaffId)
-          ? dragging.currentStaffId
-          : orig.staffId;
-
-        updateBooking({
-          ...orig,
-          startTime: newStart,
-          endTime: newEnd,
-          staffId: newPrimaryStaffId,
-          services: updatedServices,
-          packageItems: updatedPackageItems,
-          productItems: updatedProductItems,
-          membershipItems: updatedMembershipItems,
-        }).catch((err: any) => {
-          console.error("Unable to reschedule appointment", err?.message);
-        });
-        justDraggedRef.current = true;
-        setTimeout(() => { justDraggedRef.current = false; }, 300);
-        setDragging(null);
+          justDraggedRef.current = true;
+          setTimeout(() => { justDraggedRef.current = false; }, 300);
+        } catch (err) {
+          console.error("Drag-drop reschedule failed", err);
+        } finally {
+          setDragging(null);
+        }
         return;
       }
 
-      if (dragCandidate) {
+      if (dragCandidateRef.current) {
         setDragCandidate(null);
       }
     }
 
+    // If the mouse is released outside the browser window entirely (over
+    // devtools, another app, the taskbar) no "mouseup" ever reaches window —
+    // the drag would otherwise be stuck forever with no way to end it. Losing
+    // focus mid-drag cancels back to the original slot rather than guessing
+    // where the pointer ended up.
+    function onBlur() {
+      setDragging(null);
+      setDragCandidate(null);
+    }
+
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
-    return () => { window.removeEventListener("mousemove", onMouseMove); window.removeEventListener("mouseup", onMouseUp); };
-  }, [dragging, dragCandidate, intervalMins, updateBooking, COL_WIDTH, visibleStaff]);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, [isDragActive, intervalMins, updateBooking, COL_WIDTH, visibleStaff]);
 
   useEffect(() => {
     if (!resizing) return;
@@ -431,7 +470,9 @@ const DayView: React.FC<DayViewProps> = ({
       });
     }
     function onMouseUp() {
+      const resizing = resizingRef.current;
       if (!resizing) return;
+      try {
       const [sh, sm] = resizing.booking.startTime.split(":").map(Number);
       const startMins = sh * 60 + sm;
       const addedMins = (resizing.currentHeight / SLOT_HEIGHT) * intervalMins;
@@ -443,7 +484,6 @@ const DayView: React.FC<DayViewProps> = ({
 
       const startStr = `${sh.toString().padStart(2, "0")}:${sm.toString().padStart(2, "0")}`;
       if (isTimeRangeUnavailable(orig.staffId || resizing.booking.staffId, startStr, newEnd)) {
-        setResizing(null);
         return;
       }
 
@@ -458,12 +498,24 @@ const DayView: React.FC<DayViewProps> = ({
       );
 
       updateBooking({ ...orig, endTime: newEnd, services: updatedServices });
+      } catch (err) {
+        console.error("Resize failed", err);
+      } finally {
+        setResizing(null);
+      }
+    }
+    function onBlur() {
       setResizing(null);
     }
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
-    return () => { window.removeEventListener("mousemove", onMouseMove); window.removeEventListener("mouseup", onMouseUp); };
-  }, [resizing, intervalMins, updateBooking]);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, [!!resizing, intervalMins, updateBooking]);
 
   const dayBookings = useMemo(() => {
     const toMins = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
@@ -539,7 +591,7 @@ const DayView: React.FC<DayViewProps> = ({
     if (start <= end) return slot < start || slot >= end;
     return slot >= end && slot < start;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateShifts, currentDate]);
+  }, [staffSchedules, currentDate]);
 
   function handleRemoveBlockTime(staffId: string) {
     dayBlocked.filter((b) => b.staffId === staffId).forEach((b) => deleteBlockedTime(b.id));

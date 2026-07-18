@@ -9,6 +9,18 @@ const defaultPermsMap: PermMatrix = Object.fromEntries(
 
 const DEV = import.meta.env.DEV;
 
+// Some nav-level guards need to gate on "any permission in a group" rather than
+// a single matrix key (e.g. the Catalog section covers Services/Products/
+// Packages/Memberships/Inventory, which each have their own checkbox).
+const VIRTUAL_PERMS: Record<string, string[]> = {
+  view_catalog: ["view_services", "view_products", "view_packages", "view_memberships", "view_inventory"],
+  edit_catalog: ["create_services", "edit_services", "create_products", "create_packages", "create_memberships", "manage_inventory", "stock_adjustment"],
+};
+
+function resolveKeys(permKey: string): string[] {
+  return VIRTUAL_PERMS[permKey] ?? [permKey];
+}
+
 export function usePermissions() {
   const role = useAppSelector((s) => s.auth.role);
   // Fresh data — set every time DashboardLayout mounts via fetchMeThunk
@@ -31,7 +43,7 @@ export function usePermissions() {
     }
     return {
       can: (permKey: string) => {
-        const result = customPermissions[permKey] ?? false;
+        const result = resolveKeys(permKey).some((k) => customPermissions[k] ?? false);
         if (DEV) {
           console.log(`[Permissions] can("${permKey}") → ${result} [custom]`);
         }
@@ -63,7 +75,7 @@ export function usePermissions() {
   const can = (permKey: string): boolean => {
     if (role === "salon_owner" || role === "admin") return true;
     if (role === "staff") {
-      const result = perms[permKey]?.staff ?? false;
+      const result = resolveKeys(permKey).some((k) => perms[k]?.staff ?? false);
       if (DEV) console.log(`[Permissions] can("${permKey}") → ${result} [role default]`);
       return result;
     }

@@ -10,9 +10,16 @@ export interface ClientDetails {
   mobile_number?: string;
   phone_no?: string;
 
-  // eWallet
+  // eWallet — manual top-up only now; referral/reward money no longer folds in here
   wallet_balance?: number;
   ewallet_balance?: number;
+
+  // Reward points — own dedicated, spendable balance (raw points, not ₹)
+  reward_points_balance?: number;
+
+  // Referral — own dedicated, spendable ₹ balance, separate from the
+  // lifetime total_referral_earnings figure below
+  referral_balance?: number;
 
   // Refer & Earn — every client gets a permanent referral_code at creation;
   // referred_by_client_id/referral_reward_status are only set if THIS client
@@ -20,15 +27,11 @@ export interface ClientDetails {
   referral_code?: string | null;
   referred_by_client_id?: string | null;
   referral_reward_status?: "pending" | "completed" | null;
-  total_referral_earnings?: number; // ₹ this client has earned from referring others
+  total_referral_earnings?: number; // ₹ this client has earned from referring others (lifetime)
 
   // Membership
   membership_tier?: string;
   membership?: string;
-
-  // Discount
-  assign_discount?: number;
-  discount_validity?: string;
 
   // Visit history (Phase 1 — from profile API)
   last_visit_date?: string | null;
@@ -50,13 +53,13 @@ export interface ClientDetails {
 // ─── Derived stat card values (computed in useClientDetails) ──────────────────
 export interface ClientStats {
   ewalletAmt: number;
+  rewardPoints: number;    // raw points balance, own dedicated spendable balance
+  referralBalance: number; // ₹, own dedicated spendable balance
   referralCode: string | null; // this client's own permanent referral code, for sharing
   referredByClientId: string | null;
   referralPending: boolean; // true if referred AND the reward hasn't been claimed yet
-  referralEarnings: number;
+  referralEarnings: number; // lifetime total earned from referring others (separate from referralBalance)
   unpaidAmt: number;
-  assignDiscount: number;
-  discountValidity: string;
   membership: string;
   cancelled: number;
   totalVisit: number;

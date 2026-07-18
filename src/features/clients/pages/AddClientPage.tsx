@@ -1,14 +1,12 @@
-import { useNavigate, useLocation } from "react-router-dom";
-import { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import { Country } from "country-state-city";
+import { Camera } from "react-bootstrap-icons";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/AddClientPage.scss";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
-import { Person, Pencil, X } from "react-bootstrap-icons";
-import { Country } from "country-state-city";
-import { Button } from "../../../components/ui";
-
-import { useClientWizard } from "../context/ClientWizardContext";
 
 const PHONE_CODES = Country.getAllCountries()
   .map((c) => ({
@@ -18,483 +16,478 @@ const PHONE_CODES = Country.getAllCountries()
   .filter((v, i, a) => a.findIndex((t) => t.label === v.label) === i)
   .sort((a, b) => a.label.localeCompare(b.label));
 
-export default function AddClientPage() {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+const DOB_PLACEHOLDER_YEAR = 2000;
+
+const AddClientPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { resetWizard } = useClientWizard();
+  const isEdit = !!id && id !== "add";
 
-  const prefill = (location.state as any) ?? {};
+  // A client search that finds no match (e.g. calendar's client search) can
+  // hand off here with a name or phone already typed — prefill it instead of
+  // making staff retype what they just searched for. Add-mode only.
+  const prefill = (!isEdit && (location.state as any)) || {};
 
-  // Individual states for form inputs
-  const [firstName, setFirstName] = useState(prefill.prefillName?.split(" ")[0] ?? "");
-  const [lastName, setLastName] = useState(prefill.prefillName?.split(" ").slice(1).join(" ") ?? "");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState(prefill.prefillPhone ?? "");
-  const [birthday, setBirthday] = useState("");
-  const [year, setYear] = useState("");
-  const [gender, setGender] = useState("");
-  const [pronouns, setPronouns] = useState("");
-  const [occupation, setOccupation] = useState("");
-  const [additionalEmail, setAdditionalEmail] = useState("");
-  const [additionalPhone, setAdditionalPhone] = useState("");
-  const [phoneCountryCode, setPhoneCountryCode] = useState("+91");
-  const [additionalPhoneCountryCode, setAdditionalPhoneCountryCode] = useState("+91");
-  const [clientSource, setClientSource] = useState("walk_in");
-  const [referredByCode, setReferredByCode] = useState("");
-  const [preferredLanguage, setPreferredLanguage] = useState("en");
-  const [country, setCountry] = useState("IN");
+  const initialForm = {
+    firstName: prefill.prefillName?.split(" ")[0] ?? "",
+    lastName: prefill.prefillName?.split(" ").slice(1).join(" ") ?? "",
+    email: "",
+    phone: prefill.prefillPhone ?? "", phoneCountryCode: "+91",
+    birthday: "", address: "", gender: "", clientSource: "walk_in",
+    additionalEmail: "", additionalPhone: "", additionalPhoneCountryCode: "+91",
+    referredByCode: "",
+  };
+  const [form, setForm] = useState(initialForm);
+
+  // Once a client has a referrer it can't be changed (backend rejects a
+  // second referral code), so edit mode shows this read-only instead of the
+  // editable code input. Null in add mode, or in edit mode before the record
+  // has loaded / if no referrer is set yet.
+  const [referredBy, setReferredBy] = useState<{ full_name: string } | null>(null);
+
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarPreview, setAvatarPreview] = useState("");
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Snapshot of "nothing entered yet" — for add mode it's the prefilled
+  // defaults above; for edit mode it's reset to the fetched record once
+  // loaded (see the load() effect below). Close only asks to confirm when
+  // the form has actually drifted from this baseline.
+  const baselineRef = useRef({ form: initialForm, avatarUrl: "" });
+  const isDirty = () =>
+    JSON.stringify(form) !== JSON.stringify(baselineRef.current.form) ||
+    avatarUrl !== baselineRef.current.avatarUrl;
+  const handleCloseClick = () => {
+    if (isDirty()) setShowUnsavedDialog(true);
+    else navigate("/dashboard/clients/list");
+  };
 
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
-  const [serverError, setServerError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+  const [duplicatePhoneMessage, setDuplicatePhoneMessage] = useState<string | null>(null);
+  const [duplicateEmailMessage, setDuplicateEmailMessage] = useState<string | null>(null);
+  const isSubmittingRef = useRef(false);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
-  const isFirstNameInvalid = attemptedSubmit && firstName.trim() === "";
-  const isEmailInvalid =
-    attemptedSubmit &&
-    (email.trim() === "" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()));
-  const isPhoneInvalid =
-    attemptedSubmit &&
-    (phone.trim() === "" || !/^\d{10}$/.test(phone.trim()));
-  const isAdditionalEmailInvalid =
-    attemptedSubmit &&
-    additionalEmail.trim() !== "" &&
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(additionalEmail.trim());
-  const isAdditionalPhoneInvalid =
-    attemptedSubmit &&
-    additionalPhone.trim() !== "" &&
-    !/^\d{10}$/.test(additionalPhone.trim());
+  // ── Load existing client (edit mode) ────────────────────────────────────────
+  useEffect(() => {
+    if (!isEdit) return;
 
-  const hasErrors =
-    isFirstNameInvalid ||
-    isEmailInvalid ||
-    isPhoneInvalid ||
-    isAdditionalEmailInvalid ||
-    isAdditionalPhoneInvalid;
+    const load = async () => {
+      try {
+        setIsLoading(true);
+        const res = await api.get(CLIENT.BY_ID(id!));
+        const c = res.data?.data || res.data;
 
-  const handleSave = async () => {
-    if (saving) return;
-    setServerError(null);
-    setAttemptedSubmit(true);
-    if (
-      firstName.trim() === "" ||
-      email.trim() === "" ||
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ||
-      phone.trim() === "" ||
-      !/^\d{10}$/.test(phone.trim()) ||
-      (additionalEmail.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(additionalEmail.trim())) ||
-      (additionalPhone.trim() !== "" && !/^\d{10}$/.test(additionalPhone.trim()))
-    ) {
-      return;
-    }
-
-    setSaving(true);
-    const payload = {
-      first_name: firstName,
-      last_name: lastName || null,
-      email: email || null,
-      phone_number: phone || null,
-      phone_country_code: phoneCountryCode || null,
-      birthday_day_month: birthday || null,
-      birthday_year: year ? Number(year) : null,
-      gender: gender || null,
-      pronouns: pronouns || null,
-      occupation: occupation || null,
-      additional_email: additionalEmail || null,
-      additional_phone_number: additionalPhone || null,
-      additional_phone_country_code: additionalPhoneCountryCode || null,
-      client_source: clientSource || null,
-      preferred_language: preferredLanguage || null,
-      country: country || null,
-      // Only new customers can use a referral code, and only for this, their
-      // first visit — there is no edit flow for it once the client is created.
-      referred_by_code: referredByCode.trim() ? referredByCode.trim().toUpperCase() : null,
-      addresses: [],
-      emergency_contacts: [],
+        const loaded = {
+          firstName: c.first_name || "",
+          lastName: c.last_name || "",
+          email: c.email || "",
+          phone: c.phone_number || "",
+          phoneCountryCode: c.phone_country_code || "+91",
+          birthday: c.birthday_day_month
+            ? `${c.birthday_year || DOB_PLACEHOLDER_YEAR}-${c.birthday_day_month}`
+            : "",
+          address: c.address || "",
+          gender: c.gender || "",
+          clientSource: c.client_source || "walk_in",
+          additionalEmail: c.additional_email || "",
+          additionalPhone: c.additional_phone_number || "",
+          additionalPhoneCountryCode: c.additional_phone_country_code || "+91",
+          referredByCode: "",
+        };
+        setForm(loaded);
+        setAvatarUrl(c.avatar_url || "");
+        setReferredBy(c.referred_by || null);
+        // Reset the "unsaved changes" baseline to what was actually loaded —
+        // otherwise every edit page would immediately look dirty (compared
+        // against the empty add-mode defaults it started with).
+        baselineRef.current = { form: loaded, avatarUrl: c.avatar_url || "" };
+      } catch (error) {
+        console.error("Error fetching client:", error);
+        showError("Failed to load client data. Please try again.");
+      } finally {
+        setIsLoading(false);
+      }
     };
 
+    load();
+  }, [id, isEdit]);
+
+  // ── Field validation ─────────────────────────────────────────────────────────
+  const today = new Date().toISOString().slice(0, 10);
+
+  const isFirstNameInvalid = attemptedSubmit && form.firstName.trim() === "";
+
+  // Optional — only validated for format when the staff actually types something.
+  const emailFormatValid = form.email.trim() === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
+  const isEmailInvalid =
+    !!duplicateEmailMessage || (attemptedSubmit && form.email.trim() !== "" && !emailFormatValid);
+  const emailErrorMessage = duplicateEmailMessage || "Enter a valid email address";
+
+  const isBirthdayInvalid = attemptedSubmit && !!form.birthday && form.birthday > today;
+
+  const isPhoneInvalid =
+    !!duplicatePhoneMessage ||
+    (attemptedSubmit && (form.phone.trim() === "" || !/^\d{10}$/.test(form.phone.trim())));
+  const phoneErrorMessage =
+    duplicatePhoneMessage || (form.phone.trim() === "" ? "Phone is required" : "Enter a valid 10-digit phone number");
+
+  const isGenderInvalid = attemptedSubmit && form.gender.trim() === "";
+
+  const isAdditionalEmailInvalid =
+    attemptedSubmit && form.additionalEmail.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.additionalEmail.trim());
+  const isAdditionalPhoneInvalid =
+    attemptedSubmit && form.additionalPhone.trim() !== "" && !/^\d{10}$/.test(form.additionalPhone.trim());
+
+  const setField = (key: keyof typeof form) => (val: string) => {
+    setForm((prev) => ({ ...prev, [key]: val }));
+    if (key === "phone" && duplicatePhoneMessage) setDuplicatePhoneMessage(null);
+    if (key === "email" && duplicateEmailMessage) setDuplicateEmailMessage(null);
+  };
+
+  // ── Avatar upload ────────────────────────────────────────────────────────────
+  const handleAvatarPick = () => fileInputRef.current?.click();
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const localUrl = URL.createObjectURL(file);
+    setAvatarPreview(localUrl);
+    setAvatarUploading(true);
+
     try {
-      await api.post(CLIENT.BASE, payload);
-      resetWizard();
-      navigate("/dashboard/clients/list");
-    } catch (error: any) {
-      const msg =
-        error?.response?.data?.error?.message ||
-        error?.response?.data?.message ||
-        "Failed to save client. Please try again.";
-      setServerError(msg);
-      setSaving(false);
+      const formData = new FormData();
+      formData.append("avatar", file);
+      const res = await api.post(CLIENT.UPLOAD_AVATAR, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      const url = res.data?.data?.url || res.data?.url;
+      if (url) setAvatarUrl(url);
+    } catch (error) {
+      console.error("Error uploading avatar:", error);
+      showError("Failed to upload profile image");
+      setAvatarPreview("");
+    } finally {
+      setAvatarUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
+  // ── Submit ───────────────────────────────────────────────────────────────────
+  const handleSave = async () => {
+    setAttemptedSubmit(true);
+    setDuplicatePhoneMessage(null);
+    setDuplicateEmailMessage(null);
+
+    if (
+      form.firstName.trim() === "" || !emailFormatValid ||
+      form.phone.trim() === "" || !/^\d{10}$/.test(form.phone.trim()) || isBirthdayInvalid ||
+      form.gender.trim() === "" || isAdditionalEmailInvalid || isAdditionalPhoneInvalid
+    ) {
+      showError("Please fix the highlighted fields");
+      return;
+    }
+
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+
+    try {
+      setIsLoading(true);
+
+      // Native date input gives "YYYY-MM-DD" — split into the "MM-DD" the
+      // backend stores (birthday_day_month) plus the year separately, so a
+      // year-less birthday can still be tracked precisely by day/month.
+      let birthday_day_month: string | undefined;
+      let birthday_year: number | undefined;
+      if (form.birthday) {
+        const [y, m, d] = form.birthday.split("-");
+        birthday_day_month = `${m}-${d}`;
+        birthday_year = Number(y);
+      }
+
+      const payload: Record<string, any> = {
+        first_name: form.firstName.trim(),
+        last_name: form.lastName.trim() || null,
+        email: form.email.trim() || null,
+        phone_number: form.phone.trim(),
+        phone_country_code: form.phoneCountryCode,
+        birthday_day_month: birthday_day_month ?? null,
+        birthday_year: birthday_year ?? null,
+        address: form.address.trim() || null,
+        gender: form.gender,
+        client_source: form.clientSource || null,
+        additional_email: form.additionalEmail.trim() || null,
+        additional_phone_number: form.additionalPhone.trim() || null,
+        additional_phone_country_code: form.additionalPhone.trim() ? form.additionalPhoneCountryCode : null,
+        avatar_url: avatarUrl || null,
+      };
+
+      // A referral code can only be applied once — once a client already has
+      // a referrer (referredBy set), the field becomes read-only and this is
+      // skipped. Otherwise it can be set on create OR on a later edit (the
+      // backend still allows it up until the client's first completed payment).
+      if (!referredBy && form.referredByCode.trim()) {
+        payload.referred_by_code = form.referredByCode.trim().toUpperCase();
+      }
+
+      if (isEdit) {
+        await api.patch(CLIENT.BY_ID(id!), payload);
+      } else {
+        await api.post(CLIENT.BASE, payload);
+      }
+
+      showSuccess(isEdit ? "Client updated successfully" : "Client added successfully");
+      navigate("/dashboard/clients/list");
+    } catch (error: any) {
+      console.error("Error saving client:", error);
+      const status = error?.response?.status ?? error?.status;
+      const code = error?.response?.data?.error?.code;
+      const serverMessage =
+        error?.response?.data?.error?.message || error?.response?.data?.message || error?.message;
+
+      if (status === 409) {
+        // code is DUPLICATE_PHONE / DUPLICATE_EMAIL when the service layer's
+        // proactive checks catch it; DUPLICATE_ENTRY is the generic fallback
+        // from a raw DB unique-constraint violation (error.middleware.ts),
+        // where the message text itself says which field — fall back to
+        // sniffing it so the right field still gets highlighted either way.
+        const isEmailDup = code === "DUPLICATE_EMAIL" || (code === "DUPLICATE_ENTRY" && /email/i.test(serverMessage || ""));
+        if (isEmailDup) {
+          setDuplicateEmailMessage(serverMessage || "This email address is already registered. Please use a different email address.");
+        } else {
+          setDuplicatePhoneMessage(serverMessage || "A client with this phone number already exists.");
+        }
+      } else if (status === 401) {
+        showError("Your session has expired. Please log in again.");
+      } else {
+        showError(serverMessage || "Failed to save client");
+      }
+    } finally {
+      setIsLoading(false);
+      isSubmittingRef.current = false;
+    }
+  };
+
+  const displayInitials = form.firstName.trim() ? form.firstName.trim()[0].toUpperCase() : "?";
+
   return (
-    <div className="container-fluid p-4 bg-white position-relative">
-      {/* ERROR TOAST */}
-      {(hasErrors || serverError) && (
-        <div
-          className="position-fixed d-flex align-items-center justify-content-between rounded-pill shadow-sm"
-          style={{
-            top: "20px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            backgroundColor: "#E20030",
-            color: "white",
-            zIndex: 1050,
-            padding: "8px 16px",
-            fontSize: "14px",
-            fontWeight: "500",
-            minWidth: "280px",
-            maxWidth: "480px",
-          }}
-        >
-          <span>
-            {serverError || "Please fix the errors below before saving"}
-          </span>
-          <X
-            size={20}
-            className="ms-3"
-            style={{ cursor: "pointer", flexShrink: 0 }}
-            onClick={() => { setAttemptedSubmit(false); setServerError(null); }}
-          />
-        </div>
-      )}
-
-      {/* HEADER */}
-      <div className="d-flex justify-content-between align-items-center mb-4 mt-3">
-        <h2 className="fw-bold">Add a new client</h2>
-
-        <div className="d-flex gap-2">
-          <button
-            className="btn btn-outline-secondary"
-            onClick={() => navigate("/dashboard/clients/list")}
-          >
+    <div className="add-client">
+      {overlay}
+      <div className="add-client__header">
+        <h5 className="add-client__header-title">{isEdit ? "Edit Client" : "Add Client"}</h5>
+        <div className="add-client__header-actions">
+          <button className="btn add-client__btn-close" onClick={handleCloseClick}>
             Close
           </button>
-
-          <Button
-            variant="dark"
-            onClick={handleSave}
-            loading={saving}
-          >
-            Save
-          </Button>
+          <button className="btn add-client__btn-add" onClick={handleSave} disabled={isLoading}>
+            {isLoading && <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />}
+            {isLoading ? "Saving..." : "Save"}
+          </button>
         </div>
       </div>
 
-      <div className="row">
-        {/* LEFT SIDEBAR */}
-        <div className="col-md-3">
-          <div className="card p-3">
-            <h6 className="fw-bold mb-3">Personal</h6>
-
-            <div className="list-group">
-              <button className="list-group-item list-group-item-action active d-flex justify-content-between align-items-center">
-                Profile
-                {hasErrors && (
-                  <span className="text-danger-dot">●</span>
-                )}
+      {showUnsavedDialog && (
+        <div className="add-client__dialog-overlay">
+          <div className="add-client__dialog">
+            <button className="add-client__dialog-close" onClick={() => setShowUnsavedDialog(false)}>&times;</button>
+            <h5 className="add-client__dialog-title">Unsaved changes</h5>
+            <p className="add-client__dialog-desc">You have unsaved changes. Are you sure you want to leave?</p>
+            <div className="add-client__dialog-actions">
+              <button className="btn add-client__dialog-btn add-client__dialog-btn--cancel" onClick={() => setShowUnsavedDialog(false)}>
+                Cancel
               </button>
-
-              <button
-                className="list-group-item list-group-item-action"
-                onClick={() => navigate("/dashboard/clients/addresses")}
-              >
-                Addresses
-              </button>
-
-              <button
-                className="list-group-item list-group-item-action"
-                onClick={() => navigate("/dashboard/clients/emergency")}
-              >
-                Emergency contacts
+              <button className="btn add-client__dialog-btn add-client__dialog-btn--discard" onClick={() => navigate("/dashboard/clients/list")}>
+                Discard changes
               </button>
             </div>
           </div>
         </div>
+      )}
 
-        {/* RIGHT FORM */}
-        <div className="col-md-9">
-          {/* PROFILE SECTION */}
-          <h5 className="fw-bold mb-3">Profile</h5>
-
-          <p className="text-muted">Manage your client’s personal profile</p>
-
-          <div className="d-flex align-items-center mb-4 mt-3">
-            <div className="profile-image-upload position-relative d-inline-block">
-              <input
-                type="file"
-                ref={fileInputRef}
-                className="d-none"
-                accept="image/*"
-              />
-              <div
-                className="profile-placeholder rounded-circle d-flex justify-content-center align-items-center"
-                style={{
-                  width: "80px",
-                  height: "80px",
-                  backgroundColor: "#F0F0FE",
-                }}
-              >
-                <Person style={{ color: "#7A5CFF" }} size={48} />
-              </div>
-              <button
-                type="button"
-                className="btn btn-white rounded-circle position-absolute d-flex justify-content-center align-items-center shadow-sm p-0 m-0"
-                onClick={() => fileInputRef.current?.click()}
-                style={{
-                  width: "28px",
-                  height: "28px",
-                  bottom: "0px",
-                  right: "0px",
-                  backgroundColor: "#FAFAFA",
-                  border: "1px solid #EAEAEA",
-                  padding: "0",
-                }}
-              >
-                <Pencil size={12} style={{ color: "#888" }} />
-              </button>
-            </div>
-          </div>
-
-          <div className="row g-3">
-            <div className="col-md-6">
-              <label className="form-label">First name <span className="text-danger">*</span></label>
-              <input
-                type="text"
-                className={`form-control ${isFirstNameInvalid ? "is-invalid" : ""}`}
-                placeholder="e.g. John"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-              />
-              {isFirstNameInvalid && (
-                <div className="invalid-feedback">This field is required</div>
-              )}
-            </div>
-
-            <div className="col-md-6">
-              <label className="form-label">Last name</label>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="e.g. Hancock"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-              />
-            </div>
-
-            <div className="col-md-6">
-              <label className="form-label">
-                Email <span className="text-danger">*</span>
-              </label>
-              <input
-                type="email"
-                className={`form-control ${isEmailInvalid ? "is-invalid" : ""}`}
-                placeholder="example@domain.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-              {isEmailInvalid && (
-                <div className="invalid-feedback">
-                  {email.trim() === "" ? "Email is required" : "Enter a valid email address"}
-                </div>
-              )}
-            </div>
-
-            <div className="col-md-6">
-              <label className="form-label">
-                Phone <span className="text-danger">*</span>
-              </label>
-              <div className="ac-phone-group">
-                <select
-                  className="form-select ac-phone-code"
-                  value={phoneCountryCode}
-                  onChange={(e) => setPhoneCountryCode(e.target.value)}
-                >
-                  {PHONE_CODES.map((p) => (
-                    <option key={p.label} value={p.code}>{p.label}</option>
-                  ))}
-                </select>
+      <div className="cli-page">
+        {/* ── Details + Profile Photo ── */}
+        <div className="cli-top-row">
+          <div className="cli-card cli-details-card">
+            <h6 className="cli-card__title">Details</h6>
+            <div className="cli-details-grid">
+              <div className="cli-field">
                 <input
-                  type="tel"
-                  className={`form-control ${isPhoneInvalid ? "is-invalid" : ""}`}
-                  placeholder="10-digit number"
-                  value={phone}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, "");
-                    if (val.length <= 10) setPhone(val);
-                  }}
+                  className={`cli-input ${isFirstNameInvalid ? "cli-input--invalid" : ""}`}
+                  placeholder="First name*"
+                  value={form.firstName}
+                  onChange={(e) => setField("firstName")(e.target.value)}
+                />
+                {isFirstNameInvalid && <span className="cli-field__error">First name is required</span>}
+              </div>
+              <div className="cli-field">
+                <input
+                  className="cli-input"
+                  placeholder="Last name"
+                  value={form.lastName}
+                  onChange={(e) => setField("lastName")(e.target.value)}
                 />
               </div>
-              {isPhoneInvalid && (
-                <div className="invalid-feedback" style={{ display: "block" }}>
-                  {phone.trim() === "" ? "Phone is required" : "Phone must be 10 digits"}
+
+              <div className="cli-field">
+                <input
+                  className={`cli-input ${isEmailInvalid ? "cli-input--invalid" : ""}`}
+                  placeholder="Email"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setField("email")(e.target.value)}
+                />
+                {isEmailInvalid && <span className="cli-field__error">{emailErrorMessage}</span>}
+              </div>
+              <div className="cli-field">
+                <div className={`cli-phone-group ${isPhoneInvalid ? "cli-input--invalid" : ""}`}>
+                  <select
+                    className="cli-phone-code"
+                    value={form.phoneCountryCode}
+                    onChange={(e) => setField("phoneCountryCode")(e.target.value)}
+                  >
+                    {PHONE_CODES.map((c) => (
+                      <option key={c.label} value={c.code}>{c.code}</option>
+                    ))}
+                  </select>
+                  <input
+                    className="cli-input cli-phone-input"
+                    placeholder="Phone*"
+                    value={form.phone}
+                    onChange={(e) => setField("phone")(e.target.value.replace(/\D/g, ""))}
+                    maxLength={10}
+                  />
                 </div>
-              )}
-            </div>
+                {isPhoneInvalid && <span className="cli-field__error">{phoneErrorMessage}</span>}
+              </div>
 
-            <div className="col-md-6">
-              <label className="form-label">Birthday</label>
-              <input
-                type="date"
-                className="form-control"
-                value={birthday}
-                onChange={(e) => setBirthday(e.target.value)}
-              />
-            </div>
-
-           
-            <div className="col-md-6">
-              <label className="form-label">Gender</label>
-              <select
-                className="form-select"
-                value={gender}
-                onChange={(e) => setGender(e.target.value)}
-              >
-                <option value="">Select an option</option>
-                <option value="Female">Female</option>
-                <option value="Male">Male</option>
-                <option value="Non-binary">Non-binary</option>
-              </select>
-            </div>
-
-            <div className="col-md-6">
-              <label className="form-label">Pronouns</label>
-              <select
-                className="form-select"
-                value={pronouns}
-                onChange={(e) => setPronouns(e.target.value)}
-              >
-                <option value="">Select an option</option>
-                <option value="She/Her">She/Her</option>
-                <option value="He/Him">He/Him</option>
-                <option value="They/Them">They/Them</option>
-                <option value="Prefer not to say">Prefer not to say</option>
-              </select>
-            </div>
-          </div>
-
-          {/* ================= ADDITIONAL INFO ================= */}
-
-          <div className="mt-5">
-            <h5 className="fw-bold">Additional info</h5>
-
-            <p className="text-muted">
-              Edit additional information about the client
-            </p>
-
-            <div className="row g-3 mt-2">
-              <div className="col-md-6">
-                <label className="form-label">Client source</label>
+              <div className="cli-field">
+                <label className="cli-field__label">Gender</label>
                 <select
-                  className="form-select"
-                  value={clientSource}
-                  onChange={(e) => setClientSource(e.target.value)}
+                  className={`cli-input cli-select ${isGenderInvalid ? "cli-input--invalid" : ""}`}
+                  value={form.gender}
+                  onChange={(e) => setField("gender")(e.target.value)}
+                >
+                  <option value="">Select gender*</option>
+                  <option value="Female">Female</option>
+                  <option value="Male">Male</option>
+                  <option value="Non-binary">Non-binary</option>
+                </select>
+                {isGenderInvalid && <span className="cli-field__error">Gender is required</span>}
+              </div>
+              <div className="cli-field">
+                <label className="cli-field__label">Address</label>
+                <input
+                  className="cli-input"
+                  placeholder="Address"
+                  value={form.address}
+                  onChange={(e) => setField("address")(e.target.value)}
+                />
+              </div>
+
+              <div className="cli-field">
+                <label className="cli-field__label">Birthday</label>
+                <input
+                  className={`cli-input ${isBirthdayInvalid ? "cli-input--invalid" : ""}`}
+                  type="date"
+                  max={today}
+                  value={form.birthday}
+                  onChange={(e) => setField("birthday")(e.target.value)}
+                />
+                {isBirthdayInvalid && <span className="cli-field__error">Birthday cannot be in the future</span>}
+              </div>
+
+              <div className="cli-field">
+                <label className="cli-field__label">Client source</label>
+                <select
+                  className="cli-input cli-select"
+                  value={form.clientSource}
+                  onChange={(e) => setField("clientSource")(e.target.value)}
                 >
                   <option value="walk_in">Walk-in</option>
                   <option value="instagram">Instagram</option>
                   <option value="google">Google</option>
                 </select>
               </div>
-
-              <div className="col-md-6">
-                <label className="form-label">Referred by</label>
-                <input
-                  type="text"
-                  className="form-control text-uppercase"
-                  placeholder="e.g. NIS1126"
-                  value={referredByCode}
-                  onChange={(e) => setReferredByCode(e.target.value.toUpperCase())}
-                  maxLength={20}
-                />
-                <div className="form-text">
-                  Referral code of the existing customer who referred them, if any. Applies only to this client's first visit.
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <label className="form-label">Preferred language</label>
-                <select
-                  className="form-select"
-                  value={preferredLanguage}
-                  onChange={(e) => setPreferredLanguage(e.target.value)}
-                >
-                  <option value="en">English</option>
-                  <option value="mr">Marathi</option>
-                  <option value="hi">Hindi</option>
-                </select>
-              </div>
-
-              <div className="col-md-6">
-                <label className="form-label">Occupation</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Enter client job information"
-                  value={occupation}
-                  onChange={(e) => setOccupation(e.target.value)}
-                />
-              </div>
-
-              <div className="col-md-6">
-                <label className="form-label">Country</label>
-                <select
-                  className="form-select"
-                  value={country}
-                  onChange={(e) => setCountry(e.target.value)}
-                >
-                  <option value="IN">India</option>
-                  <option value="US">United States</option>
-                  <option value="UK">UK</option>
-                </select>
-              </div>
-
-              <div className="col-md-6">
-                <label className="form-label">Additional email</label>
-                <input
-                  type="email"
-                  className={`form-control ${isAdditionalEmailInvalid ? "is-invalid" : ""}`}
-                  placeholder="example@domain.com"
-                  value={additionalEmail}
-                  onChange={(e) => setAdditionalEmail(e.target.value)}
-                />
-                {isAdditionalEmailInvalid && (
-                  <div className="invalid-feedback">Enter a valid email address</div>
+              <div className="cli-field">
+                <label className="cli-field__label">Referred by</label>
+                {referredBy ? (
+                  <input className="cli-input" value={referredBy.full_name} disabled readOnly />
+                ) : (
+                  <input
+                    className="cli-input text-uppercase"
+                    placeholder="e.g. NIS1126"
+                    value={form.referredByCode}
+                    onChange={(e) => setField("referredByCode")(e.target.value.toUpperCase())}
+                    maxLength={20}
+                  />
                 )}
               </div>
 
-              <div className="col-md-6">
-                <label className="form-label">Additional phone</label>
-                <div className="ac-phone-group">
+              <div className="cli-field">
+                <input
+                  className={`cli-input ${isAdditionalEmailInvalid ? "cli-input--invalid" : ""}`}
+                  placeholder="Additional email"
+                  type="email"
+                  value={form.additionalEmail}
+                  onChange={(e) => setField("additionalEmail")(e.target.value)}
+                />
+                {isAdditionalEmailInvalid && <span className="cli-field__error">Enter a valid email address</span>}
+              </div>
+              <div className="cli-field">
+                <div className={`cli-phone-group ${isAdditionalPhoneInvalid ? "cli-input--invalid" : ""}`}>
                   <select
-                    className="form-select ac-phone-code"
-                    value={additionalPhoneCountryCode}
-                    onChange={(e) => setAdditionalPhoneCountryCode(e.target.value)}
+                    className="cli-phone-code"
+                    value={form.additionalPhoneCountryCode}
+                    onChange={(e) => setField("additionalPhoneCountryCode")(e.target.value)}
                   >
-                    {PHONE_CODES.map((p) => (
-                      <option key={p.label} value={p.code}>{p.label}</option>
+                    {PHONE_CODES.map((c) => (
+                      <option key={c.label} value={c.code}>{c.code}</option>
                     ))}
                   </select>
                   <input
-                    type="tel"
-                    className={`form-control ${isAdditionalPhoneInvalid ? "is-invalid" : ""}`}
-                    placeholder="10-digit number"
-                    value={additionalPhone}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, "");
-                      if (val.length <= 10) setAdditionalPhone(val);
-                    }}
+                    className="cli-input cli-phone-input"
+                    placeholder="Additional phone"
+                    value={form.additionalPhone}
+                    onChange={(e) => setField("additionalPhone")(e.target.value.replace(/\D/g, ""))}
+                    maxLength={10}
                   />
                 </div>
-                {isAdditionalPhoneInvalid && (
-                  <div className="invalid-feedback" style={{ display: "block" }}>
-                    Phone must be 10 digits
-                  </div>
-                )}
+                {isAdditionalPhoneInvalid && <span className="cli-field__error">Enter a valid 10-digit phone number</span>}
               </div>
             </div>
+          </div>
+
+          <div className="cli-card cli-photo-card">
+            <h6 className="cli-card__title">Profile Photo</h6>
+            <div className="cli-photo-box" onClick={handleAvatarPick}>
+              {avatarPreview || avatarUrl ? (
+                <img src={avatarPreview || avatarUrl} alt="Profile" className="cli-photo-preview" />
+              ) : (
+                <span className="cli-photo-placeholder">{displayInitials}</span>
+              )}
+              <div className="cli-photo-camera">
+                <Camera size={16} />
+              </div>
+              {avatarUploading && <div className="cli-photo-uploading">Uploading...</div>}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/gif"
+              className="cli-hidden-input"
+              onChange={handleAvatarChange}
+            />
+            <p className="cli-photo-hint">Accepted formats: PNG, GIF or JPG. Maximum file size is 2.0MB.</p>
           </div>
         </div>
       </div>
     </div>
   );
-}
+};
+
+export default AddClientPage;

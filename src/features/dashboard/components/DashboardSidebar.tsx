@@ -56,7 +56,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         </NavLink>
       )}
 
-      {can("view_sales") && can("create_sales") && (
+      {can("create_quick_sale") && (
         <NavLink
           to="/dashboard/sales/quick"
           className={({ isActive }) => navClass(isActive)}
@@ -67,7 +67,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         </NavLink>
       )}
 
-      {can("view_appointments") && (
+      {can("view_calendar") && (
         <NavLink
           to="calendar"
           className={({ isActive }) => navClass(isActive)}
@@ -82,7 +82,17 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         <button
           type="button"
           className={menuClass("clients")}
-          onClick={() => onMenuChange(openMenu === "clients" ? null : "clients")}
+          onClick={() => {
+            const opening = openMenu !== "clients";
+            onMenuChange(opening ? "clients" : null);
+            // Same pattern as Team below — jump to the section's default page
+            // when entering it from elsewhere (e.g. Calendar). Without this,
+            // clicking Clients from another page only opened the flyout
+            // submenu and left the underlying page unchanged.
+            if (opening && !location.pathname.startsWith("/dashboard/clients")) {
+              navigate("/dashboard/clients/list");
+            }
+          }}
         >
           <EmojiSmile size={26} />
           <span className="nav-label">Clients</span>
@@ -100,7 +110,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         </button>
       )}
 
-      {can("view_appointments") && (
+      {can("view_booking") && (
         <button
           type="button"
           className={menuClass("onlineBooking")}
@@ -127,7 +137,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         </NavLink>
       )}
 
-      {can("view_marketing") && (
+      {can("view_campaigns") && (
         <button
           type="button"
           className={menuClass("marketing")}
@@ -161,7 +171,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         </button>
       )}
 
-      {can("view_analytics") && (
+      {can("view_reports") && (
         <NavLink
           to="analytics"
           className={({ isActive }) => navClass(isActive)}
@@ -183,7 +193,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
 
       <div className="nav-spacer" />
 
-      {can("view_settings") && (
+      {can("general_settings") && (
         <NavLink
           to="settings"
           className={({ isActive }) => navClass(isActive)}

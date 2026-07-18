@@ -7,7 +7,7 @@ import {
   X,
   CalendarCheck,
 } from "react-bootstrap-icons";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import api from "../../../services/api/axios";
 import { BOOKING } from "../../../services/api/endpoints";
 import "../styles/StaffAppointmentsPage.scss";
@@ -25,25 +25,21 @@ interface Appointment {
   notes?: string;
 }
 
-const STATUS_OPTIONS = ["all", "booked", "paid", "partial", "cancelled", "no-show", "deleted"] as const;
+const STATUS_OPTIONS = ["all", "confirmed", "pending", "completed", "cancelled"] as const;
 type StatusFilter = (typeof STATUS_OPTIONS)[number];
 
 const STATUS_LABELS: Record<string, string> = {
-  booked: "Booked",
-  paid: "Paid",
-  partial: "Partial",
+  confirmed: "Confirmed",
+  pending: "Pending",
+  completed: "Completed",
   cancelled: "Cancelled",
-  "no-show": "No Show",
-  deleted: "Deleted",
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  booked: "app-badge--amber",
-  paid: "app-badge--green",
-  partial: "app-badge--blue",
+  confirmed: "app-badge--blue",
+  pending: "app-badge--amber",
+  completed: "app-badge--green",
   cancelled: "app-badge--red",
-  "no-show": "app-badge--gray",
-  deleted: "app-badge--gray",
 };
 
 function formatTime(val?: string) {
@@ -85,6 +81,7 @@ export default function StaffAppointmentsPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const limit = 20;
+  const { showError, overlay } = useStatusOverlay();
 
   const fetchAppointments = useCallback(async () => {
     if (!salonId) return;
@@ -102,7 +99,7 @@ export default function StaffAppointmentsPage() {
       setAppointments(arr);
       setTotal(res.data?.data?.pagination?.total ?? arr.length);
     } catch {
-      toast.error("Failed to load appointments");
+      showError("Failed to load appointments");
     } finally {
       setLoading(false);
     }
@@ -128,6 +125,7 @@ export default function StaffAppointmentsPage() {
 
   return (
     <div className="app-page">
+      {overlay}
       {/* ── Header ── */}
       <div className="app-page__header">
         <div>

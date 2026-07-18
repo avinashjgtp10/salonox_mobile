@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { X, Pencil } from "react-bootstrap-icons";
+import { X, Pencil, Clipboard } from "react-bootstrap-icons";
 import { useNavigate } from "react-router-dom";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
 import { Loader } from "../../../components/ui";
@@ -13,11 +14,36 @@ interface ClientDetailsDrawerProps {
   onClose: () => void;
 }
 
-function InfoRow({ label, value }: { label: string; value?: string | null }) {
+function InfoRow({
+  label,
+  value,
+  copyable,
+  onCopy,
+}: {
+  label: string;
+  value?: string | null;
+  copyable?: boolean;
+  onCopy?: (value: string) => void;
+}) {
   return (
     <div className="cdd-info-row">
       <span className="cdd-info-label">{label}</span>
-      <span className="cdd-info-value">{value || "–"}</span>
+      <span className="cdd-info-value cdd-info-value--with-copy">
+        {value || "–"}
+        {copyable && value && (
+          <button
+            type="button"
+            className="cdd-copy-btn"
+            title="Copy referral code"
+            onClick={() => {
+              navigator.clipboard.writeText(value);
+              onCopy?.(value);
+            }}
+          >
+            <Clipboard size={12} />
+          </button>
+        )}
+      </span>
     </div>
   );
 }
@@ -31,6 +57,7 @@ export default function ClientDetailsDrawer({
   const [client, setClient] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
+  const { showSuccess, overlay } = useStatusOverlay();
 
   useEffect(() => {
     let isMounted = true;
@@ -90,11 +117,19 @@ export default function ClientDetailsDrawer({
   const totalReferralEarnings = `₹${Number(client?.total_referral_earnings ?? 0).toLocaleString("en-IN")}`;
   const totalSuccessfulReferrals = String(client?.total_successful_referrals ?? 0);
 
+  // The client who referred THIS client — separate from the "Referral" section
+  // above, which is about referrals THIS client has made to others.
+  const referredBy = client?.referred_by || null;
+  const referredByPhone = referredBy?.phone_number
+    ? `${referredBy.phone_country_code || ""} ${referredBy.phone_number}`.trim()
+    : null;
+
   return (
     <div
       className={`client-drawer-overlay ${isOpen ? "open" : ""}`}
       onClick={onClose}
     >
+      {overlay}
       <div className="client-drawer cdd-simple" onClick={(e) => e.stopPropagation()}>
         <button className="drawer-close" onClick={onClose}>
           <X size={20} />
@@ -147,9 +182,37 @@ export default function ClientDetailsDrawer({
               </div>
 
               <div className="cdd-section-title cdd-section-title--mt">Referral</div>
-              <InfoRow label="Referral Code" value={referralCode} />
+              <InfoRow
+                label="Referral Code"
+                value={referralCode}
+                copyable
+                onCopy={() => showSuccess("Referral code copied!")}
+              />
               <InfoRow label="Total Referral Earnings" value={totalReferralEarnings} />
               <InfoRow label="Total Successful Referrals" value={totalSuccessfulReferrals} />
+
+              {referredBy && (
+                <>
+                  <div className="cdd-section-title cdd-section-title--mt">Referred By</div>
+                  <div className="cdd-referrer-card">
+                    <div className="cdd-referrer-avatar">
+                      {(referredBy.full_name?.[0] || "?").toUpperCase()}
+                    </div>
+                    <div className="cdd-referrer-info">
+                      <span className="cdd-referrer-name">{referredBy.full_name || "–"}</span>
+                      {referredByPhone && <span className="cdd-referrer-detail">{referredByPhone}</span>}
+                      {referredBy.email && <span className="cdd-referrer-detail">{referredBy.email}</span>}
+                    </div>
+                    <button
+                      type="button"
+                      className="cdd-referrer-view-btn"
+                      onClick={() => navigate(`/dashboard/clients/edit/${referredBy.id}`)}
+                    >
+                      View
+                    </button>
+                  </div>
+                </>
+              )}
 
               <div className="cdd-section-title cdd-section-title--mt">Additional info</div>
               <InfoRow label="Client source" value={clientSource} />

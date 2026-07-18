@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { XLg } from "react-bootstrap-icons";
-import ClientDetailsDrawer from "../../clients/components/ClientDetailsDrawer";
 import "../styles/SearchOverlay.scss";
 
 interface SearchOverlayProps {
@@ -8,42 +8,35 @@ interface SearchOverlayProps {
 }
 
 const SearchOverlay: React.FC<SearchOverlayProps> = ({ onClose }) => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedClientId, setSelectedClientId] = useState<
-    string | number | null
-  >(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   useEffect(() => {
-    // Add event listener for escape key
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (isDrawerOpen) {
-          setIsDrawerOpen(false);
-        } else {
-          onClose();
-        }
-      }
+      if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
-  }, [onClose, isDrawerOpen]);
+  }, [onClose]);
 
-  // Sample data for clients (recently added) - Adding IDs for drawer
+  // Sample data for clients (recently added)
   const recentClients = [
     { id: 1, name: "Jack Doe", email: "jack@example.com" },
     { id: 2, name: "Jane Doe", email: "jane@example.com" },
     { id: 3, name: "John Doe", email: "john@example.com" },
   ];
 
-  const handleClientClick = (id: number) => {
-    setSelectedClientId(id);
-    setIsDrawerOpen(true);
+  // Clicking a client here goes to the Client List page rather than opening
+  // a sidebar — the list is where staff can actually search/filter/act on
+  // the real client, not a fixed 3-name sample.
+  const handleClientClick = () => {
+    onClose();
+    navigate("/dashboard/clients/list");
   };
 
   return (
     <>
-      <div className={`search-overlay ${isDrawerOpen ? "hide-content" : ""}`}>
+      <div className="search-overlay">
         <div className="search-header">
           <button
             className="close-btn"
@@ -83,7 +76,7 @@ const SearchOverlay: React.FC<SearchOverlayProps> = ({ onClose }) => {
                   <div
                     key={client.id}
                     className="client-item"
-                    onClick={() => handleClientClick(client.id)}
+                    onClick={handleClientClick}
                   >
                     <div className="client-avatar">{client.name.charAt(0)}</div>
                     <div className="client-info">
@@ -97,12 +90,6 @@ const SearchOverlay: React.FC<SearchOverlayProps> = ({ onClose }) => {
           </div>
         </div>
       </div>
-
-      <ClientDetailsDrawer
-        clientId={selectedClientId}
-        isOpen={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
-      />
     </>
   );
 };

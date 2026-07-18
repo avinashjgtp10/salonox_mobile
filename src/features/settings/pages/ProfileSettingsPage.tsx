@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Camera, User, Mail, Phone, MapPin, Globe, Save } from "lucide-react";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchMeThunk, updateUserThunk } from "../../../middleware/user/user.thunk";
 import { getMySalonThunk } from "../../../middleware/salon/salon.thunk";
@@ -22,6 +22,7 @@ export default function ProfileSettingsPage() {
   });
 
   const [isDirty, setIsDirty] = useState(false);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   useEffect(() => {
     dispatch(fetchMeThunk());
@@ -50,10 +51,10 @@ export default function ProfileSettingsPage() {
   const handleSave = async () => {
     const result = await dispatch(updateUserThunk(form));
     if (updateUserThunk.fulfilled.match(result)) {
-      toast.success("Profile updated successfully");
+      showSuccess("Profile updated successfully");
       setIsDirty(false);
     } else {
-      toast.error((result.payload as string) || "Failed to update profile");
+      showError((result.payload as string) || "Failed to update profile");
     }
   };
 
@@ -76,6 +77,7 @@ export default function ProfileSettingsPage() {
 
   return (
     <>
+      {overlay}
       {/* Page Header */}
       <div className="settings-page-header">
         <h2 className="settings-page-title">Profile Settings</h2>
@@ -115,7 +117,7 @@ export default function ProfileSettingsPage() {
               type="file"
               accept="image/*"
               style={{ display: "none" }}
-              onChange={() => toast("Photo upload coming soon", { icon: "ℹ️" })}
+              onChange={() => showError("Photo upload coming soon")}
             />
             <div className="settings-avatar-info">
               <p className="settings-avatar-name">

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import toast from "react-hot-toast";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import {
   fetchTemplatesThunk,
   deleteTemplateThunk,
@@ -38,6 +38,7 @@ export default function TemplatesListPage() {
 
   const prevStatuses = useRef<Record<string, string>>({});
   const [countdown, setCountdown] = useState(POLL_INTERVAL / 1000);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   useEffect(() => { dispatch(fetchTemplatesThunk()); }, [dispatch]);
 
@@ -59,8 +60,8 @@ export default function TemplatesListPage() {
         const updated = res.payload;
         const prev    = prevStatuses.current[String(t.id)];
         if (prev && prev !== updated.status) {
-          if (updated.status === "APPROVED") toast.success(`✅ Template "${updated.name}" approved by Meta!`);
-          else if (updated.status === "REJECTED") toast.error(`❌ Template "${updated.name}" was rejected by Meta.`);
+          if (updated.status === "APPROVED") showSuccess(`✅ Template "${updated.name}" approved by Meta!`);
+          else if (updated.status === "REJECTED") showError(`❌ Template "${updated.name}" was rejected by Meta.`);
         }
         prevStatuses.current[String(t.id)] = updated.status;
       }
@@ -116,16 +117,16 @@ export default function TemplatesListPage() {
         if (deleteTemplateThunk.rejected.match(res)) {
           const msg = (res.payload as string) ?? "";
           if (msg.includes("campaign")) {
-            toast.error("This template is used in campaigns and can't be deleted.");
+            showError("This template is used in campaigns and can't be deleted.");
           } else {
-            toast.error("Failed to delete template. Please try again.");
+            showError("Failed to delete template. Please try again.");
           }
         } else {
           successCount++;
         }
       }
       if (successCount > 0) {
-        toast.success(successCount > 1 ? `${successCount} templates deleted` : "Template deleted");
+        showSuccess(successCount > 1 ? `${successCount} templates deleted` : "Template deleted");
       }
       setSelected(new Set());
       setConfirmModal({ open: false, message: "", ids: [], isBulk: false });
@@ -136,10 +137,10 @@ export default function TemplatesListPage() {
 
   const handleSyncAll = async () => {
     const pending = templates.filter(t => t.status === "PENDING");
-    if (!pending.length) { toast("No pending templates to sync"); return; }
+    if (!pending.length) { showError("No pending templates to sync"); return; }
     setIsSyncing(true);
     for (const t of pending) await dispatch(syncTemplateThunk(String(t.id)));
-    toast.success(`Synced ${pending.length} pending template(s)`);
+    showSuccess(`Synced ${pending.length} pending template(s)`);
     setIsSyncing(false);
   };
 
@@ -148,8 +149,8 @@ export default function TemplatesListPage() {
     setSyncingId(id);
     try {
       const res = await dispatch(syncTemplateThunk(id));
-      if (syncTemplateThunk.fulfilled.match(res)) toast.success("Template status synced from Meta");
-      else toast.error("Failed to sync template");
+      if (syncTemplateThunk.fulfilled.match(res)) showSuccess("Template status synced from Meta");
+      else showError("Failed to sync template");
     } finally {
       setSyncingId(null);
     }
@@ -159,6 +160,7 @@ export default function TemplatesListPage() {
 
   return (
     <div className="tl-page">
+      {overlay}
 
       {/* Header */}
       <div className="tl-header">

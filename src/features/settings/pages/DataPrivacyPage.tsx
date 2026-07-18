@@ -15,7 +15,7 @@ import {
   CheckCircle2,
   ExternalLink,
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { logout } from "../../../store/authSlice";
 import { useNavigate } from "react-router-dom";
@@ -139,6 +139,7 @@ export default function DataPrivacyPage() {
   const [gdprEmail, setGdprEmail] = useState("");
   const [gdprReason, setGdprReason] = useState("");
   const [gdprLoading, setGdprLoading] = useState(false);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   const handleExport = async (option: ExportOption, format: "excel" | "csv" = "excel") => {
     const loadingKey = format === "csv" ? `${option.id}-csv` : option.id;
@@ -151,9 +152,9 @@ export default function DataPrivacyPage() {
         const res = await api.get(endpoint, { responseType: "blob" });
         downloadBlob(res.data, `${option.id}-export.${format === "excel" ? "xlsx" : "csv"}`);
       }
-      toast.success(`${option.label} exported successfully`);
+      showSuccess(`${option.label} exported successfully`);
     } catch {
-      toast.error(`Failed to export ${option.label.toLowerCase()}`);
+      showError(`Failed to export ${option.label.toLowerCase()}`);
     } finally {
       setExportLoading(null);
     }
@@ -170,9 +171,9 @@ export default function DataPrivacyPage() {
         }
       }
       await dispatch(exportSettingsThunk("excel"));
-      toast.success("All data exported successfully");
+      showSuccess("All data exported successfully");
     } catch {
-      toast.error("Some exports failed — check individual exports below");
+      showError("Some exports failed — check individual exports below");
     } finally {
       setExportLoading(null);
     }
@@ -182,9 +183,9 @@ export default function DataPrivacyPage() {
     setAnonymizeLoading(true);
     try {
       await api.post("/api/v1/clients/anonymize-inactive");
-      toast.success("Inactive client data anonymized");
+      showSuccess("Inactive client data anonymized");
     } catch {
-      toast("Anonymisation endpoint not available yet", { icon: "ℹ️" });
+      showError("Anonymisation endpoint not available yet");
     } finally {
       setAnonymizeLoading(false);
     }
@@ -192,17 +193,17 @@ export default function DataPrivacyPage() {
 
   const handleDeleteAccount = async () => {
     if (deleteConfirm !== "DELETE ALL DATA") {
-      toast.error('Type "DELETE ALL DATA" to confirm');
+      showError('Type "DELETE ALL DATA" to confirm');
       return;
     }
     setDeleteLoading(true);
     try {
       await api.delete("/api/v1/auth/account");
-      toast.success("Account deletion requested. Data will be erased within 30 days.");
+      showSuccess("Account deletion requested. Data will be erased within 30 days.");
       dispatch(logout());
       navigate("/login");
     } catch {
-      toast.error("Failed to submit deletion request. Contact support.");
+      showError("Failed to submit deletion request. Contact support.");
     } finally {
       setDeleteLoading(false);
     }
@@ -214,7 +215,7 @@ export default function DataPrivacyPage() {
       className="settings-privacy-link"
       onClick={(e) => {
         e.preventDefault();
-        toast("Privacy policy opens in new tab", { icon: "📄" });
+        showError("Privacy policy opens in new tab");
       }}
     >
       Privacy Policy
@@ -224,6 +225,7 @@ export default function DataPrivacyPage() {
 
   return (
     <>
+      {overlay}
       {/* Page Header */}
       <div className="settings-page-header">
         <h2 className="settings-page-title">Data & Privacy</h2>
@@ -425,16 +427,16 @@ export default function DataPrivacyPage() {
             variant="outline-danger"
             loading={gdprLoading}
             onClick={async () => {
-              if (!gdprEmail) { toast.error("Enter a client email"); return; }
-              if (!gdprReason) { toast.error("Select a reason"); return; }
+              if (!gdprEmail) { showError("Enter a client email"); return; }
+              if (!gdprReason) { showError("Select a reason"); return; }
               setGdprLoading(true);
               try {
                 await api.post("/api/v1/clients/gdpr-delete", { email: gdprEmail, reason: gdprReason });
-                toast.success("Deletion request submitted successfully");
+                showSuccess("Deletion request submitted successfully");
                 setGdprEmail("");
                 setGdprReason("");
               } catch {
-                toast("GDPR endpoint not available yet", { icon: "ℹ️" });
+                showError("GDPR endpoint not available yet");
               } finally {
                 setGdprLoading(false);
               }

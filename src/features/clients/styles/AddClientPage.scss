@@ -1,161 +1,357 @@
-/* ================= PAGE BACKGROUND ================= */
+// ============================================================
+// AddClientPage.scss — Add/Edit Client page
+// Mirrors AddStaffPage.scss's design language (same tokens/structure,
+// `cli-`/`add-client` prefix instead of `emp-`/`add-staff`) so the two
+// create/edit experiences look and feel consistent across the app.
+// ============================================================
 
-.add-client-page {
-  background: #f8f9fb;
-  min-height: 100vh;
-}
+// ── Variables ──────────────────────────────────────────────
+$primary:         #1a1a1a;
+$accent:          #6c3ce1;
+$danger:          #e53935;
+$text-primary:    #1a1a1a;
+$text-muted:      #6b7280;
+$border:          #e5e7eb;
+$radius-sm:       6px;
+$radius-md:       10px;
+$transition:      0.18s ease;
 
-/* ================= HEADER ================= */
-
-.add-client-header {
-  border-bottom: 1px solid #eee;
-  padding-bottom: 16px;
-
-  h2 {
-    font-size: 24px;
-    font-weight: 700;
-    color: #111827;
-  }
-}
-
-/* ================= BUTTONS ================= */
-
-.btn-dark {
-  background: #111827;
-  border: none;
-  padding: 8px 18px;
-  border-radius: 8px;
-}
-
-.btn-outline-secondary {
-  border-radius: 8px;
-}
-
-/* ================= SIDEBAR ================= */
-
-.client-sidebar {
-  background: #ffffff;
-  border: 1px solid #eee;
-  border-radius: 10px;
-}
-
-.client-sidebar .list-group-item {
-  border: none;
-  font-size: 14px;
-  padding: 10px 12px;
-}
-
-.client-sidebar .list-group-item.active {
-  background: #eef2ff;
-  color: #4338ca;
-  font-weight: 600;
-  border-radius: 6px;
-}
-
-/* ================= FORM SECTION ================= */
-
-.client-form-section {
-  background: white;
-  padding: 20px;
-  border-radius: 10px;
-  border: 1px solid #eee;
-}
-
-/* ================= SECTION TITLE ================= */
-
-.section-title {
-  font-size: 18px;
-  font-weight: 700;
-  margin-bottom: 5px;
-}
-
-.section-subtitle {
-  color: #6b7280;
-  font-size: 13px;
-}
-
-/* ================= FORM INPUT ================= */
-
-.form-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #374151;
-}
-
-.form-control,
-.form-select {
-  border-radius: 8px;
-  height: 40px;
-  font-size: 14px;
-}
-
-.form-control:focus,
-.form-select:focus {
-  border-color: #6366f1;
-  box-shadow: none;
-}
-
-/* ================= VALIDATION ================= */
-
-.is-invalid {
-  border-color: #ef4444 !important;
-}
-
-.is-invalid:focus {
-  border-color: #ef4444 !important;
-  box-shadow: 0 0 0 0.2rem rgba(239, 68, 68, 0.25) !important;
-}
-
-.invalid-feedback {
-  display: block;
-  font-size: 12px;
-  color: #ef4444;
-  margin-top: 4px;
-}
-
-.text-danger-dot {
-  color: #ef4444;
-  font-size: 8px;
-  margin-left: auto;
-}
-
-/* ================= PHONE GROUP ================= */
-
-.ac-phone-group {
+// ── Layout Shell ───────────────────────────────────────────
+.add-client {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  background: #ffffff;
+  font-family: 'Inter', -apple-system, sans-serif;
 
-  .ac-phone-code {
-    width: 130px;
+  &__header {
+    height: 60px;
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    background: #ffffff;
+    border-bottom: 1px solid #eee;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+
+    &-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #111;
+      margin: 0;
+    }
+
+    &-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+  }
+
+  &__btn-close {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-weight: 600;
     font-size: 13px;
+    color: #111827;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover {
+      background: #f9fafb;
+      border-color: #d1d5db;
+    }
   }
 
-  .form-control {
-    flex: 1;
-    min-width: 0;
+  &__btn-add {
+    background: #000;
+    border: none;
+    padding: 8px 28px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 13px;
+    color: #ffffff;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover {
+      opacity: 0.9;
+      transform: translateY(-0.5px);
+    }
+
+    &:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+      transform: none;
+    }
   }
 }
 
-/* ================= ADDITIONAL INFO ================= */
-
-.additional-info {
-  margin-top: 40px;
+// ── Unsaved Changes Dialog ─────────────────────────────────
+.add-client__dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
 }
 
-/* ================= CARD STYLE ================= */
-
-.card {
-  border-radius: 10px;
-  border: 1px solid #eee;
+.add-client__dialog {
+  background: #fff;
+  border-radius: 12px;
+  padding: 28px;
+  width: 400px;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
 }
 
-/* ================= RESPONSIVE ================= */
+.add-client__dialog-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  color: $text-muted;
+  line-height: 1;
+  padding: 0;
+}
 
-@media (max-width: 768px) {
+.add-client__dialog-title {
+  font-weight: 700;
+  font-size: 16px;
+  color: #111827;
+  margin-bottom: 12px;
+}
 
-  .client-sidebar {
-    margin-bottom: 20px;
+.add-client__dialog-desc {
+  font-size: 14px;
+  color: #374151;
+  margin-bottom: 28px;
+  line-height: 1.6;
+}
+
+.add-client__dialog-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.add-client__dialog-btn {
+  border-radius: 20px;
+  padding: 8px 20px;
+  font-size: 14px;
+  font-weight: 500;
+
+  &--cancel {
+    border: 1px solid $border;
+    color: #374151;
   }
 
+  &--discard {
+    background: #111827;
+    color: #fff;
+    border: none;
+  }
+}
+
+// ── Add/Edit Client page body ─────────────────────────────
+.cli-page {
+  padding: 24px 32px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+
+  @media (max-width: 900px) { padding: 16px; }
+}
+
+.cli-card {
+  background: #fff;
+  border: 1px solid $border;
+  border-radius: $radius-md;
+  padding: 20px 24px;
+
+  &__title {
+    font-size: 14px;
+    font-weight: 700;
+    color: $text-primary;
+    margin: 0 0 16px;
+
+    &--inline { margin: 0; }
+  }
+}
+
+.cli-top-row {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 20px;
+  align-items: start;
+
+  @media (max-width: 900px) { grid-template-columns: 1fr; }
+}
+
+// ── Details grid ───────────────────────────────────────────
+.cli-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px 16px;
+}
+
+.cli-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+
+  &__label {
+    font-size: 11px;
+    font-weight: 600;
+    color: $text-muted;
+  }
+
+  &__error {
+    font-size: 11px;
+    color: $danger;
+  }
+
+  &__hint {
+    font-size: 11px;
+    color: $text-muted;
+    line-height: 1.5;
+    margin: 2px 0 0;
+  }
+}
+
+.cli-input {
+  height: 40px;
+  border: 1px solid $border;
+  border-radius: $radius-sm;
+  padding: 0 12px;
+  font-size: 13px;
+  color: $text-primary;
+  background: #f9fafb;
+  transition: border-color $transition, background $transition;
+  width: 100%;
+
+  &::placeholder { color: #9ca3af; }
+
+  &:hover { border-color: #c7cbd1; }
+
+  &:focus {
+    outline: none;
+    border-color: #000;
+    background: #fff;
+    box-shadow: 0 0 0 1px #000;
+  }
+
+  &--invalid {
+    border-color: $danger;
+    &:focus { box-shadow: 0 0 0 1px $danger; }
+  }
+}
+
+.cli-select { cursor: pointer; }
+
+.cli-phone-group {
+  display: flex;
+  border: 1px solid $border;
+  border-radius: $radius-sm;
+  overflow: hidden;
+  background: #f9fafb;
+
+  &.cli-input--invalid { border-color: $danger; }
+
+  .cli-phone-code {
+    border: none;
+    border-right: 1px solid $border;
+    background: transparent;
+    font-size: 13px;
+    padding: 0 8px;
+    width: 90px;
+    flex-shrink: 0;
+    cursor: pointer;
+    &:focus { outline: none; }
+  }
+
+  .cli-phone-input {
+    border: none;
+    background: transparent;
+    border-radius: 0;
+    &:focus { box-shadow: none; }
+  }
+}
+
+// ── Profile photo ──────────────────────────────────────────
+.cli-photo-card { text-align: left; }
+
+.cli-photo-box {
+  width: 100%;
+  aspect-ratio: 1.4;
+  border: 1px dashed $border;
+  border-radius: $radius-md;
+  background: #f9fafb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color $transition;
+
+  &:hover { border-color: #9ca3af; }
+}
+
+.cli-photo-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cli-photo-placeholder {
+  font-size: 28px;
+  font-weight: 700;
+  color: #c7cbd1;
+}
+
+.cli-photo-camera {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid $border;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: $text-muted;
+}
+
+.cli-photo-uploading {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: $text-primary;
+}
+
+.cli-hidden-input { display: none; }
+
+.cli-photo-hint {
+  font-size: 11px;
+  color: $text-muted;
+  margin: 10px 0 0;
+  text-align: center;
 }

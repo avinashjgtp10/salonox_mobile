@@ -52,6 +52,10 @@ interface ServiceRowProps {
   onChange: (id: string, field: string, value: string | number | boolean) => void;
   onRemove: (id: string) => void;
   onClearError?: (tempId: string, field: string) => void;
+  /** Called before applying a picked service to THIS row. Return true if the
+   *  parent merged the pick into an existing row with the same service
+   *  (qty +1 there, this row removed) — the row then skips its own update. */
+  onSelectDuplicate?: (tempId: string, service: { id?: string; name: string; price: number; duration?: number }) => boolean;
   hasError?: boolean;
   errorFields?: { service?: boolean; staff?: boolean; time?: boolean; price?: boolean; qty?: boolean };
   disabled?: boolean;
@@ -136,6 +140,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   onChange,
   onRemove,
   onClearError,
+  onSelectDuplicate,
   errorFields = {},
   disabled,
   coveredServices,
@@ -148,6 +153,19 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     salonBranches.find((b: any) => b.is_main === true)?.id ??
     salonBranches[0]?.id ??
     "";
+  // Coverage lookup: prefer the exact catalog service id (set once a service is
+  // picked from the dropdown below), falling back to the name-prefixed key —
+  // matches only legacy packages that have no catalog id of their own, so a
+  // same-named-but-different-price catalog service can't be cross-covered.
+  const getCoveredRemaining = (catalogId: string | undefined | null, name: string): number => {
+    if (!coveredServices) return 0;
+    if (catalogId) {
+      const byId = coveredServices.get(catalogId);
+      if (byId != null) return byId;
+    }
+    return coveredServices.get(`name:${name.trim().toLowerCase()}`) ?? 0;
+  };
+
   const interval = schedulerContext.interval;
   const staffList = schedulerContext.staffList as StaffDto[] | undefined;
   const servicesList = schedulerContext.servicesList as RawServiceItem[] | undefined;
@@ -169,7 +187,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   // using a stale remaining-sessions value after coverage was turned off.
   useEffect(() => {
     if (!row.service) return;
-    const remaining = coveredServices?.get(row.service.toLowerCase()) ?? 0;
+    const remaining = getCoveredRemaining(row.id, row.service);
     if (remaining > 0) {
       pkgRemainingRef.current = remaining;
       if (!catalogPriceRef.current) catalogPriceRef.current = Number(row.price) || 0;
@@ -206,6 +224,30 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   const trimmedSearch = serviceSearch.trim();
   const meetsMinSearchLength = trimmedSearch.length >= MIN_SEARCH_LENGTH;
   const showSearchHelper = !disabled && trimmedSearch.length < MIN_SEARCH_LENGTH;
+
+  // The dropdown is a document.body portal positioned with `position: fixed`
+  // (so it isn't clipped by the row's own overflow:hidden ancestors), which
+  // means it sits relative to the viewport, not to whatever container the
+  // page/modal actually scrolls. Computing its position only once at render
+  // time left it visually stuck in place while the input scrolled away
+  // underneath it — recompute on every scroll (capture phase, so it catches
+  // scrolling on the modal's own inner container too, not just window) and resize.
+  const [dropPos, setDropPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  useEffect(() => {
+    if (!showDrop || !meetsMinSearchLength) { setDropPos(null); return; }
+    function updateDropPos() {
+      if (!inputRef.current) return;
+      const r = inputRef.current.getBoundingClientRect();
+      setDropPos({ top: r.bottom + 2, left: r.left, width: r.width });
+    }
+    updateDropPos();
+    window.addEventListener("scroll", updateDropPos, true);
+    window.addEventListener("resize", updateDropPos);
+    return () => {
+      window.removeEventListener("scroll", updateDropPos, true);
+      window.removeEventListener("resize", updateDropPos);
+    };
+  }, [showDrop, meetsMinSearchLength]);
 
   useEffect(() => {
     setServiceSearch(row.service || "");
@@ -350,7 +392,15 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   }
 
   function selectService(service: { id?: string; name: string; price: number; duration?: number }) {
-    const remaining = coveredServices?.get(service.name.toLowerCase()) ?? 0;
+    // Same service already on the bill? Let the parent bump that row's qty
+    // instead of creating a duplicate row — two rows of one service each
+    // independently saw the package pool's full remaining count and could
+    // both mark themselves covered (double free session).
+    if (onSelectDuplicate?.(row.tempId, service)) {
+      setShowDrop(false);
+      return;
+    }
+    const remaining = getCoveredRemaining(service.id, service.name);
     catalogPriceRef.current = service.price;
     pkgRemainingRef.current = remaining;
 
@@ -621,7 +671,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     }
   }
 
-  const pkgRemaining = coveredServices?.get(row.service.trim().toLowerCase()) ?? 0;
+  const pkgRemaining = getCoveredRemaining(row.id, row.service);
   const isPackageCovered = row.service.trim() !== "" && pkgRemaining > 0;
 
   return (
@@ -651,16 +701,13 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
               aria-controls={`service-search-listbox-${row.tempId}`}
               aria-activedescendant={activeIndex >= 0 ? `service-search-option-${row.tempId}-${activeIndex}` : undefined}
             />
-            {showDrop && meetsMinSearchLength && inputRef.current && createPortal(
+            {showDrop && meetsMinSearchLength && dropPos && createPortal(
               <div
                 ref={portalDropRef}
                 className="svc-dropdown"
                 role="listbox"
                 id={`service-search-listbox-${row.tempId}`}
-                style={(() => {
-                  const r = inputRef.current!.getBoundingClientRect();
-                  return { position: "fixed" as const, top: r.bottom + 2, left: r.left, width: r.width, zIndex: 9999 };
-                })()}
+                style={{ position: "fixed", top: dropPos.top, left: dropPos.left, width: dropPos.width, zIndex: 9999 }}
               >
                 {isSearching ? (
                   <div className="svc-dropdown__searching">Searching...</div>
@@ -698,7 +745,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
           )}
           {!isPackageCovered && membershipWalletInfo && membershipWalletInfo.walletUsed > 0 && (
             <span className="svc-field__pkg-badge" title={`You pay ${currencySymbol}${membershipWalletInfo.payable.toFixed(2)}`}>
-              ✓ Wallet Applied −{currencySymbol}{membershipWalletInfo.walletUsed.toFixed(2)}
+              ✓ Membership Applied −{currencySymbol}{membershipWalletInfo.walletUsed.toFixed(2)}
             </span>
           )}
         </div>
@@ -803,7 +850,22 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
           <span className="svc-field__label">Total</span>
           <input
             readOnly
-            value={row.total ? (row.total as number).toFixed(2) : "0.00"}
+            // Membership coverage is a bill-level wallet deduction (see
+            // membershipWalletMap in AppointmentModal.tsx) — row.total itself is
+            // deliberately left untouched so the bill's subtotal/tax math isn't
+            // double-discounted. This field's DISPLAY still needs to reflect the
+            // discounted payable amount, though, or the "Membership Applied"
+            // badge above looks like it did nothing to this row's price.
+            value={
+              !isPackageCovered && membershipWalletInfo && membershipWalletInfo.walletUsed > 0
+                ? membershipWalletInfo.payable.toFixed(2)
+                : row.total ? (row.total as number).toFixed(2) : "0.00"
+            }
+            title={
+              !isPackageCovered && membershipWalletInfo && membershipWalletInfo.walletUsed > 0
+                ? `Full price ${currencySymbol}${(Number(row.total) || 0).toFixed(2)} — ${currencySymbol}${membershipWalletInfo.walletUsed.toFixed(2)} covered by membership`
+                : undefined
+            }
             className="svc-field__input svc-field__input--readonly"
           />
         </div>
