@@ -11,12 +11,24 @@ export const DEFAULT_HALF_DAY_RULE_CONFIG: HalfDayRuleConfig = {
 // Picks only the two known fields — the GET response is the full attendance_settings
 // row (salon_id, id, shift_start, created_at, ...), and spreading it wholesale into
 // this config would resend those extra fields on the next save.
+//
+// threshold_hours is a Postgres NUMERIC(4,2) column, which node-postgres returns
+// as a STRING (e.g. "2.00"), not a number — unlike the app's TIMESTAMP columns,
+// NUMERIC has no type-parser override in the backend. A strict `typeof === "number"`
+// check here always failed on real saved data, silently falling back to the
+// default threshold on every load — so whatever hour value was actually saved
+// looked like it "didn't work," since the UI (and the check-in comparison logic)
+// kept reverting to 2 hours regardless of what was configured.
 function pickHalfDayRuleFields(obj: Record<string, unknown>): HalfDayRuleConfig {
+  const raw = obj.threshold_hours;
+  const numeric =
+    typeof raw === "number" ? raw
+    : typeof raw === "string" && raw.trim() !== "" && !isNaN(Number(raw)) ? Number(raw)
+    : null;
+
   return {
     active: typeof obj.active === "boolean" ? obj.active : DEFAULT_HALF_DAY_RULE_CONFIG.active,
-    threshold_hours: typeof obj.threshold_hours === "number"
-      ? obj.threshold_hours
-      : DEFAULT_HALF_DAY_RULE_CONFIG.threshold_hours,
+    threshold_hours: numeric !== null ? numeric : DEFAULT_HALF_DAY_RULE_CONFIG.threshold_hours,
   };
 }
 

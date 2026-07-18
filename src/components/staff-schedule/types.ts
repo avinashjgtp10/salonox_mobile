@@ -8,6 +8,11 @@ export interface StaffMember {
   avatarColor: string;
 }
 
+export interface ShiftBreak {
+  start: string;
+  end: string;
+}
+
 export interface ShiftEntry {
   id?: string;
   staffId: string;
@@ -17,6 +22,7 @@ export interface ShiftEntry {
   totalHours: string;
   type: ShiftType;
   isAvailable: boolean;
+  breaks?: ShiftBreak[];
 }
 
 // staffId -> date -> ShiftEntry

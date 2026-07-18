@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Search as SearchIcon,
   CheckCircleFill,
@@ -17,13 +17,14 @@ import {
   Clock,
 } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
-import { ATTENDANCE, DEVICES } from "../../../services/api/endpoints";
+import { ATTENDANCE, DEVICES, STAFF } from "../../../services/api/endpoints";
 import {
   DEFAULT_HALF_DAY_RULE_CONFIG,
   parseHalfDayRuleValue,
   isHalfDayCheckIn,
 } from "../../settings/utils/halfDayRuleSettings";
 import HalfDayRulePage from "../../settings/pages/HalfDayRulePage";
+import { scheduleDateToYMD } from "../../../components/staff-schedule/utils";
 import "../styles/AttendancePage.scss";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -164,25 +165,24 @@ function toISO(date: string, time: string): string {
   return `${date}T${time}:00+05:30`;
 }
 
-/** Look up a staff member's scheduled shift-start time (HH:MM, 24h) for a given date. */
-async function fetchShiftStartTime(staffId: string, date: string): Promise<string | null> {
-  try {
-    const res = await api.get(`/api/v1/staff/${staffId}/scheduled`);
-    const schedules = res.data?.data || res.data;
-    if (!Array.isArray(schedules)) return null;
-    const toYMD = (d: any) => (d && typeof d === "string" ? d.slice(0, 10) : "");
-    const dayOfWeek = new Date(date + "T12:00:00").getDay();
-    const daySched =
-      schedules.find((sch: any) => toYMD(sch.date) === date) ??
-      schedules.find((sch: any) => !sch.date && sch.day_of_week === dayOfWeek);
-    // staff_schedules.start_time is a Postgres TIME column ("HH:MM:SS") — truncate
-    // to "HH:MM" since toISO() appends its own ":00" seconds.
-    return daySched?.is_available && daySched?.start_time
-      ? String(daySched.start_time).slice(0, 5)
-      : null;
-  } catch {
-    return null;
-  }
+/**
+ * Look up a staff member's scheduled shift-start time (HH:MM, 24h) for a
+ * given date, from the `schedule` array already embedded on their staff
+ * record (see staffRepository.list on the backend — a LEFT JOIN LATERAL
+ * against staff_schedules). No separate GET /staff/:id/scheduled call is
+ * needed anymore now that the staff list carries this data itself.
+ */
+function getShiftStartTime(schedule: any[] | undefined, date: string): string | null {
+  if (!Array.isArray(schedule)) return null;
+  const dayOfWeek = new Date(date + "T12:00:00").getDay();
+  const daySched =
+    schedule.find((sch: any) => scheduleDateToYMD(sch.date) === date) ??
+    schedule.find((sch: any) => !scheduleDateToYMD(sch.date) && sch.day_of_week === dayOfWeek);
+  // start_time comes back as "HH:MM" already (backend formats it via
+  // to_char), but slice defensively in case a raw "HH:MM:SS" ever shows up.
+  return daySched?.is_available && daySched?.start_time
+    ? String(daySched.start_time).slice(0, 5)
+    : null;
 }
 
 // ─── 12-hour time picker (native <input type="time"> ignores the "lang" hint on
@@ -204,21 +204,122 @@ function from12hParts(hour: string, minute: string, period: "AM" | "PM"): string
 const HOUR_OPTS_12 = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0"));
 const MINUTE_OPTS_60 = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0"));
 
+// A native <select>'s dropdown is positioned by the browser/OS with no way for
+// us to control it — with 60 minute options opened from a field near the
+// bottom of a modal, it was flipping upward and stretching almost the full
+// screen height, off past the top of the viewport. This custom listbox is
+// positioned from the trigger's own bounding rect, flips above/below based on
+// actual available space, and is always height-capped with internal scroll —
+// so it can never extend past the viewport.
+const TIME_DD_MAX_HEIGHT = 200;
+
+function TimeDropdown({ value, options, ariaLabel, onChange }: {
+  value: string;
+  options: string[];
+  ariaLabel: string;
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 0, maxHeight: TIME_DD_MAX_HEIGHT });
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const openDropdown = () => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const margin = 8;
+    // The trigger itself can be quite narrow (three fields squeezed side by
+    // side) — clamp the panel to a legible minimum so two-digit values never
+    // wrap/overflow and force scrollbars in both directions.
+    const width = Math.max(rect.width, 64);
+    const spaceBelow = window.innerHeight - rect.bottom - margin;
+    const spaceAbove = rect.top - margin;
+    const openUp = spaceBelow < TIME_DD_MAX_HEIGHT && spaceAbove > spaceBelow;
+    const maxHeight = Math.min(TIME_DD_MAX_HEIGHT, openUp ? spaceAbove : spaceBelow);
+    const top = openUp ? rect.top - maxHeight - 4 : rect.bottom + 4;
+    const left = Math.min(rect.left, window.innerWidth - width - margin);
+    setPos({ top, left: Math.max(margin, left), width, maxHeight });
+    setOpen(true);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const el = listRef.current?.querySelector('[data-selected="true"]') as HTMLElement | null;
+    el?.scrollIntoView({ block: "nearest" });
+
+    // Only resize invalidates the computed position — a plain "scroll"
+    // listener here would also fire (and immediately close the dropdown)
+    // from scrolling inside the list itself, since scroll events bubble
+    // through window even in the capture phase.
+    const close = () => setOpen(false);
+    window.addEventListener("resize", close);
+    return () => window.removeEventListener("resize", close);
+  }, [open]);
+
+  return (
+    <div className="at-time-dd">
+      <button
+        type="button"
+        ref={triggerRef}
+        className="at-time-dd__trigger"
+        aria-label={ariaLabel}
+        aria-haspopup="listbox"
+        onClick={() => (open ? setOpen(false) : openDropdown())}
+      >
+        {value}
+      </button>
+      {open && (
+        <>
+          <div className="at-time-dd__backdrop" onClick={() => setOpen(false)} />
+          <div
+            ref={listRef}
+            className="at-time-dd__list"
+            role="listbox"
+            aria-label={ariaLabel}
+            style={{ top: pos.top, left: pos.left, width: pos.width, maxHeight: pos.maxHeight }}
+          >
+            {options.map((opt) => (
+              <div
+                key={opt}
+                role="option"
+                aria-selected={opt === value}
+                data-selected={opt === value}
+                className={`at-time-dd__opt${opt === value ? " at-time-dd__opt--active" : ""}`}
+                onClick={() => { onChange(opt); setOpen(false); }}
+              >
+                {opt}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function TimeField12h({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const { hour, minute, period } = to12hParts(value);
   return (
     <div className="at-time12">
-      <select aria-label="Hour" value={hour} onChange={(e) => onChange(from12hParts(e.target.value, minute, period))}>
-        {HOUR_OPTS_12.map((h) => <option key={h} value={h}>{h}</option>)}
-      </select>
+      <TimeDropdown
+        ariaLabel="Hour"
+        value={hour}
+        options={HOUR_OPTS_12}
+        onChange={(h) => onChange(from12hParts(h, minute, period))}
+      />
       <span className="at-time12__sep">:</span>
-      <select aria-label="Minute" value={minute} onChange={(e) => onChange(from12hParts(hour, e.target.value, period))}>
-        {MINUTE_OPTS_60.map((m) => <option key={m} value={m}>{m}</option>)}
-      </select>
-      <select aria-label="AM or PM" value={period} onChange={(e) => onChange(from12hParts(hour, minute, e.target.value as "AM" | "PM"))}>
-        <option value="AM">AM</option>
-        <option value="PM">PM</option>
-      </select>
+      <TimeDropdown
+        ariaLabel="Minute"
+        value={minute}
+        options={MINUTE_OPTS_60}
+        onChange={(m) => onChange(from12hParts(hour, m, period))}
+      />
+      <TimeDropdown
+        ariaLabel="AM or PM"
+        value={period}
+        options={["AM", "PM"]}
+        onChange={(p) => onChange(from12hParts(hour, minute, p as "AM" | "PM"))}
+      />
     </div>
   );
 }
@@ -232,10 +333,12 @@ function rowAction(s: TodayStaffRecord): { label: string; variant: string; modal
 
 // ─── Check-In Modal ───────────────────────────────────────────────────────────
 
-function CheckInModal({ record, date, isToday, onClose, onDone }: {
+function CheckInModal({ record, date, isToday, schedule, onClose, onDone }: {
   record: TodayStaffRecord;
   date: string;
   isToday: boolean;
+  /** This staff member's `schedule` array, already embedded on their staff record. */
+  schedule: any[] | undefined;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -243,22 +346,37 @@ function CheckInModal({ record, date, isToday, onClose, onDone }: {
   const [note, setNote]   = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState("");
-  const [shiftStart, setShiftStart] = useState<string | null>(null);
   const [salonShiftStart, setSalonShiftStart] = useState<string | null>(null);
   const [halfDayRule, setHalfDayRule] = useState(DEFAULT_HALF_DAY_RULE_CONFIG);
+  const [settingsReady, setSettingsReady] = useState(false);
+
+  // Shift start comes straight from the schedule already embedded on the
+  // staff record — no fetch needed. Only the half-day rule settings still
+  // require a network call.
+  const shiftStart = getShiftStartTime(schedule, date);
 
   // Half-day rule is evaluated client-side: compare the check-in time against
   // (shift start + configured threshold hours). Backend just stores whatever
   // status we send — it does not compute lateness itself.
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const [start, ruleRes] = await Promise.all([
-        fetchShiftStartTime(record.staff_id, date),
-        api.get(ATTENDANCE.SETTINGS).catch(() => null),
-      ]);
+    setSettingsReady(false);
+
+    // This GET previously had zero retry (a bare .catch(() => null)), unlike
+    // every other fetch of this same endpoint in this file — a single
+    // transient DB blip (this backend's connection is known to drop
+    // intermittently, see the retry comments elsewhere in this file and in
+    // config/database.ts) silently left halfDayRule at its default
+    // (active: false), so the rule would just never apply for that check-in
+    // with no visible error. Retrying matches the established pattern.
+    const attempt = (n: number): Promise<any> =>
+      api.get(ATTENDANCE.SETTINGS).catch((e: any) => {
+        if (n <= 0) throw e;
+        return new Promise((resolve) => setTimeout(resolve, 600)).then(() => attempt(n - 1));
+      });
+
+    attempt(2).catch(() => null).then((ruleRes: any) => {
       if (cancelled) return;
-      setShiftStart(start);
       if (ruleRes) {
         const settings = ruleRes.data?.data ?? ruleRes.data;
         setHalfDayRule(parseHalfDayRuleValue(settings));
@@ -269,7 +387,8 @@ function CheckInModal({ record, date, isToday, onClose, onDone }: {
         // toISO() below appends its own ":00" seconds.
         if (settings?.shift_start) setSalonShiftStart(String(settings.shift_start).slice(0, 5));
       }
-    })();
+      setSettingsReady(true);
+    });
     return () => { cancelled = true; };
   }, [record.staff_id, date]);
 
@@ -341,8 +460,8 @@ function CheckInModal({ record, date, isToday, onClose, onDone }: {
         </div>
         <div className="at-modal-footer">
           <button className="at-btn at-btn--ghost" onClick={onClose}>Cancel</button>
-          <button className="at-btn at-btn--primary" disabled={saving} onClick={save}>
-            {saving ? "Saving…" : "Check In"}
+          <button className="at-btn at-btn--primary" disabled={saving || !settingsReady} onClick={save}>
+            {saving ? "Saving…" : !settingsReady ? "Loading…" : "Check In"}
           </button>
         </div>
       </div>
@@ -426,7 +545,6 @@ function EditModal({ record, date, onClose, onDone }: {
   );
   const [checkIn,  setCheckIn]  = useState(isoToTimeIST(record.check_in));
   const [checkOut, setCheckOut] = useState(isoToTimeIST(record.check_out));
-  const [note,     setNote]     = useState("");
   const [saving,   setSaving]   = useState(false);
   const [error,    setError]    = useState("");
 
@@ -436,7 +554,6 @@ function EditModal({ record, date, onClose, onDone }: {
       const patch: Record<string, any> = { status };
       if (checkIn)  patch.check_in  = toISO(date, checkIn);
       if (checkOut) patch.check_out = toISO(date, checkOut);
-      if (note.trim()) patch.note = note.trim();
 
       if (record.attendance_id) {
         await api.patch(ATTENDANCE.BY_ID(record.attendance_id), patch);
@@ -451,7 +568,7 @@ function EditModal({ record, date, onClose, onDone }: {
 
   return (
     <div className="at-modal-overlay" onClick={onClose}>
-      <div className="at-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="at-modal at-modal--wide" onClick={(e) => e.stopPropagation()}>
         <div className="at-modal-header">
           <span className="at-modal-title">Edit Attendance</span>
           <button className="at-modal-close" onClick={onClose}>×</button>
@@ -478,95 +595,11 @@ function EditModal({ record, date, onClose, onDone }: {
               <TimeField12h value={checkOut} onChange={setCheckOut} />
             </div>
           </div>
-          <div className="at-modal-field">
-            <label>Note <span className="at-optional-label">(optional)</span></label>
-            <input type="text" placeholder="Add a note…" value={note} onChange={(e) => setNote(e.target.value)} />
-          </div>
           {error && <p className="at-modal-error">{error}</p>}
         </div>
         <div className="at-modal-footer">
           <button className="at-btn at-btn--ghost" onClick={onClose}>Cancel</button>
           <button className="at-btn at-btn--primary" disabled={saving} onClick={save}>
-            {saving ? "Saving…" : "Save"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Quick Mark Modal (header button) ─────────────────────────────────────────
-
-function QuickMarkModal({ staff, date, onClose, onDone }: {
-  staff: TodayStaffRecord[];
-  date: string;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const [staffId, setStaffId] = useState("");
-  const [status,  setStatus]  = useState<AttendanceStatus>("present");
-  const [saving,  setSaving]  = useState(false);
-  const [error,   setError]   = useState("");
-
-  const selected = staff.find((s) => s.staff_id === staffId) ?? null;
-
-  async function save() {
-    if (!staffId) { setError("Please select a staff member."); return; }
-    setSaving(true); setError("");
-    try {
-      if (selected?.attendance_id) {
-        await api.patch(ATTENDANCE.BY_ID(selected.attendance_id), { status });
-      } else {
-        await api.post(ATTENDANCE.MARK, { staff_id: staffId, date, status });
-      }
-      onDone();
-    } catch (e: any) {
-      setError(e?.response?.data?.error?.message || "Failed to mark attendance.");
-    } finally { setSaving(false); }
-  }
-
-  return (
-    <div className="at-modal-overlay" onClick={onClose}>
-      <div className="at-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="at-modal-header">
-          <span className="at-modal-title">Mark Attendance</span>
-          <button className="at-modal-close" onClick={onClose}>×</button>
-        </div>
-        <div className="at-modal-body">
-          <p className="at-modal-meta">{fmtDateLabel(date)}</p>
-          <div className="at-modal-field">
-            <label>Staff Member</label>
-            <select value={staffId} onChange={(e) => setStaffId(e.target.value)}>
-              <option value="">Select staff…</option>
-              {staff.map((s) => (
-                <option key={s.staff_id} value={s.staff_id}>
-                  {s.staff_name}{s.staff_role ? ` — ${s.staff_role}` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="at-modal-field">
-            <label>Status</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value as AttendanceStatus)}>
-              <option value="present">Present</option>
-              <option value="absent">Absent</option>
-              <option value="late">Late</option>
-              <option value="half_day">Half Day</option>
-              <option value="on_leave">On Leave</option>
-            </select>
-          </div>
-          {selected && selected.status !== "not_marked" && (
-            <p className="at-modal-meta at-modal-meta--tight">
-              Currently: <strong>{STATUS_CFG[selected.status]?.label}</strong>
-              {selected.check_in  ? ` · In ${fmtTime(selected.check_in)}`  : ""}
-              {selected.check_out ? ` · Out ${fmtTime(selected.check_out)}` : ""}
-            </p>
-          )}
-          {error && <p className="at-modal-error">{error}</p>}
-        </div>
-        <div className="at-modal-footer">
-          <button className="at-btn at-btn--ghost" onClick={onClose}>Cancel</button>
-          <button className="at-btn at-btn--primary" disabled={saving || !staffId} onClick={save}>
             {saving ? "Saving…" : "Save"}
           </button>
         </div>
@@ -884,8 +917,25 @@ export default function AttendancePage() {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch]     = useState("");
   const [modal, setModal]       = useState<ModalState>(null);
-  const [quickMark, setQuickMark] = useState(false);
   const [showHalfDayRule, setShowHalfDayRule] = useState(false);
+
+  // staffId -> schedule[], fetched once from the staff list (which now embeds
+  // each member's schedule server-side) so the Check-In modal can look up a
+  // shift start synchronously instead of a separate GET .../scheduled call.
+  const [staffSchedules, setStaffSchedules] = useState<Record<string, any[]>>({});
+  useEffect(() => {
+    let cancelled = false;
+    api.get(STAFF.BASE).then((res) => {
+      if (cancelled) return;
+      const items = res.data?.data?.items || res.data?.data || [];
+      const map: Record<string, any[]> = {};
+      if (Array.isArray(items)) {
+        items.forEach((s: any) => { map[s.id] = Array.isArray(s.schedule) ? s.schedule : []; });
+      }
+      setStaffSchedules(map);
+    }).catch(() => { /* non-critical — Check-In falls back to the salon default shift time */ });
+    return () => { cancelled = true; };
+  }, []);
 
   // Lock background scroll while the modal is open — otherwise the page's own
   // scrollbar (e.g. the wide attendance table) stays interactive underneath
@@ -993,14 +1043,6 @@ export default function AttendancePage() {
             <Clock size={15} />
             Half Day Rule
           </button>
-          <button
-            className="ap-btn ap-btn--primary"
-            onClick={() => setQuickMark(true)}
-            disabled={loading || staff.length === 0}
-          >
-            <Plus size={15} />
-            Mark Attendance
-          </button>
         </div>
       </div>
 
@@ -1008,7 +1050,7 @@ export default function AttendancePage() {
         <div className="hd-modal-overlay" onClick={() => setShowHalfDayRule(false)}>
           <div className="hd-modal-panel" onClick={(e) => e.stopPropagation()}>
             <button className="hd-modal-close" onClick={() => setShowHalfDayRule(false)}>×</button>
-            <HalfDayRulePage />
+            <HalfDayRulePage onClose={() => setShowHalfDayRule(false)} />
           </div>
         </div>
       )}
@@ -1269,18 +1311,9 @@ export default function AttendancePage() {
       </div>
 
       {/* ── Attendance Modals ── */}
-      {modal?.type === "check_in"  && <CheckInModal  record={modal.record} date={selectedDate} isToday={isToday} onClose={closeModal} onDone={doneModal} />}
+      {modal?.type === "check_in"  && <CheckInModal  record={modal.record} date={selectedDate} isToday={isToday} schedule={staffSchedules[modal.record.staff_id]} onClose={closeModal} onDone={doneModal} />}
       {modal?.type === "check_out" && <CheckOutModal record={modal.record} date={selectedDate} isToday={isToday} onClose={closeModal} onDone={doneModal} />}
       {modal?.type === "edit"      && <EditModal     record={modal.record} date={selectedDate} onClose={closeModal} onDone={doneModal} />}
-
-      {quickMark && (
-        <QuickMarkModal
-          staff={staff}
-          date={selectedDate}
-          onClose={() => setQuickMark(false)}
-          onDone={() => { setQuickMark(false); load(selectedDate, true); }}
-        />
-      )}
 
       {/* ── Device Modals ── */}
       {connectTarget && (

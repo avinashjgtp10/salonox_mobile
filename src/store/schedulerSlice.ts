@@ -58,7 +58,11 @@ interface SchedulerState {
   packagesList: SchedulerPackage[];
   membershipsList: SchedulerMembership[];
   productsList: SchedulerProduct[];
-  staffSchedules: Record<string, Record<number, StaffDaySchedule>>;
+  // Keyed by staffId → then either a specific "YYYY-MM-DD" date (a date-specific
+  // shift, which is how every shift saved from the Scheduled Shifts page is
+  // stored) or a "dow-N" fallback key (0=Sun..6=Sat) for a recurring weekly
+  // pattern with no concrete date. See useStaffSchedule.ts / WeekView.tsx.
+  staffSchedules: Record<string, Record<string, StaffDaySchedule>>;
   scheduleVersion: number;
   dragPatchCache: Record<string, { startTime: string; endTime: string; staffId?: string }>;
   paymentPatchCache: Record<string, { status: string; payingNow: number; dueAmount: number; grandTotal?: number; paymentMode?: string; gstAmount?: number; taxBreakdown?: Booking["taxBreakdown"]; couponDiscount?: number; couponCode?: string; referralDiscount?: number; ewalletUsed?: number; membershipWalletUsed?: number; rewardPointsValue?: number; referralCreditUsed?: number; splitDetails?: Record<string, number> }>;
@@ -160,7 +164,7 @@ const schedulerSlice = createSlice({
     setProductsList(state, { payload }: PayloadAction<SchedulerProduct[]>) {
       state.productsList = payload;
     },
-    setStaffSchedules(state, { payload }: PayloadAction<Record<string, Record<number, StaffDaySchedule>>>) {
+    setStaffSchedules(state, { payload }: PayloadAction<Record<string, Record<string, StaffDaySchedule>>>) {
       state.staffSchedules = payload;
     },
     bumpScheduleVersion(state) {

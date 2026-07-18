@@ -11,7 +11,8 @@ import {
   PersonCheck, PersonX, Tools, Bag, Tag, Gift, BoxSeam,
   StarFill, Gear, CheckCircleFill, XCircleFill,
   Calculator, CreditCard2Front,
-  ChevronLeft, ChevronRight, ClockHistory, Download,
+  ChevronLeft, ChevronRight, ChevronDown, ClockHistory, Download,
+  FileEarmarkExcel, FiletypePdf,
 } from "react-bootstrap-icons";
 import "../styles/CommissionsPage.scss";
 import { SuccessOverlay } from "../../../components/ui";
@@ -19,6 +20,7 @@ import RuleCard from "../components/commission/RuleCard";
 import RuleWizard from "../components/commission/RuleWizard";
 import RuleDetailModal from "../components/commission/RuleDetailModal";
 import { SOURCE_META, groupCommissionRules } from "../components/commission/commissionRuleMeta";
+import { exportCommissionsPDF } from "../utils/commissionExport";
 import type { CommissionRule, CommissionRuleFormData, CommissionRuleSource, RuleGroup } from "../types/commissionRules.types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -626,7 +628,14 @@ export default function CommissionsPage() {
   const [detailGroup,     setDetailGroup]     = useState<RuleGroup | null>(null);
   const [togglingRuleId,  setTogglingRuleId]  = useState<string | null>(null);
   const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const { showSuccess, showError, overlay } = useStatusOverlay();
+
+  useEffect(() => {
+    const handler = () => setOptionsOpen(false);
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, []);
 
   const fetchAll = useCallback(async () => {
     if (!salonId) return;
@@ -785,19 +794,60 @@ export default function CommissionsPage() {
           <p className="cm-subtitle">Create and manage commission rules for your team</p>
         </div>
         <div className="cm-header-actions">
-          <button className="cm-export-btn" onClick={async () => {
-            try {
-              const res = await api.get(`${STAFF.BASE}/commissions/export?salon_id=${salonId}&month=${summaryMonth}`, { responseType: "blob" });
-              const url = URL.createObjectURL(new Blob([res.data]));
-              const a   = document.createElement("a");
-              a.href    = url;
-              a.download = `commissions_${summaryMonth}.csv`;
-              a.click();
-              URL.revokeObjectURL(url);
-            } catch { showError("Export failed"); }
-          }}>
-            <Download size={14} /> Export CSV
-          </button>
+          <div className="cm-options-dropdown" onClick={(e) => e.stopPropagation()}>
+            <button className="cm-export-btn" onClick={() => setOptionsOpen((v) => !v)}>
+              Options <ChevronDown size={13} />
+            </button>
+            {optionsOpen && (
+              <div className="cm-options-menu">
+                <div className="cm-option-label">Export</div>
+                <button className="cm-option-item" onClick={async () => {
+                  setOptionsOpen(false);
+                  try {
+                    const res = await api.get(`${STAFF.BASE}/commissions/export?salon_id=${salonId}&month=${summaryMonth}`, { responseType: "blob" });
+                    const url = URL.createObjectURL(new Blob([res.data]));
+                    const a   = document.createElement("a");
+                    a.href    = url;
+                    a.download = `commissions_${summaryMonth}.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  } catch { showError("Export failed"); }
+                }}>
+                  <Download size={14} /> Export CSV
+                </button>
+                <button className="cm-option-item" onClick={async () => {
+                  setOptionsOpen(false);
+                  try {
+                    const res = await api.get(`${STAFF.BASE}/commissions/export?salon_id=${salonId}&month=${summaryMonth}&format=excel`, { responseType: "blob" });
+                    const url = URL.createObjectURL(new Blob([res.data]));
+                    const a   = document.createElement("a");
+                    a.href    = url;
+                    a.download = `commissions_${summaryMonth}.xlsx`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  } catch { showError("Export failed"); }
+                }}>
+                  <FileEarmarkExcel size={14} /> Export Excel
+                </button>
+                <button className="cm-option-item" onClick={async () => {
+                  setOptionsOpen(false);
+                  try {
+                    const res = await api.get(`${STAFF.BASE}/commissions/export?salon_id=${salonId}&month=${summaryMonth}&format=json`);
+                    const rows = res.data?.data ?? [];
+                    const blob = exportCommissionsPDF(rows, summaryMonth);
+                    const url  = URL.createObjectURL(blob);
+                    const a    = document.createElement("a");
+                    a.href     = url;
+                    a.download = `commissions_${summaryMonth}.pdf`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  } catch { showError("Export failed"); }
+                }}>
+                  <FiletypePdf size={14} /> Export PDF
+                </button>
+              </div>
+            )}
+          </div>
           <button className="cm-add-btn" onClick={() => { setEditingGroup(null); setShowWizard(true); }}>
             <Plus size={15} /> Add Commission Rule
           </button>

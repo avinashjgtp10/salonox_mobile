@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { setStaffList, setStaffSchedules, setBlockedTimes } from "../../../store/schedulerSlice";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
-import api from "../../../services/api/axios";
+import { scheduleDateToYMD } from "../../../components/staff-schedule/utils";
 import type { Staff } from "../types";
 
 const STAFF_COLORS = [
@@ -21,14 +21,17 @@ export interface StaffDaySchedule {
 }
 
 /**
- * Fetches the staff list once per salon, maps to the frontend Staff shape,
- * and fetches each staff member's weekly schedule pattern.
+ * Fetches the staff list once per salon and maps it to the frontend Staff
+ * shape. Each staff record now carries its own `schedule` array (embedded
+ * server-side via a LEFT JOIN LATERAL against staff_schedules — see
+ * staffRepository.list on the backend), so this no longer needs a separate
+ * GET /staff/:id/scheduled call per staff member: what used to be an N+1
+ * fetch is now derived synchronously from data already on hand.
  */
 export function useStaffSchedule(salonId?: string | null) {
   const dispatch        = useAppDispatch();
   const initialized     = useRef<string | null>(null);
   const apiStaff        = useAppSelector((s: any) => s.staff?.staff ?? s.staff?.items ?? []);
-  const staffSchedules  = useAppSelector((s: any) => s.scheduler?.staffSchedules ?? {});
   const scheduleVersion = useAppSelector((s: any) => s.scheduler?.scheduleVersion ?? 0);
   const staffFetching   = useAppSelector((s: any) => s.staff?.loading?.fetchAll ?? false);
   const staffList       = useAppSelector((s: any) => s.scheduler?.staffList ?? []);
@@ -55,6 +58,16 @@ export function useStaffSchedule(salonId?: string | null) {
     }).catch(() => { /* non-critical */ });
   }, [dispatch, salonId]);
 
+  // bumpScheduleVersion() (e.g. after Copy Schedule) used to just clear the
+  // separately-fetched schedule cache to force a re-fetch. Schedule data now
+  // rides along with the staff list itself, so invalidating means re-fetching
+  // that list instead. Skipped on the initial mount (version 0) — the effect
+  // above already covers the first load.
+  useEffect(() => {
+    if (scheduleVersion === 0) return;
+    dispatch(fetchStaffThunk());
+  }, [scheduleVersion, dispatch]);
+
   // ── Map raw API staff → typed Staff[] ────────────────────────────────────
   useEffect(() => {
     if (!apiStaff.length) { dispatch(setStaffList([])); return; }
@@ -80,47 +93,40 @@ export function useStaffSchedule(salonId?: string | null) {
     dispatch(setStaffList(mapped));
   }, [apiStaff, dispatch]);
 
-  // ── Fetch weekly schedule patterns (once per scheduleVersion) ─────────────
-  // staffSchedules persists in Redux across remounts. bumpScheduleVersion()
-  // clears it in the reducer, causing this effect to re-fetch.
+  // ── Derive schedule lookup from the embedded schedule on each staff record ─
   useEffect(() => {
     if (!apiStaff.length) return;
-    if (Object.keys(staffSchedules).length > 0) return;
 
-    Promise.all(
-      apiStaff.map((s: any) =>
-        api
-          .get(`/api/v1/staff/${s.id}/scheduled`)
-          .then((res: any) => ({
-            staffId: String(s.id),
-            data: res.data?.data || res.data || [],
-            failed: false,
-          }))
-          .catch(() => ({ staffId: String(s.id), data: [], failed: true }))
-      )
-    ).then((results) => {
-      const schedules: Record<string, Record<number, StaffDaySchedule>> = { ...staffSchedules };
+    const schedules: Record<string, Record<string, StaffDaySchedule>> = {};
 
-      results.forEach(({ staffId, data, failed }) => {
-        if (failed) return; // keep cached schedule on failure
-        schedules[staffId] = {};
-        if (Array.isArray(data)) {
-          data.forEach((sch: any) => {
-            const dow = Number(sch.day_of_week);
-            if (!isNaN(dow) && dow >= 0 && dow <= 6 && sch.is_available) {
-              schedules[staffId][dow] = {
-                startTime: sch.start_time || "",
-                endTime: sch.end_time || "",
-                isAvailable: true,
-              };
-            }
-          });
-        }
+    apiStaff.forEach((s: any) => {
+      const staffId = String(s.id);
+      schedules[staffId] = {};
+      const scheduleRows = Array.isArray(s.schedule) ? s.schedule : [];
+
+      scheduleRows.forEach((sch: any) => {
+        if (!sch.is_available) return;
+        // Every shift saved from the Scheduled Shifts page carries a concrete
+        // date, not just a day-of-week — keying on day-of-week alone collapsed
+        // every week's shift for that weekday into a single, last-write-wins
+        // entry, so the calendar showed the same hours on every occurrence of
+        // that weekday instead of the one actually scheduled. Date-specific
+        // rows are keyed by their real date; only a genuinely recurring row
+        // (no date at all) falls back to the day-of-week key.
+        const dow = Number(sch.day_of_week);
+        const ymd = scheduleDateToYMD(sch.date);
+        const key = ymd || (!isNaN(dow) && dow >= 0 && dow <= 6 ? `dow-${dow}` : null);
+        if (!key) return;
+        schedules[staffId][key] = {
+          startTime: sch.start_time || "",
+          endTime: sch.end_time || "",
+          isAvailable: true,
+        };
       });
+    });
 
-      dispatch(setStaffSchedules(schedules));
-    }).catch(() => { /* non-critical */ });
-  }, [apiStaff, scheduleVersion, dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
+    dispatch(setStaffSchedules(schedules));
+  }, [apiStaff, dispatch]);
 
   // staffReady = fetch was dispatched for this salon AND is no longer loading
   const staffReady = initialized.current === salonId && !staffFetching;

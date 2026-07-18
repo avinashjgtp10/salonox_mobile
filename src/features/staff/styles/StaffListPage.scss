@@ -485,21 +485,6 @@ $radius: 12px;
 }
 
 // Action buttons
-.slp-edit-btn {
-  width: 30px;
-  height: 30px;
-  border-radius: 6px;
-  border: 1px solid $border;
-  background: $white;
-  color: $muted;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all .12s;
-  &:hover { background: #f3f4f6; color: $primary; border-color: #9ca3af; }
-}
-
 .slp-action-wrap { position: relative; }
 
 .slp-more-btn {
@@ -768,9 +753,6 @@ $radius: 12px;
   input { accent-color: $primary; width: 15px; height: 15px; cursor: pointer; }
 }
 
-.fs-select-all { font-weight: 600; }
-.fs-loc-info { display: flex; align-items: center; gap: 6px; }
-.fs-loc-icon { font-size: 14px; }
 
 .fs-radio-row {
   display: flex;

@@ -1,7 +1,7 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../services/api/axios";
 import shiftApi from "./shiftApi";
-import { calcTotalHours, getSundayOf, toDateKey, convertTo12h, convertTo24h } from "../../components/staff-schedule/utils";
+import { calcTotalHours, getSundayOf, toDateKey, convertTo12h, convertTo24h, scheduleDateToYMD } from "../../components/staff-schedule/utils";
 
 const COLOR_KEY_TO_HEX: Record<string, string> = {
   light_blue: "#7dd3fc", blue: "#3b82f6", dark_blue: "#1d4ed8",
@@ -40,17 +40,15 @@ export const fetchDailyShifts = createAsyncThunk(
         email: s.email,
       }));
 
-      // 2. Fetch schedules for each staff member in parallel
-      const staffSchedules = await Promise.all(
-        staffList.map(async (s: any) => {
-          try {
-            const res = await api.get(`/api/v1/staff/${s.id}/scheduled`);
-            return { staffId: s.id, schedules: res.data.data || res.data };
-          } catch {
-            return { staffId: s.id, schedules: [] };
-          }
-        })
-      );
+      // 2. Each staff record already carries its own `schedule` array,
+      // embedded server-side via a LEFT JOIN LATERAL against staff_schedules
+      // (see staffRepository.list on the backend) — this used to be a
+      // separate GET /staff/:id/scheduled call per staff member (an N+1
+      // fetch); now it's just read off the staff record already on hand.
+      const staffSchedules = rawStaff.map((s: any) => ({
+        staffId: s.id,
+        schedules: Array.isArray(s.schedule) ? s.schedule : [],
+      }));
 
       // 3. Map weekly schedules to specific dates
       const sunday = new Date(weekStartDate + "T12:00:00");
@@ -68,20 +66,24 @@ export const fetchDailyShifts = createAsyncThunk(
         weekDates.forEach((dateStr) => {
           const dateObj = new Date(dateStr + "T12:00:00");
           const dayOfWeek = dateObj.getDay();
-          // Normalise the API date field — it may arrive as a plain "YYYY-MM-DD"
-          // string or as a full ISO timestamp ("2026-05-24T18:30:00.000Z").
-          // Slicing to [0,10] makes both comparable to our dateStr.
-          const toYMD = (d: any) =>
-            d && typeof d === "string" ? d.slice(0, 10) : "";
           // Prefer an exact date-specific record; fall back to a recurring
           // record (no date field) only when no date-specific entry exists.
+          // `sch.date` normally arrives as a JS Date object (node-postgres
+          // parses DATE columns that way, not as a string) — scheduleDateToYMD
+          // handles both shapes so this match doesn't silently fail.
           const daySched =
-            schedules.find((sch: any) => toYMD(sch.date) === dateStr) ??
-            schedules.find((sch: any) => !sch.date && sch.day_of_week === dayOfWeek);
+            schedules.find((sch: any) => scheduleDateToYMD(sch.date) === dateStr) ??
+            schedules.find((sch: any) => !scheduleDateToYMD(sch.date) && sch.day_of_week === dayOfWeek);
 
           if (daySched) {
             const start12 = daySched.start_time ? convertTo12h(daySched.start_time) : "";
             const end12   = daySched.end_time   ? convertTo12h(daySched.end_time)   : "";
+            const breaks = Array.isArray(daySched.breaks)
+              ? daySched.breaks.map((b: any) => ({
+                  start: b.start_time ? convertTo12h(b.start_time) : "",
+                  end:   b.end_time   ? convertTo12h(b.end_time)   : "",
+                }))
+              : [];
             shiftsMap[staffId][dateStr] = {
               staffId,
               date: dateStr,
@@ -90,6 +92,7 @@ export const fetchDailyShifts = createAsyncThunk(
               totalHours: (start12 && end12) ? calcTotalHours(start12, end12) : "",
               type: daySched.is_available ? "working" : (daySched.notes === "Blocked" ? "blocked" : "dayoff"),
               isAvailable: daySched.is_available,
+              breaks,
             };
           }
         });
@@ -200,7 +203,7 @@ export const saveStaffSchedule = createAsyncThunk(
 
 export const saveSingleShiftThunk = createAsyncThunk(
   "shift/saveSingleShift",
-  async (payload: { staff_id: string; date: string; start_time: string; end_time: string }, { rejectWithValue }) => {
+  async (payload: { staff_id: string; date: string; start_time: string; end_time: string; breaks?: { start_time: string; end_time: string }[] }, { rejectWithValue }) => {
     try {
       const res = await shiftApi.saveSingleShift(payload);
       return { ...res.data, payload }; // Return payload so reducer can use it if needed
