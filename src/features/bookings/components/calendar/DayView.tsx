@@ -72,7 +72,7 @@ const DayView: React.FC<DayViewProps> = ({
   onSlotClick, onEditBooking, onCancelBooking, onDeleteBooking, onBlockTime, onEditBlockTime,
 }) => {
   const { currentDate, slots, timeToPx, durationToPx, intervalMins } = useScheduler();
-  const { blockedTimes, deleteBlockedTime, updateBooking, staffList, selectedStaffId, bookings } = useSchedulerContext();
+  const { blockedTimes, deleteBlockedTime, updateBooking, staffList, selectedStaffId, bookings, highlightedBookingId } = useSchedulerContext();
 
   const visibleStaff = useMemo(
     () => selectedStaffId ? staffList.filter((s) => s.id === selectedStaffId) : staffList,
@@ -229,6 +229,16 @@ const DayView: React.FC<DayViewProps> = ({
 
   const scrollBodyRef = useRef<HTMLDivElement>(null);
   const staffMenuRef = useRef<HTMLDivElement>(null);
+
+  // Scroll a newly-created appointment (e.g. from the public booking flow's
+  // "Add to Calendar" button) into view once its chip has rendered.
+  useEffect(() => {
+    if (!highlightedBookingId) return;
+    const el = scrollBodyRef.current?.querySelector(
+      `[data-booking-id="${CSS.escape(String(highlightedBookingId))}"]`
+    );
+    el?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+  }, [highlightedBookingId, bookings]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -805,6 +815,7 @@ const DayView: React.FC<DayViewProps> = ({
                           resizing={resizing}
                           justDraggedRef={justDraggedRef}
                           isInteracting={isInteracting}
+                          isHighlighted={String(b.id) === String(highlightedBookingId)}
                           staffId={staff.id}
                           visibleStaffIndex={staffIndex}
                           onEdit={onEditBooking}

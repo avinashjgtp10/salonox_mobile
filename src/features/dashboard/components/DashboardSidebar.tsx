@@ -5,7 +5,7 @@ import {
   Calendar,
   EmojiSmile,
   Book,
-  Person,
+  Globe2,
   Megaphone,
   People,
   GraphUpArrow,
@@ -108,7 +108,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
             onMenuChange(openMenu === "onlineBooking" ? null : "onlineBooking")
           }
         >
-          <Person size={26} />
+          <Globe2 size={26} />
           <span className="nav-label">Online booking</span>
         </button>
       )}

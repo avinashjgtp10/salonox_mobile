@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
 import {
-  CheckCircleFill,
   ChevronRight,
-  ChevronLeft,
   StarFill,
   X,
 } from "react-bootstrap-icons";
@@ -13,6 +12,11 @@ import { SERVICES } from "../../../services/api/endpoints/services.endpoints";
 import { STAFF } from "../../../services/api/endpoints/staff.endpoints";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { createPublicBookingThunk } from "../../../middleware/onlineBooking/onlineBooking.thunk";
+import {
+  C, DAYS, MONTHS, catMeta, staffName, initials, fmtDur, fmtPrice, nextDays, buildSlots,
+  AvatarCircle, StepBar, SectionHead, BackBtn, ServicesSummary, ServiceCard, StaffCard, TimeChip, SuccessScreen,
+  type SalonData, type ServiceItem, type StaffMember,
+} from "./BookingFlow/shared";
 
 // ─── Demo fallback data ───────────────────────────────────────────────────────
 
@@ -31,90 +35,6 @@ const DEMO_STAFF = [
   { id: -3, first_name: "Chloe", last_name: "Kim", job_title: "Skin Therapist" },
 ];
 
-// ─── Category config ──────────────────────────────────────────────────────────
-
-const CAT_META: Record<string, { emoji: string; bg: string; text: string }> = {
-  Hair:   { emoji: "✂️", bg: "#fef9c3", text: "#a16207" },
-  Color:  { emoji: "🎨", bg: "#fce7f3", text: "#be185d" },
-  Skin:   { emoji: "✨", bg: "#d1fae5", text: "#065f46" },
-  Brows:  { emoji: "👁️", bg: "#ede9fe", text: "#6d28d9" },
-  Nails:  { emoji: "💅", bg: "#fef3c7", text: "#b45309" },
-  Men:    { emoji: "🧔", bg: "#dbeafe", text: "#1d4ed8" },
-  Waxing: { emoji: "🌸", bg: "#fee2e2", text: "#b91c1c" },
-  Massage:{ emoji: "💆", bg: "#ccfbf1", text: "#0f766e" },
-};
-const catMeta = (cat?: string) =>
-  CAT_META[cat ?? ""] ?? { emoji: "✂️", bg: "#f5f3ff", text: "#7c3aed" };
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface SalonData {
-  name: string; tagline?: string; description?: string;
-  phone?: string; address?: string;
-}
-interface ServiceItem {
-  id: number; name: string; duration: number;
-  price: number | string; category_name?: string; description?: string;
-}
-interface StaffMember {
-  id: number; first_name?: string; last_name?: string; name?: string;
-  job_title?: string; role?: string;
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const staffName = (s: StaffMember) =>
-  s.name || `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || "Staff";
-
-const initials = (n: string) =>
-  n.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-
-const fmtDur = (m: number) => {
-  if (!m) return "";
-  return m < 60 ? `${m} min` : `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ""}`;
-};
-
-const fmtPrice = (p: number | string) => {
-  const n = typeof p === "string" ? parseFloat(p) : p;
-  return isNaN(n) ? "—" : `$${n.toFixed(2)}`;
-};
-
-const DAYS  = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-
-function nextDays(n: number) {
-  return Array.from({ length: n }, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() + i); return d;
-  });
-}
-
-function buildSlots(date: Date) {
-  const all: string[] = [];
-  for (let h = 9; h < 18; h++)
-    for (const m of [0, 30]) {
-      const h12 = h > 12 ? h - 12 : h || 12;
-      all.push(`${h12}:${m ? "30" : "00"} ${h >= 12 ? "PM" : "AM"}`);
-    }
-  const seed = date.getDate() + date.getMonth();
-  return {
-    morning:   all.slice(0, 6).filter((_, i) => (i * 3 + seed) % 5 !== 0),
-    afternoon: all.slice(6).filter((_, i) => (i * 2 + seed) % 4 !== 0),
-  };
-}
-
-// ─── Palette ──────────────────────────────────────────────────────────────────
-
-const C = {
-  accent:  "#111827",
-  light:   "#f9fafb",
-  med:     "#f3f4f6",
-  border:  "#e5e7eb",
-  dark:    "#010102",
-  text:    "#111827",
-  muted:   "#6b7280",
-  white:   "#ffffff",
-};
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface Props {
@@ -125,6 +45,7 @@ interface Props {
 
 export default function BookingPreviewModal({ open, onClose, previewName, previewTagline, previewDescription, galleryPhotos }: Props) {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const [loading,  setLoading]  = useState(true);
   const [salon,    setSalon]    = useState<SalonData>({ name: previewName || "My Salon" });
   const [services, setServices] = useState<ServiceItem[]>([]);
@@ -133,12 +54,13 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
   const [step,            setStep]           = useState<1|2|3|4>(1);
   const [activeCat,       setActiveCat]      = useState("All");
   const [search,          setSearch]         = useState("");
-  const [selService,      setSelService]     = useState<ServiceItem | null>(null);
+  const [selServices,     setSelServices]    = useState<ServiceItem[]>([]);
   const [selStaff,        setSelStaff]       = useState<StaffMember | "any" | null>(null);
   const [selDate,         setSelDate]        = useState<Date>(new Date());
   const [selTime,         setSelTime]        = useState<string | null>(null);
   const [form,            setForm]           = useState({ name:"", email:"", phone:"", notes:"" });
   const [submitting,      setSubmitting]     = useState(false);
+  const [createdAppointment, setCreatedAppointment] = useState<any>(null);
 
   const dates    = nextDays(8);
   const slots    = buildSlots(selDate);
@@ -153,9 +75,20 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
     return catOk && srchOk;
   });
 
+  const totalDuration = selServices.reduce((sum, s) => sum + (Number(s.duration) || 0), 0);
+  const totalPrice = selServices.reduce(
+    (sum, s) => sum + (typeof s.price === "string" ? parseFloat(s.price) || 0 : s.price), 0
+  );
+
+  function toggleService(svc: ServiceItem) {
+    setSelServices(prev =>
+      prev.some(s => s.id === svc.id) ? prev.filter(s => s.id !== svc.id) : [...prev, svc]
+    );
+  }
+
   useEffect(() => {
     if (!open) return;
-    setStep(1); setActiveCat("All"); setSearch(""); setSelService(null);
+    setStep(1); setActiveCat("All"); setSearch(""); setSelServices([]);
     setSelStaff(null); setSelDate(new Date()); setSelTime(null);
     setForm({ name:"", email:"", phone:"", notes:"" });
     loadData();
@@ -443,14 +376,25 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
           ) : step === 4 ? (
             <SuccessScreen
               salonName={salonName}
-              selService={selService}
+              selServices={selServices}
               selStaff={selStaff}
               selDate={selDate}
               selTime={selTime}
               form={form}
               onReset={() => {
-                setStep(1); setSelService(null); setSelStaff(null);
+                setStep(1); setSelServices([]); setSelStaff(null);
                 setSelTime(null); setForm({ name:"", email:"", phone:"", notes:"" });
+                setCreatedAppointment(null);
+              }}
+              onBackHome={onClose}
+              onAddToCalendar={() => {
+                if (!createdAppointment?.id) return;
+                const dateStr = String(createdAppointment.scheduled_at ?? "").slice(0, 10)
+                  || new Date(`${selDate.toDateString()} ${selTime}`).toISOString().slice(0, 10);
+                onClose();
+                navigate("/dashboard/calendar", {
+                  state: { focusAppointment: { id: createdAppointment.id, date: dateStr } },
+                });
               }}
             />
 
@@ -520,8 +464,32 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
                       gridTemplateColumns:"repeat(auto-fill, minmax(300px,1fr))", gap:14 }}>
                       {filtered.map((svc, idx) => (
                         <ServiceCard key={svc.id} svc={svc} popular={idx < 2 && isDemo}
-                          onPick={() => { setSelService(svc); setStep(2); }}/>
+                          selected={selServices.some(s => s.id === svc.id)}
+                          onPick={() => toggleService(svc)}/>
                       ))}
+                    </div>
+                  )}
+
+                  {selServices.length > 0 && (
+                    <div style={{ position:"sticky", bottom:0, marginTop:20, display:"flex",
+                      alignItems:"center", justifyContent:"space-between", gap:16,
+                      background:C.white, border:`1.5px solid ${C.border}`, borderRadius:16,
+                      padding:"14px 20px", boxShadow:"0 -8px 24px rgba(0,0,0,0.06)" }}>
+                      <div>
+                        <p style={{ margin:"0 0 2px", fontSize:13, fontWeight:700, color:C.text }}>
+                          {selServices.length} service{selServices.length > 1 ? "s" : ""} selected
+                        </p>
+                        <p style={{ margin:0, fontSize:12, color:C.muted }}>
+                          {fmtDur(totalDuration)} · {fmtPrice(totalPrice)}
+                        </p>
+                      </div>
+                      <button onClick={() => setStep(2)}
+                        style={{ background:C.accent, color:C.white, border:"none", borderRadius:12,
+                          padding:"12px 24px", fontSize:14, fontWeight:700, cursor:"pointer",
+                          display:"flex", alignItems:"center", gap:8,
+                          boxShadow:`0 4px 18px ${C.accent}40` }}>
+                        Continue <ChevronRight size={15} />
+                      </button>
                     </div>
                   )}
                 </>
@@ -531,7 +499,7 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
               {step === 2 && (
                 <>
                   <BackBtn label="Back to Services" onClick={() => setStep(1)}/>
-                  <ServicePill svc={selService!}/>
+                  <ServicesSummary services={selServices}/>
 
                   <SectionHead title="Pick Your Stylist" sub="Choose who you'd like to work with"/>
                   <div style={{ display:"grid",
@@ -689,10 +657,10 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
                         <div style={{ background:`linear-gradient(135deg,${C.dark},#374151)`,
                           padding:"18px 20px", color:C.white }}>
                           <p style={{ margin:"0 0 3px", fontWeight:800, fontSize:15 }}>
-                            {selService?.name}
+                            {selServices.map(s => s.name).join(", ")}
                           </p>
                           <p style={{ margin:0, fontSize:12.5, opacity:0.85 }}>
-                            {fmtDur(selService?.duration ?? 0)} · {fmtPrice(selService?.price ?? 0)}
+                            {fmtDur(totalDuration)} · {fmtPrice(totalPrice)}
                           </p>
                         </div>
                         <div style={{ padding:"16px 20px", display:"flex", flexDirection:"column", gap:10 }}>
@@ -720,7 +688,7 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
                           display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                           <span style={{ fontSize:13, fontWeight:600, color:C.muted }}>Total</span>
                           <span style={{ fontSize:20, fontWeight:900, color:C.accent }}>
-                            {fmtPrice(selService?.price ?? 0)}
+                            {fmtPrice(totalPrice)}
                           </span>
                         </div>
                       </div>
@@ -732,7 +700,7 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
                           try {
                             const payload = {
                               salon_id: (salon as any).id || "demo-salon-id",
-                              service_id: String(selService?.id),
+                              service_ids: selServices.map(s => String(s.id)),
                               staff_id: selStaff === "any" ? undefined : String((selStaff as StaffMember)?.id),
                               scheduled_at: new Date(`${selDate.toDateString()} ${selTime}`).toISOString(),
                               client_name: form.name,
@@ -740,7 +708,8 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
                               client_phone: form.phone,
                               notes: form.notes
                             };
-                            await dispatch(createPublicBookingThunk(payload)).unwrap();
+                            const appointment = await dispatch(createPublicBookingThunk(payload)).unwrap();
+                            setCreatedAppointment(appointment);
                             setStep(4);
                           } catch (err: any) {
                             alert(err || "Failed to create booking");
@@ -779,268 +748,5 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
       </div>
     </div>,
     document.body
-  );
-}
-
-// ─── Small reusable pieces ────────────────────────────────────────────────────
-
-
-function AvatarCircle({ name, size = 44, bg }: { name: string; size?: number; bg: string }) {
-  return (
-    <div style={{ width:size, height:size, borderRadius:"50%", background:bg, color:"#fff",
-      display:"flex", alignItems:"center", justifyContent:"center",
-      fontWeight:800, fontSize:size * 0.34, flexShrink:0, letterSpacing:"0.02em",
-      boxShadow:"0 2px 8px rgba(0,0,0,0.15)" }}>
-      {name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()}
-    </div>
-  );
-}
-
-function StepBar({ step }: { step: number }) {
-  const steps = ["Service", "Stylist & Time", "Confirm"];
-  return (
-    <div style={{ display:"flex", alignItems:"center", marginBottom:32 }}>
-      {steps.map((label, i) => {
-        const n = i + 1, done = step > n, active = step === n;
-        return (
-          <div key={i} style={{ display:"flex", alignItems:"center", flex: i < 2 ? 1 : 0 }}>
-            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:5 }}>
-              <div style={{ width:30, height:30, borderRadius:"50%",
-                background: done || active ? C.accent : "#e5e7eb",
-                color: done || active ? C.white : "#9ca3af",
-                display:"flex", alignItems:"center", justifyContent:"center",
-                fontSize:12, fontWeight:800, transition:"background 0.2s",
-                boxShadow: active ? `0 4px 12px ${C.accent}50` : "none" }}>
-                {done ? <CheckCircleFill size={14}/> : n}
-              </div>
-              <span style={{ fontSize:11, color: active ? C.accent : "#9ca3af",
-                fontWeight: active ? 700 : 400, whiteSpace:"nowrap" }}>
-                {label}
-              </span>
-            </div>
-            {i < 2 && (
-              <div style={{ flex:1, height:2.5, borderRadius:2,
-                background: step > i + 1 ? C.accent : "#e5e7eb",
-                margin:"0 8px", marginBottom:18, transition:"background 0.3s" }}/>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function SectionHead({ title, sub }: { title: string; sub: string }) {
-  return (
-    <div style={{ marginBottom:16 }}>
-      <h3 style={{ fontSize:19, fontWeight:800, color:C.text, margin:"0 0 3px" }}>{title}</h3>
-      <p style={{ fontSize:13, color:C.muted, margin:0 }}>{sub}</p>
-    </div>
-  );
-}
-
-function BackBtn({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <button onClick={onClick}
-      style={{ background:"none", border:"none", cursor:"pointer", color:C.accent,
-        fontSize:13, fontWeight:600, display:"flex", alignItems:"center", gap:5,
-        marginBottom:24, padding:0 }}>
-      <ChevronLeft size={14}/> {label}
-    </button>
-  );
-}
-
-function ServicePill({ svc }: { svc: ServiceItem }) {
-  const m = catMeta(svc.category_name);
-  return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
-      background:C.light, border:`1px solid ${C.border}`, borderRadius:12,
-      padding:"11px 16px", marginBottom:28 }}>
-      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-        <div>
-          <span style={{ fontWeight:700, color:C.accent, fontSize:14 }}>{svc.name}</span>
-          <span style={{ color:`${C.accent}80`, fontSize:12.5, marginLeft:8 }}>
-            {fmtDur(svc.duration)}
-          </span>
-        </div>
-      </div>
-      <span style={{ fontWeight:800, color:C.accent, fontSize:15 }}>{fmtPrice(svc.price)}</span>
-    </div>
-  );
-}
-
-function ServiceCard({ svc, popular, onPick }: { svc: ServiceItem; popular?: boolean; onPick: () => void }) {
-  const [hov, setHov] = useState(false);
-  const m = catMeta(svc.category_name);
-  return (
-    <div
-      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} onClick={onPick}
-      style={{ background:C.white, border:`1.5px solid ${hov ? C.accent : "#e5e7eb"}`,
-        borderRadius:18, padding:"18px 20px", cursor:"pointer", transition:"all 0.18s",
-        boxShadow: hov ? `0 8px 28px ${C.accent}18` : "0 1px 4px rgba(0,0,0,0.04)",
-        position:"relative", overflow:"hidden" }}>
-      {popular && (
-        <div style={{ position:"absolute", top:12, right:12,
-          background:`linear-gradient(135deg,${C.dark},#374151)`,
-          color:C.white, fontSize:9.5, fontWeight:800, padding:"3px 9px",
-          borderRadius:999, letterSpacing:"0.05em" }}>
-          ★ POPULAR
-        </div>
-      )}
-      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
-        <div style={{ flex:1, minWidth:0 }}>
-          <p style={{ margin:"0 0 3px", fontWeight:700, fontSize:14, color:C.text,
-            lineHeight:1.2, paddingRight:popular ? 72 : 0 }}>
-            {svc.name}
-          </p>
-          {svc.category_name && (
-            <span style={{ display:"inline-block", fontSize:10.5, background:m.bg,
-              color:m.text, borderRadius:6, padding:"2px 8px", fontWeight:700 }}>
-              {svc.category_name}
-            </span>
-          )}
-        </div>
-      </div>
-      {svc.description && (
-        <p style={{ margin:"0 0 12px", fontSize:12.5, color:"#6b7280", lineHeight:1.55 }}>
-          {svc.description.length > 75 ? svc.description.slice(0, 75) + "…" : svc.description}
-        </p>
-      )}
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-          <span style={{ fontSize:17, fontWeight:900, color:C.accent }}>
-            {fmtPrice(svc.price)}
-          </span>
-          {svc.duration > 0 && (
-            <span style={{ fontSize:12, color:C.muted, fontWeight:500 }}>
-              {fmtDur(svc.duration)}
-            </span>
-          )}
-        </div>
-        <span style={{ fontSize:12.5, fontWeight:700, color: hov ? C.accent : C.muted,
-          display:"flex", alignItems:"center", gap:4, transition:"color 0.15s" }}>
-          Book <ChevronRight size={12}/>
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function StaffCard({ name, subtitle, initials: init, bg, selected, onClick }:
-  { name:string; subtitle:string; initials:string; bg:string; selected:boolean; onClick:()=>void }) {
-  return (
-    <div onClick={onClick}
-      style={{ background: selected ? C.light : C.white,
-        border:`2px solid ${selected ? C.accent : "#e5e7eb"}`,
-        borderRadius:16, padding:"16px 14px", cursor:"pointer", transition:"all 0.15s",
-        textAlign:"center", boxShadow: selected ? `0 4px 16px ${C.accent}25` : "none" }}>
-      <div style={{ display:"flex", justifyContent:"center", marginBottom:10 }}>
-        <div style={{ width:52, height:52, borderRadius:"50%",
-          background: selected ? C.accent : bg,
-          color:C.white, display:"flex", alignItems:"center", justifyContent:"center",
-          fontWeight:800, fontSize:18, boxShadow:`0 4px 12px rgba(0,0,0,0.15)`,
-          transition:"background 0.15s" }}>
-          {init}
-        </div>
-      </div>
-      <p style={{ margin:"0 0 3px", fontSize:13, fontWeight:700,
-        color: selected ? C.accent : C.text }}>
-        {name}
-      </p>
-      <p style={{ margin:0, fontSize:11, color:C.muted }}>{subtitle}</p>
-      {selected && (
-        <div style={{ marginTop:8, display:"inline-flex", alignItems:"center", gap:4,
-          background:`${C.accent}15`, color:C.accent, fontSize:10.5,
-          fontWeight:700, padding:"3px 10px", borderRadius:999 }}>
-          <CheckCircleFill size={10}/> Selected
-        </div>
-      )}
-    </div>
-  );
-}
-
-function TimeChip({ t, sel, onPick }: { t:string; sel:string|null; onPick:(t:string)=>void }) {
-  const act = t === sel;
-  return (
-    <button onClick={() => onPick(t)}
-      style={{ background: act ? C.accent : C.white,
-        border:`1.5px solid ${act ? C.accent : "#e5e7eb"}`,
-        borderRadius:10, padding:"8px 16px", fontSize:13, fontWeight:600,
-        color: act ? C.white : C.text, cursor:"pointer", transition:"all 0.15s",
-        boxShadow: act ? `0 4px 12px ${C.accent}35` : "none" }}>
-      {t}
-    </button>
-  );
-}
-
-function SuccessScreen({ salonName, selService, selStaff, selDate, selTime, form, onReset }:
-  { salonName:string; selService:ServiceItem|null; selStaff:StaffMember|"any"|null;
-    selDate:Date; selTime:string|null; form:{name:string;email:string};
-    onReset:()=>void }) {
-  return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
-      minHeight:"100%", padding:"40px 24px" }}>
-      <div style={{ maxWidth:520, width:"100%", textAlign:"center",
-        background:C.white, borderRadius:24, padding:"48px 36px",
-        boxShadow:`0 12px 48px ${C.accent}18`, border:`1px solid ${C.border}` }}>
-
-        {/* Check icon with ring animation */}
-        <div style={{ position:"relative", width:88, height:88, margin:"0 auto 24px" }}>
-          <div style={{ position:"absolute", inset:0, borderRadius:"50%",
-            border:`3px solid ${C.border}`, animation:"ring 1s ease-out forwards" }}/>
-          <div style={{ width:88, height:88, borderRadius:"50%",
-            background:`linear-gradient(135deg,${C.dark},#374151)`,
-            display:"flex", alignItems:"center", justifyContent:"center" }}>
-            <CheckCircleFill size={40} color={C.white}/>
-          </div>
-        </div>
-
-        <h2 style={{ margin:"0 0 8px", fontSize:26, fontWeight:900, color:C.text }}>
-          You're all set! 🎉
-        </h2>
-        <p style={{ color:C.muted, fontSize:14, margin:"0 0 28px", lineHeight:1.6 }}>
-          Appointment at <strong style={{ color:C.text }}>{salonName}</strong> is confirmed.
-          A receipt has been sent to <strong style={{ color:C.text }}>{form.email || "your email"}</strong>.
-        </p>
-
-        {/* Summary card */}
-        <div style={{ background:C.light, borderRadius:16,
-          padding:"20px 24px", textAlign:"left", marginBottom:28,
-          border:`1.5px solid ${C.border}` }}>
-          {[
-            { label:"Service", val: selService?.name ?? "" },
-            { label:"Stylist",
-              val: selStaff === "any" ? "Any available" : selStaff ? staffName(selStaff as StaffMember) : "" },
-            { label:"Date",
-              val: `${DAYS[selDate.getDay()]}, ${MONTHS[selDate.getMonth()]} ${selDate.getDate()}` },
-            { label:"Time",  val: selTime ?? "" },
-            { label:"Total", val: fmtPrice(selService?.price ?? 0) },
-          ].map(({ label, val }) => (
-            <div key={label} style={{ display:"flex", alignItems:"center",
-              justifyContent:"space-between", padding:"9px 0",
-              borderBottom:`1px solid ${C.med}` }}>
-              <span style={{ fontSize:12, color:C.muted, fontWeight:600,
-                textTransform:"uppercase", letterSpacing:"0.06em" }}>{label}</span>
-              <span style={{ fontSize:13, fontWeight:700, color:C.text }}>{val}</span>
-            </div>
-          ))}
-        </div>
-
-        <button onClick={onReset}
-          style={{ background:C.accent, color:C.white, border:"none",
-            borderRadius:12, padding:"13px 28px", fontSize:14, fontWeight:700,
-            cursor:"pointer", width:"100%",
-            boxShadow:`0 4px 18px ${C.accent}40` }}>
-          Book Another Appointment
-        </button>
-
-        <style>{`
-          @keyframes ring {
-            0%   { transform: scale(0.85); opacity:0 }
-            100% { transform: scale(1.15); opacity:0 }
-          }
-        `}</style>
-      </div>
-    </div>
   );
 }

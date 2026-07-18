@@ -26,4 +26,5 @@ export const PUBLIC_ROUTES: string[] = [
   AUTH.FORGOT_PASSWORD_RESET,
   "/api/v1/staff/invite",
   "/api/v1/super-admin/login",
+  "/api/v1/bookings",
 ];

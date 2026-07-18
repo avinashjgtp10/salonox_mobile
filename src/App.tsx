@@ -6,6 +6,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AuthRoutes, OnboardingRoutes, DashboardRoutes } from "./routes";
 import { LandingRoutes } from "./routes/LandingRoutes";
 import { SuperAdminRoutes } from "./routes/SuperAdminRoutes";
+import { PublicBookingRoutes } from "./routes/PublicBookingRoutes";
 import SalonOxBot from './features/bot/SalonOxBot';
 // import SubscriptionWall from "./features/billing/components/SubscriptionWall";
 // import { useSubscriptionPoller } from "./hooks/useSubscriptionPoller";
@@ -24,6 +25,8 @@ function App() {
           <Routes>
             {/* PUBLIC — landing site */}
             {LandingRoutes}
+            {/* PUBLIC — client-facing booking pages */}
+            {PublicBookingRoutes}
             {/* AUTH */}
             {AuthRoutes}
             {OnboardingRoutes}

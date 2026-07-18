@@ -33,7 +33,7 @@ const SchedulerContent: React.FC = () => {
   const location    = useLocation();
   const navigate    = useNavigate();
   const salonId     = useAppSelector((s: any) => s.salon?.currentSalon?.id ?? s.auth?.user?.salon_id ?? "");
-  const { viewMode, setViewMode, currentDate, setCurrentDate } = useSchedulerContext();
+  const { viewMode, setViewMode, currentDate, setCurrentDate, setHighlightedBookingId } = useSchedulerContext();
 
   const apiServices = useAppSelector((s: any) => s.services?.items ?? EMPTY_ARR);
   const apiStaff    = useAppSelector((s: any) => s.staff?.items   ?? EMPTY_ARR);
@@ -79,6 +79,19 @@ const SchedulerContent: React.FC = () => {
         }
       } catch { /* ignore */ }
     })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Jump to + highlight a newly created appointment (e.g. from the public
+  // booking success screen's "Add to Calendar" button) ──────────────────────
+  useEffect(() => {
+    const focus = (location.state as any)?.focusAppointment as { id?: string; date?: string } | undefined;
+    if (!focus?.id) return;
+    navigate(location.pathname, { replace: true, state: {} });
+    if (focus.date) setCurrentDate(focus.date);
+    setViewMode("Day");
+    setHighlightedBookingId(focus.id);
+    const t = setTimeout(() => setHighlightedBookingId(null), 6000);
+    return () => clearTimeout(t);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSlotClick = useSingleClick((staffId: string, time: string) => {

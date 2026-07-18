@@ -13,6 +13,7 @@ import {
   Users,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { getMySalonThunk, updateSalonThunk } from "../../../middleware/salon/salon.thunk";
 import Button from "../../../components/ui/Button";
@@ -20,16 +21,18 @@ import type { UpdateSalonPayload } from "../../../types/salon.types";
 
 export default function BusinessSettingsPage() {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const { currentSalon, loading } = useAppSelector((s) => s.salon);
 
-  const [form, setForm] = useState<UpdateSalonPayload>({
+  // Phone/address are intentionally excluded from this form — they always
+  // mirror the owner's Personal Profile (Settings > Profile) now, so they're
+  // read-only here rather than a second, independently-editable copy.
+  const [form, setForm] = useState<Omit<UpdateSalonPayload, "phone" | "address">>({
     business_name: "",
     business_type: "",
     description: "",
     email: "",
-    phone: "",
     website_url: "",
-    address: "",
     gst_number: "",
     pan_number: "",
     location_type: undefined,
@@ -50,9 +53,7 @@ export default function BusinessSettingsPage() {
         business_type: currentSalon.business_type ?? "",
         description: currentSalon.description ?? "",
         email: currentSalon.email ?? "",
-        phone: currentSalon.phone ?? "",
         website_url: currentSalon.website_url ?? "",
-        address: currentSalon.address ?? "",
         gst_number: currentSalon.gst_number ?? "",
         pan_number: currentSalon.pan_number ?? "",
         location_type: currentSalon.location_type ?? undefined,
@@ -94,9 +95,7 @@ export default function BusinessSettingsPage() {
         business_type: currentSalon.business_type ?? "",
         description: currentSalon.description ?? "",
         email: currentSalon.email ?? "",
-        phone: currentSalon.phone ?? "",
         website_url: currentSalon.website_url ?? "",
-        address: currentSalon.address ?? "",
         gst_number: currentSalon.gst_number ?? "",
         pan_number: currentSalon.pan_number ?? "",
         location_type: currentSalon.location_type ?? undefined,
@@ -296,11 +295,16 @@ export default function BusinessSettingsPage() {
               </label>
               <input
                 className="settings-input"
-                name="phone"
-                value={form.phone ?? ""}
-                onChange={handleChange}
-                placeholder="+91 98765 43210"
+                value={currentSalon?.phone || "Not set"}
+                readOnly
+                disabled
               />
+              <span className="settings-hint">
+                Synced from your{" "}
+                <a href="#" onClick={(e) => { e.preventDefault(); navigate("/dashboard/settings/profile"); }}>
+                  Personal Profile
+                </a>.
+              </span>
             </div>
 
             <div className="settings-form-group">
@@ -324,11 +328,16 @@ export default function BusinessSettingsPage() {
               </label>
               <input
                 className="settings-input"
-                name="address"
-                value={form.address ?? ""}
-                onChange={handleChange}
-                placeholder="123 Main Street, City, State - 400001"
+                value={currentSalon?.address || "Not set"}
+                readOnly
+                disabled
               />
+              <span className="settings-hint">
+                Synced from your{" "}
+                <a href="#" onClick={(e) => { e.preventDefault(); navigate("/dashboard/settings/profile"); }}>
+                  Personal Profile
+                </a>.
+              </span>
             </div>
           </div>
 
