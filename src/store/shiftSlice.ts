@@ -66,7 +66,7 @@ const shiftSlice = createSlice({
     },
     updateAvailability(
       state,
-      { payload }: PayloadAction<{ staffId: string; date: string; isAvailable: boolean; startTime?: string; endTime?: string }>
+      { payload }: PayloadAction<{ staffId: string; date: string; isAvailable: boolean; startTime?: string; endTime?: string; breaks?: { start: string; end: string }[] }>
     ) {
       const entry = state.shifts[payload.staffId]?.[payload.date];
       if (!payload.isAvailable) {
@@ -87,6 +87,7 @@ const shiftSlice = createSlice({
           totalHours: calcTotalHours(payload.startTime, payload.endTime),
           type: "working",
           isAvailable: true,
+          breaks: payload.breaks ?? entry?.breaks ?? [],
         };
         if (!state.shifts[payload.staffId]) state.shifts[payload.staffId] = {};
         state.shifts[payload.staffId][payload.date] = newEntry;

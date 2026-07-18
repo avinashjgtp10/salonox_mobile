@@ -11,7 +11,7 @@ interface ShiftDrawerProps {
   date: string | null;
   shift?: ShiftEntry;
   onClose: () => void;
-  onSave: (staffId: string, date: string, isAvailable: boolean, startTime: string, endTime: string) => void;
+  onSave: (staffId: string, date: string, isAvailable: boolean, startTime: string, endTime: string, breaks: { start: string; end: string }[]) => void;
 }
 
 const ShiftDrawer: React.FC<ShiftDrawerProps> = ({
@@ -27,7 +27,9 @@ const ShiftDrawer: React.FC<ShiftDrawerProps> = ({
       setIsAvailable(shift.isAvailable);
       setStartTime(shift.startTime || "10:30 AM");
       setEndTime(shift.endTime || "09:00 PM");
-      setBreaks([]);
+      setBreaks(
+        (shift.breaks || []).map((b, i) => ({ id: Date.now() + i, start: b.start, end: b.end }))
+      );
     } else if (open) {
       setIsAvailable(true);
       setStartTime("10:30 AM");
@@ -54,7 +56,7 @@ const ShiftDrawer: React.FC<ShiftDrawerProps> = ({
 
   const handleSave = () => {
     if (!staff || !date) return;
-    onSave(staff.id, date, isAvailable, startTime, endTime);
+    onSave(staff.id, date, isAvailable, startTime, endTime, breaks.map((b) => ({ start: b.start, end: b.end })));
     onClose();
   };
 

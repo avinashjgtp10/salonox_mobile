@@ -14,7 +14,11 @@ function unwrap(data: any) {
   return data?.data ?? data;
 }
 
-export default function HalfDayRulePage() {
+interface HalfDayRulePageProps {
+  onClose?: () => void;
+}
+
+export default function HalfDayRulePage({ onClose }: HalfDayRulePageProps) {
   const [config, setConfig] = useState<HalfDayRuleConfig>(DEFAULT_HALF_DAY_RULE_CONFIG);
   const [input, setInput] = useState(String(DEFAULT_HALF_DAY_RULE_CONFIG.threshold_hours));
   const [error, setError] = useState<string | undefined>();
@@ -70,6 +74,7 @@ export default function HalfDayRulePage() {
     try {
       await api.put(ATTENDANCE.SETTINGS, config);
       toast.success("Half day rule saved");
+      onClose?.();
     } catch {
       toast.error("Failed to save half day rule");
     } finally {
@@ -78,9 +83,7 @@ export default function HalfDayRulePage() {
   }
 
   function handleCancel() {
-    setConfig(DEFAULT_HALF_DAY_RULE_CONFIG);
-    setInput(String(DEFAULT_HALF_DAY_RULE_CONFIG.threshold_hours));
-    setError(undefined);
+    onClose?.();
   }
 
   if (loading) {

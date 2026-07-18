@@ -150,17 +150,18 @@ const ScheduledShiftsPage: React.FC = () => {
     date: string,
     isAvailable: boolean,
     startTime: string,
-    endTime: string
+    endTime: string,
+    breaks: { start: string; end: string }[]
   ) => {
     // 8. Add Temporary Debug Logs
     console.log("[DEBUG] selectedDate:", date);
-    
+
     if (drawer.mode === "dayoff" || !isAvailable) {
       dispatch(setDayOff({ staffId, date }));
     } else if (drawer.mode === "blocked") {
       dispatch(setBlocked({ staffId, date, startTime, endTime }));
     } else {
-      dispatch(updateAvailability({ staffId, date, isAvailable, startTime, endTime }));
+      dispatch(updateAvailability({ staffId, date, isAvailable, startTime, endTime, breaks }));
     }
 
     const isDayOff = drawer.mode === "dayoff" || !isAvailable;
@@ -169,7 +170,11 @@ const ScheduledShiftsPage: React.FC = () => {
       staff_id: staffId,
       date: date,
       start_time: isDayOff ? "" : convertTo24h(startTime),
-      end_time: isDayOff ? "" : convertTo24h(endTime)
+      end_time: isDayOff ? "" : convertTo24h(endTime),
+      breaks: isDayOff ? [] : breaks.map((b) => ({
+        start_time: convertTo24h(b.start),
+        end_time: convertTo24h(b.end),
+      })),
     };
 
     console.log("[DEBUG] save payload:", payload);

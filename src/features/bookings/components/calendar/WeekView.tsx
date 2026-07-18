@@ -102,11 +102,14 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({ onSlotClick, onViewBill })
   const toMins = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
   const minsToTime = (mins: number) => `${Math.floor(mins / 60).toString().padStart(2, "0")}:${(mins % 60).toString().padStart(2, "0")}`;
 
-  function getSalonHours(dayOfWeek: number): { startTime: string; endTime: string } | null {
+  function getSalonHours(date: string, dayOfWeek: number): { startTime: string; endTime: string } | null {
     let earliest: number | null = null;
     let latest: number | null = null;
     staffList.forEach((staff) => {
-      const sch = staffSchedules?.[staff.id]?.[dayOfWeek];
+      const staffSch = staffSchedules?.[staff.id];
+      // Prefer the shift saved for this exact date; only fall back to a
+      // recurring day-of-week pattern if no date-specific override exists.
+      const sch = staffSch?.[date] ?? staffSch?.[`dow-${dayOfWeek}`];
       if (!sch || !sch.isAvailable || !sch.startTime || !sch.endTime) return;
       const s = toMins(sch.startTime);
       const e = toMins(sch.endTime);
@@ -117,8 +120,8 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({ onSlotClick, onViewBill })
     return { startTime: minsToTime(earliest), endTime: minsToTime(latest) };
   }
 
-  function isSlotOffHours(dayOfWeek: number, slotTime: string): boolean {
-    const hours = getSalonHours(dayOfWeek);
+  function isSlotOffHours(date: string, dayOfWeek: number, slotTime: string): boolean {
+    const hours = getSalonHours(date, dayOfWeek);
     if (!hours) return false;
     const slot = toMins(slotTime);
     const start = toMins(hours.startTime);
@@ -166,11 +169,11 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({ onSlotClick, onViewBill })
               const isToday2 = day === today;
               const dayBookings = getBookingsByDate(day);
               const dayOfWeek = new Date(day + "T12:00:00").getDay();
-              const salonHours = getSalonHours(dayOfWeek);
+              const salonHours = getSalonHours(day, dayOfWeek);
               return (
                 <div key={day} className="wv-day-col">
                   {slots.map((t) => {
-                    const offHours = isSlotOffHours(dayOfWeek, t);
+                    const offHours = isSlotOffHours(day, dayOfWeek, t);
                     return (
                       <div
                         key={t}

@@ -1,6 +1,4 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
-import { useSelector } from "react-redux";
-import type { RootState } from "../../../../store/store";
 import type { Booking, BlockedTime } from "../../types/booking.types";
 import { useScheduler, SLOT_HEIGHT } from "../../hooks/useScheduler";
 import { useSchedulerContext } from "../../store/SchedulerContext";
@@ -19,16 +17,6 @@ const EMPTY_BLOCKS: BlockedTime[] = [];
 // Must match .dv-gutter width and .dv-header-row height in DayView.scss
 const GUTTER_WIDTH = 72;
 const HEADER_HEIGHT = 56;
-
-// Moved outside component — pure function, no closure needed
-function to24h(t: string): string {
-  if (!t || (!t.includes("AM") && !t.includes("PM"))) return t;
-  const [timePart, period] = t.split(" ");
-  let [h, m] = timePart.split(":").map(Number);
-  if (period === "PM" && h !== 12) h += 12;
-  if (period === "AM" && h === 12) h = 0;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-}
 
 interface StaffSegment { time: string; endTime: string; }
 
@@ -72,7 +60,7 @@ const DayView: React.FC<DayViewProps> = ({
   onSlotClick, onEditBooking, onCancelBooking, onDeleteBooking, onBlockTime, onEditBlockTime,
 }) => {
   const { currentDate, slots, timeToPx, durationToPx, intervalMins } = useScheduler();
-  const { blockedTimes, deleteBlockedTime, updateBooking, staffList, selectedStaffId, bookings } = useSchedulerContext();
+  const { blockedTimes, deleteBlockedTime, updateBooking, staffList, selectedStaffId, bookings, staffSchedules } = useSchedulerContext();
 
   const visibleStaff = useMemo(
     () => selectedStaffId ? staffList.filter((s) => s.id === selectedStaffId) : staffList,
@@ -188,17 +176,20 @@ const DayView: React.FC<DayViewProps> = ({
     return map;
   }, [dayBlocked]);
 
-  // Date-specific shift schedules
-  const dateShifts = useSelector((s: RootState) => (s as any).shift?.shifts ?? {});
-
+  // Date-specific shift schedules — same source WeekView uses (populated by
+  // useStaffSchedule()), keyed by the exact date with a day-of-week fallback
+  // for a genuinely recurring (date-less) entry. This used to read from
+  // state.shift.shifts instead, which is only ever populated by the separate
+  // Scheduled Shifts admin page's fetchDailyShifts — never dispatched from
+  // the booking calendar itself, so work-hours blocking silently did nothing
+  // here unless that other page happened to already be visited this session.
   function getStaffWorkHours(staffId: string) {
-    const shift = dateShifts[staffId]?.[currentDate];
-    if (shift === undefined) return null;
-    if (!shift.isAvailable) return { startTime: "", endTime: "", isAvailable: false };
-    const startTime = to24h(shift.startTime || "");
-    const endTime   = to24h(shift.endTime   || "");
-    if (!startTime || !endTime) return null;
-    return { startTime, endTime, isAvailable: true };
+    const dayOfWeek = new Date(currentDate + "T12:00:00").getDay();
+    const sch = staffSchedules?.[staffId]?.[currentDate] ?? staffSchedules?.[staffId]?.[`dow-${dayOfWeek}`];
+    if (!sch) return null;
+    if (!sch.isAvailable) return { startTime: "", endTime: "", isAvailable: false };
+    if (!sch.startTime || !sch.endTime) return null;
+    return { startTime: sch.startTime, endTime: sch.endTime, isAvailable: true };
   }
 
   function isTimeRangeUnavailable(staffId: string, startTime: string, endTime: string): boolean {
@@ -529,7 +520,7 @@ const DayView: React.FC<DayViewProps> = ({
     if (start <= end) return slot < start || slot >= end;
     return slot >= end && slot < start;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateShifts, currentDate]);
+  }, [staffSchedules, currentDate]);
 
   function handleRemoveBlockTime(staffId: string) {
     dayBlocked.filter((b) => b.staffId === staffId).forEach((b) => deleteBlockedTime(b.id));

@@ -17,13 +17,14 @@ import {
   Clock,
 } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
-import { ATTENDANCE, DEVICES } from "../../../services/api/endpoints";
+import { ATTENDANCE, DEVICES, STAFF } from "../../../services/api/endpoints";
 import {
   DEFAULT_HALF_DAY_RULE_CONFIG,
   parseHalfDayRuleValue,
   isHalfDayCheckIn,
 } from "../../settings/utils/halfDayRuleSettings";
 import HalfDayRulePage from "../../settings/pages/HalfDayRulePage";
+import { scheduleDateToYMD } from "../../../components/staff-schedule/utils";
 import "../styles/AttendancePage.scss";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -164,25 +165,24 @@ function toISO(date: string, time: string): string {
   return `${date}T${time}:00+05:30`;
 }
 
-/** Look up a staff member's scheduled shift-start time (HH:MM, 24h) for a given date. */
-async function fetchShiftStartTime(staffId: string, date: string): Promise<string | null> {
-  try {
-    const res = await api.get(`/api/v1/staff/${staffId}/scheduled`);
-    const schedules = res.data?.data || res.data;
-    if (!Array.isArray(schedules)) return null;
-    const toYMD = (d: any) => (d && typeof d === "string" ? d.slice(0, 10) : "");
-    const dayOfWeek = new Date(date + "T12:00:00").getDay();
-    const daySched =
-      schedules.find((sch: any) => toYMD(sch.date) === date) ??
-      schedules.find((sch: any) => !sch.date && sch.day_of_week === dayOfWeek);
-    // staff_schedules.start_time is a Postgres TIME column ("HH:MM:SS") — truncate
-    // to "HH:MM" since toISO() appends its own ":00" seconds.
-    return daySched?.is_available && daySched?.start_time
-      ? String(daySched.start_time).slice(0, 5)
-      : null;
-  } catch {
-    return null;
-  }
+/**
+ * Look up a staff member's scheduled shift-start time (HH:MM, 24h) for a
+ * given date, from the `schedule` array already embedded on their staff
+ * record (see staffRepository.list on the backend — a LEFT JOIN LATERAL
+ * against staff_schedules). No separate GET /staff/:id/scheduled call is
+ * needed anymore now that the staff list carries this data itself.
+ */
+function getShiftStartTime(schedule: any[] | undefined, date: string): string | null {
+  if (!Array.isArray(schedule)) return null;
+  const dayOfWeek = new Date(date + "T12:00:00").getDay();
+  const daySched =
+    schedule.find((sch: any) => scheduleDateToYMD(sch.date) === date) ??
+    schedule.find((sch: any) => !scheduleDateToYMD(sch.date) && sch.day_of_week === dayOfWeek);
+  // start_time comes back as "HH:MM" already (backend formats it via
+  // to_char), but slice defensively in case a raw "HH:MM:SS" ever shows up.
+  return daySched?.is_available && daySched?.start_time
+    ? String(daySched.start_time).slice(0, 5)
+    : null;
 }
 
 // ─── 12-hour time picker (native <input type="time"> ignores the "lang" hint on
@@ -333,10 +333,12 @@ function rowAction(s: TodayStaffRecord): { label: string; variant: string; modal
 
 // ─── Check-In Modal ───────────────────────────────────────────────────────────
 
-function CheckInModal({ record, date, isToday, onClose, onDone }: {
+function CheckInModal({ record, date, isToday, schedule, onClose, onDone }: {
   record: TodayStaffRecord;
   date: string;
   isToday: boolean;
+  /** This staff member's `schedule` array, already embedded on their staff record. */
+  schedule: any[] | undefined;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -344,22 +346,37 @@ function CheckInModal({ record, date, isToday, onClose, onDone }: {
   const [note, setNote]   = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState("");
-  const [shiftStart, setShiftStart] = useState<string | null>(null);
   const [salonShiftStart, setSalonShiftStart] = useState<string | null>(null);
   const [halfDayRule, setHalfDayRule] = useState(DEFAULT_HALF_DAY_RULE_CONFIG);
+  const [settingsReady, setSettingsReady] = useState(false);
+
+  // Shift start comes straight from the schedule already embedded on the
+  // staff record — no fetch needed. Only the half-day rule settings still
+  // require a network call.
+  const shiftStart = getShiftStartTime(schedule, date);
 
   // Half-day rule is evaluated client-side: compare the check-in time against
   // (shift start + configured threshold hours). Backend just stores whatever
   // status we send — it does not compute lateness itself.
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const [start, ruleRes] = await Promise.all([
-        fetchShiftStartTime(record.staff_id, date),
-        api.get(ATTENDANCE.SETTINGS).catch(() => null),
-      ]);
+    setSettingsReady(false);
+
+    // This GET previously had zero retry (a bare .catch(() => null)), unlike
+    // every other fetch of this same endpoint in this file — a single
+    // transient DB blip (this backend's connection is known to drop
+    // intermittently, see the retry comments elsewhere in this file and in
+    // config/database.ts) silently left halfDayRule at its default
+    // (active: false), so the rule would just never apply for that check-in
+    // with no visible error. Retrying matches the established pattern.
+    const attempt = (n: number): Promise<any> =>
+      api.get(ATTENDANCE.SETTINGS).catch((e: any) => {
+        if (n <= 0) throw e;
+        return new Promise((resolve) => setTimeout(resolve, 600)).then(() => attempt(n - 1));
+      });
+
+    attempt(2).catch(() => null).then((ruleRes: any) => {
       if (cancelled) return;
-      setShiftStart(start);
       if (ruleRes) {
         const settings = ruleRes.data?.data ?? ruleRes.data;
         setHalfDayRule(parseHalfDayRuleValue(settings));
@@ -370,7 +387,8 @@ function CheckInModal({ record, date, isToday, onClose, onDone }: {
         // toISO() below appends its own ":00" seconds.
         if (settings?.shift_start) setSalonShiftStart(String(settings.shift_start).slice(0, 5));
       }
-    })();
+      setSettingsReady(true);
+    });
     return () => { cancelled = true; };
   }, [record.staff_id, date]);
 
@@ -442,8 +460,8 @@ function CheckInModal({ record, date, isToday, onClose, onDone }: {
         </div>
         <div className="at-modal-footer">
           <button className="at-btn at-btn--ghost" onClick={onClose}>Cancel</button>
-          <button className="at-btn at-btn--primary" disabled={saving} onClick={save}>
-            {saving ? "Saving…" : "Check In"}
+          <button className="at-btn at-btn--primary" disabled={saving || !settingsReady} onClick={save}>
+            {saving ? "Saving…" : !settingsReady ? "Loading…" : "Check In"}
           </button>
         </div>
       </div>
@@ -982,6 +1000,24 @@ export default function AttendancePage() {
   const [quickMark, setQuickMark] = useState(false);
   const [showHalfDayRule, setShowHalfDayRule] = useState(false);
 
+  // staffId -> schedule[], fetched once from the staff list (which now embeds
+  // each member's schedule server-side) so the Check-In modal can look up a
+  // shift start synchronously instead of a separate GET .../scheduled call.
+  const [staffSchedules, setStaffSchedules] = useState<Record<string, any[]>>({});
+  useEffect(() => {
+    let cancelled = false;
+    api.get(STAFF.BASE).then((res) => {
+      if (cancelled) return;
+      const items = res.data?.data?.items || res.data?.data || [];
+      const map: Record<string, any[]> = {};
+      if (Array.isArray(items)) {
+        items.forEach((s: any) => { map[s.id] = Array.isArray(s.schedule) ? s.schedule : []; });
+      }
+      setStaffSchedules(map);
+    }).catch(() => { /* non-critical — Check-In falls back to the salon default shift time */ });
+    return () => { cancelled = true; };
+  }, []);
+
   // Lock background scroll while the modal is open — otherwise the page's own
   // scrollbar (e.g. the wide attendance table) stays interactive underneath
   // the fixed overlay, visible right below the modal's footer buttons.
@@ -1103,7 +1139,7 @@ export default function AttendancePage() {
         <div className="hd-modal-overlay" onClick={() => setShowHalfDayRule(false)}>
           <div className="hd-modal-panel" onClick={(e) => e.stopPropagation()}>
             <button className="hd-modal-close" onClick={() => setShowHalfDayRule(false)}>×</button>
-            <HalfDayRulePage />
+            <HalfDayRulePage onClose={() => setShowHalfDayRule(false)} />
           </div>
         </div>
       )}
@@ -1364,7 +1400,7 @@ export default function AttendancePage() {
       </div>
 
       {/* ── Attendance Modals ── */}
-      {modal?.type === "check_in"  && <CheckInModal  record={modal.record} date={selectedDate} isToday={isToday} onClose={closeModal} onDone={doneModal} />}
+      {modal?.type === "check_in"  && <CheckInModal  record={modal.record} date={selectedDate} isToday={isToday} schedule={staffSchedules[modal.record.staff_id]} onClose={closeModal} onDone={doneModal} />}
       {modal?.type === "check_out" && <CheckOutModal record={modal.record} date={selectedDate} isToday={isToday} onClose={closeModal} onDone={doneModal} />}
       {modal?.type === "edit"      && <EditModal     record={modal.record} date={selectedDate} onClose={closeModal} onDone={doneModal} />}
 
