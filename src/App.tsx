@@ -8,14 +8,14 @@ import { LandingRoutes } from "./routes/LandingRoutes";
 import { SuperAdminRoutes } from "./routes/SuperAdminRoutes";
 import { PublicBookingRoutes } from "./routes/PublicBookingRoutes";
 import SalonOxBot from './features/bot/SalonOxBot';
-// import SubscriptionWall from "./features/billing/components/SubscriptionWall";
-// import { useSubscriptionPoller } from "./hooks/useSubscriptionPoller";
-// import { useAppSelector } from "./hooks/useAppRedux";
+import SubscriptionWall from "./features/billing/components/SubscriptionWall";
+import { useSubscriptionPoller } from "./hooks/useSubscriptionPoller";
+import { useAppSelector } from "./hooks/useAppRedux";
 
 function App() {
-  // const subscriptionExpired = useAppSelector((s) => s.billing.subscriptionExpired);
-  // const accessToken = useAppSelector((s) => s.auth.accessToken);
-  // useSubscriptionPoller();
+  const subscriptionExpired = useAppSelector((s) => s.billing.subscriptionExpired);
+  const accessToken = useAppSelector((s) => s.auth.accessToken);
+  useSubscriptionPoller();
 
   return (
     <>
@@ -41,7 +41,7 @@ function App() {
       </ErrorBoundary>
       <SalonOxBot />
       {/* Full-screen subscription wall — renders over authenticated routes only */}
-      {/* {accessToken && subscriptionExpired && <SubscriptionWall />} */}
+      {accessToken && subscriptionExpired && <SubscriptionWall />}
     </>
   );
 }

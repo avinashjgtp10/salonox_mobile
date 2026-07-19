@@ -46,7 +46,16 @@ export default function BillingPage() {
       setVerifying(true);
       toast.loading("Verifying payment...", { id: "verify" });
 
-      api.post(`/api/v1/subscriptions/verify/${currentSalon.id}`)
+      // Razorpay appends these query params on redirect — pass them to the backend
+      const razorpayPaymentId = searchParams.get("razorpay_payment_id");
+      const razorpaySubscriptionId = searchParams.get("razorpay_subscription_id");
+      const razorpaySignature = searchParams.get("razorpay_signature");
+
+      api.post(`/api/v1/subscriptions/verify/${currentSalon.id}`, {
+        razorpay_payment_id: razorpayPaymentId,
+        razorpay_subscription_id: razorpaySubscriptionId,
+        razorpay_signature: razorpaySignature,
+      })
         .then((res) => {
           const status = res.data?.data?.status;
           if (status === "active") {

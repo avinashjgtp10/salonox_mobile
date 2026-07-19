@@ -44,11 +44,9 @@ export default function UpgradeButton({ plan }: Props) {
         return;
       }
 
-      // Append redirect URL — Razorpay hosted page supports ?callback_url param
-      const redirectAfterPayment = `${window.location.origin}/dashboard/settings/billing?payment=success`;
-      const finalUrl = `${short_url}?callback_url=${encodeURIComponent(redirectAfterPayment)}`;
-
-      window.location.href = finalUrl;
+      // Razorpay callback_url must be configured server-side during subscription creation.
+      // Just redirect to the short_url directly.
+      window.location.href = short_url;
 
     } catch (err: any) {
       showError(err?.message || "Failed to initiate payment");
