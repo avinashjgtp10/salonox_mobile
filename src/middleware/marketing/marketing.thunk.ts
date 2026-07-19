@@ -228,9 +228,10 @@ export const resumeCampaignThunk = createAsyncThunk<string | number, string | nu
 // ── Webhook Events ────────────────────────────────────────────────────────────
 
 export interface WebhookEventsQuery {
-  page?:   number;
-  limit?:  number;
-  status?: string;
+  page?:       number;
+  limit?:      number;
+  status?:     string;
+  campaignId?: string;
 }
 
 export interface WebhookEventsResult {

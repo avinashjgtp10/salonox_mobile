@@ -484,49 +484,51 @@ export default function MarketingDashboardPage() {
             {topCampaigns.length === 0 ? (
               <div className="mkt-table-empty">No campaigns yet</div>
             ) : (
-              <table className="mkt-table">
-                <thead>
-                  <tr>
-                    <th>Campaign</th>
-                    <th>Status</th>
-                    <th>Sent</th>
-                    <th>Delivery rate</th>
-                    <th>Read rate</th>
-                    <th>Failed</th>
-                    <th>Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topCampaigns.map((c: any, i: number) => (
-                    <tr
-                      key={c.id}
-                      className="mkt-campaign-row"
-                      onClick={() => navigate("/dashboard/marketing/campaigns/history")}
-                    >
-                      <td>
-                        <div className="mkt-camp-name-cell">
-                          {i === 0 && <span className="mkt-rank-badge">🥇</span>}
-                          {i === 1 && <span className="mkt-rank-badge">🥈</span>}
-                          {i === 2 && <span className="mkt-rank-badge">🥉</span>}
-                          <span className="mkt-campaign-name">{c.name}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <Badge variant={CAMPAIGN_STATUS_BADGE[c.status] ?? "secondary"}>
-                          {CAMPAIGN_STATUS_LABEL[c.status] ?? c.status}
-                        </Badge>
-                      </td>
-                      <td>{Number(c.sent_count).toLocaleString("en-IN")}</td>
-                      <td><RateBar value={Number(c.delivery_rate)} color="#3b82f6" /></td>
-                      <td><RateBar value={Number(c.read_rate)} color="#8b5cf6" /></td>
-                      <td className={Number(c.failed_count) > 0 ? "mkt-td-fail" : ""}>
-                        {Number(c.failed_count).toLocaleString("en-IN")}
-                      </td>
-                      <td className="mkt-td-date">{fmtDate(c.created_at)}</td>
+              <div className="mkt-table-wrap">
+                <table className="mkt-table">
+                  <thead>
+                    <tr>
+                      <th>Campaign</th>
+                      <th>Status</th>
+                      <th>Sent</th>
+                      <th>Delivery rate</th>
+                      <th>Read rate</th>
+                      <th>Failed</th>
+                      <th>Date</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {topCampaigns.map((c: any, i: number) => (
+                      <tr
+                        key={c.id}
+                        className="mkt-campaign-row"
+                        onClick={() => navigate("/dashboard/marketing/campaigns/history")}
+                      >
+                        <td>
+                          <div className="mkt-camp-name-cell">
+                            {i === 0 && <span className="mkt-rank-badge">🥇</span>}
+                            {i === 1 && <span className="mkt-rank-badge">🥈</span>}
+                            {i === 2 && <span className="mkt-rank-badge">🥉</span>}
+                            <span className="mkt-campaign-name">{c.name}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <Badge variant={CAMPAIGN_STATUS_BADGE[c.status] ?? "secondary"}>
+                            {CAMPAIGN_STATUS_LABEL[c.status] ?? c.status}
+                          </Badge>
+                        </td>
+                        <td>{Number(c.sent_count).toLocaleString("en-IN")}</td>
+                        <td><RateBar value={Number(c.delivery_rate)} color="#3b82f6" /></td>
+                        <td><RateBar value={Number(c.read_rate)} color="#8b5cf6" /></td>
+                        <td className={Number(c.failed_count) > 0 ? "mkt-td-fail" : ""}>
+                          {Number(c.failed_count).toLocaleString("en-IN")}
+                        </td>
+                        <td className="mkt-td-date">{fmtDate(c.created_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
 

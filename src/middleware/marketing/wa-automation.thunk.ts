@@ -58,6 +58,23 @@ export const submitPurchaseTemplateThunk = createAsyncThunk<
   }
 );
 
+export const resetPurchaseTemplateThunk = createAsyncThunk<
+  PurchaseTemplate,
+  { salonId: string; eventType: string },
+  { rejectValue: string }
+>(
+  "marketing/resetPurchaseTemplate",
+  async ({ salonId, eventType }, { rejectWithValue }) => {
+    try {
+      const res = await api.post<PurchaseTemplateResponse>(WA_AUTOMATION.PURCHASE_TEMPLATE_RESET(salonId, eventType));
+      return res.data.data;
+    } catch (err: any) {
+      if (err instanceof ApiError) return rejectWithValue(err.message);
+      return rejectWithValue("Failed to reset template");
+    }
+  }
+);
+
 export const syncPurchaseTemplateThunk = createAsyncThunk<
   PurchaseTemplate,
   { salonId: string; eventType: string },

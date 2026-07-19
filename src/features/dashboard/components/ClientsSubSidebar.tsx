@@ -16,26 +16,28 @@ export default function ClientsSubSidebar({ onClose }: Props) {
         </button>
       </div>
 
-      <NavLink
-        to="/dashboard/clients/list"
-        className={({ isActive }) => isActive ? "sub-link active" : "sub-link"}
-      >
-        Clients list
-      </NavLink>
+      <div className="sub-sidebar-body">
+        <NavLink
+          to="/dashboard/clients/list"
+          className={({ isActive }) => isActive ? "sub-link active" : "sub-link"}
+        >
+          Clients list
+        </NavLink>
 
-      <NavLink
-        to="/dashboard/clients/loyalty"
-        className={({ isActive }) => isActive ? "sub-link active" : "sub-link"}
-      >
-        Referral &amp; rewards
-      </NavLink>
+        <NavLink
+          to="/dashboard/clients/loyalty"
+          className={({ isActive }) => isActive ? "sub-link active" : "sub-link"}
+        >
+          Referral &amp; rewards
+        </NavLink>
 
-      <NavLink
-        to="/dashboard/clients/history"
-        className={({ isActive }) => isActive ? "sub-link active" : "sub-link"}
-      >
-        Client history
-      </NavLink>
+        <NavLink
+          to="/dashboard/clients/history"
+          className={({ isActive }) => isActive ? "sub-link active" : "sub-link"}
+        >
+          Client history
+        </NavLink>
+      </div>
     </div>
   );
 }

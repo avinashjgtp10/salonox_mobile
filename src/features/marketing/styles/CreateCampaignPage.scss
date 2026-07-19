@@ -24,7 +24,10 @@
 .cc-step-label { font-size: 12px; color: $gray-400; white-space: nowrap; &.active { color: $black; font-weight: 500; } }
 .cc-step-line  { flex: 1; height: 1px; background: $gray-200; margin: 0 12px; min-width: 32px; }
 
-.cc-split-layout { display: grid; grid-template-columns: 1fr 280px; gap: 20px; align-items: flex-start; }
+.cc-split-layout {
+  display: grid; grid-template-columns: 1fr 280px; gap: 20px; align-items: flex-start;
+  @media (max-width: 900px) { grid-template-columns: 1fr; }
+}
 .cc-left-col  { display: flex; flex-direction: column; }
 .cc-right-col { position: sticky; top: 16px; }
 .cc-body { flex: 1; }
@@ -393,6 +396,7 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 6px;
+  @media (max-width: 640px) { grid-template-columns: 1fr; }
 }
 
 .cc-batch-option {
@@ -460,8 +464,8 @@
   i { font-size: 14px; }
 }
 
-.cc-sf-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.cc-sf-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.cc-sf-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; @media (max-width: 640px) { grid-template-columns: 1fr; } }
+.cc-sf-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; @media (max-width: 900px) { grid-template-columns: 1fr 1fr; } @media (max-width: 640px) { grid-template-columns: 1fr; } }
 
 .cc-sf-field { display: flex; flex-direction: column; gap: 5px; }
 .cc-sf-label { font-size: 11px; color: #6b7280; }

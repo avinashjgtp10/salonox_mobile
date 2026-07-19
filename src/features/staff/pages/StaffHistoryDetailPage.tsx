@@ -9,7 +9,7 @@ import {
   ChatSquareText, Wallet2, ExclamationCircle,
 } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
-import { STAFF, SALE, ATTENDANCE } from "../../../services/api/endpoints";
+import { STAFF, SALE, ATTENDANCE, REVIEWS } from "../../../services/api/endpoints";
 import "../styles/StaffHistoryPage.scss";
 
 // ─── Shared types/helpers ───────────────────────────────────────────────────
@@ -409,6 +409,57 @@ function CommissionTab({ staffId }: { staffId: string }) {
   );
 }
 
+// ─── Notes & Feedback tab (WhatsApp star ratings) ───────────────────────────
+
+interface ReviewRow {
+  id: string;
+  rating: number;
+  phone: string | null;
+  review_text: string | null;
+  created_at: string;
+}
+
+interface ReviewStats {
+  averageRating: number;
+  totalReviews: number;
+}
+
+function ReviewsTab({ staffId }: { staffId: string }) {
+  const { data, loading, error, retry } = useFetch<ReviewRow[]>(
+    () => api.get(REVIEWS.BASE, { params: { staff_id: staffId } }).then((r) => r.data?.data ?? []),
+    [staffId], []
+  );
+  const { data: stats } = useFetch<ReviewStats>(
+    () => api.get(REVIEWS.STATS, { params: { staff_id: staffId } }).then((r) => r.data ?? { averageRating: 0, totalReviews: 0 }),
+    [staffId], { averageRating: 0, totalReviews: 0 }
+  );
+
+  if (loading) return <LoadingState />;
+  if (error) return <ErrorState onRetry={retry} />;
+  if (data.length === 0) return <EmptyState icon={<ChatSquareText size={26} />} text="No feedback received yet." />;
+
+  return (
+    <div>
+      <div className="shp-inline-stat">
+        Average rating: <strong>{stats.averageRating > 0 ? `${"⭐".repeat(Math.round(stats.averageRating))} ${stats.averageRating.toFixed(1)}` : "—"}</strong>
+        {" "}({stats.totalReviews} rating{stats.totalReviews === 1 ? "" : "s"})
+      </div>
+      <table className="shp-table">
+        <thead><tr><th>Date</th><th>Client</th><th>Rating</th></tr></thead>
+        <tbody>
+          {data.map((r) => (
+            <tr key={r.id}>
+              <td>{fmtDate(r.created_at)}</td>
+              <td>{r.phone ?? "—"}</td>
+              <td>{"⭐".repeat(r.rating)} ({r.rating}/5)</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // ─── Attendance tab ──────────────────────────────────────────────────────────
 
 function AttendanceTab({ staffId }: { staffId: string }) {
@@ -597,12 +648,7 @@ export default function StaffHistoryDetailPage() {
                 note="The Payruns page isn't wired to any real payroll data yet, so there's nothing to show here yet."
               />
             )}
-            {activeTab === "notes" && (
-              <EmptyState
-                icon={<ChatSquareText size={26} />}
-                text="Notes & feedback tracking isn't set up yet."
-              />
-            )}
+            {activeTab === "notes" && <ReviewsTab staffId={staff.id} />}
           </div>
         </>
       )}

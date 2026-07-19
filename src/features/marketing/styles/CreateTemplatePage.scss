@@ -14,7 +14,10 @@
   max-width: 280px; text-align: right;
 }
 
-.ct-layout { display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: flex-start; }
+.ct-layout {
+  display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: flex-start;
+  @media (max-width: 900px) { grid-template-columns: 1fr; }
+}
 .ct-form-col { display: flex; flex-direction: column; gap: 0; }
 
 .ct-section {
@@ -116,7 +119,10 @@
 .ct-actions { display: flex; gap: 10px; margin-top: 4px; }
 
 // ── Right Col ─────────────────────────────────────────────────────────────────
-.ct-right-col     { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 14px; }
+.ct-right-col     {
+  position: sticky; top: 16px; display: flex; flex-direction: column; gap: 14px;
+  @media (max-width: 900px) { position: static; }
+}
 .ct-preview-label { font-size: 10px; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
 
 .ct-phone { background: #f0f0ea; border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb; }

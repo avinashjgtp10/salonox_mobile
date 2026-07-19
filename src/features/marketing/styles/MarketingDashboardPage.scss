@@ -133,6 +133,9 @@
   grid-template-columns: repeat(5, 1fr);
   gap: 12px;
   margin-bottom: 16px;
+
+  @media (max-width: 1024px) { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 640px)  { grid-template-columns: repeat(2, 1fr); }
 }
 .mkt-kpi-card {
   background: #fff; border: 1px solid #e5e7eb;
@@ -192,6 +195,7 @@
 .mkt-table-empty { font-size: 13px; color: #9ca3af; text-align: center; padding: 32px; }
 
 // ── Table ─────────────────────────────────────────────────────────────────────
+.mkt-table-wrap { overflow-x: auto; }
 .mkt-table {
   width: 100%; border-collapse: collapse; font-size: 12px;
   thead tr { background: #f9fafb; border-bottom: 1px solid #e5e7eb; }
@@ -217,7 +221,7 @@
 .mkt-rate-bar-pct   { font-size: 11px; font-weight: 500; white-space: nowrap; min-width: 32px; }
 
 // ── Bottom row ────────────────────────────────────────────────────────────────
-.mkt-bottom-row    { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.mkt-bottom-row    { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; @media (max-width: 900px) { grid-template-columns: 1fr; } }
 .mkt-funnel        { display: flex; flex-direction: column; gap: 10px; }
 .mkt-funnel-row    { display: flex; align-items: center; gap: 10px; }
 .mkt-funnel-label  { font-size: 12px; color: #6b7280; width: 60px; flex-shrink: 0; }
@@ -235,7 +239,7 @@
 .mkt-ct-val  { font-weight: 600; }
 
 // ── Insights row ──────────────────────────────────────────────────────────────
-.mkt-insight-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.mkt-insight-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; @media (max-width: 900px) { grid-template-columns: 1fr; } }
 .mkt-insight-card { margin-bottom: 0 !important; }
 
 // ── Template list ─────────────────────────────────────────────────────────────

@@ -48,40 +48,42 @@ export default function OnlineBookingSubSidebar({ onClose }: Props) {
         </button>
       </div>
 
-      <p className="sub-category">Channels</p>
+      <div className="sub-sidebar-body">
+        <p className="sub-category">Channels</p>
 
-      {links.map((link) => (
-        <NavLink
-          key={link.to}
-          to={link.to}
-          className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}
-          style={{ display: "flex", alignItems: "center", gap: 10 }}
-        >
-          <span
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 8,
-              background: "#f3f4f6",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-              color: "#374151",
-            }}
+        {links.map((link) => (
+          <NavLink
+            key={link.to}
+            to={link.to}
+            className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}
+            style={{ display: "flex", alignItems: "center", gap: 10 }}
           >
-            {link.icon}
-          </span>
-          <span style={{ minWidth: 0 }}>
-            <span style={{ display: "block", fontSize: 13.5, fontWeight: 500, color: "#111827" }}>
-              {link.label}
+            <span
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 8,
+                background: "#f3f4f6",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                color: "#374151",
+              }}
+            >
+              {link.icon}
             </span>
-            <span style={{ display: "block", fontSize: 11.5, color: "#9ca3af", lineHeight: 1.3 }}>
-              {link.desc}
+            <span style={{ minWidth: 0 }}>
+              <span style={{ display: "block", fontSize: 13.5, fontWeight: 500, color: "#111827" }}>
+                {link.label}
+              </span>
+              <span style={{ display: "block", fontSize: 11.5, color: "#9ca3af", lineHeight: 1.3 }}>
+                {link.desc}
+              </span>
             </span>
-          </span>
-        </NavLink>
-      ))}
+          </NavLink>
+        ))}
+      </div>
     </div>
   );
 }
