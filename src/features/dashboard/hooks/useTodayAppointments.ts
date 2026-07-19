@@ -26,12 +26,14 @@ function computeAmount(appt: any): number {
 // row doesn't sit stuck on "Upcoming" long after the calendar already shows
 // the same booking as missed.
 function computeStatus(appt: any): TodayAppointment["status"] {
-  const bs = String(appt.status ?? "").toLowerCase().replace(/_/g, "-");
+  const bs = String(appt.status ?? "").toLowerCase();
   if (appt.deleted_at) return "deleted";
-  if (bs === "cancelled")    return "cancelled";
-  if (bs === "completed")    return "completed";
-  if (bs === "no-show")      return "no-show";
-  if (bs === "in-progress")  return "in-progress";
+  if (bs === "cancelled") return "cancelled";
+  if (bs === "paid")      return "completed";
+  if (bs === "no-show")   return "no-show";
+  // booked / partial intentionally fall through to the time-based check
+  // below — mirrors salon-dashboard.repository.ts's own mapStatus() default
+  // bucket (booked/partial → "upcoming" unless the slot has already passed).
 
   const endIso = appt.ends_at ?? appt.end_time;
   if (endIso) {

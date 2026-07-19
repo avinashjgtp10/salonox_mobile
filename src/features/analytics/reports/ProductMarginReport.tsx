@@ -6,6 +6,7 @@ import Button from "../../../components/ui/Button";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import { normalizePaymentStatus } from "../../bookings/utils/bookingMapper";
 import "./ProductMarginReport.scss";
 
 const REPORT_NAME = "Product Margin";
@@ -55,7 +56,7 @@ export default function ProductMarginReport({ onBack }: { onBack: () => void }) 
         Array.isArray(raw)        ? raw        : [];
       const agg = new Map<string, { quantity: number; revenue: number; cost: number }>();
       appts.forEach((appt: any) => {
-        if (String(appt.payment_status ?? "unpaid").toLowerCase() === "unpaid") return;
+        if (normalizePaymentStatus(appt.status) === "Unpaid") return;
         (Array.isArray(appt.product_items) ? appt.product_items : []).forEach((it: any) => {
           const name = String(it.name ?? "Product");
           const qty = Number(it.quantity ?? 1) || 1;

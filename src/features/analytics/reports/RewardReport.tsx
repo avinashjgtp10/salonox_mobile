@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ChevronLeft } from "react-bootstrap-icons";
+import { ChevronLeft, Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
-import { BOOKING } from "../../../services/api/endpoints";
+import { REPORT } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
@@ -10,19 +10,19 @@ import "./RewardReport.scss";
 
 const REPORT_NAME = "Reward";
 
-interface RewardRow {
-  date: string;
-  invoiceNo: string;
-  client: string;
-  value: number;
+interface RewardClientRow {
+  clientId: string;
+  clientName: string;
+  mobile: string;
+  pointsAvailable: number;
+  pointsEarned: number;
+  pointsRedeemed: number;
+  lastActivityAt: string | null;
 }
 
 export default function RewardReport({ onBack }: { onBack: () => void }) {
-  const today   = new Date().toISOString().slice(0, 10);
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
-  const [dateFrom,    setDateFrom]    = useState(monthStart);
-  const [dateTo,      setDateTo]      = useState(today);
-  const [rows,        setRows]        = useState<RewardRow[]>([]);
+  const [search,      setSearch]      = useState("");
+  const [rows,        setRows]        = useState<RewardClientRow[]>([]);
   const [loading,     setLoading]     = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(25);
@@ -34,42 +34,38 @@ export default function RewardReport({ onBack }: { onBack: () => void }) {
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      // The backend only tracks reward points *redeemed as payment* (a value in ₹, on the
-      // appointment's linked payments) — there's no "points earned" or points-count field
-      // to report on yet, so this shows redemptions only.
-      const res = await api.get(BOOKING.BASE, { params: { start_date: dateFrom, end_date: dateTo, limit: "200" }, signal: ctrl.signal });
-      const raw = res.data?.data;
-      const appts: any[] =
-        Array.isArray(raw?.items) ? raw.items :
-        Array.isArray(raw?.data)  ? raw.data  :
-        Array.isArray(raw)        ? raw        : [];
-      const result: RewardRow[] = [];
-      appts.forEach((appt: any) => {
-        const value = Number(appt.reward_points_value) || 0;
-        if (value <= 0) return;
-        result.push({
-          date: String(appt.scheduled_at ?? appt.created_at ?? "").slice(0, 10),
-          invoiceNo: appt.invoice_number != null ? String(appt.invoice_number) : String(appt.id ?? "—"),
-          client: appt.client_name ?? "Walk-in",
-          value,
-        });
-      });
-      result.sort((a, b) => (a.date < b.date ? 1 : -1));
-      setRows(result);
+      const params = new URLSearchParams();
+      if (search.trim()) params.set("search", search.trim());
+      const res = await api.get(REPORT.REWARD_POINTS_TABLE(params.toString()), { signal: ctrl.signal });
+      const raw: any[] = res.data?.data ?? [];
+      setRows(raw.map((r: any) => ({
+        clientId: r.clientId,
+        clientName: r.clientName || "Walk-in Client",
+        mobile: r.mobile || "—",
+        pointsAvailable: Number(r.pointsAvailable) || 0,
+        pointsEarned: Number(r.pointsEarned) || 0,
+        pointsRedeemed: Number(r.pointsRedeemed) || 0,
+        lastActivityAt: r.lastActivityAt ?? null,
+      })));
     } catch (e: any) {
       if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setRows([]);
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo]);
+  }, [search]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setCurrentPage(1); }, [rows]);
 
-  const totalValue = rows.reduce((s, r) => s + r.value, 0);
+  const totalAvailable = rows.reduce((s, r) => s + r.pointsAvailable, 0);
+  const totalEarned = rows.reduce((s, r) => s + r.pointsEarned, 0);
+  const totalRedeemed = rows.reduce((s, r) => s + r.pointsRedeemed, 0);
 
-  const HEADERS = ["Date", "Invoice No", "Client", "Redeemed Value (₹)"];
-  const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.client, r.value]);
+  const HEADERS = ["Client", "Mobile", "Points Available", "Points Earned", "Points Redeemed", "Last Activity"];
+  const exportRows = () => rows.map(r => [
+    r.clientName, r.mobile, r.pointsAvailable, r.pointsEarned, r.pointsRedeemed,
+    r.lastActivityAt ? String(r.lastActivityAt).slice(0, 10) : "—",
+  ]);
   const paged = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
@@ -80,18 +76,23 @@ export default function RewardReport({ onBack }: { onBack: () => void }) {
             <ChevronLeft size={15} /> {REPORT_NAME}
           </Button>
           <div className="rp-detail-view-icons">
-            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`reward-${dateFrom}-${dateTo}`} variant="button" csv />
+            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`reward-points-${new Date().toISOString().slice(0, 10)}`} variant="button" csv />
           </div>
         </div>
       </div>
 
       <div className="rp-detail-filters">
-        <div className="rp-detail-filter-group">
-          <label className="rp-detail-filter-label">Date</label>
-          <div className="rp-detail-date-range">
-            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="rp-detail-date-input" />
-            <span className="rp-detail-date-sep">-</span>
-            <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   className="rp-detail-date-input" />
+        <div className="rp-detail-filter-group" style={{ minWidth: 260 }}>
+          <label className="rp-detail-filter-label">Client</label>
+          <div className="rp-detail-search-wrap">
+            <Search size={14} className="rp-detail-search-ic" />
+            <input
+              type="text"
+              className="rp-detail-search-input"
+              placeholder="Search by name or mobile…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
           </div>
         </div>
         <div className="rp-detail-filter-actions">
@@ -101,31 +102,37 @@ export default function RewardReport({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      {loading ? <SkeletonStatCards count={2} /> : (
+      {loading ? <SkeletonStatCards count={3} /> : (
         <div className="rp-sra-summary-row">
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{rows.length}</div><div className="rp-sra-summary-label">Redemptions</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalValue.toLocaleString()}</div><div className="rp-sra-summary-label">Total Redeemed Value</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{totalAvailable.toLocaleString()}</div><div className="rp-sra-summary-label">Points Available</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{totalEarned.toLocaleString()}</div><div className="rp-sra-summary-label">Total Points Earned</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{totalRedeemed.toLocaleString()}</div><div className="rp-sra-summary-label">Total Points Redeemed</div></div>
         </div>
       )}
 
-      <div className="rp-detail-drag-hint">Reward points redeemed as payment — points earned aren't tracked by the backend yet.</div>
+      <div className="rp-detail-drag-hint">{rows.length} client{rows.length !== 1 ? "s" : ""} with reward point activity</div>
 
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
           <thead>
-            <tr><th>Date</th><th>Invoice No</th><th>Client</th><th>Redeemed Value (₹)</th></tr>
+            <tr>
+              <th>Client</th><th>Mobile</th><th>Points Available</th>
+              <th>Points Earned</th><th>Points Redeemed</th><th>Last Activity</th>
+            </tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={4} />
+              <SkeletonTableRows columns={6} />
             ) : paged.length === 0 ? (
-              <tr><td colSpan={4} className="rp-detail-empty-cell">No reward redemptions found</td></tr>
-            ) : paged.map((r, i) => (
-              <tr key={i}>
-                <td>{r.date}</td>
-                <td><span className="rp-detail-link">{r.invoiceNo}</span></td>
-                <td>{r.client}</td>
-                <td className="fw-semibold">₹{r.value.toLocaleString()}</td>
+              <tr><td colSpan={6} className="rp-detail-empty-cell">No reward point activity found</td></tr>
+            ) : paged.map((r) => (
+              <tr key={r.clientId}>
+                <td>{r.clientName}</td>
+                <td>{r.mobile}</td>
+                <td className="fw-semibold">{r.pointsAvailable.toLocaleString()}</td>
+                <td>{r.pointsEarned.toLocaleString()}</td>
+                <td>{r.pointsRedeemed.toLocaleString()}</td>
+                <td>{r.lastActivityAt ? String(r.lastActivityAt).slice(0, 10) : "—"}</td>
               </tr>
             ))}
           </tbody>

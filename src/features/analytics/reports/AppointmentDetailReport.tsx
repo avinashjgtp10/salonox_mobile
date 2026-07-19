@@ -62,7 +62,7 @@ export default function AppointmentDetailReport({ onBack }: { onBack: () => void
         statuses: selectedStatuses.filter(s => s !== "All").join(","),
       });
       const res = await api.get<{ data: AppointmentRow[] }>(
-        REPORT.DETAIL("appointments", params.toString()),
+        REPORT.APPOINTMENT_DETAIL_TABLE(params.toString()),
         { signal: ctrl.signal },
       );
       if (res.data?.data) setRows(res.data.data);

@@ -10,6 +10,7 @@ import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
+import { normalizePaymentStatus } from "../../bookings/utils/bookingMapper";
 import "./SalesSummaryReport.scss";
 
 const REPORT_NAME = "Sales Summary";
@@ -136,7 +137,7 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
         Array.isArray(raw?.items) ? raw.items :
         Array.isArray(raw?.data)  ? raw.data  :
         Array.isArray(raw)        ? raw        : [];
-      setAllRows(list.map(mapAppointment).filter(r => r.status.toLowerCase() !== "unpaid"));
+      setAllRows(list.map(mapAppointment).filter(r => normalizePaymentStatus(r.status) !== "Unpaid"));
     } catch (e: any) {
       if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setAllRows([]);
     } finally {
@@ -166,7 +167,6 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
     const totalBill = rows.length;
     const totalSale = rows.reduce((s, r) => s + r.price, 0);
     const received  = rows.reduce((s, r) => s + r.paid, 0);
-    const returnSales = rows.filter(r => r.status === "refunded").reduce((s, r) => s + r.price, 0);
     const totalTip  = rows.reduce((s, r) => s + r.tip, 0);
     const totalEwallet = rows.reduce((s, r) => s + r.ewalletUsed, 0);
     const totalMembershipWallet = rows.reduce((s, r) => s + r.membershipWalletUsed, 0);
@@ -175,7 +175,7 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
     return {
       totalBill,
       billAverage: totalBill > 0 ? totalSale / totalBill : 0,
-      totalSale, received, returnSales, totalTip, totalEwallet,
+      totalSale, received, totalTip, totalEwallet,
       totalMembershipWallet, totalRewardValue, totalReferralCredit,
     };
   }, [rows]);
@@ -230,14 +230,15 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      {loading ? <SkeletonStatCards count={10} className="rp-sales-stat-row" /> : (
+      {loading ? <SkeletonStatCards count={9} className="rp-sales-stat-row" /> : (
         <div className="rp-sra-summary-row rp-sales-stat-row">
           {[
             { label: "Total Bill",        value: stats.totalBill.toString() },
             { label: "Bill Average",      value: money(stats.billAverage) },
             { label: "Total Sale",        value: money(stats.totalSale) },
             { label: "Received Amount",   value: money(stats.received) },
-            { label: "Return Sales",      value: money(stats.returnSales) },
+            // Return Sales removed — no per-appointment refund data is currently
+            // surfaced by GET /api/v1/appointments; revisit if/when that's added.
             { label: "Total Tip",         value: money(stats.totalTip) },
             { label: "Total E-Wallet",    value: money(stats.totalEwallet) },
             { label: "Total Membership",  value: money(stats.totalMembershipWallet) },

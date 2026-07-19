@@ -62,30 +62,17 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
       const params = new URLSearchParams({ date });
       if (serviceFilter !== "All") params.set("service", serviceFilter);
       if (staffFilter   !== "All") params.set("staff", staffFilter);
-      const res = await api.get(REPORT.DETAIL("daily", params.toString()), { signal: ctrl.signal });
-      const raw: any[] = res.data?.data?.data ?? res.data?.data ?? [];
-      const mapped: DailyRow[] = raw.map((r: any) => {
-        let time = r.time ?? r.startTime ?? r.start_time ?? "";
-        if (!time && (r.created_at ?? r.createdAt)) {
-          time = new Date(r.created_at ?? r.createdAt)
-            .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
-        }
-        const itemNames: string = Array.isArray(r.items) && r.items.length
-          ? r.items.map((i: any) => i.name ?? i.service_name ?? "").filter(Boolean).join(", ")
-          : (r.service ?? r.serviceName ?? r.service_name ?? "—");
-        const staffName: string = Array.isArray(r.items) && r.items.length
-          ? (r.items[0].staff_name ?? r.items[0].staffName ?? "")
-          : (r.staff ?? r.staffName ?? r.staff_name ?? "—");
-        return {
-          time,
-          ticketNo:      r.ticketNo      ?? r.ticket_no      ?? r.sale_number ?? String(r.id ?? "—"),
-          clientName:    r.clientName    ?? r.client_name    ?? r.client?.name ?? "Walk-in",
-          service:       itemNames,
-          staff:         staffName || "—",
-          amount:        parseFloat(r.amount ?? r.total_amount ?? r.totalAmount ?? "0") || 0,
-          paymentMethod: r.paymentMethod ?? r.payment_method ?? "N/A",
-        };
-      });
+      const res = await api.get(REPORT.DAILY_SHEET_TABLE(params.toString()), { signal: ctrl.signal });
+      const raw: any[] = res.data?.data ?? [];
+      const mapped: DailyRow[] = raw.map((r: any) => ({
+        time: r.time || "—",
+        ticketNo: r.ticketNo,
+        clientName: r.clientName || "Walk-in",
+        service: r.service || "—",
+        staff: r.staff || "—",
+        amount: Number(r.amount) || 0,
+        paymentMethod: r.paymentMethod || "N/A",
+      }));
       setRows(mapped);
     } catch (e: any) {
       if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setRows([]);

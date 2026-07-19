@@ -9,6 +9,7 @@ import Button from "../../../components/ui/Button";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import { normalizePaymentStatus } from "../../bookings/utils/bookingMapper";
 import "./StaffItemSalesReport.scss";
 
 const REPORT_NAME = "Service, Product, Membership & Package Sold by Staff";
@@ -89,6 +90,7 @@ export default function StaffItemSalesReport({ onBack }: { onBack: () => void })
       const pkg: ItemRow[] = [];
 
       appts.forEach((appt: any) => {
+        if (normalizePaymentStatus(appt.status) === "Unpaid") return;
         const sid = String(appt.staff_id ?? appt.staffId ?? "");
         if (staffFilter !== "All" && sid !== staffFilter) return;
         const inlineName = `${appt.staff_first_name ?? ""} ${appt.staff_last_name ?? ""}`.trim()
