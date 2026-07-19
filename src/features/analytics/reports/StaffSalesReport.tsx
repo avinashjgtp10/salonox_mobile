@@ -11,6 +11,7 @@ import type { AppDispatch } from "../../../store/store";
 import Button from "../../../components/ui/Button";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { SkeletonStatCards, SkeletonTableRows, SkeletonChartBlock } from "./ReportSkeleton";
+import { normalizePaymentStatus } from "../../bookings/utils/bookingMapper";
 import "./StaffSalesReport.scss";
 
 const REPORT_NAME = "Staff Sales";
@@ -66,7 +67,7 @@ export default function StaffSalesReport({ onBack }: { onBack: () => void }) {
       };
 
       appts.forEach((appt: any) => {
-        if (String(appt.payment_status ?? "unpaid").toLowerCase() === "unpaid") return;
+        if (normalizePaymentStatus(appt.status) === "Unpaid") return;
         const sid = String(appt.staff_id ?? "");
         if (staffFilter !== "All" && sid !== staffFilter) return;
         const date = String(appt.scheduled_at ?? appt.created_at ?? "").slice(0, 10);

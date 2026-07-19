@@ -9,6 +9,7 @@ import Button from "../../../components/ui/Button";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import { normalizePaymentStatus } from "../../bookings/utils/bookingMapper";
 import "./TaxesReport.scss";
 
 const REPORT_NAME = "GST Report";
@@ -19,22 +20,12 @@ interface InvoiceTaxRow {
   client: string;
   staffId: string;
   taxableAmount: number;
-  cgst: number;
-  sgst: number;
-  igst: number;
-  otherTax: number;
+  // Keyed by the exact tax name configured on the Tax Mapping settings page
+  // at billing time (a per-invoice snapshot, not a live reference) — so this
+  // report's columns always reflect whatever taxes were actually in use,
+  // instead of assuming a fixed CGST/SGST/IGST set.
+  taxAmounts: Record<string, number>;
   total: number;
-}
-
-// Tax mapping rows are user-named (e.g. "CGST", "SGST @9%") — bucket by
-// matching the name against the standard GST components; anything else
-// (VAT/CESS/custom-named taxes) rolls into "Other Tax" instead of its own column.
-function bucketFor(name: string): "cgst" | "sgst" | "igst" | "otherTax" {
-  const upper = name.toUpperCase();
-  if (upper.includes("CGST")) return "cgst";
-  if (upper.includes("SGST")) return "sgst";
-  if (upper.includes("IGST")) return "igst";
-  return "otherTax";
 }
 
 export default function TaxesReport({ onBack }: { onBack: () => void }) {
@@ -83,6 +74,7 @@ export default function TaxesReport({ onBack }: { onBack: () => void }) {
         Array.isArray(raw)        ? raw        : [];
       const result: InvoiceTaxRow[] = [];
       appts.forEach((appt: any) => {
+        if (normalizePaymentStatus(appt.status) === "Unpaid") return;
         const breakdown: any[] = Array.isArray(appt.tax_breakdown) ? appt.tax_breakdown : [];
         if (breakdown.length === 0) return;
         if (staffFilter !== "All" && String(appt.staff_id ?? "") !== staffFilter) return;
@@ -101,14 +93,15 @@ export default function TaxesReport({ onBack }: { onBack: () => void }) {
           : (Number(appt.discount_value) || 0);
         const taxableAmount = Math.max(itemsTotal - discount, 0);
 
-        const bucketed = { cgst: 0, sgst: 0, igst: 0, otherTax: 0 };
+        const taxAmounts: Record<string, number> = {};
         // Inclusive tax is already baked into taxableAmount, so it must not be
         // added again here — only exclusive (add-on-top) tax increases the
         // total. Same distinction the printed receipt's Payment Summary makes.
         let exclusiveTaxForAppt = 0;
         breakdown.forEach((t: any) => {
           const amt = Number(t.amount) || 0;
-          bucketed[bucketFor(String(t.name ?? ""))] += amt;
+          const name = String(t.name ?? "").trim() || "Other Tax";
+          taxAmounts[name] = (taxAmounts[name] ?? 0) + amt;
           if (!t.inclusive) exclusiveTaxForAppt += amt;
         });
 
@@ -116,8 +109,7 @@ export default function TaxesReport({ onBack }: { onBack: () => void }) {
 
         result.push({
           date, invoiceNo, client, staffId: String(appt.staff_id ?? ""), taxableAmount,
-          cgst: bucketed.cgst, sgst: bucketed.sgst, igst: bucketed.igst, otherTax: bucketed.otherTax,
-          total,
+          taxAmounts, total,
         });
       });
       result.sort((a, b) => (a.date < b.date ? 1 : -1));
@@ -136,16 +128,25 @@ export default function TaxesReport({ onBack }: { onBack: () => void }) {
     ? rows.filter(r => r.client.toLowerCase().includes(customerFilter.trim().toLowerCase()))
     : rows;
 
-  const totalTax = visibleRows.reduce((s, r) => s + r.cgst + r.sgst + r.igst + r.otherTax, 0);
+  // Column set is whatever tax names actually appear in this date range —
+  // not a fixed CGST/SGST/IGST list — so renaming/adding a tax on the Tax
+  // Mapping settings page is reflected here automatically for new invoices.
+  const taxColumns = Array.from(
+    visibleRows.reduce((names, r) => {
+      Object.keys(r.taxAmounts).forEach(n => names.add(n));
+      return names;
+    }, new Set<string>())
+  ).sort((a, b) => a.localeCompare(b));
+
+  const totalTax = visibleRows.reduce((s, r) => s + Object.values(r.taxAmounts).reduce((a, b) => a + b, 0), 0);
   const totalCollected = visibleRows.reduce((s, r) => s + r.total, 0);
-  const hasIgst = visibleRows.some(r => r.igst > 0);
-  const hasOtherTax = visibleRows.some(r => r.otherTax > 0);
   const selectedStaffLabel = staffOptions.find(o => o.value === staffFilter)?.label ?? "All";
 
-  const HEADERS = ["Invoice No.", "Date", "Customer", "Taxable Value (₹)", "CGST (₹)", "SGST (₹)", ...(hasIgst ? ["IGST (₹)"] : []), ...(hasOtherTax ? ["Other Tax (₹)"] : []), "Total (₹)"];
+  const HEADERS = ["Invoice No.", "Date", "Customer", "Taxable Value (₹)", ...taxColumns.map(n => `${n} (₹)`), "Total (₹)"];
   const exportRows = () => visibleRows.map(r => [
-    r.invoiceNo, r.date, r.client, r.taxableAmount, r.cgst, r.sgst,
-    ...(hasIgst ? [r.igst] : []), ...(hasOtherTax ? [r.otherTax] : []), r.total,
+    r.invoiceNo, r.date, r.client, r.taxableAmount,
+    ...taxColumns.map(n => r.taxAmounts[n] ?? 0),
+    r.total,
   ]);
   const paged = visibleRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
@@ -226,27 +227,22 @@ export default function TaxesReport({ onBack }: { onBack: () => void }) {
           <thead>
             <tr>
               <th>Invoice No.</th><th>Date</th><th>Customer</th><th>Taxable Value (₹)</th>
-              <th>CGST (₹)</th><th>SGST (₹)</th>
-              {hasIgst && <th>IGST (₹)</th>}
-              {hasOtherTax && <th>Other Tax (₹)</th>}
+              {taxColumns.map(n => <th key={n}>{n} (₹)</th>)}
               <th>Total (₹)</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={6 + (hasIgst ? 1 : 0) + (hasOtherTax ? 1 : 0)} />
+              <SkeletonTableRows columns={5 + taxColumns.length} />
             ) : paged.length === 0 ? (
-              <tr><td colSpan={6 + (hasIgst ? 1 : 0) + (hasOtherTax ? 1 : 0)} className="rp-detail-empty-cell">No tax data found</td></tr>
+              <tr><td colSpan={5 + taxColumns.length} className="rp-detail-empty-cell">No tax data found</td></tr>
             ) : paged.map((r, i) => (
               <tr key={i}>
                 <td><span className="rp-detail-link">{r.invoiceNo}</span></td>
                 <td>{r.date}</td>
                 <td>{r.client}</td>
                 <td>₹{r.taxableAmount.toLocaleString()}</td>
-                <td>₹{r.cgst.toLocaleString()}</td>
-                <td>₹{r.sgst.toLocaleString()}</td>
-                {hasIgst && <td>₹{r.igst.toLocaleString()}</td>}
-                {hasOtherTax && <td>₹{r.otherTax.toLocaleString()}</td>}
+                {taxColumns.map(n => <td key={n}>₹{(r.taxAmounts[n] ?? 0).toLocaleString()}</td>)}
                 <td className="fw-semibold">₹{r.total.toLocaleString()}</td>
               </tr>
             ))}

@@ -7,6 +7,7 @@ import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
+import { normalizePaymentStatus } from "../../bookings/utils/bookingMapper";
 import "./ServiceSaleReport.scss";
 
 const REPORT_NAME = "Service Sale";
@@ -48,7 +49,7 @@ export default function ServiceSaleReport({ onBack }: { onBack: () => void }) {
         Array.isArray(raw)        ? raw        : [];
       const rows: ServiceSaleRow[] = [];
       appts.forEach((appt: any) => {
-        if (String(appt.payment_status ?? "unpaid").toLowerCase() === "unpaid") return;
+        if (normalizePaymentStatus(appt.status) === "Unpaid") return;
         const date = String(appt.scheduled_at ?? appt.created_at ?? "").slice(0, 10);
         const invoiceNo = appt.invoice_number != null ? String(appt.invoice_number) : String(appt.id ?? "—");
         const client = appt.client_name ?? "Walk-in";
