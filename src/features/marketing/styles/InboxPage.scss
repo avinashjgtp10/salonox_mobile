@@ -90,6 +90,8 @@
   display: flex; flex-direction: column;
   overflow: hidden;
   transition: background 0.2s, border-color 0.2s;
+
+  @media (max-width: 1024px) { width: 280px; min-width: 280px; }
 }
 
 .inbox-sidebar-header {

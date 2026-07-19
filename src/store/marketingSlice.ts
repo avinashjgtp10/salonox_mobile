@@ -24,6 +24,7 @@ import {
   fetchPurchaseTemplatesThunk,
   updatePurchaseTemplateThunk,
   submitPurchaseTemplateThunk,
+  resetPurchaseTemplateThunk,
   syncPurchaseTemplateThunk,
 } from "../middleware/marketing/wa-automation.thunk";
 import { fetchAnalytics } from "../middleware/marketing/analytics.thunk";
@@ -448,6 +449,16 @@ const marketingSlice = createSlice({
       .addCase(submitPurchaseTemplateThunk.rejected, (state, { payload }) => {
         state.loading.submitPurchaseTemplate = false;
         state.error = payload ?? "Failed to submit template for approval";
+      });
+
+    // ── resetPurchaseTemplate ─────────────────────────────────────────────────
+    builder
+      .addCase(resetPurchaseTemplateThunk.fulfilled, (state, { payload }) => {
+        const idx = state.purchaseTemplates.findIndex((t) => t.event_type === payload.event_type);
+        if (idx !== -1) state.purchaseTemplates[idx] = payload;
+      })
+      .addCase(resetPurchaseTemplateThunk.rejected, (state, { payload }) => {
+        state.error = payload ?? "Failed to reset template";
       });
 
     // ── syncPurchaseTemplate ──────────────────────────────────────────────────

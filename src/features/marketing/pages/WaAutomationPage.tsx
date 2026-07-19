@@ -6,6 +6,7 @@ import {
   fetchPurchaseTemplatesThunk,
   updatePurchaseTemplateThunk,
   submitPurchaseTemplateThunk,
+  resetPurchaseTemplateThunk,
   syncPurchaseTemplateThunk,
 } from "../../../middleware/marketing/wa-automation.thunk";
 import { Button, Input, Badge } from "../../../components/ui";
@@ -112,6 +113,7 @@ export default function WaAutomationPage() {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [savingType, setSavingType] = useState<string | null>(null);
   const [submittingType, setSubmittingType] = useState<string | null>(null);
+  const [resettingType, setResettingType] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(POLL_INTERVAL / 1000);
   const [openInfoFor, setOpenInfoFor] = useState<PurchaseEventType | null>(null);
   const { showSuccess, showError, overlay } = useStatusOverlay();
@@ -176,6 +178,29 @@ export default function WaAutomationPage() {
       }
     } finally {
       setSubmittingType(null);
+    }
+  };
+
+  // Reset & Resubmit: for a template whose Meta copy was deleted (or is stuck
+  // APPROVED/PENDING) — reset it to DRAFT, then immediately resubmit with a
+  // fresh name in one click. Preserves the salon's current wording.
+  const handleResetResubmit = async (eventType: PurchaseEventType) => {
+    if (!salonId) return;
+    setResettingType(eventType);
+    try {
+      const resetRes = await dispatch(resetPurchaseTemplateThunk({ salonId, eventType }));
+      if (!resetPurchaseTemplateThunk.fulfilled.match(resetRes)) {
+        showError((resetRes.payload as string) ?? "Failed to reset template");
+        return;
+      }
+      const res = await dispatch(submitPurchaseTemplateThunk({ salonId, eventType }));
+      if (submitPurchaseTemplateThunk.fulfilled.match(res)) {
+        showSuccess("Resubmitted to Meta for approval with a fresh template name.");
+      } else {
+        showError((res.payload as string) ?? "Reset succeeded but resubmission failed — use Submit for Approval.");
+      }
+    } finally {
+      setResettingType(null);
     }
   };
 
@@ -283,6 +308,16 @@ export default function WaAutomationPage() {
                 />
 
                 <div className="wa-auto-card-actions">
+                  {(t.status === "APPROVED" || t.status === "PENDING") && (
+                    <Button
+                      variant="outline-danger"
+                      size="sm"
+                      loading={resettingType === t.event_type}
+                      onClick={() => handleResetResubmit(t.event_type)}
+                    >
+                      Reset &amp; Resubmit
+                    </Button>
+                  )}
                   <Button
                     variant="outline-secondary"
                     size="sm"

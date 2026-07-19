@@ -14,6 +14,8 @@
 .ch-summary {
   display: grid; grid-template-columns: repeat(5, 1fr);
   gap: 14px; margin-bottom: 20px;
+  @media (max-width: 1024px) { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 640px)  { grid-template-columns: repeat(2, 1fr); }
 }
 .ch-summary-card {
   background: #fff; border: 1px solid #eef0f3; border-radius: 14px;
@@ -180,11 +182,16 @@
 .ch-detail-empty   { font-size: 12.5px; color: #94a3b8; text-align: center; padding: 28px; }
 
 // ── Contact table ─────────────────────────────────────────────────────────────
-.ch-contact-table { display: flex; flex-direction: column; }
+// Fixed-pixel columns (620px total) don't reflow like a real responsive
+// grid — rather than let them squash unreadably on narrow viewports, scroll
+// the whole row set horizontally instead (same pattern as WebhooksPage's
+// .wh-table-wrap).
+.ch-contact-table { display: flex; flex-direction: column; overflow-x: auto; }
 
 .ch-contact-row {
   display: grid;
   grid-template-columns: 140px 110px 90px 75px 90px 75px;
+  min-width: 620px;
   gap: 8px; padding: 10px 4px;
   border-bottom: 1px solid #f5f6f8;
   font-size: 11.5px; color: #64748b; align-items: center;

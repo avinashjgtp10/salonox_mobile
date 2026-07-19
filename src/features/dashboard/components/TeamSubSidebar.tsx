@@ -24,15 +24,17 @@ export default function TeamSubSidebar({ onClose }: Props) {
         </button>
       </div>
 
-      {NAV_ITEMS.map(({ to, label }) => (
-        <NavLink
-          key={to}
-          to={to}
-          className={({ isActive }) => (isActive ? "sub-link active" : "sub-link")}
-        >
-          {label}
-        </NavLink>
-      ))}
+      <div className="sub-sidebar-body">
+        {NAV_ITEMS.map(({ to, label }) => (
+          <NavLink
+            key={to}
+            to={to}
+            className={({ isActive }) => (isActive ? "sub-link active" : "sub-link")}
+          >
+            {label}
+          </NavLink>
+        ))}
+      </div>
     </div>
   );
 }

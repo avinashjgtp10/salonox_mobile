@@ -37,6 +37,12 @@ const PRESETS: { label: string; value: Preset }[] = [
   { label: 'Custom',  value: 'custom' },
 ]
 
+// Meta's WhatsApp analytics data has a 24-48hr reporting delay — a custom
+// range narrower than this often lands entirely in the not-yet-reported
+// window and looks like "no data" even though messages were sent. Requiring
+// at least a 7-day span keeps the range wide enough to include reported days.
+const MIN_CUSTOM_RANGE_DAYS = 7
+
 function getDateRange(preset: Preset, customStart?: string, customEnd?: string) {
   if (preset === 'custom') return { start: customStart!, end: customEnd! }
   const end   = new Date()
@@ -46,6 +52,11 @@ function getDateRange(preset: Preset, customStart?: string, customEnd?: string) 
     start: start.toISOString().split('T')[0],
     end:   end.toISOString().split('T')[0],
   }
+}
+
+function customRangeDays(start: string, end: string): number {
+  const ms = new Date(end).getTime() - new Date(start).getTime()
+  return Math.round(ms / (1000 * 60 * 60 * 24))
 }
 
 function extractErrorMessage(err: any): string {
@@ -64,13 +75,22 @@ export default function AnalyticsPage() {
   const analyticsLoading = useAppSelector((s) => s.marketing.loading.fetchAnalytics)
   const rawError         = useAppSelector((s) => s.marketing.error)
 
-  const [preset,      setPreset]      = useState<Preset>('30')
-  const [customStart, setCustomStart] = useState('')
-  const [customEnd,   setCustomEnd]   = useState('')
+  const [preset,        setPreset]        = useState<Preset>('30')
+  const [customStart,   setCustomStart]   = useState('')
+  const [customEnd,     setCustomEnd]     = useState('')
+  const [customRangeErr, setCustomRangeErr] = useState('')
 
   const load = () => {
+    if (preset === 'custom') {
+      if (!customStart || !customEnd) return
+      const days = customRangeDays(customStart, customEnd)
+      if (days < MIN_CUSTOM_RANGE_DAYS) {
+        setCustomRangeErr(`Please select a range of at least ${MIN_CUSTOM_RANGE_DAYS} days — Meta's data can take 24-48hrs to be reported, so shorter ranges often show as empty.`)
+        return
+      }
+      setCustomRangeErr('')
+    }
     const { start, end } = getDateRange(preset, customStart, customEnd)
-    if (preset === 'custom' && (!start || !end)) return
     dispatch(fetchAnalytics({ start, end, granularity: 'DAILY' }))
   }
 
@@ -132,30 +152,33 @@ export default function AnalyticsPage() {
           <button
             key={p.value}
             className={'an-preset' + (preset === p.value ? ' an-preset--active' : '')}
-            onClick={() => setPreset(p.value)}
+            onClick={() => { setPreset(p.value); setCustomRangeErr('') }}
           >
             {p.label}
           </button>
         ))}
 
         {preset === 'custom' && (
-          <div className="an-custom-range">
-            <input
-              type="date"
-              className="an-date-input"
-              value={customStart}
-              max={customEnd || undefined}
-              onChange={e => setCustomStart(e.target.value)}
-            />
-            <span className="an-custom-sep">to</span>
-            <input
-              type="date"
-              className="an-date-input"
-              value={customEnd}
-              min={customStart || undefined}
-              onChange={e => setCustomEnd(e.target.value)}
-            />
-            <Button variant="primary" size="sm" onClick={load}>Apply</Button>
+          <div className="an-custom-range-wrap">
+            <div className="an-custom-range">
+              <input
+                type="date"
+                className="an-date-input"
+                value={customStart}
+                max={customEnd || undefined}
+                onChange={e => { setCustomStart(e.target.value); setCustomRangeErr('') }}
+              />
+              <span className="an-custom-sep">to</span>
+              <input
+                type="date"
+                className="an-date-input"
+                value={customEnd}
+                min={customStart || undefined}
+                onChange={e => { setCustomEnd(e.target.value); setCustomRangeErr('') }}
+              />
+              <Button variant="primary" size="sm" onClick={load}>Apply</Button>
+            </div>
+            {customRangeErr && <p className="an-custom-range-err">⚠️ {customRangeErr}</p>}
           </div>
         )}
       </div>

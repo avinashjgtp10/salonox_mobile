@@ -46,12 +46,12 @@
 
 // ── Danger zone ───────────────────────────────────────────────────────────────
 .wac-danger-zone { background: #fef2f2; border-color: rgba(239,68,68,0.2); }
-.wac-danger-row  { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.wac-danger-row  { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .wac-danger-title { font-size: 13px; font-weight: 600; color: #991b1b; margin-bottom: 4px; }
 .wac-danger-desc  { font-size: 11.5px; color: #7f1d1d; margin: 0; max-width: 480px; line-height: 1.5; }
 
 // ── AI Receptionist toggle ────────────────────────────────────────────────────
-.wac-ai-row  { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.wac-ai-row  { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .wac-ai-desc { font-size: 11.5px; color: $gray-500; margin: 0; max-width: 480px; line-height: 1.5; }
 
 .wac-toggle {

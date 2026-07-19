@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useState } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { fetchWebhookEventsThunk } from "../../../middleware/marketing/marketing.thunk";
+import { fetchWebhookEventsThunk, fetchCampaignsThunk } from "../../../middleware/marketing/marketing.thunk";
 import { Button, Badge } from "../../../components/ui";
 import "../styles/WebhooksPage.scss";
 
@@ -21,6 +21,14 @@ const STATUS_BADGE_VARIANT: Record<string, "info" | "success" | "secondary" | "d
 };
 
 type StatusFilter = "ALL" | "SENT" | "DELIVERED" | "READ" | "FAILED" | "BLOCKED";
+
+const STATUS_MEANINGS: { status: Exclude<StatusFilter, "ALL">; label: string; desc: string }[] = [
+  { status: "SENT",      label: "Sent",      desc: "Accepted by WhatsApp and on its way — not yet confirmed reaching the phone." },
+  { status: "DELIVERED", label: "Delivered", desc: "Reached the customer's phone (may not be opened yet)." },
+  { status: "READ",      label: "Read",      desc: "The customer opened the message." },
+  { status: "FAILED",    label: "Failed",    desc: "Could not be delivered — invalid number, opted out, etc." },
+  { status: "BLOCKED",   label: "Blocked",   desc: "Rejected by WhatsApp itself (policy or account-level issue), not a problem with this contact." },
+];
 
 const PAGE_SIZE = 10;
 
@@ -43,19 +51,25 @@ function SkeletonRow() {
 
 export default function WebhooksPage() {
   const dispatch  = useAppDispatch();
-  const { webhookEvents: pagedEvents, webhookEventsTotal: total, webhookEventsStatusCounts: counts, loading } = useAppSelector((s) => s.marketing);
+  const { webhookEvents: pagedEvents, webhookEventsTotal: total, webhookEventsStatusCounts: counts, campaigns, loading } = useAppSelector((s) => s.marketing);
   const isLoading = loading.fetchWebhookEvents;
 
-  const [page,         setPage]         = useState(1);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const [page,           setPage]           = useState(1);
+  const [statusFilter,   setStatusFilter]   = useState<StatusFilter>("ALL");
+  const [campaignFilter, setCampaignFilter] = useState<string>("ALL");
+
+  useEffect(() => {
+    dispatch(fetchCampaignsThunk());
+  }, [dispatch]);
 
   const refetch = useCallback(() => {
     dispatch(fetchWebhookEventsThunk({
       page,
-      limit:  PAGE_SIZE,
-      status: statusFilter === "ALL" ? undefined : statusFilter,
+      limit:      PAGE_SIZE,
+      status:     statusFilter === "ALL" ? undefined : statusFilter,
+      campaignId: campaignFilter === "ALL" ? undefined : campaignFilter,
     }));
-  }, [dispatch, page, statusFilter]);
+  }, [dispatch, page, statusFilter, campaignFilter]);
 
   useEffect(() => {
     refetch();
@@ -63,7 +77,7 @@ export default function WebhooksPage() {
     return () => clearInterval(interval);
   }, [refetch]);
 
-  useEffect(() => { setPage(1); }, [statusFilter]);
+  useEffect(() => { setPage(1); }, [statusFilter, campaignFilter]);
 
   const grandTotal = (counts.SENT ?? 0) + (counts.DELIVERED ?? 0) + (counts.READ ?? 0) + (counts.FAILED ?? 0) + (counts.BLOCKED ?? 0);
 
@@ -105,6 +119,20 @@ export default function WebhooksPage() {
             )}
           </div>
 
+          {/* Campaign filter */}
+          <div className="wh-filter-row">
+            <select
+              className="wh-campaign-select"
+              value={campaignFilter}
+              onChange={(e) => setCampaignFilter(e.target.value)}
+            >
+              <option value="ALL">All campaigns</option>
+              {campaigns.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+
           {/* Filter pills */}
           <div className="wh-filter-row">
             {STATUS_FILTERS.map(f => (
@@ -118,6 +146,17 @@ export default function WebhooksPage() {
               >
                 {f.label}
               </button>
+            ))}
+          </div>
+
+          {/* Status meanings — always visible, not hover-only, so it works on phones/tablets too */}
+          <div className="wh-status-legend">
+            {STATUS_MEANINGS.map(s => (
+              <div key={s.status} className="wh-status-legend-item">
+                <span className="wh-status-legend-dot" style={{ background: STATUS_COLOR[s.status] }} />
+                <span className="wh-status-legend-label">{s.label}:</span>
+                <span className="wh-status-legend-desc">{s.desc}</span>
+              </div>
             ))}
           </div>
         </div>

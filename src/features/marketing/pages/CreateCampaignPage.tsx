@@ -5,13 +5,12 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchTemplatesThunk, createCampaignThunk } from "../../../middleware/marketing/marketing.thunk";
 import { fetchClientsThunk } from "../../../middleware/client/client.thunk";
 import { ExcelUpload } from "../components";
-import { Button, Input, Select } from "../../../components/ui";
+import { Button, Input } from "../../../components/ui";
 import { useOnce } from "../../../hooks/useOnce";
 import api from "../../../services/api/axios";
 import "../styles/CreateCampaignPage.scss";
 
-const STEPS       = ["Name & Template", "Add Contacts", "Review & Launch"];
-const BATCH_SIZES = [20, 50, 100];
+const STEPS = ["Name & Template", "Add Contacts", "Review & Launch"];
 type ContactSource = "salon" | "excel" | "filter";
 
 const MONTHS = [
@@ -244,23 +243,6 @@ const hasAnyFilter =
   smartFilter.has_membership !== "" ||
   smartFilter.has_package !== "";
 
-  const handlePreviewFilter = async () => {
-    if (!hasAnyFilter) { showError("Please set at least one filter"); return; }
-    setFilterLoading(true);
-    try {
-      const params = buildFilterParams();
-      params.set("preview", "true");
-      const res   = await api.get(`/api/v1/clients/filter?${params.toString()}`);
-      const total = res.data?.total ?? res.data?.data?.total ?? 0;
-      setFilterCount(total);
-      setFilterPreviewed(true);
-    } catch {
-      showError("Failed to preview filter");
-    } finally {
-      setFilterLoading(false);
-    }
-  };
-
   const handleApplyFilter = async () => {
     if (!hasAnyFilter) { showError("Please set at least one filter"); return; }
     setFilterLoading(true);
@@ -430,14 +412,7 @@ const hasAnyFilter =
                 </div>
 
                 <div className="cc-field" style={{ marginTop: 20 }}>
-                  <Select
-                    label="Batch Size"
-                    value={form.batchSize}
-                    onChange={e => up("batchSize", Number(e.target.value))}
-                    containerClass="mb-0"
-                  >
-                    {BATCH_SIZES.map(b => <option key={b} value={b}>{b} messages / batch</option>)}
-                  </Select>
+                  <label className="cc-label">Batch Size</label>
 
                   <div className="cc-batch-info">
                     <div className="cc-batch-info-title">What is batch size?</div>
@@ -887,14 +862,6 @@ const hasAnyFilter =
                     {/* Footer */}
                     <div className="cc-sf-footer">
                       <button
-                        className="cc-sf-preview-btn"
-                        disabled={!hasAnyFilter || filterLoading}
-                        onClick={handlePreviewFilter}
-                      >
-                        <i className="ti ti-eye" aria-hidden="true" />
-                        {filterLoading && filterContacts.length === 0 ? "Loading..." : "Preview count"}
-                      </button>
-                      <button
                         className="cc-sf-apply-btn"
                         disabled={!hasAnyFilter || filterLoading}
                         onClick={handleApplyFilter}
@@ -906,9 +873,7 @@ const hasAnyFilter =
                         <span className="cc-sf-result">
                           {filterCount === 0
                             ? "No clients match"
-                            : filterContacts.length > 0
-                            ? <><strong>{filterContacts.length}</strong> contacts loaded</>
-                            : <><strong>{filterCount}</strong> clients match</>
+                            : <><strong>{filterContacts.length}</strong> contacts loaded</>
                           }
                         </span>
                       )}
