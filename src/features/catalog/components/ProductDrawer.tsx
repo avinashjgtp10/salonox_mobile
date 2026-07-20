@@ -58,11 +58,7 @@ const ProductDrawer: React.FC<ProductDrawerProps> = ({
                   size="sm"
                   className="border-0 shadow-none"
                   iconLeft={<Trash size={14} />}
-                  onClick={() => {
-                    if (window.confirm("Are you sure you want to delete this product?")) {
-                      onDelete(product.id);
-                    }
-                  }}
+                  onClick={() => onDelete(product.id)}
                 >
                   Delete
                 </Button>

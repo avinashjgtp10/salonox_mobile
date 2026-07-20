@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { XLg } from "react-bootstrap-icons";
 import { useDispatch, useSelector } from "react-redux";
@@ -43,6 +43,80 @@ const initialForm: FormState = {
   markupPercentage: "",
   commissionEnabled: false,
   commissionRate: "",
+};
+
+// Native <select> popups are painted by the OS and can render past the browser
+// viewport when the option list is long (e.g. many brands). This draws its own
+// menu instead, so it can be clamped to on-screen space and scrolled rather than
+// overflowing it.
+const BrandSelect: React.FC<{
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
+}> = ({ label, value, options, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
+  const handleToggle = () => {
+    if (!open && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const margin = 12;
+      const spaceBelow = window.innerHeight - rect.bottom - margin;
+      const spaceAbove = rect.top - margin;
+      const openUpward = spaceBelow < 160 && spaceAbove > spaceBelow;
+      const maxHeight = Math.max(120, Math.min(280, openUpward ? spaceAbove : spaceBelow));
+      setMenuStyle(
+        openUpward
+          ? { bottom: "calc(100% + 4px)", top: "auto", maxHeight }
+          : { top: "calc(100% + 4px)", bottom: "auto", maxHeight }
+      );
+    }
+    setOpen((o) => !o);
+  };
+
+  const selected = options.find((o) => o.value === value);
+
+  return (
+    <div className="mt-3">
+      <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>{label}</label>
+      <div className="brand-select" ref={containerRef}>
+        <button
+          type="button"
+          className="brand-select__toggle form-select shadow-none"
+          onClick={handleToggle}
+        >
+          <span className="brand-select__value">{selected?.label ?? options[0]?.label}</span>
+        </button>
+        {open && (
+          <div className="brand-select__menu" style={menuStyle}>
+            {options.map((opt) => (
+              <button
+                type="button"
+                key={opt.value}
+                className={`brand-select__option${opt.value === value ? " active" : ""}`}
+                onClick={() => { onChange(opt.value); setOpen(false); }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 const CreateProductPage: React.FC = () => {
@@ -200,17 +274,15 @@ const CreateProductPage: React.FC = () => {
               containerClass="mt-3"
             />
 
-            <Select
+            <BrandSelect
               label="Product brand"
-              containerClass="mt-3"
               value={form.brandId}
-              onChange={(e) => setField("brandId", e.target.value)}
-            >
-              <option value="">Select a brand</option>
-              {brands.map((b: any) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </Select>
+              onChange={(v) => setField("brandId", v)}
+              options={[
+                { value: "", label: "Select a brand" },
+                ...brands.map((b: any) => ({ value: b.id, label: b.name })),
+              ]}
+            />
             {/* Add Brand inline */}
             {!showAddBrand ? (
               <button

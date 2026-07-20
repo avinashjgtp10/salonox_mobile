@@ -28,6 +28,82 @@ interface FilterState {
 
 const DEFAULT_FILTERS: FilterState = { category: "", brand: "", stock: "" };
 
+interface FilterOption {
+  value: string;
+  label: string;
+}
+
+// Native <select> popups are painted by the OS and can render past the
+// browser viewport when the option list is long (e.g. many brands). This
+// draws its own menu instead, so it can be clamped to the actual on-screen
+// space and given an internal scrollbar rather than overflowing it.
+const FilterSelect: React.FC<{
+  value: string;
+  options: FilterOption[];
+  onChange: (value: string) => void;
+}> = ({ value, options, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
+  const handleToggle = () => {
+    if (!open && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const margin = 12;
+      const spaceBelow = window.innerHeight - rect.bottom - margin;
+      const spaceAbove = rect.top - margin;
+      const openUpward = spaceBelow < 160 && spaceAbove > spaceBelow;
+      const maxHeight = Math.max(120, Math.min(280, openUpward ? spaceAbove : spaceBelow));
+      setMenuStyle(
+        openUpward
+          ? { bottom: "calc(100% + 4px)", top: "auto", maxHeight }
+          : { top: "calc(100% + 4px)", bottom: "auto", maxHeight }
+      );
+    }
+    setOpen((o) => !o);
+  };
+
+  const selected = options.find((o) => o.value === value);
+
+  return (
+    <div className="filter-select" ref={containerRef}>
+      <button
+        type="button"
+        className="filter-select__toggle form-select form-select-lg shadow-none border-secondary-subtle custom-focus-select"
+        style={{ fontSize: "15px" }}
+        onClick={handleToggle}
+      >
+        <span className="filter-select__value">{selected?.label ?? options[0]?.label}</span>
+      </button>
+      {open && (
+        <div className="filter-select__menu" style={menuStyle}>
+          {options.map((opt) => (
+            <button
+              type="button"
+              key={opt.value}
+              className={`filter-select__option${opt.value === value ? " active" : ""}`}
+              onClick={() => { onChange(opt.value); setOpen(false); }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ProductsListPage: React.FC = () => {
   const navigate = useNavigate();
   const {
@@ -453,18 +529,15 @@ const ProductsListPage: React.FC = () => {
                 <label className="form-label mb-0 fw-medium text-dark" style={{ fontSize: "14px" }}>
                   Categories
                 </label>
-                <select
-                  className="form-select form-select-lg shadow-none border-secondary-subtle custom-focus-select"
-                  style={{ fontSize: "15px" }}
+                <FilterSelect
                   value={pendingFilters.category}
-                  onChange={(e) => setPendingFilters((f) => ({ ...f, category: e.target.value }))}
-                >
-                  <option value="">All categories</option>
-                  <option value="none">No category</option>
-                  {categories.map((c: any) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+                  onChange={(v) => setPendingFilters((f) => ({ ...f, category: v }))}
+                  options={[
+                    { value: "", label: "All categories" },
+                    { value: "none", label: "No category" },
+                    ...categories.map((c: any) => ({ value: c.id, label: c.name })),
+                  ]}
+                />
               </div>
 
               {/* Brands */}
@@ -472,18 +545,15 @@ const ProductsListPage: React.FC = () => {
                 <label className="form-label mb-0 fw-medium text-dark" style={{ fontSize: "14px" }}>
                   Brands
                 </label>
-                <select
-                  className="form-select form-select-lg shadow-none border-secondary-subtle custom-focus-select"
-                  style={{ fontSize: "15px" }}
+                <FilterSelect
                   value={pendingFilters.brand}
-                  onChange={(e) => setPendingFilters((f) => ({ ...f, brand: e.target.value }))}
-                >
-                  <option value="">All brands</option>
-                  <option value="none">No brand</option>
-                  {brands.map((b: any) => (
-                    <option key={b.id} value={b.id}>{b.name}</option>
-                  ))}
-                </select>
+                  onChange={(v) => setPendingFilters((f) => ({ ...f, brand: v }))}
+                  options={[
+                    { value: "", label: "All brands" },
+                    { value: "none", label: "No brand" },
+                    ...brands.map((b: any) => ({ value: b.id, label: b.name })),
+                  ]}
+                />
               </div>
 
               {/* Stock */}
