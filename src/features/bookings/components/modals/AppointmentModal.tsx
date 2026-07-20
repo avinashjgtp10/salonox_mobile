@@ -505,6 +505,19 @@ export const AppointmentModal: React.FC<Props> = ({
     () => Array.from(membershipWalletMap.values()).reduce((s, v) => s + v.walletUsed, 0),
     [membershipWalletMap],
   );
+  // Split by bucket (product: rows vs. service rows) so computeTotals can
+  // exclude only the wallet-covered portion from each bucket's taxable base —
+  // GST shouldn't be charged on an amount the client never actually paid.
+  const membershipServiceWalletUsedTotal = useMemo(
+    () => Array.from(membershipWalletMap.entries())
+      .reduce((s, [key, v]) => s + (key.startsWith("product:") ? 0 : v.walletUsed), 0),
+    [membershipWalletMap],
+  );
+  const membershipProductWalletUsedTotal = useMemo(
+    () => Array.from(membershipWalletMap.entries())
+      .reduce((s, [key, v]) => s + (key.startsWith("product:") ? v.walletUsed : 0), 0),
+    [membershipWalletMap],
+  );
   const membershipWalletRemaining = Math.max(0, membershipTotalBalance - membershipWalletUsedTotal);
 
   // Marks package sessions as complete for each covered service row after appointment is done.
@@ -593,6 +606,8 @@ export const AppointmentModal: React.FC<Props> = ({
     couponDiscount: coupon.discount + referralDiscountPreview,
     eWalletUsed: useEWallet ? eWalletAmt : 0,
     membershipWalletUsed: membershipWalletUsedTotal,
+    membershipServiceWalletUsed: membershipServiceWalletUsedTotal,
+    membershipProductWalletUsed: membershipProductWalletUsedTotal,
     rewardPointsRedeemedValue,
     referralCreditUsed: useReferralCredit ? referralCreditAmt : 0,
   });

@@ -21,6 +21,12 @@ export interface TotalsInput {
   couponDiscount: number;
   eWalletUsed: number;
   membershipWalletUsed?: number;
+  // Split of membershipWalletUsed by bucket (services vs products — membership
+  // wallet redemption never touches packages/memberships) — used to exclude the
+  // covered portion from the taxable base below. When omitted, no bucket gets a
+  // tax reduction (existing callers keep their current, pre-fix behavior).
+  membershipServiceWalletUsed?: number;
+  membershipProductWalletUsed?: number;
   // Own dedicated, spendable balances now — not folded into eWallet.
   rewardPointsRedeemedValue?: number; // ₹ value of the points being redeemed
   referralCreditUsed?: number;        // ₹
@@ -127,6 +133,7 @@ export function computeTotals(input: TotalsInput): TotalsResult {
     serviceRows, packageRows, productRows, membershipRows,
     discountType, discountValue, taxes,
     exCharges, tip, couponDiscount, eWalletUsed, membershipWalletUsed = 0,
+    membershipServiceWalletUsed = 0, membershipProductWalletUsed = 0,
     rewardPointsRedeemedValue = 0, referralCreditUsed = 0,
   } = input;
 
@@ -165,7 +172,16 @@ export function computeTotals(input: TotalsInput): TotalsResult {
   let allBreakdown: TaxBreakdownEntry[] = [];
   buckets.forEach(({ type, base }) => {
     if (base <= 0) return;
-    const bucketTaxable = base - base * discRatio;
+    let bucketTaxable = base - base * discRatio;
+    // Membership-wallet-covered amounts are excluded from the taxable base too
+    // (not just the discount ratio above) — that portion was never actually
+    // charged to the client, so it shouldn't be taxed either. Deliberately NOT
+    // subtracted from `taxable`/grandTotal elsewhere — effectiveTotal below
+    // already subtracts the full membershipWalletUsed once; doing it here too
+    // would double-count it.
+    if (type === "service") bucketTaxable -= membershipServiceWalletUsed;
+    if (type === "product") bucketTaxable -= membershipProductWalletUsed;
+    bucketTaxable = Math.max(0, bucketTaxable);
     const { addOn, breakdown } = computeBucketTax(bucketTaxable, type, taxes);
     gstAmount += addOn;
     allBreakdown = allBreakdown.concat(breakdown);
