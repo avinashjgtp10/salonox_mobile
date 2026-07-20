@@ -498,7 +498,7 @@ function CommissionHistoryDrawer({
     // this panel stuck empty even though the data is actually there.
     fetchOnce()
       .catch(() => fetchOnce())
-      .then((r) => { if (!cancelled) setHistory(r.data?.data ?? []); })
+      .then((r) => { if (!cancelled) setHistory(r.data?.data?.items ?? []); })
       .catch(() => { if (!cancelled) setLoadError(true); })
       .finally(() => { if (!cancelled) setLoading(false); });
 
