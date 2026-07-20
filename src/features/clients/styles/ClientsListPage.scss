@@ -593,14 +593,15 @@
       }
 
       .row-menu-dropdown {
-        position: absolute;
-        top: calc(100% + 4px);
-        right: 0;
+        // Positioned via inline style (position: fixed, computed at open-time
+        // from the trigger button's real screen position) so it always stays
+        // fully visible — flips above the button and is never clipped by the
+        // table card's `overflow: hidden`, even for rows near the bottom.
         background: #fff;
         border: 1px solid #e5e7eb;
         border-radius: 10px;
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-        z-index: 500;
+        z-index: 1500;
         min-width: 140px;
         padding: 4px 0;
 
