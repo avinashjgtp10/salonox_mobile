@@ -222,7 +222,7 @@ export default function AppointmentDetailReport({ onBack }: { onBack: () => void
                   <td>{row.time}</td>
                   <td>{row.bookedDate}</td>
                   <td>{row.clientName || "—"}</td>
-                  <td>{row.serviceName}</td>
+                  <td className="rp-adr-service" title={row.serviceName}>{row.serviceName}</td>
                   <td>{row.staffName || "—"}</td>
                   <td>{row.duration ? `${row.duration} min` : "—"}</td>
                   <td>{row.amount > 0 ? `₹${Number(row.amount).toLocaleString("en-IN")}` : "—"}</td>
