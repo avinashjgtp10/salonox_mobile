@@ -59,13 +59,17 @@ const ProductsListPage: React.FC = () => {
   const categoryMap: Record<string, string> = {};
   categories.forEach((c: any) => { categoryMap[c.id] = c.name; });
 
-  const buildParams = (page: number, search: string, filters: FilterState, ps?: number) => ({
-    page,
-    pageSize: ps ?? pageSize,
+  const buildFilterParams = (search: string, filters: FilterState) => ({
     search: search || undefined,
     category_id: filters.category && filters.category !== "none" ? filters.category : undefined,
     brand_id: filters.brand && filters.brand !== "none" ? filters.brand : undefined,
     stock: filters.stock === "low" ? "low" : filters.stock === "out" ? "out_of_stock" : undefined,
+  });
+
+  const buildParams = (page: number, search: string, filters: FilterState, ps?: number) => ({
+    page,
+    pageSize: ps ?? pageSize,
+    ...buildFilterParams(search, filters),
   });
 
   const isMountedRef = useRef(false);
@@ -188,13 +192,13 @@ const ProductsListPage: React.FC = () => {
               <Dropdown.Header className="px-3 py-1 text-muted fw-bold" style={{ fontSize: "12px", textTransform: "uppercase" }}>
                 Export
               </Dropdown.Header>
-              <Dropdown.Item onClick={exportPDF} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+              <Dropdown.Item onClick={() => exportPDF(buildFilterParams(searchQuery, appliedFilters))} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
                 <FileEarmarkPdf size={16} /> Download PDF
               </Dropdown.Item>
-              <Dropdown.Item onClick={exportExcel} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+              <Dropdown.Item onClick={() => exportExcel(buildFilterParams(searchQuery, appliedFilters))} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
                 <FileEarmarkExcel size={16} /> Download Excel
               </Dropdown.Item>
-              <Dropdown.Item onClick={exportCSV} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+              <Dropdown.Item onClick={() => exportCSV(buildFilterParams(searchQuery, appliedFilters))} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
                 <FiletypeCsv size={16} /> Download CSV
               </Dropdown.Item>
             </Dropdown.Menu>
