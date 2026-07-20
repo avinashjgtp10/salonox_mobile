@@ -74,7 +74,7 @@
 
       input {
         width: 100%;
-        padding: 10px 14px 10px 42px;
+        padding: 10px 36px 10px 42px;
         border-radius: 8px;
         border: 1px solid #d0d5dd;
         font-size: 14px;
@@ -83,6 +83,26 @@
           outline: none;
           border-color: #3b82f6;
           box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+        }
+      }
+
+      .search-clear-btn {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: none;
+        border: none;
+        padding: 2px;
+        color: #667085;
+        cursor: pointer;
+        line-height: 0;
+
+        &:hover {
+          color: #344054;
         }
       }
     }

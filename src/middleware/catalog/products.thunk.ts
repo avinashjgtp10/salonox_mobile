@@ -3,7 +3,7 @@ import api from "../../services/api/axios";
 import { PRODUCTS, CATEGORIES } from "../../services/api/endpoints";
 import { ApiError } from "../../services/api/interceptors";
 
-const downloadFile = (blob: Blob, filename: string) => {
+const downloadFile = (blob: Blob, filename: string): void => {
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
