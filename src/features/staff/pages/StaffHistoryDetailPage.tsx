@@ -47,6 +47,9 @@ interface SaleItemRow {
   total_price: string;
   client_name: string | null;
   sale_created_at: string;
+  // Where this line item's value came from — 'Membership' / 'Package' when
+  // covered per-item, else the sale's payment method (Cash/Card/UPI/Split/eWallet…).
+  payment_source?: string | null;
 }
 
 interface CommissionRow {
@@ -81,6 +84,20 @@ function fmtDate(d: string | undefined | null) {
 function fmtDateTime(d: string | undefined | null) {
   if (!d) return "—";
   return new Date(d).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "numeric", minute: "2-digit", hour12: true });
+}
+
+// Small coloured pill showing where a line item was paid from. Membership /
+// Package (item-level coverage) get their own accent; every other value is the
+// sale's payment method (Cash/Card/UPI/Split/eWallet…) and shares a neutral look.
+function SourceBadge({ source }: { source: string }) {
+  const key = source.toLowerCase();
+  const tone =
+    key === "membership" ? "membership" :
+    key === "package"    ? "package"    :
+    key.includes("ewallet") || key.includes("wallet") ? "wallet" :
+    key.includes("reward") ? "reward" :
+    "default";
+  return <span className={`shp-source shp-source--${tone}`}>{source}</span>;
 }
 
 const AVATAR_GRADIENTS = [
@@ -221,7 +238,10 @@ function OverviewTab({ salesTotal, servicesRecent, commissionTotal, attendancePc
                   <div className="shp-recent-row__icon"><Scissors size={14} /></div>
                   <div className="shp-recent-row__info">
                     <div className="shp-recent-row__title">{item.name}</div>
-                    <div className="shp-recent-row__sub">{item.client_name ?? "Walk-in"} · {fmtDate(item.sale_created_at)}</div>
+                    <div className="shp-recent-row__sub">
+                      {item.client_name ?? "Walk-in"} · {fmtDate(item.sale_created_at)}
+                      {item.payment_source && <> · <SourceBadge source={item.payment_source} /></>}
+                    </div>
                   </div>
                   <div className="shp-recent-row__amount">{fmtMoney(Number(item.total_price))}</div>
                 </div>
@@ -326,13 +346,14 @@ function ServicesTab({ staffId }: { staffId: string }) {
 
   return (
     <table className="shp-table">
-      <thead><tr><th>Date</th><th>Client</th><th>Service</th><th>Qty</th><th>Amount</th></tr></thead>
+      <thead><tr><th>Date</th><th>Client</th><th>Service</th><th>Paid Via</th><th>Qty</th><th>Amount</th></tr></thead>
       <tbody>
         {data.map((i) => (
           <tr key={i.id}>
             <td>{fmtDate(i.sale_created_at)}</td>
             <td>{i.client_name ?? "Walk-in"}</td>
             <td>{i.name}</td>
+            <td>{i.payment_source ? <SourceBadge source={i.payment_source} /> : "—"}</td>
             <td>{i.quantity}</td>
             <td>{fmtMoney(Number(i.total_price))}</td>
           </tr>
