@@ -45,8 +45,8 @@ const ProductDrawer: React.FC<ProductDrawerProps> = ({
         <div className="pd-panel__header">
           <div className="pd-panel__header-left">
             <div className="pd-panel__icon"><BoxSeam size={18} /></div>
-            <div>
-              <h6 className="pd-panel__title">{product.name}</h6>
+            <div className="pd-panel__info">
+              <h6 className="pd-panel__title" title={product.name}>{product.name}</h6>
               <span className="pd-panel__sku">{product.barcode ?? "No SKU"}</span>
             </div>
           </div>

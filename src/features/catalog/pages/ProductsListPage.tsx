@@ -118,6 +118,13 @@ const ProductsListPage: React.FC = () => {
     fetchProducts(buildParams(newPage, searchQuery, appliedFilters));
   };
 
+  const handleClearSearch = () => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    setSearchQuery("");
+    setSelectedProducts([]);
+    fetchProducts(buildParams(1, "", appliedFilters));
+  };
+
   const handleOpenFilter = () => {
     setPendingFilters(appliedFilters);
     setIsFilterModalOpen(true);
@@ -210,6 +217,16 @@ const ProductsListPage: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
+          {searchQuery && (
+            <button
+              type="button"
+              className="search-clear-btn"
+              aria-label="Clear search"
+              onClick={handleClearSearch}
+            >
+              <X size={16} />
+            </button>
+          )}
         </div>
         <Button
           variant={hasActiveFilters ? "primary" : "outline"}
