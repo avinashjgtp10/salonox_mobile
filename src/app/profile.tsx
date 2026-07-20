@@ -10,7 +10,6 @@ import {
   Platform,
   RefreshControl,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -19,11 +18,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import {
   fetchProfileThunk,
@@ -42,6 +42,7 @@ import {
 } from "@/store/profile/profile.slice";
 import { getApiErrorMessage } from "@/services/api";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import type { UpdateProfileRequest, UserProfile } from "@/types/profile";
 
@@ -88,6 +89,9 @@ const toEditState = (profile: UserProfile): EditState => ({
 });
 
 function DetailRow({ label, value }: { label: string; value: string }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.detailRow}>
       <Text style={styles.detailLabel}>{label}</Text>
@@ -97,6 +101,9 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 }
 
 function Section({ children, title }: { children: React.ReactNode; title: string }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.sectionCard}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -120,6 +127,9 @@ function FormField({
   placeholder: string;
   value: string;
 }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.inputGroup}>
       <Text style={styles.inputLabel}>{label}</Text>
@@ -137,6 +147,8 @@ function FormField({
 }
 
 export default function ProfileScreen() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const currentUser = useAppSelector(selectCurrentUser);
   const userId = currentUser?.id ?? "";
@@ -335,7 +347,7 @@ export default function ProfileScreen() {
   if (showInitialLoading) {
     return (
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+        <AppStatusBar />
         <View style={styles.stateWrap}>
           {renderHeader()}
           <View style={styles.centeredContent}>
@@ -349,7 +361,7 @@ export default function ProfileScreen() {
   if (showErrorState) {
     return (
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+        <AppStatusBar />
         <View style={styles.stateWrap}>
           {renderHeader()}
           <View style={styles.stateCard}>
@@ -370,7 +382,7 @@ export default function ProfileScreen() {
   if (!profile) {
     return (
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+        <AppStatusBar />
         <View style={styles.stateWrap}>
           {renderHeader()}
           <View style={styles.stateCard}>
@@ -403,7 +415,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+      <AppStatusBar />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.flex}
@@ -584,7 +596,7 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   flex: {
     flex: 1,
   },
@@ -644,7 +656,7 @@ const styles = StyleSheet.create({
     borderRadius: AppRadius.card,
     borderWidth: 1,
     padding: AppLayout.cardPadding + Spacing.sm,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
@@ -683,7 +695,7 @@ const styles = StyleSheet.create({
   },
   avatarUploadingOverlay: {
     alignItems: "center",
-    backgroundColor: "rgba(36, 59, 52, 0.45)",
+    backgroundColor: "rgba(20, 18, 16, 0.45)",
     borderRadius: 36,
     bottom: 0,
     justifyContent: "center",
@@ -727,7 +739,7 @@ const styles = StyleSheet.create({
     color: Colors.primaryDark,
     fontSize: 11,
     fontWeight: "800",
-    letterSpacing: 0.4,
+    letterSpacing: 0,
   },
   verifiedBadge: {
     alignItems: "center",
@@ -755,11 +767,11 @@ const styles = StyleSheet.create({
   },
   bannerError: {
     backgroundColor: Colors.errorBg,
-    borderColor: "rgba(214, 91, 91, 0.22)",
+    borderColor: "rgba(114, 106, 99, 0.18)",
   },
   bannerSuccess: {
     backgroundColor: Colors.successBg,
-    borderColor: "rgba(75, 143, 104, 0.22)",
+    borderColor: "rgba(28, 25, 23, 0.12)",
   },
   bannerText: {
     flex: 1,

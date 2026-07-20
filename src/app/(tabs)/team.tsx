@@ -11,7 +11,6 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -22,10 +21,12 @@ import {
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { StaffCard } from "@/components/team/StaffCard";
 import { SummaryCard } from "@/components/team/SummaryCard";
 import { AppLayout, AppRadius } from "@/constants/layout";
-import { BottomTabInset, DashboardColors as Colors, DashboardRadius as Radius, DashboardSpacing as Spacing } from "@/constants/theme";
+import { BottomTabInset, DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import {
   getTeamSummary,
   matchesTeamFilter,
@@ -75,6 +76,9 @@ const MENU_OPTIONS = [
 ] as const;
 
 function SummarySkeletonCard({ index }: { index: number }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <Animated.View
       entering={FadeInDown.duration(220).delay(Math.min(index * 35, 140))}
@@ -89,6 +93,9 @@ function SummarySkeletonCard({ index }: { index: number }) {
 }
 
 function StaffSkeletonCard({ index }: { index: number }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <Animated.View
       entering={FadeInDown.duration(220).delay(Math.min(index * 40, 180))}
@@ -109,10 +116,6 @@ function StaffSkeletonCard({ index }: { index: number }) {
         </View>
       </View>
 
-      <View style={styles.staffSkeletonMetricRow}>
-        <View style={styles.staffSkeletonMetric} />
-        <View style={styles.staffSkeletonMetric} />
-      </View>
       <View style={styles.staffSkeletonPerformanceRow}>
         <View style={styles.staffSkeletonPerformance} />
         <View style={styles.staffSkeletonPerformance} />
@@ -124,6 +127,9 @@ function StaffSkeletonCard({ index }: { index: number }) {
 }
 
 function ErrorState({ onRetry }: { onRetry: () => void }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.stateCard}>
       <View style={styles.stateIllustration}>
@@ -149,6 +155,9 @@ function EmptyState({
   onAdd: () => void;
   title: string;
 }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.stateCard}>
       <View style={styles.stateIllustration}>
@@ -164,6 +173,8 @@ function EmptyState({
 }
 
 export default function TeamScreen() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const searchInputRef = useRef<TextInput | null>(null);
   const currentUser = useAppSelector(selectCurrentUser);
@@ -412,24 +423,10 @@ export default function TeamScreen() {
         <View style={styles.headerActions}>
           <TouchableOpacity
             activeOpacity={0.84}
-            onPress={() => searchInputRef.current?.focus()}
-            style={styles.headerIconButton}
-          >
-            <Ionicons name="search-outline" size={18} color={Colors.primaryDark} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.84}
             onPress={() => router.push("/team/commissions" as Href)}
             style={styles.headerIconButton}
           >
             <Ionicons name="cash-outline" size={18} color={Colors.primaryDark} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.84}
-            onPress={() => setIsFilterVisible(true)}
-            style={styles.headerIconButton}
-          >
-            <Ionicons name="options-outline" size={18} color={Colors.primaryDark} />
           </TouchableOpacity>
         </View>
       </View>
@@ -513,7 +510,7 @@ export default function TeamScreen() {
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+      <AppStatusBar />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.keyboardWrap}
@@ -572,7 +569,7 @@ export default function TeamScreen() {
         )}
 
         <TouchableOpacity activeOpacity={0.88} onPress={handleAddStaff} style={styles.floatingButton}>
-          <Ionicons name="add" size={20} color="#FFFFFF" />
+          <Ionicons name="add" size={20} color={Colors.onPrimary} />
           <Text style={styles.floatingButtonText}>Add Staff</Text>
         </TouchableOpacity>
       </KeyboardAvoidingView>
@@ -645,7 +642,7 @@ export default function TeamScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     backgroundColor: Colors.bg,
     flex: 1,
@@ -770,7 +767,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   filterChipActive: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.primaryDark,
     borderColor: Colors.primary,
   },
   filterChipText: {
@@ -779,7 +776,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   filterChipTextActive: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
   },
   resultsRow: {
     alignItems: "center",
@@ -864,17 +861,6 @@ const styles = StyleSheet.create({
     height: 36,
     width: 36,
   },
-  staffSkeletonMetricRow: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: Spacing.md,
-  },
-  staffSkeletonMetric: {
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.md,
-    flex: 1,
-    height: 38,
-  },
   staffSkeletonPerformanceRow: {
     flexDirection: "row",
     gap: 8,
@@ -895,7 +881,7 @@ const styles = StyleSheet.create({
     marginTop: AppLayout.sectionGap,
     paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.xxl,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
@@ -924,7 +910,7 @@ const styles = StyleSheet.create({
   },
   stateButton: {
     alignItems: "center",
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.primaryDark,
     borderRadius: Radius.full,
     marginTop: Spacing.lg,
     minHeight: 46,
@@ -932,13 +918,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
   },
   stateButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 13,
     fontWeight: "800",
   },
   floatingButton: {
     alignItems: "center",
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.primaryDark,
     borderRadius: Radius.full,
     bottom: 20,
     flexDirection: "row",
@@ -947,20 +933,20 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     position: "absolute",
     right: AppLayout.floatingButtonRight,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.2,
     shadowRadius: 18,
     elevation: 7,
   },
   floatingButtonText: {
-    color: "#FFFFFF",
+    color: Colors.onPrimary,
     fontSize: 13,
     fontWeight: "800",
     marginLeft: 8,
   },
   modalOverlay: {
-    backgroundColor: "rgba(36, 59, 52, 0.22)",
+    backgroundColor: "rgba(28, 25, 23, 0.12)",
     flex: 1,
     justifyContent: "flex-end",
     padding: Spacing.lg,

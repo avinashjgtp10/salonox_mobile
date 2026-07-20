@@ -20,7 +20,6 @@ import type {
   DashboardInventoryAlert,
   DashboardMetrics,
   DashboardQuickSaleService,
-  DashboardRevenueGoal,
   DashboardTopClient,
 } from "@/services/dashboard.service";
 
@@ -30,11 +29,6 @@ const EMPTY_DASHBOARD_METRICS: DashboardMetrics = {
   bookings: 0,
   monthlyRevenue: 0,
   todaysRevenue: 0,
-};
-
-const EMPTY_REVENUE_GOAL: DashboardRevenueGoal = {
-  earned: 0,
-  target: 0,
 };
 
 type DashboardState = {
@@ -47,7 +41,6 @@ type DashboardState = {
   quickSaleRevenueToday: number;
   quickSaleServices: DashboardQuickSaleService[];
   requestedDate: string | null;
-  revenueGoal: DashboardRevenueGoal;
   status: "idle" | "loading" | "succeeded" | "failed";
   topClient: DashboardTopClient | null;
 };
@@ -62,7 +55,6 @@ const initialState: DashboardState = {
   quickSaleRevenueToday: 0,
   quickSaleServices: [],
   requestedDate: null,
-  revenueGoal: EMPTY_REVENUE_GOAL,
   status: "idle",
   topClient: null,
 };
@@ -90,11 +82,17 @@ const dashboardSlice = createSlice({
         state.quickSaleRevenueToday = action.payload.quickSaleRevenueToday;
         state.quickSaleServices = action.payload.quickSaleServices;
         state.requestedDate = action.payload.requestedDate;
-        state.revenueGoal = action.payload.revenueGoal;
         state.status = "succeeded";
         state.topClient = action.payload.topClient;
       })
       .addCase(fetchDashboardThunk.rejected, (state, action) => {
+        if (action.payload?.silent) {
+          state.error = null;
+          state.isRefreshing = false;
+          state.status = state.lastFetchedAt ? "succeeded" : "idle";
+          return;
+        }
+
         state.error =
           action.payload?.message ?? action.error.message ?? "Unable to load dashboard.";
         state.isRefreshing = false;
@@ -131,7 +129,6 @@ export const selectDashboardLastFetchedAt = (state: RootState) => state.dashboar
 export const selectDashboardIsStale = (state: RootState) =>
   state.dashboard.lastFetchedAt === null ||
   Date.now() - state.dashboard.lastFetchedAt > DASHBOARD_STALE_MS;
-export const selectDashboardRevenueGoal = (state: RootState) => state.dashboard.revenueGoal;
 export const selectDashboardTopClient = (state: RootState) => state.dashboard.topClient;
 export const selectDashboardInventoryAlerts = (state: RootState) =>
   state.dashboard.inventoryAlerts;

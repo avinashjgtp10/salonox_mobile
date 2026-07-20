@@ -1,10 +1,12 @@
+import { useMemo } from "react";
 import { StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
 
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
+import { useThemeColors } from "@/theme/ThemeProvider";
 
 type StaffTextFieldProps = TextInputProps & {
   error?: string;
@@ -12,6 +14,9 @@ type StaffTextFieldProps = TextInputProps & {
 };
 
 export function StaffTextField({ error, label, multiline, style, ...inputProps }: StaffTextFieldProps) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.group}>
       <Text style={styles.label}>{label}</Text>
@@ -26,7 +31,7 @@ export function StaffTextField({ error, label, multiline, style, ...inputProps }
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   group: {
     marginBottom: Spacing.md,
   },

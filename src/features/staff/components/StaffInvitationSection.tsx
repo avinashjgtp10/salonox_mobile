@@ -1,10 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { StaffSectionCard } from "@/features/staff/components/StaffSectionCard";
 import { StaffStateView } from "@/features/staff/components/StaffStateView";
@@ -25,6 +25,7 @@ import {
   selectInviteResending,
 } from "@/store/staff/staffInvitations.slice";
 import { selectCurrentUser } from "@/store/user/user.slice";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import { isValidStaffId } from "@/utils/staffIds";
 import { canManageStaffLifecycle } from "@/utils/userProfile";
 
@@ -32,21 +33,23 @@ type StaffInvitationSectionProps = {
   staffId?: string | null;
 };
 
-function getStatusPalette(status: string) {
+function getStatusPalette(status: string, Colors: ThemeColors) {
   switch (status.toLowerCase()) {
     case "accepted":
-      return { backgroundColor: "#EAF5EF", color: Colors.success };
+      return { backgroundColor: Colors.successBg, color: Colors.success };
     case "expired":
     case "cancelled":
-      return { backgroundColor: "#FEECEC", color: Colors.error };
+      return { backgroundColor: Colors.errorBg, color: Colors.error };
     case "pending":
-      return { backgroundColor: "#FFF4E3", color: Colors.warning };
+      return { backgroundColor: Colors.warningBg, color: Colors.warning };
     default:
-      return { backgroundColor: "#EEF1EF", color: Colors.text2 };
+      return { backgroundColor: Colors.bg2, color: Colors.text2 };
   }
 }
 
 export function StaffInvitationSection({ staffId }: StaffInvitationSectionProps) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const currentUser = useAppSelector(selectCurrentUser);
   const canManage = canManageStaffLifecycle(currentUser?.role);
@@ -148,7 +151,7 @@ export function StaffInvitationSection({ staffId }: StaffInvitationSectionProps)
   }
 
   const invitationStatus = status?.status ?? "none";
-  const palette = getStatusPalette(invitationStatus);
+  const palette = getStatusPalette(invitationStatus, Colors);
   const canResend = invitationStatus === "pending" || invitationStatus === "expired";
   const canCancel = invitationStatus === "pending";
 
@@ -220,7 +223,7 @@ export function StaffInvitationSection({ staffId }: StaffInvitationSectionProps)
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   statusRow: {
     alignItems: "center",
     flexDirection: "row",

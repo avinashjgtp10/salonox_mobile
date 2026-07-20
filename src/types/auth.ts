@@ -44,6 +44,16 @@ export type RegisterCredentials = {
   phone: string;
   password: string;
   terms: boolean;
+  formatted_address?: string;
+  address_line_1?: string;
+  area?: string;
+  city?: string;
+  state?: string;
+  country_name?: string;
+  postal_code?: string;
+  latitude?: number;
+  longitude?: number;
+  place_id?: string;
 };
 
 export type RegisterResponseData = AuthTokens & {

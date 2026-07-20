@@ -113,8 +113,65 @@ const titleCase = (value: string) =>
     .trim()
     .replace(/\b\w/g, (character) => character.toUpperCase());
 
+const ACTIVE_APPOINTMENT_STATUSES: ReadonlySet<AppointmentStatus> = new Set([
+  "Upcoming",
+  "Confirmed",
+  "Waiting",
+  "Checked In",
+  "In Service",
+  "In Progress",
+]);
+
+const APPOINTMENT_STATUS_API_VALUE: Record<AppointmentStatus, string> = {
+  "Checked In": "in_progress",
+  "Cancelled": "cancelled",
+  "Confirmed": "confirmed",
+  "Completed": "paid",
+  "Deleted": "deleted",
+  "In Progress": "in_progress",
+  "In Service": "in_progress",
+  "Missed": "no-show",
+  "Partial": "partial",
+  "Unknown": "",
+  "Upcoming": "booked",
+  "Waiting": "booked",
+};
+
+export const isActiveAppointmentStatus = (status: AppointmentStatus) =>
+  ACTIVE_APPOINTMENT_STATUSES.has(status);
+
+export const appointmentStatusToApiValue = (status: AppointmentStatus) =>
+  APPOINTMENT_STATUS_API_VALUE[status];
+
+export const appointmentStatusToListApiValue = (status: AppointmentStatus) =>
+  status === "Upcoming" || status === "Deleted" || status === "Unknown"
+    ? undefined
+    : appointmentStatusToApiValue(status);
+
+export const appointmentStatusMatchesFilter = (
+  appointmentStatus: AppointmentStatus,
+  filterStatus: "All" | AppointmentStatus,
+) => {
+  if (appointmentStatus === "Deleted" || appointmentStatus === "Unknown") {
+    return false;
+  }
+
+  if (filterStatus === "All") {
+    return true;
+  }
+
+  if (filterStatus === "Upcoming") {
+    return isActiveAppointmentStatus(appointmentStatus);
+  }
+
+  return appointmentStatus === filterStatus;
+};
+
+const warnedUnknownStatuses = new Set<string>();
+
 export const toAppointmentStatus = (value: unknown): AppointmentStatus => {
-  const normalizedStatus = toSafeString(value, "upcoming")
+  const rawStatus = toSafeString(value);
+  const normalizedStatus = rawStatus
     .replace(/[_-]+/g, " ")
     .toLowerCase();
 
@@ -124,21 +181,43 @@ export const toAppointmentStatus = (value: unknown): AppointmentStatus => {
     case "in service":
       return "In Service";
     case "in progress":
+    case "inprogress":
+    case "ongoing":
       return "In Progress";
     case "confirmed":
       return "Confirmed";
+    case "booked":
+    case "pending":
+    case "scheduled":
+    case "upcoming":
+      return "Upcoming";
     case "waiting":
       return "Waiting";
+    case "paid":
+    case "complete":
     case "completed":
+    case "done":
+    case "finished":
       return "Completed";
+    case "partial":
+      return "Partial";
     case "cancelled":
     case "canceled":
       return "Cancelled";
+    case "expired":
     case "missed":
+    case "no show":
+    case "noshow":
       return "Missed";
-    case "upcoming":
+    case "deleted":
+      return "Deleted";
     default:
-      return "Upcoming";
+      if (rawStatus && !warnedUnknownStatuses.has(rawStatus)) {
+        warnedUnknownStatuses.add(rawStatus);
+        console.warn("[Appointments] Unknown appointment status received", { status: rawStatus });
+      }
+
+      return "Unknown";
   }
 };
 
@@ -275,11 +354,18 @@ export const normalizeAppointment = (
     toSafeNumber(appointment.total) ||
     service.price;
   const clientName = getClientName(appointment);
+  const cancelledAt = toSafeString(appointment.cancelled_at) || toSafeString(appointment.cancelledAt) || null;
+  const completedAt = toSafeString(appointment.completed_at) || toSafeString(appointment.completedAt) || null;
+  const status = cancelledAt
+    ? "Cancelled"
+    : completedAt
+      ? "Completed"
+      : toAppointmentStatus(appointment.status);
 
   return {
     amount,
-    cancelledAt: toSafeString(appointment.cancelled_at) || null,
-    cancellationReason: toSafeString(appointment.cancellation_reason),
+    cancelledAt,
+    cancellationReason: toSafeString(appointment.cancellation_reason) || toSafeString(appointment.cancel_reason),
     clientEmail: toSafeString(appointment.client?.email),
     clientId: toSafeString(appointment.client_id) || toSafeString(appointment.client?.id),
     clientName,
@@ -306,7 +392,7 @@ export const normalizeAppointment = (
     staffId: toSafeString(appointment.staff_id) || toSafeString(appointment.staff?.id),
     staffName: getStaffName(appointment),
     startTime: toSafeString(appointment.start_time) || toSafeString(appointment.scheduled_at) || null,
-    status: toAppointmentStatus(appointment.status),
+    status,
     tax: toSafeNumber(appointment.tax),
     title: toSafeString(appointment.title) || `${service.name} with ${clientName}`,
     total: toSafeNumber(appointment.total) || amount,
@@ -314,17 +400,64 @@ export const normalizeAppointment = (
   };
 };
 
+const getCompatibleStatusQueries = (status?: string) => {
+  switch (status) {
+    case "paid":
+      return ["paid", "completed"];
+    case "no-show":
+      return ["no-show", "no_show"];
+    default:
+      return [status];
+  }
+};
+
+const mergeUniqueAppointments = (appointmentGroups: AppointmentListItem[][]) => {
+  const seenIds = new Set<string>();
+
+  return appointmentGroups.flat().filter((appointment) => {
+    if (seenIds.has(appointment.id)) {
+      return false;
+    }
+
+    seenIds.add(appointment.id);
+    return true;
+  });
+};
+
+const fetchAppointmentList = async (
+  query: AppointmentListQuery,
+  salonId?: string | null,
+) => {
+  const response = await api.get<AppointmentListApiResponse>(APPOINTMENT.LIST, {
+    params: {
+      ...query,
+      ...(salonId ? { salon_id: salonId } : {}),
+    },
+  });
+  const appointments = getAppointmentArray(response.data.data).map(normalizeAppointment);
+  const totalCount = getTotalCount(response.data.data, appointments.length);
+
+  return { appointments, response, totalCount };
+};
+
 export const appointmentService = {
   async getAppointments(query: AppointmentListQuery, salonId?: string | null): Promise<AppointmentListResponse> {
-    const response = await api.get<AppointmentListApiResponse>(APPOINTMENT.LIST, {
-      params: {
-        ...query,
-        ...(salonId ? { salon_id: salonId } : {}),
-      },
-    });
-    const appointments = getAppointmentArray(response.data.data).map(normalizeAppointment);
-    const totalCount = getTotalCount(response.data.data, appointments.length);
-    const pagination = getPagination(response.data.data, query, appointments.length, totalCount);
+    const [primaryStatus, ...legacyStatuses] = getCompatibleStatusQueries(query.status);
+    const primaryResult = await fetchAppointmentList({ ...query, status: primaryStatus }, salonId);
+    const legacyResults = await Promise.all(
+      legacyStatuses.map((status) => fetchAppointmentList({ ...query, status }, salonId)),
+    );
+    const appointments = mergeUniqueAppointments([
+      primaryResult.appointments,
+      ...legacyResults.map((result) => result.appointments),
+    ]);
+    const totalCount = legacyResults.length > 0 ? appointments.length : primaryResult.totalCount;
+    const pagination = getPagination(
+      primaryResult.response.data.data,
+      query,
+      appointments.length,
+      totalCount,
+    );
 
     return {
       appointments,
@@ -343,7 +476,26 @@ export const appointmentService = {
   },
 
   async createAppointment(payload: CreateAppointmentRequest): Promise<AppointmentMutationResponse> {
-    const response = await api.post<AppointmentDetailApiResponse>(APPOINTMENT.CREATE, payload);
+    const {
+      duration: _duration,
+      durationMinutes: _durationMinutes,
+      totalDuration: _totalDuration,
+      ...requestPayload
+    } = payload as CreateAppointmentRequest & {
+      duration?: unknown;
+      durationMinutes?: unknown;
+      totalDuration?: unknown;
+    };
+
+    if (!Number.isInteger(requestPayload.duration_minutes) || requestPayload.duration_minutes <= 0) {
+      throw new Error("duration_minutes is required and must be a positive integer.");
+    }
+
+    if (__DEV__) {
+      console.log("[Appointments] Final create payload", JSON.stringify(requestPayload, null, 2));
+    }
+
+    const response = await api.post<AppointmentDetailApiResponse>(APPOINTMENT.CREATE, requestPayload);
     return {
       appointment: normalizeAppointment(getAppointmentFromPayload(response.data.data)),
       message: response.data.message,
@@ -395,6 +547,18 @@ export const appointmentService = {
   ): Promise<AppointmentMutationResponse> {
     const response = await api.post<AppointmentDetailApiResponse>(
       APPOINTMENT.START(appointmentId),
+    );
+    return {
+      appointment: normalizeAppointment(getAppointmentFromPayload(response.data.data)),
+      message: response.data.message,
+    };
+  },
+
+  async completeAppointment(
+    appointmentId: string,
+  ): Promise<AppointmentMutationResponse> {
+    const response = await api.post<AppointmentDetailApiResponse>(
+      APPOINTMENT.COMPLETE(appointmentId),
     );
     return {
       appointment: normalizeAppointment(getAppointmentFromPayload(response.data.data)),

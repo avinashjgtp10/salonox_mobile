@@ -1,4 +1,5 @@
 export type SalonApiItem = {
+  _id?: string | number | null;
   address?: string | null;
   business_name?: string | null;
   city?: string | null;
@@ -13,6 +14,8 @@ export type SalonApiItem = {
   phone?: string | null;
   phone_number?: string | null;
   postal_code?: string | number | null;
+  salon_id?: string | number | null;
+  salonId?: string | number | null;
   state?: string | null;
   status?: string | null;
   timezone?: string | null;

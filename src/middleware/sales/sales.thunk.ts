@@ -1,9 +1,12 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 
+import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
+import { fetchUnreadCountThunk } from "@/middleware/notification/notification.thunk";
+import { fetchProductsThunk } from "@/middleware/product/product.thunk";
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import { salesService } from "@/services/sales.service";
 import type { RootState } from "@/store";
-import { selectCurrentUser } from "@/store/user/user.slice";
+import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import type {
   CheckoutSaleRequest,
   CheckoutSaleResponse,
@@ -36,7 +39,7 @@ export const fetchSalesInitThunk = createAsyncThunk<
   { rejectValue: FetchSalesInitRejectValue; state: RootState }
 >("sales/fetchSalesInit", async (_args, { getState, rejectWithValue }) => {
   try {
-    const salonId = selectCurrentUser(getState())?.salonId;
+    const salonId = selectActiveBranchId(getState());
     return await salesService.getSalesInit(salonId);
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
@@ -95,7 +98,7 @@ export const fetchSalesThunk = createAsyncThunk<
   };
 
   try {
-    const salonId = selectCurrentUser(getState())?.salonId;
+    const salonId = selectActiveBranchId(getState());
     return await salesService.getSales(nextQuery, salonId);
   } catch (error) {
     console.error("[Sales] List fetch failed", toRejectValue(error));
@@ -122,9 +125,22 @@ export const createSaleThunk = createAsyncThunk<
   CreateSaleResponse,
   CreateSaleRequest,
   { rejectValue: SalesRejectValue; state: RootState }
->("sales/createSale", async (payload, { rejectWithValue }) => {
+>("sales/createSale", async (payload, { dispatch, getState, rejectWithValue }) => {
   try {
-    return await salesService.createSale(payload);
+    const salonId = selectActiveBranchId(getState());
+    const response = await salesService.createSale({
+      ...payload,
+      ...(salonId ? { salonId } : {}),
+    });
+
+    // The backend fires a "New Sale Created" notification on create.
+    void dispatch(fetchUnreadCountThunk());
+    void dispatch(fetchSalesThunk({ ...getState().sales.query, offset: 0, refresh: true, reset: true }));
+    void dispatch(fetchSalesSummaryThunk());
+    void dispatch(fetchDashboardThunk());
+    void dispatch(fetchProductsThunk({ offset: 0, refresh: true, reset: true }));
+
+    return response;
   } catch (error) {
     console.error("[Sales] Create failed", toRejectValue(error));
 
@@ -136,9 +152,21 @@ export const updateSaleThunk = createAsyncThunk<
   UpdateSaleResponse,
   { saleId: string; updates: UpdateSaleRequest },
   { rejectValue: SalesRejectValue; state: RootState }
->("sales/updateSale", async ({ saleId, updates }, { rejectWithValue }) => {
+>("sales/updateSale", async ({ saleId, updates }, { dispatch, getState, rejectWithValue }) => {
   try {
-    return await salesService.updateSale(saleId, updates);
+    const salonId = selectActiveBranchId(getState());
+
+    const response = await salesService.updateSale(saleId, {
+      ...updates,
+      ...(salonId ? { salonId } : {}),
+    });
+
+    void dispatch(fetchSaleByIdThunk(saleId));
+    void dispatch(fetchSalesThunk({ ...getState().sales.query, offset: 0, refresh: true, reset: true }));
+    void dispatch(fetchSalesSummaryThunk());
+    void dispatch(fetchDashboardThunk());
+
+    return response;
   } catch (error) {
     console.error("[Sales] Update failed", { ...toRejectValue(error), saleId });
 
@@ -167,6 +195,9 @@ export const checkoutSaleThunk = createAsyncThunk<
       }),
     );
     void dispatch(fetchSalesSummaryThunk());
+    void dispatch(fetchSalesInitThunk({ refresh: true }));
+    void dispatch(fetchDashboardThunk());
+    void dispatch(fetchProductsThunk({ offset: 0, refresh: true, reset: true }));
 
     return response;
   } catch (error) {
@@ -180,11 +211,13 @@ export const deleteSaleThunk = createAsyncThunk<
   DeleteSaleResponse,
   string,
   { rejectValue: SalesRejectValue; state: RootState }
->("sales/deleteSale", async (saleId, { dispatch, rejectWithValue }) => {
+>("sales/deleteSale", async (saleId, { dispatch, getState, rejectWithValue }) => {
   try {
     const response = await salesService.deleteSale(saleId);
 
+    void dispatch(fetchSalesThunk({ ...getState().sales.query, offset: 0, refresh: true, reset: true }));
     void dispatch(fetchSalesSummaryThunk());
+    void dispatch(fetchDashboardThunk());
 
     return response;
   } catch (error) {
@@ -200,7 +233,7 @@ export const fetchSalesSummaryThunk = createAsyncThunk<
   { rejectValue: SalesRejectValue; state: RootState }
 >("sales/fetchSalesSummary", async (_args, { getState, rejectWithValue }) => {
   try {
-    const salonId = selectCurrentUser(getState())?.salonId;
+    const salonId = selectActiveBranchId(getState());
     return await salesService.getSalesSummary(salonId);
   } catch (error) {
     console.error("[Sales] Summary fetch failed", toRejectValue(error));

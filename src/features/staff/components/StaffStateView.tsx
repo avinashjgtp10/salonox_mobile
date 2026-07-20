@@ -1,11 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useMemo } from "react";
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
+import { useThemeColors } from "@/theme/ThemeProvider";
 
 type StaffStateViewProps = {
   actionLabel?: string;
@@ -24,6 +26,9 @@ export function StaffStateView({
   title,
   variant = "empty",
 }: StaffStateViewProps) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.card}>
       <View style={styles.iconWrap}>
@@ -48,7 +53,7 @@ export function StaffStateView({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   card: {
     alignItems: "center",
     backgroundColor: Colors.bg2,

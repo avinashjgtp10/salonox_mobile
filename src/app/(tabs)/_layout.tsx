@@ -1,8 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
-import { Platform, StyleSheet, View } from "react-native";
+import { useMemo } from "react";
+import { StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { DashboardColors as Colors } from "@/constants/theme";
+import type { ThemeColors } from "@/constants/theme";
+import { useThemeColors } from "@/theme/ThemeProvider";
+
+const TAB_BAR_DESIGN_SPACING = 10;
+const TAB_BAR_CONTENT_HEIGHT = 60;
 
 type TabIconProps = {
   focused: boolean;
@@ -14,19 +20,30 @@ export const unstable_settings = {
 };
 
 function TabIcon({ focused, name }: TabIconProps) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={[styles.iconWrap, focused && styles.iconWrapFocused]}>
-      <Ionicons name={name} size={20} color={focused ? "#FFFFFF" : Colors.text2} />
+      <Ionicons name={name} size={20} color={focused ? Colors.onPrimary : Colors.hint} />
     </View>
   );
 }
 
 export default function DashboardTabsLayout() {
+  const Colors = useThemeColors();
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, TAB_BAR_DESIGN_SPACING);
+  const styles = useMemo(
+    () => createStyles(Colors, bottomInset),
+    [Colors, bottomInset],
+  );
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: Colors.primary,
+        tabBarActiveTintColor: Colors.heading,
         tabBarInactiveTintColor: Colors.text2,
         tabBarItemStyle: styles.tabBarItem,
         tabBarLabelStyle: styles.label,
@@ -65,22 +82,24 @@ export default function DashboardTabsLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors, bottomInset = 0) => StyleSheet.create({
   tabBar: {
     backgroundColor: Colors.card,
     borderTopColor: Colors.border,
-    height: Platform.OS === "ios" ? 86 : 70,
-    paddingBottom: Platform.OS === "ios" ? 24 : 10,
-    paddingTop: 8,
-    shadowColor: Colors.primaryDark,
-    shadowOffset: { width: 0, height: -8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 10,
+    borderTopWidth: 1,
+    height: TAB_BAR_CONTENT_HEIGHT + bottomInset,
+    paddingBottom: bottomInset,
+    paddingHorizontal: 8,
+    paddingTop: 10,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 8,
   },
   label: {
     fontSize: 10,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   tabBarItem: {
     alignItems: "center",
@@ -94,6 +113,6 @@ const styles = StyleSheet.create({
     width: 38,
   },
   iconWrapFocused: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.primaryDark,
   },
 });

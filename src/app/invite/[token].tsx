@@ -5,7 +5,6 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 
 import {
   PasswordRecoveryScaffold,
-  RecoveryColors,
   RecoveryMessage,
   RecoveryPrimaryButton,
   RecoveryTextButton,
@@ -21,10 +20,15 @@ import {
   selectInviteVerifyResult,
   selectInviteVerifying,
 } from "@/store/staff/staffInvitations.slice";
-
-const isValidPassword = (value: string) => /^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(value);
+import {
+  CONFIRM_PASSWORD_MISMATCH_MESSAGE_GENERIC,
+  isValidPassword,
+  PASSWORD_REQUIREMENT_MESSAGE,
+} from "@/utils/validation";
+import { useThemeColors } from "@/theme/ThemeProvider";
 
 export default function StaffInviteAcceptScreen() {
+  const Colors = useThemeColors();
   const params = useLocalSearchParams<{ token?: string }>();
   const token = params.token ?? "";
   const dispatch = useAppDispatch();
@@ -64,7 +68,7 @@ export default function StaffInviteAcceptScreen() {
       setPasswordError("Password is required.");
       isValid = false;
     } else if (!isValidPassword(password)) {
-      setPasswordError("Password must be at least 8 characters and contain letters and numbers.");
+      setPasswordError(PASSWORD_REQUIREMENT_MESSAGE);
       isValid = false;
     }
 
@@ -72,7 +76,7 @@ export default function StaffInviteAcceptScreen() {
       setConfirmPasswordError("Confirm password is required.");
       isValid = false;
     } else if (password !== confirmPassword) {
-      setConfirmPasswordError("Passwords must match.");
+      setConfirmPasswordError(CONFIRM_PASSWORD_MISMATCH_MESSAGE_GENERIC);
       isValid = false;
     }
 
@@ -107,7 +111,7 @@ export default function StaffInviteAcceptScreen() {
       <Ionicons
         name={showPassword ? "eye-outline" : "eye-off-outline"}
         size={20}
-        color={RecoveryColors.secondary}
+        color={Colors.secondary}
       />
     </Pressable>
   );
@@ -119,7 +123,7 @@ export default function StaffInviteAcceptScreen() {
         title="Verifying Invite"
       >
         <View style={styles.loadingWrap}>
-          <ActivityIndicator color={RecoveryColors.primary} size="large" />
+          <ActivityIndicator color={Colors.primary} size="large" />
         </View>
       </PasswordRecoveryScaffold>
     );

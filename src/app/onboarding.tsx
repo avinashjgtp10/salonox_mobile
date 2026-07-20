@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { router, type Href } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   ActivityIndicator,
@@ -28,34 +28,56 @@ import { createSalonThunk } from "@/middleware/salon/salon.thunk";
 import type { CreateSalonRequest } from "@/types/salon";
 import { CategorySelectionList } from "@/components/auth/CategorySelectionList";
 import { BUSINESS_CATEGORIES } from "@/constants/businessCategories";
+import type { ThemeColors } from "@/constants/theme";
+import { useAppTheme } from "@/theme/ThemeProvider";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
 // ─── Google Maps Config ───
-// Define your Google Maps API Key here. If empty, the app falls back to manual entry.
-const GOOGLE_MAPS_API_KEY = "";
+// Read the API key from the environment. Set EXPO_PUBLIC_GOOGLE_MAPS_API_KEY
+// in your root .env file (never commit that file). Restart Metro after changes.
+const GOOGLE_MAPS_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 
-const Colors = {
-  bgGradientStart: "#FAFBFA",
-  bgGradientEnd: "#F4F7F5",
-  primary: "#496A5D",
-  primaryDark: "#365046",
-  secondary: "#6D8F81",
-  accent: "#C7A86D",
-  accentDark: "#B18F54",
-  text: "#243B34",
-  textPrimary: "#445B55",
-  textSecondary: "#7A8D87",
-  placeholder: "#A8B7B1",
-  cardBg: "#FFFFFF",
-  cardBorder: "#E3E8E5",
-  inputBg: "#FFFFFF",
-  inputBorder: "#E3E8E5",
-  inputBorderFocus: "#496A5D",
-  error: "#D65B5B",
-  errorBg: "rgba(214, 91, 91, 0.08)",
-  success: "#4B8F68",
-  warning: "#D8A84F",
+if (!GOOGLE_MAPS_API_KEY && __DEV__) {
+  console.warn(
+    "[SalonOX] Google Maps API key is missing.\n" +
+    "Create a .env file at the project root and add:\n" +
+    "  EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=<your-key>\n" +
+    "Then restart Metro with: npx expo start --clear"
+  );
+}
+
+const createOnboardingColors = (theme: ThemeColors, scheme: "light" | "dark") => ({
+  bgGradientStart: theme.bg,
+  bgGradientEnd: theme.bg2,
+  primary: theme.primary,
+  primaryDark: theme.primaryDark,
+  secondary: theme.secondary,
+  accent: theme.gold,
+  accentDark: theme.goldDark,
+  shadow: theme.shadow,
+  text: theme.heading,
+  textPrimary: theme.text,
+  textSecondary: theme.text2,
+  placeholder: theme.placeholder,
+  cardBg: theme.card,
+  cardBorder: theme.border,
+  inputBg: scheme === "dark" ? theme.bg2 : theme.card,
+  inputBorder: theme.border,
+  inputBorderFocus: theme.focusBorder,
+  error: theme.error,
+  errorBg: theme.errorBg,
+  success: theme.success,
+  warning: theme.warning,
+  statusBarStyle: scheme === "dark" ? ("light-content" as const) : ("dark-content" as const),
+});
+
+type OnboardingColors = ReturnType<typeof createOnboardingColors>;
+
+const useOnboardingColors = () => {
+  const { colors, scheme } = useAppTheme();
+
+  return useMemo(() => createOnboardingColors(colors, scheme), [colors, scheme]);
 };
 
 const STEPS = [
@@ -160,6 +182,8 @@ const getAddressDetailsFromGoogleResult = (
 };
 
 export default function OnboardingScreen() {
+  const Colors = useOnboardingColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { signOut, user, updateUser } = useAuth();
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
@@ -175,7 +199,7 @@ export default function OnboardingScreen() {
   const footerBottomPadding = Math.max(insets.bottom + 14, 18);
   const scrollTopPadding = Math.max(insets.top + 18, isTabletLayout ? 34 : 28);
   const scrollBottomPadding = isCategoryStep ? 24 : 22;
-  const footerBackgroundColor = isCategoryStep ? "#FFFFFF" : Colors.bgGradientEnd;
+  const footerBackgroundColor = isCategoryStep ? Colors.cardBg : Colors.bgGradientEnd;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -327,6 +351,7 @@ export default function OnboardingScreen() {
     if (!isInitializing) {
       saveOnboardingState();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     currentStep,
     businessName,
@@ -362,6 +387,7 @@ export default function OnboardingScreen() {
     }, 500);
 
     return () => clearTimeout(delay);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchText, isManualAddress]);
 
   const applyLocationDetails = useCallback((details: LocationDetails) => {
@@ -529,11 +555,11 @@ export default function OnboardingScreen() {
 
   const validateStep2 = () => {
     if (!primaryCategoryId) {
-      setStep2Error("Please select 3 categories.");
+      setStep2Error("Please select a primary category.");
       return false;
     }
     if (relatedCategoryIds.length < REQUIRED_RELATED_CATEGORY_COUNT) {
-      setStep2Error("Please select 3 categories.");
+      setStep2Error(`Please select ${REQUIRED_RELATED_CATEGORY_COUNT} related categories.`);
       return false;
     }
     setStep2Error(null);
@@ -572,6 +598,10 @@ export default function OnboardingScreen() {
     } else {
       if (!location || !location.address) {
         setStep4Error("Please search and select a location from the suggestions.");
+        return false;
+      }
+      if (!location.city) {
+        setStep4Error("The selected location is missing a city. Please try another search result, or enter details manually.");
         return false;
       }
       setStep4Error(null);
@@ -742,24 +772,24 @@ export default function OnboardingScreen() {
 
   return (
     <LinearGradient
-      colors={isCategoryStep ? ["#FFFFFF", "#FFFFFF"] : [Colors.bgGradientStart, Colors.bgGradientEnd]}
+      colors={isCategoryStep ? [Colors.cardBg, Colors.cardBg] : [Colors.bgGradientStart, Colors.bgGradientEnd]}
       style={styles.container}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
     >
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.bgGradientStart} />
+      <StatusBar barStyle={Colors.statusBarStyle} backgroundColor={Colors.bgGradientStart} />
 
       {/* Background glow blobs */}
       {!isCategoryStep && (
         <View pointerEvents="none" style={styles.blurContainer}>
           <LinearGradient
-            colors={["rgba(73, 106, 93, 0.12)", "transparent"]}
+            colors={["rgba(28, 25, 23, 0.08)", "transparent"]}
             style={[styles.glowBlob, styles.glowPista]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           />
           <LinearGradient
-            colors={["rgba(199, 168, 109, 0.14)", "transparent"]}
+            colors={["rgba(175, 167, 157, 0.14)", "transparent"]}
             style={[styles.glowBlob, styles.glowCream]}
             start={{ x: 1, y: 1 }}
             end={{ x: 0, y: 0 }}
@@ -1400,7 +1430,7 @@ export default function OnboardingScreen() {
                   isSubmitting ||
                   (currentStep === 2 &&
                     (!primaryCategoryId || relatedCategoryIds.length !== REQUIRED_RELATED_CATEGORY_COUNT))
-                    ? ["#D9E1DD", "#D9E1DD"]
+                    ? ["#E7E2D9", "#E7E2D9"]
                     : [Colors.primaryDark, Colors.primary]
                 }
                 start={{ x: 0, y: 0 }}
@@ -1426,7 +1456,7 @@ export default function OnboardingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: OnboardingColors) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -1473,7 +1503,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 36,
     paddingBottom: 32,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.08,
     shadowRadius: 28,
@@ -1503,7 +1533,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "700",
     color: Colors.text,
-    letterSpacing: 0.5,
+    letterSpacing: 0,
   },
   tagline: {
     fontSize: 12,
@@ -1596,7 +1626,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   categoryStepTitle: {
-    color: "#172D25",
+    color: "#1C1917",
     fontSize: 30,
     fontWeight: "800",
     lineHeight: 36,
@@ -1611,7 +1641,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.textSecondary,
     marginBottom: 6,
-    letterSpacing: 0.1,
+    letterSpacing: 0,
   },
   infoLabel: {
     fontSize: 13,
@@ -1627,7 +1657,7 @@ const styles = StyleSheet.create({
     height: 54,
     justifyContent: "center",
     marginBottom: 16,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.14,
     shadowRadius: 16,
@@ -1685,7 +1715,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.errorBg,
-    borderColor: "rgba(214, 91, 91, 0.22)",
+    borderColor: "rgba(114, 106, 99, 0.18)",
     borderRadius: 16,
     borderWidth: 1,
     marginBottom: 16,
@@ -1694,7 +1724,7 @@ const styles = StyleSheet.create({
   },
   errorContainerMini: {
     backgroundColor: Colors.errorBg,
-    borderColor: "rgba(214, 91, 91, 0.15)",
+    borderColor: "rgba(114, 106, 99, 0.15)",
     borderRadius: 12,
     borderWidth: 1,
     marginTop: 6,
@@ -1712,7 +1742,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   categoryIntro: {
-    color: "#60736B",
+    color: "#726A63",
     fontSize: 14,
     fontWeight: "500",
     lineHeight: 21,
@@ -1817,7 +1847,7 @@ const styles = StyleSheet.create({
   locationVerifiedContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(75, 143, 104, 0.08)",
+    backgroundColor: "rgba(28, 25, 23, 0.08)",
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -1898,7 +1928,7 @@ const styles = StyleSheet.create({
   },
   referralItemActive: {
     borderColor: Colors.secondary,
-    backgroundColor: "rgba(109, 143, 129, 0.05)",
+    backgroundColor: "rgba(28, 25, 23, 0.05)",
   },
   radioCircle: {
     width: 20,
@@ -1928,7 +1958,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingTop: 16,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: -6 },
     shadowOpacity: 0.08,
     shadowRadius: 16,
@@ -1942,7 +1972,7 @@ const styles = StyleSheet.create({
   backButton: {
     alignItems: "center",
     backgroundColor: "#FFFFFF",
-    borderColor: "#E1E8E4",
+    borderColor: "#E7E2D9",
     borderRadius: 18,
     borderWidth: 1,
     flex: 1,
@@ -1984,6 +2014,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: "#FFFFFF",
-    letterSpacing: 0.5,
+    letterSpacing: 0,
   },
 });

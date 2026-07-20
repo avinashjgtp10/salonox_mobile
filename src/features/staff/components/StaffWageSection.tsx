@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { StaffSectionCard } from "@/features/staff/components/StaffSectionCard";
 import { StaffStateView } from "@/features/staff/components/StaffStateView";
@@ -19,6 +19,7 @@ import {
   selectStaffWageSaveError,
   selectStaffWageSaving,
 } from "@/store/staff/staffWages.slice";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import { isValidStaffId } from "@/utils/staffIds";
 
 type StaffWageSectionProps = {
@@ -28,6 +29,8 @@ type StaffWageSectionProps = {
 const WAGE_TYPES = ["monthly", "hourly", "commission_only", "hybrid"] as const;
 
 export function StaffWageSection({ staffId }: StaffWageSectionProps) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const wage = useAppSelector((state) => selectStaffWage(state, staffId));
   const loaded = useAppSelector((state) => selectStaffWageLoaded(state, staffId));
@@ -167,7 +170,7 @@ export function StaffWageSection({ staffId }: StaffWageSectionProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   typeGrid: {
     flexDirection: "row",
     flexWrap: "wrap",

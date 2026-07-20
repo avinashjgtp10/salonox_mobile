@@ -1,14 +1,17 @@
 import { Image } from 'expo-image';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import Animated, { Easing, Keyframe, runOnJS } from 'react-native-reanimated';
 
-import { SageGold } from '@/constants/theme';
+import type { ThemeColors } from '@/constants/theme';
+import { useThemeColors } from '@/theme/ThemeProvider';
 
 const INITIAL_SCALE_FACTOR = Dimensions.get('screen').height / 90;
 const DURATION = 600;
 
 export function AnimatedSplashOverlay() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [visible, setVisible] = useState(true);
 
   if (!visible) return null;
@@ -82,6 +85,9 @@ const glowKeyframe = new Keyframe({
 });
 
 export function AnimatedIcon() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.iconContainer}>
       <Animated.View entering={glowKeyframe.duration(60 * 1000 * 4)} style={styles.glow}>
@@ -96,7 +102,7 @@ export function AnimatedIcon() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   imageContainer: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -120,14 +126,14 @@ const styles = StyleSheet.create({
   },
   background: {
     borderRadius: 40,
-    experimental_backgroundImage: `linear-gradient(180deg, ${SageGold.primary}, ${SageGold.primaryDark})`,
+    experimental_backgroundImage: `linear-gradient(180deg, ${Colors.primary}, ${Colors.primaryDark})`,
     width: 128,
     height: 128,
     position: 'absolute',
   },
   backgroundSolidColor: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: SageGold.background,
+    backgroundColor: Colors.bg,
     zIndex: 1000,
   },
 });

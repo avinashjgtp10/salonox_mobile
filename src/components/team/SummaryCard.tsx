@@ -1,15 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import type { TeamSummaryItem } from "@/data/teamData";
+import { useThemeColors } from "@/theme/ThemeProvider";
 
 type SummaryCardProps = {
   index: number;
@@ -17,6 +18,9 @@ type SummaryCardProps = {
 };
 
 function SummaryCardComponent({ index, item }: SummaryCardProps) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <Animated.View
       entering={FadeInDown.duration(240).delay(Math.min(index * 40, 160))}
@@ -38,7 +42,7 @@ function SummaryCardComponent({ index, item }: SummaryCardProps) {
 
 export const SummaryCard = memo(SummaryCardComponent);
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   card: {
     backgroundColor: Colors.card,
     borderColor: Colors.border,
@@ -46,7 +50,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     minHeight: AppLayout.summaryCardMinHeight,
     padding: AppLayout.cardPadding,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,

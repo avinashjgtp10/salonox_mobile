@@ -1,10 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { useEffect, useMemo } from "react";
-import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppLayout, AppRadius } from "@/constants/layout";
+import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import {
+  DashboardRadius as Radius,
+  DashboardSpacing as Spacing,
+  type ThemeColors,
+} from "@/constants/theme";
 import { fetchServiceByIdThunk } from "@/middleware/service/service.thunk";
 import {
   selectServiceById,
@@ -12,11 +18,7 @@ import {
   selectServiceDetailsLoading,
 } from "@/store/service/service.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import {
-  DashboardColors as Colors,
-  DashboardRadius as Radius,
-  DashboardSpacing as Spacing,
-} from "@/constants/theme";
+import { useThemeColors } from "@/theme/ThemeProvider";
 
 function formatPrice(price: number) {
   return `₹${price.toLocaleString("en-IN")}`;
@@ -45,6 +47,9 @@ function formatCreatedDate(createdAt: string | null) {
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.detailRow}>
       <Text style={styles.detailLabel}>{label}</Text>
@@ -54,6 +59,9 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 }
 
 function Section({ children, title }: { children: React.ReactNode; title: string }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.sectionCard}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -63,6 +71,8 @@ function Section({ children, title }: { children: React.ReactNode; title: string
 }
 
 export default function ServiceDetailsScreen() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id?: string }>();
   const dispatch = useAppDispatch();
 
@@ -104,7 +114,7 @@ export default function ServiceDetailsScreen() {
   if (detailsLoading) {
     return (
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+        <AppStatusBar />
         <View style={styles.notFoundWrap}>
           <View style={styles.headerRow}>
             <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.backButton}>
@@ -124,7 +134,7 @@ export default function ServiceDetailsScreen() {
   if (detailsError) {
     return (
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+        <AppStatusBar />
         <View style={styles.notFoundWrap}>
           <View style={styles.headerRow}>
             <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.backButton}>
@@ -145,7 +155,7 @@ export default function ServiceDetailsScreen() {
   if (!service) {
     return (
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+        <AppStatusBar />
         <View style={styles.notFoundWrap}>
           <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.backButton}>
             <Ionicons name="chevron-back" size={18} color={Colors.primary} />
@@ -163,7 +173,7 @@ export default function ServiceDetailsScreen() {
 
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+      <AppStatusBar />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
           <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.backButton}>
@@ -224,7 +234,7 @@ export default function ServiceDetailsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     backgroundColor: Colors.bg,
     flex: 1,
@@ -261,7 +271,7 @@ const styles = StyleSheet.create({
     borderRadius: AppRadius.card,
     borderWidth: 1,
     padding: AppLayout.cardPadding + Spacing.sm,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
@@ -289,10 +299,10 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   statusBadgeActive: {
-    backgroundColor: "#EAF5EF",
+    backgroundColor: "#F2EFE9",
   },
   statusBadgeInactive: {
-    backgroundColor: "#FEECEC",
+    backgroundColor: "#F2EFE9",
   },
   statusBadgeText: {
     fontSize: 11,

@@ -1,9 +1,11 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 
+import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
+import { fetchUnreadCountThunk } from "@/middleware/notification/notification.thunk";
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import { appointmentService } from "@/services/appointment.service";
 import type { RootState } from "@/store";
-import { selectCurrentUser } from "@/store/user/user.slice";
+import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import type {
   AppointmentDetailResponse,
   AppointmentHistoryResponse,
@@ -46,7 +48,7 @@ const logAppointmentError = (label: string, error: unknown, extra?: Record<strin
   return rejectValue;
 };
 
-const getSalonId = (state: RootState) => selectCurrentUser(state)?.salonId;
+const getSalonId = (state: RootState) => selectActiveBranchId(state);
 
 export const fetchAppointmentsThunk = createAsyncThunk<
   AppointmentListResponse,
@@ -64,7 +66,7 @@ export const fetchAppointmentsThunk = createAsyncThunk<
     sort_by: args?.sort_by ?? appointmentState.query.sort_by,
     sort_order: args?.sort_order ?? appointmentState.query.sort_order,
     staff_id: args?.staff_id ?? appointmentState.query.staff_id,
-    status: args?.status ?? appointmentState.query.status,
+    status: args && "status" in args ? args.status : appointmentState.query.status,
     to_date: args?.to_date ?? appointmentState.query.to_date,
   };
 
@@ -91,7 +93,7 @@ export const createAppointmentThunk = createAsyncThunk<
   AppointmentMutationResponse,
   Omit<CreateAppointmentRequest, "salon_id">,
   { rejectValue: AppointmentRejectValue; state: RootState }
->("appointment/createAppointment", async (appointmentPayload, { getState, rejectWithValue }) => {
+>("appointment/createAppointment", async (appointmentPayload, { dispatch, getState, rejectWithValue }) => {
   try {
     const salonId = getSalonId(getState());
     const payload: CreateAppointmentRequest = {
@@ -99,7 +101,15 @@ export const createAppointmentThunk = createAsyncThunk<
       ...(salonId ? { salon_id: salonId } : {}),
     };
 
-    return await appointmentService.createAppointment(payload);
+    const response = await appointmentService.createAppointment(payload);
+
+    // The backend fires a "New Appointment Booked" notification on create —
+    // refresh the badge so it doesn't wait for the next foreground/focus tick.
+    void dispatch(fetchUnreadCountThunk());
+    void dispatch(fetchDashboardThunk());
+    void dispatch(fetchAppointmentsThunk({ ...getState().appointment.query, refresh: true }));
+
+    return response;
   } catch (error) {
     return rejectWithValue(logAppointmentError("Create failed", error));
   }
@@ -109,7 +119,7 @@ export const updateAppointmentThunk = createAsyncThunk<
   AppointmentMutationResponse,
   { appointmentId: string; updates: Omit<UpdateAppointmentRequest, "salon_id"> },
   { rejectValue: AppointmentRejectValue; state: RootState }
->("appointment/updateAppointment", async ({ appointmentId, updates }, { getState, rejectWithValue }) => {
+>("appointment/updateAppointment", async ({ appointmentId, updates }, { dispatch, getState, rejectWithValue }) => {
   try {
     const salonId = getSalonId(getState());
     const payload: UpdateAppointmentRequest = {
@@ -117,7 +127,13 @@ export const updateAppointmentThunk = createAsyncThunk<
       ...(salonId ? { salon_id: salonId } : {}),
     };
 
-    return await appointmentService.updateAppointment(appointmentId, payload);
+    const response = await appointmentService.updateAppointment(appointmentId, payload);
+
+    void dispatch(fetchDashboardThunk());
+    void dispatch(fetchAppointmentByIdThunk(appointmentId));
+    void dispatch(fetchAppointmentsThunk({ ...getState().appointment.query, refresh: true }));
+
+    return response;
   } catch (error) {
     return rejectWithValue(logAppointmentError("Update failed", error, { appointmentId }));
   }
@@ -143,6 +159,9 @@ export const cancelAppointmentThunk = createAsyncThunk<
         refresh: true,
       }),
     );
+    // The backend fires an "Appointment Cancelled" notification here too.
+    void dispatch(fetchUnreadCountThunk());
+    void dispatch(fetchDashboardThunk());
 
     return response;
   } catch (error) {
@@ -154,9 +173,15 @@ export const rescheduleAppointmentThunk = createAsyncThunk<
   AppointmentMutationResponse,
   { appointmentId: string; updates: RescheduleAppointmentRequest },
   { rejectValue: AppointmentRejectValue; state: RootState }
->("appointment/rescheduleAppointment", async ({ appointmentId, updates }, { rejectWithValue }) => {
+>("appointment/rescheduleAppointment", async ({ appointmentId, updates }, { dispatch, getState, rejectWithValue }) => {
   try {
-    return await appointmentService.rescheduleAppointment(appointmentId, updates);
+    const response = await appointmentService.rescheduleAppointment(appointmentId, updates);
+
+    void dispatch(fetchAppointmentByIdThunk(appointmentId));
+    void dispatch(fetchAppointmentsThunk({ ...getState().appointment.query, refresh: true }));
+    void dispatch(fetchDashboardThunk());
+
+    return response;
   } catch (error) {
     return rejectWithValue(logAppointmentError("Reschedule failed", error, { appointmentId }));
   }
@@ -178,6 +203,7 @@ export const confirmAppointmentThunk = createAsyncThunk<
         refresh: true,
       }),
     );
+    void dispatch(fetchDashboardThunk());
 
     return response;
   } catch (error) {
@@ -201,10 +227,35 @@ export const startAppointmentThunk = createAsyncThunk<
         refresh: true,
       }),
     );
+    void dispatch(fetchDashboardThunk());
 
     return response;
   } catch (error) {
     return rejectWithValue(logAppointmentError("Start failed", error, { appointmentId }));
+  }
+});
+
+export const completeAppointmentThunk = createAsyncThunk<
+  AppointmentMutationResponse,
+  string,
+  { rejectValue: AppointmentRejectValue; state: RootState }
+>("appointment/completeAppointment", async (appointmentId, { dispatch, getState, rejectWithValue }) => {
+  try {
+    const response = await appointmentService.completeAppointment(appointmentId);
+    const query = getState().appointment.query;
+
+    void dispatch(fetchAppointmentByIdThunk(appointmentId));
+    void dispatch(
+      fetchAppointmentsThunk({
+        ...query,
+        refresh: true,
+      }),
+    );
+    void dispatch(fetchDashboardThunk());
+
+    return response;
+  } catch (error) {
+    return rejectWithValue(logAppointmentError("Complete failed", error, { appointmentId }));
   }
 });
 

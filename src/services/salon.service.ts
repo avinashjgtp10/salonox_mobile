@@ -1,4 +1,5 @@
 import { api } from "@/services/api";
+import { timeStartup } from "@/services/startupPerformance";
 import type { ApiResponse } from "@/types/auth";
 import type {
   CreateSalonRequest,
@@ -37,6 +38,14 @@ const SALON_CREATE_ENDPOINT = "/salons";
 const SALON_LIST_ENDPOINT = "/salons";
 const SALON_ME_ENDPOINT = "/salons/me";
 const SALON_UPDATE_ENDPOINT = "/salons";
+
+let cachedSalonMe: SalonListItem | null = null;
+let salonMePromise: Promise<SalonListItem> | null = null;
+
+export const clearSalonMeCache = () => {
+  cachedSalonMe = null;
+  salonMePromise = null;
+};
 
 const toSafeString = (value: unknown, fallback = "") => {
   if (typeof value === "string") {
@@ -136,7 +145,7 @@ const normalizeSalon = (salon: SalonApiItem): SalonListItem => {
     countryCode: toSafeString(salon.country_code),
     createdAt: toSafeString(salon.created_at) || null,
     email: toSafeString(salon.email),
-    id: toSafeString(salon.id, getSlug(name) || "salon"),
+    id: toSafeString(salon.id ?? salon._id ?? salon.salonId ?? salon.salon_id, getSlug(name) || "salon"),
     isActive: toOptionalBoolean(salon.is_active),
     name,
     ownerId: toSafeString(salon.owner_id) || null,
@@ -225,9 +234,12 @@ export const mapSalonFormFieldsToUpdateRequest = (
 };
 
 export const salonService = {
+  clearSalonMeCache,
+
   async createSalon(payload: CreateSalonRequest): Promise<CreateSalonResponse> {
     const response = await api.post<CreateSalonApiResponse>(SALON_CREATE_ENDPOINT, payload);
     const salon = normalizeSalon(getCreatedSalon(response.data.data));
+    cachedSalonMe = salon;
 
     return {
       message: response.data.message,
@@ -236,10 +248,26 @@ export const salonService = {
   },
 
   async getSalonMe(): Promise<GetSalonResponse> {
-    const response = await api.get<GetSalonApiResponse>(SALON_ME_ENDPOINT);
-    const salon = normalizeSalon(getCreatedSalon(response.data.data));
+    if (cachedSalonMe) {
+      return cachedSalonMe;
+    }
 
-    return salon;
+    if (!salonMePromise) {
+      salonMePromise = timeStartup("/salons/me", () =>
+        api.get<GetSalonApiResponse>(SALON_ME_ENDPOINT),
+      )
+        .then((response) => {
+          const salon = normalizeSalon(getCreatedSalon(response.data.data));
+          cachedSalonMe = salon;
+
+          return salon;
+        })
+        .finally(() => {
+          salonMePromise = null;
+        });
+    }
+
+    return salonMePromise;
   },
 
   async getSalons(query: SalonListQuery): Promise<SalonListResponse> {
@@ -268,6 +296,7 @@ export const salonService = {
       payload,
     );
     const salon = normalizeSalon(getCreatedSalon(response.data.data));
+    cachedSalonMe = salon;
 
     return {
       message: response.data.message,

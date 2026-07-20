@@ -1,12 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -15,11 +14,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { fetchServiceByIdThunk, fetchServicesThunk, updateServiceThunk } from "@/middleware/service/service.thunk";
 import {
@@ -31,6 +31,7 @@ import {
   selectServicesQuery,
 } from "@/store/service/service.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { useThemeColors } from "@/theme/ThemeProvider";
 
 const getRejectedMessage = (payload: unknown, fallback: string) => {
   if (payload && typeof payload === "object" && "message" in payload) {
@@ -45,6 +46,8 @@ const getRejectedMessage = (payload: unknown, fallback: string) => {
 };
 
 export default function EditServiceScreen() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id?: string }>();
   const dispatch = useAppDispatch();
 
@@ -176,7 +179,7 @@ export default function EditServiceScreen() {
   if (detailsLoading && !liveService) {
     return (
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+        <AppStatusBar />
         <View style={styles.centeredWrap}>
           <View style={styles.headerRow}>
             <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.backButton}>
@@ -196,7 +199,7 @@ export default function EditServiceScreen() {
   if (detailsError && !liveService) {
     return (
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+        <AppStatusBar />
         <View style={styles.centeredWrap}>
           <View style={styles.headerRow}>
             <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.backButton}>
@@ -216,7 +219,7 @@ export default function EditServiceScreen() {
 
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+      <AppStatusBar />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.flex}
@@ -348,7 +351,7 @@ export default function EditServiceScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   flex: {
     flex: 1,
   },
@@ -384,7 +387,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     height: AppLayout.headerActionSize,
     justifyContent: "center",
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.05,
     shadowRadius: 14,
@@ -404,7 +407,7 @@ const styles = StyleSheet.create({
     borderRadius: AppRadius.card,
     borderWidth: 1,
     padding: AppLayout.cardPadding,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
@@ -449,7 +452,7 @@ const styles = StyleSheet.create({
   errorContainer: {
     alignItems: "center",
     backgroundColor: Colors.errorBg,
-    borderColor: "rgba(214, 91, 91, 0.22)",
+    borderColor: "rgba(114, 106, 99, 0.18)",
     borderRadius: AppRadius.control,
     borderWidth: 1,
     flexDirection: "row",
@@ -468,7 +471,7 @@ const styles = StyleSheet.create({
   successContainer: {
     alignItems: "center",
     backgroundColor: Colors.successBg,
-    borderColor: "rgba(75, 143, 104, 0.22)",
+    borderColor: "rgba(28, 25, 23, 0.12)",
     borderRadius: AppRadius.control,
     borderWidth: 1,
     flexDirection: "row",

@@ -1,12 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router, type Href } from "expo-router";
-import { useState } from "react";
+import { router, useLocalSearchParams, type Href } from "expo-router";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -15,19 +14,36 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
-import { createClientThunk, fetchClientsThunk } from "@/middleware/client/client.thunk";
 import {
+  createClientThunk,
+  filterClientsThunk,
+  fetchClientByIdThunk,
+  fetchClientsThunk,
+  searchClientsThunk,
+  updateClientThunk,
+} from "@/middleware/client/client.thunk";
+import {
+  selectClientById,
   selectClientCreateError,
   selectClientCreating,
+  selectClientDetailsError,
+  selectClientDetailsLoading,
+  selectClientUpdateError,
+  selectClientUpdating,
+  selectClientsActiveFilter,
   selectClientsQuery,
 } from "@/store/client/client.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { useThemeColors } from "@/theme/ThemeProvider";
+import { EMAIL_INVALID_MESSAGE, isValidEmail, isValidPhoneDigits, PHONE_INVALID_MESSAGE } from "@/utils/validation";
+import { splitFullName } from "@/utils/name";
 
 const GENDER_OPTIONS = ["Female", "Male", "Other"] as const;
 
@@ -44,10 +60,20 @@ const getRejectedMessage = (payload: unknown, fallback: string) => {
 };
 
 export default function NewClientScreen() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const { id, returnTo } = useLocalSearchParams<{ id?: string; returnTo?: string }>();
   const dispatch = useAppDispatch();
+  const client = useAppSelector((state) => selectClientById(state, id));
   const clientCreating = useAppSelector(selectClientCreating);
   const clientCreateError = useAppSelector(selectClientCreateError);
+  const clientDetailsError = useAppSelector(selectClientDetailsError);
+  const clientDetailsLoading = useAppSelector(selectClientDetailsLoading);
+  const clientUpdateError = useAppSelector(selectClientUpdateError);
+  const clientUpdating = useAppSelector(selectClientUpdating);
+  const clientsActiveFilter = useAppSelector(selectClientsActiveFilter);
   const clientsQuery = useAppSelector(selectClientsQuery);
+  const hasPrefilledRef = useRef(false);
 
   const [email, setEmail] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
@@ -57,8 +83,29 @@ export default function NewClientScreen() {
   const [phone, setPhone] = useState("");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const isSubmitting = clientCreating || isFinishing;
-  const displayedError = formError ?? clientCreateError;
+  const isEditMode = Boolean(id);
+  const isSubmitting = clientCreating || clientUpdating || isFinishing;
+  const displayedError = formError ?? (isEditMode ? clientUpdateError : clientCreateError);
+
+  useEffect(() => {
+    if (id) {
+      void dispatch(fetchClientByIdThunk(id));
+    }
+  }, [dispatch, id]);
+
+  useEffect(() => {
+    if (!hasPrefilledRef.current && client) {
+      setFullName(client.fullName);
+      setPhone(client.phone === "-" ? "" : client.phone);
+      setEmail(client.email === "-" ? "" : client.email);
+      setGender(
+        GENDER_OPTIONS.includes(client.gender as (typeof GENDER_OPTIONS)[number])
+          ? (client.gender as (typeof GENDER_OPTIONS)[number])
+          : "",
+      );
+      hasPrefilledRef.current = true;
+    }
+  }, [client]);
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -87,14 +134,50 @@ export default function NewClientScreen() {
       return;
     }
 
-    const resultAction = await dispatch(
-      createClientThunk({
-        ...(trimmedEmail ? { email: trimmedEmail } : {}),
-        full_name: trimmedFullName,
-        ...(gender ? { gender } : {}),
-        phone: trimmedPhone,
-      }),
-    );
+    if (!isValidPhoneDigits(trimmedPhone)) {
+      setFormError(PHONE_INVALID_MESSAGE);
+      return;
+    }
+
+    if (trimmedEmail && !isValidEmail(trimmedEmail)) {
+      setFormError(EMAIL_INVALID_MESSAGE);
+      return;
+    }
+
+    const namePayload = splitFullName(trimmedFullName);
+    const clientPayload = {
+      ...(trimmedEmail ? { email: trimmedEmail } : {}),
+      first_name: namePayload.first_name,
+      ...(gender ? { gender } : {}),
+      last_name: namePayload.last_name,
+      phone: trimmedPhone,
+    };
+
+    if (id) {
+      const resultAction = await dispatch(
+        updateClientThunk({ clientId: id, updates: clientPayload }),
+      );
+
+      if (updateClientThunk.rejected.match(resultAction)) {
+        setFormError(getRejectedMessage(resultAction.payload, "Unable to update client."));
+        return;
+      }
+
+      setSuccessMessage(resultAction.payload.message ?? "Client updated successfully.");
+      setIsFinishing(true);
+
+      setTimeout(() => {
+        if (returnTo === "booking") {
+          router.replace({ pathname: "/bookings/new", params: { clientId: id } } as Href);
+        } else {
+          handleBack();
+        }
+        setIsFinishing(false);
+      }, 650);
+      return;
+    }
+
+    const resultAction = await dispatch(createClientThunk(clientPayload));
 
     if (createClientThunk.rejected.match(resultAction)) {
       setFormError(getRejectedMessage(resultAction.payload, "Unable to create client."));
@@ -105,28 +188,63 @@ export default function NewClientScreen() {
     setIsFinishing(true);
 
     try {
-      await dispatch(
-        fetchClientsThunk({
-          inactive: clientsQuery.inactive,
-          limit: clientsQuery.limit,
-          offset: 0,
-          reset: true,
-          search: clientsQuery.search,
-          sort_by: clientsQuery.sort_by,
-          sort_order: clientsQuery.sort_order,
-        }),
-      );
+      const refreshArgs = {
+        inactive: clientsQuery.inactive,
+        limit: clientsQuery.limit,
+        offset: 0,
+        reset: true,
+        search: clientsQuery.search,
+        sort_by: clientsQuery.sort_by,
+        sort_order: clientsQuery.sort_order,
+      };
+
+      if (clientsActiveFilter) {
+        await dispatch(filterClientsThunk({ ...refreshArgs, filter: clientsActiveFilter }));
+      } else if (clientsQuery.search) {
+        await dispatch(searchClientsThunk(refreshArgs));
+      } else {
+        await dispatch(fetchClientsThunk(refreshArgs));
+      }
     } finally {
       setTimeout(() => {
-        handleBack();
+        if (returnTo === "booking") {
+          router.replace({ pathname: "/bookings/new", params: { clientId: resultAction.payload.client.id } } as Href);
+        } else {
+          handleBack();
+        }
         setIsFinishing(false);
       }, 650);
     }
   };
 
+  if (isEditMode && clientDetailsLoading && !client) {
+    return (
+      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+        <AppStatusBar />
+        <View style={styles.loadingState}>
+          <ActivityIndicator color={Colors.primary} size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (isEditMode && clientDetailsError && !client) {
+    return (
+      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+        <AppStatusBar />
+        <View style={styles.loadingState}>
+          <Text style={styles.errorText}>{clientDetailsError}</Text>
+          <TouchableOpacity activeOpacity={0.85} onPress={handleBack} style={styles.submitButton}>
+            <Text style={styles.submitButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+      <AppStatusBar />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.flex}
@@ -145,13 +263,17 @@ export default function NewClientScreen() {
             >
               <Ionicons name="chevron-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>New Client</Text>
+            <Text style={styles.headerTitle}>{isEditMode ? "Edit Client" : "New Client"}</Text>
             <View style={styles.backButtonPlaceholder} />
           </View>
 
           <View style={styles.formCard}>
             <View style={styles.iconWrap}>
-              <Ionicons name="person-add-outline" size={24} color={Colors.primary} />
+              <Ionicons
+                name={isEditMode ? "create-outline" : "person-add-outline"}
+                size={24}
+                color={Colors.primary}
+              />
             </View>
 
             <View style={styles.inputGroup}>
@@ -264,7 +386,7 @@ export default function NewClientScreen() {
                 <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
               )}
               <Text style={styles.submitButtonText}>
-                {isSubmitting ? "Saving..." : "Save Client"}
+                {isSubmitting ? "Saving..." : isEditMode ? "Update Client" : "Save Client"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -274,7 +396,7 @@ export default function NewClientScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   flex: {
     flex: 1,
   },
@@ -286,6 +408,13 @@ const styles = StyleSheet.create({
     paddingBottom: AppLayout.contentBottomPadding,
     paddingHorizontal: AppLayout.contentHorizontalPadding,
     paddingTop: Spacing.sm,
+  },
+  loadingState: {
+    alignItems: "center",
+    flex: 1,
+    gap: Spacing.lg,
+    justifyContent: "center",
+    paddingHorizontal: AppLayout.contentHorizontalPadding,
   },
   headerRow: {
     alignItems: "center",
@@ -301,7 +430,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     height: AppLayout.headerActionSize,
     justifyContent: "center",
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.05,
     shadowRadius: 14,
@@ -321,7 +450,7 @@ const styles = StyleSheet.create({
     borderRadius: AppRadius.card,
     borderWidth: 1,
     padding: AppLayout.cardPadding,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
@@ -393,7 +522,7 @@ const styles = StyleSheet.create({
   errorContainer: {
     alignItems: "center",
     backgroundColor: Colors.errorBg,
-    borderColor: "rgba(214, 91, 91, 0.22)",
+    borderColor: "rgba(114, 106, 99, 0.18)",
     borderRadius: AppRadius.control,
     borderWidth: 1,
     flexDirection: "row",
@@ -412,7 +541,7 @@ const styles = StyleSheet.create({
   successContainer: {
     alignItems: "center",
     backgroundColor: Colors.successBg,
-    borderColor: "rgba(75, 143, 104, 0.22)",
+    borderColor: "rgba(28, 25, 23, 0.12)",
     borderRadius: AppRadius.control,
     borderWidth: 1,
     flexDirection: "row",

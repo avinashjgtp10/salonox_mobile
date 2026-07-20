@@ -1,19 +1,23 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
 import { router, type Href } from "expo-router";
-import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { DeleteAccountModal } from "@/components/account/DeleteAccountModal";
+import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { Badge } from "@/components/ui/Badge";
+import { InitialsAvatar } from "@/components/ui/InitialsAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { getApiErrorMessage } from "@/services/api";
 import { authService } from "@/services/authService";
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { useAppSelector } from "@/store/hooks";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import {
   getUserAddressLine,
@@ -22,7 +26,7 @@ import {
   getUserInitials,
   getUserRoleLabel,
 } from "@/utils/userProfile";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 const MENU_ITEMS = [
   {
@@ -36,6 +40,12 @@ const MENU_ITEMS = [
     icon: "pricetags-outline" as const,
     route: "/services" as Href,
     title: "Services",
+  },
+  {
+    description: "Create premium plans, benefits, validity, and online redemption rules.",
+    icon: "diamond-outline" as const,
+    route: "/memberships" as Href,
+    title: "Memberships",
   },
   {
     description: "View and search every user across your organisation.",
@@ -62,14 +72,22 @@ const MENU_ITEMS = [
     title: "Salon Settings",
   },
   {
-    description: "Keep your front desk calm with quick access to stock and operational shortcuts.",
+    description: "Manage products, brands, pricing, and stock levels.",
     icon: "layers-outline" as const,
     route: "/stock" as Href,
-    title: "Operations",
+    title: "Products",
+  },
+  {
+    description: "Switch between light, dark, or your device's theme.",
+    icon: "moon-outline" as const,
+    route: "/appearance" as Href,
+    title: "Appearance",
   },
 ];
 
 export default function MoreScreen() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { deleteAccount, signOut, signOutAll } = useAuth();
   const currentUser = useAppSelector(selectCurrentUser);
   const fullName = getUserFullName(currentUser);
@@ -82,6 +100,8 @@ export default function MoreScreen() {
   const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
   const isBusy = isLoggingOut || isLoggingOutAll || isSendingOtp || isDeletingAccount;
 
   const handleLogout = async () => {
@@ -153,27 +173,37 @@ export default function MoreScreen() {
       return;
     }
 
-    Alert.alert(
-      "Delete account",
-      "This permanently deletes your account and cannot be undone. Continue?",
-      [
-        { style: "cancel", text: "Cancel" },
-        {
-          onPress: async () => {
-            setIsDeletingAccount(true);
-            try {
-              await deleteAccount();
-            } catch (error) {
-              Alert.alert("Unable to delete account", getApiErrorMessage(error));
-            } finally {
-              setIsDeletingAccount(false);
-            }
-          },
-          style: "destructive",
-          text: "Delete",
-        },
-      ],
-    );
+    setDeleteAccountError(null);
+    setIsDeleteModalVisible(true);
+  };
+
+  const handleCancelDeleteAccount = () => {
+    if (isDeletingAccount) {
+      return;
+    }
+
+    setIsDeleteModalVisible(false);
+    setDeleteAccountError(null);
+  };
+
+  const handleConfirmDeleteAccount = async () => {
+    if (isDeletingAccount) {
+      return;
+    }
+
+    setIsDeletingAccount(true);
+    setDeleteAccountError(null);
+
+    try {
+      await deleteAccount();
+
+      setIsDeleteModalVisible(false);
+      Alert.alert("Account deleted", "Your account has been permanently deleted.");
+    } catch (error) {
+      setDeleteAccountError(getApiErrorMessage(error));
+    } finally {
+      setIsDeletingAccount(false);
+    }
   };
 
   const accountActions = [
@@ -221,7 +251,7 @@ export default function MoreScreen() {
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+      <AppStatusBar />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>More</Text>
         <Text style={styles.subtitle}>
@@ -230,18 +260,12 @@ export default function MoreScreen() {
 
         <View style={styles.heroCard}>
           <View style={styles.profileRow}>
-            {currentUser?.avatarUrl ? (
-              <Image contentFit="cover" source={{ uri: currentUser.avatarUrl }} style={styles.profileAvatarImage} />
-            ) : (
-              <View style={styles.heroIcon}>
-                <Text style={styles.profileAvatarText}>{initials}</Text>
-              </View>
-            )}
+            <InitialsAvatar imageUri={currentUser?.avatarUrl} initials={initials} size={56} />
             <View style={styles.profileCopy}>
               <Text style={styles.heroTitle}>{fullName}</Text>
               <Text style={styles.heroText}>{businessName}</Text>
-              <View style={styles.roleBadge}>
-                <Text style={styles.roleBadgeText}>{roleLabel}</Text>
+              <View style={styles.roleBadgeWrap}>
+                <Badge bg={Colors.bg2} color={Colors.primaryDark} label={roleLabel} size="sm" />
               </View>
             </View>
           </View>
@@ -346,11 +370,19 @@ export default function MoreScreen() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <DeleteAccountModal
+        errorMessage={deleteAccountError}
+        isDeleting={isDeletingAccount}
+        onCancel={handleCancelDeleteAccount}
+        onConfirm={() => void handleConfirmDeleteAccount()}
+        visible={isDeleteModalVisible}
+      />
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     backgroundColor: Colors.bg,
     flex: 1,
@@ -373,12 +405,12 @@ const styles = StyleSheet.create({
   heroCard: {
     backgroundColor: Colors.card,
     borderColor: Colors.border,
-    borderRadius: AppRadius.card,
+    borderRadius: Radius.xxl,
     borderWidth: 1,
     marginTop: AppLayout.headerMarginBottom,
-    paddingHorizontal: AppLayout.cardPadding + Spacing.sm,
-    paddingVertical: AppLayout.cardPadding + Spacing.sm,
-    shadowColor: Colors.primaryDark,
+    paddingHorizontal: Spacing.xxxl,
+    paddingVertical: Spacing.xxxl,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
@@ -388,28 +420,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
   },
-  heroIcon: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.lg,
-    height: 56,
-    justifyContent: "center",
-    width: 56,
-  },
-  profileAvatarImage: {
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.lg,
-    height: 56,
-    width: 56,
-  },
   profileCopy: {
     flex: 1,
     marginLeft: Spacing.md,
-  },
-  profileAvatarText: {
-    color: Colors.primaryDark,
-    fontSize: 18,
-    fontWeight: "800",
   },
   heroTitle: {
     color: Colors.heading,
@@ -422,18 +435,9 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginTop: 2,
   },
-  roleBadge: {
+  roleBadgeWrap: {
     alignSelf: "flex-start",
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.full,
     marginTop: Spacing.sm,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  roleBadgeText: {
-    color: Colors.primaryDark,
-    fontSize: 11,
-    fontWeight: "800",
   },
   contactBlock: {
     borderTopColor: Colors.border,
@@ -496,7 +500,7 @@ const styles = StyleSheet.create({
   menuIcon: {
     alignItems: "center",
     backgroundColor: Colors.bg2,
-    borderRadius: Radius.md,
+    borderRadius: Radius.lg,
     height: 42,
     justifyContent: "center",
     width: 42,
@@ -520,7 +524,7 @@ const styles = StyleSheet.create({
     color: Colors.text2,
     fontSize: 11,
     fontWeight: "700",
-    letterSpacing: 0.6,
+    letterSpacing: 0,
     marginBottom: Spacing.sm,
     textTransform: "uppercase",
   },

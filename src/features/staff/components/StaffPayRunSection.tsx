@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { StaffSectionCard } from "@/features/staff/components/StaffSectionCard";
 import { StaffStateView } from "@/features/staff/components/StaffStateView";
@@ -19,6 +19,7 @@ import {
   selectPayRunsLoaded,
   selectPayRunsLoading,
 } from "@/store/staff/staffPayRuns.slice";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import { isValidStaffId } from "@/utils/staffIds";
 
 type StaffPayRunSectionProps = {
@@ -30,6 +31,8 @@ function formatCurrency(amount: number) {
 }
 
 export function StaffPayRunSection({ staffId }: StaffPayRunSectionProps) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const payRuns = useAppSelector((state) => selectPayRuns(state, staffId));
   const loaded = useAppSelector((state) => selectPayRunsLoaded(state, staffId));
@@ -172,7 +175,7 @@ export function StaffPayRunSection({ staffId }: StaffPayRunSectionProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   list: {
     gap: 10,
     marginBottom: Spacing.md,

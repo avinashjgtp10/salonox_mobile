@@ -3,9 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { StaffBottomSheet } from "@/features/staff/components/StaffBottomSheet";
 import { StaffSectionCard } from "@/features/staff/components/StaffSectionCard";
@@ -30,6 +30,7 @@ import {
   selectBlockedTimesLoading,
 } from "@/store/staff/staffBlockedTimes.slice";
 import { selectCurrentUser } from "@/store/user/user.slice";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import type { BlockedTimeEntry } from "@/types/staffBlockedTimes";
 import { isValidStaffId } from "@/utils/staffIds";
 import { canManageStaffLifecycle } from "@/utils/userProfile";
@@ -54,6 +55,8 @@ type BlockedTimeRowProps = {
 };
 
 function BlockedTimeRow({ blockedTime, canManage, onDelete, onEdit, staffId }: BlockedTimeRowProps) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const deleting = useAppSelector((state) =>
     selectBlockedTimeDeleting(state, staffId, blockedTime.id),
   );
@@ -94,6 +97,8 @@ function BlockedTimeRow({ blockedTime, canManage, onDelete, onEdit, staffId }: B
 }
 
 export function StaffBlockedTimeSection({ staffId }: StaffBlockedTimeSectionProps) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const currentUser = useAppSelector(selectCurrentUser);
   const canManage = canManageStaffLifecycle(currentUser?.role);
@@ -339,7 +344,7 @@ export function StaffBlockedTimeSection({ staffId }: StaffBlockedTimeSectionProp
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   addButton: {
     alignItems: "center",
     backgroundColor: Colors.primary,

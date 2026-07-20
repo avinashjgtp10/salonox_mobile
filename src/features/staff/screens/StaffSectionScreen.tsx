@@ -1,12 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
-import { ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useMemo } from "react";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
-  DashboardColors as Colors,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { EmergencyContactsSection } from "@/features/staff/components/EmergencyContactsSection";
 import { StaffAddressSection } from "@/features/staff/components/StaffAddressSection";
@@ -21,12 +23,15 @@ import { StaffWageSection } from "@/features/staff/components/StaffWageSection";
 import { STAFF_MODULE_SECTIONS } from "@/features/staff/constants/staffModule.constants";
 import type { StaffModuleSectionKey } from "@/features/staff/types/staffFeature.types";
 import { useStaffDetails } from "@/features/staff/hooks/useStaffDetails";
+import { useThemeColors } from "@/theme/ThemeProvider";
 
 type StaffSectionScreenProps = {
   sectionKey: StaffModuleSectionKey;
 };
 
 export function StaffSectionScreen({ sectionKey }: StaffSectionScreenProps) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id?: string }>();
   const section = STAFF_MODULE_SECTIONS.find((item) => item.key === sectionKey);
 
@@ -43,7 +48,7 @@ export function StaffSectionScreen({ sectionKey }: StaffSectionScreenProps) {
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+      <AppStatusBar />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.backButton}>
@@ -75,7 +80,7 @@ export function StaffSectionScreen({ sectionKey }: StaffSectionScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     backgroundColor: Colors.bg,
     flex: 1,

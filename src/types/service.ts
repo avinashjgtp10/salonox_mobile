@@ -1,6 +1,8 @@
 export type ServiceSortOrder = "asc" | "desc";
 
 export type ServiceListQuery = {
+  category?: string;
+  categoryId?: string;
   isActive?: boolean;
   limit: number;
   offset: number;
@@ -12,18 +14,44 @@ export type ServiceListQuery = {
 export type ServiceApiItem = {
   active?: boolean | null;
   amount?: number | string | null;
-  category?: string | null;
+  category?: ServiceApiCategory | string | null;
+  categoryId?: string | number | null;
+  category_id?: string | number | null;
+  category_name?: string | null;
   created_at?: string | null;
   duration?: number | string | null;
   duration_minutes?: number | string | null;
+  discount?: number | string | null;
+  discount_amount?: number | string | null;
+  discount_percent?: number | string | null;
   id?: string | number | null;
   is_active?: boolean | null;
+  item_type?: string | null;
   name?: string | null;
   price?: number | string | null;
+  tax?: number | string | null;
+  tax_amount?: number | string | null;
+  tax_rate?: number | string | null;
+  parent_category?: ServiceApiCategory | string | null;
+  parent_category_id?: string | number | null;
+  parent_category_name?: string | null;
   service_name?: string | null;
   status?: string | null;
   title?: string | null;
   [key: string]: unknown;
+};
+
+export type ServiceApiCategory = {
+  _id?: string | number | null;
+  category_id?: string | number | null;
+  category_name?: string | null;
+  id?: string | number | null;
+  name?: string | null;
+  parent?: ServiceApiCategory | string | null;
+  parent_category?: ServiceApiCategory | string | null;
+  parent_category_id?: string | number | null;
+  parent_category_name?: string | null;
+  title?: string | null;
 };
 
 export type ServiceApiPagination = {
@@ -31,9 +59,15 @@ export type ServiceApiPagination = {
   limit?: number | null;
   next_offset?: number | null;
   offset?: number | null;
+  // Real backend contract (`servicesRepository.list`) is page-based, not
+  // offset-based — it returns exactly these two fields, never `has_more`/
+  // `next_offset`/`offset`. The fields above are kept only in case a future
+  // backend revision adds them.
+  page?: number | null;
   total?: number | null;
   totalCount?: number | null;
   total_count?: number | null;
+  total_pages?: number | null;
 };
 
 export type ServiceListApiData =
@@ -52,12 +86,18 @@ export type ServiceListApiData =
 
 export type ServiceListItem = {
   category: string | null;
+  categoryId: string | null;
   createdAt: string | null;
   durationMinutes: number | null;
+  discountAmount?: number;
+  discountPercent?: number;
   id: string;
   isActive: boolean;
+  itemType?: string | null;
   name: string;
   price: number;
+  taxAmount?: number;
+  taxRate?: number;
 };
 
 export type ServiceListPagination = {

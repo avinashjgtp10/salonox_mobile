@@ -1,32 +1,41 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
+import { useMemo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { DashboardColors as Colors } from "@/constants/theme";
+import type { ThemeColors } from "@/constants/theme";
+import { useThemeColors } from "@/theme/ThemeProvider";
 
-const ACTIONS: {
+const getActions = (
+  Colors: ThemeColors,
+): {
   icon: keyof typeof Ionicons.glyphMap;
   iconBg: string;
   isAccent?: boolean;
   label: string;
   route: Href;
-}[] = [
-  { label: "Book", icon: "calendar-outline", iconBg: "#EAF5EF", route: "/bookings" as Href },
-  { label: "Client", icon: "person-add-outline", iconBg: "#EEF4F1", route: "/clients/new" as Href },
+}[] => [
+  { label: "Book", icon: "calendar-outline", iconBg: Colors.successBg, route: "/bookings" as Href },
+  { label: "Client", icon: "person-add-outline", iconBg: Colors.infoBg, route: "/clients/new" as Href },
   {
     label: "Quick Sale",
     icon: "flash-outline",
-    iconBg: "#FBF3E5",
+    iconBg: Colors.warningBg,
     route: "/quick-sale" as Href,
     isAccent: true,
   },
-  { label: "Stock", icon: "cube-outline", iconBg: "#F1EEF8", route: "/stock" as Href },
+  { label: "Products", icon: "cube-outline", iconBg: Colors.purpleBg, route: "/stock" as Href },
+  { label: "Attendance", icon: "calendar-outline", iconBg: Colors.infoBg, route: "/team/attendance" as Href },
 ];
 
 export default function QuickActions() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const actions = useMemo(() => getActions(Colors), [Colors]);
+
   return (
     <View style={styles.row}>
-      {ACTIONS.map((action, index) => (
+      {actions.map((action, index) => (
         <TouchableOpacity
           key={action.label}
           activeOpacity={0.7}
@@ -45,7 +54,7 @@ export default function QuickActions() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: {
     backgroundColor: Colors.card,
     borderBottomColor: Colors.border,
@@ -56,6 +65,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flex: 1,
     gap: 6,
+    justifyContent: "center",
     paddingHorizontal: 4,
     paddingVertical: 14,
   },
@@ -74,6 +84,7 @@ const styles = StyleSheet.create({
     color: Colors.text2,
     fontSize: 10,
     fontWeight: "500",
+    textAlign: "center",
   },
   labelAccent: {
     color: Colors.primary,

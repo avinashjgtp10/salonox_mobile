@@ -1,12 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { useAppSelector } from "@/store/hooks";
 import {
@@ -14,19 +14,23 @@ import {
   selectDashboardQuickSaleRevenueToday,
   selectDashboardQuickSaleServices,
 } from "@/store/dashboard/dashboard.slice";
+import { useThemeColors } from "@/theme/ThemeProvider";
 
-const SERVICE_TILE_STYLES: { icon: keyof typeof Ionicons.glyphMap; iconBg: string }[] = [
-  { icon: "cut-outline", iconBg: "#EEF4F1" },
-  { icon: "sparkles-outline", iconBg: "#FBF3E5" },
-  { icon: "water-outline", iconBg: "#EAF5EF" },
-  { icon: "hand-left-outline", iconBg: "#F1EEF8" },
-  { icon: "airplane-outline", iconBg: "#FAECE7" },
+const getServiceTileStyles = (
+  Colors: ThemeColors,
+): { icon: keyof typeof Ionicons.glyphMap; iconBg: string }[] => [
+  { icon: "cut-outline", iconBg: Colors.bg2 },
+  { icon: "sparkles-outline", iconBg: Colors.warningBg },
+  { icon: "water-outline", iconBg: Colors.successBg },
+  { icon: "hand-left-outline", iconBg: Colors.purpleBg },
+  { icon: "airplane-outline", iconBg: Colors.infoBg },
 ];
 
-const getServiceTileStyle = (index: number) =>
-  SERVICE_TILE_STYLES[index % SERVICE_TILE_STYLES.length];
-
 export default function QuickSaleSection() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const serviceTileStyles = useMemo(() => getServiceTileStyles(Colors), [Colors]);
+  const getServiceTileStyle = (index: number) => serviceTileStyles[index % serviceTileStyles.length];
   const quickSaleServices = useAppSelector(selectDashboardQuickSaleServices);
   const quickSaleRevenueToday = useAppSelector(selectDashboardQuickSaleRevenueToday);
   const isLoading = useAppSelector(selectDashboardIsLoading);
@@ -142,9 +146,8 @@ export default function QuickSaleSection() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   section: {
-    marginBottom: Spacing.md,
     paddingHorizontal: Spacing.lg,
   },
   header: {
@@ -157,7 +160,7 @@ const styles = StyleSheet.create({
     color: Colors.text2,
     fontSize: 9,
     fontWeight: "500",
-    letterSpacing: 0.6,
+    letterSpacing: 0,
     textTransform: "uppercase",
   },
   sectionTitle: {
@@ -224,7 +227,7 @@ const styles = StyleSheet.create({
     borderLeftWidth: 1,
   },
   serviceItemSelected: {
-    backgroundColor: "#EEF4F1",
+    backgroundColor: Colors.bg2,
   },
   serviceIcon: {
     alignItems: "center",

@@ -5,19 +5,23 @@ import { Pressable } from "react-native";
 
 import {
   PasswordRecoveryScaffold,
-  RecoveryColors,
   RecoveryMessage,
   RecoveryPrimaryButton,
   RecoveryTextButton,
   RecoveryTextInput,
   passwordRecoveryStyles,
 } from "@/components/auth/passwordRecoveryUi";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import { getApiErrorMessage } from "@/services/api";
 import { authService } from "@/services/authService";
-
-const isValidPassword = (value: string) => /^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(value);
+import {
+  CONFIRM_PASSWORD_MISMATCH_MESSAGE,
+  isValidPassword,
+  PASSWORD_REQUIREMENT_MESSAGE,
+} from "@/utils/validation";
 
 export default function ChangePasswordScreen() {
+  const Colors = useThemeColors();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -63,7 +67,7 @@ export default function ChangePasswordScreen() {
       setNewPasswordError("New Password is required.");
       isValid = false;
     } else if (!isValidPassword(newPassword)) {
-      setNewPasswordError("Password must be at least 8 characters and contain letters and numbers.");
+      setNewPasswordError(PASSWORD_REQUIREMENT_MESSAGE);
       isValid = false;
     } else if (newPassword === currentPassword) {
       setNewPasswordError("New Password must be different from your current password.");
@@ -74,7 +78,7 @@ export default function ChangePasswordScreen() {
       setConfirmPasswordError("Confirm Password is required.");
       isValid = false;
     } else if (newPassword !== confirmPassword) {
-      setConfirmPasswordError("Confirm Password must match New Password.");
+      setConfirmPasswordError(CONFIRM_PASSWORD_MISMATCH_MESSAGE);
       isValid = false;
     }
 
@@ -123,7 +127,7 @@ export default function ChangePasswordScreen() {
       <Ionicons
         name={showPassword ? "eye-outline" : "eye-off-outline"}
         size={20}
-        color={RecoveryColors.secondary}
+        color={Colors.secondary}
       />
     </Pressable>
   );

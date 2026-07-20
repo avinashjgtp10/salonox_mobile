@@ -1,24 +1,31 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
+import { useMemo } from "react";
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { useAppSelector } from "@/store/hooks";
 import {
   selectDashboardInventoryAlerts,
   selectDashboardIsLoading,
 } from "@/store/dashboard/dashboard.slice";
+import { useThemeColors } from "@/theme/ThemeProvider";
 
-const LEVEL_STYLES: Record<"warning" | "error", { actionColor: string; iconBg: string; iconColor: string }> = {
+const getLevelStyles = (
+  Colors: ThemeColors,
+): Record<"warning" | "error", { actionColor: string; iconBg: string; iconColor: string }> => ({
   error: { actionColor: Colors.error, iconBg: Colors.errorBg, iconColor: Colors.error },
-  warning: { actionColor: "#496A5D", iconBg: "#FFF4E3", iconColor: "#D8A84F" },
-};
+  warning: { actionColor: Colors.primaryDark, iconBg: Colors.warningBg, iconColor: Colors.warning },
+});
 
 export default function InventoryAlerts() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const levelStyles = useMemo(() => getLevelStyles(Colors), [Colors]);
   const inventoryAlerts = useAppSelector(selectDashboardInventoryAlerts);
   const isLoading = useAppSelector(selectDashboardIsLoading);
 
@@ -45,7 +52,7 @@ export default function InventoryAlerts() {
       ) : (
         <View style={styles.card}>
           {inventoryAlerts.map((item, index) => {
-            const levelStyle = LEVEL_STYLES[item.level];
+            const levelStyle = levelStyles[item.level];
 
             return (
               <TouchableOpacity
@@ -75,9 +82,8 @@ export default function InventoryAlerts() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   section: {
-    marginBottom: Spacing.xl,
     paddingHorizontal: Spacing.lg,
   },
   header: {
@@ -90,7 +96,7 @@ const styles = StyleSheet.create({
     color: Colors.text2,
     fontSize: 9,
     fontWeight: "500",
-    letterSpacing: 0.6,
+    letterSpacing: 0,
     textTransform: "uppercase",
   },
   sectionTitle: {

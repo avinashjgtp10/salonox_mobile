@@ -2,6 +2,7 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 import {
   cancelAppointmentThunk,
+  completeAppointmentThunk,
   confirmAppointmentThunk,
   createAppointmentThunk,
   fetchAppointmentByIdThunk,
@@ -320,6 +321,25 @@ const appointmentSlice = createSlice({
         applyMutationRejected(
           state,
           action.payload?.message ?? action.error.message ?? "Unable to start appointment.",
+        );
+      })
+      .addCase(completeAppointmentThunk.pending, applyMutationPending)
+      .addCase(completeAppointmentThunk.fulfilled, (state, action) => {
+        const completedAppointment = {
+          ...action.payload.appointment,
+          status: "Completed" as const,
+        };
+
+        applyMutationFulfilled(
+          state,
+          completedAppointment,
+          action.payload.message ?? "Appointment completed successfully.",
+        );
+      })
+      .addCase(completeAppointmentThunk.rejected, (state, action) => {
+        applyMutationRejected(
+          state,
+          action.payload?.message ?? action.error.message ?? "Unable to complete appointment.",
         );
       })
       .addCase(fetchAppointmentHistoryThunk.pending, (state) => {

@@ -1,13 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
 import { router, type Href } from "expo-router";
-import { useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   FlatList,
   RefreshControl,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -16,27 +14,30 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
-import { deleteUserThunk, fetchUsersThunk } from "@/middleware/users/users.thunk";
-import { usersService } from "@/services/users.service";
+import { matchesTeamSearch, type StaffMember } from "@/data/teamData";
+import { getStaffDetailsPath } from "@/features/staff/utils/staffNavigation";
+import { deleteStaffThunk, fetchStaffThunk, updateStaffThunk } from "@/middleware/staff/staff.thunk";
 import {
-  selectUserDeletingIds,
-  selectUsers,
-  selectUsersError,
-  selectUsersLoading,
-  selectUsersLoadingMore,
-  selectUsersPagination,
-  selectUsersQuery,
-  selectUsersRefreshing,
-  selectUsersTotalCount,
-} from "@/store/users/users.slice";
+  selectStaffDeletingIds,
+  selectStaffError,
+  selectStaffLoading,
+  selectStaffLoadingMore,
+  selectStaffMembers,
+  selectStaffPagination,
+  selectStaffQuery,
+  selectStaffRefreshing,
+} from "@/store/staff/staff.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import type { UserListItem } from "@/types/user";
+import { useThemeColors } from "@/theme/ThemeProvider";
+import { selectCurrentUser } from "@/store/user/user.slice";
+import { canManageStaffLifecycle } from "@/utils/userProfile";
 
 function getRejectedMessage(payload: unknown, fallback: string) {
   if (payload && typeof payload === "object" && "message" in payload) {
@@ -50,48 +51,55 @@ function getRejectedMessage(payload: unknown, fallback: string) {
   return fallback;
 }
 
+const isStaffActive = (staffMember: StaffMember) => staffMember.status !== "Inactive";
+
+const matchesUserManagementQuery = (staffMember: StaffMember, query: string) => {
+  const normalizedQuery = query.trim().toLowerCase();
+
+  if (!normalizedQuery) {
+    return true;
+  }
+
+  return matchesTeamSearch(staffMember, query) || staffMember.email.toLowerCase().includes(normalizedQuery);
+};
+
 function UserCard({
+  canManageLifecycle,
   isDeleting,
   onDelete,
-  user,
+  onToggleStatus,
+  staffMember,
 }: {
+  canManageLifecycle: boolean;
   isDeleting: boolean;
   onDelete: () => void;
-  user: UserListItem;
+  onToggleStatus: () => void;
+  staffMember: StaffMember;
 }) {
-  const avatarTone = usersService.getAvatarTone(user.id);
-  const statusIsInactive = !user.isActive;
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const isActive = isStaffActive(staffMember);
 
   return (
     <TouchableOpacity
       activeOpacity={0.84}
-      onPress={() => router.push(`/users/${user.id}` as Href)}
+      onPress={() => router.push(getStaffDetailsPath(staffMember.id))}
       style={styles.userCard}
     >
-      {user.avatarUrl ? (
-        <Image contentFit="cover" source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
-      ) : (
-        <View style={[styles.avatar, { backgroundColor: avatarTone.background }]}>
-          <Text style={[styles.avatarText, { color: avatarTone.color }]}>{user.initials}</Text>
-        </View>
-      )}
+      <View style={[styles.avatar, { backgroundColor: staffMember.avatarBg }]}>
+        <Text style={[styles.avatarText, { color: staffMember.avatarColor }]}>{staffMember.initials}</Text>
+      </View>
 
       <View style={styles.userCopy}>
         <View style={styles.nameRow}>
-          <Text style={styles.userName}>{user.fullName}</Text>
+          <Text style={styles.userName}>{staffMember.name}</Text>
           <View
-            style={[
-              styles.statusBadge,
-              statusIsInactive ? styles.statusBadgeInactive : styles.statusBadgeActive,
-            ]}
+            style={[styles.statusBadge, isActive ? styles.statusBadgeActive : styles.statusBadgeInactive]}
           >
             <Text
-              style={[
-                styles.statusBadgeText,
-                statusIsInactive ? styles.statusBadgeTextInactive : styles.statusBadgeTextActive,
-              ]}
+              style={[styles.statusBadgeText, isActive ? styles.statusBadgeTextActive : styles.statusBadgeTextInactive]}
             >
-              {user.status}
+              {staffMember.status}
             </Text>
           </View>
         </View>
@@ -99,36 +107,51 @@ function UserCard({
         <View style={styles.infoRow}>
           <Ionicons name="mail-outline" size={12} color={Colors.text2} />
           <Text numberOfLines={1} style={styles.infoText}>
-            {user.email}
+            {staffMember.email}
           </Text>
         </View>
 
         <View style={styles.infoRow}>
           <Ionicons name="call-outline" size={12} color={Colors.text2} />
-          <Text style={styles.infoText}>{user.phone}</Text>
+          <Text style={styles.infoText}>{staffMember.phone}</Text>
         </View>
 
-        {user.role !== "-" ? (
-          <View style={styles.roleBadge}>
-            <Ionicons name="shield-checkmark-outline" size={12} color={Colors.primaryDark} />
-            <Text style={styles.roleBadgeText}>{user.role}</Text>
-          </View>
-        ) : null}
+        <View style={styles.roleBadge}>
+          <Ionicons name="shield-checkmark-outline" size={12} color={Colors.primaryDark} />
+          <Text style={styles.roleBadgeText}>{staffMember.role}</Text>
+        </View>
       </View>
 
-      <TouchableOpacity
-        activeOpacity={0.8}
-        disabled={isDeleting}
-        hitSlop={{ bottom: 8, left: 8, right: 8, top: 8 }}
-        onPress={onDelete}
-        style={styles.deleteButton}
-      >
-        {isDeleting ? (
-          <ActivityIndicator color={Colors.error} size="small" />
-        ) : (
-          <Ionicons name="trash-outline" size={18} color={Colors.error} />
-        )}
-      </TouchableOpacity>
+      {canManageLifecycle ? (
+        <TouchableOpacity
+          activeOpacity={0.8}
+          hitSlop={{ bottom: 8, left: 8, right: 8, top: 8 }}
+          onPress={onToggleStatus}
+          style={styles.statusToggleButton}
+        >
+          <Ionicons
+            name={isActive ? "pause-circle-outline" : "play-circle-outline"}
+            size={20}
+            color={isActive ? Colors.warning : Colors.success}
+          />
+        </TouchableOpacity>
+      ) : null}
+
+      {canManageLifecycle ? (
+        <TouchableOpacity
+          activeOpacity={0.8}
+          disabled={isDeleting}
+          hitSlop={{ bottom: 8, left: 8, right: 8, top: 8 }}
+          onPress={onDelete}
+          style={styles.deleteButton}
+        >
+          {isDeleting ? (
+            <ActivityIndicator color={Colors.error} size="small" />
+          ) : (
+            <Ionicons name="trash-outline" size={18} color={Colors.error} />
+          )}
+        </TouchableOpacity>
+      ) : null}
 
       <Ionicons name="chevron-forward" size={18} color={Colors.text2} />
     </TouchableOpacity>
@@ -136,6 +159,9 @@ function UserCard({
 }
 
 function UserSkeletonCard() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.userCard}>
       <View style={styles.skeletonAvatar} />
@@ -149,6 +175,9 @@ function UserSkeletonCard() {
 }
 
 function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.emptyState}>
       <View style={styles.emptyIllustration}>
@@ -167,6 +196,9 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 }
 
 function EmptyState({ queryActive }: { queryActive: boolean }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.emptyState}>
       <View style={styles.emptyIllustration}>
@@ -186,32 +218,33 @@ function EmptyState({ queryActive }: { queryActive: boolean }) {
 }
 
 export default function UsersScreen() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
-  const users = useAppSelector(selectUsers);
-  const usersError = useAppSelector(selectUsersError);
-  const usersLoading = useAppSelector(selectUsersLoading);
-  const usersLoadingMore = useAppSelector(selectUsersLoadingMore);
-  const usersPagination = useAppSelector(selectUsersPagination);
-  const usersQuery = useAppSelector(selectUsersQuery);
-  const usersRefreshing = useAppSelector(selectUsersRefreshing);
-  const totalCount = useAppSelector(selectUsersTotalCount);
-  const deletingUserIds = useAppSelector(selectUserDeletingIds);
+  const currentUser = useAppSelector(selectCurrentUser);
+  const canManageLifecycle = canManageStaffLifecycle(currentUser?.role);
+
+  const staffMembers = useAppSelector(selectStaffMembers);
+  const staffError = useAppSelector(selectStaffError);
+  const staffLoading = useAppSelector(selectStaffLoading);
+  const staffLoadingMore = useAppSelector(selectStaffLoadingMore);
+  const staffPagination = useAppSelector(selectStaffPagination);
+  const staffQuery = useAppSelector(selectStaffQuery);
+  const staffRefreshing = useAppSelector(selectStaffRefreshing);
+  const deletingStaffIds = useAppSelector(selectStaffDeletingIds);
 
   const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const deferredQuery = useDeferredValue(query);
 
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setDebouncedQuery(query.trim());
-    }, 400);
+    void dispatch(fetchStaffThunk({ limit: staffQuery.limit, page: 1, reset: true }));
+  }, [dispatch, staffQuery.limit]);
 
-    return () => clearTimeout(timeoutId);
-  }, [query]);
-
-  useEffect(() => {
-    void dispatch(fetchUsersThunk({ limit: 20, offset: 0, reset: true, search: debouncedQuery }));
-  }, [debouncedQuery, dispatch]);
+  const filteredStaffMembers = useMemo(
+    () => staffMembers.filter((staffMember) => matchesUserManagementQuery(staffMember, deferredQuery)),
+    [deferredQuery, staffMembers],
+  );
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -223,15 +256,13 @@ export default function UsersScreen() {
   };
 
   const handleRefresh = () => {
-    void dispatch(
-      fetchUsersThunk({ limit: usersQuery.limit, refresh: true, search: debouncedQuery }),
-    );
+    void dispatch(fetchStaffThunk({ limit: staffQuery.limit, page: 1, refresh: true }));
   };
 
-  const handleConfirmDelete = async (user: UserListItem) => {
-    const resultAction = await dispatch(deleteUserThunk(user.id));
+  const handleConfirmDelete = async (staffMember: StaffMember) => {
+    const resultAction = await dispatch(deleteStaffThunk(staffMember.id));
 
-    if (deleteUserThunk.rejected.match(resultAction)) {
+    if (deleteStaffThunk.rejected.match(resultAction)) {
       Alert.alert(
         "Unable to delete user",
         getRejectedMessage(resultAction.payload, "Something went wrong. Please try again."),
@@ -239,27 +270,17 @@ export default function UsersScreen() {
       return;
     }
 
-    Alert.alert("User deleted", resultAction.payload.message ?? "User deleted successfully.");
-
-    // Refresh the User List from the server after a successful deletion.
-    void dispatch(
-      fetchUsersThunk({
-        limit: usersQuery.limit,
-        offset: 0,
-        reset: true,
-        search: debouncedQuery,
-      }),
-    );
+    Alert.alert("User deleted", resultAction.payload.message ?? `${staffMember.name} has been removed.`);
   };
 
-  const handleDeleteUser = (user: UserListItem) => {
+  const handleDeleteUser = (staffMember: StaffMember) => {
     Alert.alert(
       "Delete User",
-      `Are you sure you want to delete "${user.fullName}"? This action cannot be undone.`,
+      `Are you sure you want to delete "${staffMember.name}"? This action cannot be undone.`,
       [
         { style: "cancel", text: "Cancel" },
         {
-          onPress: () => void handleConfirmDelete(user),
+          onPress: () => void handleConfirmDelete(staffMember),
           style: "destructive",
           text: "Delete",
         },
@@ -267,27 +288,65 @@ export default function UsersScreen() {
     );
   };
 
+  const handleConfirmToggleStatus = async (staffMember: StaffMember) => {
+    const nextStatus = isStaffActive(staffMember) ? "inactive" : "active";
+    const resultAction = await dispatch(
+      updateStaffThunk({ staffId: staffMember.id, updates: { status: nextStatus } }),
+    );
+
+    if (updateStaffThunk.rejected.match(resultAction)) {
+      Alert.alert(
+        "Unable to update user",
+        getRejectedMessage(resultAction.payload, "Something went wrong. Please try again."),
+      );
+      return;
+    }
+
+    Alert.alert(
+      nextStatus === "inactive" ? "User deactivated" : "User activated",
+      resultAction.payload.message ??
+        `${staffMember.name} has been ${nextStatus === "inactive" ? "deactivated" : "activated"}.`,
+    );
+  };
+
+  const handleToggleStatus = (staffMember: StaffMember) => {
+    const activeNow = isStaffActive(staffMember);
+
+    Alert.alert(
+      activeNow ? "Deactivate User" : "Activate User",
+      activeNow
+        ? `Deactivate "${staffMember.name}"? They won't be assignable to new bookings until reactivated.`
+        : `Activate "${staffMember.name}"? They will be marked available again.`,
+      [
+        { style: "cancel", text: "Cancel" },
+        {
+          onPress: () => void handleConfirmToggleStatus(staffMember),
+          text: activeNow ? "Deactivate" : "Activate",
+        },
+      ],
+    );
+  };
+
   const handleLoadMore = () => {
-    if (usersLoading || usersLoadingMore || usersRefreshing || !usersPagination.hasMore) {
+    if (staffLoading || staffLoadingMore || staffRefreshing || !staffPagination.hasMore) {
       return;
     }
 
     void dispatch(
-      fetchUsersThunk({
-        limit: usersPagination.limit,
-        offset: usersPagination.nextOffset,
-        search: debouncedQuery,
+      fetchStaffThunk({
+        limit: staffPagination.limit,
+        page: staffPagination.nextPage,
       }),
     );
   };
 
   const isQueryActive = Boolean(query.trim());
-  const showInitialLoading = usersLoading && users.length === 0;
-  const showErrorState = Boolean(usersError) && users.length === 0 && !showInitialLoading;
+  const showInitialLoading = staffLoading && staffMembers.length === 0;
+  const showErrorState = Boolean(staffError) && staffMembers.length === 0 && !showInitialLoading;
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+      <AppStatusBar />
 
       <FlatList
         ListEmptyComponent={
@@ -298,14 +357,14 @@ export default function UsersScreen() {
               ))}
             </View>
           ) : showErrorState ? (
-            <ErrorState message={usersError ?? "Please try again in a moment."} onRetry={handleRefresh} />
+            <ErrorState message={staffError ?? "Please try again in a moment."} onRetry={handleRefresh} />
           ) : (
             <EmptyState queryActive={isQueryActive} />
           )
         }
         ListFooterComponent={
           <View style={styles.footerWrap}>
-            {usersLoadingMore ? (
+            {staffLoadingMore ? (
               <View style={styles.loadingMoreWrap}>
                 <ActivityIndicator color={Colors.primary} size="small" />
                 <Text style={styles.loadingMoreText}>Loading more users...</Text>
@@ -327,12 +386,14 @@ export default function UsersScreen() {
               <View style={styles.summaryCard}>
                 <View style={styles.summaryMetric}>
                   <Text style={styles.summaryLabel}>Total Users</Text>
-                  <Text style={styles.summaryValue}>{totalCount.toLocaleString("en-IN")}</Text>
+                  <Text style={styles.summaryValue}>
+                    {staffPagination.totalCount.toLocaleString("en-IN")}
+                  </Text>
                 </View>
                 <View style={styles.summaryDivider} />
                 <View style={styles.summaryMetric}>
                   <Text style={styles.summaryLabel}>Loaded</Text>
-                  <Text style={styles.summaryValue}>{users.length}</Text>
+                  <Text style={styles.summaryValue}>{staffMembers.length}</Text>
                 </View>
               </View>
             </View>
@@ -355,13 +416,13 @@ export default function UsersScreen() {
 
             <View style={styles.countRow}>
               <Text style={styles.countText}>
-                {users.length} user{users.length === 1 ? "" : "s"}
+                {filteredStaffMembers.length} user{filteredStaffMembers.length === 1 ? "" : "s"}
               </Text>
             </View>
           </View>
         }
         contentContainerStyle={styles.listContent}
-        data={users}
+        data={filteredStaffMembers}
         initialNumToRender={8}
         keyExtractor={(item) => item.id}
         onEndReached={handleLoadMore}
@@ -370,15 +431,17 @@ export default function UsersScreen() {
           <RefreshControl
             colors={[Colors.primary]}
             onRefresh={handleRefresh}
-            refreshing={usersRefreshing}
+            refreshing={staffRefreshing}
             tintColor={Colors.primary}
           />
         }
         renderItem={({ item }) => (
           <UserCard
-            isDeleting={deletingUserIds.includes(item.id)}
+            canManageLifecycle={canManageLifecycle}
+            isDeleting={deletingStaffIds.includes(item.id)}
             onDelete={() => handleDeleteUser(item)}
-            user={item}
+            onToggleStatus={() => handleToggleStatus(item)}
+            staffMember={item}
           />
         )}
         removeClippedSubviews
@@ -389,7 +452,7 @@ export default function UsersScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     backgroundColor: Colors.bg,
     flex: 1,
@@ -434,7 +497,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: AppLayout.cardPadding,
     paddingVertical: Spacing.md,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
@@ -471,7 +534,7 @@ const styles = StyleSheet.create({
     marginBottom: AppLayout.sectionGap,
     minHeight: AppLayout.searchBarHeight,
     paddingHorizontal: AppLayout.searchBarPaddingX,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.03,
     shadowRadius: 14,
@@ -499,7 +562,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginBottom: Spacing.sm,
     padding: AppLayout.cardPadding,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
@@ -512,12 +575,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 44,
   },
-  avatarImage: {
-    backgroundColor: Colors.bg2,
-    borderRadius: 22,
-    height: 44,
-    width: 44,
-  },
   avatarText: {
     fontSize: 14,
     fontWeight: "800",
@@ -525,6 +582,12 @@ const styles = StyleSheet.create({
   userCopy: {
     flex: 1,
     marginLeft: Spacing.md,
+  },
+  statusToggleButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginHorizontal: Spacing.sm,
+    width: 24,
   },
   deleteButton: {
     alignItems: "center",
@@ -550,10 +613,10 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   statusBadgeActive: {
-    backgroundColor: "#EAF5EF",
+    backgroundColor: Colors.successBg,
   },
   statusBadgeInactive: {
-    backgroundColor: "#FEECEC",
+    backgroundColor: Colors.errorBg,
   },
   statusBadgeText: {
     fontSize: 10,
@@ -629,7 +692,7 @@ const styles = StyleSheet.create({
     width: 96,
   },
   emptyIllustrationHalo: {
-    backgroundColor: "#EEF4F1",
+    backgroundColor: Colors.bg2,
     borderRadius: 48,
     height: 96,
     opacity: 0.9,
@@ -644,7 +707,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     height: 54,
     justifyContent: "center",
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.06,
     shadowRadius: 14,

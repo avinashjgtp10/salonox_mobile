@@ -10,8 +10,7 @@ import {
 } from "@/components/auth/passwordRecoveryUi";
 import { getApiErrorMessage } from "@/services/api";
 import { authService } from "@/services/authService";
-
-const isValidEmail = (value: string) => /\S+@\S+\.\S+/.test(value);
+import { EMAIL_INVALID_MESSAGE, isValidEmail } from "@/utils/validation";
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState("");
@@ -34,7 +33,7 @@ export default function ForgotPasswordScreen() {
     }
 
     if (!isValidEmail(trimmedEmail)) {
-      setEmailError("Please enter a valid email address.");
+      setEmailError(EMAIL_INVALID_MESSAGE);
       return;
     }
 

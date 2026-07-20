@@ -1,9 +1,10 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 
+import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import { serviceService } from "@/services/service.service";
 import type { RootState } from "@/store";
-import { selectCurrentUser } from "@/store/user/user.slice";
+import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import type {
   CreateServiceRequest,
   CreateServiceResponse,
@@ -16,6 +17,8 @@ import type {
 } from "@/types/service";
 
 export type FetchServicesArgs = {
+  category?: string;
+  categoryId?: string;
   isActive?: boolean;
   limit?: number;
   offset?: number;
@@ -40,16 +43,24 @@ export const fetchServicesThunk = createAsyncThunk<
   const serviceState = getState().service;
 
   const nextQuery: ServiceListQuery = {
+    category: args?.category ?? serviceState.query.category,
+    categoryId: args?.categoryId ?? serviceState.query.categoryId,
     isActive: args?.isActive ?? serviceState.query.isActive,
     limit: args?.limit ?? serviceState.query.limit,
-    offset: args?.offset ?? serviceState.query.offset,
+    // `reset` means "start over" — a fresh search or category switch must
+    // never inherit whatever offset a previous "load more" scroll left
+    // behind, or it silently requests a later (often empty) page instead of
+    // page 1. Callers that pass `reset: true` (ServiceCatalogTab's search
+    // and category-change fetches) never think to also pass `offset: 0`
+    // themselves, so it's enforced here instead.
+    offset: args?.reset ? 0 : (args?.offset ?? serviceState.query.offset),
     search: args?.search ?? serviceState.query.search,
     sort_by: args?.sort_by ?? serviceState.query.sort_by,
     sort_order: args?.sort_order ?? serviceState.query.sort_order,
   };
 
   try {
-    const salonId = selectCurrentUser(getState())?.salonId;
+    const salonId = selectActiveBranchId(getState());
     return await serviceService.getServices(nextQuery, salonId);
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
@@ -99,15 +110,20 @@ export const createServiceThunk = createAsyncThunk<
   CreateServiceResponse,
   Omit<CreateServiceRequest, "salon_id">,
   { rejectValue: CreateServiceRejectValue; state: RootState }
->("service/createService", async (servicePayload, { getState, rejectWithValue }) => {
+>("service/createService", async (servicePayload, { dispatch, getState, rejectWithValue }) => {
   try {
-    const salonId = selectCurrentUser(getState())?.salonId;
+    const salonId = selectActiveBranchId(getState());
     const payload: CreateServiceRequest = {
       ...servicePayload,
       ...(salonId ? { salon_id: salonId } : {}),
     };
 
-    return await serviceService.createService(payload);
+    const response = await serviceService.createService(payload);
+
+    void dispatch(fetchServicesThunk({ ...getState().service.query, offset: 0, refresh: true, reset: true }));
+    void dispatch(fetchDashboardThunk());
+
+    return response;
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
@@ -135,9 +151,14 @@ export const deleteServiceThunk = createAsyncThunk<
   DeleteServiceResponse,
   string,
   { rejectValue: DeleteServiceRejectValue; state: RootState }
->("service/deleteService", async (serviceId, { rejectWithValue }) => {
+>("service/deleteService", async (serviceId, { dispatch, getState, rejectWithValue }) => {
   try {
-    return await serviceService.deleteService(serviceId);
+    const response = await serviceService.deleteService(serviceId);
+
+    void dispatch(fetchServicesThunk({ ...getState().service.query, offset: 0, refresh: true, reset: true }));
+    void dispatch(fetchDashboardThunk());
+
+    return response;
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
@@ -166,15 +187,21 @@ export const updateServiceThunk = createAsyncThunk<
   UpdateServiceResponse,
   { serviceId: string; updates: Omit<UpdateServiceRequest, "salon_id"> },
   { rejectValue: UpdateServiceRejectValue; state: RootState }
->("service/updateService", async ({ serviceId, updates }, { getState, rejectWithValue }) => {
+>("service/updateService", async ({ serviceId, updates }, { dispatch, getState, rejectWithValue }) => {
   try {
-    const salonId = selectCurrentUser(getState())?.salonId;
+    const salonId = selectActiveBranchId(getState());
     const payload: UpdateServiceRequest = {
       ...updates,
       ...(salonId ? { salon_id: salonId } : {}),
     };
 
-    return await serviceService.updateService(serviceId, payload);
+    const response = await serviceService.updateService(serviceId, payload);
+
+    void dispatch(fetchServiceByIdThunk(serviceId));
+    void dispatch(fetchServicesThunk({ ...getState().service.query, offset: 0, refresh: true, reset: true }));
+    void dispatch(fetchDashboardThunk());
+
+    return response;
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 

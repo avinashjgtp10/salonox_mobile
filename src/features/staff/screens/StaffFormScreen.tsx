@@ -1,20 +1,22 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
-import { useState } from "react";
-import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useMemo, useState } from "react";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { StaffBottomSheet } from "@/features/staff/components/StaffBottomSheet";
 import { StaffTextField } from "@/features/staff/components/StaffTextField";
 import { useStaffDetails } from "@/features/staff/hooks/useStaffDetails";
 import { useStaffForm } from "@/features/staff/hooks/useStaffForm";
 import { generateTimeOptions } from "@/features/staff/utils/timeUtils";
+import { useThemeColors } from "@/theme/ThemeProvider";
 
 const TIME_OPTIONS = generateTimeOptions();
 
@@ -35,6 +37,9 @@ function TimeSelectField({
   placeholder: string;
   value: string;
 }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.timeGroup}>
       <Text style={styles.timeLabel}>{label}</Text>
@@ -54,6 +59,8 @@ function TimeSelectField({
 }
 
 export function StaffFormScreen({ mode }: StaffFormScreenProps) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id?: string }>();
   const staffId = mode === "edit" ? id : null;
   const form = useStaffForm(staffId);
@@ -84,7 +91,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+      <AppStatusBar />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.backButton}>
@@ -150,6 +157,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
           />
           <StaffTextField
             autoCapitalize="none"
+            error={form.validationErrors.email}
             keyboardType="email-address"
             label="Email"
             onChangeText={(value) => form.updateField("email", value)}
@@ -158,6 +166,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
           />
           <StaffTextField
             autoCapitalize="words"
+            error={form.validationErrors.role}
             label="Role"
             onChangeText={(value) => form.updateField("role", value)}
             placeholder="Stylist, manager, assistant"
@@ -171,6 +180,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
             value={form.values.gender}
           />
           <StaffTextField
+            error={form.validationErrors.joining_date}
             label="Joining Date"
             onChangeText={(value) => form.updateField("joining_date", value)}
             placeholder="YYYY-MM-DD"
@@ -269,7 +279,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     backgroundColor: Colors.bg,
     flex: 1,
@@ -401,8 +411,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "#F0F7F4",
-    borderColor: "#E1EFEA",
+    backgroundColor: Colors.successBg,
+    borderColor: Colors.border,
     borderRadius: Radius.md,
     borderWidth: 1,
     paddingVertical: 10,

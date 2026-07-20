@@ -1,13 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -16,11 +15,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { fetchSalonMeThunk, updateSalonThunk } from "@/middleware/salon/salon.thunk";
 import {
@@ -30,9 +30,14 @@ import {
   selectSalonUpdating,
 } from "@/store/salon/salon.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import { selectCurrentUser } from "@/store/user/user.slice";
-
-const isValidEmail = (value: string) => /\S+@\S+\.\S+/.test(value);
+import {
+  EMAIL_INVALID_MESSAGE,
+  isValidEmail,
+  isValidPhoneDigits,
+  PHONE_INVALID_MESSAGE,
+} from "@/utils/validation";
 
 const getRejectedMessage = (payload: unknown, fallback: string) => {
   if (payload && typeof payload === "object" && "message" in payload) {
@@ -61,6 +66,9 @@ function FormField({
   placeholder: string;
   value: string;
 }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.inputGroup}>
       <Text style={styles.inputLabel}>{label}</Text>
@@ -79,6 +87,9 @@ function FormField({
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.detailRow}>
       <Text style={styles.detailLabel}>{label}</Text>
@@ -88,6 +99,8 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 }
 
 export default function SalonSettingsScreen() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const currentUser = useAppSelector(selectCurrentUser);
   const [loadedSalonId, setLoadedSalonId] = useState<string | null>(null);
@@ -147,6 +160,7 @@ export default function SalonSettingsScreen() {
 
     const trimmedBusinessName = businessName.trim();
     const trimmedEmail = email.trim();
+    const trimmedPhone = phone.trim();
 
     setFormError(null);
     setSuccessMessage(null);
@@ -157,7 +171,12 @@ export default function SalonSettingsScreen() {
     }
 
     if (trimmedEmail && !isValidEmail(trimmedEmail)) {
-      setFormError("Please enter a valid email address.");
+      setFormError(EMAIL_INVALID_MESSAGE);
+      return;
+    }
+
+    if (trimmedPhone && !isValidPhoneDigits(trimmedPhone)) {
+      setFormError(PHONE_INVALID_MESSAGE);
       return;
     }
 
@@ -169,7 +188,7 @@ export default function SalonSettingsScreen() {
           city: city.trim(),
           ...(trimmedEmail ? { email: trimmedEmail } : {}),
           name: trimmedBusinessName,
-          phone: phone.trim(),
+          phone: trimmedPhone,
           postalCode: postalCode.trim(),
         },
         salonId: salon.id,
@@ -202,7 +221,7 @@ export default function SalonSettingsScreen() {
   if (detailsLoading && !salon) {
     return (
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+        <AppStatusBar />
         <View style={styles.stateWrap}>
           {renderHeader()}
           <View style={styles.centeredContent}>
@@ -216,7 +235,7 @@ export default function SalonSettingsScreen() {
   if (detailsError && !salon) {
     return (
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+        <AppStatusBar />
         <View style={styles.stateWrap}>
           {renderHeader()}
           <View style={styles.stateCard}>
@@ -238,7 +257,7 @@ export default function SalonSettingsScreen() {
   if (!salon) {
     return (
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+        <AppStatusBar />
         <View style={styles.stateWrap}>
           {renderHeader()}
           <View style={styles.stateCard}>
@@ -261,7 +280,7 @@ export default function SalonSettingsScreen() {
 
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+      <AppStatusBar />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.flex}
@@ -378,7 +397,7 @@ export default function SalonSettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   flex: {
     flex: 1,
   },
@@ -430,7 +449,7 @@ const styles = StyleSheet.create({
     borderRadius: AppRadius.card,
     borderWidth: 1,
     padding: AppLayout.cardPadding,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
@@ -468,7 +487,7 @@ const styles = StyleSheet.create({
   errorContainer: {
     alignItems: "center",
     backgroundColor: Colors.errorBg,
-    borderColor: "rgba(214, 91, 91, 0.22)",
+    borderColor: "rgba(114, 106, 99, 0.18)",
     borderRadius: AppRadius.control,
     borderWidth: 1,
     flexDirection: "row",
@@ -487,7 +506,7 @@ const styles = StyleSheet.create({
   successContainer: {
     alignItems: "center",
     backgroundColor: Colors.successBg,
-    borderColor: "rgba(75, 143, 104, 0.22)",
+    borderColor: "rgba(28, 25, 23, 0.12)",
     borderRadius: AppRadius.control,
     borderWidth: 1,
     flexDirection: "row",

@@ -6,6 +6,14 @@ import type {
   ValidationResult,
 } from "@/features/staff/types/staffFeature.types";
 import { parseTimeToMinutes } from "@/features/staff/utils/timeUtils";
+import {
+  DATE_INVALID_MESSAGE,
+  EMAIL_INVALID_MESSAGE,
+  isValidEmail,
+  isValidIsoDate,
+  isValidPhoneDigits,
+  PHONE_INVALID_MESSAGE,
+} from "@/utils/validation";
 
 const isPresent = (value: unknown) =>
   typeof value === "string" ? value.trim().length > 0 : value !== undefined && value !== null;
@@ -28,6 +36,20 @@ export const validateStaffForm = (
 
   if (!isPresent(values.phone)) {
     errors.phone = "Phone number is required.";
+  } else if (!isValidPhoneDigits(values.phone!)) {
+    errors.phone = PHONE_INVALID_MESSAGE;
+  }
+
+  if (isPresent(values.email) && !isValidEmail(values.email!)) {
+    errors.email = EMAIL_INVALID_MESSAGE;
+  }
+
+  if (!isPresent(values.role)) {
+    errors.role = "Role is required.";
+  }
+
+  if (isPresent(values.joining_date) && !isValidIsoDate(values.joining_date!)) {
+    errors.joining_date = DATE_INVALID_MESSAGE;
   }
 
   if (!isPresent(values.work_start_time)) {
@@ -92,6 +114,12 @@ export const validateEmergencyContactForm = (
 
   if (!isPresent(phone)) {
     errors.phone = "Phone number is required.";
+  } else if (!isValidPhoneDigits(phone!)) {
+    errors.phone = PHONE_INVALID_MESSAGE;
+  }
+
+  if (isPresent(values.email) && !isValidEmail(values.email!)) {
+    errors.email = EMAIL_INVALID_MESSAGE;
   }
 
   return result(errors);

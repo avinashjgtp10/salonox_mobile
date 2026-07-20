@@ -27,7 +27,10 @@ const userSlice = createSlice({
     },
     setCurrentUser(state, action: PayloadAction<AuthUser | null>) {
       state.loading = false;
-      state.user = action.payload;
+      state.user =
+        action.payload && !action.payload.salonId && state.user?.salonId
+          ? { ...action.payload, salonId: state.user.salonId }
+          : action.payload;
       state.error = null;
     },
   },

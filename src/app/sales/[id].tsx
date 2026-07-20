@@ -1,14 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
-import { useEffect } from "react";
-import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useEffect, useMemo } from "react";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { deleteSaleThunk, fetchSaleByIdThunk } from "@/middleware/sales/sales.thunk";
 import {
@@ -18,6 +19,7 @@ import {
   selectSaleDetailLoading,
 } from "@/store/sales/sales.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import type { SaleLineItem } from "@/types/sales";
 
 function formatCurrency(amount: number) {
@@ -37,6 +39,9 @@ function getRejectedMessage(payload: unknown, fallback: string) {
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.detailRow}>
       <Text style={styles.detailLabel}>{label}</Text>
@@ -46,6 +51,9 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 }
 
 function Section({ children, title }: { children: React.ReactNode; title: string }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.sectionCard}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -55,21 +63,26 @@ function Section({ children, title }: { children: React.ReactNode; title: string
 }
 
 function LineItemRow({ item }: { item: SaleLineItem }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.lineItemRow}>
       <View style={styles.lineItemCopy}>
         <Text style={styles.lineItemName}>{item.name}</Text>
         <Text style={styles.lineItemMeta}>
-          {item.category === "service" ? item.duration ?? "Service" : "Product"}
+          {item.itemType === "service" ? "Service" : item.itemType === "product" ? "Product" : "Item"}
           {item.staffName ? ` · ${item.staffName}` : ""} · Qty {item.quantity}
         </Text>
       </View>
-      <Text style={styles.lineItemPrice}>{formatCurrency(item.price * item.quantity)}</Text>
+      <Text style={styles.lineItemPrice}>{formatCurrency(item.totalPrice)}</Text>
     </View>
   );
 }
 
 export default function SaleDetailsScreen() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id?: string }>();
   const dispatch = useAppDispatch();
 
@@ -159,7 +172,7 @@ export default function SaleDetailsScreen() {
   if (detailLoading && !sale) {
     return (
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+        <AppStatusBar />
         <View style={styles.notFoundWrap}>
           {renderHeader()}
           <View style={styles.centeredContent}>
@@ -173,7 +186,7 @@ export default function SaleDetailsScreen() {
   if (detailError && !sale) {
     return (
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+        <AppStatusBar />
         <View style={styles.notFoundWrap}>
           {renderHeader()}
           <View style={styles.notFoundCard}>
@@ -195,7 +208,7 @@ export default function SaleDetailsScreen() {
   if (!sale) {
     return (
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+        <AppStatusBar />
         <View style={styles.notFoundWrap}>
           {renderHeader()}
           <View style={styles.notFoundCard}>
@@ -211,7 +224,7 @@ export default function SaleDetailsScreen() {
 
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+      <AppStatusBar />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {renderHeader(true)}
 
@@ -295,7 +308,7 @@ export default function SaleDetailsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     backgroundColor: Colors.bg,
     flex: 1,
@@ -332,7 +345,7 @@ const styles = StyleSheet.create({
     borderRadius: AppRadius.card,
     borderWidth: 1,
     padding: AppLayout.cardPadding + Spacing.sm,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
@@ -365,13 +378,13 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   statusBadgeActive: {
-    backgroundColor: "#EAF5EF",
+    backgroundColor: Colors.successBg,
   },
   statusBadgeInactive: {
-    backgroundColor: "#FEECEC",
+    backgroundColor: Colors.errorBg,
   },
   statusBadgePending: {
-    backgroundColor: "#FBF3E5",
+    backgroundColor: Colors.warningBg,
   },
   statusBadgeText: {
     color: Colors.heading,

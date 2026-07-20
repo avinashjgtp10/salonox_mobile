@@ -80,14 +80,14 @@ export default function Navbar() {
           >
             <path
               d={isMobileMenuOpen ? 'M6 18L18 6M6 6l12 12' : 'M3 12H21'}
-              stroke="#243B34"
+              stroke="#1C1917"
               strokeWidth="2"
               strokeLinecap="round"
             />
             {!isMobileMenuOpen && (
               <>
-                <path d="M3 6H21" stroke="#243B34" strokeWidth="2" strokeLinecap="round" />
-                <path d="M3 18H21" stroke="#243B34" strokeWidth="2" strokeLinecap="round" />
+                <path d="M3 6H21" stroke="#1C1917" strokeWidth="2" strokeLinecap="round" />
+                <path d="M3 18H21" stroke="#1C1917" strokeWidth="2" strokeLinecap="round" />
               </>
             )}
           </svg>

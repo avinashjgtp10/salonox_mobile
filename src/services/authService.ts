@@ -4,6 +4,7 @@ import * as WebBrowser from "expo-web-browser";
 import { ApiError, API_BASE_URL, api } from "@/services/api";
 import { USER } from "@/services/api/endpoints";
 import { logAuthEvent } from "@/services/authSession";
+import { timeStartup } from "@/services/startupPerformance";
 import { tokenStorage } from "@/services/tokenStorage";
 import type {
   ApiResponse,
@@ -33,17 +34,21 @@ const getFirstParam = (value: string | string[] | undefined) =>
 
 export const authService = {
   async login(credentials: LoginCredentials) {
-    const response = await api.post<ApiResponse<LoginResponseData>>("/auth/login", credentials);
+    const response = await timeStartup("Login API", () =>
+      api.post<ApiResponse<LoginResponseData>>("/auth/login", credentials),
+    );
     const authData: LoginResponseData = {
       ...response.data.data,
       user: normalizeAuthUser(response.data.data.user),
     };
 
-    await tokenStorage.setTokens({
-      accessToken: authData.accessToken,
-      refreshToken: authData.refreshToken,
+    await timeStartup("Token storage", async () => {
+      await tokenStorage.setTokens({
+        accessToken: authData.accessToken,
+        refreshToken: authData.refreshToken,
+      });
+      await tokenStorage.clearStoredUser();
     });
-    await tokenStorage.clearStoredUser();
 
     logAuthEvent("login_success", {
       userId: authData.user.id,
@@ -75,12 +80,15 @@ export const authService = {
     return authData;
   },
 
-  async logout() {
-    const refreshToken = await tokenStorage.getRefreshToken();
+  async logout(tokens?: { accessToken?: string | null; refreshToken?: string | null }) {
+    const refreshToken = tokens?.refreshToken ?? (await tokenStorage.getRefreshToken());
     const payload = { refreshToken };
+    const config = tokens?.accessToken
+      ? { headers: { Authorization: `Bearer ${tokens.accessToken}` } }
+      : undefined;
 
     try {
-      await api.post<ApiResponse<{ message?: string }>>("/auth/logout", payload);
+      await api.post<ApiResponse<{ message?: string }>>("/auth/logout", payload, config);
     } finally {
       await tokenStorage.clearSession();
       logAuthEvent("logout_completed");
@@ -154,9 +162,13 @@ export const authService = {
     };
   },
 
-  async logoutAll() {
+  async logoutAll(tokens?: { accessToken?: string | null }) {
+    const config = tokens?.accessToken
+      ? { headers: { Authorization: `Bearer ${tokens.accessToken}` } }
+      : undefined;
+
     try {
-      await api.post<ApiResponse<{ message?: string }>>("/auth/logout-all");
+      await api.post<ApiResponse<{ message?: string }>>("/auth/logout-all", undefined, config);
     } finally {
       await tokenStorage.clearSession();
       logAuthEvent("logout_all_completed");

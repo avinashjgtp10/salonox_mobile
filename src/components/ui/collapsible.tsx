@@ -5,7 +5,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { SageGold, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export function Collapsible({ children, title }: PropsWithChildren & { title: string }) {
@@ -31,7 +31,7 @@ export function Collapsible({ children, title }: PropsWithChildren & { title: st
       </Pressable>
       {isOpen && (
         <Animated.View entering={FadeIn.duration(200)}>
-          <ThemedView type="backgroundElement" style={styles.content}>
+          <ThemedView type="backgroundElement" style={[styles.content, { borderColor: theme.border }]}>
             {children}
           </ThemedView>
         </Animated.View>
@@ -58,7 +58,6 @@ const styles = StyleSheet.create({
   },
   content: {
     marginTop: Spacing.three,
-    borderColor: SageGold.border,
     borderRadius: 18,
     borderWidth: 1,
     marginLeft: Spacing.four,

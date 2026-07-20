@@ -5,21 +5,26 @@ import { Pressable } from "react-native";
 
 import {
   PasswordRecoveryScaffold,
-  RecoveryColors,
   RecoveryMessage,
   RecoveryPrimaryButton,
   RecoveryTextButton,
   RecoveryTextInput,
   passwordRecoveryStyles,
 } from "@/components/auth/passwordRecoveryUi";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import { getApiErrorMessage } from "@/services/api";
 import { authService } from "@/services/authService";
+import {
+  CONFIRM_PASSWORD_MISMATCH_MESSAGE,
+  isValidPassword,
+  PASSWORD_REQUIREMENT_MESSAGE,
+} from "@/utils/validation";
 
 const getParam = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
-const isValidPassword = (value: string) => /^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(value);
 
 export default function ResetPasswordScreen() {
+  const Colors = useThemeColors();
   const params = useLocalSearchParams<{
     email?: string;
     message?: string;
@@ -60,11 +65,16 @@ export default function ResetPasswordScreen() {
       return false;
     }
 
+    if (!otp) {
+      setFormError("Verification code is missing. Please restart the password reset flow.");
+      return false;
+    }
+
     if (!password) {
       setPasswordError("New Password is required.");
       isValid = false;
     } else if (!isValidPassword(password)) {
-      setPasswordError("Password must be at least 8 characters and contain letters and numbers.");
+      setPasswordError(PASSWORD_REQUIREMENT_MESSAGE);
       isValid = false;
     }
 
@@ -72,7 +82,7 @@ export default function ResetPasswordScreen() {
       setConfirmPasswordError("Confirm Password is required.");
       isValid = false;
     } else if (password !== confirmPassword) {
-      setConfirmPasswordError("Confirm Password must match New Password.");
+      setConfirmPasswordError(CONFIRM_PASSWORD_MISMATCH_MESSAGE);
       isValid = false;
     }
 
@@ -119,7 +129,7 @@ export default function ResetPasswordScreen() {
       <Ionicons
         name={showPassword ? "eye-outline" : "eye-off-outline"}
         size={20}
-        color={RecoveryColors.secondary}
+        color={Colors.secondary}
       />
     </Pressable>
   );

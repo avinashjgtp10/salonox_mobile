@@ -1,11 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { StaffSectionCard } from "@/features/staff/components/StaffSectionCard";
 import { StaffStateView } from "@/features/staff/components/StaffStateView";
@@ -36,6 +36,7 @@ import {
   selectCommissionSlabsSaveError,
   selectCommissionSlabsSaving,
 } from "@/store/staff/staffCommissions.slice";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import type { CommissionSlab } from "@/types/staffCommissions";
 import { isValidStaffId } from "@/utils/staffIds";
 
@@ -56,6 +57,8 @@ function createLocalSlabId() {
 }
 
 export function StaffCommissionSection({ staffId }: StaffCommissionSectionProps) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
 
   const commission = useAppSelector((state) => selectCommissionSettings(state, staffId));
@@ -109,7 +112,12 @@ export function StaffCommissionSection({ staffId }: StaffCommissionSectionProps)
     setSlabDrafts(slabs);
   }, [slabs]);
 
-  const isRateValid = Number(rate) >= 0 && rate.trim().length > 0;
+  const rateNumber = Number(rate);
+  const isRateValid =
+    rate.trim().length > 0 &&
+    Number.isFinite(rateNumber) &&
+    rateNumber >= 0 &&
+    (type !== "percentage" || rateNumber <= 100);
 
   const handleSaveSettings = async () => {
     if (!staffId || !isRateValid) {
@@ -161,8 +169,62 @@ export function StaffCommissionSection({ staffId }: StaffCommissionSectionProps)
     );
   };
 
+  // Per-slab field checks (negative amounts, out-of-range rate, max <= min),
+  // then a second pass across slabs sorted by minAmount to catch overlapping
+  // ranges — both silently accepted before, with no gate on Save Slabs at all.
+  const getSlabFieldError = (slab: CommissionSlab): string | null => {
+    if (slab.minAmount < 0) {
+      return "Min amount cannot be negative.";
+    }
+
+    if (slab.maxAmount !== null && slab.maxAmount < 0) {
+      return "Max amount cannot be negative.";
+    }
+
+    if (slab.rate < 0 || slab.rate > 100) {
+      return "Rate must be between 0 and 100.";
+    }
+
+    if (slab.maxAmount !== null && slab.maxAmount <= slab.minAmount) {
+      return "Max amount must be greater than min amount.";
+    }
+
+    return null;
+  };
+
+  const slabErrorsById = useMemo(() => {
+    const errorsById = new Map<string, string>();
+
+    slabDrafts.forEach((slab) => {
+      const fieldError = getSlabFieldError(slab);
+
+      if (fieldError) {
+        errorsById.set(slab.id, fieldError);
+      }
+    });
+
+    const sortedByMin = [...slabDrafts].sort((a, b) => a.minAmount - b.minAmount);
+
+    for (let index = 0; index < sortedByMin.length - 1; index += 1) {
+      const current = sortedByMin[index];
+      const next = sortedByMin[index + 1];
+
+      if (errorsById.has(current.id) || errorsById.has(next.id)) {
+        continue;
+      }
+
+      if (current.maxAmount === null || current.maxAmount > next.minAmount) {
+        errorsById.set(next.id, "This slab's range overlaps with another slab.");
+      }
+    }
+
+    return errorsById;
+  }, [slabDrafts]);
+
+  const hasSlabErrors = slabErrorsById.size > 0;
+
   const handleSaveSlabs = async () => {
-    if (!staffId) {
+    if (!staffId || hasSlabErrors) {
       return;
     }
 
@@ -228,6 +290,13 @@ export function StaffCommissionSection({ staffId }: StaffCommissionSectionProps)
               })}
             </View>
             <StaffTextField
+              error={
+                rate.trim().length > 0 && !isRateValid
+                  ? type === "percentage"
+                    ? "Rate must be between 0 and 100."
+                    : "Rate cannot be negative."
+                  : undefined
+              }
               keyboardType="numeric"
               label={type === "percentage" ? "Rate (%)" : "Rate (Rs.)"}
               onChangeText={setRate}
@@ -285,44 +354,51 @@ export function StaffCommissionSection({ staffId }: StaffCommissionSectionProps)
         ) : null}
         {slabDrafts.length > 0 ? (
           <View style={styles.list}>
-            {slabDrafts.map((slab) => (
-              <View key={slab.id} style={styles.slabRow}>
-                <View style={styles.slabFields}>
-                  <View style={styles.slabField}>
-                    <StaffTextField
-                      keyboardType="numeric"
-                      label="Min"
-                      onChangeText={(value) => updateSlabField(slab.id, "minAmount", value)}
-                      value={String(slab.minAmount)}
-                    />
+            {slabDrafts.map((slab) => {
+              const slabError = slabErrorsById.get(slab.id);
+
+              return (
+                <View key={slab.id}>
+                  <View style={styles.slabRow}>
+                    <View style={styles.slabFields}>
+                      <View style={styles.slabField}>
+                        <StaffTextField
+                          keyboardType="numeric"
+                          label="Min"
+                          onChangeText={(value) => updateSlabField(slab.id, "minAmount", value)}
+                          value={String(slab.minAmount)}
+                        />
+                      </View>
+                      <View style={styles.slabField}>
+                        <StaffTextField
+                          keyboardType="numeric"
+                          label="Max"
+                          onChangeText={(value) => updateSlabField(slab.id, "maxAmount", value)}
+                          placeholder="No limit"
+                          value={slab.maxAmount !== null ? String(slab.maxAmount) : ""}
+                        />
+                      </View>
+                      <View style={styles.slabField}>
+                        <StaffTextField
+                          keyboardType="numeric"
+                          label="Rate %"
+                          onChangeText={(value) => updateSlabField(slab.id, "rate", value)}
+                          value={String(slab.rate)}
+                        />
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      activeOpacity={0.84}
+                      onPress={() => removeSlabRow(slab.id)}
+                      style={styles.removeSlabButton}
+                    >
+                      <Ionicons name="trash-outline" size={16} color={Colors.error} />
+                    </TouchableOpacity>
                   </View>
-                  <View style={styles.slabField}>
-                    <StaffTextField
-                      keyboardType="numeric"
-                      label="Max"
-                      onChangeText={(value) => updateSlabField(slab.id, "maxAmount", value)}
-                      placeholder="No limit"
-                      value={slab.maxAmount !== null ? String(slab.maxAmount) : ""}
-                    />
-                  </View>
-                  <View style={styles.slabField}>
-                    <StaffTextField
-                      keyboardType="numeric"
-                      label="Rate %"
-                      onChangeText={(value) => updateSlabField(slab.id, "rate", value)}
-                      value={String(slab.rate)}
-                    />
-                  </View>
+                  {slabError ? <Text style={styles.slabErrorText}>{slabError}</Text> : null}
                 </View>
-                <TouchableOpacity
-                  activeOpacity={0.84}
-                  onPress={() => removeSlabRow(slab.id)}
-                  style={styles.removeSlabButton}
-                >
-                  <Ionicons name="trash-outline" size={16} color={Colors.error} />
-                </TouchableOpacity>
-              </View>
-            ))}
+              );
+            })}
           </View>
         ) : null}
 
@@ -330,9 +406,9 @@ export function StaffCommissionSection({ staffId }: StaffCommissionSectionProps)
 
         <TouchableOpacity
           activeOpacity={0.84}
-          disabled={slabsSaving}
+          disabled={slabsSaving || hasSlabErrors}
           onPress={() => void handleSaveSlabs()}
-          style={[styles.saveButton, slabsSaving && styles.saveButtonDisabled]}
+          style={[styles.saveButton, (slabsSaving || hasSlabErrors) && styles.saveButtonDisabled]}
         >
           {slabsSaving ? (
             <ActivityIndicator color="#FFFFFF" size="small" />
@@ -376,7 +452,7 @@ export function StaffCommissionSection({ staffId }: StaffCommissionSectionProps)
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   typeGrid: {
     flexDirection: "row",
     gap: 8,
@@ -439,9 +515,16 @@ const styles = StyleSheet.create({
   slabField: {
     flex: 1,
   },
+  slabErrorText: {
+    color: Colors.error,
+    fontSize: 11,
+    fontWeight: "700",
+    marginBottom: 10,
+    marginTop: -4,
+  },
   removeSlabButton: {
     alignItems: "center",
-    backgroundColor: "#FEECEC",
+    backgroundColor: Colors.errorBg,
     borderRadius: Radius.full,
     height: 30,
     justifyContent: "center",

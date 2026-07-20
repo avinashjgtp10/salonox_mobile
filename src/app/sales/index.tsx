@@ -9,7 +9,6 @@ import {
   Modal,
   Pressable,
   RefreshControl,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -18,11 +17,12 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { deleteSaleThunk, exportSalesThunk, fetchSalesSummaryThunk, fetchSalesThunk } from "@/middleware/sales/sales.thunk";
 import {
@@ -39,6 +39,7 @@ import {
   selectSalesTotalCount,
 } from "@/store/sales/sales.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import type { SaleListItem } from "@/types/sales";
 
 const SALE_FILTERS = ["All", "Draft", "Pending", "Completed", "Cancelled"] as const;
@@ -75,7 +76,7 @@ function getRejectedMessage(payload: unknown, fallback: string) {
   return fallback;
 }
 
-function getStatusStyle(status: string) {
+function getStatusStyle(status: string, styles: ReturnType<typeof createStyles>) {
   const normalized = status.toLowerCase();
 
   if (normalized === "completed") {
@@ -98,7 +99,9 @@ function SaleCard({
   onDelete: () => void;
   sale: SaleListItem;
 }) {
-  const statusStyle = getStatusStyle(sale.status);
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const statusStyle = getStatusStyle(sale.status, styles);
 
   return (
     <TouchableOpacity
@@ -156,6 +159,9 @@ function SaleCard({
 }
 
 function SaleSkeletonCard() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.saleCard}>
       <View style={styles.skeletonIcon} />
@@ -168,6 +174,9 @@ function SaleSkeletonCard() {
 }
 
 function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.emptyState}>
       <View style={styles.emptyIllustration}>
@@ -186,6 +195,9 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 }
 
 function EmptyState({ queryActive }: { queryActive: boolean }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.emptyState}>
       <View style={styles.emptyIllustration}>
@@ -205,6 +217,8 @@ function EmptyState({ queryActive }: { queryActive: boolean }) {
 }
 
 export default function SalesHistoryScreen() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
   const sales = useAppSelector(selectSales);
@@ -365,7 +379,7 @@ export default function SalesHistoryScreen() {
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+      <AppStatusBar />
 
       <FlatList
         ListEmptyComponent={
@@ -553,7 +567,7 @@ export default function SalesHistoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     backgroundColor: Colors.bg,
     flex: 1,
@@ -579,7 +593,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     height: AppLayout.headerActionSize,
     justifyContent: "center",
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.05,
     shadowRadius: 14,
@@ -599,7 +613,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: AppLayout.cardPadding,
     paddingVertical: Spacing.md,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
@@ -636,7 +650,7 @@ const styles = StyleSheet.create({
     marginBottom: AppLayout.sectionGap,
     minHeight: AppLayout.searchBarHeight,
     paddingHorizontal: AppLayout.searchBarPaddingX,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.03,
     shadowRadius: 14,
@@ -710,7 +724,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginBottom: Spacing.sm,
     padding: AppLayout.cardPadding,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
@@ -758,13 +772,13 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   statusBadgeActive: {
-    backgroundColor: "#EAF5EF",
+    backgroundColor: Colors.successBg,
   },
   statusBadgeInactive: {
-    backgroundColor: "#FEECEC",
+    backgroundColor: Colors.errorBg,
   },
   statusBadgePending: {
-    backgroundColor: "#FBF3E5",
+    backgroundColor: Colors.warningBg,
   },
   statusBadgeText: {
     fontSize: 10,
@@ -832,7 +846,7 @@ const styles = StyleSheet.create({
     width: 96,
   },
   emptyIllustrationHalo: {
-    backgroundColor: "#EEF4F1",
+    backgroundColor: Colors.bg2,
     borderRadius: 48,
     height: 96,
     opacity: 0.9,
@@ -847,7 +861,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     height: 54,
     justifyContent: "center",
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.06,
     shadowRadius: 14,
@@ -908,7 +922,7 @@ const styles = StyleSheet.create({
     gap: 8,
     justifyContent: "center",
     minHeight: 54,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.18,
     shadowRadius: 18,
@@ -919,7 +933,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   modalOverlay: {
-    backgroundColor: "rgba(36, 59, 52, 0.24)",
+    backgroundColor: "rgba(28, 25, 23, 0.12)",
     flex: 1,
     justifyContent: "flex-end",
     padding: Spacing.lg,

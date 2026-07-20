@@ -1,5 +1,6 @@
 export const APPOINTMENT = {
   CANCEL: (appointmentId: string) => `/appointments/${appointmentId}/cancel`,
+  COMPLETE: (appointmentId: string) => `/appointments/${appointmentId}/complete`,
   CONFIRM: (appointmentId: string) => `/appointments/${appointmentId}/confirm`,
   CREATE: "/appointments",
   DETAIL: (appointmentId: string) => `/appointments/${appointmentId}`,

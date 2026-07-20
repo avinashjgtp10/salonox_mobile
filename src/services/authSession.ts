@@ -71,14 +71,61 @@ export const getAuthErrorMessage = (error: unknown) => {
   return "Unknown auth error";
 };
 
+const formatAuthPayloadValue = (value: unknown): string | null => {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(formatAuthPayloadValue).filter(Boolean).join("\n");
+  }
+
+  if (typeof value === "object") {
+    return Object.values(value)
+      .map(formatAuthPayloadValue)
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  return String(value);
+};
+
+const getAuthPayloadMessage = (error: unknown) => {
+  if (!isAxiosError(error)) {
+    return null;
+  }
+
+  const payload = error.response?.data;
+
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const record = payload as {
+    error?: unknown;
+    errors?: unknown;
+    message?: unknown;
+  };
+
+  return (
+    formatAuthPayloadValue(record.message) ??
+    formatAuthPayloadValue(record.error) ??
+    formatAuthPayloadValue(record.errors)
+  );
+};
+
 export const shouldInvalidateSession = (error: unknown) => {
   const status = getAuthErrorStatus(error);
 
-  if (status && [400, 401, 403].includes(status)) {
+  if (status && [401, 403].includes(status)) {
     return true;
   }
 
-  const message = getAuthErrorMessage(error).toLowerCase();
+  const message = (getAuthPayloadMessage(error) ?? getAuthErrorMessage(error)).toLowerCase();
 
   return (
     (message.includes("refresh") || message.includes("session")) &&

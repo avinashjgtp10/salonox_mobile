@@ -1,10 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
+import { useMemo } from "react";
 import {
   ActivityIndicator,
   Alert,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -12,11 +12,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { type StaffAvailability, type StaffStatus } from "@/data/teamData";
 import {
@@ -28,6 +29,7 @@ import {
 import { deleteStaffThunk, updateStaffThunk } from "@/middleware/staff/staff.thunk";
 import { selectStaffDeletingIds, selectStaffUpdating } from "@/store/staff/staff.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { canManageStaffLifecycle } from "@/utils/userProfile";
 
@@ -45,39 +47,42 @@ function getRejectedMessage(payload: unknown, fallback: string) {
   return fallback;
 }
 
-const getAvailabilityPalette = (availability: StaffAvailability) => {
+const getAvailabilityPalette = (availability: StaffAvailability, Colors: ThemeColors) => {
   switch (availability) {
     case "Available":
-      return { backgroundColor: "#EAF5EF", color: Colors.success };
+      return { backgroundColor: Colors.successBg, color: Colors.success };
     case "Busy":
-      return { backgroundColor: "#FFF4E3", color: Colors.warning };
+      return { backgroundColor: Colors.warningBg, color: Colors.warning };
     case "On Leave":
-      return { backgroundColor: "#FEECEC", color: Colors.error };
+      return { backgroundColor: Colors.errorBg, color: Colors.error };
     case "Offline":
     default:
-      return { backgroundColor: "#EEF1EF", color: Colors.text2 };
+      return { backgroundColor: Colors.bg2, color: Colors.text2 };
   }
 };
 
-const getStatusPalette = (status: StaffStatus) => {
+const getStatusPalette = (status: StaffStatus, Colors: ThemeColors) => {
   switch (status) {
     case "Available":
-      return { backgroundColor: "#EAF5EF", color: Colors.success };
+      return { backgroundColor: Colors.successBg, color: Colors.success };
     case "Busy":
-      return { backgroundColor: "#FFF4E3", color: Colors.warning };
+      return { backgroundColor: Colors.warningBg, color: Colors.warning };
     case "Break":
-      return { backgroundColor: "#FFF4E3", color: "#A46A1C" };
+      return { backgroundColor: Colors.warningBg, color: Colors.warning };
     case "On Leave":
-      return { backgroundColor: "#FEECEC", color: Colors.error };
+      return { backgroundColor: Colors.errorBg, color: Colors.error };
     case "Inactive":
-      return { backgroundColor: "#EEF1EF", color: Colors.text2 };
+      return { backgroundColor: Colors.bg2, color: Colors.text2 };
     case "Working":
     default:
-      return { backgroundColor: "#EEF4F1", color: Colors.primaryDark };
+      return { backgroundColor: Colors.bg2, color: Colors.primaryDark };
   }
 };
 
 function DetailRow({ label, value }: { label: string; value: string }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.detailRow}>
       <Text style={styles.detailLabel}>{label}</Text>
@@ -87,6 +92,8 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 }
 
 export default function StaffProfileScreen() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { detailsError, detailsLoading, staffMember } = useStaffDetails(id);
   const dispatch = useAppDispatch();
@@ -200,7 +207,7 @@ export default function StaffProfileScreen() {
   if (detailsLoading) {
     return (
       <SafeAreaView edges={["top"]} style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+        <AppStatusBar />
         <View style={styles.missingWrap}>
           <View style={styles.header}>
             <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.backButton}>
@@ -220,7 +227,7 @@ export default function StaffProfileScreen() {
   if (detailsError) {
     return (
       <SafeAreaView edges={["top"]} style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+        <AppStatusBar />
         <View style={styles.missingWrap}>
           <View style={styles.header}>
             <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.backButton}>
@@ -241,7 +248,7 @@ export default function StaffProfileScreen() {
   if (!staffMember) {
     return (
       <SafeAreaView edges={["top"]} style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+        <AppStatusBar />
         <View style={styles.missingWrap}>
           <View style={styles.header}>
             <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.backButton}>
@@ -265,13 +272,13 @@ export default function StaffProfileScreen() {
     );
   }
 
-  const statusPalette = getStatusPalette(staffMember.status);
-  const availabilityPalette = getAvailabilityPalette(staffMember.availability);
+  const statusPalette = getStatusPalette(staffMember.status, Colors);
+  const availabilityPalette = getAvailabilityPalette(staffMember.availability, Colors);
   const isInactive = staffMember.status === "Inactive";
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+      <AppStatusBar />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.backButton}>
@@ -437,7 +444,7 @@ export default function StaffProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     backgroundColor: Colors.bg,
     flex: 1,
@@ -485,7 +492,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: AppLayout.sectionGap,
     padding: Spacing.xl,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
@@ -556,7 +563,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: AppLayout.sectionGap,
     padding: AppLayout.cardPadding,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
@@ -641,7 +648,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   primaryPill: {
-    backgroundColor: "#EAF5EF",
+    backgroundColor: Colors.successBg,
     borderRadius: Radius.full,
     paddingHorizontal: 8,
     paddingVertical: 4,

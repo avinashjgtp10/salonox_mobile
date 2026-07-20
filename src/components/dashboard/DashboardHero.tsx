@@ -1,77 +1,93 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, type Href } from "expo-router";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
+import { BranchSelectorSheet } from "@/components/dashboard/BranchSelectorSheet";
 import {
-  DashboardColors as Colors,
-  DashboardSpacing as Spacing,
   DashboardTypography as Typography,
+  type ThemeColors,
 } from "@/constants/theme";
+import { selectActiveBranch, selectShouldShowBranchSelector } from "@/store/branch/branch.slice";
 import { useAppSelector } from "@/store/hooks";
-import {
-  selectDashboardIsLoading,
-  selectDashboardMetrics,
-} from "@/store/dashboard/dashboard.slice";
+import { selectUnreadCount } from "@/store/notification/notification.slice";
 import { selectCurrentUser } from "@/store/user/user.slice";
-import { formatDashboardRevenue } from "@/utils/dashboard";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import {
   DEFAULT_BUSINESS_NAME,
-  getUserBusinessName,
   getUserFullName,
   getUserInitials,
-  getUserRoleLabel,
 } from "@/utils/userProfile";
 
-export default function DashboardHero() {
-  const currentUser = useAppSelector(selectCurrentUser);
-  const dashboardMetrics = useAppSelector(selectDashboardMetrics);
-  const isDashboardLoading = useAppSelector(selectDashboardIsLoading);
-  const businessName = getUserBusinessName(currentUser);
-  const fullName = getUserFullName(currentUser);
-  const initials = getUserInitials(currentUser);
-  const roleLabel = getUserRoleLabel(currentUser).toUpperCase();
-  const isDefaultBusinessName = businessName === DEFAULT_BUSINESS_NAME;
-  const ownerKpis = useMemo(
-    () => [
-      {
-        label: "Bookings",
-        value: String(dashboardMetrics.bookings),
-      },
-      {
-        label: "Monthly Revenue",
-        value: formatDashboardRevenue(dashboardMetrics.monthlyRevenue),
-      },
-      {
-        label: "Today's Revenue",
-        value: formatDashboardRevenue(dashboardMetrics.todaysRevenue),
-      },
-    ],
-    [dashboardMetrics.bookings, dashboardMetrics.monthlyRevenue, dashboardMetrics.todaysRevenue],
-  );
+const getTimeGreeting = () => {
+  const hour = new Date().getHours();
 
+  if (hour < 12) {
+    return "Good morning";
+  }
+
+  if (hour < 17) {
+    return "Good afternoon";
+  }
+
+  return "Good evening";
+};
+
+const getFirstName = (fullName: string) => fullName.trim().split(/\s+/)[0] || "Owner";
+
+export default function DashboardHero() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const currentUser = useAppSelector(selectCurrentUser);
+  const unreadNotificationCount = useAppSelector(selectUnreadCount);
+  const activeBranch = useAppSelector(selectActiveBranch);
+  const shouldShowBranchSelector = useAppSelector(selectShouldShowBranchSelector);
+  const fullName = getUserFullName(currentUser);
+  const firstName = getFirstName(fullName);
+  const initials = getUserInitials(currentUser);
+  const brandName = DEFAULT_BUSINESS_NAME;
+  const branchName = activeBranch?.name ?? "Current Branch";
+  const greeting = useMemo(getTimeGreeting, []);
+  const [isBranchSheetOpen, setIsBranchSheetOpen] = useState(false);
+
+  useEffect(() => {
+    if (!shouldShowBranchSelector && isBranchSheetOpen) {
+      setIsBranchSheetOpen(false);
+    }
+  }, [isBranchSheetOpen, shouldShowBranchSelector]);
 
   return (
     <View style={styles.wrapper}>
       <View style={styles.row}>
-        <View>
-          <Text numberOfLines={1} style={styles.eyebrow}>{roleLabel}</Text>
-          <Text style={styles.name}>
-            {isDefaultBusinessName ? (
-              <>
-                Salon<Text style={styles.nameAccent}>OX</Text>
-              </>
-            ) : (
-              businessName
-            )}
+        <View style={styles.copy}>
+          <Text numberOfLines={1} style={styles.eyebrow}>{greeting}</Text>
+          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.82} style={styles.name}>
+            Hi, {firstName} 👋
           </Text>
-          <Text numberOfLines={1} style={styles.ownerName}>{fullName}</Text>
+          <Text numberOfLines={1} style={styles.ownerName}>{brandName}</Text>
+          {shouldShowBranchSelector ? (
+            <TouchableOpacity
+              accessibilityLabel="Switch branch"
+              activeOpacity={0.8}
+              onPress={() => setIsBranchSheetOpen(true)}
+              style={styles.branchChip}
+            >
+              <Ionicons color={Colors.text2} name="location-sharp" size={18} />
+              <Text numberOfLines={1} style={styles.branchChipText}>{branchName}</Text>
+              <Ionicons color={Colors.text2} name="chevron-down" size={18} />
+            </TouchableOpacity>
+          ) : null}
         </View>
         <View style={styles.right}>
-          <TouchableOpacity style={styles.bell} activeOpacity={0.7}>
-            <Ionicons name="notifications-outline" size={17} color="#FFFFFF" />
-            <View style={styles.bellDot} />
+          <TouchableOpacity
+            accessibilityLabel="Open notifications"
+            activeOpacity={0.7}
+            onPress={() => router.push("/notifications" as Href)}
+            style={styles.bell}
+          >
+            <Ionicons name="notifications-outline" size={28} color={Colors.heading} />
+            {unreadNotificationCount > 0 ? <View style={styles.bellDot} /> : null}
           </TouchableOpacity>
           <TouchableOpacity
             accessibilityLabel="Open profile"
@@ -88,148 +104,131 @@ export default function DashboardHero() {
           </TouchableOpacity>
         </View>
       </View>
-
-      <View style={styles.strip}>
-        {ownerKpis.map((stat, index) => (
-          <View
-            key={stat.label}
-            style={[styles.statCell, index > 0 && styles.statCellBorder]}
-          >
-            {isDashboardLoading ? (
-              <>
-                <View style={styles.statValueSkeleton} />
-                <View style={styles.statLabelSkeleton} />
-              </>
-            ) : (
-              <>
-                <Text style={styles.statValue}>{stat.value}</Text>
-                <Text style={styles.statLabel}>{stat.label}</Text>
-              </>
-            )}
-          </View>
-        ))}
-      </View>
+      {shouldShowBranchSelector ? (
+        <BranchSelectorSheet onClose={() => setIsBranchSheetOpen(false)} visible={isBranchSheetOpen} />
+      ) : null}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   wrapper: {
-    backgroundColor: Colors.primaryDark,
+    backgroundColor: Colors.bg,
   },
   row: {
-    alignItems: "center",
+    alignItems: "flex-start",
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingBottom: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
+    paddingBottom: 24,
+    paddingHorizontal: 22,
+    paddingTop: 20,
+  },
+  copy: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 14,
   },
   eyebrow: {
-    color: "rgba(255,255,255,0.58)",
-    fontSize: 9,
+    color: Colors.text2,
+    fontSize: 16,
     fontWeight: Typography.fontWeights.semibold,
-    letterSpacing: 1,
-    marginBottom: 3,
+    letterSpacing: 0,
+    lineHeight: 22,
+    marginBottom: 6,
   },
   name: {
-    color: "#FFFFFF",
-    fontSize: 24,
-    fontWeight: Typography.fontWeights.bold,
-    letterSpacing: -0.5,
+    color: Colors.heading,
+    fontFamily: Typography.fontFamilies.display,
+    fontSize: 38,
+    fontWeight: Typography.fontWeights.semibold,
+    letterSpacing: 0,
+    lineHeight: 46,
   },
   ownerName: {
-    color: "rgba(255,255,255,0.7)",
-    fontSize: 12,
-    fontWeight: Typography.fontWeights.medium,
-    marginTop: 4,
+    color: Colors.text2,
+    fontSize: 16,
+    fontWeight: Typography.fontWeights.bold,
+    lineHeight: 22,
+    marginTop: 8,
   },
-  nameAccent: {
-    color: Colors.gold,
+  branchChip: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 22,
+    maxWidth: "100%",
+    minHeight: 56,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.035,
+    shadowRadius: 12,
+    elevation: 1,
+  },
+  branchChipText: {
+    color: Colors.heading,
+    flexShrink: 1,
+    fontSize: 16,
+    fontWeight: "800",
+    lineHeight: 21,
   },
   right: {
     alignItems: "center",
     flexDirection: "row",
-    gap: Spacing.sm,
+    gap: 14,
+    paddingTop: 10,
   },
   bell: {
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderColor: "rgba(255,255,255,0.15)",
-    borderRadius: 18,
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: 32,
     borderWidth: 1,
-    height: 36,
+    height: 64,
     justifyContent: "center",
-    width: 36,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.035,
+    shadowRadius: 12,
+    width: 64,
   },
   bellDot: {
-    backgroundColor: Colors.gold,
-    borderColor: Colors.primaryDark,
-    borderRadius: 4,
+    backgroundColor: Colors.heading,
+    borderColor: Colors.card,
+    borderRadius: 5,
     borderWidth: 1.5,
-    height: 8,
+    height: 10,
     position: "absolute",
-    right: 5,
-    top: 5,
-    width: 8,
+    right: 17,
+    top: 17,
+    width: 10,
   },
   avatar: {
     alignItems: "center",
-    backgroundColor: Colors.gold,
-    borderRadius: 18,
-    height: 36,
+    backgroundColor: Colors.backgroundElement,
+    borderColor: Colors.border,
+    borderRadius: 32,
+    borderWidth: 1,
+    height: 64,
     justifyContent: "center",
-    width: 36,
+    width: 64,
   },
   avatarImage: {
-    backgroundColor: Colors.gold,
-    borderRadius: 18,
-    height: 36,
-    width: 36,
+    backgroundColor: Colors.backgroundElement,
+    borderRadius: 32,
+    height: 64,
+    width: 64,
   },
   avatarText: {
-    color: Colors.primaryDark,
-    fontSize: 12,
+    color: Colors.heading,
+    fontFamily: Typography.fontFamilies.display,
+    fontSize: 20,
     fontWeight: Typography.fontWeights.bold,
-  },
-  strip: {
-    borderTopColor: "rgba(255,255,255,0.08)",
-    borderTopWidth: 1,
-    flexDirection: "row",
-  },
-  statCell: {
-    alignItems: "center",
-    flex: 1,
-    paddingVertical: 14,
-  },
-  statCellBorder: {
-    borderLeftColor: "rgba(255,255,255,0.1)",
-    borderLeftWidth: 1,
-  },
-  statValue: {
-    color: "#FFFFFF",
-    fontSize: 22,
-    fontWeight: Typography.fontWeights.bold,
-    lineHeight: 26,
-  },
-  statValueSkeleton: {
-    backgroundColor: "rgba(255,255,255,0.18)",
-    borderRadius: 999,
-    height: 24,
-    width: "62%",
-  },
-  statLabel: {
-    color: "rgba(255,255,255,0.58)",
-    fontSize: 9,
-    letterSpacing: 0.6,
-    marginTop: 2,
-    textTransform: "uppercase",
-  },
-  statLabelSkeleton: {
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderRadius: 999,
-    height: 10,
-    marginTop: 8,
-    width: "52%",
   },
 });

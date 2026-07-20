@@ -13,17 +13,20 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#FAFBFA",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/images/android-launcher-foreground.png",
+        "backgroundImage": "./assets/images/android-launcher-background.png",
+        "monochromeImage": "./assets/images/android-launcher-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
       "softwareKeyboardLayoutMode": "pan",
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.RECORD_AUDIO"
-      ]
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "package": "com.salonox.app",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static",
@@ -41,6 +44,10 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#FAFBFA",
+          "dark": {
+            "backgroundColor": "#08111F",
+            "image": "./assets/images/splash-icon.png"
+          },
           "android": {
             "image": "./assets/images/splash-icon.png",
             "imageWidth": 76
@@ -52,6 +59,16 @@
         {
           "photosPermission": "Allow SalonOX to access your photos so you can set a profile picture.",
           "cameraPermission": "Allow SalonOX to use your camera so you can take a profile picture."
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/android-icon-foreground.png",
+          "color": "#3D6F59",
+          "defaultChannel": "salonox",
+          "enableBackgroundRemoteNotifications": true
         }
       ]
     ],

@@ -1,10 +1,11 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 
+import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import { staffService } from "@/services/staff.service";
 import type { StaffMember } from "@/data/teamData";
 import type { RootState } from "@/store";
-import { selectCurrentUser } from "@/store/user/user.slice";
+import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import type {
   CreateEmergencyContactFormFields,
   CreateEmergencyContactRequest,
@@ -112,15 +113,20 @@ export const createStaffThunk = createAsyncThunk<
   CreateStaffResponse,
   Omit<CreateStaffRequest, "salon_id">,
   { rejectValue: CreateStaffRejectValue; state: RootState }
->("staff/createStaff", async (staffPayload, { getState, rejectWithValue }) => {
+>("staff/createStaff", async (staffPayload, { dispatch, getState, rejectWithValue }) => {
   try {
-    const salonId = selectCurrentUser(getState())?.salonId;
+    const salonId = selectActiveBranchId(getState());
     const payload: CreateStaffRequest = {
       ...staffPayload,
       ...(salonId ? { salon_id: salonId } : {}),
     };
 
-    return await staffService.createStaff(payload);
+    const response = await staffService.createStaff(payload);
+
+    void dispatch(fetchStaffThunk({ ...getState().staff.query, page: 1, refresh: true, reset: true }));
+    void dispatch(fetchDashboardThunk());
+
+    return response;
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
@@ -144,7 +150,7 @@ export const createStaffAddressThunk = createAsyncThunk<
   { rejectValue: CreateStaffAddressRejectValue; state: RootState }
 >("staff/createStaffAddress", async ({ address, staffId }, { getState, rejectWithValue }) => {
   try {
-    const salonId = selectCurrentUser(getState())?.salonId;
+    const salonId = selectActiveBranchId(getState());
     const payload: CreateStaffAddressRequest = {
       ...address,
       ...(salonId ? { salon_id: salonId } : {}),
@@ -223,7 +229,7 @@ export const createEmergencyContactThunk = createAsyncThunk<
       return rejectWithValue({ message: "Emergency contact phone number is required." });
     }
 
-    const salonId = selectCurrentUser(getState())?.salonId;
+    const salonId = selectActiveBranchId(getState());
     const payload: CreateEmergencyContactRequest = {
       ...payloadWithoutSalon,
       ...(salonId ? { salon_id: salonId } : {}),
@@ -278,7 +284,7 @@ export const updateEmergencyContactThunk = createAsyncThunk<
         return rejectWithValue({ message: "No emergency contact changes to update." });
       }
 
-      const salonId = selectCurrentUser(getState())?.salonId;
+      const salonId = selectActiveBranchId(getState());
       const payload: UpdateEmergencyContactRequest = {
         ...payloadWithoutSalon,
         ...(salonId ? { salon_id: salonId } : {}),
@@ -317,7 +323,9 @@ export const fetchStaffThunk = createAsyncThunk<
   };
 
   try {
-    return await staffService.getStaff(nextQuery);
+    const salonId = selectActiveBranchId(getState());
+
+    return await staffService.getStaff(nextQuery, salonId);
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
@@ -423,15 +431,21 @@ export const updateStaffThunk = createAsyncThunk<
   UpdateStaffResponse,
   { staffId: string; updates: Omit<UpdateStaffRequest, "salon_id"> },
   { rejectValue: UpdateStaffRejectValue; state: RootState }
->("staff/updateStaff", async ({ staffId, updates }, { getState, rejectWithValue }) => {
+>("staff/updateStaff", async ({ staffId, updates }, { dispatch, getState, rejectWithValue }) => {
   try {
-    const salonId = selectCurrentUser(getState())?.salonId;
+    const salonId = selectActiveBranchId(getState());
     const payload: UpdateStaffRequest = {
       ...updates,
       ...(salonId ? { salon_id: salonId } : {}),
     };
 
-    return await staffService.updateStaff(staffId, payload);
+    const response = await staffService.updateStaff(staffId, payload);
+
+    void dispatch(fetchStaffByIdThunk(staffId));
+    void dispatch(fetchStaffThunk({ ...getState().staff.query, page: 1, refresh: true, reset: true }));
+    void dispatch(fetchDashboardThunk());
+
+    return response;
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
@@ -460,7 +474,7 @@ export const updateStaffAddressThunk = createAsyncThunk<
   { rejectValue: UpdateStaffAddressRejectValue; state: RootState }
 >("staff/updateStaffAddress", async ({ recordId, staffId, updates }, { getState, rejectWithValue }) => {
   try {
-    const salonId = selectCurrentUser(getState())?.salonId;
+    const salonId = selectActiveBranchId(getState());
     const payload: UpdateStaffAddressRequest = {
       ...updates,
       ...(salonId ? { salon_id: salonId } : {}),
@@ -490,9 +504,14 @@ export const deleteStaffThunk = createAsyncThunk<
   DeleteStaffResponse,
   string,
   { rejectValue: DeleteStaffRejectValue; state: RootState }
->("staff/deleteStaff", async (staffId, { rejectWithValue }) => {
+>("staff/deleteStaff", async (staffId, { dispatch, getState, rejectWithValue }) => {
   try {
-    return await staffService.deleteStaff(staffId);
+    const response = await staffService.deleteStaff(staffId);
+
+    void dispatch(fetchStaffThunk({ ...getState().staff.query, page: 1, refresh: true, reset: true }));
+    void dispatch(fetchDashboardThunk());
+
+    return response;
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 

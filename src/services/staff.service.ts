@@ -66,6 +66,7 @@ type StaffEmergencyContactApiItem = {
 };
 
 type StaffApiItem = {
+  _id?: string | null;
   attendance?: string | number | null;
   availability?: string | null;
   availability_label?: string | null;
@@ -197,11 +198,11 @@ type GetStaffApiResponse = ApiResponse<CreateStaffApiData>;
 type UpdateStaffApiResponse = ApiResponse<CreateStaffApiData>;
 
 const AVATAR_PALETTE = [
-  { background: "#FAECE7", color: "#712B13" },
-  { background: "#E7F3ED", color: "#1B5A42" },
-  { background: "#F8F0E2", color: "#8A5A0E" },
-  { background: "#E9EEF8", color: "#395B8F" },
-  { background: "#F3EBFA", color: "#6F4AA3" },
+  { background: "#F2EFE9", color: "#726A63" },
+  { background: "#F2EFE9", color: "#726A63" },
+  { background: "#F2EFE9", color: "#726A63" },
+  { background: "#F2EFE9", color: "#726A63" },
+  { background: "#F2EFE9", color: "#726A63" },
 ] as const;
 
 const toSafeString = (value: unknown, fallback = "") => {
@@ -613,11 +614,21 @@ const getEmergencyContactPagination = (
 
 const normalizeStaffMember = (staffMember: StaffApiItem, index: number): StaffMember => {
   const name = getFullName(staffMember);
+  const staffIdAliases = Array.from(
+    new Set(
+      [
+        normalizeStaffId(staffMember.id),
+        normalizeStaffId(staffMember.uuid),
+        normalizeStaffId(staffMember.staff_uuid),
+        normalizeStaffId(staffMember.staff_id),
+        normalizeStaffId(staffMember._id),
+      ].filter(Boolean),
+    ),
+  );
   const id =
-    normalizeStaffId(staffMember.id) ||
-    normalizeStaffId(staffMember.uuid) ||
-    normalizeStaffId(staffMember.staff_uuid) ||
-    normalizeStaffId(staffMember.staff_id);
+    staffIdAliases.find(isValidStaffId) ??
+    staffIdAliases[0] ??
+    `staff-${index + 1}`;
   const status = toStaffStatus(staffMember.status);
   const availability = toStaffAvailability(staffMember.availability, status);
   const avatarTone = getAvatarTone(id);
@@ -643,6 +654,7 @@ const normalizeStaffMember = (staffMember: StaffApiItem, index: number): StaffMe
     phone: toSafeString(staffMember.phone) || toSafeString(staffMember.phone_number) || "-",
     role: toSafeString(staffMember.role) || toSafeString(staffMember.staff_role) || "Staff",
     servicesCompleted: toSafeNumber(staffMember.services_completed),
+    staffIdAliases,
     status,
     todayAppointments: toSafeNumber(staffMember.today_appointments),
     todayRevenue: toSafeNumber(staffMember.today_revenue),
@@ -950,16 +962,21 @@ export const staffService = {
     return normalizeStaffMember(getCreatedStaff(response.data.data), 0);
   },
 
-  async getStaff(query: Pick<StaffListQuery, "limit" | "page">): Promise<StaffListResponse> {
+  async getStaff(
+    query: Pick<StaffListQuery, "limit" | "page">,
+    salonId?: string | null,
+  ): Promise<StaffListResponse> {
     const requestQuery: StaffListQuery = {
       limit: query.limit,
       page: query.page,
       sort_by: "created_at",
       sort_order: "DESC",
     };
+    const params: Record<string, unknown> = { ...requestQuery };
+    if (salonId) params.salon_id = salonId;
 
     const response = await api.get<StaffListApiResponse>(STAFF.LIST, {
-      params: requestQuery,
+      params,
     });
     const apiStaffMembers = getStaffArray(response.data.data);
     const staffMembers = apiStaffMembers.map(normalizeStaffMember).filter((staffMember) => {

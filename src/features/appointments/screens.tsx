@@ -1,5 +1,6 @@
+import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams, type Href } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -10,7 +11,6 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -19,19 +19,29 @@ import {
   useWindowDimensions,
 } from "react-native";
 import Animated, { FadeIn, FadeOut, Layout } from "react-native-reanimated";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout, AppRadius } from "@/constants/layout";
+import { Badge } from "@/components/ui/Badge";
+import { InitialsAvatar } from "@/components/ui/InitialsAvatar";
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { getApiErrorMessage } from "@/services/api";
+import {
+  appointmentStatusMatchesFilter,
+  appointmentStatusToApiValue,
+  appointmentStatusToListApiValue,
+} from "@/services/appointment.service";
+import { clientService } from "@/services/client.service";
 import { serviceService } from "@/services/service.service";
-import { fetchClientsThunk } from "@/middleware/client/client.thunk";
+import { fetchClientByIdThunk, fetchClientsThunk } from "@/middleware/client/client.thunk";
 import {
   cancelAppointmentThunk,
+  completeAppointmentThunk,
   confirmAppointmentThunk,
   createAppointmentThunk,
   fetchAppointmentByIdThunk,
@@ -42,6 +52,8 @@ import {
   updateAppointmentThunk,
 } from "@/middleware/appointment/appointment.thunk";
 import { fetchStaffThunk } from "@/middleware/staff/staff.thunk";
+import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
+import { fetchStaffAvailabilityThunk } from "@/middleware/staff/staffAvailability.thunk";
 import {
   clearAppointmentToast,
   selectAppointmentById,
@@ -58,13 +70,17 @@ import {
   selectAppointmentsPagination,
   selectAppointmentsQuery,
   selectAppointmentsRefreshing,
-  selectAppointmentsTotalCount,
   selectAppointmentToast,
 } from "@/store/appointment/appointment.slice";
 import { selectClients } from "@/store/client/client.slice";
+import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import {
+  selectStaffAvailability,
+  selectStaffAvailabilityError,
+  selectStaffAvailabilityLoading,
+} from "@/store/staff/staffAvailability.slice";
 import { selectStaffMembers } from "@/store/staff/staff.slice";
-import { selectCurrentUser } from "@/store/user/user.slice";
 import type {
   AppointmentCalendarView,
   AppointmentListItem,
@@ -74,7 +90,14 @@ import type {
   RescheduleAppointmentRequest,
   UpdateAppointmentRequest,
 } from "@/types/appointment";
+import type { ClientListItem } from "@/types/client";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ServiceListItem } from "@/types/service";
+import type { StaffAvailabilitySlot } from "@/types/staffAvailability";
+import type { StaffMember } from "@/data/teamData";
+import { useAppForeground } from "@/hooks/useAppForeground";
+import { addRealtimeEntityChangedListener } from "@/services/realtimeEvents";
+import { isValidIsoDate } from "@/utils/validation";
 
 const STATUS_FILTERS: ("All" | AppointmentStatus)[] = [
   "All",
@@ -84,10 +107,65 @@ const STATUS_FILTERS: ("All" | AppointmentStatus)[] = [
   "Checked In",
   "In Service",
   "In Progress",
+  "Partial",
   "Completed",
   "Cancelled",
   "Missed",
 ];
+
+const STAFF_AVAILABILITY_REALTIME_ENTITIES = new Set([
+  "appointments",
+  "staff",
+  "staffAvailability",
+]);
+
+const toComparableId = (value: unknown) => {
+  if (typeof value === "string" || typeof value === "number") {
+    const id = String(value).trim();
+    return id.length > 0 ? id : null;
+  }
+
+  return null;
+};
+
+const collectPayloadStaffIds = (payload: unknown): string[] => {
+  if (!payload || typeof payload !== "object") {
+    return [];
+  }
+
+  const record = payload as Record<string, unknown>;
+  const nestedRecords = [record.data, record.record, record.staff, record.employee].filter(
+    (value): value is Record<string, unknown> => Boolean(value) && typeof value === "object",
+  );
+  const candidates = [
+    record.staffId,
+    record.staff_id,
+    record.employeeId,
+    record.employee_id,
+    record.staffRefId,
+    record.staff_ref_id,
+    record.userId,
+    record.user_id,
+    ...nestedRecords.flatMap((nested) => [
+      nested.id,
+      nested._id,
+      nested.staffId,
+      nested.staff_id,
+      nested.employeeId,
+      nested.employee_id,
+      nested.userId,
+      nested.user_id,
+    ]),
+  ];
+
+  return candidates.map(toComparableId).filter((id): id is string => Boolean(id));
+};
+
+const realtimePayloadMatchesStaff = (payload: unknown, staffId: string) => {
+  const payloadStaffIds = collectPayloadStaffIds(payload);
+
+  return payloadStaffIds.length === 0 || payloadStaffIds.includes(staffId);
+};
 
 const FORM_STATUS_OPTIONS: AppointmentStatus[] = [
   "Upcoming",
@@ -96,6 +174,7 @@ const FORM_STATUS_OPTIONS: AppointmentStatus[] = [
   "Checked In",
   "In Service",
   "In Progress",
+  "Partial",
   "Completed",
   "Cancelled",
   "Missed",
@@ -113,22 +192,29 @@ const PAYMENT_METHODS: AppointmentPaymentMethod[] = [
 const SERVICE_SEARCH_PLACEHOLDER =
   "Type at least 3 letters or enter a price to search services.";
 const SERVICE_SEARCH_MIN_LETTERS = 3;
+const CLIENT_SEARCH_MIN_LETTERS = 3;
+const CLIENT_SEARCH_RESULT_LIMIT = 8;
+const AUTOCOMPLETE_DROPDOWN_GAP = 14;
 const SERVICE_SEARCH_DEBOUNCE_MS = 240;
+const CLIENT_SEARCH_DEBOUNCE_MS = 240;
 const SERVICE_SEARCH_NAME_RESULT_LIMIT = 25;
 const SERVICE_CATALOG_MAX_PAGES = 50;
 const SERVICE_CATALOG_PAGE_SIZE = 100;
 
-const STATUS_STYLES: Record<AppointmentStatus, { bg: string; color: string }> = {
-  Cancelled: { bg: "#FEECEC", color: Colors.error },
-  "Checked In": { bg: "#EAF5EF", color: Colors.primaryDark },
-  Completed: { bg: Colors.successBg, color: "#2E7049" },
-  Confirmed: { bg: "#EAF5EF", color: Colors.primaryDark },
-  "In Progress": { bg: "#E9F0FF", color: Colors.info },
-  "In Service": { bg: "#EEF4F1", color: Colors.primaryDark },
-  Missed: { bg: "#F8E8E8", color: Colors.error },
-  Upcoming: { bg: "#FBF3E5", color: Colors.goldDark },
-  Waiting: { bg: "#FBF3E5", color: Colors.goldDark },
-};
+const getStatusStyles = (Colors: ThemeColors): Record<AppointmentStatus, { bg: string; color: string }> => ({
+  Cancelled: { bg: Colors.errorBg, color: Colors.error },
+  "Checked In": { bg: Colors.successBg, color: Colors.primaryDark },
+  Completed: { bg: Colors.successBg, color: Colors.success },
+  Confirmed: { bg: Colors.successBg, color: Colors.primaryDark },
+  Deleted: { bg: Colors.bg2, color: Colors.text2 },
+  "In Progress": { bg: Colors.infoBg, color: Colors.info },
+  "In Service": { bg: Colors.bg2, color: Colors.primaryDark },
+  Missed: { bg: Colors.errorBg, color: Colors.error },
+  Partial: { bg: Colors.warningBg, color: Colors.warning },
+  Unknown: { bg: Colors.bg2, color: Colors.text2 },
+  Upcoming: { bg: Colors.warningBg, color: Colors.goldDark },
+  Waiting: { bg: Colors.warningBg, color: Colors.goldDark },
+});
 
 type AppointmentFormState = {
   clientId: string;
@@ -145,6 +231,8 @@ type AppointmentFormState = {
   startTime: string;
   status: AppointmentStatus;
 };
+
+type ClientBookingMode = "existing" | "walkIn";
 
 type FormErrors = Partial<Record<keyof AppointmentFormState, string>>;
 
@@ -167,8 +255,53 @@ const getRejectedMessage = (payload: unknown, fallback: string) => {
   return fallback;
 };
 
+const useAppointmentStyles = () => {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
+  return { Colors, styles };
+};
+
 const formatCurrency = (amount: number) =>
   `Rs. ${Math.max(0, amount).toLocaleString("en-IN")}`;
+
+const getServiceDiscount = (service: ServiceListItem) => {
+  const baseDiscount = Math.max(service.discountAmount ?? 0, 0);
+  const percentDiscount = Math.max(service.discountPercent ?? 0, 0);
+
+  if (percentDiscount > 0) {
+    return Math.min(service.price, (service.price * percentDiscount) / 100);
+  }
+
+  return Math.min(service.price, baseDiscount);
+};
+
+const getServiceTax = (service: ServiceListItem, taxableAmount: number) => {
+  const fixedTax = Math.max(service.taxAmount ?? 0, 0);
+  const taxRate = Math.max(service.taxRate ?? 0, 0);
+
+  if (taxRate > 0) {
+    return (taxableAmount * taxRate) / 100;
+  }
+
+  return fixedTax;
+};
+
+const getServicePricingTotals = (services: ServiceListItem[]) => {
+  const subtotal = services.reduce((total, service) => total + Math.max(service.price, 0), 0);
+  const discount = services.reduce((total, service) => total + getServiceDiscount(service), 0);
+  const tax = services.reduce((total, service) => {
+    const taxableAmount = Math.max(0, service.price - getServiceDiscount(service));
+    return total + getServiceTax(service, taxableAmount);
+  }, 0);
+
+  return {
+    discount,
+    grandTotal: Math.max(0, subtotal - discount + tax),
+    subtotal,
+    tax,
+  };
+};
 
 const formatDurationLabel = (durationMinutes: number | null) =>
   durationMinutes && durationMinutes > 0 ? `${durationMinutes} min` : "Duration pending";
@@ -321,54 +454,80 @@ const searchServicesByName = async (
   return response.services.filter((service) => service.name.toLowerCase().includes(query.text));
 };
 
-const formatDateLabel = (value: string | null) => {
+// The backend sends appointment timestamps in a variety of shapes
+// (Postgres-style "YYYY-MM-DD HH:MM:SS+00" with a space instead of "T", a
+// bare 2-digit UTC offset instead of "+00:00", or no offset at all). Some of
+// these are not spec-compliant ISO 8601, and React Native's JS engine
+// (Hermes) fails to parse them where a browser's V8 engine might leniently
+// succeed — which is why raw strings like "2026-07-09 14:30:00+00" could
+// leak straight to the UI. This normalizes to a strict ISO 8601 string
+// before parsing so every appointment timestamp parses reliably on-device.
+const toStrictIsoDateTime = (value: string) => {
+  let normalized = value.trim();
+
+  if (normalized.includes(" ") && !normalized.includes("T")) {
+    normalized = normalized.replace(" ", "T");
+  }
+
+  // A bare 2-digit offset ("+00", "-05") right after the time component
+  // isn't valid ISO 8601 — pad it to "+00:00" form.
+  normalized = normalized.replace(/(T\d{2}:\d{2}:\d{2}(?:\.\d+)?)([+-]\d{2})$/, "$1$2:00");
+
+  // No "Z" and no explicit offset at all: this backend's naive timestamps
+  // represent UTC, so make that explicit rather than letting the engine
+  // assume local time.
+  if (normalized.includes("T") && !/[zZ]$|[+-]\d{2}:\d{2}$/.test(normalized)) {
+    normalized += "Z";
+  }
+
+  return normalized;
+};
+
+const parseAppointmentDateTime = (value: string | null): Date | null => {
   if (!value) {
-    return "-";
+    return null;
   }
 
-  const parsedDate = new Date(value);
+  const parsedDate = new Date(toStrictIsoDateTime(value));
 
-  if (Number.isNaN(parsedDate.getTime())) {
-    return value;
-  }
+  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+};
 
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "numeric",
-    month: "short",
-    weekday: "short",
-    year: "numeric",
-  }).format(parsedDate);
+// Deterministic 12-hour "H:MM AM/PM" formatting (e.g. "9:00 AM", "2:30 PM").
+// Built manually rather than via Intl.DateTimeFormat, whose AM/PM casing
+// isn't guaranteed consistent across the ICU data bundled with different JS
+// engines (Hermes on-device vs. the tooling this was verified with).
+const formatHourMinuteAmPm = (date: Date) => {
+  const hours24 = date.getHours();
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const ampm = hours24 >= 12 ? "PM" : "AM";
+  const hours12 = hours24 % 12 || 12;
+
+  return `${hours12}:${minutes} ${ampm}`;
 };
 
 const formatTimeLabel = (value: string | null) => {
-  if (!value) {
+  const parsedDate = parseAppointmentDateTime(value);
+
+  if (!parsedDate) {
     return "--:--";
   }
 
-  const parsedDate = new Date(value);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat("en-IN", {
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(parsedDate);
+  return formatHourMinuteAmPm(parsedDate);
 };
 
 const getDateKey = (value: string | null) => {
-  if (!value) {
-    return "";
+  const parsedDate = parseAppointmentDateTime(value);
+
+  if (!parsedDate) {
+    return value ? value.slice(0, 10) : "";
   }
 
-  const parsedDate = new Date(value);
+  const year = parsedDate.getFullYear();
+  const month = String(parsedDate.getMonth() + 1).padStart(2, "0");
+  const day = String(parsedDate.getDate()).padStart(2, "0");
 
-  if (Number.isNaN(parsedDate.getTime())) {
-    return value.slice(0, 10);
-  }
-
-  return parsedDate.toISOString().slice(0, 10);
+  return `${year}-${month}-${day}`;
 };
 
 const toInputDate = (value: string | null) => getDateKey(value) || todayIsoDate();
@@ -410,6 +569,51 @@ const addMinutesToTime = (date: string, startTime: string, minutes: number) => {
   ).padStart(2, "0")}`;
 };
 
+const parseClockToMinutes = (value?: string | null) => {
+  const raw = value?.trim();
+
+  if (!raw) {
+    return null;
+  }
+
+  const twelveHour = raw.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+
+  if (twelveHour) {
+    let hours = Number(twelveHour[1]);
+    const minutes = Number(twelveHour[2]);
+    const ampm = twelveHour[3].toUpperCase();
+
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes) || hours < 1 || hours > 12 || minutes > 59) {
+      return null;
+    }
+
+    if (ampm === "PM" && hours !== 12) hours += 12;
+    if (ampm === "AM" && hours === 12) hours = 0;
+
+    return hours * 60 + minutes;
+  }
+
+  const twentyFourHour = raw.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+
+  if (twentyFourHour) {
+    return Number(twentyFourHour[1]) * 60 + Number(twentyFourHour[2]);
+  }
+
+  return null;
+};
+
+const minutesToDisplayTime = (minutes: number) => {
+  const hours24 = Math.floor(minutes / 60);
+  const minuteLabel = String(minutes % 60).padStart(2, "0");
+  const suffix = hours24 >= 12 ? "PM" : "AM";
+  const hours12 = hours24 % 12 || 12;
+
+  return `${hours12}:${minuteLabel} ${suffix}`;
+};
+
+const staffIdMatches = (staffMember: StaffMember, staffId?: string | null) =>
+  Boolean(staffId && (staffMember.id === staffId || staffMember.staffIdAliases?.includes(staffId)));
+
 const matchesAppointment = (
   appointment: AppointmentListItem,
   search: string,
@@ -417,7 +621,7 @@ const matchesAppointment = (
 ) => {
   const query = search.trim().toLowerCase();
   const digits = query.replace(/\D/g, "");
-  const statusMatches = status === "All" || appointment.status === status;
+  const statusMatches = appointmentStatusMatchesFilter(appointment.status, status);
 
   if (!statusMatches) {
     return false;
@@ -437,29 +641,53 @@ const matchesAppointment = (
 };
 
 const sortBySchedule = (left: AppointmentListItem, right: AppointmentListItem) => {
-  const leftTime = left.scheduledAt ? new Date(left.scheduledAt).getTime() : Number.MAX_SAFE_INTEGER;
-  const rightTime = right.scheduledAt ? new Date(right.scheduledAt).getTime() : Number.MAX_SAFE_INTEGER;
+  const leftTime = parseAppointmentDateTime(left.scheduledAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+  const rightTime = parseAppointmentDateTime(right.scheduledAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
 
   return leftTime - rightTime;
 };
 
-const statusToApiValue = (status: AppointmentStatus) => status.toLowerCase().replace(/\s+/g, "_");
+// Statuses that represent an active/confirmed booking still to come.
+// Completed, Partial, Cancelled, Missed, Deleted, and Unknown appointments are
+// not "upcoming" and must sort after all of these, regardless of schedule time.
+const ACTIVE_APPOINTMENT_STATUSES: ReadonlySet<AppointmentStatus> = new Set([
+  "Upcoming",
+  "Confirmed",
+  "Waiting",
+  "Checked In",
+  "In Service",
+  "In Progress",
+]);
+
+const sortWithActiveFirst = (left: AppointmentListItem, right: AppointmentListItem) => {
+  const leftIsActive = ACTIVE_APPOINTMENT_STATUSES.has(left.status);
+  const rightIsActive = ACTIVE_APPOINTMENT_STATUSES.has(right.status);
+
+  if (leftIsActive !== rightIsActive) {
+    return leftIsActive ? -1 : 1;
+  }
+
+  return sortBySchedule(left, right);
+};
 
 const validateTime = (value: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 
-const validateDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
+const validateDate = (value: string) => isValidIsoDate(value);
+
+const isPastDate = (value: string) => validateDate(value) && value < todayIsoDate();
 
 const validateForm = (form: AppointmentFormState, options?: { requireClient?: boolean }): FormErrors => {
   const errors: FormErrors = {};
-  const duration = Number(form.duration);
-  const price = Number(form.price || 0);
+  const trimmedDiscount = form.discount.trim();
+  const discount = trimmedDiscount === "" ? 0 : Number(trimmedDiscount);
+  const price = Number(form.price.trim() || 0);
 
   if (options?.requireClient !== false && !form.clientId) {
     errors.clientId = "Select a client.";
   }
 
-  if (!form.serviceName.trim() && !form.serviceId.trim()) {
-    errors.serviceName = "Service is required.";
+  if (!form.serviceId.trim()) {
+    errors.serviceName = "Select a service.";
   }
 
   if (!form.staffId) {
@@ -468,35 +696,18 @@ const validateForm = (form: AppointmentFormState, options?: { requireClient?: bo
 
   if (!validateDate(form.date)) {
     errors.date = "Use YYYY-MM-DD.";
+  } else if (isPastDate(form.date)) {
+    errors.date = "Past dates cannot be booked.";
   }
 
   if (!validateTime(form.startTime)) {
     errors.startTime = "Use HH:mm.";
   }
 
-  if (!validateTime(form.endTime)) {
-    errors.endTime = "Use HH:mm.";
-  }
-
-  if (!Number.isFinite(duration) || duration <= 0) {
-    errors.duration = "Duration must be greater than 0.";
-  }
-
-  if (!Number.isFinite(price) || price < 0) {
-    errors.price = "Price cannot be negative.";
-  }
-
-  if (!form.status) {
-    errors.status = "Select a status.";
-  }
-
-  if (validateDate(form.date) && validateTime(form.startTime) && validateTime(form.endTime)) {
-    const start = new Date(`${form.date}T${form.startTime}:00`).getTime();
-    const end = new Date(`${form.date}T${form.endTime}:00`).getTime();
-
-    if (end <= start) {
-      errors.endTime = "End time must be after start time.";
-    }
+  if (trimmedDiscount && (!Number.isFinite(discount) || discount < 0)) {
+    errors.discount = "Discount cannot be negative.";
+  } else if (price > 0 && discount > price) {
+    errors.discount = "Discount cannot be greater than the price.";
   }
 
   return errors;
@@ -522,13 +733,17 @@ function ScreenShell({
   children,
   onRefresh,
   refreshing,
+  showCreateAction = true,
   title,
 }: {
   children: React.ReactNode;
   onRefresh?: () => void;
   refreshing?: boolean;
+  showCreateAction?: boolean;
   title: string;
 }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const handleBack = () => {
     if (router.canGoBack()) {
       router.back();
@@ -540,7 +755,7 @@ function ScreenShell({
 
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+      <AppStatusBar />
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
@@ -561,13 +776,17 @@ function ScreenShell({
             <Ionicons name="chevron-back" size={18} color={Colors.primary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{title}</Text>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => router.push("/bookings/new" as Href)}
-            style={styles.iconButton}
-          >
-            <Ionicons name="add" size={20} color={Colors.primary} />
-          </TouchableOpacity>
+          {showCreateAction ? (
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => router.push("/bookings/new" as Href)}
+              style={styles.iconButton}
+            >
+              <Ionicons name="add" size={20} color={Colors.primary} />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.iconButtonGhost} />
+          )}
         </View>
         {children}
       </ScrollView>
@@ -577,6 +796,9 @@ function ScreenShell({
 }
 
 function AppointmentSnackbar() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
   const toast = useAppSelector(selectAppointmentToast);
 
@@ -600,7 +822,7 @@ function AppointmentSnackbar() {
     <Animated.View
       entering={FadeIn.duration(180)}
       exiting={FadeOut.duration(160)}
-      style={[styles.snackbar, toast.tone === "error" && styles.snackbarError]}
+      style={[styles.snackbar, { bottom: Math.max(insets.bottom, 16) }, toast.tone === "error" && styles.snackbarError]}
     >
       <Ionicons
         name={toast.tone === "error" ? "alert-circle-outline" : "checkmark-circle-outline"}
@@ -630,6 +852,9 @@ function StateCard({
   title: string;
   tone?: "default" | "error";
 }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <Animated.View entering={FadeIn.duration(220)} style={styles.stateCard}>
       <View style={styles.stateIcon}>
@@ -647,6 +872,9 @@ function StateCard({
 }
 
 function SkeletonList() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.stack}>
       {Array.from({ length: 4 }).map((_, index) => (
@@ -661,13 +889,10 @@ function SkeletonList() {
 }
 
 function StatusBadge({ status }: { status: AppointmentStatus }) {
-  const statusStyle = STATUS_STYLES[status];
+  const Colors = useThemeColors();
+  const statusStyle = useMemo(() => getStatusStyles(Colors)[status], [Colors, status]);
 
-  return (
-    <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
-      <Text style={[styles.statusBadgeText, { color: statusStyle.color }]}>{status}</Text>
-    </View>
-  );
+  return <Badge bg={statusStyle.bg} color={statusStyle.color} label={status} size="sm" />;
 }
 
 function ClientAvatar({ name }: { name: string }) {
@@ -679,14 +904,13 @@ function ClientAvatar({ name }: { name: string }) {
       .map((part) => part[0]?.toUpperCase())
       .join("") || "CL";
 
-  return (
-    <View style={styles.avatar}>
-      <Text style={styles.avatarText}>{initials}</Text>
-    </View>
-  );
+  return <InitialsAvatar initials={initials} size={46} />;
 }
 
 function AppointmentCard({ appointment }: { appointment: AppointmentListItem }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <Animated.View layout={Layout.springify().damping(18).stiffness(160)}>
       <TouchableOpacity
@@ -717,7 +941,6 @@ function AppointmentCard({ appointment }: { appointment: AppointmentListItem }) 
         </View>
 
         <View style={styles.cardFooter}>
-          <Text style={styles.mutedText}>{formatDateLabel(appointment.scheduledAt)}</Text>
           <Text style={styles.amountText}>{formatCurrency(appointment.total || appointment.amount)}</Text>
         </View>
       </TouchableOpacity>
@@ -726,6 +949,9 @@ function AppointmentCard({ appointment }: { appointment: AppointmentListItem }) 
 }
 
 function MetaPill({ icon, label }: { icon: keyof typeof Ionicons.glyphMap; label: string }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.metaPill}>
       <Ionicons name={icon} size={14} color={Colors.text2} />
@@ -740,67 +966,254 @@ function FilterBar({
   date,
   onDateChange,
   onSearchChange,
+  onSelectSearchResult,
   onStatusChange,
   search,
+  searchResults,
   status,
 }: {
   date: string;
   onDateChange: (value: string) => void;
   onSearchChange: (value: string) => void;
+  onSelectSearchResult?: (appointment: AppointmentListItem) => void;
   onStatusChange: (value: "All" | AppointmentStatus) => void;
   search: string;
+  searchResults?: AppointmentListItem[];
   status: "All" | AppointmentStatus;
 }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
+  // Additive UI-only toggle for the status chip row below — default visible
+  // so nothing changes for anyone who doesn't touch this control. The chip
+  // row itself, onStatusChange, and `status` are untouched.
+  const [isStatusRowVisible, setIsStatusRowVisible] = useState(true);
+  const showDropdown =
+    isSearchFocused && search.trim().length > 0 && searchResults !== undefined;
+
+  const dateValue = useMemo(() => {
+    const parsed = new Date(`${date || todayIsoDate()}T00:00:00`);
+
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  }, [date]);
+
+  const handleDateChange = (event: DateTimePickerEvent, selected?: Date) => {
+    if (Platform.OS === "android") {
+      setIsDatePickerVisible(false);
+    }
+
+    if (event.type === "dismissed" || !selected) {
+      return;
+    }
+
+    const year = selected.getFullYear();
+    const month = String(selected.getMonth() + 1).padStart(2, "0");
+    const day = String(selected.getDate()).padStart(2, "0");
+
+    onDateChange(`${year}-${month}-${day}`);
+  };
+
   return (
     <View style={styles.filterPanel}>
-      <View style={styles.searchWrap}>
-        <Ionicons name="search-outline" size={18} color={Colors.text2} />
-        <TextInput
-          onChangeText={onSearchChange}
-          placeholder="Search client, service, staff or phone"
-          placeholderTextColor={Colors.placeholder}
-          style={styles.searchInput}
-          value={search}
-        />
-        {search ? (
-          <TouchableOpacity onPress={() => onSearchChange("")}>
-            <Ionicons name="close-circle" size={18} color={Colors.text2} />
-          </TouchableOpacity>
-        ) : null}
-      </View>
+      <WeekDayStrip date={date} onSelect={onDateChange} />
 
-      <View style={styles.dateInputRow}>
-        <Ionicons name="calendar-outline" size={18} color={Colors.text2} />
-        <TextInput
-          onChangeText={onDateChange}
-          placeholder="YYYY-MM-DD"
-          placeholderTextColor={Colors.placeholder}
-          style={styles.dateInput}
-          value={date}
-        />
-      </View>
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View style={styles.chipRow}>
-          {STATUS_FILTERS.map((filter) => {
-            const isActive = filter === status;
-
-            return (
-              <TouchableOpacity
-                key={filter}
-                activeOpacity={0.82}
-                onPress={() => onStatusChange(filter)}
-                style={[styles.chip, isActive && styles.chipActive]}
-              >
-                <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
-                  {filter}
-                </Text>
+      <View style={styles.appointmentSearchRow}>
+        <View style={[styles.appointmentSearchGroup, styles.appointmentSearchGroupFlex]}>
+          <View style={styles.searchWrap}>
+            <Ionicons name="search-outline" size={18} color={Colors.text2} />
+            <TextInput
+              onBlur={() => setIsSearchFocused(false)}
+              onChangeText={onSearchChange}
+              onFocus={() => setIsSearchFocused(true)}
+              placeholder="Search client, service, staff or phone"
+              placeholderTextColor={Colors.placeholder}
+              style={styles.searchInput}
+              value={search}
+            />
+            {search ? (
+              <TouchableOpacity onPress={() => onSearchChange("")}>
+                <Ionicons name="close-circle" size={18} color={Colors.text2} />
               </TouchableOpacity>
-            );
-          })}
+            ) : null}
+          </View>
+
+          {showDropdown ? (
+            <View style={styles.appointmentSearchDropdown}>
+              {searchResults.length === 0 ? (
+                <View style={styles.appointmentSearchEmpty}>
+                  <Text style={styles.appointmentSearchEmptyText}>
+                    No matching appointments.
+                  </Text>
+                </View>
+              ) : (
+                <ScrollView
+                  keyboardShouldPersistTaps="handled"
+                  style={styles.appointmentSearchDropdownScroll}
+                >
+                  {searchResults.map((appointment) => (
+                    <TouchableOpacity
+                      key={appointment.id}
+                      activeOpacity={0.75}
+                      onPress={() => {
+                        setIsSearchFocused(false);
+                        onSelectSearchResult?.(appointment);
+                      }}
+                      style={styles.appointmentSearchItem}
+                    >
+                      <Text numberOfLines={1} style={styles.appointmentSearchItemTitle}>
+                        {appointment.clientName}
+                      </Text>
+                      <Text numberOfLines={1} style={styles.appointmentSearchItemMeta}>
+                        {[
+                          formatTimeLabel(appointment.scheduledAt),
+                          appointment.serviceName,
+                          appointment.staffName,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+          ) : null}
         </View>
-      </ScrollView>
+
+        <TouchableOpacity
+          accessibilityLabel={isStatusRowVisible ? "Hide status filters" : "Show status filters"}
+          activeOpacity={0.82}
+          onPress={() => setIsStatusRowVisible((current) => !current)}
+          style={[styles.filterToggleButton, isStatusRowVisible && styles.filterToggleButtonActive]}
+        >
+          <Ionicons
+            name="options-outline"
+            size={18}
+            color={isStatusRowVisible ? "#FFFFFF" : Colors.text2}
+          />
+        </TouchableOpacity>
+      </View>
+
+      <TouchableOpacity
+        activeOpacity={0.82}
+        onPress={() => setIsDatePickerVisible(true)}
+        style={styles.dateInputRow}
+      >
+        <Ionicons name="calendar-outline" size={18} color={Colors.text2} />
+        <Text style={styles.dateInput}>{date || "YYYY-MM-DD"}</Text>
+      </TouchableOpacity>
+
+      {isDatePickerVisible && Platform.OS === "android" ? (
+        <DateTimePicker mode="date" onChange={handleDateChange} value={dateValue} />
+      ) : null}
+
+      {Platform.OS === "ios" ? (
+        <Modal
+          animationType="fade"
+          onRequestClose={() => setIsDatePickerVisible(false)}
+          transparent
+          visible={isDatePickerVisible}
+        >
+          <Pressable onPress={() => setIsDatePickerVisible(false)} style={styles.modalBackdrop}>
+            <Pressable style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Select Date</Text>
+              <DateTimePicker
+                display="spinner"
+                mode="date"
+                onChange={handleDateChange}
+                value={dateValue}
+              />
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  activeOpacity={0.88}
+                  onPress={() => setIsDatePickerVisible(false)}
+                  style={styles.primaryButtonCompact}
+                >
+                  <Text style={styles.primaryButtonText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      ) : null}
+
+      {isStatusRowVisible ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={styles.chipRow}>
+            {STATUS_FILTERS.map((filter) => {
+              const isActive = filter === status;
+
+              return (
+                <TouchableOpacity
+                  key={filter}
+                  activeOpacity={0.82}
+                  onPress={() => onStatusChange(filter)}
+                  style={[styles.chip, isActive && styles.chipActive]}
+                >
+                  <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
+                    {filter}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </ScrollView>
+      ) : null}
     </View>
+  );
+}
+
+function WeekDayStrip({ date, onSelect }: { date: string; onSelect: (value: string) => void }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const days = useMemo(() => {
+    const anchor = new Date(`${date || todayIsoDate()}T00:00:00`);
+
+    if (Number.isNaN(anchor.getTime())) {
+      anchor.setTime(Date.now());
+    }
+
+    // Monday-start week containing `anchor`.
+    const dayOfWeek = anchor.getDay();
+    const diffToMonday = (dayOfWeek + 6) % 7;
+    const monday = new Date(anchor);
+    monday.setDate(anchor.getDate() - diffToMonday);
+
+    return Array.from({ length: 7 }, (_, index) => {
+      const day = new Date(monday);
+      day.setDate(monday.getDate() + index);
+
+      const year = day.getFullYear();
+      const month = String(day.getMonth() + 1).padStart(2, "0");
+      const dayOfMonth = String(day.getDate()).padStart(2, "0");
+
+      return {
+        dayNumber: day.getDate(),
+        key: `${year}-${month}-${dayOfMonth}`,
+        label: new Intl.DateTimeFormat("en-IN", { weekday: "short" }).format(day),
+      };
+    });
+  }, [date]);
+
+  return (
+    <ScrollView contentContainerStyle={styles.weekStripRow} horizontal showsHorizontalScrollIndicator={false}>
+      {days.map((day) => {
+        const isActive = day.key === date;
+
+        return (
+          <TouchableOpacity
+            key={day.key}
+            activeOpacity={0.82}
+            onPress={() => onSelect(day.key)}
+            style={[styles.weekDayPill, isActive && styles.weekDayPillActive]}
+          >
+            <Text style={[styles.weekDayLabel, isActive && styles.weekDayLabelActive]}>{day.label}</Text>
+            <Text style={[styles.weekDayNumber, isActive && styles.weekDayNumberActive]}>{day.dayNumber}</Text>
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
   );
 }
 
@@ -813,6 +1226,9 @@ function SummaryTile({
   label: string;
   value: string;
 }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.summaryTile}>
       <View style={styles.summaryIcon}>
@@ -848,6 +1264,7 @@ function useFetchAppointments() {
   const fetchAppointments = useCallback(
     async ({
       date,
+      limit,
       page = 1,
       refresh = false,
       reset = false,
@@ -855,6 +1272,7 @@ function useFetchAppointments() {
       status = "All",
     }: {
       date?: string;
+      limit?: number;
       page?: number;
       refresh?: boolean;
       reset?: boolean;
@@ -864,14 +1282,14 @@ function useFetchAppointments() {
       await dispatch(
         fetchAppointmentsThunk({
           date: date || undefined,
-          limit: query.limit,
+          limit: limit ?? query.limit,
           page,
           refresh,
           reset,
           search,
           sort_by: query.sort_by,
           sort_order: query.sort_order,
-          status: status && status !== "All" ? statusToApiValue(status) : undefined,
+          status: status && status !== "All" ? appointmentStatusToListApiValue(status) : undefined,
         }),
       );
     },
@@ -896,26 +1314,36 @@ function useFetchAppointments() {
 }
 
 export function AppointmentDashboardScreen() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const appointments = useAppSelector(selectAppointments);
   const error = useAppSelector(selectAppointmentsError);
   const loading = useAppSelector(selectAppointmentsIsLoading);
+  const loadingMore = useAppSelector(selectAppointmentsLoadingMore);
   const refreshing = useAppSelector(selectAppointmentsRefreshing);
-  const totalCount = useAppSelector(selectAppointmentsTotalCount);
   const { date, search, setDate, setSearch, setStatus, status } = useAppointmentListFilters();
-  const { fetchAppointments } = useFetchAppointments();
+  const { fetchAppointments, fetchNext } = useFetchAppointments();
   const { width } = useWindowDimensions();
   const tileWidth = width >= 720 ? "31%" : "48%";
 
+  // Fetch the whole day once, unfiltered by status or search. Search and
+  // status only ever narrow the already-loaded data client-side below (see
+  // `filtered`) — the backend doesn't support text search at all (the
+  // `search` query param is accepted but never read server-side), and
+  // filtering by status server-side would mean re-fetching on every chip tap
+  // (a visible reload) and would make it impossible to compute the summary
+  // stats for every status at once. `limit: 200` matches the backend's own
+  // max page size, so a single day's appointments are captured in one call.
   useEffect(() => {
-    void fetchAppointments({ date, reset: true, search, status });
-  }, [date, fetchAppointments, search, status]);
+    void fetchAppointments({ date, limit: 200, reset: true });
+  }, [date, fetchAppointments]);
 
   const filtered = useMemo(
     () =>
       appointments
         .filter((appointment) => getDateKey(appointment.scheduledAt) === date)
         .filter((appointment) => matchesAppointment(appointment, search, status))
-        .sort(sortBySchedule),
+        .sort(sortWithActiveFirst),
     [appointments, date, search, status],
   );
 
@@ -935,27 +1363,41 @@ export function AppointmentDashboardScreen() {
     [filtered],
   );
 
-  return (
-    <ScreenShell
-      onRefresh={() => void fetchAppointments({ date, refresh: true, search, status })}
-      refreshing={refreshing}
-      title="Appointments"
-    >
-      <View style={styles.heroCard}>
-        <View style={styles.heroCopy}>
-          <Text style={styles.heroEyebrow}>SalonOX Scheduler</Text>
-          <Text style={styles.heroTitle}>Appointment Dashboard</Text>
-          <Text style={styles.heroSubtitle}>
-            {totalCount} appointment{totalCount === 1 ? "" : "s"} scheduled
-          </Text>
-        </View>
+  // Top matches for the search dropdown — reuses the same client+status
+  // -filtered `filtered` list (no separate request), capped for a compact
+  // suggestion panel.
+  const searchDropdownResults = useMemo(() => filtered.slice(0, 8), [filtered]);
+
+  const handleSelectSearchResult = useCallback(
+    (appointment: AppointmentListItem) => {
+      setSearch("");
+      router.push(`/appointments/${appointment.id}` as Href);
+    },
+    [setSearch],
+  );
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace("/dashboard" as Href);
+  };
+
+  const listHeader = (
+    <View style={styles.listHeader}>
+      <View style={styles.headerRow}>
+        <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.iconButton}>
+          <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Appointments</Text>
         <TouchableOpacity
-          activeOpacity={0.86}
+          activeOpacity={0.8}
           onPress={() => router.push("/bookings/new" as Href)}
-          style={styles.heroAction}
+          style={styles.iconButton}
         >
-          <Ionicons name="add" size={18} color="#FFFFFF" />
-          <Text style={styles.heroActionText}>New</Text>
+          <Ionicons name="add" size={20} color={Colors.primary} />
         </TouchableOpacity>
       </View>
 
@@ -963,8 +1405,10 @@ export function AppointmentDashboardScreen() {
         date={date}
         onDateChange={setDate}
         onSearchChange={setSearch}
+        onSelectSearchResult={handleSelectSearchResult}
         onStatusChange={setStatus}
         search={search}
+        searchResults={searchDropdownResults}
         status={status}
       />
 
@@ -1002,7 +1446,7 @@ export function AppointmentDashboardScreen() {
           actionLabel="Retry"
           icon="cloud-offline-outline"
           message={error}
-          onAction={() => void fetchAppointments({ date, reset: true, search, status })}
+          onAction={() => void fetchAppointments({ date, limit: 200, reset: true })}
           title="Unable to load appointments"
           tone="error"
         />
@@ -1014,16 +1458,48 @@ export function AppointmentDashboardScreen() {
           title="No appointments found"
         />
       ) : null}
-      {!loading && !error && filtered.slice(0, 5).map((appointment) => (
-        <AppointmentCard appointment={appointment} key={appointment.id} />
-      ))}
+    </View>
+  );
 
-      <CalendarPreview appointments={filtered} date={date} />
-    </ScreenShell>
+  return (
+    <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+      <AppStatusBar />
+      <FlatList
+        contentContainerStyle={styles.flatListContent}
+        data={loading || error ? [] : filtered}
+        keyExtractor={(item) => item.id}
+        ListFooterComponent={
+          <View>
+            {loadingMore ? (
+              <View style={styles.footerLoader}>
+                <ActivityIndicator color={Colors.primary} />
+              </View>
+            ) : null}
+            {!loading && !error ? <CalendarPreview appointments={filtered} date={date} /> : null}
+          </View>
+        }
+        ListHeaderComponent={listHeader}
+        onEndReached={() => void fetchNext({ date })}
+        onEndReachedThreshold={0.45}
+        refreshControl={
+          <RefreshControl
+            colors={[Colors.primary]}
+            onRefresh={() => void fetchAppointments({ date, limit: 200, refresh: true })}
+            refreshing={refreshing}
+            tintColor={Colors.primary}
+          />
+        }
+        renderItem={({ item }) => <AppointmentCard appointment={item} />}
+        showsVerticalScrollIndicator={false}
+      />
+      <AppointmentSnackbar />
+    </SafeAreaView>
   );
 }
 
 export function AppointmentListScreen() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const appointments = useAppSelector(selectAppointments);
   const error = useAppSelector(selectAppointmentsError);
   const loading = useAppSelector(selectAppointmentsIsLoading);
@@ -1037,13 +1513,16 @@ export function AppointmentListScreen() {
   }, [date, fetchAppointments, search, status]);
 
   const filtered = useMemo(
-    () => appointments.filter((appointment) => matchesAppointment(appointment, search, status)),
+    () =>
+      appointments
+        .filter((appointment) => matchesAppointment(appointment, search, status))
+        .sort(sortWithActiveFirst),
     [appointments, search, status],
   );
 
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+      <AppStatusBar />
       <FlatList
         ListHeaderComponent={
           <View style={styles.listHeader}>
@@ -1129,6 +1608,8 @@ function CalendarPreview({
   appointments: AppointmentListItem[];
   date: string;
 }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [view, setView] = useState<AppointmentCalendarView>("day");
   const grouped = useMemo(() => {
     const map = new Map<string, AppointmentListItem[]>();
@@ -1210,6 +1691,9 @@ function SelectField({
   value: string;
   onSelect: (value: string) => void;
 }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.inputGroup}>
       <Text style={styles.inputLabel}>{label}</Text>
@@ -1238,6 +1722,665 @@ function SelectField({
   );
 }
 
+function SearchableClientField({
+  bookingMode,
+  dropdownOpen,
+  error,
+  onDismiss,
+  onNewClient,
+  onSearchChange,
+  onSelectClient,
+  onSelectExisting,
+  onSelectWalkIn,
+  results,
+  resultsError,
+  resultsLoading,
+  search,
+  selectedClient,
+  selectedClientId,
+}: {
+  bookingMode: ClientBookingMode;
+  dropdownOpen: boolean;
+  error?: string;
+  onDismiss: () => void;
+  onNewClient: () => void;
+  onSearchChange: (value: string) => void;
+  onSelectClient: (client: ClientListItem) => void;
+  onSelectExisting: () => void;
+  onSelectWalkIn: () => void;
+  results: ClientListItem[];
+  resultsError: string | null;
+  resultsLoading: boolean;
+  search: string;
+  selectedClient: ClientListItem | undefined;
+  selectedClientId: string;
+}) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const query = search.trim().toLowerCase();
+  const showDropdown =
+    dropdownOpen && bookingMode === "existing" && query.length >= CLIENT_SEARCH_MIN_LETTERS;
+  const showMinimumHint =
+    dropdownOpen && bookingMode === "existing" && query.length > 0 && query.length < CLIENT_SEARCH_MIN_LETTERS;
+
+  return (
+    <View style={[styles.inputGroup, styles.clientSearchGroup]}>
+      <View style={styles.clientSectionHeader}>
+        <Text style={styles.inputLabel}>Client</Text>
+        {bookingMode === "walkIn" ? (
+          <Text style={styles.clientModeHint}>Walk-in booking</Text>
+        ) : selectedClient ? (
+          <Text numberOfLines={1} style={styles.clientModeHint}>
+            {selectedClient.fullName}
+          </Text>
+        ) : null}
+      </View>
+
+      <View style={styles.clientQuickActions}>
+        <TouchableOpacity
+          activeOpacity={0.88}
+          onPress={onSelectExisting}
+          style={[styles.clientActionChip, bookingMode === "existing" && styles.clientActionChipActive]}
+        >
+          <Ionicons
+            name="person-outline"
+            size={16}
+            color={bookingMode === "existing" ? "#FFFFFF" : Colors.text2}
+          />
+          <Text style={[styles.clientActionText, bookingMode === "existing" && styles.clientActionTextActive]}>
+            Existing Client
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={0.84}
+          onPress={onSelectWalkIn}
+          style={[styles.clientActionChip, bookingMode === "walkIn" && styles.clientActionChipActive]}
+        >
+          <Ionicons
+            name="walk-outline"
+            size={16}
+            color={bookingMode === "walkIn" ? "#FFFFFF" : Colors.text2}
+          />
+          <Text style={[styles.clientActionText, bookingMode === "walkIn" && styles.clientActionTextActive]}>
+            Walk-in Client
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity activeOpacity={0.84} onPress={onNewClient} style={styles.clientActionChip}>
+          <Ionicons name="person-add-outline" size={16} color={Colors.text2} />
+          <Text style={styles.clientActionText}>New Client</Text>
+        </TouchableOpacity>
+      </View>
+
+      {bookingMode === "existing" ? (
+        <>
+          <View style={styles.autocompleteAnchor}>
+            <View style={[styles.searchWrap, error && styles.inputError]}>
+              <Ionicons name="search-outline" size={18} color={Colors.text2} />
+              <TextInput
+                onChangeText={onSearchChange}
+                onFocus={onSelectExisting}
+                placeholder="Type at least 3 letters to search clients"
+                placeholderTextColor={Colors.placeholder}
+                style={styles.searchInput}
+                value={search}
+              />
+              {search ? (
+                <TouchableOpacity
+                  accessibilityLabel="Clear client search"
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    onSearchChange("");
+                    onDismiss();
+                  }}
+                >
+                  <Ionicons name="close-circle" size={18} color={Colors.text2} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            {showDropdown ? (
+              <Animated.View
+                entering={FadeIn.duration(120)}
+                exiting={FadeOut.duration(90)}
+                style={styles.stickySearchDropdown}
+              >
+                {resultsError ? (
+                  <View style={styles.serviceDropdownState}>
+                    <Ionicons name="alert-circle-outline" size={16} color={Colors.error} />
+                    <Text style={styles.fieldHintError}>{resultsError}</Text>
+                  </View>
+                ) : resultsLoading ? (
+                  <View style={styles.serviceDropdownState}>
+                    <ActivityIndicator color={Colors.primary} size="small" />
+                    <Text style={styles.fieldHint}>Searching clients...</Text>
+                  </View>
+                ) : results.length === 0 ? (
+                  <View style={styles.serviceDropdownState}>
+                    <Ionicons name="search-outline" size={16} color={Colors.text2} />
+                    <Text style={styles.fieldHint}>No clients found.</Text>
+                  </View>
+                ) : (
+                  <ScrollView
+                    keyboardShouldPersistTaps="handled"
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator={results.length > 4}
+                    style={styles.serviceDropdownScroll}
+                  >
+                    {results.map((client) => {
+                      const selected = client.id === selectedClientId;
+
+                      return (
+                        <TouchableOpacity
+                          key={`client-${client.id}`}
+                          activeOpacity={0.84}
+                          onPress={() => onSelectClient(client)}
+                          style={[styles.clientOptionRow, selected && styles.serviceOptionRowActive]}
+                        >
+                          <View style={styles.serviceOptionCopy}>
+                            <Text style={[styles.serviceOptionName, selected && styles.serviceOptionNameActive]}>
+                              {client.fullName}
+                            </Text>
+                            <Text style={[styles.serviceOptionMeta, selected && styles.serviceOptionMetaActive]}>
+                              {[client.phone, client.email].filter(Boolean).join(" | ")}
+                            </Text>
+                          </View>
+                          {selected ? <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" /> : null}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                )}
+              </Animated.View>
+            ) : null}
+          </View>
+
+          {!search.trim() ? (
+            <Text style={styles.fieldHint}>Start typing to find an existing client.</Text>
+          ) : null}
+          {showMinimumHint ? (
+            <Text style={styles.fieldHint}>Type at least 3 letters to search clients.</Text>
+          ) : null}
+        </>
+      ) : null}
+
+      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+    </View>
+  );
+}
+
+function AppointmentDateField({
+  error,
+  onChange,
+  value,
+}: {
+  error?: string;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const [visible, setVisible] = useState(false);
+  const minimumDate = useMemo(() => new Date(`${todayIsoDate()}T00:00:00`), []);
+  const dateValue = useMemo(() => {
+    const parsed = new Date(`${value || todayIsoDate()}T00:00:00`);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  }, [value]);
+  const displayDate = useMemo(() => {
+    if (!validateDate(value)) {
+      return value || "Select date";
+    }
+
+    return new Intl.DateTimeFormat("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    }).format(new Date(`${value}T00:00:00`));
+  }, [value]);
+
+  const handleDateChange = (event: DateTimePickerEvent, selected?: Date) => {
+    if (event.type === "dismissed" || !selected) {
+      setVisible(false);
+      return;
+    }
+
+    const year = selected.getFullYear();
+    const month = String(selected.getMonth() + 1).padStart(2, "0");
+    const day = String(selected.getDate()).padStart(2, "0");
+
+    onChange(`${year}-${month}-${day}`);
+    setVisible(false);
+  };
+
+  return (
+    <View style={styles.inputGroup}>
+      <Text style={styles.inputLabel}>Date</Text>
+      <TouchableOpacity
+        activeOpacity={0.86}
+        onPress={() => setVisible(true)}
+        style={[styles.dateButton, error && styles.inputError]}
+      >
+        <Ionicons name="calendar-outline" size={18} color={Colors.text2} />
+        <Text style={styles.dateButtonText}>{displayDate}</Text>
+        <Ionicons name="chevron-down" size={16} color={Colors.text2} />
+      </TouchableOpacity>
+      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+
+      {visible && Platform.OS === "android" ? (
+        <DateTimePicker minimumDate={minimumDate} mode="date" onChange={handleDateChange} value={dateValue} />
+      ) : null}
+
+      {Platform.OS === "ios" ? (
+        <Modal animationType="fade" onRequestClose={() => setVisible(false)} transparent visible={visible}>
+          <Pressable onPress={() => setVisible(false)} style={styles.modalBackdrop}>
+            <Pressable style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Select Date</Text>
+              <DateTimePicker display="inline" minimumDate={minimumDate} mode="date" onChange={handleDateChange} value={dateValue} />
+            </Pressable>
+          </Pressable>
+        </Modal>
+      ) : null}
+    </View>
+  );
+}
+
+function StaffAvailabilitySummary({
+  availabilityLabel,
+  checkedInLabel,
+  checkedOutLabel,
+  currentStatusLabel,
+  error,
+  hasStaff,
+  holidayLabel,
+  loading,
+  onLeaveLabel,
+  shiftEndLabel,
+  shiftStartLabel,
+  workingHoursLabel,
+}: {
+  availabilityLabel: string;
+  checkedInLabel: string;
+  checkedOutLabel: string;
+  currentStatusLabel: string;
+  error?: string | null;
+  hasStaff: boolean;
+  holidayLabel: string;
+  loading: boolean;
+  onLeaveLabel: string;
+  shiftEndLabel: string;
+  shiftStartLabel: string;
+  workingHoursLabel: string;
+}) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const availabilityRows = [
+    ["Working Hours", workingHoursLabel],
+    ["Shift Start", shiftStartLabel],
+    ["Shift End", shiftEndLabel],
+    ["Current Status", currentStatusLabel],
+    ["Available / Busy", availabilityLabel],
+    ["Checked In", checkedInLabel],
+    ["Checked Out", checkedOutLabel],
+    ["On Leave", onLeaveLabel],
+    ["Holiday", holidayLabel],
+  ];
+
+  return (
+    <View style={styles.availabilityCard}>
+      <View style={styles.availabilityHeader}>
+        <Text style={styles.availabilityTitle}>Staff availability</Text>
+        {loading ? <ActivityIndicator color={Colors.primary} size="small" /> : null}
+      </View>
+      {loading ? (
+        <View style={styles.availabilityRows}>
+          {Array.from({ length: 5 }).map((_, index) => (
+            <View key={`availability-skeleton-${index}`} style={styles.availabilityRow}>
+              <View style={styles.skeletonLineShort} />
+              <View style={styles.skeletonLine} />
+            </View>
+          ))}
+        </View>
+      ) : !hasStaff ? (
+        <Text style={styles.fieldHint}>Select a staff member to view availability.</Text>
+      ) : (
+        <View style={styles.availabilityRows}>
+          {availabilityRows.map(([label, value]) => (
+            <View key={label} style={styles.availabilityRow}>
+              <Text ellipsizeMode="tail" numberOfLines={1} style={styles.availabilityRowLabel}>
+                {label}
+              </Text>
+              <Text ellipsizeMode="tail" numberOfLines={1} style={styles.availabilityRowValue}>
+                {value}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+      {error ? <Text style={styles.fieldHintError}>{error}</Text> : null}
+    </View>
+  );
+}
+
+function AppointmentReviewSummary({
+  clientLabel,
+  date,
+  pricingTotals,
+  selectedStaff,
+  services,
+  startTime,
+  totalDuration,
+}: {
+  clientLabel: string;
+  date: string;
+  pricingTotals: ReturnType<typeof getServicePricingTotals>;
+  selectedStaff: StaffMember | undefined;
+  services: ServiceListItem[];
+  startTime: string;
+  totalDuration: number;
+}) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const serviceLabel = services.length > 0 ? services.map((service) => service.name).join(", ") : "-";
+  const dateLabel = validateDate(date)
+    ? new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(`${date}T00:00:00`))
+    : "-";
+  const timeLabel = validateTime(startTime) ? minutesToDisplayTime(parseClockToMinutes(startTime) ?? 0) : "-";
+  const reviewRows = [
+    ["Client", clientLabel],
+    ["Services", serviceLabel],
+    ["Assigned Staff", selectedStaff?.name ?? "-"],
+    ["Date", dateLabel],
+    ["Time", timeLabel],
+    ["Duration", totalDuration > 0 ? `${totalDuration} min` : "-"],
+    ["Subtotal", formatCurrency(pricingTotals.subtotal)],
+    ["Discount", formatCurrency(pricingTotals.discount)],
+    ["Tax", formatCurrency(pricingTotals.tax)],
+    ["Grand Total", formatCurrency(pricingTotals.grandTotal)],
+  ];
+
+  return (
+    <View style={styles.serviceBreakdownCard}>
+      {reviewRows.map(([label, value]) => (
+        <View key={label} style={styles.availabilityRow}>
+          <Text ellipsizeMode="tail" numberOfLines={1} style={styles.availabilityRowLabel}>{label}</Text>
+          <Text ellipsizeMode="tail" numberOfLines={2} style={styles.availabilityRowValue}>{value}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function TimeSlotSelector({
+  disabledReason,
+  error,
+  loading,
+  onSelect,
+  selectedTime,
+  slots,
+}: {
+  disabledReason?: string | null;
+  error?: string;
+  loading: boolean;
+  onSelect: (time: string) => void;
+  selectedTime: string;
+  slots: { display: string; value: string }[];
+}) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
+  return (
+    <View style={styles.inputGroup}>
+      <View style={styles.inputLabelRow}>
+        <Text style={styles.inputLabel}>Start Time</Text>
+        {loading ? <ActivityIndicator color={Colors.primary} size="small" /> : null}
+      </View>
+      {disabledReason ? <Text style={styles.fieldHint}>{disabledReason}</Text> : null}
+      {!disabledReason && slots.length === 0 ? (
+        <Text style={styles.fieldHint}>No available slots for this staff member and date.</Text>
+      ) : null}
+      {slots.length > 0 ? (
+        <View style={styles.slotGrid}>
+          {slots.map((slot) => {
+            const selected = slot.value === selectedTime;
+
+            return (
+              <TouchableOpacity
+                key={slot.value}
+                activeOpacity={0.84}
+                onPress={() => onSelect(slot.value)}
+                style={[styles.slotChip, selected && styles.slotChipActive]}
+              >
+                <Text style={[styles.slotChipText, selected && styles.slotChipTextActive]}>
+                  {slot.display}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      ) : null}
+      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+    </View>
+  );
+}
+
+function SelectedServicesPanel({
+  onRemove,
+  pricingTotals,
+  services,
+  totalDuration,
+  totalPrice,
+}: {
+  onRemove: (serviceId: string) => void;
+  pricingTotals: ReturnType<typeof getServicePricingTotals>;
+  services: ServiceListItem[];
+  totalDuration: number;
+  totalPrice: number;
+}) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
+  if (services.length === 0) {
+    return (
+      <View style={styles.emptyInlineState}>
+        <Ionicons name="sparkles-outline" size={18} color={Colors.text2} />
+        <Text style={styles.fieldHint}>Search and add at least one service.</Text>
+      </View>
+    );
+  }
+
+  return (
+    <>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View style={styles.selectedServiceRow}>
+          {services.map((service) => (
+            <TouchableOpacity
+              key={service.id}
+              activeOpacity={0.84}
+              onPress={() => onRemove(service.id)}
+              style={[styles.selectedServiceCard, styles.selectedServiceCardActive]}
+            >
+              <View style={styles.selectedServiceIcon}>
+                <Ionicons name="cut-outline" size={18} color={Colors.primaryDark} />
+              </View>
+            <View style={styles.selectedServiceCopy}>
+              <Text numberOfLines={1} style={styles.selectedServiceName}>{service.name}</Text>
+                <Text style={styles.selectedServiceMeta}>
+                  {[service.itemType, formatDurationLabel(service.durationMinutes)].filter(Boolean).join(" | ")}
+                </Text>
+                <Text style={styles.selectedServicePrice}>{formatCurrency(service.price)}</Text>
+              </View>
+              <TouchableOpacity
+                accessibilityLabel={`Remove ${service.name}`}
+                activeOpacity={0.8}
+                onPress={() => onRemove(service.id)}
+                style={styles.removeServiceButton}
+              >
+                <Ionicons name="close" size={14} color="#FFFFFF" />
+              </TouchableOpacity>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
+      <View style={styles.serviceTotalsCard}>
+        <View style={styles.serviceTotalItem}>
+          <Ionicons name="time-outline" size={20} color={Colors.heading} />
+          <View>
+            <Text style={styles.availabilityLabel}>Duration</Text>
+            <Text style={styles.availabilityValue}>{totalDuration} min</Text>
+          </View>
+        </View>
+        <View style={styles.serviceTotalDivider} />
+        <View style={styles.serviceTotalItem}>
+          <Ionicons name="cash-outline" size={20} color={Colors.heading} />
+          <View>
+            <Text style={styles.availabilityLabel}>Grand Total</Text>
+            <Text style={styles.availabilityValue}>{formatCurrency(totalPrice)}</Text>
+          </View>
+        </View>
+      </View>
+      <View style={styles.serviceBreakdownCard}>
+        <View style={styles.availabilityRow}>
+          <Text style={styles.availabilityRowLabel}>Subtotal</Text>
+          <Text style={styles.availabilityRowValue}>{formatCurrency(pricingTotals.subtotal)}</Text>
+        </View>
+        <View style={styles.availabilityRow}>
+          <Text style={styles.availabilityRowLabel}>Discount</Text>
+          <Text style={styles.availabilityRowValue}>{formatCurrency(pricingTotals.discount)}</Text>
+        </View>
+        <View style={styles.availabilityRow}>
+          <Text style={styles.availabilityRowLabel}>Tax</Text>
+          <Text style={styles.availabilityRowValue}>{formatCurrency(pricingTotals.tax)}</Text>
+        </View>
+      </View>
+    </>
+  );
+}
+
+function StaffCardSelector({
+  error,
+  onSelect,
+  selectedStaffId,
+  staffMembers,
+}: {
+  error?: string;
+  onSelect: (staffId: string) => void;
+  selectedStaffId: string;
+  staffMembers: StaffMember[];
+}) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const [staffSearch, setStaffSearch] = useState("");
+  const filteredStaffMembers = useMemo(() => {
+    const query = staffSearch.trim().toLowerCase();
+
+    if (!query) {
+      return staffMembers;
+    }
+
+    return staffMembers.filter((staff) =>
+      [staff.name, staff.role, staff.availabilityLabel, staff.status]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query)),
+    );
+  }, [staffMembers, staffSearch]);
+
+  return (
+    <View style={styles.inputGroup}>
+      <View style={styles.searchWrap}>
+        <Ionicons name="search-outline" size={18} color={Colors.text2} />
+        <TextInput
+          onChangeText={setStaffSearch}
+          placeholder="Search staff"
+          placeholderTextColor={Colors.placeholder}
+          style={styles.searchInput}
+          value={staffSearch}
+        />
+        {staffSearch ? (
+          <TouchableOpacity
+            accessibilityLabel="Clear staff search"
+            activeOpacity={0.8}
+            onPress={() => setStaffSearch("")}
+          >
+            <Ionicons name="close-circle" size={18} color={Colors.text2} />
+          </TouchableOpacity>
+        ) : null}
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View style={styles.staffCardRow}>
+          {filteredStaffMembers.map((staff) => {
+            const selected = staffIdMatches(staff, selectedStaffId);
+
+            return (
+              <TouchableOpacity
+                key={staff.id}
+                activeOpacity={0.84}
+                onPress={() => onSelect(staff.id)}
+                style={[styles.staffSelectCard, selected && styles.staffSelectCardActive]}
+              >
+                <InitialsAvatar initials={staff.initials} size={42} />
+                <View style={styles.staffSelectCopy}>
+                  <Text numberOfLines={1} style={styles.staffSelectName}>{staff.name}</Text>
+                  <Text numberOfLines={1} style={styles.staffSelectRole}>{staff.role}</Text>
+                </View>
+                {selected ? (
+                  <View style={styles.staffSelectedBadge}>
+                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                  </View>
+                ) : null}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </ScrollView>
+      {filteredStaffMembers.length === 0 ? <Text style={styles.fieldHint}>No staff found.</Text> : null}
+      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+    </View>
+  );
+}
+
+function BookingStepHeader() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const steps = ["Client", "Services", "Staff", "Date", "Time", "Review"];
+
+  return (
+    <View style={styles.bookingSteps}>
+      {steps.map((step, index) => (
+        <View key={step} style={styles.bookingStepItem}>
+          <View style={[styles.bookingStepDot, index === 0 && styles.bookingStepDotActive]}>
+            <Text style={[styles.bookingStepNumber, index === 0 && styles.bookingStepNumberActive]}>{index + 1}</Text>
+          </View>
+          <Text style={styles.bookingStepLabel}>{step}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function BookingSection({
+  action,
+  children,
+  stackIndex = 1,
+  title,
+}: {
+  action?: React.ReactNode;
+  children: React.ReactNode;
+  stackIndex?: number;
+  title: string;
+}) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
+  return (
+    <Animated.View entering={FadeIn.duration(180)} style={[styles.bookingSection, { zIndex: stackIndex }]}>
+      <View style={styles.bookingSectionHeader}>
+        <Text style={styles.bookingSectionTitle}>{title}</Text>
+        {action}
+      </View>
+      {children}
+    </Animated.View>
+  );
+}
+
 function SearchableServiceField({
   dropdownOpen,
   error,
@@ -1247,7 +2390,7 @@ function SearchableServiceField({
   onSearchChange,
   onSelect,
   search,
-  selectedServiceId,
+  selectedServiceIds,
   services,
   serviceError,
 }: {
@@ -1259,10 +2402,12 @@ function SearchableServiceField({
   onSearchChange: (value: string) => void;
   onSelect: (service: ServiceListItem) => void;
   search: string;
-  selectedServiceId: string;
+  selectedServiceIds: string[];
   services: ServiceListItem[];
   serviceError: string | null;
 }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const serviceQuery = getServiceSearchQuery(search);
   const hasValidQuery = serviceQuery.kind !== "invalid";
   const showDropdown = dropdownOpen && hasValidQuery;
@@ -1271,91 +2416,98 @@ function SearchableServiceField({
   return (
     <View style={[styles.inputGroup, styles.serviceSearchGroup]}>
       <Text style={styles.inputLabel}>Service</Text>
-      <View style={[styles.searchWrap, error && styles.inputError]}>
-        <Ionicons name="search-outline" size={18} color={Colors.text2} />
-        <TextInput
-          onFocus={onFocus}
-          onChangeText={onSearchChange}
-          placeholder={SERVICE_SEARCH_PLACEHOLDER}
-          placeholderTextColor={Colors.placeholder}
-          style={styles.searchInput}
-          value={search}
-        />
-        {loading ? (
-          <ActivityIndicator color={Colors.primary} size="small" />
-        ) : search ? (
-          <TouchableOpacity
-            accessibilityLabel="Clear service search"
-            activeOpacity={0.8}
-            onPress={() => {
-              onSearchChange("");
-              onDismiss();
-            }}
+      <View style={styles.autocompleteAnchor}>
+        <View style={[styles.searchWrap, error && styles.inputError]}>
+          <Ionicons name="search-outline" size={18} color={Colors.text2} />
+          <TextInput
+            onFocus={onFocus}
+            onChangeText={onSearchChange}
+            placeholder={SERVICE_SEARCH_PLACEHOLDER}
+            placeholderTextColor={Colors.placeholder}
+            style={styles.searchInput}
+            value={search}
+          />
+          {loading ? (
+            <ActivityIndicator color={Colors.primary} size="small" />
+          ) : search ? (
+            <TouchableOpacity
+              accessibilityLabel="Clear service search"
+              activeOpacity={0.8}
+              onPress={() => {
+                onSearchChange("");
+                onDismiss();
+              }}
+            >
+              <Ionicons name="close-circle" size={18} color={Colors.text2} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        {showDropdown ? (
+          <Animated.View
+            entering={FadeIn.duration(120)}
+            exiting={FadeOut.duration(90)}
+            style={styles.stickySearchDropdown}
           >
-            <Ionicons name="close-circle" size={18} color={Colors.text2} />
-          </TouchableOpacity>
+            {serviceError ? (
+              <View style={styles.serviceDropdownState}>
+                <Ionicons name="alert-circle-outline" size={16} color={Colors.error} />
+                <Text style={styles.fieldHintError}>{serviceError}</Text>
+              </View>
+            ) : loading ? (
+              <View style={styles.serviceDropdownState}>
+                <ActivityIndicator color={Colors.primary} size="small" />
+                <Text style={styles.fieldHint}>Searching services...</Text>
+              </View>
+            ) : services.length === 0 ? (
+              <View style={styles.serviceDropdownState}>
+                <Ionicons name="search-outline" size={16} color={Colors.text2} />
+                <Text style={styles.fieldHint}>No services found.</Text>
+              </View>
+            ) : (
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled
+                showsVerticalScrollIndicator={services.length > 4}
+                style={styles.serviceDropdownScroll}
+              >
+                {services.map((service) => {
+                  const selected = selectedServiceIds.includes(service.id);
+
+                  return (
+                    <TouchableOpacity
+                      key={`service-${service.id}`}
+                      activeOpacity={0.84}
+                      onPress={() => onSelect(service)}
+                      style={[styles.serviceOptionRow, selected && styles.serviceOptionRowActive]}
+                    >
+                      <View style={styles.serviceOptionCopy}>
+                        <HighlightedServiceName query={serviceQuery} selected={selected} value={service.name} />
+                        <Text style={[styles.serviceOptionMeta, selected && styles.serviceOptionMetaActive]}>
+                          {formatDurationLabel(service.durationMinutes)}
+                        </Text>
+                      </View>
+                      <Text
+                        style={[
+                          styles.serviceOptionPrice,
+                          selected && styles.serviceOptionPriceActive,
+                          serviceQuery.kind === "price" &&
+                            servicePriceMatches(service.price, serviceQuery) &&
+                            styles.serviceOptionPriceMatch,
+                        ]}
+                      >
+                        {formatCurrency(service.price)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+          </Animated.View>
         ) : null}
       </View>
       {showMinimumHint ? (
         <Text style={styles.fieldHint}>Type at least 3 letters to search services.</Text>
-      ) : null}
-      {showDropdown ? (
-        <Animated.View entering={FadeIn.duration(120)} exiting={FadeOut.duration(90)} style={styles.serviceDropdown}>
-          {serviceError ? (
-            <View style={styles.serviceDropdownState}>
-              <Ionicons name="alert-circle-outline" size={16} color={Colors.error} />
-              <Text style={styles.fieldHintError}>{serviceError}</Text>
-            </View>
-          ) : loading ? (
-            <View style={styles.serviceDropdownState}>
-              <ActivityIndicator color={Colors.primary} size="small" />
-              <Text style={styles.fieldHint}>Searching services...</Text>
-            </View>
-          ) : services.length === 0 ? (
-            <View style={styles.serviceDropdownState}>
-              <Ionicons name="search-outline" size={16} color={Colors.text2} />
-              <Text style={styles.fieldHint}>No services found.</Text>
-            </View>
-          ) : (
-            <ScrollView
-              keyboardShouldPersistTaps="handled"
-              nestedScrollEnabled
-              showsVerticalScrollIndicator={services.length > 4}
-              style={styles.serviceDropdownScroll}
-            >
-              {services.map((service) => {
-                const selected = service.id === selectedServiceId;
-
-                return (
-                  <TouchableOpacity
-                    key={`service-${service.id}`}
-                    activeOpacity={0.84}
-                    onPress={() => onSelect(service)}
-                    style={[styles.serviceOptionRow, selected && styles.serviceOptionRowActive]}
-                  >
-                    <View style={styles.serviceOptionCopy}>
-                      <HighlightedServiceName query={serviceQuery} selected={selected} value={service.name} />
-                      <Text style={[styles.serviceOptionMeta, selected && styles.serviceOptionMetaActive]}>
-                        {formatDurationLabel(service.durationMinutes)}
-                      </Text>
-                    </View>
-                    <Text
-                      style={[
-                        styles.serviceOptionPrice,
-                        selected && styles.serviceOptionPriceActive,
-                        serviceQuery.kind === "price" &&
-                          servicePriceMatches(service.price, serviceQuery) &&
-                          styles.serviceOptionPriceMatch,
-                      ]}
-                    >
-                      {formatCurrency(service.price)}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          )}
-        </Animated.View>
       ) : null}
       {error ? <Text style={styles.fieldError}>{error}</Text> : null}
     </View>
@@ -1371,6 +2523,9 @@ function HighlightedServiceName({
   selected: boolean;
   value: string;
 }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   if (query.kind !== "name") {
     return (
       <Text style={[styles.serviceOptionName, selected && styles.serviceOptionNameActive]}>
@@ -1425,6 +2580,9 @@ function TextField({
   placeholder: string;
   value: string;
 }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.inputGroup}>
       <View style={styles.inputLabelRow}>
@@ -1456,33 +2614,285 @@ function TextField({
 }
 
 export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
-  const params = useLocalSearchParams<{ id?: string }>();
+  const params = useLocalSearchParams<{ clientId?: string; id?: string }>();
   const appointmentId = params.id;
+  const returnedClientId = typeof params.clientId === "string" ? params.clientId : "";
   const existingAppointment = useAppSelector((state) => selectAppointmentById(state, appointmentId));
   const mutating = useAppSelector(selectAppointmentMutating);
   const mutationError = useAppSelector(selectAppointmentMutationError);
   const clients = useAppSelector(selectClients);
   const staffMembers = useAppSelector(selectStaffMembers);
-  const currentUser = useAppSelector(selectCurrentUser);
+  const activeBranchId = useAppSelector(selectActiveBranchId);
   const [errors, setErrors] = useState<FormErrors>({});
+  // Form-level submission errors (e.g. missing auth context) that aren't tied
+  // to any single field — kept separate from `errors` (per-field) and the
+  // Redux-driven `mutationError` (thunk-rejection message) so neither one
+  // gets overloaded to show a message that isn't really its own.
+  const [formSubmitError, setFormSubmitError] = useState<string | null>(null);
   const [form, setForm] = useState<AppointmentFormState>(() => appointmentToForm(existingAppointment));
-  const [durationEditable, setDurationEditable] = useState(mode === "edit");
-  const [priceEditable, setPriceEditable] = useState(mode === "edit");
+  const [clientBookingMode, setClientBookingMode] = useState<ClientBookingMode>("existing");
+  const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
+  const [clientSearch, setClientSearch] = useState("");
+  const [clientResults, setClientResults] = useState<ClientListItem[]>([]);
+  const [clientResultsError, setClientResultsError] = useState<string | null>(null);
+  const [clientResultsLoading, setClientResultsLoading] = useState(false);
+  const clientCacheRef = useRef(new Map<string, ClientListItem[] | Promise<ClientListItem[]>>());
+  const clientRequestIdRef = useRef(0);
   const [serviceError, setServiceError] = useState<string | null>(null);
   const [serviceLoading, setServiceLoading] = useState(false);
   const [serviceSearch, setServiceSearch] = useState(form.serviceName);
   const [serviceDropdownOpen, setServiceDropdownOpen] = useState(false);
   const [services, setServices] = useState<ServiceListItem[]>([]);
+  const [selectedServices, setSelectedServices] = useState<ServiceListItem[]>([]);
+  const [availabilityRefreshKey, setAvailabilityRefreshKey] = useState(0);
   const serviceCacheRef = useRef(new Map<string, ServiceListItem[] | Promise<ServiceListItem[]>>());
   const serviceRequestIdRef = useRef(0);
+  const submittingRef = useRef(false);
+  // The client picked from the live search dropdown may not be one of the
+  // first 50 clients loaded into Redux on mount, so it can't always be
+  // resolved by id from `clients` — `handleSelectClient` stashes the full
+  // record here instead. Falls back to the Redux lookup (unchanged
+  // behavior) for the "new client" and "edit appointment" flows, which only
+  // ever have a client id to work with.
+  const [selectedClientRecord, setSelectedClientRecord] = useState<ClientListItem | undefined>(
+    undefined,
+  );
+  const selectedClient = useMemo(
+    () => selectedClientRecord ?? clients.find((client) => client.id === form.clientId),
+    [clients, form.clientId, selectedClientRecord],
+  );
+  const selectedStaff = useMemo(
+    () => staffMembers.find((staffMember) => staffIdMatches(staffMember, form.staffId)),
+    [form.staffId, staffMembers],
+  );
+  const staffAvailability = useAppSelector((state) => selectStaffAvailability(state, form.staffId, form.date));
+  const staffAvailabilityLoading = useAppSelector((state) =>
+    selectStaffAvailabilityLoading(state, form.staffId, form.date),
+  );
+  const staffAvailabilityError = useAppSelector((state) =>
+    selectStaffAvailabilityError(state, form.staffId, form.date),
+  );
+  const allowsWalkInClient = mode === "create" && clientBookingMode === "walkIn";
+  const totalServiceDuration = useMemo(
+    () => selectedServices.reduce((total, service) => total + Math.max(service.durationMinutes ?? 0, 0), 0),
+    [selectedServices],
+  );
+  const servicePricingTotals = useMemo(
+    () => getServicePricingTotals(selectedServices),
+    [selectedServices],
+  );
+  const totalServicePrice = servicePricingTotals.grandTotal;
+  const availableSlots = useMemo<StaffAvailabilitySlot[]>(
+    () => (form.staffId && validateDate(form.date) ? staffAvailability?.availableSlots ?? [] : []),
+    [form.date, form.staffId, staffAvailability?.availableSlots],
+  );
+  const staffInactiveReason = !selectedStaff
+    ? null
+    : selectedStaff.status === "Inactive" || selectedStaff.availability === "Offline"
+      ? "This staff member is inactive."
+      : selectedStaff.status === "On Leave" || selectedStaff.availability === "On Leave"
+        ? "This staff member is on leave."
+        : null;
+  const availabilityBlockReason =
+    staffAvailability?.isOnLeave
+      ? "This staff member is on leave for the selected date."
+      : staffAvailability?.isHoliday
+        ? "This staff member is off on the selected date."
+        : staffInactiveReason;
+  const schedulerLoading = staffAvailabilityLoading;
+  const schedulerError = staffAvailabilityError;
+  const workingHoursLabel = staffAvailability?.workingHoursLabel ?? selectedStaff?.workingHours ?? "-";
+  const shiftStartLabel = staffAvailability?.shiftStartLabel ?? "-";
+  const shiftEndLabel = staffAvailability?.shiftEndLabel ?? "-";
+  const checkedInLabel = staffAvailability?.checkedInLabel ?? "-";
+  const checkedOutLabel = staffAvailability?.checkedOutLabel ?? "-";
+  const onLeaveLabel = staffAvailability?.onLeaveLabel ?? (staffAvailability?.isOnLeave ? "Yes" : "-");
+  const holidayLabel = staffAvailability?.holidayLabel ?? (staffAvailability?.isHoliday ? "Holiday" : "-");
+  const availabilityLabel =
+    schedulerLoading
+      ? "Checking"
+      : staffAvailability?.availabilityLabel
+        ? staffAvailability.availabilityLabel
+        : form.staffId && !availabilityBlockReason && availableSlots.length > 0
+          ? "Available"
+          : form.staffId
+            ? "Busy"
+            : "-";
+  const staffAvailabilityStatus = staffAvailability?.currentStatusLabel
+    ? staffAvailability.currentStatusLabel
+    : staffInactiveReason
+      ? "Inactive"
+      : schedulerLoading
+        ? "Checking"
+        : availableSlots.length > 0
+          ? "Available"
+          : form.staffId
+            ? "Busy"
+            : "Select staff";
+  const slotDisabledReason = !form.staffId
+    ? "Select a staff member to view slots."
+    : selectedServices.length === 0
+      ? "Select a service to calculate available slots."
+      : totalServiceDuration <= 0
+        ? "Selected service has no duration configured."
+        : availabilityBlockReason
+          ? availabilityBlockReason
+          : !staffAvailability && !schedulerLoading
+            ? "Availability is not loaded for this staff member."
+            : null;
+  useEffect(() => {
+    if (!__DEV__ || !form.staffId) {
+      return;
+    }
+
+    console.log("[StaffAvailability UI] Render props", {
+      availabilityBlockReason,
+      availableSlotsCount: availableSlots.length,
+      formDate: form.date,
+      selectedStaff,
+      staffAvailability,
+      uiProps: {
+        availabilityLabel,
+        checkedInLabel,
+        checkedOutLabel,
+        currentStatusLabel: staffAvailabilityStatus,
+        error: schedulerError,
+        holidayLabel,
+        loading: schedulerLoading,
+        onLeaveLabel,
+        shiftEndLabel,
+        shiftStartLabel,
+        slotDisabledReason,
+        workingHoursLabel,
+      },
+    });
+  }, [
+    availabilityBlockReason,
+    availabilityLabel,
+    availableSlots.length,
+    checkedInLabel,
+    checkedOutLabel,
+    form.date,
+    form.staffId,
+    holidayLabel,
+    onLeaveLabel,
+    schedulerError,
+    schedulerLoading,
+    selectedStaff,
+    staffAvailability,
+    shiftEndLabel,
+    shiftStartLabel,
+    slotDisabledReason,
+    staffAvailabilityStatus,
+    workingHoursLabel,
+  ]);
+  const formIsValid = useMemo(
+    () => Object.keys(validateForm(form, { requireClient: !allowsWalkInClient })).length === 0,
+    [allowsWalkInClient, form],
+  );
+  const selectedSlotIsAvailable = availableSlots.some((slot) => slot.value === form.startTime);
+  const bookingReady = formIsValid && selectedSlotIsAvailable && !schedulerLoading;
+  const refreshStaffAvailability = useCallback(() => {
+    setAvailabilityRefreshKey((current) => current + 1);
+  }, []);
 
   useEffect(() => {
-    if (mode === "edit") {
-      void dispatch(fetchClientsThunk({ limit: 50, offset: 0, reset: true }));
-    }
+    void dispatch(fetchClientsThunk({ limit: 50, offset: 0, reset: true }));
     void dispatch(fetchStaffThunk({ limit: 50, page: 1, reset: true }));
-  }, [dispatch, mode]);
+  }, [dispatch]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshStaffAvailability();
+    }, [refreshStaffAvailability]),
+  );
+
+  useAppForeground(refreshStaffAvailability);
+
+  useEffect(
+    () =>
+      addRealtimeEntityChangedListener(({ entity, payload }) => {
+        if (
+          form.staffId &&
+          STAFF_AVAILABILITY_REALTIME_ENTITIES.has(entity) &&
+          realtimePayloadMatchesStaff(payload, form.staffId)
+        ) {
+          refreshStaffAvailability();
+        }
+      }),
+    [form.staffId, refreshStaffAvailability],
+  );
+
+  useEffect(() => {
+    if (!form.staffId || !validateDate(form.date)) {
+      return;
+    }
+
+    void dispatch(fetchStaffAvailabilityThunk({ date: form.date, staffId: form.staffId }));
+  }, [activeBranchId, availabilityRefreshKey, dispatch, form.date, form.staffId]);
+
+  useEffect(() => {
+    setForm((current) => {
+      if (!current.startTime && !current.endTime) {
+        return current;
+      }
+
+      return {
+        ...current,
+        endTime: "",
+        startTime: "",
+      };
+    });
+    setErrors((current) => ({ ...current, startTime: undefined }));
+  }, [form.date, form.staffId]);
+
+  useEffect(() => {
+    if (!form.startTime) {
+      return;
+    }
+
+    const selectedSlot = availableSlots.some((slot) => slot.value === form.startTime);
+
+    if (!selectedSlot) {
+      setForm((current) => ({
+        ...current,
+        endTime: "",
+        startTime: "",
+      }));
+    }
+  }, [availableSlots, form.startTime]);
+
+  useEffect(() => {
+    if (
+      form.startTime ||
+      schedulerLoading ||
+      availableSlots.length === 0 ||
+      selectedServices.length === 0 ||
+      !form.staffId
+    ) {
+      return;
+    }
+
+    const firstSlot = availableSlots[0];
+
+    setForm((current) => ({
+      ...current,
+      endTime: firstSlot.endTime ?? "",
+      startTime: firstSlot.value,
+    }));
+    setErrors((current) => ({ ...current, endTime: undefined, startTime: undefined }));
+  }, [
+    availableSlots,
+    form.date,
+    form.staffId,
+    form.startTime,
+    schedulerLoading,
+    selectedServices.length,
+  ]);
 
   useEffect(() => {
     const query = getServiceSearchQuery(serviceSearch);
@@ -1495,7 +2905,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
       return;
     }
 
-    const queryKey = getServiceSearchKey(query, currentUser?.salonId);
+    const queryKey = getServiceSearchKey(query, activeBranchId);
     const cached = serviceCacheRef.current.get(queryKey);
 
     const applyServices = (requestId: number, matchingServices: ServiceListItem[]) => {
@@ -1547,8 +2957,8 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
     const timeout = setTimeout(() => {
       const searchPromise =
         query.kind === "name"
-          ? searchServicesByName(query, currentUser?.salonId)
-          : fetchServiceCatalog(currentUser?.salonId).then((catalog) =>
+          ? searchServicesByName(query, activeBranchId)
+          : fetchServiceCatalog(activeBranchId).then((catalog) =>
               filterServicesByQuery(catalog, query),
             );
 
@@ -1569,7 +2979,107 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
     return () => {
       clearTimeout(timeout);
     };
-  }, [currentUser?.salonId, serviceDropdownOpen, serviceSearch]);
+  }, [activeBranchId, serviceDropdownOpen, serviceSearch]);
+
+  // Client search must hit the backend rather than filtering only the first
+  // page of clients loaded into Redux (`fetchClientsThunk({ limit: 50 })` on
+  // mount) — otherwise any client beyond that first batch is unfindable here.
+  // Mirrors the service-search caching/debounce pattern above.
+  useEffect(() => {
+    const trimmedSearch = clientSearch.trim();
+
+    if (
+      !clientDropdownOpen ||
+      clientBookingMode !== "existing" ||
+      trimmedSearch.length < CLIENT_SEARCH_MIN_LETTERS
+    ) {
+      clientRequestIdRef.current += 1;
+      setClientResultsLoading(false);
+      setClientResultsError(null);
+      setClientResults([]);
+      return;
+    }
+
+    const queryKey = `${activeBranchId ?? "default"}:${trimmedSearch.toLowerCase()}`;
+    const cached = clientCacheRef.current.get(queryKey);
+
+    const applyResults = (requestId: number, matchingClients: ClientListItem[]) => {
+      if (clientRequestIdRef.current !== requestId) {
+        return;
+      }
+
+      setClientResults(matchingClients);
+      setClientResultsError(null);
+      setClientResultsLoading(false);
+    };
+
+    const applyFailure = (requestId: number, error: unknown) => {
+      if (clientRequestIdRef.current !== requestId) {
+        return;
+      }
+
+      setClientResultsError(getApiErrorMessage(error));
+      setClientResults([]);
+      setClientResultsLoading(false);
+    };
+
+    if (cached) {
+      const requestId = clientRequestIdRef.current + 1;
+      clientRequestIdRef.current = requestId;
+      setClientResultsError(null);
+
+      if (Array.isArray(cached)) {
+        setClientResultsLoading(false);
+        setClientResults(cached);
+      } else {
+        setClientResultsLoading(true);
+        cached.then(
+          (matchingClients) => applyResults(requestId, matchingClients),
+          (error) => applyFailure(requestId, error),
+        );
+      }
+
+      return;
+    }
+
+    const requestId = clientRequestIdRef.current + 1;
+    clientRequestIdRef.current = requestId;
+    setClientResultsLoading(true);
+    setClientResultsError(null);
+
+    const timeout = setTimeout(() => {
+      const searchPromise = clientService
+        .searchClients(
+          {
+            inactive: false,
+            limit: CLIENT_SEARCH_RESULT_LIMIT,
+            offset: 0,
+            search: trimmedSearch,
+            sort_by: "full_name",
+            sort_order: "asc",
+          },
+          activeBranchId,
+        )
+        .then((response) => response.clients);
+
+      clientCacheRef.current.set(queryKey, searchPromise);
+
+      searchPromise.then(
+        (matchingClients) => {
+          clientCacheRef.current.set(queryKey, matchingClients);
+          applyResults(requestId, matchingClients);
+        },
+        (error) => {
+          clientCacheRef.current.delete(queryKey);
+          applyFailure(requestId, error);
+        },
+      );
+    }, CLIENT_SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      clearTimeout(timeout);
+    };
+  }, [activeBranchId, clientBookingMode, clientDropdownOpen, clientSearch]);
 
   useEffect(() => {
     if (mode === "edit" && appointmentId && !existingAppointment) {
@@ -1580,26 +3090,97 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
   useEffect(() => {
     if (existingAppointment) {
       setForm(appointmentToForm(existingAppointment));
+      setSelectedServices([
+        {
+          category: null,
+          categoryId: null,
+          createdAt: null,
+          durationMinutes: existingAppointment.durationMinutes,
+          id: existingAppointment.serviceId || "existing-service",
+          isActive: true,
+          name: existingAppointment.serviceName,
+          price: existingAppointment.amount,
+        },
+      ]);
+      setClientBookingMode("existing");
+      setClientSearch(existingAppointment.clientName);
+      setClientDropdownOpen(false);
       setServiceSearch(existingAppointment.serviceName);
       setServiceDropdownOpen(false);
     }
   }, [existingAppointment]);
 
-  const updateForm = (key: keyof AppointmentFormState, value: string) => {
+  useEffect(() => {
+    if (!returnedClientId || mode !== "create") {
+      return;
+    }
+
+    let cancelled = false;
+    setClientBookingMode("existing");
+    setClientDropdownOpen(false);
+    setForm((current) => ({
+      ...current,
+      clientId: returnedClientId,
+    }));
+    setErrors((current) => ({ ...current, clientId: undefined }));
+
+    const existingClient = clients.find((client) => client.id === returnedClientId);
+
+    if (existingClient) {
+      setSelectedClientRecord(existingClient);
+      setClientSearch(existingClient.fullName);
+      return;
+    }
+
+    void dispatch(fetchClientByIdThunk(returnedClientId)).then((result) => {
+      if (!cancelled && fetchClientByIdThunk.fulfilled.match(result)) {
+        setSelectedClientRecord(result.payload);
+        setClientSearch(result.payload.fullName);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [clients, dispatch, mode, returnedClientId]);
+
+  useEffect(() => {
+    if (!selectedClient || clientBookingMode !== "existing") {
+      return;
+    }
+
+    setClientSearch(selectedClient.fullName);
+  }, [clientBookingMode, selectedClient]);
+
+  useEffect(() => {
+    const firstService = selectedServices[0];
+    const nextDuration = selectedServices.reduce(
+      (total, service) => total + Math.max(service.durationMinutes ?? 0, 0),
+      0,
+    );
+    const nextPrice = getServicePricingTotals(selectedServices).grandTotal;
+
     setForm((current) => {
-      const next = { ...current, [key]: value };
+      const next = {
+        ...current,
+        duration: nextDuration > 0 ? String(nextDuration) : "",
+        price: String(nextPrice),
+        serviceId: firstService?.id ?? "",
+        serviceName: selectedServices.map((service) => service.name).join(", "),
+      };
 
-      if (key === "duration" || key === "startTime" || key === "date") {
-        const duration = Number(key === "duration" ? value : next.duration);
-        const start = key === "startTime" ? value : next.startTime;
-        const nextDate = key === "date" ? value : next.date;
-
-        if (Number.isFinite(duration) && duration > 0 && validateTime(start) && validateDate(nextDate)) {
-          next.endTime = addMinutesToTime(nextDate, start, duration);
-        }
+      if (selectedServices.length === 0) {
+        next.endTime = "";
+        next.startTime = "";
       }
 
       return next;
+    });
+  }, [selectedServices]);
+
+  const updateForm = (key: keyof AppointmentFormState, value: string) => {
+    setForm((current) => {
+      return { ...current, [key]: value };
     });
     setErrors((current) => ({ ...current, [key]: undefined }));
   };
@@ -1607,11 +3188,13 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
   const handleServiceSearchChange = (value: string) => {
     setServiceSearch(value);
     setServiceDropdownOpen(Boolean(value.trim()));
-    setForm((current) => ({
-      ...current,
-      serviceId: "",
-      serviceName: value,
-    }));
+    if (selectedServices.length === 0) {
+      setForm((current) => ({
+        ...current,
+        serviceId: "",
+        serviceName: value,
+      }));
+    }
     setErrors((current) => ({ ...current, serviceName: undefined }));
   };
 
@@ -1619,26 +3202,72 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
     setServiceDropdownOpen(false);
   };
 
-  const handleSelectService = (service: ServiceListItem) => {
-    setForm((current) => {
-      const duration = service.durationMinutes ? String(service.durationMinutes) : current.duration;
-      const next = {
-        ...current,
-        duration,
-        price: service.price ? String(service.price) : current.price,
-        serviceId: service.id,
-        serviceName: service.name,
-      };
+  const dismissClientDropdown = () => {
+    setClientDropdownOpen(false);
+  };
 
-      if (Number(service.durationMinutes) > 0 && validateTime(next.startTime) && validateDate(next.date)) {
-        next.endTime = addMinutesToTime(next.date, next.startTime, Number(service.durationMinutes));
+  const handleSelectWalkInClient = () => {
+    if (mode !== "create") {
+      return;
+    }
+
+    setClientBookingMode("walkIn");
+    setClientDropdownOpen(false);
+    setClientSearch("Walk-in Client");
+    setSelectedClientRecord(undefined);
+    setForm((current) => ({
+      ...current,
+      clientId: "",
+    }));
+    setErrors((current) => ({ ...current, clientId: undefined }));
+    setFormSubmitError(null);
+  };
+
+  const handleSelectExistingClientMode = () => {
+    setClientBookingMode("existing");
+    setClientDropdownOpen(true);
+    if (clientSearch === "Walk-in Client") {
+      setClientSearch("");
+    }
+  };
+
+  const handleClientSearchChange = (value: string) => {
+    setClientBookingMode("existing");
+    setClientSearch(value);
+    setClientDropdownOpen(Boolean(value.trim()));
+    setSelectedClientRecord(undefined);
+    setForm((current) => ({
+      ...current,
+      clientId: "",
+    }));
+    setErrors((current) => ({ ...current, clientId: undefined }));
+  };
+
+  const handleSelectClient = (client: ClientListItem) => {
+    setClientBookingMode("existing");
+    setClientSearch(client.fullName);
+    setClientDropdownOpen(false);
+    setSelectedClientRecord(client);
+    setForm((current) => ({
+      ...current,
+      clientId: client.id,
+    }));
+    setErrors((current) => ({ ...current, clientId: undefined }));
+    setFormSubmitError(null);
+  };
+
+  const handleNewClient = () => {
+    router.push({ pathname: "/clients/new", params: { returnTo: "booking" } } as Href);
+  };
+
+  const handleSelectService = (service: ServiceListItem) => {
+    setSelectedServices((current) => {
+      if (current.some((selectedService) => selectedService.id === service.id)) {
+        return current.filter((selectedService) => selectedService.id !== service.id);
       }
 
-      return next;
+      return [...current, service];
     });
-    setDurationEditable(false);
-    setPriceEditable(false);
-    setServiceSearch(service.name);
     setServiceDropdownOpen(false);
     setErrors((current) => ({
       ...current,
@@ -1648,42 +3277,124 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
     }));
   };
 
+  const handleRemoveSelectedService = (serviceId: string) => {
+    setSelectedServices((current) => current.filter((service) => service.id !== serviceId));
+  };
+
+  const handleSelectStaff = (staffId: string) => {
+    setForm((current) => ({
+      ...current,
+      endTime: "",
+      staffId: current.staffId === staffId ? "" : staffId,
+      startTime: "",
+    }));
+    setErrors((current) => ({ ...current, staffId: undefined, startTime: undefined }));
+  };
+
+  const handleSelectSlot = (startTime: string) => {
+    const selectedSlot = availableSlots.find((slot) => slot.value === startTime);
+
+    setForm((current) => ({
+      ...current,
+      endTime: selectedSlot?.endTime ?? "",
+      startTime,
+    }));
+    setErrors((current) => ({
+      ...current,
+      endTime: undefined,
+      startTime: undefined,
+    }));
+  };
+
   const handleSubmit = async () => {
-    const authenticatedClientId = currentUser?.clientId ?? currentUser?.id ?? "";
-    const clientId = mode === "create" ? authenticatedClientId : form.clientId;
-    const nextErrors = validateForm(form, { requireClient: mode !== "create" });
+    if (submittingRef.current || mutating) {
+      return;
+    }
+
+    const clientId = form.clientId;
+    const isWalkInClient = mode === "create" && clientBookingMode === "walkIn";
+    const nextErrors = validateForm(form, { requireClient: !isWalkInClient });
 
     setErrors(nextErrors);
+    setFormSubmitError(null);
 
     if (Object.keys(nextErrors).length > 0) {
       return;
     }
 
-    if (!clientId) {
-      setErrors({
-        notes: "Unable to identify the logged-in client. Please sign in again.",
-      });
+    if (!clientId && !isWalkInClient) {
+      setFormSubmitError("Select a client or choose Walk-in Client before creating the appointment.");
       return;
     }
 
+    const selectedSlot = availableSlots.find((slot) => slot.value === form.startTime);
+
+    if (!selectedSlot) {
+      setErrors((current) => ({
+        ...current,
+        startTime: "Select an available time slot.",
+      }));
+      return;
+    }
+
+    if (schedulerLoading) {
+      setFormSubmitError("Availability is still loading. Please wait a moment.");
+      return;
+    }
+
+    const selectedServicesDuration = selectedServices.reduce(
+      (total, service) => total + Math.max(Math.trunc(service.durationMinutes ?? 0), 0),
+      0,
+    );
+    const formDurationNumber = Number(form.duration);
+    const durationMinutes =
+      selectedServicesDuration > 0
+        ? selectedServicesDuration
+        : Number.isInteger(formDurationNumber) && formDurationNumber > 0
+          ? formDurationNumber
+          : 0;
+
+    if (durationMinutes <= 0) {
+      setErrors((current) => ({
+        ...current,
+        duration: "Selected service duration is required.",
+      }));
+      setFormSubmitError("Selected service duration is required before booking.");
+      return;
+    }
+
+    const priceNumber = Number(form.price || 0);
+    const calculatedPrice = Number.isFinite(priceNumber) && priceNumber >= 0 ? priceNumber : 0;
+    const calculatedDiscount = Math.max(
+      Number.isFinite(Number(form.discount || 0)) ? Number(form.discount || 0) : 0,
+      servicePricingTotals.discount,
+    );
+    const calculatedEndTime = selectedSlot.endTime ?? form.endTime;
+
     const payload: Omit<CreateAppointmentRequest, "salon_id"> = {
-      client_id: clientId,
-      duration: Number(form.duration),
-      end_time: combineDateTime(form.date, form.endTime),
+      duration_minutes: durationMinutes,
+      end_time: combineDateTime(form.date, calculatedEndTime || selectedSlot.value),
+      ...(calculatedDiscount > 0 ? { discount: calculatedDiscount } : {}),
       notes: form.notes.trim() || undefined,
-      price: Number(form.price || 0),
-      scheduled_at: combineDateTime(form.date, form.startTime),
+      price: calculatedPrice,
+      scheduled_at: combineDateTime(form.date, selectedSlot.value),
       service_id: form.serviceId.trim() || undefined,
       service_name: form.serviceName.trim() || undefined,
       staff_id: form.staffId,
-      start_time: combineDateTime(form.date, form.startTime),
-      status: statusToApiValue(form.status),
+      start_time: combineDateTime(form.date, selectedSlot.value),
+      status: appointmentStatusToApiValue(form.status),
     };
 
+    if (!isWalkInClient) {
+      payload.client_id = clientId;
+    }
+
     if (mode === "edit") {
-      payload.discount = Number(form.discount || 0);
+      payload.discount = calculatedDiscount;
       payload.payment_method = form.paymentMethod;
     }
+
+    submittingRef.current = true;
 
     const result =
       mode === "create"
@@ -1697,30 +3408,36 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
             )
           : null;
 
+    submittingRef.current = false;
+
     if (!result) {
       return;
     }
 
     if (createAppointmentThunk.rejected.match(result) || updateAppointmentThunk.rejected.match(result)) {
-      setErrors({
-        notes: getRejectedMessage(result.payload, mode === "create" ? "Unable to create appointment." : "Unable to update appointment."),
-      });
+      // The Redux slice already stores this same message as `mutationError`
+      // (rendered below), so nothing further to set here.
       return;
     }
 
     const savedId = result.payload.appointment.id;
+    if (mode === "create") {
+      void dispatch(fetchAppointmentsThunk({ refresh: true }));
+      void dispatch(fetchDashboardThunk());
+    }
+    refreshStaffAvailability();
     router.replace(`/appointments/${savedId}` as Href);
   };
 
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+      <AppStatusBar />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={styles.flex}
       >
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, styles.bookingContent]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -1735,99 +3452,112 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
             <Text style={styles.headerTitle}>{mode === "create" ? "Create Appointment" : "Edit Appointment"}</Text>
             <View style={styles.iconButtonGhost} />
           </View>
+          <BookingStepHeader />
 
-          <View style={styles.formCard}>
-            {serviceDropdownOpen ? (
+          <View style={styles.bookingFlow}>
+            {clientDropdownOpen || serviceDropdownOpen ? (
               <Pressable
-                accessibilityLabel="Close service search"
-                onPress={dismissServiceDropdown}
+                accessibilityLabel="Close open picker"
+                onPress={() => {
+                  dismissClientDropdown();
+                  dismissServiceDropdown();
+                }}
                 style={styles.formDismissOverlay}
               />
             ) : null}
-            {mode === "edit" ? (
-              <SelectField
+
+            <BookingSection stackIndex={clientDropdownOpen ? 40 : 5} title="1. Select Client">
+              <SearchableClientField
+                bookingMode={clientBookingMode}
+                dropdownOpen={clientDropdownOpen}
                 error={errors.clientId}
-                label="Client"
-                onSelect={(value) => updateForm("clientId", value)}
-                options={clients.map((client) => ({ label: client.fullName, value: client.id }))}
-                value={form.clientId}
+                onDismiss={dismissClientDropdown}
+                onNewClient={handleNewClient}
+                onSearchChange={handleClientSearchChange}
+                onSelectClient={handleSelectClient}
+                onSelectExisting={handleSelectExistingClientMode}
+                onSelectWalkIn={handleSelectWalkInClient}
+                results={clientResults}
+                resultsError={clientResultsError}
+                resultsLoading={clientResultsLoading}
+                search={clientSearch}
+                selectedClient={selectedClient}
+                selectedClientId={form.clientId}
               />
-            ) : null}
-            <SearchableServiceField
-              dropdownOpen={serviceDropdownOpen}
-              error={errors.serviceName}
-              loading={serviceLoading}
-              onDismiss={dismissServiceDropdown}
-              onFocus={() => setServiceDropdownOpen(Boolean(serviceSearch.trim()))}
-              onSearchChange={handleServiceSearchChange}
-              onSelect={handleSelectService}
-              search={serviceSearch}
-              selectedServiceId={form.serviceId}
-              serviceError={serviceError}
-              services={services}
-            />
-            <SelectField
-              error={errors.staffId}
-              label="Staff"
-              onSelect={(value) => updateForm("staffId", value)}
-              options={staffMembers.map((staff) => ({ label: staff.name, value: staff.id }))}
-              value={form.staffId}
-            />
-            <TextField
-              error={errors.date}
-              label="Date"
-              onChangeText={(value) => updateForm("date", value)}
-              placeholder="YYYY-MM-DD"
-              value={form.date}
-            />
-            <View style={styles.twoColumn}>
-              <View style={styles.twoColumnItem}>
-                <TextField
+            </BookingSection>
+
+            <BookingSection
+              action={<Text style={styles.bookingSectionAction}>+ Add Service</Text>}
+              stackIndex={serviceDropdownOpen ? 40 : 4}
+              title="2. Select Services"
+            >
+              <SearchableServiceField
+                dropdownOpen={serviceDropdownOpen}
+                error={errors.serviceName}
+                loading={serviceLoading}
+                onDismiss={dismissServiceDropdown}
+                onFocus={() => setServiceDropdownOpen(Boolean(serviceSearch.trim()))}
+                onSearchChange={handleServiceSearchChange}
+                onSelect={handleSelectService}
+                search={serviceSearch}
+                selectedServiceIds={selectedServices.map((service) => service.id)}
+                serviceError={serviceError}
+                services={services}
+              />
+              <SelectedServicesPanel
+                onRemove={handleRemoveSelectedService}
+                pricingTotals={servicePricingTotals}
+                services={selectedServices}
+                totalDuration={totalServiceDuration}
+                totalPrice={totalServicePrice}
+              />
+            </BookingSection>
+
+            <BookingSection title="3. Select Staff">
+              <StaffCardSelector
+                error={errors.staffId}
+                onSelect={handleSelectStaff}
+                selectedStaffId={form.staffId}
+                staffMembers={staffMembers}
+              />
+              {form.staffId ? (
+                <StaffAvailabilitySummary
+                  availabilityLabel={availabilityLabel}
+                  checkedInLabel={checkedInLabel}
+                  checkedOutLabel={checkedOutLabel}
+                  currentStatusLabel={staffAvailabilityStatus}
+                  error={schedulerError}
+                  hasStaff={Boolean(form.staffId)}
+                  holidayLabel={holidayLabel}
+                  loading={schedulerLoading}
+                  onLeaveLabel={onLeaveLabel}
+                  shiftEndLabel={shiftEndLabel}
+                  shiftStartLabel={shiftStartLabel}
+                  workingHoursLabel={workingHoursLabel}
+                />
+              ) : null}
+            </BookingSection>
+
+            <View style={styles.bookingTwoColumnSection}>
+              <BookingSection title="4. Select Date">
+                <AppointmentDateField
+                  error={errors.date}
+                  onChange={(value) => updateForm("date", value)}
+                  value={form.date}
+                />
+              </BookingSection>
+              <BookingSection title="5. Select Time Slot">
+                <TimeSlotSelector
+                  disabledReason={slotDisabledReason}
                   error={errors.startTime}
-                  label="Start Time"
-                  onChangeText={(value) => updateForm("startTime", value)}
-                  placeholder="HH:mm"
-                  value={form.startTime}
+                  loading={schedulerLoading}
+                  onSelect={handleSelectSlot}
+                  selectedTime={form.startTime}
+                  slots={availableSlots}
                 />
-              </View>
-              <View style={styles.twoColumnItem}>
-                <TextField
-                  error={errors.endTime}
-                  label="End Time"
-                  onChangeText={(value) => updateForm("endTime", value)}
-                  placeholder="HH:mm"
-                  value={form.endTime}
-                />
-              </View>
+              </BookingSection>
             </View>
-            <View style={styles.twoColumn}>
-              <View style={styles.twoColumnItem}>
-                <TextField
-                  actionLabel={!durationEditable && mode === "create" ? "Edit" : undefined}
-                  editable={durationEditable || mode === "edit"}
-                  error={errors.duration}
-                  keyboardType="numeric"
-                  label="Duration"
-                  onActionPress={() => setDurationEditable(true)}
-                  onChangeText={(value) => updateForm("duration", value)}
-                  placeholder="Minutes"
-                  value={form.duration}
-                />
-              </View>
-              <View style={styles.twoColumnItem}>
-                <TextField
-                  actionLabel={!priceEditable && mode === "create" ? "Edit" : undefined}
-                  editable={priceEditable || mode === "edit"}
-                  error={errors.price}
-                  keyboardType="decimal-pad"
-                  label="Price"
-                  onActionPress={() => setPriceEditable(true)}
-                  onChangeText={(value) => updateForm("price", value)}
-                  placeholder="0"
-                  value={form.price}
-                />
-              </View>
-            </View>
+
             {mode === "edit" ? (
               <>
                 <TextField
@@ -1854,6 +3584,23 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
                 />
               </>
             ) : null}
+
+            <BookingSection title="6. Review">
+              <AppointmentReviewSummary
+                clientLabel={
+                  clientBookingMode === "walkIn"
+                    ? "Walk-in Client"
+                    : selectedClient?.fullName ?? "No client selected"
+                }
+                date={form.date}
+                pricingTotals={servicePricingTotals}
+                selectedStaff={selectedStaff}
+                services={selectedServices}
+                startTime={form.startTime}
+                totalDuration={totalServiceDuration}
+              />
+            </BookingSection>
+
             <TextField
               error={errors.notes}
               label="Notes"
@@ -1863,36 +3610,36 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
               value={form.notes}
             />
 
-            {mutationError ? (
+            {formSubmitError || mutationError ? (
               <View style={styles.inlineAlert}>
                 <Ionicons name="alert-circle-outline" size={18} color={Colors.error} />
-                <Text style={styles.inlineAlertText}>{mutationError}</Text>
+                <Text style={styles.inlineAlertText}>{formSubmitError ?? mutationError}</Text>
               </View>
             ) : null}
-
-            <TouchableOpacity
-              activeOpacity={0.88}
-              disabled={mutating}
-              onPress={handleSubmit}
-              style={[styles.primaryButton, mutating && styles.disabledButton]}
-            >
-              {mutating ? <ActivityIndicator color="#FFFFFF" /> : <Ionicons name="save-outline" size={18} color="#FFFFFF" />}
-              <Text style={styles.primaryButtonText}>
-                {mutating ? "Saving..." : mode === "create" ? "Create Appointment" : "Save Changes"}
-              </Text>
-            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      <View style={[styles.bookingBottomBar, { paddingBottom: Math.max(insets.bottom, Spacing.md) }]}>
+        <TouchableOpacity
+          activeOpacity={0.88}
+          disabled={mutating || !bookingReady}
+          onPress={handleSubmit}
+          style={[styles.bookingPrimaryButton, (mutating || !bookingReady) && styles.disabledButton]}
+        >
+          {mutating ? <ActivityIndicator color="#FFFFFF" /> : <Ionicons name="calendar-outline" size={20} color="#FFFFFF" />}
+          <Text style={styles.bookingPrimaryButtonText}>
+            {mutating ? "Booking..." : mode === "create" ? "Book Appointment" : "Save Changes"}
+          </Text>
+        </TouchableOpacity>
+      </View>
       <AppointmentSnackbar />
     </SafeAreaView>
   );
 }
 
 const formatBusinessDate = (value: string | null) => {
-  if (!value) return null;
-  const parsedDate = new Date(value);
-  if (Number.isNaN(parsedDate.getTime())) return value;
+  const parsedDate = parseAppointmentDateTime(value);
+  if (!parsedDate) return value;
 
   const day = String(parsedDate.getDate()).padStart(2, "0");
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -1902,19 +3649,15 @@ const formatBusinessDate = (value: string | null) => {
 };
 
 const formatBusinessTime = (value: string | null) => {
-  if (!value) return null;
-  const parsedDate = new Date(value);
-  if (Number.isNaN(parsedDate.getTime())) return value;
+  const parsedDate = parseAppointmentDateTime(value);
+  if (!parsedDate) return value;
 
-  let hours = parsedDate.getHours();
-  const minutes = String(parsedDate.getMinutes()).padStart(2, "0");
-  const ampm = hours >= 12 ? "PM" : "AM";
-  hours = hours % 12;
-  hours = hours ? hours : 12;
-  return `${String(hours).padStart(2, "0")}:${minutes} ${ampm}`;
+  return formatHourMinuteAmPm(parsedDate);
 };
 
 function DetailRow({ label, value }: { label: string; value?: string | number | null }) {
+  const { styles } = useAppointmentStyles();
+
   if (value === undefined || value === null) {
     return null;
   }
@@ -1931,6 +3674,7 @@ function DetailRow({ label, value }: { label: string; value?: string | number | 
 }
 
 export function AppointmentDetailsScreen() {
+  const { styles } = useAppointmentStyles();
   const dispatch = useAppDispatch();
   const params = useLocalSearchParams<{ id?: string }>();
   const appointmentId = params.id;
@@ -1991,6 +3735,9 @@ export function AppointmentDetailsScreen() {
             {appointment.status === "Confirmed" ? (
               <StartAppointmentAction appointment={appointment} />
             ) : null}
+            {appointment.status === "In Progress" ? (
+              <CompleteAppointmentAction appointment={appointment} />
+            ) : null}
             <ActionButton icon="create-outline" label="Edit" route={`/appointments/${appointment.id}/edit`} />
             <ActionButton icon="calendar-outline" label="Reschedule" route={`/appointments/${appointment.id}/reschedule`} />
             <ActionButton icon="close-circle-outline" label="Cancel" route={`/appointments/${appointment.id}/cancel`} danger />
@@ -2030,6 +3777,7 @@ export function AppointmentDetailsScreen() {
 }
 
 function ConfirmAppointmentAction({ appointment }: { appointment: AppointmentListItem }) {
+  const { Colors, styles } = useAppointmentStyles();
   const dispatch = useAppDispatch();
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -2127,6 +3875,7 @@ function ConfirmAppointmentAction({ appointment }: { appointment: AppointmentLis
 }
 
 function StartAppointmentAction({ appointment }: { appointment: AppointmentListItem }) {
+  const { Colors, styles } = useAppointmentStyles();
   const dispatch = useAppDispatch();
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -2223,6 +3972,104 @@ function StartAppointmentAction({ appointment }: { appointment: AppointmentListI
   );
 }
 
+function CompleteAppointmentAction({ appointment }: { appointment: AppointmentListItem }) {
+  const { Colors, styles } = useAppointmentStyles();
+  const dispatch = useAppDispatch();
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [completing, setCompleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submitComplete = async () => {
+    if (appointment.status !== "In Progress") {
+      setError("Only in-progress appointments can be completed.");
+      return;
+    }
+
+    setError(null);
+    setCompleting(true);
+    const result = await dispatch(completeAppointmentThunk(appointment.id));
+    setCompleting(false);
+
+    if (completeAppointmentThunk.rejected.match(result)) {
+      setError(getRejectedMessage(result.payload, "Unable to complete appointment."));
+      return;
+    }
+
+    setConfirmVisible(false);
+  };
+
+  return (
+    <>
+      <TouchableOpacity
+        activeOpacity={0.84}
+        disabled={completing}
+        onPress={() => {
+          setError(null);
+          setConfirmVisible(true);
+        }}
+        style={[styles.actionButton, completing && styles.disabledButton]}
+      >
+        {completing ? (
+          <ActivityIndicator color={Colors.primary} size="small" />
+        ) : (
+          <Ionicons name="checkmark-done-circle-outline" size={18} color={Colors.primary} />
+        )}
+        <Text style={styles.actionButtonText}>Complete</Text>
+      </TouchableOpacity>
+
+      <Modal
+        animationType="fade"
+        onRequestClose={() => {
+          if (!completing) {
+            setConfirmVisible(false);
+          }
+        }}
+        transparent
+        visible={confirmVisible}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Complete appointment?</Text>
+            <Text style={styles.modalText}>
+              {"This will mark "}
+              {appointment.clientName}
+              {"'s appointment as Completed."}
+            </Text>
+            {error ? (
+              <View style={[styles.inlineAlert, styles.modalInlineAlert]}>
+                <Ionicons name="alert-circle-outline" size={18} color={Colors.error} />
+                <Text style={styles.inlineAlertText}>{error}</Text>
+              </View>
+            ) : null}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                disabled={completing}
+                onPress={() => setConfirmVisible(false)}
+                style={[styles.secondaryButton, completing && styles.disabledButton]}
+              >
+                <Text style={styles.secondaryButtonText}>Not Yet</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.88}
+                disabled={completing}
+                onPress={() => void submitComplete()}
+                style={[styles.primaryButtonCompact, completing && styles.disabledButton]}
+              >
+                {completing ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Ionicons name="checkmark-done" size={16} color="#FFFFFF" />
+                )}
+                <Text style={styles.primaryButtonText}>Complete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </>
+  );
+}
+
 function ActionButton({
   danger,
   icon,
@@ -2234,6 +4081,8 @@ function ActionButton({
   label: string;
   route: string;
 }) {
+  const { Colors, styles } = useAppointmentStyles();
+
   return (
     <TouchableOpacity
       activeOpacity={0.84}
@@ -2247,6 +4096,7 @@ function ActionButton({
 }
 
 export function CancelAppointmentScreen() {
+  const { styles } = useAppointmentStyles();
   const dispatch = useAppDispatch();
   const params = useLocalSearchParams<{ id?: string }>();
   const appointmentId = params.id;
@@ -2331,6 +4181,7 @@ export function CancelAppointmentScreen() {
 }
 
 export function RescheduleAppointmentScreen() {
+  const { styles } = useAppointmentStyles();
   const dispatch = useAppDispatch();
   const params = useLocalSearchParams<{ id?: string }>();
   const appointmentId = params.id;
@@ -2491,7 +4342,7 @@ export function SearchFilterScreen() {
   return <AppointmentListScreen />;
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   actionButton: {
     alignItems: "center",
     backgroundColor: Colors.card,
@@ -2505,7 +4356,7 @@ const styles = StyleSheet.create({
   },
   actionButtonDanger: {
     backgroundColor: Colors.errorBg,
-    borderColor: "rgba(214, 91, 91, 0.18)",
+    borderColor: "rgba(114, 106, 99, 0.18)",
   },
   actionButtonText: {
     color: Colors.primary,
@@ -2523,21 +4374,6 @@ const styles = StyleSheet.create({
   },
   amountText: {
     color: Colors.heading,
-    fontSize: 14,
-    fontWeight: "900",
-  },
-  avatar: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderColor: Colors.border,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    height: 46,
-    justifyContent: "center",
-    width: 46,
-  },
-  avatarText: {
-    color: Colors.primaryDark,
     fontSize: 14,
     fontWeight: "900",
   },
@@ -2596,6 +4432,184 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     textTransform: "uppercase",
   },
+  availabilityCard: {
+    backgroundColor: Colors.bg,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.control,
+    borderWidth: 1,
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+    padding: Spacing.md,
+  },
+  availabilityGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  availabilityHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  availabilityItem: {
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.control,
+    borderWidth: 1,
+    flexBasis: "48%",
+    flexGrow: 1,
+    minHeight: 62,
+    padding: Spacing.sm,
+  },
+  availabilityRows: {
+    gap: Spacing.xs,
+  },
+  availabilityRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: Spacing.sm,
+    justifyContent: "space-between",
+    minHeight: 30,
+  },
+  availabilityLabel: {
+    color: Colors.text2,
+    fontSize: 11,
+    fontWeight: "800",
+    marginBottom: 4,
+  },
+  availabilityTitle: {
+    color: Colors.heading,
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  availabilityValue: {
+    color: Colors.heading,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  availabilityRowLabel: {
+    color: Colors.text2,
+    flex: 1,
+    flexShrink: 1,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  availabilityRowValue: {
+    color: Colors.heading,
+    flexShrink: 1,
+    fontSize: 13,
+    fontWeight: "900",
+    maxWidth: "56%",
+    textAlign: "right",
+  },
+  autocompleteAnchor: {
+    overflow: "visible",
+    position: "relative",
+    zIndex: 50,
+  },
+  bookingBottomBar: {
+    backgroundColor: Colors.bg,
+    borderTopColor: Colors.border,
+    borderTopWidth: 1,
+    gap: Spacing.md,
+    paddingHorizontal: AppLayout.contentHorizontalPadding,
+    paddingTop: Spacing.md,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 12,
+  },
+  bookingContent: {
+    paddingBottom: 150,
+  },
+  bookingFlow: {
+    gap: Spacing.md,
+  },
+  bookingPrimaryButton: {
+    alignItems: "center",
+    backgroundColor: Colors.primaryDark,
+    borderRadius: AppRadius.pill,
+    flexDirection: "row",
+    gap: Spacing.sm,
+    justifyContent: "center",
+    minHeight: 58,
+    paddingHorizontal: AppLayout.cardPadding,
+  },
+  bookingPrimaryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "900",
+  },
+  bookingSection: {
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.card,
+    borderWidth: 1,
+    overflow: "visible",
+    padding: AppLayout.cardPadding,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 2,
+  },
+  bookingSectionAction: {
+    color: Colors.success,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  bookingSectionHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
+  },
+  bookingSectionTitle: {
+    color: Colors.heading,
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  bookingStepDot: {
+    alignItems: "center",
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: 17,
+    borderWidth: 1,
+    height: 34,
+    justifyContent: "center",
+    width: 34,
+  },
+  bookingStepDotActive: {
+    backgroundColor: Colors.primaryDark,
+    borderColor: Colors.primaryDark,
+  },
+  bookingStepItem: {
+    alignItems: "center",
+    flex: 1,
+    gap: 6,
+  },
+  bookingStepLabel: {
+    color: Colors.text2,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  bookingStepNumber: {
+    color: Colors.text2,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  bookingStepNumberActive: {
+    color: "#FFFFFF",
+  },
+  bookingSteps: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: AppLayout.sectionGap,
+  },
+  bookingTwoColumnSection: {
+    gap: Spacing.md,
+  },
   calendarRow: {
     flexDirection: "row",
     gap: Spacing.md,
@@ -2608,7 +4622,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: AppLayout.sectionGap,
     padding: AppLayout.cardPadding,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
@@ -2619,7 +4633,7 @@ const styles = StyleSheet.create({
     borderTopColor: Colors.border,
     borderTopWidth: 1,
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
     marginTop: Spacing.md,
     paddingTop: Spacing.md,
   },
@@ -2700,7 +4714,7 @@ const styles = StyleSheet.create({
     color: Colors.heading,
     flex: 1,
     fontSize: 14,
-    minHeight: 46,
+    textAlignVertical: "center",
   },
   dateInputRow: {
     alignItems: "center",
@@ -2761,6 +4775,18 @@ const styles = StyleSheet.create({
   disabledButton: {
     opacity: 0.68,
   },
+  emptyInlineState: {
+    alignItems: "center",
+    backgroundColor: Colors.bg,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.control,
+    borderStyle: "dashed",
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+    padding: Spacing.md,
+  },
   fieldError: {
     color: Colors.error,
     fontSize: 12,
@@ -2789,6 +4815,64 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     marginBottom: AppLayout.sectionGap,
   },
+  floatingDropdownBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "transparent",
+  },
+  floatingDropdownLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 999,
+  },
+  floatingSearchDropdown: {
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.control,
+    borderWidth: 1,
+    elevation: 24,
+    overflow: "hidden",
+    position: "absolute",
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.18,
+    shadowRadius: 28,
+    zIndex: 1000,
+  },
+  weekStripRow: {
+    gap: Spacing.sm,
+    paddingBottom: 2,
+  },
+  weekDayPill: {
+    alignItems: "center",
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    minWidth: 46,
+    paddingVertical: Spacing.sm,
+  },
+  weekDayPillActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  weekDayLabel: {
+    color: Colors.text2,
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0,
+    textTransform: "uppercase",
+  },
+  weekDayLabelActive: {
+    color: "rgba(255,255,255,0.78)",
+  },
+  weekDayNumber: {
+    color: Colors.heading,
+    fontSize: 15,
+    fontWeight: "800",
+    marginTop: 3,
+  },
+  weekDayNumberActive: {
+    color: "#FFFFFF",
+  },
   flatListContent: {
     paddingBottom: AppLayout.contentBottomPadding,
     paddingHorizontal: AppLayout.contentHorizontalPadding,
@@ -2812,6 +4896,135 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     zIndex: 1,
   },
+  clientActionChip: {
+    alignItems: "center",
+    backgroundColor: Colors.bg,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.pill,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: Spacing.sm,
+    minHeight: 42,
+    paddingHorizontal: Spacing.md,
+  },
+  clientActionChipActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  clientActionText: {
+    color: Colors.text2,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  clientActionTextActive: {
+    color: "#FFFFFF",
+  },
+  clientDropdown: {
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.control,
+    borderWidth: 1,
+    elevation: 7,
+    left: 0,
+    marginTop: 6,
+    overflow: "hidden",
+    position: "absolute",
+    right: 0,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    top: 184,
+    zIndex: 6,
+  },
+  clientModeHint: {
+    color: Colors.primary,
+    flexShrink: 1,
+    fontSize: 12,
+    fontWeight: "900",
+    marginBottom: Spacing.sm,
+    maxWidth: "60%",
+  },
+  clientOptionRow: {
+    alignItems: "center",
+    borderBottomColor: Colors.border,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    gap: Spacing.md,
+    minHeight: 58,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+  },
+  clientQuickActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  clientSearchGroup: {
+    position: "relative",
+    zIndex: 6,
+  },
+  clientSectionHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  calculatedCard: {
+    backgroundColor: Colors.bg,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.control,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+    padding: Spacing.md,
+  },
+  calculatedItem: {
+    flex: 1,
+    minWidth: 0,
+  },
+  dateButton: {
+    alignItems: "center",
+    backgroundColor: Colors.bg,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.control,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: Spacing.sm,
+    minHeight: 52,
+    paddingHorizontal: Spacing.md,
+  },
+  dateButtonText: {
+    color: Colors.heading,
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  existingClientToggle: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    borderColor: Colors.border,
+    borderRadius: AppRadius.pill,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+    minHeight: 38,
+    paddingHorizontal: Spacing.md,
+  },
+  existingClientToggleActive: {
+    backgroundColor: Colors.bg2,
+    borderColor: Colors.primary,
+  },
+  existingClientToggleText: {
+    color: Colors.text2,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  existingClientToggleTextActive: {
+    color: Colors.primary,
+  },
   headerRow: {
     alignItems: "center",
     flexDirection: "row",
@@ -2824,50 +5037,6 @@ const styles = StyleSheet.create({
     fontSize: AppLayout.headerTitleFontSize,
     fontWeight: AppLayout.screenTitleFontWeight,
     textAlign: "center",
-  },
-  heroAction: {
-    alignItems: "center",
-    backgroundColor: Colors.primary,
-    borderRadius: AppRadius.pill,
-    flexDirection: "row",
-    gap: 6,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 10,
-  },
-  heroActionText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "900",
-  },
-  heroCard: {
-    alignItems: "center",
-    backgroundColor: Colors.primaryDark,
-    borderRadius: AppRadius.card,
-    flexDirection: "row",
-    gap: Spacing.md,
-    marginBottom: AppLayout.sectionGap,
-    padding: AppLayout.cardPadding,
-  },
-  heroCopy: {
-    flex: 1,
-  },
-  heroEyebrow: {
-    color: Colors.gold,
-    fontSize: 11,
-    fontWeight: "900",
-    textTransform: "uppercase",
-  },
-  heroSubtitle: {
-    color: "#DCE7E2",
-    fontSize: 13,
-    lineHeight: 19,
-    marginTop: 6,
-  },
-  heroTitle: {
-    color: "#FFFFFF",
-    fontSize: 22,
-    fontWeight: "900",
-    marginTop: 4,
   },
   iconButton: {
     alignItems: "center",
@@ -3072,9 +5241,93 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bg2,
     color: Colors.text2,
   },
+  removeServiceButton: {
+    alignItems: "center",
+    backgroundColor: Colors.text2,
+    borderRadius: 12,
+    height: 24,
+    justifyContent: "center",
+    position: "absolute",
+    right: 8,
+    top: 8,
+    width: 24,
+  },
   safeArea: {
     backgroundColor: Colors.bg,
     flex: 1,
+  },
+  appointmentSearchDropdown: {
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.control,
+    borderWidth: 1,
+    elevation: 6,
+    left: 0,
+    marginTop: 6,
+    overflow: "hidden",
+    position: "absolute",
+    right: 0,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    top: AppLayout.searchBarHeight,
+    zIndex: 6,
+  },
+  appointmentSearchDropdownScroll: {
+    maxHeight: 260,
+  },
+  appointmentSearchEmpty: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+  },
+  appointmentSearchEmptyText: {
+    color: Colors.text2,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  appointmentSearchRow: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  appointmentSearchGroup: {
+    position: "relative",
+    zIndex: 5,
+  },
+  appointmentSearchGroupFlex: {
+    flex: 1,
+  },
+  filterToggleButton: {
+    alignItems: "center",
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.control,
+    borderWidth: 1,
+    height: AppLayout.searchBarHeight,
+    justifyContent: "center",
+    width: AppLayout.searchBarHeight,
+  },
+  filterToggleButtonActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  appointmentSearchItem: {
+    borderBottomColor: Colors.border,
+    borderBottomWidth: 1,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 12,
+  },
+  appointmentSearchItemMeta: {
+    color: Colors.text2,
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  appointmentSearchItemTitle: {
+    color: Colors.heading,
+    fontSize: 13,
+    fontWeight: "800",
   },
   searchInput: {
     color: Colors.heading,
@@ -3104,7 +5357,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     position: "absolute",
     right: 0,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.1,
     shadowRadius: 20,
@@ -3112,7 +5365,7 @@ const styles = StyleSheet.create({
     zIndex: 5,
   },
   serviceDropdownScroll: {
-    maxHeight: 252,
+    maxHeight: 360,
   },
   serviceDropdownState: {
     alignItems: "center",
@@ -3122,9 +5375,86 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: 12,
   },
+  selectedServiceCard: {
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.control,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: Spacing.sm,
+    minHeight: 96,
+    padding: Spacing.md,
+    position: "relative",
+    width: 186,
+  },
+  selectedServiceCardActive: {
+    borderColor: Colors.primaryDark,
+    borderWidth: 1.5,
+  },
+  selectedServiceCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  selectedServiceIcon: {
+    alignItems: "center",
+    backgroundColor: Colors.bg2,
+    borderRadius: Radius.lg,
+    height: 42,
+    justifyContent: "center",
+    width: 42,
+  },
+  selectedServiceMeta: {
+    color: Colors.text2,
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 4,
+  },
+  selectedServiceName: {
+    color: Colors.heading,
+    fontSize: 14,
+    fontWeight: "900",
+    paddingRight: 18,
+  },
+  selectedServicePrice: {
+    color: Colors.heading,
+    fontSize: 13,
+    fontWeight: "900",
+    marginTop: 6,
+  },
+  selectedServiceRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    paddingBottom: 2,
+  },
   serviceSearchGroup: {
     position: "relative",
     zIndex: 4,
+  },
+  serviceTotalDivider: {
+    backgroundColor: Colors.border,
+    width: 1,
+  },
+  serviceTotalItem: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  serviceBreakdownCard: {
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.control,
+    borderWidth: 1,
+    marginTop: Spacing.sm,
+    padding: Spacing.md,
+  },
+  serviceTotalsCard: {
+    backgroundColor: Colors.bg2,
+    borderRadius: AppRadius.control,
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginTop: Spacing.md,
+    padding: Spacing.md,
   },
   secondaryButton: {
     alignItems: "center",
@@ -3251,6 +5581,51 @@ const styles = StyleSheet.create({
     height: 18,
     width: "55%",
   },
+  slotChip: {
+    alignItems: "center",
+    backgroundColor: Colors.bg,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.pill,
+    borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 40,
+    paddingHorizontal: Spacing.md,
+  },
+  slotChipActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  slotChipText: {
+    color: Colors.heading,
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  slotChipTextActive: {
+    color: "#FFFFFF",
+  },
+  slotGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  stickySearchDropdown: {
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.control,
+    borderWidth: 1,
+    elevation: 24,
+    left: 0,
+    maxHeight: 360,
+    overflow: "hidden",
+    position: "absolute",
+    right: 0,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.18,
+    shadowRadius: 28,
+    top: AppLayout.searchBarHeight + AUTOCOMPLETE_DROPDOWN_GAP,
+    zIndex: 80,
+  },
   snackbar: {
     alignItems: "center",
     backgroundColor: Colors.primaryDark,
@@ -3275,6 +5650,55 @@ const styles = StyleSheet.create({
   },
   stack: {
     gap: Spacing.md,
+  },
+  staffCardRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    paddingBottom: 2,
+  },
+  staffSelectCard: {
+    alignItems: "center",
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.control,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: Spacing.sm,
+    minHeight: 72,
+    padding: Spacing.sm,
+    position: "relative",
+    width: 184,
+  },
+  staffSelectCardActive: {
+    borderColor: Colors.primaryDark,
+    borderWidth: 1.5,
+  },
+  staffSelectCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  staffSelectedBadge: {
+    alignItems: "center",
+    backgroundColor: Colors.primaryDark,
+    borderRadius: 12,
+    height: 24,
+    justifyContent: "center",
+    position: "absolute",
+    right: 8,
+    top: 8,
+    width: 24,
+  },
+  staffSelectName: {
+    color: Colors.heading,
+    fontSize: 14,
+    fontWeight: "900",
+    paddingRight: 18,
+  },
+  staffSelectRole: {
+    color: Colors.text2,
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 3,
   },
   stateCard: {
     alignItems: "center",
@@ -3305,15 +5729,6 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     marginTop: Spacing.md,
     textAlign: "center",
-  },
-  statusBadge: {
-    borderRadius: AppRadius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  statusBadgeText: {
-    fontSize: 11,
-    fontWeight: "900",
   },
   summaryGrid: {
     flexDirection: "row",

@@ -51,6 +51,9 @@ export const useStaffForm = (staffId?: string | null) => {
         {
           fullName: values.fullName,
           phone: values.phone,
+          email: values.email,
+          role: values.role,
+          joining_date: values.joining_date,
           employeeCode: values.employeeCode,
           isAutoGenerate: values.isAutoGenerate,
           work_start_time: values.work_start_time,
@@ -62,6 +65,9 @@ export const useStaffForm = (staffId?: string | null) => {
     [
       values.fullName,
       values.phone,
+      values.email,
+      values.role,
+      values.joining_date,
       values.employeeCode,
       values.isAutoGenerate,
       values.work_start_time,

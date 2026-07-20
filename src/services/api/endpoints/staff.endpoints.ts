@@ -16,6 +16,7 @@ export const STAFF = {
   PAY_RUNS: (staffId: string) => `/staff/${staffId}/pay-runs`,
 
   // Schedule
+  AVAILABILITY: (staffId: string) => `/staff/${staffId}/availability`,
   SCHEDULED: (staffId: string) => `/staff/${staffId}/scheduled`,
 
   // Leaves

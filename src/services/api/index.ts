@@ -1,4 +1,12 @@
-import { AxiosError, create, isAxiosError, type InternalAxiosRequestConfig } from "axios";
+import {
+  AxiosError,
+  create,
+  getAdapter,
+  isAxiosError,
+  type AxiosAdapter,
+  type AxiosResponse,
+  type InternalAxiosRequestConfig,
+} from "axios";
 
 import {
   getAuthErrorMessage,
@@ -8,12 +16,14 @@ import {
   shouldInvalidateSession,
   shouldRefreshToken,
 } from "@/services/authSession";
+import { isNetworkOnline, waitForNetworkOnline } from "@/services/networkStatus";
 import { tokenStorage } from "@/services/tokenStorage";
 import type { ApiResponse, RefreshTokenResponseData } from "@/types/auth";
 
-export const API_BASE_URL = "https://dev.salonox.com/api/v1";
+export const API_BASE_URL = "http://dev.salonox.com/api/v1";
 
 type RetryableRequestConfig = InternalAxiosRequestConfig & {
+  _networkRetry?: boolean;
   _retry?: boolean;
 };
 
@@ -59,6 +69,64 @@ export const api = create({
 });
 
 let refreshAccessTokenPromise: Promise<string> | null = null;
+const defaultApiAdapter = getAdapter(api.defaults.adapter) as AxiosAdapter;
+const inFlightSafeRequests = new Map<string, Promise<AxiosResponse>>();
+
+const SAFE_RETRY_METHODS = new Set(["get", "head", "options"]);
+
+const getRequestMethod = (config?: { method?: string }) => (config?.method ?? "get").toLowerCase();
+
+const isSafeRetryRequest = (config?: { method?: string }) => SAFE_RETRY_METHODS.has(getRequestMethod(config));
+
+const stableStringify = (value: unknown): string => {
+  if (!value || typeof value !== "object") {
+    return JSON.stringify(value ?? null);
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map(stableStringify).join(",")}]`;
+  }
+
+  return `{${Object.entries(value as Record<string, unknown>)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, entry]) => `${JSON.stringify(key)}:${stableStringify(entry)}`)
+    .join(",")}}`;
+};
+
+const getDedupeKey = (config: InternalAxiosRequestConfig) => {
+  if (!isSafeRetryRequest(config)) {
+    return null;
+  }
+
+  return [
+    getRequestMethod(config),
+    config.baseURL ?? "",
+    config.url ?? "",
+    stableStringify(config.params),
+  ].join("|");
+};
+
+api.defaults.adapter = async (config) => {
+  const key = getDedupeKey(config as InternalAxiosRequestConfig);
+
+  if (!key) {
+    return defaultApiAdapter(config);
+  }
+
+  const existingRequest = inFlightSafeRequests.get(key);
+
+  if (existingRequest) {
+    return existingRequest;
+  }
+
+  const request = defaultApiAdapter(config).finally(() => {
+    inFlightSafeRequests.delete(key);
+  });
+
+  inFlightSafeRequests.set(key, request);
+
+  return request;
+};
 
 const formatValue = (value: unknown): string | null => {
   if (!value) {
@@ -97,6 +165,19 @@ const getPayloadMessage = (payload?: ApiErrorPayload) => {
 
 const formatErrorMessage = (message: string): string => {
   const lowercaseMessage = message.toLowerCase();
+
+  if (lowercaseMessage.includes("timeout")) {
+    return "The request took too long. Please check your connection and try again.";
+  }
+
+  if (lowercaseMessage.includes("network error")) {
+    return OFFLINE_MESSAGE;
+  }
+
+  if (lowercaseMessage.includes("request failed with status code 5")) {
+    return "The server is temporarily unavailable. Please try again in a moment.";
+  }
+
   if (
     lowercaseMessage.includes("staff_employee_code_salon_unique") ||
     (lowercaseMessage.includes("employee_code") && lowercaseMessage.includes("unique"))
@@ -106,8 +187,35 @@ const formatErrorMessage = (message: string): string => {
   return message;
 };
 
+// A network-level failure — offline, DNS failure, dropped connection, or a
+// timed-out request — never reaches the server, so `error.response` is
+// undefined. Axios's own message for this ("Network Error", "timeout of
+// 15000ms exceeded") is technically accurate but not something a salon
+// front-desk user should see; surface a single friendly, actionable message
+// instead so callers can rely on ApiError.status === undefined to mean
+// "couldn't reach the server" without re-deriving it from raw axios text.
+const OFFLINE_MESSAGE = "Unable to connect. Please check your internet connection and try again.";
+const OFFLINE_MUTATION_MESSAGE = "You are offline. Your changes are still on this screen; reconnect and try again.";
+
+const waitForOnlineIfNeeded = async (config: InternalAxiosRequestConfig) => {
+  if (isNetworkOnline()) {
+    return;
+  }
+
+  if (isSafeRetryRequest(config)) {
+    await waitForNetworkOnline();
+    return;
+  }
+
+  throw new ApiError(OFFLINE_MUTATION_MESSAGE);
+};
+
 const toApiError = (error: unknown) => {
   if (isAxiosError<ApiErrorPayload>(error)) {
+    if (!error.response) {
+      return new ApiError(OFFLINE_MESSAGE, undefined, undefined, undefined);
+    }
+
     const rawMessage =
       getPayloadMessage(error.response?.data) ??
       error.message ??
@@ -196,6 +304,8 @@ const refreshAccessToken = async (reason: string) => {
 api.interceptors.request.use(async (config) => {
   const requestUrl = config.url ?? "";
 
+  await waitForOnlineIfNeeded(config);
+
   if (shouldSkipRefreshForRequest(requestUrl)) {
     return config;
   }
@@ -256,6 +366,13 @@ api.interceptors.response.use(
 
         return Promise.reject(toApiError(refreshError));
       }
+    }
+
+    if (!error.response && originalRequest && isSafeRetryRequest(originalRequest) && !originalRequest._networkRetry) {
+      originalRequest._networkRetry = true;
+      await waitForNetworkOnline();
+
+      return api(originalRequest);
     }
 
     return Promise.reject(toApiError(error));

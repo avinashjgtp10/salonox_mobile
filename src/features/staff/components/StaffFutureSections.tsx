@@ -1,13 +1,15 @@
 import { router, type Href } from "expo-router";
+import { useMemo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { STAFF_MODULE_SECTIONS } from "@/features/staff/constants/staffModule.constants";
 import { StaffSectionCard } from "@/features/staff/components/StaffSectionCard";
+import { useThemeColors } from "@/theme/ThemeProvider";
 
 type StaffFutureSectionsProps = {
   staffId?: string | null;
@@ -16,6 +18,8 @@ type StaffFutureSectionsProps = {
 const INLINE_SECTION_KEYS = new Set(["profile", "address", "emergencyContacts"]);
 
 export function StaffFutureSections({ staffId }: StaffFutureSectionsProps) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const otherSections = STAFF_MODULE_SECTIONS.filter(
     (section) => !INLINE_SECTION_KEYS.has(section.key),
   );
@@ -56,7 +60,7 @@ export function StaffFutureSections({ staffId }: StaffFutureSectionsProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   grid: {
     gap: 10,
   },

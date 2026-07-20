@@ -1,14 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useMemo } from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { AppLayout, AppRadius } from "@/constants/layout";
+import { useThemeColors } from "@/theme/ThemeProvider";
 
 type PlaceholderScreenProps = {
   icon?: keyof typeof Ionicons.glyphMap;
@@ -23,9 +26,12 @@ export default function PlaceholderScreen({
   subtitle,
   title,
 }: PlaceholderScreenProps) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+      <AppStatusBar />
       <View style={styles.container}>
         {showBack && (
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -46,7 +52,7 @@ export default function PlaceholderScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     backgroundColor: Colors.bg,
     flex: 1,
@@ -77,7 +83,7 @@ const styles = StyleSheet.create({
     borderRadius: AppRadius.card,
     borderWidth: 1,
     padding: AppLayout.cardPadding + Spacing.sm,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.08,
     shadowRadius: 24,

@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { StaffSectionCard } from "@/features/staff/components/StaffSectionCard";
 import { StaffStateView } from "@/features/staff/components/StaffStateView";
@@ -24,6 +24,7 @@ import {
   selectStaffScheduleSaveError,
   selectStaffScheduleSaving,
 } from "@/store/staff/staffSchedule.slice";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ScheduleDayEntry } from "@/types/staffSchedule";
 import { isValidStaffId } from "@/utils/staffIds";
 
@@ -43,6 +44,8 @@ const DEFAULT_DAYS: ScheduleDayEntry[] = WEEK_DAYS.map((day) => ({
 const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
 export function StaffScheduleSection({ staffId }: StaffScheduleSectionProps) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const schedule = useAppSelector((state) => selectStaffSchedule(state, staffId));
   const loaded = useAppSelector((state) => selectStaffScheduleLoaded(state, staffId));
@@ -243,7 +246,7 @@ export function StaffScheduleSection({ staffId }: StaffScheduleSectionProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   list: {
     gap: 10,
     marginBottom: Spacing.md,
@@ -274,8 +277,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   offToggleActive: {
-    backgroundColor: "#FEECEC",
-    borderColor: "rgba(214, 91, 91, 0.22)",
+    backgroundColor: Colors.errorBg,
+    borderColor: Colors.error,
   },
   offToggleText: {
     color: Colors.primaryDark,

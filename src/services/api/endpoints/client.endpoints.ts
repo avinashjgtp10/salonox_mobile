@@ -1,4 +1,15 @@
 export const CLIENT = {
   CREATE: "/clients",
+  DELETE: "/clients",
+  DETAIL: "/clients",
+  FILTER: "/clients/filter",
   LIST: "/clients",
+  SEARCH: "/clients/search",
+  UPDATE: "/clients",
+  DUPLICATES: "/clients/duplicates",
+  MERGE: "/clients/merge",
+  MERGE_DUPLICATES: "/clients/merge-duplicates",
+  BLOCK: "/clients/block",
+  UNBLOCK: "/clients/unblock",
+  WITH_HISTORY_STATS: "/clients/with-history-stats",
 } as const;

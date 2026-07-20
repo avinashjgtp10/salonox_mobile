@@ -10,6 +10,21 @@ import type {
   ClientListPagination,
   ClientListQuery,
   ClientListResponse,
+  ClientFilterValue,
+  DeleteClientResponse,
+  UpdateClientRequest,
+  UpdateClientResponse,
+  ClientDuplicateGroup,
+  ClientDuplicateGroupApi,
+  MergeClientsResponse,
+  MergeAllDuplicatesResponse,
+  BlockClientResponse,
+  UnblockClientResponse,
+  ClientHistoryItem,
+  ClientHistoryItemApi,
+  ClientHistoryStats,
+  ClientHistoryStatsApi,
+  ClientWithHistoryStats,
 } from "@/types/client";
 
 type ClientListApiResponse = ApiResponse<ClientListApiData>;
@@ -20,13 +35,24 @@ type CreateClientApiData =
       data?: ClientApiItem | null;
     };
 type CreateClientApiResponse = ApiResponse<CreateClientApiData>;
+type DeleteClientApiResponse = ApiResponse<unknown>;
+
+// GET /clients/search's real validator rejects anything shorter than this
+// (400 "q must be at least 2 characters") — checked client-side too so we
+// never fire a request that's guaranteed to fail.
+const MIN_SEARCH_TERM_LENGTH = 2;
+
+// Trims and collapses incidental extra whitespace (e.g. "John   Doe") without
+// stripping spaces entirely — a real space-containing name like "John Doe"
+// must still match `LOWER(full_name) LIKE '%john doe%'` on the backend.
+const normalizeSearchTerm = (value: string) => value.trim().replace(/\s+/g, " ");
 
 const AVATAR_PALETTE = [
-  { background: "#FBF3E5", color: "#8A5A0E" },
-  { background: "#EAF5EF", color: "#2E7049" },
-  { background: "#F1EEF8", color: "#6B52C1" },
-  { background: "#FAECE7", color: "#712B13" },
-  { background: "#EEF4F1", color: "#365046" },
+  { background: "#F2EFE9", color: "#726A63" },
+  { background: "#F2EFE9", color: "#726A63" },
+  { background: "#F2EFE9", color: "#726A63" },
+  { background: "#F2EFE9", color: "#726A63" },
+  { background: "#F2EFE9", color: "#1C1917" },
 ] as const;
 
 const toSafeString = (value: unknown, fallback = "") => {
@@ -227,6 +253,64 @@ const normalizeClient = (client: ClientApiItem): ClientListItem => {
   };
 };
 
+// Used as a local fallback when the real search API call fails (network
+// error, backend unavailable) — filters whatever client list is already
+// available in memory instead of just showing an error with no results.
+// Space- and case-insensitive on both sides, and (unlike the backend query)
+// safe to strip all whitespace here since this never touches a SQL pattern.
+export const matchesClientSearch = (client: ClientListItem, rawQuery: string) => {
+  const normalizedQuery = rawQuery.trim().toLowerCase().replace(/\s+/g, "");
+
+  if (!normalizedQuery) {
+    return true;
+  }
+
+  const normalizedName = client.fullName.toLowerCase().replace(/\s+/g, "");
+  const normalizedPhone = client.phone.toLowerCase().replace(/\s+/g, "");
+
+  return normalizedName.includes(normalizedQuery) || normalizedPhone.includes(normalizedQuery);
+};
+
+const normalizeDuplicateGroup = (group: ClientDuplicateGroupApi): ClientDuplicateGroup => {
+  return {
+    id: group.id,
+    type: group.type || group.field || "unknown",
+    value: group.value || "",
+    clients: (group.clients || []).map(normalizeClient),
+  };
+};
+
+const normalizeHistoryItem = (item: ClientHistoryItemApi): ClientHistoryItem => {
+  const rawDate = item.date || item.created_at || null;
+  const dateLabel = formatCreatedDate(rawDate);
+  return {
+    id: item.id || String(Math.random()),
+    date: rawDate || "",
+    type: (item.type as ClientHistoryItem["type"]) || "visit",
+    title: item.title || "Visit",
+    description: item.description || "",
+    amount: toSafeNumber(item.amount),
+    status: item.status || "",
+    items: (item.items || []).map(i => ({
+      name: i.name || "",
+      type: (i.type as "service" | "product") || "service",
+      price: toSafeNumber(i.price),
+    })),
+    staffName: item.staff_name || item.staffName || "",
+    dateLabel,
+  };
+};
+
+const normalizeHistoryStats = (stats: ClientHistoryStatsApi | null | undefined): ClientHistoryStats => {
+  return {
+    lifetimeSpend: toSafeNumber(stats?.lifetime_spend ?? stats?.lifetimeSpend),
+    totalVisits: toSafeNumber(stats?.total_visits ?? stats?.totalVisits),
+    lastVisit: stats?.last_visit ?? stats?.lastVisit ?? null,
+    totalAppointments: toSafeNumber(stats?.total_appointments ?? stats?.totalAppointments),
+    averageSpend: toSafeNumber(stats?.average_spend ?? stats?.averageSpend),
+  };
+};
+
 const getPagination = (
   payload: ClientListApiData,
   query: ClientListQuery,
@@ -258,6 +342,35 @@ const getPagination = (
   };
 };
 
+const getClientList = async (
+  endpoint: string,
+  query: ClientListQuery,
+  salonId?: string | null,
+  additionalParams?: Record<string, unknown>,
+): Promise<ClientListResponse> => {
+  const requestParams = {
+    ...query,
+    ...additionalParams,
+    ...(salonId ? { salon_id: salonId } : {}),
+  };
+
+  const response = await api.get<ClientListApiResponse>(endpoint, {
+    params: requestParams,
+  });
+
+  const apiClients = getClientArray(response.data.data);
+  const clients = apiClients.map(normalizeClient);
+  const totalCount = getTotalCount(response.data.data, clients.length);
+  const pagination = getPagination(response.data.data, query, clients.length, totalCount);
+
+  return {
+    clients,
+    pagination,
+    query,
+    totalCount,
+  };
+};
+
 export const clientService = {
   getAvatarTone(clientId: string) {
     const hash = clientId.split("").reduce((total, character) => total + character.charCodeAt(0), 0);
@@ -266,6 +379,7 @@ export const clientService = {
   },
 
   async createClient(payload: CreateClientRequest): Promise<CreateClientResponse> {
+    console.log("Create Client Payload", payload);
     const response = await api.post<CreateClientApiResponse>(CLIENT.CREATE, payload);
     const client = normalizeClient(getCreatedClient(response.data.data));
 
@@ -276,32 +390,200 @@ export const clientService = {
   },
 
   async getClients(query: ClientListQuery, salonId?: string | null): Promise<ClientListResponse> {
-    const searchQuery = query.search ?? "";
-    const requestParams = {
-      ...query,
-      search: searchQuery,
-      ...(salonId ? { salon_id: salonId } : {}),
-    };
+    return getClientList(CLIENT.LIST, query, salonId);
+  },
 
-    const response = await api.get<ClientListApiResponse>(CLIENT.LIST, {
-      params: requestParams,
+  // GET /clients/search has its own contract, distinct from GET /clients:
+  // it only accepts `q` (not `search`) and `limit` — sending `search` (as
+  // the shared getClientList() would) means the backend's own validator
+  // never sees a query at all and rejects every request with 400 "q query
+  // param is required". It also has no OFFSET support server-side, so
+  // there is never a "next page" to load for a search result set.
+  async searchClients(
+    query: ClientListQuery,
+    salonId?: string | null,
+  ): Promise<ClientListResponse> {
+    const term = normalizeSearchTerm(query.search);
+
+    if (term.length < MIN_SEARCH_TERM_LENGTH) {
+      return {
+        clients: [],
+        pagination: { hasMore: false, limit: query.limit, nextOffset: 0, offset: 0 },
+        query,
+        totalCount: 0,
+      };
+    }
+
+    const response = await api.get<ClientListApiResponse>(CLIENT.SEARCH, {
+      params: {
+        limit: query.limit,
+        q: term,
+        ...(salonId ? { salon_id: salonId } : {}),
+      },
     });
 
-    const apiClients = getClientArray(response.data.data);
-    const clients = apiClients.map(normalizeClient);
-    const totalCount = getTotalCount(response.data.data, clients.length);
-    const pagination = getPagination(response.data.data, query, clients.length, totalCount);
+    const clients = getClientArray(response.data.data).map(normalizeClient);
 
     return {
       clients,
+      pagination: { hasMore: false, limit: query.limit, nextOffset: clients.length, offset: 0 },
+      query,
+      totalCount: clients.length,
+    };
+  },
+
+  async filterClients(
+    query: ClientListQuery,
+    filter: ClientFilterValue,
+    salonId?: string | null,
+    options?: { membership?: "all" | "has" | "none"; status?: "active" | "all" | "blocked" | "inactive" },
+  ): Promise<ClientListResponse> {
+    return getClientList(CLIENT.FILTER, query, salonId, {
+      filter,
+      ...(options?.status && options.status !== "all" ? { status: options.status, status_filter: options.status } : {}),
+      ...(options?.membership && options.membership !== "all"
+        ? { membership: options.membership, membership_filter: options.membership }
+        : {}),
+    });
+  },
+
+  async getClient(clientId: string): Promise<ClientListItem> {
+    const response = await api.get<ApiResponse<CreateClientApiData>>(`${CLIENT.DETAIL}/${clientId}`);
+    return normalizeClient(getCreatedClient(response.data.data));
+  },
+
+  async updateClient(
+    clientId: string,
+    payload: UpdateClientRequest,
+  ): Promise<UpdateClientResponse> {
+    const response = await api.patch<CreateClientApiResponse>(
+      `${CLIENT.UPDATE}/${clientId}`,
+      payload,
+    );
+
+    return {
+      client: normalizeClient(getCreatedClient(response.data.data)),
+      message: response.data.message,
+    };
+  },
+
+  async deleteClient(clientId: string): Promise<DeleteClientResponse> {
+    const response = await api.delete<DeleteClientApiResponse>(`${CLIENT.DELETE}/${clientId}`);
+
+    return {
+      clientId,
+      message: response.data.message,
+    };
+  },
+
+  async getDuplicates(phoneNumber?: string | null): Promise<ClientDuplicateGroup[]> {
+    const trimmedPhoneNumber = phoneNumber?.trim();
+
+    if (!trimmedPhoneNumber) {
+      return [];
+    }
+
+    const response = await api.get<ApiResponse<ClientDuplicateGroupApi[]>>(CLIENT.DUPLICATES, {
+      params: {
+        phone_number: trimmedPhoneNumber,
+      },
+    });
+    const groups = response.data.data || [];
+    return groups.map(normalizeDuplicateGroup);
+  },
+
+  async mergeClients(primaryId: string, secondaryId: string): Promise<MergeClientsResponse> {
+    const response = await api.post<ApiResponse<any>>(CLIENT.MERGE, {
+      primary_client_id: primaryId,
+      secondary_client_id: secondaryId,
+      primaryClientId: primaryId,
+      secondaryClientId: secondaryId,
+    });
+    const data = response.data.data || {};
+    return {
+      primaryClient: normalizeClient(data.primaryClient || data.client || data),
+      message: response.data.message,
+    };
+  },
+
+  async mergeDuplicates(): Promise<MergeAllDuplicatesResponse> {
+    const response = await api.post<ApiResponse<MergeAllDuplicatesResponse>>(CLIENT.MERGE_DUPLICATES);
+    return response.data.data || response.data || {};
+  },
+
+  async blockClient(clientId: string, reason?: string): Promise<BlockClientResponse> {
+    const response = await api.post<ApiResponse<any>>(CLIENT.BLOCK, {
+      client_id: clientId,
+      clientId,
+      reason,
+    });
+    const data = response.data.data || {};
+    return {
+      client: normalizeClient(data.client || data),
+      message: response.data.message,
+    };
+  },
+
+  async updateBlockStatus(clientId: string, reason: string): Promise<BlockClientResponse> {
+    const response = await api.patch<ApiResponse<any>>(CLIENT.BLOCK, {
+      client_id: clientId,
+      clientId,
+      reason,
+    });
+    const data = response.data.data || {};
+    return {
+      client: normalizeClient(data.client || data),
+      message: response.data.message,
+    };
+  },
+
+  async unblockClient(clientId: string): Promise<UnblockClientResponse> {
+    const response = await api.post<ApiResponse<any>>(CLIENT.UNBLOCK, {
+      client_id: clientId,
+      clientId,
+    });
+    const data = response.data.data || {};
+    return {
+      client: normalizeClient(data.client || data),
+      message: response.data.message,
+    };
+  },
+
+  async getClientHistory(clientId: string): Promise<ClientHistoryItem[]> {
+    const response = await api.get<ApiResponse<ClientHistoryItemApi[]>>(`${CLIENT.DETAIL}/${clientId}/history`);
+    const history = response.data.data || [];
+    return history.map(normalizeHistoryItem);
+  },
+
+  async getClientsWithHistoryStats(
+    query: ClientListQuery,
+    salonId?: string | null
+  ): Promise<ClientListResponse & { clientsWithStats: ClientWithHistoryStats[] }> {
+    const requestParams = {
+      ...query,
+      ...(salonId ? { salon_id: salonId } : {}),
+    };
+
+    const response = await api.get<ApiResponse<any>>(CLIENT.WITH_HISTORY_STATS, {
+      params: requestParams,
+    });
+
+    const apiItems = getClientArray(response.data.data);
+    const clientsWithStats = apiItems.map((item: any) => {
+      const client = normalizeClient(item);
+      const stats = normalizeHistoryStats(item.stats ?? item.history_stats ?? item);
+      return { client, stats };
+    });
+
+    const totalCount = getTotalCount(response.data.data, clientsWithStats.length);
+    const pagination = getPagination(response.data.data, query, clientsWithStats.length, totalCount);
+
+    return {
+      clients: clientsWithStats.map((c: any) => c.client),
+      clientsWithStats,
       pagination,
       query,
       totalCount,
     };
-  },
-
-  async getClient(clientId: string): Promise<ClientListItem> {
-    const response = await api.get<ApiResponse<CreateClientApiData>>(`/clients/${clientId}`);
-    return normalizeClient(getCreatedClient(response.data.data));
-  },
+  }
 };

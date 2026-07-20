@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams, type Href } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -18,59 +18,96 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { validatePhoneNumberLength, isValidPhoneNumber } from "libphonenumber-js";
 
 import { useAuth } from "@/context/AuthContext";
-import { getApiErrorMessage } from "@/services/api";
+import { ApiError, getApiErrorMessage } from "@/services/api";
 import { authService } from "@/services/authService";
+import { PhoneInput } from "@/components/ui/PhoneInput";
+import { AddressAutocomplete } from "@/components/maps/AddressAutocomplete";
+import { GoogleMapPreview } from "@/components/maps/GoogleMapPreview";
+import { CurrentLocationButton } from "@/components/maps/CurrentLocationButton";
+import { type AddressDetails } from "@/types/location";
+import type { ThemeColors } from "@/constants/theme";
+import { useAppTheme } from "@/theme/ThemeProvider";
+import {
+  CONFIRM_PASSWORD_MISMATCH_MESSAGE_GENERIC,
+  EMAIL_INVALID_MESSAGE,
+  isValidEmail,
+  isValidPassword,
+  PASSWORD_REQUIREMENT_MESSAGE,
+} from "@/utils/validation";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
 // ─── Color Palette ───────────────────────────────────────────
-const Colors = {
-  bgGradientStart: "#FAFBFA",
-  bgGradientEnd: "#F4F7F5",
-  primary: "#496A5D",
-  primaryDark: "#365046",
-  secondary: "#6D8F81",
-  accent: "#C7A86D",
-  accentDark: "#B18F54",
-  text: "#243B34",
-  textPrimary: "#445B55",
-  textSecondary: "#7A8D87",
-  placeholder: "#A8B7B1",
-  cardBg: "#FFFFFF",
-  cardBorder: "#E3E8E5",
-  inputBg: "#FFFFFF",
-  inputBorder: "#E3E8E5",
-  inputBorderFocus: "#496A5D",
-  error: "#D65B5B",
-  errorBg: "rgba(214, 91, 91, 0.08)",
-  success: "#4B8F68",
-  warning: "#D8A84F",
+const createAuthColors = (theme: ThemeColors, scheme: "light" | "dark") => ({
+  bgGradientStart: theme.bg,
+  bgGradientEnd: theme.bg2,
+  primary: theme.primary,
+  primaryDark: theme.primaryDark,
+  secondary: theme.secondary,
+  accent: theme.gold,
+  accentDark: theme.goldDark,
+  shadow: theme.shadow,
+  text: theme.heading,
+  textPrimary: theme.text,
+  textSecondary: theme.text2,
+  placeholder: theme.placeholder,
+  cardBg: theme.card,
+  cardBorder: theme.border,
+  inputBg: scheme === "dark" ? theme.bg2 : theme.card,
+  inputBorder: theme.border,
+  inputBorderFocus: theme.focusBorder,
+  error: theme.error,
+  errorBg: theme.errorBg,
+  success: theme.success,
+  successBg: theme.successBg,
+  warning: theme.warning,
+  statusBarStyle: scheme === "dark" ? ("light-content" as const) : ("dark-content" as const),
+});
+
+type AuthColors = ReturnType<typeof createAuthColors>;
+
+const useAuthColors = () => {
+  const { colors, scheme } = useAppTheme();
+
+  return useMemo(() => createAuthColors(colors, scheme), [colors, scheme]);
 };
 
-const isValidEmail = (value: string) => /\S+@\S+\.\S+/.test(value);
-const isValidMobileNumber = (value: string) => /^\d{10}$/.test(value);
-const isValidPassword = (value: string) => /^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(value);
 const DEFAULT_COUNTRY = "India";
 const getRouteParam = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
 
+// Wrong-password attempts are never blocked or rate-limited on the frontend —
+// only a real backend lock/rate-limit (see isAccountLockedError) can do that.
+// This just recognizes the backend's plain "wrong email or password" error so
+// its "Attempts left: N" suffix can be dropped entirely (requirement: never
+// show remaining attempts) in favor of a locally-tracked consecutive-attempt
+// count driving the copy below.
+const isInvalidCredentialsError = (loginError: unknown) => {
+  const rawMessage = getApiErrorMessage(loginError);
+
+  return /INVALID_CREDENTIALS/i.test(rawMessage) || /Invalid credentials/i.test(rawMessage);
+};
+
+// The backend's own rate-limit/account-lock response (429 "Too many failed
+// attempts..."), distinct from a plain wrong-password 401. Its message is
+// shown verbatim rather than the generic copy below.
+const isAccountLockedError = (loginError: unknown) =>
+  loginError instanceof ApiError && loginError.status === 429;
+
+const FORGOT_PASSWORD_HINT =
+  "Forgot your password? You can reset it using the 'Forgot Password' option below.";
+
+const getInvalidCredentialsMessage = (consecutiveFailedAttempts: number) => {
+  const baseMessage = "The email or password you entered is incorrect.";
+
+  return consecutiveFailedAttempts >= 3 ? `${baseMessage}\n${FORGOT_PASSWORD_HINT}` : baseMessage;
+};
+
 const getFriendlyLoginErrorMessage = (loginError: unknown) => {
   const rawMessage = getApiErrorMessage(loginError);
-  const attemptsMatch = rawMessage.match(/Attempts left:\s*\d+/i);
-  const hasInvalidCredentials =
-    /INVALID_CREDENTIALS/i.test(rawMessage) || /Invalid credentials/i.test(rawMessage);
-
-  if (hasInvalidCredentials) {
-    return [
-      "The email or password you entered is incorrect.",
-      attemptsMatch?.[0],
-    ]
-      .filter(Boolean)
-      .join("\n");
-  }
-
   const cleanedMessage = rawMessage
     .split("\n")
     .map((line) => line.trim())
@@ -109,6 +146,8 @@ const REGISTER_STEP_FIELDS: Record<RegisterStep, (keyof RegisterFieldErrors)[]> 
 };
 
 export default function LoginScreen() {
+  const Colors = useAuthColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const params = useLocalSearchParams<{ successMessage?: string }>();
   const routeSuccessMessage = getRouteParam(params.successMessage);
   const { clearError, error, isLoading, signIn, signInWithGoogle, signUp } = useAuth();
@@ -117,14 +156,29 @@ export default function LoginScreen() {
   const [fullName, setFullName] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [address, setAddress] = useState("");
+  const [addressLine1, setAddressLine1] = useState("");
+  const [area, setArea] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+  const [country, setCountry] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [placeId, setPlaceId] = useState("");
+  const [isManualEntry, setIsManualEntry] = useState(false);
   const [email, setEmail] = useState("");
   const [countryCode] = useState("+91");
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [phoneE164, setPhoneE164] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
+  // Consecutive failed login attempts, tracked locally for this app session
+  // only (never sent to or driven by the backend beyond its own real
+  // lock/rate-limit response). Resets on a successful login or when the
+  // email is changed. Never used to block/disable the Sign In button.
+  const [failedLoginAttempts, setFailedLoginAttempts] = useState(0);
   const [dismissedRouteSuccessMessage, setDismissedRouteSuccessMessage] = useState<string | null>(
     null,
   );
@@ -255,6 +309,7 @@ export default function LoginScreen() {
     clearFormSuccess();
     clearRegisterFieldError("email");
     clearError();
+    setFailedLoginAttempts(0);
   };
 
   const handleFullNameChange = (nextFullName: string) => {
@@ -273,16 +328,42 @@ export default function LoginScreen() {
     clearError();
   };
 
-  const handleAddressChange = (nextAddress: string) => {
-    setAddress(nextAddress);
-    setFormError(null);
-    clearFormSuccess();
+
+
+  const handleAddressSelected = (details: AddressDetails) => {
+    setAddress(details.formatted_address);
+    setAddressLine1(details.address_line_1);
+    setArea(details.area);
+    setCity(details.city);
+    setState(details.state);
+    setCountry(details.country);
+    setPostalCode(details.postal_code);
+    setLatitude(details.latitude);
+    setLongitude(details.longitude);
+    setPlaceId(details.place_id);
+    setIsManualEntry(false);
     clearRegisterFieldError("address");
-    clearError();
   };
 
-  const handlePhoneChange = (nextPhone: string) => {
-    setPhoneNumber(nextPhone.replace(/\D/g, ""));
+  const handleLocationError = (msg: string) => {
+    setFormError(msg);
+  };
+
+  const updateFormattedAddress = (
+    line1: string,
+    locality: string,
+    cityName: string,
+    stateName: string,
+    zipCode: string
+  ) => {
+    const parts = [line1, locality, cityName, stateName, zipCode].filter((p) => p && p.trim());
+    const newAddress = parts.join(", ");
+    setAddress(newAddress);
+    clearRegisterFieldError("address");
+  };
+
+  const handlePhoneChange = (e164: string) => {
+    setPhoneE164(e164);
     setFormError(null);
     clearFormSuccess();
     clearRegisterFieldError("phone");
@@ -325,11 +406,19 @@ export default function LoginScreen() {
       return;
     }
 
+    if (!isValidEmail(trimmedEmail)) {
+      setFormError(EMAIL_INVALID_MESSAGE);
+      clearFormSuccess();
+      return;
+    }
+
     setFormError(null);
     clearFormSuccess();
 
     try {
       const authData = await signIn({ email: trimmedEmail, password });
+
+      setFailedLoginAttempts(0);
 
       if (authData.isOnboardingComplete) {
         router.replace("/dashboard" as Href);
@@ -337,9 +426,24 @@ export default function LoginScreen() {
         router.replace("/onboarding" as Href);
       }
     } catch (loginError) {
-      const errorMessage = getFriendlyLoginErrorMessage(loginError);
+      if (isAccountLockedError(loginError)) {
+        // Real backend-enforced lock/rate-limit — show its own message
+        // verbatim instead of the generic copy, and leave the local
+        // consecutive-attempt counter untouched (this isn't a wrong-password
+        // event, it's the backend refusing further attempts outright).
+        setFormError(getApiErrorMessage(loginError));
+        return;
+      }
 
-      setFormError(errorMessage);
+      if (isInvalidCredentialsError(loginError)) {
+        const nextFailedAttempts = failedLoginAttempts + 1;
+
+        setFailedLoginAttempts(nextFailedAttempts);
+        setFormError(getInvalidCredentialsMessage(nextFailedAttempts));
+        return;
+      }
+
+      setFormError(getFriendlyLoginErrorMessage(loginError));
     }
   };
 
@@ -350,9 +454,20 @@ export default function LoginScreen() {
       email: email.trim(),
       country: DEFAULT_COUNTRY,
       countryCode,
-      phone: phoneNumber.trim(),
+      // phoneE164 is already in E.164 format (e.g. +919876543210)
+      phone: phoneE164,
       password,
       terms: termsAccepted,
+      formatted_address: address.trim(),
+      address_line_1: addressLine1.trim(),
+      area: area.trim(),
+      city: city.trim(),
+      state: state.trim(),
+      country_name: country.trim() || DEFAULT_COUNTRY,
+      postal_code: postalCode.trim(),
+      latitude: latitude ?? 0,
+      longitude: longitude ?? 0,
+      place_id: placeId.trim() || (isManualEntry ? "manual" : ""),
   });
 
   const getRegisterStepErrors = (step: RegisterStep) => {
@@ -367,13 +482,21 @@ export default function LoginScreen() {
       if (!registerPayload.email) {
         nextFieldErrors.email = "Email is required.";
       } else if (!isValidEmail(registerPayload.email)) {
-        nextFieldErrors.email = "Please enter a valid email address.";
+        nextFieldErrors.email = EMAIL_INVALID_MESSAGE;
       }
 
       if (!registerPayload.phone) {
-        nextFieldErrors.phone = "Mobile Number is required.";
-      } else if (!isValidMobileNumber(registerPayload.phone)) {
-        nextFieldErrors.phone = "Please enter a valid 10-digit mobile number.";
+        nextFieldErrors.phone = "Phone number is required.";
+      } else {
+        // Validate using libphonenumber-js for international support.
+        const lengthResult = validatePhoneNumberLength(registerPayload.phone);
+        if (lengthResult === "TOO_SHORT") {
+          nextFieldErrors.phone = "Phone number is too short.";
+        } else if (lengthResult === "TOO_LONG") {
+          nextFieldErrors.phone = "Phone number is too long.";
+        } else if (!isValidPhoneNumber(registerPayload.phone)) {
+          nextFieldErrors.phone = "Please enter a valid phone number.";
+        }
       }
     }
 
@@ -384,6 +507,14 @@ export default function LoginScreen() {
 
       if (!registerPayload.address) {
         nextFieldErrors.address = "Address is required.";
+      } else {
+        if (!registerPayload.city) {
+          nextFieldErrors.address = "City is required. Please verify your address details.";
+        } else if (!registerPayload.state) {
+          nextFieldErrors.address = "State / Province / Region is required.";
+        } else if (!isManualEntry && (latitude === null || longitude === null || !registerPayload.place_id)) {
+          nextFieldErrors.address = "A valid location selection or manual entry is required.";
+        }
       }
     }
 
@@ -391,14 +522,13 @@ export default function LoginScreen() {
       if (!registerPayload.password) {
         nextFieldErrors.password = "Password is required.";
       } else if (!isValidPassword(registerPayload.password)) {
-        nextFieldErrors.password =
-          "Password must be at least 8 characters and contain letters and numbers.";
+        nextFieldErrors.password = PASSWORD_REQUIREMENT_MESSAGE;
       }
 
       if (!confirmPassword) {
         nextFieldErrors.confirmPassword = "Confirm Password is required.";
       } else if (registerPayload.password !== confirmPassword) {
-        nextFieldErrors.confirmPassword = "Confirm Password must match Password.";
+        nextFieldErrors.confirmPassword = CONFIRM_PASSWORD_MISMATCH_MESSAGE_GENERIC;
       }
 
       if (!registerPayload.terms) {
@@ -557,20 +687,20 @@ export default function LoginScreen() {
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
     >
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.bgGradientStart} />
+      <StatusBar barStyle={Colors.statusBarStyle} backgroundColor={Colors.bgGradientStart} />
 
       {/* ── Background Glow Blobs ── */}
       <View pointerEvents="none" style={styles.blurContainer}>
         {/* Soft sage glow top left */}
         <LinearGradient
-          colors={["rgba(73, 106, 93, 0.12)", "transparent"]}
+          colors={["rgba(28, 25, 23, 0.08)", "transparent"]}
           style={[styles.glowBlob, styles.glowPista]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         />
         {/* Soft gold glow bottom right */}
         <LinearGradient
-          colors={["rgba(199, 168, 109, 0.14)", "transparent"]}
+          colors={["rgba(175, 167, 157, 0.14)", "transparent"]}
           style={[styles.glowBlob, styles.glowCream]}
           start={{ x: 1, y: 1 }}
           end={{ x: 0, y: 0 }}
@@ -811,51 +941,26 @@ export default function LoginScreen() {
                 style={styles.inputGroup}
               >
                 <Text style={styles.inputLabel}>Mobile Number</Text>
-                <View style={styles.phoneRow}>
-                  <Pressable
-                    style={[
-                      styles.inputContainer,
-                      styles.countryCodeSelector,
-                      fieldErrors.phone && styles.inputContainerError,
-                    ]}
-                  >
-                    <Text style={styles.countryCodeText}>{countryCode}</Text>
-                    <Ionicons
-                      name="chevron-down-outline"
-                      size={16}
-                      color={Colors.secondary}
-                    />
-                  </Pressable>
-                  <View
-                    style={[
-                      styles.inputContainer,
-                      styles.phoneInputContainer,
-                      fieldErrors.phone && styles.inputContainerError,
-                    ]}
-                  >
-                    <Ionicons
-                      name="call-outline"
-                      size={20}
-                      color={Colors.secondary}
-                      style={{ marginRight: 12 }}
-                    />
-                    <TextInput
-                      style={styles.textInput}
-                      placeholder="9876543210"
-                      placeholderTextColor={Colors.placeholder}
-                      value={phoneNumber}
-                      onChangeText={handlePhoneChange}
-                      keyboardType="number-pad"
-                      textContentType="telephoneNumber"
-                      autoComplete="tel"
-                      returnKeyType="next"
-                      maxLength={10}
-                    />
-                  </View>
-                </View>
-                {fieldErrors.phone && (
-                  <Text style={styles.fieldErrorText}>{fieldErrors.phone}</Text>
-                )}
+                <PhoneInput
+                  value={phoneE164}
+                  onChange={handlePhoneChange}
+                  error={fieldErrors.phone}
+                  onBlur={() => {
+                    const stepErrors = getRegisterStepErrors(1);
+                    if (stepErrors.phone) {
+                      setFieldErrors((currentErrors) => ({
+                        ...currentErrors,
+                        phone: stepErrors.phone,
+                      }));
+                    } else {
+                      setFieldErrors((currentErrors) => {
+                        const nextErrors = { ...currentErrors };
+                        delete nextErrors.phone;
+                        return nextErrors;
+                      });
+                    }
+                  }}
+                />
               </View>
             )}
 
@@ -899,7 +1004,7 @@ export default function LoginScreen() {
             )}
 
             {isRegisterMode && registrationStep === 2 && (
-              /* Address Field */
+              /* Address Field & Map Preview System */
               <View
                 onLayout={(event) =>
                   registerFieldPosition("address", event.nativeEvent.layout.y)
@@ -907,32 +1012,159 @@ export default function LoginScreen() {
                 style={styles.inputGroup}
               >
                 <Text style={styles.inputLabel}>Business Address</Text>
-                <View
-                  style={[
-                    styles.inputContainer,
-                    styles.addressInputContainer,
-                    fieldErrors.address && styles.inputContainerError,
-                  ]}
-                >
-                  <Ionicons
-                    name="location-outline"
-                    size={20}
-                    color={Colors.secondary}
-                    style={{ marginRight: 12, marginTop: 16 }}
+
+                {/* Toggle search suggestions or manual typing */}
+                {!isManualEntry ? (
+                  <>
+                    <AddressAutocomplete
+                      onAddressSelected={handleAddressSelected}
+                      onError={handleLocationError}
+                      initialValue={address}
+                    />
+
+                    <CurrentLocationButton
+                      onLocationFetched={handleAddressSelected}
+                      onError={handleLocationError}
+                    />
+
+                    <Pressable
+                      onPress={() => {
+                        setIsManualEntry(true);
+                        setPlaceId("manual_entry");
+                        setLatitude(0);
+                        setLongitude(0);
+                        clearRegisterFieldError("address");
+                      }}
+                      style={styles.manualEntryToggle}
+                    >
+                      <Text style={styles.manualEntryToggleText}>
+                        {"Can't find your address? Enter details manually"}
+                      </Text>
+                    </Pressable>
+                  </>
+                ) : (
+                  <Pressable
+                    onPress={() => {
+                      setIsManualEntry(false);
+                      setPlaceId("");
+                      setLatitude(null);
+                      setLongitude(null);
+                    }}
+                    style={styles.manualEntryToggle}
+                  >
+                    <Text style={styles.manualEntryToggleText}>
+                      ← Switch back to maps search
+                    </Text>
+                  </Pressable>
+                )}
+
+                {/* Draggable Map Preview */}
+                {!isManualEntry && latitude !== null && longitude !== null && (
+                  <GoogleMapPreview
+                    latitude={latitude}
+                    longitude={longitude}
+                    onAddressUpdated={handleAddressSelected}
                   />
-                  <TextInput
-                    style={[styles.textInput, styles.addressTextInput]}
-                    placeholder="Business address"
-                    placeholderTextColor={Colors.placeholder}
-                    value={address}
-                    onChangeText={handleAddressChange}
-                    textContentType="fullStreetAddress"
-                    autoComplete="street-address"
-                    autoCapitalize="words"
-                    multiline
-                    returnKeyType="next"
-                  />
-                </View>
+                )}
+
+                {/* Form fields for manual validation & adjustment */}
+                {(isManualEntry || address.length > 0) && (
+                  <View style={styles.detailsContainer}>
+                    <Text style={styles.detailsHeader}>Verify & Edit Address Details</Text>
+
+                    {/* Address Line 1 */}
+                    <View style={styles.detailInputGroup}>
+                      <Text style={styles.detailLabel}>Address Line 1</Text>
+                      <View style={styles.inputContainer}>
+                        <TextInput
+                          style={styles.textInput}
+                          placeholder="Street address, floor, suite"
+                          placeholderTextColor={Colors.placeholder}
+                          value={addressLine1}
+                          onChangeText={(val) => {
+                            setAddressLine1(val);
+                            updateFormattedAddress(val, area, city, state, postalCode);
+                          }}
+                        />
+                      </View>
+                    </View>
+
+                    {/* Area / Locality */}
+                    <View style={styles.detailInputGroup}>
+                      <Text style={styles.detailLabel}>Area / Locality</Text>
+                      <View style={styles.inputContainer}>
+                        <TextInput
+                          style={styles.textInput}
+                          placeholder="Neighborhood, sector, district"
+                          placeholderTextColor={Colors.placeholder}
+                          value={area}
+                          onChangeText={(val) => {
+                            setArea(val);
+                            updateFormattedAddress(addressLine1, val, city, state, postalCode);
+                          }}
+                        />
+                      </View>
+                    </View>
+
+                    {/* City */}
+                    <View style={styles.detailInputGroup}>
+                      <Text style={styles.detailLabel}>City</Text>
+                      <View style={styles.inputContainer}>
+                        <TextInput
+                          style={styles.textInput}
+                          placeholder="City name"
+                          placeholderTextColor={Colors.placeholder}
+                          value={city}
+                          onChangeText={(val) => {
+                            setCity(val);
+                            updateFormattedAddress(addressLine1, area, val, state, postalCode);
+                          }}
+                        />
+                      </View>
+                    </View>
+
+                    {/* State */}
+                    <View style={styles.detailInputGroup}>
+                      <Text style={styles.detailLabel}>State / Region</Text>
+                      <View style={styles.inputContainer}>
+                        <TextInput
+                          style={styles.textInput}
+                          placeholder="State or province"
+                          placeholderTextColor={Colors.placeholder}
+                          value={state}
+                          onChangeText={(val) => {
+                            setState(val);
+                            updateFormattedAddress(addressLine1, area, city, val, postalCode);
+                          }}
+                        />
+                      </View>
+                    </View>
+
+                    {/* Postal Code */}
+                    <View style={styles.detailInputGroup}>
+                      <Text style={styles.detailLabel}>Postal Code / ZIP</Text>
+                      <View style={styles.inputContainer}>
+                        <TextInput
+                          style={styles.textInput}
+                          placeholder="Postal code"
+                          placeholderTextColor={Colors.placeholder}
+                          value={postalCode}
+                          onChangeText={(val) => {
+                            setPostalCode(val);
+                            updateFormattedAddress(addressLine1, area, city, state, val);
+                          }}
+                        />
+                      </View>
+                      {!postalCode && (
+                        <Text style={styles.warningText}>
+                          ⚠️ Saving without a postal code is allowed, but not recommended.
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                )}
+
+                {/* Error Banner */}
                 {fieldErrors.address && (
                   <Text style={styles.fieldErrorText}>{fieldErrors.address}</Text>
                 )}
@@ -1110,7 +1342,14 @@ export default function LoginScreen() {
                 onPress={() => router.push("/forgot-password")}
                 style={styles.forgotPassword}
               >
-                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+                <Text
+                  style={[
+                    styles.forgotPasswordText,
+                    failedLoginAttempts >= 3 && styles.forgotPasswordTextEmphasized,
+                  ]}
+                >
+                  Forgot Password?
+                </Text>
               </Pressable>
             )}
 
@@ -1183,8 +1422,9 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: AuthColors) => StyleSheet.create({
   container: {
+    backgroundColor: Colors.bgGradientStart,
     flex: 1,
   },
   blurContainer: {
@@ -1208,9 +1448,11 @@ const styles = StyleSheet.create({
     right: -SCREEN_W * 0.2,
   },
   keyboardView: {
+    backgroundColor: Colors.bgGradientStart,
     flex: 1,
   },
   scrollContainer: {
+    backgroundColor: Colors.bgGradientStart,
     flexGrow: 1,
     justifyContent: "center",
     paddingHorizontal: 24,
@@ -1235,7 +1477,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "700",
     color: Colors.text,
-    letterSpacing: 0.5,
+    letterSpacing: 0,
   },
   logoAccent: {
     color: Colors.accent,
@@ -1245,7 +1487,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textSecondary,
     marginTop: 6,
-    letterSpacing: 0.2,
+    letterSpacing: 0,
   },
   googleButton: {
     flexDirection: "row",
@@ -1256,7 +1498,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.cardBorder,
     height: 52,
     borderRadius: 18,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
     shadowRadius: 12,
@@ -1275,7 +1517,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: Colors.textPrimary,
-    letterSpacing: 0.1,
+    letterSpacing: 0,
   },
   dividerContainer: {
     flexDirection: "row",
@@ -1292,7 +1534,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
     color: Colors.textSecondary,
-    letterSpacing: 1,
+    letterSpacing: 0,
   },
   inputGroup: {
     marginBottom: 20,
@@ -1302,7 +1544,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.textSecondary,
     marginBottom: 8,
-    letterSpacing: 0.1,
+    letterSpacing: 0,
   },
   inputContainer: {
     flexDirection: "row",
@@ -1316,7 +1558,6 @@ const styles = StyleSheet.create({
   },
   inputContainerError: {
     borderColor: Colors.error,
-    backgroundColor: Colors.errorBg,
   },
   addressInputContainer: {
     alignItems: "flex-start",
@@ -1366,7 +1607,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.errorBg,
-    borderColor: "rgba(214, 91, 91, 0.22)",
+    borderColor: "rgba(114, 106, 99, 0.18)",
     borderRadius: 16,
     borderWidth: 1,
     marginTop: -4,
@@ -1377,8 +1618,8 @@ const styles = StyleSheet.create({
   successContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(75, 143, 104, 0.1)",
-    borderColor: "rgba(75, 143, 104, 0.22)",
+    backgroundColor: Colors.successBg,
+    borderColor: "rgba(28, 25, 23, 0.12)",
     borderRadius: 16,
     borderWidth: 1,
     marginTop: -4,
@@ -1511,7 +1752,6 @@ const styles = StyleSheet.create({
   },
   checkboxError: {
     borderColor: Colors.error,
-    backgroundColor: Colors.errorBg,
   },
   termsText: {
     flex: 1,
@@ -1535,6 +1775,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: Colors.secondary,
   },
+  forgotPasswordTextEmphasized: {
+    fontWeight: "800",
+    color: Colors.primaryDark,
+  },
   backButton: {
     alignSelf: "center",
     flexDirection: "row",
@@ -1552,7 +1796,7 @@ const styles = StyleSheet.create({
   submitButtonWrapper: {
     borderRadius: 18,
     overflow: "hidden",
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.22,
     shadowRadius: 18,
@@ -1571,7 +1815,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: "#FFFFFF",
-    letterSpacing: 0.5,
+    letterSpacing: 0,
   },
   createAccountRow: {
     alignItems: "center",
@@ -1584,5 +1828,44 @@ const styles = StyleSheet.create({
   createAccountHighlight: {
     color: Colors.accentDark,
     fontWeight: "700",
+  },
+  manualEntryToggle: {
+    paddingVertical: 8,
+    marginTop: 4,
+    marginBottom: 12,
+    alignSelf: "flex-start",
+  },
+  manualEntryToggleText: {
+    color: Colors.secondary,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  detailsContainer: {
+    width: "100%",
+    marginTop: 14,
+    borderTopWidth: 1.5,
+    borderTopColor: Colors.cardBorder,
+    paddingTop: 16,
+  },
+  detailsHeader: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.text,
+    marginBottom: 14,
+  },
+  detailInputGroup: {
+    marginBottom: 14,
+  },
+  detailLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.textSecondary,
+    marginBottom: 6,
+  },
+  warningText: {
+    color: Colors.warning,
+    fontSize: 11,
+    fontWeight: "500",
+    marginTop: 4,
   },
 });

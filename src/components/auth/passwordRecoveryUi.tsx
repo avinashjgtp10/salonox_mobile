@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import type { PropsWithChildren, ReactNode } from "react";
+import { useMemo, type PropsWithChildren, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -16,26 +16,65 @@ import {
   View,
 } from "react-native";
 
+import type { ThemeColors } from "@/constants/theme";
+import { useAppTheme } from "@/theme/ThemeProvider";
+
 export const RecoveryColors = {
-  bgGradientStart: "#FAFBFA",
-  bgGradientEnd: "#F4F7F5",
-  primary: "#496A5D",
-  primaryDark: "#365046",
-  secondary: "#6D8F81",
-  accent: "#C7A86D",
-  accentDark: "#B18F54",
-  text: "#243B34",
-  textPrimary: "#445B55",
-  textSecondary: "#7A8D87",
-  placeholder: "#A8B7B1",
+  bgGradientStart: "#FBFAF7",
+  bgGradientEnd: "#F2EFE9",
+  primary: "#1C1917",
+  primaryDark: "#1C1917",
+  secondary: "#726A63",
+  accent: "#AFA79D",
+  accentDark: "#726A63",
+  shadow: "#141210",
+  text: "#1C1917",
+  textPrimary: "#4D463F",
+  textSecondary: "#726A63",
+  placeholder: "#AFA79D",
   cardBg: "#FFFFFF",
-  cardBorder: "#E3E8E5",
+  cardBorder: "#E7E2D9",
   inputBg: "#FFFFFF",
-  inputBorder: "#E3E8E5",
-  error: "#D65B5B",
-  errorBg: "rgba(214, 91, 91, 0.08)",
-  success: "#4B8F68",
-  successBg: "rgba(75, 143, 104, 0.1)",
+  inputBorder: "#E7E2D9",
+  error: "#726A63",
+  errorBg: "rgba(114, 106, 99, 0.12)",
+  success: "#1C1917",
+  successBg: "rgba(28, 25, 23, 0.08)",
+};
+
+const createRecoveryColors = (theme: ThemeColors, scheme: "light" | "dark") => ({
+  ...RecoveryColors,
+  bgGradientStart: theme.bg,
+  bgGradientEnd: theme.bg2,
+  primary: theme.primary,
+  primaryDark: theme.primaryDark,
+  secondary: theme.secondary,
+  accent: theme.gold,
+  accentDark: theme.goldDark,
+  shadow: theme.shadow,
+  text: theme.heading,
+  textPrimary: theme.text,
+  textSecondary: theme.text2,
+  placeholder: theme.placeholder,
+  cardBg: theme.card,
+  cardBorder: theme.border,
+  inputBg: scheme === "dark" ? theme.bg2 : theme.card,
+  inputBorder: theme.border,
+  error: theme.error,
+  errorBg: theme.errorBg,
+  success: theme.success,
+  successBg: theme.successBg,
+  statusBarStyle: scheme === "dark" ? ("light-content" as const) : ("dark-content" as const),
+});
+
+type RecoveryThemeColors = ReturnType<typeof createRecoveryColors>;
+
+const useRecoveryTheme = () => {
+  const { colors, scheme } = useAppTheme();
+  const themedColors = useMemo(() => createRecoveryColors(colors, scheme), [colors, scheme]);
+  const themedStyles = useMemo(() => createStyles(themedColors), [themedColors]);
+
+  return { colors: themedColors, styles: themedStyles };
 };
 
 type PasswordRecoveryScaffoldProps = PropsWithChildren<{
@@ -69,24 +108,26 @@ export function PasswordRecoveryScaffold({
   subtitle,
   title,
 }: PasswordRecoveryScaffoldProps) {
+  const { colors, styles } = useRecoveryTheme();
+
   return (
     <LinearGradient
-      colors={[RecoveryColors.bgGradientStart, RecoveryColors.bgGradientEnd]}
+      colors={[colors.bgGradientStart, colors.bgGradientEnd]}
       style={styles.container}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
     >
-      <StatusBar barStyle="dark-content" backgroundColor={RecoveryColors.bgGradientStart} />
+      <StatusBar barStyle={colors.statusBarStyle} backgroundColor={colors.bgGradientStart} />
 
       <View pointerEvents="none" style={styles.blurContainer}>
         <LinearGradient
-          colors={["rgba(73, 106, 93, 0.12)", "transparent"]}
+          colors={["rgba(28, 25, 23, 0.08)", "transparent"]}
           style={[styles.glowBlob, styles.glowSage]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         />
         <LinearGradient
-          colors={["rgba(199, 168, 109, 0.14)", "transparent"]}
+          colors={["rgba(175, 167, 157, 0.14)", "transparent"]}
           style={[styles.glowBlob, styles.glowGold]}
           start={{ x: 1, y: 1 }}
           end={{ x: 0, y: 0 }}
@@ -135,6 +176,8 @@ export function RecoveryTextInput({
   style,
   ...inputProps
 }: RecoveryTextInputProps) {
+  const { colors, styles } = useRecoveryTheme();
+
   return (
     <View style={styles.inputGroup}>
       <Text style={styles.inputLabel}>{label}</Text>
@@ -142,11 +185,11 @@ export function RecoveryTextInput({
         <Ionicons
           name={iconName}
           size={20}
-          color={RecoveryColors.secondary}
+          color={colors.secondary}
           style={styles.inputIcon}
         />
         <TextInput
-          placeholderTextColor={RecoveryColors.placeholder}
+          placeholderTextColor={colors.placeholder}
           style={[styles.textInput, style]}
           {...inputProps}
         />
@@ -163,6 +206,8 @@ export function RecoveryPrimaryButton({
   label,
   onPress,
 }: RecoveryButtonProps) {
+  const { colors, styles } = useRecoveryTheme();
+
   return (
     <Pressable
       disabled={disabled || isLoading}
@@ -170,7 +215,7 @@ export function RecoveryPrimaryButton({
       style={[styles.submitButtonWrapper, (disabled || isLoading) && styles.submitButtonDisabled]}
     >
       <LinearGradient
-        colors={[RecoveryColors.primaryDark, RecoveryColors.primary]}
+        colors={[colors.primaryDark, colors.primary]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.submitButton}
@@ -186,6 +231,8 @@ export function RecoveryPrimaryButton({
 }
 
 export function RecoveryTextButton({ disabled, label, onPress }: RecoveryButtonProps) {
+  const { styles } = useRecoveryTheme();
+
   return (
     <Pressable disabled={disabled} onPress={onPress} style={styles.textButton}>
       <Text style={[styles.textButtonText, disabled && styles.textButtonTextDisabled]}>
@@ -196,6 +243,8 @@ export function RecoveryTextButton({ disabled, label, onPress }: RecoveryButtonP
 }
 
 export function RecoveryMessage({ message, type }: RecoveryMessageProps) {
+  const { colors, styles } = useRecoveryTheme();
+
   if (!message) {
     return null;
   }
@@ -210,7 +259,7 @@ export function RecoveryMessage({ message, type }: RecoveryMessageProps) {
       <Ionicons
         name={isError ? "alert-circle-outline" : "checkmark-circle-outline"}
         size={18}
-        color={isError ? RecoveryColors.error : RecoveryColors.success}
+        color={isError ? colors.error : colors.success}
         style={styles.messageIcon}
       />
       <Text style={[styles.messageText, isError ? styles.errorText : styles.successText]}>
@@ -220,8 +269,9 @@ export function RecoveryMessage({ message, type }: RecoveryMessageProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: RecoveryThemeColors) => StyleSheet.create({
   container: {
+    backgroundColor: Colors.bgGradientStart,
     flex: 1,
   },
   blurContainer: {
@@ -245,9 +295,11 @@ const styles = StyleSheet.create({
     right: -130,
   },
   keyboardView: {
+    backgroundColor: Colors.bgGradientStart,
     flex: 1,
   },
   scrollContainer: {
+    backgroundColor: Colors.bgGradientStart,
     flexGrow: 1,
     justifyContent: "center",
     paddingBottom: 40,
@@ -269,16 +321,16 @@ const styles = StyleSheet.create({
     width: 64,
   },
   title: {
-    color: RecoveryColors.text,
+    color: Colors.text,
     fontSize: 28,
     fontWeight: "700",
-    letterSpacing: 0.3,
+    letterSpacing: 0,
     textAlign: "center",
   },
   subtitle: {
-    color: RecoveryColors.textSecondary,
+    color: Colors.textSecondary,
     fontSize: 13,
-    letterSpacing: 0.2,
+    letterSpacing: 0,
     lineHeight: 19,
     marginTop: 8,
     textAlign: "center",
@@ -287,16 +339,16 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   inputLabel: {
-    color: RecoveryColors.textSecondary,
+    color: Colors.textSecondary,
     fontSize: 13,
     fontWeight: "600",
-    letterSpacing: 0.1,
+    letterSpacing: 0,
     marginBottom: 8,
   },
   inputContainer: {
     alignItems: "center",
-    backgroundColor: RecoveryColors.inputBg,
-    borderColor: RecoveryColors.inputBorder,
+    backgroundColor: Colors.inputBg,
+    borderColor: Colors.inputBorder,
     borderRadius: 18,
     borderWidth: 1.5,
     flexDirection: "row",
@@ -304,20 +356,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   inputContainerError: {
-    backgroundColor: RecoveryColors.errorBg,
-    borderColor: RecoveryColors.error,
+    backgroundColor: Colors.errorBg,
+    borderColor: Colors.error,
   },
   inputIcon: {
     marginRight: 12,
   },
   textInput: {
-    color: RecoveryColors.text,
+    color: Colors.text,
     flex: 1,
     fontSize: 15,
     height: "100%",
   },
   fieldErrorText: {
-    color: RecoveryColors.error,
+    color: Colors.error,
     fontSize: 12,
     fontWeight: "600",
     lineHeight: 16,
@@ -328,7 +380,7 @@ const styles = StyleSheet.create({
     elevation: 6,
     marginBottom: 18,
     overflow: "hidden",
-    shadowColor: RecoveryColors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.22,
     shadowRadius: 18,
@@ -345,14 +397,14 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "700",
-    letterSpacing: 0.4,
+    letterSpacing: 0,
   },
   textButton: {
     alignItems: "center",
     paddingVertical: 6,
   },
   textButtonText: {
-    color: RecoveryColors.accentDark,
+    color: Colors.accentDark,
     fontSize: 14,
     fontWeight: "700",
   },
@@ -370,12 +422,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   errorContainer: {
-    backgroundColor: RecoveryColors.errorBg,
-    borderColor: "rgba(214, 91, 91, 0.22)",
+    backgroundColor: Colors.errorBg,
+    borderColor: "rgba(114, 106, 99, 0.18)",
   },
   successContainer: {
-    backgroundColor: RecoveryColors.successBg,
-    borderColor: "rgba(75, 143, 104, 0.22)",
+    backgroundColor: Colors.successBg,
+    borderColor: "rgba(28, 25, 23, 0.12)",
   },
   messageIcon: {
     marginRight: 8,
@@ -387,10 +439,10 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   errorText: {
-    color: RecoveryColors.error,
+    color: Colors.error,
   },
   successText: {
-    color: RecoveryColors.success,
+    color: Colors.success,
   },
   passwordToggle: {
     alignItems: "center",
@@ -400,4 +452,11 @@ const styles = StyleSheet.create({
   },
 });
 
-export const passwordRecoveryStyles = styles;
+export const passwordRecoveryStyles = StyleSheet.create({
+  passwordToggle: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+    paddingVertical: 8,
+  },
+});

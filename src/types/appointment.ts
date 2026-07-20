@@ -5,9 +5,24 @@ export type AppointmentStatus =
   | "Checked In"
   | "In Service"
   | "In Progress"
+  | "Partial"
   | "Completed"
   | "Cancelled"
-  | "Missed";
+  | "Missed"
+  | "Deleted"
+  | "Unknown";
+
+export type AppointmentBackendStatus =
+  | "booked"
+  | "confirmed"
+  | "in_progress"
+  | "paid"
+  | "partial"
+  | "completed"
+  | "cancelled"
+  | "no-show"
+  | "no_show"
+  | "deleted";
 
 export type AppointmentPaymentMethod =
   | "Cash"
@@ -51,12 +66,15 @@ export type AppointmentApiStaff = {
 export type AppointmentApiItem = {
   amount?: number | string | null;
   cancelled_at?: string | null;
+  cancelledAt?: string | null;
   cancellation_reason?: string | null;
+  cancel_reason?: string | null;
   client?: AppointmentApiClient | null;
   client_id?: string | number | null;
   client_name?: string | null;
   client_phone?: string | null;
   completed_at?: string | null;
+  completedAt?: string | null;
   created_at?: string | null;
   discount?: number | string | null;
   duration?: number | string | null;
@@ -78,7 +96,7 @@ export type AppointmentApiItem = {
   staff_id?: string | number | null;
   staff_name?: string | null;
   start_time?: string | null;
-  status?: string | null;
+  status?: AppointmentBackendStatus | string | null;
   tax?: number | string | null;
   title?: string | null;
   total?: number | string | null;
@@ -187,9 +205,9 @@ export type AppointmentDetailResponse = {
 };
 
 export type CreateAppointmentRequest = {
-  client_id: string;
+  client_id?: string;
   discount?: number;
-  duration: number;
+  duration_minutes: number;
   end_time: string;
   notes?: string;
   payment_method?: string;

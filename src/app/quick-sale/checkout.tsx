@@ -1,23 +1,27 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
-import { useEffect } from "react";
-import { StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useEffect, useMemo } from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { fetchSaleByIdThunk } from "@/middleware/sales/sales.thunk";
 import { selectSaleDetail } from "@/store/sales/sales.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { useThemeColors } from "@/theme/ThemeProvider";
 
 function formatCurrency(amount: number) {
   return `Rs. ${amount.toLocaleString("en-IN")}`;
 }
 
 export default function QuickSaleCheckoutScreen() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const params = useLocalSearchParams<{
     amountPaid?: string;
     mode?: string;
@@ -48,7 +52,7 @@ export default function QuickSaleCheckoutScreen() {
 
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+      <AppStatusBar />
 
       <View style={styles.container}>
         <View style={styles.successCard}>
@@ -136,7 +140,7 @@ export default function QuickSaleCheckoutScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     backgroundColor: Colors.bg,
     flex: 1,
@@ -154,7 +158,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.xxl,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.08,
     shadowRadius: 24,

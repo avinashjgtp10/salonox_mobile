@@ -1,10 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useMemo } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { StaffBottomSheet } from "@/features/staff/components/StaffBottomSheet";
 import { StaffSectionCard } from "@/features/staff/components/StaffSectionCard";
@@ -14,6 +15,7 @@ import { useStaffAddresses } from "@/features/staff/hooks/useStaffAddresses";
 import { selectStaffAddressDeleting } from "@/store/staff/staff.slice";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentUser } from "@/store/user/user.slice";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import type { StaffAddressListItem } from "@/types/staff";
 import { canManageStaffLifecycle } from "@/utils/userProfile";
 
@@ -30,6 +32,8 @@ type AddressRowProps = {
 };
 
 function AddressRow({ address, canDelete, onDelete, onEdit, staffId }: AddressRowProps) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const deleting = useAppSelector((state) => selectStaffAddressDeleting(state, staffId, address.id));
 
   return (
@@ -76,6 +80,8 @@ function AddressRow({ address, canDelete, onDelete, onEdit, staffId }: AddressRo
 }
 
 export function StaffAddressSection({ staffId }: StaffAddressSectionProps) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const controller = useStaffAddresses(staffId);
   const currentUser = useAppSelector(selectCurrentUser);
   const canManageAddresses = canManageStaffLifecycle(currentUser?.role);
@@ -245,7 +251,7 @@ export function StaffAddressSection({ staffId }: StaffAddressSectionProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   addButton: {
     alignItems: "center",
     backgroundColor: Colors.primary,
@@ -290,7 +296,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   primaryPill: {
-    backgroundColor: "#EAF5EF",
+    backgroundColor: Colors.successBg,
     borderRadius: Radius.full,
     paddingHorizontal: 8,
     paddingVertical: 4,

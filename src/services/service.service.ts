@@ -6,6 +6,7 @@ import type {
   CreateServiceResponse,
   DeleteServiceResponse,
   ServiceApiItem,
+  ServiceApiCategory,
   ServiceListApiData,
   ServiceListItem,
   ServiceListPagination,
@@ -58,20 +59,61 @@ const toSafeString = (value: unknown, fallback = "") => {
   return fallback;
 };
 
-const toOptionalBoolean = (value: unknown) => {
-  if (typeof value === "boolean") {
-    return value;
+const getCategoryRecord = (value: unknown): ServiceApiCategory | null =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? (value as ServiceApiCategory)
+    : null;
+
+const getCategoryName = (value: unknown) => {
+  if (typeof value === "string") {
+    return toSafeString(value) || null;
   }
 
-  if (value === "true") {
-    return true;
-  }
+  const record = getCategoryRecord(value);
 
-  if (value === "false") {
-    return false;
-  }
+  return record
+    ? toSafeString(record.parent_category_name) ||
+        toSafeString(record.category_name) ||
+        toSafeString(record.name) ||
+        toSafeString(record.title) ||
+        null
+    : null;
+};
 
-  return false;
+const getCategoryId = (value: unknown) => {
+  const record = getCategoryRecord(value);
+
+  return record
+    ? toSafeString(record.parent_category_id) ||
+        toSafeString(record.category_id) ||
+        toSafeString(record.id) ||
+        toSafeString(record._id) ||
+        null
+    : null;
+};
+
+const getServiceCategory = (service: ServiceApiItem) => {
+  const categoryRecord = getCategoryRecord(service.category);
+  const parentCategory =
+    service.parent_category ?? categoryRecord?.parent_category ?? categoryRecord?.parent ?? null;
+  const parentCategoryName =
+    toSafeString(service.parent_category_name) || getCategoryName(parentCategory);
+  const parentCategoryId =
+    toSafeString(service.parent_category_id) || getCategoryId(parentCategory);
+  const categoryName =
+    parentCategoryName ||
+    toSafeString(service.category_name) ||
+    getCategoryName(service.category);
+  const categoryId =
+    parentCategoryId ||
+    toSafeString(service.category_id) ||
+    toSafeString(service.categoryId) ||
+    getCategoryId(service.category);
+
+  return {
+    category: categoryName || null,
+    categoryId: categoryId || null,
+  };
 };
 
 const toDurationMinutes = (value: unknown) => {
@@ -149,39 +191,55 @@ const normalizeService = (service: ServiceApiItem, index: number): ServiceListIt
     toSafeString(service.title) ||
     `Service ${index + 1}`;
 
+  const category = getServiceCategory(service);
+
   return {
-    category: toSafeString(service.category) || null,
+    category: category.category,
+    categoryId: category.categoryId,
     createdAt: toSafeString(service.created_at) || null,
+    ...(toSafeNumber(service.discount_amount) || toSafeNumber(service.discount)
+      ? { discountAmount: toSafeNumber(service.discount_amount) || toSafeNumber(service.discount) }
+      : {}),
+    ...(toSafeNumber(service.discount_percent) ? { discountPercent: toSafeNumber(service.discount_percent) } : {}),
     durationMinutes: toDurationMinutes(service.duration_minutes) ?? toDurationMinutes(service.duration),
     id: toSafeString(service.id, name.toLowerCase().replace(/\s+/g, "-")),
     isActive: getIsActive(service),
+    ...(toSafeString(service.item_type) ? { itemType: toSafeString(service.item_type) } : {}),
     name,
     price: toSafeNumber(service.price) || toSafeNumber(service.amount),
+    ...(toSafeNumber(service.tax_amount) || toSafeNumber(service.tax)
+      ? { taxAmount: toSafeNumber(service.tax_amount) || toSafeNumber(service.tax) }
+      : {}),
+    ...(toSafeNumber(service.tax_rate) ? { taxRate: toSafeNumber(service.tax_rate) } : {}),
   };
 };
 
+// Real response shape is `{ data: Service[], pagination: { total, page, limit,
+// total_pages } }` (see services.repository.ts `list` on the backend) — 1-
+// indexed page number, never `offset`/`has_more`/`next_offset`. Everything
+// else in this app thinks in offset/limit terms, so this is the one place
+// that translates page-based pagination back into that shape.
 const getPagination = (
   payload: ServiceListApiData,
   query: ServiceListQuery,
   pageCount: number,
   totalCount: number,
 ): ServiceListPagination => {
-  const payloadOffset = Array.isArray(payload)
-    ? query.offset
-    : toSafeNumber(payload.pagination?.offset);
-  const payloadLimit = Array.isArray(payload) ? query.limit : toSafeNumber(payload.pagination?.limit);
-  const payloadNextOffset = Array.isArray(payload)
-    ? query.offset + pageCount
-    : toSafeNumber(payload.pagination?.next_offset);
-  const payloadHasMore = Array.isArray(payload)
-    ? false
-    : toOptionalBoolean(payload.pagination?.has_more);
+  if (Array.isArray(payload)) {
+    return {
+      hasMore: false,
+      limit: query.limit,
+      nextOffset: query.offset + pageCount,
+      offset: query.offset,
+    };
+  }
 
-  const offset = payloadOffset || query.offset;
-  const limit = payloadLimit || query.limit;
-  const nextOffset = payloadNextOffset || offset + limit;
-  const hasMore =
-    payloadHasMore || (totalCount > 0 ? nextOffset < totalCount : pageCount >= limit);
+  const limit = toSafeNumber(payload.pagination?.limit) || query.limit;
+  const totalPages = toSafeNumber(payload.pagination?.total_pages);
+  const page = toSafeNumber(payload.pagination?.page) || Math.floor(query.offset / Math.max(1, limit)) + 1;
+  const offset = (page - 1) * limit;
+  const nextOffset = offset + pageCount;
+  const hasMore = totalPages > 0 ? page < totalPages : totalCount > 0 ? nextOffset < totalCount : pageCount >= limit;
 
   return {
     hasMore,
@@ -206,10 +264,20 @@ const getServiceFromDetailPayload = (payload: ServiceDetailApiData): ServiceApiI
 
 export const serviceService = {
   async getServices(query: ServiceListQuery, salonId?: string | null): Promise<ServiceListResponse> {
-    const { isActive, ...restQuery } = query;
+    const { category, categoryId, isActive, limit, offset, ...restQuery } = query;
+    // The real validator/controller (services.controller.ts) only ever reads
+    // `page`/`limit`/`status` — it has no idea what `offset`/`is_active` mean,
+    // so sending those silently no-ops (every request quietly re-fetches
+    // page 1, and inactive services never get filtered out). Translate to
+    // what the backend actually understands.
+    const page = Math.floor(offset / Math.max(1, limit)) + 1;
     const requestParams = {
       ...restQuery,
-      ...(typeof isActive === "boolean" ? { is_active: isActive } : {}),
+      limit,
+      page,
+      ...(category ? { category } : {}),
+      ...(categoryId ? { category_id: categoryId } : {}),
+      ...(typeof isActive === "boolean" ? { status: isActive ? "active" : "inactive" } : {}),
       ...(salonId ? { salon_id: salonId } : {}),
     };
 

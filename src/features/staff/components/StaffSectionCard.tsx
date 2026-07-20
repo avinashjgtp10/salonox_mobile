@@ -1,11 +1,9 @@
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { AppLayout, AppRadius } from "@/constants/layout";
-import {
-  DashboardColors as Colors,
-  DashboardSpacing as Spacing,
-} from "@/constants/theme";
+import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { useThemeColors } from "@/theme/ThemeProvider";
 
 type StaffSectionCardProps = {
   action?: ReactNode;
@@ -14,6 +12,9 @@ type StaffSectionCardProps = {
 };
 
 export function StaffSectionCard({ action, children, title }: StaffSectionCardProps) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.card}>
       <View style={styles.header}>
@@ -25,7 +26,7 @@ export function StaffSectionCard({ action, children, title }: StaffSectionCardPr
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   card: {
     backgroundColor: Colors.card,
     borderColor: Colors.border,
@@ -33,7 +34,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: AppLayout.sectionGap,
     padding: AppLayout.cardPadding,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,

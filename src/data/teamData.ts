@@ -18,6 +18,7 @@ export type StaffStatus =
 
 export type StaffMember = {
   id: string;
+  staffIdAliases?: string[];
   initials: string;
   name: string;
   role: string;
@@ -76,8 +77,8 @@ export const MOCK_STAFF_MEMBERS: StaffMember[] = [
     attendance: "96% this month",
     availability: "Busy",
     availabilityLabel: "With client until 3:15 PM",
-    avatarBg: "#FAECE7",
-    avatarColor: "#712B13",
+    avatarBg: "#F2EFE9",
+    avatarColor: "#726A63",
     averageRating: 4.9,
     email: "ariana.dsouza@salonox.com",
     gender: "Female",
@@ -104,8 +105,8 @@ export const MOCK_STAFF_MEMBERS: StaffMember[] = [
     attendance: "98% this month",
     availability: "Available",
     availabilityLabel: "Next slot free in 20 mins",
-    avatarBg: "#E7F3ED",
-    avatarColor: "#1B5A42",
+    avatarBg: "#F2EFE9",
+    avatarColor: "#726A63",
     averageRating: 4.8,
     email: "neha.malhotra@salonox.com",
     gender: "Female",
@@ -132,8 +133,8 @@ export const MOCK_STAFF_MEMBERS: StaffMember[] = [
     attendance: "94% this month",
     availability: "Available",
     availabilityLabel: "Ready for walk-ins",
-    avatarBg: "#F8F0E2",
-    avatarColor: "#8A5A0E",
+    avatarBg: "#F2EFE9",
+    avatarColor: "#726A63",
     averageRating: 4.7,
     email: "pooja.khanna@salonox.com",
     gender: "Female",
@@ -160,8 +161,8 @@ export const MOCK_STAFF_MEMBERS: StaffMember[] = [
     attendance: "91% this month",
     availability: "Busy",
     availabilityLabel: "In service until 5:00 PM",
-    avatarBg: "#E9EEF8",
-    avatarColor: "#395B8F",
+    avatarBg: "#F2EFE9",
+    avatarColor: "#726A63",
     averageRating: 4.6,
     email: "rohit.mehra@salonox.com",
     gender: "Male",
@@ -188,8 +189,8 @@ export const MOCK_STAFF_MEMBERS: StaffMember[] = [
     attendance: "100% this month",
     availability: "On Leave",
     availabilityLabel: "Annual leave until tomorrow",
-    avatarBg: "#F8E8EA",
-    avatarColor: "#A0455C",
+    avatarBg: "#F2EFE9",
+    avatarColor: "#726A63",
     averageRating: 4.9,
     email: "sneha.iyer@salonox.com",
     gender: "Female",
@@ -216,8 +217,8 @@ export const MOCK_STAFF_MEMBERS: StaffMember[] = [
     attendance: "97% this month",
     availability: "Available",
     availabilityLabel: "Front desk coverage active",
-    avatarBg: "#EDF3F0",
-    avatarColor: "#385247",
+    avatarBg: "#F2EFE9",
+    avatarColor: "#726A63",
     averageRating: 4.8,
     email: "aditya.rao@salonox.com",
     gender: "Male",
@@ -244,8 +245,8 @@ export const MOCK_STAFF_MEMBERS: StaffMember[] = [
     attendance: "88% this month",
     availability: "Offline",
     availabilityLabel: "Not scheduled today",
-    avatarBg: "#F3EBFA",
-    avatarColor: "#6F4AA3",
+    avatarBg: "#F2EFE9",
+    avatarColor: "#726A63",
     averageRating: 4.5,
     email: "kavya.sen@salonox.com",
     gender: "Female",
@@ -272,8 +273,8 @@ export const MOCK_STAFF_MEMBERS: StaffMember[] = [
     attendance: "95% this month",
     availability: "Busy",
     availabilityLabel: "Therapy room occupied",
-    avatarBg: "#EAF4F6",
-    avatarColor: "#275C6C",
+    avatarBg: "#F2EFE9",
+    avatarColor: "#726A63",
     averageRating: 4.8,
     email: "sameer.khan@salonox.com",
     gender: "Male",
@@ -393,4 +394,3 @@ export const sortTeamMembers = (staffMembers: StaffMember[], sortOption: TeamSor
 
 export const getStaffMemberById = (id?: string) =>
   MOCK_STAFF_MEMBERS.find((staffMember) => staffMember.id === id);
-

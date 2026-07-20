@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useDeferredValue, useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -8,7 +8,6 @@ import {
   Linking,
   RefreshControl,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -16,13 +15,14 @@ import {
   View,
   type ListRenderItem,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { StaffBottomSheet } from "@/features/staff/components/StaffBottomSheet";
 import { StaffTextField } from "@/features/staff/components/StaffTextField";
@@ -55,6 +55,7 @@ import {
   selectSalonCommissionSummaryError,
   selectSalonCommissionSummaryLoading,
 } from "@/store/staff/salonCommissions.slice";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import type { SalonCommissionRecord } from "@/types/salonCommissions";
 
 const STATUS_FILTERS = ["All", "Pending", "Paid"] as const;
@@ -78,13 +79,13 @@ function getRejectedMessage(payload: unknown, fallback: string) {
   return fallback;
 }
 
-function getStatusPalette(status: string) {
+function getStatusPalette(status: string, Colors: ThemeColors) {
   switch (status.toLowerCase()) {
     case "paid":
-      return { backgroundColor: "#EAF5EF", color: Colors.success };
+      return { backgroundColor: Colors.successBg, color: Colors.success };
     case "pending":
     default:
-      return { backgroundColor: "#FFF4E3", color: Colors.warning };
+      return { backgroundColor: Colors.warningBg, color: Colors.warning };
   }
 }
 
@@ -95,8 +96,10 @@ function CommissionRow({
   onMarkPaid: (record: SalonCommissionRecord) => void;
   record: SalonCommissionRecord;
 }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const marking = useAppSelector((state) => selectCommissionMarkingPaid(state, record.staffId));
-  const palette = getStatusPalette(record.status);
+  const palette = getStatusPalette(record.status, Colors);
 
   return (
     <View style={styles.row}>
@@ -129,6 +132,9 @@ function CommissionRow({
 }
 
 export default function SalonCommissionsScreen() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
 
   const summary = useAppSelector(selectSalonCommissionSummary);
@@ -407,9 +413,9 @@ export default function SalonCommissionsScreen() {
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+      <AppStatusBar />
       <FlatList
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: 120 + insets.bottom }]}
         data={records}
         keyExtractor={(item) => item.id}
         ListFooterComponent={
@@ -432,7 +438,7 @@ export default function SalonCommissionsScreen() {
         showsVerticalScrollIndicator={false}
       />
 
-      <View style={styles.stickyFooter}>
+      <View style={[styles.stickyFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <TouchableOpacity
           activeOpacity={0.86}
           onPress={() => setIsBulkSheetOpen(true)}
@@ -497,7 +503,7 @@ export default function SalonCommissionsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     backgroundColor: Colors.bg,
     flex: 1,
@@ -723,7 +729,7 @@ const styles = StyleSheet.create({
     gap: 8,
     justifyContent: "center",
     minHeight: 52,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.18,
     shadowRadius: 18,

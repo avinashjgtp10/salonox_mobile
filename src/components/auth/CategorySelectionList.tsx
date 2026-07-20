@@ -10,21 +10,36 @@ import {
   View,
   type ListRenderItem,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { BusinessCategory } from "@/constants/businessCategories";
+import type { ThemeColors } from "@/constants/theme";
+import { useAppTheme } from "@/theme/ThemeProvider";
 
-const Colors = {
-  accent: "#C7A86D",
-  accentSoft: "rgba(199, 168, 109, 0.14)",
-  border: "#E7ECE8",
-  borderStrong: "#C7A86D",
-  disabledText: "#9AA7A1",
-  overlay: "rgba(20, 31, 27, 0.32)",
-  rowBg: "#FFFFFF",
-  selectedBg: "#F7F4EC",
-  text: "#172D25",
-  textMuted: "#6F8079",
-  textSoft: "#8B9994",
+const createCategoryColors = (theme: ThemeColors, scheme: "light" | "dark") => ({
+  accent: theme.gold,
+  accentSoft: scheme === "dark" ? "rgba(175, 167, 157, 0.18)" : "rgba(175, 167, 157, 0.14)",
+  border: theme.border,
+  borderStrong: theme.gold,
+  disabledText: theme.placeholder,
+  overlay: scheme === "dark" ? "rgba(0, 0, 0, 0.62)" : "rgba(20, 31, 27, 0.32)",
+  rowBg: theme.card,
+  selectedBg: scheme === "dark" ? theme.bg2 : "#F2EFE9",
+  text: theme.heading,
+  textMuted: theme.text2,
+  textSoft: theme.hint,
+  sheetBg: theme.card,
+  chipBg: theme.bg2,
+  closeBg: theme.primaryDark,
+  closeBgPressed: theme.primary,
+});
+
+type CategoryColors = ReturnType<typeof createCategoryColors>;
+
+const useCategoryColors = () => {
+  const { colors, scheme } = useAppTheme();
+
+  return useMemo(() => createCategoryColors(colors, scheme), [colors, scheme]);
 };
 
 const REQUIRED_TOTAL_CATEGORY_COUNT = 3;
@@ -67,6 +82,8 @@ const CategoryChoiceRow = memo(
     onPress,
     selected,
   }: CategoryChoiceRowProps) => {
+    const Colors = useCategoryColors();
+    const styles = useMemo(() => createStyles(Colors), [Colors]);
     const selectionProgress = useRef(new Animated.Value(selected ? 1 : 0)).current;
     const pressScale = useRef(new Animated.Value(1)).current;
 
@@ -162,6 +179,9 @@ export function CategorySelectionList({
   relatedCategoryIds,
   onToggleCategory,
 }: CategorySelectionListProps) {
+  const Colors = useCategoryColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const insets = useSafeAreaInsets();
   const [detailCategory, setDetailCategory] = useState<BusinessCategory | null>(null);
   const sheetTranslateY = useRef(new Animated.Value(420)).current;
 
@@ -261,7 +281,7 @@ export function CategorySelectionList({
         />
       );
     },
-    [onToggleCategory],
+    [onToggleCategory, styles],
   );
 
   return (
@@ -288,7 +308,11 @@ export function CategorySelectionList({
         <Pressable style={styles.modalOverlay} onPress={closeDetailSheet}>
           <Animated.View
             {...panResponder.panHandlers}
-            style={[styles.sheet, { transform: [{ translateY: sheetTranslateY }] }]}
+            style={[
+              styles.sheet,
+              { paddingBottom: Math.max(insets.bottom, 34) },
+              { transform: [{ translateY: sheetTranslateY }] },
+            ]}
           >
             <Pressable onPress={() => undefined}>
               <View style={styles.sheetHandle} />
@@ -319,7 +343,7 @@ export function CategorySelectionList({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: CategoryColors) => StyleSheet.create({
   listContent: {
     paddingBottom: 4,
   },
@@ -366,7 +390,7 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   categoryNameSelected: {
-    color: "#2F4D42",
+    color: Colors.text,
     fontWeight: "800",
   },
   categoryNameAtLimit: {
@@ -398,7 +422,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: Colors.sheetBg,
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
     paddingBottom: 34,
@@ -407,7 +431,7 @@ const styles = StyleSheet.create({
   },
   sheetHandle: {
     alignSelf: "center",
-    backgroundColor: "#D7DFDB",
+    backgroundColor: Colors.border,
     borderRadius: 999,
     height: 4,
     marginBottom: 18,
@@ -439,7 +463,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   exampleItem: {
-    backgroundColor: "#F6F8F6",
+    backgroundColor: Colors.chipBg,
     borderColor: Colors.border,
     borderRadius: 999,
     borderWidth: 1,
@@ -451,14 +475,14 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     alignItems: "center",
-    backgroundColor: "#2F4D42",
+    backgroundColor: Colors.closeBg,
     borderRadius: 16,
     justifyContent: "center",
     marginTop: 26,
     minHeight: 50,
   },
   closeButtonPressed: {
-    backgroundColor: "#253F36",
+    backgroundColor: Colors.closeBgPressed,
   },
   closeButtonText: {
     color: "#FFFFFF",

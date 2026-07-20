@@ -1,6 +1,6 @@
 import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
 
-import { Fonts, SageGold, ThemeColor } from '@/constants/theme';
+import { DashboardTypography as Type, Fonts, ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ThemedTextProps = TextProps & {
@@ -22,6 +22,7 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
         type === 'subtitle' && styles.subtitle,
         type === 'link' && styles.link,
         type === 'linkPrimary' && styles.linkPrimary,
+        type === 'linkPrimary' && { color: theme.primary },
         type === 'code' && styles.code,
         style,
       ]}
@@ -32,38 +33,53 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
 
 const styles = StyleSheet.create({
   small: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: 500,
+    fontFamily: Type.fontFamilies.body,
+    fontSize: Type.fontSizes.md,
+    fontWeight: '600',
+    letterSpacing: 0,
+    lineHeight: Type.lineHeights.md,
   },
   smallBold: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: 700,
+    fontFamily: Type.fontFamilies.body,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0,
+    lineHeight: Type.lineHeights.md,
   },
   default: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: 500,
+    fontFamily: Type.fontFamilies.body,
+    fontSize: Type.fontSizes.base,
+    fontWeight: '500',
+    letterSpacing: 0,
+    lineHeight: Type.lineHeights.base,
   },
   title: {
-    fontSize: 48,
-    fontWeight: 600,
-    lineHeight: 52,
+    fontFamily: Type.fontFamilies.display,
+    fontSize: Type.fontSizes.xxl,
+    fontWeight: '600',
+    letterSpacing: 0,
+    lineHeight: Type.lineHeights.xxl,
   },
   subtitle: {
-    fontSize: 32,
-    lineHeight: 44,
-    fontWeight: 600,
+    fontFamily: Type.fontFamilies.body,
+    fontSize: Type.fontSizes.xl,
+    fontWeight: '700',
+    letterSpacing: 0,
+    lineHeight: Type.lineHeights.xl,
   },
   link: {
-    lineHeight: 30,
-    fontSize: 14,
+    fontFamily: Type.fontFamilies.body,
+    fontSize: Type.fontSizes.md,
+    fontWeight: '700',
+    letterSpacing: 0,
+    lineHeight: Type.lineHeights.md,
   },
   linkPrimary: {
-    lineHeight: 30,
-    fontSize: 14,
-    color: SageGold.primary,
+    fontFamily: Type.fontFamilies.body,
+    fontSize: Type.fontSizes.md,
+    fontWeight: '800',
+    letterSpacing: 0,
+    lineHeight: Type.lineHeights.md,
   },
   code: {
     fontFamily: Fonts.mono,

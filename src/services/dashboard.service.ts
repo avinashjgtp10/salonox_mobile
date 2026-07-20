@@ -10,22 +10,44 @@ type DashboardSummaryResponse = {
   walkInRevenue?: number | null;
 };
 
-type DashboardAppointmentStatus = "completed" | "in-progress" | "upcoming" | "cancelled";
+type DashboardAppointmentStatus =
+  | "cancelled"
+  | "completed"
+  | "deleted"
+  | "expired"
+  | "in-progress"
+  | "no-show"
+  | "partial"
+  | "unknown"
+  | "upcoming";
 
 type DashboardAppointmentResponse = {
   amount?: number | null;
+  // Candidate fields for the appointment's actual scheduled start datetime.
+  // Deliberately does NOT include created_at/updated_at/booking_time — those
+  // are record bookkeeping timestamps, not the scheduled start time.
+  appointmentDate?: string | null;
+  appointmentDateTime?: string | null;
+  appointmentTime?: string | null;
+  appointment_date?: string | null;
+  appointment_date_time?: string | null;
+  appointment_time?: string | null;
   clientName?: string | null;
+  datetime?: string | null;
   id?: string | null;
+  scheduledAt?: string | null;
+  scheduledDateTime?: string | null;
+  scheduledStart?: string | null;
+  scheduled_at?: string | null;
+  scheduled_date_time?: string | null;
+  scheduled_start?: string | null;
   service?: string | null;
   staffName?: string | null;
+  startTime?: string | null;
+  start_time?: string | null;
   status?: string | null;
   time?: string | null;
 };
-
-type DashboardRevenueGoalResponse = {
-  earned?: number | null;
-  target?: number | null;
-} | null;
 
 type DashboardTopClientResponse = {
   id?: string | number | null;
@@ -62,8 +84,6 @@ type DashboardApiResponse = {
     popularServices?: DashboardQuickSaleServiceResponse[] | null;
     quick_sale_services?: DashboardQuickSaleServiceResponse[] | null;
     quickSaleServices?: DashboardQuickSaleServiceResponse[] | null;
-    revenue_goal?: DashboardRevenueGoalResponse;
-    revenueGoal?: DashboardRevenueGoalResponse;
     stockAlerts?: DashboardInventoryAlertResponse[] | null;
     summary?: DashboardSummaryResponse | null;
     todayAppointments?: DashboardAppointmentResponse[] | null;
@@ -84,15 +104,14 @@ export type DashboardAppointment = {
   amount: number;
   clientName: string;
   id: string;
+  // Epoch ms for the appointment's scheduled start, when a parseable
+  // scheduled-datetime field was present on the raw record. Null when the
+  // backend only provided a pre-formatted time string.
+  scheduledAtMs: number | null;
   service: string;
   staffName: string;
   status: DashboardAppointmentStatus;
   time: string;
-};
-
-export type DashboardRevenueGoal = {
-  earned: number;
-  target: number;
 };
 
 export type DashboardTopClient = {
@@ -148,17 +167,48 @@ const toSafeString = (value: unknown, fallback = "") => {
   return fallback;
 };
 
+const warnedUnknownAppointmentStatuses = new Set<string>();
+
 const toSafeAppointmentStatus = (value: unknown): DashboardAppointmentStatus => {
-  const normalized = toSafeString(value).toLowerCase().replace(/[_\s]+/g, "-");
+  const rawStatus = toSafeString(value);
+  const normalized = rawStatus.toLowerCase().replace(/[_\s]+/g, "-");
 
   switch (normalized) {
+    case "paid":
     case "completed":
+    case "complete":
+    case "done":
+    case "finished":
+      return "completed";
+    case "partial":
+      return "partial";
     case "in-progress":
+    case "inprogress":
+    case "ongoing":
+      return "in-progress";
     case "cancelled":
-      return normalized;
+    case "canceled":
+      return "cancelled";
+    case "no-show":
+    case "noshow":
+      return "no-show";
+    case "deleted":
+      return "deleted";
+    case "expired":
+      return "expired";
     case "upcoming":
-    default:
+    case "confirmed":
+    case "booked":
+    case "scheduled":
+    case "pending":
       return "upcoming";
+    default:
+      if (rawStatus && !warnedUnknownAppointmentStatuses.has(rawStatus)) {
+        warnedUnknownAppointmentStatuses.add(rawStatus);
+        console.warn("[Dashboard] Unknown appointment status received", { status: rawStatus });
+      }
+
+      return "unknown";
   }
 };
 
@@ -173,23 +223,75 @@ const getInitialsFromName = (name: string) =>
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("") || "CL";
 
+const firstDefined = (...values: unknown[]) =>
+  values.find((value) => value !== undefined && value !== null);
+
+// Parses the appointment's real scheduled-start value (never
+// created_at/updated_at/booking_time) into an absolute instant. JS Date
+// always stores an absolute instant regardless of the source string's
+// timezone/offset, so downstream local-time getters (see formatLocalTime)
+// automatically render it in the device's local timezone.
+const parseScheduledAtMs = (appointment: DashboardAppointmentResponse): number | null => {
+  const rawValue = firstDefined(
+    appointment.scheduledAt,
+    appointment.scheduled_at,
+    appointment.startTime,
+    appointment.start_time,
+    appointment.appointmentDateTime,
+    appointment.appointment_date_time,
+    appointment.scheduledDateTime,
+    appointment.scheduled_date_time,
+    appointment.scheduledStart,
+    appointment.scheduled_start,
+    appointment.datetime,
+    appointment.appointmentTime,
+    appointment.appointment_time,
+    appointment.appointmentDate,
+    appointment.appointment_date,
+  );
+
+  if (typeof rawValue !== "string" && typeof rawValue !== "number") {
+    return null;
+  }
+
+  const parsedMs = new Date(rawValue).getTime();
+
+  return Number.isFinite(parsedMs) ? parsedMs : null;
+};
+
+// Formats an absolute instant using the device's local timezone (never the
+// backend server's timezone), matching the "H:MM AM/PM" shape the dashboard
+// UI already parses.
+const formatLocalTime = (scheduledAtMs: number) => {
+  const date = new Date(scheduledAtMs);
+  const hours24 = date.getHours();
+  const minutes = date.getMinutes();
+  const ampm = hours24 >= 12 ? "PM" : "AM";
+  const hours12 = hours24 % 12 || 12;
+
+  return `${hours12}:${String(minutes).padStart(2, "0")} ${ampm}`;
+};
+
 const normalizeAppointment = (
   appointment: DashboardAppointmentResponse,
   index: number,
-): DashboardAppointment => ({
-  amount: toSafeNumber(appointment.amount),
-  clientName: toSafeString(appointment.clientName, "Walk-in Client"),
-  id: toSafeString(appointment.id, `dashboard-appointment-${index + 1}`),
-  service: toSafeString(appointment.service, "Service not added"),
-  staffName: toSafeString(appointment.staffName, "Staff not assigned"),
-  status: toSafeAppointmentStatus(appointment.status),
-  time: toSafeString(appointment.time, "--:--"),
-});
+): DashboardAppointment => {
+  const scheduledAtMs = parseScheduledAtMs(appointment);
 
-const normalizeRevenueGoal = (goal: DashboardRevenueGoalResponse): DashboardRevenueGoal => ({
-  earned: toSafeNumber(goal?.earned),
-  target: toSafeNumber(goal?.target),
-});
+  return {
+    amount: toSafeNumber(appointment.amount),
+    clientName: toSafeString(appointment.clientName, "Walk-in Client"),
+    id: toSafeString(appointment.id, `dashboard-appointment-${index + 1}`),
+    scheduledAtMs,
+    service: toSafeString(appointment.service, "Service not added"),
+    staffName: toSafeString(appointment.staffName, "Staff not assigned"),
+    status: toSafeAppointmentStatus(appointment.status),
+    // Prefer deriving the display time from the real scheduled datetime; only
+    // fall back to the backend's own pre-formatted string when no parseable
+    // scheduled datetime field was found at all.
+    time: scheduledAtMs !== null ? formatLocalTime(scheduledAtMs) : toSafeString(appointment.time, "--:--"),
+  };
+};
 
 const normalizeTopClient = (client: DashboardTopClientResponse): DashboardTopClient | null => {
   if (!client) {
@@ -272,9 +374,12 @@ export const dashboardService = {
       monthlyRevenue: toSafeNumber(summary?.totalRevenue),
       todaysRevenue: toSafeNumber(summary?.todayRevenue),
     };
-    const todayAppointments = (data?.todayAppointments ?? []).map(normalizeAppointment);
+    // Ascending by scheduled start time; appointments with no parseable
+    // scheduled datetime sort last rather than being dropped.
+    const todayAppointments = (data?.todayAppointments ?? [])
+      .map(normalizeAppointment)
+      .sort((a, b) => (a.scheduledAtMs ?? Infinity) - (b.scheduledAtMs ?? Infinity));
 
-    const revenueGoal = normalizeRevenueGoal(data?.revenueGoal ?? data?.revenue_goal ?? null);
     const topClient = normalizeTopClient(data?.topClient ?? data?.top_client ?? null);
     const inventoryAlerts = (
       data?.inventoryAlerts ?? data?.inventory_alerts ?? data?.stockAlerts ?? []
@@ -297,7 +402,6 @@ export const dashboardService = {
       quickSaleRevenueToday,
       quickSaleServices,
       requestedDate: params.date,
-      revenueGoal,
       todayAppointments,
       topClient,
     };

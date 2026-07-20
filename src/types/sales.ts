@@ -1,27 +1,16 @@
-export type PosPaymentMethod = string;
-export type PosDiscountType = string;
+// Wire-level enums, verified directly against the backend source
+// (salon_mgm_backend/src/modules/sales/sales.types.ts). Do not widen these
+// without re-checking the backend — sending an unlisted value is rejected by
+// the API's own validators (see sales.validator.ts / payments.validator.ts).
+export type SaleStatus = "draft" | "completed" | "cancelled" | "refunded";
+export type SalePaymentMethod = "cash" | "card" | "gift_card" | "split" | "upi";
+export type SaleItemType = "service" | "product" | "membership" | "gift_card" | "quick";
 
-export type PosClient = {
-  avatarBg: string;
-  avatarColor: string;
-  id: string;
-  initials: string;
-  loyaltyPoints: number;
-  membership?: string;
-  mobileNumber: string;
-  name: string;
-  walletBalance?: number;
-};
-
-export type PosCatalogItem = {
-  category: "service" | "product";
-  duration?: string;
-  id: string;
-  isQuickChip?: boolean;
-  name: string;
-  price: number;
-};
-
+// ---- GET /sales/init ---------------------------------------------------
+// The backend genuinely only returns `{ staff, services }` (sales.service.ts
+// `init()`). Clients, products, coupons, payment methods, and tax rate are
+// NOT part of this response and are fetched from their own real endpoints
+// instead (client/service/product Redux slices, the coupon service).
 export type PosStaffMember = {
   avatarBg: string;
   avatarColor: string;
@@ -31,93 +20,83 @@ export type PosStaffMember = {
   status: string;
 };
 
-export type PosCoupon = {
-  code: string;
-  label: string;
-  type: "fixed" | "percentage";
-  value: number;
-};
-
-export type PreviousSale = {
-  amount: number;
-  clientName: string;
-  id: string;
-  method: string;
-  timeLabel: string;
-};
-
-export type PosSettingRow = {
-  id: string;
-  label: string;
-  value: string;
-};
-
-export type SalesInitData = {
-  catalog: PosCatalogItem[];
-  clients: PosClient[];
-  coupons: PosCoupon[];
-  discountTypes: PosDiscountType[];
-  paymentMethods: PosPaymentMethod[];
-  previousSales: PreviousSale[];
-  receiptNumber: string;
-  settings: PosSettingRow[];
-  staff: PosStaffMember[];
-  taxRate: number;
-};
-
-// Loose API shape — the backend contract is undocumented, so every section is
-// read defensively across common camelCase/snake_case key variants.
-export type SalesInitApiData = {
-  [key: string]: unknown;
-} | null;
-
-export type SaleStatus = "draft" | "completed" | "cancelled" | string;
-
-export type SaleLineItemRequest = {
-  catalogId: string;
-  category: "service" | "product";
-  name: string;
-  price: number;
-  quantity: number;
-  staffId?: string;
-};
-
-export type SaleDiscountRequest = {
-  couponCode?: string;
-  type: string;
-  value: number;
-};
-
-export type CreateSaleRequest = {
-  clientId: string;
-  discount?: SaleDiscountRequest;
-  items: SaleLineItemRequest[];
-  notes?: string;
-  status: "draft" | "pending";
-};
-
-export type UpdateSaleRequest = Partial<CreateSaleRequest>;
-
-export type CheckoutSaleSplitPayment = {
-  amount: number;
-  method: string;
-};
-
-export type CheckoutSaleRequest = {
-  amountPaid: number;
-  outstandingAmount?: number;
-  paymentMethod: string;
-  splitPayments?: CheckoutSaleSplitPayment[];
-};
-
-export type SaleLineItem = {
-  category: "service" | "product";
+export type PosServiceItem = {
+  category: string | null;
   duration?: string;
   id: string;
   name: string;
   price: number;
+};
+
+export type SalesInitData = {
+  services: PosServiceItem[];
+  staff: PosStaffMember[];
+};
+
+export type SalesInitApiData = {
+  services?: unknown[] | null;
+  staff?: unknown[] | null;
+} | null;
+
+// ---- Create / update sale (POST /sales, PATCH /sales/:id) -------------
+// UI-facing (camelCase, plain numbers) — the service layer converts these to
+// the backend's real snake_case body with money fields as decimal strings
+// (the create/update validators require `typeof unit_price === "string"`).
+export type SaleLineItemRequest = {
+  discountAmount?: number;
+  itemId?: string;
+  itemType: SaleItemType;
+  name: string;
   quantity: number;
+  staffId?: string;
+  unitPrice: number;
+};
+
+export type CreateSaleRequest = {
+  clientId?: string;
+  discountAmount?: number;
+  items: SaleLineItemRequest[];
+  notes?: string;
+  paymentMethod?: SalePaymentMethod;
+  paymentReference?: string;
+  salonId?: string;
+  staffId?: string;
+  status?: SaleStatus;
+  taxAmount?: number;
+  tipAmount?: number;
+};
+
+export type UpdateSaleRequest = Partial<CreateSaleRequest>;
+
+// ---- Checkout (POST /sales/:id/checkout) -------------------------------
+// Real body only accepts payment_method / amount_paid / payment_reference.
+// A split payment has no dedicated array field on this endpoint — the
+// backend expects the { [method]: amount } breakdown JSON-serialized into
+// payment_reference when paymentMethod === "split" (sales.service.ts).
+export type CheckoutSaleSplitEntry = {
+  amount: number;
+  method: Exclude<SalePaymentMethod, "split">;
+};
+
+export type CheckoutSaleRequest = {
+  amountPaid: number;
+  paymentMethod: SalePaymentMethod;
+  paymentReference?: string;
+  splitEntries?: CheckoutSaleSplitEntry[];
+};
+
+// ---- Normalized display types ------------------------------------------
+export type SaleLineItem = {
+  discountAmount: number;
+  id: string;
+  itemId: string | null;
+  itemType: SaleItemType;
+  name: string;
+  quantity: number;
+  staffId: string | null;
   staffName?: string;
+  totalPrice: number;
+  unitPrice: number;
 };
 
 export type SaleListItem = {
@@ -132,8 +111,8 @@ export type SaleListItem = {
 };
 
 export type SaleDetail = {
-  address?: string;
   amountPaid: number;
+  clientId: string | null;
   clientName: string;
   clientPhone: string;
   createdDateLabel: string;
@@ -147,6 +126,7 @@ export type SaleDetail = {
   status: SaleStatus;
   subtotal: number;
   taxAmount: number;
+  tipAmount: number;
   total: number;
 };
 

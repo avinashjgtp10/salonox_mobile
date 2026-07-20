@@ -1,10 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useMemo } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { StaffBottomSheet } from "@/features/staff/components/StaffBottomSheet";
 import { StaffSectionCard } from "@/features/staff/components/StaffSectionCard";
@@ -14,6 +15,7 @@ import { useStaffEmergencyContacts } from "@/features/staff/hooks/useStaffEmerge
 import { selectEmergencyContactDeleting } from "@/store/staff/staff.slice";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentUser } from "@/store/user/user.slice";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import type { StaffEmergencyContactListItem } from "@/types/staff";
 import { canManageStaffLifecycle } from "@/utils/userProfile";
 
@@ -30,6 +32,8 @@ type ContactRowProps = {
 };
 
 function ContactRow({ canDelete, contact, onDelete, onEdit, staffId }: ContactRowProps) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const deleting = useAppSelector((state) =>
     selectEmergencyContactDeleting(state, staffId, contact.id),
   );
@@ -77,6 +81,8 @@ function ContactRow({ canDelete, contact, onDelete, onEdit, staffId }: ContactRo
 }
 
 export function EmergencyContactsSection({ staffId }: EmergencyContactsSectionProps) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const controller = useStaffEmergencyContacts(staffId);
   const currentUser = useAppSelector(selectCurrentUser);
   const canManageContacts = canManageStaffLifecycle(currentUser?.role);
@@ -256,7 +262,7 @@ export function EmergencyContactsSection({ staffId }: EmergencyContactsSectionPr
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   addButton: {
     alignItems: "center",
     backgroundColor: Colors.primary,
@@ -303,7 +309,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   primaryPill: {
-    backgroundColor: "#EAF5EF",
+    backgroundColor: Colors.successBg,
     borderRadius: Radius.full,
     paddingHorizontal: 8,
     paddingVertical: 4,

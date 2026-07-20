@@ -8,7 +8,6 @@ import {
   Modal,
   Pressable,
   RefreshControl,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -17,6 +16,7 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
   SERVICE_FILTERS,
@@ -25,9 +25,9 @@ import {
   type ServiceSortOption,
 } from "@/data/serviceData";
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { deleteServiceThunk, fetchServicesThunk } from "@/middleware/service/service.thunk";
 import {
@@ -42,6 +42,7 @@ import {
   selectServicesTotalCount,
 } from "@/store/service/service.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ServiceListItem } from "@/types/service";
 
 function getSortQuery(sortOption: ServiceSortOption) {
@@ -87,6 +88,9 @@ function ServiceCard({
   onDelete: () => void;
   service: ServiceListItem;
 }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <TouchableOpacity
       activeOpacity={0.84}
@@ -149,6 +153,9 @@ function ServiceCard({
 }
 
 function ServiceSkeletonCard() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.serviceCard}>
       <View style={styles.skeletonIcon} />
@@ -161,6 +168,9 @@ function ServiceSkeletonCard() {
 }
 
 function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.emptyState}>
       <View style={styles.emptyIllustration}>
@@ -179,6 +189,9 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 }
 
 function EmptyState({ queryActive }: { queryActive: boolean }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.emptyState}>
       <View style={styles.emptyIllustration}>
@@ -198,6 +211,8 @@ function EmptyState({ queryActive }: { queryActive: boolean }) {
 }
 
 export default function ServicesScreen() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
   const services = useAppSelector(selectServices);
@@ -340,7 +355,7 @@ export default function ServicesScreen() {
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+      <AppStatusBar />
 
       <FlatList
         ListEmptyComponent={
@@ -515,7 +530,7 @@ export default function ServicesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     backgroundColor: Colors.bg,
     flex: 1,
@@ -541,7 +556,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     height: AppLayout.headerActionSize,
     justifyContent: "center",
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.05,
     shadowRadius: 14,
@@ -564,7 +579,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: AppLayout.cardPadding,
     paddingVertical: Spacing.md,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
@@ -601,7 +616,7 @@ const styles = StyleSheet.create({
     marginBottom: AppLayout.sectionGap,
     minHeight: AppLayout.searchBarHeight,
     paddingHorizontal: AppLayout.searchBarPaddingX,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.03,
     shadowRadius: 14,
@@ -675,7 +690,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginBottom: Spacing.sm,
     padding: AppLayout.cardPadding,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
@@ -723,10 +738,10 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   statusBadgeActive: {
-    backgroundColor: "#EAF5EF",
+    backgroundColor: Colors.successBg,
   },
   statusBadgeInactive: {
-    backgroundColor: "#FEECEC",
+    backgroundColor: Colors.errorBg,
   },
   statusBadgeText: {
     fontSize: 10,
@@ -790,7 +805,7 @@ const styles = StyleSheet.create({
     width: 96,
   },
   emptyIllustrationHalo: {
-    backgroundColor: "#EEF4F1",
+    backgroundColor: Colors.bg2,
     borderRadius: 48,
     height: 96,
     opacity: 0.9,
@@ -805,7 +820,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     height: 54,
     justifyContent: "center",
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.06,
     shadowRadius: 14,
@@ -866,7 +881,7 @@ const styles = StyleSheet.create({
     gap: 8,
     justifyContent: "center",
     minHeight: 54,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.18,
     shadowRadius: 18,
@@ -877,7 +892,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   modalOverlay: {
-    backgroundColor: "rgba(36, 59, 52, 0.24)",
+    backgroundColor: "rgba(28, 25, 23, 0.12)",
     flex: 1,
     justifyContent: "flex-end",
     padding: Spacing.lg,

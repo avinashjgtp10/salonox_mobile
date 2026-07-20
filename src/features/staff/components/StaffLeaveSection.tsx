@@ -3,9 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { StaffBottomSheet } from "@/features/staff/components/StaffBottomSheet";
 import { StaffSectionCard } from "@/features/staff/components/StaffSectionCard";
@@ -30,6 +30,7 @@ import {
   selectLeavesLoading,
 } from "@/store/staff/staffLeaves.slice";
 import { selectCurrentUser } from "@/store/user/user.slice";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import type { LeaveEntry } from "@/types/staffLeaves";
 import { isValidStaffId } from "@/utils/staffIds";
 import { canManageStaffLifecycle } from "@/utils/userProfile";
@@ -48,15 +49,15 @@ const EMPTY_FORM = {
   type: "",
 };
 
-function getStatusPalette(status: string) {
+function getStatusPalette(status: string, Colors: ThemeColors) {
   switch (status.toLowerCase()) {
     case "approved":
-      return { backgroundColor: "#EAF5EF", color: Colors.success };
+      return { backgroundColor: Colors.successBg, color: Colors.success };
     case "rejected":
-      return { backgroundColor: "#FEECEC", color: Colors.error };
+      return { backgroundColor: Colors.errorBg, color: Colors.error };
     case "pending":
     default:
-      return { backgroundColor: "#FFF4E3", color: Colors.warning };
+      return { backgroundColor: Colors.warningBg, color: Colors.warning };
   }
 }
 
@@ -69,8 +70,10 @@ type LeaveRowProps = {
 };
 
 function LeaveRow({ canManage, leave, onDelete, onEdit, staffId }: LeaveRowProps) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const deleting = useAppSelector((state) => selectLeaveDeleting(state, staffId, leave.id));
-  const palette = getStatusPalette(leave.status);
+  const palette = getStatusPalette(leave.status, Colors);
 
   return (
     <View style={styles.row}>
@@ -113,6 +116,8 @@ function LeaveRow({ canManage, leave, onDelete, onEdit, staffId }: LeaveRowProps
 }
 
 export function StaffLeaveSection({ staffId }: StaffLeaveSectionProps) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const currentUser = useAppSelector(selectCurrentUser);
   const canManage = canManageStaffLifecycle(currentUser?.role);
@@ -384,7 +389,7 @@ export function StaffLeaveSection({ staffId }: StaffLeaveSectionProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   addButton: {
     alignItems: "center",
     backgroundColor: Colors.primary,

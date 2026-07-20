@@ -7,17 +7,24 @@ import {
   useState,
 } from "react";
 
+import { unregisterDeviceThunk } from "@/middleware/notification/notification.thunk";
 import { fetchCurrentUserThunk } from "@/middleware/user/user.thunk";
 import { ApiError, getApiErrorMessage } from "@/services/api";
+import { beginUserLogout, finishUserLogin } from "@/services/authLifecycle";
 import { authService } from "@/services/authService";
 import {
   getAuthErrorStatus,
   logAuthEvent,
   shouldInvalidateSession,
 } from "@/services/authSession";
+import { branchStorage } from "@/services/branchStorage";
+import { notificationDeviceStorage } from "@/services/notificationDeviceStorage";
+import { salonService } from "@/services/salon.service";
+import { addSessionInvalidationListener } from "@/services/sessionInvalidation";
+import { markStartup } from "@/services/startupPerformance";
 import { tokenStorage } from "@/services/tokenStorage";
-import { store } from "@/store";
-import { clearUser, setCurrentUser } from "@/store/user/user.slice";
+import { resetAppState, store } from "@/store";
+import { setCurrentUser } from "@/store/user/user.slice";
 import type {
   AuthUser,
   GoogleAuthResult,
@@ -26,6 +33,15 @@ import type {
   RegisterCredentials,
   RegisterResponseData,
 } from "@/types/auth";
+import { preserveSalonId } from "@/utils/authUser";
+
+const withOnboardingStatus = <T extends AuthUser>(
+  user: T,
+  authData: { isOnboardingComplete?: boolean },
+) => ({
+  ...user,
+  isOnboardingComplete: user.isOnboardingComplete ?? authData.isOnboardingComplete,
+});
 
 type AuthContextValue = {
   user: AuthUser | null;
@@ -51,18 +67,39 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [error, setError] = useState<string | null>(null);
 
   const applyAuthenticatedUserState = useCallback((nextUser: AuthUser, source: string) => {
-    store.dispatch(setCurrentUser(nextUser));
-    setUser(nextUser);
+    const userWithKnownSalon = preserveSalonId(nextUser, store.getState().user.user);
+
+    store.dispatch(setCurrentUser(userWithKnownSalon));
+    setUser((currentUser) => preserveSalonId(userWithKnownSalon, currentUser));
   }, []);
 
   const persistAuthenticatedUser = useCallback(async (nextUser: AuthUser, source: string) => {
-    await tokenStorage.setStoredUser(nextUser);
-    applyAuthenticatedUserState(nextUser, `${source}:persisted`);
+    const userWithKnownSalon = preserveSalonId(nextUser, store.getState().user.user);
+
+    await tokenStorage.setStoredUser(userWithKnownSalon);
+    applyAuthenticatedUserState(userWithKnownSalon, `${source}:persisted`);
   }, [applyAuthenticatedUserState]);
 
-  const clearAuthenticatedUser = useCallback(() => {
-    store.dispatch(clearUser());
+  const applyAuthenticatedUserAndPersistLater = useCallback((nextUser: AuthUser, source: string) => {
+    const userWithKnownSalon = preserveSalonId(nextUser, store.getState().user.user);
+
+    applyAuthenticatedUserState(userWithKnownSalon, source);
+    tokenStorage.setStoredUser(userWithKnownSalon).catch((err) => {
+      console.error("Failed to persist authenticated user", err);
+    });
+  }, [applyAuthenticatedUserState]);
+
+  const clearLocalSession = useCallback(async (source: string) => {
+    await Promise.all([
+      tokenStorage.clearSession(),
+      branchStorage.clearActiveBranchId(),
+      notificationDeviceStorage.clearRegisteredToken(),
+    ]);
+    salonService.clearSalonMeCache();
+
+    store.dispatch(resetAppState());
     setUser(null);
+    logAuthEvent("local_session_cleared", { source });
   }, []);
 
   const updateUser = useCallback(async (updatedFields: Partial<AuthUser>) => {
@@ -77,6 +114,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
       store.dispatch(setCurrentUser(updatedUser));
       return updatedUser;
     });
+  }, []);
+
+  const unregisterNotificationDevice = useCallback(async () => {
+    try {
+      await store.dispatch(unregisterDeviceThunk());
+    } catch (unregisterError) {
+      logAuthEvent("notification_device_unregister_failed", {
+        message: getApiErrorMessage(unregisterError),
+      });
+    }
   }, []);
 
   const syncCurrentUserProfile = useCallback(async () => {
@@ -104,12 +151,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
         const session = await tokenStorage.getSession();
 
         if (!session.accessToken && !session.refreshToken) {
-          if (session.user) {
-            await tokenStorage.clearSession();
-          }
+          await clearLocalSession("bootstrap_no_tokens");
 
           if (isMounted) {
-            clearAuthenticatedUser();
+            setUser(null);
           }
 
           logAuthEvent("bootstrap_no_stored_session");
@@ -138,12 +183,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
         });
 
         if (shouldClearSession) {
-          await tokenStorage.clearSession();
+          await clearLocalSession("bootstrap_invalid");
         }
 
         if (isMounted) {
           if (shouldClearSession) {
-            clearAuthenticatedUser();
+            setUser(null);
           }
         }
       } finally {
@@ -158,7 +203,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => {
       isMounted = false;
     };
-  }, [applyAuthenticatedUserState, clearAuthenticatedUser, syncCurrentUserProfile]);
+  }, [applyAuthenticatedUserState, clearLocalSession, syncCurrentUserProfile]);
+
+  useEffect(() => addSessionInvalidationListener((reason) => clearLocalSession(reason)), [
+    clearLocalSession,
+  ]);
 
   const signIn = async (credentials: LoginCredentials) => {
     setIsLoading(true);
@@ -166,16 +215,19 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     try {
       const authData = await authService.login(credentials);
-      await persistAuthenticatedUser(authData.user, "login_response_partial");
+      finishUserLogin();
+      applyAuthenticatedUserAndPersistLater(
+        withOnboardingStatus(authData.user, authData),
+        "login_response_partial",
+      );
+      markStartup("post_login_navigation");
 
-      try {
-        await syncCurrentUserProfile();
-      } catch (profileError) {
+      void syncCurrentUserProfile().catch((profileError) => {
         logAuthEvent("login_profile_fetch_failed", {
           status: getAuthErrorStatus(profileError),
           message: getApiErrorMessage(profileError),
         });
-      }
+      });
 
       return authData;
     } catch (signInError) {
@@ -193,16 +245,19 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     try {
       const authData = await authService.register(credentials);
-      await persistAuthenticatedUser(authData.user, "register_response_partial");
+      finishUserLogin();
+      applyAuthenticatedUserAndPersistLater(
+        withOnboardingStatus(authData.user, authData),
+        "register_response_partial",
+      );
+      markStartup("post_login_navigation");
 
-      try {
-        await syncCurrentUserProfile();
-      } catch (profileError) {
+      void syncCurrentUserProfile().catch((profileError) => {
         logAuthEvent("register_profile_fetch_failed", {
           status: getAuthErrorStatus(profileError),
           message: getApiErrorMessage(profileError),
         });
-      }
+      });
 
       return authData;
     } catch (signUpError) {
@@ -220,14 +275,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     try {
       const authData = await authService.loginWithGoogle();
+      finishUserLogin();
 
-      try {
-        await syncCurrentUserProfile();
-      } catch (profileError) {
-        logAuthEvent("google_login_profile_fetch_failed", {
-          status: getAuthErrorStatus(profileError),
-          message: getApiErrorMessage(profileError),
+      if (authData.user) {
+        applyAuthenticatedUserAndPersistLater(authData.user, "google_login_response_partial");
+        markStartup("post_login_navigation");
+        void syncCurrentUserProfile().catch((profileError) => {
+          logAuthEvent("google_login_profile_fetch_failed", {
+            status: getAuthErrorStatus(profileError),
+            message: getApiErrorMessage(profileError),
+          });
         });
+      } else {
+        await syncCurrentUserProfile();
+        markStartup("post_login_navigation");
       }
 
       return authData;
@@ -245,14 +306,21 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setError(null);
 
     try {
-      await authService.logout();
+      beginUserLogout();
+      const session = await tokenStorage.getSession();
 
-      clearAuthenticatedUser();
-    } catch (signOutError) {
-      const message = getApiErrorMessage(signOutError);
+      await clearLocalSession("logout");
 
-      setError(message);
-      clearAuthenticatedUser();
+      void unregisterNotificationDevice();
+      void authService.logout({
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+      }).catch((signOutError) => {
+        logAuthEvent("logout_request_failed_after_local_clear", {
+          status: getAuthErrorStatus(signOutError),
+          message: getApiErrorMessage(signOutError),
+        });
+      });
     } finally {
       setIsLoading(false);
     }
@@ -263,14 +331,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setError(null);
 
     try {
-      await authService.logoutAll();
+      beginUserLogout();
+      const session = await tokenStorage.getSession();
 
-      clearAuthenticatedUser();
-    } catch (signOutAllError) {
-      const message = getApiErrorMessage(signOutAllError);
+      await clearLocalSession("logout_all");
 
-      setError(message);
-      clearAuthenticatedUser();
+      void unregisterNotificationDevice();
+      void authService.logoutAll({ accessToken: session.accessToken }).catch((signOutAllError) => {
+        logAuthEvent("logout_all_request_failed_after_local_clear", {
+          status: getAuthErrorStatus(signOutAllError),
+          message: getApiErrorMessage(signOutAllError),
+        });
+      });
     } finally {
       setIsLoading(false);
     }
@@ -281,9 +353,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setError(null);
 
     try {
+      beginUserLogout();
+      await unregisterNotificationDevice();
       await authService.deleteAccount();
 
-      clearAuthenticatedUser();
+      await clearLocalSession("delete_account");
     } catch (deleteAccountError) {
       const message = getApiErrorMessage(deleteAccountError);
 
@@ -307,8 +381,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       });
 
       if (shouldClearSession) {
-        await tokenStorage.clearSession();
-        clearAuthenticatedUser();
+        await clearLocalSession("refresh_current_user_invalid");
       }
 
       throw refreshError;

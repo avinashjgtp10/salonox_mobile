@@ -1,16 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
 
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import type { StaffAvailability, StaffMember, StaffStatus } from "@/data/teamData";
+import { useThemeColors } from "@/theme/ThemeProvider";
 
 type StaffCardProps = {
   index: number;
@@ -22,25 +23,25 @@ type StaffCardProps = {
 
 const formatCurrency = (amount: number) => `Rs. ${amount.toLocaleString("en-IN")}`;
 
-const getStatusPalette = (status: StaffStatus) => {
+const getStatusPalette = (status: StaffStatus, Colors: ThemeColors) => {
   switch (status) {
     case "Available":
-      return { backgroundColor: "#EAF5EF", color: Colors.success };
+      return { backgroundColor: Colors.successBg, color: Colors.success };
     case "Busy":
-      return { backgroundColor: "#FFF4E3", color: Colors.warning };
+      return { backgroundColor: Colors.warningBg, color: Colors.warning };
     case "Break":
-      return { backgroundColor: "#FFF4E3", color: "#A46A1C" };
+      return { backgroundColor: Colors.warningBg, color: Colors.warning };
     case "On Leave":
-      return { backgroundColor: "#FEECEC", color: Colors.error };
+      return { backgroundColor: Colors.errorBg, color: Colors.error };
     case "Inactive":
-      return { backgroundColor: "#EDF1EF", color: Colors.text2 };
+      return { backgroundColor: Colors.bg2, color: Colors.text2 };
     case "Working":
     default:
-      return { backgroundColor: "#EEF4F1", color: Colors.primaryDark };
+      return { backgroundColor: Colors.bg2, color: Colors.primaryDark };
   }
 };
 
-const getAvailabilityPalette = (availability: StaffAvailability) => {
+const getAvailabilityPalette = (availability: StaffAvailability, Colors: ThemeColors) => {
   switch (availability) {
     case "Available":
       return { dot: Colors.success, text: Colors.success };
@@ -61,6 +62,9 @@ function ActionIcon({
   icon: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
 }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <TouchableOpacity activeOpacity={0.84} onPress={onPress} style={styles.actionIcon}>
       <Ionicons name={icon} size={16} color={Colors.primaryDark} />
@@ -69,8 +73,10 @@ function ActionIcon({
 }
 
 function StaffCardComponent({ index, onCall, onMessage, onMore, staffMember }: StaffCardProps) {
-  const statusPalette = getStatusPalette(staffMember.status);
-  const availabilityPalette = getAvailabilityPalette(staffMember.availability);
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const statusPalette = getStatusPalette(staffMember.status, Colors);
+  const availabilityPalette = getAvailabilityPalette(staffMember.availability, Colors);
 
   return (
     <Animated.View
@@ -125,21 +131,6 @@ function StaffCardComponent({ index, onCall, onMessage, onMore, staffMember }: S
           </View>
         </View>
 
-        <View style={styles.infoGrid}>
-          <View style={styles.infoPill}>
-            <Ionicons name="time-outline" size={13} color={Colors.primaryDark} />
-            <Text numberOfLines={1} style={styles.infoText}>
-              {staffMember.workingHours}
-            </Text>
-          </View>
-          <View style={styles.infoPill}>
-            <Ionicons name="call-outline" size={13} color={Colors.primaryDark} />
-            <Text numberOfLines={1} style={styles.infoText}>
-              {staffMember.phone}
-            </Text>
-          </View>
-        </View>
-
         <View style={styles.metricsRow}>
           <View style={styles.metricChip}>
             <Ionicons name="calendar-outline" size={13} color={Colors.primary} />
@@ -186,7 +177,7 @@ function StaffCardComponent({ index, onCall, onMessage, onMore, staffMember }: S
 
 export const StaffCard = memo(StaffCardComponent);
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   animatedWrap: {
     marginBottom: Spacing.sm,
   },
@@ -196,7 +187,7 @@ const styles = StyleSheet.create({
     borderRadius: AppRadius.card,
     borderWidth: 1,
     padding: AppLayout.cardPadding,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
@@ -280,28 +271,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: AppLayout.headerActionSize,
   },
-  infoGrid: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: Spacing.md,
-  },
-  infoPill: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.md,
-    flex: 1,
-    flexDirection: "row",
-    minWidth: 0,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-  },
-  infoText: {
-    color: Colors.primaryDark,
-    flex: 1,
-    fontSize: 11,
-    fontWeight: "700",
-    marginLeft: 8,
-  },
   metricsRow: {
     flexDirection: "row",
     gap: 8,
@@ -337,7 +306,7 @@ const styles = StyleSheet.create({
     color: Colors.text2,
     fontSize: 11,
     fontWeight: "800",
-    letterSpacing: 0.5,
+    letterSpacing: 0,
     marginBottom: 8,
     textTransform: "uppercase",
   },

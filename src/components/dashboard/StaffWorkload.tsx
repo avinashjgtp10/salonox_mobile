@@ -1,17 +1,19 @@
 import { router, type Href } from "expo-router";
-import { useEffect } from "react";
+import { useMemo } from "react";
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
-import type { StaffMember } from "@/data/teamData";
-import { fetchStaffThunk } from "@/middleware/staff/staff.thunk";
+import { findAttendanceRecordForStaff } from "@/features/attendance/utils/attendanceMatching";
+import { getAttendanceBadgeConfig } from "@/features/attendance/utils/attendanceStatus";
+import { selectAttendanceRecords } from "@/store/attendance/attendance.slice";
 import { selectDashboardAppointments } from "@/store/dashboard/dashboard.slice";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { useAppSelector } from "@/store/hooks";
 import { selectStaffLoading, selectStaffMembers } from "@/store/staff/staff.slice";
+import { useThemeColors } from "@/theme/ThemeProvider";
 
 const isStaffMatch = (staffName: string, appointmentStaffName: string) => {
   const sName = staffName.trim().toLowerCase();
@@ -24,49 +26,20 @@ const isStaffMatch = (staffName: string, appointmentStaffName: string) => {
   return false;
 };
 
+const ACTIVE_WORKLOAD_STATUSES = new Set(["in-progress", "upcoming"]);
+
 export default function StaffWorkload() {
-  const dispatch = useAppDispatch();
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const rawStaffMembers = useAppSelector(selectStaffMembers);
   const appointments = useAppSelector(selectDashboardAppointments);
   const isLoadingStaff = useAppSelector(selectStaffLoading);
-
-  useEffect(() => {
-    void dispatch(fetchStaffThunk({ reset: true }));
-  }, [dispatch]);
+  const attendanceRecords = useAppSelector(selectAttendanceRecords);
 
   // Filter out Inactive staff members
   const staffMembers = rawStaffMembers.filter(
     (member) => member.status !== "Inactive"
   );
-
-  const getStaffStatus = (member: StaffMember, hasInProgressApp: boolean) => {
-    const statusStr = (member.status || member.availability || "").toLowerCase();
-
-    if (statusStr.includes("leave")) {
-      return {
-        label: "On Leave",
-        pillBg: Colors.warningBg,
-        pillColor: Colors.warning,
-        barColor: Colors.warning,
-      };
-    }
-
-    if (statusStr.includes("busy") || hasInProgressApp) {
-      return {
-        label: "Busy",
-        pillBg: Colors.errorBg,
-        pillColor: Colors.error,
-        barColor: Colors.error,
-      };
-    }
-
-    return {
-      label: "Open",
-      pillBg: Colors.successBg,
-      pillColor: Colors.success,
-      barColor: Colors.primary,
-    };
-  };
 
   return (
     <View style={styles.section}>
@@ -93,22 +66,18 @@ export default function StaffWorkload() {
           staffMembers.map((member, index) => {
             const staffAppointments = appointments.filter(
               (app) =>
-                app.status !== "cancelled" && isStaffMatch(member.name, app.staffName)
+                ACTIVE_WORKLOAD_STATUSES.has(app.status) && isStaffMatch(member.name, app.staffName)
             );
 
-            const hasInProgressApp = staffAppointments.some(
-              (app) => app.status === "in-progress"
-            );
-
-            const statusStr = (member.status || member.availability || "").toLowerCase();
-            const isOnLeave = statusStr.includes("leave");
+            const attendanceRecord = findAttendanceRecordForStaff(attendanceRecords, member);
+            const badgeConfig = getAttendanceBadgeConfig(attendanceRecord, Colors);
+            const isOnLeave = attendanceRecord?.statusKey === "onLeave";
 
             const totalSlots = 8;
             const jobs = isOnLeave ? 0 : staffAppointments.length;
             const slotsLeft = isOnLeave ? 0 : Math.max(0, totalSlots - jobs);
             const pct = isOnLeave ? 0 : Math.min(100, Math.round((jobs / totalSlots) * 100));
 
-            const statusConfig = getStaffStatus(member, hasInProgressApp);
             const initials =
               member.initials ||
               member.name
@@ -142,12 +111,12 @@ export default function StaffWorkload() {
                       style={[
                         styles.statusPill,
                         {
-                          backgroundColor: statusConfig.pillBg,
-                          color: statusConfig.pillColor,
+                          backgroundColor: badgeConfig.bg,
+                          color: badgeConfig.color,
                         },
                       ]}
                     >
-                      {statusConfig.label}
+                      {badgeConfig.label}
                     </Text>
                   </View>
                   <Text style={styles.memberMeta}>
@@ -161,7 +130,7 @@ export default function StaffWorkload() {
                         style={[
                           styles.progressFill,
                           {
-                            backgroundColor: statusConfig.barColor,
+                            backgroundColor: badgeConfig.color,
                             width: `${pct}%`,
                           },
                         ]}
@@ -178,9 +147,8 @@ export default function StaffWorkload() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   section: {
-    marginBottom: Spacing.md,
     paddingHorizontal: Spacing.lg,
   },
   header: {
@@ -193,7 +161,7 @@ const styles = StyleSheet.create({
     color: Colors.text2,
     fontSize: 9,
     fontWeight: "500",
-    letterSpacing: 0.6,
+    letterSpacing: 0,
     textTransform: "uppercase",
   },
   sectionTitle: {

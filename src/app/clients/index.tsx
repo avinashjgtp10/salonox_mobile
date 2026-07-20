@@ -1,13 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router, type Href } from "expo-router";
-import { startTransition, useEffect, useMemo, useState } from "react";
+import { router, useFocusEffect, type Href } from "expo-router";
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Modal,
   Pressable,
   RefreshControl,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -19,49 +19,106 @@ import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout, AppRadius } from "@/constants/layout";
+import { Badge } from "@/components/ui/Badge";
+import { InitialsAvatar } from "@/components/ui/InitialsAvatar";
+import { ErrorState } from "@/components/ui/StateViews";
 import {
-  CLIENT_FILTERS,
-  CLIENT_SORT_OPTIONS,
-  type ClientFilter,
-  type ClientSortOption,
-} from "@/data/clientData";
-import {
-  DashboardColors as Colors,
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
+  type ThemeColors,
 } from "@/constants/theme";
-import { fetchClientsThunk } from "@/middleware/client/client.thunk";
+import {
+  deleteClientThunk,
+  filterClientsThunk,
+  fetchClientsThunk,
+  searchClientsThunk,
+  fetchDuplicatesThunk,
+  mergeClientsThunk,
+  mergeAllDuplicatesThunk,
+  type FetchClientsArgs,
+} from "@/middleware/client/client.thunk";
 import { clientService } from "@/services/client.service";
 import {
   selectClients,
+  selectClientDeletingIds,
   selectClientsError,
   selectClientsLoading,
   selectClientsLoadingMore,
   selectClientsPagination,
-  selectClientsQuery,
   selectClientsRefreshing,
   selectClientsTotalCount,
+  selectClientDuplicates,
+  selectClientDuplicatesLoading,
+  selectClientDuplicatesError,
+  selectClientMerging,
+  selectClientMergingAll,
 } from "@/store/client/client.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import type { ClientListItem } from "@/types/client";
+import { useThemeColors } from "@/theme/ThemeProvider";
+import type { ClientFilterValue, ClientListItem } from "@/types/client";
 
-function matchesFilter(client: ClientListItem, filter: ClientFilter) {
-  switch (filter) {
-    case "All":
-      return true;
-    case "New":
-      return client.joinedDaysAgo !== null && client.joinedDaysAgo <= 30;
-    case "Regular":
-      return !client.inactive && !client.isVip && !client.membership;
-    case "VIP":
-      return client.isVip || client.membership?.toLowerCase().includes("vip") === true;
-    case "Membership":
-      return Boolean(client.membership);
+const STATUS_FILTERS = ["All", "Active", "Inactive", "Blocked"] as const;
+const MEMBERSHIP_FILTERS = ["All", "Has Membership", "No Membership"] as const;
+const CLIENT_SORT_OPTIONS = ["Recent", "Name A-Z", "Last Visit", "Highest Spending"] as const;
+
+type ClientStatusFilter = (typeof STATUS_FILTERS)[number];
+type ClientMembershipFilter = (typeof MEMBERSHIP_FILTERS)[number];
+type ClientSortOption = (typeof CLIENT_SORT_OPTIONS)[number];
+
+const DEFAULT_STATUS_FILTER: ClientStatusFilter = "All";
+const DEFAULT_MEMBERSHIP_FILTER: ClientMembershipFilter = "All";
+const DEFAULT_SORT_OPTION: ClientSortOption = "Recent";
+
+function getStatusQueryValue(status: ClientStatusFilter): "active" | "all" | "blocked" | "inactive" {
+  switch (status) {
+    case "Active":
+      return "active";
+    case "Blocked":
+      return "blocked";
     case "Inactive":
-      return client.inactive || client.status.toLowerCase() === "inactive";
+      return "inactive";
+    case "All":
     default:
-      return true;
+      return "all";
+  }
+}
+
+function getMembershipQueryValue(membership: ClientMembershipFilter): "all" | "has" | "none" {
+  switch (membership) {
+    case "Has Membership":
+      return "has";
+    case "No Membership":
+      return "none";
+    case "All":
+    default:
+      return "all";
+  }
+}
+
+function getFilterValue(
+  status: ClientStatusFilter,
+  membership: ClientMembershipFilter,
+): ClientFilterValue | null {
+  if (membership === "Has Membership") {
+    return "membership";
+  }
+
+  if (membership === "No Membership") {
+    return "no_membership";
+  }
+
+  switch (status) {
+    case "Active":
+      return "active";
+    case "Blocked":
+      return "blocked";
+    case "Inactive":
+      return "inactive";
+    case "All":
+    default:
+      return null;
   }
 }
 
@@ -85,50 +142,24 @@ function isCreatedToday(createdAt: string | null) {
   );
 }
 
-function sortClients(clients: ClientListItem[], sortOption: ClientSortOption) {
-  const sortedClients = [...clients];
-
-  switch (sortOption) {
-    case "Last Visit":
-      return sortedClients.sort((left, right) => {
-        const leftDate = left.createdAt ? new Date(left.createdAt).getTime() : 0;
-        const rightDate = right.createdAt ? new Date(right.createdAt).getTime() : 0;
-
-        return rightDate - leftDate;
-      });
-    case "Alphabetical (A-Z)":
-      return sortedClients.sort((left, right) => left.fullName.localeCompare(right.fullName));
-    case "Most Visits":
-      return sortedClients.sort((left, right) => right.totalVisits - left.totalVisits);
-    case "Recently Added":
-    default:
-      return sortedClients.sort((left, right) => {
-        const leftDate = left.createdAt ? new Date(left.createdAt).getTime() : 0;
-        const rightDate = right.createdAt ? new Date(right.createdAt).getTime() : 0;
-
-        return rightDate - leftDate;
-      });
-  }
-}
-
 function getSortQuery(sortOption: ClientSortOption) {
   switch (sortOption) {
-    case "Alphabetical (A-Z)":
+    case "Name A-Z":
       return {
         sort_by: "full_name",
         sort_order: "asc" as const,
       };
-    case "Most Visits":
+    case "Highest Spending":
       return {
-        sort_by: "total_visits",
+        sort_by: "lifetime_spend",
         sort_order: "desc" as const,
       };
     case "Last Visit":
       return {
-        sort_by: "created_at",
+        sort_by: "last_visit",
         sort_order: "desc" as const,
       };
-    case "Recently Added":
+    case "Recent":
     default:
       return {
         sort_by: "created_at",
@@ -142,17 +173,23 @@ function SwipeActionButton({
   color,
   icon,
   label,
+  disabled = false,
   onPress,
 }: {
   backgroundColor: string;
   color: string;
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
+  disabled?: boolean;
   onPress: () => void;
 }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <TouchableOpacity
       activeOpacity={0.82}
+      disabled={disabled}
       onPress={onPress}
       style={[styles.swipeActionButton, { backgroundColor }]}
     >
@@ -165,6 +202,7 @@ function SwipeActionButton({
 function ClientCard({
   client,
   index,
+  isDeleting,
   onBook,
   onDelete,
   onEdit,
@@ -172,11 +210,14 @@ function ClientCard({
 }: {
   client: ClientListItem;
   index: number;
+  isDeleting: boolean;
   onBook: () => void;
   onDelete: () => void;
   onEdit: () => void;
   onQuickSale: () => void;
 }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const avatarTone = clientService.getAvatarTone(client.id);
   const statusIsInactive = client.inactive || client.status.toLowerCase() === "inactive";
 
@@ -195,14 +236,14 @@ function ClientCard({
         renderLeftActions={() => (
           <View style={styles.leftActions}>
             <SwipeActionButton
-              backgroundColor="#EAF5EF"
+              backgroundColor={Colors.successBg}
               color={Colors.primaryDark}
               icon="calendar-outline"
               label="Book"
               onPress={onBook}
             />
             <SwipeActionButton
-              backgroundColor="#FBF3E5"
+              backgroundColor={Colors.warningBg}
               color={Colors.goldDark}
               icon="flash-outline"
               label="Quick Sale"
@@ -213,17 +254,18 @@ function ClientCard({
         renderRightActions={() => (
           <View style={styles.rightActions}>
             <SwipeActionButton
-              backgroundColor="#EEF4F1"
+              backgroundColor={Colors.bg2}
               color={Colors.primaryDark}
               icon="create-outline"
               label="Edit"
               onPress={onEdit}
             />
             <SwipeActionButton
-              backgroundColor="#FEECEC"
+              backgroundColor={Colors.errorBg}
               color={Colors.error}
               icon="trash-outline"
               label="Delete"
+              disabled={isDeleting}
               onPress={onDelete}
             />
           </View>
@@ -234,30 +276,17 @@ function ClientCard({
           onPress={() => router.push(`/clients/${client.id}` as Href)}
           style={styles.clientCard}
         >
-          <View style={[styles.avatar, { backgroundColor: avatarTone.background }]}>
-            <Text style={[styles.avatarText, { color: avatarTone.color }]}>{client.initials}</Text>
-          </View>
+          <InitialsAvatar bg={avatarTone.background} color={avatarTone.color} initials={client.initials} size={44} />
 
           <View style={styles.clientCopy}>
             <View style={styles.nameRow}>
               <Text style={styles.clientName}>{client.fullName}</Text>
-              <View
-                style={[
-                  styles.statusBadge,
-                  statusIsInactive ? styles.statusBadgeInactive : styles.statusBadgeActive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.statusBadgeText,
-                    statusIsInactive
-                      ? styles.statusBadgeTextInactive
-                      : styles.statusBadgeTextActive,
-                  ]}
-                >
-                  {client.status}
-                </Text>
-              </View>
+              <Badge
+                bg={statusIsInactive ? Colors.errorBg : Colors.successBg}
+                color={statusIsInactive ? Colors.error : Colors.primaryDark}
+                label={client.status}
+                size="sm"
+              />
             </View>
 
             <View style={styles.infoRow}>
@@ -297,6 +326,9 @@ function ClientCard({
 }
 
 function ClientSkeletonCard({ index }: { index: number }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <Animated.View
       entering={FadeInDown.duration(220).delay(Math.min(index * 35, 140))}
@@ -319,25 +351,10 @@ function ClientSkeletonCard({ index }: { index: number }) {
   );
 }
 
-function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <View style={styles.emptyState}>
-      <View style={styles.emptyIllustration}>
-        <View style={styles.emptyIllustrationHalo} />
-        <View style={styles.emptyIllustrationCard}>
-          <Ionicons name="cloud-offline-outline" size={26} color={Colors.error} />
-        </View>
-      </View>
-      <Text style={styles.emptyTitle}>Unable to load clients</Text>
-      <Text style={styles.emptySubtitle}>{message}</Text>
-      <TouchableOpacity activeOpacity={0.85} onPress={onRetry} style={styles.emptyButton}>
-        <Text style={styles.emptyButtonText}>Retry</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
 function EmptyState({ onAdd, queryActive }: { onAdd: () => void; queryActive: boolean }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.emptyState}>
       <View style={styles.emptyIllustration}>
@@ -360,25 +377,113 @@ function EmptyState({ onAdd, queryActive }: { onAdd: () => void; queryActive: bo
 }
 
 export default function ClientsScreen() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
   const clients = useAppSelector(selectClients);
+  const deletingClientIds = useAppSelector(selectClientDeletingIds);
   const clientsError = useAppSelector(selectClientsError);
   const clientsLoading = useAppSelector(selectClientsLoading);
   const clientsLoadingMore = useAppSelector(selectClientsLoadingMore);
   const clientsPagination = useAppSelector(selectClientsPagination);
-  const clientsQuery = useAppSelector(selectClientsQuery);
   const clientsRefreshing = useAppSelector(selectClientsRefreshing);
   const totalCount = useAppSelector(selectClientsTotalCount);
 
-  const [activeFilter, setActiveFilter] = useState<ClientFilter>("All");
-  const [hiddenIds, setHiddenIds] = useState<string[]>([]);
-  const [isSortVisible, setIsSortVisible] = useState(false);
+  const duplicates = useAppSelector(selectClientDuplicates);
+  const duplicatesLoading = useAppSelector(selectClientDuplicatesLoading);
+  const duplicatesError = useAppSelector(selectClientDuplicatesError);
+  const isMerging = useAppSelector(selectClientMerging);
+  const isMergingAll = useAppSelector(selectClientMergingAll);
+
+  const didHandleInitialFocusRef = useRef(false);
+  const [statusFilter, setStatusFilter] = useState<ClientStatusFilter>(DEFAULT_STATUS_FILTER);
+  const [membershipFilter, setMembershipFilter] = useState<ClientMembershipFilter>(DEFAULT_MEMBERSHIP_FILTER);
+  const [draftStatusFilter, setDraftStatusFilter] = useState<ClientStatusFilter>(DEFAULT_STATUS_FILTER);
+  const [draftMembershipFilter, setDraftMembershipFilter] = useState<ClientMembershipFilter>(DEFAULT_MEMBERSHIP_FILTER);
+  const [draftSortOption, setDraftSortOption] = useState<ClientSortOption>(DEFAULT_SORT_OPTION);
+  const [isFilterSheetVisible, setIsFilterSheetVisible] = useState(false);
+  const [isDuplicatesVisible, setIsDuplicatesVisible] = useState(false);
   const [query, setQuery] = useState("");
-  const [sortOption, setSortOption] = useState<ClientSortOption>("Recently Added");
+  const [sortOption, setSortOption] = useState<ClientSortOption>(DEFAULT_SORT_OPTION);
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const sortQuery = useMemo(() => getSortQuery(sortOption), [sortOption]);
-  const inactiveQuery = activeFilter === "Inactive";
+  const statusQueryValue = useMemo(() => getStatusQueryValue(statusFilter), [statusFilter]);
+  const membershipQueryValue = useMemo(() => getMembershipQueryValue(membershipFilter), [membershipFilter]);
+  const filterValue = useMemo(() => getFilterValue(statusFilter, membershipFilter), [membershipFilter, statusFilter]);
+  const duplicatePhoneQuery = debouncedQuery.trim();
+  const activeFilterCount =
+    (statusFilter !== DEFAULT_STATUS_FILTER ? 1 : 0) +
+    (membershipFilter !== DEFAULT_MEMBERSHIP_FILTER ? 1 : 0) +
+    (sortOption !== DEFAULT_SORT_OPTION ? 1 : 0);
+
+  const openFilterSheet = useCallback(() => {
+    setDraftStatusFilter(statusFilter);
+    setDraftMembershipFilter(membershipFilter);
+    setDraftSortOption(sortOption);
+    setIsFilterSheetVisible(true);
+  }, [membershipFilter, sortOption, statusFilter]);
+
+  const resetDraftFilters = useCallback(() => {
+    setDraftStatusFilter(DEFAULT_STATUS_FILTER);
+    setDraftMembershipFilter(DEFAULT_MEMBERSHIP_FILTER);
+    setDraftSortOption(DEFAULT_SORT_OPTION);
+  }, []);
+
+  const applyDraftFilters = useCallback(() => {
+    startTransition(() => {
+      setStatusFilter(draftStatusFilter);
+      setMembershipFilter(draftMembershipFilter);
+      setSortOption(draftSortOption);
+    });
+    setIsFilterSheetVisible(false);
+  }, [draftMembershipFilter, draftSortOption, draftStatusFilter]);
+
+  const fetchClientList = useCallback(
+    (options: { offset?: number; refresh?: boolean; reset?: boolean } = {}) => {
+      const args: FetchClientsArgs = {
+        inactive:
+          statusFilter === "Active"
+            ? false
+            : statusFilter === "Inactive"
+              ? true
+              : undefined,
+        limit: options.offset ? clientsPagination.limit : 20,
+        offset: options.offset ?? 0,
+        refresh: options.refresh,
+        reset: options.reset,
+        search: debouncedQuery,
+        sort_by: sortQuery.sort_by,
+        sort_order: sortQuery.sort_order,
+      };
+
+      if (filterValue) {
+        void dispatch(
+          filterClientsThunk({
+            ...args,
+            filter: filterValue,
+            membership: membershipQueryValue,
+            status: statusQueryValue,
+          }),
+        );
+      } else if (debouncedQuery) {
+        void dispatch(searchClientsThunk(args));
+      } else {
+        void dispatch(fetchClientsThunk(args));
+      }
+    },
+    [
+      clientsPagination.limit,
+      debouncedQuery,
+      dispatch,
+      filterValue,
+      membershipQueryValue,
+      sortQuery.sort_by,
+      sortQuery.sort_order,
+      statusFilter,
+      statusQueryValue,
+    ],
+  );
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -389,36 +494,75 @@ export default function ClientsScreen() {
   }, [query]);
 
   useEffect(() => {
-    setHiddenIds([]);
-  }, [activeFilter, debouncedQuery, sortOption]);
+    fetchClientList({ reset: true });
+  }, [fetchClientList]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!didHandleInitialFocusRef.current) {
+        didHandleInitialFocusRef.current = true;
+        return;
+      }
+
+      fetchClientList({ refresh: true });
+    }, [fetchClientList]),
+  );
 
   useEffect(() => {
-    void dispatch(
-      fetchClientsThunk({
-        inactive: inactiveQuery,
-        limit: 20,
-        offset: 0,
-        reset: true,
-        search: debouncedQuery,
-        sort_by: sortQuery.sort_by,
-        sort_order: sortQuery.sort_order,
-      }),
+    if (isDuplicatesVisible) {
+      void dispatch(fetchDuplicatesThunk(duplicatePhoneQuery));
+    }
+  }, [duplicatePhoneQuery, isDuplicatesVisible, dispatch]);
+
+  const handleMergeGroup = (primaryId: string, secondaryId: string) => {
+    Alert.alert(
+      "Merge Clients",
+      "Are you sure you want to merge these two duplicate clients? All visits, appointments, and spend data will be combined into the primary client record.",
+      [
+        { style: "cancel", text: "Cancel" },
+        {
+          onPress: async () => {
+            const res = await dispatch(mergeClientsThunk({ primaryId, secondaryId }));
+            if (mergeClientsThunk.fulfilled.match(res)) {
+              Alert.alert("Success", "Clients merged successfully.");
+              void dispatch(fetchDuplicatesThunk(duplicatePhoneQuery));
+              handleRefresh();
+            } else {
+              Alert.alert("Error", "Unable to merge clients.");
+            }
+          },
+          text: "Merge",
+        },
+      ]
     );
-  }, [debouncedQuery, dispatch, inactiveQuery, sortQuery.sort_by, sortQuery.sort_order]);
+  };
 
-  const visibleClients = useMemo(
-    () => clients.filter((client) => !hiddenIds.includes(client.id)),
-    [clients, hiddenIds],
-  );
-
-  const filteredClients = useMemo(
-    () => sortClients(visibleClients.filter((client) => matchesFilter(client, activeFilter)), sortOption),
-    [activeFilter, sortOption, visibleClients],
-  );
+  const handleMergeAll = () => {
+    Alert.alert(
+      "Merge All Duplicates",
+      "Are you sure you want to merge all identified duplicate clients? This combines profiles that share matches.",
+      [
+        { style: "cancel", text: "Cancel" },
+        {
+          onPress: async () => {
+            const res = await dispatch(mergeAllDuplicatesThunk());
+            if (mergeAllDuplicatesThunk.fulfilled.match(res)) {
+              Alert.alert("Success", "All duplicates merged successfully.");
+              setIsDuplicatesVisible(false);
+              handleRefresh();
+            } else {
+              Alert.alert("Error", "Unable to merge all duplicates.");
+            }
+          },
+          text: "Merge All",
+        },
+      ]
+    );
+  };
 
   const todayNewClients = useMemo(
-    () => visibleClients.filter((client) => isCreatedToday(client.createdAt)).length,
-    [visibleClients],
+    () => clients.filter((client) => isCreatedToday(client.createdAt)).length,
+    [clients],
   );
 
   const handleAddClient = () => router.push("/clients/new");
@@ -433,17 +577,7 @@ export default function ClientsScreen() {
   };
 
   const handleRefresh = () => {
-    setHiddenIds([]);
-    void dispatch(
-      fetchClientsThunk({
-        inactive: inactiveQuery,
-        limit: clientsQuery.limit,
-        refresh: true,
-        search: debouncedQuery,
-        sort_by: sortQuery.sort_by,
-        sort_order: sortQuery.sort_order,
-      }),
-    );
+    fetchClientList({ refresh: true });
   };
 
   const handleLoadMore = () => {
@@ -456,26 +590,47 @@ export default function ClientsScreen() {
       return;
     }
 
-    void dispatch(
-      fetchClientsThunk({
-        inactive: inactiveQuery,
-        limit: clientsPagination.limit,
-        offset: clientsPagination.nextOffset,
-        search: debouncedQuery,
-        sort_by: sortQuery.sort_by,
-        sort_order: sortQuery.sort_order,
-      }),
+    fetchClientList({ offset: clientsPagination.nextOffset });
+  };
+
+  const handleDeleteClient = (client: ClientListItem) => {
+    Alert.alert(
+      "Delete Client",
+      `Are you sure you want to delete "${client.fullName}"? This action cannot be undone.`,
+      [
+        { style: "cancel", text: "Cancel" },
+        {
+          onPress: async () => {
+            const resultAction = await dispatch(deleteClientThunk(client.id));
+
+            if (deleteClientThunk.rejected.match(resultAction)) {
+              Alert.alert(
+                "Unable to delete client",
+                resultAction.payload?.message ?? "Something went wrong. Please try again.",
+              );
+              return;
+            }
+
+            Alert.alert(
+              "Client deleted",
+              resultAction.payload.message ?? "Client deleted successfully.",
+            );
+          },
+          style: "destructive",
+          text: "Delete",
+        },
+      ],
     );
   };
 
-  const isQueryActive = Boolean(query.trim()) || activeFilter !== "All";
+  const isQueryActive = Boolean(query.trim()) || activeFilterCount > 0;
   const showInitialLoading = clientsLoading && clients.length === 0;
   const showErrorState = Boolean(clientsError) && clients.length === 0 && !showInitialLoading;
 
   return (
     <GestureHandlerRootView style={styles.flex}>
       <SafeAreaView edges={["top"]} style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={Colors.bg} />
+        <AppStatusBar />
 
         <FlatList
           ListEmptyComponent={
@@ -517,7 +672,13 @@ export default function ClientsScreen() {
                     <Ionicons name="chevron-back" size={18} color={Colors.primary} />
                   </TouchableOpacity>
                   <Text style={styles.headerTitle}>Clients</Text>
-                  <View style={styles.backButtonPlaceholder} />
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => setIsDuplicatesVisible(true)}
+                    style={styles.backButton}
+                  >
+                    <Ionicons name="copy-outline" size={18} color={Colors.primary} />
+                  </TouchableOpacity>
                 </View>
                 <View style={styles.summaryCard}>
                   <View style={styles.summaryMetric}>
@@ -532,66 +693,58 @@ export default function ClientsScreen() {
                 </View>
               </View>
 
-              <View style={styles.searchWrap}>
-                <Ionicons name="search-outline" size={20} color={Colors.text2} />
-                <TextInput
-                  onChangeText={setQuery}
-                  placeholder="Search by name or mobile number"
-                  placeholderTextColor={Colors.placeholder}
-                  style={styles.searchInput}
-                  value={query}
-                />
-                {query.trim().length > 0 ? (
-                  <TouchableOpacity activeOpacity={0.8} onPress={() => setQuery("")}>
-                    <Ionicons name="close-circle" size={18} color={Colors.placeholder} />
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-
-              <View style={styles.filterRow}>
-                {CLIENT_FILTERS.map((filter) => {
-                  const isActive = filter === activeFilter;
-
-                  return (
-                    <TouchableOpacity
-                      key={filter}
-                      activeOpacity={0.82}
-                      onPress={() =>
-                        startTransition(() => {
-                          setActiveFilter(filter);
-                        })
-                      }
-                      style={[styles.filterChip, isActive && styles.filterChipActive]}
-                    >
-                      <Text
-                        style={[styles.filterChipText, isActive && styles.filterChipTextActive]}
-                      >
-                        {filter}
-                      </Text>
+              <View style={styles.searchFilterRow}>
+                <View style={styles.searchWrap}>
+                  <Ionicons name="search-outline" size={20} color={Colors.text2} />
+                  <TextInput
+                    onChangeText={setQuery}
+                    placeholder="Search by name or mobile number"
+                    placeholderTextColor={Colors.placeholder}
+                    style={styles.searchInput}
+                    value={query}
+                  />
+                  {query.trim().length > 0 ? (
+                    <TouchableOpacity activeOpacity={0.8} onPress={() => setQuery("")}>
+                      <Ionicons name="close-circle" size={18} color={Colors.placeholder} />
                     </TouchableOpacity>
-                  );
-                })}
+                  ) : null}
+                </View>
+                <TouchableOpacity
+                  activeOpacity={0.82}
+                  onPress={openFilterSheet}
+                  style={[styles.filterButton, activeFilterCount > 0 && styles.filterButtonActive]}
+                >
+                  <Ionicons
+                    name="options-outline"
+                    size={17}
+                    color={activeFilterCount > 0 ? "#FFFFFF" : Colors.primary}
+                  />
+                  <Text
+                    style={[
+                      styles.filterButtonText,
+                      activeFilterCount > 0 && styles.filterButtonTextActive,
+                    ]}
+                  >
+                    Filter
+                  </Text>
+                  {activeFilterCount > 0 ? (
+                    <View style={styles.filterCountBadge}>
+                      <Text style={styles.filterCountText}>{activeFilterCount}</Text>
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
               </View>
 
               <View style={styles.sortRow}>
                 <Text style={styles.sortMeta}>
-                  {activeFilter === "All"
-                    ? `${totalCount.toLocaleString("en-IN")} client${totalCount === 1 ? "" : "s"}`
-                    : `${filteredClients.length} client${filteredClients.length === 1 ? "" : "s"}`}
+                  {`${totalCount.toLocaleString("en-IN")} client${totalCount === 1 ? "" : "s"}`}
                 </Text>
-                <TouchableOpacity
-                  activeOpacity={0.82}
-                  onPress={() => setIsSortVisible(true)}
-                  style={styles.sortButton}
-                >
-                  <Ionicons name="swap-vertical-outline" size={16} color={Colors.primary} />
-                  <Text style={styles.sortButtonText}>{sortOption}</Text>
-                </TouchableOpacity>
+                <Text style={styles.sortMeta}>Sorted by {sortOption}</Text>
               </View>
             </View>
           }
           contentContainerStyle={styles.listContent}
-          data={filteredClients}
+          data={clients}
           initialNumToRender={8}
           keyExtractor={(item) => item.id}
           onEndReached={handleLoadMore}
@@ -608,13 +761,10 @@ export default function ClientsScreen() {
             <ClientCard
               client={item}
               index={index}
+              isDeleting={deletingClientIds.includes(item.id)}
               onBook={() => router.push("/bookings/new")}
-              onDelete={() =>
-                startTransition(() => {
-                  setHiddenIds((current) => [...current, item.id]);
-                })
-              }
-              onEdit={() => router.push("/clients/new")}
+              onDelete={() => handleDeleteClient(item)}
+              onEdit={() => router.push(`/clients/${item.id}/edit` as Href)}
               onQuickSale={() => router.push("/quick-sale")}
             />
           )}
@@ -636,46 +786,184 @@ export default function ClientsScreen() {
 
         <Modal
           animationType="fade"
-          onRequestClose={() => setIsSortVisible(false)}
+          onRequestClose={() => setIsFilterSheetVisible(false)}
           transparent
-          visible={isSortVisible}
+          visible={isFilterSheetVisible}
         >
-          <Pressable onPress={() => setIsSortVisible(false)} style={styles.modalOverlay}>
-            <Pressable style={styles.sortSheet}>
-              <Text style={styles.sortSheetTitle}>Sort Clients</Text>
-              {CLIENT_SORT_OPTIONS.map((option, index) => {
-                const isActive = option === sortOption;
+          <Pressable onPress={() => setIsFilterSheetVisible(false)} style={styles.modalOverlay}>
+            <Pressable style={styles.filterSheet}>
+              <View style={styles.sheetHandle} />
+              <Text style={styles.filterSheetTitle}>Filter Clients</Text>
 
-                return (
-                  <TouchableOpacity
-                    key={option}
-                    activeOpacity={0.82}
-                    onPress={() => {
-                      startTransition(() => {
-                        setSortOption(option);
-                      });
-                      setIsSortVisible(false);
-                    }}
-                    style={[styles.sortOptionRow, index > 0 && styles.sortOptionRowBorder]}
-                  >
-                    <Text style={[styles.sortOptionText, isActive && styles.sortOptionTextActive]}>
-                      {option}
-                    </Text>
-                    {isActive ? (
-                      <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />
-                    ) : null}
-                  </TouchableOpacity>
-                );
-              })}
+              <Text style={styles.filterSectionTitle}>Status</Text>
+              <View style={styles.filterOptionGrid}>
+                {STATUS_FILTERS.map((option) => {
+                  const isActive = option === draftStatusFilter;
+
+                  return (
+                    <TouchableOpacity
+                      key={option}
+                      activeOpacity={0.82}
+                      onPress={() => setDraftStatusFilter(option)}
+                      style={[styles.sheetOption, isActive && styles.sheetOptionActive]}
+                    >
+                      <Text style={[styles.sheetOptionText, isActive && styles.sheetOptionTextActive]}>
+                        {option}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.filterSectionTitle}>Membership</Text>
+              <View style={styles.filterOptionGrid}>
+                {MEMBERSHIP_FILTERS.map((option) => {
+                  const isActive = option === draftMembershipFilter;
+
+                  return (
+                    <TouchableOpacity
+                      key={option}
+                      activeOpacity={0.82}
+                      onPress={() => setDraftMembershipFilter(option)}
+                      style={[styles.sheetOption, isActive && styles.sheetOptionActive]}
+                    >
+                      <Text style={[styles.sheetOptionText, isActive && styles.sheetOptionTextActive]}>
+                        {option}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.filterSectionTitle}>Sort By</Text>
+              <View style={styles.filterOptionList}>
+                {CLIENT_SORT_OPTIONS.map((option) => {
+                  const isActive = option === draftSortOption;
+
+                  return (
+                    <TouchableOpacity
+                      key={option}
+                      activeOpacity={0.82}
+                      onPress={() => setDraftSortOption(option)}
+                      style={[styles.sheetListOption, isActive && styles.sheetListOptionActive]}
+                    >
+                      <Text style={[styles.sheetOptionText, isActive && styles.sheetOptionTextActive]}>
+                        {option}
+                      </Text>
+                      {isActive ? <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" /> : null}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <View style={styles.sheetActionRow}>
+                <TouchableOpacity activeOpacity={0.82} onPress={resetDraftFilters} style={styles.resetButton}>
+                  <Text style={styles.resetButtonText}>Reset Filters</Text>
+                </TouchableOpacity>
+                <TouchableOpacity activeOpacity={0.86} onPress={applyDraftFilters} style={styles.applyButton}>
+                  <Text style={styles.applyButtonText}>Apply</Text>
+                </TouchableOpacity>
+              </View>
             </Pressable>
           </Pressable>
+        </Modal>
+
+        <Modal
+          animationType="slide"
+          onRequestClose={() => setIsDuplicatesVisible(false)}
+          visible={isDuplicatesVisible}
+        >
+          <SafeAreaView style={styles.modalSafeArea}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setIsDuplicatesVisible(false)}
+                style={styles.modalCloseButton}
+              >
+                <Ionicons name="close" size={24} color={Colors.primary} />
+              </TouchableOpacity>
+              <Text style={styles.modalHeaderTitle}>Duplicate Clients</Text>
+              <View style={{ width: 40 }} />
+            </View>
+
+            {duplicatesLoading ? (
+              <View style={styles.centeredLoader}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+                <Text style={styles.loaderText}>Checking for duplicates...</Text>
+              </View>
+            ) : duplicatesError ? (
+              <View style={styles.centeredLoader}>
+                <Text style={styles.errorText}>{duplicatesError}</Text>
+              </View>
+            ) : !duplicates || duplicates.length === 0 ? (
+              <View style={styles.centeredLoader}>
+                <Ionicons name="checkmark-done-circle-outline" size={48} color={Colors.success} />
+                <Text style={styles.successText}>No duplicates found!</Text>
+              </View>
+            ) : (
+              <View style={styles.duplicatesContent}>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={handleMergeAll}
+                  style={styles.mergeAllButton}
+                  disabled={isMergingAll}
+                >
+                  {isMergingAll ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="git-merge-outline" size={16} color="#FFFFFF" />
+                      <Text style={styles.mergeAllButtonText}>Merge All Duplicates</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                <FlatList
+                  data={duplicates}
+                  keyExtractor={(item) => item.id}
+                  contentContainerStyle={{ paddingBottom: 24 }}
+                  renderItem={({ item }) => (
+                    <View style={styles.duplicateGroupCard}>
+                      <View style={styles.duplicateGroupHeader}>
+                        <Ionicons name="alert-circle" size={16} color={Colors.goldDark} />
+                        <Text style={styles.duplicateGroupTitle}>
+                          Duplicate {item.type}: {item.value}
+                        </Text>
+                      </View>
+
+                      {item.clients.map((dupClient, idx) => (
+                        <View key={dupClient.id} style={[styles.duplicateClientRow, idx > 0 && styles.borderTop]}>
+                          <View style={styles.dupClientInfo}>
+                            <Text style={styles.dupClientName}>{dupClient.fullName}</Text>
+                            <Text style={styles.dupClientMeta}>Phone: {dupClient.phone}</Text>
+                            <Text style={styles.dupClientMeta}>Email: {dupClient.email}</Text>
+                          </View>
+                        </View>
+                      ))}
+
+                      {item.clients.length >= 2 ? (
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          onPress={() => handleMergeGroup(item.clients[0].id, item.clients[1].id)}
+                          style={styles.mergeGroupButton}
+                          disabled={isMerging}
+                        >
+                          <Text style={styles.mergeGroupButtonText}>Merge These Two</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  )}
+                />
+              </View>
+            )}
+          </SafeAreaView>
         </Modal>
       </SafeAreaView>
     </GestureHandlerRootView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   flex: {
     flex: 1,
   },
@@ -704,7 +992,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     height: AppLayout.headerActionSize,
     justifyContent: "center",
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.05,
     shadowRadius: 14,
@@ -727,7 +1015,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: AppLayout.cardPadding,
     paddingVertical: Spacing.md,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
@@ -753,18 +1041,24 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.md,
     width: 1,
   },
+  searchFilterRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
   searchWrap: {
     alignItems: "center",
     backgroundColor: Colors.card,
     borderColor: Colors.border,
     borderRadius: AppRadius.search,
     borderWidth: 1,
+    flex: 1,
     flexDirection: "row",
     gap: Spacing.sm,
     marginBottom: AppLayout.sectionGap,
     minHeight: AppLayout.searchBarHeight,
     paddingHorizontal: AppLayout.searchBarPaddingX,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.03,
     shadowRadius: 14,
@@ -775,31 +1069,44 @@ const styles = StyleSheet.create({
     fontSize: 14,
     minHeight: AppLayout.searchBarHeight,
   },
-  filterRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingBottom: 2,
-    paddingRight: 0,
-  },
-  filterChip: {
+  filterButton: {
+    alignItems: "center",
     backgroundColor: Colors.card,
     borderColor: Colors.border,
-    borderRadius: Radius.full,
+    borderRadius: AppRadius.search,
     borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
+    flexDirection: "row",
+    gap: 6,
+    justifyContent: "center",
+    marginBottom: AppLayout.sectionGap,
+    minHeight: AppLayout.searchBarHeight,
+    paddingHorizontal: Spacing.md,
   },
-  filterChipActive: {
+  filterButtonActive: {
     backgroundColor: Colors.primary,
     borderColor: Colors.primary,
   },
-  filterChipText: {
-    color: Colors.text2,
-    fontSize: 11,
-    fontWeight: "700",
+  filterButtonText: {
+    color: Colors.primary,
+    fontSize: 13,
+    fontWeight: "800",
   },
-  filterChipTextActive: {
+  filterButtonTextActive: {
     color: "#FFFFFF",
+  },
+  filterCountBadge: {
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: Radius.full,
+    height: 18,
+    justifyContent: "center",
+    minWidth: 18,
+    paddingHorizontal: 5,
+  },
+  filterCountText: {
+    color: Colors.primary,
+    fontSize: 10,
+    fontWeight: "900",
   },
   sortRow: {
     alignItems: "center",
@@ -812,22 +1119,6 @@ const styles = StyleSheet.create({
     color: Colors.text2,
     fontSize: 12,
     fontWeight: "600",
-  },
-  sortButton: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 6,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 10,
-  },
-  sortButtonText: {
-    color: Colors.primary,
-    fontSize: 12,
-    fontWeight: "700",
   },
   swipeRow: {
     marginBottom: Spacing.sm,
@@ -869,22 +1160,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: "row",
     padding: AppLayout.cardPadding,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
     elevation: 2,
-  },
-  avatar: {
-    alignItems: "center",
-    borderRadius: 22,
-    height: 44,
-    justifyContent: "center",
-    width: 44,
-  },
-  avatarText: {
-    fontSize: 14,
-    fontWeight: "800",
   },
   clientCopy: {
     flex: 1,
@@ -902,27 +1182,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginRight: Spacing.sm,
   },
-  statusBadge: {
-    borderRadius: Radius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  statusBadgeActive: {
-    backgroundColor: "#EAF5EF",
-  },
-  statusBadgeInactive: {
-    backgroundColor: "#FEECEC",
-  },
-  statusBadgeText: {
-    fontSize: 10,
-    fontWeight: "800",
-  },
-  statusBadgeTextActive: {
-    color: Colors.primaryDark,
-  },
-  statusBadgeTextInactive: {
-    color: Colors.error,
-  },
   infoRow: {
     alignItems: "center",
     flexDirection: "row",
@@ -937,7 +1196,7 @@ const styles = StyleSheet.create({
   membershipBadge: {
     alignItems: "center",
     alignSelf: "flex-start",
-    backgroundColor: "#FBF3E5",
+    backgroundColor: Colors.warningBg,
     borderRadius: Radius.full,
     flexDirection: "row",
     gap: 4,
@@ -1026,7 +1285,7 @@ const styles = StyleSheet.create({
     width: 96,
   },
   emptyIllustrationHalo: {
-    backgroundColor: "#EEF4F1",
+    backgroundColor: Colors.bg2,
     borderRadius: 48,
     height: 96,
     opacity: 0.9,
@@ -1041,7 +1300,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     height: 54,
     justifyContent: "center",
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.06,
     shadowRadius: 14,
@@ -1102,7 +1361,7 @@ const styles = StyleSheet.create({
     gap: 8,
     justifyContent: "center",
     minHeight: 54,
-    shadowColor: Colors.primaryDark,
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.18,
     shadowRadius: 18,
@@ -1113,39 +1372,235 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   modalOverlay: {
-    backgroundColor: "rgba(36, 59, 52, 0.24)",
+    backgroundColor: "rgba(28, 25, 23, 0.12)",
     flex: 1,
     justifyContent: "flex-end",
     padding: Spacing.lg,
   },
-  sortSheet: {
+  filterSheet: {
     backgroundColor: Colors.card,
     borderRadius: Radius.xl,
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.lg,
   },
-  sortSheetTitle: {
+  sheetHandle: {
+    alignSelf: "center",
+    backgroundColor: Colors.border,
+    borderRadius: Radius.full,
+    height: 4,
+    marginBottom: Spacing.md,
+    width: 44,
+  },
+  filterSheetTitle: {
     color: Colors.heading,
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: "800",
+    marginBottom: Spacing.md,
+  },
+  filterSectionTitle: {
+    color: Colors.text2,
+    fontSize: 12,
     fontWeight: "800",
     marginBottom: Spacing.sm,
+    marginTop: Spacing.md,
+    textTransform: "uppercase",
   },
-  sortOptionRow: {
+  filterOptionGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  filterOptionList: {
+    gap: Spacing.sm,
+  },
+  sheetOption: {
     alignItems: "center",
+    backgroundColor: Colors.bg,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.control,
+    borderWidth: 1,
+    minHeight: 42,
+    justifyContent: "center",
+    paddingHorizontal: Spacing.md,
+  },
+  sheetOptionActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  sheetListOption: {
+    alignItems: "center",
+    backgroundColor: Colors.bg,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.control,
+    borderWidth: 1,
     flexDirection: "row",
     justifyContent: "space-between",
+    minHeight: 46,
+    paddingHorizontal: Spacing.md,
+  },
+  sheetListOptionActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  sheetOptionText: {
+    color: Colors.heading,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  sheetOptionTextActive: {
+    color: "#FFFFFF",
+  },
+  sheetActionRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.lg,
+  },
+  resetButton: {
+    alignItems: "center",
+    borderColor: Colors.border,
+    borderRadius: AppRadius.control,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 48,
+  },
+  resetButtonText: {
+    color: Colors.heading,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  applyButton: {
+    alignItems: "center",
+    backgroundColor: Colors.primary,
+    borderRadius: AppRadius.control,
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 48,
+  },
+  applyButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  modalSafeArea: {
+    backgroundColor: Colors.bg,
+    flex: 1,
+  },
+  modalHeader: {
+    alignItems: "center",
+    borderBottomColor: Colors.border,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
+  modalCloseButton: {
+    alignItems: "center",
+    height: 40,
+    justifyContent: "center",
+    width: 40,
+  },
+  modalHeaderTitle: {
+    color: Colors.heading,
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  centeredLoader: {
+    alignItems: "center",
+    flex: 1,
+    gap: Spacing.md,
+    justifyContent: "center",
+  },
+  loaderText: {
+    color: Colors.text2,
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: Spacing.sm,
+  },
+  errorText: {
+    color: Colors.error,
+    fontSize: 13,
+    textAlign: "center",
+  },
+  successText: {
+    color: Colors.success,
+    fontSize: 16,
+    fontWeight: "800",
+    marginTop: Spacing.md,
+  },
+  duplicatesContent: {
+    flex: 1,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+  },
+  mergeAllButton: {
+    alignItems: "center",
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.full,
+    flexDirection: "row",
+    gap: Spacing.sm,
+    justifyContent: "center",
+    marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.xl,
     paddingVertical: 14,
   },
-  sortOptionRowBorder: {
+  mergeAllButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  duplicateGroupCard: {
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    marginBottom: Spacing.md,
+    padding: Spacing.md,
+  },
+  duplicateGroupHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  duplicateGroupTitle: {
+    color: Colors.goldDark,
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  duplicateClientRow: {
+    paddingVertical: Spacing.sm,
+  },
+  borderTop: {
     borderTopColor: Colors.border,
     borderTopWidth: 1,
   },
-  sortOptionText: {
+  dupClientInfo: {
+    gap: 2,
+  },
+  dupClientName: {
     color: Colors.heading,
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "800",
   },
-  sortOptionTextActive: {
+  dupClientMeta: {
+    color: Colors.text2,
+    fontSize: 12,
+  },
+  mergeGroupButton: {
+    alignItems: "center",
+    backgroundColor: Colors.bg2,
+    borderColor: Colors.primary,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    marginTop: Spacing.sm,
+    paddingVertical: 10,
+  },
+  mergeGroupButtonText: {
     color: Colors.primary,
+    fontSize: 13,
+    fontWeight: "700",
   },
 });

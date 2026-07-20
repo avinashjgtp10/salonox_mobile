@@ -1,6 +1,5 @@
 import { api } from "@/services/api";
 import { SALES } from "@/services/api/endpoints";
-import { serviceService } from "@/services/service.service";
 import type { ApiResponse } from "@/types/auth";
 import type {
   CheckoutSaleRequest,
@@ -9,14 +8,12 @@ import type {
   CreateSaleResponse,
   DeleteSaleResponse,
   ExportSalesResponse,
-  PosCatalogItem,
-  PosClient,
-  PosCoupon,
-  PosSettingRow,
+  PosServiceItem,
   PosStaffMember,
-  PreviousSale,
   SaleDetail,
+  SaleItemType,
   SaleLineItem,
+  SaleLineItemRequest,
   SaleListItem,
   SalesInitApiData,
   SalesInitData,
@@ -45,7 +42,6 @@ type SalesListApiData =
       count?: number | null;
       data?: UnknownRecord[] | null;
       items?: UnknownRecord[] | null;
-      pagination?: UnknownRecord | null;
       rows?: UnknownRecord[] | null;
       sales?: UnknownRecord[] | null;
       total?: number | null;
@@ -57,31 +53,14 @@ type SalesSummaryApiResponse = ApiResponse<UnknownRecord | null>;
 type ExportSalesApiResponse = ApiResponse<UnknownRecord | string | null>;
 
 const AVATAR_PALETTE = [
-  { background: "#FBF3E5", color: "#8A5A0E" },
-  { background: "#EAF5EF", color: "#2E7049" },
-  { background: "#F1EEF8", color: "#6B52C1" },
-  { background: "#FAECE7", color: "#712B13" },
-  { background: "#EEF4F1", color: "#365046" },
+  { background: "#F2EFE9", color: "#726A63" },
+  { background: "#F2EFE9", color: "#726A63" },
+  { background: "#F2EFE9", color: "#726A63" },
+  { background: "#F2EFE9", color: "#726A63" },
+  { background: "#F2EFE9", color: "#1C1917" },
 ] as const;
 
-const DEFAULT_PAYMENT_METHODS = ["Cash", "Card", "UPI", "Wallet", "Gift Card", "Split Payment"];
-const DEFAULT_DISCOUNT_TYPES = [
-  "Percentage Discount",
-  "Fixed Amount Discount",
-  "Coupon Code",
-  "Membership Discount",
-];
-const DEFAULT_TAX_RATE = 18;
-
-const WALK_IN_CLIENT: PosClient = {
-  avatarBg: "#EEF4F1",
-  avatarColor: "#365046",
-  id: "walk-in",
-  initials: "WI",
-  loyaltyPoints: 0,
-  mobileNumber: "No client selected",
-  name: "Walk-in Customer",
-};
+const VALID_SALE_ITEM_TYPES: SaleItemType[] = ["service", "product", "membership", "gift_card", "quick"];
 
 const asRecord = (value: unknown): UnknownRecord =>
   typeof value === "object" && value !== null && !Array.isArray(value)
@@ -120,6 +99,12 @@ const toSafeNumber = (value: unknown) => {
   return 0;
 };
 
+// The create/update validators require unit_price/discount_amount/tax_amount/
+// tip_amount to be decimal STRINGS, not numbers (sales.validator.ts,
+// sales.types.ts) — matching the Postgres numeric-as-string convention this
+// backend uses everywhere else. Never send a plain number for these fields.
+const toMoneyString = (value: number) => value.toFixed(2);
+
 const firstValue = (record: UnknownRecord, keys: string[]): unknown => {
   for (const key of keys) {
     const value = record[key];
@@ -136,29 +121,6 @@ const firstArray = (record: UnknownRecord, keys: string[]): UnknownRecord[] => {
   const value = firstValue(record, keys);
 
   return Array.isArray(value) ? value.map(asRecord) : [];
-};
-
-// Some backends nest the POS catalog a level deeper (e.g. `data.catalog.services`
-// or `data.pos.services`) instead of at the top level of the /sales/init payload.
-// This checks the direct keys first, then falls back to common wrapper objects.
-const CATALOG_WRAPPER_KEYS = ["catalog", "menu", "pos", "posData", "pos_data"];
-
-const firstArrayDeep = (record: UnknownRecord, keys: string[]): UnknownRecord[] => {
-  const direct = firstArray(record, keys);
-
-  if (direct.length > 0) {
-    return direct;
-  }
-
-  for (const wrapperKey of CATALOG_WRAPPER_KEYS) {
-    const wrapped = firstArray(asRecord(record[wrapperKey]), keys);
-
-    if (wrapped.length > 0) {
-      return wrapped;
-    }
-  }
-
-  return [];
 };
 
 const getAvatarTone = (seed: string) => {
@@ -184,10 +146,7 @@ const getInitials = (name: string, fallback = "??") => {
 };
 
 const getEntryName = (entry: UnknownRecord, fallback: string) =>
-  toSafeString(
-    firstValue(entry, ["name", "fullName", "full_name", "title", "label", "service_name"]),
-    fallback,
-  );
+  toSafeString(firstValue(entry, ["name", "full_name", "fullName", "title"]), fallback);
 
 const getEntryId = (entry: UnknownRecord, fallbackName: string) =>
   toSafeString(firstValue(entry, ["id", "_id"]), fallbackName.toLowerCase().replace(/\s+/g, "-"));
@@ -202,62 +161,6 @@ const toDurationLabel = (value: unknown): string | undefined => {
   return minutes > 0 ? `${minutes} min` : undefined;
 };
 
-const normalizeClient = (entry: UnknownRecord): PosClient => {
-  const name = getEntryName(entry, "Client");
-  const id = getEntryId(entry, name);
-  const tone = getAvatarTone(id);
-  const membershipValue = firstValue(entry, ["membership", "membership_name", "membershipName"]);
-  const membership =
-    toSafeString(membershipValue) || toSafeString(asRecord(membershipValue).name) || undefined;
-  const walletBalance = toSafeNumber(
-    firstValue(entry, ["walletBalance", "wallet_balance", "wallet"]),
-  );
-
-  return {
-    avatarBg: tone.background,
-    avatarColor: tone.color,
-    id,
-    initials: getInitials(name, "CL"),
-    loyaltyPoints: toSafeNumber(
-      firstValue(entry, ["loyaltyPoints", "loyalty_points", "points"]),
-    ),
-    ...(membership ? { membership } : {}),
-    mobileNumber: toSafeString(
-      firstValue(entry, ["mobileNumber", "mobile_number", "mobile", "phone", "phone_number", "phoneNumber"]),
-      "-",
-    ),
-    name,
-    ...(walletBalance > 0 ? { walletBalance } : {}),
-  };
-};
-
-const normalizeCatalogItem = (
-  entry: UnknownRecord,
-  category: "service" | "product",
-): PosCatalogItem => {
-  const name = getEntryName(entry, category === "service" ? "Service" : "Product");
-  const duration = toDurationLabel(
-    firstValue(entry, ["duration", "duration_minutes", "durationMinutes"]),
-  );
-  const quickChipValue = firstValue(entry, [
-    "isQuickChip",
-    "is_quick_chip",
-    "isPopular",
-    "is_popular",
-    "featured",
-    "is_featured",
-  ]);
-
-  return {
-    category,
-    ...(category === "service" && duration ? { duration } : {}),
-    id: getEntryId(entry, `${category}-${name}`),
-    ...(quickChipValue === true || quickChipValue === "true" ? { isQuickChip: true } : {}),
-    name,
-    price: toSafeNumber(firstValue(entry, ["price", "amount", "selling_price", "sellingPrice"])),
-  };
-};
-
 const normalizeStaffMember = (entry: UnknownRecord): PosStaffMember => {
   const name = getEntryName(entry, "Staff");
   const id = getEntryId(entry, name);
@@ -269,29 +172,19 @@ const normalizeStaffMember = (entry: UnknownRecord): PosStaffMember => {
     id,
     initials: getInitials(name, "ST"),
     name,
-    status: toSafeString(
-      firstValue(entry, ["status", "availability", "role", "designation"]),
-      "Available",
-    ),
+    status: toSafeString(firstValue(entry, ["status", "availability"]), "Available"),
   };
 };
 
-const normalizeCoupon = (entry: UnknownRecord): PosCoupon | null => {
-  const code = toSafeString(firstValue(entry, ["code", "coupon_code", "couponCode"])).toUpperCase();
-
-  if (!code) {
-    return null;
-  }
-
-  const rawType = toSafeString(
-    firstValue(entry, ["type", "discount_type", "discountType"]),
-  ).toLowerCase();
+const normalizeServiceItem = (entry: UnknownRecord): PosServiceItem => {
+  const name = getEntryName(entry, "Service");
 
   return {
-    code,
-    label: toSafeString(firstValue(entry, ["label", "description", "name", "title"]), code),
-    type: rawType.includes("percent") ? "percentage" : "fixed",
-    value: toSafeNumber(firstValue(entry, ["value", "amount", "discount_value", "discountValue"])),
+    category: toSafeString(firstValue(entry, ["category_name", "categoryName", "category"])) || null,
+    duration: toDurationLabel(firstValue(entry, ["duration", "duration_minutes", "durationMinutes"])),
+    id: getEntryId(entry, name),
+    name,
+    price: toSafeNumber(firstValue(entry, ["price"])),
   };
 };
 
@@ -314,82 +207,6 @@ const formatSaleTime = (value: unknown): string => {
     minute: "2-digit",
     month: "short",
   }).format(parsedDate);
-};
-
-const normalizePreviousSale = (entry: UnknownRecord, index: number): PreviousSale => {
-  const clientValue = firstValue(entry, ["clientName", "client_name", "client", "customer_name"]);
-  const clientName =
-    toSafeString(clientValue) || toSafeString(asRecord(clientValue).name) || "Walk-in Customer";
-
-  return {
-    amount: toSafeNumber(firstValue(entry, ["amount", "total", "grand_total", "grandTotal"])),
-    clientName,
-    id: toSafeString(
-      firstValue(entry, ["receipt", "receipt_number", "receiptNumber", "id", "_id"]),
-      `SALE-${index + 1}`,
-    ),
-    method: toSafeString(
-      firstValue(entry, ["method", "payment_method", "paymentMethod"]),
-      "-",
-    ),
-    timeLabel: formatSaleTime(firstValue(entry, ["timeLabel", "time", "created_at", "createdAt"])),
-  };
-};
-
-const normalizeStringList = (record: UnknownRecord, keys: string[]): string[] => {
-  const value = firstValue(record, keys);
-
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .map((entry) =>
-      typeof entry === "string"
-        ? entry.trim()
-        : toSafeString(firstValue(asRecord(entry), ["name", "label", "method", "type", "title"])),
-    )
-    .filter(Boolean);
-};
-
-const getTaxRate = (payload: UnknownRecord): number => {
-  const directRate = firstValue(payload, ["taxRate", "tax_rate", "tax_percentage", "taxPercentage"]);
-
-  if (directRate !== undefined) {
-    const rate = toSafeNumber(directRate);
-
-    if (rate > 0) {
-      return rate;
-    }
-  }
-
-  const taxes = firstArray(payload, ["taxes", "tax"]);
-
-  for (const tax of taxes) {
-    const rate = toSafeNumber(firstValue(tax, ["rate", "percentage", "value"]));
-
-    if (rate > 0) {
-      return rate;
-    }
-  }
-
-  return DEFAULT_TAX_RATE;
-};
-
-const buildSettings = (payload: UnknownRecord, taxRate: number): PosSettingRow[] => {
-  const apiSettings = firstArray(payload, ["settings", "pos_settings", "posSettings"])
-    .map((entry, index) => ({
-      id: getEntryId(entry, `setting-${index}`),
-      label: toSafeString(firstValue(entry, ["label", "name", "title"]), `Setting ${index + 1}`),
-      value: toSafeString(firstValue(entry, ["value", "setting_value"]), "-"),
-    }))
-    .filter((setting) => setting.value !== "-");
-
-  if (apiSettings.length > 0) {
-    return apiSettings;
-  }
-
-  return [{ id: "tax", label: "Tax Rate", value: `${taxRate}%` }];
 };
 
 const isSaleEnvelope = (
@@ -423,69 +240,56 @@ const getSalesTotalCount = (payload: SalesListApiData, fallbackCount: number): n
     toSafeNumber(payload.total_count) ||
     toSafeNumber(payload.total) ||
     toSafeNumber(payload.count) ||
-    toSafeNumber(asRecord(payload.pagination).totalCount) ||
-    toSafeNumber(asRecord(payload.pagination).total) ||
     fallbackCount
   );
 };
 
-const getSalesPagination = (
-  payload: SalesListApiData,
-  query: SalesListQuery,
-  pageCount: number,
-  totalCount: number,
-): SalesListPagination => {
-  const paginationRecord = Array.isArray(payload) ? {} : asRecord(payload.pagination);
-
-  const payloadOffset = toSafeNumber(firstValue(paginationRecord, ["offset"]));
-  const payloadLimit = toSafeNumber(firstValue(paginationRecord, ["limit"]));
-  const payloadNextOffset = toSafeNumber(firstValue(paginationRecord, ["next_offset", "nextOffset"]));
-  const payloadHasMore = firstValue(paginationRecord, ["has_more", "hasMore"]);
-
-  const offset = payloadOffset || query.offset;
-  const limit = payloadLimit || query.limit;
-  const nextOffset = payloadNextOffset || offset + pageCount;
-  const hasMore =
-    payloadHasMore === true || (totalCount > 0 ? nextOffset < totalCount : pageCount >= limit);
-
-  return {
-    hasMore,
-    limit,
-    nextOffset,
-    offset,
-  };
-};
+// The real GET /sales endpoint has no pagination at all (sales.repository.ts
+// `list()` — no LIMIT/OFFSET, returns every matching row). This always
+// reports hasMore: false after the one unbounded fetch, which is the honest
+// reflection of that — not a simulation of real server-side pagination.
+const getSalesPagination = (query: SalesListQuery, pageCount: number): SalesListPagination => ({
+  hasMore: false,
+  limit: query.limit,
+  nextOffset: query.offset + pageCount,
+  offset: query.offset,
+});
 
 const getSaleClientName = (entry: UnknownRecord): string => {
   const clientValue = firstValue(entry, ["client", "customer"]);
   const nested = asRecord(clientValue);
 
   return (
-    toSafeString(firstValue(entry, ["clientName", "client_name", "customer_name"])) ||
-    toSafeString(firstValue(nested, ["name", "fullName", "full_name"])) ||
+    toSafeString(firstValue(entry, ["client_name", "clientName"])) ||
+    toSafeString(firstValue(nested, ["full_name", "fullName", "name"])) ||
     toSafeString(clientValue) ||
     "Walk-in Customer"
   );
 };
 
+const toSaleItemType = (value: unknown): SaleItemType => {
+  const normalized = toSafeString(value).toLowerCase();
+
+  return (VALID_SALE_ITEM_TYPES as string[]).includes(normalized)
+    ? (normalized as SaleItemType)
+    : "quick";
+};
+
 const normalizeSaleLineItem = (entry: UnknownRecord, index: number): SaleLineItem => {
-  const category =
-    toSafeString(firstValue(entry, ["category", "type"])).toLowerCase() === "product"
-      ? "product"
-      : "service";
-  const staffValue = firstValue(entry, ["staffName", "staff_name", "staff"]);
-  const staffName =
-    toSafeString(staffValue) || toSafeString(asRecord(staffValue).name) || undefined;
-  const duration = toDurationLabel(firstValue(entry, ["duration", "duration_minutes", "durationMinutes"]));
+  const staffValue = firstValue(entry, ["staff_name", "staffName", "staff"]);
+  const staffName = toSafeString(staffValue) || toSafeString(asRecord(staffValue).name) || undefined;
 
   return {
-    category,
-    ...(category === "service" && duration ? { duration } : {}),
-    id: getEntryId(entry, `line-${index}`),
-    name: getEntryName(entry, category === "service" ? "Service" : "Product"),
-    price: toSafeNumber(firstValue(entry, ["price", "amount", "unit_price", "unitPrice"])),
+    discountAmount: toSafeNumber(firstValue(entry, ["discount_amount", "discountAmount"])),
+    id: toSafeString(firstValue(entry, ["id", "_id"]), `line-${index}`),
+    itemId: toSafeString(firstValue(entry, ["item_id", "itemId"])) || null,
+    itemType: toSaleItemType(firstValue(entry, ["item_type", "itemType"])),
+    name: getEntryName(entry, "Item"),
     quantity: toSafeNumber(firstValue(entry, ["quantity", "qty"])) || 1,
+    staffId: toSafeString(firstValue(entry, ["staff_id", "staffId"])) || null,
     ...(staffName ? { staffName } : {}),
+    totalPrice: toSafeNumber(firstValue(entry, ["total_price", "totalPrice"])),
+    unitPrice: toSafeNumber(firstValue(entry, ["unit_price", "unitPrice"])),
   };
 };
 
@@ -494,110 +298,136 @@ const normalizeSaleListItem = (entry: UnknownRecord): SaleListItem => {
 
   return {
     clientName: getSaleClientName(entry),
-    createdDateLabel: formatSaleTime(firstValue(entry, ["createdAt", "created_at", "time"])),
+    createdDateLabel: formatSaleTime(firstValue(entry, ["created_at", "createdAt"])),
     id: toSafeString(firstValue(entry, ["id", "_id"])),
-    itemCount: lineItems.length || toSafeNumber(firstValue(entry, ["itemCount", "item_count"])),
-    paymentMethod: toSafeString(firstValue(entry, ["paymentMethod", "payment_method", "method"]), "-"),
+    itemCount: lineItems.length || toSafeNumber(firstValue(entry, ["item_count", "itemCount"])),
+    paymentMethod: toSafeString(firstValue(entry, ["payment_method", "paymentMethod"]), "-"),
     receiptNumber: toSafeString(
-      firstValue(entry, ["receiptNumber", "receipt_number", "receipt"]),
+      firstValue(entry, ["invoice_number", "invoiceNumber"]),
       toSafeString(firstValue(entry, ["id", "_id"])),
     ),
-    status: toSafeString(firstValue(entry, ["status"]), "draft"),
-    total: toSafeNumber(firstValue(entry, ["total", "grand_total", "grandTotal", "amount"])),
+    status: toSafeString(firstValue(entry, ["status"]), "draft") as SaleListItem["status"],
+    total: toSafeNumber(firstValue(entry, ["total_amount", "totalAmount", "total"])),
   };
 };
 
 const normalizeSaleDetail = (entry: UnknownRecord): SaleDetail => {
   const clientValue = firstValue(entry, ["client", "customer"]);
   const clientRecord = asRecord(clientValue);
-  const lineItems = firstArray(entry, ["items", "line_items", "lineItems"]).map(
-    normalizeSaleLineItem,
-  );
+  const lineItems = firstArray(entry, ["items", "line_items", "lineItems"]).map(normalizeSaleLineItem);
+  const total = toSafeNumber(firstValue(entry, ["total_amount", "totalAmount", "total"]));
+  const amountPaid = toSafeNumber(firstValue(entry, ["amount_paid", "amountPaid"]));
 
   return {
-    amountPaid: toSafeNumber(firstValue(entry, ["amountPaid", "amount_paid", "paid_amount"])),
+    amountPaid,
+    clientId: toSafeString(firstValue(entry, ["client_id", "clientId"])) || null,
     clientName: getSaleClientName(entry),
     clientPhone: toSafeString(
-      firstValue(clientRecord, ["phone", "mobile", "phone_number", "mobileNumber"]),
+      firstValue(entry, ["client_phone", "clientPhone"]) ?? firstValue(clientRecord, ["phone_number", "phone"]),
       "-",
     ),
-    createdDateLabel: formatSaleTime(firstValue(entry, ["createdAt", "created_at", "time"])),
-    discountAmount: toSafeNumber(firstValue(entry, ["discountAmount", "discount_amount", "discount"])),
+    createdDateLabel: formatSaleTime(firstValue(entry, ["created_at", "createdAt"])),
+    discountAmount: toSafeNumber(firstValue(entry, ["discount_amount", "discountAmount"])),
     id: toSafeString(firstValue(entry, ["id", "_id"])),
     lineItems,
     notes: toSafeString(firstValue(entry, ["notes", "note"])) || null,
     outstandingAmount: toSafeNumber(
-      firstValue(entry, ["outstandingAmount", "outstanding_amount", "balance_due"]),
-    ),
-    paymentMethod: toSafeString(firstValue(entry, ["paymentMethod", "payment_method", "method"]), "-"),
+      firstValue(entry, ["outstanding_amount", "outstandingAmount"]),
+    ) || Math.max(0, total - amountPaid),
+    paymentMethod: toSafeString(firstValue(entry, ["payment_method", "paymentMethod"]), "-"),
     receiptNumber: toSafeString(
-      firstValue(entry, ["receiptNumber", "receipt_number", "receipt"]),
+      firstValue(entry, ["invoice_number", "invoiceNumber"]),
       toSafeString(firstValue(entry, ["id", "_id"])),
     ),
-    status: toSafeString(firstValue(entry, ["status"]), "draft"),
-    subtotal: toSafeNumber(firstValue(entry, ["subtotal", "sub_total"])),
-    taxAmount: toSafeNumber(firstValue(entry, ["taxAmount", "tax_amount", "tax"])),
-    total: toSafeNumber(firstValue(entry, ["total", "grand_total", "grandTotal", "amount"])),
+    status: toSafeString(firstValue(entry, ["status"]), "draft") as SaleDetail["status"],
+    subtotal: toSafeNumber(firstValue(entry, ["subtotal"])),
+    taxAmount: toSafeNumber(firstValue(entry, ["tax_amount", "taxAmount"])),
+    tipAmount: toSafeNumber(firstValue(entry, ["tip_amount", "tipAmount"])),
+    total,
   };
 };
+
+const buildSaleItemBody = (item: SaleLineItemRequest) => ({
+  discount_amount: toMoneyString(item.discountAmount ?? 0),
+  item_id: item.itemId,
+  item_type: item.itemType,
+  name: item.name,
+  quantity: item.quantity,
+  staff_id: item.staffId,
+  unit_price: toMoneyString(item.unitPrice),
+});
 
 const buildSaleRequestBody = (payload: CreateSaleRequest | UpdateSaleRequest) => {
   const requestBody: UnknownRecord = {};
 
   if (payload.clientId !== undefined) {
-    requestBody.clientId = payload.clientId;
-    requestBody.client_id = payload.clientId;
+    requestBody.client_id = payload.clientId || undefined;
   }
 
-  if (payload.items !== undefined) {
-    const items = payload.items.map((item) => ({
-      catalog_id: item.catalogId,
-      catalogId: item.catalogId,
-      category: item.category,
-      name: item.name,
-      price: item.price,
-      quantity: item.quantity,
-      ...(item.staffId ? { staffId: item.staffId, staff_id: item.staffId } : {}),
-    }));
-
-    requestBody.items = items;
-    requestBody.line_items = items;
-  }
-
-  if (payload.discount !== undefined) {
-    requestBody.discount = {
-      ...(payload.discount.couponCode ? { coupon_code: payload.discount.couponCode } : {}),
-      type: payload.discount.type,
-      value: payload.discount.value,
-    };
-  }
-
-  if (payload.notes !== undefined) {
-    requestBody.notes = payload.notes;
+  if (payload.staffId !== undefined) {
+    requestBody.staff_id = payload.staffId || undefined;
   }
 
   if (payload.status !== undefined) {
     requestBody.status = payload.status;
   }
 
+  if (payload.items !== undefined) {
+    requestBody.items = payload.items.map(buildSaleItemBody);
+  }
+
+  if (payload.discountAmount !== undefined) {
+    requestBody.discount_amount = toMoneyString(payload.discountAmount);
+  }
+
+  if (payload.taxAmount !== undefined) {
+    requestBody.tax_amount = toMoneyString(payload.taxAmount);
+  }
+
+  if (payload.tipAmount !== undefined) {
+    requestBody.tip_amount = toMoneyString(payload.tipAmount);
+  }
+
+  if (payload.paymentMethod !== undefined) {
+    requestBody.payment_method = payload.paymentMethod;
+  }
+
+  if (payload.paymentReference !== undefined) {
+    requestBody.payment_reference = payload.paymentReference;
+  }
+
+  if (payload.salonId !== undefined) {
+    requestBody.salon_id = payload.salonId || undefined;
+  }
+
+  if (payload.notes !== undefined) {
+    requestBody.notes = payload.notes;
+  }
+
   return requestBody;
 };
 
-const buildCheckoutRequestBody = (payload: CheckoutSaleRequest) => ({
-  amount_paid: payload.amountPaid,
-  amountPaid: payload.amountPaid,
-  ...(payload.outstandingAmount !== undefined
-    ? { outstanding_amount: payload.outstandingAmount, outstandingAmount: payload.outstandingAmount }
-    : {}),
-  payment_method: payload.paymentMethod,
-  paymentMethod: payload.paymentMethod,
-  ...(payload.splitPayments
-    ? {
-        split_payments: payload.splitPayments,
-        splitPayments: payload.splitPayments,
-      }
-    : {}),
-});
+const buildCheckoutRequestBody = (payload: CheckoutSaleRequest) => {
+  // The checkout endpoint has no structured split-payment field — a split
+  // breakdown must be JSON-serialized into payment_reference instead
+  // (sales.service.ts reads `JSON.parse(body.payment_reference)` when
+  // payment_method === "split").
+  const paymentReference =
+    payload.paymentMethod === "split" && payload.splitEntries?.length
+      ? JSON.stringify(
+          payload.splitEntries.reduce<Record<string, number>>((accumulator, entry) => {
+            accumulator[entry.method] = entry.amount;
+            return accumulator;
+          }, {}),
+        )
+      : payload.paymentReference;
+
+  return {
+    amount_paid: payload.amountPaid,
+    payment_method: payload.paymentMethod,
+    ...(paymentReference ? { payment_reference: paymentReference } : {}),
+  };
+};
 
 export const salesService = {
   async getSalesInit(salonId?: string | null): Promise<SalesInitData> {
@@ -607,118 +437,9 @@ export const salesService = {
 
     const payload = asRecord(response.data.data);
 
-    const services = firstArrayDeep(payload, ["services", "service_list", "serviceList"]).map(
-      (entry) => normalizeCatalogItem(entry, "service"),
-    );
-    const products = firstArrayDeep(payload, ["products", "product_list", "productList"]).map(
-      (entry) => normalizeCatalogItem(entry, "product"),
-    );
-    const mixedCatalog = firstArrayDeep(payload, ["catalog", "items"]).map((entry) =>
-      normalizeCatalogItem(
-        entry,
-        toSafeString(firstValue(entry, ["category", "type"])).toLowerCase() === "product"
-          ? "product"
-          : "service",
-      ),
-    );
-
-    let catalog = [...services, ...products, ...mixedCatalog];
-
-    if (__DEV__) {
-      console.warn("[Sales][init] raw payload top-level keys:", Object.keys(payload));
-      console.warn("[Sales][init] catalog counts:", {
-        mixedCatalog: mixedCatalog.length,
-        products: products.length,
-        services: services.length,
-      });
-    }
-
-    // /sales/init's catalog shape is unconfirmed against a live backend. If it
-    // comes back with no services, fall back to the already-verified GET /services
-    // endpoint so Quick Sale search still has real data instead of an empty list.
-    if (!catalog.some((item) => item.category === "service")) {
-      try {
-        const fallbackServices = await serviceService.getServices(
-          { isActive: true, limit: 100, offset: 0, search: "", sort_by: "name", sort_order: "asc" },
-          salonId,
-        );
-
-        const mappedFallbackServices: PosCatalogItem[] = fallbackServices.services.map((service) => ({
-          category: "service",
-          ...(service.durationMinutes ? { duration: `${service.durationMinutes} min` } : {}),
-          id: service.id,
-          name: service.name,
-          price: service.price,
-        }));
-
-        if (__DEV__) {
-          console.warn(
-            "[Sales][init] catalog had no services — fell back to GET /services:",
-            mappedFallbackServices.length,
-          );
-        }
-
-        catalog = [...catalog, ...mappedFallbackServices];
-      } catch (fallbackError) {
-        console.warn("[Sales][init] fallback GET /services fetch failed", fallbackError);
-      }
-    }
-
-    // Guarantee the "Popular" quick-chip row has content when the API doesn't flag items.
-    if (catalog.length > 0 && !catalog.some((item) => item.isQuickChip)) {
-      catalog.slice(0, 6).forEach((item) => {
-        item.isQuickChip = true;
-      });
-    }
-
-    const clients = firstArray(payload, ["clients", "customers"]).map(normalizeClient);
-    const staff = firstArray(payload, ["staff", "staff_members", "staffMembers", "employees"]).map(
-      normalizeStaffMember,
-    );
-    const coupons = firstArray(payload, ["coupons", "coupon_codes", "couponCodes"])
-      .map(normalizeCoupon)
-      .filter((coupon): coupon is PosCoupon => coupon !== null);
-    const previousSales = firstArray(payload, [
-      "previousSales",
-      "previous_sales",
-      "recent_sales",
-      "recentSales",
-      "sales",
-    ]).map(normalizePreviousSale);
-
-    const paymentMethods = normalizeStringList(payload, [
-      "paymentMethods",
-      "payment_methods",
-      "payment_modes",
-      "paymentModes",
-    ]);
-    const discountTypes = normalizeStringList(payload, [
-      "discountTypes",
-      "discount_types",
-      "discounts",
-    ]);
-
-    const taxRate = getTaxRate(payload);
-
     return {
-      catalog,
-      clients: [WALK_IN_CLIENT, ...clients.filter((client) => client.id !== WALK_IN_CLIENT.id)],
-      coupons,
-      discountTypes: discountTypes.length > 0 ? discountTypes : DEFAULT_DISCOUNT_TYPES,
-      paymentMethods: paymentMethods.length > 0 ? paymentMethods : DEFAULT_PAYMENT_METHODS,
-      previousSales,
-      receiptNumber: toSafeString(
-        firstValue(payload, [
-          "receiptNumber",
-          "receipt_number",
-          "nextReceiptNumber",
-          "next_receipt_number",
-        ]),
-        "QS-0001",
-      ),
-      settings: buildSettings(payload, taxRate),
-      staff,
-      taxRate,
+      services: firstArray(payload, ["services"]).map(normalizeServiceItem),
+      staff: firstArray(payload, ["staff"]).map(normalizeStaffMember),
     };
   },
 
@@ -758,7 +479,7 @@ export const salesService = {
   async getSales(query: SalesListQuery, salonId?: string | null): Promise<SalesListResponse> {
     const response = await api.get<SalesListApiResponse>(SALES.LIST, {
       params: {
-        ...query,
+        status: query.status,
         ...(salonId ? { salon_id: salonId } : {}),
       },
     });
@@ -766,10 +487,9 @@ export const salesService = {
     const apiSales = getSaleArray(response.data.data);
     const sales = apiSales.map(normalizeSaleListItem);
     const totalCount = getSalesTotalCount(response.data.data, sales.length);
-    const pagination = getSalesPagination(response.data.data, query, sales.length, totalCount);
 
     return {
-      pagination,
+      pagination: getSalesPagination(query, sales.length),
       query,
       sales,
       totalCount,
@@ -797,16 +517,14 @@ export const salesService = {
     });
 
     const payload = asRecord(response.data.data);
+    const totalRevenue = toSafeNumber(firstValue(payload, ["total"]));
+    const totalSales = toSafeNumber(firstValue(payload, ["count"]));
 
     return {
-      averageSale: toSafeNumber(firstValue(payload, ["averageSale", "average_sale", "avg_sale"])),
-      totalRevenue: toSafeNumber(
-        firstValue(payload, ["totalRevenue", "total_revenue", "revenue"]),
-      ),
-      totalSales: toSafeNumber(firstValue(payload, ["totalSales", "total_sales", "count"])),
-      totalTransactions: toSafeNumber(
-        firstValue(payload, ["totalTransactions", "total_transactions", "transactions"]),
-      ),
+      averageSale: totalSales > 0 ? totalRevenue / totalSales : 0,
+      totalRevenue,
+      totalSales,
+      totalTransactions: totalSales,
     };
   },
 

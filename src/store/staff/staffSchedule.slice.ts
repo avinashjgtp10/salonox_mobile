@@ -50,6 +50,15 @@ const staffScheduleSlice = createSlice({
           ? state.loadedStaffIds
           : [...state.loadedStaffIds, staffId];
         state.loadingStaffIds = state.loadingStaffIds.filter((id) => id !== staffId);
+
+        if (__DEV__) {
+          console.log("[StaffSchedule Redux] Stored schedule", {
+            loadedStaffIds: state.loadedStaffIds,
+            schedule,
+            staffId,
+            storedSchedule: state.scheduleByStaffId[staffId],
+          });
+        }
       })
       .addCase(fetchStaffScheduleThunk.rejected, (state, action) => {
         const staffId = action.meta.arg;
@@ -104,12 +113,20 @@ const staffScheduleSlice = createSlice({
 
 export const selectStaffSchedule = (state: RootState, staffId?: string | null) =>
   staffId ? state.staffSchedule.scheduleByStaffId[staffId] ?? null : null;
+export const selectStaffScheduleForIds = (state: RootState, staffIds: string[]) =>
+  staffIds.map((staffId) => state.staffSchedule.scheduleByStaffId[staffId]).find(Boolean) ?? null;
 export const selectStaffScheduleLoaded = (state: RootState, staffId?: string | null) =>
   staffId ? state.staffSchedule.loadedStaffIds.includes(staffId) : false;
+export const selectStaffScheduleLoadedForIds = (state: RootState, staffIds: string[]) =>
+  staffIds.some((staffId) => state.staffSchedule.loadedStaffIds.includes(staffId));
 export const selectStaffScheduleLoading = (state: RootState, staffId?: string | null) =>
   staffId ? state.staffSchedule.loadingStaffIds.includes(staffId) : false;
+export const selectStaffScheduleLoadingForIds = (state: RootState, staffIds: string[]) =>
+  staffIds.some((staffId) => state.staffSchedule.loadingStaffIds.includes(staffId));
 export const selectStaffScheduleError = (state: RootState, staffId?: string | null) =>
   staffId ? state.staffSchedule.errorByStaffId[staffId] ?? null : null;
+export const selectStaffScheduleErrorForIds = (state: RootState, staffIds: string[]) =>
+  staffIds.map((staffId) => state.staffSchedule.errorByStaffId[staffId]).find(Boolean) ?? null;
 export const selectStaffScheduleSaving = (state: RootState, staffId?: string | null) =>
   staffId ? state.staffSchedule.savingStaffIds.includes(staffId) : false;
 export const selectStaffScheduleSaveError = (state: RootState, staffId?: string | null) =>

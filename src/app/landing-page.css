@@ -8,22 +8,22 @@
 /* Design Tokens & Custom Properties */
 :root {
     /* Color Palette */
-    --color-bg: #FAFBFA;
-    --color-text-main: #243B34;
-    --color-text-muted: #445B55;
-    --color-text-light: #7A8D87;
-    --color-primary: #496A5D;
-    --color-primary-dark: #365046;
-    --color-primary-light: #F4F7F5;
-    --color-primary-mid: #E3E8E5;
-    --color-accent-gold: #C7A86D;
-    --color-accent-gold-dark: #B18F54;
-    --color-gray-soft: #F4F7F5;
-    --color-gray-border: #E3E8E5;
-    --color-success: #4B8F68;
+    --color-bg: #FBFAF7;
+    --color-text-main: #1C1917;
+    --color-text-muted: #4D463F;
+    --color-text-light: #726A63;
+    --color-primary: #1C1917;
+    --color-primary-dark: #1C1917;
+    --color-primary-light: #F2EFE9;
+    --color-primary-mid: #E7E2D9;
+    --color-accent-gold: #AFA79D;
+    --color-accent-gold-dark: #726A63;
+    --color-gray-soft: #F2EFE9;
+    --color-gray-border: #E7E2D9;
+    --color-success: #1C1917;
     --color-success-light: rgba(75, 143, 104, 0.1);
-    --color-warning: #D8A84F;
-    --color-error: #D65B5B;
+    --color-warning: #726A63;
+    --color-error: #726A63;
     --color-info: #5B8DEF;
     --hero-cover-image: url('assets/salon-interior.jpg');
 
