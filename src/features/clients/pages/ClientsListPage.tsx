@@ -143,7 +143,7 @@ export default function ClientsListPage() {
     "Prefer not to say",
     "Female",
     "Male",
-    "Non-binary",
+    "Other",
   ];
 
   /* ================= SORT STATE ================= */
