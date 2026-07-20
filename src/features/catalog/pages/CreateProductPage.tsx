@@ -25,8 +25,6 @@ interface FormState {
   retailSalesEnabled: boolean;
   retailPrice: string;
   markupPercentage: string;
-  commissionEnabled: boolean;
-  commissionRate: string;
 }
 
 const initialForm: FormState = {
@@ -41,8 +39,6 @@ const initialForm: FormState = {
   retailSalesEnabled: true,
   retailPrice: "",
   markupPercentage: "",
-  commissionEnabled: false,
-  commissionRate: "",
 };
 
 const CreateProductPage: React.FC = () => {
@@ -66,12 +62,13 @@ const CreateProductPage: React.FC = () => {
     categoryId: !form.categoryId ? "Product category is required" : "",
     amount: !form.amount.trim() || isNaN(Number(form.amount)) ? "Product quantity is required" : "",
     supplyPrice: !form.supplyPrice.trim() || isNaN(Number(form.supplyPrice)) || Number(form.supplyPrice) <= 0 ? "Supplier price is required" : "",
+    qtyAlert: !form.qtyAlert.trim() || !Number.isInteger(Number(form.qtyAlert)) || Number(form.qtyAlert) < 0 ? "Low stock alert is required" : "",
   };
 
   const isFormValid = Object.values(validationErrors).every((e) => !e);
 
   const touch = (field: string) => setTouched((prev) => ({ ...prev, [field]: true }));
-  const touchAll = () => setTouched({ productName: true, categoryId: true, amount: true, supplyPrice: true });
+  const touchAll = () => setTouched({ productName: true, categoryId: true, amount: true, supplyPrice: true, qtyAlert: true });
 
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -134,17 +131,15 @@ const CreateProductPage: React.FC = () => {
     const payload = {
       name: form.productName.trim(),
       retail_sales_enabled: form.retailSalesEnabled,
-      team_commission_enabled: form.commissionEnabled,
       barcode: form.barcode || null,
       brand_id: form.brandId || null,
       category_id: form.categoryId || null,
       amount: form.amount ? parseFloat(form.amount) : 0,
-      qty_alert: form.qtyAlert ? parseInt(form.qtyAlert, 10) : null,
+      qty_alert: parseInt(form.qtyAlert, 10),
       description: form.description || null,
       supply_price: form.supplyPrice ? parseFloat(form.supplyPrice) : 0,
       retail_price: form.retailSalesEnabled && form.retailPrice ? parseFloat(form.retailPrice) : null,
       markup_percentage: form.retailSalesEnabled && form.markupPercentage ? parseFloat(form.markupPercentage) : null,
-      team_commission_rate: form.commissionEnabled && form.commissionRate ? parseFloat(form.commissionRate) : null,
     };
 
     const result = await dispatch(createProductThunk(payload));
@@ -265,17 +260,22 @@ const CreateProductPage: React.FC = () => {
             )}
 
             <Input
-              label={<>Low stock alert <span className="text-muted fw-normal">(Optional)</span></>}
+              label={<>Low stock alert <span style={{ color: "#dc2626" }}>*</span></>}
               type="number"
               min="0"
               placeholder="e.g. 5"
               value={form.qtyAlert}
-              onChange={(e) => setField("qtyAlert", e.target.value)}
+              onChange={(e) => { setField("qtyAlert", e.target.value); touch("qtyAlert"); }}
+              onBlur={() => touch("qtyAlert")}
               containerClass="mt-3"
             />
-            <div style={{ color: "#6b7280", fontSize: "12px", marginTop: "4px" }}>
-              Alert when stock drops to or below this number.
-            </div>
+            {touched.qtyAlert && validationErrors.qtyAlert ? (
+              <div style={{ color: "#dc2626", fontSize: "12px", marginTop: "4px" }}>{validationErrors.qtyAlert}</div>
+            ) : (
+              <div style={{ color: "#6b7280", fontSize: "12px", marginTop: "4px" }}>
+                Alert when stock drops to or below this number.
+              </div>
+            )}
 
             <Input
               label="Product description"
@@ -410,39 +410,6 @@ const CreateProductPage: React.FC = () => {
                     containerClass=""
                   />
                 </div>
-              </div>
-            )}
-          </Card>
-
-          {/* 3. Team member commission */}
-          <Card title="Team member commission" className="mb-4">
-            <div style={{ fontSize: "13px", color: "#888", marginBottom: "12px" }}>
-              Calculate team member commission when the product is sold.
-            </div>
-            <div className="d-flex align-items-center gap-2 mb-3">
-              <div className="form-check form-switch m-0">
-                <input
-                  className="form-check-input"
-                  type="checkbox"
-                  role="switch"
-                  checked={form.commissionEnabled}
-                  onChange={() => setField("commissionEnabled", !form.commissionEnabled)}
-                  style={{ cursor: "pointer", width: "2.5rem", height: "1.25rem" }}
-                />
-              </div>
-              <span style={{ fontSize: "14px" }}>Enable team member commission</span>
-            </div>
-            {form.commissionEnabled && (
-              <div className="col-6">
-                <Input
-                  label="Commission rate (%)"
-                  type="number"
-                  min="0"
-                  placeholder="0.00"
-                  value={form.commissionRate}
-                  onChange={(e) => setField("commissionRate", e.target.value)}
-                  containerClass=""
-                />
               </div>
             )}
           </Card>

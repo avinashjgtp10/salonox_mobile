@@ -10,7 +10,10 @@ import {
   BoxArrowInDown,
   FileEarmarkExcel,
   FileEarmarkPdf,
-  FiletypeCsv
+  FiletypeCsv,
+  ThreeDotsVertical,
+  PencilSquare,
+  Trash
 } from "react-bootstrap-icons";
 import { Dropdown } from "react-bootstrap";
 import { useProducts } from "../hooks/useProducts";
@@ -18,6 +21,8 @@ import ProductDrawer from "../components/ProductDrawer";
 import Pagination from "../../../components/ui/Pagination";
 import Button from "../../../components/ui/Button";
 import Skeleton from "../../../components/ui/Skeleton";
+import Modal from "../../../components/ui/Modal";
+import Input from "../../../components/ui/Input";
 import "../styles/ProductsListPage.scss";
 
 interface FilterState {
@@ -43,6 +48,10 @@ const ProductsListPage: React.FC = () => {
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [drawerProduct, setDrawerProduct] = useState<any | null>(null);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteInput, setDeleteInput] = useState("");
+  const [productsToDelete, setProductsToDelete] = useState<string[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Pending filter state (inside modal, not yet applied)
   const [pendingFilters, setPendingFilters] = useState<FilterState>(DEFAULT_FILTERS);
@@ -159,6 +168,26 @@ const ProductsListPage: React.FC = () => {
     );
   };
 
+  const openDeleteModal = (ids: string[]) => {
+    setProductsToDelete(ids);
+    setDeleteInput("");
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteProducts = async () => {
+    setIsDeleting(true);
+    try {
+      await Promise.all(productsToDelete.map((id) => deleteProduct(id)));
+      setSelectedProducts([]);
+      setDrawerProduct(null);
+    } finally {
+      setIsDeleting(false);
+      setDeleteModalOpen(false);
+      setDeleteInput("");
+      setProductsToDelete([]);
+    }
+  };
+
   return (
     <div className="products-list-page">
       <header className="products-list-page__header">
@@ -249,9 +278,9 @@ const ProductsListPage: React.FC = () => {
           <div className="bulk-actions d-flex align-items-center gap-3 ms-auto bg-light px-3 py-2 rounded-3 border">
             <div className="d-flex align-items-center gap-2 fw-medium text-dark">
               <span className="fs-6 d-flex align-items-center">
-                {selectedProducts.length === products.length
+                {selectedProducts.length === totalRecords
                   ? "All products selected"
-                  : `${selectedProducts.length} product${selectedProducts.length > 1 ? "s" : ""} selected`}
+                  : `${selectedProducts.length} product${selectedProducts.length !== 1 ? "s" : ""} selected`}
               </span>
               <button
                 className="btn btn-sm btn-link text-dark p-0 ms-1 d-flex align-items-center text-decoration-none"
@@ -276,10 +305,7 @@ const ProductsListPage: React.FC = () => {
               </ul>
             </div>
             <button className="btn text-danger fw-medium px-2"
-              onClick={() => {
-                selectedProducts.forEach((id) => deleteProduct(id));
-                setSelectedProducts([]);
-              }}>
+              onClick={() => openDeleteModal(selectedProducts)}>
               Delete
             </button>
           </div>
@@ -296,6 +322,7 @@ const ProductsListPage: React.FC = () => {
                 <th>Category</th>
                 <th>Stock  Left</th>
                 <th>Retail price</th>
+                <th className="actions-cell" style={{ width: "56px" }} />
               </tr>
             </thead>
             <tbody>
@@ -314,6 +341,7 @@ const ProductsListPage: React.FC = () => {
                   <td><Skeleton width="60%" height={12} /></td>
                   <td><Skeleton width="40%" height={12} /></td>
                   <td><Skeleton width="50%" height={12} /></td>
+                  <td className="actions-cell" />
                 </tr>
               ))}
             </tbody>
@@ -339,6 +367,7 @@ const ProductsListPage: React.FC = () => {
                 <th>Category</th>
                 <th>Stock  Left</th>
                 <th>Retail price</th>
+                <th className="actions-cell" style={{ width: "56px" }} />
               </tr>
             </thead>
             <tbody>
@@ -410,11 +439,37 @@ const ProductsListPage: React.FC = () => {
                         return <span className="text-muted fst-italic" style={{ fontSize: "12px" }}>Price not available</span>;
                       })()}
                     </td>
+                    <td className="actions-cell" onClick={(e) => e.stopPropagation()}>
+                      <Dropdown align="end">
+                        <Dropdown.Toggle
+                          as="button"
+                          bsPrefix="row-actions-toggle"
+                          className="row-actions-toggle"
+                          id={`row-actions-${p.id}`}
+                        >
+                          <ThreeDotsVertical size={16} />
+                        </Dropdown.Toggle>
+                        <Dropdown.Menu className="shadow-sm border-0 rounded-3 py-2" style={{ minWidth: "160px" }}>
+                          <Dropdown.Item
+                            onClick={() => navigate(`/dashboard/catalog/products/edit/${p.id}`)}
+                            className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
+                          >
+                            <PencilSquare size={14} /> Edit
+                          </Dropdown.Item>
+                          <Dropdown.Item
+                            onClick={() => openDeleteModal([p.id])}
+                            className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-danger"
+                          >
+                            <Trash size={14} /> Delete
+                          </Dropdown.Item>
+                        </Dropdown.Menu>
+                      </Dropdown>
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5} className="text-center py-5">
+                  <td colSpan={6} className="text-center py-5">
                     No products found.
                   </td>
                 </tr>
@@ -435,6 +490,49 @@ const ProductsListPage: React.FC = () => {
         className="mt-4"
       />
 
+      {/* ================= DELETE MODAL ================= */}
+      <Modal
+        show={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        title="Delete products?"
+        footer={
+          <div className="d-flex flex-column gap-2 w-100">
+            <Button
+              variant="danger"
+              fullWidth
+              disabled={deleteInput !== "DELETE" || isDeleting}
+              loading={isDeleting}
+              onClick={handleDeleteProducts}
+            >
+              Delete
+            </Button>
+            <Button
+              variant="outline-dark"
+              fullWidth
+              onClick={() => {
+                setDeleteModalOpen(false);
+                setDeleteInput("");
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-muted small mb-4">
+          Are you sure you want to delete{" "}
+          {productsToDelete.length > 1
+            ? `these ${productsToDelete.length} products`
+            : "this product"}? This operation can't be undone.
+        </p>
+        <Input
+          label="Type DELETE to confirm"
+          placeholder="DELETE"
+          value={deleteInput}
+          onChange={(e) => setDeleteInput(e.target.value)}
+        />
+      </Modal>
+
       {/* Product Drawer */}
       {drawerProduct && (
         <ProductDrawer
@@ -443,10 +541,7 @@ const ProductsListPage: React.FC = () => {
           categories={categories}
           loading={loading.update}
           onClose={() => setDrawerProduct(null)}
-          onDelete={async (id) => {
-            await deleteProduct(id);
-            setDrawerProduct(null);
-          }}
+          onDelete={(id) => openDeleteModal([id])}
         />
       )}
 
