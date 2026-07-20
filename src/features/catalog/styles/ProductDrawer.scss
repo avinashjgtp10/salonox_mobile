@@ -34,21 +34,53 @@
     padding: 18px 20px;
     border-bottom: 1px solid #eaecf0;
     flex-shrink: 0;
-    gap: 12px;
+    gap: 16px; // breathing room between product info and the action cluster
   }
 
   &__header-left {
     display: flex;
     align-items: center;
     gap: 12px;
-    min-width: 0;
+    min-width: 0; // lets __info shrink below its content width so the title can ellipsis
+    flex: 1 1 auto;
+  }
+
+  &__info {
+    min-width: 0; // required alongside the h6's text-overflow for truncation to kick in
+    flex: 1 1 auto;
   }
 
   &__header-actions {
     display: flex;
     align-items: center;
     gap: 8px;
-    flex-shrink: 0;
+    flex-shrink: 0; // buttons keep their full intrinsic width, never squeezed by a long title
+
+    .btn {
+      white-space: nowrap;
+    }
+
+    // Guarantees the icon + "Delete" label always render in full, even at narrow
+    // drawer widths — the drawer can't visually clip or wrap the button contents.
+    // Colors are pinned with explicit values (not Bootstrap's --bs-btn-* custom
+    // properties) so the label/icon can't end up matching the background in any state.
+    .btn-outline-danger {
+      min-width: 96px;
+      color: #d92d20 !important;
+      background-color: #ffffff !important;
+      border-color: #d92d20 !important;
+
+      svg { color: inherit; fill: currentColor; }
+
+      &:hover,
+      &:focus,
+      &:focus-visible,
+      &:active {
+        color: #ffffff !important;
+        background-color: #d92d20 !important;
+        border-color: #d92d20 !important;
+      }
+    }
   }
 
   &__icon {
@@ -71,7 +103,6 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 220px;
   }
 
   &__sku {
