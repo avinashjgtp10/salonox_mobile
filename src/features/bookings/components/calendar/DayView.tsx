@@ -916,15 +916,19 @@ const DayView: React.FC<DayViewProps> = ({
           >
             🚫 Add Block Time
           </button>
-          <div className="dv-staff-menu__divider" />
-          <button
-            className="dv-staff-menu__item"
-            onClick={() => handleRemoveBlockTime(staffMenu.staffId)}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "#fef2f2")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
-          >
-            ✅ Remove Block Time
-          </button>
+          {(dayBlockedByStaff.get(staffMenu.staffId)?.length ?? 0) > 0 && (
+            <>
+              <div className="dv-staff-menu__divider" />
+              <button
+                className="dv-staff-menu__item"
+                onClick={() => handleRemoveBlockTime(staffMenu.staffId)}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#fef2f2")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
+              >
+                ✅ Remove Block Time
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>
