@@ -18,7 +18,9 @@ interface Props {
 
 const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categories = [] }) => {
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [showCategoryMenu, setShowCategoryMenu] = useState(false);
   const optionsRef = useRef<HTMLDivElement>(null);
+  const categoryRef = useRef<HTMLDivElement>(null);
 
   const update = (key: keyof BasicDetailsData, value: any) =>
     onChange({ ...data, [key]: value });
@@ -26,11 +28,16 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
   const hasError = (field: string) =>
     errors.some((err) => err.toLowerCase().includes(field.toLowerCase()));
 
-  // Close dropdown when clicking outside
+  const selectedCategory = categories.find((cat) => String(cat.id) === String(data.categoryId));
+
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (optionsRef.current && !optionsRef.current.contains(e.target as Node)) {
         setShowOptionsMenu(false);
+      }
+      if (categoryRef.current && !categoryRef.current.contains(e.target as Node)) {
+        setShowCategoryMenu(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -60,22 +67,39 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
 
           <div className="col-md-6">
             <label className="form-label">Menu category <span className="text-danger">*</span></label>
-            <div className="custom-select-wrapper category-select">
-              <select
-                className={`form-select ${hasError("category") ? "border-danger" : ""}`}
-                value={data.categoryId}
-                onChange={(e) => update("categoryId", e.target.value)}
+            <div className="custom-select-wrapper category-select" ref={categoryRef}>
+              <button
+                type="button"
+                className={`form-select text-start ${hasError("category") ? "border-danger" : ""}`}
+                onClick={() => setShowCategoryMenu((v) => !v)}
               >
-                <option value="">Select category</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={String(cat.id)}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
+                {selectedCategory ? selectedCategory.name : "Select category"}
+              </button>
               <ChevronDown className="select-icon" />
+
+              {showCategoryMenu && (
+                <div className="category-dropdown-menu shadow-sm rounded-3 border-0 p-1">
+                  <button
+                    type="button"
+                    className="dropdown-item rounded-2 py-2"
+                    onClick={() => { update("categoryId", ""); setShowCategoryMenu(false); }}
+                  >
+                    Select category
+                  </button>
+                  {categories.map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      className={`dropdown-item rounded-2 py-2 ${String(cat.id) === String(data.categoryId) ? "active" : ""}`}
+                      onClick={() => { update("categoryId", String(cat.id)); setShowCategoryMenu(false); }}
+                    >
+                      {cat.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            
+
             {hasError("category") && (
               <div className="text-danger small mt-1">Category is required</div>
             )}
