@@ -94,25 +94,31 @@ export default function ManageBookingPage() {
 
   if (loading) {
     return (
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"center", minHeight:"100vh",
-        fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif", background:C.light }}>
-        <div style={{ width:40, height:40, borderRadius:"50%",
-          border:`3px solid ${C.med}`, borderTopColor:C.accent,
-          animation:"spin 0.7s linear infinite" }}/>
-        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      <div className="mbp-loading">
+        <div className="mbp-spinner"/>
+        <style>{`
+          .mbp-loading { display:flex; align-items:center; justify-content:center; min-height:100vh;
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:${C.light}; }
+          .mbp-spinner { width:40px; height:40px; border-radius:50%; border:3px solid ${C.med};
+            border-top-color:${C.accent}; animation:mbpSpin 0.7s linear infinite; }
+          @keyframes mbpSpin { to { transform:rotate(360deg); } }
+        `}</style>
       </div>
     );
   }
 
   if (loadError || !booking) {
     return (
-      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-        minHeight:"100vh", gap:12, fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",
-        padding:24, textAlign:"center", background:C.light }}>
-        <h2 style={{ margin:0, fontSize:20, color:C.text }}>Booking not found</h2>
-        <p style={{ margin:0, color:C.muted, fontSize:14 }}>
-          {loadError || "This booking link is invalid or has expired."}
-        </p>
+      <div className="mbp-error">
+        <h2 className="mbp-error-title">Booking not found</h2>
+        <p className="mbp-error-sub">{loadError || "This booking link is invalid or has expired."}</p>
+        <style>{`
+          .mbp-error { display:flex; flex-direction:column; align-items:center; justify-content:center;
+            min-height:100vh; gap:12px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+            padding:24px; text-align:center; background:${C.light}; }
+          .mbp-error-title { margin:0; font-size:20px; color:${C.text}; }
+          .mbp-error-sub { margin:0; color:${C.muted}; font-size:14px; }
+        `}</style>
       </div>
     );
   }
@@ -151,10 +157,11 @@ export default function ManageBookingPage() {
     ];
 
     return (
-      <div style={{ height:"100vh", overflowY:"auto", display:"flex", flexDirection:"column",
-        fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif", background:C.light }}>
+      <div className="cb-page">
 
         <style>{`
+          .cb-page { height:100vh; overflow-y:auto; display:flex; flex-direction:column;
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:${C.light}; }
           .cb-topbar { width:100%; padding:16px 24px; box-sizing:border-box; background:${C.white}; border-bottom:1px solid ${C.border}; }
           .cb-topbar-inner { max-width:680px; margin:0 auto; }
           .cb-hero { width:100%; padding:56px 24px 44px; box-sizing:border-box;
@@ -316,21 +323,98 @@ export default function ManageBookingPage() {
   }
 
   return (
-    <div style={{ height:"100vh", overflowY:"auto", display:"flex", flexDirection:"column",
-      fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif", background:C.light }}>
+    <div className="mb-page">
 
       <style>{`
+        .mb-page { height:100vh; overflow-y:auto; display:flex; flex-direction:column;
+          font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:${C.light}; }
         .mb-topbar { width:100%; padding:16px 24px; box-sizing:border-box; background:${C.white}; border-bottom:1px solid ${C.border}; }
-        .mb-topbar-inner { max-width:900px; margin:0 auto; }
-        .mb-hero { width:100%; padding:40px 24px; box-sizing:border-box; color:${C.white}; }
-        .mb-hero-inner { max-width:900px; margin:0 auto; }
+        .mb-topbar-inner { max-width:680px; margin:0 auto; }
+        .mb-hero { width:100%; padding:56px 24px 44px; box-sizing:border-box;
+          background:linear-gradient(135deg, #f5f3ff 0%, #faf5ff 45%, #f8fafc 100%); text-align:center; }
+        .mb-hero-inner { max-width:680px; margin:0 auto; display:flex; flex-direction:column; align-items:center; }
+        .mb-icon-wrap { position:relative; width:92px; height:92px; margin-bottom:20px; }
+        .mb-icon-ring { position:absolute; inset:0; border-radius:50%; border:3px solid ${C.med};
+          animation: mbRing 1.6s ease-out infinite; }
+        .mb-icon-circle { width:92px; height:92px; border-radius:50%;
+          background:${GRADIENT}; display:flex; align-items:center; justify-content:center;
+          box-shadow:0 10px 30px ${C.accent}55; animation: mbPop 0.5s cubic-bezier(.4,0,.2,1); }
+        .mb-status-badge { display:inline-flex; align-items:center; gap:6px; background:${C.med}; color:${C.accentDark};
+          font-size:11.5px; font-weight:800; letter-spacing:0.06em; padding:6px 14px; border-radius:999px; margin-bottom:14px; }
+        .mb-title { margin:0 0 4px; font-size:26px; font-weight:900; color:${C.text}; }
+        .mb-sub { margin:0 0 16px; font-size:14px; color:${C.muted}; font-weight:600; }
+
         .mb-container { flex:1; width:100%; padding:32px 24px 64px; box-sizing:border-box; }
-        .mb-container-inner { max-width:900px; margin:0 auto; }
-        .mb-card { background:${C.white}; border-radius:20px; border:1.5px solid ${C.border};
-          overflow:hidden; box-shadow:0 4px 24px ${C.accent}18; max-width:640px; margin:0 auto; }
+        .mb-container-inner { max-width:640px; margin:0 auto; display:flex; flex-direction:column; gap:20px; }
+
+        .mb-card { background:rgba(255,255,255,0.75); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+          border:1.5px solid ${C.border}; border-radius:22px; padding:22px 22px 8px; box-shadow:0 8px 32px rgba(46,16,101,0.08);
+          animation: mbFadeIn 0.5s cubic-bezier(.4,0,.2,1); }
+        .mb-card-title { margin:0 0 14px; font-size:12.5px; font-weight:800; color:${C.text};
+          text-transform:uppercase; letter-spacing:0.06em; }
+        .mb-detail-row { display:flex; align-items:center; gap:12px; padding:12px 2px; border-bottom:1px solid ${C.border}; }
+        .mb-detail-row:last-child { border-bottom:none; }
+        .mb-detail-icon { width:34px; height:34px; border-radius:10px; background:${C.light}; color:${C.accent};
+          display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+        .mb-detail-text { display:flex; flex-direction:column; gap:2px; min-width:0; }
+        .mb-detail-label { font-size:10.5px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.06em; }
+        .mb-detail-value { font-size:13.5px; font-weight:700; color:${C.text}; word-break:break-word; }
+
+        .mb-actions-card { background:${C.white}; border:1.5px solid ${C.border}; border-radius:22px;
+          padding:22px; box-shadow:0 8px 32px rgba(46,16,101,0.06); animation: mbFadeIn 0.55s cubic-bezier(.4,0,.2,1); }
+        .mb-actions { display:flex; flex-direction:column; gap:10px; }
+        .mb-btn { border:none; cursor:pointer; font-weight:700; font-size:14px; border-radius:14px; padding:14px 20px;
+          display:flex; align-items:center; justify-content:center; gap:8px;
+          transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease; }
+        .mb-btn:hover { transform: translateY(-2px); }
+        .mb-btn-primary { background:${GRADIENT}; color:${C.white}; box-shadow:0 8px 24px ${C.accent}40; }
+        .mb-btn-primary:hover { box-shadow:0 12px 32px ${C.accent}55; }
+        .mb-btn-outline { background:${C.white}; color:${C.text}; border:1.5px solid ${C.border}; }
+        .mb-btn-outline:hover { border-color:${C.accent}; color:${C.accent}; background:${C.light}; }
+        .mb-btn-danger-outline { background:${C.white}; color:#dc2626; border:1.5px solid #fecaca; }
+        .mb-btn-danger-outline:hover { border-color:#dc2626; background:#fef2f2; }
+        .mb-btn-danger { background:#dc2626; color:${C.white}; }
+        .mb-btn-danger:hover { box-shadow:0 12px 28px rgba(220,38,38,0.35); }
+
+        .mb-warn-box { background:#fef2f2; border:1.5px solid #fecaca; border-radius:14px; padding:16px 18px; margin-bottom:16px; }
+        .mb-warn-title { margin:0 0 4px; font-size:14px; font-weight:700; color:#991b1b; }
+        .mb-warn-sub { margin:0; font-size:12.5px; color:#b91c1c; }
+
+        .mb-error-text { font-size:12.5px; color:#dc2626; margin:0; }
+        .mb-error-text--top { margin:0 0 4px; }
+        .mb-error-text--gap { margin:0 0 12px; }
+        .mb-error-text--top-gap { margin-top:10px; }
+
+        .mb-btn-row { display:flex; gap:10px; }
+        .mb-btn-row--top { margin-top:18px; }
+        .mb-btn--flex1 { flex:1; }
+        .mb-btn--flex2 { flex:2; }
+
+        .mb-date-grid { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px; }
+        .mb-date-btn { background:${C.white}; border:1.5px solid ${C.border}; border-radius:14px;
+          padding:10px 14px; cursor:pointer; text-align:center; color:${C.text}; min-width:58px; }
+        .mb-date-btn.active { background:${GRADIENT}; border-color:${C.accent}; color:${C.white}; }
+        .mb-date-day { font-size:9.5px; font-weight:700; opacity:0.55; margin-bottom:3px; letter-spacing:0.06em; }
+        .mb-date-btn.active .mb-date-day { opacity:0.85; }
+        .mb-date-num { font-size:20px; font-weight:900; line-height:1; }
+        .mb-date-month { font-size:9.5px; opacity:0.45; margin-top:3px; }
+        .mb-date-btn.active .mb-date-month { opacity:0.8; }
+
+        .mb-time-grid { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; }
+
+        .mb-btn-confirm { background:${C.med}; color:${C.muted}; cursor:not-allowed; }
+        .mb-btn-confirm.enabled { background:${GRADIENT}; color:${C.white};
+          box-shadow:0 8px 24px ${C.accent}40; cursor:pointer; }
+
+        @keyframes mbFadeIn { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
+        @keyframes mbPop { from { transform:scale(0.7); opacity:0; } to { transform:scale(1); opacity:1; } }
+        @keyframes mbRing { 0% { transform:scale(0.9); opacity:0.8; } 100% { transform:scale(1.35); opacity:0; } }
+
         @media (max-width: 640px) {
-          .mb-hero { padding:28px 18px; }
+          .mb-hero { padding:40px 18px 32px; }
           .mb-container { padding:24px 16px 48px; }
+          .mb-title { font-size:22px; }
+          .mb-icon-wrap, .mb-icon-circle { width:76px; height:76px; }
         }
       `}</style>
 
@@ -340,84 +424,65 @@ export default function ManageBookingPage() {
         </div>
       </div>
 
-      <div className="mb-hero" style={{ background: GRADIENT }}>
+      <div className="mb-hero">
         <div className="mb-hero-inner">
-          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
-            <CheckCircleFill size={16}/>
-            <span style={{ fontSize:12.5, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.05em" }}>
-              Manage Your Booking
-            </span>
+          <div className="mb-icon-wrap">
+            <div className="mb-icon-ring" />
+            <div className="mb-icon-circle"><CheckCircleFill size={38} color={C.white}/></div>
           </div>
-          <p style={{ margin:"0 0 4px", fontWeight:800, fontSize:24 }}>{title}</p>
-          <p style={{ margin:0, fontSize:14, opacity:0.9 }}>
-            {fmtDur(booking.duration_minutes)} · {fmtPrice(total)}
-          </p>
+          <span className="mb-status-badge"><CheckCircleFill size={10}/> UPCOMING APPOINTMENT</span>
+          <h1 className="mb-title">{title}</h1>
+          <p className="mb-sub">{fmtDur(booking.duration_minutes)} · {fmtPrice(total)}</p>
         </div>
       </div>
 
       <div className="mb-container">
         <div className="mb-container-inner">
-        <div className="mb-card">
 
-          <div style={{ padding:"20px 24px", display:"flex", flexDirection:"column", gap:10 }}>
+          <div className="mb-card">
+            <p className="mb-card-title">Booking Details</p>
             {[
-              { label:"Stylist", value: booking.staff_name || "Any available" },
-              { label:"Date", value: dateLabel },
-              { label:"Time", value: timeLabel },
-            ].map(({ label, value }) => (
-              <div key={label} style={{ display:"flex", justifyContent:"space-between",
-                alignItems:"center", padding:"9px 12px", background:C.light, borderRadius:9,
-                border:`1px solid ${C.border}` }}>
-                <span style={{ fontSize:11, fontWeight:700, color:"#94a3b8",
-                  textTransform:"uppercase", letterSpacing:"0.07em" }}>{label}</span>
-                <span style={{ fontSize:13.5, color:C.text, fontWeight:600 }}>{value}</span>
+              { icon:<PersonFill size={13}/>, label:"Stylist", value: booking.staff_name || "Any available" },
+              { icon:<CalendarEvent size={13}/>, label:"Date", value: dateLabel },
+              { icon:<ClockFill size={13}/>, label:"Time", value: timeLabel },
+              ...(booking.client_phone ? [{ icon:<TelephoneFill size={13}/>, label:"Phone Number", value:String(booking.client_phone) }] : []),
+            ].map((row) => (
+              <div key={row.label} className="mb-detail-row">
+                <div className="mb-detail-icon">{row.icon}</div>
+                <div className="mb-detail-text">
+                  <span className="mb-detail-label">{row.label}</span>
+                  <span className="mb-detail-value">{row.value}</span>
+                </div>
               </div>
             ))}
-
-            {booking.client_phone && (
-              <p style={{ margin:"4px 0 0", fontSize:12, color:C.muted, display:"flex", alignItems:"center", gap:6 }}>
-                <TelephoneFill size={11}/> Booked with {booking.client_phone}
-              </p>
-            )}
           </div>
 
           {mode === "view" && (
-            <div style={{ padding:"0 24px 24px", display:"flex", flexDirection:"column", gap:10 }}>
-              {actionError && <p style={{ fontSize:12.5, color:"#dc2626", margin:0 }}>{actionError}</p>}
-              <button onClick={() => setMode("reschedule")} disabled={actionLoading}
-                style={{ background:GRADIENT, color:C.white, border:"none", borderRadius:12,
-                  padding:"13px", fontSize:14, fontWeight:700, cursor:"pointer" }}>
-                Reschedule
-              </button>
-              <button onClick={() => setMode("confirmCancel")} disabled={actionLoading}
-                style={{ background:C.white, color:"#dc2626", border:"1.5px solid #fecaca", borderRadius:12,
-                  padding:"13px", fontSize:14, fontWeight:700, cursor:"pointer" }}>
-                Cancel Booking
-              </button>
+            <div className="mb-actions-card">
+              <div className="mb-actions">
+                {actionError && <p className="mb-error-text mb-error-text--top">{actionError}</p>}
+                <button className="mb-btn mb-btn-primary" onClick={() => setMode("reschedule")} disabled={actionLoading}>
+                  <CalendarEvent size={14}/> Reschedule
+                </button>
+                <button className="mb-btn mb-btn-danger-outline" onClick={() => setMode("confirmCancel")} disabled={actionLoading}>
+                  <XCircleFill size={14}/> Cancel Booking
+                </button>
+              </div>
             </div>
           )}
 
           {mode === "confirmCancel" && (
-            <div style={{ padding:"0 24px 24px" }}>
-              <div style={{ background:"#fef2f2", border:"1.5px solid #fecaca", borderRadius:14,
-                padding:"16px 18px", marginBottom:16 }}>
-                <p style={{ margin:"0 0 4px", fontSize:14, fontWeight:700, color:"#991b1b" }}>
-                  Cancel this appointment?
-                </p>
-                <p style={{ margin:0, fontSize:12.5, color:"#b91c1c" }}>
-                  This can't be undone.
-                </p>
+            <div className="mb-actions-card">
+              <div className="mb-warn-box">
+                <p className="mb-warn-title">Cancel this appointment?</p>
+                <p className="mb-warn-sub">This can't be undone.</p>
               </div>
-              {actionError && <p style={{ fontSize:12.5, color:"#dc2626", margin:"0 0 12px" }}>{actionError}</p>}
-              <div style={{ display:"flex", gap:10 }}>
-                <button onClick={() => setMode("view")} disabled={actionLoading}
-                  style={{ flex:1, background:C.white, color:C.text, border:`1.5px solid ${C.border}`,
-                    borderRadius:12, padding:"13px", fontSize:14, fontWeight:700, cursor:"pointer" }}>
+              {actionError && <p className="mb-error-text mb-error-text--gap">{actionError}</p>}
+              <div className="mb-btn-row">
+                <button className="mb-btn mb-btn-outline mb-btn--flex1" onClick={() => setMode("view")} disabled={actionLoading}>
                   Keep Booking
                 </button>
-                <button onClick={handleCancel} disabled={actionLoading}
-                  style={{ flex:1, background:"#dc2626", color:C.white, border:"none",
-                    borderRadius:12, padding:"13px", fontSize:14, fontWeight:700, cursor:"pointer" }}>
+                <button className="mb-btn mb-btn-danger mb-btn--flex1" onClick={handleCancel} disabled={actionLoading}>
                   {actionLoading ? "Cancelling…" : "Yes, Cancel It"}
                 </button>
               </div>
@@ -425,55 +490,45 @@ export default function ManageBookingPage() {
           )}
 
           {mode === "reschedule" && (
-            <div style={{ padding:"0 24px 24px" }}>
+            <div className="mb-actions-card">
               <SectionHead title="Choose a New Date" sub="Pick your preferred day" />
-              <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:20 }}>
+              <div className="mb-date-grid">
                 {dates.map((d, i) => {
                   const act = d.toDateString() === selDate.toDateString();
                   return (
-                    <button key={i} onClick={() => { setSelDate(d); setSelTime(null); }}
-                      style={{ background: act ? GRADIENT : C.white,
-                        border:`1.5px solid ${act ? C.accent : C.border}`,
-                        borderRadius:14, padding:"10px 14px", cursor:"pointer",
-                        textAlign:"center", color: act ? C.white : C.text, minWidth:58 }}>
-                      <div style={{ fontSize:9.5, fontWeight:700, opacity: act ? 0.85 : 0.55,
-                        marginBottom:3, letterSpacing:"0.06em" }}>
+                    <button key={i} className={`mb-date-btn${act ? " active" : ""}`}
+                      onClick={() => { setSelDate(d); setSelTime(null); }}>
+                      <div className="mb-date-day">
                         {i === 0 ? "TODAY" : DAYS[d.getDay()].toUpperCase()}
                       </div>
-                      <div style={{ fontSize:20, fontWeight:900, lineHeight:1 }}>{d.getDate()}</div>
-                      <div style={{ fontSize:9.5, opacity: act ? 0.8 : 0.45, marginTop:3 }}>
-                        {MONTHS[d.getMonth()]}
-                      </div>
+                      <div className="mb-date-num">{d.getDate()}</div>
+                      <div className="mb-date-month">{MONTHS[d.getMonth()]}</div>
                     </button>
                   );
                 })}
               </div>
 
               <SectionHead title="Available Times" sub={`${DAYS[selDate.getDay()]}, ${MONTHS[selDate.getMonth()]} ${selDate.getDate()}`} />
-              <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:8 }}>
+              <div className="mb-time-grid">
                 {[...slots.morning, ...slots.afternoon].map((t) => (
                   <TimeChip key={t} t={t} sel={selTime} onPick={setSelTime} />
                 ))}
               </div>
 
-              {actionError && <p style={{ fontSize:12.5, color:"#dc2626", marginTop:10 }}>{actionError}</p>}
+              {actionError && <p className="mb-error-text mb-error-text--top-gap">{actionError}</p>}
 
-              <div style={{ display:"flex", gap:10, marginTop:18 }}>
-                <button onClick={() => { setMode("view"); setActionError(null); }}
-                  style={{ flex:1, background:C.white, color:C.text, border:`1.5px solid ${C.border}`,
-                    borderRadius:12, padding:"13px", fontSize:14, fontWeight:700, cursor:"pointer" }}>
+              <div className="mb-btn-row mb-btn-row--top">
+                <button className="mb-btn mb-btn-outline mb-btn--flex1" onClick={() => { setMode("view"); setActionError(null); }}>
                   Back
                 </button>
-                <button onClick={handleReschedule} disabled={!selTime || actionLoading}
-                  style={{ flex:2, background: selTime ? GRADIENT : C.med, color: selTime ? C.white : C.muted,
-                    border:"none", borderRadius:12, padding:"13px", fontSize:14, fontWeight:700,
-                    cursor: selTime ? "pointer" : "not-allowed" }}>
+                <button className={`mb-btn mb-btn--flex2 mb-btn-confirm${selTime ? " enabled" : ""}`}
+                  onClick={handleReschedule} disabled={!selTime || actionLoading}>
                   {actionLoading ? "Saving…" : "Confirm New Time"}
                 </button>
               </div>
             </div>
           )}
-        </div>
+
         </div>
       </div>
     </div>
