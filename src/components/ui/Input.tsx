@@ -19,7 +19,7 @@ interface InputProps extends Omit<
   ) => void;
 }
 
-const Input: React.FC<InputProps> = ({
+const Input = React.forwardRef<HTMLInputElement | HTMLTextAreaElement, InputProps>(({
   label,
   error,
   floating = false,
@@ -32,7 +32,7 @@ const Input: React.FC<InputProps> = ({
   showCharCount = false,
   id,
   ...props
-}) => {
+}, ref) => {
   const generatedId = useId();
   const inputId = id || generatedId;
   const inputClass = `form-control ${error ? "is-invalid" : ""} ${className} ${iconLeft ? "ps-5" : ""} ${iconRight ? "pe-5" : ""}`;
@@ -43,10 +43,11 @@ const Input: React.FC<InputProps> = ({
         id={inputId}
         className={inputClass}
         rows={rows}
+        ref={ref as React.Ref<HTMLTextAreaElement>}
         {...(props as React.TextareaHTMLAttributes<HTMLTextAreaElement>)}
       />
     ) : (
-      <input id={inputId} className={inputClass} {...props} />
+      <input id={inputId} className={inputClass} ref={ref as React.Ref<HTMLInputElement>} {...props} />
     );
 
     if (iconLeft || iconRight) {
@@ -102,6 +103,8 @@ const Input: React.FC<InputProps> = ({
       )}
     </div>
   );
-};
+});
+
+Input.displayName = "Input";
 
 export default Input;

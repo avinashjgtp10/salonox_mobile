@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { XLg } from "react-bootstrap-icons";
 import { useDispatch, useSelector } from "react-redux";
@@ -9,6 +9,9 @@ import Card from "../../../components/ui/Card";
 import Input from "../../../components/ui/Input";
 import Select from "../../../components/ui/Select";
 import Button from "../../../components/ui/Button";
+import { retailFromActiveMethod, markupPercentFromRetail, flatAmountFromRetail } from "../utils/productPricing";
+import type { MarkupMethod } from "../utils/productPricing";
+import { useWheelStepInput } from "../../../hooks/useWheelStepInput";
 import "../styles/CreateProductPage.scss";
 
 
@@ -25,6 +28,8 @@ interface FormState {
   retailSalesEnabled: boolean;
   retailPrice: string;
   markupPercentage: string;
+  flatAmount: string;
+  markupMethod: MarkupMethod;
 }
 
 const initialForm: FormState = {
@@ -39,6 +44,8 @@ const initialForm: FormState = {
   retailSalesEnabled: true,
   retailPrice: "",
   markupPercentage: "",
+  flatAmount: "",
+  markupMethod: "percentage",
 };
 
 const EditProductPage: React.FC = () => {
@@ -90,31 +97,65 @@ const EditProductPage: React.FC = () => {
         retailSalesEnabled: product.retail_sales_enabled ?? true,
         retailPrice: product.retail_price != null ? String(product.retail_price) : "",
         markupPercentage: product.markup_percentage != null ? String(product.markup_percentage) : "",
+        flatAmount: "",
+        markupMethod: "percentage",
       });
     }
   }, [product]);
 
-  // Auto-calculate markup when supply + retail price change
-  useEffect(() => {
-    const supply = parseFloat(form.supplyPrice);
-    const retail = parseFloat(form.retailPrice);
-    if (supply > 0 && retail > 0) {
-      const markup = (((retail - supply) / supply) * 100).toFixed(2);
-      setField("markupPercentage", markup);
-    }
-  }, [form.supplyPrice, form.retailPrice]);
-
-  // Auto-calculate retail price when markup changes
-  const handleMarkupChange = (val: string) => {
-    const supply = parseFloat(form.supplyPrice);
-    const markup = parseFloat(val);
-    if (supply > 0 && markup >= 0) {
-      const retail = (supply * (1 + markup / 100)).toFixed(2);
-      setForm((prev) => ({ ...prev, markupPercentage: val, retailPrice: retail }));
-    } else {
-      setField("markupPercentage", val);
-    }
+  // Supply price change recalculates retail price from whichever markup method is active
+  const handleSupplyPriceChange = (val: string) => {
+    setForm((prev) => {
+      const supply = parseFloat(val) || 0;
+      const markup = parseFloat(prev.markupPercentage) || 0;
+      const flat = parseFloat(prev.flatAmount) || 0;
+      const hasMarkupInput = prev.markupMethod === "percentage" ? prev.markupPercentage !== "" : prev.flatAmount !== "";
+      const retail = hasMarkupInput ? String(retailFromActiveMethod(supply, prev.markupMethod, markup, flat)) : prev.retailPrice;
+      return { ...prev, supplyPrice: val, retailPrice: retail };
+    });
   };
+
+  // Markup % changes: becomes the active method, clears flat amount, recalculates retail price
+  const handleMarkupChange = (val: string) => {
+    setForm((prev) => {
+      const supply = parseFloat(prev.supplyPrice) || 0;
+      const markup = parseFloat(val) || 0;
+      const retail = val === "" ? prev.retailPrice : String(retailFromActiveMethod(supply, "percentage", markup, 0));
+      return { ...prev, markupPercentage: val, flatAmount: "", markupMethod: "percentage", retailPrice: retail };
+    });
+  };
+
+  // Flat amount changes: becomes the active method, clears markup %, recalculates retail price
+  const handleFlatAmountChange = (val: string) => {
+    setForm((prev) => {
+      const supply = parseFloat(prev.supplyPrice) || 0;
+      const flat = parseFloat(val) || 0;
+      const retail = val === "" ? prev.retailPrice : String(retailFromActiveMethod(supply, "flat", 0, flat));
+      return { ...prev, flatAmount: val, markupPercentage: "", markupMethod: "flat", retailPrice: retail };
+    });
+  };
+
+  // Manual retail price edits recalculate the corresponding value for the active markup method
+  const handleRetailPriceChange = (val: string) => {
+    setForm((prev) => {
+      const supply = parseFloat(prev.supplyPrice) || 0;
+      const retail = parseFloat(val) || 0;
+      if (prev.markupMethod === "percentage") {
+        return { ...prev, retailPrice: val, markupPercentage: val === "" ? prev.markupPercentage : String(markupPercentFromRetail(supply, retail)) };
+      }
+      return { ...prev, retailPrice: val, flatAmount: val === "" ? prev.flatAmount : String(flatAmountFromRetail(supply, retail)) };
+    });
+  };
+
+  // Mouse-wheel adjustment for the pricing fields (Supply/Retail price step by ₹1, Markup % by 1%)
+  const supplyPriceRef = useRef<HTMLInputElement>(null);
+  const retailPriceRef = useRef<HTMLInputElement>(null);
+  const markupPercentRef = useRef<HTMLInputElement>(null);
+  const flatAmountRef = useRef<HTMLInputElement>(null);
+  useWheelStepInput(supplyPriceRef, handleSupplyPriceChange);
+  useWheelStepInput(retailPriceRef, handleRetailPriceChange);
+  useWheelStepInput(markupPercentRef, handleMarkupChange);
+  useWheelStepInput(flatAmountRef, handleFlatAmountChange);
 
   const handleAddBrand = async () => {
     if (!newBrand.trim()) return;
@@ -155,7 +196,9 @@ const EditProductPage: React.FC = () => {
       description: form.description || null,
       supply_price: form.supplyPrice ? parseFloat(form.supplyPrice) : 0,
       retail_price: form.retailSalesEnabled && form.retailPrice ? parseFloat(form.retailPrice) : null,
-      markup_percentage: form.retailSalesEnabled && form.markupPercentage ? parseFloat(form.markupPercentage) : null,
+      markup_percentage: form.retailSalesEnabled && form.retailPrice
+        ? markupPercentFromRetail(parseFloat(form.supplyPrice) || 0, parseFloat(form.retailPrice))
+        : null,
     };
 
     if (!id) return;
@@ -317,12 +360,13 @@ const EditProductPage: React.FC = () => {
           {/* 2. Pricing */}
           <Card title="Pricing" className="mb-4">
             <Input
+              ref={supplyPriceRef}
               label="Supply price"
               type="number"
               min="0"
               placeholder="0.00"
               value={form.supplyPrice}
-              onChange={(e) => setField("supplyPrice", e.target.value)}
+              onChange={(e) => handleSupplyPriceChange(e.target.value)}
               onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
               iconLeft={<span>₹</span>}
               containerClass="mt-1"
@@ -354,19 +398,21 @@ const EditProductPage: React.FC = () => {
               <div className="row g-3">
                 <div className="col-6">
                   <Input
+                    ref={retailPriceRef}
                     label="Retail price"
                     type="number"
                     min="0"
                     placeholder="0.00"
                     value={form.retailPrice}
-                    onChange={(e) => setField("retailPrice", e.target.value)}
+                    onChange={(e) => handleRetailPriceChange(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
                     iconLeft={<span>₹</span>}
                     containerClass=""
                   />
                 </div>
-                <div className="col-6">
+                <div className="col-3">
                   <Input
+                    ref={markupPercentRef}
                     label="Markup"
                     type="number"
                     min="0"
@@ -374,6 +420,19 @@ const EditProductPage: React.FC = () => {
                     value={form.markupPercentage}
                     onChange={(e) => handleMarkupChange(e.target.value)}
                     iconLeft={<span>%</span>}
+                    containerClass=""
+                  />
+                </div>
+                <div className="col-3">
+                  <Input
+                    ref={flatAmountRef}
+                    label="Flat amount"
+                    type="number"
+                    min="0"
+                    placeholder="0.00"
+                    value={form.flatAmount}
+                    onChange={(e) => handleFlatAmountChange(e.target.value)}
+                    iconLeft={<span>₹</span>}
                     containerClass=""
                   />
                 </div>
