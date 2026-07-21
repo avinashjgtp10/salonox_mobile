@@ -241,11 +241,18 @@ export function mapApiBooking(
   const taxFromBreakdown = Array.isArray(taxBreakdownVal)
     ? taxBreakdownVal.reduce((s: number, t: any) => s + (Number(t?.amount) || 0), 0)
     : 0;
+  // For an appointment with no payment yet, the backend backfills a full
+  // discount+tax-inclusive total at read time (appointments.service.ts::
+  // backfillTaxBreakdown) — prefer it outright rather than `computedTotal +
+  // taxFromBreakdown`, since computedTotal is the raw pre-discount item sum
+  // and never accounts for the bill-level discount on its own.
+  const computedGrandTotal = appt.computed_grand_total ?? (appt as any).computedGrandTotal;
   const grandTotalVal = isPackagePaid ? 0
     : hasPerServicePackage
       ? Math.max(0, [...services, ...productItems, ...packageItems, ...membershipItems]
           .reduce((sum, item: any) => sum + (Number(item.total) || 0), 0)) + taxFromBreakdown
-      : (parseFloat(String(appt.grand_total ?? appt.grandTotal ?? appt.total_amount ?? 0)) || (computedTotal + taxFromBreakdown));
+      : (parseFloat(String(appt.grand_total ?? appt.grandTotal ?? appt.total_amount ?? 0))
+          || (computedGrandTotal != null ? Number(computedGrandTotal) : (computedTotal + taxFromBreakdown)));
 
   // ── Subtotal / discount / taxable amount ──────────────────────────────────
   const subtotalVal = parseFloat(String(appt.subtotal ?? 0)) || computedTotal;
