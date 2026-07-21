@@ -46,17 +46,6 @@ import ErrorState from "../components/shared/ErrorState.tsx";
 import Pagination from "../components/shared/Pagination.tsx";
 import "../styles/ServicesListPage.scss";
 
-const COLOR_OPTIONS = [
-  { hex: "#6366f1", name: "Indigo" },
-  { hex: "#10b981", name: "Emerald" },
-  { hex: "#f59e0b", name: "Amber" },
-  { hex: "#ef4444", name: "Red" },
-  { hex: "#8b5cf6", name: "Violet" },
-  { hex: "#ec4899", name: "Pink" },
-  { hex: "#06b6d4", name: "Cyan" },
-  { hex: "#64748b", name: "Slate" },
-];
-
 // Maps UI filter strings → API boolean params
 const buildFilterParams = (
   f: ServiceFiltersState,
@@ -110,18 +99,18 @@ const ServicesListPage: React.FC = () => {
   const [searchQuery, setSearchQuery]             = useState("");
   const [showAddCategory, setShowAddCategory]     = useState(false);
   const [newCategoryName, setNewCategoryName]     = useState("");
-  const [newCategoryColor, setNewCategoryColor]   = useState(COLOR_OPTIONS[0].hex);
   const [newCategoryDesc, setNewCategoryDesc]     = useState("");
-  const [colorDropdownOpen, setColorDropdownOpen] = useState(false);
   const [editingCategory, setEditingCategory]     = useState<{ id: string | number; name: string; description?: string } | null>(null);
   const [editCategoryName, setEditCategoryName]   = useState("");
   const [editCategoryDesc, setEditCategoryDesc]   = useState("");
   const [deletingCategory, setDeletingCategory]   = useState<{ id: string | number; name: string } | null>(null);
+  const [deleteCategoryInput, setDeleteCategoryInput] = useState("");
   const [currentPage, setCurrentPage]             = useState(1);
   const [pageSize, setPageSize]                   = useState(25);
 
   const [selectedService, setSelectedService]   = useState<Service | null>(null);
   const [deletingService, setDeletingService]   = useState<Service | null>(null);
+  const [deleteServiceInput, setDeleteServiceInput] = useState("");
   const [deleteLoading, setDeleteLoading]       = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
@@ -160,6 +149,10 @@ const ServicesListPage: React.FC = () => {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  // Reset the "type DELETE to confirm" fields whenever a delete target opens/closes
+  useEffect(() => { setDeleteCategoryInput(""); }, [deletingCategory]);
+  useEffect(() => { setDeleteServiceInput(""); }, [deletingService]);
 
   // ── Download helpers — fetch ALL services then export client-side ────────────
 
@@ -313,7 +306,6 @@ const ServicesListPage: React.FC = () => {
   const resetCategoryForm = () => {
     setNewCategoryName("");
     setNewCategoryDesc("");
-    setNewCategoryColor(COLOR_OPTIONS[0].hex);
   };
 
   const hasActiveSearch = searchQuery.trim() !== "";
@@ -766,11 +758,22 @@ const ServicesListPage: React.FC = () => {
               </button>
             </div>
             <div className="slp__modal-body">
-              <p className="text-muted small mb-0">
+              <p className="text-muted small mb-3">
                 Are you sure you want to delete{" "}
                 <strong>{deletingCategory.name}</strong>? Services in this
-                category will become uncategorised.
+                category will become uncategorised. This operation can't be
+                undone.
               </p>
+              <div className="slp__field">
+                <label>Type DELETE to confirm</label>
+                <input
+                  className="slp__input"
+                  placeholder="DELETE"
+                  value={deleteCategoryInput}
+                  onChange={(e) => setDeleteCategoryInput(e.target.value)}
+                  autoFocus
+                />
+              </div>
             </div>
             <div className="slp__modal-footer">
               <button
@@ -781,7 +784,7 @@ const ServicesListPage: React.FC = () => {
               </button>
               <button
                 className="slp__btn slp__btn--danger"
-                disabled={catLoading}
+                disabled={deleteCategoryInput !== "DELETE" || catLoading}
                 onClick={async () => {
                   await deleteCategory(String(deletingCategory.id));
                   setDeletingCategory(null);
@@ -813,11 +816,21 @@ const ServicesListPage: React.FC = () => {
               </button>
             </div>
             <div className="slp__modal-body">
-              <p className="text-muted small mb-0">
+              <p className="text-muted small mb-3">
                 Are you sure you want to delete{" "}
                 <strong>{deletingService.name}</strong>? This action cannot be
                 undone.
               </p>
+              <div className="slp__field">
+                <label>Type DELETE to confirm</label>
+                <input
+                  className="slp__input"
+                  placeholder="DELETE"
+                  value={deleteServiceInput}
+                  onChange={(e) => setDeleteServiceInput(e.target.value)}
+                  autoFocus
+                />
+              </div>
             </div>
             <div className="slp__modal-footer">
               <button
@@ -828,7 +841,7 @@ const ServicesListPage: React.FC = () => {
               </button>
               <button
                 className="slp__btn slp__btn--danger"
-                disabled={deleteLoading}
+                disabled={deleteServiceInput !== "DELETE" || deleteLoading}
                 onClick={async () => {
                   setDeleteLoading(true);
                   await dispatch(deleteServiceThunk(deletingService.id));
@@ -868,53 +881,15 @@ const ServicesListPage: React.FC = () => {
               </button>
             </div>
             <div className="slp__modal-body">
-              <div className="slp__modal-row">
-                <div className="slp__field">
-                  <label>Category name</label>
-                  <input
-                    className="slp__input"
-                    placeholder="e.g. Hair Services"
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    autoFocus
-                  />
-                </div>
-                <div className="slp__field" style={{ position: "relative" }}>
-                  <label>Appointment color</label>
-                  <div
-                    className="slp__color-toggle"
-                    onClick={() => setColorDropdownOpen((o) => !o)}
-                  >
-                    <span
-                      className="slp__color-swatch"
-                      style={{ background: newCategoryColor }}
-                    />
-                    <span>
-                      {COLOR_OPTIONS.find((c) => c.hex === newCategoryColor)?.name ?? "Color"}
-                    </span>
-                    <ChevronDown size={13} />
-                  </div>
-                  {colorDropdownOpen && (
-                    <div className="slp__color-menu">
-                      {COLOR_OPTIONS.map((c) => (
-                        <div
-                          key={c.hex}
-                          className={`slp__color-opt ${newCategoryColor === c.hex ? "slp__color-opt--sel" : ""}`}
-                          onClick={() => {
-                            setNewCategoryColor(c.hex);
-                            setColorDropdownOpen(false);
-                          }}
-                        >
-                          <span
-                            className="slp__color-swatch"
-                            style={{ background: c.hex }}
-                          />
-                          {c.name}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+              <div className="slp__field">
+                <label>Category name</label>
+                <input
+                  className="slp__input"
+                  placeholder="e.g. Hair Services"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  autoFocus
+                />
               </div>
               <div className="slp__field" style={{ marginTop: 16 }}>
                 <div className="d-flex justify-content-between align-items-center mb-1">
@@ -946,7 +921,6 @@ const ServicesListPage: React.FC = () => {
                   await createCategory({
                     name: newCategoryName.trim(),
                     description: newCategoryDesc.trim() || undefined,
-                    color: newCategoryColor,
                   });
                   setShowAddCategory(false);
                   resetCategoryForm();

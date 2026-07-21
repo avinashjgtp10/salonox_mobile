@@ -551,13 +551,13 @@ const ProductsListPage: React.FC = () => {
         >
           <div
             className="bg-white rounded-4 shadow-lg d-flex flex-column"
-            style={{ width: "480px", maxWidth: "90vw", minHeight: "320px" }}
+            style={{ width: "480px", maxWidth: "90vw", minHeight: "320px", maxHeight: "80vh" }}
           >
             <div className="d-flex justify-content-between align-items-center p-4 pb-0">
               <h5 className="mb-0 fw-bold fs-5 text-dark">My brands</h5>
               <button className="btn-close shadow-none" onClick={() => setActiveModal("none")} />
             </div>
-            <div className="p-4 d-flex flex-column align-items-center justify-content-center flex-grow-1 text-center">
+            <div className="p-4 d-flex flex-column align-items-center justify-content-center flex-grow-1 text-center overflow-y-auto">
               {brands.length === 0 ? (
                 <>
                   <div className="mb-3" style={{ color: "#6366f1" }}>
