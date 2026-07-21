@@ -63,6 +63,8 @@ const ProductsListPage: React.FC = () => {
   >("none");
   const [brandName, setBrandName] = useState("");
   const [categoryName, setCategoryName] = useState("");
+  const [categoryNameError, setCategoryNameError] = useState("");
+  const [savingCategory, setSavingCategory] = useState(false);
 
   // Build a lookup map from category_id -> category name
   const categoryMap: Record<string, string> = {};
@@ -152,6 +154,32 @@ const ProductsListPage: React.FC = () => {
     setPendingFilters(DEFAULT_FILTERS);
     setAppliedFilters(DEFAULT_FILTERS);
     setIsFilterModalOpen(false);
+  };
+
+  const handleSaveCategory = async () => {
+    const trimmed = categoryName.trim();
+    if (!trimmed) return;
+
+    const isDuplicate = categories.some(
+      (c: any) => c.name.trim().toLowerCase() === trimmed.toLowerCase()
+    );
+    if (isDuplicate) {
+      setCategoryNameError("A category with this name already exists.");
+      return;
+    }
+
+    setSavingCategory(true);
+    const result = await createCategory(trimmed) as any;
+    setSavingCategory(false);
+
+    if (result?.meta?.requestStatus === "rejected") {
+      setCategoryNameError(result.payload || "Failed to create category.");
+      return;
+    }
+
+    setCategoryName("");
+    setCategoryNameError("");
+    setActiveModal("categories");
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -646,13 +674,13 @@ const ProductsListPage: React.FC = () => {
         >
           <div
             className="bg-white rounded-4 shadow-lg d-flex flex-column"
-            style={{ width: "480px", maxWidth: "90vw", minHeight: "320px" }}
+            style={{ width: "480px", maxWidth: "90vw", minHeight: "320px", maxHeight: "80vh" }}
           >
             <div className="d-flex justify-content-between align-items-center p-4 pb-0">
               <h5 className="mb-0 fw-bold fs-5 text-dark">My brands</h5>
               <button className="btn-close shadow-none" onClick={() => setActiveModal("none")} />
             </div>
-            <div className="p-4 d-flex flex-column align-items-center justify-content-center flex-grow-1 text-center">
+            <div className="p-4 d-flex flex-column align-items-center justify-content-center flex-grow-1 text-center overflow-y-auto">
               {brands.length === 0 ? (
                 <>
                   <div className="mb-3" style={{ color: "#6366f1" }}>
@@ -819,7 +847,10 @@ const ProductsListPage: React.FC = () => {
           >
             <div className="d-flex justify-content-between align-items-center p-4 pb-0">
               <h5 className="mb-0 fw-bold fs-5 text-dark">Add a category</h5>
-              <button className="btn-close shadow-none" onClick={() => setActiveModal("none")} />
+              <button
+                className="btn-close shadow-none"
+                onClick={() => { setActiveModal("none"); setCategoryNameError(""); }}
+              />
             </div>
             <div className="p-4 py-3">
               <label className="form-label mb-2 fw-medium text-dark" style={{ fontSize: "13px" }}>
@@ -827,31 +858,30 @@ const ProductsListPage: React.FC = () => {
               </label>
               <input
                 type="text"
-                className="form-control form-control-lg shadow-none border-secondary-subtle"
+                className={`form-control form-control-lg shadow-none ${categoryNameError ? "border-danger" : "border-secondary-subtle"}`}
                 placeholder="e.g. Hair care"
                 style={{ fontSize: "15px" }}
                 value={categoryName}
-                onChange={(e) => setCategoryName(e.target.value)}
+                onChange={(e) => { setCategoryName(e.target.value); setCategoryNameError(""); }}
+                onKeyDown={(e) => { if (e.key === "Enter") handleSaveCategory(); }}
               />
+              {categoryNameError && (
+                <div className="text-danger mt-2" style={{ fontSize: "13px" }}>{categoryNameError}</div>
+              )}
             </div>
             <div className="d-flex justify-content-end p-4 pt-2 gap-3">
               <Button
                 variant="outline"
-                onClick={() => setActiveModal("categories")}
+                onClick={() => { setActiveModal("categories"); setCategoryNameError(""); }}
               >
                 Go back
               </Button>
               <Button
                 variant="primary"
-                onClick={async () => {
-                  if (categoryName.trim()) {
-                    await createCategory(categoryName.trim());
-                    setCategoryName("");
-                    setActiveModal("categories");
-                  }
-                }}
+                onClick={handleSaveCategory}
+                disabled={!categoryName.trim() || savingCategory}
               >
-                Save
+                {savingCategory ? "Saving..." : "Save"}
               </Button>
             </div>
           </div>

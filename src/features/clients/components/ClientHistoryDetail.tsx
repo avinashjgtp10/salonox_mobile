@@ -26,6 +26,7 @@ import {
 import api from "../../../services/api/axios";
 import { printReceipt, buildPrintableBooking } from "../../bookings/utils/receipt";
 import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
+import { getPackageExpiryStatus } from "../../bookings/utils/packageStatus";
 import Pagination from "../../../components/ui/Pagination";
 import Skeleton from "../../../components/ui/Skeleton";
 import "../styles/ClientHistoryPage.scss";
@@ -89,6 +90,18 @@ interface PackageRecord {
   services: PackageService[] | null;
 }
 
+interface MembershipRecord {
+  id: string;
+  membership_name: string;
+  status: string;
+  price_paid: string;
+  expires_at: string | null;
+  purchased_at: string;
+  total_sessions: number;
+  used_sessions: number;
+  membership_wallet_balance: string;
+}
+
 interface HistoryStats {
   total_appointments: number;
   completed_appointments: number;
@@ -118,6 +131,7 @@ interface HistoryData {
   appointments: AppointmentRecord[];
   sales: SaleRecord[];
   packages: PackageRecord[];
+  memberships: MembershipRecord[];
 }
 
 export type TabKey =
@@ -287,6 +301,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   const appointments = data?.appointments ?? [];
   const sales = data?.sales ?? [];
   const packages = data?.packages ?? [];
+  const realMemberships = data?.memberships ?? [];
 
   const now = new Date();
 
@@ -451,7 +466,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   // Apply global filters across all tab data at once
   const {
     visibleAppointments, visibleQuickSales, filteredAllServices,
-    filteredProductsFromSales, filteredMembershipsFromSales, filteredPackages, filteredPackageItems, filteredSales,
+    filteredProductsFromSales, filteredMembershipsFromSales, filteredPackages, filteredRealMemberships, filteredPackageItems, filteredSales,
   } = useMemo(() => {
     const matchDate = (dateStr: string): boolean => {
       if (globalCalDay) return dateStr.slice(0, 10) === globalCalDay;
@@ -477,6 +492,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       filteredProductsFromSales: productsFromSales.filter((it) => matchDate(it.sale_date)),
       filteredMembershipsFromSales: membershipsFromSales.filter((it) => matchDate(it.sale_date)),
       filteredPackages: packages.filter((pkg) => matchDate(pkg.created_date)),
+      filteredRealMemberships: realMemberships.filter((m) => matchDate(m.purchased_at)),
       filteredPackageItems: allPackageItems.filter((it) => matchDate(it.sale_date)),
       filteredSales: sales.filter((s) => {
         if (!matchDate(s.created_at)) return false;
@@ -493,7 +509,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       }),
     };
   }, [
-    appointments, quickSales, allServices, productsFromSales, membershipsFromSales, packages, sales,
+    appointments, quickSales, allServices, productsFromSales, membershipsFromSales, packages, realMemberships, sales,
     globalCalDay, globalDatePreset, globalServiceFilter, globalStaffFilter,
     appointmentServicesMap, appointmentStaffMap,
   ]);
@@ -1082,6 +1098,46 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
         {/* MEMBERSHIPS tab */}
         {activeTab === "memberships" && (
           <div className="chp-card">
+            {filteredRealMemberships.length > 0 && (
+              <>
+                <div className="chp-card-header">
+                  <span className="chp-card-title">Active memberships ({filteredRealMemberships.length})</span>
+                </div>
+                {filteredRealMemberships.map((m) => {
+                  const expiryStatus = getPackageExpiryStatus(m.expires_at);
+                  const displayStatus = expiryStatus === "active" ? m.status : expiryStatus;
+                  return (
+                    <div key={m.id} className="chp-pkg-card">
+                      <div className="chp-pkg-top">
+                        <div className="chp-pkg-name">{m.membership_name}</div>
+                        <span className={`chp-status-badge chp-status-badge--${displayStatus}`}>
+                          {displayStatus === "expiring-soon" ? "Expiring Soon" : displayStatus}
+                        </span>
+                      </div>
+                      <div className="chp-pkg-meta">
+                        Purchased {fmtDateShort(m.purchased_at)}
+                        {m.expires_at ? ` · Expires ${fmtDateShort(m.expires_at)}` : ""}
+                      </div>
+                      <div className="chp-pkg-svc">
+                        <div className="chp-pkg-svc-row">
+                          <span>Sessions</span>
+                          <span>{m.total_sessions === 0 ? "Unlimited" : `${m.used_sessions}/${m.total_sessions}`}</span>
+                        </div>
+                        {m.total_sessions > 0 && (
+                          <div className="chp-progress-bar">
+                            <div className="chp-progress-fill" style={{ width: `${Math.round((m.used_sessions / m.total_sessions) * 100)}%` }} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="chp-pkg-footer">
+                        <span className="chp-pkg-amount">Wallet Balance: ₹{Number(m.membership_wallet_balance).toLocaleString("en-IN")}</span>
+                        <span className="chp-pkg-amount">₹{Number(m.price_paid).toLocaleString("en-IN")}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
             <div className="chp-card-header">
               <span className="chp-card-title">
                 Memberships purchased ({filteredMembershipsFromSales.length}{hasGlobalFilter && filteredMembershipsFromSales.length !== membershipsFromSales.length ? ` of ${membershipsFromSales.length}` : ""})
@@ -1151,14 +1207,14 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
               <div className="chp-no-data">No packages found</div>
             ) : filteredPackages.length === 0 ? null : (
               filteredPackages.map((pkg) => {
-                const isExpired = pkg.expiry_date && new Date(pkg.expiry_date) < new Date();
-                const displayStatus = isExpired ? "expired" : pkg.status;
+                const expiryStatus = getPackageExpiryStatus(pkg.expiry_date);
+                const displayStatus = expiryStatus === "active" ? pkg.status : expiryStatus;
                 return (
                   <div key={pkg.id} className="chp-pkg-card">
                     <div className="chp-pkg-top">
                       <div className="chp-pkg-name">{pkg.package_name}</div>
                       <span className={`chp-status-badge chp-status-badge--${displayStatus}`}>
-                        {displayStatus}
+                        {displayStatus === "expiring-soon" ? "Expiring Soon" : displayStatus}
                       </span>
                     </div>
                     <div className="chp-pkg-meta">

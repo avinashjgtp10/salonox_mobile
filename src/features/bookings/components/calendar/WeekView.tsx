@@ -7,7 +7,6 @@ import { computeChipStatusClass } from "../../utils/bookingStatusUtils";
 import { getWeekDays, DAYS_SHORT, formatTime12, getCurrentTime } from "../../utils/timeUtils";
 import BookingTooltipCard from "../shared/BookingTooltipCard";
 import { computeOverlapLayout } from "../../utils/overlapLayout";
-import { useListClientPackagesQuery } from "../../../../services/api/endpoints/packages.endpoints";
 import "../../styles/WeekView.scss";
 
 // Stable empty fallback — prevents allocating a new [] on every Map miss
@@ -53,26 +52,6 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({ onSlotClick, onViewBill })
   const openTip = useCallback((booking: Booking, el: HTMLElement) => { clearTimeout(closeTimerRef.current); setHovered({ booking, el }); }, []);
   const closeTip = useCallback(() => { closeTimerRef.current = setTimeout(() => setHovered(null), 150); }, []);
   const keepTip = useCallback(() => { clearTimeout(closeTimerRef.current); }, []);
-
-  // Fetch the hovered client's active packages for tooltip fallback coverage detection
-  const hoveredClientId = hovered?.booking?.clientId && String(hovered.booking.clientId) !== "walk-in"
-    ? String(hovered.booking.clientId) : undefined;
-  const { data: hoveredPkgData } = useListClientPackagesQuery(
-    { clientId: hoveredClientId, status: "Active", limit: 50 },
-    { skip: !hoveredClientId }
-  );
-  const tooltipCoveredServices = useMemo(() => {
-    const map = new Map<string, number>();
-    (hoveredPkgData?.items ?? []).forEach((pkg: any) => {
-      pkg.services.forEach((svc: any) => {
-        if (svc.remainingSessions > 0) {
-          const key = (svc.serviceName || "").toLowerCase();
-          map.set(key, (map.get(key) ?? 0) + svc.remainingSessions);
-        }
-      });
-    });
-    return map;
-  }, [hoveredPkgData]);
 
   useEffect(() => { const t = setInterval(() => setNowTime(getCurrentTime()), 60000); return () => clearInterval(t); }, []);
 
@@ -251,7 +230,7 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({ onSlotClick, onViewBill })
         </div>
       </div>
     </div>
-    {hovered && <BookingTooltipCard booking={hovered.booking} staffList={staffList} anchorEl={hovered.el} onMouseEnter={keepTip} onMouseLeave={closeTip} coveredServices={tooltipCoveredServices} />}
+    {hovered && <BookingTooltipCard booking={hovered.booking} staffList={staffList} anchorEl={hovered.el} onMouseEnter={keepTip} onMouseLeave={closeTip} />}
     </>
   );
 };

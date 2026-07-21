@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { Country } from "country-state-city";
 
 interface CountryInfo {
   name: string;
@@ -17,11 +18,19 @@ interface Props {
   onBlur?: () => void;
 }
 
-const parseDialCode = (idd: { root?: string; suffixes?: string[] }): string => {
-  if (!idd?.root) return "";
-  const suffix = idd.suffixes?.length === 1 ? idd.suffixes[0] : "";
-  return idd.root + suffix;
-};
+// Bundled dataset (no network call) — this used to fetch from
+// restcountries.com on every page load, which is a third-party service with
+// no SLA; any outage/rate-limit/CORS block there showed "Failed to load
+// countries" on Register with no way to recover short of a retry. Same
+// package AddClientPage.tsx already uses for its own country/phone-code list.
+const COUNTRIES: CountryInfo[] = Country.getAllCountries()
+  .map((c) => ({
+    name: c.name,
+    code: c.isoCode,
+    dialCode: c.phonecode.startsWith("+") ? c.phonecode : `+${c.phonecode}`,
+  }))
+  .filter((c) => c.dialCode && c.code)
+  .sort((a, b) => a.name.localeCompare(b.name));
 
 const flagUrl = (code: string) =>
   `https://flagcdn.com/20x15/${code.toLowerCase()}.png`;
@@ -35,35 +44,12 @@ export default function CountryPhoneDropdown({
   error,
   onBlur,
 }: Props) {
-  const [countries, setCountries] = useState<CountryInfo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState(false);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
 
   const triggerRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    fetch("https://restcountries.com/v3.1/all?fields=name,idd,cca2")
-      .then((r) => r.json())
-      .then(
-        (data: { name: { common: string }; idd: { root?: string; suffixes?: string[] }; cca2: string }[]) => {
-          const parsed: CountryInfo[] = data
-            .map((c) => ({
-              name: c.name?.common ?? "",
-              code: c.cca2 ?? "",
-              dialCode: parseDialCode(c.idd),
-            }))
-            .filter((c) => c.dialCode && c.code)
-            .sort((a, b) => a.name.localeCompare(b.name));
-          setCountries(parsed);
-        }
-      )
-      .catch(() => setFetchError(true))
-      .finally(() => setLoading(false));
-  }, []);
 
   const openDropdown = () => {
     if (triggerRef.current) {
@@ -118,15 +104,15 @@ export default function CountryPhoneDropdown({
   }, [open]);
 
   const filtered = search.trim()
-    ? countries.filter(
+    ? COUNTRIES.filter(
         (c) =>
           c.name.toLowerCase().includes(search.toLowerCase()) ||
           c.dialCode.includes(search) ||
           c.code.toLowerCase().includes(search.toLowerCase())
       )
-    : countries;
+    : COUNTRIES;
 
-  const selected = countries.find((c) => c.code === country);
+  const selected = COUNTRIES.find((c) => c.code === country);
 
   const handleSelect = (c: CountryInfo) => {
     onChange({ country: c.code, countryName: c.name, countryCode: c.dialCode, phone });
@@ -134,7 +120,7 @@ export default function CountryPhoneDropdown({
     setSearch("");
   };
 
-  const dropdown = open && !fetchError && createPortal(
+  const dropdown = open && createPortal(
     <div
       id="cpd-panel"
       style={{
@@ -298,36 +284,30 @@ export default function CountryPhoneDropdown({
             minWidth: "88px",
           }}
         >
-          {loading ? (
-            <span style={{ fontSize: "11px", color: "#9CA3AF" }}>Loading…</span>
-          ) : (
-            <>
-              <img
-                src={flagUrl(selected?.code ?? country)}
-                alt={selected?.name ?? countryName}
-                width={20}
-                height={15}
-                style={{ borderRadius: "2px", flexShrink: 0, objectFit: "cover" }}
-                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-              />
-              <span style={{ fontSize: "12px", fontWeight: 600, color: "#374151", whiteSpace: "nowrap" }}>
-                {selected?.dialCode ?? countryCode}
-              </span>
-              <svg
-                width="9"
-                height="5"
-                viewBox="0 0 9 5"
-                fill="none"
-                style={{
-                  flexShrink: 0,
-                  transform: open ? "rotate(180deg)" : "rotate(0deg)",
-                  transition: "transform 0.18s ease",
-                }}
-              >
-                <path d="M1 1l3.5 3L8 1" stroke="#9CA3AF" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </>
-          )}
+          <img
+            src={flagUrl(selected?.code ?? country)}
+            alt={selected?.name ?? countryName}
+            width={20}
+            height={15}
+            style={{ borderRadius: "2px", flexShrink: 0, objectFit: "cover" }}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+          />
+          <span style={{ fontSize: "12px", fontWeight: 600, color: "#374151", whiteSpace: "nowrap" }}>
+            {selected?.dialCode ?? countryCode}
+          </span>
+          <svg
+            width="9"
+            height="5"
+            viewBox="0 0 9 5"
+            fill="none"
+            style={{
+              flexShrink: 0,
+              transform: open ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 0.18s ease",
+            }}
+          >
+            <path d="M1 1l3.5 3L8 1" stroke="#9CA3AF" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
 
         {/* Phone input */}
@@ -358,12 +338,6 @@ export default function CountryPhoneDropdown({
       </div>
 
       {dropdown}
-
-      {fetchError && (
-        <p style={{ marginTop: "4px", fontSize: "12px", color: "#E05C5C", margin: "4px 0 0" }}>
-          Failed to load countries. Please refresh.
-        </p>
-      )}
     </div>
   );
 }

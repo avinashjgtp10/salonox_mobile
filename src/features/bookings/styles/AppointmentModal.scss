@@ -992,6 +992,18 @@ $success:    #22c55e;
     color: #374151;
   }
 
+  &__status-badge {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+
+    &--active { background: #dcfce7; color: #166534; }
+    &--expiring-soon { background: #fef3c7; color: #92400e; }
+    &--expired { background: #fee2e2; color: #991b1b; }
+  }
+
   &__svc-title {
     font-size: 11px;
     font-weight: 700;

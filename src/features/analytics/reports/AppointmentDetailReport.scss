@@ -1,1 +1,8 @@
 @use "../styles/reportDetailBase" as *;
+
+.rp-adr-service {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

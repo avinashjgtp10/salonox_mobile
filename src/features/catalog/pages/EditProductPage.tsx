@@ -324,7 +324,7 @@ const EditProductPage: React.FC = () => {
               value={form.supplyPrice}
               onChange={(e) => setField("supplyPrice", e.target.value)}
               onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
-              iconLeft={<span>INR</span>}
+              iconLeft={<span>₹</span>}
               containerClass="mt-1"
             />
 
@@ -361,7 +361,7 @@ const EditProductPage: React.FC = () => {
                     value={form.retailPrice}
                     onChange={(e) => setField("retailPrice", e.target.value)}
                     onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
-                    iconLeft={<span>INR</span>}
+                    iconLeft={<span>₹</span>}
                     containerClass=""
                   />
                 </div>
