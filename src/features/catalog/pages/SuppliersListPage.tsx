@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchSuppliersThunk, deleteSupplierThunk } from "../../../middleware/inventory/inventory.thunk";
 import type { Supplier } from "../../../types/inventory.types";
+import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 import "../styles/SuppliersListPage.scss";
 
 const ITEMS_PER_PAGE = 8;
@@ -61,7 +62,7 @@ const SuppliersListPage: React.FC = () => {
             <span className="count-badge">{filtered.length}</span>
           </h1>
           <p>
-            Add and manage details of your suppliers. <a href="#">Learn more</a>
+            Add and manage details of your suppliers. <LearnMoreLink topic="suppliers">Learn more</LearnMoreLink>
           </p>
         </div>
         <button

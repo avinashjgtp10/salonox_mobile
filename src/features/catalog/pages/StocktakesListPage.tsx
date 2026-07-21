@@ -17,6 +17,7 @@ import type { AppDispatch, RootState } from "../../../store/store";
 import { fetchStocktakesThunk, deleteStocktakeThunk } from "../../../middleware/inventory/inventory.thunk";
 import { fetchBranchesThunk } from "../../../middleware/salon/salon.thunk";
 import StocktakeDetailsDrawer from "../components/StocktakeDetailsDrawer";
+import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 import "../styles/StocktakesListPage.scss";
 
 // Types - Keeping these but mapping from state if needed
@@ -145,7 +146,7 @@ const StocktakesListPage: React.FC = () => {
           </h1>
           <p>
             Count and record the amount and value of stock your business holds.{" "}
-            <a href="#">Learn more</a>
+            <LearnMoreLink topic="stocktakes">Learn more</LearnMoreLink>
           </p>
         </div>
         <button

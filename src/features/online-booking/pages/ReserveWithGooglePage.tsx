@@ -8,6 +8,7 @@ import {
   GraphUpArrow,
   CalendarCheck,
 } from "react-bootstrap-icons";
+import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 import "../styles/OnlineBooking.scss";
 
 const STEPS = [
@@ -173,12 +174,13 @@ export default function ReserveWithGooglePage() {
           <InfoCircle size={16} style={{ color: "#6b7280", flexShrink: 0 }} />
           <p style={{ fontSize: 13, color: "#374151", margin: 0 }}>
             Reserve with Google requires an active Google Business Profile.{" "}
-            <button
+            <LearnMoreLink
+              topic="reserve-with-google"
               className="ob-btn-outline"
-              style={{ padding: "4px 10px", fontSize: 12, display: "inline-flex", gap: 4 }}
+              style={{ padding: "4px 10px", fontSize: 12, display: "inline-flex", alignItems: "center", gap: 4 }}
             >
               Learn more <ArrowUpRightSquare size={12} />
-            </button>
+            </LearnMoreLink>
           </p>
         </div>
       </div>

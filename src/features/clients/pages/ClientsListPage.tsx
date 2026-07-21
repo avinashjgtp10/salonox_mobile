@@ -30,6 +30,7 @@ import ClientDetailsDrawer from "../components/ClientDetailsDrawer";
 import ClientSearchInput from "../components/ClientSearchInput";
 import ClientImportModal from "../components/ClientImportModal";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 
 // UI Components
 import {
@@ -514,10 +515,10 @@ export default function ClientsListPage() {
               "clients.header.subtitle",
               "View, add, edit and delete your client's details.",
             )}
-            <span className="learn-more-link text-primary cursor-pointer ms-1">
+            <LearnMoreLink topic="clients" className="learn-more-link text-primary cursor-pointer ms-1">
               {" "}
               {t("clients.header.learnMore", "Learn more")}
-            </span>
+            </LearnMoreLink>
           </p>
         </div>
 

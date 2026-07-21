@@ -4,6 +4,7 @@ import "../styles/StaffPayRunsSection.scss";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 
 interface PayRunSettings {
   pay_runs_enabled: boolean;
@@ -97,7 +98,7 @@ const StaffPayRunsSection: React.FC<StaffPayRunsSectionProps> = ({ staffId, salo
           </div>
           <div className="switch-desc">
             Choose how you will pay this team member through pay runs.{" "}
-            <a href="#">Learn more</a>
+            <LearnMoreLink topic="staff-payruns-settings">Learn more</LearnMoreLink>
           </div>
         </div>
         <div className="form-check form-switch">
@@ -118,7 +119,7 @@ const StaffPayRunsSection: React.FC<StaffPayRunsSectionProps> = ({ staffId, salo
           <p className="section__block-subtitle">
             Choose how you would prefer to pay your team member when completing
             a pay run. A processing fee may apply for transfers to bank
-            accounts. <a href="#">Learn more</a>
+            accounts. <LearnMoreLink topic="staff-payruns-settings">Learn more</LearnMoreLink>
           </p>
 
           <div className="payment-card mb-4">
@@ -272,7 +273,7 @@ const StaffPayRunsSection: React.FC<StaffPayRunsSectionProps> = ({ staffId, salo
           <h6 className="section__block-title">Pay run deductions</h6>
           <p className="section__block-subtitle">
             Choose which fees to automatically deduct from this team member's
-            earnings. <a href="#">Learn more</a>
+            earnings. <LearnMoreLink topic="staff-payruns-settings">Learn more</LearnMoreLink>
           </p>
 
           <div className="deduction-row">

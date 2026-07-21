@@ -32,6 +32,7 @@ import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import StaffImportModal from "../components/StaffImportModal";
 import TeamMemberDrawer from "../components/TeamMemberDrawer";
 import { exportStaffPDF } from "../utils/staffExport";
+import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 
 interface StaffMember {
   id: string;
@@ -342,7 +343,7 @@ export default function StaffListPage() {
           </div>
           <p className="slp-subtitle">
             Manage your team, their roles and access levels.
-            <span className="slp-learn-more">Learn more</span>
+            <LearnMoreLink topic="staff-list" className="slp-learn-more">Learn more</LearnMoreLink>
           </p>
         </div>
         <div className="slp-header__right">
