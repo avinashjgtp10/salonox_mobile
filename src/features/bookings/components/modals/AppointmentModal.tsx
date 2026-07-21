@@ -21,7 +21,9 @@ import { getRewardPointsConfig } from "../../../settings/utils/rewardPointsSetti
 import { getReferralConfig } from "../../../settings/utils/referralSettings";
 import { isRealId } from "../../utils/paymentUtils";
 import { normalizePaymentStatus } from "../../utils/bookingMapper";
-import { computeTotals }     from "../../utils/totalsUtils";
+import { computeTotals, type TotalsResult } from "../../utils/totalsUtils";
+import api from "../../../../services/api/axios";
+import { PRICING } from "../../../../services/api/endpoints";
 import { computePointsEarned, computeEWalletCredit, computeMaxWalletUsable, EWALLET_REDEEM_MINIMUM } from "../../utils/paymentUtils";
 import {
   selectPackagesList, selectProductsList, selectMembershipsList, selectBookings,
@@ -600,7 +602,13 @@ export const AppointmentModal: React.FC<Props> = ({
     : 0;
 
   const billTaxes = includeGst ? activeTaxes : [];
-  const totals = computeTotals({
+  // Always-fresh, synchronous local computation — the guaranteed-correct
+  // fallback whenever the server preview (below) hasn't confirmed yet, has
+  // failed, or has been invalidated by a newer input change. Never removed
+  // from this call site (see useServerTotalsPreview below) — this is what
+  // keeps `totals` synchronously valid on every render, which the actual
+  // save()/completePayment() calls below depend on.
+  const localTotals = computeTotals({
     serviceRows, packageRows, productRows, membershipRows,
     discountType, discountValue, taxes: billTaxes, exCharges, tip,
     couponDiscount: coupon.discount + referralDiscountPreview,
@@ -611,6 +619,77 @@ export const AppointmentModal: React.FC<Props> = ({
     rewardPointsRedeemedValue,
     referralCreditUsed: useReferralCredit ? referralCreditAmt : 0,
   });
+
+  // ── Server-confirmed preview (Phase 3 of the calculation-engine migration)
+  // The backend's pricing engine (src/modules/pricing/pricing.engine.ts,
+  // same shared source of truth as payments.service.ts's actual charge-time
+  // recompute) is asked to confirm the total ~350ms after the last relevant
+  // input change. `serverTotals` is cleared the instant any input changes
+  // (see the effect below), so `totals` always falls back to the always-fresh
+  // `localTotals` during that window — it never shows/charges a total that
+  // doesn't correspond to the CURRENT inputs, only ever a stale-vs-local
+  // choice, never stale-vs-current.
+  //
+  // Known gap (documented, not yet closed): the preview endpoint reports the
+  // membership wallet's flat pooled balance only, not the precise per-bucket
+  // (service vs product) split `localTotals` computes for excluding covered
+  // amounts from the taxable base — so whenever membership wallet is actually
+  // being applied, the server preview is skipped and localTotals (which has
+  // the precise split) is used instead, until the endpoint is extended.
+  const [serverTotals, setServerTotals] = useState<TotalsResult | null>(null);
+  const totals = serverTotals ?? localTotals;
+
+  useEffect(() => {
+    setServerTotals(null);
+    if (applyMembership && membershipWalletUsedTotal > 0) return; // see gap note above
+    const hasAnyRowsNow = serviceRows.length + packageRows.length + productRows.length + membershipRows.length > 0;
+    if (!hasAnyRowsNow) return;
+
+    const ctrl = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.post(PRICING.CALCULATE_TOTALS, {
+          client_id: (selectedClient?.id && selectedClient.id !== "walk-in") ? selectedClient.id : undefined,
+          appointment_id: existingBooking?.id ?? apiAppointmentId ?? undefined,
+          serviceRows, packageRows, productRows, membershipRows,
+          discountType, discountValue,
+          couponCode: coupon.applied || undefined,
+          exCharges, tip,
+          includeGst,
+          applyEwallet: useEWallet,
+          eWalletRequested: useEWallet ? eWalletAmt : 0,
+          applyMembershipWallet: false, // gated out above while > 0; false here is a no-op either way
+          applyRewardPoints: useRewardPoints,
+          rewardPointsToRedeem: useRewardPoints ? rewardPointsToRedeem : 0,
+          applyReferralCredit: useReferralCredit,
+          referralCreditRequested: useReferralCredit ? referralCreditAmt : 0,
+        }, { signal: ctrl.signal });
+        const data = res.data?.data;
+        if (data) {
+          setServerTotals({
+            catalogTotal: data.catalogTotal, itemDiscountTotal: data.itemDiscountTotal,
+            subtotal: data.subtotal, manualDiscount: data.manualDiscount, totalDisc: data.totalDisc,
+            taxable: data.taxable, gstAmount: data.gstAmount, taxBreakdown: data.taxBreakdown ?? [],
+            grandTotal: data.grandTotal, roundOff: data.roundOff, effectiveTotal: data.effectiveTotal,
+          });
+        }
+      } catch {
+        // Aborted (superseded by a newer input change) or a network/server
+        // failure — either way, `totals` already fell back to localTotals
+        // above the moment inputs changed, so there's nothing to recover.
+      }
+    }, 350);
+
+    return () => { ctrl.abort(); clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    serviceRows, packageRows, productRows, membershipRows,
+    discountType, discountValue, exCharges, tip, includeGst,
+    coupon.applied, coupon.discount,
+    useEWallet, eWalletAmt, applyMembership, membershipWalletUsedTotal,
+    useRewardPoints, rewardPointsToRedeem, useReferralCredit, referralCreditAmt,
+    selectedClient?.id, existingBooking?.id, apiAppointmentId,
+  ]);
 
   const alreadyPaidAmount   = existingBooking?.payingNow ?? 0;
   // For partial bookings, trust the API's dueAmount directly — payingNow can be unreliable
