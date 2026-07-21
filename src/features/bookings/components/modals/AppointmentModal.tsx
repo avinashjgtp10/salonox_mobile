@@ -22,7 +22,6 @@ import { getReferralConfig } from "../../../settings/utils/referralSettings";
 import { isRealId } from "../../utils/paymentUtils";
 import { normalizePaymentStatus } from "../../utils/bookingMapper";
 import { isPackageExpired } from "../../utils/packageStatus";
-import { computeTotals }     from "../../utils/totalsUtils";
 import type { TotalsResult } from "../../utils/totalsUtils";
 import api from "../../../../services/api/axios";
 import { PRICING } from "../../../../services/api/endpoints";
@@ -615,7 +614,13 @@ export const AppointmentModal: React.FC<Props> = ({
           client_id: (selectedClient?.id && selectedClient.id !== "walk-in") ? selectedClient.id : undefined,
           appointment_id: existingBooking?.id ?? apiAppointmentId ?? undefined,
           serviceRows, packageRows, productRows, membershipRows,
-          discountType, discountValue,
+          // The engine's discountType vocabulary ('percentage'|'flat') is not
+          // the same string set as this component's own DiscountType
+          // ("Percentage (%)"|"Flat (₹)") — translate here, at the one place
+          // that talks to the backend, rather than changing this component's
+          // display/state vocabulary everywhere else.
+          discountType: discountType === "Percentage (%)" ? "percentage" : "flat",
+          discountValue,
           couponCode: coupon.applied || undefined,
           exCharges, tip,
           includeGst,
