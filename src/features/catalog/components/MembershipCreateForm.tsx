@@ -60,7 +60,6 @@ const MembershipCreateForm: React.FC<Props> = ({
   const [bonusCredit,  setBonusCredit]  = useState("");
   const [serviceDisc,  setServiceDisc]  = useState("");
   const [productDisc,  setProductDisc]  = useState("");
-  const [rpMultiplier, setRpMultiplier] = useState("0");
   const [tierColor,    setTierColor]    = useState(TIER_COLORS[0]);
   const [description,  setDescription]  = useState("");
   // Wallet redemption is services-only by default — this opts the membership's
@@ -109,7 +108,6 @@ const MembershipCreateForm: React.FC<Props> = ({
         if (meta.bonusCredit)  setBonusCredit(String(meta.bonusCredit));
         if (meta.serviceDisc)  setServiceDisc(String(meta.serviceDisc));
         if (meta.productDisc)  setProductDisc(String(meta.productDisc));
-        if (meta.rpMultiplier) setRpMultiplier(String(meta.rpMultiplier));
         if (meta.description)  setDescription(meta.description);
       } catch { /* plain text */ }
     }).catch(() => {});
@@ -146,7 +144,6 @@ const MembershipCreateForm: React.FC<Props> = ({
       bonusCredit: bonusCreditNum,
       serviceDisc: parseFloat(serviceDisc) || 0,
       productDisc: parseFloat(productDisc) || 0,
-      rpMultiplier: parseFloat(rpMultiplier) || 1,
     });
     const payload = {
       name: name.trim(),
@@ -446,20 +443,6 @@ const MembershipCreateForm: React.FC<Props> = ({
                       Redeem Wallet on Products
                     </label>
                     <p className="cmp__hint">Allow this membership's wallet balance to also be used for product purchases, not just services</p>
-                  </div>
-
-                  <div className="cmp__field">
-                    <label className="cmp__label">Reward Points Multiplier</label>
-                    <div className="cmp__sfx-wrap">
-                      <input
-                        type="number" min={1} max={10} step={0.5}
-                        className="cmp__input cmp__input--sfx"
-                        placeholder="1"
-                        value={rpMultiplier}
-                        onChange={e => setRpMultiplier(e.target.value)}
-                      />
-                      <span className="cmp__sfx">x</span>
-                    </div>
                   </div>
 
                 </div>
