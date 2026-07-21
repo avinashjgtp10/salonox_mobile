@@ -23,6 +23,9 @@ import { isRealId } from "../../utils/paymentUtils";
 import { normalizePaymentStatus } from "../../utils/bookingMapper";
 import { isPackageExpired } from "../../utils/packageStatus";
 import { computeTotals }     from "../../utils/totalsUtils";
+import type { TotalsResult } from "../../utils/totalsUtils";
+import api from "../../../../services/api/axios";
+import { PRICING } from "../../../../services/api/endpoints";
 import { computePointsEarned, computeEWalletCredit, computeMaxWalletUsable, EWALLET_REDEEM_MINIMUM } from "../../utils/paymentUtils";
 import {
   selectPackagesList, selectProductsList, selectMembershipsList, selectBookings,
@@ -573,37 +576,103 @@ export const AppointmentModal: React.FC<Props> = ({
     && (clientStats?.totalVisit ?? 0) === 0;
 
   // ── Totals ───────────────────────────────────────────────────────────────
-  // Referral discount preview — mirrors the backend's eligibility check
-  // (payments.service.ts) so staff see the reduced total BEFORE paying, not
-  // just after. Needs the raw subtotal first (unaffected by any discount
-  // inputs), so this is computed via a preliminary pass before the real one.
-  const prelimSubtotal = computeTotals({
-    serviceRows, packageRows, productRows, membershipRows,
-    discountType, discountValue, taxes: activeTaxes, exCharges, tip,
-    couponDiscount: coupon.discount,
-    eWalletUsed: 0, membershipWalletUsed: 0,
-  }).subtotal;
-  // True once linked, whether that happened earlier (existing client record)
-  // or just now via the "Apply" button on this same screen.
-  const isReferralLinked = (!!clientStats?.referredByClientId && clientStats.referralPending) || referral.applied;
-  const referralDiscountPreview = (referralConfig.active && isReferralLinked && prelimSubtotal >= referralConfig.min_bill_amount)
-    ? Math.min(referralConfig.referee_reward_amount, prelimSubtotal)
-    : 0;
-
+  // Referral-discount eligibility (was: computed locally here) now comes
+  // straight from the server response (pricing.service.ts already runs the
+  // same eligibility check payments.service.ts uses at actual charge time).
   const rewardPointsRedeemedValue = (useRewardPoints && rewardPointsConfig.redeem_points > 0)
     ? (rewardPointsToRedeem / rewardPointsConfig.redeem_points) * rewardPointsConfig.redeem_value
     : 0;
 
-  const billTaxes = includeGst ? activeTaxes : [];
-  const totals = computeTotals({
+  // Single source of truth: the backend pricing engine (pricing.engine.ts,
+  // the exact same code payments.service.ts uses at actual charge time) —
+  // no frontend copy of this math exists anymore. `totals` always holds the
+  // last CONFIRMED server response; it is never cleared/blanked on an input
+  // change, only ever replaced by a newer confirmed response, so every one
+  // of this component's many display reads of `totals.*` stays valid without
+  // needing a loading guard. `totalsConfirmed` separately tracks whether the
+  // value currently in `totals` actually corresponds to the CURRENT inputs —
+  // that's the only thing the Pay/Save button is gated on, so checkout can
+  // never fire against a stale-vs-current total.
+  const ZERO_TOTALS: TotalsResult = {
+    catalogTotal: 0, itemDiscountTotal: 0, subtotal: 0, manualDiscount: 0, totalDisc: 0,
+    taxable: 0, gstAmount: 0, taxBreakdown: [], grandTotal: 0, roundOff: 0, effectiveTotal: 0,
+  };
+  const [totals, setTotals] = useState<TotalsResult>(ZERO_TOTALS);
+  const [totalsConfirmed, setTotalsConfirmed] = useState(false);
+  const [totalsError, setTotalsError] = useState(false);
+  const [referralDiscountPreview, setReferralDiscountPreview] = useState(0);
+
+  useEffect(() => {
+    setTotalsConfirmed(false);
+    setTotalsError(false);
+    const hasAnyRowsNow = serviceRows.length + packageRows.length + productRows.length + membershipRows.length > 0;
+    if (!hasAnyRowsNow) return;
+
+    const ctrl = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.post(PRICING.CALCULATE_TOTALS, {
+          client_id: (selectedClient?.id && selectedClient.id !== "walk-in") ? selectedClient.id : undefined,
+          appointment_id: existingBooking?.id ?? apiAppointmentId ?? undefined,
+          serviceRows, packageRows, productRows, membershipRows,
+          discountType, discountValue,
+          couponCode: coupon.applied || undefined,
+          exCharges, tip,
+          includeGst,
+          applyEwallet: useEWallet,
+          eWalletRequested: useEWallet ? eWalletAmt : 0,
+          applyMembershipWallet: applyMembership,
+          membershipWalletRequested: applyMembership ? membershipWalletAmt : 0,
+          applyRewardPoints: useRewardPoints,
+          rewardPointsToRedeem: useRewardPoints ? rewardPointsToRedeem : 0,
+          applyReferralCredit: useReferralCredit,
+          referralCreditRequested: useReferralCredit ? referralCreditAmt : 0,
+        }, { signal: ctrl.signal });
+        const data = res.data?.data;
+        if (data) {
+          setTotals({
+            catalogTotal: data.catalogTotal, itemDiscountTotal: data.itemDiscountTotal,
+            subtotal: data.subtotal, manualDiscount: data.manualDiscount, totalDisc: data.totalDisc,
+            taxable: data.taxable, gstAmount: data.gstAmount, taxBreakdown: data.taxBreakdown ?? [],
+            grandTotal: data.grandTotal, roundOff: data.roundOff, effectiveTotal: data.effectiveTotal,
+          });
+          setReferralDiscountPreview(data.referralDiscountPreview ?? 0);
+          setTotalsConfirmed(true);
+        }
+      } catch (err: any) {
+        if (err?.name === "CanceledError" || err?.name === "AbortError") return; // superseded by a newer input change
+        // Real network/server failure — `totals` keeps showing the last
+        // confirmed value (still accurate for the PRIOR inputs), but
+        // `totalsConfirmed` stays false so Pay/Save stays disabled rather
+        // than let staff charge against a total that no longer matches
+        // what's on screen.
+        setTotalsError(true);
+      }
+    }, 350);
+
+    return () => { ctrl.abort(); clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
     serviceRows, packageRows, productRows, membershipRows,
-    discountType, discountValue, taxes: billTaxes, exCharges, tip,
-    couponDiscount: coupon.discount + referralDiscountPreview,
-    eWalletUsed: useEWallet ? eWalletAmt : 0,
-    membershipWalletUsed: membershipWalletUsedTotal,
-    rewardPointsRedeemedValue,
-    referralCreditUsed: useReferralCredit ? referralCreditAmt : 0,
-  });
+    discountType, discountValue, exCharges, tip, includeGst,
+    coupon.applied, coupon.discount,
+    useEWallet, eWalletAmt, applyMembership, membershipWalletAmt,
+    useRewardPoints, rewardPointsToRedeem, useReferralCredit, referralCreditAmt,
+    selectedClient?.id, existingBooking?.id, apiAppointmentId,
+  ]);
+
+  // Blocks every save/pay action (button-level, plus a defensive early-return
+  // inside each handler) whenever `totals` doesn't yet reflect the CURRENT
+  // inputs — never charge or persist a total mid-confirmation or after a
+  // failed confirmation. Self-clears the moment the debounced request above
+  // resolves; there's no local math to fall back to anymore.
+  // Gated on there being any rows at all — with none, the debounced request
+  // above intentionally never fires (nothing to price), so `totalsConfirmed`
+  // would otherwise stay permanently false and every button would sit
+  // disabled with a confusing "Confirming…" label instead of the existing,
+  // more helpful validate() error ("add a service") a click would surface.
+  const hasAnyRowsForTotals = serviceRows.length + packageRows.length + productRows.length + membershipRows.length > 0;
+  const totalsNotReady = hasAnyRowsForTotals && (!totalsConfirmed || totalsError);
 
   const alreadyPaidAmount   = existingBooking?.payingNow ?? 0;
   // For partial bookings, trust the API's dueAmount directly — payingNow can be unreliable
@@ -941,6 +1010,7 @@ export const AppointmentModal: React.FC<Props> = ({
   }
 
   const handleSaveAndPay = useCallback(async () => {
+    if (totalsNotReady) return;
     if (!validate()) return;
     const id = await save(buildSavePayload());
     if (id) {
@@ -967,6 +1037,7 @@ export const AppointmentModal: React.FC<Props> = ({
       onRefresh, onClose]);
 
   const handleUpdate = useCallback(async () => {
+    if (totalsNotReady) return;
     if (!validate()) return;
     const id = await save(buildSavePayload());
     if (id) { onRefresh?.(); onClose(); }
@@ -979,6 +1050,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // Save (or update) the booking, then reveal the payment section — shared by
   // "Continue to Payment" (existing booking) and Quick Sale (new booking, ₹0).
   const handleContinueToPaymentZero = useCallback(async () => {
+    if (totalsNotReady) return;
     if (!validate()) return;
     const id = await save(buildSavePayload());
     if (!id) return;
@@ -992,6 +1064,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // Same as above but requires a real (non-walk-in) client — shared by
   // "Continue to Payment" (existing booking) and Quick Sale (new booking, non-₹0).
   const handleContinueToPayment = useCallback(async () => {
+    if (totalsNotReady) return;
     const isWalkIn = !selectedClient || selectedClient.id === "walk-in";
     if (isWalkIn) {
       setWalkInPayError("Add client details before proceeding to payment.");
@@ -1013,6 +1086,7 @@ export const AppointmentModal: React.FC<Props> = ({
 
   // ── Pay ──────────────────────────────────────────────────────────────────
   const handlePay = useCallback(async () => {
+    if (totalsNotReady) return;
     // Validate payment method first — stop completely if not selected. Skipped
     // once the bill is fully covered (package, or a wallet/membership/points
     // deduction brought effectiveTotal to 0), or when this transaction's own
@@ -1112,6 +1186,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // ── Quick Sale: single "Checkout" click — saves the appointment and
   // completes payment in one step, no separate "Continue to Payment" reveal.
   const handleQuickSaleCheckout = useCallback(async () => {
+    if (totalsNotReady) return;
     const isWalkIn = !selectedClient || selectedClient.id === "walk-in";
     if (isWalkIn) {
       setWalkInPayError("Add client details before proceeding to payment.");
@@ -1218,10 +1293,13 @@ export const AppointmentModal: React.FC<Props> = ({
   // Disable pay button when no method selected in single mode
   const isPayDisabled = isPaymentFrozen
     || isProcessing
+    || totalsNotReady
     || (amountThisTxn > 0 && paymentMode === "single" && !singleMethod);
 
   const confirmLabel = isPaymentFrozen
     ? "Already Paid"
+    : totalsNotReady
+    ? (totalsError ? "Calculation failed — edit to retry" : "Confirming total…")
     : isPartialEntry
       ? `Confirm Partial — ${currencySymbol}${parsedPartial.toFixed(2)} (${currencySymbol}${(remainingDue - parsedPartial).toFixed(2)} due)`
       : includeClearDue
@@ -1811,8 +1889,8 @@ export const AppointmentModal: React.FC<Props> = ({
                 )}
 
                 <button className="btn btn-dark" style={{ width: "100%" }}
-                  disabled={isSaving || isProcessing} onClick={handleQuickSaleCheckout}>
-                  {isSaving ? "Saving…" : isProcessing ? "Processing…" : `Checkout (${currencySymbol}${(isPartialEntry ? parsedPartial : totals.effectiveTotal).toFixed(2)})`}
+                  disabled={isSaving || isProcessing || totalsNotReady} onClick={handleQuickSaleCheckout}>
+                  {isSaving ? "Saving…" : isProcessing ? "Processing…" : totalsNotReady ? (totalsError ? "Calculation failed — edit to retry" : "Confirming total…") : `Checkout (${currencySymbol}${(isPartialEntry ? parsedPartial : totals.effectiveTotal).toFixed(2)})`}
                 </button>
               </div>
             </div>
@@ -2028,27 +2106,27 @@ export const AppointmentModal: React.FC<Props> = ({
             <>
               {existingBooking ? (
                 <>
-                  <button className="btn btn-outline-secondary" onClick={handleUpdate} disabled={isSaving}>
-                    {isSaving ? "Saving…" : "Update Appointment"}
+                  <button className="btn btn-outline-secondary" onClick={handleUpdate} disabled={isSaving || totalsNotReady}>
+                    {isSaving ? "Saving…" : totalsNotReady ? (totalsError ? "Calculation failed — edit to retry" : "Confirming total…") : "Update Appointment"}
                   </button>
                   {!isPaymentFrozen && (
                     isPackageZero ? (
-                      <button className="btn btn-dark" disabled={isSaving}
+                      <button className="btn btn-dark" disabled={isSaving || totalsNotReady}
                         style={{ background: "#16a34a", borderColor: "#16a34a" }}
                         onClick={handleContinueToPaymentZero}>
-                        {isSaving ? "Saving…" : `Continue with Payment (${currencySymbol}0)`}
+                        {isSaving ? "Saving…" : totalsNotReady ? (totalsError ? "Calculation failed — edit to retry" : "Confirming total…") : `Continue with Payment (${currencySymbol}0)`}
                       </button>
                     ) : (
-                      <button className="btn btn-dark" disabled={isSaving} onClick={handleContinueToPayment}>
-                        {isSaving ? "Saving…" : "Continue to Payment"}
+                      <button className="btn btn-dark" disabled={isSaving || totalsNotReady} onClick={handleContinueToPayment}>
+                        {isSaving ? "Saving…" : totalsNotReady ? (totalsError ? "Calculation failed — edit to retry" : "Confirming total…") : "Continue to Payment"}
                       </button>
                     )
                   )}
                 </>
               ) : (
                 // New appointment (no existingBooking) — always save and close
-                <button className="btn btn-dark" style={{ width: "100%" }} onClick={handleSaveAndPay} disabled={isSaving}>
-                  {isSaving ? "Saving…" : "Save Appointment"}
+                <button className="btn btn-dark" style={{ width: "100%" }} onClick={handleSaveAndPay} disabled={isSaving || totalsNotReady}>
+                  {isSaving ? "Saving…" : totalsNotReady ? (totalsError ? "Calculation failed — edit to retry" : "Confirming total…") : "Save Appointment"}
                 </button>
               )}
             </>

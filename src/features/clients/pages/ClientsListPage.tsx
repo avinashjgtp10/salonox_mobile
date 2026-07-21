@@ -143,7 +143,7 @@ export default function ClientsListPage() {
     "Prefer not to say",
     "Female",
     "Male",
-    "Non-binary",
+    "Other",
   ];
 
   /* ================= SORT STATE ================= */
@@ -223,6 +223,12 @@ export default function ClientsListPage() {
     string | number | null
   >(null);
   const [openRowMenuId, setOpenRowMenuId] = useState<string | null>(null);
+  // Rows near the bottom of the (overflow: hidden) table card would otherwise
+  // clip the dropdown, or push it behind the pagination bar — computed from
+  // the trigger button's real position at open-time, same "flip if not enough
+  // room below" approach as AttendancePage.tsx's TimeDropdown, and rendered
+  // with position: fixed so it can never be clipped by an ancestor.
+  const [rowMenuPos, setRowMenuPos] = useState({ top: 0, left: 0, openUp: false });
 
   useEffect(() => {
     const openClientId = (location.state as any)?.openClientId;
@@ -889,16 +895,38 @@ export default function ClientsListPage() {
                     >
                       <button
                         className="row-menu-btn"
-                        onClick={() =>
-                          setOpenRowMenuId((prev) =>
-                            prev === String(client.id) ? null : String(client.id)
-                          )
-                        }
+                        onClick={(e) => {
+                          const id = String(client.id);
+                          if (openRowMenuId === id) {
+                            setOpenRowMenuId(null);
+                            return;
+                          }
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const margin = 8;
+                          const dropdownHeight = 150; // ~4 menu items incl. padding
+                          const spaceBelow = window.innerHeight - rect.bottom - margin;
+                          const openUp = spaceBelow < dropdownHeight && rect.top > spaceBelow;
+                          setRowMenuPos({
+                            top: openUp ? rect.top - margin : rect.bottom + margin,
+                            left: rect.right,
+                            openUp,
+                          });
+                          setOpenRowMenuId(id);
+                        }}
                       >
                         <ThreeDotsVertical size={16} />
                       </button>
                       {openRowMenuId === String(client.id) && (
-                        <div className="row-menu-dropdown">
+                        <div
+                          className="row-menu-dropdown"
+                          style={{
+                            position: "fixed",
+                            top: rowMenuPos.openUp ? undefined : rowMenuPos.top,
+                            bottom: rowMenuPos.openUp ? window.innerHeight - rowMenuPos.top : undefined,
+                            left: rowMenuPos.left,
+                            transform: "translateX(-100%)",
+                          }}
+                        >
                           <div
                             className="row-menu-item"
                             onClick={() => {

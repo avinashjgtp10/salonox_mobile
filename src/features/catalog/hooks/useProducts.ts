@@ -15,6 +15,7 @@ import {
   createCategoryThunk,
   deleteCategoryThunk,
   type FetchProductsParams,
+  type ExportProductsParams,
 } from "../../../middleware/catalog/products.thunk";
 
 export const useProducts = () => {
@@ -59,16 +60,16 @@ export const useProducts = () => {
     return dispatch(deleteCategoryThunk(id));
   }, [dispatch]);
 
-  const exportCSV = useCallback(() => {
-    dispatch(exportProductsCSVThunk());
+  const exportCSV = useCallback((params?: ExportProductsParams) => {
+    dispatch(exportProductsCSVThunk(params));
   }, [dispatch]);
 
-  const exportExcel = useCallback(() => {
-    dispatch(exportProductsExcelThunk());
+  const exportExcel = useCallback((params?: ExportProductsParams) => {
+    dispatch(exportProductsExcelThunk(params));
   }, [dispatch]);
 
-  const exportPDF = useCallback(() => {
-    dispatch(exportProductsPDFThunk());
+  const exportPDF = useCallback((params?: ExportProductsParams) => {
+    dispatch(exportProductsPDFThunk(params));
   }, [dispatch]);
 
   return {
