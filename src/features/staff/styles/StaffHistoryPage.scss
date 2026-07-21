@@ -78,6 +78,23 @@ $shp-primary-dark: #4f46e5;
 
 .shp-cap { text-transform: capitalize; }
 
+// Payment-source pill (Membership / Package / wallet / reward / method)
+.shp-source {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+  padding: 2px 9px;
+  border-radius: 99px;
+  background: #f1f5f9;
+  color: #475569;
+
+  &--membership { background: #ede9fe; color: #6d28d9; }
+  &--package    { background: #dbeafe; color: #2563eb; }
+  &--wallet     { background: #dcfce7; color: #16a34a; }
+  &--reward     { background: #fef3c7; color: #b45309; }
+}
+
 /* ── List / picker page ── */
 .shp-list-page { max-width: 100%; }
 

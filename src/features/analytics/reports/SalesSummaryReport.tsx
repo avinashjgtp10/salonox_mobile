@@ -25,7 +25,8 @@ interface SaleRow {
   actualPrice: number;
   price: number;
   paid: number;
-  balance: number;
+  dueAmount: number;
+  description: string;
   modes: string;
   status: string;
   date: string;
@@ -71,6 +72,29 @@ function mapAppointment(appt: any): SaleRow {
   const rewardPointsValue    = Number(appt.reward_points_value) || 0;
   const referralCreditUsed   = Number(appt.referral_credit_used) || 0;
 
+  const status = appt.status ?? "booked";
+
+  // Same rule the calendar uses (bookingMapper.ts) — a bill only carries a real
+  // "due" balance once status is actually "partial"; booked/paid/cancelled/etc.
+  // never show a stale/phantom balance just from price vs. paid drifting.
+  const dueAmount = status === "partial" ? Math.max(price - paid, 0) : 0;
+
+  // Description column shows ONLY the payment source(s) that actually
+  // contributed — short tag(s), same order as the "Available Benefits"
+  // picker (Package, Membership, eWallet, Reward Points). Item names already
+  // have their own "Item Types" column, so they're intentionally left out
+  // here — kept them in would push the payment tag past the column's
+  // ellipsis on any bill with more than one item.
+  const isPackagePayment = String(appt.payment_method ?? "").toLowerCase() === "package";
+  const paymentSources = [
+    isPackagePayment           ? "Package"       : null,
+    membershipWalletUsed > 0   ? "Membership"    : null,
+    ewalletUsed > 0             ? "eWallet"        : null,
+    rewardPointsValue > 0      ? "Reward Points"  : null,
+  ].filter((s): s is string => s !== null);
+  if (paymentSources.length === 0 && appt.payment_method) paymentSources.push(String(appt.payment_method));
+  const description = paymentSources.length > 0 ? paymentSources.join(", ") : "—";
+
   return {
     id: String(appt.id ?? ""),
     invoiceNo: appt.invoice_number != null ? String(appt.invoice_number) : String(appt.id ?? "—"),
@@ -81,12 +105,13 @@ function mapAppointment(appt: any): SaleRow {
     actualPrice: Math.round(itemsTotal),
     price,
     paid,
-    balance: Math.max(price - paid, 0),
+    dueAmount,
+    description,
     modes: appt.payment_method ?? "—",
     // appt.payment_status never actually existed on the API response (that
     // column was never created on the live DB) — appt.status now carries
     // payment state directly (booked/paid/partial/...), same field.
-    status: appt.status ?? "booked",
+    status,
     date: String(appt.scheduled_at ?? appt.created_at ?? "").slice(0, 10),
     tip,
     ewalletUsed,
@@ -180,8 +205,8 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
     };
   }, [rows]);
 
-  const HEADERS = ["Invoice No", "Name", "Contact", "Item Description", "Item Types", "Actual Price", "Price", "Paid", "E-Wallet", "Membership", "Rewards", "Referral", "Balance", "Modes", "Status", "Date"];
-  const exportRows = () => rows.map(r => [r.invoiceNo, r.name, r.contact, r.itemDescription, r.itemTypes, r.actualPrice, r.price, r.paid, r.ewalletUsed, r.membershipWalletUsed, r.rewardPointsValue, r.referralCreditUsed, r.balance, r.modes, r.status, r.date]);
+  const HEADERS = ["Invoice No", "Name", "Contact", "Description", "Item Types", "Actual Price", "Price", "Paid", "E-Wallet", "Membership", "Rewards", "Referral", "Due Amount", "Modes", "Status", "Date"];
+  const exportRows = () => rows.map(r => [r.invoiceNo, r.name, r.contact, r.description, r.itemTypes, r.actualPrice, r.price, r.paid, r.ewalletUsed, r.membershipWalletUsed, r.rewardPointsValue, r.referralCreditUsed, r.dueAmount, r.modes, r.status, r.date]);
   const paged = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const money = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
@@ -279,7 +304,7 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
               <th>Invoice No</th>
               <th>Name</th>
               <th>Contact</th>
-              <th>Item Description</th>
+              <th>Description</th>
               <th>Item Types</th>
               <th>Actual Price</th>
               <th>Price</th>
@@ -288,7 +313,7 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
               <th>Membership</th>
               <th>Rewards</th>
               <th>Referral</th>
-              <th>Balance</th>
+              <th>Due Amount</th>
               <th>Modes</th>
               <th>Status</th>
               <th>Date</th>
@@ -304,7 +329,7 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
                 <td><span className="rp-detail-link">{r.invoiceNo}</span></td>
                 <td className="fw-semibold">{r.name}</td>
                 <td>{r.contact}</td>
-                <td className="rp-ss-desc" title={r.itemDescription}>{r.itemDescription}</td>
+                <td className="rp-ss-desc" title={r.description}>{r.description}</td>
                 <td>{r.itemTypes}</td>
                 <td>{money(r.actualPrice)}</td>
                 <td className="fw-semibold">{money(r.price)}</td>
@@ -313,7 +338,7 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
                 <td>{r.membershipWalletUsed > 0 ? money(r.membershipWalletUsed) : "—"}</td>
                 <td>{r.rewardPointsValue > 0 ? money(r.rewardPointsValue) : "—"}</td>
                 <td>{r.referralCreditUsed > 0 ? money(r.referralCreditUsed) : "—"}</td>
-                <td>{money(r.balance)}</td>
+                <td>{money(r.dueAmount)}</td>
                 <td className="rp-ss-mode">{r.modes}</td>
                 <td><span className={`rp-status-badge rp-status-${r.status}`}>{r.status}</span></td>
                 <td>{r.date}</td>

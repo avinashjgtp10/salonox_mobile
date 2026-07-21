@@ -89,7 +89,7 @@ $radius: 12px;
   border-radius: 10px;
   box-shadow: 0 8px 28px rgba(0,0,0,0.1);
   z-index: 500;
-  min-width: 200px;
+  min-width: 230px;
   padding: 6px;
 }
 
@@ -103,6 +103,8 @@ $radius: 12px;
   cursor: pointer;
   border-radius: 6px;
   transition: background 0.12s;
+  white-space: nowrap;
+  svg { flex-shrink: 0; }
   &:hover { background: #f9fafb; }
 }
 

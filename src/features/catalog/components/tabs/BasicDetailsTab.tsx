@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { ChevronDown, Eye, EyeSlash } from "react-bootstrap-icons";
+import { ChevronDown } from "react-bootstrap-icons";
 import Input from "../../../../components/ui/Input";
 import type { BasicDetailsData } from "../../types/catalog.types.ts";
 
@@ -17,9 +17,7 @@ interface Props {
 }
 
 const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categories = [] }) => {
-  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
-  const optionsRef = useRef<HTMLDivElement>(null);
   const categoryRef = useRef<HTMLDivElement>(null);
 
   const update = (key: keyof BasicDetailsData, value: any) =>
@@ -30,12 +28,9 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
 
   const selectedCategory = categories.find((cat) => String(cat.id) === String(data.categoryId));
 
-  // Close dropdowns when clicking outside
+  // Close the category dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (optionsRef.current && !optionsRef.current.contains(e.target as Node)) {
-        setShowOptionsMenu(false);
-      }
       if (categoryRef.current && !categoryRef.current.contains(e.target as Node)) {
         setShowCategoryMenu(false);
       }
@@ -213,71 +208,6 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
               <ChevronDown className="select-icon" />
             </div>
           </div>
-        </div>
-
-
-        <div className="action-row mt-4 pt-2 d-flex gap-2 position-relative">
-          {/* Options dropdown */}
-          <div className="dropdown" ref={optionsRef}>
-            <button
-              type="button"
-              className="btn btn-outline-dark rounded-pill px-3 d-flex align-items-center gap-2"
-              onClick={() => setShowOptionsMenu((v) => !v)}
-            >
-              <span>Options</span> <ChevronDown size={12} />
-            </button>
-
-            {showOptionsMenu && (
-              <div
-                className="dropdown-menu show shadow-sm rounded-3 border-0 p-1"
-                style={{ minWidth: "220px", top: "calc(100% + 6px)", left: 0 }}
-              >
-                {/* Active / Inactive toggle */}
-                <button
-                  type="button"
-                  className="dropdown-item rounded-2 d-flex align-items-center gap-2 py-2"
-                  onClick={() => {
-                    update("active", !data.active);
-                    setShowOptionsMenu(false);
-                  }}
-                >
-                  {data.active ? (
-                    <>
-                      <EyeSlash size={15} className="text-muted" />
-                      <span>Mark as inactive</span>
-                    </>
-                  ) : (
-                    <>
-                      <Eye size={15} className="text-success" />
-                      <span>Mark as active</span>
-                    </>
-                  )}
-                </button>
-
-                <hr className="dropdown-divider my-1" />
-
-                {/* Color label picker */}
-                <div className="dropdown-item rounded-2 d-flex align-items-center justify-content-between py-2">
-                  <span>Color label</span>
-                  <input
-                    type="color"
-                    className="form-control form-control-color border-0 p-0"
-                    style={{ width: "28px", height: "28px", cursor: "pointer" }}
-                    value={data.colorLabel ?? "#6366f1"}
-                    onChange={(e) => update("colorLabel" as any, e.target.value)}
-                    title="Pick a color label"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Active status badge */}
-          {!data.active && (
-            <span className="badge bg-secondary align-self-center ms-1">
-              Inactive
-            </span>
-          )}
         </div>
       </div>
     </div>
